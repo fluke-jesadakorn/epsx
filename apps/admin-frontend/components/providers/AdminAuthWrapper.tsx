@@ -1,8 +1,8 @@
 import { ReactNode } from 'react';
 import { headers } from 'next/headers';
-import { adminOIDCAuth } from '@/lib/admin-client';
+import { UnifiedAuth } from '@/lib/auth/unified-auth';
 import { redirect } from 'next/navigation';
-import { AdminLayoutServer } from '@/components/layout/AdminLayoutServer';
+import { PancakeAdminLayout } from '@/components/layout/PancakeAdminLayout';
 import { ClientProviders } from './ClientProviders';
 
 interface AdminAuthWrapperProps {
@@ -36,7 +36,7 @@ export async function AdminAuthWrapper({ children }: AdminAuthWrapperProps) {
   if (isPublicRoute) {
     return (
       <ClientProviders>
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50">
           {children}
         </div>
       </ClientProviders>
@@ -44,50 +44,54 @@ export async function AdminAuthWrapper({ children }: AdminAuthWrapperProps) {
   }
   
   // OIDC Migration: Validate authentication using OIDC tokens
-  const adminSession = await adminOIDCAuth.getSession();
+  const session = await UnifiedAuth.getSession();
   
-  if (!adminSession.isAuthenticated || !adminSession.user) {
-    console.log('❌ AdminAuthWrapper: No valid OIDC session found');
+  if (!session?.user) {
+    console.log('❌ AdminAuthWrapper: No valid session found');
     redirect('/login');
   }
   
   // Check admin access using structured permissions system
-  if (!adminSession.hasAdminAccess) {
+  const hasAdminAccess = UnifiedAuth.hasAdminAccess(session.user);
+  
+  if (!hasAdminAccess) {
     console.warn('⚠️ AdminAuthWrapper: User lacks admin permissions', {
-      user: adminSession.user?.email,
-      permissions: adminSession.user?.permissions,
-      required: 'admin:*:* or admin:{resource}:{action}',
-      error: adminSession.error
+      user: session.user?.email,
+      permissions: session.user?.permissions,
+      required: 'admin:*:* or admin:{resource}:{action}'
     });
     redirect('/access-denied?reason=insufficient_admin_permissions');
   }
   
-  console.log('✅ AdminAuthWrapper: Admin OIDC authentication successful', {
-    user: adminSession.user?.email,
-    permissions: adminSession.user?.permissions.filter(p => p.startsWith('admin:')).length,
-    hasAdminAccess: adminSession.hasAdminAccess
+  console.log('✅ AdminAuthWrapper: Admin authentication successful', {
+    user: session.user?.email,
+    permissions: session.user?.permissions?.filter(p => p.startsWith('admin:')).length || 0,
+    hasAdminAccess
   });
   
   // For protected routes, render with authentication and layout
   try {
     return (
       <ClientProviders>
-        <AdminLayoutServer>
+        <PancakeAdminLayout user={session.user}>
           {children}
-        </AdminLayoutServer>
+        </PancakeAdminLayout>
       </ClientProviders>
     );
   } catch (error) {
     console.error('Critical AdminAuthWrapper error:', error);
     return (
       <ClientProviders>
-        <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 flex items-center justify-center">
           <div className="text-center space-y-4">
-            <h1 className="text-xl font-bold">Authentication Error</h1>
-            <p className="text-gray-300">Failed to load admin interface</p>
+            <div className="h-16 w-16 bg-gradient-to-r from-red-400 to-pink-500 rounded-3xl flex items-center justify-center mx-auto">
+              <span className="text-white text-2xl">⚠️</span>
+            </div>
+            <h1 className="text-xl font-bold text-gray-900">Authentication Error</h1>
+            <p className="text-gray-600">Failed to load admin interface</p>
             <a 
               href="/login" 
-              className="inline-block bg-yellow-500 text-black px-4 py-2 rounded hover:bg-yellow-600"
+              className="inline-block bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-6 py-3 rounded-2xl font-semibold hover:from-yellow-500 hover:to-orange-600 transition-all duration-200 shadow-lg"
             >
               Return to Login
             </a>

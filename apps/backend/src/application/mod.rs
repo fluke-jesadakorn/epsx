@@ -5,6 +5,7 @@
 pub mod shared;
 pub mod user_management; 
 pub mod payment;
+pub mod marketing;
 pub mod ports;
 pub mod services;
 pub mod authentication;

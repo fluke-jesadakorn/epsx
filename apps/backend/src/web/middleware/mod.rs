@@ -3,6 +3,9 @@
 // Security headers and enhanced monitoring
 pub mod security_headers;
 
+// Stateless authentication with RS256 JWT and granular permissions
+pub mod stateless_auth;
+
 // Modern Auth.js v5 middleware (replaces Casbin)
 pub mod modern_auth;
 
@@ -78,4 +81,10 @@ pub use error_handling::{
   extract_error_context_from_request,
   ErrorCircuitBreaker,
   ErrorResponseFormat,
+};
+
+// Stateless auth exports
+pub use stateless_auth::{
+  stateless_auth_middleware,
+  AuthenticationError,
 };

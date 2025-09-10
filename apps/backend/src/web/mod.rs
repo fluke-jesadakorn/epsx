@@ -1,5 +1,6 @@
 // Web layer implementation
 
+pub mod api;
 pub mod auth;
 pub mod oidc;
 pub mod admin;
@@ -411,6 +412,9 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
   // Create analytics routes with permission middleware
   let analytics_routes = analytics::create_analytics_router(&container.infra).await;
   
+  // Create marketing API routes (plans, promotions, affiliates)
+  let marketing_routes = api::v1::create_plans_router(container.db_pool());
+  
   // FCM routes removed - will be re-implemented
 
 
@@ -428,6 +432,7 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
     .merge(oidc_routes)
     .merge(realtime_routes)
     .merge(analytics_routes)
+    .nest("/api/v1/plans", marketing_routes)
     .nest("/api/v1/notifications", notifications::notification_routes()
       // DDD Notification infrastructure adapter - bridges legacy services with DDD bounded context
       .layer(axum::Extension(Arc::new(crate::infrastructure::adapters::repositories::NotificationRepositoryAdapter::new(

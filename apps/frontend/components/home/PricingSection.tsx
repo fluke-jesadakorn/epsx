@@ -91,119 +91,87 @@ const PricingSection = () => {
     return cards.map((card, index) => (
       <div
         key={index}
-        className={`card-insight group relative transition-all duration-300 ${
+        className={`card-insight group relative ${
           card.highlight
-            ? 'insight-gradient-soft-highlight ring-2 ring-soft-blue scale-105 border-blue-200/40 dark:border-blue-400/30 shadow-xl shadow-blue-500/20'
-            : 'hover:insight-shadow hover:scale-[1.02] hover:shadow-blue-300/20'
+            ? 'ring-2 ring-blue-400/30 shadow-xl border-blue-200/40 dark:border-blue-400/30'
+            : 'border border-gray-200/20 dark:border-gray-700/20'
         }`}
       >
-        {/* Analytics-style decorative elements */}
-        {card.highlight && (
-          <>
-            <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-              <div className="bg-gradient-to-r from-orange-500 to-yellow-500 text-white px-4 py-1 rounded-full text-sm font-bold flex items-center gap-1">
-                <span className="animate-bounce">🔥</span>
-                MOST POPULAR
-                <span className="animate-pulse">✨</span>
-              </div>
-            </div>
-            <div className="absolute top-2 right-2 text-2xl opacity-20 animate-spin-slow">
-              📊
-            </div>
-          </>
-        )}
-
-        {/* Corner decorations for all cards */}
-        <div className="absolute bottom-2 left-2 text-lg opacity-15 group-hover:opacity-30 transition-opacity duration-300 animate-pulse">
-          📈
-        </div>
-        {/* Decorative elements */}
-        <div
-          className={`absolute -top-4 -left-4 w-8 h-8 rounded-full blur-lg transition-colors duration-300 ${
-            card.highlight
-              ? 'bg-orange-300/30 group-hover:bg-orange-400/40'
-              : 'bg-insight-primary/20 group-hover:bg-insight-primary/40'
-          }`}
-        />
-        <div
-          className={`absolute -bottom-4 -right-4 w-8 h-8 rounded-full blur-lg transition-colors duration-300 ${
-            card.highlight
-              ? 'bg-amber-300/30 group-hover:bg-amber-400/40'
-              : 'bg-insight-secondary/20 group-hover:bg-insight-secondary/40'
-          }`}
-        />
-
-        <div className="relative">
-          {/* Title with sparkle effect */}
-          <div className="flex items-center gap-2 mb-2">
-            <h3 className="text-xl sm:text-2xl font-bold text-foreground">
+        <div className="p-6">
+          {/* Clean title with integrated badge */}
+          <div className="flex justify-between items-start mb-6">
+            <h3 className="text-xl font-bold text-foreground uppercase">
               {card.title}
+              {card.highlight && (
+                <span className="text-sm font-normal text-muted-foreground ml-2">
+                  • MOST POPULAR
+                </span>
+              )}
             </h3>
-            {card.highlight && (
-              <Sparkles className="h-5 w-5 text-insight-primary animate-bounce-gentle" />
+          </div>
+
+          {/* Price section with cleaner layout */}
+          <div className="mb-6">
+            <div className="text-3xl font-bold text-foreground mb-1">
+              {card.title === 'Gold Plan' ? '6.93 USDT/month' : card.price}
+            </div>
+            <div className="border-b-2 border-gray-300 dark:border-gray-600 w-32 mb-2"></div>
+            {card.title === 'Gold Plan' && (
+              <div className="text-sm text-muted-foreground">
+                was 9.90 • Save 30%
+              </div>
             )}
           </div>
 
-          {/* Price with enhanced styling */}
-          <div className="mt-4 sm:mt-6 mb-6 sm:mb-8">
-            <div className="flex items-baseline gap-2">
-              <span className="text-4xl sm:text-5xl font-bold insight-gradient-text">
-                {card.price}
-              </span>
+          {/* What's included section */}
+          <div className="mb-6">
+            <div className="text-sm font-semibold text-foreground mb-3">
+              What's included:
             </div>
+            <ul className="space-y-2">
+              {card.features.map((feature, idx) => (
+                <li key={idx} className="flex items-start text-sm text-muted-foreground">
+                  <span className="mr-2">•</span>
+                  {feature.text}
+                </li>
+              ))}
+            </ul>
           </div>
 
-          {/* Features with enhanced styling */}
-          <ul className="space-y-3 sm:space-y-4 mb-6 sm:mb-8">
-            {card.features.map((feature, idx) => (
-              <li key={idx} className="flex items-start group/feature">
-                <div className="flex-shrink-0 p-1 rounded-full bg-insight-primary/20 group-hover/feature:bg-insight-primary/30 transition-colors duration-300">
-                  <Check className="h-4 w-4 text-insight-primary" />
-                </div>
-                <span className="ml-3 text-sm sm:text-base text-muted-foreground group-hover/feature:text-foreground transition-colors">
-                  {feature.text}
-                </span>
-              </li>
-            ))}
-          </ul>
-
-          {/* Enhanced button */}
+          {/* Clean CTA button */}
           <Button
-            variant={
-              card.highlight
-                ? 'insight'
-                : card.buttonVariant === 'outline'
-                  ? 'insight-outline'
-                  : 'insight-secondary'
-            }
+            variant={card.highlight ? 'default' : 'outline'}
             size="lg"
-            className="w-full rounded-2xl font-semibold"
+            className={`w-full font-semibold ${
+              card.highlight 
+                ? 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white' 
+                : ''
+            }`}
             onClick={() => router.push('/payment')}
           >
-            {card.buttonText}
+            {card.title === 'Gold Plan' ? 'START NOW 🚀' : card.buttonText}
           </Button>
+
+          {/* Money back guarantee */}
+          {card.highlight && (
+            <div className="text-center text-sm text-muted-foreground mt-4">
+              💰 30-day money back guarantee
+            </div>
+          )}
         </div>
       </div>
     ));
   };
 
   return (
-    <div className="relative w-full py-16 sm:py-24 lg:py-32 overflow-hidden">
-      {/* Analytics-style background decorations */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-20 left-10 w-32 h-32 bg-gradient-to-br from-orange-400/10 to-yellow-400/10 rounded-full animate-float" />
-        <div className="absolute bottom-20 right-20 w-24 h-24 bg-gradient-to-br from-blue-400/10 to-cyan-400/10 rounded-full animate-bounce-gentle" />
-        <div className="absolute top-1/2 left-1/4 w-16 h-16 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full animate-pulse-gentle" />
-        <div className="absolute bottom-1/4 right-1/3 w-20 h-20 bg-gradient-to-br from-green-400/10 to-emerald-400/10 rounded-full animate-float-reverse" />
-      </div>
-
+    <div className="relative w-full py-16 sm:py-24 lg:py-32">
       <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl space-y-16 sm:space-y-24 lg:space-y-32">
         {/* Personal Plans */}
         <div className="space-y-8 sm:space-y-12">
-          <div className="text-center space-y-6 sm:space-y-8 animate-slide-up">
+          <div className="text-center space-y-6 sm:space-y-8">
             <h2 className="text-4xl sm:text-6xl font-bold">
               <span className="mr-2">💰</span>
-              <span className="bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 dark:from-orange-400 dark:via-yellow-400 dark:to-orange-500 bg-clip-text text-transparent animate-gradient-x">
+              <span className="bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 dark:from-orange-400 dark:via-yellow-400 dark:to-orange-500 bg-clip-text text-transparent">
                 Personal Plans
               </span>
             </h2>
@@ -212,40 +180,24 @@ const PricingSection = () => {
               data journey
             </p>
             <div className="w-32 sm:w-40 h-1.5 bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 mx-auto rounded-full" />
-
-            {/* Decorative elements */}
-            <div className="flex justify-center items-center gap-4 mt-6">
-              <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
-              <div
-                className="w-3 h-3 bg-yellow-400 rounded-full animate-pulse"
-                style={{ animationDelay: '0.5s' }}
-              />
-              <div
-                className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"
-                style={{ animationDelay: '1s' }}
-              />
-            </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 lg:gap-12 animate-slide-up-delayed">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8 lg:gap-12">
             {renderPricingCards(personalPlans)}
           </div>
         </div>
 
-
         {/* API Plans */}
         <div className="space-y-8 sm:space-y-12">
-          <div className="text-center space-y-4 sm:space-y-6 animate-fade-in">
+          <div className="text-center space-y-4 sm:space-y-6">
             <h2 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-orange-500 via-pink-500 to-purple-500 bg-clip-text text-transparent">
               API Plans
             </h2>
             <p className="text-lg sm:text-xl text-foreground/80 max-w-2xl mx-auto">
               Integrate our powerful API into your systems
             </p>
-            <div className="relative w-24 sm:w-32 h-1 sm:h-1.5 bg-gradient-to-r from-orange-500 to-pink-500 mx-auto rounded-full overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent animate-shimmer" />
-            </div>
+            <div className="w-24 sm:w-32 h-1 sm:h-1.5 bg-gradient-to-r from-orange-500 to-pink-500 mx-auto rounded-full" />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-8 lg:gap-12 animate-fade-in-delayed">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 sm:gap-8 lg:gap-12">
             {renderPricingCards(apiPlans)}
           </div>
         </div>

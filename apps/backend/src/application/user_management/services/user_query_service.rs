@@ -1,4 +1,6 @@
 use std::sync::Arc;
+use uuid::Uuid;
+use std::str::FromStr;
 
 use crate::application::shared::{ApplicationResult, ApplicationError};
 use crate::domain::user_management::UserSearchCriteria;
@@ -10,18 +12,44 @@ use crate::application::user_management::{
     UserSummary,
 };
 use crate::domain::user_management::UserRepositoryPort;
+use crate::domain::shared_kernel::AggregateRoot;
+
+// Import database access for enhanced UserSummary mapping
+use crate::infrastructure::adapters::repositories::diesel::{DbPool, schema::users, models::DieselUser};
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 
 /// User Query Service
 /// Handles read-only operations for user data
 #[derive(Clone)]
 pub struct UserQueryService {
     user_repository: Arc<dyn UserRepositoryPort>,
+    db_pool: Arc<DbPool>,
 }
 
 impl UserQueryService {
     /// Create a new UserQueryService
-    pub fn new(user_repository: Arc<dyn UserRepositoryPort>) -> Self {
-        Self { user_repository }
+    pub fn new(user_repository: Arc<dyn UserRepositoryPort>, db_pool: Arc<DbPool>) -> Self {
+        Self { 
+            user_repository,
+            db_pool,
+        }
+    }
+
+    /// Get enhanced user data from database for UserSummary
+    async fn get_user_database_info(&self, firebase_uid: &str) -> ApplicationResult<Option<DieselUser>> {
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| ApplicationError::infrastructure(format!("Database connection failed: {}", e)))?;
+        
+        let diesel_user = users::table
+            .filter(users::firebase_uid.eq(firebase_uid))
+            .select(DieselUser::as_select())
+            .first::<DieselUser>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| ApplicationError::infrastructure(format!("Database query failed: {}", e)))?;
+        
+        Ok(diesel_user)
     }
     
     /// Get user by Firebase UID
@@ -78,17 +106,52 @@ impl UserQueryService {
         let users = search_result.users;
         let total_count = search_result.total_count as usize;
         
-        // Convert domain users to summary format
-        let user_summaries: Vec<UserSummary> = users
-            .into_iter()
-            .map(|user| UserSummary {
+        // Convert domain users to summary format with enhanced database fields
+        let mut user_summaries = Vec::new();
+        
+        for user in users {
+            let permissions_vec: Vec<String> = user.permissions().iter()
+                .map(|p| p.to_string())
+                .collect();
+            
+            // Derive role from permissions
+            let role = if permissions_vec.iter().any(|p| p.contains("admin")) {
+                "admin".to_string()
+            } else if permissions_vec.iter().any(|p| p.contains("premium")) {
+                "premium".to_string()
+            } else {
+                "user".to_string()
+            };
+            
+            // Derive status from is_active
+            let status = if user.is_active() {
+                "active".to_string()
+            } else {
+                "inactive".to_string()
+            };
+
+            // Get enhanced database info for this user
+            let database_info = self.get_user_database_info(user.firebase_uid().to_string().as_str()).await?;
+            
+            user_summaries.push(UserSummary {
+                id: user.firebase_uid().to_string(),  // Use firebase_uid as id
                 firebase_uid: user.firebase_uid().clone(),
                 email: user.email().clone(),
-                email_verified: user.is_email_verified(),
+                display_name: database_info.as_ref()
+                    .and_then(|db_user| db_user.display_name.clone()), // Get from database
+                role,
+                status,
                 is_active: user.is_active(),
+                email_verified: user.is_email_verified(),
                 permissions: user.permissions().clone(),
-            })
-            .collect();
+                package_tier: database_info.as_ref()
+                    .and_then(|db_user| db_user.package_tier.clone())
+                    .unwrap_or_else(|| "free".to_string()), // Get from database with fallback
+                created_at: AggregateRoot::created_at(&user),
+                updated_at: AggregateRoot::updated_at(&user),
+                last_login_at: user.last_login_at(),
+            });
+        }
         
         Ok(ListUsersResponse::new(user_summaries, total_count))
     }

@@ -4,6 +4,7 @@
 use crate::domain::user_management::value_objects::{FirebaseUid, Email, Permission};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListUsersQuery {
@@ -52,11 +53,26 @@ pub struct ListUsersResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserSummary {
+    // Identity fields
+    pub id: String,                        // User ID for frontend (maps from firebase_uid)
     pub firebase_uid: FirebaseUid,
     pub email: Email,
-    pub email_verified: bool,
+    pub display_name: Option<String>,       // Display name from database
+    
+    // Status and role fields
+    pub role: String,                       // Derived from permissions (admin/user/premium)
+    pub status: String,                     // Derived from is_active (active/inactive)
     pub is_active: bool,
+    pub email_verified: bool,
+    
+    // Permission and tier fields
     pub permissions: HashSet<Permission>,
+    pub package_tier: String,               // Package tier from database
+    
+    // Timestamp fields
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub last_login_at: Option<DateTime<Utc>>,
 }
 
 impl ListUsersResponse {

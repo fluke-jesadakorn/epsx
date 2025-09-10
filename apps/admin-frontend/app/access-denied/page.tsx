@@ -1,17 +1,20 @@
-'use client';
-
-import { Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Shield, Home, RotateCcw } from 'lucide-react';
 
-function AccessDeniedContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
-  
-  const route = searchParams.get('route') || '/';
-  const reason = searchParams.get('reason') || 'Access denied';
-  const context = searchParams.get('context') || 'unknown';
-  const permission = searchParams.get('permission');
+interface AccessDeniedPageProps {
+  searchParams: {
+    route?: string;
+    reason?: string;
+    context?: string;
+    permission?: string;
+  };
+}
+
+export default function AccessDeniedPage({ searchParams }: AccessDeniedPageProps) {
+  const route = searchParams.route || '/';
+  const reason = searchParams.reason || 'Access denied';
+  const context = searchParams.context || 'unknown';
+  const permission = searchParams.permission;
   
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -45,21 +48,21 @@ function AccessDeniedContent() {
             </div>
 
             <div className="flex space-x-3">
-              <button
-                onClick={() => router.push('/login')}
+              <Link
+                href="/login"
                 className="flex-1 flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
               >
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Login Again
-              </button>
+              </Link>
               
-              <button
-                onClick={() => router.back()}
+              <Link
+                href="/"
                 className="flex-1 flex justify-center items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
               >
                 <Home className="h-4 w-4 mr-2" />
-                Go Back
-              </button>
+                Go Home
+              </Link>
             </div>
 
             {context === 'admin' && (
@@ -74,17 +77,5 @@ function AccessDeniedContent() {
         </div>
       </div>
     </div>
-  );
-}
-
-export default function AccessDeniedPage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
-      </div>
-    }>
-      <AccessDeniedContent />
-    </Suspense>
   );
 }

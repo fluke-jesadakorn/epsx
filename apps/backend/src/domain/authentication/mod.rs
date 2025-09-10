@@ -5,6 +5,7 @@
 pub mod aggregates;
 pub mod value_objects;
 pub mod domain_services;
+pub mod services;
 pub mod ports;
 pub mod events;
 pub mod repositories;
@@ -12,6 +13,7 @@ pub mod repositories;
 // Re-export domain concepts
 pub use aggregates::*;
 pub use value_objects::*;
+pub use services::*;
 pub use events::*;
 pub use repositories::*;
 

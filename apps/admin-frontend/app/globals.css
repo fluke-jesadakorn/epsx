@@ -1,23 +1,19 @@
 /**
- * Admin Frontend - Main Stylesheet (Modernized)
+ * Admin Frontend - Main Stylesheet (PancakeSwap Style)
  * 
- * This file has been modernized to use the new modular CSS architecture.
- * The previous 465 lines of mixed concerns have been split into focused,
- * maintainable modules following the frontend app's successful pattern.
+ * Enhanced with PancakeSwap-inspired design system:
+ * - Vibrant gradient backgrounds
+ * - Rounded corner aesthetics  
+ * - Floating animations
+ * - Modern glass morphism effects
  * 
- * Architecture Migration Status: Phase 2 Complete ✅
- * - Modular CSS structure implemented
- * - Design system integration complete
- * - Enhanced admin-specific functionality
- * - Performance optimized
+ * Architecture Migration Status: Phase 3 Complete ✅
+ * - PancakeSwap UI integration implemented
+ * - Gradient system enhanced
+ * - Animation library expanded
+ * - Glass morphism effects added
  * 
- * What changed:
- * - Split monolithic globals.css into modular structure
- * - Added admin-specific design tokens and variants
- * - Integrated with type-safe design system
- * - Enhanced performance with critical CSS
- * 
- * File Size Reduction: 465 lines → 52 lines (89% reduction)
+ * Design System: PancakeSwap + Modern Admin
  */
 
 /* ============================================================================
@@ -45,6 +41,75 @@
 }
 
 /* ============================================================================
+   PANCAKESWAP ANIMATIONS & EFFECTS
+   ============================================================================ */
+
+@layer components {
+  /* Grid Pattern Background */
+  .bg-grid-pattern {
+    background-image: 
+      linear-gradient(rgba(255, 193, 7, 0.1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 193, 7, 0.1) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+
+  /* Fade in up animation */
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 0.3s ease-out forwards;
+  }
+
+  /* Floating animation */
+  @keyframes float {
+    0%, 100% { transform: translateY(0px); }
+    50% { transform: translateY(-10px); }
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  /* Pulse glow effect */
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 20px rgba(255, 193, 7, 0.3); }
+    50% { box-shadow: 0 0 30px rgba(255, 193, 7, 0.6); }
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  /* Gradient text clip */
+  .bg-clip-text {
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+
+  /* Glass morphism effect */
+  .glass-morphism {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+
+  .glass-morphism-dark {
+    background: rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* ============================================================================
    DEVELOPMENT HELPERS
    ============================================================================ */
 
@@ -57,7 +122,7 @@
     }
     
     .design-system-migrated::after {
-      content: '✨';
+      content: '🥞';
       position: absolute;
       top: -8px;
       right: -8px;

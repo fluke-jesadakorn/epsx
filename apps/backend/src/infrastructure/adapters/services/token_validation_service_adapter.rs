@@ -6,9 +6,9 @@ use tracing::{info, warn, error, debug};
 use std::sync::Arc;
 
 use crate::domain::authentication::{
-    RefreshToken,
     TokenValidationServicePort, TokenClaims, TokenIntrospectionResult
 };
+use crate::domain::authentication::value_objects::RefreshToken;
 use crate::web::auth::providers::{AuthProvider, ProviderType};
 use crate::infrastructure::firebase_admin::FirebaseAdmin;
 

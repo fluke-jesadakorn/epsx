@@ -1,42 +1,32 @@
 import { StreamingWrapper } from '@/components/common/StreamingWrapper';
 import ChatSection from '@/components/home/ChatSection';
 import ClientEpsCardSection from '@/components/home/ClientEpsCardSection';
-import DataTechSection from '@/components/home/DataTechSection';
 import HeroSection from '@/components/home/HeroSection';
-import PricingSection from '@/components/home/PricingSection';
 import { PublicRankingPreview } from '@/components/home/PublicRankingPreview';
+import DynamicPricingSection from '@/components/home/DynamicPricingSection';
 
 // DISABLE ISR caching to show real TradingView data immediately
 export const revalidate = 0;
 
-export default async function HomePage() {
-  // Server-side data fetching via API routes - no hydration issues
-  const fetchData = async () => {
-    try {
-      const [previewResponse, cardsResponse] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/public/rankings?page=1&limit=5&type=preview`, {
-          cache: 'no-store'
-        }),
-        fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/public/rankings?page=1&limit=3&type=cards`, {
-          cache: 'no-store'
-        })
-      ]);
-
-      const [initialData, epsCardData] = await Promise.all([
-        previewResponse.ok ? previewResponse.json() : [],
-        cardsResponse.ok ? cardsResponse.json() : []
-      ]);
-
-      return { initialData, epsCardData };
-    } catch (error) {
-      console.error('Failed to fetch homepage data:', error);
-      return { initialData: [], epsCardData: [] };
-    }
-  };
-
-  const { initialData, epsCardData } = await fetchData();
+export default function HomePage() {
+  // Use empty initial data - components will fetch data client-side
+  const initialData = [];
+  const epsCardData = [];
   return (
-    <div className="relative min-h-screen overflow-hidden">
+    <div>
+      {/* Promotional Banner */}
+      <div className="bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-center">
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-lg">25% OFF</span>
+              <span className="text-sm opacity-90">Limited time offer on all plans!</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="relative min-h-screen overflow-hidden">
       {/* PancakeSwap-style vibrant background */}
       <div className="fixed inset-0 z-0">
         {/* Main gradient background */}
@@ -76,10 +66,6 @@ export default async function HomePage() {
           <HeroSection className="relative z-10" />
         </StreamingWrapper>
 
-        {/* Data Tech Section with gradient accents */}
-        <StreamingWrapper priority="medium" identifier="data-tech">
-          <DataTechSection />
-        </StreamingWrapper>
 
         {/* EPS Cards Section - Top Performing Companies */}
         <StreamingWrapper priority="medium" identifier="eps-cards">
@@ -92,14 +78,9 @@ export default async function HomePage() {
           </div>
         </StreamingWrapper>
 
-        {/* Pricing Section with enhanced PancakeSwap styling */}
+        {/* Dynamic Pricing Section with affiliate tracking */}
         <StreamingWrapper priority="medium" identifier="pricing">
-          <div className="relative">
-            {/* Add some floating elements around pricing */}
-            <div className="animate-bounce-gentle absolute top-10 left-10 h-8 w-8 rounded-full bg-gradient-to-br from-purple-400/30 to-pink-400/30" />
-            <div className="animate-float absolute right-10 bottom-10 h-6 w-6 rounded-full bg-gradient-to-br from-green-400/30 to-emerald-400/30" />
-            <PricingSection />
-          </div>
+          <DynamicPricingSection />
         </StreamingWrapper>
 
         {/* Data Rank Table with vibrant PancakeSwap-style card */}
@@ -158,6 +139,7 @@ export default async function HomePage() {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

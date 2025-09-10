@@ -7,7 +7,7 @@ import {
   Select,
   Textarea,
 } from '@/components/ui/form-components';
-import { AdminApiService } from '@/services/adminApiService';
+import { UnifiedAdminClient } from '@/lib/api/unified-admin-client';
 import {
   Activity,
   AlertTriangle,

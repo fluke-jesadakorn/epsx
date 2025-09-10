@@ -24,6 +24,11 @@ class NavigationService {
         href: '/my-data',
         key: 'my-data',
       },
+      {
+        label: 'About Us',
+        href: '/about',
+        key: 'about',
+      },
     ];
 
     return items;

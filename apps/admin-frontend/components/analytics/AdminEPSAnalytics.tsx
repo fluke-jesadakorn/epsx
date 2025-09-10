@@ -175,8 +175,8 @@ async function AdminEPSGrid({ params }: { params: EPSQueryParams }) {
   if (!data.success || !data.data || data.data.length === 0) {
     return (
       <div className="py-12 text-center">
-        <p className="mb-4 text-gray-600 dark:text-white">No EPS data available</p>
-        <div className="text-sm text-gray-500">
+        <p className="mb-4 text-gray-600 dark:text-gray-300">No EPS data available</p>
+        <div className="text-sm text-gray-500 dark:text-gray-400">
           Check system connectivity or contact technical support
         </div>
       </div>
@@ -212,13 +212,13 @@ async function AdminEPSGrid({ params }: { params: EPSQueryParams }) {
       )}
 
       {/* Admin metadata display */}
-      <div className="mt-8 rounded-2xl border border-gray-200/50 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 dark:from-blue-900/20 dark:to-indigo-900/20">
+      <div className="mt-8 rounded-2xl border border-gray-200/50 dark:border-gray-600/50 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-4">
         <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-4 text-gray-600 dark:text-gray-400">
-            <span>🔧 System Health: <span className="capitalize text-green-600">{data.admin_metadata.system_health}</span></span>
+          <div className="flex items-center gap-4 text-gray-600 dark:text-gray-300">
+            <span>🔧 System Health: <span className="capitalize text-green-600 dark:text-green-400">{data.admin_metadata.system_health}</span></span>
             <span>⚡ Response: {data.processing_time_ms}ms</span>
           </div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-gray-500 dark:text-gray-400">
             Updated: {new Date(data.admin_metadata.last_updated).toLocaleString()}
           </div>
         </div>
@@ -246,30 +246,23 @@ export default async function AdminEPSAnalytics({ searchParams }: AdminEPSAnalyt
   const params = parseSearchParams(searchParams)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-100 via-orange-50 to-yellow-100 dark:from-pink-900/20 dark:via-orange-900/20 dark:to-yellow-900/20">
-      {/* PancakeSwap + Windows Phone inspired background */}
-      <div className="fixed inset-0 z-0">
+    <div className="relative bg-gradient-to-br from-pink-100 via-orange-50 to-yellow-100 dark:bg-gradient-to-br dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+      {/* Background patterns - positioned relative to content area only */}
+      <div className="absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 opacity-20 dark:opacity-10">
-          <div className="absolute top-20 left-20 h-32 w-32 rotate-45 bg-gradient-to-br from-pink-400 to-rose-500 rounded-3xl"></div>
-          <div className="absolute top-40 right-32 h-24 w-24 rotate-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full"></div>
-          <div className="absolute bottom-32 left-1/3 h-28 w-28 -rotate-12 bg-gradient-to-br from-orange-400 to-yellow-500 rounded-2xl"></div>
-          <div className="absolute bottom-20 right-20 h-20 w-20 rotate-45 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full"></div>
+          <div className="absolute top-20 left-20 h-32 w-32 rotate-45 bg-gradient-to-br from-pink-400 to-rose-500 rounded-3xl animate-pulse"></div>
+          <div className="absolute top-40 right-32 h-24 w-24 rotate-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full animate-pulse"></div>
+          <div className="absolute bottom-32 left-1/3 h-28 w-28 -rotate-12 bg-gradient-to-br from-orange-400 to-yellow-500 rounded-2xl animate-pulse"></div>
         </div>
-        
-        {/* Enhanced floating elements */}
-        <div className="absolute top-1/4 left-10 h-6 w-6 animate-pulse rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 opacity-80"></div>
-        <div className="absolute top-1/3 right-16 h-4 w-4 animate-bounce rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 opacity-90" style={{ animationDelay: '1s' }}></div>
-        <div className="absolute bottom-1/4 left-1/4 h-8 w-8 animate-pulse rounded-full bg-gradient-to-r from-green-400 to-teal-500 opacity-70" style={{ animationDelay: '2s' }}></div>
       </div>
 
       {/* Main content */}
-      <div className="relative z-10">
-        <div className="container mx-auto px-4 py-8">
+      <div className="relative container mx-auto px-4 py-8">
           {/* PancakeSwap inspired header with Windows Phone structure */}
           <div className="mb-12">
-            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-pink-500 via-orange-500 to-yellow-500 p-8 shadow-2xl">
-              <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent"></div>
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-16 translate-x-16"></div>
+            <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-pink-500 via-orange-500 to-yellow-500 p-8 shadow-2xl dark:shadow-orange-500/20">
+              <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent dark:from-black/10"></div>
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 dark:bg-black/5 rounded-full -translate-y-16 translate-x-16"></div>
               <div className="relative z-10">
                 <h1 className="mb-4 text-4xl font-bold tracking-wide text-white sm:text-5xl drop-shadow-lg">
                   🔧 Admin EPS Hub
@@ -302,7 +295,7 @@ export default async function AdminEPSAnalytics({ searchParams }: AdminEPSAnalyt
           </div>
 
           {/* Admin stats header */}
-          <div className="mb-8 rounded-2xl border-l-4 border-orange-500 bg-gradient-to-r from-orange-100 to-yellow-100 p-6 shadow-xl dark:from-orange-900/30 dark:to-yellow-900/30">
+          <div className="mb-8 rounded-2xl border-l-4 border-orange-500 bg-gradient-to-r from-orange-100 to-yellow-100 p-6 shadow-xl dark:bg-gradient-to-r dark:from-gray-800 dark:to-gray-700 dark:border-orange-400">
             <div className="flex items-center gap-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-yellow-500 text-xl font-bold text-white shadow-lg">
                 🍰
@@ -336,7 +329,7 @@ export default async function AdminEPSAnalytics({ searchParams }: AdminEPSAnalyt
           </Suspense>
 
           {/* Status Legend with admin enhancements */}
-          <div className="mb-8 rounded-3xl border border-pink-200/50 bg-gradient-to-r from-pink-50 via-orange-50 to-yellow-50 p-6 shadow-xl dark:from-pink-900/20 dark:via-orange-900/20 dark:to-yellow-900/20">
+          <div className="mb-8 rounded-3xl border border-pink-200/50 dark:border-gray-600/50 bg-gradient-to-r from-pink-50 via-orange-50 to-yellow-50 dark:bg-gradient-to-r dark:from-gray-800 dark:via-gray-700 dark:to-gray-800 p-6 shadow-xl dark:shadow-orange-500/10">
             <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-500 to-purple-600 text-lg text-white shadow-lg">
@@ -371,11 +364,11 @@ export default async function AdminEPSAnalytics({ searchParams }: AdminEPSAnalyt
           <Suspense fallback={
             <div className="flex flex-wrap items-stretch justify-center gap-3 px-2 sm:justify-start sm:gap-6 sm:px-0">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="w-full max-w-[320px] min-w-[240px] flex-shrink-0 rounded-3xl border-2 border-gray-300/50 bg-white/80 p-6 shadow-2xl animate-pulse">
-                  <div className="h-32 bg-gray-300 rounded-2xl mb-4"></div>
+                <div key={i} className="w-full max-w-[320px] min-w-[240px] flex-shrink-0 rounded-3xl border-2 border-gray-300/50 dark:border-gray-600/50 bg-white/80 dark:bg-gray-800/80 p-6 shadow-2xl dark:shadow-orange-500/10 animate-pulse">
+                  <div className="h-32 bg-gray-300 dark:bg-gray-600 rounded-2xl mb-4"></div>
                   <div className="space-y-3">
-                    <div className="h-4 bg-gray-300 rounded w-3/4"></div>
-                    <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+                    <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-3/4"></div>
+                    <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-1/2"></div>
                   </div>
                 </div>
               ))}
@@ -384,7 +377,6 @@ export default async function AdminEPSAnalytics({ searchParams }: AdminEPSAnalyt
             <AdminEPSGrid params={params} />
           </Suspense>
         </div>
-      </div>
     </div>
   )
 }

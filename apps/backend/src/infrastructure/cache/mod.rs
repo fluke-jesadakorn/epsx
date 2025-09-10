@@ -1,15 +1,23 @@
 // Cache infrastructure implementations
 
+use std::sync::Arc;
+
 pub mod memory_cache;
 pub mod redis_cache;
 pub mod unified_cache;
 pub mod permission_cache;
+pub mod plan_cache;
+pub mod promotion_cache;
+pub mod affiliate_cache;
 
 // Re-export cache types
 pub use memory_cache::*;
 pub use redis_cache::*;
 pub use unified_cache::*;
 pub use permission_cache::*;
+pub use plan_cache::*;
+pub use promotion_cache::*;
+pub use affiliate_cache::*;
 
 // Legacy alias
 pub use memory_cache::MemoryCache as InMemoryCache;
@@ -43,7 +51,45 @@ pub struct CacheFactory;
 
 impl CacheFactory {
     pub async fn with_fallback() -> Box<dyn Cache> {
-        Box::new(MemoryCache::new())
+        // Try Redis first, fallback to memory cache
+        if let Ok(redis_cache) = Self::try_redis().await {
+            tracing::info!("✅ Using Redis cache with memory fallback");
+            Box::new(redis_cache)
+        } else {
+            tracing::warn!("⚠️ Redis unavailable, using pure memory cache");
+            Box::new(MemoryCache::new())
+        }
+    }
+    
+    pub async fn with_fallback_arc() -> Arc<dyn Cache> {
+        // Try Redis first, fallback to memory cache
+        if let Ok(redis_cache) = Self::try_redis().await {
+            tracing::info!("✅ Using Redis cache with memory fallback");
+            Arc::new(redis_cache)
+        } else {
+            tracing::warn!("⚠️ Redis unavailable, using pure memory cache");
+            Arc::new(MemoryCache::new())
+        }
+    }
+    
+    async fn try_redis() -> Result<RedisCache, Box<dyn std::error::Error + Send + Sync>> {
+        let redis_url = std::env::var("REDIS_URL")
+            .unwrap_or_else(|_| "redis://localhost:6379".to_string());
+        let pool_size = std::env::var("REDIS_POOL_SIZE")
+            .unwrap_or_else(|_| "10".to_string())
+            .parse::<u32>()
+            .unwrap_or(10);
+            
+        RedisCache::new(redis_url, pool_size, CacheConfig::default()).await
+    }
+    
+    pub async fn with_redis_url(url: String) -> Box<dyn Cache> {
+        if let Ok(redis_cache) = RedisCache::new(url, 10, CacheConfig::default()).await {
+            Box::new(redis_cache)
+        } else {
+            tracing::warn!("⚠️ Custom Redis URL failed, using memory cache");
+            Box::new(MemoryCache::new())
+        }
     }
 }
 

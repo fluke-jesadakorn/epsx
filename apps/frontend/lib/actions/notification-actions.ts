@@ -3,11 +3,59 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 
+export interface NotificationData {
+  notifications: Array<{
+    id: string;
+    title: string;
+    body: string;
+    notification_type: string;
+    priority: string;
+    created_at: string;
+    read_at?: string;
+    action_url?: string;
+  }>;
+  unread_count: number;
+}
+
 // Helper to get server auth token
 async function getServerAuthToken(): Promise<string | null> {
   const cookieStore = await cookies()
   const accessToken = cookieStore.get('access_token')
   return accessToken?.value || null
+}
+
+// Get notifications for server-side rendering
+export async function getNotifications(): Promise<NotificationData | null> {
+  try {
+    const token = await getServerAuthToken();
+    
+    if (!token) {
+      console.log('No access token available for notifications');
+      return null;
+    }
+
+    const response = await fetch(`${process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/v1/notifications/unread`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      cache: 'no-store'
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      return {
+        notifications: data.notifications || [],
+        unread_count: data.notifications?.length || 0
+      };
+    } else {
+      console.error('Failed to fetch notifications:', response.statusText);
+      return null;
+    }
+  } catch (error) {
+    console.error('Failed to fetch notifications:', error);
+    return null;
+  }
 }
 
 // Mark notification as read

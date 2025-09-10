@@ -2,7 +2,7 @@ use chrono::{DateTime, Utc};
 // User Profile Management handlers with Casbin authorization
 
 use axum::{
-  extract::{ State, Path },
+  extract::{ State, Path, Query },
   http::{ StatusCode, HeaderMap },
   response::Json,
 };
@@ -11,6 +11,13 @@ use serde::{ Deserialize, Serialize };
 use crate::web::auth::AppState;
 use crate::application::user_management::{GetUserByFirebaseUidQuery, ListUsersQuery};
 use serde_json::{ json, Value };
+
+#[derive(Deserialize)]
+pub struct ListUsersParams {
+    pub limit: Option<usize>,
+    pub offset: Option<usize>,
+    pub search: Option<String>,
+}
 
 /// Extract session ID from headers
 fn extract_session_from_headers(
@@ -134,7 +141,6 @@ pub struct UserProfileResponse {
   pub user_id: String,
   pub email: String,
   pub permissions: Vec<String>,
-  pub subscription_tier: String,
   pub package_tier: String,
   pub created_at: DateTime<Utc>,
   pub updated_at: DateTime<Utc>,
@@ -148,7 +154,6 @@ pub struct UserProfileResponse {
 pub struct UpdateUserProfileRequest {
   pub display_name: Option<String>,
   pub photo_url: Option<String>,
-  pub subscription_tier: Option<String>,
 }
 
 /// User profile update response
@@ -290,8 +295,7 @@ pub async fn get_profile_handler(
         "user_id": user_response.firebase_uid.as_str(),
         "email": user_response.email.as_str(),
         "permissions": user_permissions,
-        "subscription_tier": "premium", // TODO: Get from user subscription value object
-        "package_tier": "premium", // Same as subscription tier
+        "package_tier": "premium", // TODO: Get from user subscription value object
         "created_at": chrono::Utc::now(), // TODO: Get from user aggregate
         "updated_at": chrono::Utc::now(), // TODO: Get from user aggregate
         "display_name": format!("User {}", user_response.email.as_str()),
@@ -335,8 +339,7 @@ pub async fn update_profile_handler(
         "updated_at": chrono::Utc::now(),
         "requested_changes": {
             "display_name": req.display_name,
-            "photo_url": req.photo_url,
-            "subscription_tier": req.subscription_tier
+            "photo_url": req.photo_url
         }
     })
     )
@@ -748,6 +751,7 @@ pub async fn user_features_handler() -> Result<Json<Value>, StatusCode> {
 /// GET /users - List users (admin only)
 pub async fn list_users_handler(
   State(app_state): State<AppState>,
+  Query(params): Query<ListUsersParams>,
   headers: HeaderMap
 ) -> Result<Json<Value>, StatusCode> {
   // Extract Bearer token from headers
@@ -766,8 +770,8 @@ pub async fn list_users_handler(
 
   // Get users using DDD query handler
   let query = ListUsersQuery {
-    limit: 50,
-    offset: 0,
+    limit: params.limit.unwrap_or(50),
+    offset: params.offset.unwrap_or(0),
     email_domain_filter: None,
     permission_filter: None,
   };
@@ -790,12 +794,13 @@ pub async fn list_users_handler(
     user_list.push(json!({
       "id": user_summary.firebase_uid.as_str(),
       "email": user_summary.email.as_str(),
+      "display_name": user_summary.display_name,
       "permissions": user_permissions,
-      "subscription_tier": "premium", // TODO: Get from user subscription
+      "package_tier": user_summary.package_tier,
       "is_active": user_summary.is_active,
-      "created_at": chrono::Utc::now(), // TODO: Get from user aggregate
-      "updated_at": chrono::Utc::now(), // TODO: Get from user aggregate
-      "is_deleted": false // TODO: Get from user aggregate
+      "created_at": user_summary.created_at,
+      "updated_at": user_summary.updated_at,
+      "last_login_at": user_summary.last_login_at,
     }));
   }
 
@@ -804,8 +809,8 @@ pub async fn list_users_handler(
       json!({
         "users": user_list,
         "total": list_response.total_count,
-        "offset": 0,
-        "limit": 50
+        "offset": params.offset.unwrap_or(0),
+        "limit": params.limit.unwrap_or(50)
     })
     )
   )
@@ -1010,7 +1015,7 @@ pub async fn me_handler(
         "id": user_response.firebase_uid.as_str(),
         "email": user_response.email.as_str(),
         "permissions": user_permissions,
-        "subscription_tier": "premium", // TODO: Get from user subscription
+        "package_tier": "premium", // TODO: Get from user subscription
         "is_active": user_response.is_active,
         "created_at": chrono::Utc::now(), // TODO: Get from user aggregate
         "updated_at": chrono::Utc::now() // TODO: Get from user aggregate

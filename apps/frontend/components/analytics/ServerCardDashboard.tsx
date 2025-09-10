@@ -72,12 +72,12 @@ const SymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
 
   return (
     <div
-      className={`hover:shadow-3xl relative w-full max-w-[320px] min-w-[240px] flex-shrink-0 overflow-hidden rounded-3xl border-2 bg-gradient-to-br from-white via-slate-50 to-gray-100 shadow-2xl transition-all duration-300 hover:scale-105 sm:min-w-[280px] ${
+      className={`hover:shadow-3xl relative w-full max-w-[320px] min-w-[240px] flex-shrink-0 overflow-hidden rounded-3xl border-2 bg-gradient-to-br from-white via-slate-50 to-gray-100 dark:from-gray-800 dark:via-gray-700 dark:to-gray-900 shadow-2xl transition-all duration-300 hover:scale-105 sm:min-w-[280px] ${
         cardData.active_status === 'TRACK'
-          ? 'border-green-300 shadow-green-500/20 hover:shadow-green-500/30'
+          ? 'border-green-300 dark:border-green-600 shadow-green-500/20 hover:shadow-green-500/30'
           : cardData.active_status === 'STOP'
-            ? 'border-red-300 shadow-red-500/20 hover:shadow-red-500/30'
-            : 'border-orange-300 shadow-orange-500/20 hover:shadow-orange-500/30'
+            ? 'border-red-300 dark:border-red-600 shadow-red-500/20 hover:shadow-red-500/30'
+            : 'border-orange-300 dark:border-orange-600 shadow-orange-500/20 hover:shadow-orange-500/30'
       }`}
     >
       {/* Decorative corner accent */}
@@ -97,10 +97,10 @@ const SymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
           <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="text-center">
-                <div className="text-xs font-medium tracking-wide text-slate-500 uppercase">
+                <div className="text-xs font-medium tracking-wide text-slate-500 dark:text-slate-400 uppercase">
                   Rank #{cardData.rank}
                 </div>
-                <h3 className="text-lg font-bold text-slate-800 sm:text-xl">
+                <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200 sm:text-xl">
                   {cardData.symbol}
                 </h3>
               </div>
@@ -153,14 +153,14 @@ const SymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
             </div>
 
             <div className="text-right">
-              <div className="text-xs text-slate-500">Next Action</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">Next Action</div>
               <div
                 className={`text-sm font-bold ${
                   cardData.active_status === 'TRACK'
-                    ? 'text-green-600'
+                    ? 'text-green-600 dark:text-green-400'
                     : cardData.active_status === 'STOP'
-                      ? 'text-red-600'
-                      : 'text-orange-600'
+                      ? 'text-red-600 dark:text-red-400'
+                      : 'text-orange-600 dark:text-orange-400'
                 }`}
               >
                 {cardData.next_quarter_estimate?.days_until_announcement || 0}{' '}
@@ -169,7 +169,7 @@ const SymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
             </div>
           </div>
 
-          <div className="h-1 rounded-full bg-slate-200">
+          <div className="h-1 rounded-full bg-slate-200 dark:bg-slate-600">
             <div
               className={`h-full rounded-full transition-all duration-1000 ${
                 cardData.active_status === 'TRACK'
@@ -187,30 +187,30 @@ const SymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
 
         {/* Premium data display */}
         <div className="flex flex-col gap-3">
-          <div className="rounded-2xl border border-slate-200/50 bg-white/50 p-4 text-center backdrop-blur-sm">
+          <div className="rounded-2xl border border-slate-200/50 dark:border-slate-600/50 bg-white/50 dark:bg-gray-800/50 p-4 text-center backdrop-blur-sm">
             <div className="mb-2 flex items-center justify-center gap-2">
               <span
-                className={`text-base sm:text-lg ${(latestQuarter?.eps_growth || 0) >= 0 ? '📈' : '📉'}`}
-              ></span>
-              <span className="text-sm font-medium text-slate-600">Growth</span>
+                className={`text-base sm:text-lg`}
+              >{(latestQuarter?.eps_growth || 0) >= 0 ? '📈' : '📉'}</span>
+              <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Growth</span>
             </div>
             <div
               className={`text-center text-base leading-tight font-bold sm:text-xl ${
                 (latestQuarter?.eps_growth || 0) >= 0
-                  ? 'text-green-600'
-                  : 'text-red-600'
+                  ? 'text-green-600 dark:text-green-400'
+                  : 'text-red-600 dark:text-red-400'
               }`}
             >
               {formatPercentage(latestQuarter?.eps_growth || 0)}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200/50 bg-white/50 p-4 text-center backdrop-blur-sm">
+          <div className="rounded-2xl border border-slate-200/50 dark:border-slate-600/50 bg-white/50 dark:bg-gray-800/50 p-4 text-center backdrop-blur-sm">
             <div className="mb-2 flex items-center justify-center gap-2">
               <span className="text-base sm:text-lg">💰</span>
-              <span className="text-sm font-medium text-slate-600">Price</span>
+              <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Price</span>
             </div>
-            <div className="text-center text-base leading-tight font-bold text-slate-800 sm:text-xl">
+            <div className="text-center text-base leading-tight font-bold text-slate-800 dark:text-slate-200 sm:text-xl">
               {formatCurrency(latestQuarter?.price || 0)}
             </div>
           </div>
@@ -256,7 +256,7 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
   return (
     <div className="mb-8">
       {/* Cohesive cards grid using same styling as regular cards */}
-      <div className="flex flex-wrap items-stretch justify-center gap-3 px-2 sm:justify-start sm:gap-4 sm:px-0 overflow-visible">
+      <div className="flex flex-wrap items-stretch justify-center gap-3 px-2 sm:gap-4 sm:px-0 overflow-visible">
         {top5Data.map(cardData => {
           const quarters = cardData.quarterly_performance?.slice(0, 2) || [];
           const latestQuarter = quarters[0];
@@ -337,7 +337,7 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
           return (
             <div
               key={cardData.symbol}
-              className={`group relative w-full max-w-[350px] min-w-[240px] flex-shrink-0 overflow-visible rounded-3xl transition-all duration-500 hover:z-20 hover:scale-110 sm:min-w-[300px] ${ultraStyle.container} ${ultraStyle.glow} ${ultraStyle.halo}`}
+              className={`group relative w-full max-w-[350px] min-w-[240px] flex-shrink-0 overflow-visible rounded-3xl transition-all duration-500 hover:z-20 hover:scale-110 sm:min-w-[300px] ${ultraStyle.container} dark:from-gray-800 dark:via-gray-700 dark:to-gray-900 ${ultraStyle.glow} ${ultraStyle.halo}`}
             >
               {/* Animated shine effect */}
               <div
@@ -377,10 +377,10 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
                               : '💎 DIAMOND'}{' '}
                       · RANK #{cardData.rank}
                     </div>
-                    <h3 className="mb-2 bg-gradient-to-r from-slate-700 via-slate-900 to-slate-700 bg-clip-text text-2xl font-black tracking-tight text-transparent sm:text-3xl">
+                    <h3 className="mb-2 bg-gradient-to-r from-slate-700 via-slate-900 to-slate-700 dark:from-slate-200 dark:via-white dark:to-slate-200 bg-clip-text text-2xl font-black tracking-tight text-transparent sm:text-3xl">
                       {cardData.symbol}
                     </h3>
-                    <div className="mx-auto h-px w-16 bg-gradient-to-r from-transparent via-slate-300 to-transparent"></div>
+                    <div className="mx-auto h-px w-16 bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-500 to-transparent"></div>
                   </div>
 
                   <div className="flex justify-center">
@@ -436,16 +436,16 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
                     </div>
 
                     <div className="text-center">
-                      <div className="mb-1 text-xs font-light tracking-wider text-slate-400 uppercase">
+                      <div className="mb-1 text-xs font-light tracking-wider text-slate-400 dark:text-slate-300 uppercase">
                         Next Action
                       </div>
                       <div
                         className={`text-lg font-bold ${
                           cardData.active_status === 'TRACK'
-                            ? 'text-green-700'
+                            ? 'text-green-700 dark:text-green-400'
                             : cardData.active_status === 'STOP'
-                              ? 'text-red-700'
-                              : 'text-orange-700'
+                              ? 'text-red-700 dark:text-red-400'
+                              : 'text-orange-700 dark:text-orange-400'
                         }`}
                       >
                         {cardData.next_quarter_estimate
@@ -456,8 +456,8 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
                   </div>
 
                   {/* Luxury progress indicator */}
-                  <div className="relative h-2 overflow-hidden rounded-full bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200">
-                    <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-white/50 via-transparent to-white/50"></div>
+                  <div className="relative h-2 overflow-hidden rounded-full bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 dark:from-slate-600 dark:via-slate-500 dark:to-slate-600">
+                    <div className="absolute inset-0 animate-pulse bg-gradient-to-r from-white/50 dark:from-slate-300/30 via-transparent to-white/50 dark:to-slate-300/30"></div>
                     <div
                       className={`relative h-full overflow-hidden rounded-full transition-all duration-2000 ease-out ${
                         cardData.active_status === 'TRACK'
@@ -477,13 +477,13 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
 
                 {/* Ultra-premium data showcase */}
                 <div className="flex flex-col gap-4">
-                  <div className="group rounded-3xl border-2 border-white/50 bg-gradient-to-br from-white/80 via-white/60 to-white/40 p-6 text-center shadow-xl backdrop-blur-md transition-all duration-500 hover:scale-105 hover:shadow-2xl">
+                  <div className="group rounded-3xl border-2 border-white/50 dark:border-gray-600/50 bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-gray-800/80 dark:via-gray-700/60 dark:to-gray-900/40 p-6 text-center shadow-xl backdrop-blur-md transition-all duration-500 hover:scale-105 hover:shadow-2xl">
                     <div className="mb-4 flex items-center justify-center gap-3">
                       <span
-                        className={`text-xl transition-transform duration-500 group-hover:scale-125 sm:text-2xl ${(latestQuarter?.eps_growth || 0) >= 0 ? '📈' : '📉'}`}
-                      ></span>
+                        className={`text-xl transition-transform duration-500 group-hover:scale-125 sm:text-2xl`}
+                      >{(latestQuarter?.eps_growth || 0) >= 0 ? '📈' : '📉'}</span>
                       <div className="text-center">
-                        <div className="text-sm font-semibold text-slate-700">
+                        <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                           Growth
                         </div>
                       </div>
@@ -491,30 +491,30 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
                     <div
                       className={`mb-2 text-center text-lg leading-tight font-black sm:text-2xl ${
                         (latestQuarter?.eps_growth || 0) >= 0
-                          ? 'text-green-700'
-                          : 'text-red-700'
+                          ? 'text-green-700 dark:text-green-400'
+                          : 'text-red-700 dark:text-red-400'
                       }`}
                     >
                       {formatPercentage(latestQuarter?.eps_growth || 0)}
                     </div>
-                    <div className="h-px flex-shrink-0 bg-gradient-to-r from-transparent via-slate-300 to-transparent"></div>
+                    <div className="h-px flex-shrink-0 bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-500 to-transparent"></div>
                   </div>
 
-                  <div className="group rounded-3xl border-2 border-white/50 bg-gradient-to-br from-white/80 via-white/60 to-white/40 p-6 text-center shadow-xl backdrop-blur-md transition-all duration-500 hover:scale-105 hover:shadow-2xl">
+                  <div className="group rounded-3xl border-2 border-white/50 dark:border-gray-600/50 bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-gray-800/80 dark:via-gray-700/60 dark:to-gray-900/40 p-6 text-center shadow-xl backdrop-blur-md transition-all duration-500 hover:scale-105 hover:shadow-2xl">
                     <div className="mb-4 flex items-center justify-center gap-3">
                       <span className="text-xl transition-transform duration-500 group-hover:scale-125 sm:text-2xl">
                         💰
                       </span>
                       <div className="text-center">
-                        <div className="text-sm font-semibold text-slate-700">
+                        <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">
                           Price
                         </div>
                       </div>
                     </div>
-                    <div className="mb-2 text-center text-lg leading-tight font-black text-slate-800 sm:text-2xl">
+                    <div className="mb-2 text-center text-lg leading-tight font-black text-slate-800 dark:text-slate-200 sm:text-2xl">
                       {formatCurrency(latestQuarter?.price || 0)}
                     </div>
-                    <div className="h-px flex-shrink-0 bg-gradient-to-r from-transparent via-slate-300 to-transparent"></div>
+                    <div className="h-px flex-shrink-0 bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-500 to-transparent"></div>
                   </div>
                 </div>
               </div>
@@ -548,7 +548,7 @@ async function CardGrid({ params }: { params: EPSQueryParams }) {
         <Top5SpecialBox top5Data={top5Data} />
       )}
 
-      <div className="flex flex-wrap items-stretch justify-center gap-3 px-2 sm:justify-start sm:gap-6 sm:px-0">
+      <div className="flex flex-wrap items-stretch justify-center gap-3 px-2 sm:gap-6 sm:px-0">
         {data.data
           .filter(cardData => cardData.rank > 5) // Skip ranks 1-5 to avoid duplication with Top 5 section
           .map(cardData =>

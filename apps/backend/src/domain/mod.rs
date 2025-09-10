@@ -8,6 +8,7 @@ pub mod trading_analytics;
 pub mod notification;
 pub mod payment;
 pub mod authentication;
+pub mod authorization;
 pub mod session_management;
 pub mod realtime_events;
 

@@ -17,6 +17,13 @@ import {
   User as FirebaseUser,
   getIdToken
 } from 'firebase/auth'
+import { 
+  getRemoteConfig, 
+  fetchAndActivate, 
+  getValue, 
+  getAll,
+  RemoteConfig 
+} from 'firebase/remote-config'
 
 // Firebase configuration
 const firebaseConfig = {
@@ -32,6 +39,13 @@ const firebaseConfig = {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
 export const auth = getAuth(app)
 export const googleProvider = new GoogleAuthProvider()
+
+// Initialize Firebase Remote Config
+export const remoteConfig = getRemoteConfig(app)
+
+// Configure Remote Config settings
+remoteConfig.settings.minimumFetchIntervalMillis = 3600000 // 1 hour for production
+remoteConfig.settings.fetchTimeoutMillis = 60000 // 60 seconds
 
 // Configure Google provider
 googleProvider.addScope('profile')

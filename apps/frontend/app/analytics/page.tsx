@@ -36,7 +36,7 @@ export default function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
 
       {/* Main content */}
       <div className="relative z-10">
-        <div className="container mx-auto px-4 py-8">
+        <div className="container mx-auto max-w-7xl px-4 py-8">
           {/* PancakeSwap inspired header with Windows Phone structure */}
           <div className="mb-12">
             {/* Vibrant header block */}

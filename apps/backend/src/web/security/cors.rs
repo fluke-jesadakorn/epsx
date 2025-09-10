@@ -75,12 +75,7 @@ fn production_cors_fallback() -> CorsLayer {
 /// Development CORS configuration - more permissive for local development
 fn development_cors() -> CorsLayer {
     CorsLayer::new()
-        .allow_origin([
-            HeaderValue::from_static("http://localhost:3000"),
-            HeaderValue::from_static("http://localhost:3001"),
-            HeaderValue::from_static("http://127.0.0.1:3000"),
-            HeaderValue::from_static("http://127.0.0.1:3001"),
-        ])
+        .allow_origin(Any)
         .allow_methods([
             Method::GET,
             Method::POST,

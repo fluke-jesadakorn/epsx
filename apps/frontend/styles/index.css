@@ -111,30 +111,7 @@
     @apply shadow-[0_0_25px_hsl(217_91_60/0.4)];
   }
   
-  /* Legacy animation classes */
-  .animate-bounce-gentle {
-    animation: bounce-gentle 2s ease-in-out infinite;
-  }
-  
-  .animate-float-gentle {
-    animation: float-gentle 4s ease-in-out infinite;
-  }
-  
-  .animate-pulse-insight {
-    animation: pulse-insight 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  }
-  
-  .animate-wiggle {
-    animation: wiggle 1s ease-in-out infinite;
-  }
-  
-  .animate-shine {
-    animation: shine 2s linear infinite;
-  }
-  
-  .animate-gradient-x {
-    animation: gradient-x 3s ease infinite;
-  }
+  /* REMOVED: Legacy animation classes for performance optimization */
   
   /* iOS-style scroll picker - hide scrollbar */
   .ios-scroll-picker::-webkit-scrollbar {
@@ -157,24 +134,7 @@
  * for A/B testing or gradual rollouts.
  */
 
-/* Enhanced animations - can be disabled for performance */
-body[data-enhance-animations="true"] .btn-insight-primary:hover {
-  animation: pulse 0.5s ease-in-out;
-}
-
-body[data-enhance-animations="true"] .card-insight:hover {
-  animation: float-gentle 2s ease-in-out infinite;
-}
-
-/* Reduced motion override */
-body[data-reduced-motion="true"] * {
-  animation-duration: 0.01ms !important;
-  animation-iteration-count: 1 !important;
-  transition-duration: 0.01ms !important;
-  scroll-behavior: auto !important;
-}
-
-/* High performance mode - disable heavy effects */
+/* Performance optimized - all animations removed */
 body[data-performance-mode="high"] .card-insight {
   backdrop-filter: none;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -187,11 +147,6 @@ body[data-performance-mode="high"] .glass-subtle {
   -webkit-backdrop-filter: none;
 }
 
-/* Smart Filters feature flag */
-body[data-smart-filters="enabled"] .card-smart-filters {
-  animation: float-gentle 4s ease-in-out infinite;
-}
-
 /* ============================================================================
    VERSION METADATA
    ============================================================================ */
@@ -200,7 +155,8 @@ body[data-smart-filters="enabled"] .card-smart-filters {
  * Version information for debugging and maintenance
  */
 :root {
-  --epsx-css-version: "2.0.0";
-  --epsx-css-migration-status: "phase-1-complete";
-  --epsx-css-last-updated: "2025-01-XX";
+  --epsx-css-version: "3.0.0";
+  --epsx-css-migration-status: "zero-animation-complete";
+  --epsx-css-last-updated: "2025-01-10";
+  --epsx-css-performance-optimized: "true";
 }

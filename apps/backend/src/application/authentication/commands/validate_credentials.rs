@@ -6,8 +6,9 @@ use serde::{Serialize, Deserialize};
 
 use crate::application::shared::command_bus::Command;
 use crate::domain::authentication::{
-    SessionId, AuthenticatedUserId, Scope, SecurityContext, ProviderType
+    SessionId, AuthenticatedUserId, Scope, ProviderType
 };
+use crate::domain::authentication::value_objects::SecurityContext;
 
 /// Command to validate authentication credentials
 #[derive(Debug, Clone, Serialize, Deserialize)]

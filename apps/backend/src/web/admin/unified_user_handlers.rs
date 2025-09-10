@@ -41,7 +41,7 @@ pub struct UserProfile {
     pub email: String,
     pub display_name: Option<String>,
     pub permissions: Vec<String>,
-    pub subscription_tier: String,
+    pub package_tier: String,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -199,7 +199,7 @@ pub struct ModuleQuotasUpdate {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UpdateUserBillingRequest {
-    pub subscription_tier: Option<String>,
+    pub package_tier: Option<String>,
     pub billing_cycle: Option<String>,
 }
 
@@ -256,7 +256,7 @@ pub async fn get_unified_user_data_handler(
         email: user.email().to_string(),
         display_name: None, // User entity doesn't store display name - would be fetched from Firebase/profile service
         permissions: user_permissions.clone(),
-        subscription_tier: "FREE".to_string(), // Default subscription tier - User aggregate doesn't track subscription
+        package_tier: "free".to_string(), // Default package tier - User aggregate doesn't track package tier
         is_active: user.is_active(),
         created_at: user.created_at(),
         updated_at: user.updated_at(),

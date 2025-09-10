@@ -111,14 +111,16 @@ export default function FirebaseMessagingScript({
         strategy="afterInteractive"
         dangerouslySetInnerHTML={{
           __html: `
-            // Register service worker for Firebase messaging
+            // Register Firebase messaging service worker with proper scope
             if ('serviceWorker' in navigator) {
-              navigator.serviceWorker.register('/firebase-messaging-sw.js')
+              navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+                scope: '/firebase-cloud-messaging-push-scope'
+              })
                 .then((registration) => {
-                  console.log('Service worker registered:', registration);
+                  console.log('Firebase messaging service worker registered:', registration);
                 })
                 .catch((error) => {
-                  console.error('Service worker registration failed:', error);
+                  console.error('Firebase messaging service worker registration failed:', error);
                 });
             }
           `
