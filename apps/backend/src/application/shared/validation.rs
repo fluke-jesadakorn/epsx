@@ -96,7 +96,7 @@ impl ValidationUtils {
 macro_rules! validate {
     ($($validation:expr),*) => {
         {
-            let mut errors = Vec::new();
+            let errors = Vec::new();
             $(
                 if let Some(error) = $validation {
                     errors.push(error);

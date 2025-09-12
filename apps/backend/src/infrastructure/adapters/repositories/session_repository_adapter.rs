@@ -113,7 +113,7 @@ impl SessionRepositoryPort for SessionRepositoryAdapter {
         }
     }
     
-    async fn find_by_user_id(&self, user_id: &UserId) -> DomainResult<Vec<Session>> {
+    async fn find_byuser_id(&self, user_id: &UserId) -> DomainResult<Vec<Session>> {
         let mut conn = self.pool.get().await
             .map_err(|e| DomainError::invalid_operation(format!("Database operation failed: {}", e), "SessionRepository"))?;
         
@@ -212,7 +212,7 @@ impl SessionRepositoryPort for SessionRepositoryAdapter {
         Ok(sessions)
     }
     
-    async fn find_active_by_user_id(&self, user_id: &UserId) -> DomainResult<Vec<Session>> {
+    async fn find_active_byuser_id(&self, user_id: &UserId) -> DomainResult<Vec<Session>> {
         let mut conn = self.pool.get().await
             .map_err(|e| DomainError::invalid_operation(format!("Database operation failed: {}", e), "SessionRepository"))?;
         
@@ -237,7 +237,7 @@ impl SessionRepositoryPort for SessionRepositoryAdapter {
         Ok(sessions)
     }
     
-    async fn find_by_refresh_token(&self, _refresh_token: &str) -> DomainResult<Option<Session>> {
+    async fn find_byrefresh_token(&self, _refresh_token: &str) -> DomainResult<Option<Session>> {
         // Simple implementation - refresh tokens not stored in this table
         Ok(None)
     }

@@ -128,7 +128,7 @@ pub async fn exchange_firebase_token(
     Ok(Json(TokenExchangeResponse {
         access_token: oidc_tokens.access_token,
         id_token: oidc_tokens.id_token.unwrap_or_else(|| "default_id_token".to_string()),
-        refresh_token: oidc_tokens.refresh_token.unwrap_or_else(|| "default_refresh_token".to_string()),
+        refresh_token: oidc_tokens.refresh_token.unwrap_or_else(|| "defaultrefresh_token".to_string()),
         token_type: oidc_tokens.token_type,
         expires_in: oidc_tokens.expires_in as i64,
         scope: oidc_tokens.scope.unwrap_or_else(|| "openid profile email".to_string()),

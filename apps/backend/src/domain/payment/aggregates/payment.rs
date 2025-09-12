@@ -959,7 +959,7 @@ mod tests {
             Some(Network::Ethereum),
         ).unwrap();
 
-        let mut payment = Payment::create(user_id, amount, method).unwrap();
+        let payment = Payment::create(user_id, amount, method).unwrap();
         assert_eq!(*payment.status(), PaymentStatus::Created);
 
         // Assign crypto address
@@ -998,7 +998,7 @@ mod tests {
             Some(Network::Ethereum),
         ).unwrap();
 
-        let mut payment = Payment::create(user_id, amount, method).unwrap();
+        let payment = Payment::create(user_id, amount, method).unwrap();
         
         payment.fail_payment("Transaction failed".to_string()).unwrap();
         assert_eq!(*payment.status(), PaymentStatus::Failed);
@@ -1017,7 +1017,7 @@ mod tests {
             Some(Network::Ethereum),
         ).unwrap();
 
-        let mut payment = Payment::create(user_id, amount, method).unwrap();
+        let payment = Payment::create(user_id, amount, method).unwrap();
         
         payment.cancel_payment("User requested".to_string()).unwrap();
         assert_eq!(*payment.status(), PaymentStatus::Cancelled);
@@ -1035,7 +1035,7 @@ mod tests {
             Some(Network::Ethereum),
         ).unwrap();
 
-        let mut payment = Payment::create(user_id, amount, method).unwrap();
+        let payment = Payment::create(user_id, amount, method).unwrap();
         
         // Complete payment first
         payment.status = PaymentStatus::Completed;
@@ -1060,7 +1060,7 @@ mod tests {
             Some(Network::Ethereum),
         ).unwrap();
 
-        let mut payment = Payment::create(user_id, amount, method).unwrap();
+        let payment = Payment::create(user_id, amount, method).unwrap();
         
         // Try to complete without confirming
         let result = payment.complete_payment();

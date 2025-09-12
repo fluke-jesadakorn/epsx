@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useSecurityEvents, useSecurityMetrics } from '@/hooks/useSecurityMonitoring';
 import { getSeverityBadgeColor, getEventTypeIcon } from '@/lib/api/security-monitoring-client';
+import { logger } from '@/lib/logger';
 
 interface TokenHealth {
   user_id: string;
@@ -104,7 +105,7 @@ export function TokenHealthMonitor() {
         })));
       }
     } catch (error) {
-      console.error('Failed to load token health data:', error);
+      logger.error('Failed to load token health data', { error });
     } finally {
       setIsLoading(false);
     }
@@ -126,7 +127,7 @@ export function TokenHealthMonitor() {
         loadTokenHealthData();
       }
     } catch (error) {
-      console.error('Failed to revoke token:', error);
+      logger.error('Failed to revoke token', { familyId, reason, error });
     }
   };
 

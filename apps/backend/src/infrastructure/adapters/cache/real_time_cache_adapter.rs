@@ -10,7 +10,7 @@ use crate::{
     domain::{
         shared_kernel::domain_error::DomainError,
         resource_management::{
-            services::{RealTimeCachePort},
+            services::{resource_tracking_service::RealTimeCachePort},
             value_objects::usage_metrics::{RealTimeUsageTracker, TimePeriod},
         },
     },

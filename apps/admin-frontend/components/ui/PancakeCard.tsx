@@ -1,6 +1,5 @@
 'use client';
 
-import { motion } from 'framer-motion';
 import { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -10,7 +9,6 @@ interface PancakeCardProps {
   variant?: 'default' | 'stats' | 'feature' | 'user' | 'analytics' | 'settings';
   hover?: boolean;
   glow?: boolean;
-  animated?: boolean;
   clickable?: boolean;
   onClick?: () => void;
 }
@@ -21,7 +19,6 @@ export function PancakeCard({
   variant = 'default',
   hover = true,
   glow = false,
-  animated = true,
   clickable = false,
   onClick
 }: PancakeCardProps) {
@@ -67,7 +64,7 @@ export function PancakeCard({
   const style = variants[variant];
 
   return (
-    <motion.div
+    <div
       onClick={clickable ? onClick : undefined}
       className={cn(
         'relative overflow-hidden backdrop-blur-sm',
@@ -75,33 +72,17 @@ export function PancakeCard({
         style.border,
         style.shadow,
         hover && style.hoverShadow,
-        hover && 'hover:scale-[1.02] transition-all duration-300',
         clickable && 'cursor-pointer',
         glow && 'hover:shadow-orange-400/60 dark:hover:shadow-orange-600/60',
         'rounded-xl p-6',
         className
       )}
-      initial={animated ? { opacity: 0, y: 20, scale: 0.95 } : false}
-      animate={animated ? { opacity: 1, y: 0, scale: 1 } : false}
-      transition={animated ? { duration: 0.4, ease: "easeOut" } : false}
-      whileHover={hover ? { 
-        y: -2,
-        transition: { duration: 0.2 }
-      } : false}
     >
-      {/* PancakeSwap Shine Effect */}
-      <motion.div
-        className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity duration-500"
+      {/* PancakeSwap Static Accent */}
+      <div
+        className="absolute inset-0 opacity-0 hover:opacity-100"
         style={{
           background: 'linear-gradient(45deg, transparent 30%, rgba(255,193,7,0.1) 50%, transparent 70%)',
-        }}
-        animate={{
-          x: ['-100%', '100%']
-        }}
-        transition={{
-          duration: 2,
-          repeat: Infinity,
-          repeatDelay: 3
         }}
       />
 
@@ -114,13 +95,8 @@ export function PancakeCard({
       </div>
 
       {/* Bottom Gradient Line */}
-      <motion.div
-        className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-400 via-yellow-400 to-orange-400 opacity-60"
-        initial={{ scaleX: 0 }}
-        animate={{ scaleX: 1 }}
-        transition={{ duration: 0.8, delay: 0.2 }}
-      />
-    </motion.div>
+      <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-400 via-yellow-400 to-orange-400 opacity-60" />
+    </div>
   );
 }
 
@@ -176,7 +152,7 @@ export function PancakeStatsCard({
   if (isLoading) {
     return (
       <PancakeCard variant="stats">
-        <div className="animate-pulse">
+        <div className="opacity-60">
           <div className="w-8 h-8 bg-orange-300 dark:bg-orange-700 rounded mb-3"></div>
           <div className="w-16 h-4 bg-orange-300 dark:bg-orange-700 rounded mb-2"></div>
           <div className="w-20 h-8 bg-orange-300 dark:bg-orange-700 rounded mb-2"></div>

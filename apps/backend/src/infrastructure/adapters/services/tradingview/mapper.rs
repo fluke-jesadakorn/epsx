@@ -330,7 +330,7 @@ mod tests {
 
     #[test]
     fn test_frontend_data_validation() {
-        let mut data = vec![
+        let data = vec![
             FrontendEPSData {
                 id: "1".to_string(),
                 symbol: "AAPL".to_string(),

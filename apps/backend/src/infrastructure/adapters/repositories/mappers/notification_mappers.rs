@@ -131,7 +131,7 @@ impl NotificationMapper {
 
     /// Create DDD notification from legacy parameters
     pub fn create_ddd_notification_from_legacy(
-        recipient_user_id: Option<Uuid>,
+        recipientuser_id: Option<Uuid>,
         topic_name: Option<String>,
         title: String,
         body: String,
@@ -176,7 +176,7 @@ impl NotificationMapper {
         };
 
         // Create notification based on recipient type
-        let notification = if let Some(user_id) = recipient_user_id {
+        let notification = if let Some(user_id) = recipientuser_id {
             Notification::create_for_user(
                 user_id,
                 content,
@@ -203,7 +203,7 @@ impl NotificationMapper {
                 None, // No creator specified
             )?
         } else {
-            return Err("Either recipient_user_id or topic_name must be provided".to_string());
+            return Err("Either recipientuser_id or topic_name must be provided".to_string());
         };
 
         // Note: Metadata setting would need to be done during creation for immutable notification
@@ -405,7 +405,7 @@ mod tests {
             "This is a test notification".to_string(),
         ).unwrap();
 
-        let mut metadata = NotificationMetadata::new();
+        let metadata = NotificationMetadata::new();
         metadata.set_action_url("https://example.com/action".to_string());
         metadata.set_image_url("https://example.com/image.png".to_string());
 

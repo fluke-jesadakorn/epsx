@@ -420,7 +420,7 @@ mod tests {
     fn add_history_events() {
         let session_id = SessionId::generate();
         let user_id = AuthenticatedUserId::from_verified_user(UserId::new().unwrap());
-        let mut history = SessionHistory::new(session_id, user_id);
+        let history = SessionHistory::new(session_id, user_id);
         
         history.add_event(HistoryEventType::SessionCreated, None);
         history.add_event(HistoryEventType::AuthenticationSucceeded { provider: "Firebase".to_string() }, None);
@@ -436,7 +436,7 @@ mod tests {
     fn lifecycle_summary() {
         let session_id = SessionId::generate();
         let user_id = AuthenticatedUserId::from_verified_user(UserId::new().unwrap());
-        let mut history = SessionHistory::new(session_id.clone(), user_id.clone());
+        let history = SessionHistory::new(session_id.clone(), user_id.clone());
         
         // Add session lifecycle events
         history.add_event(HistoryEventType::SessionCreated, None);
@@ -459,7 +459,7 @@ mod tests {
     fn audit_trail_generation() {
         let session_id = SessionId::generate();
         let user_id = AuthenticatedUserId::from_verified_user(UserId::new().unwrap());
-        let mut history = SessionHistory::new(session_id.clone(), user_id);
+        let history = SessionHistory::new(session_id.clone(), user_id);
         
         history.add_event(HistoryEventType::SessionCreated, Some("Initial login".to_string()));
         history.add_event(HistoryEventType::SecurityAlert { alert_type: "multiple_failures".to_string() }, None);

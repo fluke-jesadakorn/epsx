@@ -55,8 +55,8 @@ pub trait InternalSessionRepositoryPort: Send + Sync {
 /// OIDC token validator port
 #[async_trait::async_trait]
 pub trait OidcTokenValidator: Send + Sync {
-    async fn validate_access_token(&self, token: &str) -> Result<ValidatedToken, AuthenticationError>;
-    async fn validate_id_token(&self, token: &str) -> Result<IdTokenClaims, AuthenticationError>;
+    async fn validate_access_token(&self, _token: &str) -> Result<ValidatedToken, AuthenticationError>;
+    async fn validate_id_token(&self, _token: &str) -> Result<IdTokenClaims, AuthenticationError>;
     async fn refresh_tokens(&self, refresh_token: &str) -> Result<TokenPair, AuthenticationError>;
     async fn revoke_tokens(&self, access_token: &str) -> Result<(), AuthenticationError>;
 }
@@ -201,7 +201,7 @@ impl InternalAuthService {
             .await?;
 
         // Validate ID token if provided
-        let id_token_claims = if let Some(id_token) = &request.id_token {
+        let _id_token_claims = if let Some(id_token) = &request.id_token {
             Some(self.oidc_validator.validate_id_token(id_token).await?)
         } else {
             None
@@ -218,10 +218,10 @@ impl InternalAuthService {
 
         // Create or update authentication session
         let session_id = SessionId::generate();
-        let mut security_context = SecurityContext::new();
+        let _security_context = SecurityContext::new();
         
         // Update security context with client information if available
-        if let (Some(client_ip), Some(user_agent)) = (&request.client_ip, &request.user_agent) {
+        if let (Some(_client_ip), Some(_user_agent)) = (&request.client_ip, &request.user_agent) {
             // In a real implementation, we'd extract and add IP/device info
             // For now, create a simple security context
         }
@@ -243,7 +243,7 @@ impl InternalAuthService {
         let user_id = AuthenticatedUserId::from_verified_user(validated_token.user_id);
         let provider = AuthenticationProvider::firebase();
         
-        let mut auth_session = AuthenticationSession::create_new(
+        let auth_session = AuthenticationSession::create_new(
             user_id,
             provider,
             client_info,
@@ -327,7 +327,7 @@ impl InternalAuthService {
         session_id: &SessionId,
     ) -> Result<TokenPair, AuthenticationError> {
         // Get session
-        let mut session = self.session_repository
+        let session = self.session_repository
             .get_session(session_id)
             .await?
             .ok_or(AuthenticationError::SessionNotFound)?;

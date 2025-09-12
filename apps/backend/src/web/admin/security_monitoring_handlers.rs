@@ -7,9 +7,6 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 
-use crate::domain::authentication::services::{
-    ThreatDetectionService, SecurityEvent, SecurityMetrics, ThreatSeverity, SecurityEventType
-};
 use crate::web::auth::AppState;
 
 /// Security monitoring handlers for admin dashboard
@@ -195,7 +192,7 @@ impl SecurityMonitoringHandlers {
     }
 
     // Mock data generators for testing - replace with real service integration
-    fn mock_security_events(query: &SecurityEventsQuery) -> Vec<SecurityEventDto> {
+    fn mock_security_events(_query: &SecurityEventsQuery) -> Vec<SecurityEventDto> {
         vec![
             SecurityEventDto {
                 id: "evt_001".to_string(),

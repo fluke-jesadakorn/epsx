@@ -72,7 +72,7 @@ impl SessionSecurityService {
         
         // Check IP restrictions if policy requires it
         if security_policy.enforce_ip_binding {
-            if let Some(original_ip) = session.ip_address() {
+            if let Some(_original_ip) = session.ip_address() {
                 // In a real implementation, this would check against current request IP
                 // For now, we'll assume it's valid
             }

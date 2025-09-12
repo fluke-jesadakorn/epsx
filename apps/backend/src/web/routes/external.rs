@@ -6,19 +6,15 @@ use axum::{
     Router,
     middleware as axum_middleware,
     Extension,
-    extract::{Request, State},
-    response::{Response, Json},
-    http::{HeaderMap, HeaderValue, StatusCode},
+    response::Json,
 };
 use serde_json::{json, Value};
-use std::{sync::Arc, time::Instant};
+use std::sync::Arc;
 use crate::{
     infrastructure::AppContainer,
     web::middleware::{
-        rate_limiter::{UnifiedRateLimiter, RateLimitConfig, ClientId},
         contextual_middleware::external_middleware_stack,
     },
-    domain::shared_kernel::value_objects::UserId,
 };
 
 pub struct ExternalRoutes;

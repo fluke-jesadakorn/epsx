@@ -7,6 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth';
 import { useSecurityEvents, useSecurityMetrics, useCriticalAlerts } from '@/hooks/useSecurityMonitoring';
 import { getSeverityBadgeColor, getEventTypeIcon, formatThreatScore } from '@/lib/api/security-monitoring-client';
+import { logger } from '@/lib/logger';
 
 interface PermissionAuditEvent {
   id: string;
@@ -86,7 +87,7 @@ export function PermissionAuditDashboard() {
         );
       }
     } catch (error) {
-      console.error('Failed to resolve alert:', error);
+      logger.error('Failed to resolve alert', { alertId, error });
     }
   };
 

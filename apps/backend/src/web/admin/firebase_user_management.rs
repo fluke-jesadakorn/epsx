@@ -600,7 +600,7 @@ pub async fn set_user_role(
 /// Convert Firebase user to API response format
 async fn convert_firebase_user_to_response(
     firebase_user: &FirebaseUser,
-    firebase_user_service: &FirebaseUserService,
+    _firebase_user_service: &FirebaseUserService,
 ) -> UserResponse {
     // Get role from custom claims or default
     let role = firebase_user.custom_claims.get("role")

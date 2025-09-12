@@ -326,7 +326,6 @@ pub async fn conditional_auth_middleware(
     next: axum::middleware::Next,
 ) -> Result<axum::response::Response, axum::http::StatusCode> {
     use crate::web::middleware::stateless_auth_middleware;
-    use crate::infrastructure::security::get_threat_detection_service;
     
     let flags = get_feature_flags();
     
@@ -429,12 +428,12 @@ async fn extract_user_info_from_request<B>(
 }
 
 /// Parse token to extract user information (simplified)
-fn parse_token_for_user_info(token: &str) -> Option<(String, bool, bool)> {
+fn parse_token_for_user_info(_token: &str) -> Option<(String, bool, bool)> {
     // This is a simplified implementation
     // In practice, you might want to decode the JWT payload
     // without validating (since we just need user ID for decision)
     
-    let parts: Vec<&str> = token.split('.').collect();
+    let parts: Vec<&str> = _token.split('.').collect();
     if parts.len() != 3 {
         return None;
     }
@@ -465,7 +464,7 @@ pub fn get_feature_flags() -> &'static FeatureFlags {
 }
 
 /// Update global feature flags (for admin interface)
-pub fn update_global_feature_flags(updates: HashMap<String, String>) -> Result<(), String> {
+pub fn update_global_feature_flags(_updates: HashMap<String, String>) -> Result<(), String> {
     // Note: This is simplified - in production you'd want proper synchronization
     // and possibly external configuration management
     warn!("Dynamic feature flag updates not fully implemented in this version");
@@ -504,7 +503,7 @@ mod tests {
         assert_eq!(result1, result2);
         
         // Different users should get different assignments (statistically)
-        let mut stateless_count = 0;
+        let stateless_count = 0;
         for i in 0..100 {
             if flags.should_use_stateless_auth(&format!("user{}", i), false, false) {
                 stateless_count += 1;

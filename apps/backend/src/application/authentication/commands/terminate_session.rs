@@ -241,7 +241,7 @@ mod tests {
     #[test]
     fn security_termination_must_revoke_tokens() {
         let session_id = SessionId::generate();
-        let mut command = TerminateSessionCommand::security_termination(session_id);
+        let command = TerminateSessionCommand::security_termination(session_id);
         command.revoke_tokens = false; // Invalid for security termination
         
         assert!(command.validate().is_err());
@@ -249,7 +249,7 @@ mod tests {
     
     #[test]
     fn termination_statistics() {
-        let mut stats = TerminationStatistics::default();
+        let stats = TerminationStatistics::default();
         
         stats.record_termination(&TerminationReason::UserLogout);
         stats.record_termination(&TerminationReason::SecurityThreat);

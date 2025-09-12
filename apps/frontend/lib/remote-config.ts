@@ -7,6 +7,7 @@
 
 import { remoteConfig } from './firebase'
 import { fetchAndActivate, getValue, getAll } from 'firebase/remote-config'
+import { logger, devLog, safeError } from '@/lib/logger'
 
 // ============================================================================
 // User Settings Types & Interfaces
@@ -146,19 +147,19 @@ remoteConfig.defaultConfig = {
  */
 export async function fetchRemoteConfig(): Promise<boolean> {
   try {
-    console.log('🔄 Fetching Firebase Remote Config...')
+    devLog('Fetching Firebase Remote Config...')
     
     const activated = await fetchAndActivate(remoteConfig)
     
     if (activated) {
-      console.log('✅ Remote Config fetched and activated successfully')
+      devLog('Remote Config fetched and activated successfully')
     } else {
-      console.log('ℹ️ Remote Config fetched but not activated (no changes)')
+      devLog('Remote Config fetched but not activated (no changes)')
     }
     
     return activated
   } catch (error) {
-    console.error('❌ Failed to fetch Remote Config:', error)
+    logger.error('Failed to fetch Remote Config', error)
     return false
   }
 }
@@ -207,7 +208,7 @@ export function getAllRemoteSettings(): RemoteUserSettings {
       }
     }
   } catch (error) {
-    console.error('❌ Failed to get Remote Config values:', error)
+    logger.error('Failed to get Remote Config values', error)
     return defaultConfig
   }
 }
@@ -230,7 +231,7 @@ export function getRemoteConfigValue(key: string): string | boolean | number {
     // Return as string
     return value.asString()
   } catch (error) {
-    console.error(`❌ Failed to get Remote Config value for key "${key}":`, error)
+    logger.error(`Failed to get Remote Config value for key "${key}"`, error)
     return ''
   }
 }
@@ -254,7 +255,7 @@ export function getLastFetchTime(): Date | null {
     const timestamp = remoteConfig.fetchTimeMillis
     return timestamp ? new Date(timestamp) : null
   } catch (error) {
-    console.error('❌ Failed to get Remote Config fetch time:', error)
+    logger.error('Failed to get Remote Config fetch time', error)
     return null
   }
 }
@@ -276,7 +277,7 @@ export function getRemoteConfigStatus(): {
       activeConfig: Object.keys(getAll(remoteConfig)).length > 0
     }
   } catch (error) {
-    console.error('❌ Failed to get Remote Config status:', error)
+    logger.error('Failed to get Remote Config status', error)
     return {
       isReady: false,
       lastFetchTime: null,

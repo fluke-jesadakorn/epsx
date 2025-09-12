@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
+import { clientConfig } from '@/config/env';
 
 interface LoginFormProps {
   redirectTo?: string;
@@ -26,7 +27,7 @@ export function LoginForm({ redirectTo = '/dashboard' }: LoginFormProps) {
 
     try {
       // POST directly to our backend OIDC endpoint
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io';
+      const backendUrl = clientConfig.apiUrl;
       const response = await fetch(`${backendUrl}/oauth/login-post`, {
         method: 'POST',
         headers: {

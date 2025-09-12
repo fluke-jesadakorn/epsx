@@ -108,7 +108,7 @@ pub async fn list_users_handler(
     State(app_state): State<AppState>,
     Query(query): Query<AdminListUsersQuery>,
 ) -> Result<Json<Value>, StatusCode> {
-    let user_id = extract_user_id_from_context()?;
+    let user_id = extractuser_id_from_context()?;
     verify_admin_permissions(&user_id, "/api/v1/admin/users", "GET").await?;
     
     tracing::info!("🏗️ Admin list users handler called - user_id: '{}', offset: {}, limit: {}", 
@@ -171,10 +171,10 @@ pub async fn list_users_handler(
 
 /// POST /admin/users - Create a new user (admin only)
 pub async fn create_user_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     Json(req): Json<AdminCreateUserRequest>,
 ) -> Result<Json<Value>, StatusCode> {
-    let user_id = extract_user_id_from_context()?;
+    let user_id = extractuser_id_from_context()?;
     verify_admin_permissions(&user_id, "/api/v1/admin/users", "POST").await?;
     
     tracing::info!(
@@ -192,11 +192,11 @@ pub async fn create_user_handler(
     tracing::info!("Admin create user request received - DDD implementation pending");
     
     // Generate mock user ID for response
-    let mock_user_id = uuid::Uuid::new_v4().to_string();
+    let mockuser_id = uuid::Uuid::new_v4().to_string();
 
     Ok(Json(json!({
         "message": "User created successfully - DDD implementation pending",
-        "user_id": mock_user_id,
+        "user_id": mockuser_id,
         "email": req.email,
         "permissions": req.permissions,
         "display_name": req.display_name,
@@ -209,10 +209,10 @@ pub async fn get_user_handler(
     State(app_state): State<AppState>,
     Path(user_id): Path<String>,
 ) -> Result<Json<Value>, StatusCode> {
-    let admin_user_id = extract_user_id_from_context()?;
-    verify_admin_permissions(&admin_user_id, "/api/v1/admin/users", "GET").await?;
+    let adminuser_id = extractuser_id_from_context()?;
+    verify_admin_permissions(&adminuser_id, "/api/v1/admin/users", "GET").await?;
     
-    tracing::info!("Admin get user handler called for user: {} by admin: {}", user_id, admin_user_id);
+    tracing::info!("Admin get user handler called for user: {} by admin: {}", user_id, adminuser_id);
     
     // Get user using DDD query handler (treating user_id as firebase_uid)
     let firebase_uid_obj = match crate::domain::user_management::value_objects::FirebaseUid::new(user_id.clone()) {
@@ -248,7 +248,7 @@ pub async fn get_user_handler(
         .collect();
     
     // TODO: Add audit logging when audit interface is confirmed
-    tracing::info!("Successfully retrieved user details for user: {} by admin: {}", user_id, admin_user_id);
+    tracing::info!("Successfully retrieved user details for user: {} by admin: {}", user_id, adminuser_id);
     
     Ok(Json(json!({
         "user_id": user_response.firebase_uid.as_str(),
@@ -270,10 +270,10 @@ pub async fn update_user_handler(
     Path(user_id): Path<String>,
     Json(req): Json<AdminUpdateUserRequest>,
 ) -> Result<Json<Value>, StatusCode> {
-    let admin_user_id = extract_user_id_from_context()?;
-    verify_admin_permissions(&admin_user_id, "/api/v1/admin/users", "PUT").await?;
+    let adminuser_id = extractuser_id_from_context()?;
+    verify_admin_permissions(&adminuser_id, "/api/v1/admin/users", "PUT").await?;
     
-    tracing::info!("Admin update user handler called for user: {} by admin: {}", user_id, admin_user_id);
+    tracing::info!("Admin update user handler called for user: {} by admin: {}", user_id, adminuser_id);
     
     if req.permissions.is_none() && req.email.is_none() {
         tracing::warn!("No update fields provided for user: {}", user_id);
@@ -369,14 +369,14 @@ pub async fn delete_user_handler(
     State(app_state): State<AppState>,
     Path(user_id): Path<String>,
 ) -> Result<Json<Value>, StatusCode> {
-    let admin_user_id = extract_user_id_from_context()?;
-    verify_admin_permissions(&admin_user_id, "/api/v1/admin/users", "DELETE").await?;
+    let adminuser_id = extractuser_id_from_context()?;
+    verify_admin_permissions(&adminuser_id, "/api/v1/admin/users", "DELETE").await?;
     
-    tracing::info!("Admin delete user handler called for user: {} by admin: {}", user_id, admin_user_id);
+    tracing::info!("Admin delete user handler called for user: {} by admin: {}", user_id, adminuser_id);
     
     // Prevent admin from deleting themselves
-    if user_id == admin_user_id {
-        tracing::warn!("Admin attempted to delete their own account: {}", admin_user_id);
+    if user_id == adminuser_id {
+        tracing::warn!("Admin attempted to delete their own account: {}", adminuser_id);
         return Err(StatusCode::BAD_REQUEST);
     }
     
@@ -393,7 +393,7 @@ pub async fn delete_user_handler(
         firebase_uid: firebase_uid_obj,
     };
     
-    let user_response = match app_state.ddd_container.user_query_service().get_user_by_firebase_uid(query).await {
+    let _user_response = match app_state.ddd_container.user_query_service().get_user_by_firebase_uid(query).await {
         Ok(response) => response,
         Err(e) => {
             match e {
@@ -418,13 +418,13 @@ pub async fn delete_user_handler(
     // TODO: Implement role cleanup and save using DDD command handler
     tracing::info!("User {} deletion processing with DDD architecture", user_id);
     
-    tracing::info!("Successfully soft-deleted user: {} by admin: {}", user_id, admin_user_id);
+    tracing::info!("Successfully soft-deleted user: {} by admin: {}", user_id, adminuser_id);
     
     Ok(Json(json!({
         "user_id": user_id,
         "message": "User deleted successfully - DDD implementation pending",
         "deleted_at": chrono::Utc::now(),
-        "deleted_by": admin_user_id,
+        "deleted_by": adminuser_id,
         "status": "soft_deleted"
     })))
 }
@@ -434,10 +434,10 @@ pub async fn get_user_stats_handler(
     State(app_state): State<AppState>,
     Query(query): Query<AdminUserStatsQuery>,
 ) -> Result<Json<Value>, StatusCode> {
-    let admin_user_id = extract_user_id_from_context()?;
-    verify_admin_permissions(&admin_user_id, "/api/v1/admin/analytics", "GET").await?;
+    let adminuser_id = extractuser_id_from_context()?;
+    verify_admin_permissions(&adminuser_id, "/api/v1/admin/analytics", "GET").await?;
     
-    tracing::info!("Admin user stats handler called by admin: {}", admin_user_id);
+    tracing::info!("Admin user stats handler called by admin: {}", adminuser_id);
     
     // Get user statistics using DDD
     tracing::info!("Getting real user statistics from database using DDD");
@@ -458,7 +458,7 @@ pub async fn get_user_stats_handler(
     };
     
     // Query active users 
-    let active_users_query = ListUsersQuery {
+    let _active_users_query = ListUsersQuery {
         limit: 1,
         offset: 0,
         email_domain_filter: None,
@@ -500,7 +500,7 @@ pub async fn get_user_stats_handler(
     let created_by_month: std::collections::HashMap<String, i32> = std::collections::HashMap::new();
     response["user_creation_by_month"] = json!(created_by_month);
     
-    tracing::info!("User statistics generated successfully for admin: {}", admin_user_id);
+    tracing::info!("User statistics generated successfully for admin: {}", adminuser_id);
     
     Ok(Json(response))
 }
@@ -510,11 +510,11 @@ pub async fn bulk_update_users_handler(
     State(app_state): State<AppState>,
     Json(req): Json<AdminBulkUpdateRequest>,
 ) -> Result<Json<Value>, StatusCode> {
-    let admin_user_id = extract_user_id_from_context()?;
-    verify_admin_permissions(&admin_user_id, "/api/v1/admin/users", "PUT").await?;
+    let adminuser_id = extractuser_id_from_context()?;
+    verify_admin_permissions(&adminuser_id, "/api/v1/admin/users", "PUT").await?;
     
     tracing::info!("Admin bulk update handler called for {} users by admin: {}", 
-                  req.user_ids.len(), admin_user_id);
+                  req.user_ids.len(), adminuser_id);
     
     if req.user_ids.is_empty() {
         tracing::warn!("Empty user_ids list provided for bulk update");
@@ -550,7 +550,7 @@ pub async fn bulk_update_users_handler(
         total_processed += 1;
         
         // Prevent admin from bulk updating themselves
-        if user_id == admin_user_id {
+        if user_id == adminuser_id {
             failed_updates.push(json!({
                 "user_id": user_id,
                 "error": "Cannot bulk update own account"
@@ -667,7 +667,7 @@ pub async fn bulk_update_users_handler(
     let failure_count = failed_updates.len();
     
     tracing::info!("Bulk update completed: {} successful, {} failed out of {} total by admin: {}", 
-                  success_count, failure_count, total_processed, admin_user_id);
+                  success_count, failure_count, total_processed, adminuser_id);
     
     Ok(Json(json!({
         "message": "Bulk update completed",
@@ -680,7 +680,7 @@ pub async fn bulk_update_users_handler(
             "failed": failed_updates
         },
         "processed_at": Utc::now(),
-        "processed_by": admin_user_id
+        "processed_by": adminuser_id
     })))
 }
 
@@ -689,8 +689,8 @@ pub async fn get_level_history_handler(
     State(app_state): State<AppState>,
     Query(query): Query<AdminLevelHistoryQuery>,
 ) -> Result<Json<Value>, StatusCode> {
-    let admin_user_id = extract_user_id_from_context()?;
-    verify_admin_permissions(&admin_user_id, "/api/v1/admin/users", "GET").await?;
+    let adminuser_id = extractuser_id_from_context()?;
+    verify_admin_permissions(&adminuser_id, "/api/v1/admin/users", "GET").await?;
     
     tracing::info!("Getting level history for user: {}", query.user_id);
     
@@ -798,8 +798,8 @@ pub async fn assign_permission_profiles_handler(
     State(app_state): State<AppState>,
     Json(req): Json<AdminPermissionProfileAssignRequest>,
 ) -> Result<Json<AdminPermissionProfileAssignResponse>, StatusCode> {
-    let admin_user_id = extract_user_id_from_context()?;
-    verify_admin_permissions(&admin_user_id, "/api/v1/admin/permission-profiles", "POST").await?;
+    let adminuser_id = extractuser_id_from_context()?;
+    verify_admin_permissions(&adminuser_id, "/api/v1/admin/permission-profiles", "POST").await?;
     
     tracing::info!("Assigning permission profile {} to {} users", req.profile_id, req.user_ids.len());
     
@@ -961,7 +961,7 @@ async fn verify_admin_permissions(
 
 /// Extract user ID from request context with JWT/session handling
 /// Supports both Authorization header and session-based authentication
-fn extract_user_id_from_context() -> Result<String, StatusCode> {
+fn extractuser_id_from_context() -> Result<String, StatusCode> {
     // Development mode: Allow admin access for testing
     let rust_env = get_env_var("RUST_ENV").unwrap_or_default();
     if rust_env == "development" || rust_env.is_empty() {
@@ -984,7 +984,7 @@ fn extract_user_id_from_context() -> Result<String, StatusCode> {
 pub async fn list_api_keys_handler(
     State(_app_state): State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
-    let user_id = extract_user_id_from_context()?;
+    let user_id = extractuser_id_from_context()?;
     verify_admin_permissions(&user_id, "/api/v1/admin/api-keys", "GET").await?;
     
     tracing::info!("Admin API keys list handler called for user: {}", user_id);

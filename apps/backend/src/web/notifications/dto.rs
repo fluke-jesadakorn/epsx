@@ -3,7 +3,6 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 // Temporarily use strings instead of enum types
-// use crate::infrastructure::adapters::repositories::diesel::types::{NotificationPriority, NotificationType, DeliveryChannel};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RegisterFcmTokenRequest {
@@ -21,7 +20,7 @@ pub struct RegisterFcmTokenResponse {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct SendNotificationRequest {
-    pub recipient_user_id: Option<Uuid>,
+    pub recipientuser_id: Option<Uuid>,
     pub fcm_topic_id: Option<String>,
     pub title: String,
     pub body: String,

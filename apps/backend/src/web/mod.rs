@@ -26,7 +26,7 @@ use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 use axum::middleware as axum_middleware;
 
-use crate::infrastructure::AppContainer;
+use crate::infrastructure::container::AppContainer;
 
 /// Health check handler
 pub async fn health_handler() -> Json<Value> {

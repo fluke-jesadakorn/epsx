@@ -66,7 +66,7 @@ where
 
 /// Get allowed origins for CORS based on environment
 pub fn get_allowed_origins() -> Vec<String> {
-    let mut origins = Vec::new();
+    let origins = Vec::new();
     
     // Frontend URLs
     if let Ok(frontend_url) = get_env_var("FRONTEND_URL") {
@@ -101,7 +101,7 @@ pub fn get_allowed_origins() -> Vec<String> {
 
 /// Validate that all required security environment variables are set
 pub fn validate_security_config() -> Result<(), Vec<String>> {
-    let mut errors = Vec::new();
+    let errors = Vec::new();
     
     if is_production() {
         // Check for production-required security variables

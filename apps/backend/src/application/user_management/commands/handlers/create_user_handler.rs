@@ -147,10 +147,10 @@ mod tests {
     #[tokio::test]
     async fn create_user_handler_success() {
         // Arrange
-        let mut mock_repo = MockUserRepo::new();
+        let mock_repo = MockUserRepo::new();
         let event_bus = Arc::new(InMemoryEventBus::new());
         
-        let new_user_id = UserId::new();
+        let newuser_id = UserId::new();
         
         mock_repo
             .expect_find_by_email()
@@ -162,7 +162,7 @@ mod tests {
         
         mock_repo
             .expect_next_identity()
-            .returning(move || Ok(new_user_id.clone()));
+            .returning(move || Ok(newuser_id.clone()));
         
         mock_repo
             .expect_save()
@@ -191,7 +191,7 @@ mod tests {
     #[tokio::test]
     async fn create_user_handler_email_already_exists() {
         // Arrange
-        let mut mock_repo = MockUserRepo::new();
+        let mock_repo = MockUserRepo::new();
         let event_bus = Arc::new(InMemoryEventBus::new());
         
         // Mock finding an existing user

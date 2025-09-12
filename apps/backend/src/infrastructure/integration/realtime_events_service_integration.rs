@@ -185,7 +185,7 @@ impl RealtimeEventsServiceIntegration {
         ip_address: String,
     ) -> Result<ConnectionRegistrationResult, String> {
         let connection_id = ConnectionId::new();
-        let realtime_user_id = RealtimeUserId::new(user_id.to_string())
+        let realtimeuser_id = RealtimeUserId::new(user_id.to_string())
             .map_err(|e| format!("Invalid user ID: {:?}", e))?;
 
         let connection_info = ConnectionInfo {
@@ -198,7 +198,7 @@ impl RealtimeEventsServiceIntegration {
 
         // Store connection
         self.connection_repository
-            .store_connection(&connection_id, &realtime_user_id, connection_info)
+            .store_connection(&connection_id, &realtimeuser_id, connection_info)
             .await?;
 
         tracing::info!(

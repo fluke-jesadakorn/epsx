@@ -153,13 +153,13 @@ impl AuthenticationSessionRepositoryPort for AuthenticationSessionRepositoryAdap
         info!(user_id = %user_id, "Finding sessions for user");
         
         // Extract numeric user ID for legacy repository
-        let numeric_user_id = user_id.user_id().to_string()
+        let numericuser_id = user_id.user_id().to_string()
             .parse::<i32>()
             .map_err(|e| format!("Invalid user ID format: {}", e))?;
         
-        match self.legacy_session_repo.find_sessions_by_user_id(numeric_user_id).await {
+        match self.legacy_session_repo.find_sessions_byuser_id(numericuser_id).await {
             Ok(legacy_sessions) => {
-                let mut sessions = Vec::new();
+                let sessions = Vec::new();
                 
                 for legacy_session in legacy_sessions {
                     let legacy_data = LegacySessionData {
@@ -301,7 +301,7 @@ mod tests {
             Ok(None)
         }
         
-        async fn find_sessions_by_user_id(&self, _user_id: i32) -> Result<Vec<crate::domain::shared_kernel::entities::session::Session>, Box<dyn std::error::Error + Send + Sync>> {
+        async fn find_sessions_byuser_id(&self, user_id: i32) -> Result<Vec<crate::domain::shared_kernel::entities::session::Session>, Box<dyn std::error::Error + Send + Sync>> {
             Ok(vec![])
         }
         

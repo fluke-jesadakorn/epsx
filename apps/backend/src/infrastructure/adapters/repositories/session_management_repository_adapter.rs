@@ -187,7 +187,7 @@ impl SessionManagementRepositoryAdapter {
     }
     
     /// Load manager state from database (placeholder implementation)
-    async fn load_manager_state_from_db(&self, _user_id: &AuthenticatedUserId) -> Result<Option<SessionManagerState>, String> {
+    async fn load_manager_state_from_db(&self, user_id: &AuthenticatedUserId) -> Result<Option<SessionManagerState>, String> {
         // In production, this would query the session_managers table
         Ok(None)
     }
@@ -373,7 +373,7 @@ impl SessionManagerRepositoryPort for SessionManagementRepositoryAdapter {
             .parse::<i32>()
             .map_err(|e| format!("Invalid user ID: {}", e))?;
         
-        match self.legacy_session_repo.find_sessions_by_user_id(user_id_i32).await {
+        match self.legacy_session_repo.find_sessions_byuser_id(user_id_i32).await {
             Ok(sessions) => {
                 Ok(SessionStatistics {
                     user_id: user_id.to_string(),
@@ -406,7 +406,7 @@ impl SessionManagementRepositoryAdapter {
             crate::domain::shared_kernel::value_objects::UserId::new(legacy_session.user_id.to_string())
         );
         
-        let mut metadata = SessionMetadata::new(
+        let metadata = SessionMetadata::new(
             session_id,
             user_id,
             crate::domain::authentication::ProviderType::Firebase, // Default provider
@@ -429,13 +429,13 @@ impl SessionManagementRepositoryAdapter {
     
     /// Convert session metadata to legacy session
     fn convert_metadata_to_legacy(&self, metadata: &SessionMetadata) -> Result<crate::domain::shared_kernel::entities::session::Session, String> {
-        let numeric_user_id = metadata.user_id.user_id().to_string()
+        let numericuser_id = metadata.user_id.user_id().to_string()
             .parse::<i32>()
             .map_err(|e| format!("Invalid user ID for legacy format: {}", e))?;
         
         Ok(crate::domain::shared_kernel::entities::session::Session {
             id: None, // Will be auto-generated
-            user_id: numeric_user_id,
+            user_id: numericuser_id,
             firebase_uid: Some(metadata.user_id.to_string()),
             ip_address: metadata.ip_addresses.first().map(|ip| ip.address.clone()),
             expires_at: metadata.expires_at,
@@ -499,7 +499,7 @@ mod tests {
             }))
         }
         
-        async fn find_sessions_by_user_id(&self, _user_id: i32) -> Result<Vec<crate::domain::shared_kernel::entities::session::Session>, Box<dyn std::error::Error + Send + Sync>> {
+        async fn find_sessions_byuser_id(&self, user_id: i32) -> Result<Vec<crate::domain::shared_kernel::entities::session::Session>, Box<dyn std::error::Error + Send + Sync>> {
             Ok(vec![])
         }
         

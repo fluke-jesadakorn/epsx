@@ -97,7 +97,7 @@ fn build_content_security_policy() -> String {
     let allowed_origins = super::get_allowed_origins();
     let origins_str = allowed_origins.join(" ");
 
-    let mut csp_parts = vec![
+    let csp_parts = vec![
         "default-src 'self'".to_string(),
         format!("connect-src 'self' {} wss://data.tradingview.com https://api.tradingview.com", origins_str),
         "font-src 'self' data: https://fonts.gstatic.com".to_string(),
@@ -182,7 +182,7 @@ pub fn api_security_headers() -> Vec<(HeaderName, HeaderValue)> {
 
 /// Security headers for OIDC endpoints
 pub fn oidc_security_headers() -> Vec<(HeaderName, HeaderValue)> {
-    let mut headers = api_security_headers();
+    let headers = api_security_headers();
     
     // Additional OIDC-specific headers
     headers.extend([
@@ -201,7 +201,7 @@ pub fn oidc_security_headers() -> Vec<(HeaderName, HeaderValue)> {
 
 /// Security headers for admin endpoints
 pub fn admin_security_headers() -> Vec<(HeaderName, HeaderValue)> {
-    let mut headers = api_security_headers();
+    let headers = api_security_headers();
     
     // Additional admin-specific headers
     headers.extend([

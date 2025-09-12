@@ -250,7 +250,7 @@ impl ResourceTrackingService {
             .await?;
 
         // Calculate totals
-        let total_cost: Decimal = category_totals.values().sum();
+        let _total_cost: Decimal = category_totals.values().sum();
         let total_users = top_consumers.iter()
             .filter(|c| matches!(c.identifier_type, ConsumerType::User))
             .count() as u64;

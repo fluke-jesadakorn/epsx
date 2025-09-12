@@ -40,6 +40,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 
 import type { User, ActivityLog, AuditLog, PermissionHealth } from '@/types/core';
 import { adminClient } from '@/lib/api/unified-admin-client';
+import { logger } from '@/lib/logger';
 
 interface UserProfileProps {
   userId?: string;
@@ -202,7 +203,7 @@ export function UserProfile({
       setPermissionHealth(mockPermissionHealth);
 
     } catch (error) {
-      console.error('Failed to load user activity:', error);
+      logger.error('Failed to load user activity', { userId: user?.id, error });
     } finally {
       setIsLoading(false);
     }

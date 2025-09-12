@@ -10,6 +10,7 @@ use std::sync::Arc;
 use serde::{ Deserialize, Serialize };
 use crate::web::auth::AppState;
 use crate::application::user_management::{GetUserByFirebaseUidQuery, ListUsersQuery};
+use crate::infrastructure::integration::AuthenticationError;
 use serde_json::{ json, Value };
 
 #[derive(Deserialize)]
@@ -432,10 +433,10 @@ pub async fn login_handler(
     Err(e) => {
       tracing::error!(error = %e, "Login failed via DDD");
       match e {
-        crate::infrastructure::AuthenticationError::InvalidToken => {
+        AuthenticationError::InvalidToken => {
           Err(StatusCode::UNAUTHORIZED)
         },
-        crate::infrastructure::AuthenticationError::UserIdentity(_) => {
+        AuthenticationError::UserIdentity(_) => {
           Err(StatusCode::FORBIDDEN)
         },
         _ => Err(StatusCode::INTERNAL_SERVER_ERROR)
@@ -447,7 +448,7 @@ pub async fn login_handler(
 /// POST /logout - Logout current user
 pub async fn logout_handler(
   State(app_state): State<AppState>,
-  headers: HeaderMap,
+  _headers: HeaderMap,
   Json(logout_req): Json<LogoutRequest>
 ) -> Result<Json<Value>, StatusCode> {
   tracing::info!("Processing logout via DDD authentication service");
@@ -470,7 +471,7 @@ pub async fn logout_handler(
     Err(e) => {
       tracing::error!(error = %e, "Logout failed via DDD");
       match e {
-        crate::infrastructure::AuthenticationError::SessionNotFound => {
+        AuthenticationError::SessionNotFound => {
           // Already logged out, return success
           Ok(Json(json!({
             "message": "Logout successful (session not found)",
@@ -522,7 +523,7 @@ pub async fn upsert_user(
     "message": "User upsert not yet implemented",
     "status": "stub",
     "user": {
-      "id": "stub_user_id",
+      "id": "stubuser_id",
       "email": "stub@example.com",
       "created": false,
       "updated": false
@@ -564,7 +565,7 @@ pub async fn refresh_handler(
     Err(e) => {
       tracing::error!(error = %e, "Token refresh failed via DDD");
       match e {
-        crate::infrastructure::AuthenticationError::InvalidRefreshToken => {
+        AuthenticationError::InvalidRefreshToken => {
           Err(StatusCode::UNAUTHORIZED)
         },
         _ => Err(StatusCode::INTERNAL_SERVER_ERROR)
@@ -620,7 +621,7 @@ pub async fn validate_session_handler(
   tracing::info!("Validating session via DDD authentication service");
 
   // Extract IP address for security monitoring
-  let ip_address = headers.get("x-forwarded-for")
+  let _ip_address = headers.get("x-forwarded-for")
     .or_else(|| headers.get("x-real-ip"))
     .and_then(|h| h.to_str().ok())
     .unwrap_or("unknown")

@@ -288,7 +288,7 @@ mod tests {
         let user_id = AuthenticatedUserId::from_verified_user(UserId::new().unwrap());
         let expires_at = Utc::now() + Duration::hours(8);
         
-        let mut metadata = SessionMetadata::new(session_id, user_id, ProviderType::Firebase, expires_at);
+        let metadata = SessionMetadata::new(session_id, user_id, ProviderType::Firebase, expires_at);
         
         let initial_access_count = metadata.access_count;
         metadata.record_access();
@@ -302,7 +302,7 @@ mod tests {
         let user_id = AuthenticatedUserId::from_verified_user(UserId::new().unwrap());
         let expires_at = Utc::now() + Duration::hours(8);
         
-        let mut metadata = SessionMetadata::new(session_id, user_id, ProviderType::Firebase, expires_at);
+        let metadata = SessionMetadata::new(session_id, user_id, ProviderType::Firebase, expires_at);
         
         metadata.add_ip_address("192.168.1.1".to_string(), Some("New York".to_string()));
         metadata.add_ip_address("192.168.1.1".to_string(), Some("New York".to_string())); // Same IP
@@ -319,7 +319,7 @@ mod tests {
         let user_id = AuthenticatedUserId::from_verified_user(UserId::new().unwrap());
         let expires_at = Utc::now() + Duration::hours(8);
         
-        let mut metadata = SessionMetadata::new(session_id, user_id, ProviderType::Firebase, expires_at);
+        let metadata = SessionMetadata::new(session_id, user_id, ProviderType::Firebase, expires_at);
         
         // Record multiple suspicious activities
         for i in 0..6 {
@@ -337,7 +337,7 @@ mod tests {
         let user_id = AuthenticatedUserId::from_verified_user(UserId::new().unwrap());
         let expires_at = Utc::now() + Duration::hours(8);
         
-        let mut metadata = SessionMetadata::new(session_id, user_id, ProviderType::Firebase, expires_at);
+        let metadata = SessionMetadata::new(session_id, user_id, ProviderType::Firebase, expires_at);
         
         assert!(metadata.is_active());
         

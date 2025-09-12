@@ -25,7 +25,7 @@ impl FirebaseAdmin {
         self
     }
 
-    pub async fn verify_id_token(&self, token: &str) -> Result<FirebaseUser, FirebaseError> {
+    pub async fn verify_id_token(&self, _token: &str) -> Result<FirebaseUser, FirebaseError> {
         // Placeholder implementation
         tracing::info!("Verifying Firebase ID token");
         
@@ -129,7 +129,7 @@ impl FirebaseAdmin {
         Ok(())
     }
 
-    pub async fn confirm_password_reset(&self, oob_code: &str, new_password: &str) -> Result<(), FirebaseError> {
+    pub async fn confirm_password_reset(&self, oob_code: &str, _new_password: &str) -> Result<(), FirebaseError> {
         // Placeholder implementation
         tracing::info!("Confirming password reset with code: {}", oob_code);
         Ok(())
@@ -168,8 +168,8 @@ impl FirebaseAdmin {
     pub async fn create_user(
         &self, 
         email: Option<String>, 
-        password: Option<String>, 
-        display_name: Option<String>
+        _password: Option<String>, 
+        _display_name: Option<String>
     ) -> Result<String, FirebaseError> {
         tracing::info!("Creating Firebase user with email: {:?}", email);
         

@@ -1,6 +1,7 @@
 // Client-side JWT Parser for UI Control Only
 // WARNING: This is for UI rendering only - never use for authorization decisions
 
+import React from 'react';
 import { secureTokenRefreshManager } from './secure-token-refresh';
 
 export interface JWTClaims {

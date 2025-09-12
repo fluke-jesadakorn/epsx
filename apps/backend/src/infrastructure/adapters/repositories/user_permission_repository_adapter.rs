@@ -34,31 +34,31 @@ impl UserPermissionRepositoryAdapter {
 impl UserPermissionRepository for UserPermissionRepositoryAdapter {
     type Error = LegacyPermissionRepositoryError;
     
-    async fn get_user_permissions(&self, user_id: &UserId) -> Result<Vec<String>, Self::Error> {
+    async fn get_user_permissions(&self, _user_id: &UserId) -> Result<Vec<String>, Self::Error> {
         // Placeholder implementation
         // In a real implementation, this would query the database for user permissions
         Ok(vec![])
     }
     
-    async fn set_user_permissions(&self, user_id: &UserId, permissions: &[String]) -> Result<(), Self::Error> {
+    async fn set_user_permissions(&self, _user_id: &UserId, _permissions: &[String]) -> Result<(), Self::Error> {
         // Placeholder implementation
         // In a real implementation, this would update the database with the new permissions
         Ok(())
     }
     
-    async fn add_user_permission(&self, user_id: &UserId, permission: &str) -> Result<(), Self::Error> {
+    async fn add_user_permission(&self, _user_id: &UserId, _permission: &str) -> Result<(), Self::Error> {
         // Placeholder implementation
         // In a real implementation, this would add a permission to the database
         Ok(())
     }
     
-    async fn remove_user_permission(&self, user_id: &UserId, permission: &str) -> Result<(), Self::Error> {
+    async fn remove_user_permission(&self, _user_id: &UserId, _permission: &str) -> Result<(), Self::Error> {
         // Placeholder implementation
         // In a real implementation, this would remove a permission from the database
         Ok(())
     }
     
-    async fn has_permission(&self, user_id: &UserId, permission: &str) -> Result<bool, Self::Error> {
+    async fn has_permission(&self, _user_id: &UserId, _permission: &str) -> Result<bool, Self::Error> {
         // Placeholder implementation
         // In a real implementation, this would check if the user has the specified permission
         Ok(false)

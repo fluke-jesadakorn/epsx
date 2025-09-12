@@ -28,8 +28,8 @@ pub enum MarketDataError {
 pub struct TradingViewResponse {
     pub data: Vec<TradingViewStock>,
     /// Total count is not returned by TradingView API, calculated from data length
-    #[serde(default)]
-    pub totalCount: Option<i32>,
+    #[serde(default, rename = "totalCount")]
+    pub total_count: Option<i32>,
 }
 
 /// TradingView stock data from API

@@ -13,6 +13,7 @@ import {
   defaultConfig,
   type RemoteUserSettings 
 } from '@/lib/remote-config'
+import { logger, devLog, safeError } from '@/lib/logger'
 
 // ============================================================================
 // Context Definition
@@ -83,7 +84,7 @@ export function RemoteConfigProvider({
       setIsRefreshing(true)
       setError(null)
       
-      console.log('🔄 RemoteConfigProvider: Fetching Remote Config...')
+      devLog('RemoteConfigProvider: Fetching Remote Config...')
       
       const activated = await fetchRemoteConfig()
       const newSettings = getAllRemoteSettings()
@@ -95,14 +96,14 @@ export function RemoteConfigProvider({
       const configStatus = getRemoteConfigStatus()
       setLastFetchTime(configStatus.lastFetchTime)
       
-      console.log('✅ RemoteConfigProvider: Settings updated', {
+      devLog('RemoteConfigProvider: Settings updated', {
         activated,
         settingsCount: Object.keys(newSettings).length,
         lastFetch: configStatus.lastFetchTime
       })
       
     } catch (err) {
-      console.error('❌ RemoteConfigProvider: Error refreshing settings:', err)
+      logger.error('RemoteConfigProvider: Error refreshing settings', err)
       setError(err instanceof Error ? err.message : 'Failed to refresh Remote Config')
     } finally {
       setIsRefreshing(false)
@@ -120,7 +121,7 @@ export function RemoteConfigProvider({
         setSettings(currentSettings)
         updateStatus()
         
-        console.log('🔄 RemoteConfigProvider: Initialized with cached settings')
+        devLog('RemoteConfigProvider: Initialized with cached settings')
         
         // Fetch fresh settings if enabled
         if (fetchOnMount) {
@@ -128,7 +129,7 @@ export function RemoteConfigProvider({
         }
         
       } catch (err) {
-        console.error('❌ RemoteConfigProvider: Initialization error:', err)
+        logger.error('RemoteConfigProvider: Initialization error', err)
         setError(err instanceof Error ? err.message : 'Failed to initialize Remote Config')
       } finally {
         setIsLoading(false)
@@ -141,17 +142,17 @@ export function RemoteConfigProvider({
   // Auto-refresh setup
   useEffect(() => {
     if (autoRefreshInterval > 0) {
-      console.log(`🔄 RemoteConfigProvider: Setting up auto-refresh every ${autoRefreshInterval / 1000}s`)
+      devLog(`RemoteConfigProvider: Setting up auto-refresh every ${autoRefreshInterval / 1000}s`)
       
       const interval = setInterval(() => {
         if (!isRefreshing) {
-          console.log('🔄 RemoteConfigProvider: Auto-refresh triggered')
+          devLog('RemoteConfigProvider: Auto-refresh triggered')
           refreshSettings()
         }
       }, autoRefreshInterval)
 
       return () => {
-        console.log('🔄 RemoteConfigProvider: Cleaning up auto-refresh interval')
+        devLog('RemoteConfigProvider: Cleaning up auto-refresh interval')
         clearInterval(interval)
       }
     }

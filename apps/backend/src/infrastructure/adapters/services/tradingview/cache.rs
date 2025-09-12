@@ -362,7 +362,7 @@ mod tests {
 
     #[test]
     fn test_cache_operations() {
-        let mut cache = TradingViewCache::new();
+        let cache = TradingViewCache::new();
         
         // Test initial stats
         let stats = cache.get_stats();

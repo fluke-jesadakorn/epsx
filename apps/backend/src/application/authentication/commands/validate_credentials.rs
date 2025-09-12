@@ -58,7 +58,7 @@ impl ValidateCredentialsCommand {
     }
     
     /// Create refresh token validation
-    pub fn validate_refresh_token(token: String) -> Self {
+    pub fn validaterefresh_token(token: String) -> Self {
         Self {
             token,
             token_type: TokenType::RefreshToken,
@@ -300,10 +300,10 @@ mod tests {
     }
     
     #[test]
-    fn validate_refresh_token_command() {
+    fn validaterefresh_token_command() {
         let token = "rt_session123_jti456".to_string();
         
-        let command = ValidateCredentialsCommand::validate_refresh_token(token.clone());
+        let command = ValidateCredentialsCommand::validaterefresh_token(token.clone());
         
         assert_eq!(command.token, token);
         assert_eq!(command.token_type, TokenType::RefreshToken);
@@ -333,7 +333,7 @@ mod tests {
         assert!(command.validate().is_err());
         
         // ID token without openid scope
-        let mut command = ValidateCredentialsCommand::validate_id_token("token456".to_string());
+        let command = ValidateCredentialsCommand::validate_id_token("token456".to_string());
         command.required_scopes = vec![Scope::Profile]; // Remove openid
         assert!(command.validate().is_err());
     }

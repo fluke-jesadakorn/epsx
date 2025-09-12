@@ -32,7 +32,7 @@ impl AppContainer {
     pub async fn new() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
         // Initialize database connection pool
         let database_url = std::env::var("DATABASE_URL")
-            .unwrap_or_else(|_| "postgresql://localhost/epsx".to_string());
+            .map_err(|_| "DATABASE_URL environment variable is required")?;
         let db_pool = crate::infrastructure::adapters::repositories::diesel::create_diesel_pool(&database_url).await
             .map_err(|e| format!("Failed to create database connection pool: {}", e))?;
         
@@ -43,7 +43,7 @@ impl AppContainer {
         
         // Initialize Firebase Admin
         let project_id = std::env::var("FIREBASE_PROJECT_ID")
-            .unwrap_or_else(|_| "epsx-test".to_string());
+            .map_err(|_| "FIREBASE_PROJECT_ID environment variable is required")?;
         let firebase_admin = Arc::new(FirebaseAdmin::new(project_id));
         
         // Initialize cache
@@ -111,7 +111,7 @@ impl AppContainer {
             ddd_container,
             user_repo,
             session_repo,
-            permission_application_service: None, // Placeholder until implemented
+            permission_service: Arc::new(crate::domain::authorization::services::stateless_permission_service::StatelessPermissionService),
             rate_limiting_service: Some(rate_limiting_service),
         })
     }
@@ -190,7 +190,7 @@ impl AppContainer {
         ));
         
         // Create rate limit configuration
-        let rate_limit_config = Arc::new(crate::domain::resource_management::services::RateLimitConfig::default());
+        let rate_limit_config = Arc::new(crate::domain::resource_management::services::rate_limiting_service::RateLimitConfig::default());
         
         // Create the rate limiting service
         let rate_limiting_service = crate::domain::resource_management::services::RateLimitingService::new(

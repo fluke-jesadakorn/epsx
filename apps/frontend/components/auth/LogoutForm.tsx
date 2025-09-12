@@ -4,6 +4,7 @@ import { LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { logger, devLog, safeError } from '@/lib/logger';
 
 interface LogoutFormProps {
   className?: string;
@@ -31,13 +32,13 @@ export function LogoutForm({ className, variant = 'outline' }: LogoutFormProps) 
         router.push('/');
         router.refresh();
       } else {
-        console.error('Logout failed:', response.statusText);
+        logger.error('Logout failed', { status: response.status, statusText: response.statusText });
         // Still redirect even if logout API fails
         router.push('/');
         router.refresh();
       }
     } catch (error) {
-      console.error('Logout error:', error);
+      logger.error('Logout error', error);
       // Still redirect even if there's an error
       router.push('/');
       router.refresh();

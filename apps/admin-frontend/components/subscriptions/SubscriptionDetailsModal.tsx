@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { PancakeCard } from '@/components/ui/PancakeCard'
 import { adminClient, SubscriptionResponse, UpdateSubscriptionRequest, isApiSuccess } from '@/lib/api/unified-admin-client'
 import { toast } from '@/hooks/use-toast'
+import { logger } from '@/lib/logger'
 
 interface SubscriptionDetailsModalProps {
   subscription: SubscriptionResponse
@@ -33,7 +34,7 @@ export function SubscriptionDetailsModal({ subscription, onClose, onUpdate }: Su
         setPlans(response.data?.plans || [])
       }
     } catch (error) {
-      console.error('Failed to load plans:', error)
+      logger.error('Failed to load plans', { error })
     }
   }
 

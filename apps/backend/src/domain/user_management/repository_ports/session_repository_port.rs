@@ -13,16 +13,16 @@ pub trait SessionRepositoryPort: Send + Sync {
     async fn find_by_id(&self, id: &SessionId) -> Result<Option<Session>, DomainError>;
     
     /// Find sessions by user ID
-    async fn find_by_user_id(&self, user_id: &UserId) -> Result<Vec<Session>, DomainError>;
+    async fn find_byuser_id(&self, user_id: &UserId) -> Result<Vec<Session>, DomainError>;
     
     /// Find active sessions for a user (not expired, not revoked)
-    async fn find_active_by_user_id(&self, user_id: &UserId) -> Result<Vec<Session>, DomainError>;
+    async fn find_active_byuser_id(&self, user_id: &UserId) -> Result<Vec<Session>, DomainError>;
     
     /// Find sessions by access token
     async fn find_by_access_token(&self, access_token: &str) -> Result<Option<Session>, DomainError>;
     
     /// Find sessions by refresh token
-    async fn find_by_refresh_token(&self, refresh_token: &str) -> Result<Option<Session>, DomainError>;
+    async fn find_byrefresh_token(&self, refresh_token: &str) -> Result<Option<Session>, DomainError>;
     
     /// Save a session (create or update)
     async fn save(&self, session: &Session) -> Result<(), DomainError>;

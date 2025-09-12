@@ -508,7 +508,7 @@ diesel::table! {
     referrals (id) {
         id -> Int4,
         affiliate_id -> Nullable<Int4>,
-        referred_user_id -> Nullable<Int4>,
+        referreduser_id -> Nullable<Int4>,
         referral_source -> Nullable<Varchar>,
         referral_medium -> Nullable<Varchar>,
         referral_campaign -> Nullable<Varchar>,

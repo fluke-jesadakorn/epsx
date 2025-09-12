@@ -32,7 +32,7 @@ impl SessionRepositoryStub {
         Ok(None)
     }
     
-    pub async fn find_sessions_by_user_id(&self, _user_id: i32) -> Result<Vec<Session>, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn find_sessions_byuser_id(&self, user_id: i32) -> Result<Vec<Session>, Box<dyn std::error::Error + Send + Sync>> {
         // Return empty vector for now
         Ok(vec![])
     }

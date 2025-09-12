@@ -53,6 +53,7 @@ import { Progress } from '@/components/ui/progress';
 import type { User, Permission } from '@/types/core';
 import type { SelectOption } from '@/types/ui';
 import { adminClient } from '@/lib/api/unified-admin-client';
+import { logger } from '@/lib/logger';
 
 // Form validation schemas
 const createUserSchema = z.object({
@@ -224,7 +225,7 @@ export function UserForms({
         });
       }
     } catch (error) {
-      console.error('Create user error:', error);
+      logger.error('Create user error', { userData: data, error });
       toast({
         title: "Error",
         description: "Network error. Please check your connection and try again.",
@@ -310,7 +311,7 @@ export function UserForms({
         });
       }
     } catch (error) {
-      console.error('Edit user error:', error);
+      logger.error('Edit user error', { userId: user?.id, updateData: data, error });
       toast({
         title: "Error",
         description: "Network error. Please check your connection and try again.",
@@ -338,7 +339,7 @@ export function UserForms({
       bulkForm.reset();
       setSelectedUsers([]);
     } catch (error) {
-      console.error('Bulk operation error:', error);
+      logger.error('Bulk operation error', { operationType: data.operationType, selectedUsers, error });
     } finally {
       setIsSubmitting(false);
     }
@@ -357,9 +358,9 @@ export function UserForms({
       }
 
       // In a real implementation, parse CSV and create users
-      console.log('CSV import completed:', file.name);
+      logger.info('CSV import completed', { fileName: file.name });
     } catch (error) {
-      console.error('CSV import error:', error);
+      logger.error('CSV import error', { fileName: file.name, error });
     } finally {
       setIsImporting(false);
       setImportProgress(0);

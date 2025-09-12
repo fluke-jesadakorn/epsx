@@ -265,7 +265,7 @@ mod tests {
     
     #[test]
     fn test_affiliate_stats() {
-        let mut stats = AffiliateStats::new();
+        let stats = AffiliateStats::new();
         stats.total_clicks = 100;
         stats.total_conversions = 15;
         stats.calculate_conversion_rate();

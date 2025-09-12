@@ -1,7 +1,7 @@
 // Pure OIDC Authorization Code Flow implementation
 
 use crate::domain::shared_kernel::value_objects::{UserId, SessionId};
-use crate::domain::user_management::{User, Email, FirebaseUid, UserRepositoryPort, SessionRepositoryPort};
+use crate::domain::user_management::{User, Email, FirebaseUid, SessionRepositoryPort};
 use crate::domain::user_management::aggregates::session::Session;
 use chrono::{DateTime, Utc};
 
@@ -754,8 +754,8 @@ fn serve_login_with_error(form_data: &LoginFormData, error_message: &str) -> Res
 
 /// Log authentication event for audit purposes
 async fn log_authentication_event(
-    app_state: &AppState,
-    email: &str,
+    _app_state: &AppState,
+    _email: &str,
     firebase_uid: &str,
     success: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -767,7 +767,7 @@ async fn log_authentication_event(
     let action = AuditAction::Login;
     let result = if success { AuditResult::Success } else { AuditResult::Failed };
 
-    let entry = AuditLogEntry::new(
+    let _entry = AuditLogEntry::new(
         Some(user_id),
         action,
         ResourceType::Session,
@@ -1015,7 +1015,7 @@ async fn store_authorization_code_direct(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     use crate::infrastructure::adapters::repositories::diesel::create_pool;
     use crate::infrastructure::adapters::repositories::diesel::repos::DieselSessionRepository;
-    use crate::application::ports::repositories::SessionRepository;
+    // Removed unused import
     use crate::infrastructure::adapters::repositories::diesel::repos::DieselUserRepository;
     use std::sync::Arc;
     use chrono::{Utc, Duration};

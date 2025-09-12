@@ -52,7 +52,7 @@ impl RefreshTokenService {
     }
 
     /// Generate a new refresh token
-    pub async fn create_refresh_token(
+    pub async fn createrefresh_token(
         &self,
         user_id: &str,
         client_id: &str,
@@ -92,7 +92,7 @@ impl RefreshTokenService {
     }
 
     /// Rotate a refresh token (use current token to generate new one)
-    pub async fn rotate_refresh_token(
+    pub async fn rotaterefresh_token(
         &self,
         current_token: &str,
         device_info: Option<String>,
@@ -415,10 +415,10 @@ mod tests {
     use super::*;
 
     #[tokio::test]
-    async fn test_refresh_token_creation() {
+    async fn testrefresh_token_creation() {
         let service = RefreshTokenService::new();
         
-        let token = service.create_refresh_token(
+        let token = service.createrefresh_token(
             "user123", 
             "client456", 
             "openid profile", 
@@ -428,17 +428,17 @@ mod tests {
         assert!(!token.is_empty());
         
         // Validate the token
-        let token_data = service.validate_refresh_token(&token).await.unwrap();
+        let token_data = service.validaterefresh_token(&token).await.unwrap();
         assert_eq!(token_data.user_id, "user123");
         assert_eq!(token_data.client_id, "client456");
         assert!(!token_data.revoked);
     }
 
     #[tokio::test]
-    async fn test_refresh_token_rotation() {
+    async fn testrefresh_token_rotation() {
         let service = RefreshTokenService::new();
         
-        let original_token = service.create_refresh_token(
+        let original_token = service.createrefresh_token(
             "user123", 
             "client456", 
             "openid profile", 
@@ -446,23 +446,23 @@ mod tests {
         ).await.unwrap();
         
         // Rotate the token
-        let rotation = service.rotate_refresh_token(&original_token, None).await.unwrap();
+        let rotation = service.rotaterefresh_token(&original_token, None).await.unwrap();
         
         assert_ne!(rotation.new_token, original_token);
         assert_eq!(rotation.new_token_data.rotation_count, 1);
         
         // Original token should be revoked
-        assert!(service.validate_refresh_token(&original_token).await.is_err());
+        assert!(service.validaterefresh_token(&original_token).await.is_err());
         
         // New token should be valid
-        assert!(service.validate_refresh_token(&rotation.new_token).await.is_ok());
+        assert!(service.validaterefresh_token(&rotation.new_token).await.is_ok());
     }
 
     #[tokio::test]
     async fn test_token_revocation() {
         let service = RefreshTokenService::new();
         
-        let token = service.create_refresh_token(
+        let token = service.createrefresh_token(
             "user123", 
             "client456", 
             "openid profile", 
@@ -470,13 +470,13 @@ mod tests {
         ).await.unwrap();
         
         // Token should be valid initially
-        assert!(service.validate_refresh_token(&token).await.is_ok());
+        assert!(service.validaterefresh_token(&token).await.is_ok());
         
         // Revoke the token
-        let revoked_ids = service.revoke_refresh_token(&token, "admin", "security").await.unwrap();
+        let revoked_ids = service.revokerefresh_token(&token, "admin", "security").await.unwrap();
         assert!(!revoked_ids.is_empty());
         
         // Token should now be invalid
-        assert!(service.validate_refresh_token(&token).await.is_err());
+        assert!(service.validaterefresh_token(&token).await.is_err());
     }
 }

@@ -14,7 +14,7 @@ use serde::Deserialize;
 
 use crate::web::middleware::user_auth::{user_auth_middleware, AuthenticatedUser};
 use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
-use crate::infrastructure::InfraFactory;
+use crate::infrastructure::container::InfraFactory;
 use crate::config::Config;
 use crate::infrastructure::cache::{CacheFactory, Cache};
 
@@ -149,7 +149,7 @@ pub async fn create_analytics_router(_infra_factory: &InfraFactory) -> Router {
     // Create stock analysis adapter for the repository layer
     let eps_repository = std::sync::Arc::new(crate::infrastructure::adapters::repositories::EPSRepositoryAdapter::new());
     let eps_service = std::sync::Arc::new(crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService::new(eps_repository));
-    let stock_analysis_adapter = std::sync::Arc::new(
+    let _stock_analysis_adapter = std::sync::Arc::new(
         crate::infrastructure::adapters::repositories::StockAnalysisRepositoryAdapter::new(
             eps_service
         )

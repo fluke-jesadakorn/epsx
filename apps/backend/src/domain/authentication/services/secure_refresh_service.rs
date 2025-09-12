@@ -172,14 +172,15 @@ impl SecureRefreshService {
         let old_token = self.validate_refresh_token(refresh_token, &context)?;
         
         // Get token family
-        let mut family = self.get_token_family(&old_token.family_id)?;
+        let family = self.get_token_family(&old_token.family_id)?;
         
         // Security checks
         self.perform_security_checks(&old_token, &family, &context)?;
         
         // Check family lifetime
         if self.is_family_expired(&family) {
-            self.revoke_family(&mut family, "Family lifetime exceeded")?;
+            let mut family_mut = family;
+            self.revoke_family(&mut family_mut, "Family lifetime exceeded")?;
             return Err(RefreshError::TokenExpired);
         }
         
@@ -191,6 +192,7 @@ impl SecureRefreshService {
         let new_refresh_token_string = self.create_token_string(&new_refresh_token);
         
         // Update family usage
+        let mut family = family;
         family.usage_count += 1;
         family.last_used_at = context.timestamp;
         

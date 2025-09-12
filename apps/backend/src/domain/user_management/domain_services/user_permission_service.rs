@@ -332,7 +332,7 @@ mod tests {
     
     #[test]
     fn admin_specification_works() {
-        let mut user = create_test_user();
+        let user = create_test_user();
         let admin_spec = IsAdminSpecification;
         
         // Initially not admin
@@ -348,7 +348,7 @@ mod tests {
     
     #[test]
     fn platform_access_specification_works() {
-        let mut user = create_test_user();
+        let user = create_test_user();
         let epsx_spec = HasPlatformAccessSpecification::new("epsx".to_string());
         
         // Initially no access
@@ -365,7 +365,7 @@ mod tests {
     #[test]
     fn temporary_permissions_creation() {
         let service = UserPermissionService;
-        let mut base_permissions = HashSet::new();
+        let base_permissions = HashSet::new();
         base_permissions.insert(Permission::new("epsx:temp:access").unwrap());
         
         let temp_permissions = service.create_temporary_permissions(

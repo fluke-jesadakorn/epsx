@@ -113,7 +113,7 @@ impl CommandHandler<CreateSessionCommand> for CreateSessionHandler {
         info!(
             session_id = %response.session_id,
             expires_in = response.expires_in_seconds(),
-            has_refresh_token = response.has_refresh_token(),
+            hasrefresh_token = response.hasrefresh_token(),
             has_id_token = response.has_id_token(),
             "Authentication session created successfully"
         );
@@ -252,7 +252,7 @@ mod tests {
             Ok(None)
         }
         
-        async fn find_by_user(&self, _user_id: &AuthenticatedUserId) -> Result<Vec<AuthenticationSession>, String> {
+        async fn find_by_user(&self, user_id: &AuthenticatedUserId) -> Result<Vec<AuthenticationSession>, String> {
             Ok(vec![])
         }
         
@@ -267,14 +267,14 @@ mod tests {
             Ok(true)
         }
         
-        async fn validate_refresh_token(&self, _token: &str) -> Result<bool, String> {
+        async fn validaterefresh_token(&self, _token: &str) -> Result<bool, String> {
             Ok(true)
         }
     }
     
     #[async_trait]
     impl SecurityMonitoringServicePort for MockSecurityMonitoringService {
-        async fn record_session_creation(&self, _session_id: &SessionId, _user_id: &AuthenticatedUserId, _ip: Option<&str>) -> Result<(), String> {
+        async fn record_session_creation(&self, session_id: &SessionId, user_id: &AuthenticatedUserId, _ip: Option<&str>) -> Result<(), String> {
             Ok(())
         }
         
@@ -282,7 +282,7 @@ mod tests {
             Ok(false)
         }
         
-        async fn is_rate_limited(&self, _user_id: &str) -> Result<bool, String> {
+        async fn is_rate_limited(&self, user_id: &str) -> Result<bool, String> {
             Ok(false)
         }
     }
@@ -316,7 +316,7 @@ mod tests {
         
         let response = result.unwrap();
         assert!(!response.access_token.is_empty());
-        assert!(response.has_refresh_token());
+        assert!(response.hasrefresh_token());
         assert!(response.expires_in_seconds() > 0);
     }
 }

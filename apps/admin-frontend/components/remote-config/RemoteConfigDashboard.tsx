@@ -7,6 +7,7 @@
 
 import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui'
+import { logger } from '@/lib/logger'
 import { 
   Settings, 
   Plus, 
@@ -68,7 +69,7 @@ export function RemoteConfigDashboard({ projectId, className }: RemoteConfigDash
       setEtag('mock-etag-' + Date.now())
       
     } catch (err) {
-      console.error('Error loading Remote Config:', err)
+      logger.error('Error loading Remote Config', { error: err })
       setError(err instanceof Error ? err.message : 'Failed to load configuration')
     } finally {
       setIsLoading(false)

@@ -4,30 +4,48 @@
 
 import { z } from 'zod';
 
-const envSchema = z.object({
+// Distinguish server vs client to avoid parsing server-only vars in the browser
+const isServer = typeof window === 'undefined';
+
+// Helpers for dynamic defaults
+function getFrontendUrl(): string {
+  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
+  if (process.env.NODE_ENV === 'production') return 'https://epsx.io';
+  return 'http://localhost:3000';
+}
+
+function getBackendUrl(): string {
+  const url = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL;
+  if (url) return url;
+  return process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : 'https://api.epsx.io';
+}
+
+function getAdminUrl(): string {
+  if (process.env.NEXT_PUBLIC_ADMIN_URL) return process.env.NEXT_PUBLIC_ADMIN_URL;
+  return process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : 'https://admin.epsx.io';
+}
+
+// Server-only schema (evaluated only on the server)
+const serverEnvSchema = z.object({
   // Core App Configuration
   NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
   PORT: z.string().transform(Number).default(3000),
-  APP_URL: z.string().url(),
+  APP_URL: z.string().url().default(getFrontendUrl()),
   SITE_URL: z.string().url().optional(),
 
   // Server-Only API URLs (never exposed to client)
-  BACKEND_URL: z.string().url().default(
-    process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : 'https://api.epsx.io'
-  ),
+  BACKEND_URL: z.string().url().default(getBackendUrl()),
 
   // Client-Safe API URLs (NEXT_PUBLIC_ - exposed to browser)
-  NEXT_PUBLIC_BACKEND_URL: z.string().url().default(
-    process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : 'https://api.epsx.io'
-  ),
+  NEXT_PUBLIC_BACKEND_URL: z.string().url().default(getBackendUrl()),
   NEXT_PUBLIC_API_URL: z.string().url().optional(),
-  NEXT_PUBLIC_APP_URL: z.string().url().default('https://epsx.io'),
-  NEXT_PUBLIC_ADMIN_URL: z.string().url().default('https://admin.epsx.io'),
+  NEXT_PUBLIC_APP_URL: z.string().url().default(getFrontendUrl()),
+  NEXT_PUBLIC_ADMIN_URL: z.string().url().default(getAdminUrl()),
 
   // Server-Only Authentication Secrets (never exposed)
-  NEXTAUTH_SECRET: z.string().min(1),
-  OIDC_CLIENT_ID: z.string().min(1),
-  OIDC_CLIENT_SECRET: z.string().min(1),
+  NEXTAUTH_SECRET: z.string().min(1).default('dev-secret-key-32-chars-minimum'),
+  OIDC_CLIENT_ID: z.string().min(1).default('epsx-frontend'),
+  OIDC_CLIENT_SECRET: z.string().min(1).default('dev-client-secret'),
 
   // Client-Safe Authentication (NEXT_PUBLIC_ - exposed to browser)
   NEXT_PUBLIC_OAUTH_CLIENT_ID: z.string().optional(),
@@ -64,6 +82,14 @@ const envSchema = z.object({
   // Server-Only Monitoring & Performance
   PERFORMANCE_MONITORING: z.string().optional(),
 
+  // Client-Safe Firebase Configuration (NEXT_PUBLIC_ - exposed to browser)
+  NEXT_PUBLIC_FIREBASE_API_KEY: z.string().optional(),
+  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: z.string().optional(),
+  NEXT_PUBLIC_FIREBASE_PROJECT_ID: z.string().optional(),
+  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: z.string().optional(),
+  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: z.string().optional(),
+  NEXT_PUBLIC_FIREBASE_APP_ID: z.string().optional(),
+
   // Client-Safe Feature Flags (NEXT_PUBLIC_ - exposed to browser)
   NEXT_PUBLIC_ENABLE_UNIFIED_USERS: z.string().optional(),
   NEXT_PUBLIC_ENABLE_SERVER_COMPONENTS: z.string().optional(),
@@ -77,7 +103,34 @@ const envSchema = z.object({
   NEXT_PUBLIC_BUILD_MODE: z.string().optional(),
 });
 
-export const env = envSchema.parse(process.env);
+// Client-only schema (evaluated in the browser). Only expose NEXT_PUBLIC_* vars.
+const clientEnvSchema = z.object({
+  NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
+  NEXT_PUBLIC_BACKEND_URL: z.string().url().default(getBackendUrl()),
+  NEXT_PUBLIC_API_URL: z.string().url().optional(),
+  NEXT_PUBLIC_APP_URL: z.string().url().default(getFrontendUrl()),
+  NEXT_PUBLIC_ADMIN_URL: z.string().url().default(getAdminUrl()),
+  NEXT_PUBLIC_OAUTH_CLIENT_ID: z.string().optional(),
+
+  NEXT_PUBLIC_FIREBASE_API_KEY: z.string().optional(),
+  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: z.string().optional(),
+  NEXT_PUBLIC_FIREBASE_PROJECT_ID: z.string().optional(),
+  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: z.string().optional(),
+  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: z.string().optional(),
+  NEXT_PUBLIC_FIREBASE_APP_ID: z.string().optional(),
+
+  NEXT_PUBLIC_ENABLE_UNIFIED_USERS: z.string().optional(),
+  NEXT_PUBLIC_ENABLE_SERVER_COMPONENTS: z.string().optional(),
+  NEXT_PUBLIC_ENABLE_NEW_NAV: z.string().optional(),
+  NEXT_PUBLIC_ENABLE_BUNDLE_OPT: z.string().optional(),
+  NEXT_PUBLIC_ROLLOUT_UNIFIED_USERS: z.string().optional(),
+  NEXT_PUBLIC_ROLLOUT_SERVER_COMPONENTS: z.string().optional(),
+  NEXT_PUBLIC_ROLLOUT_NEW_NAV: z.string().optional(),
+
+  NEXT_PUBLIC_BUILD_MODE: z.string().optional(),
+});
+
+export const env = (isServer ? serverEnvSchema : clientEnvSchema).parse(process.env as any);
 
 // Server-Only Configuration (secrets protected, never exposed to client)
 export const serverConfig = {
@@ -87,8 +140,16 @@ export const serverConfig = {
   
   // App URLs for server operations
   siteUrl: env.SITE_URL || env.APP_URL,
-  adminUrl: env.ADMIN_FRONTEND_URL || 'http://localhost:3001',
-  frontendUrl: env.FRONTEND_URL || 'http://localhost:3000',
+  adminUrl: env.ADMIN_FRONTEND_URL || (
+    process.env.NODE_ENV === 'production' 
+      ? (() => { throw new Error('ADMIN_FRONTEND_URL is required in production environment'); })()
+      : 'http://localhost:3001'
+  ),
+  frontendUrl: env.FRONTEND_URL || (
+    process.env.NODE_ENV === 'production'
+      ? (() => { throw new Error('FRONTEND_URL is required in production environment'); })()
+      : 'http://localhost:3000'
+  ),
   appUrl: env.APP_URL,
   
   // Authentication secrets
@@ -153,6 +214,16 @@ export const clientConfig = {
   // Public authentication configuration
   auth: {
     clientId: env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend',
+  },
+  
+  // Firebase client configuration
+  firebase: {
+    apiKey: env.NEXT_PUBLIC_FIREBASE_API_KEY,
+    authDomain: env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: env.NEXT_PUBLIC_FIREBASE_APP_ID,
   },
   
   // Build configuration

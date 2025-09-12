@@ -2,17 +2,17 @@
 // Zero-database JWT validation with comprehensive security checks
 
 use axum::{
-    extract::{Request, State},
+    extract::Request,
     http::{StatusCode, HeaderMap, header::AUTHORIZATION},
     middleware::Next,
     response::Response,
 };
 use crate::domain::authentication::value_objects::{SecureAccessToken, SecureAccessTokenClaims};
 use crate::infrastructure::security::{
-    get_threat_detection_service, SecurityEvent, SecurityContext, ThreatLevel
+    get_threat_detection_service, SecurityEvent, SecurityContext
 };
 use chrono::Utc;
-use tracing::{info, warn, error, debug};
+use tracing::{warn, error, debug};
 
 #[derive(Debug)]
 pub enum AuthenticationError {
@@ -355,7 +355,7 @@ mod tests {
     
     #[test]
     fn test_bearer_token_extraction() {
-        let mut headers = HeaderMap::new();
+        let headers = HeaderMap::new();
         headers.insert(AUTHORIZATION, HeaderValue::from_static("Bearer valid_token_here"));
         
         let token = extract_bearer_token(&headers).unwrap();
@@ -371,7 +371,7 @@ mod tests {
     
     #[test]
     fn test_device_fingerprint_generation() {
-        let mut headers = HeaderMap::new();
+        let headers = HeaderMap::new();
         headers.insert("user-agent", HeaderValue::from_static("Mozilla/5.0"));
         headers.insert("accept", HeaderValue::from_static("text/html"));
         headers.insert("accept-language", HeaderValue::from_static("en-US"));
@@ -400,7 +400,7 @@ mod tests {
     
     #[test]
     fn test_client_ip_extraction() {
-        let mut headers = HeaderMap::new();
+        let headers = HeaderMap::new();
         
         // Test X-Forwarded-For header
         headers.insert("x-forwarded-for", HeaderValue::from_static("203.0.113.1, 70.41.3.18"));

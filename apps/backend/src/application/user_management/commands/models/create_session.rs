@@ -100,7 +100,7 @@ impl CreateSessionCommand {
     }
     
     /// Set refresh token
-    pub fn with_refresh_token(mut self, refresh_token: String) -> Self {
+    pub fn withrefresh_token(mut self, refresh_token: String) -> Self {
         self.refresh_token = Some(refresh_token);
         self
     }
@@ -137,7 +137,7 @@ mod tests {
     }
     
     #[test]
-    fn create_session_command_validation_empty_user_id() {
+    fn create_session_command_validation_emptyuser_id() {
         let future_time = Utc::now() + Duration::hours(1);
         let command = CreateSessionCommand::new(
             "".to_string(),

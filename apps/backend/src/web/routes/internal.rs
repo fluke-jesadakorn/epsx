@@ -2,7 +2,7 @@
 // Context: OIDC authenticated users, session-based, feature usage tracking
 
 use axum::{
-    routing::{get, post, put, delete},
+    routing::{get, put},
     Router,
     middleware as axum_middleware,
     Extension,
@@ -11,8 +11,6 @@ use std::sync::Arc;
 use crate::{
     infrastructure::AppContainer,
     web::middleware::{
-        clean_auth::clean_auth_middleware,
-        user_auth::user_auth_middleware,
         contextual_middleware::internal_middleware_stack,
     },
 };

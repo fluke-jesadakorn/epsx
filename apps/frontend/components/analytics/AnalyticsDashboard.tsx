@@ -1,6 +1,7 @@
 'use client';
 
 import { useAnalyticsFilters } from '@/hooks/useAnalyticsFilters';
+import { logger, devLog, safeError } from '@/lib/logger';
 import { 
   AnalyticsClient, 
   UnifiedAnalyticsRankingsResponse, 
@@ -56,7 +57,7 @@ async function fetchEPSRankings(filters: AnalyticsFilters): Promise<UnifiedAnaly
     const response = await analyticsClient.getUnifiedAnalyticsRankings(queryParams);
     return response.data;
   } catch (error) {
-    console.error('Error fetching EPS rankings:', error);
+    logger.error('Error fetching EPS rankings', error);
     return null;
   }
 }
@@ -76,7 +77,7 @@ async function fetchFilterOptions(): Promise<RichFilterOptions> {
       stock_types: ['common', 'preferred', 'reit', 'etf'],
     };
   } catch (error) {
-    console.error('Error fetching filter options:', error);
+    logger.error('Error fetching filter options', error);
     
     // Return fallback data
     return {
@@ -182,7 +183,7 @@ export default function AnalyticsDashboard() {
         const options = await fetchFilterOptions();
         setFilterOptions(options);
       } catch (err) {
-        console.error('Failed to load filter options:', err);
+        logger.error('Failed to load filter options', err);
       }
     };
 
@@ -203,7 +204,7 @@ export default function AnalyticsDashboard() {
           setError('Failed to load rankings data');
         }
       } catch (err) {
-        console.error('Error loading analytics data:', err);
+        logger.error('Error loading analytics data', err);
         setError('An error occurred while loading data');
       } finally {
         setIsLoading(false);

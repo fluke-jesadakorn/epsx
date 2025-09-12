@@ -26,15 +26,9 @@ use super::unified_user_handlers::{
     get_user_activity_handler,
 };
 // Casbin handlers removed - using modern JWT auth system
-// use super::casbin_handlers::{...};
 // Removed permission profile handlers - using simple roles
-// use super::permission_profile_handlers::{...};
-
 // Removed temporary permission handlers - using simple roles
-// use super::temporary_permission_handlers::{...};
-
-// Removed permission export/import handlers - using simple roles  
-// use super::permission_export_import_handlers::{...};
+// Removed permission export/import handlers - using simple roles
 use super::analytics_handlers::{
     get_permission_analytics_handler,
     get_permission_recommendations_handler,

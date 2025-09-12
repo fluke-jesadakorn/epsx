@@ -117,7 +117,7 @@ impl ThreatDetectionService {
     }
 
     /// Get security events for admin dashboard
-    pub fn get_recent_security_events(&self, limit: usize) -> Vec<SecurityEvent> {
+    pub fn get_recent_security_events(&self, _limit: usize) -> Vec<SecurityEvent> {
         // In production, this would query from storage
         vec![]
     }
@@ -133,7 +133,7 @@ impl ThreatDetectionService {
         threat_score > 75.0
     }
 
-    fn detect_suspicious_login(&self, event: &AuthEvent) -> Option<SecurityEvent> {
+    fn detect_suspicious_login(&self, _event: &AuthEvent) -> Option<SecurityEvent> {
         // Detect patterns like:
         // - Multiple rapid logins
         // - Unusual time patterns
@@ -141,37 +141,37 @@ impl ThreatDetectionService {
         None
     }
 
-    fn detect_device_anomaly(&self, event: &AuthEvent) -> Option<SecurityEvent> {
+    fn detect_device_anomaly(&self, _event: &AuthEvent) -> Option<SecurityEvent> {
         // Detect device-related anomalies
         None
     }
 
-    fn detect_permission_escalation(&self, event: &AuthEvent) -> Option<SecurityEvent> {
+    fn detect_permission_escalation(&self, _event: &AuthEvent) -> Option<SecurityEvent> {
         // Detect permission escalation attempts
         None
     }
 
-    fn analyze_login_frequency(&self, user_id: &str) -> f64 {
+    fn analyze_login_frequency(&self, _user_id: &str) -> f64 {
         // Analyze login frequency patterns
         0.0
     }
 
-    fn analyze_device_diversity(&self, user_id: &str) -> f64 {
+    fn analyze_device_diversity(&self, _user_id: &str) -> f64 {
         // Analyze device usage patterns
         0.0
     }
 
-    fn analyze_geolocation_variance(&self, context: &SecurityContext) -> f64 {
+    fn analyze_geolocation_variance(&self, _context: &SecurityContext) -> f64 {
         // Analyze location-based anomalies
         0.0
     }
 
-    fn analyze_permission_usage(&self, user_id: &str) -> f64 {
+    fn analyze_permission_usage(&self, _user_id: &str) -> f64 {
         // Analyze permission usage patterns
         0.0
     }
 
-    fn get_user_threat_score(&self, user_id: &str) -> f64 {
+    fn get_user_threat_score(&self, _user_id: &str) -> f64 {
         // Get current threat score for user
         0.0
     }

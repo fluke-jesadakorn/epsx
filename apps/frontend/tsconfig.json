@@ -32,12 +32,14 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "jsx": "preserve",
+    "jsxImportSource": "react",
     "incremental": true,
     "tsBuildInfoFile": "./.cache/.tsbuildinfo",
     "forceConsistentCasingInFileNames": true
   },
   "include": [
     "next-env.d.ts",
+    "types/global.d.ts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts"

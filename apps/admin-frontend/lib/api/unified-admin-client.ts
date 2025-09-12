@@ -242,9 +242,16 @@ export class UnifiedAdminClient {
   private isServerSide: boolean;
 
   constructor(baseURL?: string, token?: string, serverSide = false) {
-    this.baseURL = baseURL || env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+    this.baseURL = baseURL || env.NEXT_PUBLIC_BACKEND_URL || this.getDefaultBackendUrl();
     this.token = token;
     this.isServerSide = serverSide;
+  }
+
+  private getDefaultBackendUrl(): string {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('NEXT_PUBLIC_BACKEND_URL is required in production environment');
+    }
+    return 'http://localhost:8080';
   }
 
   // Core HTTP Methods

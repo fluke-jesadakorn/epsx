@@ -29,6 +29,7 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
+import { logger } from '@/lib/logger';
 
 // Access levels configuration
 interface AccessLevelConfig {
@@ -136,7 +137,7 @@ export const DeveloperPortal: React.FC = () => {
         setModules(modulesRes.data.modules || []);
       }
     } catch (error) {
-      console.error('Failed to load data:', error);
+      logger.error('Failed to load developer portal data', { error });
       toast.error('Failed to load developer portal data');
     } finally {
       setLoading(false);
@@ -159,7 +160,7 @@ export const DeveloperPortal: React.FC = () => {
         toast.error('Failed to revoke API key');
       }
     } catch (error) {
-      console.error('Failed to revoke API key:', error);
+      logger.error('Failed to revoke API key', { keyId, error });
       toast.error('Failed to revoke API key');
     }
   };

@@ -493,8 +493,8 @@ fn resolve_from_permissions(
     user_permissions: &[String],
 ) -> ResolvedUserLimits {
     let ranking_limit = extract_ranking_limit(user_permissions);
-    let (api_per_minute, api_per_hour) = derive_api_limits_from_ranking(ranking_limit);
-    let api_endpoints = derive_api_endpoints_from_permissions(user_permissions);
+    let (_api_per_minute, api_per_hour) = derive_api_limits_from_ranking(ranking_limit);
+    let _api_endpoints = derive_api_endpoints_from_permissions(user_permissions);
 
     ResolvedUserLimits {
         user_id: user_id.to_string(),
@@ -598,7 +598,7 @@ pub fn get_effective_api_limits(
 /// Validate if user can access a specific endpoint (dynamic-aware)
 pub fn can_access_endpoint(
     user_permissions: &[String], 
-    dynamic_limit: Option<&DieselUserDynamicLimit>,
+    _dynamic_limit: Option<&DieselUserDynamicLimit>,
     endpoint: &str
 ) -> bool {
     // Dynamic limits don't contain endpoint restrictions in the current schema

@@ -10,15 +10,13 @@ use axum::{
 };
 use std::time::Instant;
 use tracing::{info, warn, debug};
-use serde_json::json;
 
 use crate::{
     web::auth::AppState,
-    web::routes::AccessContext,
     domain::shared_kernel::value_objects::UserId,
     domain::resource_management::{
         services::{
-            RateLimitingService, RateLimitRequest, AccessContext as RateLimitContext,
+            RateLimitRequest, rate_limiting_service::AccessContext as RateLimitContext,
             rate_limiting_service::IdentifierType,
         },
         ResourceType, ResourceCategory,
@@ -50,7 +48,7 @@ pub async fn internal_middleware_stack(
     );
 
     // Extract user identifier for rate limiting
-    let user_id = extract_user_id_from_request(&request)
+    let user_id = extractuser_id_from_request(&request)
         .unwrap_or_else(|| "anonymous".to_string());
 
     // Check internal rate limits
@@ -251,7 +249,7 @@ pub async fn admin_middleware_stack(
 
     // Check admin rate limits with audit focus
     if let Some(rate_limiter) = &state.rate_limiting_service {
-        let resource_category = determine_admin_resource_category(&uri.path());
+        let _resource_category = determine_admin_resource_category(&uri.path());
         
         let rate_limit_request = RateLimitRequest {
             identifier: admin_session.clone(),
@@ -398,7 +396,7 @@ fn create_rate_limit_response(result: crate::domain::resource_management::servic
         .unwrap_or_else(|_| Response::new(Body::from("Rate limit exceeded")))
 }
 
-fn extract_user_id_from_request(request: &Request) -> Option<String> {
+fn extractuser_id_from_request(request: &Request) -> Option<String> {
     // Try to extract user ID from various sources:
     // 1. Authorization header (OIDC token)
     // 2. Session cookie

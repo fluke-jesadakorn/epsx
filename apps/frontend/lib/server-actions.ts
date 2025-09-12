@@ -2,6 +2,7 @@
 
 import { cookies } from 'next/headers';
 import { verifyJWT, type JWTUser } from './auth-utils';
+import { logger, safeError } from '@/lib/logger';
 
 export interface User extends JWTUser {
   id: string;
@@ -9,6 +10,8 @@ export interface User extends JWTUser {
   image?: string;
   tier?: string;
   level?: string;
+  user_id?: string;
+  emailVerified?: boolean;
 }
 
 export interface FeatureAccess {
@@ -49,7 +52,7 @@ export async function getCurrentUser(): Promise<User | null> {
 
     return user;
   } catch (error) {
-    console.error('Failed to get current user:', error);
+    logger.error('Failed to get current user', error);
     return null;
   }
 }
@@ -67,7 +70,7 @@ export async function getCurrentUserWithResult(): Promise<{ success: boolean; da
 
     return { success: true, data: user };
   } catch (error) {
-    console.error('Failed to get current user:', error);
+    logger.error('Failed to get current user', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }
@@ -138,7 +141,7 @@ export async function getTransactionHistory(excludePending?: boolean): Promise<P
     // For now, return empty array to prevent build errors
     return [];
   } catch (error) {
-    console.error('Failed to get transaction history:', error);
+    logger.error('Failed to get transaction history', error);
     return [];
   }
 }

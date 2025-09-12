@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { logger, safeError } from '@/lib/logger';
 
 // Cookie configuration constants
 export const COOKIE_NAMES = {
@@ -74,7 +75,7 @@ export class ServerCookies {
       const cookieName = COOKIE_NAMES[name];
       return cookieStore.get(cookieName)?.value;
     } catch (error) {
-      console.error(`Error getting cookie ${name}:`, error);
+      logger.error(`Error getting cookie ${name}`, error);
       return undefined;
     }
   }
@@ -88,7 +89,7 @@ export class ServerCookies {
       const cookieName = COOKIE_NAMES[name];
       cookieStore.delete(cookieName);
     } catch (error) {
-      console.error(`Error deleting cookie ${name}:`, error);
+      logger.error(`Error deleting cookie ${name}`, error);
     }
   }
 
@@ -101,7 +102,7 @@ export class ServerCookies {
       const cookieName = COOKIE_NAMES[name];
       return cookieStore.has(cookieName);
     } catch (error) {
-      console.error(`Error checking cookie ${name}:`, error);
+      logger.error(`Error checking cookie ${name}`, error);
       return false;
     }
   }

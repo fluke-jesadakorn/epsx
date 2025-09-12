@@ -202,7 +202,7 @@ impl SecureAccessTokenClaims {
     }
     
     /// Get user ID from subject claim
-    pub fn get_user_id(&self) -> Result<UserId, TokenError> {
+    pub fn getuser_id(&self) -> Result<UserId, TokenError> {
         let user_id_str = self.sub
             .strip_prefix("auth:")
             .ok_or_else(|| TokenError::InvalidToken(
@@ -394,7 +394,7 @@ impl SecureAccessToken {
         DateTime::from_timestamp(self.claims.exp, 0)
             .unwrap_or_else(|| Utc::now())
     }
-    pub fn user_id(&self) -> Result<UserId, TokenError> { self.claims.get_user_id() }
+    pub fn user_id(&self) -> Result<UserId, TokenError> { self.claims.getuser_id() }
     pub fn permissions(&self) -> Vec<String> { self.claims.get_active_permissions() }
     pub fn jti(&self) -> &str { &self.claims.jti }
     pub fn session_id(&self) -> &str { &self.claims.session_id }
@@ -422,7 +422,7 @@ mod tests {
         assert!(claims.validate_integrity().is_ok());
         
         // Modify permissions without updating hash (simulating tampering)
-        let mut tampered_claims = claims.clone();
+        let tampered_claims = claims.clone();
         tampered_claims.permissions.push("admin:*:*".to_string());
         
         // Integrity check should fail

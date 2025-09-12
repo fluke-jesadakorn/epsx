@@ -190,7 +190,7 @@ pub fn admin_cors_layer() -> CorsLayer {
 
 /// Get allowed origins specifically for admin endpoints
 fn get_admin_origins() -> Vec<String> {
-    let mut origins = Vec::new();
+    let origins = Vec::new();
     
     // Admin frontend URLs only
     if let Ok(admin_url) = get_env_var("ADMIN_FRONTEND_URL") {
@@ -212,7 +212,7 @@ fn get_admin_origins() -> Vec<String> {
 
 /// Validate CORS configuration
 pub fn validate_cors_config() -> Result<(), Vec<String>> {
-    let mut errors = Vec::new();
+    let errors = Vec::new();
     let allowed_origins = super::get_allowed_origins();
     
     if is_production() {

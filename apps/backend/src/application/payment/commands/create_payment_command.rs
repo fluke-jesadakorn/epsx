@@ -222,7 +222,7 @@ mod tests {
             Ok(None)
         }
         
-        async fn find_by_user(&self, _user_id: &UserId) -> Result<Vec<Payment>, String> {
+        async fn find_by_user(&self, user_id: &UserId) -> Result<Vec<Payment>, String> {
             Ok(vec![])
         }
         
@@ -250,7 +250,7 @@ mod tests {
             Ok(())
         }
         
-        async fn get_user_payment_stats(&self, _user_id: &UserId) -> Result<crate::domain::payment::PaymentStats, String> {
+        async fn get_user_payment_stats(&self, user_id: &UserId) -> Result<crate::domain::payment::PaymentStats, String> {
             Ok(crate::domain::payment::PaymentStats {
                 total_payments: 0,
                 completed_payments: 0,

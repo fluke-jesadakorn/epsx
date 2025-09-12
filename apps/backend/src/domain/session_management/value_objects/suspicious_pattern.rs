@@ -300,7 +300,7 @@ mod tests {
     
     #[test]
     fn test_add_evidence() {
-        let mut pattern = SuspiciousPattern::new(
+        let pattern = SuspiciousPattern::new(
             PatternType::MaliciousIPAccess,
             SeverityLevel::Critical,
             "Malicious IP detected".to_string(),

@@ -533,13 +533,13 @@ pub async fn bulk_apply_permission_template(
         notify_users: None,
     };
     
-    let mut response = bulk_grant_permissions(State(state), Json(grant_request)).await?;
+    let response = bulk_grant_permissions(State(state), Json(grant_request)).await?;
     
     // Update operation name to reflect template application
-    let Json(ref mut response_data) = response;
+    let Json(mut response_data) = response;
     response_data.operation = format!("bulk_apply_template_{}", request.template_id);
     
-    Ok(response)
+    Ok(Json(response_data))
 }
 
 /// Validate permissions for multiple users

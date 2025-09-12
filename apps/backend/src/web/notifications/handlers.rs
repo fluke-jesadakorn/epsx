@@ -21,7 +21,7 @@ pub struct PaginationQuery {
 
 /// Register FCM token for authenticated user
 pub async fn register_fcm_token(
-    Extension(fcm_topic_service): Extension<Arc<FcmTopicService>>,
+    Extension(_fcm_topic_service): Extension<Arc<FcmTopicService>>,
     Extension(auth_user): Extension<AuthenticatedUser>,
     Json(request): Json<RegisterFcmTokenRequest>,
 ) -> Result<impl IntoResponse, AppError> {
@@ -81,7 +81,7 @@ pub async fn send_notification(
     // Create DDD notification using mapper
     let channels = vec!["push".to_string()]; // Default to push notification
     let ddd_notification = NotificationMapper::create_ddd_notification_from_legacy(
-        request.recipient_user_id,
+        request.recipientuser_id,
         request.fcm_topic_id.clone(),
         request.title.clone(),
         request.body.clone(),
@@ -139,7 +139,7 @@ pub async fn send_notification(
                 });
             }
         }
-    } else if let Some(user_id) = request.recipient_user_id {
+    } else if let Some(user_id) = request.recipientuser_id {
         // Individual user notification using DDD
         debug!("Sending notification to user {} via DDD adapter", user_id);
         
@@ -311,7 +311,7 @@ pub async fn track_notification(
 /// Get user notifications with real database query
 pub async fn get_user_notifications(
     Extension(auth_user): Extension<AuthenticatedUser>,
-    Extension(repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel::repos::UserNotificationRepository>>,
+    Extension(_repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel::repos::UserNotificationRepository>>,
     Query(pagination): Query<PaginationQuery>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("Fetching notifications for user: {}", auth_user.user_id);
@@ -353,7 +353,7 @@ pub async fn get_user_notifications(
 /// Get unread notifications only with real database query
 pub async fn get_unread_notifications(
     Extension(auth_user): Extension<AuthenticatedUser>,
-    Extension(repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel::repos::UserNotificationRepository>>,
+    Extension(_repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel::repos::UserNotificationRepository>>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("Fetching unread notifications for user: {}", auth_user.user_id);
     
@@ -406,7 +406,7 @@ pub async fn get_preferences(
 /// Get notification statistics (admin only) with real database query
 pub async fn get_notification_stats(
     Extension(auth_user): Extension<AuthenticatedUser>,
-    Extension(repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel::repos::UserNotificationRepository>>,
+    Extension(_repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel::repos::UserNotificationRepository>>,
 ) -> Result<impl IntoResponse, AppError> {
     // Check admin permissions
     if !auth_user.valid_permissions.iter().any(|p| p.starts_with("admin:")) {

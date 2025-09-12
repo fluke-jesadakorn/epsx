@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/popover'
 import { useNavbarContext } from '@/components/providers/NavbarProvider'
 import { type NotificationData } from '@/lib/actions/notification-actions'
+import { clientConfig } from '@/config/env'
 
 interface SimpleNotification {
   id: string
@@ -134,7 +135,7 @@ export function NotificationBellSimple({ className = "", showBadge = true, initi
           return
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/v1/notifications/unread`, {
+        const response = await fetch(`${clientConfig.apiUrl}/api/v1/notifications/unread`, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json'

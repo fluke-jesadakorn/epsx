@@ -58,7 +58,7 @@ pub async fn admin_send_notification(
         };
 
         Ok(Json(response))
-    } else if let Some(_user_id) = request.recipient_user_id {
+    } else if let Some(_user_id) = request.recipientuser_id {
         // For specific user notifications, we would need FCM token lookup
         // For now, return an error indicating this feature needs implementation
         Err(AppError {
@@ -72,7 +72,7 @@ pub async fn admin_send_notification(
     } else {
         Err(AppError {
             kind: crate::core::errors::ErrorKind::ValidationError,
-            message: "Either recipient_user_id or fcm_topic_id must be provided".to_string(),
+            message: "Either recipientuser_id or fcm_topic_id must be provided".to_string(),
             context: crate::core::errors::ErrorContext::default(),
             correlation_id: Uuid::new_v4().to_string(),
             timestamp: chrono::Utc::now(),
@@ -91,7 +91,7 @@ pub async fn admin_broadcast_to_topic() -> Result<impl IntoResponse, AppError> {
 /// Admin notification stats handler with real database query
 pub async fn admin_get_notification_stats(
     Extension(auth_user): Extension<AuthenticatedUser>,
-    Extension(repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel::repos::UserNotificationRepository>>,
+    Extension(_repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel::repos::UserNotificationRepository>>,
 ) -> Result<impl IntoResponse, AppError> {
     // Check admin permissions
     if !auth_user.valid_permissions.iter().any(|p| p.starts_with("admin:")) {
@@ -125,7 +125,7 @@ pub async fn admin_get_notification_stats(
 /// Admin get user notifications handler with real database query
 pub async fn admin_get_user_notifications(
     Extension(auth_user): Extension<AuthenticatedUser>,
-    Extension(repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel::repos::UserNotificationRepository>>,
+    Extension(_repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel::repos::UserNotificationRepository>>,
     Query(pagination): Query<PaginationQuery>,
     OriginalUri(uri): OriginalUri,
 ) -> Result<impl IntoResponse, AppError> {
@@ -223,7 +223,7 @@ pub async fn admin_get_user_notifications(
 /// Admin mark notification as read handler with real database operation
 pub async fn admin_mark_notification_read(
     Extension(auth_user): Extension<AuthenticatedUser>,
-    Extension(repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel::repos::UserNotificationRepository>>,
+    Extension(_repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel::repos::UserNotificationRepository>>,
     Path(notification_id): Path<Uuid>,
 ) -> Result<impl IntoResponse, AppError> {
     // Check admin permissions
@@ -254,7 +254,7 @@ pub async fn admin_mark_notification_read(
 /// Admin delete notification handler with real database operation
 pub async fn admin_delete_notification(
     Extension(auth_user): Extension<AuthenticatedUser>,
-    Extension(repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel::repos::UserNotificationRepository>>,
+    Extension(_repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel::repos::UserNotificationRepository>>,
     Path(notification_id): Path<Uuid>,
 ) -> Result<impl IntoResponse, AppError> {
     // Check admin permissions

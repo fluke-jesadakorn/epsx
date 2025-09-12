@@ -5,7 +5,7 @@ use axum::{
     middleware::Next,
     response::{Response, IntoResponse},
 };
-// use tower::Service; // Not needed for simple middleware
+// Tower Service not needed for simple middleware
 use tracing::{info, warn, error};
 use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
 use serde::{Deserialize, Serialize};
@@ -61,30 +61,7 @@ pub async fn cross_platform_auth_middleware(
         return Ok(next.run(request).await);
     }
 
-    // 🚨 DEVELOPMENT MODE BYPASS: Skip all authentication in development
-    let rust_env = get_env_var("RUST_ENV").unwrap_or_default();
-    if rust_env == "development" || rust_env.is_empty() {
-        info!("🚨 Development mode (RUST_ENV='{}'): Bypassing all authentication for endpoint: {}", rust_env, path);
-        
-        // Create a mock user for development
-        let dev_user = User {
-            id: "dev-user-admin@epsx.io".to_string(),
-            email: "admin@epsx.io".to_string(),
-            name: Some("Development Admin".to_string()),
-        };
-        
-        // Add user to request extensions for handlers
-        request.extensions_mut().insert(dev_user);
-        
-        // Add platform context for admin routes
-        if path.starts_with("/api/admin") || path.starts_with("/api/v1/admin") {
-            request.extensions_mut().insert(PlatformContext { 
-                platform: "admin".to_string() 
-            });
-        }
-        
-        return Ok(next.run(request).await);
-    }
+    // Production authentication - no bypasses allowed
 
     // Extract platform context from request
     let platform_context = extract_platform_context(&request);
@@ -176,13 +153,8 @@ pub async fn cross_platform_auth_middleware(
 
     // Check admin access for admin endpoints
     if path.starts_with("/api/admin") || path.starts_with("/api/v1/admin") {
-        // Development bypass: Allow admin access in development mode
-        if get_env_var("RUST_ENV").unwrap_or_default() == "development" {
-            info!(
-                "Development mode: Bypassing admin endpoint validation for user {} accessing: {}", 
-                user.email, path
-            );
-        } else if !JWT.validate_admin_endpoint(&user, &path) {
+        // Production admin validation - no bypasses
+        if !JWT.validate_admin_endpoint(&user, &path) {
             warn!(
                 "Admin access denied for user {} to endpoint: {}", 
                 user.email, path
@@ -199,13 +171,8 @@ pub async fn cross_platform_auth_middleware(
     // 🔥 STRUCTURED PERMISSION VALIDATION (Legacy support removed)
     if let Some(structured_permission) = get_structured_permission(&path, &platform_context) {
         if let Some((platform, resource, action)) = CROSS_PLATFORM_PERMISSION_SERVICE.parse_permission(&structured_permission) {
-            // Development bypass: Allow structured permissions in development mode
-            if get_env_var("RUST_ENV").unwrap_or_default() == "development" {
-                info!(
-                    "Development mode: Bypassing structured permission '{}' validation for user {} at endpoint: {}", 
-                    structured_permission, user.email, path
-                );
-            } else if !CROSS_PLATFORM_PERMISSION_SERVICE.validate_platform_permission(&user, &platform, &resource, &action) {
+            // Production structured permission validation - no bypasses
+            if !CROSS_PLATFORM_PERMISSION_SERVICE.validate_platform_permission(&user, &platform, &resource, &action) {
                 warn!(
                     "Structured permission '{}' denied for user {} to endpoint: {}", 
                     structured_permission, user.email, path
@@ -223,13 +190,8 @@ pub async fn cross_platform_auth_middleware(
 
     // Check package tier requirements
     if let Some(required_tier) = get_required_package_tier(&path) {
-        // Development bypass: Allow package tier access in development mode
-        if get_env_var("RUST_ENV").unwrap_or_default() == "development" {
-            info!(
-                "Development mode: Bypassing package tier '{}' validation for user {} at endpoint: {}", 
-                required_tier, user.email, path
-            );
-        } else if !JWT.has_package_tier_with_permissions(&permissions, &required_tier) {
+        // Production package tier validation - no bypasses
+        if !JWT.has_package_tier_with_permissions(&permissions, &required_tier) {
             warn!(
                 "Package tier '{}' required for user {} to access endpoint: {}", 
                 required_tier, user.email, path
@@ -485,7 +447,7 @@ impl AuthCtx {
     }
     
     /// Create AuthCtx from JWT token with full permission fetching
-    pub async fn from_jwt_token(token: &str, permission_service: &crate::application::services::PermissionApplicationService) -> Result<Self, StatusCode> {
+    pub async fn from_jwt_token(token: &str, _permission_service: &crate::application::services::PermissionApplicationService) -> Result<Self, StatusCode> {
         use crate::auth::jwt::JWT;
         
         // Extract user and permissions from JWT

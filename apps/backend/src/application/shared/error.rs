@@ -112,30 +112,37 @@ impl ApplicationError {
     }
 
     // Aliases for backward compatibility
+    #[allow(non_snake_case)]
     pub fn InfrastructureError(message: impl Into<String>) -> Self {
         Self::infrastructure(message)
     }
     
+    #[allow(non_snake_case)]
     pub fn SecurityError(message: impl Into<String>) -> Self {
         Self::authorization(message.into())
     }
     
+    #[allow(non_snake_case)]
     pub fn ValidationError(field: impl Into<String>, message: impl Into<String>) -> Self {
         Self::validation(field, message)
     }
     
+    #[allow(non_snake_case)]
     pub fn AuthorizationError(action: impl Into<String>) -> Self {
         Self::authorization(action)
     }
     
+    #[allow(non_snake_case)]
     pub fn NotImplemented(feature: impl Into<String>) -> Self {
         Self::not_implemented(feature)
     }
     
+    #[allow(non_snake_case)]
     pub fn BusinessLogicError(message: impl Into<String>) -> Self {
         Self::business_logic(message)
     }
     
+    #[allow(non_snake_case)]
     pub fn DomainError(message: impl Into<String>) -> Self {
         Self::Domain(crate::domain::shared_kernel::DomainError::BusinessRuleViolation {
             rule: message.into()
