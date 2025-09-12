@@ -91,7 +91,7 @@ pub async fn get_unified_analytics_rankings_cached(
     )?;
 
   // Convert TradingView screening results to EPS rankings format while preserving quarterly data
-  let mut rankings_with_quarterly: Vec<(EPSRanking, crate::domain::shared_kernel::entities::market_data::StockScreeningResult)> = screening_results
+  let rankings_with_quarterly: Vec<(EPSRanking, crate::domain::shared_kernel::entities::market_data::StockScreeningResult)> = screening_results
     .into_iter()
     .map(|result| {
       let ranking = convert_screening_result_to_eps_ranking(result.clone());
@@ -172,7 +172,7 @@ pub async fn get_unified_analytics_rankings_cached(
   let duration = start_time.elapsed();
 
   // DEBUG: Capture final DTO structure before JSON serialization
-  let dto_debug = card_data
+  let _dto_debug = card_data
     .iter()
     .take(3)
     .map(|card| {

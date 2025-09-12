@@ -1,9 +1,9 @@
 import { test, expect, Page } from '@playwright/test';
 
-// Test credentials
+// Test credentials - generic test account
 const TEST_CREDENTIALS = {
-  email: 'info@epsx.io',
-  password: 'P@ssword'
+  email: 'test.user@example.com',
+  password: 'TestPassword123!'
 };
 
 // Test URLs
@@ -95,7 +95,7 @@ test.describe('Comprehensive Authentication Tests', () => {
       
       // Should redirect back to admin and be logged in
       await expect(page).toHaveURL(ADMIN_URL);
-      await expect(page.getByText('info@epsx.io')).toBeVisible();
+      await expect(page.getByText('test.user@example.com')).toBeVisible();
       await expect(page.getByText('10 modules')).toBeVisible();
       await expect(page.getByText('Online')).toBeVisible();
       
@@ -149,7 +149,7 @@ test.describe('Comprehensive Authentication Tests', () => {
       
       // Login to admin
       await loginToAdmin(adminPage);
-      await expect(adminPage.getByText('info@epsx.io')).toBeVisible();
+      await expect(adminPage.getByText('test.user@example.com')).toBeVisible();
       
       // Both should be logged in independently
       await expect(frontendPage.getByRole('button', { name: 'Sign Out' })).toBeVisible();
@@ -194,7 +194,7 @@ async function loginToAdmin(page: Page) {
   await page.goto(ADMIN_URL);
   
   // Check if already logged in
-  if (await page.getByText('info@epsx.io').isVisible()) {
+  if (await page.getByText('test.user@example.com').isVisible()) {
     return; // Already logged in
   }
   
@@ -206,5 +206,5 @@ async function loginToAdmin(page: Page) {
   
   // Wait for successful login
   await expect(page).toHaveURL(ADMIN_URL);
-  await expect(page.getByText('info@epsx.io')).toBeVisible();
+  await expect(page.getByText('test.user@example.com')).toBeVisible();
 }

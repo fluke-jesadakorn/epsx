@@ -40,7 +40,7 @@ pub fn create_modules_router(app_state: AppState) -> Router<AppState> {
 
 /// Create admin module management router - CLEANED UP
 /// Removed placeholder implementations
-pub fn create_admin_modules_router(_app_state: AppState) -> Router<AppState> {
+pub fn create_admin_modules_router(__app_state: AppState) -> Router<AppState> {
     Router::new()
         // Module admin functionality removed - was placeholder implementation
 }
@@ -59,13 +59,13 @@ pub fn create_admin_modules_router(_app_state: AppState) -> Router<AppState> {
 // ========================================
 
 /// Apply access level requirement to a router (placeholder during migration)
-pub fn require_access_level(router: Router<AppState>, _level: AccessLevel, _app_state: AppState) -> Router<AppState> {
+pub fn require_access_level(router: Router<AppState>, _level: AccessLevel, __app_state: AppState) -> Router<AppState> {
     // TODO: Implement with Casbin during migration
     router
 }
 
 /// Create module-specific middleware stack (placeholder during migration)
-pub fn create_module_middleware_stack(_module_name: &str, _min_level: AccessLevel, _app_state: AppState) -> Router<AppState> {
+pub fn create_module_middleware_stack(_module_name: &str, _min_level: AccessLevel, __app_state: AppState) -> Router<AppState> {
     Router::new()
         // TODO: Fix middleware trait bounds
         // .route_layer(from_fn_with_state(

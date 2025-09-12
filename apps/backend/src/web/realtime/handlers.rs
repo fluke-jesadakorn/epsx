@@ -72,8 +72,8 @@ pub async fn broadcast_notification_handler(
     Json(payload): Json<BroadcastNotificationRequest>,
 ) -> Result<Json<BroadcastResponse>, StatusCode> {
     // Verify admin access
-    let current_user_id = auth_ctx.user_id;
-    verify_admin_access(&app_state, &current_user_id).await?;
+    let currentuser_id = auth_ctx.user_id;
+    verify_admin_access(&app_state, &currentuser_id).await?;
     
     // Parse notification level for DDD
     let level = match payload.level.to_lowercase().as_str() {
@@ -99,7 +99,7 @@ pub async fn broadcast_notification_handler(
     
     // Log event
     info!("Admin {} broadcasted notification: {}", 
-          current_user_id.to_string(), result.event_id);
+          currentuser_id.to_string(), result.event_id);
     
     Ok(Json(BroadcastResponse {
         success: true,
@@ -116,8 +116,8 @@ pub async fn simulate_payment_handler(
     Json(payload): Json<SimulatePaymentRequest>,
 ) -> Result<Json<BroadcastResponse>, StatusCode> {
     // Verify admin access
-    let current_user_id = auth_ctx.user_id;
-    verify_admin_access(&app_state, &current_user_id).await?;
+    let currentuser_id = auth_ctx.user_id;
+    verify_admin_access(&app_state, &currentuser_id).await?;
     
     // Map event type to DDD enum
     let event_type = match payload.event_type.as_str() {
@@ -145,7 +145,7 @@ pub async fn simulate_payment_handler(
     
     // Log event
     info!("Admin {} simulated payment event: {}", 
-          current_user_id.to_string(), result.event_id);
+          currentuser_id.to_string(), result.event_id);
     
     Ok(Json(BroadcastResponse {
         success: true,
@@ -162,8 +162,8 @@ pub async fn simulate_stock_update_handler(
     Json(payload): Json<SimulateStockUpdateRequest>,
 ) -> Result<Json<BroadcastResponse>, StatusCode> {
     // Verify admin access
-    let current_user_id = auth_ctx.user_id;
-    verify_admin_access(&app_state, &current_user_id).await?;
+    let currentuser_id = auth_ctx.user_id;
+    verify_admin_access(&app_state, &currentuser_id).await?;
     
     // Use DDD Real-time Events service
     let realtime_service = &app_state.ddd_container.realtime_events_service;
@@ -180,7 +180,7 @@ pub async fn simulate_stock_update_handler(
     
     // Log event
     info!("Admin {} simulated stock update: {}", 
-          current_user_id.to_string(), result.event_id);
+          currentuser_id.to_string(), result.event_id);
     
     Ok(Json(BroadcastResponse {
         success: true,
@@ -196,8 +196,8 @@ pub async fn get_connection_stats_handler(
     State(app_state): State<AppState>,
 ) -> Result<Json<ConnectionStats>, StatusCode> {
     // Verify admin access
-    let current_user_id = auth_ctx.user_id;
-    verify_admin_access(&app_state, &current_user_id).await?;
+    let currentuser_id = auth_ctx.user_id;
+    verify_admin_access(&app_state, &currentuser_id).await?;
     
     // Use DDD Real-time Events service to get stats
     let realtime_service = &app_state.ddd_container.realtime_events_service;
@@ -225,8 +225,8 @@ pub async fn send_user_notification_handler(
     Json(payload): Json<BroadcastNotificationRequest>,
 ) -> Result<Json<BroadcastResponse>, StatusCode> {
     // Verify admin access
-    let current_user_id = auth_ctx.user_id;
-    verify_admin_access(&app_state, &current_user_id).await?;
+    let currentuser_id = auth_ctx.user_id;
+    verify_admin_access(&app_state, &currentuser_id).await?;
     
     // Parse notification level for DDD
     let level = match payload.level.to_lowercase().as_str() {
@@ -252,7 +252,7 @@ pub async fn send_user_notification_handler(
     
     // Log event
     info!("Admin {} sent targeted notification to {}: {}", 
-          current_user_id.to_string(), user_id, result.event_id);
+          currentuser_id.to_string(), user_id, result.event_id);
     
     Ok(Json(BroadcastResponse {
         success: true,

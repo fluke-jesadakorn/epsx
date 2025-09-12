@@ -257,7 +257,7 @@ impl PaymentServiceIntegration {
             .map_err(|e| PaymentError::InvalidId(e.to_string()))?;
         
         // Find payment
-        let mut payment = self.payment_repository
+        let payment = self.payment_repository
             .find_by_id(&payment_id)
             .await
             .map_err(PaymentError::Repository)?
@@ -269,6 +269,7 @@ impl PaymentServiceIntegration {
         }
         
         // Cancel payment
+        let mut payment = payment;
         payment.cancel(reason.unwrap_or_else(|| "User cancellation".to_string()))
             .map_err(|e| PaymentError::DomainError(format!("{:?}", e)))?;
         

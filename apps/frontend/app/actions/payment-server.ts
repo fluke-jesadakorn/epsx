@@ -51,19 +51,22 @@ export async function getAssetInfo(currency: string): Promise<AssetInfo | undefi
   return assets.find(asset => asset.currency === currency)
 }
 
+import type { PaymentStatus } from '@/types/api';
+import { logger, safeError } from '@/lib/logger';
+
 // Get payment status from backend
-export async function getPaymentStatus(): Promise<any> {
+export async function getPaymentStatus(): Promise<PaymentStatus | null> {
   try {
     const result = await apiClient.get('/api/payments/status')
     
     if (!result.success) {
-      console.error('Failed to get payment status')
+      logger.error('Payment status retrieval failed')
       return null
     }
     
-    return result.data
+    return result.data as PaymentStatus
   } catch (error) {
-    console.error('Failed to get payment status:', error)
+    logger.error('Payment status retrieval failed', error instanceof Error ? error.message : 'Unknown error')
     return null
   }
 }
@@ -80,13 +83,13 @@ export async function verifyPayment(transactionId: string): Promise<boolean> {
     const result = await apiClient.post('/api/payments/verify', { transactionId: validatedData.transactionId })
     
     if (!result.success) {
-      console.error('Failed to verify payment')
+      logger.error('Payment verification failed')
       return false
     }
     
-    return (result.data as any)?.verified || false
+    return (result.data as { verified?: boolean })?.verified || false
   } catch (error) {
-    console.error('Failed to verify payment:', error)
+    logger.error('Payment verification failed', error instanceof Error ? error.message : 'Unknown error')
     return false
   }
 }
@@ -103,13 +106,13 @@ export async function cancelPayment(paymentId: string): Promise<boolean> {
     const result = await apiClient.delete(`/api/payments/${validatedData.paymentId}`)
     
     if (!result.success) {
-      console.error('Failed to cancel payment')
+      logger.error('Payment cancellation failed')
       return false
     }
     
     return true
   } catch (error) {
-    console.error('Failed to cancel payment:', error)
+    logger.error('Payment cancellation failed', error instanceof Error ? error.message : 'Unknown error')
     return false
   }
 }

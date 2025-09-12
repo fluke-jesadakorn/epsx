@@ -112,7 +112,7 @@ pub async fn get_user_permissions(
     
     // Skip cache for now - complex Arc to Box conversion needed  
     // TODO: Implement proper cache integration with DDD approach
-    let cached_permissions: Option<Vec<String>> = None;
+    let _cached_permissions: Option<Vec<String>> = None;
     
     // Since cache is disabled, use JWT permissions directly
     let (permissions_map, permission_version) = {

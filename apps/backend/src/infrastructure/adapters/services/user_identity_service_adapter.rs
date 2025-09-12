@@ -52,10 +52,10 @@ impl UserIdentityServicePort for UserIdentityServiceAdapter {
         info!(user_id = %user_id, "Getting user identity information");
         
         // Convert to legacy UserId for repository
-        let legacy_user_id = LegacyUserId::from_string(user_id.user_id().to_string())
+        let legacyuser_id = LegacyUserId::from_string(user_id.user_id().to_string())
             .map_err(|e| format!("Invalid user ID format: {}", e))?;
         
-        match crate::domain::user_management::UserRepositoryPort::find_by_id(&*self.user_repository, &legacy_user_id).await {
+        match crate::domain::user_management::UserRepositoryPort::find_by_id(&*self.user_repository, &legacyuser_id).await {
             Ok(Some(legacy_user)) => {
                 let identity_info = self.map_legacy_user_to_identity(&legacy_user);
                 info!(
@@ -91,9 +91,9 @@ impl UserIdentityServicePort for UserIdentityServiceAdapter {
         info!(user_id = %user_id, "Getting user permissions");
         
         // Convert AuthenticatedUserId to domain UserId
-        let domain_user_id = user_id.user_id();
+        let domainuser_id = user_id.user_id();
         
-        match self.permission_repository.get_user_permissions(domain_user_id).await {
+        match self.permission_repository.get_user_permissions(domainuser_id).await {
             Ok(permissions) => {
                 // Permissions are already strings from the repository
                 let permission_strings = permissions;
@@ -116,10 +116,10 @@ impl UserIdentityServicePort for UserIdentityServiceAdapter {
     async fn validate_user_exists(&self, user_id: &AuthenticatedUserId) -> Result<bool, String> {
         info!(user_id = %user_id, "Validating user exists");
         
-        let legacy_user_id = LegacyUserId::from_string(user_id.user_id().to_string())
+        let legacyuser_id = LegacyUserId::from_string(user_id.user_id().to_string())
             .map_err(|e| format!("Invalid user ID format: {}", e))?;
         
-        match crate::domain::user_management::UserRepositoryPort::find_by_id(&*self.user_repository, &legacy_user_id).await {
+        match crate::domain::user_management::UserRepositoryPort::find_by_id(&*self.user_repository, &legacyuser_id).await {
             Ok(Some(_)) => {
                 info!(user_id = %user_id, "User exists validation successful");
                 Ok(true)
@@ -184,7 +184,7 @@ impl UserIdentityServicePort for UserIdentityServiceAdapter {
     async fn update_last_login(&self, user_id: &AuthenticatedUserId, timestamp: DateTime<Utc>) -> Result<(), String> {
         info!(user_id = %user_id, timestamp = %timestamp, "Updating user last login");
         
-        let legacy_user_id = LegacyUserId::from_string(user_id.user_id().to_string())
+        let _legacyuser_id = LegacyUserId::from_string(user_id.user_id().to_string())
             .map_err(|e| format!("Invalid user ID format: {}", e))?;
         
         // TODO: Implement last login update when legacy repository supports it
@@ -240,7 +240,7 @@ impl UserIdentityServicePort for UserIdentityServiceAdapter {
     async fn get_user_subscription_info(&self, user_id: &AuthenticatedUserId) -> Result<crate::domain::authentication::repositories::UserSubscription, String> {
         info!(user_id = %user_id, "Getting user subscription information");
         
-        let identity_info = self.get_user_identity(user_id).await?;
+        let _identity_info = self.get_user_identity(user_id).await?;
         
         let subscription_type = crate::domain::authentication::repositories::SubscriptionType::Free;
         
@@ -283,10 +283,10 @@ impl UserIdentityServicePort for UserIdentityServiceAdapter {
         
         // Create shared kernel UserId and convert to AuthenticatedUserId
         use crate::domain::shared_kernel::value_objects::UserId as SharedUserId;
-        let shared_user_id = SharedUserId::from_string(user_id_str.to_string())
+        let shareduser_id = SharedUserId::from_string(user_id_str.to_string())
             .map_err(|e| format!("Invalid user ID in token: {}", e))?;
         
-        Ok(AuthenticatedUserId::from_verified_user(shared_user_id))
+        Ok(AuthenticatedUserId::from_verified_user(shareduser_id))
     }
     
     async fn has_permission(&self, user_id: &AuthenticatedUserId, permission: &str) -> Result<bool, String> {
@@ -518,21 +518,21 @@ mod tests {
         }
         
         // Other required methods with placeholder implementations
-        async fn grant_permission(&self, _user_id: i32, _permission: String, _granted_by: i32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        async fn grant_permission(&self, user_id: i32, _permission: String, _granted_by: i32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             unimplemented!()
         }
         
-        async fn revoke_permission(&self, _user_id: i32, _permission: String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        async fn revoke_permission(&self, user_id: i32, _permission: String) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             unimplemented!()
         }
         
-        async fn has_permission(&self, _user_id: i32, _permission: String) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
+        async fn has_permission(&self, user_id: i32, _permission: String) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
             unimplemented!()
         }
     }
     
     #[tokio::test]
-    async fn test_get_user_identity() {
+    async fn test_getuser_identity() {
         let user_repo = Arc::new(MockUserRepository);
         let permission_repo = Arc::new(MockPermissionRepository);
         
@@ -542,7 +542,7 @@ mod tests {
             crate::domain::shared_kernel::value_objects::UserId::new("123".to_string())
         );
         
-        let result = adapter.get_user_identity(&user_id).await;
+        let result = adapter.getuser_identity(&user_id).await;
         assert!(result.is_ok());
         
         let identity = result.unwrap();

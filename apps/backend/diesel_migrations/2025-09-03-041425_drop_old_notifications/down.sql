@@ -1,2 +1,0 @@
--- This migration cannot be reversed as we're doing a clean slate implementation
--- The old notification system will be replaced with a new architecture

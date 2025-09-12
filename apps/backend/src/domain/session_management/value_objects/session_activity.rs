@@ -388,7 +388,7 @@ mod tests {
     #[test]
     fn record_activities() {
         let session_id = SessionId::generate();
-        let mut activity = SessionActivity::new(session_id);
+        let activity = SessionActivity::new(session_id);
         
         activity.record_activity(ActivityType::Authentication, Some("Login attempt".to_string()));
         activity.record_activity(ActivityType::ApiCall("analytics".to_string()), None);
@@ -404,7 +404,7 @@ mod tests {
     #[test]
     fn activity_size_limit() {
         let session_id = SessionId::generate();
-        let mut activity = SessionActivity::new(session_id);
+        let activity = SessionActivity::new(session_id);
         activity.max_activities = 5; // Small limit for testing
         
         // Add more activities than limit
@@ -426,7 +426,7 @@ mod tests {
     #[test]
     fn suspicious_pattern_detection() {
         let session_id = SessionId::generate();
-        let mut activity = SessionActivity::new(session_id);
+        let activity = SessionActivity::new(session_id);
         
         // Add multiple auth failures
         for _ in 0..5 {
@@ -443,7 +443,7 @@ mod tests {
     #[test]
     fn activity_filtering() {
         let session_id = SessionId::generate();
-        let mut activity = SessionActivity::new(session_id);
+        let activity = SessionActivity::new(session_id);
         
         // Add different types of activities
         activity.record_activity(ActivityType::Authentication, None);

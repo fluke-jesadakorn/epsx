@@ -763,7 +763,7 @@ mod tests {
     
     #[test]
     fn test_rate_limit_entry_window_reset() {
-        let mut entry = RateLimitEntry::new(1000);
+        let entry = RateLimitEntry::new(1000);
         entry.minute_count = 5;
         entry.hour_count = 20;
         entry.day_count = 100;

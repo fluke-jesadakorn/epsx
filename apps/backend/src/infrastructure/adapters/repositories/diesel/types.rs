@@ -61,7 +61,7 @@ impl diesel::serialize::ToSql<diesel::sql_types::Text, diesel::pg::Pg> for Notif
 }
 
 impl diesel::deserialize::FromSql<diesel::sql_types::Text, diesel::pg::Pg> for NotificationType {
-    fn from_sql(bytes: diesel::backend::RawValue<diesel::pg::Pg>) -> diesel::deserialize::Result<Self> {
+    fn from_sql(bytes: <diesel::pg::Pg as diesel::backend::Backend>::RawValue<'_>) -> diesel::deserialize::Result<Self> {
         match <String as diesel::deserialize::FromSql<diesel::sql_types::Text, diesel::pg::Pg>>::from_sql(bytes)?.as_str() {
             "info" => Ok(NotificationType::Info),
             "warning" => Ok(NotificationType::Warning),
@@ -110,7 +110,7 @@ impl diesel::serialize::ToSql<diesel::sql_types::Text, diesel::pg::Pg> for Notif
 }
 
 impl diesel::deserialize::FromSql<diesel::sql_types::Text, diesel::pg::Pg> for NotificationPriority {
-    fn from_sql(bytes: diesel::backend::RawValue<diesel::pg::Pg>) -> diesel::deserialize::Result<Self> {
+    fn from_sql(bytes: <diesel::pg::Pg as diesel::backend::Backend>::RawValue<'_>) -> diesel::deserialize::Result<Self> {
         match <String as diesel::deserialize::FromSql<diesel::sql_types::Text, diesel::pg::Pg>>::from_sql(bytes)?.as_str() {
             "low" => Ok(NotificationPriority::Low),
             "normal" => Ok(NotificationPriority::Normal),
@@ -150,7 +150,7 @@ impl diesel::serialize::ToSql<diesel::sql_types::Text, diesel::pg::Pg> for Deliv
 }
 
 impl diesel::deserialize::FromSql<diesel::sql_types::Text, diesel::pg::Pg> for DeliveryChannel {
-    fn from_sql(bytes: diesel::backend::RawValue<diesel::pg::Pg>) -> diesel::deserialize::Result<Self> {
+    fn from_sql(bytes: <diesel::pg::Pg as diesel::backend::Backend>::RawValue<'_>) -> diesel::deserialize::Result<Self> {
         match <String as diesel::deserialize::FromSql<diesel::sql_types::Text, diesel::pg::Pg>>::from_sql(bytes)?.as_str() {
             "email" => Ok(DeliveryChannel::Email),
             "push" => Ok(DeliveryChannel::Push),
@@ -193,7 +193,7 @@ impl diesel::serialize::ToSql<diesel::pg::sql_types::Inet, diesel::pg::Pg> for D
 }
 
 impl diesel::deserialize::FromSql<diesel::pg::sql_types::Inet, diesel::pg::Pg> for DieselIpAddr {
-    fn from_sql(bytes: diesel::backend::RawValue<diesel::pg::Pg>) -> diesel::deserialize::Result<Self> {
+    fn from_sql(bytes: <diesel::pg::Pg as diesel::backend::Backend>::RawValue<'_>) -> diesel::deserialize::Result<Self> {
         let s = std::str::from_utf8(bytes.as_bytes())?;
         // Parse as either plain IP or CIDR notation and extract IP
         let ip_addr = if s.contains('/') {

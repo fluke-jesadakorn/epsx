@@ -43,12 +43,12 @@ impl SecurityContext {
     }
     
     /// Detect if new client information represents anomalous activity
-    pub fn detect_anomaly(&mut self, client_info: &ClientInformation) -> bool {
+    pub fn detect_anomaly(&mut self, _client_info: &ClientInformation) -> bool {
         let mut anomaly_detected = false;
         let mut score_increase = 0.0;
         
         // Check for IP address changes
-        if let Some(current_ip) = self.ip_addresses.last() {
+        if let Some(_current_ip) = self.ip_addresses.last() {
             // In real implementation, extract IP from client_info
             // For now, simulate IP comparison
             if self.is_suspicious_ip_change() {
@@ -317,7 +317,7 @@ mod tests {
     
     #[test]
     fn failed_attempts_increase_risk() {
-        let mut context = SecurityContext::new();
+        let context = SecurityContext::new();
         
         // Record multiple failures
         for _ in 0..6 {
@@ -331,7 +331,7 @@ mod tests {
     
     #[test]
     fn successful_auth_reduces_risk() {
-        let mut context = SecurityContext::new();
+        let context = SecurityContext::new();
         context.record_failed_attempt();
         context.record_failed_attempt();
         
@@ -344,7 +344,7 @@ mod tests {
     
     #[test]
     fn security_summary_contains_key_metrics() {
-        let mut context = SecurityContext::new();
+        let context = SecurityContext::new();
         context.add_security_flag(SecurityFlag::SuspiciousIpChange);
         
         let summary = context.security_summary();

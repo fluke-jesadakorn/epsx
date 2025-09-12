@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react';
+import { clientConfig } from '@/config/env';
 
 interface LoginFormProps {
   redirectTo?: string;
@@ -26,7 +27,7 @@ export function LoginForm({ redirectTo = '/dashboard' }: LoginFormProps) {
 
     try {
       // POST directly to our backend OIDC endpoint
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io';
+      const backendUrl = clientConfig.apiUrl;
       const response = await fetch(`${backendUrl}/oauth/login-post`, {
         method: 'POST',
         headers: {
@@ -86,13 +87,12 @@ export function LoginForm({ redirectTo = '/dashboard' }: LoginFormProps) {
               name="email"
               type="email"
               required
-              className="h-12 sm:h-14 text-base pl-4 pr-4 rounded-xl border-2 focus:border-primary transition-all duration-200"
+              className="h-12 sm:h-14 text-base pl-4 pr-4 rounded-xl border-2 focus:border-primary"
               placeholder="your.email@example.com"
               autoComplete="email"
               inputMode="email"
             />
-            {/* Visual focus indicator */}
-            <div className="absolute inset-0 rounded-xl border-2 border-transparent bg-gradient-to-r from-primary/20 to-secondary/20 opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none" />
+            {/* Removed animated focus indicator for performance */}
           </div>
         </div>
 
@@ -108,7 +108,7 @@ export function LoginForm({ redirectTo = '/dashboard' }: LoginFormProps) {
               name="password"
               type={showPassword ? 'text' : 'password'}
               required
-              className="h-12 sm:h-14 text-base pl-4 pr-14 rounded-xl border-2 focus:border-primary transition-all duration-200"
+              className="h-12 sm:h-14 text-base pl-4 pr-14 rounded-xl border-2 focus:border-primary"
               placeholder="Enter your password"
               autoComplete="current-password"
             />
@@ -116,7 +116,7 @@ export function LoginForm({ redirectTo = '/dashboard' }: LoginFormProps) {
               type="button"
               variant="ghost"
               size="sm"
-              className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 sm:h-10 sm:w-10 rounded-lg hover:bg-muted transition-all duration-200 hover:scale-110 active:scale-95"
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 sm:h-10 sm:w-10 rounded-lg hover:bg-muted"
               onClick={() => setShowPassword(!showPassword)}
             >
               {showPassword ? (
@@ -125,8 +125,7 @@ export function LoginForm({ redirectTo = '/dashboard' }: LoginFormProps) {
                 <Eye className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
               )}
             </Button>
-            {/* Visual focus indicator */}
-            <div className="absolute inset-0 rounded-xl border-2 border-transparent bg-gradient-to-r from-primary/20 to-secondary/20 opacity-0 focus-within:opacity-100 transition-opacity duration-200 pointer-events-none" />
+            {/* Removed animated focus indicator for performance */}
           </div>
         </div>
 
@@ -134,11 +133,11 @@ export function LoginForm({ redirectTo = '/dashboard' }: LoginFormProps) {
         <Button
           type="submit"
           disabled={isLoading}
-          className="w-full h-12 sm:h-14 text-base sm:text-lg font-semibold bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white border-0 shadow-lg rounded-xl transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] disabled:hover:scale-100"
+          className="w-full h-12 sm:h-14 text-base sm:text-lg font-semibold bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white border-0 shadow-lg rounded-xl"
         >
           {isLoading ? (
             <>
-              <div className="mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              <div className="mr-2 h-4 w-4 sm:h-5 sm:w-5 rounded-full border-2 border-white border-t-transparent" />
               <span>Signing in...</span>
             </>
           ) : (

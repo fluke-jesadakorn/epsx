@@ -64,13 +64,13 @@ impl UserSessionManager {
     /// Create new session manager for user
     pub fn create_for_user(user_id: AuthenticatedUserId) -> Self {
         let now = Utc::now();
-        let global_session_id = SessionId::generate(); // Virtual session ID for global tracking
+        let globalsession_id = SessionId::generate(); // Virtual session ID for global tracking
         
         Self {
             user_id: user_id.clone(),
             session_collection: SessionCollection::new(user_id.clone()),
-            global_activity: SessionActivity::new(global_session_id.clone()),
-            global_history: SessionHistory::new(global_session_id, user_id),
+            global_activity: SessionActivity::new(globalsession_id.clone()),
+            global_history: SessionHistory::new(globalsession_id, user_id),
             created_at: now,
             last_updated: now,
             max_concurrent_sessions: super::super::SessionManagementBoundedContext::MAX_CONCURRENT_SESSIONS_PER_USER,
@@ -582,7 +582,7 @@ mod tests {
     #[test]
     fn add_session_to_manager() {
         let user_id = AuthenticatedUserId::from_verified_user(UserId::new().unwrap());
-        let mut manager = UserSessionManager::create_for_user(user_id.clone());
+        let manager = UserSessionManager::create_for_user(user_id.clone());
         
         let session = create_test_session(user_id, ProviderType::Firebase);
         let session_id = session.session_id.clone();
@@ -598,7 +598,7 @@ mod tests {
     #[test]
     fn record_session_activity() {
         let user_id = AuthenticatedUserId::from_verified_user(UserId::new().unwrap());
-        let mut manager = UserSessionManager::create_for_user(user_id.clone());
+        let manager = UserSessionManager::create_for_user(user_id.clone());
         
         let session = create_test_session(user_id, ProviderType::Firebase);
         let session_id = session.session_id.clone();
@@ -621,7 +621,7 @@ mod tests {
     #[test]
     fn terminate_session() {
         let user_id = AuthenticatedUserId::from_verified_user(UserId::new().unwrap());
-        let mut manager = UserSessionManager::create_for_user(user_id.clone());
+        let manager = UserSessionManager::create_for_user(user_id.clone());
         
         let session = create_test_session(user_id, ProviderType::Firebase);
         let session_id = session.session_id.clone();
@@ -642,7 +642,7 @@ mod tests {
     #[test]
     fn security_assessment() {
         let user_id = AuthenticatedUserId::from_verified_user(UserId::new().unwrap());
-        let mut manager = UserSessionManager::create_for_user(user_id.clone());
+        let manager = UserSessionManager::create_for_user(user_id.clone());
         
         // Add a normal session
         let session = create_test_session(user_id, ProviderType::Firebase);

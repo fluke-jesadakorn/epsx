@@ -9,12 +9,12 @@ impl TokenService {
         Self
     }
 
-    pub async fn generate_token(&self, user_id: String) -> Result<TokenDto, ApplicationError> {
+    pub async fn generate_token(&self, _user_id: String) -> Result<TokenDto, ApplicationError> {
         // TODO: Implement token generation logic
         Err(ApplicationError::not_implemented("Token service"))
     }
 
-    pub async fn refresh_token(&self, refresh_token: String) -> Result<TokenDto, ApplicationError> {
+    pub async fn refresh_token(&self, _refresh_token: String) -> Result<TokenDto, ApplicationError> {
         // TODO: Implement token refresh logic
         Err(ApplicationError::not_implemented("Token service"))
     }

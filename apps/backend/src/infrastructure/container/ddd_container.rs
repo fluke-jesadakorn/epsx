@@ -103,6 +103,7 @@ impl DDDContainer {
         
         let user_query_service = Arc::new(UserQueryService::new(
             user_repository_port.clone(),
+            db_pool.clone(),
         ));
         
         // 4. Extract handlers from application service for direct access if needed

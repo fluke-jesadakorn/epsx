@@ -7,10 +7,11 @@ use tracing::{info, warn};
 use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
 use std::sync::Arc;
 use crate::domain::authentication::{
-    AuthenticationSession, AuthenticationError, SessionId,
+    AuthenticationSession, SessionId,
     AuthenticationSessionRepositoryPort, TokenValidationServicePort,
     SecurityMonitoringServicePort
 };
+use crate::domain::authentication::services::internal_auth_service::AuthenticationError;
 
 use super::super::{CreateSessionCommand, CreateSessionResponse};
 
@@ -112,7 +113,7 @@ impl CommandHandler<CreateSessionCommand> for CreateSessionHandler {
         info!(
             session_id = %response.session_id,
             expires_in = response.expires_in_seconds(),
-            has_refresh_token = response.has_refresh_token(),
+            hasrefresh_token = response.hasrefresh_token(),
             has_id_token = response.has_id_token(),
             "Authentication session created successfully"
         );
@@ -205,6 +206,24 @@ impl From<AuthenticationError> for ApplicationError {
                 ApplicationError::InfrastructureError(format!("Token generation failed: {}", msg)),
             AuthenticationError::SecurityViolation => 
                 ApplicationError::SecurityError("Security violation detected".to_string()),
+            AuthenticationError::InvalidToken(msg) => 
+                ApplicationError::validation("token", format!("Invalid token: {}", msg)),
+            AuthenticationError::TokenExpired => 
+                ApplicationError::BusinessLogicError("Token expired".to_string()),
+            AuthenticationError::UserNotFound => 
+                ApplicationError::BusinessLogicError("User not found".to_string()),
+            AuthenticationError::SessionNotFound => 
+                ApplicationError::BusinessLogicError("Session not found".to_string()),
+            AuthenticationError::InsufficientPermissions => 
+                ApplicationError::AuthorizationError("Insufficient permissions".to_string()),
+            AuthenticationError::OidcValidationError(msg) => 
+                ApplicationError::validation("oidc", format!("OIDC validation error: {}", msg)),
+            AuthenticationError::InvalidClientInfo(msg) => 
+                ApplicationError::validation("client", format!("Invalid client info: {}", msg)),
+            AuthenticationError::RepositoryError(msg) => 
+                ApplicationError::InfrastructureError(format!("Repository error: {}", msg)),
+            AuthenticationError::DomainError(e) => 
+                ApplicationError::DomainError(e.to_string()),
         }
     }
 }
@@ -233,7 +252,7 @@ mod tests {
             Ok(None)
         }
         
-        async fn find_by_user(&self, _user_id: &AuthenticatedUserId) -> Result<Vec<AuthenticationSession>, String> {
+        async fn find_by_user(&self, user_id: &AuthenticatedUserId) -> Result<Vec<AuthenticationSession>, String> {
             Ok(vec![])
         }
         
@@ -248,14 +267,14 @@ mod tests {
             Ok(true)
         }
         
-        async fn validate_refresh_token(&self, _token: &str) -> Result<bool, String> {
+        async fn validaterefresh_token(&self, _token: &str) -> Result<bool, String> {
             Ok(true)
         }
     }
     
     #[async_trait]
     impl SecurityMonitoringServicePort for MockSecurityMonitoringService {
-        async fn record_session_creation(&self, _session_id: &SessionId, _user_id: &AuthenticatedUserId, _ip: Option<&str>) -> Result<(), String> {
+        async fn record_session_creation(&self, session_id: &SessionId, user_id: &AuthenticatedUserId, _ip: Option<&str>) -> Result<(), String> {
             Ok(())
         }
         
@@ -263,7 +282,7 @@ mod tests {
             Ok(false)
         }
         
-        async fn is_rate_limited(&self, _user_id: &str) -> Result<bool, String> {
+        async fn is_rate_limited(&self, user_id: &str) -> Result<bool, String> {
             Ok(false)
         }
     }
@@ -297,7 +316,7 @@ mod tests {
         
         let response = result.unwrap();
         assert!(!response.access_token.is_empty());
-        assert!(response.has_refresh_token());
+        assert!(response.hasrefresh_token());
         assert!(response.expires_in_seconds() > 0);
     }
 }

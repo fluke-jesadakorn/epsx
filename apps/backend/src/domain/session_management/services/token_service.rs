@@ -8,7 +8,7 @@ impl TokenService {
         Self
     }
 
-    pub fn validate_token(&self, token: &str) -> Result<UserId, String> {
+    pub fn validate_token(&self, _token: &str) -> Result<UserId, String> {
         // TODO: Implement token validation logic
         Err("Not implemented".to_string())
     }

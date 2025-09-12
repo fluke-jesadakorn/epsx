@@ -9,18 +9,51 @@ function getAdminUrl(): string {
     return process.env.NEXT_PUBLIC_ADMIN_URL;
   }
   
-  // Default to port 3001 for admin frontend
+  // Production should always provide NEXT_PUBLIC_ADMIN_URL
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('NEXT_PUBLIC_ADMIN_URL is required in production environment');
+  }
+  
+  // Development fallback
   return 'http://localhost:3001';
+}
+
+function getBackendUrl(): string {
+  if (process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL) {
+    return process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || '';
+  }
+  
+  // Production should always provide backend URL
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('NEXT_PUBLIC_BACKEND_URL or BACKEND_URL is required in production environment');
+  }
+  
+  // Development fallback
+  return 'http://localhost:8080';
+}
+
+function getFrontendUrl(): string {
+  if (process.env.NEXT_PUBLIC_APP_URL) {
+    return process.env.NEXT_PUBLIC_APP_URL;
+  }
+  
+  // Production should always provide frontend URL
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('NEXT_PUBLIC_APP_URL is required in production environment');
+  }
+  
+  // Development fallback
+  return 'http://localhost:3000';
 }
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
   PORT: z.string().transform(Number).default(3001),
   ADMIN_URL: z.string().url().default(getAdminUrl()),
-  BACKEND_URL: z.string().url().default('http://localhost:8080'),
-  NEXT_PUBLIC_BACKEND_URL: z.string().url().default('http://localhost:8080'),
+  BACKEND_URL: z.string().url().default(getBackendUrl()),
+  NEXT_PUBLIC_BACKEND_URL: z.string().url().default(getBackendUrl()),
   NEXT_PUBLIC_ADMIN_URL: z.string().url().default(getAdminUrl()),
-  NEXT_PUBLIC_APP_URL: z.string().url().default('http://localhost:3000'),
+  NEXT_PUBLIC_APP_URL: z.string().url().default(getFrontendUrl()),
   NEXT_PUBLIC_OAUTH_CLIENT_ID: z.string().optional(),
   NEXTAUTH_SECRET: z.string().min(1).default('dev-secret-key-32-chars-minimum'),
   OIDC_CLIENT_ID: z.string().min(1).default('epsx-admin'),

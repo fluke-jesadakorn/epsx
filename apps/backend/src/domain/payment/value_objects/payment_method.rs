@@ -580,7 +580,7 @@ mod tests {
 
     #[test]
     fn test_config_validation() {
-        let mut method = PaymentMethod::new(
+        let method = PaymentMethod::new(
             PaymentMethodType::Crypto,
             Currency::USDT,
             Some(Network::Ethereum),

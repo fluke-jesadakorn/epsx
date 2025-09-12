@@ -59,7 +59,7 @@ export class ServerAuth {
         name: payload.name || payload.display_name || '',
         role: payload.role || 'user',
         permissions: payload.permissions || [],
-        packageTier: payload.package_tier || payload.subscription_tier || 'basic'
+        packageTier: payload.package_tier || 'basic'
       }
 
       return {
@@ -177,7 +177,7 @@ export class ServerAuth {
       name: payload.name || payload.display_name || '',
       role: payload.role || 'user',
       permissions: payload.permissions || [],
-      packageTier: payload.package_tier || payload.subscription_tier || 'basic'
+      packageTier: payload.package_tier || 'basic'
     }
   }
 

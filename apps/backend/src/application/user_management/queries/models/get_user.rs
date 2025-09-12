@@ -139,7 +139,7 @@ mod tests {
     }
     
     #[test]
-    fn get_user_query_validation_empty_user_id() {
+    fn get_user_query_validation_emptyuser_id() {
         let query = GetUserQuery::new("".to_string());
         assert!(query.validate().is_err());
     }

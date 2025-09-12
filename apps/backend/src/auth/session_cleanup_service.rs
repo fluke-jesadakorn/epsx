@@ -16,7 +16,7 @@ pub struct SessionCleanupConfig {
     /// Maximum number of tokens to clean per batch
     pub batch_size: usize,
     /// Cleanup expired refresh tokens
-    pub cleanup_refresh_tokens: bool,
+    pub cleanuprefresh_tokens: bool,
     /// Cleanup expired revoked tokens
     pub cleanup_revoked_tokens: bool,
     /// Cleanup expired sessions
@@ -28,7 +28,7 @@ impl Default for SessionCleanupConfig {
         Self {
             cleanup_interval_seconds: 3600, // 1 hour
             batch_size: 1000,
-            cleanup_refresh_tokens: true,
+            cleanuprefresh_tokens: true,
             cleanup_revoked_tokens: true,
             cleanup_sessions: true,
         }
@@ -82,7 +82,7 @@ impl SessionCleanupService {
         let mut sessions_cleaned = 0;
 
         // Clean expired refresh tokens
-        if self.config.cleanup_refresh_tokens {
+        if self.config.cleanuprefresh_tokens {
             // TODO: Implement cleanup_expired method in RefreshTokenRepository
             let cleanup_result: Result<usize, Box<dyn std::error::Error + Send + Sync>> = Ok(0);
             match cleanup_result {
@@ -208,7 +208,7 @@ impl SessionCleanupService {
         let health_issues = Vec::new();
 
         // Check if all required repositories are available
-        if self.config.cleanup_refresh_tokens {
+        if self.config.cleanuprefresh_tokens {
             // Could add a count method check here in the future
         }
 
@@ -320,7 +320,7 @@ mod tests {
         // This is a basic test - in a real test we'd mock the repositories
         let config = SessionCleanupConfig::default();
         assert_eq!(config.cleanup_interval_seconds, 3600);
-        assert!(config.cleanup_refresh_tokens);
+        assert!(config.cleanuprefresh_tokens);
         assert!(config.cleanup_revoked_tokens);
         assert!(config.cleanup_sessions);
     }

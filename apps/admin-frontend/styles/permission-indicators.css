@@ -4,7 +4,6 @@
 /* Base restricted state */
 .permission-restricted {
   position: relative;
-  transition: all 0.2s ease-in-out;
 }
 
 .permission-restricted::before {
@@ -19,46 +18,38 @@
   border-radius: inherit;
 }
 
-/* Blur Effects */
+/* Blur Effects (Animation-Free) */
 .permission-restricted-blur-light {
   filter: blur(2px);
-  transform: scale(0.98);
 }
 
 .permission-restricted-blur-light:hover {
   filter: blur(1px);
-  transform: scale(0.99);
 }
 
 .permission-restricted-blur-medium {
   filter: blur(4px);
-  transform: scale(0.96);
 }
 
 .permission-restricted-blur-medium:hover {
   filter: blur(2px);
-  transform: scale(0.98);
 }
 
 .permission-restricted-blur-heavy {
   filter: blur(8px);
-  transform: scale(0.94);
 }
 
 .permission-restricted-blur-heavy:hover {
   filter: blur(4px);
-  transform: scale(0.96);
 }
 
-/* Opacity Effects */
+/* Opacity Effects (Animation-Free) */
 .permission-restricted-opacity {
   opacity: 0.4;
-  transform: scale(0.95);
 }
 
 .permission-restricted-opacity:hover {
   opacity: 0.6;
-  transform: scale(0.97);
 }
 
 /* Locked Overlay */
@@ -92,7 +83,6 @@
 
 .permission-restricted-premium:hover {
   box-shadow: 0 0 30px rgba(255, 193, 7, 0.4);
-  transform: scale(1.02);
 }
 
 /* Admin-Only Features */
@@ -112,7 +102,6 @@
 
 .permission-restricted-admin:hover {
   box-shadow: 0 0 30px rgba(239, 68, 68, 0.4);
-  transform: scale(1.02);
 }
 
 /* Tier-based Color Coding */
@@ -251,53 +240,29 @@
   }
 }
 
-/* Animation effects */
-@keyframes permission-pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
-
+/* Static visual effects (Animation-Free) */
 .permission-restricted-pulse {
-  animation: permission-pulse 2s infinite;
-}
-
-@keyframes permission-shake {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
-  20%, 40%, 60%, 80% { transform: translateX(2px); }
+  opacity: 0.7;
 }
 
 .permission-restricted-shake {
-  animation: permission-shake 0.5s ease-in-out;
+  /* Static shake state removed for zero animation policy */
 }
 
-/* Loading state for permission checks */
+/* Loading state for permission checks (Static) */
 .permission-checking {
   position: relative;
   opacity: 0.8;
 }
 
 .permission-checking::after {
-  content: '';
+  content: '⏳';
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 20px;
-  height: 20px;
-  margin: -10px 0 0 -10px;
-  border: 2px solid #3b82f6;
-  border-top: 2px solid transparent;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  font-size: 16px;
+  margin: -8px 0 0 -8px;
+  color: #3b82f6;
 }
 
 /* Mobile-specific adjustments */

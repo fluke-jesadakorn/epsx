@@ -100,7 +100,7 @@ impl StockAnalysisRepositoryAdapter {
         );
 
         // Add entries from legacy data
-        for (index, legacy_ranking) in legacy_result.rankings.iter().enumerate() {
+        for (_index, legacy_ranking) in legacy_result.rankings.iter().enumerate() {
             match self.convert_legacy_to_ddd_entry(legacy_ranking) {
                 Ok(entry) => {
                     match ddd_ranking.add_entry(

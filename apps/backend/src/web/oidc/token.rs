@@ -171,7 +171,7 @@ pub async fn oidc_token(
 
     match grant_type {
         "authorization_code" => handle_authorization_code_grant(app_state, token_request).await,
-        "refresh_token" => handle_refresh_token_grant(app_state, token_request).await,
+        "refresh_token" => handlerefresh_token_grant(app_state, token_request).await,
         "" => Err((
             StatusCode::BAD_REQUEST,
             Json(TokenErrorResponse {
@@ -301,7 +301,7 @@ async fn handle_authorization_code_grant(
     let id_token = generate_id_token(&app_state, &auth_data.firebase_user, client_id, now, expires_in).await?;
 
     // Generate refresh token using new rotation service
-    let refresh_token = generate_refresh_token_v2(&auth_data, client_id).await?;
+    let refresh_token = generaterefresh_token_v2(&auth_data, client_id).await?;
 
     // Create session
     create_session(&app_state, &auth_data.firebase_user, &access_token).await
@@ -330,7 +330,7 @@ async fn handle_authorization_code_grant(
 }
 
 /// Handle refresh token grant with secure token rotation
-async fn handle_refresh_token_grant(
+async fn handlerefresh_token_grant(
     _app_state: AppState,
     token_request: TokenRequest,
 ) -> Result<Json<TokenResponse>, (StatusCode, Json<TokenErrorResponse>)> {
@@ -351,7 +351,7 @@ async fn handle_refresh_token_grant(
     let client_id = token_request.client_id.as_deref().unwrap_or("");
 
     // Validate and rotate the refresh token using our new service
-    let rotation = REFRESH_TOKEN_SERVICE.rotate_refresh_token(
+    let rotation = REFRESH_TOKEN_SERVICE.rotaterefresh_token(
         &refresh_token,
         None, // TODO: Add device info from request headers
     ).await.map_err(|e| {
@@ -764,7 +764,7 @@ fn generate_id_token_simple(
 
 
 /// Generate refresh token using new rotation service
-async fn generate_refresh_token_v2(
+async fn generaterefresh_token_v2(
     auth_data: &AuthorizationCodeData,
     client_id: &str,
 ) -> Result<String, (StatusCode, Json<TokenErrorResponse>)> {
@@ -777,7 +777,7 @@ async fn generate_refresh_token_v2(
     let device_info = Some("Web Browser".to_string()); // Placeholder
     
     REFRESH_TOKEN_SERVICE
-        .create_refresh_token(user_id, client_id, scope, device_info)
+        .createrefresh_token(user_id, client_id, scope, device_info)
         .await
         .map_err(|e| {
             tracing::error!("Failed to create refresh token: {}", e);
@@ -997,7 +997,7 @@ async fn get_user_package_tier(
         .map_err(|e| format!("Invalid email: {}", e))?;
     
     match app_state.user_repo.find_by_email(&user_email).await {
-        Ok(Some(user)) => {
+        Ok(Some(_user)) => {
             // TODO: Add subscription information to User aggregate in DDD refactor
             let tier = "FREE".to_string(); // Default tier for now
             Ok(tier)
@@ -1256,7 +1256,7 @@ mod tests {
 
     #[test]
     fn test_get_user_permissions_from_role() {
-        let mut claims = HashMap::new();
+        let claims = HashMap::new();
         claims.insert(serde_json::Value::String("role".to_string()), serde_json::Value::String("admin".to_string()));
         
         let permissions = get_user_permissions_from_role(&claims);
@@ -1266,7 +1266,7 @@ mod tests {
 
     #[test]
     fn test_get_role_from_custom_claims() {
-        let mut claims = HashMap::new();
+        let claims = HashMap::new();
         claims.insert(serde_json::Value::String("role".to_string()), serde_json::Value::String("admin".to_string()));
         
         let role = get_role_from_custom_claims(&claims);

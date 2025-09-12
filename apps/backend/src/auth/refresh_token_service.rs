@@ -163,14 +163,14 @@ impl RefreshTokenService {
         let expires_at = Utc::now() + self.config.expiry_duration;
 
         // Convert device info to JSON
-        let device_info_json = request.device_info.map(|info| {
+        let _device_info_json = request.device_info.map(|info| {
             serde_json::to_value(info).unwrap_or_default()
         });
 
         // TODO: NewRefreshToken struct only has 4 fields (id, user_id, token_hash, expires_at)
         // Additional fields like device_info, ip_address, user_agent would need to be added to schema
         let token_id = uuid::Uuid::new_v4();
-        let new_token = NewRefreshToken {
+        let _new_token = NewRefreshToken {
             id: token_id,
             user_id: request.user_id.clone(),
             token_hash: token_hash.clone(),
@@ -217,10 +217,10 @@ impl RefreshTokenService {
     /// Rotate an existing refresh token
     pub async fn rotate_token(
         &self, 
-        current_token: &str, 
-        device_info: Option<DeviceInfo>,
-        ip_address: Option<IpAddr>,
-        user_agent: Option<String>,
+        _current_token: &str, 
+        _device_info: Option<DeviceInfo>,
+        _ip_address: Option<IpAddr>,
+        _user_agent: Option<String>,
     ) -> AppResult<RefreshTokenResponse> {
         if !self.config.enable_rotation {
             return Err(AppError::token_rotation_disabled());

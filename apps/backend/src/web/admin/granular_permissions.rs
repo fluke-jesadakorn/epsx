@@ -247,7 +247,7 @@ pub async fn grant_permission(
 
 /// Revoke permission from a user
 pub async fn revoke_permission(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
     Path(user_id): Path<String>,
     admin: AuthenticatedUser,
     Json(request): Json<RevokePermissionRequest>,

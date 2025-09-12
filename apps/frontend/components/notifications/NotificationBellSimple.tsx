@@ -17,6 +17,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { useNavbarContext } from '@/components/providers/NavbarProvider'
+import { type NotificationData } from '@/lib/actions/notification-actions'
+import { clientConfig } from '@/config/env'
 
 interface SimpleNotification {
   id: string
@@ -32,6 +35,7 @@ interface SimpleNotification {
 interface NotificationBellSimpleProps {
   className?: string
   showBadge?: boolean
+  initialData?: NotificationData | null
 }
 
 function NotificationCard({ notification }: { notification: SimpleNotification }) {
@@ -90,30 +94,33 @@ function NotificationCard({ notification }: { notification: SimpleNotification }
   )
 }
 
-export function NotificationBellSimple({ className = "", showBadge = true }: NotificationBellSimpleProps) {
-  const [notifications, setNotifications] = useState<SimpleNotification[]>([])
-  const [unreadCount, setUnreadCount] = useState(0)
+export function NotificationBellSimple({ className = "", showBadge = true, initialData }: NotificationBellSimpleProps) {
+  const [notifications, setNotifications] = useState<SimpleNotification[]>(
+    initialData?.notifications.map(n => ({ 
+      ...n, 
+      type: n.notification_type,
+      createdAt: n.created_at,
+      readAt: n.read_at,
+      actionUrl: n.action_url 
+    })) || []
+  )
+  const [unreadCount, setUnreadCount] = useState(initialData?.unread_count || 0)
   const [isOpen, setIsOpen] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [isMobile, setIsMobile] = useState(false)
-  const [isMounted, setIsMounted] = useState(false)
+  const [loading, setLoading] = useState(!initialData) // Only show loading if no initial data
+  const { isHydrated, isMobile } = useNavbarContext()
 
-  console.log('🔔 NotificationBellSimple component mounted')
+  console.log('🔔 NotificationBellSimple component mounted, initial data:', !!initialData)
 
-  // Prevent hydration mismatch by only checking mobile after mount
+  // Fetch notifications (only if no initial data or for periodic updates)
   useEffect(() => {
-    setIsMounted(true)
-    const checkMobile = () => setIsMobile(window.innerWidth < 768)
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
+    const fetchNotifications = async (isInitial = false) => {
+      // Skip initial fetch if we have server-side data
+      if (isInitial && initialData) {
+        console.log('🔔 Skipping initial fetch - using server data')
+        return
+      }
 
-  // Fetch notifications
-  useEffect(() => {
-    const fetchNotifications = async () => {
       try {
-        // Get access token from cookies (same way as server components)
         const getCookie = (name: string) => {
           const value = `; ${document.cookie}`;
           const parts = value.split(`; ${name}=`);
@@ -128,7 +135,7 @@ export function NotificationBellSimple({ className = "", showBadge = true }: Not
           return
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/v1/notifications/unread`, {
+        const response = await fetch(`${clientConfig.apiUrl}/api/v1/notifications/unread`, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json'
@@ -137,7 +144,6 @@ export function NotificationBellSimple({ className = "", showBadge = true }: Not
         
         if (response.ok) {
           const data = await response.json()
-          // Map backend format to frontend format
           const mappedNotifications = data.notifications.map((notification: any) => ({
             ...notification,
             type: notification.notification_type,
@@ -157,12 +163,13 @@ export function NotificationBellSimple({ className = "", showBadge = true }: Not
       }
     }
 
-    fetchNotifications()
+    // Initial fetch only if no server data
+    fetchNotifications(true)
     
-    // Poll for new notifications every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000)
+    // Poll for updates every 60 seconds (reduced from 30s to be less aggressive)
+    const interval = setInterval(() => fetchNotifications(false), 60000)
     return () => clearInterval(interval)
-  }, [])
+  }, [initialData])
 
   const NotificationContent = () => (
     <div className="space-y-4">
@@ -231,7 +238,7 @@ export function NotificationBellSimple({ className = "", showBadge = true }: Not
   )
 
   // Return consistent markup during hydration, then switch to responsive after mount
-  if (!isMounted) {
+  if (!isHydrated) {
     // Default to desktop view during hydration to prevent mismatch
     return (
       <Popover open={isOpen} onOpenChange={setIsOpen}>

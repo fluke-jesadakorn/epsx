@@ -471,7 +471,7 @@ mod tests {
 
     #[test]
     fn test_validation_error_response() {
-        let mut fields = HashMap::new();
+        let fields = HashMap::new();
         fields.insert("email".to_string(), vec!["Invalid email format".to_string()]);
         
         let error = ValidationErrorResponse::new("Validation failed".to_string(), fields);

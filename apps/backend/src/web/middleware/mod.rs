@@ -3,6 +3,9 @@
 // Security headers and enhanced monitoring
 pub mod security_headers;
 
+// Stateless authentication with RS256 JWT and granular permissions
+pub mod stateless_auth;
+
 // Modern Auth.js v5 middleware (replaces Casbin)
 pub mod modern_auth;
 
@@ -12,6 +15,9 @@ pub mod clean_auth;
 // Separated authentication middleware
 pub mod admin_auth;
 pub mod user_auth;
+
+// Contextual middleware for different access patterns
+pub mod contextual_middleware;
 
 // Core middleware modules
 pub mod rate_limiter;
@@ -71,6 +77,14 @@ pub use rate_limiter::{
   ClientId,
   RateLimitStatus,
 };
+
+// Contextual middleware exports for different access patterns
+pub use contextual_middleware::{
+  internal_middleware_stack,
+  external_middleware_stack,
+  admin_middleware_stack,
+  ResourceTracker,
+};
 pub use error_handling::{
   error_handling_middleware,
   error_recovery_middleware,
@@ -78,4 +92,10 @@ pub use error_handling::{
   extract_error_context_from_request,
   ErrorCircuitBreaker,
   ErrorResponseFormat,
+};
+
+// Stateless auth exports
+pub use stateless_auth::{
+  stateless_auth_middleware,
+  AuthenticationError,
 };

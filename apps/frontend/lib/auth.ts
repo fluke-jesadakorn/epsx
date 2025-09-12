@@ -2,6 +2,7 @@
 
 import { create } from 'zustand'
 import { isJWTExpired, getJWTTimeToExpiry, derivePackageTierFromPermissions, deriveAccessiblePlatformsFromPermissions, derivePrimaryPlatformFromPermissions } from '@/lib/auth-utils';
+import { authLogger, devLog, safeError } from '@/lib/logger';
 
 export interface User {
   id: string
@@ -51,7 +52,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       // Use PKCE initiation route for secure OAuth flow
       const currentUrl = window.location.href
       
-      console.log('🔄 Frontend: Initiating OAuth login with PKCE...')
+      devLog('Initiating OAuth login with PKCE...')
       
       const response = await fetch('/api/auth/initiate', {
         method: 'POST',
@@ -74,13 +75,13 @@ export const useAuth = create<AuthState>((set, get) => ({
         throw new Error(data.message || 'OAuth initiation failed')
       }
       
-      console.log('✅ Frontend: PKCE parameters set, redirecting to authorization...')
+      devLog('PKCE parameters set, redirecting to authorization...')
       
       // Redirect to authorization URL
       window.location.href = data.authorizationUrl
       
     } catch (error) {
-      console.error('❌ Frontend: Login initiation failed:', error)
+      safeError('Login initiation failed', error)
       // Fallback to direct redirect if PKCE initiation fails
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
       const frontendUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
@@ -119,7 +120,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       window.location.href = '/'
       
     } catch (error) {
-      console.error('❌ Logout failed:', error)
+      safeError('Logout failed', error)
       set({ 
         error: 'Logout failed. Please try again.',
         isLoading: false
@@ -189,7 +190,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       return userData
 
     } catch (error) {
-      console.error('❌ Get user failed:', error)
+      authLogger.error('Get user failed', error)
       set({ 
         user: null,
         isAuthenticated: false,
@@ -207,7 +208,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       // In the future, this could implement refresh token logic
       await get().getUser()
     } catch (error) {
-      console.error('❌ Session refresh failed:', error)
+      authLogger.warn('Session refresh failed', error)
       // On refresh failure, force logout
       get().logout()
     }
@@ -335,7 +336,7 @@ export const useAuth = create<AuthState>((set, get) => ({
       })
       
     } catch (error) {
-      console.error('❌ Platform switch failed:', error)
+      authLogger.error('Platform switch failed', error)
       set({ 
         error: 'Failed to switch platform. Please try again.',
         isLoading: false
@@ -377,7 +378,7 @@ function setupTokenAutoRefresh(expiresAt: number) {
   refreshTimeout = setTimeout(() => {
     const { isAuthenticated, refreshSession } = useAuth.getState()
     if (isAuthenticated) {
-      console.log('🔄 Auto-refreshing session')
+      devLog('Auto-refreshing session')
       refreshSession()
     }
   }, refreshTime)
@@ -462,7 +463,7 @@ export async function signIn(callbackUrl?: string) {
     // Use PKCE initiation route for secure OAuth flow
     const redirectTo = callbackUrl || window.location.href
     
-    console.log('🔄 Frontend: Initiating OAuth login with PKCE...')
+    devLog('Initiating OAuth login with PKCE...')
     
     const response = await fetch('/api/auth/initiate', {
       method: 'POST',
@@ -485,13 +486,13 @@ export async function signIn(callbackUrl?: string) {
       throw new Error(data.message || 'OAuth initiation failed')
     }
     
-    console.log('✅ Frontend: PKCE parameters set, redirecting to authorization...')
+    devLog('PKCE parameters set, redirecting to authorization...')
     
     // Redirect to authorization URL
     window.location.href = data.authorizationUrl
     
   } catch (error) {
-    console.error('❌ Frontend: SignIn initiation failed:', error)
+    safeError('SignIn initiation failed', error)
     // Fallback to direct redirect if PKCE initiation fails
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
     const frontendUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'

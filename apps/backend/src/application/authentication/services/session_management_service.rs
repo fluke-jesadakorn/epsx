@@ -8,12 +8,12 @@ impl SessionManagementService {
         Self
     }
 
-    pub async fn create_session(&self, user_id: String) -> Result<SessionId, ApplicationError> {
+    pub async fn create_session(&self, _user_id: String) -> Result<SessionId, ApplicationError> {
         // TODO: Implement session creation logic
         Ok(SessionId::new())
     }
 
-    pub async fn terminate_session(&self, session_id: SessionId) -> Result<(), ApplicationError> {
+    pub async fn terminate_session(&self, _session_id: SessionId) -> Result<(), ApplicationError> {
         // TODO: Implement session termination logic
         Ok(())
     }

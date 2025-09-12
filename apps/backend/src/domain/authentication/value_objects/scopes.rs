@@ -281,7 +281,7 @@ mod tests {
     
     #[test]
     fn scope_set_operations() {
-        let mut scope_set = ScopeSet::new();
+        let scope_set = ScopeSet::new();
         scope_set.add(Scope::OpenId);
         scope_set.add(Scope::Profile);
         

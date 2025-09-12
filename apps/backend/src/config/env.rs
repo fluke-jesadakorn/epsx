@@ -1126,8 +1126,20 @@ pub fn load_validated_config() -> Result<ValidatedConfig, Vec<ValidationError>> 
         port: get_env_var("PORT").unwrap_or_else(|_| "8080".to_string()).parse().unwrap_or(8080),
         host: get_env_var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string()),
         bind_address: get_env_var("BIND_ADDRESS").unwrap_or_else(|_| "0.0.0.0".to_string()),
-        frontend_url: get_env_var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:3000".to_string()),
-        admin_frontend_url: get_env_var("ADMIN_FRONTEND_URL").unwrap_or_else(|_| "http://localhost:3001".to_string()),
+        frontend_url: get_env_var("FRONTEND_URL").unwrap_or_else(|_| {
+            if env::var("RUST_ENV").unwrap_or_else(|_| "development".to_string()) == "production" {
+                panic!("FRONTEND_URL is required in production environment")
+            } else {
+                "http://localhost:3000".to_string()
+            }
+        }),
+        admin_frontend_url: get_env_var("ADMIN_FRONTEND_URL").unwrap_or_else(|_| {
+            if env::var("RUST_ENV").unwrap_or_else(|_| "development".to_string()) == "production" {
+                panic!("ADMIN_FRONTEND_URL is required in production environment")
+            } else {
+                "http://localhost:3001".to_string()
+            }
+        }),
         environment: get_env_var("RUST_ENV").unwrap_or_else(|_| "development".to_string()),
     };
 
@@ -1159,7 +1171,16 @@ pub fn load_validated_config() -> Result<ValidatedConfig, Vec<ValidationError>> 
             .unwrap_or_else(|_| "default-jwt-secret".to_string()),
         cookie_signing_key: get_env_var("COOKIE_SIGNING_KEY").ok(),
         cookie_encryption_key: get_env_var("COOKIE_ENCRYPTION_KEY").ok(),
-        firebase_project_id: get_env_var("FIREBASE_PROJECT_ID").ok(),
+        firebase_project_id: Some(get_env_var("FIREBASE_PROJECT_ID")
+            .map_err(|e| vec![ValidationError {
+                variable: "FIREBASE_PROJECT_ID".to_string(),
+                objective: "Firebase project identifier for authentication".to_string(),
+                reason: e,
+                category: EnvCategory::Authentication,
+                suggestion: "Add FIREBASE_PROJECT_ID=your-project-id to your .env file".to_string(),
+                example: "your-firebase-project".to_string(),
+                severity: ErrorSeverity::Error,
+            }])?),
         backend_url: get_env_var("BACKEND_URL").unwrap_or_else(|_| "http://localhost:8080".to_string()),
         oidc_issuer: get_env_var("OIDC_ISSUER").unwrap_or_else(|_| "http://localhost:8080".to_string()),
     };

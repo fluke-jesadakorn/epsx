@@ -1,25 +1,26 @@
 // Core state management types
+import type { AnalyticsFilters } from '@/types/analytics';
 export interface StateConfig {
   persist?: {
     key: string;
     storage: 'localStorage' | 'sessionStorage';
     version?: number;
-    migrate?: (state: any, version: number) => any;
+    migrate?: <T>(state: T, version: number) => T;
   };
   middleware?: StateMiddleware[];
   devtools?: boolean;
 }
 
-export type StateMiddleware = (
+export type StateMiddleware = <T>(
   action: StateAction,
-  prevState: any,
-  nextState: any,
+  prevState: T,
+  nextState: T,
   store: string
 ) => void;
 
-export interface StateAction {
+export interface StateAction<T = unknown> {
   type: string;
-  payload?: any;
+  payload?: T;
   meta?: {
     timestamp: number;
     source: string;
@@ -27,16 +28,16 @@ export interface StateAction {
   };
 }
 
-export interface AsyncState<T = any> {
+export interface AsyncState<T = unknown> {
   data: T | null;
   loading: boolean;
   error: string | null;
   lastUpdated: number | null;
 }
 
-export interface OptimisticUpdate<T = any> {
+export interface OptimisticUpdate<T = unknown> {
   id: string;
-  action: StateAction;
+  action: StateAction<T>;
   rollback: () => void;
   confirm: () => void;
   data: T;
@@ -62,7 +63,7 @@ export interface UIState {
   modals: {
     [key: string]: {
       open: boolean;
-      data?: any;
+      data?: unknown;
     };
   };
   toasts: Toast[];
@@ -138,7 +139,7 @@ export interface UserSubscription {
 export interface AnalyticsState extends AsyncState {
   data: {
     rankings: StockRanking[];
-    filters: any;
+    filters: AnalyticsFilters;
     recentSearches: string[];
     bookmarks: string[];
   } | null;
@@ -209,7 +210,7 @@ export interface Notification {
   read: boolean;
   actionUrl?: string;
   createdAt: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface NotificationPreferences {
@@ -233,7 +234,7 @@ export interface CacheState {
     ttl: number;
   }>;
   analytics: Record<string, {
-    data: any;
+    data: unknown;
     timestamp: number;
     ttl: number;
   }>;
@@ -244,7 +245,7 @@ export type UIAction =
   | { type: 'SET_THEME'; payload: UIState['theme'] }
   | { type: 'TOGGLE_SIDEBAR' }
   | { type: 'COLLAPSE_SIDEBAR'; payload: boolean }
-  | { type: 'OPEN_MODAL'; payload: { key: string; data?: any } }
+  | { type: 'OPEN_MODAL'; payload: { key: string; data?: unknown } }
   | { type: 'CLOSE_MODAL'; payload: string }
   | { type: 'ADD_TOAST'; payload: Omit<Toast, 'id' | 'timestamp'> }
   | { type: 'REMOVE_TOAST'; payload: string }
@@ -284,6 +285,6 @@ export type NotificationAction =
 export type CacheAction = 
   | { type: 'SET_STOCK_DATA'; payload: { symbol: string; data: StockItem; ttl?: number } }
   | { type: 'SET_RANKINGS_DATA'; payload: { key: string; data: StockRanking[]; ttl?: number } }
-  | { type: 'SET_ANALYTICS_DATA'; payload: { key: string; data: any; ttl?: number } }
+  | { type: 'SET_ANALYTICS_DATA'; payload: { key: string; data: unknown; ttl?: number } }
   | { type: 'CLEAR_EXPIRED' }
   | { type: 'CLEAR_ALL' };

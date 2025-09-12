@@ -324,7 +324,7 @@ impl NotificationRepositoryAdapter {
 trait NotificationRepository {
     async fn save(&self, notification: &Notification) -> ApplicationResult<()>;
     async fn find_by_id(&self, id: &NotificationId) -> ApplicationResult<Option<Notification>>;
-    async fn find_by_user_id(&self, user_id: Uuid) -> ApplicationResult<Vec<Notification>>;
+    async fn find_byuser_id(&self, user_id: Uuid) -> ApplicationResult<Vec<Notification>>;
     async fn find_pending_for_processing(&self) -> ApplicationResult<Vec<Notification>>;
     async fn update_status(&self, id: &NotificationId, status: NotificationStatus) -> ApplicationResult<()>;
 }

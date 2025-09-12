@@ -91,7 +91,7 @@ impl FcmService {
 impl NotificationServicePort for FcmService {
     type Error = FcmServiceError;
     
-    async fn send_push_notification(&self, device_token: &str, message: &str) -> Result<(), Self::Error> {
+    async fn send_push_notification(&self, _device_token: &str, message: &str) -> Result<(), Self::Error> {
         // Create FCM notification from the device token and message
         let notification = FcmNotification {
             title: Some("Notification".to_string()),
@@ -176,7 +176,7 @@ impl FcmTopicService {
     pub async fn subscribe_to_topic(
         &self,
         tokens: &[String],
-        topic: &str,
+        _topic: &str,
     ) -> Result<TopicSubscriptionResult, Box<dyn std::error::Error + Send + Sync>> {
         // Placeholder implementation
         Ok(TopicSubscriptionResult {
@@ -188,7 +188,7 @@ impl FcmTopicService {
     pub async fn unsubscribe_from_topic(
         &self,
         tokens: &[String],
-        topic: &str,
+        _topic: &str,
     ) -> Result<TopicSubscriptionResult, Box<dyn std::error::Error + Send + Sync>> {
         // Placeholder implementation
         Ok(TopicSubscriptionResult {

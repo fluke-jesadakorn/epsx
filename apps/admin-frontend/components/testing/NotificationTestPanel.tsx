@@ -10,8 +10,14 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Send, TestTube, Users, Mail } from 'lucide-react'
 import { sendNotificationToUser, sendBroadcastNotification } from '@/lib/actions/notification-actions'
+import { logger } from '@/lib/logger'
 
 export function NotificationTestPanel() {
+  // Only render in development/staging environments - NEVER in production
+  if (process.env.NODE_ENV === 'production') {
+    return null
+  }
+
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
@@ -48,12 +54,12 @@ export function NotificationTestPanel() {
 
       setResult(response)
       if (response.success) {
-        console.log('✅ Notification sent successfully:', response)
+        logger.info('Notification sent successfully', { response })
       } else {
         setError(response.error || 'Unknown error occurred')
       }
     } catch (err) {
-      console.error('❌ Failed to send notification:', err)
+      logger.error('Failed to send notification', { error: err })
       setError(err instanceof Error ? err.message : 'Failed to send notification')
     } finally {
       setLoading(false)

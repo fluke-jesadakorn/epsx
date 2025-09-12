@@ -9,6 +9,7 @@ import {
   verifyPayment,
   cancelPayment
 } from '@/app/actions/payment-server';
+import { logger, safeError } from '@/lib/logger';
 
 interface CreatePaymentRequest {
   amount: number;
@@ -34,7 +35,7 @@ export const paymentClient = {
     try {
       return await createPayment(data);
     } catch (error) {
-      console.error('Error creating payment:', error);
+      logger.error('Payment creation failed', safeError(error));
       throw error;
     }
   },
@@ -43,7 +44,7 @@ export const paymentClient = {
     try {
       return await verifyPayment(data.paymentId);
     } catch (error) {
-      console.error('Error validating payment:', error);
+      logger.error('Payment validation failed', safeError(error));
       throw error;
     }
   },
@@ -52,7 +53,7 @@ export const paymentClient = {
     try {
       return await getPaymentStatus();
     } catch (error) {
-      console.error('Error getting payment status:', error);
+      logger.error('Payment status retrieval failed', safeError(error));
       throw error;
     }
   },
@@ -62,7 +63,7 @@ export const paymentClient = {
       // This would need to be implemented
       throw new Error('getTransactionHistory needs to be implemented');
     } catch (error) {
-      console.error('Error getting transaction history:', error);
+      logger.error('Transaction history retrieval failed', safeError(error));
       throw error;
     }
   },
@@ -72,7 +73,7 @@ export const paymentClient = {
       // This would need to be implemented
       throw new Error('initQRPayment needs to be implemented');
     } catch (error) {
-      console.error('Error initializing QR payment:', error);
+      logger.error('QR payment initialization failed', safeError(error));
       throw error;
     }
   },
@@ -82,7 +83,7 @@ export const paymentClient = {
       // This would need to be implemented
       throw new Error('getPlanDetails needs to be implemented');
     } catch (error) {
-      console.error('Error getting plan details:', error);
+      logger.error('Plan details retrieval failed', safeError(error));
       throw error;
     }
   },

@@ -182,12 +182,12 @@ mod tests {
         )
         .with_permissions(vec!["epsx:analytics:view".to_string()])
         .with_email_verified(true)
-        .initiated_by("admin_user_id".to_string())
+        .initiated_by("adminuser_id".to_string())
         .with_correlation_id("correlation_123".to_string());
         
         assert_eq!(command.initial_permissions.len(), 1);
         assert_eq!(command.email_verified, Some(true));
-        assert_eq!(command.initiated_by, Some("admin_user_id".to_string()));
+        assert_eq!(command.initiated_by, Some("adminuser_id".to_string()));
         assert_eq!(command.correlation_id, Some("correlation_123".to_string()));
     }
 }

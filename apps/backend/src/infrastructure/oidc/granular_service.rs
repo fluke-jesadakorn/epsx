@@ -19,7 +19,7 @@ impl EnhancedOIDCService {
 
     pub async fn validate_token_with_permissions(
         &self,
-        token: &str,
+        _token: &str,
     ) -> Result<TokenValidationResult, OIDCValidationError> {
         // Placeholder implementation
         tracing::info!("Validating token with enhanced permissions");

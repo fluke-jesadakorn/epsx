@@ -104,7 +104,7 @@ mod tests {
     use super::*;
     
     #[test]
-    fn test_numeric_user_id() {
+    fn test_numericuser_id() {
         let user_id = UserId::from_numeric(123);
         assert_eq!(user_id.as_str(), "123");
         assert!(user_id.is_numeric());
@@ -121,7 +121,7 @@ mod tests {
     }
     
     #[test]
-    fn test_invalid_user_id() {
+    fn test_invaliduser_id() {
         let result = UserId::new("".to_string());
         assert!(matches!(result, Err(UserIdError::Empty)));
         

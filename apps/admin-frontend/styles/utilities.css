@@ -7,6 +7,15 @@
 
 @layer utilities {
   /* ============================================================================
+     DARK MODE SIDEBAR FIX - Force missing Tailwind gradients
+     ============================================================================ */
+  
+  /* Fix for missing dark mode gradient generation in sidebar */
+  .dark .bg-gradient-to-b.from-white.via-yellow-50.to-orange-50.dark\:from-slate-900.dark\:via-slate-800.dark\:to-slate-900 {
+    background: linear-gradient(to bottom, rgb(15 23 42), rgb(30 41 59), rgb(15 23 42)) !important;
+  }
+
+  /* ============================================================================
      GRADIENT UTILITIES
      ============================================================================ */
 
@@ -60,67 +69,70 @@
   }
 
   /* ============================================================================
-     ANIMATION UTILITIES
+     STATIC VISUAL STATE UTILITIES (Animation-Free)
      ============================================================================ */
 
-  /* Fade animations */
-  .animate-fade-in {
-    animation: fadeIn 0.5s ease-out;
+  /* Static fade states */
+  .fade-in-static {
+    opacity: 1;
   }
 
-  .animate-fade-in-delayed {
-    animation: fadeIn 0.5s ease-out 0.1s both;
+  .fade-in-delayed-static {
+    opacity: 1;
   }
 
-  .animate-fade-in-delayed-2 {
-    animation: fadeIn 0.5s ease-out 0.2s both;
+  .fade-in-delayed-2-static {
+    opacity: 1;
   }
 
-  .animate-fade-in-delayed-3 {
-    animation: fadeIn 0.5s ease-out 0.3s both;
+  .fade-in-delayed-3-static {
+    opacity: 1;
   }
 
-  /* Menu and navigation animations */
-  .animate-menu-item {
-    animation: menuItemSlideIn 0.3s ease-out both;
+  /* Static menu and navigation states */
+  .menu-item-static {
+    opacity: 1;
+    transform: translateX(0);
   }
 
-  .animate-submenu-enter {
-    animation: submenuSlideIn 0.3s ease-out both;
+  .submenu-enter-static {
+    opacity: 1;
+    transform: translateX(0);
   }
 
-  .animate-submenu-exit {
-    animation: submenuSlideOut 0.2s ease-in both;
+  .submenu-exit-static {
+    opacity: 0;
+    transform: translateX(-100%);
   }
 
-  /* Drawer animations */
-  .animate-slide-in-from-right {
-    animation: slide-in-from-right 0.3s ease-out;
+  /* Static drawer states */
+  .slide-in-from-right-static {
+    transform: translateX(0);
   }
 
-  .animate-slide-out-to-right {
-    animation: slide-out-to-right 0.3s ease-in;
+  .slide-out-to-right-static {
+    transform: translateX(100%);
   }
 
-  .animate-slide-in-from-left {
-    animation: slide-in-from-left 0.3s ease-out;
+  .slide-in-from-left-static {
+    transform: translateX(0);
   }
 
-  .animate-slide-out-to-left {
-    animation: slide-out-to-left 0.3s ease-in;
+  .slide-out-to-left-static {
+    transform: translateX(-100%);
   }
 
-  /* Admin-specific animations */
-  .animate-permission-granted {
-    animation: permissionGranted 0.6s ease-out;
+  /* Static admin states */
+  .permission-granted-static {
+    background-color: hsl(var(--permission-granted) / 0.1);
   }
 
-  .animate-permission-denied {
-    animation: permissionDenied 0.6s ease-out;
+  .permission-denied-static {
+    background-color: hsl(var(--permission-denied) / 0.1);
   }
 
-  .animate-data-refresh {
-    animation: dataRefresh 1s ease-in-out;
+  .data-refresh-static {
+    opacity: 0.7;
   }
 
   /* ============================================================================
@@ -165,25 +177,13 @@
      INTERACTIVE STATE UTILITIES
      ============================================================================ */
 
-  /* Hover effects */
-  .hover-lift {
-    @apply transition-transform duration-200 ease-out;
-  }
-
+  /* Static hover effects (Animation-Free) */
   .hover-lift:hover {
-    transform: translateY(-2px);
-  }
-
-  .hover-scale {
-    @apply transition-transform duration-200 ease-out;
+    opacity: 0.9;
   }
 
   .hover-scale:hover {
-    transform: scale(1.02);
-  }
-
-  .hover-glow {
-    @apply transition-shadow duration-300 ease-out;
+    opacity: 0.9;
   }
 
   .hover-glow:hover {

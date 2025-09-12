@@ -156,7 +156,7 @@ impl CreateSessionResponse {
     }
     
     /// Check if response includes refresh token
-    pub fn has_refresh_token(&self) -> bool {
+    pub fn hasrefresh_token(&self) -> bool {
         self.refresh_token.is_some()
     }
     
@@ -271,7 +271,7 @@ mod tests {
         ).unwrap();
         
         // No scopes
-        let mut command = CreateSessionCommand::for_oidc_login(user_id.clone(), client_info.clone(), vec![]);
+        let command = CreateSessionCommand::for_oidc_login(user_id.clone(), client_info.clone(), vec![]);
         assert!(command.validate().is_err());
         
         // OIDC scope without openid

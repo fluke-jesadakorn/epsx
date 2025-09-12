@@ -10,14 +10,37 @@ pub mod value_objects;
 // pub mod events;
 pub mod repositories;
 
-// Re-export domain concepts
-pub use aggregates::*;
-pub use value_objects::*;
+// Re-export domain concepts with explicit imports to avoid conflicts
+pub use aggregates::{UserSessionManager};
+pub use value_objects::{
+    DeviceInfo, SessionActivity, SessionCollection, SessionCollectionError,
+    SessionHistory, SessionMetadata, SuspiciousPattern as ValueObjectSuspiciousPattern,
+    ActivityType as ValueObjectActivityType
+};
+pub use repositories::{
+    // Repository ports
+    SessionManagerRepositoryPort, SessionMetadataRepositoryPort, 
+    SessionPersistenceServicePort, SessionActivityMonitoringPort,
+    DeviceManagementServicePort,
+    // Supporting types
+    SessionData, ActivityRecord, ActivityType, SuspiciousPattern,
+    SuspiciousPatternType, SessionAnalytics, SuspiciousActivityDetails,
+    SuspiciousActivityType, SuspiciousSeverity, AutoResponse,
+    DeviceId, DeviceAnomaly, DeviceAnomalyType, AnomalySeverity,
+    SecurityContext as SessionSecurityContext, TrustLevel, 
+    SecurityFlag as SessionSecurityFlag, IpReputation
+};
+
+// Alias for backward compatibility  
+pub use repositories::SessionManagerRepositoryPort as SessionRepositoryPort;
+
+// Additional commonly needed exports
+pub use value_objects::{SessionStatus};
+
 // TODO: Re-enable these exports once modules are implemented
 // pub use domain_services::*;
 // pub use ports::*;
 // pub use events::*;
-pub use repositories::*;
 
 /// Session Management bounded context business rules and invariants
 pub struct SessionManagementBoundedContext;

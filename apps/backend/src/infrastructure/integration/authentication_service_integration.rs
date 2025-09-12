@@ -157,9 +157,9 @@ impl AuthenticationServiceIntegration {
         
         // Update session metadata if provided
         if let Some(ua) = user_agent {
-            session.update_metadata(format!("user_agent:{}", ua));
+            let _ = session.update_metadata(format!("user_agent:{}", ua));
         }
-        session.update_metadata(format!("ip_address:{}", ip_address));
+        let _ = session.update_metadata(format!("ip_address:{}", ip_address));
         
         self.session_repository
             .save(&session)

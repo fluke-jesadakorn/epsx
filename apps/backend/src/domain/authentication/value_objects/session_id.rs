@@ -111,14 +111,14 @@ mod tests {
     use super::*;
     
     #[test]
-    fn generates_valid_session_id() {
+    fn generates_validsession_id() {
         let session_id = SessionId::generate();
         assert!(session_id.as_str().starts_with("sess_"));
         assert!(session_id.as_str().len() > 8);
     }
     
     #[test]
-    fn validates_session_id_format() {
+    fn validatessession_id_format() {
         // Valid session ID
         assert!(SessionId::from_string("sess_abc123def456".to_string()).is_ok());
         

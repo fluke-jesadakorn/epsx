@@ -60,226 +60,42 @@
 @import './permission-indicators.css';
 
 /* ============================================================================
-   KEYFRAME ANIMATIONS
+   VISUAL STATE CLASSES (Animation-Free)
    ============================================================================ */
 
-/* Core animations used throughout the admin interface */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* Static visual feedback classes for admin interface */
+.permission-granted-state {
+  background-color: hsl(var(--permission-granted) / 0.1);
 }
 
-@keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.permission-denied-state {
+  background-color: hsl(var(--permission-denied) / 0.1);
 }
 
-@keyframes pancakeSlideUp {
-  from {
-    opacity: 0;
-    transform: translateY(30px) scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.data-refresh-state {
+  opacity: 0.7;
 }
 
-@keyframes pancakeSlideDown {
-  from {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: translateY(30px) scale(0.9);
-  }
+/* Loading states without animation */
+.shimmer-state {
+  background: linear-gradient(90deg, 
+    rgba(255,255,255,0.1) 0%, 
+    rgba(255,255,255,0.2) 50%, 
+    rgba(255,255,255,0.1) 100%);
 }
 
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(100%);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes menuItemSlideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes submenuSlideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-100%);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes submenuSlideOut {
-  from {
-    opacity: 1;
-    transform: translateX(0);
-  }
-  to {
-    opacity: 0;
-    transform: translateX(-100%);
-  }
-}
-
-/* Mobile-responsive drawer animations */
-@keyframes slide-in-from-right {
-  from {
-    transform: translateX(100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@keyframes slide-out-to-right {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(100%);
-  }
-}
-
-@keyframes slide-in-from-left {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(0);
-  }
-}
-
-@keyframes slide-out-to-left {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-100%);
-  }
-}
-
-/* Admin-specific animations */
-@keyframes permissionGranted {
-  0% {
-    transform: scale(1);
-    background-color: hsl(var(--permission-granted) / 0.1);
-  }
-  50% {
-    transform: scale(1.05);
-    background-color: hsl(var(--permission-granted) / 0.2);
-  }
-  100% {
-    transform: scale(1);
-    background-color: hsl(var(--permission-granted) / 0.1);
-  }
-}
-
-@keyframes permissionDenied {
-  0% {
-    transform: scale(1);
-    background-color: hsl(var(--permission-denied) / 0.1);
-  }
-  25% {
-    transform: translateX(-5px);
-    background-color: hsl(var(--permission-denied) / 0.15);
-  }
-  75% {
-    transform: translateX(5px);
-    background-color: hsl(var(--permission-denied) / 0.15);
-  }
-  100% {
-    transform: scale(1);
-    background-color: hsl(var(--permission-denied) / 0.1);
-  }
-}
-
-@keyframes dataRefresh {
-  0% {
-    transform: rotate(0deg);
-    opacity: 1;
-  }
-  50% {
-    transform: rotate(180deg);
-    opacity: 0.7;
-  }
-  100% {
-    transform: rotate(360deg);
-    opacity: 1;
-  }
-}
-
-/* Loading animations */
-@keyframes shimmer {
-  0% {
-    background-position: -468px 0;
-  }
-  100% {
-    background-position: 468px 0;
-  }
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-/* Gradient animations for enhanced visual appeal */
-@keyframes gradientShift {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
+.pulse-state {
+  opacity: 0.5;
 }
 
 /* ============================================================================
    PERFORMANCE OPTIMIZATIONS
    ============================================================================ */
 
-/* GPU acceleration for smooth animations */
-.admin-gpu-accelerated,
+/* Optimized rendering for admin components */
+.admin-optimized,
 .submenu-item {
-  transform: translateZ(0);
-  will-change: transform;
+  /* Remove GPU acceleration properties for zero animation policy */
 }
 
 /* Optimize font rendering */

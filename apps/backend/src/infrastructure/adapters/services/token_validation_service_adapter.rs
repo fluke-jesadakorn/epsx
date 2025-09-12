@@ -6,9 +6,9 @@ use tracing::{info, warn, error, debug};
 use std::sync::Arc;
 
 use crate::domain::authentication::{
-    RefreshToken,
     TokenValidationServicePort, TokenClaims, TokenIntrospectionResult
 };
+use crate::domain::authentication::value_objects::RefreshToken;
 use crate::web::auth::providers::{AuthProvider, ProviderType};
 use crate::infrastructure::firebase_admin::FirebaseAdmin;
 
@@ -332,7 +332,7 @@ mod tests {
             true
         }
         
-        async fn get_user_info(&self, _user_id: &str) -> Result<serde_json::Value, AuthProviderError> {
+        async fn get_user_info(&self, user_id: &str) -> Result<serde_json::Value, AuthProviderError> {
             Ok(serde_json::json!({"user_id": "123", "provider": "mock"}))
         }
     }

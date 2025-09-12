@@ -34,29 +34,29 @@ pub trait AuthenticationSessionRepositoryPort: Send + Sync {
 #[async_trait]
 pub trait TokenValidationServicePort: Send + Sync {
     /// Validate an access token
-    async fn validate_access_token(&self, token: &str) -> Result<bool, String>;
+    async fn validate_access_token(&self, _token: &str) -> Result<bool, String>;
     
     /// Validate a refresh token
-    async fn validate_refresh_token(&self, token: &str) -> Result<bool, String>;
+    async fn validate_refresh_token(&self, _token: &str) -> Result<bool, String>;
     
     /// Validate an ID token (OIDC)
-    async fn validate_id_token(&self, token: &str) -> Result<bool, String>;
+    async fn validate_id_token(&self, _token: &str) -> Result<bool, String>;
     
     /// Extract claims from token
-    async fn get_token_claims(&self, token: &str) -> Result<TokenClaims, String>;
+    async fn get_token_claims(&self, _token: &str) -> Result<TokenClaims, String>;
     
     /// Revoke a token
-    async fn revoke_token(&self, token: &str) -> Result<(), String>;
+    async fn revoke_token(&self, _token: &str) -> Result<(), String>;
     
     /// Introspect token (RFC 7662)
-    async fn introspect_token(&self, token: &str) -> Result<TokenIntrospectionResult, String>;
+    async fn introspect_token(&self, _token: &str) -> Result<TokenIntrospectionResult, String>;
 }
 
 /// Port for user identity and permissions
 #[async_trait]
 pub trait UserIdentityServicePort: Send + Sync {
     /// Verify user identity from token
-    async fn verify_user_identity(&self, token: &str) -> Result<AuthenticatedUserId, String>;
+    async fn verify_user_identity(&self, _token: &str) -> Result<AuthenticatedUserId, String>;
     
     /// Get user permissions
     async fn get_user_permissions(&self, user_id: &AuthenticatedUserId) -> Result<Vec<String>, String>;

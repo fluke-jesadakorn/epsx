@@ -121,7 +121,7 @@ pub fn convert_screening_result_to_eps_ranking(
         Some(result.change_percent)
     });
     let market_cap = result.market_cap;
-    let volume = Some(result.volume as i64);
+    let _volume = Some(result.volume as i64);
     let ranking_position = Some(1); // Default ranking position
     
     // Calculate price from available metrics (if available)

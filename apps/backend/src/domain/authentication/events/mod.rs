@@ -325,7 +325,7 @@ impl DomainEvent for SuspiciousActivityDetectedEvent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthenticationFailedEvent {
     event_id: Uuid,
-    attempted_user_id: Option<String>,
+    attempteduser_id: Option<String>,
     failure_reason: AuthenticationFailureReason,
     client_info: ClientInformation,
     occurred_at: DateTime<Utc>,
@@ -334,13 +334,13 @@ pub struct AuthenticationFailedEvent {
 
 impl AuthenticationFailedEvent {
     pub fn new(
-        attempted_user_id: Option<String>,
+        attempteduser_id: Option<String>,
         failure_reason: AuthenticationFailureReason,
         client_info: ClientInformation,
     ) -> Self {
         Self {
             event_id: Uuid::new_v4(),
-            attempted_user_id,
+            attempteduser_id,
             failure_reason,
             client_info,
             occurred_at: Utc::now(),
@@ -348,7 +348,7 @@ impl AuthenticationFailedEvent {
         }
     }
     
-    pub fn attempted_user_id(&self) -> Option<&str> { self.attempted_user_id.as_deref() }
+    pub fn attempteduser_id(&self) -> Option<&str> { self.attempteduser_id.as_deref() }
     pub fn failure_reason(&self) -> &AuthenticationFailureReason { &self.failure_reason }
     pub fn client_info(&self) -> &ClientInformation { &self.client_info }
 }
@@ -363,7 +363,7 @@ impl DomainEvent for AuthenticationFailedEvent {
     }
     
     fn aggregate_id(&self) -> String {
-        self.attempted_user_id
+        self.attempteduser_id
             .as_ref()
             .map(|id| format!("auth_failure:{}", id))
             .unwrap_or_else(|| format!("auth_failure:unknown:{}", Utc::now().timestamp()))

@@ -2,6 +2,7 @@
 
 import Script from 'next/script';
 import { useEffect, useState } from 'react';
+import { clientConfig } from '@/config/env';
 
 interface FirebaseMessagingScriptProps {
   onMessagingReady?: (messaging: any) => void;
@@ -15,15 +16,8 @@ export default function FirebaseMessagingScript({
   const [scriptsLoaded, setScriptsLoaded] = useState(false);
   const [firebaseApp, setFirebaseApp] = useState<any>(null);
 
-  // Firebase configuration from environment variables
-  const firebaseConfig = {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
-  };
+  // Firebase configuration from centralized config
+  const firebaseConfig = clientConfig.firebase;
 
   const initializeFirebase = () => {
     if (typeof window === 'undefined' || !scriptsLoaded) return;
@@ -111,14 +105,16 @@ export default function FirebaseMessagingScript({
         strategy="afterInteractive"
         dangerouslySetInnerHTML={{
           __html: `
-            // Register service worker for Firebase messaging
+            // Register Firebase messaging service worker with proper scope
             if ('serviceWorker' in navigator) {
-              navigator.serviceWorker.register('/firebase-messaging-sw.js')
+              navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+                scope: '/firebase-cloud-messaging-push-scope'
+              })
                 .then((registration) => {
-                  console.log('Service worker registered:', registration);
+                  console.log('Firebase messaging service worker registered:', registration);
                 })
                 .catch((error) => {
-                  console.error('Service worker registration failed:', error);
+                  console.error('Firebase messaging service worker registration failed:', error);
                 });
             }
           `

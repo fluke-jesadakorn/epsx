@@ -512,7 +512,7 @@ impl TradingViewScanner {
             );
         }
 
-        let (entry_phase, phase_status) = if last != 0.0 && next != 0.0 {
+        let (_entry_phase, _phase_status) = if last != 0.0 && next != 0.0 {
             // Default phase info since get_analysis_phases doesn't exist
             (PhaseInfo { date: "2024-01-01".to_string(), active: false },
              PhaseStatus { date: "2024-01-01".to_string(), phase_type: PhaseType::Monitor, active: false })
@@ -630,7 +630,7 @@ impl TradingViewScanner {
     /// Convert TradingView response to frontend format
     pub fn convert_to_frontend_format(&self, response: TradingViewResponse, page: i32, limit: i32) -> FrontendEPSResponse {
         // TradingView API doesn't return total_count, so we use data length (before consuming)
-        let total = response.totalCount.unwrap_or(response.data.len() as i32);
+        let total = response.total_count.unwrap_or(response.data.len() as i32);
 
         let frontend_data = response.data
             .into_iter()

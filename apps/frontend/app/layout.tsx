@@ -1,10 +1,11 @@
-import { NavigationClient } from '@/components/nav/NavigationClient';
-import { getAuthUser } from '@/lib/server/auth';
-import { Kanit } from 'next/font/google';
-import { type EPSXJWTPayload } from '@/lib/auth-utils';
-import { Toaster } from 'sonner';
 import { ServiceWorkerInitializer } from '@/components/ServiceWorkerInitializer';
+import { NavigationClient } from '@/components/nav/NavigationClient';
 import { ClientProviders } from '@/components/providers/ClientProviders';
+import { type EPSXJWTPayload } from '@/lib/auth-utils';
+import { getAuthUser } from '@/lib/server/auth';
+import { getNotifications, type NotificationData } from '@/lib/actions/notification-actions';
+import { Kanit } from 'next/font/google';
+import { Toaster } from 'sonner';
 import './globals.css';
 
 export const dynamic = 'force-dynamic';
@@ -12,7 +13,7 @@ export const dynamic = 'force-dynamic';
 // Convert EPSXJWTPayload to AuthUser format
 function mapToAuthUser(payload: EPSXJWTPayload | null) {
   if (!payload) return null;
-  
+
   return {
     user_id: payload.sub,
     email: payload.email,
@@ -71,53 +72,62 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   let jwtPayload: EPSXJWTPayload | null = null;
-  
+  let notificationData: NotificationData | null = null;
+
   try {
     jwtPayload = await getAuthUser();
+    
+    // Fetch notifications if user is authenticated
+    if (jwtPayload) {
+      notificationData = await getNotifications();
+    }
   } catch (error) {
     // Gracefully handle auth failures for static generation
     console.warn('Failed to get auth user in layout:', error);
   }
-  
+
   const user = mapToAuthUser(jwtPayload);
-  
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
         {/* Mobile performance optimizations */}
         <meta name="msapplication-tap-highlight" content="no" />
-        
+
         {/* Preconnect to external resources */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+
         {/* Critical resource hints */}
         <link rel="dns-prefetch" href="//fonts.googleapis.com" />
         <link rel="dns-prefetch" href="//fonts.gstatic.com" />
-        
-        
+
         {/* Performance and mobile optimizations */}
         <meta httpEquiv="x-ua-compatible" content="ie=edge" />
         <meta name="HandheldFriendly" content="true" />
         <meta name="MobileOptimized" content="width" />
       </head>
-      <body className={`${kanit.variable} font-sans antialiased bg-background text-foreground overflow-x-hidden`}>
+      <body
+        className={`${kanit.variable} bg-background text-foreground overflow-x-hidden font-sans antialiased`}
+      >
         <ClientProviders>
           {/* Service Worker Registration */}
           <ServiceWorkerInitializer />
-          
+
           {/* Notifications now handled in NavigationClient with server components */}
-          
+
           {/* Mobile navigation optimized for touch */}
-          <NavigationClient user={user} />
-          
+          <NavigationClient user={user} initialNotificationData={notificationData} />
+
           {/* Main content with mobile scroll optimization */}
-          <main className="relative min-h-screen">
-            {children}
-          </main>
-          
+          <main className="relative min-h-screen">{children}</main>
+
           {/* Toast notifications */}
-          <Toaster 
+          <Toaster
             position="top-right"
             toastOptions={{
               style: {

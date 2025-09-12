@@ -411,8 +411,8 @@ pub async fn userinfo(
 
 /// Fetch user permissions from user_permissions table with timestamp validation
 async fn get_user_permissions_from_db(
-    app_state: &crate::web::auth::AppState, 
-    firebase_uid: &str
+    _app_state: &crate::web::auth::AppState, 
+    _firebase_uid: &str
 ) -> Result<Vec<String>, Error> {
     use crate::auth::permissions::filter_valid_permissions;
     

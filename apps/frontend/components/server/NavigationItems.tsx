@@ -8,7 +8,8 @@ import {
   File, 
   Settings, 
   Database,
-  Shield
+  Shield,
+  Code
 } from 'lucide-react';
 
 const iconMap = {
@@ -18,6 +19,7 @@ const iconMap = {
   settings: <Settings className="h-4 w-4" />,
   'my-data': <Database className="h-4 w-4" />,
   permissions: <Shield className="h-4 w-4" />,
+  developer: <Code className="h-4 w-4" />,
 };
 
 interface NavigationItem {

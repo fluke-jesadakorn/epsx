@@ -5,15 +5,43 @@
 pub mod aggregates;
 pub mod value_objects;
 pub mod domain_services;
+pub mod services;
 pub mod ports;
 pub mod events;
 pub mod repositories;
 
-// Re-export domain concepts
-pub use aggregates::*;
-pub use value_objects::*;
-pub use events::*;
-pub use repositories::*;
+// Re-export domain concepts with explicit imports to avoid conflicts
+pub use aggregates::{AuthenticationSession, AuthenticationError, TerminationReason};
+pub use value_objects::{
+    // Core authentication types
+    AuthenticatedUserId, Scope, ScopeSet, ScopeError,
+    // Client and session types
+    ClientId, ClientType, RedirectUri, SessionId,
+    // Authentication provider types
+    AuthenticationProvider, ProviderType, AuthenticationMethod,
+    // Token types
+    AccessToken, RefreshToken, IdToken, TokenError,
+    SecureAccessToken, SecureAccessTokenClaims,
+    // Security types
+    ClientInformation, SecurityContext, RiskLevel, SecurityFlag
+};
+pub use services::{
+    ExternalAuthService, InternalAuthService, SecureRefreshService,
+    ThreatDetectionService
+};
+pub use events::{
+    AuthenticationSessionCreatedEvent, TokensIssuedEvent, TokensRefreshedEvent,
+    AuthenticationSessionTerminatedEvent, SuspiciousActivityDetectedEvent
+};
+pub use repositories::{
+    // Repository ports
+    AuthenticationSessionRepositoryPort,
+    // Service ports  
+    TokenValidationServicePort, UserIdentityServicePort, SecurityMonitoringServicePort,
+    // Supporting types
+    TokenClaims, TokenIntrospectionResult, UserProfile, UserSubscription, 
+    SubscriptionType, RiskScore, SecuritySummary, SecurityEvent, SecurityEventType
+};
 
 /// Authentication bounded context business rules and invariants
 

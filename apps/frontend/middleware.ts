@@ -5,6 +5,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { validateUserSession, canAccessUserPath } from '@/lib/session-validator';
+import { devLog, authLogger, logger } from '@/lib/logger';
 
 // Public routes that don't require authentication
 const publicRoutes = [
@@ -71,9 +72,7 @@ export async function middleware(request: NextRequest) {
   
   // Extract request metadata for session validation
   const userAgent = request.headers.get('user-agent') || undefined;
-  const ipAddress = request.headers.get('x-forwarded-for') || 
-                   request.headers.get('x-real-ip') || 
-                   request.ip || undefined;
+  const ipAddress = getClientIpAddress(request);
   const method = request.method;
   
   // Create response with enhanced security headers for trading platform
@@ -102,7 +101,7 @@ export async function middleware(request: NextRequest) {
   }
   
   try {
-    console.log(`🔍 User middleware: Validating session for ${pathname} (${method})`);
+    devLog(`Validating session for ${pathname} (${method})`);
     
     // Use session validator service
     const validationResult = await validateUserSession({
@@ -113,7 +112,7 @@ export async function middleware(request: NextRequest) {
     });
     
     if (!validationResult.valid || !validationResult.user) {
-      console.log(`🚫 User middleware: Session validation failed - ${validationResult.error}`);
+      authLogger.warn(`Session validation failed for ${pathname}`, validationResult.error);
       
       // Log security event for failed validation
       await logSecurityEvent({
@@ -138,7 +137,7 @@ export async function middleware(request: NextRequest) {
     
     if (requiredTier) {
       if (!canAccessUserPath(user, pathname)) {
-        console.log(`🚫 User middleware: User ${user.email} lacks tier ${requiredTier} for ${pathname}`);
+        authLogger.warn(`Access denied: User ${user.email} lacks tier ${requiredTier} for ${pathname}`);
         
         // Log security event for access denied
         await logSecurityEvent({
@@ -178,10 +177,10 @@ export async function middleware(request: NextRequest) {
     
     // Log successful access
     if (elapsedTime > 100) { // Log slow requests
-      console.warn(`⚠️  User middleware: Slow validation for ${pathname}: ${elapsedTime.toFixed(2)}ms`);
+      logger.warn(`User middleware: Slow validation for ${pathname}: ${elapsedTime.toFixed(2)}ms`);
     }
     
-    console.log(`✅ User middleware: Authenticated ${user.email} (${user.role}/${user.package_tier}) accessing ${pathname} in ${elapsedTime.toFixed(2)}ms`);
+    devLog(`Authenticated ${user.email} (${user.role}/${user.package_tier}) accessing ${pathname} in ${elapsedTime.toFixed(2)}ms`);
     
     // Log performance metrics to backend
     await recordPerformanceMetrics({
@@ -197,7 +196,7 @@ export async function middleware(request: NextRequest) {
     return response;
     
   } catch (error) {
-    console.error('❌ User middleware validation error:', error);
+    logger.error('User middleware validation error', error instanceof Error ? error.message : 'Unknown error');
     const elapsedTime = performance.now() - startTime;
     
     // Log security event for middleware error
@@ -246,6 +245,15 @@ function redirectToLogin(request: NextRequest): NextResponse {
 /**
  * Log security event to backend security API
  */
+interface SecurityEventDetails {
+  error?: string;
+  requiredTier?: string;
+  userTier?: string;
+  requiredFeatures?: string;
+  elapsedTime?: number;
+  [key: string]: unknown;
+}
+
 async function logSecurityEvent(event: {
   type: string
   userId?: string
@@ -253,7 +261,7 @@ async function logSecurityEvent(event: {
   ipAddress?: string
   path: string
   method: string
-  details: Record<string, any>
+  details: SecurityEventDetails
 }): Promise<void> {
   try {
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 
@@ -280,10 +288,10 @@ async function logSecurityEvent(event: {
     });
     
     if (!response.ok) {
-      console.warn(`⚠️  Failed to log security event: ${response.status}`);
+      logger.warn(`Failed to log security event: ${response.status}`);
     }
   } catch (error) {
-    console.error('❌ Failed to log security event:', error);
+    logger.error('Failed to log security event', error instanceof Error ? error.message : 'Unknown error');
     // Don't throw - security logging is non-critical for middleware flow
   }
 }
@@ -324,10 +332,10 @@ async function recordPerformanceMetrics(metrics: {
     });
     
     if (!response.ok) {
-      console.warn(`⚠️  Failed to record performance metrics: ${response.status}`);
+      logger.warn(`Failed to record performance metrics: ${response.status}`);
     }
   } catch (error) {
-    console.error('❌ Failed to record performance metrics:', error);
+    logger.error('Failed to record performance metrics', error instanceof Error ? error.message : 'Unknown error');
     // Don't throw - metrics recording is non-critical for middleware flow
   }
 }
@@ -344,6 +352,30 @@ function determineSeverity(eventType: string): string {
   if (highEvents.includes(eventType)) return 'HIGH';
   if (mediumEvents.includes(eventType)) return 'MEDIUM';
   return 'LOW';
+}
+
+/**
+ * Safely extract client IP address from NextRequest with proper type safety
+ */
+function getClientIpAddress(request: NextRequest): string | undefined {
+  // Check headers in order of preference
+  const xForwardedFor = request.headers.get('x-forwarded-for');
+  if (xForwardedFor) {
+    // x-forwarded-for can contain multiple IPs, take the first one
+    return xForwardedFor.split(',')[0]?.trim();
+  }
+  
+  const xRealIp = request.headers.get('x-real-ip');
+  if (xRealIp) {
+    return xRealIp.trim();
+  }
+  
+  // Fallback to request.ip (may not be available in all environments)
+  if ('ip' in request && request.ip) {
+    return request.ip;
+  }
+  
+  return undefined;
 }
 
 export const config = {

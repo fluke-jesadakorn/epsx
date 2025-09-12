@@ -181,7 +181,7 @@ impl EventMessage {
         }
     }
     
-    pub fn with_user_id(mut self, user_id: String) -> Self {
+    pub fn withuser_id(mut self, user_id: String) -> Self {
         self.metadata.user_id = Some(user_id);
         self
     }
@@ -343,7 +343,7 @@ mod tests {
         );
         
         let message = EventMessage::new(event, "payment-service".to_string())
-            .with_user_id("user_456".to_string());
+            .withuser_id("user_456".to_string());
         
         assert_eq!(message.metadata.source, "payment-service");
         assert_eq!(message.metadata.user_id, Some("user_456".to_string()));

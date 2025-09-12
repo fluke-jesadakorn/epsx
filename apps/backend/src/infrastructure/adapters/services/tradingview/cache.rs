@@ -3,7 +3,7 @@
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::collections::HashMap;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 use serde::{Deserialize, Serialize};
 
 use super::types::{FrontendEPSData, FrontendEPSResponse, FrontendDataBatch};
@@ -362,7 +362,7 @@ mod tests {
 
     #[test]
     fn test_cache_operations() {
-        let mut cache = TradingViewCache::new();
+        let cache = TradingViewCache::new();
         
         // Test initial stats
         let stats = cache.get_stats();

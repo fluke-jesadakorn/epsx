@@ -19,7 +19,7 @@ impl OIDCService {
         }
     }
 
-    pub async fn exchange_code_for_tokens(&self, code: &str, redirect_uri: &str) -> Result<TokenResponse, OIDCError> {
+    pub async fn exchange_code_for_tokens(&self, code: &str, _redirect_uri: &str) -> Result<TokenResponse, OIDCError> {
         // Placeholder implementation
         tracing::info!("Exchanging authorization code for tokens");
         
@@ -65,7 +65,7 @@ impl OIDCService {
         })
     }
 
-    pub async fn validate_token(&self, token: &str) -> Result<TokenValidationResult, OIDCError> {
+    pub async fn validate_token(&self, _token: &str) -> Result<TokenValidationResult, OIDCError> {
         // Placeholder implementation
         tracing::info!("Validating token");
         

@@ -1,10 +1,6 @@
-'use client';
-
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function UnauthorizedPage() {
-  const router = useRouter();
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
       <div className="max-w-md w-full space-y-8 p-8 bg-white dark:bg-gray-800 rounded-lg shadow-md">
@@ -18,18 +14,18 @@ export default function UnauthorizedPage() {
             Please contact your administrator if you believe this is an error.
           </p>
           <div className="space-y-3">
-            <button 
-              onClick={() => router.push('/login')}
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            <Link 
+              href="/login"
+              className="block w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-center"
             >
               Go to Login
-            </button>
-            <button 
-              onClick={() => router.back()}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            </Link>
+            <Link 
+              href="/"
+              className="block w-full px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-center"
             >
-              Go Back
-            </button>
+              Go Home
+            </Link>
           </div>
         </div>
       </div>

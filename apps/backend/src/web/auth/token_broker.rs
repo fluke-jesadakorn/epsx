@@ -10,7 +10,7 @@ use chrono::{ DateTime, Utc, Duration };
 use crate::config::env::get_env_var;
 
 
-// use crate::domain::shared_kernel::services::casbin_service::CasbinService; // Removed - using modern JWT auth
+// Casbin service removed - using modern JWT auth
 use super::providers::{
 
   ProviderRegistry,
@@ -248,7 +248,7 @@ impl TokenBroker {
       expires_in: self.config.token_ttl_hours * 3600, // seconds
       session_id: session_id.clone(),
       jti,
-      refresh_token: Some(self.generate_refresh_token(&claims.user_id.to_string(), &session_id)?),
+      refresh_token: Some(self.generaterefresh_token(&claims.user_id.to_string(), &session_id)?),
     };
 
     tracing::info!(
@@ -379,7 +379,7 @@ impl TokenBroker {
   }
 
   /// Generate a refresh token for a user session
-  fn generate_refresh_token(
+  fn generaterefresh_token(
     &self,
     user_id: &str,
     session_id: &str
@@ -465,7 +465,7 @@ impl TokenBroker {
       expires_in: self.config.token_ttl_hours * 3600,
       session_id: refresh_claims.session_id.clone(),
       jti,
-      refresh_token: Some(self.generate_refresh_token(&refresh_claims.sub, &refresh_claims.session_id)?),
+      refresh_token: Some(self.generaterefresh_token(&refresh_claims.sub, &refresh_claims.session_id)?),
     })
   }
 }

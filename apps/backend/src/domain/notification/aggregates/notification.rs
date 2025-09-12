@@ -12,7 +12,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone)]
 pub struct Notification {
     id: NotificationId,
-    recipient_user_id: Option<Uuid>,
+    recipientuser_id: Option<Uuid>,
     topic: Option<NotificationTopic>,
     content: NotificationContent,
     notification_type: NotificationType,
@@ -28,7 +28,7 @@ pub struct Notification {
 impl Notification {
     /// Create new notification for specific user
     pub fn create_for_user(
-        recipient_user_id: Uuid,
+        recipientuser_id: Uuid,
         content: NotificationContent,
         notification_type: NotificationType,
         priority: NotificationPriority,
@@ -41,7 +41,7 @@ impl Notification {
         
         let mut notification = Self {
             id: id.clone(),
-            recipient_user_id: Some(recipient_user_id),
+            recipientuser_id: Some(recipientuser_id),
             topic: None,
             content,
             notification_type: notification_type.clone(),
@@ -58,7 +58,7 @@ impl Notification {
         notification.base.add_event(Box::new(NotificationCreated::new(
             id.as_str(),
             notification.base.version,
-            recipient_user_id,
+            recipientuser_id,
             None,
             notification_type,
             priority,
@@ -94,7 +94,7 @@ impl Notification {
 
         let mut notification = Self {
             id: id.clone(),
-            recipient_user_id: None,
+            recipientuser_id: None,
             topic: Some(topic.clone()),
             content,
             notification_type: notification_type.clone(),
@@ -348,7 +348,7 @@ impl Notification {
 
     // Getters
     pub fn id(&self) -> &NotificationId { &self.id }
-    pub fn recipient_user_id(&self) -> Option<Uuid> { self.recipient_user_id }
+    pub fn recipientuser_id(&self) -> Option<Uuid> { self.recipientuser_id }
     pub fn topic(&self) -> Option<&NotificationTopic> { self.topic.as_ref() }
     pub fn content(&self) -> &NotificationContent { &self.content }
     pub fn notification_type(&self) -> &NotificationType { &self.notification_type }
@@ -608,7 +608,7 @@ mod placeholder {
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct NotificationCreated {
         pub metadata: EventMetadata,
-        pub recipient_user_id: Uuid,
+        pub recipientuser_id: Uuid,
         pub topic_name: Option<String>,
         pub notification_type: NotificationType,
         pub priority: NotificationPriority,
@@ -619,7 +619,7 @@ mod placeholder {
         pub fn new(
             aggregate_id: String,
             aggregate_version: u64,
-            recipient_user_id: Uuid,
+            recipientuser_id: Uuid,
             topic_name: Option<String>,
             notification_type: NotificationType,
             priority: NotificationPriority,
@@ -627,7 +627,7 @@ mod placeholder {
         ) -> Self {
             Self {
                 metadata: EventMetadata::new(aggregate_id, aggregate_version),
-                recipient_user_id,
+                recipientuser_id,
                 topic_name,
                 notification_type,
                 priority,

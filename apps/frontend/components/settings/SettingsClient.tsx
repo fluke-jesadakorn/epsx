@@ -4,8 +4,11 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui';
 import Link from 'next/link';
-import { Bell, User, Settings, Shield, CheckCircle, AlertCircle } from 'lucide-react';
+import { Bell, User, Settings, Shield, CheckCircle, AlertCircle, Flame, Cloud, Crown } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { FirebaseConfigSection } from './FirebaseConfigSection';
+import { RemoteConfigTab } from './RemoteConfigTab';
+import { UserPlanDisplay } from './UserPlanDisplay';
 
 interface NotificationPreferences {
   trading: boolean;
@@ -27,11 +30,25 @@ export function SettingsClient() {
   const [prefsLoading, setPrefsLoading] = useState(true);
   const [prefsError, setPrefsError] = useState<string | null>(null);
   const [prefsSuccess, setPrefsSuccess] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string>('');
 
-  // Load notification preferences on component mount
+  // Load notification preferences and user info on component mount
   useEffect(() => {
     loadNotificationPreferences();
+    loadUserInfo();
   }, []);
+
+  const loadUserInfo = async () => {
+    try {
+      const response = await fetch('/api/v1/auth/me');
+      if (response.ok) {
+        const user = await response.json();
+        setUserId(user.uid || user.id || user.user_id || '');
+      }
+    } catch (error) {
+      console.error('Error loading user info:', error);
+    }
+  };
 
   const loadNotificationPreferences = async () => {
     try {
@@ -87,21 +104,38 @@ export function SettingsClient() {
   };
 
   return (
-    <Tabs defaultValue="notifications" className="space-y-6">
-      <TabsList className="grid w-full grid-cols-3">
+    <Tabs defaultValue="plan" className="space-y-6">
+      <TabsList className="grid w-full grid-cols-6">
+        <TabsTrigger value="plan" className="flex items-center gap-2">
+          <Crown className="h-4 w-4" />
+          <span className="hidden sm:inline">Plan</span>
+        </TabsTrigger>
         <TabsTrigger value="notifications" className="flex items-center gap-2">
           <Bell className="h-4 w-4" />
-          Notifications
+          <span className="hidden sm:inline">Notifications</span>
+        </TabsTrigger>
+        <TabsTrigger value="remote-config" className="flex items-center gap-2">
+          <Cloud className="h-4 w-4" />
+          <span className="hidden sm:inline">Remote</span>
+        </TabsTrigger>
+        <TabsTrigger value="firebase" className="flex items-center gap-2">
+          <Flame className="h-4 w-4" />
+          <span className="hidden sm:inline">Firebase</span>
         </TabsTrigger>
         <TabsTrigger value="account" className="flex items-center gap-2">
           <User className="h-4 w-4" />
-          Account
+          <span className="hidden sm:inline">Account</span>
         </TabsTrigger>
         <TabsTrigger value="privacy" className="flex items-center gap-2">
           <Shield className="h-4 w-4" />
-          Privacy
+          <span className="hidden sm:inline">Privacy</span>
         </TabsTrigger>
       </TabsList>
+
+      {/* User Plan Display */}
+      <TabsContent value="plan" className="space-y-6">
+        <UserPlanDisplay userId={userId} />
+      </TabsContent>
 
       {/* FCM Notification Preferences */}
       <TabsContent value="notifications" className="space-y-6">
@@ -255,6 +289,16 @@ export function SettingsClient() {
             )}
           </CardContent>
         </Card>
+      </TabsContent>
+
+      {/* Remote Configuration */}
+      <TabsContent value="remote-config" className="space-y-6">
+        <RemoteConfigTab />
+      </TabsContent>
+
+      {/* Firebase Configuration */}
+      <TabsContent value="firebase" className="space-y-6">
+        <FirebaseConfigSection />
       </TabsContent>
 
       {/* Account Settings */}

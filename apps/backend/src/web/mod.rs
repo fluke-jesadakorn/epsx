@@ -1,8 +1,10 @@
 // Web layer implementation
 
+pub mod api;
 pub mod auth;
 pub mod oidc;
 pub mod admin;
+pub mod routes; // New contextual route architecture
 // Removed: permission_profile, permissions - replaced by auth/roles.rs
 pub mod user;
 pub mod middleware;
@@ -24,7 +26,7 @@ use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 use axum::middleware as axum_middleware;
 
-use crate::infrastructure::AppContainer;
+use crate::infrastructure::container::AppContainer;
 
 /// Health check handler
 pub async fn health_handler() -> Json<Value> {
@@ -393,26 +395,34 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
     })?;
   let oidc_routes = oidc::routes::oidc_routes().with_state(app_state.clone());
   
+  // Create new contextual route architecture
+  let internal_routes = routes::ContextualRouterBuilder::new(
+    routes::AccessContext::Internal,
+    container.clone()
+  ).build().await?;
 
-  // Performance routes removed - stub implementations cleaned up
+  let external_routes = routes::ContextualRouterBuilder::new(
+    routes::AccessContext::External,
+    container.clone()
+  ).build().await?;
 
-  // Permission routes removed - replaced by simple roles middleware
+  let admin_routes_new = routes::ContextualRouterBuilder::new(
+    routes::AccessContext::Admin,
+    container.clone()
+  ).build().await?;
 
-  // Notification routes removed - will be re-implemented
-
-  // Create admin routes (core admin functionality)
+  // Keep legacy admin routes for backward compatibility
   let admin_routes = admin::routes::create_admin_routes().with_state(app_state.clone());
   let admin_public_routes = admin::routes::create_admin_public_routes().with_state(app_state.clone());
 
   // Create realtime routes for SSE
   let realtime_routes = realtime::routes::create_realtime_routes().with_state(app_state.clone());
 
-
   // Create analytics routes with permission middleware
   let analytics_routes = analytics::create_analytics_router(&container.infra).await;
   
-  // FCM routes removed - will be re-implemented
-
+  // Create marketing API routes (plans, promotions, affiliates)
+  let marketing_routes = api::v1::create_plans_router(container.db_pool());
 
   // Create core routes
   let core_routes = Router::new()
@@ -423,11 +433,17 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
   // Configure CORS for all routes
   let cors = configure_cors_for_frontend();
 
-  // Merge routes with analytics, admin, and permissions support
+  // Merge routes with new contextual architecture
   Ok(core_routes
     .merge(oidc_routes)
     .merge(realtime_routes)
     .merge(analytics_routes)
+    // New contextual routes with proper prefixes
+    .nest("/web", internal_routes)
+    .nest("/api/external", external_routes) 
+    .nest("/admin", admin_routes_new)
+    // Legacy routes for backward compatibility
+    .nest("/api/v1/plans", marketing_routes)
     .nest("/api/v1/notifications", notifications::notification_routes()
       // DDD Notification infrastructure adapter - bridges legacy services with DDD bounded context
       .layer(axum::Extension(Arc::new(crate::infrastructure::adapters::repositories::NotificationRepositoryAdapter::new(

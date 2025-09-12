@@ -18,7 +18,7 @@ async fn test_ddd_container_basics() -> Result<(), Box<dyn std::error::Error + S
     
     // Create a minimal test database connection
     let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgresql://postgres:password@localhost:5432/epsx_test".to_string());
+        .unwrap_or_else(|_| "postgresql://test_user:test_pass@localhost:5432/epsx_test".to_string());
     
     // Create pool with explicit error handling
     let pool_result = create_pool(&database_url).await;
@@ -100,7 +100,7 @@ async fn test_ddd_migration_compatibility() -> Result<(), Box<dyn std::error::Er
     
     // Test that DDD bounded contexts can be instantiated
     let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgresql://postgres:password@localhost:5432/epsx_test".to_string());
+        .unwrap_or_else(|_| "postgresql://test_user:test_pass@localhost:5432/epsx_test".to_string());
     
     let pool_result = create_pool(&database_url).await;
     let pool = match pool_result {
@@ -152,7 +152,7 @@ async fn test_overall_ddd_migration() -> Result<(), Box<dyn std::error::Error + 
     // Test that the migration preserves existing functionality
     // by validating that core DDD components can be created
     let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgresql://postgres:password@localhost:5432/epsx_test".to_string());
+        .unwrap_or_else(|_| "postgresql://test_user:test_pass@localhost:5432/epsx_test".to_string());
     
     match create_pool(&database_url).await {
         Ok(pool) => {

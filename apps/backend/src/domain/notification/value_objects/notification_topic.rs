@@ -171,7 +171,7 @@ impl NotificationTopic {
     }
 
     /// Check if topic matches notification type and priority
-    pub fn is_suitable_for_notification(&self, notification_type: &str, priority: &str) -> bool {
+    pub fn is_suitable_for_notification(&self, notification_type: &str, _priority: &str) -> bool {
         match self.category {
             TopicCategory::System => notification_type == "system",
             TopicCategory::Security => notification_type == "security",
@@ -442,7 +442,7 @@ mod tests {
 
     #[test]
     fn test_permission_management() {
-        let mut topic = NotificationTopic::new(
+        let topic = NotificationTopic::new(
             "premium_features".to_string(),
             "Premium Features".to_string(),
             None,

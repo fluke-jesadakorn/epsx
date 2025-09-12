@@ -43,10 +43,7 @@
   @apply bg-gradient-to-r from-orange-500 to-yellow-500 
          hover:from-orange-600 hover:to-yellow-600 
          text-white font-bold
-         border-0 shadow-lg shadow-orange-300
-         transition-all duration-300
-         hover:scale-[1.02] hover:-translate-y-0.5
-         active:scale-[0.98] active:translate-y-0;
+         border-0 shadow-lg shadow-orange-300;
 }
 
 .pancake-card {
@@ -54,23 +51,20 @@
          dark:from-orange-950 dark:to-yellow-950
          border-0 shadow-xl shadow-orange-200/50 dark:shadow-orange-900/50
          backdrop-blur-sm
-         hover:scale-[1.01] hover:shadow-2xl
-         transition-all duration-300;
+         hover:shadow-2xl;
 }
 
 .pancake-badge {
   @apply bg-gradient-to-r from-orange-500 to-yellow-500 
          hover:from-orange-600 hover:to-yellow-600
          text-white font-bold border-0
-         shadow-sm hover:shadow-md
-         transition-all duration-300;
+         shadow-sm hover:shadow-md;
 }
 
 .pancake-input {
   @apply border-2 border-orange-200 dark:border-orange-800
          bg-orange-50/50 dark:bg-orange-950/50
-         focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20
-         transition-all duration-300;
+         focus:border-orange-400 focus:ring-2 focus:ring-orange-400/20;
 }
 
 /* Page Background */
@@ -116,7 +110,7 @@
          shadow-sm;
 }
 
-/* Animation Classes */
+/* Visual Effect Classes (Animation-Free) */
 .pancake-shine {
   position: relative;
   overflow: hidden;
@@ -135,20 +129,13 @@
     rgba(255, 255, 255, 0.2),
     transparent
   );
-  animation: shine 2s infinite;
 }
 
-@keyframes shine {
-  0% { left: -100%; }
-  50% { left: -100%; }
-  100% { left: 100%; }
+.pancake-shine:hover::before {
+  left: 100%;
 }
 
-/* Hover Glow Effect */
-.pancake-glow {
-  @apply transition-all duration-300;
-}
-
+/* Hover Glow Effect (Static) */
 .pancake-glow:hover {
   box-shadow: 0 0 20px rgba(255, 165, 0, 0.3),
               0 0 40px rgba(255, 165, 0, 0.2),
@@ -174,10 +161,11 @@
          text-white;
 }
 
-/* Loading Animation */
+/* Loading State (Static) */
 .pancake-loading {
-  @apply animate-pulse bg-gradient-to-r from-orange-200 to-yellow-200 
+  @apply bg-gradient-to-r from-orange-200 to-yellow-200 
          dark:from-orange-800 dark:to-yellow-800;
+  opacity: 0.6;
 }
 
 /* Focus States */

@@ -287,7 +287,7 @@ impl Session {
     }
     
     /// Set refresh token
-    pub fn set_refresh_token(&mut self, refresh_token: String) -> DomainResult<()> {
+    pub fn setrefresh_token(&mut self, refresh_token: String) -> DomainResult<()> {
         // Business rule: Cannot set refresh token on revoked session
         if self.is_revoked {
             return Err(DomainError::business_rule_violation(
@@ -310,7 +310,7 @@ impl Session {
     }
     
     /// Clear refresh token
-    pub fn clear_refresh_token(&mut self) {
+    pub fn clearrefresh_token(&mut self) {
         if self.refresh_token.is_some() {
             self.refresh_token = None;
             self.base.touch();
@@ -446,7 +446,7 @@ mod tests {
     
     #[test]
     fn extend_session_should_succeed() {
-        let mut session = create_test_session();
+        let session = create_test_session();
         let new_expiration = Utc::now() + Duration::hours(2);
         
         let result = session.extend(new_expiration);
@@ -456,7 +456,7 @@ mod tests {
     
     #[test]
     fn invalidate_session_should_succeed() {
-        let mut session = create_test_session();
+        let session = create_test_session();
         
         let result = session.invalidate(SessionInvalidationReason::UserLogout);
         assert!(result.is_ok());
@@ -466,7 +466,7 @@ mod tests {
     
     #[test]
     fn extend_revoked_session_should_fail() {
-        let mut session = create_test_session();
+        let session = create_test_session();
         session.invalidate(SessionInvalidationReason::UserLogout).unwrap();
         
         let result = session.extend(Utc::now() + Duration::hours(2));
@@ -475,7 +475,7 @@ mod tests {
     
     #[test]
     fn needs_renewal_logic() {
-        let mut session = create_test_session();
+        let session = create_test_session();
         
         // Should not need renewal initially
         assert!(!session.needs_renewal(Duration::minutes(30)));

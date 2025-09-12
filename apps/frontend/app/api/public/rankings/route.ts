@@ -40,21 +40,36 @@ export async function GET(request: NextRequest) {
     // Show real top stocks instead of fake ranks 101+ 
     const url = `${apiUrl}/api/v1/public/analytics/eps-rankings?page=${page}&limit=${limit}&sort_by=market_cap`;
     
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Cache-Control': 'no-cache',
-      },
-      cache: 'no-store', // NO CACHE: Force fresh data
-    });
+    let response;
+    try {
+      response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache',
+        },
+        cache: 'no-store', // NO CACHE: Force fresh data
+        signal: AbortSignal.timeout(5000), // 5 second timeout
+      });
+    } catch (fetchError) {
+      console.error('Backend unavailable, returning empty data:', fetchError);
+      // Return empty data instead of failing
+      return NextResponse.json([]);
+    }
 
     if (!response.ok) {
       console.error(`Failed to fetch public rankings: ${response.status}`);
-      return NextResponse.json({ error: 'Failed to fetch rankings' }, { status: response.status });
+      // Return empty data instead of failing
+      return NextResponse.json([]);
     }
 
-    const apiData: ApiResponse = await response.json();
+    let apiData: ApiResponse;
+    try {
+      apiData = await response.json();
+    } catch (parseError) {
+      console.error('Failed to parse backend response:', parseError);
+      return NextResponse.json([]);
+    }
     
     if (!apiData.success || !Array.isArray(apiData.data)) {
       console.error('Invalid API response format:', apiData);

@@ -1,16 +1,14 @@
 // Using native fetch for lightweight API calls
+import { clientConfig } from '@/config/env';
+import { 
+  ApiResponse, 
+  ApiError, 
+  JsonRequestBody,
+  isApiError
+} from '@/types/api';
+import { apiLogger, safeError } from '@/lib/logger';
 
-export interface ApiError {
-  message: string;
-  status: number;
-  code?: string;
-}
-
-export interface ApiResponse<T = any> {
-  data: T;
-  status: number;
-  success: boolean;
-}
+// API types are now imported from @/types/api
 
 export interface WatchlistAddRequest {
   symbol: string;
@@ -31,22 +29,7 @@ export interface PushSubscriptionRequest {
   };
 }
 
-export interface PaymentStatus {
-  id: string;
-  status: 'pending' | 'completed' | 'failed' | 'cancelled';
-  amount: number;
-  currency: string;
-  createdAt: string;
-}
-
-export interface PaymentTransaction {
-  id: string;
-  amount: number;
-  currency: string;
-  status: string;
-  createdAt: string;
-  description?: string;
-}
+// Payment types are now centralized in @/types/api
 
 // Notification interfaces
 export interface NotificationListParams {
@@ -70,7 +53,7 @@ export interface NotificationResponse {
   priority: string;
   status: string;
   channel: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   created_at: string;
   updated_at?: string;
   read_at?: string;
@@ -193,15 +176,18 @@ export class ApiClient {
 
       const data = await response.json();
       return { data, status: response.status, success: true };
-    } catch (error: any) {
-      throw {
-        message: error.message || 'Request failed',
-        status: 500,
-      } as ApiError;
+    } catch (error) {
+      const apiError: ApiError = {
+        message: error instanceof Error ? error.message : 'Request failed',
+        status: isApiError(error) ? error.status : 500,
+        code: isApiError(error) ? error.code : 'UNKNOWN_ERROR',
+      };
+      apiLogger.error('API request failed', apiError);
+      throw apiError;
     }
   }
 
-  async get<T>(url: string, params?: Record<string, any>): Promise<ApiResponse<T>> {
+  async get<T>(url: string, params?: Record<string, unknown>): Promise<ApiResponse<T>> {
     let queryString = '';
     if (params) {
       const searchParams = new URLSearchParams();
@@ -217,14 +203,14 @@ export class ApiClient {
     return this.makeRequest<T>(finalUrl, { method: 'GET' });
   }
 
-  async post<T>(url: string, data?: any): Promise<ApiResponse<T>> {
+  async post<T>(url: string, data?: JsonRequestBody): Promise<ApiResponse<T>> {
     return this.makeRequest<T>(url, {
       method: 'POST',
       body: data ? JSON.stringify(data) : undefined,
     });
   }
 
-  async put<T>(url: string, data?: any): Promise<ApiResponse<T>> {
+  async put<T>(url: string, data?: JsonRequestBody): Promise<ApiResponse<T>> {
     return this.makeRequest<T>(url, {
       method: 'PUT',
       body: data ? JSON.stringify(data) : undefined,
@@ -290,14 +276,20 @@ export class ApiClient {
   }
 }
 
+function getDefaultApiUrl(): string {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('NEXT_PUBLIC_API_URL or NEXT_PUBLIC_BACKEND_URL is required in production environment');
+  }
+  return 'http://localhost:8080';
+}
+
 export function createApiClient(baseURL?: string, token?: string): ApiClient {
-  const url = baseURL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  const url = baseURL || process.env.NEXT_PUBLIC_API_URL || clientConfig.apiUrl || getDefaultApiUrl();
   return new ApiClient(url, token);
 }
 
-export function isApiError(error: any): error is ApiError {
-  return error && typeof error.message === 'string' && typeof error.status === 'number';
-}
+// Re-export isApiError for compatibility
+export { isApiError } from '@/types/api';
 
 // EPS Analytics interfaces matching backend DTOs
 export interface EPSPaginationResponse {
@@ -420,10 +412,10 @@ export class AnalyticsClient {
   private baseURL: string;
 
   constructor(baseURL?: string) {
-    this.baseURL = baseURL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    this.baseURL = baseURL || process.env.NEXT_PUBLIC_API_URL || clientConfig.apiUrl || getDefaultApiUrl();
   }
 
-  private async makeRequest<T>(url: string, params?: Record<string, any>): Promise<ApiResponse<T>> {
+  private async makeRequest<T>(url: string, params?: Record<string, unknown>): Promise<ApiResponse<T>> {
     let queryString = '';
     if (params) {
       const searchParams = new URLSearchParams();
@@ -469,11 +461,14 @@ export class AnalyticsClient {
         status: response.status,
         success: true,
       };
-    } catch (error: any) {
-      throw {
-        message: error.message || 'Request failed',
-        status: 500,
-      } as ApiError;
+    } catch (error) {
+      const apiError: ApiError = {
+        message: error instanceof Error ? error.message : 'Request failed',
+        status: isApiError(error) ? error.status : 500,
+        code: isApiError(error) ? error.code : 'UNKNOWN_ERROR',
+      };
+      apiLogger.error('API request failed', apiError);
+      throw apiError;
     }
   }
 
