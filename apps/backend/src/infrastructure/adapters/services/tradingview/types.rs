@@ -3,7 +3,6 @@
 
 use serde::{Deserialize, Serialize};
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 
 use crate::config::Config;
 use crate::domain::shared_kernel::entities::market_data::StockScreeningResult;

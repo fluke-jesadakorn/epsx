@@ -100,6 +100,9 @@ impl AppContainer {
                 self.db_pool()
             )) as Arc<dyn crate::domain::user_management::SessionRepositoryPort>;
         
+        // Create rate limiting service with integrated resource tracking
+        let rate_limiting_service = self.create_rate_limiting_service().await?;
+        
         Ok(AppState {
             db_pool: self.db_pool(),
             firebase_admin: self.firebase_admin(),
@@ -109,6 +112,7 @@ impl AppContainer {
             user_repo,
             session_repo,
             permission_application_service: None, // Placeholder until implemented
+            rate_limiting_service: Some(rate_limiting_service),
         })
     }
     
@@ -171,5 +175,30 @@ impl AppContainer {
     pub fn user_query_service(&self) -> Arc<crate::application::user_management::services::UserApplicationService> {
         // Create user application service which handles user queries
         self.ddd_container.user_application_service()
+    }
+    
+    /// Create rate limiting service with all necessary dependencies
+    async fn create_rate_limiting_service(&self) -> Result<Arc<crate::domain::resource_management::services::RateLimitingService>, Box<dyn std::error::Error + Send + Sync>> {
+        // Create real-time cache port implementation using Redis/memory cache
+        let real_time_cache = Arc::new(crate::infrastructure::adapters::cache::RealTimeCacheAdapter::new(
+            self.cache()
+        ));
+        
+        // Create plan repository port for plan-based limits
+        let plan_repository = Arc::new(crate::infrastructure::adapters::repositories::plan_repository_adapter::PlanRepositoryAdapter::new(
+            self.db_pool()
+        ));
+        
+        // Create rate limit configuration
+        let rate_limit_config = Arc::new(crate::domain::resource_management::services::RateLimitConfig::default());
+        
+        // Create the rate limiting service
+        let rate_limiting_service = crate::domain::resource_management::services::RateLimitingService::new(
+            real_time_cache,
+            plan_repository,
+            rate_limit_config,
+        );
+        
+        Ok(Arc::new(rate_limiting_service))
     }
 }

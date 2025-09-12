@@ -33,6 +33,9 @@ pub enum DomainError {
     
     #[error("Invariant violation: {invariant}")]
     InvariantViolation { invariant: String },
+    
+    #[error("Infrastructure error: {message}")]
+    Infrastructure { message: String },
 }
 
 impl DomainError {
@@ -82,6 +85,12 @@ impl DomainError {
     pub fn invariant_violation(invariant: impl Into<String>) -> Self {
         Self::InvariantViolation {
             invariant: invariant.into(),
+        }
+    }
+    
+    pub fn infrastructure(message: impl Into<String>) -> Self {
+        Self::Infrastructure {
+            message: message.into(),
         }
     }
 }

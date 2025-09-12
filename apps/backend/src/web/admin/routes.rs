@@ -92,6 +92,13 @@ use super::notification_handlers::{
 use super::security_monitoring_handlers::{
     SecurityMonitoringHandlers,
 };
+// Dynamic plan management handlers (simplified)
+use super::plan_management_handlers_simple::{
+    create_plan_handler,
+    get_plan_handler,
+    list_plans_handler,
+    create_subscription_handler,
+};
 // Removed admin module management handlers - using simple roles
 use crate::web::auth::AppState;
 
@@ -204,6 +211,15 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/security/events", get(SecurityMonitoringHandlers::get_security_events))
         .route("/security/metrics", get(SecurityMonitoringHandlers::get_security_metrics))
         .route("/security/user-threat", get(SecurityMonitoringHandlers::get_user_threat_assessment))
+        
+        // Dynamic Plan Management routes (require admin:plans:* permissions) - Simplified
+        .route("/plans", get(list_plans_handler))
+        .route("/plans", post(create_plan_handler))
+        .route("/plans/:plan_id", get(get_plan_handler))
+        
+        // Subscription Management routes (require admin:subscriptions:* permissions) - Simplified
+        .route("/subscriptions", post(create_subscription_handler))
+        
         .layer(axum::middleware::from_fn(
             crate::web::middleware::clean_auth_middleware
         ))

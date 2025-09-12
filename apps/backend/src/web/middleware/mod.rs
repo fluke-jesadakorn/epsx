@@ -16,6 +16,9 @@ pub mod clean_auth;
 pub mod admin_auth;
 pub mod user_auth;
 
+// Contextual middleware for different access patterns
+pub mod contextual_middleware;
+
 // Core middleware modules
 pub mod rate_limiter;
 pub mod error_handling;
@@ -73,6 +76,14 @@ pub use rate_limiter::{
   RateLimitError,
   ClientId,
   RateLimitStatus,
+};
+
+// Contextual middleware exports for different access patterns
+pub use contextual_middleware::{
+  internal_middleware_stack,
+  external_middleware_stack,
+  admin_middleware_stack,
+  ResourceTracker,
 };
 pub use error_handling::{
   error_handling_middleware,

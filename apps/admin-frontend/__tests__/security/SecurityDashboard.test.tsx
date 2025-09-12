@@ -13,9 +13,9 @@ jest.mock('@/hooks/useSecurityMonitoring', () => ({
   useSystemAlertStatus: jest.fn(),
 }));
 
-// Mock the JWT parser
-jest.mock('@/lib/auth/jwt-parser', () => ({
-  useJWTParser: jest.fn(),
+// Mock the auth system
+jest.mock('@/lib/auth', () => ({
+  useAuth: jest.fn(),
 }));
 
 // Mock the API client
@@ -32,14 +32,14 @@ import {
   useSecurityTrendSummary,
   useSystemAlertStatus 
 } from '@/hooks/useSecurityMonitoring';
-import { useJWTParser } from '@/lib/auth/jwt-parser';
+import { useAuth } from '@/lib/auth';
 
 const mockUseSecurityEvents = useSecurityEvents as jest.MockedFunction<typeof useSecurityEvents>;
 const mockUseSecurityMetrics = useSecurityMetrics as jest.MockedFunction<typeof useSecurityMetrics>;
 const mockUseCriticalAlerts = useCriticalAlerts as jest.MockedFunction<typeof useCriticalAlerts>;
 const mockUseSecurityTrendSummary = useSecurityTrendSummary as jest.MockedFunction<typeof useSecurityTrendSummary>;
 const mockUseSystemAlertStatus = useSystemAlertStatus as jest.MockedFunction<typeof useSystemAlertStatus>;
-const mockUseJWTParser = useJWTParser as jest.MockedFunction<typeof useJWTParser>;
+const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 
 // Test data
 const mockSecurityEvents = [
@@ -127,14 +127,35 @@ describe('SecurityDashboard', () => {
     jest.clearAllMocks();
     
     // Setup default mock implementations
-    mockUseJWTParser.mockReturnValue({
-      hasPermission: jest.fn(() => true),
+    mockUseAuth.mockReturnValue({
+      can: jest.fn(() => true),
       isAdmin: jest.fn(() => true),
-      token: 'mock-token',
-      claims: null,
-      isExpired: false,
+      user: {
+        id: 'test-user',
+        email: 'test@example.com',
+        permissions: ['admin:security:read']
+      },
+      isAuthenticated: true,
+      isLoading: false,
+      error: null,
       expiresAt: null,
-      permissions: ['admin:security:read'],
+      login: jest.fn(),
+      logout: jest.fn(),
+      getUser: jest.fn(),
+      refreshSession: jest.fn(),
+      clearError: jest.fn(),
+      hasAnyPermission: jest.fn(),
+      hasAllPermissions: jest.fn(),
+      hasTier: jest.fn(),
+      switchPlatform: jest.fn(),
+      getCurrentPlatform: jest.fn(),
+      getAvailablePlatforms: jest.fn(),
+      canAccessPlatform: jest.fn(),
+      canManageUsers: jest.fn(),
+      canManageSystem: jest.fn(),
+      canViewAnalytics: jest.fn(),
+      canManagePlatforms: jest.fn(),
+      canViewAudit: jest.fn()
     });
 
     mockUseSecurityEvents.mockReturnValue({
@@ -189,14 +210,31 @@ describe('SecurityDashboard', () => {
   });
 
   it('displays access denied for unauthorized users', async () => {
-    mockUseJWTParser.mockReturnValue({
-      hasPermission: jest.fn(() => false),
+    mockUseAuth.mockReturnValue({
+      can: jest.fn(() => false),
       isAdmin: jest.fn(() => false),
-      token: null,
-      claims: null,
-      isExpired: true,
+      user: null,
+      isAuthenticated: false,
+      isLoading: false,
+      error: null,
       expiresAt: null,
-      permissions: [],
+      login: jest.fn(),
+      logout: jest.fn(),
+      getUser: jest.fn(),
+      refreshSession: jest.fn(),
+      clearError: jest.fn(),
+      hasAnyPermission: jest.fn(),
+      hasAllPermissions: jest.fn(),
+      hasTier: jest.fn(),
+      switchPlatform: jest.fn(),
+      getCurrentPlatform: jest.fn(),
+      getAvailablePlatforms: jest.fn(),
+      canAccessPlatform: jest.fn(),
+      canManageUsers: jest.fn(),
+      canManageSystem: jest.fn(),
+      canViewAnalytics: jest.fn(),
+      canManagePlatforms: jest.fn(),
+      canViewAudit: jest.fn()
     });
 
     render(

@@ -6,7 +6,7 @@ use rsa::pkcs8::{EncodePrivateKey, EncodePublicKey, DecodePrivateKey, LineEnding
 use jsonwebtoken::{EncodingKey, DecodingKey};
 use std::fs;
 use std::path::Path;
-use tracing::{info, warn, error};
+use tracing::{info, warn};
 
 #[derive(Debug)]
 pub enum KeyError {

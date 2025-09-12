@@ -38,6 +38,7 @@ The EPSX platform has successfully completed comprehensive OIDC migration:
 - **OIDC Authentication**: Complete migration from legacy JWT to OIDC tokens
 - **Admin Permissions**: Structured admin:*:* permission validation
 - **Session Management**: OIDC token refresh and validation
+- **Zero Animation Policy**: Complete adherence to no animation/transition rules
 
 ### ✅ Structured Permissions System (100% Complete)
 
@@ -184,6 +185,7 @@ pnpm format         # Prettier
 - ❌ Loading spinners and shimmer effects
 - ❌ Hover/focus animations (`hover:scale-*`, `hover:rotate-*`)
 - ❌ Transform animations (`transform`, `translate`, `rotate`, `scale`)
+- ❌ **Admin Frontend**: Strictly enforced - all components follow zero animation rules
 
 ### Allowed Patterns
 - ✅ Instant state changes (opacity, color, size)

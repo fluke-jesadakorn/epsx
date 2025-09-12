@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { LineChart, BarChart, File, Settings, Database, Crown, Shield } from 'lucide-react';
+import { LineChart, BarChart, File, Settings, Database, Crown, Shield, Code } from 'lucide-react';
 import { auth } from '@/lib/auth';
 
 const iconMap = {
@@ -10,6 +10,7 @@ const iconMap = {
   'my-data': <Database className="h-4 w-4" />,
   permissions: <Shield className="h-4 w-4" />,
   vip: <Crown className="h-4 w-4" />,
+  developer: <Code className="h-4 w-4" />,
 };
 
 const publicMenuItems = [
@@ -21,6 +22,7 @@ const publicMenuItems = [
 const userMenuItems = [
   { key: 'my-data', href: '/my-data', label: 'My Data' },
   { key: 'permissions', href: '/permissions', label: 'Permissions' },
+  { key: 'developer', href: '/developer', label: 'Developer API' },
   { key: 'settings', href: '/settings', label: 'Settings' },
 ];
 

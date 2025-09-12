@@ -11,6 +11,8 @@ pub mod events;
 pub mod repositories;
 
 // Re-export domain concepts
+// NOTE: Some ambiguous glob re-exports exist but are non-critical warnings
+// These could be resolved with explicit imports if needed in the future
 pub use aggregates::*;
 pub use value_objects::*;
 pub use services::*;

@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import {
   FormField,
@@ -7,7 +8,7 @@ import {
   Select,
   Textarea,
 } from '@/components/ui/form-components';
-import { UnifiedAdminClient } from '@/lib/api/unified-admin-client';
+import { UnifiedAdminClient, adminClient, ApiKeyResponse as ApiKey, Module } from '@/lib/api/unified-admin-client';
 import {
   Activity,
   AlertTriangle,
@@ -29,52 +30,12 @@ import {
 import React, { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 
-// Types for API key management
-interface ApiKey {
-  id: string;
-  key_prefix: string;
-  client_name: string;
-  client_description?: string;
-  status: 'active' | 'revoked' | 'expired';
-  total_requests: number;
-  created_at: string;
-  created_by: string;
-  expires_at?: string;
-  allowed_modules: ApiKeyModuleConfig[];
-  ip_restrictions: string[];
-  rate_limits: Record<string, number>;
-  last_used_at?: string;
-}
-
-interface ApiKeyModuleConfig {
-  module_id: string;
-  module_name: string;
-  access_level: string;
-  custom_quotas?: Record<string, any>;
-}
-
-interface CreateApiKeyRequest {
-  client_name: string;
-  client_description?: string;
-  client_contact_email?: string;
-  allowed_modules: Array<{
-    module_id: string;
-    access_level: string;
-    custom_quotas?: Record<string, any>;
-  }>;
-  ip_restrictions: string[];
-  expires_at?: string;
-}
-
-interface Module {
-  id: string;
-  name: string;
-  display_name: string;
-  description?: string;
-  category: string;
-  status: string;
-  access_levels: Record<string, any>;
-  default_quotas: Record<string, any>;
+// Access levels configuration
+interface AccessLevelConfig {
+  value: string;
+  label: string;
+  color: string;
+  description: string;
 }
 
 const ACCESS_LEVELS = [
@@ -111,6 +72,7 @@ const ACCESS_LEVELS = [
 ];
 
 export const DeveloperPortal: React.FC = () => {
+  const router = useRouter();
   // TODO: Implement proper module auth check with OIDC
   const hasModuleAccess = () => true;
   const canPerformAction = () => true;
@@ -120,28 +82,50 @@ export const DeveloperPortal: React.FC = () => {
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showKeyValue, setShowKeyValue] = useState<string | null>(null);
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
-  const [createForm, setCreateForm] = useState<CreateApiKeyRequest>({
+  const [createForm, setCreateForm] = useState({
     client_name: '',
     client_description: '',
     client_contact_email: '',
-    allowed_modules: [],
-    ip_restrictions: [],
+    allowed_modules: [] as Array<{
+      module_id: string;
+      access_level: string;
+      custom_quotas: Record<string, any>;
+    }>,
+    ip_restrictions: [] as string[],
+    expires_at: '',
   });
 
   // Load initial data
   useEffect(() => {
     loadData();
+    
+    // Check for URL parameters (success message, new API key)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('success') === 'true') {
+      const clientName = urlParams.get('client_name');
+      const newKey = urlParams.get('new_key');
+      
+      if (clientName) {
+        toast.success(`API key for "${clientName}" created successfully!`);
+      }
+      
+      if (newKey && newKey !== 'key-created') {
+        setNewApiKey(newKey);
+      }
+      
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
   }, []);
 
   const loadData = async () => {
     try {
       setLoading(true);
       const [keysRes, modulesRes] = await Promise.all([
-        AdminApiService.listApiKeys(),
-        AdminApiService.getModules({ status: 'active' }),
+        adminClient.listApiKeys(),
+        adminClient.getModules({ status: 'active' }),
       ]);
 
       if (keysRes.success) {
@@ -159,37 +143,6 @@ export const DeveloperPortal: React.FC = () => {
     }
   };
 
-  // Handle API key creation
-  const handleCreateApiKey = async () => {
-    if (!createForm.client_name || createForm.allowed_modules.length === 0) {
-      toast.error('Please provide client name and select at least one module');
-      return;
-    }
-
-    try {
-      const response = await AdminApiService.createApiKey(createForm);
-      if (response.success) {
-        setNewApiKey(response.data.api_key);
-        toast.success('API key created successfully!');
-        loadData();
-        setShowCreateDialog(false);
-        // Reset form
-        setCreateForm({
-          client_name: '',
-          client_description: '',
-          client_contact_email: '',
-          allowed_modules: [],
-          ip_restrictions: [],
-        });
-      } else {
-        toast.error('Failed to create API key');
-      }
-    } catch (error) {
-      console.error('Failed to create API key:', error);
-      toast.error('Failed to create API key');
-    }
-  };
-
   // Handle API key revocation
   const handleRevokeApiKey = async (keyId: string, keyName: string) => {
     const reason = prompt(
@@ -198,7 +151,7 @@ export const DeveloperPortal: React.FC = () => {
     if (!reason) return;
 
     try {
-      const response = await AdminApiService.revokeApiKey(keyId, reason);
+      const response = await adminClient.revokeApiKey(keyId, reason);
       if (response.success) {
         toast.success('API key revoked successfully');
         loadData();
@@ -455,7 +408,7 @@ export const DeveloperPortal: React.FC = () => {
                 <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
                   Recent API Keys
                 </h3>
-                <Button onClick={() => setShowCreateDialog(true)} size="sm">
+                <Button onClick={() => router.push('/developer-portal/api-keys/create')} size="sm">
                   <Plus className="w-4 h-4 mr-2" />
                   Create New Key
                 </Button>
@@ -559,7 +512,7 @@ export const DeveloperPortal: React.FC = () => {
                 Create and manage API keys for third-party integrations
               </p>
             </div>
-            <Button onClick={() => setShowCreateDialog(true)}>
+            <Button onClick={() => router.push('/developer-portal/api-keys/create')}>
               <Plus className="w-4 h-4 mr-2" />
               Create API Key
             </Button>
@@ -1006,207 +959,6 @@ export const DeveloperPortal: React.FC = () => {
         </div>
       )}
 
-      {/* Create API Key Dialog */}
-      {showCreateDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-600">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Create API Key
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Generate a new API key for third-party integration
-              </p>
-            </div>
-
-            <div className="p-6 max-h-[70vh] overflow-y-auto">
-              <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <FormField id="clientName" label="Client Name" required>
-                    <Input
-                      value={createForm.client_name}
-                      onChange={e =>
-                        setCreateForm(prev => ({
-                          ...prev,
-                          client_name: e.target.value,
-                        }))
-                      }
-                      placeholder="My Application"
-                    />
-                  </FormField>
-
-                  <FormField id="contactEmail" label="Contact Email">
-                    <Input
-                      type="email"
-                      value={createForm.client_contact_email || ''}
-                      onChange={e =>
-                        setCreateForm(prev => ({
-                          ...prev,
-                          client_contact_email: e.target.value,
-                        }))
-                      }
-                      placeholder="contact@example.com"
-                    />
-                  </FormField>
-                </div>
-
-                <FormField id="description" label="Description">
-                  <Textarea
-                    value={createForm.client_description || ''}
-                    onChange={e =>
-                      setCreateForm(prev => ({
-                        ...prev,
-                        client_description: e.target.value,
-                      }))
-                    }
-                    placeholder="Brief description of your application and use case"
-                    rows={3}
-                  />
-                </FormField>
-
-                <FormField
-                  id="expirationDate"
-                  label="Expiration Date (Optional)"
-                >
-                  <Input
-                    type="datetime-local"
-                    value={createForm.expires_at || ''}
-                    onChange={e =>
-                      setCreateForm(prev => ({
-                        ...prev,
-                        expires_at: e.target.value || undefined,
-                      }))
-                    }
-                  />
-                </FormField>
-
-                <FormField
-                  id="ipRistricions"
-                  label="IP Restrictions (Optional)"
-                >
-                  <Textarea
-                    value={createForm.ip_restrictions.join('\n')}
-                    onChange={e =>
-                      setCreateForm(prev => ({
-                        ...prev,
-                        ip_restrictions: e.target.value
-                          .split('\n')
-                          .filter(ip => ip.trim()),
-                      }))
-                    }
-                    placeholder="192.168.1.0/24\n203.0.113.0/24\nOne IP address or CIDR block per line"
-                    rows={3}
-                  />
-                </FormField>
-
-                {/* Selected Modules */}
-                {createForm.allowed_modules.length > 0 && (
-                  <div>
-                    <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-3">
-                      Selected Modules
-                    </h3>
-                    <div className="space-y-3">
-                      {createForm.allowed_modules.map(moduleConfig => {
-                        const module = modules.find(
-                          m => m.id === moduleConfig.module_id
-                        );
-                        return (
-                          <div
-                            key={moduleConfig.module_id}
-                            className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
-                          >
-                            <div className="flex items-center justify-between mb-3">
-                              <div>
-                                <h4 className="font-medium text-gray-900 dark:text-gray-100">
-                                  {module?.display_name}
-                                </h4>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">
-                                  {module?.name}
-                                </p>
-                              </div>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() =>
-                                  removeModuleFromForm(moduleConfig.module_id)
-                                }
-                              >
-                                Remove
-                              </Button>
-                            </div>
-
-                            <FormField id="Access Level" label="Access Level">
-                              <Select
-                                value={moduleConfig.access_level}
-                                onChange={e =>
-                                  updateModuleInForm(moduleConfig.module_id, {
-                                    access_level: e.target.value,
-                                  })
-                                }
-                              >
-                                {ACCESS_LEVELS.map(level => (
-                                  <option key={level.value} value={level.value}>
-                                    {level.label}
-                                  </option>
-                                ))}
-                              </Select>
-                            </FormField>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Available Modules */}
-                <div>
-                  <h3 className="font-medium text-gray-900 dark:text-gray-100 mb-3">
-                    Available Modules
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-60 overflow-y-auto">
-                    {modules
-                      .filter(
-                        module =>
-                          !createForm.allowed_modules.some(
-                            m => m.module_id === module.id
-                          )
-                      )
-                      .map(module => (
-                        <div
-                          key={module.id}
-                          className="p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer"
-                          onClick={() => addModuleToForm(module.id)}
-                        >
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h4 className="font-medium text-gray-900 dark:text-gray-100 text-sm">
-                                {module.display_name}
-                              </h4>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {module.category}
-                              </p>
-                            </div>
-                            <Plus className="w-4 h-4 text-blue-600" />
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-6 border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 flex justify-end space-x-3">
-              <Button
-                variant="outline"
-                onClick={() => setShowCreateDialog(false)}
-              >
-                Cancel
-              </Button>
-              <Button onClick={handleCreateApiKey}>Create API Key</Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* New API Key Display */}
       {newApiKey && (

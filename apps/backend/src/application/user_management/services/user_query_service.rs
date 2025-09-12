@@ -1,6 +1,4 @@
 use std::sync::Arc;
-use uuid::Uuid;
-use std::str::FromStr;
 
 use crate::application::shared::{ApplicationResult, ApplicationError};
 use crate::domain::user_management::UserSearchCriteria;

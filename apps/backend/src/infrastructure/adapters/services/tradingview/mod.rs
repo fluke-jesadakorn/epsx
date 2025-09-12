@@ -28,7 +28,6 @@ use crate::config::Config;
 use crate::domain::shared_kernel::entities::market_data::StockScreeningResult;
 use types::MarketDataError;
 use crate::domain::shared_kernel::entities::eps_growth::EPSGrowthData;
-use crate::web::analytics::convert_screening_result_to_eps_ranking;
 
 /// Main TradingView API service implementation using focused modules
 pub struct TradingViewApiService {

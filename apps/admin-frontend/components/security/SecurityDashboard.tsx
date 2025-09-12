@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useJWTParser } from '@/lib/auth/jwt-parser';
+import { useAuth } from '@/lib/auth';
 import { 
   useSecurityEvents, 
   useSecurityMetrics, 
@@ -167,7 +167,7 @@ function SecurityEventList({ events, isLoading }: SecurityEventListProps) {
 }
 
 export default function SecurityDashboard() {
-  const { hasPermission, isAdmin } = useJWTParser();
+  const { can, isAdmin } = useAuth();
   const [selectedTab, setSelectedTab] = useState<'overview' | 'events' | 'audit' | 'tokens'>('overview');
   const [showAlertBanner, setShowAlertBanner] = useState(true);
 
@@ -179,7 +179,7 @@ export default function SecurityDashboard() {
   const { isUnderAlert, lastChecked } = useSystemAlertStatus();
 
   // Check permissions
-  if (!hasPermission('admin:security:read') && !isAdmin()) {
+  if (!can('admin:security:read') && !isAdmin()) {
     return (
       <div className="min-h-screen bg-gray-50 px-4 py-16">
         <div className="max-w-md mx-auto text-center">

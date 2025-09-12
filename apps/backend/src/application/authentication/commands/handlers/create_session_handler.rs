@@ -7,10 +7,11 @@ use tracing::{info, warn};
 use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
 use std::sync::Arc;
 use crate::domain::authentication::{
-    AuthenticationSession, AuthenticationError, SessionId,
+    AuthenticationSession, SessionId,
     AuthenticationSessionRepositoryPort, TokenValidationServicePort,
     SecurityMonitoringServicePort
 };
+use crate::domain::authentication::services::internal_auth_service::AuthenticationError;
 
 use super::super::{CreateSessionCommand, CreateSessionResponse};
 
@@ -205,6 +206,24 @@ impl From<AuthenticationError> for ApplicationError {
                 ApplicationError::InfrastructureError(format!("Token generation failed: {}", msg)),
             AuthenticationError::SecurityViolation => 
                 ApplicationError::SecurityError("Security violation detected".to_string()),
+            AuthenticationError::InvalidToken(msg) => 
+                ApplicationError::validation("token", format!("Invalid token: {}", msg)),
+            AuthenticationError::TokenExpired => 
+                ApplicationError::BusinessLogicError("Token expired".to_string()),
+            AuthenticationError::UserNotFound => 
+                ApplicationError::BusinessLogicError("User not found".to_string()),
+            AuthenticationError::SessionNotFound => 
+                ApplicationError::BusinessLogicError("Session not found".to_string()),
+            AuthenticationError::InsufficientPermissions => 
+                ApplicationError::AuthorizationError("Insufficient permissions".to_string()),
+            AuthenticationError::OidcValidationError(msg) => 
+                ApplicationError::validation("oidc", format!("OIDC validation error: {}", msg)),
+            AuthenticationError::InvalidClientInfo(msg) => 
+                ApplicationError::validation("client", format!("Invalid client info: {}", msg)),
+            AuthenticationError::RepositoryError(msg) => 
+                ApplicationError::InfrastructureError(format!("Repository error: {}", msg)),
+            AuthenticationError::DomainError(e) => 
+                ApplicationError::DomainError(e.to_string()),
         }
     }
 }

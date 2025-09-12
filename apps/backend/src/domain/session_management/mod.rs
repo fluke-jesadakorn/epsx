@@ -11,13 +11,15 @@ pub mod value_objects;
 pub mod repositories;
 
 // Re-export domain concepts
+// NOTE: Some ambiguous glob re-exports exist but are non-critical warnings  
 pub use aggregates::*;
 pub use value_objects::*;
+pub use repositories::*;
+
 // TODO: Re-enable these exports once modules are implemented
 // pub use domain_services::*;
 // pub use ports::*;
 // pub use events::*;
-pub use repositories::*;
 
 /// Session Management bounded context business rules and invariants
 pub struct SessionManagementBoundedContext;

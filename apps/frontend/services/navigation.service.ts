@@ -7,7 +7,7 @@ interface NavItem {
 }
 
 class NavigationService {
-  getNavItems(_isLoggedIn: boolean): NavItem[] {
+  getNavItems(isLoggedIn: boolean): NavItem[] {
     const items: NavItem[] = [
       // {
       //   label: 'Docs',
@@ -18,11 +18,6 @@ class NavigationService {
         label: 'Analytics',
         href: '/analytics',
         key: 'analytics',
-      },
-      {
-        label: 'My Data',
-        href: '/my-data',
-        key: 'my-data',
       },
       {
         label: 'About Us',

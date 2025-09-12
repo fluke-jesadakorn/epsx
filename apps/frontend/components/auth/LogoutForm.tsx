@@ -54,8 +54,8 @@ export function LogoutForm({ className, variant = 'outline' }: LogoutFormProps) 
       className={className}
       size="sm"
     >
-      <LogOut className="mr-2 h-4 w-4" />
-      {isLoggingOut ? 'Signing Out...' : 'Sign Out'}
+      <LogOut className="h-4 w-4 text-orange-500" />
+      <span>{isLoggingOut ? 'Signing Out...' : 'Sign Out'}</span>
     </Button>
   );
 }

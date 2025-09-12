@@ -42,6 +42,7 @@ pub struct AppState {
     pub user_repo: Arc<dyn crate::domain::user_management::UserRepositoryPort>,
     pub session_repo: Arc<dyn crate::domain::user_management::SessionRepositoryPort>,
     pub permission_application_service: Option<Arc<()>>, // Placeholder for future permission service
+    pub rate_limiting_service: Option<Arc<crate::domain::resource_management::services::RateLimitingService>>, // Context-aware rate limiting
 }
 
 impl AppState {
@@ -54,6 +55,7 @@ impl AppState {
         user_repo: Arc<dyn crate::domain::user_management::UserRepositoryPort>,
         session_repo: Arc<dyn crate::domain::user_management::SessionRepositoryPort>,
         permission_application_service: Option<Arc<()>>, // Placeholder for future permission service
+        rate_limiting_service: Option<Arc<crate::domain::resource_management::services::RateLimitingService>>,
     ) -> Self {
         Self {
             db_pool,
@@ -64,6 +66,7 @@ impl AppState {
             user_repo,
             session_repo,
             permission_application_service,
+            rate_limiting_service,
         }
     }
 }

@@ -11,6 +11,7 @@ pub mod authentication;
 pub mod authorization;
 pub mod session_management;
 pub mod realtime_events;
+pub mod resource_management; // New domain for resource tracking and billing
 
 // Re-export shared kernel for easy access
 pub use shared_kernel::{

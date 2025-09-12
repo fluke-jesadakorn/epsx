@@ -4,7 +4,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useJWTParser } from '@/lib/auth/jwt-parser';
+import { useAuth } from '@/lib/auth';
 import { useSecurityEvents, useSecurityMetrics } from '@/hooks/useSecurityMonitoring';
 import { getSeverityBadgeColor, getEventTypeIcon } from '@/lib/api/security-monitoring-client';
 
@@ -55,15 +55,15 @@ export function TokenHealthMonitor() {
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
   const [isLoading, setIsLoading] = useState(true);
 
-  const { hasPermission, isAdmin } = useJWTParser();
+  const { can, isAdmin } = useAuth();
 
   useEffect(() => {
-    if (hasPermission('admin:security:read') || isAdmin()) {
+    if (can('admin:security:read') || isAdmin()) {
       loadTokenHealthData();
       const interval = setInterval(loadTokenHealthData, 30000); // Refresh every 30 seconds
       return () => clearInterval(interval);
     }
-  }, [hasPermission, isAdmin]);
+  }, [can, isAdmin]);
 
   const loadTokenHealthData = async () => {
     try {
@@ -163,7 +163,7 @@ export function TokenHealthMonitor() {
   );
 
   // Access control check
-  if (!hasPermission('admin:security:read') && !isAdmin()) {
+  if (!can('admin:security:read') && !isAdmin()) {
     return (
       <div className="p-8 text-center">
         <div className="bg-red-50 border border-red-200 rounded-lg p-6">

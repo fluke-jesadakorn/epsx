@@ -3,7 +3,7 @@
 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::collections::HashMap;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 use serde::{Deserialize, Serialize};
 
 use super::types::{FrontendEPSData, FrontendEPSResponse, FrontendDataBatch};

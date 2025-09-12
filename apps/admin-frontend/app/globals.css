@@ -4,14 +4,14 @@
  * Enhanced with PancakeSwap-inspired design system:
  * - Vibrant gradient backgrounds
  * - Rounded corner aesthetics  
- * - Floating animations
  * - Modern glass morphism effects
+ * - Zero Animation Policy compliant
  * 
- * Architecture Migration Status: Phase 3 Complete ✅
+ * Architecture Migration Status: Phase 4 Complete ✅
  * - PancakeSwap UI integration implemented
  * - Gradient system enhanced
- * - Animation library expanded
- * - Glass morphism effects added
+ * - Animation violations removed
+ * - Glass morphism effects preserved
  * 
  * Design System: PancakeSwap + Modern Admin
  */
@@ -41,7 +41,7 @@
 }
 
 /* ============================================================================
-   PANCAKESWAP ANIMATIONS & EFFECTS
+   PANCAKESWAP VISUAL EFFECTS (Animation-Free)
    ============================================================================ */
 
 @layer components {
@@ -51,42 +51,6 @@
       linear-gradient(rgba(255, 193, 7, 0.1) 1px, transparent 1px),
       linear-gradient(90deg, rgba(255, 193, 7, 0.1) 1px, transparent 1px);
     background-size: 50px 50px;
-  }
-
-  /* Fade in up animation */
-  @keyframes fade-in-up {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  .animate-fade-in-up {
-    animation: fade-in-up 0.3s ease-out forwards;
-  }
-
-  /* Floating animation */
-  @keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-10px); }
-  }
-
-  .animate-float {
-    animation: float 3s ease-in-out infinite;
-  }
-
-  /* Pulse glow effect */
-  @keyframes pulse-glow {
-    0%, 100% { box-shadow: 0 0 20px rgba(255, 193, 7, 0.3); }
-    50% { box-shadow: 0 0 30px rgba(255, 193, 7, 0.6); }
-  }
-
-  .animate-pulse-glow {
-    animation: pulse-glow 2s ease-in-out infinite;
   }
 
   /* Gradient text clip */

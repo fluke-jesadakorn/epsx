@@ -7,7 +7,7 @@ use crate::{
             marketing_repository::MarketingRepository,
         },
         models::marketing::{
-            PricingPlan, PlanWithPromotions, 
+            PlanWithPromotions, 
         },
     },
 };

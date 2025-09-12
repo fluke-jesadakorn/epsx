@@ -21,5 +21,7 @@ pub mod granular_permissions;
 pub mod notification_handlers;
 // Security monitoring handlers
 pub mod security_monitoring_handlers;
+// Dynamic plan management handlers (simplified for compilation)
+pub mod plan_management_handlers_simple;
 
 pub use routes::{create_admin_routes, create_admin_public_routes};

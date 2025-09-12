@@ -4,7 +4,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { jwtParser, useJWTParser } from '@/lib/auth/jwt-parser';
+import { useAuth } from '@/lib/auth';
 import { useSecurityEvents, useSecurityMetrics, useCriticalAlerts } from '@/hooks/useSecurityMonitoring';
 import { getSeverityBadgeColor, getEventTypeIcon, formatThreatScore } from '@/lib/api/security-monitoring-client';
 
@@ -50,7 +50,7 @@ export function PermissionAuditDashboard() {
   const [filterPermission, setFilterPermission] = useState('');
 
   // Get current user's permissions for access control
-  const { hasPermission, isAdmin } = useJWTParser();
+  const { can, isAdmin } = useAuth();
 
   // Use new security monitoring hooks
   const { events, totalCount, isLoading: eventsLoading, refresh: refreshEvents } = useSecurityEvents({
@@ -111,7 +111,7 @@ export function PermissionAuditDashboard() {
   };
 
   // Access control check
-  if (!hasPermission('admin:audit:read') && !isAdmin()) {
+  if (!can('admin:audit:read') && !isAdmin()) {
     return (
       <div className="p-8 text-center">
         <div className="bg-red-50 border border-red-200 rounded-lg p-6">

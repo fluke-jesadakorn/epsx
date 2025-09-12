@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import { Search, Users, Shield, Clock, CheckCircle, AlertCircle, UserPlus } from 'lucide-react'
 import { User } from '@/types/core'
-import { GrantPermissionForm } from '@/components/permissions/GrantPermissionForm'
 
 interface GrantPermissionHubProps {
   users: User[]
@@ -11,9 +11,8 @@ interface GrantPermissionHubProps {
 }
 
 export function GrantPermissionHub({ users, currentUser }: GrantPermissionHubProps) {
-  const [selectedUser, setSelectedUser] = useState<User | null>(null)
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
-  const [showForm, setShowForm] = useState(false)
 
   // Filter and search users
   const filteredUsers = useMemo(() => {
@@ -37,13 +36,10 @@ export function GrantPermissionHub({ users, currentUser }: GrantPermissionHubPro
   }, [users])
 
   const handleUserSelect = (user: User) => {
-    setSelectedUser(user)
-    setShowForm(true)
-  }
-
-  const handleFormClose = () => {
-    setShowForm(false)
-    setSelectedUser(null)
+    const params = new URLSearchParams({
+      userId: user.id
+    })
+    router.push(`/permissions/grant?${params.toString()}`)
   }
 
   const getRoleBadgeColor = (role: string) => {
@@ -243,14 +239,6 @@ export function GrantPermissionHub({ users, currentUser }: GrantPermissionHubPro
         </div>
       </div>
 
-      {/* Permission Grant Form Modal */}
-      {showForm && selectedUser && (
-        <GrantPermissionForm
-          user={selectedUser}
-          currentUser={currentUser}
-          onClose={handleFormClose}
-        />
-      )}
     </div>
   )
 }
