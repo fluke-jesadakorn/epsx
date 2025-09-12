@@ -30,22 +30,22 @@ const serverEnvSchema = z.object({
   // Core App Configuration
   NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
   PORT: z.string().transform(Number).default(3000),
-  APP_URL: z.string().url().default(getFrontendUrl()),
-  SITE_URL: z.string().url().optional(),
+  APP_URL: z.string().default(getFrontendUrl()),
+  SITE_URL: z.string().optional(),
 
   // Server-Only API URLs (never exposed to client)
-  BACKEND_URL: z.string().url().default(getBackendUrl()),
+  BACKEND_URL: z.string().default(getBackendUrl()),
 
   // Client-Safe API URLs (NEXT_PUBLIC_ - exposed to browser)
-  NEXT_PUBLIC_BACKEND_URL: z.string().url().default(getBackendUrl()),
-  NEXT_PUBLIC_API_URL: z.string().url().optional(),
-  NEXT_PUBLIC_APP_URL: z.string().url().default(getFrontendUrl()),
-  NEXT_PUBLIC_ADMIN_URL: z.string().url().default(getAdminUrl()),
+  NEXT_PUBLIC_BACKEND_URL: z.string().default(getBackendUrl()),
+  NEXT_PUBLIC_API_URL: z.string().optional(),
+  NEXT_PUBLIC_APP_URL: z.string().default(getFrontendUrl()),
+  NEXT_PUBLIC_ADMIN_URL: z.string().default(getAdminUrl()),
 
   // Server-Only Authentication Secrets (never exposed)
-  NEXTAUTH_SECRET: z.string().min(1).default('dev-secret-key-32-chars-minimum'),
-  OIDC_CLIENT_ID: z.string().min(1).default('epsx-frontend'),
-  OIDC_CLIENT_SECRET: z.string().min(1).default('dev-client-secret'),
+  NEXTAUTH_SECRET: z.string().default('dev-secret-key-32-chars-minimum'),
+  OIDC_CLIENT_ID: z.string().default('epsx-frontend'),
+  OIDC_CLIENT_SECRET: z.string().default('dev-client-secret'),
 
   // Client-Safe Authentication (NEXT_PUBLIC_ - exposed to browser)
   NEXT_PUBLIC_OAUTH_CLIENT_ID: z.string().optional(),
@@ -72,8 +72,8 @@ const serverEnvSchema = z.object({
 
   // Server-Only Security & Infrastructure
   COOKIE_ENCRYPTION_KEY: z.string().optional(),
-  ADMIN_FRONTEND_URL: z.string().url().optional(),
-  FRONTEND_URL: z.string().url().optional(),
+  ADMIN_FRONTEND_URL: z.string().optional(),
+  FRONTEND_URL: z.string().optional(),
   
   // Server-Only Feature Flag Management
   FEATURE_FLAGS_ENDPOINT: z.string().url().optional(),
@@ -106,10 +106,10 @@ const serverEnvSchema = z.object({
 // Client-only schema (evaluated in the browser). Only expose NEXT_PUBLIC_* vars.
 const clientEnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
-  NEXT_PUBLIC_BACKEND_URL: z.string().url().default(getBackendUrl()),
-  NEXT_PUBLIC_API_URL: z.string().url().optional(),
-  NEXT_PUBLIC_APP_URL: z.string().url().default(getFrontendUrl()),
-  NEXT_PUBLIC_ADMIN_URL: z.string().url().default(getAdminUrl()),
+  NEXT_PUBLIC_BACKEND_URL: z.string().default(getBackendUrl()),
+  NEXT_PUBLIC_API_URL: z.string().optional(),
+  NEXT_PUBLIC_APP_URL: z.string().default(getFrontendUrl()),
+  NEXT_PUBLIC_ADMIN_URL: z.string().default(getAdminUrl()),
   NEXT_PUBLIC_OAUTH_CLIENT_ID: z.string().optional(),
 
   NEXT_PUBLIC_FIREBASE_API_KEY: z.string().optional(),
@@ -142,12 +142,12 @@ export const serverConfig = {
   siteUrl: env.SITE_URL || env.APP_URL,
   adminUrl: env.ADMIN_FRONTEND_URL || (
     process.env.NODE_ENV === 'production' 
-      ? (() => { throw new Error('ADMIN_FRONTEND_URL is required in production environment'); })()
+      ? 'https://admin.epsx.io'
       : 'http://localhost:3001'
   ),
   frontendUrl: env.FRONTEND_URL || (
     process.env.NODE_ENV === 'production'
-      ? (() => { throw new Error('FRONTEND_URL is required in production environment'); })()
+      ? 'https://epsx.io'
       : 'http://localhost:3000'
   ),
   appUrl: env.APP_URL,
