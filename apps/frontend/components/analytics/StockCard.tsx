@@ -95,7 +95,7 @@ const StockCard = memo<StockCardAllProps>(props => {
   const progressPercentage = Math.max(10, Math.min(90, (90 - daysLeft) / 90 * 100));
 
   return (
-    <div className="w-full max-w-sm mx-auto bg-gradient-to-br from-purple-600 via-purple-700 to-purple-800 rounded-3xl shadow-2xl border-2 border-gray-400/30 overflow-hidden touch-manipulation transition-all duration-300 hover:shadow-3xl hover:scale-[1.02] p-6">
+    <div className="w-full max-w-sm mx-auto bg-gradient-to-br from-purple-600 via-purple-700 to-purple-800 rounded-3xl shadow-2xl border-2 border-gray-400/30 overflow-hidden touch-manipulation p-6">
       {/* Header Section */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
@@ -110,7 +110,7 @@ const StockCard = memo<StockCardAllProps>(props => {
           </div>
           <h3 className="font-bold text-3xl text-white">{cardData.symbol}</h3>
         </div>
-        <button className={`px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 transition-colors ${
+        <button className={`px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 ${
           isActive 
             ? 'bg-green-400 text-purple-800 hover:bg-green-300' 
             : isInactive
@@ -126,7 +126,7 @@ const StockCard = memo<StockCardAllProps>(props => {
 
       {/* Status Button */}
       <div className="mb-6 flex justify-center">
-        <button className={`px-8 py-3 rounded-full font-bold text-lg transition-colors ${
+        <button className={`px-8 py-3 rounded-full font-bold text-lg ${
           isActive 
             ? 'bg-green-400 text-purple-800 hover:bg-green-300' 
             : isInactive
@@ -145,7 +145,7 @@ const StockCard = memo<StockCardAllProps>(props => {
         </div>
         <div className="w-full bg-purple-500/50 rounded-full h-3">
           <div 
-            className="bg-green-400 h-3 rounded-full transition-all duration-1000"
+            className="bg-green-400 h-3 rounded-full"
             style={{ width: `${progressPercentage}%` }}
           ></div>
         </div>

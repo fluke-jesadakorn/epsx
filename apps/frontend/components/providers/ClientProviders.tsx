@@ -7,23 +7,29 @@ import { AppStateProvider } from '@/context/app-state';
 import { UIProvider } from '@/context/ui-context';
 import { GlobalThemeProvider } from '@/components/providers/ThemeProvider';
 import { OptimizedSuspenseBoundary } from '@/components/common/OptimizedSuspenseBoundary';
+import { RemoteConfigProvider } from '@/providers/RemoteConfigProvider';
 
 export function ClientProviders({ children }: { children: React.ReactNode }) {
   return (
     <GlobalThemeProvider defaultTheme="system" enableSystem>
-      <PerformanceProvider>
-        <AppStateProvider>
-          <UIProvider>
-            <ToastProvider>
-              {/* <BackgroundDecorationsClient /> */}
+      <RemoteConfigProvider 
+        autoRefreshInterval={300000} // 5 minutes
+        fetchOnMount={true}
+      >
+        <PerformanceProvider>
+          <AppStateProvider>
+            <UIProvider>
+              <ToastProvider>
+                {/* <BackgroundDecorationsClient /> */}
 
-              <OptimizedSuspenseBoundary identifier="main content">
-                {children}
-              </OptimizedSuspenseBoundary>
-            </ToastProvider>
-          </UIProvider>
-        </AppStateProvider>
-      </PerformanceProvider>
+                <OptimizedSuspenseBoundary identifier="main content">
+                  {children}
+                </OptimizedSuspenseBoundary>
+              </ToastProvider>
+            </UIProvider>
+          </AppStateProvider>
+        </PerformanceProvider>
+      </RemoteConfigProvider>
     </GlobalThemeProvider>
   );
 }

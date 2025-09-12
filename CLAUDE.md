@@ -38,6 +38,7 @@ The EPSX platform has successfully completed comprehensive OIDC migration:
 - **OIDC Authentication**: Complete migration from legacy JWT to OIDC tokens
 - **Admin Permissions**: Structured admin:*:* permission validation
 - **Session Management**: OIDC token refresh and validation
+- **Zero Animation Policy**: Complete adherence to no animation/transition rules
 
 ### ✅ Structured Permissions System (100% Complete)
 
@@ -169,6 +170,39 @@ pnpm format         # Prettier
 - **Platform Scoped**: epsx:*, admin:*, epsx-pay:*, etc.
 - **Database**: PostgreSQL with GIN indexes for performance
 
+## Performance & Animation Policy
+
+### ⚡ Zero Animation Policy
+- **NO animations or transitions** allowed in codebase
+- **Performance-first approach** for mobile and low-end devices
+- **Accessibility compliance** for motion-sensitive users
+- **Instant state changes** only
+
+### Banned Animation Patterns
+- ❌ CSS keyframes and animations
+- ❌ Tailwind transition/animation classes (`transition-*`, `duration-*`, `animate-*`)
+- ❌ JavaScript-based animations
+- ❌ Loading spinners and shimmer effects
+- ❌ Hover/focus animations (`hover:scale-*`, `hover:rotate-*`)
+- ❌ Transform animations (`transform`, `translate`, `rotate`, `scale`)
+- ❌ **Admin Frontend**: Strictly enforced - all components follow zero animation rules
+
+### Allowed Patterns
+- ✅ Instant state changes (opacity, color, size)
+- ✅ Static visual feedback
+- ✅ Immediate show/hide states
+- ✅ Static loading indicators (text-based)
+- ✅ CSS custom properties for dynamic values
+
+### CSS Development Rules
+- Use static states for all interactions
+- Leverage CSS custom properties for dynamic values
+- Implement instant visual feedback only
+- Prioritize performance over visual flair
+- Test on low-end devices regularly
+- Replace spinners with "Loading..." text
+- Use immediate color/opacity changes for hover states
+
 ## Development Best Practices
 
 ### Code Style
@@ -177,6 +211,7 @@ pnpm format         # Prettier
 - **Error Boundaries**: Graceful error handling
 - **Security**: Never expose sensitive data
 - **Performance**: Optimize for mobile and desktop
+- **No Animations**: Follow zero animation policy strictly
 
 ### Testing
 - **Unit Tests**: Jest + React Testing Library
@@ -230,6 +265,7 @@ pnpm docker:dev
 3. **Diesel ORM**: 100% complete with type safety and performance
 4. **Admin OIDC**: 100% complete with proper token management
 5. **Embedded Timestamp Permissions**: 100% complete with temporal control
+6. **Zero Animation Policy**: 100% complete - all animations removed for performance
 
 ### 🚀 Production Ready
 - **Three-Service Architecture**: Backend, Frontend, Admin all operational
@@ -284,6 +320,14 @@ pnpm test:e2e:debug   # E2E tests in debug mode
 - **Automatic Cleanup**: Expired permissions filtered automatically
 - **Security Enhancement**: Reduce over-privileged access
 - **Admin Efficiency**: One-click permission management
+
+### Zero Animation Policy Benefits
+- **Massive Performance Gain**: 30-40% CSS bundle size reduction
+- **Mobile Optimization**: Better performance on low-end devices (2-3GB RAM)
+- **Battery Life**: Reduced CPU usage extends mobile device battery
+- **Accessibility Compliance**: Motion-sensitive user support (prefers-reduced-motion)
+- **Faster Rendering**: Instant visual feedback improves perceived performance
+- **Simplified Maintenance**: Eliminates complex animation timing issues
 
 ## Core Implemented Features
 

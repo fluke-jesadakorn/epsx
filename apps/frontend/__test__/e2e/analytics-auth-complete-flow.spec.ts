@@ -1,15 +1,15 @@
 /**
  * Complete E2E Authentication Flow Tests with Analytics Platform Themes
- * Tests 100% coverage of OIDC authentication flow with real credentials
- * User: info@epsx.io, Password: P@ssword
+ * Tests 100% coverage of OIDC authentication flow with test credentials
+ * User: test.user@example.com, Password: TestPassword123!
  */
 
 import { test, expect, Page, BrowserContext } from '@playwright/test';
 
-// Test credentials
+// Test credentials - generic test account
 const TEST_CREDENTIALS = {
-  email: 'info@epsx.io',
-  password: 'P@ssword'
+  email: 'test.user@example.com',
+  password: 'TestPassword123!'
 };
 
 // Environment configuration

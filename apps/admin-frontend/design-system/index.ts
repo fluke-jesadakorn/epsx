@@ -89,72 +89,20 @@ import {
   getActionButtonVariant as _getActionButtonVariant,
 } from './components';
 
-// Import animations for internal use
-import {
-  durations as _durations,
-  easings as _easings,
-  keyframes as _keyframes,
-  animations as _animations,
-  animationClasses as _animationClasses,
-  createAnimation as _createAnimation,
-  createStaggeredDelay as _createStaggeredDelay,
-  prefersReducedMotion as _prefersReducedMotion,
-  getAnimationDuration as _getAnimationDuration,
-  createSpringAnimation as _createSpringAnimation,
-} from './animations';
+// Animation system removed for Zero Animation Policy compliance
 
 // ============================================================================
-// ANIMATIONS
+// ANIMATIONS (REMOVED)
 // ============================================================================
 
-export {
-  durations,
-  easings,
-  keyframes,
-  animations,
-  animationClasses,
-  createAnimation,
-  createStaggeredDelay,
-  prefersReducedMotion,
-  getAnimationDuration,
-  createSpringAnimation,
-  type Duration,
-  type Easing,
-  type Keyframe,
-  type Animation,
-  type AnimationClass,
-} from './animations';
+// Animation system removed for Zero Animation Policy compliance
+// All motion and transitions have been replaced with instant state changes
 
 // ============================================================================
-// MIGRATION UTILITIES
+// MIGRATION UTILITIES (Removed - migration file not found)
 // ============================================================================
 
-export {
-  migrateLegacyButton,
-  migrateLegacyCard,
-  migrateLegacyBadge,
-  replaceCSSClasses,
-  migrateClassName,
-  analyzeMigrationOpportunities,
-  generateMigrationReport,
-  validateClassName,
-  withMigration,
-  type LegacyButtonClass,
-  type LegacyCardClass,
-  type LegacyBadgeClass,
-  type CSSReplacement,
-} from './migration';
-
-// Import migration data for metadata calculation
-import {
-  legacyClassMappings,
-  cssClassReplacements,
-  migrateClassName as _migrateClassName,
-  analyzeMigrationOpportunities as _analyzeMigrationOpportunities,
-} from './migration';
-
-// Re-export migration data
-export { legacyClassMappings, cssClassReplacements };
+// Migration utilities have been removed as the migration file does not exist
 
 // ============================================================================
 // DESIGN SYSTEM CONFIGURATION
@@ -189,12 +137,10 @@ export const designSystemMeta = {
     animations: Object.keys(_animation || {}).length,
   },
   
-  // Migration support (calculated safely)
+  // Migration support (removed - migration file not found)
   migration: {
-    legacyClasses: Object.keys(legacyClassMappings?.buttons || {}).length +
-                  Object.keys(legacyClassMappings?.cards || {}).length +
-                  Object.keys(legacyClassMappings?.badges || {}).length,
-    cssReplacements: Object.keys(cssClassReplacements || {}).length,
+    legacyClasses: 0,
+    cssReplacements: 0,
   },
 } as const;
 
@@ -425,32 +371,19 @@ const designSystem = {
     adminLoadingVariants: _adminLoadingVariants,
   },
   
-  // Animations
+  // Animations (removed for Zero Animation Policy)
   animations: {
-    durations: _durations,
-    easings: _easings,
-    keyframes: _keyframes,
-    animations: _animations,
-    animationClasses: _animationClasses,
+    // Animation system removed for performance and accessibility
   },
   
-  // Migration
-  migration: {
-    legacyClassMappings,
-    cssClassReplacements,
-    migrateClassName: _migrateClassName,
-    analyzeMigrationOpportunities: _analyzeMigrationOpportunities,
-  },
+  // Migration (removed - migration file not found)
   
   // Utils
   utils: {
     cn: _cn,
     getStatusBadgeVariant: _getStatusBadgeVariant,
     getActionButtonVariant: _getActionButtonVariant,
-    createAnimation: _createAnimation,
-    createStaggeredDelay: _createStaggeredDelay,
-    prefersReducedMotion: _prefersReducedMotion,
-    getAnimationDuration: _getAnimationDuration,
+    // Animation utilities removed for Zero Animation Policy
   },
   
   // Meta

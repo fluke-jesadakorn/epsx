@@ -62,7 +62,7 @@ impl TokenCleanupService {
         );
 
         // Start background cleanup tasks
-        self.start_refresh_token_cleanup().await;
+        self.startrefresh_token_cleanup().await;
         self.start_revoked_token_cleanup().await;
         self.start_metrics_collection().await;
 
@@ -71,7 +71,7 @@ impl TokenCleanupService {
     }
 
     /// Start refresh token cleanup task
-    async fn start_refresh_token_cleanup(&mut self) {
+    async fn startrefresh_token_cleanup(&mut self) {
         let mut interval = interval(self.config.refresh_token_cleanup_interval);
         
         tokio::spawn(async move {
@@ -80,7 +80,7 @@ impl TokenCleanupService {
             loop {
                 interval.tick().await;
                 
-                match cleanup_expired_refresh_tokens().await {
+                match cleanup_expiredrefresh_tokens().await {
                     Ok(cleaned_count) => {
                         if cleaned_count > 0 {
                             tracing::info!(
@@ -176,7 +176,7 @@ impl TokenCleanupService {
         let start_time = Utc::now();
         
         // Clean up refresh tokens
-        let refresh_cleaned = cleanup_expired_refresh_tokens().await
+        let refresh_cleaned = cleanup_expiredrefresh_tokens().await
             .map_err(|e| CleanupError::RefreshTokenCleanupFailed { 
                 message: e.to_string() 
             })?;
@@ -210,7 +210,7 @@ impl TokenCleanupService {
 }
 
 /// Clean up expired refresh tokens
-async fn cleanup_expired_refresh_tokens() -> Result<u32, Box<dyn std::error::Error>> {
+async fn cleanup_expiredrefresh_tokens() -> Result<u32, Box<dyn std::error::Error>> {
     use crate::auth::REFRESH_TOKEN_SERVICE;
     
     let cleaned_count = REFRESH_TOKEN_SERVICE.cleanup_expired_tokens().await;
@@ -235,8 +235,8 @@ async fn collect_cleanup_metrics() -> Result<CleanupMetrics, Box<dyn std::error:
     Ok(CleanupMetrics {
         refresh_token_count: refresh_stats.total_tokens,
         revoked_token_count: revocation_stats.total_revoked,
-        active_refresh_tokens: refresh_stats.active_tokens,
-        expired_refresh_tokens: refresh_stats.expired_tokens,
+        activerefresh_tokens: refresh_stats.active_tokens,
+        expiredrefresh_tokens: refresh_stats.expired_tokens,
         active_revocations: revocation_stats.active_revocations,
         expired_revocations: revocation_stats.expired_revocations,
         total_cleanup_runs: 0, // TODO: Track cleanup run count
@@ -285,8 +285,8 @@ pub struct CleanupResult {
 pub struct CleanupMetrics {
     pub refresh_token_count: u32,
     pub revoked_token_count: u32,
-    pub active_refresh_tokens: u32,
-    pub expired_refresh_tokens: u32,
+    pub activerefresh_tokens: u32,
+    pub expiredrefresh_tokens: u32,
     pub active_revocations: u32,
     pub expired_revocations: u32,
     pub total_cleanup_runs: u64,
@@ -360,7 +360,7 @@ mod tests {
             ..CleanupConfig::default()
         };
         
-        let mut service = TokenCleanupService::new(config);
+        let service = TokenCleanupService::new(config);
         let result = service.start().await;
         
         assert!(result.is_ok());

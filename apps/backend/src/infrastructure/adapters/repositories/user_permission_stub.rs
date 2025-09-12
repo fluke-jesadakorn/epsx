@@ -32,27 +32,27 @@ impl UserPermissionRepositoryStub {
 impl UserPermissionRepository for UserPermissionRepositoryStub {
     type Error = UserPermissionStubError;
 
-    async fn get_user_permissions(&self, _user_id: &UserId) -> Result<Vec<String>, Self::Error> {
+    async fn get_user_permissions(&self, user_id: &UserId) -> Result<Vec<String>, Self::Error> {
         // Return empty permissions during RBAC migration
         Ok(vec![])
     }
 
-    async fn set_user_permissions(&self, _user_id: &UserId, _permissions: &[String]) -> Result<(), Self::Error> {
+    async fn set_user_permissions(&self, user_id: &UserId, _permissions: &[String]) -> Result<(), Self::Error> {
         // No-op during migration
         Ok(())
     }
 
-    async fn add_user_permission(&self, _user_id: &UserId, _permission: &str) -> Result<(), Self::Error> {
+    async fn add_user_permission(&self, user_id: &UserId, _permission: &str) -> Result<(), Self::Error> {
         // No-op during migration
         Ok(())
     }
 
-    async fn remove_user_permission(&self, _user_id: &UserId, _permission: &str) -> Result<(), Self::Error> {
+    async fn remove_user_permission(&self, user_id: &UserId, _permission: &str) -> Result<(), Self::Error> {
         // No-op during migration
         Ok(())
     }
 
-    async fn has_permission(&self, _user_id: &UserId, _permission: &str) -> Result<bool, Self::Error> {
+    async fn has_permission(&self, user_id: &UserId, _permission: &str) -> Result<bool, Self::Error> {
         // Default to false during migration
         Ok(false)
     }

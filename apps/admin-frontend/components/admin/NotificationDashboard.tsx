@@ -32,7 +32,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select } from '@/components/ui/select';
 import { Dialog } from '@/components/ui/dialog';
-import { CreateNotificationModal } from './CreateNotificationModal';
+import { useRouter } from 'next/navigation';
 
 interface NotificationDashboardProps {
   className?: string;
@@ -46,7 +46,7 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const router = useRouter();
   const [selectedNotifications, setSelectedNotifications] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState('overview');
   
@@ -167,7 +167,7 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
             Manage and monitor system notifications
           </p>
         </div>
-        <Button onClick={() => setShowCreateModal(true)} className="flex items-center gap-2">
+        <Button onClick={() => router.push('/notifications/create')} className="flex items-center gap-2">
           <Plus className="h-4 w-4" />
           Create Notification
         </Button>
@@ -489,14 +489,6 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
       </Tabs>
 
       {/* Create Notification Modal */}
-      <CreateNotificationModal
-        open={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onSuccess={() => {
-          loadNotifications();
-          loadStats();
-        }}
-      />
     </div>
   );
 }

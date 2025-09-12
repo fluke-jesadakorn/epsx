@@ -6,9 +6,9 @@
 import { test as setup, expect, chromium } from '@playwright/test';
 import { initializeTestUsers } from '../fixtures/user-fixtures';
 
-const BASE_URL = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3002';
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-const ADMIN_URL = process.env.ADMIN_URL || process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3003';
+const BASE_URL = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_URL || 'http://localhost:8080';
+const ADMIN_URL = process.env.ADMIN_URL || process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001';
 
 setup('🔧 Global Setup - Service Health Check', async ({ page }) => {
   console.log('🚀 Starting comprehensive global setup...');
@@ -121,7 +121,7 @@ async function checkAdminHealth(page: any): Promise<void> {
 async function checkOIDCHealth(page: any): Promise<void> {
   try {
     const oidcResponse = await page.request.get(
-      `${API_URL}/oauth/authorize?client_id=epsx-frontend&response_type=code&scope=openid&redirect_uri=http://localhost:3000/callback&state=test`
+      `${API_URL}/oauth/authorize?client_id=epsx-frontend&response_type=code&scope=openid&redirect_uri=${BASE_URL}/callback&state=test`
     );
     
     if (oidcResponse.status() === 200 || oidcResponse.status() === 302) {

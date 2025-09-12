@@ -41,7 +41,8 @@ pub struct AppState {
     pub ddd_container: Arc<crate::infrastructure::container::ddd_container::DDDContainer>,
     pub user_repo: Arc<dyn crate::domain::user_management::UserRepositoryPort>,
     pub session_repo: Arc<dyn crate::domain::user_management::SessionRepositoryPort>,
-    pub permission_application_service: Option<Arc<()>>, // Placeholder for future permission service
+    pub permission_service: Arc<crate::domain::authorization::services::stateless_permission_service::StatelessPermissionService>,
+    pub rate_limiting_service: Option<Arc<crate::domain::resource_management::services::RateLimitingService>>, // Context-aware rate limiting
 }
 
 impl AppState {
@@ -53,7 +54,8 @@ impl AppState {
         ddd_container: Arc<crate::infrastructure::container::ddd_container::DDDContainer>,
         user_repo: Arc<dyn crate::domain::user_management::UserRepositoryPort>,
         session_repo: Arc<dyn crate::domain::user_management::SessionRepositoryPort>,
-        permission_application_service: Option<Arc<()>>, // Placeholder for future permission service
+        permission_service: Arc<crate::domain::authorization::services::stateless_permission_service::StatelessPermissionService>,
+        rate_limiting_service: Option<Arc<crate::domain::resource_management::services::RateLimitingService>>,
     ) -> Self {
         Self {
             db_pool,
@@ -63,7 +65,8 @@ impl AppState {
             ddd_container,
             user_repo,
             session_repo,
-            permission_application_service,
+            permission_service,
+            rate_limiting_service,
         }
     }
 }

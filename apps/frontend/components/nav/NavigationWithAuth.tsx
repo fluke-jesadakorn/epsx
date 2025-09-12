@@ -6,10 +6,7 @@ import { NavigationClient } from './NavigationClient';
  */
 export async function NavigationWithAuth() {
   try {
-    const result = await getCurrentUser({});
-    
-    // Extract user data from the server action result
-    const user = result?.success ? result.data : null;
+    const user = await getCurrentUser();
     
     return <NavigationClient user={user} />;
   } catch (error) {

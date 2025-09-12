@@ -4,6 +4,7 @@
  */
 
 import { cookies } from 'next/headers'
+import { logger, safeError } from '@/lib/logger'
 
 // Types matching backend API
 interface SessionValidationRequest {
@@ -182,7 +183,7 @@ export class UserSessionValidator {
       }
       
     } catch (error) {
-      console.error('❌ User session validation failed:', error)
+      logger.error('User session validation failed', error)
       return {
         valid: false,
         error: error instanceof Error ? error.message : 'Unknown validation error',
@@ -287,7 +288,7 @@ export function hasFeatureAccess(user: UserProfile, feature: string): boolean {
     
     return checkFeatureAccess(role, feature);
   } catch (error) {
-    console.error('❌ Failed to check feature access:', error);
+    logger.error('Failed to check feature access', error);
     return false;
   }
 }
@@ -303,7 +304,7 @@ export function hasRole(user: UserProfile, role: string): boolean {
     
     return checkRoleAccess(userRole, requiredRoleEnum);
   } catch (error) {
-    console.error('❌ Failed to check role access:', error);
+    logger.error('Failed to check role access', error);
     return false;
   }
 }
@@ -411,7 +412,7 @@ export function getAvailableFeatures(user: UserProfile): string[] {
     // Get the 7 core features based on role
     return getUserFeatures(role);
   } catch (error) {
-    console.error('❌ Failed to get available features:', error);
+    logger.error('Failed to get available features', error);
     // Fallback to legacy system
     const featuresByTier: Record<string, string[]> = {
       FREE: ['view_eps'],

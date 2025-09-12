@@ -1,5 +1,6 @@
 import { getCurrentUser } from '@/lib/server-actions';
 import { SettingsClient } from '@/components/settings/SettingsClient';
+import { FirebaseServerConfig } from '@/components/settings/FirebaseServerConfig';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@/components/ui';
 
@@ -44,6 +45,7 @@ export default async function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+        <FirebaseServerConfig />
         <SettingsClient />
       </div>
     </div>

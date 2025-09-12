@@ -75,12 +75,7 @@ fn production_cors_fallback() -> CorsLayer {
 /// Development CORS configuration - more permissive for local development
 fn development_cors() -> CorsLayer {
     CorsLayer::new()
-        .allow_origin([
-            HeaderValue::from_static("http://localhost:3000"),
-            HeaderValue::from_static("http://localhost:3001"),
-            HeaderValue::from_static("http://127.0.0.1:3000"),
-            HeaderValue::from_static("http://127.0.0.1:3001"),
-        ])
+        .allow_origin(Any)
         .allow_methods([
             Method::GET,
             Method::POST,
@@ -195,7 +190,7 @@ pub fn admin_cors_layer() -> CorsLayer {
 
 /// Get allowed origins specifically for admin endpoints
 fn get_admin_origins() -> Vec<String> {
-    let mut origins = Vec::new();
+    let origins = Vec::new();
     
     // Admin frontend URLs only
     if let Ok(admin_url) = get_env_var("ADMIN_FRONTEND_URL") {
@@ -217,7 +212,7 @@ fn get_admin_origins() -> Vec<String> {
 
 /// Validate CORS configuration
 pub fn validate_cors_config() -> Result<(), Vec<String>> {
-    let mut errors = Vec::new();
+    let errors = Vec::new();
     let allowed_origins = super::get_allowed_origins();
     
     if is_production() {

@@ -487,7 +487,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_device_fingerprint_matching() {
-        let mut fp1 = DeviceFingerprint {
+        let fp1 = DeviceFingerprint {
             user_agent: Some("Mozilla/5.0 Chrome".to_string()),
             screen_resolution: Some("1920x1080".to_string()),
             timezone: Some("UTC".to_string()),
@@ -502,6 +502,7 @@ mod tests {
         };
 
         let mut fp2 = fp1.clone();
+        let mut fp1 = fp1;
         fp1.generate_hash();
         fp2.generate_hash();
 

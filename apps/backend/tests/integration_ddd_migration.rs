@@ -20,7 +20,7 @@ use epsx::{
 async fn test_user_management_ddd_bounded_context() -> Result<(), Box<dyn std::error::Error>> {
     // Setup test database pool
     let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgresql://postgres:password@localhost:5432/epsx_test".to_string());
+        .unwrap_or_else(|_| "postgresql://test_user:test_pass@localhost:5432/epsx_test".to_string());
     
     let pool = Arc::new(create_pool(&database_url).await?);
     
@@ -120,7 +120,7 @@ async fn test_user_management_ddd_bounded_context() -> Result<(), Box<dyn std::e
 async fn test_trading_analytics_ddd_bounded_context() -> Result<(), Box<dyn std::error::Error>> {
     // Setup test database pool
     let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgresql://postgres:password@localhost:5432/epsx_test".to_string());
+        .unwrap_or_else(|_| "postgresql://test_user:test_pass@localhost:5432/epsx_test".to_string());
     
     let pool = Arc::new(create_pool(&database_url).await?);
     
@@ -176,7 +176,7 @@ async fn test_ddd_container_initialization() -> Result<(), Box<dyn std::error::E
     println!("🧪 Testing DDD Container initialization...");
     
     let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgresql://postgres:password@localhost:5432/epsx_test".to_string());
+        .unwrap_or_else(|_| "postgresql://test_user:test_pass@localhost:5432/epsx_test".to_string());
     
     let pool = Arc::new(create_pool(&database_url).await?);
     
@@ -201,7 +201,7 @@ async fn test_ddd_architecture_components() -> Result<(), Box<dyn std::error::Er
     println!("🧪 Testing DDD architecture components...");
     
     let database_url = std::env::var("DATABASE_URL")
-        .unwrap_or_else(|_| "postgresql://postgres:password@localhost:5432/epsx_test".to_string());
+        .unwrap_or_else(|_| "postgresql://test_user:test_pass@localhost:5432/epsx_test".to_string());
     
     let pool = Arc::new(create_pool(&database_url).await?);
     let ddd_container = DDDContainer::new(pool.clone());

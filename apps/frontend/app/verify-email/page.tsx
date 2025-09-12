@@ -8,10 +8,9 @@ export default async function VerifyEmailPage() {
   // Server-side authentication check
   let user = null;
   try {
-    const result = await getCurrentUser({});
-    user = result?.success ? result.data : null;
+    user = await getCurrentUser();
   } catch (error) {
-    console.error('VerifyEmailPage: Failed to get user:', error);
+    // Handle error silently
   }
   if (!user) {
     const { redirectToBackendLogin } = await import('@/lib/server/auth');

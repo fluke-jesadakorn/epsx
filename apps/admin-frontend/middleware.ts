@@ -20,7 +20,11 @@ const publicRoutes = [
   '/unauthorized',
   '/access-denied',
   '/_next',
-  '/favicon.ico'
+  '/favicon.ico',
+  // DEMO MODE: Allow permissions pages for UI demonstration
+  '/permissions',
+  '/permissions/grant',
+  '/permissions/request'
 ]
 
 // Routes that require specific admin modules

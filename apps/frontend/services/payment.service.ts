@@ -3,10 +3,25 @@ import {
   getPaymentStatus as getPaymentStatusAction,
   verifyPayment
 } from '@/app/actions/payment-server';
-import type { PaymentStatus, PaymentTransaction } from '@/types/payment-types';
+import { getTransactionHistory } from '@/lib/server-actions';
+import { initQRPayment } from '@/lib/actions/payments.server';
+import type { PaymentStatus, PaymentTransaction } from '@/types/api';
+import { logger, safeError } from '@/lib/logger';
 
 // Simple ID generator to replace nanoid
 const generateId = () => Math.random().toString(36).substring(2) + Date.now().toString(36);
+
+// Stub implementation for getPlanDetails - TODO: implement proper plan fetching
+const getPlanDetails = async (planId: string) => {
+  // This is a stub implementation - replace with actual API call
+  return {
+    id: planId,
+    name: 'Basic Plan',
+    price: 9.99,
+    currency: 'USD',
+    features: ['Basic Analytics', 'Email Support']
+  };
+};
 
 // Re-export types for compatibility
 export type { PaymentStatus };
@@ -32,7 +47,7 @@ export const createPaymentService = () => {
 
       return null;
     } catch (error) {
-      console.error('Error recording payment:', error);
+      logger.error('Payment recording failed', safeError(error));
       return null;
     }
   };
@@ -57,7 +72,7 @@ export const createPaymentService = () => {
         message: 'Failed to confirm payment' 
       };
     } catch (error) {
-      console.error('Error confirming payment:', error);
+      logger.error('Payment confirmation failed', safeError(error));
       return { success: false, message: 'Failed to confirm payment' };
     }
   };
@@ -66,7 +81,7 @@ export const createPaymentService = () => {
     try {
       return await getPaymentStatusAction();
     } catch (error) {
-      console.error('Error getting payment status:', error);
+      logger.error('Payment status retrieval failed', safeError(error));
       return null;
     }
   };
@@ -75,7 +90,7 @@ export const createPaymentService = () => {
     try {
       return await getTransactionHistory();
     } catch (error) {
-      console.error('Error fetching transaction history:', error);
+      logger.error('Transaction history fetch failed', safeError(error));
       return [];
     }
   };
@@ -89,7 +104,7 @@ export const createPaymentService = () => {
 
       return response;
     } catch (error) {
-      console.error('Error initializing QR payment:', error);
+      logger.error('QR payment initialization failed', safeError(error));
       throw error;
     }
   };
@@ -98,7 +113,7 @@ export const createPaymentService = () => {
     try {
       return await getPlanDetails(planId);
     } catch (error) {
-      console.error('Error getting plan details:', error);
+      logger.error('Plan details retrieval failed', safeError(error));
       throw error;
     }
   };
@@ -115,7 +130,7 @@ export const createPaymentService = () => {
       const transactions = await getTransactionHistory(true);
       return transactions;
     } catch (error) {
-      console.error('Error fetching transaction history for new user:', error);
+      logger.error('New user transaction history fetch failed', safeError(error));
       return [];
     }
   };

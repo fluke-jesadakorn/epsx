@@ -1,10 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { TileData, TileGridConfig } from './types';
 import { LiveTile } from './LiveTile';
 import { cn } from '@/lib/utils';
+import { logger } from '@/lib/logger';
 import { ChevronLeft, ChevronRight, RotateCcw, Settings } from 'lucide-react';
 
 interface TileGridProps {
@@ -133,7 +133,7 @@ export function TileGrid({
                   <button
                     onClick={scrollLeft}
                     disabled={!canScrollLeft}
-                    className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 "
                     aria-label="Scroll left"
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -141,7 +141,7 @@ export function TileGrid({
                   <button
                     onClick={scrollRight}
                     disabled={!canScrollRight}
-                    className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    className="p-2 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-gray-700 "
                     aria-label="Scroll right"
                   >
                     <ChevronRight className="h-4 w-4" />
@@ -152,9 +152,9 @@ export function TileGrid({
               <button
                 onClick={handleRefreshAll}
                 disabled={isRefreshing}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white  disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <RotateCcw className={cn('h-4 w-4', isRefreshing && 'animate-spin')} />
+                <RotateCcw className="h-4 w-4" />
                 <span className="text-sm font-medium">
                   {isRefreshing ? 'Refreshing...' : 'Refresh All'}
                 </span>
@@ -170,43 +170,28 @@ export function TileGrid({
         className={containerClass}
         style={gridStyles}
       >
-        <AnimatePresence mode="popLayout">
-          {tiles.map((tile, index) => (
-            <motion.div
-              key={tile.id}
-              layout
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ 
-                duration: 0.3, 
-                delay: index * 0.05,
-                layout: { duration: 0.3 }
-              }}
-              className={horizontal ? 'flex-shrink-0' : ''}
-              style={horizontal ? { minWidth: gridConfig.minTileWidth } : {}}
-            >
-              <LiveTile
-                tile={tile}
-                onClick={onTileClick}
-                fetcher={tile.fetcher}
-              />
-            </motion.div>
-          ))}
-        </AnimatePresence>
+        {tiles.map((tile, index) => (
+          <div
+            key={tile.id}
+            className={horizontal ? 'flex-shrink-0' : ''}
+            style={horizontal ? { minWidth: gridConfig.minTileWidth } : {}}
+          >
+            <LiveTile
+              tile={tile}
+              onClick={onTileClick}
+              fetcher={tile.fetcher}
+            />
+          </div>
+        ))}
       </div>
 
       {/* Empty State */}
       {tiles.length === 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center py-12 text-gray-500 dark:text-gray-400"
-        >
+        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
           <div className="text-4xl mb-4">📊</div>
           <h3 className="text-lg font-medium mb-2">No tiles available</h3>
           <p className="text-sm">Tiles will appear here when data is available.</p>
-        </motion.div>
+        </div>
       )}
 
       {/* Performance indicator for development */}
@@ -271,7 +256,7 @@ async function fetchTileData(tileId: string): Promise<any> {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return response.json();
   } catch (error) {
-    console.error(`Failed to fetch data for tile ${tileId}:`, error);
+    logger.error(`Failed to fetch data for tile ${tileId}`, { tileId, error });
     throw error;
   }
 }

@@ -11,30 +11,15 @@
     @apply min-h-screen bg-[hsl(var(--background))];
   }
 
-  .admin-sidebar {
-    @apply fixed inset-y-0 left-0 z-50 w-64 bg-[hsl(var(--card))] border-r border-[hsl(var(--border))];
-    transform: translateX(-100%);
-    transition: transform 0.3s ease-in-out;
-  }
-
-  .admin-sidebar.open {
-    transform: translateX(0);
-  }
 
   .admin-main-content {
     @apply flex-1 min-w-0;
     margin-left: 0;
-    transition: margin-left 0.3s ease-in-out;
   }
 
   @media (min-width: 1024px) {
-    .admin-sidebar {
-      position: relative;
-      transform: translateX(0);
-    }
-    
     .admin-main-content {
-      margin-left: 16rem; /* w-64 */
+      margin-left: 0; /* Reset for modern layout */
     }
   }
 
@@ -44,7 +29,7 @@
   }
 
   .admin-nav-item {
-    @apply flex items-center gap-x-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200;
+    @apply flex items-center gap-x-3 rounded-lg px-3 py-2 text-sm font-medium;
     @apply text-[hsl(var(--foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--accent-foreground))];
   }
 
@@ -55,44 +40,48 @@
   /* Critical card components */
   .admin-stats-card {
     @apply bg-[hsl(var(--card))] rounded-lg border border-[hsl(var(--border))] p-6 shadow-sm;
-    @apply hover:shadow-md transition-shadow duration-200;
+    @apply hover:shadow-md;
   }
 
   .admin-dashboard-grid {
     @apply grid gap-4 md:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-4;
   }
 
-  /* Loading states for critical components */
+  /* Loading states for critical components (Animation-Free) */
   .admin-loading-skeleton {
-    @apply animate-pulse bg-[hsl(var(--muted))] rounded;
+    @apply bg-[hsl(var(--muted))] rounded;
+    opacity: 0.6;
   }
 
   .admin-loading-card {
     @apply bg-[hsl(var(--card))] rounded-lg border border-[hsl(var(--border))] p-6 shadow-sm space-y-3;
-    @apply hover:shadow-md transition-shadow duration-200;
+    @apply hover:shadow-md;
   }
 
   .admin-loading-card .skeleton-line {
-    @apply animate-pulse bg-[hsl(var(--muted))] rounded h-4;
+    @apply bg-[hsl(var(--muted))] rounded h-4;
+    opacity: 0.6;
   }
 
   .admin-loading-card .skeleton-title {
-    @apply animate-pulse bg-[hsl(var(--muted))] rounded h-6 w-3/4;
+    @apply bg-[hsl(var(--muted))] rounded h-6 w-3/4;
+    opacity: 0.6;
   }
 
   .admin-loading-card .skeleton-value {
-    @apply animate-pulse bg-[hsl(var(--muted))] rounded h-8 w-1/2;
+    @apply bg-[hsl(var(--muted))] rounded h-8 w-1/2;
+    opacity: 0.6;
   }
 
-  /* Critical button styles */
+  /* Critical button styles (Animation-Free) */
   .admin-btn-primary {
-    @apply inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-colors;
+    @apply inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium;
     @apply bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] hover:bg-[hsl(var(--primary))]/90;
     @apply h-10 px-4 py-2;
   }
 
   .admin-btn-secondary {
-    @apply inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-colors;
+    @apply inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium;
     @apply bg-[hsl(var(--secondary))] text-[hsl(var(--secondary-foreground))] hover:bg-[hsl(var(--secondary))]/90;
     @apply h-10 px-4 py-2;
   }
@@ -183,13 +172,6 @@
     @apply sr-only;
   }
 
-  /* Critical animation optimizations */
-  @media (prefers-reduced-motion: reduce) {
-    .admin-sidebar,
-    .admin-main-content,
-    .admin-nav-item,
-    .admin-stats-card {
-      transition: none;
-    }
-  }
+  /* Static styles comply with zero animation policy */
+  /* All transitions and animations removed for performance */
 }

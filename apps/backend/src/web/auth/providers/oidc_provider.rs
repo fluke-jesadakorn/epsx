@@ -130,7 +130,7 @@ impl AuthProvider for OIDCProvider {
             user_id,
             email,
             claims.permissions, // Use permissions directly instead of role
-            claims.sub, // provider_user_id is same as backend user_id for OIDC
+            claims.sub, // provideruser_id is same as backend user_id for OIDC
             ProviderType::OIDC,
             expires_at,
             claims.iat.try_into().unwrap(),
@@ -192,7 +192,7 @@ impl AuthProvider for OIDCProvider {
             .ok_or(AuthProviderError::InvalidToken)?
             .to_string();
         
-        let new_refresh_token = token_response.get("refresh_token")
+        let newrefresh_token = token_response.get("refresh_token")
             .and_then(|t| t.as_str())
             .map(|t| t.to_string())
             .unwrap_or_else(|| refresh_token.to_string()); // Use original if not provided
@@ -205,7 +205,7 @@ impl AuthProvider for OIDCProvider {
         
         Ok(TokenPair {
             access_token,
-            refresh_token: Some(new_refresh_token),
+            refresh_token: Some(newrefresh_token),
             expires_at,
             token_type: "Bearer".to_string(),
         })

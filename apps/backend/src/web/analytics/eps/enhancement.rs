@@ -90,7 +90,7 @@ mod tests {
     #[test]
     fn test_empty_rankings_enhancement() {
         let symbols = vec!["AAPL".to_string()];
-        let mut rankings = Vec::new();
+        let rankings = Vec::new();
         
         // Test with empty rankings - should not panic
         // Note: This is a unit test so we can't actually test the async WebSocket functionality

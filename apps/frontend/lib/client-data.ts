@@ -7,6 +7,7 @@
 
 import useSWR, { mutate } from 'swr'
 import { useCallback } from 'react'
+import { logger, devLog, safeError } from '@/lib/logger'
 
 // ============================================================================
 // OIDC-Compliant Client Data Fetcher
@@ -252,12 +253,12 @@ export function useRealTimeUpdates(enabled = true) {
             break
         }
       } catch (error) {
-        console.error('Error processing SSE update:', error)
+        logger.error('Error processing SSE update', error)
       }
     }
     
     eventSource.onerror = () => {
-      console.warn('SSE connection error, will retry...')
+      logger.warn('SSE connection error, will retry...')
     }
     
     return () => {

@@ -493,7 +493,7 @@ mod tests {
     
     #[test]
     fn grant_permission_should_succeed() {
-        let mut user = create_test_user();
+        let user = create_test_user();
         let permission = Permission::new("admin:users:view").unwrap();
         
         let result = user.grant_permission(permission.clone(), None);
@@ -503,7 +503,7 @@ mod tests {
     
     #[test]
     fn grant_duplicate_permission_should_fail() {
-        let mut user = create_test_user();
+        let user = create_test_user();
         let permission = Permission::new("admin:users:view").unwrap();
         
         user.grant_permission(permission.clone(), None).unwrap();
@@ -514,7 +514,7 @@ mod tests {
     
     #[test]
     fn grant_permission_to_inactive_user_should_fail() {
-        let mut user = create_test_user();
+        let user = create_test_user();
         user.deactivate(Some("Test".to_string())).unwrap();
         
         let permission = Permission::new("admin:users:view").unwrap();
@@ -525,7 +525,7 @@ mod tests {
     
     #[test]
     fn has_access_should_work_correctly() {
-        let mut user = create_test_user();
+        let user = create_test_user();
         let permission = Permission::new("admin:users:*").unwrap();
         
         user.grant_permission(permission, None).unwrap();
@@ -537,7 +537,7 @@ mod tests {
     
     #[test]
     fn inactive_user_has_no_access() {
-        let mut user = create_test_user();
+        let user = create_test_user();
         let permission = Permission::new("admin:users:view").unwrap();
         
         user.grant_permission(permission, None).unwrap();

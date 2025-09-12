@@ -96,44 +96,18 @@ function SmartCountrySelector({
       {/* Desktop Select - hidden on mobile */}
       <div className="hidden md:block">
         <Select value={selectedCountry} onValueChange={onCountryChange}>
-          <SelectTrigger className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-gray-300/50 dark:border-gray-600/50 rounded-2xl hover:bg-white/90 hover:dark:bg-gray-700/90 focus:bg-white/90 focus:dark:bg-gray-700/90 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-400/50 transition-all shadow-sm min-h-[56px]">
-            <div className="flex items-center gap-3">
-              <div className="w-6 h-6 bg-blue-500 dark:bg-blue-400 rounded-full flex items-center justify-center shadow-sm flex-shrink-0">
-                <div className="w-3 h-3 bg-white dark:bg-gray-900 rounded-full" />
-              </div>
-              <SelectValue placeholder="All Countries" className="text-gray-800 dark:text-gray-200 font-medium" />
-            </div>
+          <SelectTrigger>
+            <SelectValue placeholder="All Countries" />
           </SelectTrigger>
-          <SelectContent className="max-h-64 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md border-gray-200 dark:border-gray-600 rounded-2xl shadow-lg">
-            <SelectItem value="all">
-              <div className="flex items-center gap-3">
-                <div className="w-5 h-5 bg-gray-400 dark:bg-gray-500 rounded-full flex items-center justify-center shadow-sm flex-shrink-0">
-                  <Globe className="h-3 w-3 text-white" />
-                </div>
-                <span className="font-medium">All Countries</span>
-              </div>
-            </SelectItem>
+          <SelectContent>
+            <SelectItem value="all">All Countries</SelectItem>
             {countries?.map(country => (
               <SelectItem key={country.value} value={country.value}>
-                <div className="flex items-center gap-3">
-                  <div className="w-5 h-5 bg-blue-500 dark:bg-blue-400 rounded-full flex items-center justify-center shadow-sm flex-shrink-0">
-                    <div className="w-2 h-2 bg-white dark:bg-gray-900 rounded-full" />
-                  </div>
-                  <span className="font-medium">{country.label}</span>
-                </div>
+                {country.label}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        {selectedCountry && selectedCountry !== 'all' && (
-          <button
-            type="button"
-            onClick={() => onCountryChange('all')}
-            className="absolute right-8 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-red-500 transition-colors"
-          >
-            <X className="h-3 w-3" />
-          </button>
-        )}
       </div>
 
       {/* Mobile iPhone-style Sheet - visible on mobile only */}
@@ -142,17 +116,12 @@ function SmartCountrySelector({
           <SheetTrigger asChild>
             <button
               type="button"
-              className="w-full flex items-center justify-between p-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-2xl hover:bg-white/90 hover:dark:bg-gray-700/90 focus:bg-white/90 focus:dark:bg-gray-700/90 focus:outline-none transition-all shadow-sm min-h-[56px] touch-manipulation"
+              className="w-full flex items-center justify-between p-3 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-6 h-6 bg-blue-500 dark:bg-blue-400 rounded-full flex items-center justify-center shadow-sm flex-shrink-0">
-                  <div className="w-3 h-3 bg-white dark:bg-gray-900 rounded-full" />
-                </div>
-                <span className="text-left font-medium text-gray-800 dark:text-gray-200 truncate">
-                  {selectedCountryLabel}
-                </span>
-              </div>
-              <ChevronDown className="h-5 w-5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
+              <span className="text-left truncate">
+                {selectedCountryLabel}
+              </span>
+              <ChevronDown className="h-4 w-4" />
             </button>
           </SheetTrigger>
           
@@ -329,85 +298,42 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
   const activeFilterCount = getActiveFilterCount();
 
   return (
-    <Card className="card-smart-filters">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 opacity-50">
-        <div className="animate-float absolute -top-4 -left-4 h-16 w-16 rounded-full bg-gradient-to-br from-pink-400/30 to-orange-400/30 blur-xl" />
-        <div className="animate-bounce-gentle absolute -top-2 -right-8 h-12 w-12 rounded-full bg-gradient-to-br from-yellow-400/25 to-pink-400/25 blur-lg" />
-        <div className="animate-pulse-gentle absolute -bottom-4 -left-8 h-20 w-20 rounded-full bg-gradient-to-br from-orange-400/20 to-yellow-400/20 blur-xl" />
-      </div>
-
-      <CardHeader className="relative z-10 pb-4">
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-3 text-xl font-bold bg-gradient-to-r from-pink-600 to-orange-600 bg-clip-text text-transparent dark:from-cyan-400 dark:to-blue-400">
-            <div className="relative">
-              <Filter className="h-6 w-6 text-pink-600 dark:text-cyan-400" />
-              {hasChanges && (
-                <div className="absolute -top-1 -right-1 h-3 w-3 bg-orange-400 rounded-full animate-ping" />
-              )}
-            </div>
-            🔥 Smart Filters
-            {activeFilterCount > 0 && (
-              <span className="px-3 py-1 bg-gradient-to-r from-pink-500 to-orange-500 text-white text-xs font-semibold rounded-full shadow-lg animate-pulse">
-                {activeFilterCount} active
-              </span>
-            )}
-          </CardTitle>
-          
-          <div className="flex items-center gap-2">
-            {hasChanges && (
-              <div className="flex items-center gap-2 px-3 py-1 bg-orange-100 dark:bg-orange-900/30 rounded-full">
-                <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
-                <span className="text-xs font-semibold text-orange-700 dark:text-orange-300">
-                  Changes pending
-                </span>
+    <>
+      {/* Mobile Simplified Layout */}
+      <div className="md:hidden">
+        <Card className="border border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-3 text-lg font-bold">
+              <Filter className="h-5 w-5 text-orange-500" />
+              <div>
+                <div className="flex items-center gap-2">
+                  <span>🔍 Smart Filters</span>
+                  {activeFilterCount > 0 && (
+                    <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-xs font-bold rounded-full text-orange-700 dark:text-orange-300">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 font-normal">
+                  ✨ {filterOptions.countries?.length || 68} countries • Lightning fast search
+                </p>
               </div>
-            )}
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsCompact(!isCompact)}
-              className="p-2 hover:bg-pink-100 dark:hover:bg-pink-900/30"
-            >
-              {isCompact ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-            </Button>
-          </div>
-        </div>
-
-        {/* Filter Stats */}
-        <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
-          <div className="flex items-center gap-1">
-            <Activity className="h-4 w-4 text-pink-500" />
-            <span>{filterOptions.countries?.length || 0} countries</span>
-          </div>
-          {activeFilterCount > 0 && (
-            <div className="flex items-center gap-1">
-              <Sparkles className="h-4 w-4 text-purple-500" />
-              <span className="font-semibold">Filtered view active</span>
-            </div>
-          )}
-        </div>
-      </CardHeader>
-      
-      <CardContent className="relative z-10">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid gap-6 grid-cols-1">
-            
-            {/* Country Filter */}
-            <div className="space-y-2">
-              <Label htmlFor="country" className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
-                <Globe className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                Country
-              </Label>
-              <div className="relative">
+            </CardTitle>
+          </CardHeader>
+          
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Simplified Country Selection */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-sm font-semibold">
+                  <Globe className="h-4 w-4 text-blue-500" />
+                  🌍 Country Selection
+                </Label>
                 {!isMounted ? (
-                  /* Loading state - prevent hydration mismatch */
-                  <div className="w-full p-4 bg-gray-100 dark:bg-gray-800 rounded-lg animate-pulse">
+                  <div className="w-full p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
                     <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-32"></div>
                   </div>
                 ) : (
-                  /* Smart Country Selector - handles mobile/desktop automatically */
                   <SmartCountrySelector 
                     countries={filterOptions.countries} 
                     selectedCountry={filters.country}
@@ -415,64 +341,171 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
                   />
                 )}
               </div>
+
+              {/* Mobile Action Buttons */}
+              <div className="flex items-center justify-between gap-3 pt-4">
+                <div className="flex items-center gap-2 text-sm">
+                  {activeFilterCount > 0 ? (
+                    <>
+                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <span className="font-semibold text-green-600 dark:text-green-400">
+                        ⚡ {activeFilterCount} filter{activeFilterCount !== 1 ? 's' : ''} applied
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-gray-500 dark:text-gray-400">
+                      ✨ No filters applied — ready to explore
+                    </span>
+                  )}
+                </div>
+                
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleReset}
+                    disabled={!hasChanges && activeFilterCount === 0}
+                    className="px-3 py-2 text-xs font-bold rounded-lg"
+                  >
+                    🔄 RESET
+                  </Button>
+                  
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={!hasChanges}
+                    className="px-3 py-2 text-xs font-bold rounded-lg bg-blue-500 hover:bg-blue-600 text-white"
+                  >
+                    🚀 APPLY
+                  </Button>
+                </div>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Desktop Original Layout */}
+      <div className="hidden md:block">
+        <Card className="relative border border-gray-200 dark:border-gray-700 bg-gradient-to-br from-slate-50/50 via-white to-slate-50/80 dark:from-gray-900/80 dark:via-gray-800 dark:to-gray-900/90 shadow-lg backdrop-blur-sm overflow-hidden">
+          {/* Decorative background elements */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl from-orange-100/30 via-transparent to-transparent dark:from-orange-900/20 rounded-full -translate-y-16 translate-x-16"></div>
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-blue-100/30 via-transparent to-transparent dark:from-blue-900/20 rounded-full translate-y-12 -translate-x-12"></div>
+          
+          {/* Subtle grid pattern overlay */}
+          <div className="absolute inset-0 opacity-10 dark:opacity-5" style={{
+            backgroundImage: `radial-gradient(circle at 1px 1px, rgba(156, 163, 175, 0.4) 1px, transparent 0)`,
+            backgroundSize: '20px 20px'
+          }}></div>
+          
+          <CardHeader className="pb-4 relative z-10">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-3 text-xl font-black tracking-tight">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-orange-400/20 dark:bg-orange-500/20 rounded-lg blur-md"></div>
+                  <div className="relative bg-gradient-to-br from-orange-400 to-orange-500 p-2 rounded-lg">
+                    <Filter className="h-5 w-5 text-white" />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl font-extrabold bg-gradient-to-r from-slate-800 via-slate-900 to-slate-800 dark:from-slate-100 dark:via-white dark:to-slate-100 bg-clip-text text-transparent tracking-wide drop-shadow-sm">
+                      🔍 Smart Filters
+                    </span>
+                    {activeFilterCount > 0 && (
+                      <span className="px-3 py-1.5 bg-gradient-to-r from-orange-400/20 to-orange-500/20 border border-orange-300/30 dark:border-orange-600/30 text-xs font-bold tracking-wider uppercase rounded-full text-orange-700 dark:text-orange-300">
+                        {activeFilterCount} active
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1 font-medium tracking-wide">
+                    ✨ <span className="font-semibold text-orange-600 dark:text-orange-400">{filterOptions.countries?.length || 68}</span> countries • <span className="italic">Lightning fast search</span>
+                  </p>
+                </div>
+              </CardTitle>
             </div>
-
-          </div>
-
-          {/* Enhanced Action Buttons */}
-          <div className={`pt-6 border-t border-gradient-to-r border-pink-200/60 dark:border-pink-400/20 ${
-            !isMounted ? 'space-y-4' : 'flex items-center justify-between md:flex md:items-center md:justify-between space-y-4 md:space-y-0'
-          }`}>
-            <div className="text-sm text-gray-600 dark:text-gray-300">
-              {activeFilterCount > 0 ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-pink-500 rounded-full animate-pulse" />
-                  <span className="font-medium">
-                    {activeFilterCount} filter{activeFilterCount !== 1 ? 's' : ''} applied
+          </CardHeader>
+          
+          <CardContent className="relative z-10">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Country Filter */}
+              <div className="space-y-2">
+                <Label htmlFor="country" className="flex items-center gap-2 text-base font-bold text-slate-800 dark:text-slate-200 tracking-wide">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-blue-400/20 dark:bg-blue-500/20 rounded blur-sm"></div>
+                    <Globe className="relative h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <span className="bg-gradient-to-r from-slate-800 to-slate-700 dark:from-slate-200 dark:to-slate-100 bg-clip-text text-transparent">
+                    🌍 Country Selection
                   </span>
+                </Label>
+                <div className="relative">
+                  {!isMounted ? (
+                    <div className="w-full p-3 bg-gray-100 dark:bg-gray-800 rounded-lg">
+                      <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-32"></div>
+                    </div>
+                  ) : (
+                    <SmartCountrySelector 
+                      countries={filterOptions.countries} 
+                      selectedCountry={filters.country}
+                      onCountryChange={(value) => updateFilter('country', value)}
+                    />
+                  )}
                 </div>
-              ) : (
+              </div>
+
+              {/* Enhanced Action Buttons */}
+              <div className="pt-6 border-t border-gradient-to-r from-slate-200/60 via-slate-300/40 to-slate-200/60 dark:from-slate-600/40 dark:via-slate-500/60 dark:to-slate-600/40 flex items-center justify-between gap-3 relative">
+                {/* Decorative line accent */}
+                <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-px w-12 h-0.5 bg-gradient-to-r from-orange-400 to-orange-500 rounded-full"></div>
+                
+                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+                  {activeFilterCount > 0 ? (
+                    <>
+                      <div className="w-3 h-3 bg-gradient-to-r from-green-400 to-green-500 rounded-full shadow-lg shadow-green-400/30"></div>
+                      <span className="font-bold tracking-wide bg-gradient-to-r from-green-700 to-green-600 dark:from-green-400 dark:to-green-300 bg-clip-text text-transparent">
+                        ⚡ {activeFilterCount} filter{activeFilterCount !== 1 ? 's' : ''} applied
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 text-slate-400 dark:text-slate-500" />
+                      <span className="font-medium italic text-slate-500 dark:text-slate-400">
+                        ✨ No filters applied — <span className="font-semibold">ready to explore</span>
+                      </span>
+                    </>
+                  )}
+                </div>
+                
                 <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-gray-400" />
-                  <span>No filters applied</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleReset}
+                    disabled={!hasChanges && activeFilterCount === 0}
+                    className="flex items-center gap-2 rounded-2xl bg-slate-50/80 border border-slate-200/50 text-slate-600 hover:bg-slate-100/80 hover:border-slate-300/60 dark:bg-slate-800/40 dark:border-slate-700/40 dark:text-slate-300 dark:hover:bg-slate-700/60 font-bold tracking-wider"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    <span className="text-sm">🔄 RESET</span>
+                  </Button>
+                  
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={!hasChanges}
+                    className="flex items-center gap-2 rounded-2xl bg-slate-50/80 border border-slate-200/50 text-slate-600 hover:bg-slate-100/80 hover:border-slate-300/60 dark:bg-slate-800/40 dark:border-slate-700/40 dark:text-slate-300 dark:hover:bg-slate-700/60 font-bold tracking-wider"
+                  >
+                    <Search className="h-4 w-4" />
+                    <span className="text-sm">🚀 APPLY</span>
+                  </Button>
                 </div>
-              )}
-            </div>
-            
-            <div className={`flex items-center gap-3 ${!isMounted ? 'w-full' : 'w-full md:w-auto'}`}>
-              <Button
-                type="button"
-                variant="outline"
-                size={!isMounted ? "default" : "sm"}
-                onClick={handleReset}
-                disabled={!hasChanges && activeFilterCount === 0}
-                className={`flex items-center gap-2 border-gray-300 hover:border-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all ${
-                  !isMounted ? 'flex-1 min-h-[48px]' : 'flex-1 min-h-[48px] md:flex-none md:h-auto'
-                }`}
-              >
-                <RotateCcw className="h-4 w-4" />
-                Reset
-              </Button>
-              
-              <Button
-                type="submit"
-                size={!isMounted ? "default" : "sm"}
-                disabled={!hasChanges}
-                className={`flex items-center gap-2 transition-all duration-300 ${
-                  hasChanges 
-                    ? 'bg-gradient-to-r from-pink-500 to-orange-500 hover:from-pink-600 hover:to-orange-600 shadow-lg shadow-pink-500/30 animate-pulse' 
-                    : 'bg-gray-400'
-                } ${isAnimating ? 'scale-105 shadow-xl' : ''} ${
-                  !isMounted ? 'flex-1 min-h-[48px]' : 'flex-1 min-h-[48px] md:flex-none md:h-auto'
-                }`}
-              >
-                <Search className={`h-4 w-4 ${isAnimating ? 'animate-spin' : ''}`} />
-                {isAnimating ? 'Applying...' : 'Apply Filters'}
-              </Button>
-            </div>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </>
   );
 }

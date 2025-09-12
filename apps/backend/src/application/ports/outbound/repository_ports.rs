@@ -19,7 +19,7 @@ pub trait SessionRepository: Send + Sync {
     type Error: std::error::Error + Send + Sync + 'static;
     
     async fn find_by_id(&self, session_id: &SessionId) -> Result<Option<Session>, Self::Error>;
-    async fn find_by_user_id(&self, user_id: &UserId) -> Result<Vec<Session>, Self::Error>;
+    async fn find_byuser_id(&self, user_id: &UserId) -> Result<Vec<Session>, Self::Error>;
     async fn save(&self, session: &Session) -> Result<(), Self::Error>;
     async fn delete(&self, session_id: &SessionId) -> Result<(), Self::Error>;
 }

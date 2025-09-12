@@ -1,29 +1,17 @@
-// Service Worker registration for PWA and FCM notifications
+// Firebase Cloud Messaging Service Worker registration
 
-declare global {
-  interface Window {
-    workbox: any;
-  }
-}
-
-interface ServiceWorkerOptions {
-  enableFCM?: boolean;
-  enablePWA?: boolean;
+interface FirebaseMessagingOptions {
   onUpdate?: () => void;
   onReady?: () => void;
   onOffline?: () => void;
 }
 
-class ServiceWorkerManager {
+class FirebaseMessagingManager {
   private registration: ServiceWorkerRegistration | null = null;
-  private options: ServiceWorkerOptions;
+  private options: FirebaseMessagingOptions;
 
-  constructor(options: ServiceWorkerOptions = {}) {
-    this.options = {
-      enableFCM: true,
-      enablePWA: true,
-      ...options
-    };
+  constructor(options: FirebaseMessagingOptions = {}) {
+    this.options = options;
   }
 
   async register(): Promise<ServiceWorkerRegistration | null> {
@@ -33,40 +21,20 @@ class ServiceWorkerManager {
     }
 
     try {
-      // Register Firebase messaging service worker
-      if (this.options.enableFCM) {
-        console.log('Registering Firebase messaging service worker...');
-        const fcmRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
-          scope: '/firebase-cloud-messaging-push-scope'
-        });
+      // Register Firebase messaging service worker only
+      console.log('Registering Firebase messaging service worker...');
+      const fcmRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+        scope: '/firebase-cloud-messaging-push-scope'
+      });
 
-        console.log('Firebase messaging SW registered successfully:', fcmRegistration);
-        
-        fcmRegistration.addEventListener('updatefound', () => {
-          console.log('Firebase messaging SW update found');
-          this.options.onUpdate?.();
-        });
+      console.log('Firebase messaging SW registered successfully:', fcmRegistration);
+      
+      fcmRegistration.addEventListener('updatefound', () => {
+        console.log('Firebase messaging SW update found');
+        this.options.onUpdate?.();
+      });
 
-        this.registration = fcmRegistration;
-      }
-
-      // Register main app service worker for PWA features
-      if (this.options.enablePWA && 'serviceWorker' in navigator) {
-        console.log('Registering PWA service worker...');
-        const pwaRegistration = await navigator.serviceWorker.register('/sw.js');
-        
-        console.log('PWA SW registered successfully:', pwaRegistration);
-        
-        pwaRegistration.addEventListener('updatefound', () => {
-          console.log('PWA SW update found');
-          this.options.onUpdate?.();
-        });
-
-        // If we don't have FCM registration, use PWA registration as primary
-        if (!this.registration) {
-          this.registration = pwaRegistration;
-        }
-      }
+      this.registration = fcmRegistration;
 
       // Set up event listeners
       this.setupEventListeners();
@@ -75,7 +43,7 @@ class ServiceWorkerManager {
       return this.registration;
 
     } catch (error) {
-      console.error('Service worker registration failed:', error);
+      console.error('Firebase messaging service worker registration failed:', error);
       return null;
     }
   }
@@ -85,7 +53,7 @@ class ServiceWorkerManager {
 
     // Listen for service worker updates
     navigator.serviceWorker.addEventListener('message', (event) => {
-      console.log('Received message from service worker:', event.data);
+      console.log('Received message from Firebase messaging service worker:', event.data);
       
       if (event.data?.type === 'SW_UPDATE_AVAILABLE') {
         this.options.onUpdate?.();
@@ -101,19 +69,6 @@ class ServiceWorkerManager {
       console.log('App went offline');
       this.options.onOffline?.();
     });
-
-    // Listen for app installation prompt
-    window.addEventListener('beforeinstallprompt', (e) => {
-      console.log('PWA install prompt available');
-      // Store the event for later use
-      (window as any).deferredInstallPrompt = e;
-    });
-
-    // Listen for successful app installation
-    window.addEventListener('appinstalled', () => {
-      console.log('PWA installed successfully');
-      (window as any).deferredInstallPrompt = null;
-    });
   }
 
   async unregister(): Promise<boolean> {
@@ -122,10 +77,10 @@ class ServiceWorkerManager {
     try {
       const result = await this.registration.unregister();
       this.registration = null;
-      console.log('Service worker unregistered successfully');
+      console.log('Firebase messaging service worker unregistered successfully');
       return result;
     } catch (error) {
-      console.error('Service worker unregistration failed:', error);
+      console.error('Firebase messaging service worker unregistration failed:', error);
       return false;
     }
   }
@@ -135,9 +90,9 @@ class ServiceWorkerManager {
 
     try {
       await this.registration.update();
-      console.log('Service worker update triggered');
+      console.log('Firebase messaging service worker update triggered');
     } catch (error) {
-      console.error('Service worker update failed:', error);
+      console.error('Firebase messaging service worker update failed:', error);
     }
   }
 
@@ -168,69 +123,34 @@ class ServiceWorkerManager {
     const permission = await Notification.requestPermission();
     return permission === 'granted';
   }
-
-  // PWA installation helpers
-  async installPWA(): Promise<boolean> {
-    const deferredPrompt = (window as any).deferredInstallPrompt;
-    
-    if (!deferredPrompt) {
-      console.log('PWA install prompt not available');
-      return false;
-    }
-
-    try {
-      await deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      
-      if (outcome === 'accepted') {
-        console.log('User accepted PWA install prompt');
-        (window as any).deferredInstallPrompt = null;
-        return true;
-      } else {
-        console.log('User dismissed PWA install prompt');
-        return false;
-      }
-    } catch (error) {
-      console.error('PWA installation failed:', error);
-      return false;
-    }
-  }
-
-  isPWAInstallable(): boolean {
-    return !!(window as any).deferredInstallPrompt;
-  }
-
-  isPWAInstalled(): boolean {
-    return window.matchMedia('(display-mode: standalone)').matches ||
-           (navigator as any).standalone === true ||
-           document.referrer.includes('android-app://');
-  }
 }
 
 // Export singleton instance
-export const serviceWorkerManager = new ServiceWorkerManager({
-  enableFCM: true,
-  enablePWA: true,
+export const firebaseMessagingManager = new FirebaseMessagingManager({
   onUpdate: () => {
-    console.log('Service worker update available');
-    // You can show a toast notification here
+    console.log('Firebase messaging service worker update available');
   },
   onReady: () => {
-    console.log('Service worker ready');
+    console.log('Firebase messaging service worker ready');
   },
   onOffline: () => {
     console.log('App is offline');
-    // You can show offline indicator here
   }
 });
 
 // Convenience functions
-export const registerServiceWorker = () => serviceWorkerManager.register();
-export const unregisterServiceWorker = () => serviceWorkerManager.unregister();
-export const updateServiceWorker = () => serviceWorkerManager.update();
-export const isServiceWorkerSupported = () => serviceWorkerManager.isSupported();
-export const installPWA = () => serviceWorkerManager.installPWA();
-export const isPWAInstallable = () => serviceWorkerManager.isPWAInstallable();
-export const isPWAInstalled = () => serviceWorkerManager.isPWAInstalled();
+export const registerFirebaseMessaging = () => firebaseMessagingManager.register();
+export const unregisterFirebaseMessaging = () => firebaseMessagingManager.unregister();
+export const updateFirebaseMessaging = () => firebaseMessagingManager.update();
+export const isFirebaseMessagingSupported = () => firebaseMessagingManager.isSupported();
+export const getNotificationPermission = () => firebaseMessagingManager.getNotificationPermission();
+export const requestNotificationPermission = () => firebaseMessagingManager.requestNotificationPermission();
 
-export default serviceWorkerManager;
+// Legacy compatibility (deprecated - use Firebase-specific functions)
+export const serviceWorkerManager = firebaseMessagingManager;
+export const registerServiceWorker = registerFirebaseMessaging;
+export const unregisterServiceWorker = unregisterFirebaseMessaging;
+export const updateServiceWorker = updateFirebaseMessaging;
+export const isServiceWorkerSupported = isFirebaseMessagingSupported;
+
+export default firebaseMessagingManager;

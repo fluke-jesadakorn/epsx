@@ -108,204 +108,139 @@
   --color-insight-info: hsl(184 93% 47%);
   
   /* ========================================================================
-     ANIMATIONS - Custom Keyframes and Animation Properties
+     STATIC VISUAL STATES (Animation-Free)
      ======================================================================== */
   
-  /* Animation Durations and Timing */
-  --animate-accordion-down: accordion-down 0.2s ease-out;
-  --animate-accordion-up: accordion-up 0.2s ease-out;
-  --animate-collapsible-down: collapsible-down 0.2s ease-out;
-  --animate-collapsible-up: collapsible-up 0.2s ease-out;
+  /* Static state variables for instant visual feedback */
+  --static-accordion-expanded: 1;
+  --static-accordion-collapsed: 0;
+  --static-collapsible-open: 1;
+  --static-collapsible-closed: 0;
   
-  --animate-float: float 6s ease-in-out infinite;
-  --animate-float-gentle: float-gentle 4s ease-in-out infinite;
-  --animate-float-reverse: float-reverse 5s ease-in-out infinite;
-  --animate-float-delayed: float 6s ease-in-out infinite -3s;
+  /* Static visual effect states */
+  --static-float-state: translateY(0);
+  --static-bounce-state: translateY(0);
+  --static-pulse-state: opacity(1);
+  --static-scale-state: scale(1);
+  --static-spin-state: rotate(0deg);
+  --static-wiggle-state: rotate(0deg);
   
-  --animate-bounce-gentle: bounce-gentle 2s ease-in-out infinite;
-  --animate-bounce-slow: bounce-slow 3s ease-in-out infinite;
+  /* Static gradient positions */
+  --static-gradient-pos: 0% 50%;
+  --static-gradient-x-pos: 0% 50%;
   
-  --animate-pulse-gentle: pulse-gentle 3s ease-in-out infinite;
-  --animate-pulse-slow: pulse-slow 4s ease-in-out infinite;
-  --animate-pulse-insight: pulse-insight 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  /* Static shine and shimmer states */
+  --static-shine-pos: translateX(0);
+  --static-shimmer-pos: translateX(0);
   
-  --animate-scale-pulse: scale-pulse 3s ease-in-out infinite;
-  --animate-spin-slow: spin-slow 20s linear infinite;
-  --animate-spin-very-slow: spin-very-slow 30s linear infinite;
-  --animate-wiggle: wiggle 1s ease-in-out infinite;
+  /* Static slide states */
+  --static-slide-up: translateY(0);
+  --static-slide-left: translateX(0);
+  --static-slide-right: translateX(0);
   
-  --animate-gradient: gradient 8s ease infinite;
-  --animate-gradient-x: gradient-x 3s ease infinite;
-  --animate-gradient-shift: gradient-shift 3s ease-in-out infinite;
+  /* Static fade states */
+  --static-fade-visible: opacity(1);
+  --static-fade-hidden: opacity(0);
   
-  --animate-shine: shine 2s linear infinite;
-  --animate-shimmer: shimmer 2s linear infinite;
-  
-  --animate-slide-up: slide-up 0.8s ease-out;
-  --animate-slide-up-delayed: slide-up 0.8s ease-out 0.2s both;
-  --animate-slide-up-delayed-2: slide-up 0.8s ease-out 0.4s both;
-  --animate-slide-in-left: slide-in-left 0.6s ease-out;
-  --animate-slide-in-right: slide-in-right 0.6s ease-out;
-  
-  --animate-fade-in: fade-in 1s ease-out forwards;
-  --animate-fade-in-delayed: fade-in 1s ease-out 0.3s forwards;
-  --animate-fade-in-delayed-2: fade-in 1s ease-out 0.6s forwards;
-  --animate-fade-in-delayed-3: fade-in 1s ease-out 0.9s forwards;
-  
-  --animate-blob1: blob1 12s ease-in-out infinite;
-  --animate-blob2: blob2 14s ease-in-out infinite;
-  --animate-blob3: blob3 16s ease-in-out infinite;
+  /* Static blob states */
+  --static-blob-pos: translate(0, 0) scale(1);
 }
 
 /* ============================================================================
-   KEYFRAMES DEFINITIONS
+   STATIC UTILITY CLASSES (Animation-Free)
    ============================================================================ */
 
-@keyframes accordion-down {
-  from { height: 0; }
-  to { height: var(--radix-accordion-content-height); }
+/* Accordion states without animation */
+.accordion-expanded {
+  height: var(--radix-accordion-content-height);
 }
 
-@keyframes accordion-up {
-  from { height: var(--radix-accordion-content-height); }
-  to { height: 0; }
+.accordion-collapsed {
+  height: 0;
 }
 
-@keyframes collapsible-down {
-  from { height: 0; }
-  to { height: var(--collapsible-content-height); }
+/* Collapsible states without animation */
+.collapsible-open {
+  height: var(--collapsible-content-height);
 }
 
-@keyframes collapsible-up {
-  from { height: var(--collapsible-content-height); }
-  to { height: 0; }
+.collapsible-closed {
+  height: 0;
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-20px); }
+/* Static visual states */
+.float-state {
+  transform: translateY(0);
 }
 
-@keyframes float-gentle {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  33% { transform: translateY(-8px) rotate(1deg); }
-  66% { transform: translateY(8px) rotate(-1deg); }
+.float-gentle-state {
+  transform: translateY(0) rotate(0deg);
 }
 
-@keyframes float-reverse {
-  0%, 100% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(15px) rotate(2deg); }
+.bounce-state {
+  transform: translateY(0);
 }
 
-@keyframes bounce-gentle {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+.pulse-gentle-state {
+  opacity: 0.8;
+  transform: scale(1);
 }
 
-@keyframes bounce-slow {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-15px); }
+.pulse-slow-state {
+  opacity: 0.6;
 }
 
-@keyframes pulse-gentle {
-  0%, 100% { opacity: 0.6; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.05); }
+.scale-pulse-state {
+  transform: scale(1);
 }
 
-@keyframes pulse-slow {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 0.8; }
+.wiggle-state {
+  transform: rotate(0deg);
 }
 
-@keyframes pulse-insight {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+/* Static gradient positions */
+.gradient-static {
+  background-position: 0% 50%;
 }
 
-@keyframes scale-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.05); }
+.gradient-x-static {
+  background-position: 0% 50%;
 }
 
-@keyframes spin-slow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+/* Static shine and shimmer effects */
+.shine-static {
+  transform: translateX(0);
 }
 
-@keyframes spin-very-slow {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+.shimmer-static {
+  transform: translateX(0);
 }
 
-@keyframes wiggle {
-  0% { transform: rotate(0deg); }
-  25% { transform: rotate(1deg); }
-  75% { transform: rotate(-1deg); }
-  100% { transform: rotate(0deg); }
+/* Static slide states */
+.slide-up-static {
+  opacity: 1;
+  transform: translateY(0);
 }
 
-@keyframes gradient {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+.slide-in-left-static {
+  opacity: 1;
+  transform: translateX(0);
 }
 
-@keyframes gradient-x {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+.slide-in-right-static {
+  opacity: 1;
+  transform: translateX(0);
 }
 
-@keyframes gradient-shift {
-  0%, 100% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
+/* Static fade states */
+.fade-in-static {
+  opacity: 1;
+  transform: translateY(0);
 }
 
-@keyframes shine {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-
-@keyframes shimmer {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(100%); }
-}
-
-@keyframes slide-up {
-  from { opacity: 0; transform: translateY(30px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes slide-in-left {
-  from { opacity: 0; transform: translateX(-20px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-@keyframes slide-in-right {
-  from { opacity: 0; transform: translateX(20px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-@keyframes fade-in {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes blob1 {
-  0%, 100% { transform: scale(1) translate(0, 0); }
-  33% { transform: scale(1.1, 0.9) translate(10px, -10px); }
-  66% { transform: scale(0.95, 1.05) translate(-10px, 10px); }
-}
-
-@keyframes blob2 {
-  0%, 100% { transform: scale(1) translate(0, 0); }
-  33% { transform: scale(1.05, 0.95) translate(-12px, 8px); }
-  66% { transform: scale(0.9, 1.1) translate(12px, -8px); }
-}
-
-@keyframes blob3 {
-  0%, 100% { transform: scale(1) translate(0, 0); }
-  33% { transform: scale(1.08, 0.92) translate(8px, 12px); }
-  66% { transform: scale(0.92, 1.08) translate(-8px, -12px); }
+/* Static blob states */
+.blob-static {
+  transform: scale(1) translate(0, 0);
 }
 
 /* ============================================================================

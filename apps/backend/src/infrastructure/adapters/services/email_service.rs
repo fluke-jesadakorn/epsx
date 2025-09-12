@@ -62,13 +62,13 @@ impl SendGridEmailService {
 impl EmailServicePort for SendGridEmailService {
     type Error = EmailServiceError;
 
-    async fn send_email(&self, to: &str, subject: &str, body: &str) -> Result<(), Self::Error> {
+    async fn send_email(&self, to: &str, subject: &str, _body: &str) -> Result<(), Self::Error> {
         // Placeholder implementation
         tracing::info!("Sending email to {} with subject: {}", to, subject);
         Ok(())
     }
 
-    async fn send_template_email(&self, to: &str, template: &str, data: &serde_json::Value) -> Result<(), Self::Error> {
+    async fn send_template_email(&self, to: &str, template: &str, _data: &serde_json::Value) -> Result<(), Self::Error> {
         // Placeholder implementation
         tracing::info!("Sending template email {} to {}", template, to);
         Ok(())
@@ -98,13 +98,13 @@ impl SmtpEmailService {
 impl EmailServicePort for SmtpEmailService {
     type Error = EmailServiceError;
 
-    async fn send_email(&self, to: &str, subject: &str, body: &str) -> Result<(), Self::Error> {
+    async fn send_email(&self, to: &str, _subject: &str, _body: &str) -> Result<(), Self::Error> {
         // Placeholder implementation
         tracing::info!("Sending SMTP email to {} via {}:{}", to, self.host, self.port);
         Ok(())
     }
 
-    async fn send_template_email(&self, to: &str, template: &str, data: &serde_json::Value) -> Result<(), Self::Error> {
+    async fn send_template_email(&self, to: &str, template: &str, _data: &serde_json::Value) -> Result<(), Self::Error> {
         // Placeholder implementation  
         tracing::info!("Sending SMTP template email {} to {}", template, to);
         Ok(())

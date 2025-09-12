@@ -396,7 +396,7 @@ macro_rules! with_retry {
         let strategy = RetryRecoveryStrategy::new($operation, $operation_name.to_string())
             .with_config($config);
         
-        let mut orchestrator = RecoveryOrchestrator::new()
+        let orchestrator = RecoveryOrchestrator::new()
             .add_strategy(Box::new(strategy));
         
         // Execute the operation first, then try recovery if it fails

@@ -368,7 +368,7 @@ impl SecurityMonitoringServicePort for SecurityMonitoringServiceAdapter {
         score += (ip_attempts as f64) * 2.0; // IP attempts factor
         score += self.calculate_user_risk_score(&user_metrics); // User metrics factor
         
-        let risk_level = if score > 50.0 { "high" } else if score > 20.0 { "medium" } else { "low" };
+        let _risk_level = if score > 50.0 { "high" } else if score > 20.0 { "medium" } else { "low" };
         
         let risk_score_enum = if score > 80.0 {
             crate::domain::authentication::repositories::RiskScore::Critical
@@ -409,7 +409,7 @@ impl SecurityMonitoringServicePort for SecurityMonitoringServiceAdapter {
         Ok(())
     }
     
-    async fn check_rate_limit(&self, key: &str, limit: u32, window_seconds: u64) -> Result<bool, String> {
+    async fn check_rate_limit(&self, key: &str, limit: u32, _window_seconds: u64) -> Result<bool, String> {
         let current_count = self.increment_rate_limit_counter(key).await?;
         
         let is_limited = current_count > limit;

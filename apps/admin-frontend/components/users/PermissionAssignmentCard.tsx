@@ -5,7 +5,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { MoreHorizontal, Key, AlertCircle, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -15,11 +15,9 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Badge } from '@/components/ui/badge'
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { toast } from '@/components/ui/toast'
 import type { Permission } from '@/lib/types/unified-user'
 import { UserStatusBadge } from './UserStatusBadge'
-import { removeCustomPermission } from '@/lib/actions/users'
 
 interface PermissionAssignmentCardProps {
   permission: Permission
@@ -34,8 +32,7 @@ export function PermissionAssignmentCard({
   canManage, 
   onPermissionRemoved 
 }: PermissionAssignmentCardProps) {
-  const [isRemoving, setIsRemoving] = useState(false)
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false)
+  const router = useRouter()
 
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -73,35 +70,6 @@ export function PermissionAssignmentCard({
 
   const isHighRisk = permission.name.includes('admin') || permission.name.includes('delete')
 
-  const handleRemovePermission = async () => {
-    setIsRemoving(true)
-    try {
-      // Parse permission name to extract resource and action
-      // Format: "resource:action" or just use the name as resource with 'read' as default action
-      const parts = permission.name.split(':')
-      const resource = parts[0] || permission.name
-      const action = parts[1] || 'read'
-
-      const result = await removeCustomPermission({
-        userId,
-        resource,
-        action,
-        reason: `Permission removed by admin`
-      })
-      
-      if (result.success) {
-        toast.success(`Permission "${permission.name}" removed successfully`)
-        onPermissionRemoved?.()
-      } else {
-        toast.error(result.error?.message || 'Failed to remove permission')
-      }
-    } catch (error) {
-      toast.error('Failed to remove permission')
-    } finally {
-      setIsRemoving(false)
-      setShowConfirmDialog(false)
-    }
-  }
 
   // Extract action from permission name for display
   const getActionFromPermissionName = (name: string): string => {
@@ -163,7 +131,13 @@ export function PermissionAssignmentCard({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
-                onClick={() => setShowConfirmDialog(true)}
+                onClick={() => {
+                  const params = new URLSearchParams({
+                    permissionName: permission.name,
+                    returnUrl: window.location.pathname
+                  })
+                  router.push(`/users/${userId}/confirm-delete?${params.toString()}`)
+                }}
                 className="text-destructive focus:text-destructive"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
@@ -174,16 +148,6 @@ export function PermissionAssignmentCard({
         )}
       </div>
 
-      <ConfirmDialog
-        isOpen={showConfirmDialog}
-        onOpenChange={setShowConfirmDialog}
-        title="Remove Permission"
-        description={`Are you sure you want to remove the "${permission.name}" permission? This action cannot be undone.`}
-        confirmText="Remove Permission"
-        onConfirm={handleRemovePermission}
-        isLoading={isRemoving}
-        variant="destructive"
-      />
     </>
   )
 }

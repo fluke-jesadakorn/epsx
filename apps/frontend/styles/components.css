@@ -26,7 +26,6 @@
     overflow: hidden;
     border-radius: 1rem;
     padding: 1.5rem;
-    transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
   }
   
   .dark .card-insight-enhanced {
@@ -43,11 +42,9 @@
     width: 100%;
     height: 2px;
     background: linear-gradient(90deg, transparent, #3b82f6, transparent);
-    animation: shimmer 3s infinite;
   }
   
   .card-insight-enhanced:hover {
-    transform: translateY(-2px) scale(1.02);
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
     border-color: rgba(59, 130, 246, 0.4);
   }
@@ -69,27 +66,9 @@
     overflow: hidden;
     border-radius: 0.75rem;
     font-weight: 600;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    transform: translateZ(0); /* Enable hardware acceleration */
   }
   
-  .btn-interactive::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 0;
-    height: 0;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.3);
-    transform: translate(-50%, -50%);
-    transition: width 0.6s, height 0.6s;
-  }
-  
-  .btn-interactive:active::before {
-    width: 300px;
-    height: 300px;
-  }
+  /* Removed ripple effect for performance */
   
   /* Enhanced gradient button */
   .btn-gradient-enhanced {
@@ -100,19 +79,14 @@
     font-weight: 600;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
     box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    animation: gradientShift 3s ease-in-out infinite;
   }
   
   .btn-gradient-enhanced:hover {
     background-position: 100% 0;
     box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
-    transform: translateY(-2px) scale(1.05);
   }
   
-  .btn-gradient-enhanced:active {
-    transform: translateY(0) scale(0.98);
-  }
+  /* Removed active animation for performance */
 }
 
 /* ============================================================================
@@ -125,7 +99,6 @@
     background-color: hsl(var(--background) / 0.8);
     backdrop-filter: blur(12px);
     border-bottom: 1px solid hsl(var(--border) / 0.5);
-    transition: all 0.3s ease;
   }
   
   .dark .navbar-enhanced {
@@ -138,7 +111,6 @@
     position: relative;
     padding: 0.5rem 1rem;
     border-radius: 0.5rem;
-    transition: all 0.2s ease;
     cursor: pointer;
   }
   
@@ -151,7 +123,6 @@
     height: 2px;
     background: linear-gradient(90deg, #3b82f6, #1d4ed8);
     transform: translateX(-50%);
-    transition: width 0.3s ease;
   }
   
   .nav-item-enhanced:hover::before {
@@ -160,7 +131,6 @@
   
   .nav-item-enhanced:hover {
     background-color: hsl(var(--primary) / 0.1);
-    transform: translateY(-1px);
   }
 }
 
@@ -193,7 +163,6 @@
   .table-enhanced td {
     padding: 1rem;
     border-top: 1px solid hsl(var(--border));
-    transition: background-color 0.2s ease;
   }
   
   .table-enhanced tr:hover td {
@@ -241,7 +210,6 @@
     border: 2px solid hsl(var(--border));
     border-radius: 0.5rem;
     font-size: 1rem;
-    transition: all 0.2s ease;
     outline: none;
   }
   
@@ -265,7 +233,6 @@
     color: hsl(var(--muted-foreground));
     font-size: 1rem;
     pointer-events: none;
-    transition: all 0.2s ease;
     transform-origin: left top;
   }
   
@@ -279,7 +246,6 @@
     background: hsl(var(--background));
     cursor: pointer;
     position: relative;
-    transition: all 0.2s ease;
   }
   
   .checkbox-enhanced:checked {
@@ -315,7 +281,6 @@
     overflow: hidden;
     border-radius: 1.25rem;
     padding: 1.5rem;
-    transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
   }
   
   .dark .card-smart-filters {
@@ -334,11 +299,9 @@
     width: 100%;
     height: 2px;
     background: linear-gradient(90deg, transparent, hsl(330 90% 60%), transparent);
-    animation: shimmer 3s infinite;
   }
   
   .card-smart-filters:hover {
-    transform: translateY(-2px) scale(1.01);
     box-shadow: 
       0 12px 40px rgba(0, 0, 0, 0.15),
       inset 0 1px 0 hsl(330 90% 100% / 0.3);
@@ -436,7 +399,6 @@
     border: 1px solid hsl(217 20% 80%);
     border-radius: 0.75rem;
     font-size: 0.875rem;
-    transition: all 0.2s ease;
     cursor: pointer;
     backdrop-filter: blur(4px);
   }
@@ -478,7 +440,6 @@
     padding: 0.75rem 1rem;
     font-size: 0.875rem;
     cursor: pointer;
-    transition: all 0.15s ease;
   }
   
   .smart-filter-select-item:hover {
@@ -512,7 +473,6 @@
     border-radius: 0.75rem;
     font-weight: 600;
     font-size: 0.875rem;
-    transition: all 0.2s ease;
     cursor: pointer;
     border: none;
     outline: none;
@@ -525,13 +485,10 @@
   }
   
   .btn-smart-filter-primary:hover:not(:disabled) {
-    transform: translateY(-2px) scale(1.03);
     box-shadow: 0 6px 16px hsl(330 90% 60% / 0.4);
   }
   
-  .btn-smart-filter-primary:active:not(:disabled) {
-    transform: translateY(0) scale(0.98);
-  }
+  /* Removed active animation for performance */
   
   .btn-smart-filter-primary:disabled {
     opacity: 0.6;
@@ -554,7 +511,6 @@
   .btn-smart-filter-secondary:hover:not(:disabled) {
     background: hsl(217 91% 60% / 0.1);
     border-color: hsl(217 91% 60%);
-    transform: translateY(-1px);
   }
 }
 
@@ -573,8 +529,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    opacity: 0;
-    animation: fadeIn 0.2s ease-out forwards;
+    opacity: 1;
   }
   
   /* Enhanced modal content */
@@ -587,8 +542,6 @@
     max-height: 90vh;
     overflow-y: auto;
     position: relative;
-    transform: scale(0.95) translateY(20px);
-    animation: modalSlideIn 0.3s ease-out forwards;
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   }
   
@@ -631,8 +584,6 @@
     border-radius: 0.75rem;
     padding: 1rem;
     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    transform: translateX(100%);
-    animation: toastSlideIn 0.3s ease-out forwards;
     position: relative;
     overflow: hidden;
   }
@@ -660,71 +611,14 @@
     left: 0;
     height: 3px;
     background: hsl(var(--primary));
-    animation: toastProgress 5s linear forwards;
   }
 }
 
 /* ============================================================================
-   COMPONENT KEYFRAMES
+   REMOVED: All component keyframes for performance optimization
+   
+   All animations removed to improve mobile performance and accessibility
    ============================================================================ */
-
-@keyframes shimmer {
-  0% {
-    left: -100%;
-  }
-  100% {
-    left: 100%;
-  }
-}
-
-@keyframes gradientShift {
-  0%, 100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes modalSlideIn {
-  from {
-    transform: scale(0.95) translateY(20px);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1) translateY(0);
-    opacity: 1;
-  }
-}
-
-@keyframes toastSlideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-}
-
-@keyframes toastProgress {
-  from {
-    width: 100%;
-  }
-  to {
-    width: 0%;
-  }
-}
 
 /* ============================================================================
    RESPONSIVE COMPONENT ADJUSTMENTS

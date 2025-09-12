@@ -2,6 +2,8 @@
  * Utility functions for the EPSX frontend application
  */
 
+import { logger, devLog, safeError } from '@/lib/logger';
+
 /**
  * Debounce function to limit the rate of function calls
  */
@@ -122,7 +124,7 @@ export const storage = {
       localStorage.setItem(key, JSON.stringify(value));
       return true;
     } catch (error) {
-      console.error('Failed to save to localStorage:', error);
+      logger.error('Failed to save to localStorage', error);
       return false;
     }
   },
@@ -135,7 +137,7 @@ export const storage = {
       const item = localStorage.getItem(key);
       return item ? JSON.parse(item) : defaultValue || null;
     } catch (error) {
-      console.error('Failed to read from localStorage:', error);
+      logger.error('Failed to read from localStorage', error);
       return defaultValue || null;
     }
   },
@@ -148,7 +150,7 @@ export const storage = {
       localStorage.removeItem(key);
       return true;
     } catch (error) {
-      console.error('Failed to remove from localStorage:', error);
+      logger.error('Failed to remove from localStorage', error);
       return false;
     }
   },
@@ -161,7 +163,7 @@ export const storage = {
       localStorage.clear();
       return true;
     } catch (error) {
-      console.error('Failed to clear localStorage:', error);
+      logger.error('Failed to clear localStorage', error);
       return false;
     }
   },
@@ -455,7 +457,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
       document.body.removeChild(textArea);
       return true;
     } catch (fallbackError) {
-      console.error('Failed to copy text to clipboard:', fallbackError);
+      logger.error('Failed to copy text to clipboard', fallbackError);
       return false;
     }
   }

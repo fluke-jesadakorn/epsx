@@ -4,7 +4,6 @@
 /* Base restricted state */
 .permission-restricted {
   position: relative;
-  transition: all 0.2s ease-in-out;
 }
 
 .permission-restricted::before {
@@ -27,7 +26,6 @@
 
 .permission-restricted-blur-light:hover {
   filter: blur(1px);
-  transform: scale(0.99);
 }
 
 .permission-restricted-blur-medium {
@@ -37,7 +35,6 @@
 
 .permission-restricted-blur-medium:hover {
   filter: blur(2px);
-  transform: scale(0.98);
 }
 
 .permission-restricted-blur-heavy {
@@ -47,7 +44,6 @@
 
 .permission-restricted-blur-heavy:hover {
   filter: blur(4px);
-  transform: scale(0.96);
 }
 
 /* Opacity Effects */
@@ -58,7 +54,6 @@
 
 .permission-restricted-opacity:hover {
   opacity: 0.6;
-  transform: scale(0.97);
 }
 
 /* Locked Overlay */
@@ -92,7 +87,6 @@
 
 .permission-restricted-premium:hover {
   box-shadow: 0 0 30px rgba(255, 193, 7, 0.4);
-  transform: scale(1.02);
 }
 
 /* Admin-Only Features */
@@ -112,7 +106,6 @@
 
 .permission-restricted-admin:hover {
   box-shadow: 0 0 30px rgba(239, 68, 68, 0.4);
-  transform: scale(1.02);
 }
 
 /* Tier-based Color Coding */
@@ -251,53 +244,31 @@
   }
 }
 
-/* Animation effects */
-@keyframes permission-pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-}
+/* REMOVED: Animation effects for performance optimization */
 
 .permission-restricted-pulse {
-  animation: permission-pulse 2s infinite;
-}
-
-@keyframes permission-shake {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-2px); }
-  20%, 40%, 60%, 80% { transform: translateX(2px); }
+  opacity: 0.7;
 }
 
 .permission-restricted-shake {
-  animation: permission-shake 0.5s ease-in-out;
+  /* Static state - no animation for performance */
 }
 
-/* Loading state for permission checks */
+/* Static loading state for permission checks */
 .permission-checking {
   position: relative;
   opacity: 0.8;
 }
 
 .permission-checking::after {
-  content: '';
+  content: 'Loading...';
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 20px;
-  height: 20px;
-  margin: -10px 0 0 -10px;
-  border: 2px solid #3b82f6;
-  border-top: 2px solid transparent;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  transform: translate(-50%, -50%);
+  font-size: 0.75rem;
+  color: #3b82f6;
+  font-weight: 600;
 }
 
 /* Mobile-specific adjustments */

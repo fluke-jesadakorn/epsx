@@ -242,7 +242,7 @@ mod tests {
         let user_id = UserId::generate();
         let email = Email::new("test@example.com".to_string()).unwrap();
         let permissions = vec!["epsx:analytics:view".to_string(), "epsx:profile:manage".to_string()];
-        let provider_user_id = "firebase_user_123".to_string();
+        let provideruser_id = "firebase_user_123".to_string();
         let provider = ProviderType::Firebase;
         let expires_at = Utc::now() + chrono::Duration::hours(1);
         let iat = chrono::Utc::now().timestamp() as u64;

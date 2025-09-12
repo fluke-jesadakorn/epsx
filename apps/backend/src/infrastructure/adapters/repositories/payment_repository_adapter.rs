@@ -65,7 +65,7 @@ impl PaymentRepositoryAdapter {
     }
     
     /// Convert legacy payment data back to DDD Payment
-    async fn map_from_legacy(&self, legacy_data: LegacyPaymentData) -> Result<Payment, String> {
+    async fn map_from_legacy(&self, _legacy_data: LegacyPaymentData) -> Result<Payment, String> {
         // In production, this would reconstruct the full Payment aggregate
         // from stored data including all value objects and state
         

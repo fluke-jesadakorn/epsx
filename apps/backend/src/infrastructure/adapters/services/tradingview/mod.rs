@@ -26,9 +26,7 @@ use async_trait::async_trait;
 
 use crate::config::Config;
 use crate::domain::shared_kernel::entities::market_data::StockScreeningResult;
-use types::MarketDataError;
 use crate::domain::shared_kernel::entities::eps_growth::EPSGrowthData;
-use crate::web::analytics::convert_screening_result_to_eps_ranking;
 
 /// Main TradingView API service implementation using focused modules
 pub struct TradingViewApiService {
@@ -101,7 +99,7 @@ impl TradingViewApiService {
         let response = self.scanner.get_rest_client().execute_custom_request(request_body, 3).await?;
 
         // TradingView API doesn't return total_count, so we use data length
-        let total_count = response.totalCount.unwrap_or(response.data.len() as i32);
+        let total_count = response.total_count.unwrap_or(response.data.len() as i32);
         
         info!("✅ Real TradingView API response: {} entries, total count: {}", 
               response.data.len(), total_count);

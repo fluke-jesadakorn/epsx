@@ -163,15 +163,7 @@ fn generate_quarterly_data_from_websocket_or_fallback(
         ranking.symbol, current_eps, current_price, growth_factor_pct);
   
   // Always use real scanner data path now instead of broken WebSocket
-  return generate_quarterly_data_from_real_scanner_data(ranking, current_date);
-
-  debug!(
-    "📊 No real scanner data for {}, falling back to consecutive quarters",
-    ranking.symbol
-  );
-
-  // Generate proper consecutive quarters from current date
-  generate_consecutive_quarterly_data(ranking, current_date)
+  generate_quarterly_data_from_real_scanner_data(ranking, current_date)
 }
 
 /// Generate quarterly data from real TradingView scanner data  
@@ -312,7 +304,7 @@ fn generate_quarterly_data_from_real_websocket_data(
   quarterly_data: &[
     crate::infrastructure::adapters::services::tradingview_websocket::QuarterlyEPSData
   ],
-  current_date: chrono::DateTime<chrono::Utc>
+  _current_date: chrono::DateTime<chrono::Utc>
 ) -> Vec<QuarterlyData> {
   debug!(
     "Generating quarterly performance from real WebSocket data for {}: {} quarters",
@@ -320,7 +312,7 @@ fn generate_quarterly_data_from_real_websocket_data(
     quarterly_data.len()
   );
 
-  let current_price = ranking.price_current.unwrap_or_else(|| {
+  let _current_price = ranking.price_current.unwrap_or_else(|| {
     // Calculate price from EPS and reasonable P/E ratio if no real price data
     let pe_ratio = 18.5; // Market average P/E ratio
     let calculated_price = ranking.current_eps.unwrap_or(0.0) * pe_ratio;

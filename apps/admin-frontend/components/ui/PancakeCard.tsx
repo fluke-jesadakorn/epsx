@@ -1,6 +1,5 @@
 'use client';
 
-import { motion } from 'framer-motion';
 import { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -10,7 +9,6 @@ interface PancakeCardProps {
   variant?: 'default' | 'stats' | 'feature' | 'user' | 'analytics' | 'settings';
   hover?: boolean;
   glow?: boolean;
-  animated?: boolean;
   clickable?: boolean;
   onClick?: () => void;
 }
@@ -21,7 +19,6 @@ export function PancakeCard({
   variant = 'default',
   hover = true,
   glow = false,
-  animated = true,
   clickable = false,
   onClick
 }: PancakeCardProps) {
@@ -67,7 +64,7 @@ export function PancakeCard({
   const style = variants[variant];
 
   return (
-    <motion.div
+    <div
       onClick={clickable ? onClick : undefined}
       className={cn(
         'relative overflow-hidden backdrop-blur-sm',
@@ -75,33 +72,17 @@ export function PancakeCard({
         style.border,
         style.shadow,
         hover && style.hoverShadow,
-        hover && 'hover:scale-[1.02] transition-all duration-300',
         clickable && 'cursor-pointer',
         glow && 'hover:shadow-orange-400/60 dark:hover:shadow-orange-600/60',
         'rounded-xl p-6',
         className
       )}
-      initial={animated ? { opacity: 0, y: 20, scale: 0.95 } : false}
-      animate={animated ? { opacity: 1, y: 0, scale: 1 } : false}
-      transition={animated ? { duration: 0.4, ease: "easeOut" } : false}
-      whileHover={hover ? { 
-        y: -2,
-        transition: { duration: 0.2 }
-      } : false}
     >
-      {/* PancakeSwap Shine Effect */}
-      <motion.div
-        className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity duration-500"
+      {/* PancakeSwap Static Accent */}
+      <div
+        className="absolute inset-0 opacity-0 hover:opacity-100"
         style={{
           background: 'linear-gradient(45deg, transparent 30%, rgba(255,193,7,0.1) 50%, transparent 70%)',
-        }}
-        animate={{
-          x: ['-100%', '100%']
-        }}
-        transition={{
-          duration: 2,
-          repeat: Infinity,
-          repeatDelay: 3
         }}
       />
 
@@ -114,13 +95,8 @@ export function PancakeCard({
       </div>
 
       {/* Bottom Gradient Line */}
-      <motion.div
-        className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-400 via-yellow-400 to-orange-400 opacity-60"
-        initial={{ scaleX: 0 }}
-        animate={{ scaleX: 1 }}
-        transition={{ duration: 0.8, delay: 0.2 }}
-      />
-    </motion.div>
+      <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-orange-400 via-yellow-400 to-orange-400 opacity-60" />
+    </div>
   );
 }
 
@@ -176,7 +152,7 @@ export function PancakeStatsCard({
   if (isLoading) {
     return (
       <PancakeCard variant="stats">
-        <div className="animate-pulse">
+        <div className="opacity-60">
           <div className="w-8 h-8 bg-orange-300 dark:bg-orange-700 rounded mb-3"></div>
           <div className="w-16 h-4 bg-orange-300 dark:bg-orange-700 rounded mb-2"></div>
           <div className="w-20 h-8 bg-orange-300 dark:bg-orange-700 rounded mb-2"></div>
@@ -186,36 +162,62 @@ export function PancakeStatsCard({
     );
   }
 
+  // Map icons to colors for permissions-style theming
+  const getIconColor = (iconStr: string) => {
+    if (iconStr.includes('🎯')) return 'text-yellow-500'
+    if (iconStr.includes('⚡')) return 'text-blue-500'
+    if (iconStr.includes('📈')) return 'text-green-500'
+    if (iconStr.includes('🔥')) return 'text-orange-500'
+    if (iconStr.includes('🧠')) return 'text-purple-500'
+    if (iconStr.includes('💾')) return 'text-gray-500'
+    return 'text-blue-500'
+  }
+
+  const getStatusLabel = (iconStr: string) => {
+    if (iconStr.includes('🎯')) return 'Health'
+    if (iconStr.includes('⚡')) return 'Speed'
+    if (iconStr.includes('📈')) return 'Growth'
+    if (iconStr.includes('🔥')) return 'Activity'
+    if (iconStr.includes('🧠')) return 'AI'
+    if (iconStr.includes('💾')) return 'Memory'
+    return 'Status'
+  }
+
+  const getBorderColor = (iconStr: string | undefined) => {
+    if (!iconStr) return 'border-blue-300 dark:border-blue-700'
+    if (iconStr.includes('🎯')) return 'border-yellow-300 dark:border-yellow-700'
+    if (iconStr.includes('⚡')) return 'border-blue-300 dark:border-blue-700'
+    if (iconStr.includes('📈')) return 'border-green-300 dark:border-green-700'
+    if (iconStr.includes('🔥')) return 'border-orange-300 dark:border-orange-700'
+    if (iconStr.includes('🧠')) return 'border-purple-300 dark:border-purple-700'
+    if (iconStr.includes('💾')) return 'border-gray-300 dark:border-gray-700'
+    return 'border-blue-300 dark:border-blue-700'
+  }
+
   return (
-    <PancakeCard variant="stats" clickable={!!onClick} onClick={onClick} glow>
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          {icon && (
-            <div className="text-3xl mb-2 filter drop-shadow-sm">
-              {icon}
-            </div>
-          )}
-          <h3 className="text-sm font-semibold text-orange-700 dark:text-orange-300 uppercase tracking-wide mb-1">
-            {title}
-          </h3>
-          <div className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-yellow-600 bg-clip-text text-transparent mb-1">
-            {typeof value === 'number' ? value.toLocaleString() : value}
-          </div>
-          {subtitle && (
-            <p className="text-sm text-orange-600/80 dark:text-orange-400/80">
-              {subtitle}
-            </p>
-          )}
+    <div className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl p-6 shadow-xl border-2 hover:shadow-2xl transition-shadow cursor-pointer ${getBorderColor(icon)}`} onClick={onClick}>
+      <div className="flex items-center justify-between mb-4">
+        {icon && (
+          <span className={`text-2xl ${getIconColor(icon)}`}>{icon}</span>
+        )}
+        <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{icon ? getStatusLabel(icon) : 'Status'}</span>
+      </div>
+      <div className="space-y-1">
+        <div className="text-3xl font-bold text-gray-900 dark:text-white">
+          {typeof value === 'number' ? value.toLocaleString() : value}
         </div>
-        
+        <div className="text-sm text-gray-600 dark:text-gray-300">{title}</div>
+        {subtitle && (
+          <div className="text-xs text-gray-500 dark:text-gray-400">{subtitle}</div>
+        )}
         {trendValue && (
-          <div className={cn('flex items-center gap-1 text-sm font-medium', trendColors[trend])}>
+          <div className={cn('text-xs font-medium mt-2', trendColors[trend])}>
             <span>{trendIcons[trend]}</span>
-            <span>{trendValue}</span>
+            <span className="ml-1">{trendValue}</span>
           </div>
         )}
       </div>
-    </PancakeCard>
+    </div>
   );
 }
 

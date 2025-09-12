@@ -414,7 +414,7 @@ impl QuietHours {
     }
 
     /// Check if given time is in quiet period
-    pub fn is_in_quiet_period(&self, datetime: DateTime<Utc>, timezone: &str) -> bool {
+    pub fn is_in_quiet_period(&self, datetime: DateTime<Utc>, _timezone: &str) -> bool {
         if !self.enabled {
             return false;
         }
@@ -539,7 +539,7 @@ mod tests {
     #[test]
     fn test_channel_settings() {
         let user_id = Uuid::new_v4();
-        let mut prefs = UserNotificationPreferences::new(user_id);
+        let prefs = UserNotificationPreferences::new(user_id);
         
         assert!(prefs.channel_settings().is_channel_enabled(&DeliveryChannelType::FcmPush));
         assert!(prefs.channel_settings().is_channel_enabled(&DeliveryChannelType::InApp));
@@ -551,7 +551,7 @@ mod tests {
     #[test]
     fn test_content_preferences() {
         let user_id = Uuid::new_v4();
-        let mut prefs = UserNotificationPreferences::new(user_id);
+        let prefs = UserNotificationPreferences::new(user_id);
         
         assert!(prefs.content_preferences().allows_notification_type(&NotificationType::System));
         assert!(!prefs.content_preferences().allows_notification_type(&NotificationType::Marketing));
@@ -579,7 +579,7 @@ mod tests {
     #[test]
     fn test_topic_blocking() {
         let user_id = Uuid::new_v4();
-        let mut prefs = UserNotificationPreferences::new(user_id);
+        let prefs = UserNotificationPreferences::new(user_id);
         
         assert!(!prefs.is_topic_blocked("marketing"));
         
@@ -593,7 +593,7 @@ mod tests {
     #[test]
     fn test_should_receive_notification() {
         let user_id = Uuid::new_v4();
-        let mut prefs = UserNotificationPreferences::new(user_id);
+        let prefs = UserNotificationPreferences::new(user_id);
         
         // Block marketing notifications
         prefs.content_preferences_mut().disable_type(&NotificationType::Marketing);

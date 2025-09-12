@@ -438,7 +438,7 @@ mod tests {
 
     #[test]
     fn test_exchange_rates() {
-        let mut rates = ExchangeRates::new();
+        let rates = ExchangeRates::new();
         rates.set_rate(Currency::ETH, dec!(2000.0)); // 1 ETH = $2000
         
         let eth_amount = PaymentAmount::new(dec!(0.5), Currency::ETH).unwrap();

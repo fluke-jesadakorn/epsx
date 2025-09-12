@@ -207,7 +207,7 @@ impl ScopeService {
     pub fn validate_scopes(
         &self,
         requested_scopes: &str,
-        user_role: &str,
+        _user_role: &str,
         client_id: &str,
     ) -> Result<ValidatedScopes, ScopeError> {
         let scope_names = self.parse_scope_string(requested_scopes);

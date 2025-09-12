@@ -141,12 +141,12 @@ export default function AdminEPSCard({ cardData }: AdminEPSCardProps) {
   ]
   
   return (
-    <div className={`hover:shadow-3xl relative w-full max-w-[420px] min-w-[360px] sm:min-w-[380px] flex-shrink-0 overflow-hidden rounded-3xl border-2 bg-gradient-to-br from-white via-slate-50 to-gray-100 shadow-2xl transition-all duration-300 hover:scale-105 ${
+    <div className={`hover:shadow-3xl relative w-full max-w-[420px] min-w-[360px] sm:min-w-[380px] flex-shrink-0 overflow-hidden rounded-3xl border-2 bg-gradient-to-br from-white via-slate-50 to-gray-100 dark:from-gray-800 dark:via-gray-750 dark:to-gray-700 shadow-2xl transition-all duration-300 hover:scale-105 ${
       cardData.active_status === 'TRACK'
-        ? 'border-green-300 shadow-green-500/20 hover:shadow-green-500/30'
+        ? 'border-green-300 dark:border-green-600 shadow-green-500/20 dark:shadow-green-500/10 hover:shadow-green-500/30 dark:hover:shadow-green-500/20'
         : cardData.active_status === 'STOP'
-          ? 'border-red-300 shadow-red-500/20 hover:shadow-red-500/30'
-          : 'border-orange-300 shadow-orange-500/20 hover:shadow-orange-500/30'
+          ? 'border-red-300 dark:border-red-600 shadow-red-500/20 dark:shadow-red-500/10 hover:shadow-red-500/30 dark:hover:shadow-red-500/20'
+          : 'border-orange-300 dark:border-orange-600 shadow-orange-500/20 dark:shadow-orange-500/10 hover:shadow-orange-500/30 dark:hover:shadow-orange-500/20'
     }`}>
       
       {/* System alerts indicator */}
@@ -162,8 +162,8 @@ export default function AdminEPSCard({ cardData }: AdminEPSCardProps) {
           <div className="flex items-center gap-3">
             <span className="text-lg">🏆</span>
             <div>
-              <div className="text-xs font-medium text-slate-500 uppercase">#{cardData.rank}</div>
-              <h3 className="text-xl font-bold text-slate-800">{cardData.symbol}</h3>
+              <div className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">#{cardData.rank}</div>
+              <h3 className="text-xl font-bold text-slate-800 dark:text-slate-100">{cardData.symbol}</h3>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -171,16 +171,16 @@ export default function AdminEPSCard({ cardData }: AdminEPSCardProps) {
               href={`https://www.tradingview.com/symbols/${cardData.symbol}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+              className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium"
             >
               📊 TradingView
             </a>
             <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
               cardData.active_status === 'TRACK'
-                ? 'bg-green-100 text-green-800'
+                ? 'bg-green-100 dark:bg-green-800/30 text-green-800 dark:text-green-300'
                 : cardData.active_status === 'STOP'
-                  ? 'bg-red-100 text-red-800'
-                  : 'bg-orange-100 text-orange-800'
+                  ? 'bg-red-100 dark:bg-red-800/30 text-red-800 dark:text-red-300'
+                  : 'bg-orange-100 dark:bg-orange-800/30 text-orange-800 dark:text-orange-300'
             }`}>
               {cardData.active_status === 'TRACK' ? '📈 ACTIVE' : cardData.active_status === 'STOP' ? '📉 INACTIVE' : `📊 ${cardData.active_status}`}
             </div>
@@ -190,10 +190,10 @@ export default function AdminEPSCard({ cardData }: AdminEPSCardProps) {
         {/* Main Metrics Boxes */}
         <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
           {/* Price Box */}
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl border border-blue-200">
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/30 p-4 rounded-xl border border-blue-200 dark:border-blue-700/50">
             <div className="text-center">
-              <div className="text-xs text-blue-700 font-medium mb-1">PRICE</div>
-              <div className="text-lg font-bold text-blue-900">{formatCurrency(currentPrice)}</div>
+              <div className="text-xs text-blue-700 dark:text-blue-300 font-medium mb-1">PRICE</div>
+              <div className="text-lg font-bold text-blue-900 dark:text-blue-100">{formatCurrency(currentPrice)}</div>
               <div className={`text-xs font-medium flex items-center justify-center gap-1 ${priceGrowthIndicator.color}`}>
                 <span>{priceGrowthIndicator.emoji}</span>
                 <span>{formatPercentage(priceGrowth)}</span>
@@ -202,10 +202,10 @@ export default function AdminEPSCard({ cardData }: AdminEPSCardProps) {
           </div>
 
           {/* EPS Box */}
-          <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl border border-green-200">
+          <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/30 p-4 rounded-xl border border-green-200 dark:border-green-700/50">
             <div className="text-center">
-              <div className="text-xs text-green-700 font-medium mb-1">EPS</div>
-              <div className="text-lg font-bold text-green-900">{formatEPS(currentEPS)}</div>
+              <div className="text-xs text-green-700 dark:text-green-300 font-medium mb-1">EPS</div>
+              <div className="text-lg font-bold text-green-900 dark:text-green-100">{formatEPS(currentEPS)}</div>
               <div className={`text-xs font-medium flex items-center justify-center gap-1 ${epsGrowthIndicator.color}`}>
                 <span>{epsGrowthIndicator.emoji}</span>
                 <span>{formatPercentage(epsGrowth, 0)}</span>
@@ -214,11 +214,11 @@ export default function AdminEPSCard({ cardData }: AdminEPSCardProps) {
           </div>
 
           {/* P/E Box */}
-          <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl border border-purple-200">
+          <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/30 p-4 rounded-xl border border-purple-200 dark:border-purple-700/50">
             <div className="text-center">
-              <div className="text-xs text-purple-700 font-medium mb-1">P/E</div>
-              <div className="text-lg font-bold text-purple-900">{formatPERatio(currentPE)}</div>
-              <div className="text-xs text-purple-600">
+              <div className="text-xs text-purple-700 dark:text-purple-300 font-medium mb-1">P/E</div>
+              <div className="text-lg font-bold text-purple-900 dark:text-purple-100">{formatPERatio(currentPE)}</div>
+              <div className="text-xs text-purple-600 dark:text-purple-300">
                 📊
               </div>
             </div>
@@ -227,18 +227,18 @@ export default function AdminEPSCard({ cardData }: AdminEPSCardProps) {
 
         {/* Next Earnings Info Box */}
         {cardData.next_quarter_estimate && (
-          <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-xl border border-orange-200 mb-4">
+          <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/30 p-4 rounded-xl border border-orange-200 dark:border-orange-700/50 mb-4">
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-xs text-orange-700 font-medium mb-1">NEXT EARNINGS</div>
-                <div className="text-sm font-semibold text-orange-900">
+                <div className="text-xs text-orange-700 dark:text-orange-300 font-medium mb-1">NEXT EARNINGS</div>
+                <div className="text-sm font-semibold text-orange-900 dark:text-orange-100">
                   📅 {formatAnnouncementDate(cardData.next_quarter_estimate.announcement_date)}
                 </div>
-                <div className="text-xs text-orange-700">⏰ {daysRemaining} days</div>
+                <div className="text-xs text-orange-700 dark:text-orange-300">⏰ {daysRemaining} days</div>
               </div>
               <div className="text-right">
-                <div className="text-xs text-orange-700 font-medium mb-1">EST. EPS</div>
-                <div className="text-lg font-bold text-orange-900">🎯 {formatEPS(estimatedEPS)}</div>
+                <div className="text-xs text-orange-700 dark:text-orange-300 font-medium mb-1">EST. EPS</div>
+                <div className="text-lg font-bold text-orange-900 dark:text-orange-100">🎯 {formatEPS(estimatedEPS)}</div>
                 <div className={`text-xs font-medium flex items-center justify-end gap-1 ${estimatedGrowthIndicator.color}`}>
                   <span>{estimatedGrowthIndicator.emoji}</span>
                   <span>{formatPercentage(estimatedGrowth)} growth</span>
@@ -251,22 +251,22 @@ export default function AdminEPSCard({ cardData }: AdminEPSCardProps) {
         {/* Quarterly Evolution Grid */}
         <div className="mb-4">
           <div className="text-center mb-3">
-            <div className="text-sm font-bold text-slate-600 uppercase tracking-wide">QUARTERLY EVOLUTION</div>
+            <div className="text-sm font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wide">QUARTERLY EVOLUTION</div>
           </div>
-          <div className="bg-white/70 rounded-xl border border-slate-200 overflow-hidden">
+          <div className="bg-white/70 dark:bg-gray-800/70 rounded-xl border border-slate-200 dark:border-slate-600 overflow-hidden">
             <div className="grid grid-cols-4 gap-0 text-xs sm:text-sm">
               {quarterlyEvolution.map((quarter, index) => (
-                <div key={quarter.label} className={`relative p-3 border-r border-slate-200 last:border-r-0 ${quarter.isCurrent ? 'bg-blue-50' : quarter.isEstimate ? 'bg-purple-50' : 'bg-slate-50'}`}>
+                <div key={quarter.label} className={`relative p-3 border-r border-slate-200 dark:border-slate-600 last:border-r-0 ${quarter.isCurrent ? 'bg-blue-50 dark:bg-blue-900/30' : quarter.isEstimate ? 'bg-purple-50 dark:bg-purple-900/30' : 'bg-slate-50 dark:bg-slate-800/50'}`}>
                   {/* Markers */}
                   {quarter.isCurrent && <div className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full"></div>}
                   {quarter.isEstimate && <div className="absolute top-1 left-1 w-2 h-2 bg-purple-500 rounded-full"></div>}
                   
                   <div className="text-center">
-                    <div className="text-xs font-semibold text-slate-600 mb-2">{quarter.label}</div>
+                    <div className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2">{quarter.label}</div>
                     
                     {/* Price row */}
                     <div className="mb-2">
-                      <div className="text-xs font-bold text-blue-700">
+                      <div className="text-xs font-bold text-blue-700 dark:text-blue-300">
                         {quarter.price ? formatCurrency(quarter.price) : 'N/A'}
                       </div>
                       <div className={`text-xs flex items-center justify-center gap-1 ${quarter.priceGrowth !== null && getGrowthIndicator(quarter.priceGrowth).color}`}>
@@ -279,11 +279,11 @@ export default function AdminEPSCard({ cardData }: AdminEPSCardProps) {
                       </div>
                     </div>
 
-                    <div className="border-t border-slate-300 my-1"></div>
+                    <div className="border-t border-slate-300 dark:border-slate-500 my-1"></div>
 
                     {/* EPS row */}
                     <div>
-                      <div className="text-xs font-bold text-green-700">
+                      <div className="text-xs font-bold text-green-700 dark:text-green-300">
                         {quarter.eps ? formatEPS(quarter.eps) : 'N/A'}
                       </div>
                       <div className={`text-xs flex items-center justify-center gap-1 ${quarter.epsGrowth !== null && getGrowthIndicator(quarter.epsGrowth).color}`}>
@@ -293,11 +293,11 @@ export default function AdminEPSCard({ cardData }: AdminEPSCardProps) {
                             <span>{formatPercentage(quarter.epsGrowth, 0)}</span>
                           </>
                         ) : quarter.label === 'Q-2' ? (
-                          <span className="text-slate-500">📊</span>
+                          <span className="text-slate-500 dark:text-slate-400">📊</span>
                         ) : quarter.isEstimate ? (
-                          <span className="text-purple-600">🔮</span>
+                          <span className="text-purple-600 dark:text-purple-400">🔮</span>
                         ) : (
-                          <span className="text-slate-400">—</span>
+                          <span className="text-slate-400 dark:text-slate-500">—</span>
                         )}
                       </div>
                     </div>
@@ -322,34 +322,34 @@ export default function AdminEPSCard({ cardData }: AdminEPSCardProps) {
         </div>
 
         {/* Bottom Summary Bar */}
-        <div className="bg-gradient-to-r from-slate-100 to-slate-200 p-3 rounded-xl text-center">
+        <div className="bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-600 p-3 rounded-xl text-center">
           <div className="flex items-center justify-center gap-6 text-xs font-medium">
             <span className="flex items-center gap-1">
-              <span>📊 QoQ</span>
+              <span className="text-slate-600 dark:text-slate-300">📊 QoQ</span>
               <span className={getGrowthIndicator(cardData.eps_quarterly?.qoq_growth_current || 0).color}>
                 {getGrowthIndicator(cardData.eps_quarterly?.qoq_growth_current || 0).emoji}
                 {formatPercentage(cardData.eps_quarterly?.qoq_growth_current || 0, 0)}
               </span>
             </span>
             <span className="flex items-center gap-1">
-              <span>📈 YoY</span>
+              <span className="text-slate-600 dark:text-slate-300">📈 YoY</span>
               <span className={getGrowthIndicator(cardData.eps_quarterly?.yoy_growth_current || 0).color}>
                 {getGrowthIndicator(cardData.eps_quarterly?.yoy_growth_current || 0).emoji}
                 {formatPercentage(cardData.eps_quarterly?.yoy_growth_current || 0, 1)}
               </span>
             </span>
             <span className="flex items-center gap-1">
-              <span>📊 Trend</span>
-              <span className="text-slate-700">
+              <span className="text-slate-600 dark:text-slate-300">📊 Trend</span>
+              <span className="text-slate-700 dark:text-slate-200">
                 {cardData.eps_quarterly?.trend_direction === 'UP' ? '📈UP' : cardData.eps_quarterly?.trend_direction === 'DOWN' ? '📉DOWN' : '➡️FLAT'}
               </span>
             </span>
             <span className="flex items-center gap-1">
-              <span>⚠️</span>
+              <span className="text-slate-600 dark:text-slate-300">⚠️</span>
               <span className={
-                cardData.eps_quarterly?.consistency_score === 'HIGH' ? 'text-green-600' :
-                cardData.eps_quarterly?.consistency_score === 'MEDIUM' ? 'text-yellow-600' :
-                'text-red-600'
+                cardData.eps_quarterly?.consistency_score === 'HIGH' ? 'text-green-600 dark:text-green-400' :
+                cardData.eps_quarterly?.consistency_score === 'MEDIUM' ? 'text-yellow-600 dark:text-yellow-400' :
+                'text-red-600 dark:text-red-400'
               }>
                 {cardData.eps_quarterly?.consistency_score || 'LOW'}
               </span>

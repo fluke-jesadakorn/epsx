@@ -1,5 +1,7 @@
 'use client';
 
+import { logger, devLog, safeError } from '@/lib/logger';
+
 export interface FCMError {
   code: string;
   message: string;
@@ -46,7 +48,7 @@ export class FCMErrorHandler {
     // Log error if enabled
     if (this.options.enableLogging) {
       this.logError(fcmError);
-      console.error(`FCM Error [${context}]:`, fcmError);
+      logger.error(`FCM Error [${context}]`, fcmError);
     }
 
     // Call custom error handler
@@ -175,7 +177,7 @@ export class FCMErrorHandler {
     this.retryCount.set(error.code, currentRetries + 1);
 
     setTimeout(() => {
-      console.log(`Retrying FCM operation after error: ${error.code} (attempt ${currentRetries + 1})`);
+      devLog(`Retrying FCM operation after error: ${error.code} (attempt ${currentRetries + 1})`);
       this.options.onRecovery(`Retry attempt ${currentRetries + 1} for ${context}`);
     }, delay);
   }
@@ -211,7 +213,7 @@ export class FCMErrorHandler {
    * Fallback to in-app notifications only
    */
   private fallbackToInAppNotifications(): void {
-    console.log('Falling back to in-app notifications only');
+    devLog('Falling back to in-app notifications only');
     // Set flag to show in-app notifications banner
     if (typeof window !== 'undefined') {
       localStorage.setItem('fcm_fallback_mode', 'in_app');
@@ -222,7 +224,7 @@ export class FCMErrorHandler {
    * Fallback to polling for notifications
    */
   private fallbackToPolling(): void {
-    console.log('Falling back to polling for notifications');
+    devLog('Falling back to polling for notifications');
     // Enable polling mechanism
     if (typeof window !== 'undefined') {
       localStorage.setItem('fcm_fallback_mode', 'polling');
@@ -233,7 +235,7 @@ export class FCMErrorHandler {
    * Fallback to Server-Sent Events
    */
   private fallbackToSSE(): void {
-    console.log('Falling back to Server-Sent Events');
+    devLog('Falling back to Server-Sent Events');
     // Enable SSE notifications
     if (typeof window !== 'undefined') {
       localStorage.setItem('fcm_fallback_mode', 'sse');
@@ -244,7 +246,7 @@ export class FCMErrorHandler {
    * Fallback to offline mode
    */
   private fallbackToOfflineMode(): void {
-    console.log('Falling back to offline mode');
+    devLog('Falling back to offline mode');
     // Store notifications for when connection is restored
     if (typeof window !== 'undefined') {
       localStorage.setItem('fcm_fallback_mode', 'offline');
@@ -255,7 +257,7 @@ export class FCMErrorHandler {
    * Generic recovery mechanism
    */
   private fallbackToGenericRecovery(): void {
-    console.log('Applying generic FCM error recovery');
+    devLog('Applying generic FCM error recovery');
     // Show user-friendly error message and guidance
   }
 

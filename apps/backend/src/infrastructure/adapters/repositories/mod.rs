@@ -15,6 +15,7 @@ pub mod realtime_event_repository_adapter;
 pub mod connection_repository_adapter;
 pub mod user_permission_repository_adapter;
 pub mod eps_repository_adapter;
+pub mod plan_repository_adapter;
 pub mod mappers;
 
 pub use user_repository_adapter::UserRepositoryAdapter;
@@ -30,6 +31,7 @@ pub use realtime_event_repository_adapter::RealtimeEventRepositoryAdapter;
 pub use connection_repository_adapter::ConnectionRepositoryAdapter;
 pub use user_permission_repository_adapter::UserPermissionRepositoryAdapter;
 pub use eps_repository_adapter::EPSRepositoryAdapter;
+pub use plan_repository_adapter::PlanRepositoryAdapter;
 pub use mappers::*;
 
 // Re-export DbPool for convenience

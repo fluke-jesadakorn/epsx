@@ -187,7 +187,7 @@ impl SessionCollection {
     
     /// Clean up expired sessions
     pub fn cleanup_expired_sessions(&mut self) -> u32 {
-        let expired_session_ids: Vec<SessionId> = self.sessions.iter()
+        let expiredsession_ids: Vec<SessionId> = self.sessions.iter()
             .filter(|(_, session)| session.is_expired() || session.is_terminated())
             .filter(|(_, session)| {
                 // Only remove if it's been terminated/expired for a while
@@ -198,9 +198,9 @@ impl SessionCollection {
             .map(|(id, _)| id.clone())
             .collect();
         
-        let removed_count = expired_session_ids.len() as u32;
+        let removed_count = expiredsession_ids.len() as u32;
         
-        for session_id in expired_session_ids {
+        for session_id in expiredsession_ids {
             self.remove_session(&session_id);
         }
         
@@ -360,7 +360,7 @@ mod tests {
     #[test]
     fn add_sessions_to_collection() {
         let user_id = AuthenticatedUserId::from_verified_user(UserId::new().unwrap());
-        let mut collection = SessionCollection::new(user_id.clone());
+        let collection = SessionCollection::new(user_id.clone());
         
         let session1_id = SessionId::generate();
         let session1 = create_test_session(session1_id.clone(), user_id.clone());
@@ -375,7 +375,7 @@ mod tests {
     #[test]
     fn session_limits_enforcement() {
         let user_id = AuthenticatedUserId::from_verified_user(UserId::new().unwrap());
-        let mut collection = SessionCollection::new(user_id.clone());
+        let collection = SessionCollection::new(user_id.clone());
         collection.max_concurrent_sessions = 2; // Set low limit for testing
         
         // Add sessions up to limit
@@ -399,7 +399,7 @@ mod tests {
     #[test]
     fn terminate_all_sessions() {
         let user_id = AuthenticatedUserId::from_verified_user(UserId::new().unwrap());
-        let mut collection = SessionCollection::new(user_id.clone());
+        let collection = SessionCollection::new(user_id.clone());
         
         // Add multiple sessions
         for _ in 0..3 {
@@ -419,16 +419,16 @@ mod tests {
     #[test]
     fn collection_summary() {
         let user_id = AuthenticatedUserId::from_verified_user(UserId::new().unwrap());
-        let mut collection = SessionCollection::new(user_id.clone());
+        let collection = SessionCollection::new(user_id.clone());
         
         // Add sessions with different providers
         let session1_id = SessionId::generate();
-        let mut session1 = create_test_session(session1_id, user_id.clone());
+        let session1 = create_test_session(session1_id, user_id.clone());
         session1.provider_type = ProviderType::Firebase;
         collection.add_session(session1).unwrap();
         
         let session2_id = SessionId::generate();
-        let mut session2 = create_test_session(session2_id, user_id.clone());
+        let session2 = create_test_session(session2_id, user_id.clone());
         session2.provider_type = ProviderType::OpenIdConnect;
         collection.add_session(session2).unwrap();
         

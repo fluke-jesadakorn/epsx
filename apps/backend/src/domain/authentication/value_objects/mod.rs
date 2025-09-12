@@ -3,6 +3,7 @@
 
 pub mod session_id;
 pub mod tokens;
+pub mod secure_tokens;
 pub mod client_information;
 pub mod security_context;
 pub mod authentication_provider;
@@ -10,6 +11,7 @@ pub mod scopes;
 
 // Token value objects
 pub use tokens::{AccessToken, RefreshToken, IdToken, TokenError};
+pub use secure_tokens::{SecureAccessToken, SecureAccessTokenClaims};
 
 // Identity and session value objects  
 pub use session_id::{SessionId, SessionIdError};

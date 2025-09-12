@@ -7,6 +7,7 @@ pub mod types;
 pub mod mappers;
 pub mod repos;
 pub mod schema;
+pub mod marketing_repository;
 
 // Re-export commonly used types
 pub use pool::{DbPool, create_pool, create_test_pool};

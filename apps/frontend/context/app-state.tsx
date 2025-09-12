@@ -13,7 +13,14 @@ import {
   AnalyticsState,
   UIState,
   UserState,
+  StateAction,
+  UserProfile,
+  UserSubscription,
+  StockRanking,
+  StockItem,
+  Notification,
 } from '@/lib/state/types';
+import type { AnalyticsFilters } from '@/types/analytics';
 import React, { createContext, useContext, useMemo } from 'react';
 
 // Initial states
@@ -120,7 +127,7 @@ interface AppStateContextType {
       setTheme: (theme: UIState['theme']) => void;
       toggleSidebar: () => void;
       collapseSidebar: (collapsed: boolean) => void;
-      openModal: (key: string, data?: any) => void;
+      openModal: (key: string, data?: unknown) => void;
       closeModal: (key: string) => void;
       addToast: (toast: Omit<UIState['toasts'][0], 'id' | 'timestamp'>) => void;
       removeToast: (id: string) => void;
@@ -128,17 +135,17 @@ interface AppStateContextType {
       setResponsive: (responsive: Partial<UIState['responsive']>) => void;
     };
     user: {
-      setProfile: (profile: any) => void;
+      setProfile: (profile: UserProfile | null) => void;
       updatePreferences: (
         preferences: Partial<UserState['data']['preferences']>
       ) => void;
-      setSubscription: (subscription: any) => void;
+      setSubscription: (subscription: UserSubscription | null) => void;
       updatePermissions: (permissions: string[]) => void;
       setPackageTier: (tier: string) => void;
     };
     analytics: {
-      setRankings: (rankings: any[]) => void;
-      setFilters: (filters: any) => void;
+      setRankings: (rankings: StockRanking[]) => void;
+      setFilters: (filters: AnalyticsFilters) => void;
       addBookmark: (symbol: string) => void;
       removeBookmark: (symbol: string) => void;
       addRecentSearch: (symbol: string) => void;
@@ -148,8 +155,8 @@ interface AppStateContextType {
       }) => void;
     };
     notifications: {
-      setNotifications: (notifications: any[]) => void;
-      addNotification: (notification: any) => void;
+      setNotifications: (notifications: Notification[]) => void;
+      addNotification: (notification: Notification) => void;
       markRead: (id: string) => void;
       markAllRead: () => void;
       updatePreferences: (
@@ -161,9 +168,9 @@ interface AppStateContextType {
       }) => void;
     };
     cache: {
-      setStockData: (symbol: string, data: any, ttl?: number) => void;
-      setRankingsData: (key: string, data: any[], ttl?: number) => void;
-      setAnalyticsData: (key: string, data: any, ttl?: number) => void;
+      setStockData: (symbol: string, data: StockItem, ttl?: number) => void;
+      setRankingsData: (key: string, data: StockRanking[], ttl?: number) => void;
+      setAnalyticsData: (key: string, data: unknown, ttl?: number) => void;
       clearExpired: () => void;
       clearAll: () => void;
     };
@@ -175,7 +182,7 @@ const AppStateContext = createContext<AppStateContextType | undefined>(
 );
 
 // Reducers
-function appStateReducer(state: AppState, action: any): AppState {
+function appStateReducer(state: AppState, action: StateAction): AppState {
   switch (action.type) {
     // UI Actions
     case 'SET_THEME':
@@ -503,7 +510,7 @@ export function AppStateProvider({
           appStateReducer
         ),
 
-      openModal: (key: string, data?: any) =>
+      openModal: (key: string, data?: unknown) =>
         dispatch(
           {
             type: 'OPEN_MODAL',
@@ -569,7 +576,7 @@ export function AppStateProvider({
   // User Actions
   const userActions = useMemo(
     () => ({
-      setProfile: (profile: any) =>
+      setProfile: (profile: UserProfile | null) =>
         dispatch(
           {
             type: 'SET_USER_PROFILE',
@@ -591,7 +598,7 @@ export function AppStateProvider({
           appStateReducer
         ),
 
-      setSubscription: (subscription: any) =>
+      setSubscription: (subscription: UserSubscription | null) =>
         dispatch(
           {
             type: 'SET_USER_SUBSCRIPTION',
@@ -627,7 +634,7 @@ export function AppStateProvider({
   // Analytics Actions
   const analyticsActions = useMemo(
     () => ({
-      setRankings: (rankings: any[]) =>
+      setRankings: (rankings: StockRanking[]) =>
         dispatch(
           {
             type: 'SET_RANKINGS',
@@ -637,7 +644,7 @@ export function AppStateProvider({
           appStateReducer
         ),
 
-      setFilters: (filters: any) =>
+      setFilters: (filters: AnalyticsFilters) =>
         dispatch(
           {
             type: 'SET_FILTERS',
@@ -696,7 +703,7 @@ export function AppStateProvider({
   // Notification Actions
   const notificationActions = useMemo(
     () => ({
-      setNotifications: (notifications: any[]) =>
+      setNotifications: (notifications: Notification[]) =>
         dispatch(
           {
             type: 'SET_NOTIFICATIONS',
@@ -706,7 +713,7 @@ export function AppStateProvider({
           appStateReducer
         ),
 
-      addNotification: (notification: any) =>
+      addNotification: (notification: Notification) =>
         dispatch(
           {
             type: 'ADD_NOTIFICATION',
@@ -763,7 +770,7 @@ export function AppStateProvider({
   // Cache Actions
   const cacheActions = useMemo(
     () => ({
-      setStockData: (symbol: string, data: any, ttl?: number) =>
+      setStockData: (symbol: string, data: StockItem, ttl?: number) =>
         dispatch(
           {
             type: 'SET_STOCK_DATA',
@@ -773,7 +780,7 @@ export function AppStateProvider({
           appStateReducer
         ),
 
-      setRankingsData: (key: string, data: any[], ttl?: number) =>
+      setRankingsData: (key: string, data: StockRanking[], ttl?: number) =>
         dispatch(
           {
             type: 'SET_RANKINGS_DATA',
@@ -783,7 +790,7 @@ export function AppStateProvider({
           appStateReducer
         ),
 
-      setAnalyticsData: (key: string, data: any, ttl?: number) =>
+      setAnalyticsData: (key: string, data: unknown, ttl?: number) =>
         dispatch(
           {
             type: 'SET_ANALYTICS_DATA',

@@ -59,7 +59,7 @@ impl PermissionCacheService {
         self.cache.set_user_permissions(user_id, permissions);
     }
 
-    pub fn validate_hash(&self, key: &str, expected_hash: &str) -> HashValidationResult {
+    pub fn validate_hash(&self, _key: &str, expected_hash: &str) -> HashValidationResult {
         // Simple validation logic
         HashValidationResult {
             is_valid: true, // Placeholder

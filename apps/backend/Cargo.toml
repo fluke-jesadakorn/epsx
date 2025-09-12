@@ -98,6 +98,7 @@ aes-gcm = { version = "0.10", optional = true }
 rsa = { version = "0.9" }
 pkcs8 = { version = "0.10", features = ["std"] }
 x509-parser = { version = "0.16" }
+md5 = "0.7"
 
 # Optional HTTP client with TLS choice
 reqwest = { version = "0.11", features = ["json"], optional = true, default-features = false }
@@ -127,6 +128,7 @@ redis = { version = "0.23", features = ["tokio-comp", "connection-manager"], opt
 # Database ORM dependencies
 diesel = { version = "2.2", features = ["postgres", "uuid", "chrono", "serde_json", "numeric", "r2d2"], optional = true }
 diesel-async = { version = "0.5", features = ["postgres", "bb8"], optional = true }
+bigdecimal = { version = "0.4", features = ["serde"] }
 diesel_migrations = { version = "2.2", features = ["postgres"] }
 # Database ORM - using Diesel for all database operations
 bb8 = "0.8"

@@ -142,7 +142,7 @@ mod tests {
     }
     
     #[test]
-    fn grant_permission_command_validation_empty_user_id() {
+    fn grant_permission_command_validation_emptyuser_id() {
         let command = GrantPermissionCommand::new(
             "".to_string(),
             "admin:users:manage".to_string()

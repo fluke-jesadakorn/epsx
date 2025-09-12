@@ -383,7 +383,7 @@ fn serve_login_error(form: &LoginForm, error: &str) -> Result<Redirect, StatusCo
     Ok(Redirect::to(&error_url))
 }
 
-async fn log_auth_event(app_state: AppState, email: String, uid: String) {
+async fn log_auth_event(_app_state: AppState, email: String, uid: String) {
     use crate::domain::shared_kernel::entities::audit::{AuditLogEntry, AuditAction, ResourceType, AuditResult};
     use crate::domain::shared_kernel::value_objects::UserId;
 

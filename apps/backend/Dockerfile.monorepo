@@ -76,10 +76,10 @@ ENV DATABASE_MIN_CONNECTIONS=1
 ENV DATABASE_ACQUIRE_TIMEOUT=30
 ENV DATABASE_IDLE_TIMEOUT=600
 
-# Production database configuration (overridden by Cloud Run env vars)
-ENV DATABASE_URL="postgresql://neondb_owner:npg_reOxwB2n6RkE@ep-twilight-grass-afp73moh-pooler.c-2.us-west-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
-ENV NEXTAUTH_SECRET="prod-epsx-jwt-secret-2024-ultra-secure-32-chars-minimum"
-ENV FIREBASE_PROJECT_ID="epsx-449804"
+# Production configuration - these must be provided as environment variables during deployment:
+# DATABASE_URL - PostgreSQL database connection string
+# NEXTAUTH_SECRET - JWT signing secret (32+ characters)
+# FIREBASE_PROJECT_ID - Firebase project identifier
 
 # Security hardening
 USER nonroot:nonroot

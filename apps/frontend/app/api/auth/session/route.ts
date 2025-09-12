@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { logger, devLog, safeError } from '@/lib/logger';
 
 export async function GET() {
   try {
@@ -14,7 +15,7 @@ export async function GET() {
     const idToken = cookieStore.get('id_token')?.value;
     const refreshToken = cookieStore.get('refresh_token')?.value;
 
-    console.log('🔍 OIDC Cookie Check:', {
+    devLog('OIDC Cookie Check', {
       accessToken: accessToken ? 'present' : 'missing',
       idToken: idToken ? 'present' : 'missing', 
       refreshToken: refreshToken ? 'present' : 'missing'
@@ -22,7 +23,7 @@ export async function GET() {
     
     // Validate that we have the required OIDC tokens
     if (!accessToken || !idToken) {
-      console.log('❌ Missing required OIDC tokens for session');
+      devLog('Missing required OIDC tokens for session');
       return NextResponse.json({
         isAuthenticated: false,
         user: null,
@@ -40,11 +41,11 @@ export async function GET() {
     });
 
     if (!userInfoResponse.ok) {
-      console.error('❌ Failed to fetch user info:', userInfoResponse.status);
+      logger.error('Failed to fetch user info', { status: userInfoResponse.status });
       
       // If access token is expired, try to refresh
       if (userInfoResponse.status === 401 && refreshToken) {
-        console.log('🔄 Access token expired, attempting refresh...');
+        devLog('Access token expired, attempting refresh...');
         // This would normally trigger refresh flow, for now return unauthorized
         return NextResponse.json({
           isAuthenticated: false,
@@ -61,7 +62,7 @@ export async function GET() {
     }
 
     const userInfo = await userInfoResponse.json();
-    console.log('✅ Successfully retrieved user info from OIDC backend');
+    devLog('Successfully retrieved user info from OIDC backend');
 
     // Return OIDC-compliant session data for client-side hooks
     return NextResponse.json({
@@ -79,7 +80,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('❌ OIDC Session API error:', error);
+    logger.error('OIDC Session API error', error);
     
     return NextResponse.json({
       isAuthenticated: false,
@@ -132,7 +133,7 @@ export async function POST(request: NextRequest) {
     return response;
     
   } catch (error) {
-    console.error('❌ OIDC Session store error:', error);
+    logger.error('OIDC Session store error', error);
     return NextResponse.json({
       error: 'Failed to store OIDC session'
     }, { status: 500 });
@@ -157,7 +158,7 @@ export async function PUT() {
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
     
     try {
-      console.log('🔄 Refreshing OIDC tokens using refresh token...');
+      devLog('Refreshing OIDC tokens using refresh token...');
       
       // Call backend OIDC token refresh endpoint
       const response = await fetch(`${backendUrl}/api/v1/oidc/token/refresh`, {
@@ -171,14 +172,14 @@ export async function PUT() {
       });
       
       if (!response.ok) {
-        console.error('❌ OIDC token refresh failed:', response.status);
+        logger.error('OIDC token refresh failed', { status: response.status });
         return NextResponse.json({
           error: 'Refresh token expired or invalid'
         }, { status: 401 });
       }
       
       const tokens = await response.json();
-      console.log('✅ Successfully refreshed OIDC tokens');
+      devLog('Successfully refreshed OIDC tokens');
       
       // Update cookies with new tokens
       const refreshResponse = NextResponse.json({
@@ -216,14 +217,14 @@ export async function PUT() {
       return refreshResponse;
       
     } catch (fetchError) {
-      console.error('❌ OIDC token refresh failed:', fetchError);
+      logger.error('OIDC token refresh failed', fetchError);
       return NextResponse.json({
         error: 'Failed to refresh OIDC tokens'
       }, { status: 500 });
     }
     
   } catch (error) {
-    console.error('❌ OIDC Session refresh error:', error);
+    logger.error('OIDC Session refresh error', error);
     return NextResponse.json({
       error: 'Failed to refresh OIDC session'
     }, { status: 500 });
@@ -242,12 +243,12 @@ export async function DELETE() {
     // Also clear legacy JWT cookie for backwards compatibility
     response.cookies.delete('epsx_frontend_jwt');
     
-    console.log('✅ All OIDC session cookies cleared');
+    devLog('All OIDC session cookies cleared');
     
     return response;
     
   } catch (error) {
-    console.error('❌ OIDC Session clear error:', error);
+    logger.error('OIDC Session clear error', error);
     return NextResponse.json({
       error: 'Failed to clear OIDC session'
     }, { status: 500 });

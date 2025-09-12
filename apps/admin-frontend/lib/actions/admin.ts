@@ -1,7 +1,7 @@
 'use server';
 
-import type { ActionResult, AssignmentResult, StockRankingAssignmentUpdateRequest } from '@/lib/api-client';
-import { createApiClient, isApiError } from '@/lib/api-client';
+import type { ActionResult } from '@/types/api';
+import { UnifiedAdminClient } from '@/lib/api/unified-admin-client';
 import { revalidatePath } from 'next/cache';
 import { config } from '../config';
 import { getServerSession } from '@/lib/server/auth';

@@ -3,7 +3,7 @@ use uuid::Uuid;
 use std::str::FromStr;
 use sha2::{Sha256, Digest};
 
-use crate::domain::shared_kernel::{DomainResult, AggregateRoot};
+use crate::domain::shared_kernel::DomainResult;
 use crate::domain::user_management::{
     Session
 };

@@ -26,15 +26,9 @@ use super::unified_user_handlers::{
     get_user_activity_handler,
 };
 // Casbin handlers removed - using modern JWT auth system
-// use super::casbin_handlers::{...};
 // Removed permission profile handlers - using simple roles
-// use super::permission_profile_handlers::{...};
-
 // Removed temporary permission handlers - using simple roles
-// use super::temporary_permission_handlers::{...};
-
-// Removed permission export/import handlers - using simple roles  
-// use super::permission_export_import_handlers::{...};
+// Removed permission export/import handlers - using simple roles
 use super::analytics_handlers::{
     get_permission_analytics_handler,
     get_permission_recommendations_handler,
@@ -87,6 +81,17 @@ use super::notification_handlers::{
     admin_get_user_notifications,
     admin_mark_notification_read,
     admin_delete_notification,
+};
+// Security monitoring handlers
+use super::security_monitoring_handlers::{
+    SecurityMonitoringHandlers,
+};
+// Dynamic plan management handlers (simplified)
+use super::plan_management_handlers_simple::{
+    create_plan_handler,
+    get_plan_handler,
+    list_plans_handler,
+    create_subscription_handler,
 };
 // Removed admin module management handlers - using simple roles
 use crate::web::auth::AppState;
@@ -190,8 +195,25 @@ pub fn create_admin_routes() -> Router<AppState> {
         .route("/notifications/broadcast", post(admin_broadcast_to_topic))
         .route("/notifications/stats", get(admin_get_notification_stats))
         .route("/notifications/list", get(admin_get_user_notifications))
+        .route("/notifications/recent", get(admin_get_user_notifications))
+        .route("/notifications/history", get(admin_get_user_notifications))
+        .route("/notifications/unread", get(admin_get_user_notifications))
         .route("/notifications/:id/read", put(admin_mark_notification_read))
         .route("/notifications/:id", delete(admin_delete_notification))
+        
+        // Security monitoring routes (require admin:security:* permissions)
+        .route("/security/events", get(SecurityMonitoringHandlers::get_security_events))
+        .route("/security/metrics", get(SecurityMonitoringHandlers::get_security_metrics))
+        .route("/security/user-threat", get(SecurityMonitoringHandlers::get_user_threat_assessment))
+        
+        // Dynamic Plan Management routes (require admin:plans:* permissions) - Simplified
+        .route("/plans", get(list_plans_handler))
+        .route("/plans", post(create_plan_handler))
+        .route("/plans/:plan_id", get(get_plan_handler))
+        
+        // Subscription Management routes (require admin:subscriptions:* permissions) - Simplified
+        .route("/subscriptions", post(create_subscription_handler))
+        
         .layer(axum::middleware::from_fn(
             crate::web::middleware::clean_auth_middleware
         ))

@@ -476,7 +476,7 @@ mod tests {
             Currency::ETH,
         ).unwrap();
 
-        let mut payment_addr = PaymentAddress::new(
+        let payment_addr = PaymentAddress::new(
             crypto_addr,
             Some("My Wallet".to_string()),
         );
