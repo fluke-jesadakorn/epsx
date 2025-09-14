@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Download, Filter, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { env } from '../../../../shared/env/schema';
 // Direct fetch implementation to avoid any axios bundling conflicts
 // import { AnalyticsClient, CardDashboardResponse, SymbolCardData, EPSQueryParams } from '@/lib/api-client';
 
@@ -80,7 +81,7 @@ class DirectFetchClient {
   private baseURL: string;
 
   constructor() {
-    this.baseURL = 'http://localhost:8080';
+    this.baseURL = env.BACKEND_URL;
   }
 
   async getCardDashboard(

@@ -1,317 +1,79 @@
-# ===========================================
-# EPSX MONOREPO GITIGNORE (2025 Updated)
-# Optimized for Next.js 15, Rust, pnpm workspaces
-# ===========================================
+# EPSX Monorepo .gitignore
+# Next.js 15 + Rust + pnpm workspaces
 
-# Dependencies & Package Managers
+# Dependencies
 node_modules/
 .pnp/
 .pnp.js
-.pnp.cjs
 package-lock.json
 yarn.lock
-bun.lockb
-bun.lock
 .yarn/
-**/.pnpm-store/
-pnpm-lock.yaml.backup
+.pnpm-store/
 
-# Build Outputs & Caches
+# Build Outputs
 build/
 dist/
-**/dist/
 .next/
-**/.next/
-.next/cache/
-.next/static/chunks/
-.next/standalone/
 out/
-**out/
 tmp/
-**/tmp/
 
-# Testing Outputs (keep test source files)
+# Testing Outputs
 coverage/
-**/.nyc_output/
-**/coverage/
-reports/
-**/reports/
-**/junit/
+.nyc_output/
 test-results/
-**/test-results/
 playwright-report/
-**/playwright-report/
-.lighthouseci/
-**/.lighthouseci/
-# NOTE: __tests__, *.test.*, *.spec.* files are kept
 
 # Environment Files
 .env
 .env.local
-.env.development
-.env.test
-.env.production
-.env.shared
-*.env
+.env.*.local
 !.env.example
-!**/.env.example
+!.env.template
 
-# Runtime Logs
+# Logs
 logs/
 *.log
-*.log.*
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
-lerna-debug.log*
 .pnpm-debug.log*
-debug.log
-error.log
-access.log
 
 # TypeScript Build Info
 *.tsbuildinfo
-**/tsconfig.tsbuildinfo
-.tscache/
-**/.tscache/
 
-# Operating Systems
-# macOS
+# OS Files
 .DS_Store
-**/.DS_Store
-.AppleDouble
-.LSOverride
-Icon?
-._*
-.Spotlight-V100
-.Trashes
-.DocumentRevisions-V100
-.fseventsd
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
-
-# Windows
 Thumbs.db
-Thumbs.db:encryptable
-ehthumbs.db
-ehthumbs_vista.db
-*.stackdump
-[Dd]esktop.ini
-$RECYCLE.BIN/
-*.lnk
-
-# Linux
 *~
-.fuse_hidden*
-.directory
-.Trash-*
-.nfs*
 
-# Monorepo Build Tools
+# Build Tools
 .turbo/
-**/.turbo/
-.nx/
-**/.nx/
-**/nx-cache/
-.rush/
-**/.rush/
 
-# IDE and Editors
-## VSCode
-.vscode/*
-!.vscode/settings.json
-!.vscode/tasks.json
-!.vscode/launch.json
-!.vscode/extensions.json
-!.vscode/*.code-snippets
-*.code-workspace
-.history/
-**/.history/
-
-## JetBrains IDEs
+# IDE
+.vscode/
 .idea/
-*.iml
-*.iws
-*.ipr
-*.iwl
-out/
+*.swp
+*.swo
 
-## Sublime Text
-*.sublime-workspace
-*.sublime-project
-
-## Vim/Neovim
-[._]*.s[a-v][a-z]
-[._]*.sw[a-p]
-[._]s[a-rt-v][a-z]
-[._]ss[a-gi-z]
-[._]sw[a-p]
-Session.vim
-Sessionx.vim
-.netrwhist
-*~
-
-## Emacs
-*~
-\#*\#
-/.emacs.desktop
-/.emacs.desktop.lock
-*.elc
-auto-save-list
-tramp
-.\#*
-
-# Rust/Backend Specific
+# Rust
 target/
-**/target/
-Cargo.lock
 **/*.rs.bk
-*.pdb
 
-# Security & Secrets
+# Secrets
 *.pem
 *.key
-*.crt
-*.cer
-*.der
-*.pfx
-*.p12
-*.keystore
 secrets/
-**/secrets/
-.secrets/
-**/.secrets/
 
 # Database
 *.db
 *.sqlite
-*.sqlite3
-*.db-journal
 
-# Caches & Temporary Files
+# Caches
 .cache/
-**/.cache/
 .swc/
-**/.swc/
-.parcel-cache/
-**/.parcel-cache/
-.rollup.cache/
-**/.rollup.cache/
 
-# Monorepo Package Specific
-packages/**/dist/
-packages/**/build/
-packages/**/.cache/
-packages/**/.next/
-packages/**/out/
-
-# Backup Files
-*.bak
-*.backup
-*.old
-*.orig
-*.tmp
-*.temp
-
-# Editor Swap Files
-*.swp
-*.swo
-*.un~
-
-# Debug & Profiling
-.debug/
-debug/
-.debug.log
-*.dmp
-*.trace
-*.prof
-*.heapsnapshot
-
-# Container & Deployment
-## OrbStack/Docker/Podman
-.docker/
-**/.docker/
-docker-compose.override.yml
-docker-compose.*.override.yml
-.dockerignore.backup
-
-## Container Build Caches (Apple Silicon Optimized)
-/tmp/.buildx-cache-orbstack/
-/tmp/.buildx-cache/
-.buildx-cache/
-**/.buildx-cache/
-
-## Cloud Deployment
+# Deployment
 .vercel/
-**/.vercel/
-.now/
-**/.now/
 .firebase/
-**/.firebase/
-.gcp/
-**/.gcp/
 
-# Package Manager Caches
-npm-cache/
-yarn-cache/
-.pnpm-store/
-.yarn/cache/
-.yarn/unplugged/
-.yarn/build-state.yml
-.yarn/install-state.gz
-
-# AI & Development Tools
-.copilot/
-**/.copilot/
-.cursor/
-**/.cursor/
-.ai/
-**/.ai/
-
-# Performance & Monitoring
-.perfconfig
-lighthouse-results/
-**/lighthouse-results/
-bundle-analyzer/
-**/bundle-analyzer/
-
-# Project Management & Documentation
-.todo/
-**/.todo/
-TODO.md
-NOTES.md
-.notes/
-**/.notes/
-
-# CI/CD & Deployment Artifacts
-.github/*.log
-.gitlab-ci.log
-.circleci/*.log
-deployment-logs/
-**/deployment-logs/
-
-# Apple Silicon & macOS Specific
-.Trash-*/
-.DocumentRevisions-V100/
-.PKInstallSandboxManager/
-.PKInstallSandboxManager-SystemSoftware/
-
-# Temporary Development Files
-scratch/
-**/scratch/
-temp/
-**/temp/
-sandbox/
-**/sandbox/
-
-# Analytics & Telemetry
-.next/trace/
-**/.next/trace/
-.sentry/
-**/.sentry/
-
-# Local Development Overrides
-local.*
+# Local Overrides
 *.local
-.env.override
-docker-compose.local.yml.devtools/*.json

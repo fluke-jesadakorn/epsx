@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EPSX Console Debug</title>
+</head>
+<body>
+    <h1>EPSX Console Debug Tool</h1>
+    <p>Open this page and then navigate to: <a href="https://epsx-frontend-dev-307278481624.us-central1.run.app" target="_blank">https://epsx-frontend-dev-307278481624.us-central1.run.app</a></p>
+    
+    <div id="output"></div>
+    
+    <script>
+        // Capture console errors
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        const originalLog = console.log;
+        
+        const errors = [];
+        const warnings = [];
+        const logs = [];
+        
+        console.error = function(...args) {
+            errors.push(args.join(' '));
+            originalError.apply(console, args);
+        };
+        
+        console.warn = function(...args) {
+            warnings.push(args.join(' '));
+            originalWarn.apply(console, args);
+        };
+        
+        console.log = function(...args) {
+            logs.push(args.join(' '));
+            originalLog.apply(console, args);
+        };
+        
+        // Function to check environment variables
+        function checkEnvironment() {
+            const output = document.getElementById('output');
+            
+            // Try to access window object and any global variables
+            let envInfo = '<h2>Environment Check Results:</h2>';
+            
+            // Check if we're on the EPSX domain
+            envInfo += `<p><strong>Current Domain:</strong> ${window.location.hostname}</p>`;
+            
+            // Check for any global Firebase variables
+            envInfo += '<h3>Global Firebase Variables:</h3>';
+            if (typeof window.firebase !== 'undefined') {
+                envInfo += '<p>✓ Firebase SDK detected</p>';
+            } else {
+                envInfo += '<p>✗ Firebase SDK not found</p>';
+            }
+            
+            // Check for Next.js environment variables (these won't be accessible in browser)
+            envInfo += '<h3>Environment Variables Check:</h3>';
+            envInfo += '<p><em>Note: Server-side environment variables are not accessible in browser console.</em></p>';
+            
+            // Check for any error messages in the page
+            const errorElements = document.querySelectorAll('[class*="error"], [id*="error"]');
+            if (errorElements.length > 0) {
+                envInfo += '<h3>Error Elements Found:</h3>';
+                errorElements.forEach((el, idx) => {
+                    envInfo += `<p>Error ${idx + 1}: ${el.textContent || el.innerHTML}</p>`;
+                });
+            }
+            
+            // Display captured console messages
+            if (errors.length > 0) {
+                envInfo += '<h3>Console Errors:</h3>';
+                errors.forEach(error => {
+                    envInfo += `<p style="color: red;">ERROR: ${error}</p>`;
+                });
+            }
+            
+            if (warnings.length > 0) {
+                envInfo += '<h3>Console Warnings:</h3>';
+                warnings.forEach(warning => {
+                    envInfo += `<p style="color: orange;">WARNING: ${warning}</p>`;
+                });
+            }
+            
+            output.innerHTML = envInfo;
+        }
+        
+        // Auto-run when page loads
+        window.addEventListener('load', () => {
+            setTimeout(checkEnvironment, 2000); // Wait 2 seconds for any async errors
+        });
+        
+        // Manual check button
+        setTimeout(() => {
+            const button = document.createElement('button');
+            button.textContent = 'Check Console Errors';
+            button.onclick = checkEnvironment;
+            document.body.insertBefore(button, document.getElementById('output'));
+        }, 1000);
+    </script>
+    
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        #output { margin-top: 20px; padding: 20px; background-color: #f5f5f5; border-radius: 5px; }
+        button { padding: 10px 20px; margin: 10px 0; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+    </style>
+</body>
+</html>

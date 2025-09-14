@@ -65,7 +65,7 @@ impl AppContainer {
         let user_notification_repo = Arc::new(crate::infrastructure::adapters::repositories::notification_repository_adapter::NotificationRepositoryAdapter::new(
             fcm_service_concrete.clone(),
             Arc::new(crate::infrastructure::adapters::services::email_service::SendGridEmailService::new(
-                crate::config::Config::from_env().expect("Failed to load configuration").email.sendgrid_api_key,
+                std::env::var("SENDGRID_API_KEY").unwrap_or_default(),
             )),
         ));
         

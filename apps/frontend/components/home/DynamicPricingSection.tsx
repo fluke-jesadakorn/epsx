@@ -4,6 +4,7 @@ import { Check, Sparkles, Tag, Star } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { env } from '../../../../shared/env/schema';
 
 interface PlanFeature {
   text: string;
@@ -75,7 +76,7 @@ const DynamicPricingSection = () => {
         setLoading(true);
         
         // Build API URL with affiliate tracking
-        const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+        const baseUrl = env.BACKEND_URL;
         let apiUrl = `${baseUrl}/api/v1/plans`;
         
         // Add affiliate code if available
@@ -142,7 +143,7 @@ const DynamicPricingSection = () => {
   // Fetch affiliate information for commission display
   const fetchAffiliateInfo = async (code: string) => {
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+      const baseUrl = env.BACKEND_URL;
       const response = await fetch(`${baseUrl}/api/v1/plans/calculate-price/1?affiliate_code=${code}`);
       
       if (response.ok) {

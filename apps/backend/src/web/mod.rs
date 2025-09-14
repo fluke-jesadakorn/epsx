@@ -180,67 +180,24 @@ async fn create_standalone_analytics_routes(
     Ok(config) => std::sync::Arc::new(config),
     Err(e) => {
       tracing::warn!("Failed to load config, using fallback: {:?}", e);
-      // Use a minimal config that should work for basic operation
+      // Use a minimal simplified config that should work for basic operation
       std::sync::Arc::new(crate::config::Config {
-        server: crate::config::ServerConfig {
-          port: 8080,
-          host: "127.0.0.1".to_string(),
-          bind_address: "0.0.0.0".to_string(),
-          frontend_url: "http://localhost:3000".to_string(),
-          admin_frontend_url: "http://localhost:3001".to_string(),
-          environment: "development".to_string(),
-        },
-        database: crate::config::DatabaseConfig {
-          url: "postgresql://localhost/epsx".to_string(),
-        },
-        auth: crate::config::AuthConfig {
-          jwt_secret_main: "default-jwt-secret".to_string(),
-          jwt_secret: "default-jwt-secret".to_string(),
-          cookie_signing_key: None,
-          cookie_encryption_key: None,
-          firebase_project_id: None,
-          backend_url: "http://localhost:8080".to_string(),
-          oidc_issuer: "http://localhost:8080".to_string(),
-        },
-        payment: crate::config::PaymentConfig {
-          musepay_partner_id: None,
-          musepay_private_key: None,
-          webhook_url: None,
-          supported_currencies: vec!["USD".to_string(), "EUR".to_string()],
-          default_currency: "USD".to_string(),
-          default_checkout_url_template: "https://localhost:3000/checkout/{}".to_string(),
-        },
-        email: crate::config::EmailConfig {
-          from_email: "noreply@localhost".to_string(),
-          from_name: "EPSX".to_string(),
-          sendgrid_api_key: "".to_string(),
-        },
-        branding: crate::config::BrandingConfig {
-          platform_name: "EPSX".to_string(),
-          welcome_message_template: "Welcome to EPSX".to_string(),
-          dashboard_url: "http://localhost:3000".to_string(),
-          support_email: "support@localhost".to_string(),
-        },
-        external_services: crate::config::ExternalServicesConfig {
-          tradingview: crate::config::TradingViewConfig {
-            websocket_url: "wss://data.tradingview.com".to_string(),
-            api_base_url: "https://scanner.tradingview.com".to_string(),
-            timeout_seconds: 30,
-            http_timeout_seconds: 30,
-          },
-          sendgrid_api_key: None,
-          qr_code: crate::config::QrCodeConfig {
-            enabled: false,
-            base_url: "http://localhost:8080".to_string(),
-            logo_url: None,
-            api_base_url: "http://localhost:8080".to_string(),
-            default_size: 256,
-          },
-        },
-        rate_limiting: crate::config::RateLimitingConfig {
-          default_per_minute: 60,
-          endpoint_specific: std::collections::HashMap::new(),
-        },
+        database_url: "postgresql://localhost/epsx".to_string(),
+        backend_url: "http://localhost:8080".to_string(),
+        frontend_url: "http://localhost:3000".to_string(),
+        admin_frontend_url: "http://localhost:3001".to_string(),
+        jwt_secret: "default-jwt-secret".to_string(),
+        oidc_client_id: "epsx-frontend".to_string(),
+        oidc_client_secret: "default-secret".to_string(),
+        oidc_admin_client_id: "epsx-admin".to_string(),
+        oidc_admin_client_secret: "default-secret".to_string(),
+        firebase_project_id: "epsx-dev".to_string(),
+        firebase_private_key: "-----BEGIN PRIVATE KEY-----\ndefault\n-----END PRIVATE KEY-----".to_string(),
+        firebase_client_email: "firebase-adminsdk@epsx-dev.iam.gserviceaccount.com".to_string(),
+        musepay_partner_id: None,
+        musepay_private_key: None,
+        redis_url: None,
+        log_level: "info".to_string(),
       })
     }
   };
@@ -319,71 +276,11 @@ async fn create_standalone_analytics_routes(
 /// Create the main application router with analytics support
 pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<dyn std::error::Error + Send + Sync>> {
   // Create config for email service
-  let config = match crate::config::Config::from_env() {
+  let _config = match crate::config::Config::from_env() {
     Ok(config) => std::sync::Arc::new(config),
     Err(_) => {
       // Use minimal config for DDD migration
-      std::sync::Arc::new(crate::config::Config {
-        server: crate::config::ServerConfig {
-          port: 8080,
-          host: "127.0.0.1".to_string(),
-          bind_address: "0.0.0.0".to_string(),
-          frontend_url: "http://localhost:3000".to_string(),
-          admin_frontend_url: "http://localhost:3001".to_string(),
-          environment: "development".to_string(),
-        },
-        database: crate::config::DatabaseConfig {
-          url: "postgresql://localhost/epsx".to_string(),
-        },
-        auth: crate::config::AuthConfig {
-          jwt_secret_main: "default-jwt-secret".to_string(),
-          jwt_secret: "default-jwt-secret".to_string(),
-          cookie_signing_key: None,
-          cookie_encryption_key: None,
-          firebase_project_id: None,
-          backend_url: "http://localhost:8080".to_string(),
-          oidc_issuer: "http://localhost:8080".to_string(),
-        },
-        payment: crate::config::PaymentConfig {
-          musepay_partner_id: None,
-          musepay_private_key: None,
-          webhook_url: None,
-          supported_currencies: vec!["USD".to_string()],
-          default_currency: "USD".to_string(),
-          default_checkout_url_template: "https://localhost:3000/checkout/{}".to_string(),
-        },
-        email: crate::config::EmailConfig {
-          from_email: "noreply@localhost".to_string(),
-          from_name: "EPSX".to_string(),
-          sendgrid_api_key: "mock-key".to_string(),
-        },
-        branding: crate::config::BrandingConfig {
-          platform_name: "EPSX".to_string(),
-          welcome_message_template: "Welcome to EPSX".to_string(),
-          dashboard_url: "http://localhost:3000".to_string(),
-          support_email: "support@localhost".to_string(),
-        },
-        external_services: crate::config::ExternalServicesConfig {
-          tradingview: crate::config::TradingViewConfig {
-            websocket_url: "wss://data.tradingview.com".to_string(),
-            api_base_url: "https://scanner.tradingview.com".to_string(),
-            timeout_seconds: 30,
-            http_timeout_seconds: 30,
-          },
-          sendgrid_api_key: None,
-          qr_code: crate::config::QrCodeConfig {
-            enabled: false,
-            base_url: "http://localhost:8080".to_string(),
-            logo_url: None,
-            api_base_url: "http://localhost:8080".to_string(),
-            default_size: 256,
-          },
-        },
-        rate_limiting: crate::config::RateLimitingConfig {
-          default_per_minute: 60,
-          endpoint_specific: std::collections::HashMap::new(),
-        },
-      })
+      std::sync::Arc::new(crate::config::get_fallback_config())
     }
   };
 
@@ -450,7 +347,7 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
         Arc::new(crate::infrastructure::adapters::services::fcm_service::FcmService::new(container.infra.firebase_admin.clone())),
         // Create stub email service for DDD migration - will be replaced with proper service
         Arc::new(crate::infrastructure::adapters::services::email_service::SendGridEmailService::new(
-          config.email.sendgrid_api_key.clone(),
+          std::env::var("SENDGRID_API_KEY").unwrap_or_default(),
         )),
       ))))
       // Keep legacy services for endpoints that haven't been migrated yet

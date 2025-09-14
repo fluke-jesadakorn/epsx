@@ -5,6 +5,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { validateAdminSession } from '@/lib/session-validator';
+import { env } from '../../shared/env/schema';
 
 // Public routes that don't require authentication
 const publicRoutes = [
@@ -221,15 +222,15 @@ export async function middleware(request: NextRequest) {
  * Create redirect response to login page (which will initiate PKCE OAuth)
  */
 function redirectToLogin(request: NextRequest): NextResponse {
-  // Use dynamic URL construction based on current request
-  const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || 
-                   `${request.nextUrl.protocol}//${request.nextUrl.host}`;
+  // Use current request host for development services to avoid hardcoded production URLs
+  const adminUrl = `${request.nextUrl.protocol}//${request.nextUrl.host}`;
   const callbackUrl = `${adminUrl}${request.nextUrl.pathname}${request.nextUrl.search}`;
   
   // Redirect to our login page which will initiate PKCE OAuth
   const loginUrl = new URL('/login', adminUrl);
   loginUrl.searchParams.set('redirectTo', callbackUrl);
   
+  console.log(`🔄 Admin middleware: Redirecting to login: ${loginUrl.toString()}`);
   const redirect = NextResponse.redirect(loginUrl.toString());
   
   // OIDC Migration: Clear OIDC tokens instead of legacy JWT
@@ -255,9 +256,7 @@ async function logSecurityEvent(event: {
   details: Record<string, any>
 }): Promise<void> {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 
-                      process.env.NEXT_PUBLIC_BACKEND_URL || 
-                      'http://localhost:8080';
+    const backendUrl = env.BACKEND_URL;
     
     await fetch(`${backendUrl}/api/v1/security/events`, {
       method: 'POST',
@@ -295,9 +294,7 @@ async function recordPerformanceMetrics(metrics: {
   totalRequestTime: number
 }): Promise<void> {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 
-                      process.env.NEXT_PUBLIC_BACKEND_URL || 
-                      'http://localhost:8080';
+    const backendUrl = env.BACKEND_URL;
     
     await fetch(`${backendUrl}/api/v1/security/metrics`, {
       method: 'POST',

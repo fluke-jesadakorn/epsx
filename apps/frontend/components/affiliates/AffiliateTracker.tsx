@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Star, Gift, Users, TrendingUp } from 'lucide-react';
+import { env } from '../../../../shared/env/schema';
 
 interface AffiliateInfo {
   code: string;
@@ -38,7 +39,7 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
 
     setIsLoading(true);
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+      const baseUrl = env.BACKEND_URL;
       const response = await fetch(`${baseUrl}/api/v1/plans?affiliate_code=${code}`);
       
       if (response.ok) {
@@ -119,7 +120,7 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
   // Track referral click
   const trackReferralClick = async (code: string) => {
     try {
-      const baseUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+      const baseUrl = env.BACKEND_URL;
       
       // Get user's IP and other tracking info
       const trackingData = {

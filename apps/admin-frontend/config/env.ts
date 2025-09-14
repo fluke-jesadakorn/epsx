@@ -1,111 +1,114 @@
-// Environment configuration for admin-frontend
-// All variables read directly from process.env - no shared dependencies
+// Admin Frontend Environment Configuration - Using Unified Schema
+// Now uses /shared/env/schema.ts for consistent validation across all services
+// Root .env file loaded via next.config.ts
 
-import { z } from 'zod';
+import { 
+  serverEnv, 
+  clientEnv, 
+  env, 
+  urls,
+  isServer,
+  isDev,
+  isProd,
+  isStaging
+} from '../../../shared/env/schema';
 
-// Dynamic URL construction for admin frontend
-function getAdminUrl(): string {
-  if (process.env.NEXT_PUBLIC_ADMIN_URL) {
-    return process.env.NEXT_PUBLIC_ADMIN_URL;
-  }
+/**
+ * Admin Configuration
+ * Uses unified schema with admin-specific defaults
+ */
+export const config = {
+  // Core URLs (admin-specific naming for backward compatibility)
+  adminUrl: env.ADMIN_URL,
+  backendUrl: env.BACKEND_URL,
+  frontendUrl: env.APP_URL,  // Called frontendUrl in admin context
+  clientId: env.CLIENT_ID,   // Uses the client ID from unified schema
   
-  // Production should always provide NEXT_PUBLIC_ADMIN_URL
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('NEXT_PUBLIC_ADMIN_URL is required in production environment');
-  }
+  // Environment flags
+  isDev,
+  isProd,
+  isStaging,
   
-  // Development fallback
-  return 'http://localhost:3001';
-}
+  // Port for admin frontend (default from unified schema or environment)
+  port: process.env.PORT ? parseInt(process.env.PORT) : 3001,
+} as const;
 
-function getBackendUrl(): string {
-  if (process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL) {
-    return process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || '';
-  }
-  
-  // Production should always provide backend URL
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('NEXT_PUBLIC_BACKEND_URL or BACKEND_URL is required in production environment');
-  }
-  
-  // Development fallback
-  return 'http://localhost:8080';
-}
-
-function getFrontendUrl(): string {
-  if (process.env.NEXT_PUBLIC_APP_URL) {
-    return process.env.NEXT_PUBLIC_APP_URL;
-  }
-  
-  // Production should always provide frontend URL
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('NEXT_PUBLIC_APP_URL is required in production environment');
-  }
-  
-  // Development fallback
-  return 'http://localhost:3000';
-}
-
-const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
-  PORT: z.string().transform(Number).default(3001),
-  ADMIN_URL: z.string().url().default(getAdminUrl()),
-  BACKEND_URL: z.string().url().default(getBackendUrl()),
-  NEXT_PUBLIC_BACKEND_URL: z.string().url().default(getBackendUrl()),
-  NEXT_PUBLIC_ADMIN_URL: z.string().url().default(getAdminUrl()),
-  NEXT_PUBLIC_APP_URL: z.string().url().default(getFrontendUrl()),
-  NEXT_PUBLIC_OAUTH_CLIENT_ID: z.string().optional(),
-  NEXTAUTH_SECRET: z.string().min(1).default('dev-secret-key-32-chars-minimum'),
-  OIDC_CLIENT_ID: z.string().min(1).default('epsx-admin'),
-  OIDC_CLIENT_SECRET: z.string().min(1).default('dev-client-secret'),
-  
-  // Feature flags
-  NEXT_PUBLIC_ENABLE_UNIFIED_USERS: z.string().optional(),
-  NEXT_PUBLIC_ENABLE_SERVER_COMPONENTS: z.string().optional(),
-  NEXT_PUBLIC_ENABLE_NEW_NAV: z.string().optional(),
-  NEXT_PUBLIC_ENABLE_BUNDLE_OPT: z.string().optional(),
-  NEXT_PUBLIC_ROLLOUT_UNIFIED_USERS: z.string().optional(),
-  NEXT_PUBLIC_ROLLOUT_SERVER_COMPONENTS: z.string().optional(),
-  NEXT_PUBLIC_ROLLOUT_NEW_NAV: z.string().optional(),
-});
-
-export const env = envSchema.parse(process.env);
-
-// Consolidated auth configuration - single source of truth
+/**
+ * Admin Auth Configuration
+ * Uses unified URL helpers where possible
+ */
 export const authConfig = {
-  appUrl: env.NEXT_PUBLIC_ADMIN_URL,
-  apiUrl: env.NEXT_PUBLIC_BACKEND_URL,
-  clientId: 'epsx-admin', // Fixed to correct client ID registered in backend
+  appUrl: env.ADMIN_URL,
+  apiUrl: env.BACKEND_URL,
+  clientId: env.CLIENT_ID,
   callbackPath: '/api/auth/callback/epsx-backend',
+  
   get callbackUrl() {
     return `${this.appUrl}${this.callbackPath}`;
   },
+  
   get authorizationEndpoint() {
-    return `${this.apiUrl}/oauth/authorize`;
-  }
-};
-
-// Consolidated feature flags configuration - single source of truth
-export const featureFlags = {
-  // Unified User Management Hub
-  UNIFIED_USER_MANAGEMENT: env.NEXT_PUBLIC_ENABLE_UNIFIED_USERS === 'true',
+    return urls.oauth.authorize;  // Uses unified URL helper
+  },
   
-  // Server Components Migration
-  SERVER_COMPONENTS: env.NEXT_PUBLIC_ENABLE_SERVER_COMPONENTS === 'true',
+  get tokenEndpoint() {
+    return urls.oauth.token;      // Uses unified URL helper
+  },
   
-  // New Navigation and URL Structure  
-  NEW_NAVIGATION: env.NEXT_PUBLIC_ENABLE_NEW_NAV === 'true',
-  
-  // Performance Optimizations
-  BUNDLE_OPTIMIZATION: env.NEXT_PUBLIC_ENABLE_BUNDLE_OPT === 'true',
-  
-  // Development and Testing
-  DEV_MODE: env.NODE_ENV === 'development',
-
-  // Rollout percentages
-  rolloutPercentages: {
-    unified_user_management: parseInt(env.NEXT_PUBLIC_ROLLOUT_UNIFIED_USERS || '0'),
-    server_components: parseInt(env.NEXT_PUBLIC_ROLLOUT_SERVER_COMPONENTS || '0'),
-    new_navigation: parseInt(env.NEXT_PUBLIC_ROLLOUT_NEW_NAV || '0'),
+  get userinfoEndpoint() {
+    return urls.oauth.userinfo;   // Uses unified URL helper
   }
 } as const;
+
+/**
+ * Feature Flags
+ * Admin-specific feature flags for experimental features
+ */
+export const featureFlags = {
+  UNIFIED_USER_MANAGEMENT: process.env.NEXT_PUBLIC_ENABLE_UNIFIED_USERS === 'true',
+  SERVER_COMPONENTS: process.env.NEXT_PUBLIC_ENABLE_SERVER_COMPONENTS === 'true', 
+  NEW_NAVIGATION: process.env.NEXT_PUBLIC_ENABLE_NEW_NAV === 'true',
+  DEV_MODE: isDev,
+} as const;
+
+/**
+ * Server-only configuration for admin frontend
+ * Uses unified schema's server-only getters
+ */
+export const serverConfig = {
+  get jwtSecret() {
+    return env.JWT_SECRET; // Uses unified schema's server-only getter
+  },
+  
+  get oidcClientSecret() {
+    return env.OIDC_ADMIN_CLIENT_SECRET; // Admin-specific client secret
+  },
+  
+  get databaseUrl() {
+    return env.DATABASE_URL; // Uses unified schema's server-only getter
+  },
+  
+  get redisUrl() {
+    return env.REDIS_URL; // Uses unified schema's server-only getter
+  }
+} as const;
+
+/**
+ * Development validation
+ */
+if (typeof window !== 'undefined' && isDev) {
+  console.log('✅ Admin Frontend Environment Configuration Loaded (Unified Schema)');
+  console.log('🔧 Admin Configuration:', {
+    adminUrl: config.adminUrl,
+    backendUrl: config.backendUrl,
+    clientId: config.clientId,
+    environment: process.env.NODE_ENV
+  });
+}
+
+// Export unified schema components for direct access if needed
+export { serverEnv, clientEnv, env, urls };
+
+// Export for backward compatibility
+export { env as environment };
+export default config;

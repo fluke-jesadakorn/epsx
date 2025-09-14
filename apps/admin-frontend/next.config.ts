@@ -1,63 +1,25 @@
-import { config } from 'dotenv';
 import type { NextConfig } from 'next';
-
-// Load app-specific environment
-config();
 
 const nextConfig: NextConfig = {
   output: 'standalone',
   reactStrictMode: true,
+  poweredByHeader: false,
+
   eslint: {
     ignoreDuringBuilds: true,
   },
   typescript: {
     ignoreBuildErrors: true,
   },
-  // Fix path mapping for Docker builds
-  webpack: (config) => {
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      '@': __dirname,
-    };
-    return config;
-  },
 
-  // Ultra-minimal bundle optimizations
   productionBrowserSourceMaps: false,
-  modularizeImports: {
-    '@radix-ui/react-icons': {
-      transform: '@radix-ui/react-icons/dist/{{member}}.js',
-    },
-    'lucide-react': {
-      transform: 'lucide-react/dist/esm/icons/{{kebabCase member}}',
-    },
-  },
 
-  // Admin-specific optimizations
-  experimental: {
-    serverActions: {
-      allowedOrigins: ['*'],
-    },
-    optimizePackageImports: [
-      '@radix-ui/react-*',
-      'lucide-react',
-      'react',
-      'react-dom',
-    ],
-    useCache: true,
-    staleTimes: {
-      dynamic: 180, // 3 minutes for admin dynamic content
-      static: 1800, // 30 minutes for admin static content
-    },
-  },
-
-  // Admin-specific caching and security headers
   async headers() {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://epsx.io';
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
 
     return [
       {
-        source: '/api/:path*',
+        source: '/api/(.*)',
         headers: [
           {
             key: 'Cache-Control',
@@ -66,7 +28,7 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        source: '/_next/static/:path*',
+        source: '/_next/static/(.*)',
         headers: [
           {
             key: 'Cache-Control',
@@ -79,21 +41,19 @@ const nextConfig: NextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: `
-              default-src 'self';
-              script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.gstatic.com;
-              style-src 'self' 'unsafe-inline';
-              img-src 'self' data: blob:;
-              font-src 'self';
-              connect-src 'self' ${backendUrl} ws: wss: https://firebase.googleapis.com https://fcm.googleapis.com https://*.googleapis.com;
-              frame-src 'none';
-              object-src 'none';
-              base-uri 'self';
-              form-action 'self';
-              frame-ancestors 'none';
-            `
-              .replace(/\s+/g, ' ')
-              .trim(),
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://www.gstatic.com",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: blob:",
+              "font-src 'self'",
+              `connect-src 'self' ${backendUrl} ws: wss: https://firebase.googleapis.com https://fcm.googleapis.com https://*.googleapis.com`,
+              "frame-src 'none'",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+              "frame-ancestors 'none'"
+            ].join('; '),
           },
           {
             key: 'X-Frame-Options',
@@ -116,10 +76,10 @@ const nextConfig: NextConfig = {
     ];
   },
 
-  // Ultra-minimal standalone bundle
+
   outputFileTracingExcludes: {
     '*': [
-      './node_modules/@swc/core*/**/*',
+      './node_modules/@swc/**/*',
       './node_modules/esbuild/**/*',
       './node_modules/webpack/**/*',
       './node_modules/@babel/**/*',
@@ -130,8 +90,6 @@ const nextConfig: NextConfig = {
   },
 
   serverExternalPackages: ['firebase-admin'],
-  poweredByHeader: false,
-  generateEtags: true,
 };
 
 export default nextConfig;

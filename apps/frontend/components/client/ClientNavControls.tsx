@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 // Note: This component will be replaced by server-only auth flow
-import { formatLevelAsNumber, getLevelColor } from '@/utils/env';
+import { formatLevelAsNumber, getLevelColor } from '@/lib/level-utils';
 import { Button, Badge } from '@/components/ui';
 
 interface ClientNavControlsProps {

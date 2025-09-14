@@ -25,31 +25,121 @@ import {
   RemoteConfig 
 } from 'firebase/remote-config'
 
-// Firebase configuration
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID
+import { config } from '@/config/env';
+
+// Firebase configuration validation - prevent initialization with undefined values
+const validateFirebaseConfig = () => {
+  const requiredFields = [
+    { key: 'apiKey', value: config.firebase.apiKey, minLength: 35 },
+    { key: 'projectId', value: config.firebase.projectId, minLength: 5 },
+    { key: 'appId', value: config.firebase.appId, minLength: 15 }
+  ];
+
+  const missing = requiredFields.filter(field => 
+    !field.value || 
+    field.value === 'undefined' || 
+    field.value.length < field.minLength
+  );
+
+  if (missing.length > 0) {
+    console.error('❌ Firebase configuration validation failed. Missing or invalid fields:', 
+      missing.map(f => f.key).join(', '));
+    console.error('🔧 Firebase config values:', {
+      apiKey: config.firebase.apiKey ? `${config.firebase.apiKey.substring(0, 10)}...` : 'undefined',
+      authDomain: config.firebase.authDomain || 'undefined',
+      projectId: config.firebase.projectId || 'undefined',
+      storageBucket: config.firebase.storageBucket || 'undefined',
+      messagingSenderId: config.firebase.messagingSenderId || 'undefined',
+      appId: config.firebase.appId ? `${config.firebase.appId.substring(0, 15)}...` : 'undefined'
+    });
+    return false;
+  }
+
+  return true;
+};
+
+// Firebase configuration using unified environment schema (only if valid)
+let firebaseConfig: any = null;
+const isFirebaseConfigValid = validateFirebaseConfig();
+
+if (isFirebaseConfigValid) {
+  firebaseConfig = {
+    apiKey: config.firebase.apiKey,
+    authDomain: config.firebase.authDomain,
+    projectId: config.firebase.projectId,
+    storageBucket: config.firebase.storageBucket,
+    messagingSenderId: config.firebase.messagingSenderId,
+    appId: config.firebase.appId
+  };
+} else {
+  console.warn('🔧 Firebase initialization skipped due to invalid configuration');
+  console.warn('💡 To enable Firebase features, ensure NEXT_PUBLIC_FIREBASE_* environment variables are properly set');
 }
 
-// Initialize Firebase (singleton pattern)
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0]
-export const auth = getAuth(app)
-export const googleProvider = new GoogleAuthProvider()
+// Initialize Firebase (singleton pattern) with error handling
+let app: any = null;
+let auth: any = null;
+let googleProvider: any = null;
 
-// Initialize Firebase Remote Config
-export const remoteConfig = getRemoteConfig(app)
+if (firebaseConfig && isFirebaseConfigValid) {
+  try {
+    app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+    auth = getAuth(app);
+    googleProvider = new GoogleAuthProvider();
+    
+    console.log('✅ Firebase Auth initialized successfully');
+  } catch (error) {
+    console.error('❌ Firebase Auth initialization failed:', error);
+    console.warn('⚠️ Authentication features may be limited');
+    // Reset variables to null on failure
+    app = null;
+    auth = null;
+    googleProvider = null;
+  }
+} else {
+  console.warn('⚠️ Firebase Auth not initialized - invalid or missing configuration');
+  console.warn('📋 Required environment variables:');
+  console.warn('  - NEXT_PUBLIC_FIREBASE_API_KEY (35+ chars)');
+  console.warn('  - NEXT_PUBLIC_FIREBASE_PROJECT_ID (5+ chars)');
+  console.warn('  - NEXT_PUBLIC_FIREBASE_APP_ID (15+ chars)');
+}
 
-// Configure Remote Config settings
-remoteConfig.settings.minimumFetchIntervalMillis = 3600000 // 1 hour for production
-remoteConfig.settings.fetchTimeoutMillis = 60000 // 60 seconds
+export { auth, googleProvider };
 
-// Configure Google provider
-googleProvider.addScope('profile')
-googleProvider.addScope('email')
+// Initialize Firebase Remote Config with error handling
+let remoteConfig: any = null;
+
+if (app && isFirebaseConfigValid) {
+  try {
+    remoteConfig = getRemoteConfig(app);
+    
+    // Configure Remote Config settings
+    remoteConfig.settings.minimumFetchIntervalMillis = 3600000 // 1 hour for production
+    remoteConfig.settings.fetchTimeoutMillis = 60000 // 60 seconds
+    
+    console.log('✅ Firebase Remote Config initialized successfully');
+  } catch (error) {
+    console.error('❌ Firebase Remote Config initialization failed:', error);
+    remoteConfig = null;
+  }
+} else {
+  console.warn('⚠️ Remote Config not initialized - Firebase app not available or invalid configuration');
+}
+
+export { remoteConfig };
+
+// Configure Google provider if initialized
+if (googleProvider) {
+  try {
+    googleProvider.addScope('profile');
+    googleProvider.addScope('email');
+    console.log('✅ Google provider configured successfully');
+  } catch (error) {
+    console.error('❌ Google provider configuration failed:', error);
+  }
+} else {
+  console.warn('⚠️ Google provider not configured - Firebase not initialized');
+}
 
 // ============================================================================
 // Firebase Authentication Methods
@@ -64,6 +154,10 @@ export async function signInWithGoogle(): Promise<{
   idToken: string
 }> {
   try {
+    if (!auth || !googleProvider) {
+      throw new Error('Firebase authentication is not initialized');
+    }
+    
     console.log('🔄 Starting Firebase Google authentication...')
     
     const result = await signInWithPopup(auth, googleProvider)

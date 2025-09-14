@@ -8,6 +8,7 @@
 
 import { cookies } from 'next/headers'
 import { validateAdminPermissions } from './admin-permissions'
+import { env } from '../../../shared/env/schema'
 import type { OIDCUser, AdminSession, TokenPair } from './admin-types'
 
 // ============================================================================
@@ -47,7 +48,7 @@ export async function getOIDCTokensFromCookies(): Promise<{
  */
 export async function validateOIDCTokenWithBackend(accessToken: string): Promise<OIDCUser | null> {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
+    const backendUrl = env.BACKEND_URL
     
     const response = await fetch(`${backendUrl}/oauth/userinfo`, {
       headers: {

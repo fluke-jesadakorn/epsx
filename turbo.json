@@ -8,11 +8,17 @@
   ],
   "globalEnv": [
     "NODE_ENV",
+    "ENV",
+    "RUST_ENV",
     "CI",
     "VERCEL",
     "GOOGLE_CLIENT_ID",
     "GOOGLE_CLIENT_SECRET",
-    "FIREBASE_*"
+    "FIREBASE_*",
+    "NEXT_PUBLIC_*",
+    "DATABASE_URL",
+    "NEXTAUTH_SECRET",
+    "OIDC_*"
   ],
   "tasks": {
     "build": {
@@ -269,6 +275,31 @@
     },
     "clean": {
       "cache": false
+    },
+    "docker:build": {
+      "cache": false,
+      "dependsOn": ["build"],
+      "inputs": ["Dockerfile*", "src/**", "app/**", "package.json", ".dockerignore"]
+    },
+    "docker:push": {
+      "cache": false, 
+      "dependsOn": ["docker:build"]
+    },
+    "deploy:local": {
+      "cache": false,
+      "dependsOn": ["docker:push"]
+    },
+    "build:dev": {
+      "cache": false,
+      "env": ["ENV=development", "NODE_ENV=development", "RUST_ENV=development"]
+    },
+    "build:staging": {
+      "cache": false,
+      "env": ["ENV=staging", "NODE_ENV=staging", "RUST_ENV=staging"]
+    },
+    "build:prod": {
+      "cache": false, 
+      "env": ["ENV=production", "NODE_ENV=production", "RUST_ENV=production"]
     }
   }
 }

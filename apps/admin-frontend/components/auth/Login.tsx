@@ -28,7 +28,7 @@ export default function Login() {
 
     try {
       // POST directly to our backend OIDC endpoint
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io';
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.epsx.io';
       const response = await fetch(`${backendUrl}/oauth/login-post`, {
         method: 'POST',
         headers: {
@@ -67,7 +67,7 @@ export default function Login() {
   const handleOIDCLogin = async () => {
     try {
       // Redirect to backend OIDC login form for admin
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io';
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.epsx.io';
       window.location.href = `${backendUrl}/oauth/login`;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'OIDC login failed')
@@ -184,7 +184,7 @@ export function LoginButton({
   const handleClick = async () => {
     try {
       // Redirect to backend OIDC login form
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io';
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'https://api.epsx.io';
       window.location.href = `${backendUrl}/oauth/login`;
     } catch (error) {
       console.error('Login failed:', error)

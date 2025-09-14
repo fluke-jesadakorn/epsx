@@ -5,6 +5,7 @@ export { getServerSession, getAuthUser } from './server/auth';
 
 import { create } from 'zustand'
 import { derivePackageTierFromPermissions, deriveAccessiblePlatformsFromPermissions, derivePrimaryPlatformFromPermissions } from './auth-utils'
+import { config } from '@/config/env'
 
 export interface User {
   id: string
@@ -141,8 +142,8 @@ export const useAuth = create<AuthState>((set, get) => ({
     } catch (error) {
       console.error('❌ Admin: Login initiation failed:', error)
       // Fallback to direct redirect if PKCE initiation fails
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
-      const adminUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001'
+      const backendUrl = config.backendUrl
+      const adminUrl = config.adminUrl
       
       const params = new URLSearchParams({
         client_id: 'epsx-admin',
@@ -684,8 +685,8 @@ export async function signIn(callbackUrl?: string) {
   } catch (error) {
     console.error('❌ Admin: SignIn initiation failed:', error)
     // Fallback to direct redirect if PKCE initiation fails
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
-    const adminUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001'
+    const backendUrl = config.backendUrl
+    const adminUrl = config.adminUrl
     const redirectTo = callbackUrl || window.location.href
     
     const params = new URLSearchParams({

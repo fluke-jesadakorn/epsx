@@ -130,8 +130,8 @@ impl From<&Config> for TradingViewConfig {
             websocket_url: "wss://data.tradingview.com/socket.io/websocket".to_string(),
             origin_url: "https://www.tradingview.com".to_string(),
             referer_url: "https://www.tradingview.com/".to_string(),
-            http_timeout_seconds: config.external_services.tradingview.http_timeout_seconds,
-            auth_token: config.auth.firebase_project_id.clone().unwrap_or_else(|| "default-project".to_string()),
+            http_timeout_seconds: 30,
+            auth_token: config.firebase_project_id.clone(),
         }
     }
 }

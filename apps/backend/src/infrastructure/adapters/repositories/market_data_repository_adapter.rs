@@ -127,66 +127,7 @@ mod tests {
     use super::*;
     
     fn get_test_config() -> crate::config::Config {
-        crate::config::Config {
-            server: crate::config::ServerConfig {
-                port: 8080,
-                host: "127.0.0.1".to_string(),
-                bind_address: "0.0.0.0".to_string(),
-                frontend_url: "http://localhost:3000".to_string(),
-                admin_frontend_url: "http://localhost:3001".to_string(),
-                environment: "test".to_string(),
-            },
-            database: crate::config::DatabaseConfig {
-                url: "postgresql://localhost/epsx_test".to_string(),
-            },
-            auth: crate::config::AuthConfig {
-                jwt_secret_main: "test-jwt-secret".to_string(),
-                jwt_secret: "test-jwt-secret".to_string(),
-                cookie_signing_key: None,
-                cookie_encryption_key: None,
-                firebase_project_id: None,
-                backend_url: "http://localhost:8080".to_string(),
-                oidc_issuer: "http://localhost:8080".to_string(),
-            },
-            payment: crate::config::PaymentConfig {
-                musepay_partner_id: None,
-                musepay_private_key: None,
-                webhook_url: None,
-                supported_currencies: vec!["USD".to_string()],
-                default_currency: "USD".to_string(),
-                default_checkout_url_template: "http://localhost:3000/checkout/{}".to_string(),
-            },
-            email: crate::config::EmailConfig {
-                from_email: "test@localhost".to_string(),
-                sendgrid_api_key: "".to_string(),
-            },
-            branding: crate::config::BrandingConfig {
-                platform_name: "EPSX Test".to_string(),
-                welcome_message_template: "Welcome to EPSX".to_string(),
-                dashboard_url: "http://localhost:3000".to_string(),
-                support_email: "support@localhost".to_string(),
-            },
-            external_services: crate::config::ExternalServicesConfig {
-                tradingview: crate::config::TradingViewConfig {
-                    websocket_url: "wss://data.tradingview.com".to_string(),
-                    api_base_url: "https://scanner.tradingview.com".to_string(),
-                    timeout_seconds: 30,
-                    http_timeout_seconds: 30,
-                },
-                sendgrid_api_key: None,
-                qr_code: crate::config::QrCodeConfig {
-                    enabled: false,
-                    base_url: "".to_string(),
-                    logo_url: None,
-                    api_base_url: "".to_string(),
-                    default_size: 256,
-                },
-            },
-            rate_limiting: crate::config::RateLimitingConfig {
-                default_per_minute: 60,
-                endpoint_specific: std::collections::HashMap::new(),
-            },
-        }
+        crate::config::get_fallback_config()
     }
     use crate::domain::shared_kernel::entities::market_data::StockScreeningResult;
     use crate::domain::shared_kernel::value_objects::{Symbol, Market};

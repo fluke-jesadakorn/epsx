@@ -300,10 +300,7 @@ impl UnifiedRateLimiter {
     
     /// Get rate limit configuration for an endpoint (from rate_limit.rs functionality)
     fn get_rate_limit_config(&self, endpoint: &str) -> (u32, u64) {
-        // Check for endpoint-specific limits first
-        if let Some(endpoint_config) = self.config.rate_limiting.endpoint_specific.get(endpoint) {
-            return (endpoint_config.per_minute, 60);
-        }
+        // Use default rate limits since simplified config doesn't have endpoint-specific rates
         
         // Check for pattern-based limits
         if endpoint.contains("/login") {
@@ -319,7 +316,7 @@ impl UnifiedRateLimiter {
         }
         
         // Default rate limit
-        (self.config.rate_limiting.default_per_minute, 60)
+        (60, 60) // 60 requests per minute default
     }
     
     /// Check and update rate limits for a user-endpoint combination (backward compatibility)
