@@ -1,0 +1,149 @@
+{
+  "project": "EPSX",
+  "description": "EPSX Local Build + Direct Cloud Run Deployment Configuration",
+  "version": "1.0.0",
+  "environments": {
+    "development": {
+      "project_id": "epsx-development",
+      "region": "us-central1",
+      "registry": "us-central1-docker.pkg.dev",
+      "urls": {
+        "backend": "https://dev-api.epsx.io",
+        "frontend": "https://dev.epsx.io",
+        "admin": "https://dev-admin.epsx.io"
+      },
+      "resources": {
+        "backend": {
+          "memory": "1Gi",
+          "cpu": "1",
+          "min_instances": "0",
+          "max_instances": "3",
+          "concurrency": "20",
+          "timeout": "300s"
+        },
+        "frontend": {
+          "memory": "512Mi",
+          "cpu": "0.5",
+          "min_instances": "0",
+          "max_instances": "3"
+        },
+        "admin": {
+          "memory": "512Mi", 
+          "cpu": "0.5",
+          "min_instances": "0",
+          "max_instances": "3"
+        }
+      }
+    },
+    "staging": {
+      "project_id": "epsx-staging",
+      "region": "us-central1",
+      "registry": "us-central1-docker.pkg.dev",
+      "urls": {
+        "backend": "https://staging-api.epsx.io",
+        "frontend": "https://staging.epsx.io",
+        "admin": "https://staging-admin.epsx.io"
+      },
+      "resources": {
+        "backend": {
+          "memory": "2Gi",
+          "cpu": "2",
+          "min_instances": "1",
+          "max_instances": "5",
+          "concurrency": "40",
+          "timeout": "600s"
+        },
+        "frontend": {
+          "memory": "1Gi",
+          "cpu": "1",
+          "min_instances": "1",
+          "max_instances": "5"
+        },
+        "admin": {
+          "memory": "1Gi",
+          "cpu": "1", 
+          "min_instances": "1",
+          "max_instances": "3"
+        }
+      }
+    },
+    "production": {
+      "project_id": "epsx-469400",
+      "region": "us-central1",
+      "registry": "us-central1-docker.pkg.dev",
+      "urls": {
+        "backend": "https://api.epsx.io",
+        "frontend": "https://epsx.io",
+        "admin": "https://admin.epsx.io"
+      },
+      "resources": {
+        "backend": {
+          "memory": "4Gi",
+          "cpu": "4",
+          "min_instances": "1",
+          "max_instances": "10",
+          "concurrency": "80",
+          "timeout": "900s",
+          "startup_probe": {
+            "timeout_seconds": "10",
+            "period_seconds": "15",
+            "failure_threshold": "8"
+          },
+          "additional_env": {
+            "DATABASE_ACQUIRE_TIMEOUT": "90",
+            "DATABASE_MAX_CONNECTIONS": "2",
+            "DATABASE_MIN_CONNECTIONS": "1",
+            "SKIP_DB_TEST": "true"
+          }
+        },
+        "frontend": {
+          "memory": "2Gi",
+          "cpu": "2",
+          "min_instances": "1",
+          "max_instances": "10"
+        },
+        "admin": {
+          "memory": "2Gi",
+          "cpu": "2",
+          "min_instances": "1",
+          "max_instances": "10"
+        }
+      }
+    }
+  },
+  "services": {
+    "backend": {
+      "app_path": "apps/backend",
+      "port": "8080",
+      "dockerfile": "Dockerfile",
+      "build_from_root": true
+    },
+    "frontend": {
+      "app_path": "apps/frontend",
+      "port": "3000",
+      "dockerfile": "Dockerfile",
+      "build_from_root": false
+    },
+    "admin": {
+      "app_path": "apps/admin-frontend",
+      "port": "3000",
+      "dockerfile": "Dockerfile",
+      "build_from_root": false
+    }
+  },
+  "required_env_vars": [
+    "DATABASE_URL",
+    "NEXTAUTH_SECRET",
+    "FIREBASE_PROJECT_ID",
+    "FIREBASE_PRIVATE_KEY",
+    "FIREBASE_CLIENT_EMAIL",
+    "OIDC_CLIENT_SECRET",
+    "OIDC_ADMIN_CLIENT_SECRET"
+  ],
+  "optional_env_vars": [
+    "MUSEPAY_PARTNER_ID",
+    "MUSEPAY_PRIVATE_KEY", 
+    "REDIS_URL",
+    "LOG_LEVEL"
+  ]
+}

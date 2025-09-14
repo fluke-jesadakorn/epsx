@@ -8,6 +8,7 @@
 import useSWR, { mutate } from 'swr'
 import { useCallback } from 'react'
 import { logger, devLog, safeError } from '@/lib/logger'
+import { env } from '../../../shared/env/schema'
 
 // ============================================================================
 // OIDC-Compliant Client Data Fetcher
@@ -34,7 +35,7 @@ async function oidcFetcher(url: string, options: RequestInit = {}) {
   }
   
   // Make direct API call to backend with Bearer token
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
+  const backendUrl = env.BACKEND_URL
   const fullUrl = url.startsWith('http') ? url : `${backendUrl}${url}`
   
   const response = await fetch(fullUrl, {
@@ -232,7 +233,7 @@ export function useRealTimeUpdates(enabled = true) {
   const connectSSE = useCallback(() => {
     if (!enabled || typeof window === 'undefined') return
     
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
+    const backendUrl = env.BACKEND_URL
     const eventSource = new EventSource(`${backendUrl}/api/v1/events/stocks`, {
       withCredentials: true
     })

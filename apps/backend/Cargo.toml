@@ -152,22 +152,22 @@ tempfile = "3.8"
 # Domain Layer Tests (pure business logic, fastest)
 [[test]]
 name = "domain_tests"
-path = "tests/domain/mod.rs"
+path = "__test__/domain/mod.rs"
 
 # Application Layer Tests (use cases with mocked dependencies)
 [[test]]
 name = "application_tests"  
-path = "tests/application/mod.rs"
+path = "__test__/application/mod.rs"
 
 # Infrastructure Layer Tests (external dependencies)
 [[test]]
 name = "infrastructure_tests"
-path = "tests/infrastructure/mod.rs"
+path = "__test__/infrastructure/mod.rs"
 
 # Presentation Layer Tests (HTTP handlers and middleware)
 [[test]]
 name = "presentation_tests"
-path = "tests/presentation/mod.rs"
+path = "__test__/presentation/mod.rs"
 
 # Performance Benchmark Tests
 

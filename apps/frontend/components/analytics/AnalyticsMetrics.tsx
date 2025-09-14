@@ -9,7 +9,7 @@ import {
   Lock,
   Star
 } from 'lucide-react';
-import { formatLevelAsNumber } from '@/utils/env';
+import { formatLevelAsNumber } from '@/lib/level-utils';
 import { Card, CardContent, CardHeader, CardTitle, Badge } from '@/components/ui';
 import { 
   extractRankingLimitFromPermissions, 

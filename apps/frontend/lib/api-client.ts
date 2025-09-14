@@ -1,5 +1,5 @@
 // Using native fetch for lightweight API calls
-import { clientConfig } from '@/config/env';
+import { env } from '../../../shared/env/schema';
 import { 
   ApiResponse, 
   ApiError, 
@@ -277,14 +277,11 @@ export class ApiClient {
 }
 
 function getDefaultApiUrl(): string {
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('NEXT_PUBLIC_API_URL or NEXT_PUBLIC_BACKEND_URL is required in production environment');
-  }
-  return 'http://localhost:8080';
+  return env.BACKEND_URL;
 }
 
 export function createApiClient(baseURL?: string, token?: string): ApiClient {
-  const url = baseURL || process.env.NEXT_PUBLIC_API_URL || clientConfig.apiUrl || getDefaultApiUrl();
+  const url = baseURL || getDefaultApiUrl();
   return new ApiClient(url, token);
 }
 
@@ -412,7 +409,7 @@ export class AnalyticsClient {
   private baseURL: string;
 
   constructor(baseURL?: string) {
-    this.baseURL = baseURL || process.env.NEXT_PUBLIC_API_URL || clientConfig.apiUrl || getDefaultApiUrl();
+    this.baseURL = baseURL || getDefaultApiUrl();
   }
 
   private async makeRequest<T>(url: string, params?: Record<string, unknown>): Promise<ApiResponse<T>> {

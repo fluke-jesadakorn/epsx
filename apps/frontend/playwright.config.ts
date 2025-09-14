@@ -79,6 +79,13 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['setup'],
     },
+
+    // Production deployment check
+    {
+      name: 'production-check',
+      testMatch: '**/production-deployment-check.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+    },
     
     // User journey tests
     {

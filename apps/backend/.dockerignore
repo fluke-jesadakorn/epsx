@@ -1,83 +1,46 @@
-# Temporary files
+# Rust build artifacts
+target/
 **/*.rs.bk
-**/*.swp
-**/*~
+!Cargo.lock
 
-# Target directory optimization (exclude everything except what we need)
-target/*
-!target/release-small/
-target/release-small/*
-!target/release-small/epsx
-
-# Git and documentation
-.git/
-.gitignore
-.gitattributes
-README.md
-CHANGELOG.md
-LICENSE*
-*.md
-docs/
-documentation/
-
-# Environment files (keep example)
+# Environment
 .env*
 !.env.example
-secrets/
-*.key
-*.pem
 
-# Editor and IDE files (comprehensive)
+# Git and docs
+.git/
+.gitignore
+*.md
+!README.md
+docs/
+
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-.sublime-project
-.sublime-workspace
-*.code-workspace
 
-# Development and testing
+# Development
 tests/
-test-data/
-benchmarks/
-examples/
 scripts/
-.cargo/registry/
-.cargo/git/
 
-# CI/CD and deployment files
+# Deployment
 .github/
-.gitlab-ci.yml
 docker-compose*
-kubernetes/
-k8s/
-helm/
-.terraform/
-infrastructure/
+Dockerfile*
+!Dockerfile
+.dockerignore
 
-# Rust development files
-Cargo.lock.bak
-.rustfmt.toml
-clippy.toml
-rustfmt.toml
-
-# Build artifacts and caches
-.cache/
-.ccache/
-dist/
-
-# MacOS and Windows
+# OS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
-# Logs and temporary
+# Logs
 *.log
 logs/
-tmp/
-temp/
+
+# Secrets
+*.key
+*.pem
+secrets/

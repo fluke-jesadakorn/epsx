@@ -242,16 +242,33 @@ export class UnifiedAdminClient {
   private isServerSide: boolean;
 
   constructor(baseURL?: string, token?: string, serverSide = false) {
-    this.baseURL = baseURL || env.NEXT_PUBLIC_BACKEND_URL || this.getDefaultBackendUrl();
+    this.baseURL = baseURL || this.getBackendUrl();
     this.token = token;
     this.isServerSide = serverSide;
   }
 
-  private getDefaultBackendUrl(): string {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('NEXT_PUBLIC_BACKEND_URL is required in production environment');
+  private getBackendUrl(): string {
+    // Try environment variables in order of preference
+    if (process.env.NEXT_PUBLIC_BACKEND_URL) {
+      return process.env.NEXT_PUBLIC_BACKEND_URL;
     }
-    return 'http://localhost:8080';
+    
+    // Try unified schema (safe access)
+    try {
+      if (env.BACKEND_URL) {
+        return env.BACKEND_URL;
+      }
+    } catch (error) {
+      // Unified schema validation failed, continue with fallbacks
+    }
+
+    // Development fallback
+    if (process.env.NODE_ENV === 'development') {
+      return 'http://localhost:8080';
+    }
+    
+    // Production requires explicit configuration
+    throw new Error('NEXT_PUBLIC_BACKEND_URL is required in production environment');
   }
 
   // Core HTTP Methods

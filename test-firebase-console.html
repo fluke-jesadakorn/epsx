@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Firebase Console Error Tester</title>
+</head>
+<body>
+    <h1>Firebase Console Error Diagnosis</h1>
+    <p><strong>Instructions:</strong></p>
+    <ol>
+        <li>Keep this page open</li>
+        <li>Open a new tab and navigate to: <br><a href="https://epsx-frontend-dev-307278481624.us-central1.run.app" target="_blank">https://epsx-frontend-dev-307278481624.us-central1.run.app</a></li>
+        <li>Open Developer Tools (F12) on the EPSX site</li>
+        <li>Go to Console tab</li>
+        <li>Refresh the page</li>
+        <li>Copy ALL error messages and paste them below</li>
+    </ol>
+    
+    <h2>Quick Test Script</h2>
+    <p>Copy this script and paste it in the EPSX site's browser console:</p>
+    <textarea readonly style="width:100%; height:200px; font-family:monospace; font-size:12px;">
+// Firebase Error Detection Script
+console.log('=== FIREBASE ERROR CHECK ===');
+
+// Capture all console messages for 5 seconds
+const messages = [];
+const originalError = console.error;
+const originalWarn = console.warn;
+const originalLog = console.log;
+
+console.error = (...args) => {
+  messages.push({type: 'ERROR', message: args.join(' ')});
+  originalError(...args);
+};
+
+console.warn = (...args) => {
+  messages.push({type: 'WARN', message: args.join(' ')});
+  originalWarn(...args);
+};
+
+console.log = (...args) => {
+  const msg = args.join(' ');
+  if (msg.includes('Firebase') || msg.includes('🔥') || msg.includes('❌') || msg.includes('⚠️')) {
+    messages.push({type: 'LOG', message: msg});
+  }
+  originalLog(...args);
+};
+
+// Check environment variables
+setTimeout(() => {
+  console.log('\n=== ENVIRONMENT VARIABLES ===');
+  const firebaseVars = [
+    'NEXT_PUBLIC_FIREBASE_API_KEY',
+    'NEXT_PUBLIC_FIREBASE_PROJECT_ID', 
+    'NEXT_PUBLIC_FIREBASE_APP_ID',
+    'NEXT_PUBLIC_BACKEND_URL'
+  ];
+  
+  firebaseVars.forEach(varName => {
+    const value = (typeof process !== 'undefined' && process.env) ? process.env[varName] : 'not available in browser';
+    console.log(`${varName}: ${value}`);
+  });
+}, 2000);
+
+// Report results after 5 seconds
+setTimeout(() => {
+  console.log('\n=== CAPTURED MESSAGES ===');
+  if (messages.length === 0) {
+    console.log('✅ No Firebase-related messages captured');
+  } else {
+    messages.forEach((msg, i) => {
+      console.log(`${i+1}. [${msg.type}] ${msg.message}`);
+    });
+  }
+  
+  // Restore original console
+  console.error = originalError;
+  console.warn = originalWarn; 
+  console.log = originalLog;
+  
+  console.log('\n=== TEST COMPLETE ===');
+  console.log('Please copy ALL the messages above and send them to the developer.');
+}, 5000);
+
+console.log('✅ Script loaded. Results will appear in 5 seconds...');
+    </textarea>
+    
+    <h2>Paste Error Messages Here:</h2>
+    <textarea placeholder="Paste all console error messages here..." style="width:100%; height:300px; font-family:monospace;"></textarea>
+    
+    <h2>What to Look For:</h2>
+    <ul>
+        <li><strong>Firebase Auth errors:</strong> "invalid-api-key", "auth/", "FirebaseError"</li>
+        <li><strong>Firebase Remote Config errors:</strong> "remote-config/", "fetch-failed"</li>
+        <li><strong>Environment variable issues:</strong> "undefined", "not found"</li>
+        <li><strong>Network errors:</strong> Failed to fetch, CORS errors</li>
+    </ul>
+    
+    <h2>Expected Errors (Before Fix):</h2>
+    <pre style="background:#f5f5f5; padding:10px; border-radius:5px;">
+❌ Firebase configuration validation failed. Missing or invalid fields: apiKey, projectId, appId
+🔧 Firebase config values: { apiKey: 'undefined', ... }
+⚠️ Firebase initialization skipped due to invalid configuration
+❌ Firebase Auth initialization failed: FirebaseError: Error (auth/invalid-api-key)
+❌ Firebase Remote Config initialization failed
+    </pre>
+    
+    <h2>Expected Messages (After Fix):</h2>
+    <pre style="background:#e8f5e8; padding:10px; border-radius:5px;">
+🔧 Firebase initialization skipped due to invalid configuration
+💡 To enable Firebase features, ensure NEXT_PUBLIC_FIREBASE_* environment variables are properly set
+⚠️ Firebase Auth not initialized - invalid or missing configuration
+📋 Required environment variables:
+  - NEXT_PUBLIC_FIREBASE_API_KEY (35+ chars)
+  - NEXT_PUBLIC_FIREBASE_PROJECT_ID (5+ chars)
+  - NEXT_PUBLIC_FIREBASE_APP_ID (15+ chars)
+    </pre>
+</body>
+</html>

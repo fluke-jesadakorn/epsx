@@ -3,6 +3,7 @@ import { ServerAnalyticsAPI } from '@/lib/api/server-admin-api'
 import AdminEPSCard from './AdminEPSCard'
 import AdminEPSFilters from './AdminEPSFilters'
 import AdminEPSPagination from './AdminEPSPagination'
+import { config } from '@/config/env'
 
 interface AdminEPSAnalyticsProps {
   searchParams: {
@@ -92,7 +93,7 @@ interface AdminEPSCardData {
 
 // Fetch real EPS data from the same endpoint as frontend
 async function getAdminEPSData(params: EPSQueryParams): Promise<AdminEPSData> {
-  const baseURL = process.env.BACKEND_URL || 'http://localhost:8080'
+  const baseURL = config.backendUrl
   const queryString = new URLSearchParams()
   
   Object.keys(params).forEach(key => {

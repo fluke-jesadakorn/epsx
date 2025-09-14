@@ -1,30 +1,7 @@
-# Dependencies (optimized)
+# Dependencies
 node_modules
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 package-lock.json
 yarn.lock
-.pnpm-debug.log*
-
-# Testing and Development (comprehensive)
-coverage
-*.tgz
-*.tar.gz
-test-results/
-playwright-report/
-jest.coverage/
-cypress/
-__tests__/
-*.test.ts
-*.test.tsx
-*.test.js
-*.test.jsx
-*.spec.ts
-*.spec.tsx
-*.spec.js
-*.spec.jsx
-.nyc_output
 
 # Build outputs
 .next
@@ -32,110 +9,68 @@ out
 build
 dist
 .turbo
-.vercel
+.cache
 
-# Environment and secrets
+# Testing
+coverage
+test-results/
+playwright-report/
+__tests__/
+*.test.*
+*.spec.*
+.nyc_output
+
+# Environment
 .env*
 !.env.example
-secrets/
-*.key
-*.pem
 
-# Development files and logs
+# Logs
 *.log
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+npm-debug.log*
+yarn-debug.log*
+.pnpm-debug.log*
 logs
 debug
-pids
-*.pid
-*.seed
-*.pid.lock
 
-# Package manager caches
-.npm
-.eslintcache
-.node_repl_history
-.yarn-integrity
-.grunt
-bower_components
-.lock-wscript
-.pnpm-store
-
-# Git and documentation
-.git
-.gitignore
-.gitattributes
-README.md
-CHANGELOG.md
-LICENSE*
-*.md
-docs/
-documentation/
-
-# IDE and editor files
+# IDE
 .idea
 .vscode
 *.swp
 *.swo
 *~
-.sublime-project
-.sublime-workspace
-*.code-workspace
 
-# Config files not needed at runtime
+# OS
+.DS_Store
+Thumbs.db
+
+# Git and docs
+.git
+.gitignore
+*.md
+!README.md
+docs/
+
+# Config files
 tsconfig.json
-tsconfig.*.json
 .eslintrc*
 .prettierrc*
-.editorconfig
 jest.config.*
 playwright.config.*
-tailwind.config.*
-postcss.config.*
-.npmrc
-.yarnrc*
 
 # Development folders
 scripts/
-tools/
-storybook-static/
 .storybook/
-.devtools/
-benchmarks/
-examples/
-demos/
 
-# Temporary and cache files
-tmp/
-temp/
-.cache/
-.parcel-cache/
-.webpack/
-.rollup.cache/
-.rts2_cache_*/
+# Caches
+.pnpm-store
 
-# Source maps and debug files
-*.map
-*.d.ts.map
+# Secrets
+*.key
+*.pem
+secrets/
 
-# Performance analysis
-.lighthouseci/
-lighthouse-report.*
-bundle-analyzer/
-webpack-bundle-analyzer/
-
-# Container and deployment files
+# Deployment
+.vercel
 Dockerfile*
-docker-compose*
+!Dockerfile
 .dockerignore
-kubernetes/
-k8s/
-helm/
-.terraform/
-infrastructure/

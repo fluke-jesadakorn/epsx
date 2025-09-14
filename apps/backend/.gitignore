@@ -1,24 +1,24 @@
-# Ignore Cargo build artifacts
-/target/
+# Rust Build
+target/
 **/*.rs.bk
 
-# Ignore IDE specific files
+# Environment
+.env*
+!.env.example
+
+# Logs
+*.log
+*.swp
+
+# IDE
 .vscode/
 .idea/
 
-# Ignore environment files
-.env
-.env.local
-
-# Ignore debug files
-*.log
-*.swp
-*.swo
-
-# Ignore macOS specific files
+# OS
 .DS_Store
 
-# Ignore Rust cache
-Cargo.lock
-/secret/*
-.vercel
+# Secrets
+secrets/
+
+# Deployment
+.vercel/

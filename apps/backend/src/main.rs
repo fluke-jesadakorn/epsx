@@ -5,18 +5,19 @@ use tracing::{info, error};
 use epsx::{
     AppContainer,
     create_router,
+    config::env::init_config,
 };
 
 /// Main server entry point
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // Load environment variables from .env file
-    dotenv::dotenv().ok();
+    // Initialize configuration (loads .env and validates)
+    let config = init_config();
     
     // Initialize basic tracing
     tracing_subscriber::fmt::init();
     
-    info!("🥞 Starting EPSX Backend Server...");
+    info!("🥞 Starting EPSX Backend Server with unified environment configuration...");
     
     // Create application container
     let container = match AppContainer::new().await {
@@ -42,12 +43,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
     };
     
-    // Server configuration with environment variable support
+    // Server configuration using unified config
     let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
     let port: u16 = std::env::var("PORT")
         .unwrap_or_else(|_| "8080".to_string())
         .parse()
         .unwrap_or(8080);
+    
+    info!("🔗 Backend URL: {}", config.backend_url);
+    info!("🌐 Frontend URL: {}", config.frontend_url);
+    info!("⚙️  Admin URL: {}", config.admin_frontend_url);
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
     
     info!("🚀 Server starting on {}:{}", host, port);
