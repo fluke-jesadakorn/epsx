@@ -101,41 +101,70 @@ export const defaultConfig: RemoteUserSettings = {
   }
 }
 
-// Set default config for Remote Config
-remoteConfig.defaultConfig = {
-  // UX Settings
-  'ux_theme': defaultConfig.ux.theme,
-  'ux_compact_mode': defaultConfig.ux.compactMode,
-  'ux_animations_enabled': defaultConfig.ux.animationsEnabled,
-  'ux_mobile_optimized': defaultConfig.ux.mobileOptimized,
-  'ux_accessibility_mode': defaultConfig.ux.accessibilityMode,
-  
-  // Performance Settings
-  'performance_refresh_interval': defaultConfig.performance.refreshInterval,
-  'performance_realtime_updates': defaultConfig.performance.realTimeUpdates,
-  'performance_cache_minutes': defaultConfig.performance.dataCacheMinutes,
-  'performance_lazy_load': defaultConfig.performance.lazyLoadImages,
-  'performance_preload_next': defaultConfig.performance.preloadNextPage,
-  
-  // Feature Flags
-  'features_advanced_charts': defaultConfig.features.advancedChartsEnabled,
-  'features_beta_analytics': defaultConfig.features.betaAnalyticsEnabled,
-  'features_experimental_ui': defaultConfig.features.experimentalUIEnabled,
-  'features_mobile_app_promo': defaultConfig.features.mobileAppPromotion,
-  'features_new_notifications': defaultConfig.features.newNotificationSystem,
-  
-  // Business Settings
-  'business_stocks_per_page': defaultConfig.business.stocksPerPage,
-  'business_chart_type': defaultConfig.business.defaultChartType,
-  'business_max_watchlist': defaultConfig.business.maxWatchlistItems,
-  'business_premium_features': defaultConfig.business.premiumFeaturesEnabled,
-  'business_data_export': defaultConfig.business.dataExportEnabled,
-  
-  // A/B Testing
-  'ab_homepage_layout': defaultConfig.abTests.homepageLayout,
-  'ab_payment_flow': defaultConfig.abTests.paymentFlow,
-  'ab_onboarding_flow': defaultConfig.abTests.onboardingFlow,
-  'ab_dashboard_style': defaultConfig.abTests.dashboardStyle
+/**
+ * Initialize Remote Config defaults (lazy initialization)
+ * Called only when Remote Config is actually used to prevent startup errors
+ */
+function initializeRemoteConfigDefaults(): boolean {
+  try {
+    // Check if Remote Config is available and not already initialized
+    if (!remoteConfig || typeof remoteConfig !== 'object') {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('⚠️ Remote Config not available - using fallback defaults')
+      }
+      return false
+    }
+
+    // Check if defaults are already set to avoid overwriting
+    if (remoteConfig.defaultConfig && Object.keys(remoteConfig.defaultConfig).length > 0) {
+      return true
+    }
+
+    // Set default values for Remote Config
+    remoteConfig.defaultConfig = {
+      // UX Settings
+      'ux_theme': defaultConfig.ux.theme,
+      'ux_compact_mode': defaultConfig.ux.compactMode,
+      'ux_animations_enabled': defaultConfig.ux.animationsEnabled,
+      'ux_mobile_optimized': defaultConfig.ux.mobileOptimized,
+      'ux_accessibility_mode': defaultConfig.ux.accessibilityMode,
+      
+      // Performance Settings
+      'performance_refresh_interval': defaultConfig.performance.refreshInterval,
+      'performance_realtime_updates': defaultConfig.performance.realTimeUpdates,
+      'performance_cache_minutes': defaultConfig.performance.dataCacheMinutes,
+      'performance_lazy_load': defaultConfig.performance.lazyLoadImages,
+      'performance_preload_next': defaultConfig.performance.preloadNextPage,
+      
+      // Feature Flags
+      'features_advanced_charts': defaultConfig.features.advancedChartsEnabled,
+      'features_beta_analytics': defaultConfig.features.betaAnalyticsEnabled,
+      'features_experimental_ui': defaultConfig.features.experimentalUIEnabled,
+      'features_mobile_app_promo': defaultConfig.features.mobileAppPromotion,
+      'features_new_notifications': defaultConfig.features.newNotificationSystem,
+      
+      // Business Settings
+      'business_stocks_per_page': defaultConfig.business.stocksPerPage,
+      'business_chart_type': defaultConfig.business.defaultChartType,
+      'business_max_watchlist': defaultConfig.business.maxWatchlistItems,
+      'business_premium_features': defaultConfig.business.premiumFeaturesEnabled,
+      'business_data_export': defaultConfig.business.dataExportEnabled,
+      
+      // A/B Testing
+      'ab_homepage_layout': defaultConfig.abTests.homepageLayout,
+      'ab_payment_flow': defaultConfig.abTests.paymentFlow,
+      'ab_onboarding_flow': defaultConfig.abTests.onboardingFlow,
+      'ab_dashboard_style': defaultConfig.abTests.dashboardStyle
+    }
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('✅ Firebase Remote Config default values set successfully')
+    }
+    return true
+  } catch (error) {
+    console.warn('⚠️ Failed to set Remote Config default values:', error)
+    return false
+  }
 }
 
 // ============================================================================
@@ -147,6 +176,14 @@ remoteConfig.defaultConfig = {
  */
 export async function fetchRemoteConfig(): Promise<boolean> {
   try {
+    if (!remoteConfig) {
+      devLog('Remote Config not initialized - skipping fetch')
+      return false
+    }
+    
+    // Initialize defaults before fetching
+    initializeRemoteConfigDefaults()
+    
     devLog('Fetching Firebase Remote Config...')
     
     const activated = await fetchAndActivate(remoteConfig)
@@ -169,6 +206,14 @@ export async function fetchRemoteConfig(): Promise<boolean> {
  */
 export function getAllRemoteSettings(): RemoteUserSettings {
   try {
+    if (!remoteConfig) {
+      // Remote Config not initialized, return default config
+      return defaultConfig
+    }
+    
+    // Initialize defaults before getting values
+    initializeRemoteConfigDefaults()
+    
     const allValues = getAll(remoteConfig)
     
     return {
@@ -218,6 +263,14 @@ export function getAllRemoteSettings(): RemoteUserSettings {
  */
 export function getRemoteConfigValue(key: string): string | boolean | number {
   try {
+    if (!remoteConfig) {
+      // Remote Config not initialized, return empty string
+      return ''
+    }
+    
+    // Initialize defaults before getting value
+    initializeRemoteConfigDefaults()
+    
     const value = getValue(remoteConfig, key)
     
     // Try to parse as boolean first
@@ -252,6 +305,13 @@ export function isRemoteConfigReady(): boolean {
  */
 export function getLastFetchTime(): Date | null {
   try {
+    if (!remoteConfig) {
+      return null
+    }
+    
+    // Initialize defaults safely
+    initializeRemoteConfigDefaults()
+    
     const timestamp = remoteConfig.fetchTimeMillis
     return timestamp ? new Date(timestamp) : null
   } catch (error) {
@@ -270,6 +330,18 @@ export function getRemoteConfigStatus(): {
   activeConfig: boolean
 } {
   try {
+    if (!remoteConfig) {
+      return {
+        isReady: false,
+        lastFetchTime: null,
+        lastFetchStatus: 'not_initialized',
+        activeConfig: false
+      }
+    }
+    
+    // Initialize defaults safely
+    initializeRemoteConfigDefaults()
+    
     return {
       isReady: isRemoteConfigReady(),
       lastFetchTime: getLastFetchTime(),

@@ -24,7 +24,7 @@ function initializeFirebase() {
   try {
     // Validate configuration - no fallback, must receive proper config
     if (!firebaseConfig || !firebaseConfig.apiKey) {
-      console.error('[SW] No Firebase configuration received from main thread');
+      console.warn('[SW] Firebase configuration not available - push notifications disabled');
       return;
     }
     
@@ -32,7 +32,7 @@ function initializeFirebase() {
 
     for (const field of requiredFields) {
       if (!firebaseConfig[field]) {
-        console.error(`[SW] Missing Firebase configuration field: ${field}`);
+        console.warn(`[SW] Missing Firebase configuration field: ${field} - push notifications disabled`);
         return;
       }
     }
@@ -83,7 +83,7 @@ function initializeFirebase() {
     });
 
   } catch (error) {
-    console.error('[SW] Firebase initialization failed:', error);
+    console.warn('[SW] Firebase initialization failed - push notifications disabled:', error);
   }
 }
 

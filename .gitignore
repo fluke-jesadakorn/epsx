@@ -29,6 +29,8 @@ playwright-report/
 .env.*.local
 !.env.example
 !.env.template
+production.env
+development.env
 
 # Logs
 logs/
