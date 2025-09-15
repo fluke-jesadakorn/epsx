@@ -1,107 +1,85 @@
-# EPSX Frontend - Next.js + React + Tailwind CSS
-# Trading platform analytics dashboard with OIDC authentication
-# Stage 1: Base with optimized Node.js
-FROM --platform=linux/amd64 node:22-alpine AS base
+# EPSX Frontend - Next.js Standalone Build
+# Optimized Docker build for Next.js frontend with proper standalone mode
 
+FROM node:22-alpine AS builder
 WORKDIR /app
 
-# Install pnpm and essential packages
-RUN apk add --no-cache libc6-compat dumb-init \
-    && npm install -g pnpm@10.14.0
+# Install system dependencies
+RUN apk add --no-cache libc6-compat dumb-init
 
-# Development stage
-FROM base AS development
-COPY package.json ./
-RUN pnpm install --no-frozen-lockfile
-COPY . .
-EXPOSE 3000
-CMD ["pnpm", "dev"]
+# Install pnpm
+RUN npm install -g pnpm@10.14.0
 
-# Stage 2: Dependencies (maximize caching)
-FROM base AS deps
+# Copy monorepo workspace files
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 
-# Copy workspace configuration for monorepo support
-COPY pnpm-workspace.yaml ./
-COPY package.json pnpm-lock.yaml ./
-
-# Copy all app package.json files for workspace resolution
-COPY apps/frontend/package.json ./apps/frontend/package.json
-COPY apps/admin-frontend/package.json ./apps/admin-frontend/package.json
-
-# Install dependencies as workspace (monorepo-aware)
-RUN pnpm install --no-frozen-lockfile
-
-# Stage 3: Builder (optimized build process)
-FROM base AS builder
-
-# Copy cached dependencies from workspace
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/frontend/node_modules ./apps/frontend/node_modules
-
-# Copy source code (exclude dev files via .dockerignore)
+# Copy frontend app and shared dependencies
 COPY apps/frontend/ ./apps/frontend/
-# Copy shared directory for monorepo dependencies
 COPY shared/ ./shared/
 
-# Set working directory to frontend app for build
+# Copy shared files into frontend app for build resolution
+RUN cp -r ./shared ./apps/frontend/
+
+# Install all monorepo dependencies
+RUN pnpm install --frozen-lockfile
+
+# Build the frontend app with Next.js standalone output
 WORKDIR /app/apps/frontend
 
-# Create minimal .env file for Next.js build compatibility
-RUN echo "NODE_ENV=production" > .env
-
-# Build optimization environment
-ENV NODE_OPTIONS="--max-old-space-size=4096 --experimental-specifier-resolution=node"
-ENV NEXT_TELEMETRY_DISABLED=1
+# Set build environment
 ENV NODE_ENV=production
-ENV NEXT_PUBLIC_BUILD_MODE=production
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# Optimized build without BuildKit cache
+# Create build-time environment for Next.js validation
+# Note: Firebase environment variables are set at runtime via Cloud Run to avoid placeholder values
+RUN echo "NODE_ENV=production" > .env && \
+    echo "NEXT_PUBLIC_BACKEND_URL=https://api.epsx.io" >> .env && \
+    echo "NEXT_PUBLIC_APP_URL=https://epsx.io" >> .env && \
+    echo "NEXT_PUBLIC_ADMIN_URL=https://admin.epsx.io" >> .env && \
+    echo "NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-frontend" >> .env
+
+# Build Next.js app (generates .next/standalone with optimized server.js)
 RUN pnpm build
 
-# Stage 4: Runtime (Node.js Alpine for debugging)
-FROM --platform=linux/amd64 node:22-alpine AS runner
-
+# Production runtime stage
+FROM node:22-alpine AS runtime
 WORKDIR /app
 
-# Install dumb-init for proper signal handling
+# Install runtime dependencies
 RUN apk add --no-cache dumb-init
 
-# Create non-root user
+# Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 
-# Production environment
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_OPTIONS="--max-old-space-size=512"
-
-# Copy optimized Next.js standalone output with proper structure
+# Copy Next.js standalone output (includes optimized server.js and minimal dependencies)
 COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next/standalone ./
 
-# Fix broken pnpm symlinks by creating proper module links
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules_temp/
-RUN rm -rf ./node_modules && mv ./node_modules_temp ./node_modules && \
-    cd node_modules && \
-    ln -sf .pnpm/next@*/node_modules/next next && \
-    ln -sf .pnpm/react@*/node_modules/react react && \
-    ln -sf .pnpm/react-dom@*/node_modules/react-dom react-dom
+# Copy static assets and public files
+COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next/static ./apps/frontend/.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/public ./apps/frontend/public
 
-# Copy static files to correct locations for Next.js standalone mode
-COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/public ./public
+# Copy missing @swc/helpers from the build node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.pnpm/node_modules/@swc/helpers ./node_modules/@swc/helpers
+
+# Set working directory to where server.js is located in standalone output
+WORKDIR /app/apps/frontend
 
 # Switch to non-root user
 USER nextjs
 
-# Network configuration
-EXPOSE 3000
-
-# Cloud Run environment
+# Runtime environment
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Graceful shutdown support
-STOPSIGNAL SIGTERM
+# Expose port
+EXPOSE 3000
 
-# Use dumb-init for proper signal handling
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3000/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
+
+# Start application using Next.js generated standalone server
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "server.js"]

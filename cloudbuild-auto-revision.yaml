@@ -1,0 +1,122 @@
+# Cloud Build Auto-Revision Configuration
+# Triggers automatic Cloud Run deployment when images are pushed to Artifact Registry
+
+steps:
+  # Determine which service to deploy based on image name
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'determine-service'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        # Extract service name from image path
+        IMAGE_NAME="${_IMAGE_NAME}"
+        echo "Processing image: $IMAGE_NAME"
+        
+        if [[ "$IMAGE_NAME" == *"/frontend"* ]]; then
+          echo "frontend" > /workspace/service_name
+          echo "Deploying Frontend service"
+        elif [[ "$IMAGE_NAME" == *"/admin"* ]]; then
+          echo "admin" > /workspace/service_name
+          echo "Deploying Admin service"
+        elif [[ "$IMAGE_NAME" == *"/backend"* ]]; then
+          echo "backend" > /workspace/service_name
+          echo "Deploying Backend service"
+        else
+          echo "unknown" > /workspace/service_name
+          echo "Unknown service type for image: $IMAGE_NAME"
+          exit 1
+        fi
+
+  # Deploy to Cloud Run with new revision
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'deploy-service'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        SERVICE_NAME=$(cat /workspace/service_name)
+        
+        if [ "$SERVICE_NAME" = "unknown" ]; then
+          echo "❌ Cannot deploy unknown service"
+          exit 1
+        fi
+        
+        echo "🚀 Deploying $SERVICE_NAME to Cloud Run..."
+        
+        # Deploy with optimized settings for each service
+        if [ "$SERVICE_NAME" = "backend" ]; then
+          # Backend-specific settings
+          gcloud run deploy $SERVICE_NAME \
+            --image="${_IMAGE_NAME}:${_IMAGE_TAG}" \
+            --region="${_REGION}" \
+            --platform=managed \
+            --allow-unauthenticated \
+            --memory=512Mi \
+            --cpu=1 \
+            --concurrency=80 \
+            --timeout=300 \
+            --max-instances=10 \
+            --min-instances=0 \
+            --port=8080 \
+            --set-env-vars="RUST_LOG=info,RUST_ENV=production" \
+            --quiet
+        else
+          # Frontend/Admin settings
+          gcloud run deploy $SERVICE_NAME \
+            --image="${_IMAGE_NAME}:${_IMAGE_TAG}" \
+            --region="${_REGION}" \
+            --platform=managed \
+            --allow-unauthenticated \
+            --memory=512Mi \
+            --cpu=1 \
+            --concurrency=100 \
+            --timeout=120 \
+            --max-instances=10 \
+            --min-instances=0 \
+            --port=3000 \
+            --set-env-vars="NODE_ENV=production" \
+            --quiet
+        fi
+        
+        echo "✅ $SERVICE_NAME deployed successfully!"
+        
+        # Get and display service URL
+        SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --region=${_REGION} --format="value(status.url)")
+        echo "🌐 Service URL: $SERVICE_URL"
+
+  # Verify deployment health
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'verify-deployment'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        SERVICE_NAME=$(cat /workspace/service_name)
+        
+        echo "🔍 Verifying $SERVICE_NAME deployment..."
+        
+        # Wait for service to be ready
+        gcloud run services describe $SERVICE_NAME \
+          --region=${_REGION} \
+          --format="value(status.conditions[0].status)" | grep -q "True"
+        
+        if [ $? -eq 0 ]; then
+          echo "✅ $SERVICE_NAME is healthy and ready"
+        else
+          echo "⚠️  $SERVICE_NAME deployment may have issues"
+          gcloud run services describe $SERVICE_NAME --region=${_REGION}
+        fi
+
+# Substitution variables (provided by trigger)
+substitutions:
+  _REGION: 'us-central1'
+  _IMAGE_NAME: ''  # Set by trigger
+  _IMAGE_TAG: 'latest'
+
+# Build configuration
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+# Timeout for entire build
+timeout: '600s'

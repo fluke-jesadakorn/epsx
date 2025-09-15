@@ -257,25 +257,10 @@ export const clientEnv = new Proxy({} as ClientEnv, {
             NEXT_PUBLIC_BACKEND_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BACKEND_URL) || 'http://localhost:8080',
             NEXT_PUBLIC_APP_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_APP_URL) || 'http://localhost:3000',
             NEXT_PUBLIC_ADMIN_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_ADMIN_URL) || 'http://localhost:3001',
-            NEXT_PUBLIC_OAUTH_CLIENT_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_OAUTH_CLIENT_ID) || 'epsx-frontend',
-            // Firebase fallbacks - prevent undefined values
-            NEXT_PUBLIC_FIREBASE_API_KEY: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_API_KEY) || undefined,
-            NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN) || undefined,
-            NEXT_PUBLIC_FIREBASE_PROJECT_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_PROJECT_ID) || undefined,
-            NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) || undefined,
-            NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID) || undefined,
-            NEXT_PUBLIC_FIREBASE_APP_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_APP_ID) || undefined,
-            NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID) || undefined
+            NEXT_PUBLIC_OAUTH_CLIENT_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_OAUTH_CLIENT_ID) || 'epsx-frontend'
           } as ClientEnv;
         } else {
-          // In development, log the error and provide safe fallbacks
-          console.warn('Environment validation failed, using fallbacks:', error);
-          _clientEnv = {
-            NEXT_PUBLIC_BACKEND_URL: 'http://localhost:8080',
-            NEXT_PUBLIC_APP_URL: 'http://localhost:3000',
-            NEXT_PUBLIC_ADMIN_URL: 'http://localhost:3001',
-            NEXT_PUBLIC_OAUTH_CLIENT_ID: 'epsx-frontend'
-          } as ClientEnv;
+          throw error;
         }
       }
     }
@@ -324,74 +309,39 @@ export const env = {
     return clientEnv.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID;
   },
   
-  // Server-only (returns undefined if accessed on client)
+  // Server-only (throws error if accessed on client)
   get DATABASE_URL() {
-    if (!isServer) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('DATABASE_URL is server-only - returning undefined for client');
-      }
-      return undefined;
-    }
+    if (!isServer) throw new Error('DATABASE_URL is server-only');
     return serverEnv.DATABASE_URL;
   },
   
   get JWT_SECRET() {
-    if (!isServer) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('NEXTAUTH_SECRET is server-only - returning undefined for client');
-      }
-      return undefined;
-    }
+    if (!isServer) throw new Error('NEXTAUTH_SECRET is server-only');
     return serverEnv.NEXTAUTH_SECRET;
   },
   
   get OIDC_CLIENT_SECRET() {
-    if (!isServer) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('OIDC_CLIENT_SECRET is server-only - returning undefined for client');
-      }
-      return undefined;
-    }
+    if (!isServer) throw new Error('OIDC_CLIENT_SECRET is server-only');
     return serverEnv.OIDC_CLIENT_SECRET;
   },
   
   get OIDC_ADMIN_CLIENT_SECRET() {
-    if (!isServer) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('OIDC_ADMIN_CLIENT_SECRET is server-only - returning undefined for client');
-      }
-      return undefined;
-    }
+    if (!isServer) throw new Error('OIDC_ADMIN_CLIENT_SECRET is server-only');
     return serverEnv.OIDC_ADMIN_CLIENT_SECRET;
   },
   
   get FIREBASE_PRIVATE_KEY() {
-    if (!isServer) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('FIREBASE_PRIVATE_KEY is server-only - returning undefined for client');
-      }
-      return undefined;
-    }
+    if (!isServer) throw new Error('FIREBASE_PRIVATE_KEY is server-only');
     return serverEnv.FIREBASE_PRIVATE_KEY;
   },
   
   get FIREBASE_CLIENT_EMAIL() {
-    if (!isServer) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('FIREBASE_CLIENT_EMAIL is server-only - returning undefined for client');
-      }
-      return undefined;
-    }
+    if (!isServer) throw new Error('FIREBASE_CLIENT_EMAIL is server-only');
     return serverEnv.FIREBASE_CLIENT_EMAIL;
   },
   
   get REDIS_URL() {
-    if (!isServer) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('REDIS_URL is server-only - returning undefined for client');
-      }
-      return undefined;
-    }
+    if (!isServer) throw new Error('REDIS_URL is server-only');
     return serverEnv.REDIS_URL;
   }
 };
