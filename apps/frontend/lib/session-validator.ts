@@ -110,9 +110,7 @@ export class UserSessionValidator {
       }
       
       // Validate with backend API
-      const backendUrl = process.env.NODE_ENV === 'production'
-        ? (process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io')
-        : 'http://localhost:8080'
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : (() => { throw new Error('NEXT_PUBLIC_BACKEND_URL is required') })())
       
       const validationRequest: SessionValidationRequest = {
         app_type: 'user',

@@ -90,11 +90,33 @@ impl Config {
         };
 
         let backend_url = get_with_default("BACKEND_URL", 
-            if Self::is_development() { "http://localhost:8080" } else { "https://api.epsx.io" });
+            if Self::is_development() { "http://localhost:8080" } else { "" });
         let frontend_url = get_with_default("FRONTEND_URL", 
-            if Self::is_development() { "http://localhost:3000" } else { "https://epsx.io" });
+            if Self::is_development() { "http://localhost:3000" } else { "" });
         let admin_frontend_url = get_with_default("ADMIN_FRONTEND_URL", 
-            if Self::is_development() { "http://localhost:3001" } else { "https://admin.epsx.io" });
+            if Self::is_development() { "http://localhost:3001" } else { "" });
+        
+        // Validate required URLs in production
+        if !Self::is_development() {
+            if backend_url.is_empty() {
+                errors.push(ValidationError {
+                    variable: "BACKEND_URL".to_string(),
+                    reason: "Required in production environment".to_string(),
+                });
+            }
+            if frontend_url.is_empty() {
+                errors.push(ValidationError {
+                    variable: "FRONTEND_URL".to_string(),
+                    reason: "Required in production environment".to_string(),
+                });
+            }
+            if admin_frontend_url.is_empty() {
+                errors.push(ValidationError {
+                    variable: "ADMIN_FRONTEND_URL".to_string(),
+                    reason: "Required in production environment".to_string(),
+                });
+            }
+        }
 
         // Authentication - Required
         let jwt_secret = match get_required("NEXTAUTH_SECRET") {

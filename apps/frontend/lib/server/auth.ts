@@ -208,9 +208,9 @@ export async function requireRole(requiredRole: string, redirectPath?: string): 
  * Redirect to backend Pancake login with callback URL
  */
 export function redirectToBackendLogin(callbackUrl?: string): never {
-  const backendLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io');
+  const backendLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_BACKEND_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : (() => { throw new Error('NEXT_PUBLIC_BACKEND_URL is required') })()));
   backendLoginUrl.searchParams.set('client_id', process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend');
-  backendLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_APP_URL || 'https://epsx.io'}/api/auth/callback/epsx-backend`);
+  backendLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_APP_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : (() => { throw new Error('NEXT_PUBLIC_APP_URL is required') })())}/api/auth/callback/epsx-backend`);
   backendLoginUrl.searchParams.set('scope', 'openid profile email');
   backendLoginUrl.searchParams.set('response_type', 'code');
   if (callbackUrl) {
@@ -242,9 +242,9 @@ export async function getAuthorizationUrl() {
     console.log('✅ Frontend: State parameter generated successfully')
     
     // Build authorization URL
-    const authorizationEndpoint = `${process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io'}/oauth/authorize`
+    const authorizationEndpoint = `${process.env.NEXT_PUBLIC_BACKEND_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : (() => { throw new Error('NEXT_PUBLIC_BACKEND_URL is required') })())}/oauth/authorize`
     const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend'
-    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || 'https://epsx.io'}/api/auth/callback/epsx-backend`
+    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : (() => { throw new Error('NEXT_PUBLIC_APP_URL is required') })())}/api/auth/callback/epsx-backend`
     
     console.log('🔧 Frontend: OAuth configuration:', {
       authorizationEndpoint,
@@ -286,10 +286,10 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string, 
     
     // Use internal Docker network URL for server-side requests
     const apiUrl = process.env.NODE_ENV === 'production' 
-      ? (process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io')
+      ? (process.env.NEXT_PUBLIC_BACKEND_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : (() => { throw new Error('NEXT_PUBLIC_BACKEND_URL is required') })()))
       : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080')
     const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend'
-    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || 'https://epsx.io'}/api/auth/callback/epsx-backend`
+    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : (() => { throw new Error('NEXT_PUBLIC_APP_URL is required') })())}/api/auth/callback/epsx-backend`
     
     const response = await fetch(`${apiUrl}/oauth/token`, {
       method: 'POST',
@@ -332,7 +332,7 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string, 
 export async function getUserInfo(accessToken: string) {
   // Use internal Docker network URL for server-side requests
   const apiUrl = process.env.NODE_ENV === 'production' 
-    ? (process.env.NEXT_PUBLIC_API_URL || 'https://api.epsx.io')
+    ? (process.env.NEXT_PUBLIC_BACKEND_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : (() => { throw new Error('NEXT_PUBLIC_BACKEND_URL is required') })()))
     : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080')
   const response = await fetch(`${apiUrl}/oauth/userinfo`, {
     headers: {
