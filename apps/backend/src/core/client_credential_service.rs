@@ -44,7 +44,10 @@ static CLIENT_REGISTRY: Lazy<HashMap<String, ClientCredentials>> = Lazy::new(
         get_env_var("OIDC_FRONTEND_CLIENT_SECRET"),
       )
     {
-      let frontend_url = get_env_var("FRONTEND_URL").unwrap_or_else(|_| "https://epsx.io".to_string());
+      let frontend_url = get_env_var("FRONTEND_URL").map_err(|_| {
+        eprintln!("⚠️ FRONTEND_URL environment variable is required for OIDC configuration");
+        "Environment variable FRONTEND_URL is required"
+      })?;
       let mut redirect_uris = vec![
         format!("{}/api/auth/callback/epsx-backend", frontend_url),
       ];
@@ -81,7 +84,10 @@ static CLIENT_REGISTRY: Lazy<HashMap<String, ClientCredentials>> = Lazy::new(
         get_env_var("OIDC_ADMIN_CLIENT_SECRET"),
       )
     {
-      let admin_url = get_env_var("ADMIN_FRONTEND_URL").unwrap_or_else(|_| "https://admin.epsx.io".to_string());
+      let admin_url = get_env_var("ADMIN_FRONTEND_URL").map_err(|_| {
+        eprintln!("⚠️ ADMIN_FRONTEND_URL environment variable is required for OIDC configuration");
+        "Environment variable ADMIN_FRONTEND_URL is required"
+      })?;
       let mut redirect_uris = vec![
         format!("{}/api/auth/callback/epsx-backend", admin_url),
       ];

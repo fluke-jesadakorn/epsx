@@ -205,24 +205,22 @@ get_frontend_env_vars() {
     echo "$ENV_VARS"
 }
 
-# Get Docker build args for frontend/admin builds
+# Get Docker build args for server-side variables only
+# Client-side variables (NEXT_PUBLIC_*) are set at runtime via Cloud Run
 get_docker_build_args() {
     local ENV_NAME=$1
+    local SERVICE_TYPE=$2  # "backend", "frontend", "admin"
     
     local BUILD_ARGS="--build-arg NODE_ENV=$ENV_NAME"
-    BUILD_ARGS+=" --build-arg NEXT_PUBLIC_BACKEND_URL=${NEXT_PUBLIC_BACKEND_URL}"
-    BUILD_ARGS+=" --build-arg NEXT_PUBLIC_APP_URL=${NEXT_PUBLIC_APP_URL}"
-    BUILD_ARGS+=" --build-arg NEXT_PUBLIC_ADMIN_URL=${NEXT_PUBLIC_ADMIN_URL}"
-    BUILD_ARGS+=" --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=${NEXT_PUBLIC_OAUTH_CLIENT_ID}"
     
-    # Firebase build args (optional)
-    [ -n "$NEXT_PUBLIC_FIREBASE_API_KEY" ] && BUILD_ARGS+=" --build-arg NEXT_PUBLIC_FIREBASE_API_KEY=${NEXT_PUBLIC_FIREBASE_API_KEY}"
-    [ -n "$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN" ] && BUILD_ARGS+=" --build-arg NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=${NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN}"
-    [ -n "$NEXT_PUBLIC_FIREBASE_PROJECT_ID" ] && BUILD_ARGS+=" --build-arg NEXT_PUBLIC_FIREBASE_PROJECT_ID=${NEXT_PUBLIC_FIREBASE_PROJECT_ID}"
-    [ -n "$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET" ] && BUILD_ARGS+=" --build-arg NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=${NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}"
-    [ -n "$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID" ] && BUILD_ARGS+=" --build-arg NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=${NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}"
-    [ -n "$NEXT_PUBLIC_FIREBASE_APP_ID" ] && BUILD_ARGS+=" --build-arg NEXT_PUBLIC_FIREBASE_APP_ID=${NEXT_PUBLIC_FIREBASE_APP_ID}"
-    [ -n "$NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID" ] && BUILD_ARGS+=" --build-arg NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=${NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID}"
+    # Only server-side build args for frontend/admin
+    if [ "$SERVICE_TYPE" = "admin" ]; then
+        BUILD_ARGS+=" --build-arg ADMIN_FRONTEND_URL=${ADMIN_FRONTEND_URL}"
+        BUILD_ARGS+=" --build-arg NEXTAUTH_SECRET=${NEXTAUTH_SECRET}"
+        BUILD_ARGS+=" --build-arg OIDC_ADMIN_CLIENT_ID=${OIDC_ADMIN_CLIENT_ID}"
+        BUILD_ARGS+=" --build-arg OIDC_ADMIN_CLIENT_SECRET=${OIDC_ADMIN_CLIENT_SECRET}"
+        BUILD_ARGS+=" --build-arg BACKEND_URL=${BACKEND_URL}"
+    fi
     
     echo "$BUILD_ARGS"
 }
@@ -260,24 +258,24 @@ check_deployment_prerequisites() {
 get_env_config() {
     local ENV_NAME=$1
     
+    # Always use the same project and region for revision-based deployment
+    export PROJECT_ID="epsx-469400"
+    export REGION="us-central1"
+    export REGISTRY="us-central1-docker.pkg.dev"
+    
+    # Environment-specific resource allocation
     case $ENV_NAME in
         "development")
-            export PROJECT_ID="epsx-469400"  # Use production project for development services
-            export URL_SUFFIX="dev-"
             export RESOURCES_BACKEND="--memory=1Gi --cpu=1 --min-instances=0 --max-instances=3"
             export RESOURCES_FRONTEND="--memory=1Gi --cpu=1 --min-instances=0 --max-instances=3"
             export RESOURCES_ADMIN="--memory=1Gi --cpu=1 --min-instances=0 --max-instances=3"
             ;;
         "staging")
-            export PROJECT_ID="epsx-staging"
-            export URL_SUFFIX="staging-"
-            export RESOURCES_BACKEND="--memory=2Gi --cpu=2 --min-instances=1 --max-instances=5"
-            export RESOURCES_FRONTEND="--memory=1Gi --cpu=1 --min-instances=1 --max-instances=5"
-            export RESOURCES_ADMIN="--memory=1Gi --cpu=1 --min-instances=1 --max-instances=3"
+            export RESOURCES_BACKEND="--memory=2Gi --cpu=2 --min-instances=0 --max-instances=5"
+            export RESOURCES_FRONTEND="--memory=1Gi --cpu=1 --min-instances=0 --max-instances=5"
+            export RESOURCES_ADMIN="--memory=1Gi --cpu=1 --min-instances=0 --max-instances=3"
             ;;
         "production")
-            export PROJECT_ID="epsx-469400"  # Your existing production project
-            export URL_SUFFIX=""
             export RESOURCES_BACKEND="--memory=4Gi --cpu=4 --min-instances=1 --max-instances=10"
             export RESOURCES_FRONTEND="--memory=2Gi --cpu=2 --min-instances=1 --max-instances=10"
             export RESOURCES_ADMIN="--memory=2Gi --cpu=2 --min-instances=1 --max-instances=10"
@@ -288,13 +286,11 @@ get_env_config() {
             ;;
     esac
     
-    export REGION="us-central1"
-    export REGISTRY="us-central1-docker.pkg.dev"
-    
-    print_status "Configuration loaded for $ENV_NAME environment"
+    print_status "Configuration loaded for $ENV_NAME environment (revision-based deployment)"
     print_info "Project ID: $PROJECT_ID"
     print_info "Region: $REGION"
     print_info "Registry: $REGISTRY"
+    print_info "Deployment Mode: Single service with revision tags"
 }
 
 # Export functions for use in other scripts

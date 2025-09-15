@@ -8,8 +8,12 @@ import './globals.css';
 import { AdminAuthWrapper } from '@/components/providers/AdminAuthWrapper';
 import { ErrorBoundary } from '@/components/providers/ErrorBoundary';
 import { ServiceWorkerInitializer } from '@/components/ServiceWorkerInitializer';
+import { initializeRuntimeEnvironment } from '@/shared/utils/runtime-env-validator';
 import { Toaster } from 'react-hot-toast';
 import { Metadata, Viewport } from 'next';
+
+// Initialize runtime environment validation
+initializeRuntimeEnvironment();
 
 export const metadata: Metadata = {
   title: 'EPSX Admin',

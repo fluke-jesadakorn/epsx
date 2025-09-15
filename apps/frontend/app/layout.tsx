@@ -4,9 +4,13 @@ import { ClientProviders } from '@/components/providers/ClientProviders';
 import { type EPSXJWTPayload } from '@/lib/auth-utils';
 import { getAuthUser } from '@/lib/server/auth';
 import { getNotifications, type NotificationData } from '@/lib/actions/notification-actions';
+import { initializeRuntimeEnvironment } from '@/shared/utils/runtime-env-validator';
 import { Kanit } from 'next/font/google';
 import { Toaster } from 'sonner';
 import './globals.css';
+
+// Initialize runtime environment validation
+initializeRuntimeEnvironment();
 
 export const dynamic = 'force-dynamic';
 
