@@ -5,6 +5,7 @@
  */
 
 import { env } from '@/config/env';
+import { getBackendUrl } from '../../../../shared/utils/url-resolver';
 
 // Core API Types
 export interface ApiResponse<T = any> {
@@ -248,27 +249,7 @@ export class UnifiedAdminClient {
   }
 
   private getBackendUrl(): string {
-    // Try environment variables in order of preference
-    if (process.env.NEXT_PUBLIC_BACKEND_URL) {
-      return process.env.NEXT_PUBLIC_BACKEND_URL;
-    }
-    
-    // Try unified schema (safe access)
-    try {
-      if (env.BACKEND_URL) {
-        return env.BACKEND_URL;
-      }
-    } catch (error) {
-      // Unified schema validation failed, continue with fallbacks
-    }
-
-    // Development fallback
-    if (process.env.NODE_ENV === 'development') {
-      return 'http://localhost:8080';
-    }
-    
-    // Production requires explicit configuration
-    throw new Error('NEXT_PUBLIC_BACKEND_URL is required in production environment');
+    return getBackendUrl('client');
   }
 
   // Core HTTP Methods

@@ -12,7 +12,6 @@ use super::authorization::{authorization_endpoint, handle_authorization_form, re
 use super::revocation::revoke_token;
 use super::introspection::introspect_token;
 use super::session::oidc_logout;
-use super::token_exchange::exchange_firebase_token;
 
 /// Create OIDC routes with container
 pub fn create_oidc_routes(_container: Arc<AppContainer>) -> Router {
@@ -40,9 +39,6 @@ pub fn oidc_routes() -> Router<AppState> {
         .route("/oauth/token", post(oidc_token))
         .route("/oauth/userinfo", get(oidc_userinfo))
         .route("/oauth/jwks", get(jwks_endpoint))
-        
-        // Token Exchange Endpoints (Firebase Integration)
-        .route("/api/v1/oidc/token/exchange", post(exchange_firebase_token))
         
         // Registration and Password Reset Endpoints
         .route("/oauth/register", get(register_endpoint).post(handle_registration_form))

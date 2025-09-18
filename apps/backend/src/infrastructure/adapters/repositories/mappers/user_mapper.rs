@@ -7,7 +7,7 @@ use crate::domain::shared_kernel::DomainResult;
 use crate::domain::user_management::{
     User, Email, FirebaseUid, Permission
 };
-use crate::infrastructure::adapters::repositories::diesel::models::{DieselUser, NewDieselUser, UpdateDieselUser};
+use crate::infrastructure::adapters::repositories::diesel_types::{DieselUser, NewDieselUser, UpdateDieselUser};
 
 /// Maps between domain User aggregate and database models
 pub struct UserMapper;

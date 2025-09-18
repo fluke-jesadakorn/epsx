@@ -5,6 +5,8 @@ use uuid::Uuid;
 
 use tracing::{info, warn};
 
+use crate::infrastructure::adapters::repositories::diesel_types::{RefreshTokenRepository, RevokedTokenRepository, RefreshToken, NewRefreshToken};
+
 use sha2::{Sha256, Digest};
 
 use base64::{engine::general_purpose, Engine};
@@ -16,11 +18,14 @@ use serde::{Serialize, Deserialize};
 
 use crate::core::errors::{AppResult, AppError};
 
+// TODO: Re-enable after SQLx migration
+/*
 use crate::infrastructure::adapters::repositories::diesel::{
 
     models::{RefreshToken, NewRefreshToken},
     repos::{RefreshTokenRepository, RevokedTokenRepository},
 };
+*/
 use crate::auth::session_security_service::DeviceFingerprint;
 
 
@@ -169,36 +174,21 @@ impl RefreshTokenService {
 
         // TODO: NewRefreshToken struct only has 4 fields (id, user_id, token_hash, expires_at)
         // Additional fields like device_info, ip_address, user_agent would need to be added to schema
-        let token_id = uuid::Uuid::new_v4();
+        let _token_id = uuid::Uuid::new_v4();
         let _new_token = NewRefreshToken {
-            id: token_id,
-            user_id: request.user_id.clone(),
-            token_hash: token_hash.clone(),
-            family_id: uuid::Uuid::new_v4(),
+            token: token_hash.clone(),
+            user_id: uuid::Uuid::parse_str(&request.user_id).map_err(|_| crate::core::errors::AppError::new(crate::core::errors::ErrorKind::ValidationError, "Invalid user ID format"))?,
             expires_at: expires_at,
-            device_info: None,
-            ip_address: None,
-            user_agent: None,
-            is_revoked: false,
         };
 
         // TODO: Implement create method in RefreshTokenRepository
         // For now, create a mock token record with actual RefreshToken fields
         let token_record = RefreshToken {
             id: uuid::Uuid::new_v4(),
-            user_id: request.user_id.clone(),
-            token_hash,
-            family_id: uuid::Uuid::new_v4(),
+            token: token_hash,
+            user_id: uuid::Uuid::parse_str(&request.user_id).map_err(|_| crate::core::errors::AppError::new(crate::core::errors::ErrorKind::ValidationError, "Invalid user ID format"))?,
             expires_at: expires_at,
             created_at: chrono::Utc::now(),
-            updated_at: chrono::Utc::now(),
-            last_used_at: None,
-            device_info: None,
-            ip_address: None,
-            user_agent: None,
-            is_revoked: false,
-            revoked_at: None,
-            revoked_reason: None,
         };
 
         info!("Created refresh token {} for user {} (family_id: {})", 

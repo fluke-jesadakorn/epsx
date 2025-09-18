@@ -4,9 +4,10 @@ import { createPaymentService } from '@/services/payment.service';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createApiClient, isApiError } from '@/lib/api-client';
+import { getBackendUrl } from '../../../../shared/utils/url-resolver';
 
 const paymentService = createPaymentService();
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+const BACKEND_URL = getBackendUrl('server');
 const apiClient = createApiClient(BACKEND_URL);
 
 export async function createDepositAddress(

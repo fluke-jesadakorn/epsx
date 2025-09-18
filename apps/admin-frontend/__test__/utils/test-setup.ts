@@ -23,6 +23,7 @@ import {
   TestUtilities,
   type TestUser
 } from '../fixtures/admin-test-fixtures';
+import { getBackendUrl, getAdminUrl } from '../../../shared/utils/url-resolver';
 
 // ============================================================================
 // Extended Test Fixtures
@@ -270,7 +271,7 @@ export class AuthenticationHelper {
           const url = window.location.href;
           return !url.includes('/login') && 
                  !url.includes('/oauth/authorize') && 
-                 url.includes('localhost:3001');
+                 (url.includes('localhost:3001') || url.includes('admin.epsx.io'));
         },
         { timeout: 30000 }
       );
@@ -352,7 +353,7 @@ export class SecurityTestHelper {
   private request: APIRequestContext;
   private baseUrl: string;
 
-  constructor(request: APIRequestContext, baseUrl: string = 'http://localhost:8080') {
+  constructor(request: APIRequestContext, baseUrl: string = getBackendUrl('server')) {
     this.request = request;
     this.baseUrl = baseUrl;
   }

@@ -1,0 +1,89 @@
+# EPSX Backend - Development Environment
+# Deploy: gcloud run services replace deploy/services/development/backend.yaml --region=us-central1 --project=epsx-development
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: backend
+  labels:
+    service: epsx-backend
+    environment: development
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/execution-environment: gen2
+spec:
+  template:
+    metadata:
+      labels:
+        service: epsx-backend
+        environment: development
+      annotations:
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "3"
+        run.googleapis.com/startup-cpu-boost: "true"
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      containerConcurrency: 20
+      timeoutSeconds: 300
+      containers:
+      - name: backend
+        image: us-central1-docker.pkg.dev/epsx-development/epsx/backend:latest
+        ports:
+        - name: http1
+          containerPort: 8080
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+        startupProbe:
+          tcpSocket:
+            port: 8080
+          timeoutSeconds: 10
+          periodSeconds: 15
+          failureThreshold: 8
+        env:
+        - name: ENV
+          value: "${ENV}"
+        - name: RUST_ENV
+          value: "${ENV}"
+        - name: NODE_ENV
+          value: "${ENV}"
+        - name: BACKEND_URL
+          value: "${BACKEND_URL}"
+        - name: FRONTEND_URL
+          value: "${FRONTEND_URL}"
+        - name: ADMIN_FRONTEND_URL
+          value: "${ADMIN_FRONTEND_URL}"
+        - name: NEXT_PUBLIC_OAUTH_CLIENT_ID
+          value: "epsx-frontend"
+        - name: DATABASE_URL
+          value: "postgres://dev-user:dev-password@dev-db:5432/epsx_dev?sslmode=require"
+        - name: NEXTAUTH_SECRET
+          value: "dev-epsx-jwt-secret-2024-secure-32-chars-minimum"
+        - name: OIDC_CLIENT_ID
+          value: "epsx-frontend"
+        - name: OIDC_CLIENT_SECRET
+          value: "dev-oidc-client-secret-replace-this"
+        - name: OIDC_ADMIN_CLIENT_ID
+          value: "epsx-admin"
+        - name: OIDC_ADMIN_CLIENT_SECRET
+          value: "dev-oidc-admin-secret-replace-this"
+        - name: FIREBASE_PROJECT_ID
+          value: "epsx-449804"
+        - name: FIREBASE_PRIVATE_KEY
+          value: "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC6eOraz/7KLz2G\nS9vpKwxt6IlPWK2ozE7301/j7mTAlNe42Oo/S0FmLAjmz1yupZHI40W26weh6m8O\n4TPaU1l7Doa6vyjS7f0OQAX8KS9J/DOvsMTz9Q7rGUPjgrG7ruT548BdszyCGegT\nyFYmILa0mebdsk3za0u1Hdm3j4K/wkn0YdLYiffOVq5azp9ZKMio8/fyw4NkN1hH\nVxibDkp4+lLBq2m/gkWcHic79g6CzLz98B7h0EcRIq+u9Hxm92PpQYhZfyPDpdsP\nTh5yPZ4VF0H7TVuCAxTekAAkrfQBFFN1NmLGIr416gnLBGK49GYNZVi+fU8k9atm\nf51/gawDAgMBAAECggEARW08v9A+JGf3R7eZvpQNEiTIbtbs/VJoOmQkKRh6wasJ\nMGTuvjcWN+TAQbNF5i51+24G6EZUdqfyxn75j9mFkMgFSKVgnTwHglU7BToORcUV\nN14gzlXYwpaLDLt90guZbCKsXhacOjJMEoV98b8vV0mPx84ZsL4rl1jwVSQlAaDA\nVZODZ0Qyu0nl2X+lKyIZkZwulNFLFS8lFIaW0vhUa8D6BjPJt3isjEhLz03+r3hO\nEeUmeWNvlZIjAWD8Re7LYjTBwSG2rIkd9tz9qt9E90IGbQuzrs8N6dRfs9EVh+e\nK+4t9mLH8+z1G4heK617xJ6+Qo4cAxNRGzAPzthioQKBgQD43rIJSeQQLKZGdM8l\n6/sZ36mDZAvHEnE0gM09jcVH0BSAqALEZWvS2ESq+nsxiyIIs0Eby5GUCFJ7OwqX\nGpoDKT0upvxIeGZooXFAjVdEUk3JOEU4EDJ0P4XwsHcX6pa8RDxsfb6jsahVY9tU\ndOMLcekJ2t9DPCmzpipMcGiaIwKBgQC/0JMuprb20tSQTCDcrzm1kSBx6eK8h40t\nmrf2aHiiAqeDdBJu9fZdZOWmP09q5zywlQFUjz9+yD9uxF98XZRjQpBVcHtV4sRz\nzw1rIW/QZrznNv4KSWKaSRYqhVrUHuJkA0l/+UQjLN4vt0juqizxL9IewCbkkbfm\nlO7cb3oUoQKBgB6RrCi77MmX0mzBGFi+Hb/V20qKVXAEcedTEuLGsT7a7knHWV+q\nXY4uhnDCB7PUNUAAVLUHUkBurUL5w5k/6T8OJ7e9RyvXriyX+ANH2TpJKcjXopj6\nVFg3HUqtQlOruwwxDYL+BxawUc77TwuWt/TF7ywIuHfXwf+RH4z4GcElAoGBAL5K\n9QlOGavKw1iYPe3R5KWtYYvBZdB1hejdWm4ZfLv1eCxgZb0xRIWpCG+i1W4QE9R3\nLseuCWcE0HFaXgRqbkD/E2O/4Iv3GcBuhDhpBp2wnu2fT+3ymeDIazYp8E8KiLyB\nylQsfZ2L8K1T3wXvTADG2WTqamtN6SzXShTkfy+hAoGBAPV1WQGDKuaikEupWYWV\nFvjBaDKezVP9ADFfk+YSfBRyEFz1OynyQiCd3+PFMk2uheCFb87vjGN/51iq6y+R\nspMIPP5hsZUT/Z2MpzbgbQyqx+kW/G4SIvq2ekU6KlMDCERmqoINkGV2YDrDBDY7\nln+q6gImQYOc4YbljYKCYM+S\n-----END PRIVATE KEY-----"
+        - name: FIREBASE_CLIENT_EMAIL
+          value: "firebase-adminsdk-fbsvc@epsx-449804.iam.gserviceaccount.com"
+        - name: DATABASE_ACQUIRE_TIMEOUT
+          value: "30"
+        - name: DATABASE_MAX_CONNECTIONS
+          value: "2"
+        - name: DATABASE_IDLE_TIMEOUT
+          value: "180"
+        - name: SKIP_DB_TEST
+          value: "false"
+        - name: RUST_LOG
+          value: "debug"
+  traffic:
+  - percent: 100
+    revisionName: backend-manual

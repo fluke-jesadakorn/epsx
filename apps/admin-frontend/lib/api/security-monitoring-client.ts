@@ -1,4 +1,5 @@
 import { fetchWithAuth } from './unified-admin-client';
+import { URL, URLContext, Service } from '../../../../shared/utils/url-resolver';
 
 // Security Event Types
 export interface SecurityEvent {
@@ -107,7 +108,7 @@ export interface UserThreatResponse {
 export class SecurityMonitoringClient {
   private baseUrl: string;
 
-  constructor(baseUrl: string = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080') {
+  constructor(baseUrl: string = URL.get(Service.BACKEND, URLContext.CLIENT)) {
     this.baseUrl = `${baseUrl}/admin/security`;
   }
 

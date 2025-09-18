@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers'
+import { getBackendUrl } from '../../../../shared/utils/url-resolver'
 
 // TypeScript interfaces for notifications
 export interface Notification {
@@ -51,7 +52,7 @@ export async function getUnreadNotifications(): Promise<Notification[]> {
     const token = await getServerAuthToken()
     if (!token) return []
 
-    const response = await fetch(`${process.env.BACKEND_URL}/api/v1/notifications/unread`, {
+    const response = await fetch(`${getBackendUrl('server')}/api/v1/notifications/unread`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -82,7 +83,7 @@ export async function getUserNotifications(limit = 50, offset = 0): Promise<{
     if (!token) return { notifications: [], totalCount: 0, unreadCount: 0 }
 
     const response = await fetch(
-      `${process.env.BACKEND_URL}/api/v1/notifications?limit=${limit}&offset=${offset}`,
+      `${getBackendUrl('server')}/api/v1/notifications?limit=${limit}&offset=${offset}`,
       {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -134,7 +135,7 @@ export async function getNotificationStats(): Promise<NotificationStats> {
       unreadCount: 0
     }
 
-    const response = await fetch(`${process.env.BACKEND_URL}/api/v1/notifications/stats`, {
+    const response = await fetch(`${getBackendUrl('server')}/api/v1/notifications/stats`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -180,7 +181,7 @@ export async function getNotificationPreferences(): Promise<NotificationPreferen
       vibrationEnabled: true
     }
 
-    const response = await fetch(`${process.env.BACKEND_URL}/api/v1/notifications/preferences`, {
+    const response = await fetch(`${getBackendUrl('server')}/api/v1/notifications/preferences`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'

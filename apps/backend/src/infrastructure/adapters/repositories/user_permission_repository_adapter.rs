@@ -1,8 +1,9 @@
+// User Permission Repository Adapter - SQLx Implementation
+// TODO: Implement full user permission functionality with SQLx
+
 use std::sync::Arc;
-use async_trait::async_trait;
-use crate::application::ports::outbound::repository_ports::UserPermissionRepository;
-use crate::domain::shared_kernel::value_objects::UserId;
-use crate::infrastructure::adapters::repositories::diesel::DbPool;
+use sqlx::PgPool;
+use uuid::Uuid;
 
 // Simple error type for legacy permission repository compatibility
 #[derive(Debug)]
@@ -16,51 +17,40 @@ impl std::fmt::Display for LegacyPermissionRepositoryError {
 
 impl std::error::Error for LegacyPermissionRepositoryError {}
 
-/// Concrete implementation of UserPermissionRepository using Diesel ORM
+/// User Permission Repository Adapter - SQLx Implementation
+#[derive(Clone)]
 pub struct UserPermissionRepositoryAdapter {
-    pool: Arc<DbPool>,
+    _db_pool: Arc<PgPool>,
 }
-
-unsafe impl Send for UserPermissionRepositoryAdapter {}
-unsafe impl Sync for UserPermissionRepositoryAdapter {}
 
 impl UserPermissionRepositoryAdapter {
-    pub fn new(pool: Arc<DbPool>) -> Self {
-        Self { pool }
+    pub fn new(db_pool: Arc<PgPool>) -> Self {
+        Self { _db_pool: db_pool }
     }
-}
 
-#[async_trait]
-impl UserPermissionRepository for UserPermissionRepositoryAdapter {
-    type Error = LegacyPermissionRepositoryError;
-    
-    async fn get_user_permissions(&self, _user_id: &UserId) -> Result<Vec<String>, Self::Error> {
-        // Placeholder implementation
-        // In a real implementation, this would query the database for user permissions
+    pub async fn get_user_permissions(
+        &self,
+        _user_id: Uuid,
+    ) -> Result<Vec<String>, LegacyPermissionRepositoryError> {
+        // TODO: Implement with SQLx
         Ok(vec![])
     }
-    
-    async fn set_user_permissions(&self, _user_id: &UserId, _permissions: &[String]) -> Result<(), Self::Error> {
-        // Placeholder implementation
-        // In a real implementation, this would update the database with the new permissions
+
+    pub async fn add_user_permission(
+        &self,
+        _user_id: Uuid,
+        _permission: String,
+    ) -> Result<(), LegacyPermissionRepositoryError> {
+        // TODO: Implement with SQLx
         Ok(())
     }
-    
-    async fn add_user_permission(&self, _user_id: &UserId, _permission: &str) -> Result<(), Self::Error> {
-        // Placeholder implementation
-        // In a real implementation, this would add a permission to the database
+
+    pub async fn remove_user_permission(
+        &self,
+        _user_id: Uuid,
+        _permission: String,
+    ) -> Result<(), LegacyPermissionRepositoryError> {
+        // TODO: Implement with SQLx
         Ok(())
-    }
-    
-    async fn remove_user_permission(&self, _user_id: &UserId, _permission: &str) -> Result<(), Self::Error> {
-        // Placeholder implementation
-        // In a real implementation, this would remove a permission from the database
-        Ok(())
-    }
-    
-    async fn has_permission(&self, _user_id: &UserId, _permission: &str) -> Result<bool, Self::Error> {
-        // Placeholder implementation
-        // In a real implementation, this would check if the user has the specified permission
-        Ok(false)
     }
 }

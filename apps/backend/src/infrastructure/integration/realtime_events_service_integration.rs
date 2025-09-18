@@ -6,7 +6,7 @@ use std::sync::Arc;
 use crate::domain::realtime_events::{
     RealtimeEvent, EventStatus, EventPriority, RealtimeEventError,
     EventPayload, NotificationLevel, RealtimeUserId,
-    ConnectionId, ConnectionRepositoryPort, EventRepositoryPort,
+    ConnectionId, EventRepositoryPort,
     value_objects::{ConnectionInfo, ConnectionType}
 };
 use crate::infrastructure::adapters::repositories::{
@@ -198,8 +198,9 @@ impl RealtimeEventsServiceIntegration {
 
         // Store connection
         self.connection_repository
-            .store_connection(&connection_id, &realtimeuser_id, connection_info)
-            .await?;
+            .store_connection(connection_id.as_str(), uuid::Uuid::parse_str(&realtimeuser_id.to_string()).unwrap(), connection_info)
+            .await
+            .map_err(|e| format!("Failed to store connection: {:?}", e))?;
 
         tracing::info!(
             connection_id = %connection_id.to_string(),
@@ -219,7 +220,8 @@ impl RealtimeEventsServiceIntegration {
     pub async fn remove_connection(&self, connection_id: String) -> Result<(), String> {
         let conn_id = ConnectionId::from_string(connection_id.clone())
             .map_err(|e| format!("Invalid connection ID: {:?}", e))?;
-        self.connection_repository.remove_connection(&conn_id).await?;
+        self.connection_repository.remove_connection(conn_id.as_str()).await
+            .map_err(|e| format!("Failed to remove connection: {:?}", e))?;
 
         tracing::info!(
             connection_id = connection_id,

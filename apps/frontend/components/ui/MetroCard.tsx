@@ -1,7 +1,7 @@
 'use client';
 
-import { motion } from 'framer-motion';
 import { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 
 interface MetroCardProps {
   variant?: 'pancake' | 'admin' | 'analytics';
@@ -54,47 +54,25 @@ export function MetroCard({
   };
 
   return (
-    <motion.div
-      className={`
-        relative 
-        ${style.bg} 
-        ${style.text}
-        ${glassmorphism ? 'backdrop-blur-xl' : ''} 
-        p-6 
-        shadow-lg 
-        ${style.shadow}
-        overflow-hidden
-        ${className}
-      `}
-      whileHover={hover ? { y: -4, scale: 1.01 } : {}}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
+    <div
+      className={cn(
+        'relative p-6 shadow-lg overflow-hidden',
+        style.bg,
+        style.text,
+        style.shadow,
+        glassmorphism && 'backdrop-blur-xl',
+        hover && 'hover:shadow-xl transition-shadow duration-300',
+        className
+      )}
     >
       {/* Accent Bar */}
-      <motion.div
-        className={`absolute ${accentPositions[accent]} ${style.accent} z-10`}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.2, duration: 0.5 }}
-      />
-
-      {/* Windows Phone Live Tile Effect */}
-      <motion.div
-        className="absolute inset-0 opacity-5"
-        animate={{
-          background: [
-            'linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%)',
-            'linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.1) 60%, transparent 80%)',
-            'linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%)'
-          ]
-        }}
-        transition={{ duration: 4, repeat: Infinity }}
-      />
+      <div className={cn('absolute z-10', accentPositions[accent], style.accent)} />
 
       {/* Content */}
       <div className="relative z-5">
         {children}
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -146,23 +124,14 @@ export function MetroStatsCard({
       <div className="flex items-start justify-between">
         <div className="flex-1">
           {icon && (
-            <motion.div 
-              className="text-2xl mb-2"
-              animate={{ scale: [1, 1.1, 1] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
+            <div className="text-2xl mb-2">
               {icon}
-            </motion.div>
+            </div>
           )}
           
-          <motion.div 
-            className="text-3xl font-bold mb-1"
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.3, type: 'spring' }}
-          >
+          <div className="text-3xl font-bold mb-1">
             {value}
-          </motion.div>
+          </div>
           
           {label && (
             <div className="text-sm opacity-70 font-medium">
@@ -172,15 +141,10 @@ export function MetroStatsCard({
         </div>
 
         {trend && percentage && (
-          <motion.div 
-            className={`flex items-center space-x-1 ${trendColors[trend]}`}
-            initial={{ x: 20, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ delay: 0.5 }}
-          >
+          <div className={cn('flex items-center space-x-1', trendColors[trend])}>
             <span>{trendIcons[trend]}</span>
             <span className="text-sm font-medium">{percentage}</span>
-          </motion.div>
+          </div>
         )}
       </div>
     </MetroCard>
@@ -210,12 +174,9 @@ export function MetroListCard({ variant = 'pancake', items, title }: MetroListCa
       
       <div className="space-y-3">
         {items.map((item, index) => (
-          <motion.div
+          <div
             key={index}
             className="flex items-center justify-between py-2 border-b border-gray-200/20 last:border-b-0"
-            initial={{ x: -20, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ delay: index * 0.1 }}
           >
             <div className="flex items-center space-x-3">
               {item.icon && (
@@ -232,7 +193,7 @@ export function MetroListCard({ variant = 'pancake', items, title }: MetroListCa
             {item.action && (
               <span className="text-sm opacity-70">{item.action}</span>
             )}
-          </motion.div>
+          </div>
         ))}
       </div>
     </MetroCard>

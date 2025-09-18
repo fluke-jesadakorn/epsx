@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateUserSession, canAccessUserPath } from '@/lib/session-validator';
 import { devLog, authLogger, logger } from '@/lib/logger';
+import { getBackendUrl, getFrontendUrl } from '../../shared/utils/url-resolver';
 
 // Public routes that don't require authentication
 const publicRoutes = [
@@ -221,10 +222,8 @@ export async function middleware(request: NextRequest) {
  * Create redirect response to backend login for trading platform users
  */
 function redirectToLogin(request: NextRequest): NextResponse {
-  const backendUrl = process.env.NEXT_PUBLIC_API_URL || 
-                    process.env.NEXT_PUBLIC_BACKEND_URL || 
-                    'http://localhost:8080';
-  const frontendUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const backendUrl = getBackendUrl('client');
+  const frontendUrl = getFrontendUrl('client');
   const callbackUrl = `${frontendUrl}${request.nextUrl.pathname}${request.nextUrl.search}`;
   
   const loginUrl = new URL('/oauth/authorize', backendUrl);
@@ -264,9 +263,7 @@ async function logSecurityEvent(event: {
   details: SecurityEventDetails
 }): Promise<void> {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 
-                      process.env.NEXT_PUBLIC_BACKEND_URL || 
-                      'http://localhost:8080';
+    const backendUrl = getBackendUrl('client');
     
     const response = await fetch(`${backendUrl}/api/security/events`, {
       method: 'POST',
@@ -309,9 +306,7 @@ async function recordPerformanceMetrics(metrics: {
   totalRequestTime: number
 }): Promise<void> {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 
-                      process.env.NEXT_PUBLIC_BACKEND_URL || 
-                      'http://localhost:8080';
+    const backendUrl = getBackendUrl('client');
     
     const response = await fetch(`${backendUrl}/api/security/metrics`, {
       method: 'POST',

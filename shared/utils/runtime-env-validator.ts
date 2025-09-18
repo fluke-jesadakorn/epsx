@@ -4,6 +4,8 @@
  * Works with Cloud Run environment variables (no build-time coupling)
  */
 
+import { getBackendUrl, getFrontendUrl, getAdminUrl } from './url-resolver';
+
 export interface ValidationResult {
   isValid: boolean;
   errors: string[];
@@ -110,9 +112,9 @@ export function getRuntimeEnvironment(isDevelopment = false): RequiredEnvVars & 
 
   return {
     // Required variables with development fallbacks
-    NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL || (isDevelopment ? 'http://localhost:8080' : ''),
-    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || (isDevelopment ? 'http://localhost:3000' : ''),
-    NEXT_PUBLIC_ADMIN_URL: process.env.NEXT_PUBLIC_ADMIN_URL || (isDevelopment ? 'http://localhost:3001' : ''),
+    NEXT_PUBLIC_BACKEND_URL: getBackendUrl('client'),
+    NEXT_PUBLIC_APP_URL: getFrontendUrl('client'),
+    NEXT_PUBLIC_ADMIN_URL: getAdminUrl('client'),
     NEXT_PUBLIC_OAUTH_CLIENT_ID: process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || (isDevelopment ? 'epsx-frontend' : ''),
     
     // Optional Firebase variables

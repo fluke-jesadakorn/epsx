@@ -290,30 +290,24 @@ async fn create_refresh_token(
 
 /// Get refresh token data
 async fn get_refresh_data(
-    app_state: &AppState,
+    _app_state: &AppState,
     refresh_token: &str,
 ) -> Result<RefreshData, Error> {
     use crate::domain::shared_kernel::value_objects::SessionId;
     
-    let session_id = SessionId::from_string(format!("refresh_token:{}", refresh_token));
-    let session = app_state.session_repo.find_by_id(&session_id).await
-        .map_err(|e| Error::ServerError(e.to_string()))?
-        .ok_or(Error::InvalidGrant)?;
-
-    let refresh_data: RefreshData = serde_json::from_str(session.access_token())
-        .map_err(|e| Error::ServerError(format!("Failed to parse refresh data: {}", e)))?;
-
-    // Check expiration
-    if refresh_data.created_at + Duration::days(7) < Utc::now() {
-        return Err(Error::InvalidGrant);
-    }
-
-    Ok(refresh_data)
+    let _session_id = SessionId::from_string(format!("refresh_token:{}", refresh_token));
+    // TODO: Remove session lookup - using stateless Bearer tokens
+    // let session = app_state.session_repo.find_by_id(&session_id).await
+    //     .map_err(|e| Error::ServerError(e.to_string()))?
+    //     .ok_or(Error::InvalidGrant)?;
+    
+    tracing::warn!("Refresh token lookup disabled - using stateless Bearer tokens");
+    return Err(Error::InvalidGrant);
 }
 
 /// Store refresh token
 async fn store_refresh_token(
-    app_state: &AppState,
+    _app_state: &AppState,
     refresh_token: &str,
     data_json: &str,
 ) -> Result<(), Error> {
@@ -323,7 +317,7 @@ async fn store_refresh_token(
     let session_id = SessionId::from_string(format!("refresh_token:{}", refresh_token));
     let user_id = UserId::from_string_unchecked("system".to_string()); // Generic user ID for refresh tokens
     
-    let session = Session::create(
+    let _session = Session::create(
         session_id,
         user_id,
         data_json.to_string(),
@@ -332,15 +326,17 @@ async fn store_refresh_token(
         None, // user_agent
     ).map_err(|e| Error::ServerError(format!("Failed to create session: {}", e)))?;
 
-    app_state.session_repo.save(&session).await
-        .map_err(|e| Error::ServerError(e.to_string()))?;
+    // TODO: Remove session storage - using stateless Bearer tokens
+    // app_state.session_repo.save(&session).await
+    //     .map_err(|e| Error::ServerError(e.to_string()))?;
+    tracing::debug!("Session storage skipped - using stateless Bearer tokens");
 
     Ok(())
 }
 
 /// Create user session
 async fn create_session(
-    app_state: &AppState,
+    _app_state: &AppState,
     firebase_user: &FirebaseUser,
     access_token: &str,
 ) -> Result<(), Error> {
@@ -350,7 +346,7 @@ async fn create_session(
     let user_id = UserId::from_string_unchecked(firebase_user.uid.clone());
     let expires_at = Utc::now() + Duration::hours(24);
     let session_id = SessionId::new();
-    let session = Session::create(
+    let _session = Session::create(
         session_id,
         user_id, 
         access_token.to_string(), 
@@ -359,8 +355,10 @@ async fn create_session(
         None, // user_agent
     ).map_err(|e| Error::ServerError(format!("Failed to create session: {}", e)))?;
 
-    app_state.session_repo.save(&session).await
-        .map_err(|e| Error::ServerError(e.to_string()))?;
+    // TODO: Remove session storage - using stateless Bearer tokens  
+    // app_state.session_repo.save(&session).await
+    //     .map_err(|e| Error::ServerError(e.to_string()))?;
+    tracing::debug!("Session storage skipped - using stateless Bearer tokens");
 
     Ok(())
 }

@@ -1,5 +1,7 @@
 'use server';
 
+import { URL, URLContext, Service } from '../../../../shared/utils/url-resolver';
+
 interface StockRanking {
   rank: number;
   symbol: string;
@@ -31,7 +33,7 @@ interface ApiResponse {
 // Fetch data for PublicRankingPreview (StockFinancialData format) - Public ranks 101-105
 export async function fetchPublicRankingData(page = 1, limit = 5) {
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const apiUrl = URL.get(Service.BACKEND, URLContext.SERVER);
     // Start from rank 101 (page 21 with 5 per page: (21-1)*5 + 1 = 101)
     const publicPage = Math.floor(100 / limit) + page;
     const url = `${apiUrl}/api/v1/analytics/rankings?page=${publicPage}&limit=${limit}&sort_by=market_cap`;
@@ -87,7 +89,7 @@ export async function fetchPublicRankingData(page = 1, limit = 5) {
 // Fetch data for ClientEpsCardSection (TableDataMetrics format) - Public ranks 101-103
 export async function fetchEpsCardData(page = 1, limit = 3) {
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const apiUrl = URL.get(Service.BACKEND, URLContext.SERVER);
     // Start from rank 101 (page 34 with 3 per page: (34-1)*3 + 1 = 100, so page 35 = 103)
     const publicPage = Math.floor(100 / limit) + page;
     const url = `${apiUrl}/api/v1/analytics/rankings?page=${publicPage}&limit=${limit}&sort_by=market_cap`;

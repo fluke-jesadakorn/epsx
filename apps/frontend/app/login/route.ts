@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { generateCodeChallenge, generateCodeVerifier, generateState } from '@/lib/pkce';
+import { generateCodeChallenge, generateCodeVerifier, generateState } from '../../../../shared/auth/pkce';
+import { URL, URLContext, Service, OIDCEndpoint } from '../../../../shared/utils/url-resolver';
 
 export async function GET(request: NextRequest) {
   // Generate PKCE parameters
@@ -8,15 +9,13 @@ export async function GET(request: NextRequest) {
   const codeChallenge = await generateCodeChallenge(codeVerifier);
   const state = generateState();
   
-  const backendUrl = process.env.NEXT_PUBLIC_API_URL || 
-                    process.env.NEXT_PUBLIC_BACKEND_URL || 
-                    'http://localhost:8080';
-  const frontendUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+  const authorizationEndpoint = URL.oidc(OIDCEndpoint.AUTHORIZE, URLContext.SERVER);
+  const frontendUrl = URL.get(Service.FRONTEND, URLContext.SERVER);
   
   // Get the original URL they were trying to access
   const callbackUrl = request.nextUrl.searchParams.get('callbackUrl') || `${frontendUrl}/analytics`;
   
-  const loginUrl = new URL('/oauth/authorize', backendUrl);
+  const loginUrl = new globalThis.URL(authorizationEndpoint);
   loginUrl.searchParams.set('client_id', 'epsx-frontend');
   loginUrl.searchParams.set('response_type', 'code');
   loginUrl.searchParams.set('scope', 'openid profile email');

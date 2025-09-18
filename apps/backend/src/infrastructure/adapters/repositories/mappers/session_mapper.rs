@@ -7,8 +7,7 @@ use crate::domain::shared_kernel::DomainResult;
 use crate::domain::user_management::{
     Session
 };
-use crate::infrastructure::adapters::repositories::diesel::models::{DieselSession, NewDieselSession, UpdateDieselSession};
-use crate::infrastructure::adapters::repositories::diesel::types::DieselIpAddr;
+use crate::infrastructure::adapters::repositories::diesel_types::{DieselSession, NewDieselSession, UpdateDieselSession, DieselIpAddr};
 
 /// Maps between domain Session aggregate and database models
 pub struct SessionMapper;

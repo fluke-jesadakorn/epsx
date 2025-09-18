@@ -9,6 +9,7 @@
  */
 
 import { Role } from '@/types/admin/roles';
+import { getBackendUrl } from '../../../shared/utils/url-resolver';
 
 // ============================================================================
 // Simple Role Definitions
@@ -669,7 +670,7 @@ export const TEST_ENVIRONMENT_CONFIG: TestEnvironmentConfig = {
     password: process.env.TEST_DB_PASSWORD || 'test_password'
   },
   api: {
-    baseUrl: process.env.TEST_API_BASE_URL || 'http://localhost:8080',
+    baseUrl: process.env.TEST_API_BASE_URL || getBackendUrl('server'),
     timeout: parseInt(process.env.TEST_API_TIMEOUT || '30000')
   },
   auth: {
@@ -691,7 +692,7 @@ export const TEST_ENVIRONMENT_CONFIG: TestEnvironmentConfig = {
 export class MockAPIClient {
   private baseUrl: string;
   
-  constructor(baseUrl: string = 'http://localhost:8080') {
+  constructor(baseUrl: string = getBackendUrl('server')) {
     this.baseUrl = baseUrl;
   }
   

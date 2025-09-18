@@ -243,6 +243,9 @@ impl TemplateFactory {
           "http://localhost:3001/api/auth/callback/epsx-backend",
           "http://localhost:3003/auth/callback",
           "http://localhost:3003/api/auth/callback/epsx-backend",
+          // Production (Cloud Run)
+          "https://admin-307278481624.us-central1.run.app/auth/callback",
+          "https://admin-307278481624.us-central1.run.app/api/auth/callback/epsx-backend",
           // Production (.io domain)
           "https://admin.epsx.io/auth/callback",
           "https://admin.epsx.io/api/auth/callback/epsx-backend",

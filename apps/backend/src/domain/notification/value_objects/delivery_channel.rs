@@ -2,8 +2,36 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
 use std::collections::HashSet;
 
-/// Re-export the existing DeliveryChannel enum from infrastructure
-pub use crate::infrastructure::adapters::repositories::diesel::types::DeliveryChannel as DeliveryChannelType;
+/// Delivery Channel Types - pure domain enums
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum DeliveryChannelType {
+    #[serde(rename = "fcm_push")]
+    FcmPush,
+    #[serde(rename = "push")]
+    Push,
+    #[serde(rename = "in_app")]
+    InApp,
+    #[serde(rename = "email")]
+    Email,
+    #[serde(rename = "sms")]
+    Sms,
+    #[serde(rename = "SMS")]
+    SMS,
+}
+
+impl Display for DeliveryChannelType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            DeliveryChannelType::FcmPush => "FCM Push",
+            DeliveryChannelType::Push => "Push",
+            DeliveryChannelType::InApp => "In-App",
+            DeliveryChannelType::Email => "Email",
+            DeliveryChannelType::Sms => "SMS",
+            DeliveryChannelType::SMS => "SMS",
+        };
+        write!(f, "{}", s)
+    }
+}
 
 /// Delivery Channel Value Object
 /// Wraps the delivery channel type with additional behavior and validation

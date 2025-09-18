@@ -5,6 +5,7 @@
  */
 
 import { test, expect, Page, BrowserContext } from '@playwright/test';
+import { URL, URLContext, Service } from '../../../../shared/utils/url-resolver';
 
 // Test credentials - generic test account
 const TEST_CREDENTIALS = {
@@ -13,9 +14,9 @@ const TEST_CREDENTIALS = {
 };
 
 // Environment configuration
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-const ADMIN_URL = process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001';
+const BASE_URL = URL.get(Service.FRONTEND, URLContext.CLIENT);
+const API_URL = URL.get(Service.BACKEND, URLContext.CLIENT);
+const ADMIN_URL = URL.get(Service.ADMIN, URLContext.CLIENT);
 
 test.describe('📊 Analytics Platform Authentication Complete Flow', () => {
   let context: BrowserContext;

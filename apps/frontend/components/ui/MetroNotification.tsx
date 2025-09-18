@@ -1,7 +1,7 @@
 'use client';
 
-import { motion, AnimatePresence } from 'framer-motion';
 import { useEffect, useState } from 'react';
+import { cn } from '@/lib/utils';
 
 interface MetroNotificationProps {
   type?: 'info' | 'success' | 'warning' | 'error';
@@ -92,110 +92,67 @@ export function MetroNotification({
   const typeStyle = typeStyles[type];
   const variantStyle = variantStyles[variant];
 
-  return (
-    <AnimatePresence>
-      {isVisible && (
-        <motion.div
-          className={`fixed ${positions[position]} z-50 max-w-sm w-full`}
-          initial={{ x: position.includes('right') ? 400 : position.includes('left') ? -400 : 0, y: position.includes('top') ? -100 : position.includes('bottom') ? 100 : 0, opacity: 0 }}
-          animate={{ x: 0, y: 0, opacity: 1 }}
-          exit={{ x: position.includes('right') ? 400 : position.includes('left') ? -400 : 0, y: position.includes('top') ? -100 : position.includes('bottom') ? 100 : 0, opacity: 0 }}
-          transition={{ type: 'spring', damping: 20, stiffness: 300 }}
-        >
-          <motion.div
-            className={`
-              ${variantStyle.bg}
-              ${variantStyle.text}
-              shadow-2xl
-              overflow-hidden
-              border-l-4 ${variantStyle.border}
-              backdrop-blur-xl
-            `}
-            whileHover={{ scale: 1.02, y: -2 }}
-            layout
-          >
-            {/* Windows Phone Live Tile Animation */}
-            <motion.div
-              className="absolute inset-0 opacity-5"
-              animate={{
-                background: [
-                  'linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%)',
-                  'linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.1) 60%, transparent 80%)',
-                  'linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%)'
-                ]
-              }}
-              transition={{ duration: 4, repeat: Infinity }}
-            />
+  if (!isVisible) return null;
 
-            {/* Progress Bar */}
-            <motion.div
-              className={`h-1 ${typeStyle.bg}`}
-              initial={{ width: '100%' }}
-              animate={{ width: '0%' }}
-              transition={{ duration: duration / 1000, ease: 'linear' }}
+  return (
+    <div className={cn('fixed z-50 max-w-sm w-full', positions[position])}>
+      <div
+        className={cn(
+          'shadow-2xl overflow-hidden border-l-4 backdrop-blur-xl',
+          variantStyle.bg,
+          variantStyle.text,
+          variantStyle.border
+        )}
+      >
+
+        {/* Progress Bar */}
+        {duration > 0 && (
+          <div className="h-1 bg-gray-200">
+            <div
+              className={cn('h-1 transition-all duration-75 ease-linear', typeStyle.bg)}
+              style={{ width: `${(duration - (Date.now() - Date.now())) / duration * 100}%` }}
             />
+          </div>
+        )}
 
             <div className="p-4">
               <div className="flex items-start">
                 {/* Icon Section */}
-                <motion.div
-                  className={`${typeStyle.bg} text-white rounded-none w-10 h-10 flex items-center justify-center mr-3 flex-shrink-0`}
-                  animate={{ rotate: [0, 5, 0, -5, 0] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
+                <div className={cn('text-white rounded-none w-10 h-10 flex items-center justify-center mr-3 flex-shrink-0', typeStyle.bg)}>
                   <span className="text-lg font-bold">
                     {icon || typeStyle.icon}
                   </span>
-                </motion.div>
+                </div>
 
                 {/* Content */}
                 <div className="flex-1 min-w-0">
                   {title && (
-                    <motion.h4
-                      className="font-bold text-sm mb-1"
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.1 }}
-                    >
+                    <h4 className="font-bold text-sm mb-1">
                       {title}
-                    </motion.h4>
+                    </h4>
                   )}
-                  <motion.p
-                    className="text-sm opacity-90"
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
-                  >
+                  <p className="text-sm opacity-90">
                     {message}
-                  </motion.p>
+                  </p>
                 </div>
 
                 {/* Close Button */}
-                <motion.button
+                <button
                   onClick={() => {
                     setIsVisible(false);
                     onClose?.();
                   }}
                   className="ml-3 opacity-50 hover:opacity-100 transition-opacity text-lg"
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.9 }}
                 >
                   ×
-                </motion.button>
+                </button>
               </div>
             </div>
 
-            {/* Metro accent strip */}
-            <motion.div
-              className={`h-1 ${typeStyle.accent}`}
-              initial={{ width: '0%' }}
-              animate={{ width: '100%' }}
-              transition={{ duration: 0.5, delay: 0.3 }}
-            />
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+        {/* Metro accent strip */}
+        <div className={cn('h-1 w-full', typeStyle.accent)} />
+      </div>
+    </div>
   );
 }
 
@@ -248,19 +205,21 @@ export function useMetroToast({
 
   const ToastContainer = () => (
     <div className="fixed inset-0 pointer-events-none z-50">
-      <AnimatePresence>
-        {toasts.map((toast, index) => (
-          <motion.div
+      {toasts.map((toast, index) => {
+        const offset = index * 80 + 16;
+        const isTopPosition = position.includes('top');
+        const isRightPosition = position.includes('right');
+        const isCenterPosition = position.includes('center');
+        
+        return (
+          <div
             key={toast.id}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            className="absolute pointer-events-auto"
             style={{
-              position: 'absolute',
-              [position.includes('top') ? 'top' : 'bottom']: `${(index * 80) + 16}px`,
-              [position.includes('right') ? 'right' : position.includes('left') ? 'left' : 'left']: position.includes('center') ? '50%' : '16px',
-              transform: position.includes('center') ? 'translateX(-50%)' : undefined,
-              pointerEvents: 'auto'
+              [isTopPosition ? 'top' : 'bottom']: `${offset}px`,
+              [isCenterPosition ? 'left' : isRightPosition ? 'right' : 'left']: 
+                isCenterPosition ? '50%' : '16px',
+              transform: isCenterPosition ? 'translateX(-50%)' : undefined,
             }}
           >
             <MetroNotification
@@ -269,9 +228,9 @@ export function useMetroToast({
               position="top-right" // Override since we handle positioning manually
               onClose={() => removeToast(toast.id)}
             />
-          </motion.div>
-        ))}
-      </AnimatePresence>
+          </div>
+        );
+      })}
     </div>
   );
 

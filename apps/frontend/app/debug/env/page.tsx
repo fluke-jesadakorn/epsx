@@ -119,7 +119,7 @@ export default function EnvDebugPage() {
           const nextPublicVars = Object.keys(process.env)
             .filter(key => key.startsWith('NEXT_PUBLIC_'))
             .reduce((acc, key) => {
-              acc[key] = process.env![key];
+              acc[key] = process.env[key] || 'undefined';
               return acc;
             }, {} as Record<string, string>);
           console.log('NEXT_PUBLIC_ variables:', nextPublicVars);

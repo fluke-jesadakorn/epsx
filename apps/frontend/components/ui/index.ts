@@ -39,3 +39,39 @@ export {
 
 // Additional UI components that might be needed
 export { LoadingButton, GoogleButton } from './loading-button';
+
+// Professional EPSX Components
+export { 
+  ProfessionalCard,
+  AnalyticsCard,
+  PremiumCard,
+  GlassCard,
+  ProfessionalStatsCard,
+  ProfessionalListCard,
+  ProfessionalFeatureCard
+} from './ProfessionalCard';
+export { 
+  ProfessionalTile, 
+  ProfessionalDashboard,
+  AnalyticsTile,
+  PremiumTile,
+  ProfessionalStatsTile,
+  ProfessionalActionTile
+} from './ProfessionalTile';
+export { 
+  ProfessionalLoader,
+  ProfessionalProgressBar,
+  ProfessionalSkeleton,
+  ProfessionalLoading
+} from './ProfessionalLoader';
+export { 
+  ProfessionalNotification,
+  useProfessionalToast,
+  ProfessionalAlert
+} from './ProfessionalNotification';
+
+// Legacy PancakeSwap components (deprecated - use Professional components instead)
+export { MetroCard } from './MetroCard';
+export { WindowsPhoneTile } from './WindowsPhoneTile';
+export { PancakeSwapLoader, MetroProgressBar, PancakeFlip } from './PancakeSwapLoader';
+export { MetroNotification, useMetroToast } from './MetroNotification';

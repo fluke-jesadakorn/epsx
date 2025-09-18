@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { getFrontendUrl } from '../../shared/utils/url-resolver';
 
 // Simplified environment for testing
 const CI = process.env.CI === 'true';
@@ -21,7 +22,7 @@ export default defineConfig({
   ],
   outputDir: 'test-results',
   use: {
-    baseURL: process.env.FRONTEND_URL || 'http://localhost:3002',
+    baseURL: getFrontendUrl('client'),
     trace: 'on-first-retry',
     screenshot: 'on-failure',
     video: 'retain-on-failure',
@@ -84,6 +85,13 @@ export default defineConfig({
     {
       name: 'production-check',
       testMatch: '**/production-deployment-check.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+    },
+    
+    // Localhost connection resolution verification
+    {
+      name: 'localhost-resolution',
+      testMatch: '**/localhost-connection-resolution-test.spec.ts',
       use: { ...devices['Desktop Chrome'] },
     },
     

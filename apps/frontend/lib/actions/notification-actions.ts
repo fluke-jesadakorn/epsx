@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
+import { getBackendUrl } from '../../../../shared/utils/url-resolver'
 
 export interface NotificationData {
   notifications: Array<{
@@ -34,7 +35,7 @@ export async function getNotifications(): Promise<NotificationData | null> {
       return null;
     }
 
-    const response = await fetch(`${process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/v1/notifications/unread`, {
+    const response = await fetch(`${getBackendUrl('server')}/api/v1/notifications/unread`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -66,7 +67,7 @@ export async function markNotificationAsRead(notificationId: string) {
       throw new Error('Authentication required')
     }
 
-    const response = await fetch(`${process.env.BACKEND_URL}/api/v1/notifications/${notificationId}/read`, {
+    const response = await fetch(`${getBackendUrl('server')}/api/v1/notifications/${notificationId}/read`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -97,7 +98,7 @@ export async function markAllNotificationsAsRead() {
       throw new Error('Authentication required')
     }
 
-    const response = await fetch(`${process.env.BACKEND_URL}/api/v1/notifications/read-all`, {
+    const response = await fetch(`${getBackendUrl('server')}/api/v1/notifications/read-all`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -128,7 +129,7 @@ export async function archiveNotification(notificationId: string) {
       throw new Error('Authentication required')
     }
 
-    const response = await fetch(`${process.env.BACKEND_URL}/api/v1/notifications/${notificationId}/archive`, {
+    const response = await fetch(`${getBackendUrl('server')}/api/v1/notifications/${notificationId}/archive`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -168,7 +169,7 @@ export async function updateNotificationPreferences(preferences: {
       throw new Error('Authentication required')
     }
 
-    const response = await fetch(`${process.env.BACKEND_URL}/api/v1/notifications/preferences`, {
+    const response = await fetch(`${getBackendUrl('server')}/api/v1/notifications/preferences`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -199,7 +200,7 @@ export async function clearNotificationHistory() {
       throw new Error('Authentication required')
     }
 
-    const response = await fetch(`${process.env.BACKEND_URL}/api/v1/notifications/clear-history`, {
+    const response = await fetch(`${getBackendUrl('server')}/api/v1/notifications/clear-history`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,

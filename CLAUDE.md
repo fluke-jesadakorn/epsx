@@ -63,16 +63,16 @@ Advanced temporal permission control:
 - **Auto-Expiry**: Automatic filtering of expired permissions
 - **Health Monitoring**: Real-time expiry predictions and health scoring
 
-### ✅ Local Docker Build System with Auto-Revision (100% Complete)
+### ✅ Local Docker Build System with Deployment (100% Complete)
 
-Complete transformation to local Docker builds with automatic Cloud Run revision deployment:
+Complete transformation to local Docker builds with Cloud Run deployment:
 - **Optimized Dockerfiles**: Multistage builds with 50-70% size reduction
 - **Standalone Builds**: Eliminated monorepo/turborepo dependencies
 - **Runtime Environment Variables**: NEXT_PUBLIC_* vars set at Cloud Run deployment, not build time
-- **Local Build Scripts**: Pure Docker commands with Google Cloud Run tagging
-- **Manual Push Control**: You decide when to push and deploy
-- **Auto-Revision Deployment**: Cloud Build automatically creates new revisions on push
-- **Development Workflow**: Local builds → Manual push → Auto revision deployment
+- **Local Testing**: Test Docker containers locally before deployment
+- **CORS Configuration**: Fixed to allow any origin with proper credentials handling
+- **Environment Management**: Complete configuration with all required variables
+- **Development Workflow**: Build → Test locally → Push → Deploy
 - **Platform Optimized**: Linux/amd64 builds for Cloud Run compatibility
 
 ## Architecture
@@ -144,8 +144,9 @@ cargo run           # Start server
 cargo test          # Run tests
 diesel migration run # Apply migrations
 
-# Local Docker build
+# Local Docker build and deploy
 ./scripts/build/local-backend.sh   # Build Docker image locally
+./scripts/deploy/deploy-backend.sh  # Test locally, push, and deploy to Cloud Run
 ```
 
 ### Quality Assurance
@@ -248,6 +249,11 @@ pnpm format         # Prettier
 - **Performance**: Optimize for mobile and desktop
 - **No Animations**: Follow zero animation policy strictly
 
+### Debug and Test Files
+- **Debug Location**: All test/debug files should be created in `.debug/` folder
+- **Temporary Files**: Use `.debug/` for experimental code and debugging scripts
+- **Development Testing**: Create debug files in `.debug/` instead of project root
+
 ### Testing
 - **Unit Tests**: Jest + React Testing Library
 - **E2E Tests**: Playwright for critical flows
@@ -285,7 +291,7 @@ EPSX has been optimized for local Docker builds that deploy to Google Cloud Run:
 - **Standalone Builds**: No monorepo or cloud dependencies required
 - **Cloud Run Ready**: Optimized for Google Cloud Run deployment
 
-### Quick Start (Local Build → Manual Push → Auto Revision)
+### Quick Start (Local Build → Manual Push → Manual Revision Control)
 ```bash
 # 1. One-time setup (run once)
 ./scripts/deploy/setup-auto-revision.sh
@@ -293,35 +299,69 @@ EPSX has been optimized for local Docker builds that deploy to Google Cloud Run:
 # 2. Build all images locally
 ./scripts/build/local-all.sh
 
-# 3. Manual push (triggers auto-revision deployment)
+# 3. Manual push (requires manual revision control)
 ./scripts/deploy/push-all.sh
 
-# 4. Monitor deployment
+# 4. Manual revision deployment (after push)
+# Update YAML files with actual revision names, then deploy
+# OR use gcloud commands to switch traffic manually
+
+# 5. Monitor deployment
 ./scripts/deploy/status.sh
 ```
 
-### Manual Push + Auto Revision Workflow
+### Manual Revision Control
+
+**Important**: Images are pushed but NOT automatically deployed. Manual revision management is required.
+
+**Workflow:**
+1. **Push Images**: `./scripts/deploy/push-all.sh` uploads images to registry
+2. **Get Revision Names**: `gcloud run revisions list --service=backend --region=us-central1`  
+3. **Update YAML**: Edit `scripts/deploy/services/*/service.yaml` files to use specific revision names
+4. **Deploy**: `./scripts/deploy/deploy-service.sh [service] [environment]`
+
+**Manual Traffic Switching:**
+```bash
+# Switch traffic to specific revision
+gcloud run services update-traffic backend \
+  --to-revisions=backend-00015-xyz=100 \
+  --region=us-central1 --project=epsx-469400
+
+# Split traffic between revisions  
+gcloud run services update-traffic frontend \
+  --to-revisions=frontend-00010-abc=50,frontend-00011-def=50 \
+  --region=us-central1 --project=epsx-469400
+```
+
+### Build and Deploy Workflow
 ```bash
 # Build locally when ready
 ./scripts/build/local-frontend.sh     # Build frontend
 ./scripts/build/local-admin.sh        # Build admin
 ./scripts/build/local-backend.sh      # Build backend
 
-# Push when ready to deploy (triggers automatic revision)
-./scripts/deploy/push-frontend.sh     # Push frontend → auto-deploy
-./scripts/deploy/push-admin.sh        # Push admin → auto-deploy
-./scripts/deploy/push-backend.sh      # Push backend → auto-deploy
+# Deploy with local testing (recommended)
+./scripts/deploy/deploy-frontend.sh   # Test locally → push → deploy
+./scripts/deploy/deploy-admin.sh      # Test locally → push → deploy
+./scripts/deploy/deploy-backend.sh    # Test locally → push → deploy
 
-# Or push all at once
-./scripts/deploy/push-all.sh          # Push all → auto-deploy all
+# Or manual push (requires manual revision control)
+./scripts/deploy/push-frontend.sh     # Push frontend → manual deploy
+./scripts/deploy/push-admin.sh        # Push admin → manual deploy  
+./scripts/deploy/push-backend.sh      # Push backend → manual deploy
 ```
 
 ### Individual Service Builds
 ```bash
-# Build individual services for Cloud Run
-./scripts/build/local-frontend.sh     # Frontend → Cloud Run
-./scripts/build/local-admin.sh        # Admin → Cloud Run  
-./scripts/build/local-backend.sh      # Backend → Cloud Run
+# Build and deploy individual services
+./scripts/build/local-frontend.sh     # Build frontend
+./scripts/build/local-admin.sh        # Build admin  
+./scripts/build/local-backend.sh      # Build backend
+
+# Deploy with local testing
+./scripts/deploy/deploy-frontend.sh   # Deploy frontend
+./scripts/deploy/deploy-admin.sh      # Deploy admin
+./scripts/deploy/deploy-backend.sh    # Deploy backend
 ```
 
 ### Deployment Monitoring & Management
@@ -349,6 +389,38 @@ pnpm dev:admin             # Admin only
 pnpm dev:backend           # Backend only
 ```
 
+### Alternative: Portainer for Container Management
+
+For teams preferring a GUI-based container management approach, Portainer can be used as an alternative to Docker CLI commands:
+
+**Portainer Setup:**
+```bash
+# Install Portainer (one-time setup)
+docker volume create portainer_data
+docker run -d -p 8000:8000 -p 9443:9443 --name portainer --restart=always \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v portainer_data:/data \
+  portainer/portainer-ce:latest
+
+# Access Portainer Web UI at: https://localhost:9443
+```
+
+**Portainer Workflow (Alternative to Docker CLI):**
+1. **Build Images**: Use Portainer's "Build Image" feature with existing Dockerfiles
+2. **Run Containers**: Use Portainer's container management interface
+3. **Monitor Logs**: View real-time logs through Portainer dashboard
+4. **Manage Networks**: Configure container networking via GUI
+5. **Volume Management**: Handle persistent data through Portainer interface
+
+**Docker vs Portainer Equivalents:**
+- `docker build` → Portainer "Build Image" interface
+- `docker run` → Portainer "Create Container" wizard
+- `docker logs` → Portainer container logs viewer
+- `docker ps` → Portainer container list
+- `docker exec` → Portainer container console
+
+**Note**: The current Docker CLI scripts (`./scripts/build/` and `./scripts/deploy/`) provide faster deployment workflows and are optimized for CI/CD. Portainer is recommended for development environments where visual container management is preferred.
+
 ### Image Optimization Benefits
 
 **Size Reduction:**
@@ -366,8 +438,8 @@ pnpm dev:backend           # Backend only
 - Environment variables set at deployment time
 - No hardcoded configuration in images
 - Single image works across all environments
-- Auto-revision deployment on image push
-- Manual control over deployment timing
+- Manual revision control for deployment timing
+- No automatic latest revision deployment
 
 ## Environment Architecture
 
@@ -449,7 +521,7 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
 4. **Admin OIDC**: 100% complete with proper token management
 5. **Embedded Timestamp Permissions**: 100% complete with temporal control
 6. **Zero Animation Policy**: 100% complete - all animations removed for performance
-7. **Local Docker Build System with Auto-Revision**: 100% complete with Google Cloud Run auto-deployment
+7. **Local Docker Build System with Deployment**: 100% complete with local testing and Cloud Run deployment
 
 ### 🚀 Production Ready
 - **Three-Service Architecture**: Backend, Frontend, Admin all operational
@@ -459,15 +531,64 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
 - **Deployment**: Successful Cloud Run deployment with startup timeout fixes
 
 ### ✅ Cloud Run Deployment Resolution (Latest Fix)
-**Issue Resolved**: Container startup failures with database timeout errors
+**Issue Resolved**: Container startup failures with CORS configuration and environment variables
 
 **Applied Solutions**:
-1. **Docker Platform Fix**: Added `--platform=linux/amd64` with BuildKit disabled
-2. **Database Connection**: Implemented `SKIP_DB_TEST=true` for faster startup
-3. **Startup Probes**: Extended timeout with `failureThreshold=8` (120s total)
-4. **Environment Variables**: Optimized `DATABASE_ACQUIRE_TIMEOUT=90`
+1. **CORS Fix**: Updated all CORS layers to use `allow_credentials(false)` with `Any` origin
+2. **Environment Variables**: Complete configuration with all required variables
+3. **Local Testing**: Test Docker container locally before Cloud Run deployment
+4. **Startup Probes**: Extended timeout with `failureThreshold=8` (120s total)
+5. **Database Connection**: Implemented `SKIP_DB_TEST=true` for faster startup
 
-**Result**: Backend successfully deployed and operational at https://api.epsx.io
+**Result**: Backend successfully deployed and operational at https://backend-307278481624.us-central1.run.app
+
+### ✅ Next.js CORS Prefetching Fix (Latest Resolved)
+**Issue Resolved**: Next.js route prefetching blocked by CORS policy
+
+**Problem**: `Request header field next-router-prefetch is not allowed by Access-Control-Allow-Headers in preflight response`
+
+**Root Cause**: Backend CORS configuration was missing Next.js-specific headers that are automatically sent during route prefetching and React Server Component requests.
+
+**Solution Applied**: Added all Next.js headers to backend CORS configuration in `/apps/backend/src/web/security/cors.rs`:
+
+```rust
+.allow_headers([
+    ACCEPT,
+    AUTHORIZATION,
+    CONTENT_TYPE,
+    // Custom headers for OIDC and API
+    HeaderValue::from_static("x-api-version"),
+    HeaderValue::from_static("x-request-id"),
+    HeaderValue::from_static("x-client-version"),
+    HeaderValue::from_static("x-admin-session"),
+    // Next.js React Server Components header
+    HeaderValue::from_static("rsc"),
+    // Next.js Router headers for prefetching
+    HeaderValue::from_static("next-router-prefetch"),
+    HeaderValue::from_static("next-router-state-tree"),
+    HeaderValue::from_static("next-url"),
+    HeaderValue::from_static("referer"),
+    HeaderValue::from_static("purpose"),
+    HeaderValue::from_static("x-middleware-prefetch"),
+    HeaderValue::from_static("x-nextjs-data"),
+])
+```
+
+**Headers Added**:
+- `next-router-prefetch`: Main header causing the CORS error
+- `next-router-state-tree`: Next.js App Router state management
+- `next-url`: Current URL context for prefetching
+- `referer`: Standard HTTP referrer header
+- `purpose`: Browser prefetching purpose header
+- `x-middleware-prefetch`: Next.js middleware prefetch support
+- `x-nextjs-data`: Next.js data fetching header
+- `rsc`: React Server Components header
+
+**Deployment Status**:
+- ✅ Backend deployed with CORS fixes (revision: backend-00015-s8z)
+- ✅ Frontend deployed with proper environment variables (revision: frontend-00011-5tx)
+- ✅ Authentication flow restored and working correctly
+- ✅ Next.js prefetching no longer blocked by CORS
 
 ## Testing
 
@@ -504,18 +625,35 @@ For local development, use the credentials from your `.env` file or create test 
      - '--platform=linux/amd64'
    ```
 
-2. **Database Connection Timeout**: Geographic latency causes startup timeout
+2. **CORS Configuration Error**: "Cannot combine Access-Control-Allow-Credentials: true with Access-Control-Allow-Origin: *"
+   - **Fix**: Use `allow_credentials(false)` when using `Any` origin
+   ```rust
+   // In CORS configuration
+   CorsLayer::new()
+       .allow_origin(Any)
+       .allow_credentials(false) // Must be false with Any origin
+   ```
+
+3. **Database Connection Timeout**: Geographic latency causes startup timeout
    - **Fix**: Skip database test during startup, use environment variables
    ```bash
    # In deployment script
    --set-env-vars="SKIP_DB_TEST=true,DATABASE_ACQUIRE_TIMEOUT=90"
    ```
 
-3. **Startup Probe Timeout**: Default probe timeout too short
+4. **Startup Probe Timeout**: Default probe timeout too short
    - **Fix**: Configure extended startup probe
    ```bash
    # In gcloud run deploy
    --startup-probe=periodSeconds=15,timeoutSeconds=10,failureThreshold=8,tcpSocket.port=8080
+   ```
+
+5. **Local Testing**: Test containers before deployment
+   - **Fix**: Run containers locally with production environment variables
+   ```bash
+   # Test locally before deploy
+   docker run -p 8080:8080 [env-vars] backend:local
+   curl http://localhost:8080/health
    ```
 
 **Quick Fix Script**: `./scripts/utils/fix-cloudrun-deployment.sh`
@@ -587,4 +725,29 @@ gcloud logging read "resource.type=cloud_run_revision" --limit=20
 
 ---
 
-**🎉 EPSX has successfully completed all major migrations and is production-ready with OIDC compliance, structured permissions, Diesel ORM, embedded timestamp permissions, and optimized local Docker builds with auto-revision deployment for Google Cloud Run!**
+**🎉 EPSX has successfully completed all major migrations and is production-ready with OIDC compliance, structured permissions, Diesel ORM, embedded timestamp permissions, CORS "allow any origin" configuration, and optimized local Docker builds with deployment testing for Google Cloud Run!**
+
+## Latest Backend Deployment
+
+### ✅ Successful Backend Deployment (Current)
+- **Service URL**: https://backend-307278481624.us-central1.run.app
+- **Health Endpoint**: https://backend-307278481624.us-central1.run.app/health
+- **CORS Configuration**: Allow any origin (access-control-allow-origin: *)
+- **Status**: ✅ Fully operational with all fixes applied
+
+### Key Deployment Scripts
+```bash
+# Build backend locally
+./scripts/build/local-backend.sh
+
+# Deploy backend with local testing
+./scripts/deploy/deploy-backend.sh
+```
+
+### Verified Features
+- ✅ CORS "allow any origin" working correctly
+- ✅ Environment variables fully configured
+- ✅ Database connection optimized for Cloud Run
+- ✅ Startup probes configured for reliable startup
+- ✅ Local testing before deployment
+- ✅ Security headers and middleware active

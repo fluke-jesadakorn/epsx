@@ -75,10 +75,10 @@ export const serverConfig = {
  * OAuth/OIDC URLs - Uses unified URL helpers
  */
 export const oauthUrls = {
-  authorize: urls.oauth.authorize,
-  token: urls.oauth.token,
-  userinfo: urls.oauth.userinfo,
-  jwks: urls.oauth.jwks,
+  authorize: urls.oidc.authorize,
+  token: urls.oidc.token,
+  userinfo: urls.oidc.userinfo,
+  jwks: urls.oidc.jwks,
   
   // Callback URLs
   callback: urls.callbacks.frontend,

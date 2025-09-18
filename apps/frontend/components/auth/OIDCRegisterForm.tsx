@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Eye, EyeOff, Lock, Mail, User } from 'lucide-react';
+import { URL, URLContext, Service } from '../../../../shared/utils/url-resolver';
 
 interface OIDCRegisterFormProps {
   redirectTo?: string;
@@ -27,7 +28,7 @@ function OIDCRegisterFormComponent({ redirectTo = '/dashboard' }: OIDCRegisterFo
 
     try {
       // POST directly to our backend OIDC registration endpoint
-      const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8082';
+      const backendUrl = URL.get(Service.BACKEND, URLContext.CLIENT);
       const response = await fetch(`${backendUrl}/oauth/register`, {
         method: 'POST',
         headers: {

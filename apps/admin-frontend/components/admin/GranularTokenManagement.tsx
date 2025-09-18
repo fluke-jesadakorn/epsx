@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { AlertTriangle, Clock, Eye, Shield, Trash2, RefreshCcw } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
+import { URL, URLContext, OIDCEndpoint } from '../../../../shared/utils/url-resolver';
 
 interface TokenIntrospectionResult {
   active: boolean
@@ -57,8 +58,8 @@ export function GranularTokenManagement({ userId, className }: GranularTokenMana
     setError(null)
 
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
-      const response = await fetch(`${backendUrl}/oauth/introspect`, {
+      const introspectEndpoint = URL.oidc(OIDCEndpoint.INTROSPECT, URLContext.CLIENT);
+      const response = await fetch(introspectEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
@@ -111,7 +112,7 @@ export function GranularTokenManagement({ userId, className }: GranularTokenMana
     setError(null)
 
     try {
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
+      const introspectEndpoint = URL.oidc(OIDCEndpoint.INTROSPECT, URLContext.CLIENT);
       
       const params: Record<string, string> = {
         token: token.trim(),
@@ -123,7 +124,8 @@ export function GranularTokenManagement({ userId, className }: GranularTokenMana
         params.revoke_type = 'granular'
       }
 
-      const response = await fetch(`${backendUrl}/oauth/revoke`, {
+      const revokeEndpoint = URL.oidc(OIDCEndpoint.REVOKE, URLContext.CLIENT);
+      const response = await fetch(revokeEndpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',

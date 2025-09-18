@@ -1,7 +1,7 @@
 'use client';
 
-import { motion } from 'framer-motion';
 import { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 
 interface WindowsPhoneTileProps {
   size?: 'small' | 'medium' | 'large' | 'wide';
@@ -52,57 +52,33 @@ export function WindowsPhoneTile({
   const style = variantStyles[variant];
 
   return (
-    <motion.div
-      initial={animate ? { scale: 0, opacity: 0 } : {}}
-      animate={animate ? { scale: 1, opacity: 1 } : {}}
-      transition={{ duration: 0.3, delay }}
-      whileHover={{ scale: 1.02, y: -2 }}
-      whileTap={{ scale: 0.98 }}
-      className={`
-        ${sizeClasses[size]}
-        ${style.bg}
-        ${style.text}
-        relative overflow-hidden cursor-pointer
-        shadow-lg hover:shadow-xl transition-shadow duration-300
-        group
-      `}
+    <div
+      className={cn(
+        sizeClasses[size],
+        style.bg,
+        style.text,
+        'relative overflow-hidden cursor-pointer shadow-lg hover:shadow-xl transition-shadow duration-300 group',
+        onClick && 'cursor-pointer'
+      )}
       onClick={onClick}
     >
-      {/* Live Tile Animation Background */}
-      <motion.div
-        className="absolute inset-0 opacity-20"
-        animate={{
-          background: [
-            'linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%)',
-            'linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.1) 60%, transparent 80%)',
-            'linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%)'
-          ]
-        }}
-        transition={{ duration: 3, repeat: Infinity }}
-      />
-
       {/* Badge */}
       {badge && (
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className={`absolute -top-2 -right-2 ${style.accent} text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold z-10`}
-        >
+        <div className={cn(
+          'absolute -top-2 -right-2 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold z-10',
+          style.accent
+        )}>
           {badge}
-        </motion.div>
+        </div>
       )}
 
       {/* Content */}
       <div className="relative z-5 h-full flex flex-col p-3">
         {/* Icon */}
         {icon && (
-          <motion.div
-            className="text-2xl mb-2"
-            animate={animate ? { rotate: [0, 5, 0, -5, 0] } : {}}
-            transition={{ duration: 4, repeat: Infinity, delay: delay + 1 }}
-          >
+          <div className="text-2xl mb-2">
             {icon}
-          </motion.div>
+          </div>
         )}
 
         {/* Children Content */}
@@ -111,20 +87,12 @@ export function WindowsPhoneTile({
         </div>
 
         {/* Bottom accent line */}
-        <motion.div
-          className={`absolute bottom-0 left-0 h-1 ${style.accent}`}
-          initial={{ width: '0%' }}
-          animate={{ width: '100%' }}
-          transition={{ duration: 1, delay: delay + 0.5 }}
-        />
+        <div className={cn('absolute bottom-0 left-0 h-1 w-full', style.accent)} />
       </div>
 
       {/* Hover effect */}
-      <motion.div
-        className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity duration-300"
-        initial={false}
-      />
-    </motion.div>
+      <div className="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity duration-300" />
+    </div>
   );
 }
 
@@ -136,7 +104,7 @@ interface MetroDashboardProps {
 
 export function MetroDashboard({ children, className = '' }: MetroDashboardProps) {
   return (
-    <div className={`grid gap-4 p-4 ${className}`} style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(128px, 1fr))' }}>
+    <div className={cn('grid gap-4 p-4 grid-cols-[repeat(auto-fit,minmax(128px,1fr))]', className)}>
       {children}
     </div>
   );

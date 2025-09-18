@@ -7,14 +7,15 @@ use std::sync::Arc;
 use crate::domain::authentication::{
     UserIdentityServicePort, AuthenticatedUserId
 };
-use crate::application::ports::repositories::{UserRepository, UserPermissionRepository};
+use crate::application::ports::repositories::UserPermissionRepository;
 use crate::domain::shared_kernel::entities::user::User as LegacyUser;
-use crate::domain::shared_kernel::value_objects::{UserId as LegacyUserId, Email as LegacyEmail};
+use crate::domain::shared_kernel::value_objects::UserId as LegacyUserId;
+use crate::domain::user_management::value_objects::Email;
 
 /// User identity service adapter
 pub struct UserIdentityServiceAdapter {
-    /// Legacy user repository (using concrete UserRepositoryAdapter for now)
-    user_repository: Arc<crate::infrastructure::adapters::repositories::user_repository_adapter::UserRepositoryAdapter>,
+    /// User repository through domain port
+    user_repository: Arc<dyn crate::domain::user_management::UserRepositoryPort>,
     
     /// User permissions repository (using LegacyPermissionRepositoryError for std::error::Error compliance)
     permission_repository: Arc<dyn UserPermissionRepository<Error = crate::infrastructure::adapters::repositories::user_permission_repository_adapter::LegacyPermissionRepositoryError>>,
@@ -22,7 +23,7 @@ pub struct UserIdentityServiceAdapter {
 
 impl UserIdentityServiceAdapter {
     pub fn new(
-        user_repository: Arc<crate::infrastructure::adapters::repositories::user_repository_adapter::UserRepositoryAdapter>,
+        user_repository: Arc<dyn crate::domain::user_management::UserRepositoryPort>,
         permission_repository: Arc<dyn UserPermissionRepository<Error = crate::infrastructure::adapters::repositories::user_permission_repository_adapter::LegacyPermissionRepositoryError>>,
     ) -> Self {
         Self {
@@ -145,11 +146,11 @@ impl UserIdentityServicePort for UserIdentityServiceAdapter {
     async fn get_user_by_email(&self, email: &str) -> Result<Option<crate::domain::authentication::repositories::UserProfile>, String> {
         info!(email = email, "Getting user by email");
         
-        // Convert to legacy Email value object for repository
-        let legacy_email = LegacyEmail::new(email.to_string())
+        // Convert to Email value object for repository
+        let domain_email = Email::new(email.to_string())
             .map_err(|e| format!("Invalid email format: {}", e))?;
         
-        match self.user_repository.find_by_email(&legacy_email).await {
+        match self.user_repository.find_by_email(&domain_email).await {
             Ok(Some(legacy_user)) => {
                 let identity_info = self.map_legacy_user_to_identity(&legacy_user);
                 info!(

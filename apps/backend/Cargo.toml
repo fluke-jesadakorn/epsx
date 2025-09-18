@@ -19,6 +19,26 @@ name = "migrate"
 path = "src/bin/migrate.rs"
 required-features = ["cli-tools"]
 
+[[bin]]
+name = "test_sqlx"
+path = "src/bin/test_sqlx.rs"
+required-features = ["postgres"]
+
+[[bin]]
+name = "check_schema"
+path = "src/bin/check_schema.rs"
+required-features = ["postgres"]
+
+[[bin]]
+name = "schema_simple"
+path = "src/bin/schema_simple.rs"
+required-features = ["postgres"]
+
+[[bin]]
+name = "sqlx_backend"
+path = "src/bin/sqlx_backend.rs"
+required-features = ["postgres"]
+
 # Removed: fcm_cleanup binary - will be re-implemented
 
 
@@ -30,8 +50,8 @@ default = ["production"]
 
 # Core component features
 websockets = ["dep:tokio-tungstenite", "dep:futures-util"]
-database = ["dep:diesel", "dep:diesel-async"]
-postgres = ["database", "diesel/postgres", "diesel-async/postgres"]
+database = ["dep:sqlx"]
+postgres = ["database", "sqlx/postgres"]
 cache = ["dep:redis"]
 auth = ["jwt", "crypto", "dep:sha2"]
 jwt = ["dep:jsonwebtoken", "dep:hmac", "dep:sha2"]
@@ -44,7 +64,7 @@ tls-rustls = ["reqwest?/rustls-tls"]
 
 # Build configurations
 production = ["postgres", "cache", "auth", "websockets", "templates", "http-client"]
-cli-tools = ["dep:clap", "database"]
+cli-tools = ["dep:clap", "database", "sqlx/migrate"]
 
 [dependencies]
 # Core server dependencies (always required)
@@ -105,7 +125,7 @@ reqwest = { version = "0.11", features = ["json"], optional = true, default-feat
 
 # TLS support for PostgreSQL connections - use native-tls for better compatibility  
 native-tls = "0.2"
-tokio-postgres = "0.7"
+tokio-postgres = { version = "0.7", features = ["with-uuid-1", "with-chrono-0_4"] }
 postgres-native-tls = "0.5"
 
 # Optional CLI tools
@@ -125,14 +145,11 @@ askama_axum = { version = "0.4", optional = true }
 # Optional Redis cache
 redis = { version = "0.23", features = ["tokio-comp", "connection-manager"], optional = true }
 
-# Database ORM dependencies
-diesel = { version = "2.2", features = ["postgres", "uuid", "chrono", "serde_json", "numeric", "r2d2"], optional = true }
-diesel-async = { version = "0.5", features = ["postgres", "bb8"], optional = true }
+# Database access with SQLx - Cloud Run native async database driver
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json", "migrate"], optional = true }
 bigdecimal = { version = "0.4", features = ["serde"] }
-diesel_migrations = { version = "2.2", features = ["postgres"] }
-# Database ORM - using Diesel for all database operations
-bb8 = "0.8"
-# bb8-diesel = "0.2" # Removed - duplicate dependency, bb8 is sufficient
+# SQLx provides native async PostgreSQL access optimized for Cloud Run environments
+# Eliminates bb8/deadpool connection pool complexity with built-in async connection management
 
 # Removed unused dependencies: jemallocator, cargo-bloat
 

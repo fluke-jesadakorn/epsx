@@ -1,7 +1,5 @@
 'use client';
 
-import { motion } from 'framer-motion';
-
 interface PancakeSwapLoaderProps {
   variant?: 'pancake' | 'admin' | 'analytics';
   size?: 'sm' | 'md' | 'lg';
@@ -44,103 +42,35 @@ export function PancakeSwapLoader({
 
   return (
     <div className="flex flex-col items-center justify-center space-y-4">
-      {/* Main Loader - Pancake Stack Animation */}
+      {/* Main Loader - Static Stack */}
       <div className="relative">
         {/* Bottom Pancake */}
-        <motion.div
-          className={`${sizeClasses[size]} bg-gradient-to-br ${style.primary} rounded-full relative z-10`}
-          animate={{
-            scale: [1, 1.1, 1],
-            rotate: [0, 180, 360]
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: 'easeInOut'
-          }}
-        />
+        <div className={`${sizeClasses[size]} bg-gradient-to-br ${style.primary} rounded-full relative z-10`} />
         
         {/* Middle Pancake */}
-        <motion.div
-          className={`${sizeClasses[size]} bg-gradient-to-br ${style.secondary} rounded-full absolute top-0 left-0 z-20`}
-          animate={{
-            scale: [1.1, 1, 1.1],
-            rotate: [360, 180, 0]
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: 'easeInOut',
-            delay: 0.3
-          }}
-        />
+        <div className={`${sizeClasses[size]} bg-gradient-to-br ${style.secondary} rounded-full absolute top-0 left-0 z-20`} />
 
         {/* Top Pancake with Icon */}
-        <motion.div
-          className={`${sizeClasses[size]} bg-gradient-to-br ${style.primary} rounded-full absolute top-0 left-0 z-30 flex items-center justify-center text-white`}
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, -180, -360]
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: 'easeInOut',
-            delay: 0.6
-          }}
-        >
+        <div className={`${sizeClasses[size]} bg-gradient-to-br ${style.primary} rounded-full absolute top-0 left-0 z-30 flex items-center justify-center text-white`}>
           <span className="text-lg">{style.icon}</span>
-        </motion.div>
-
-        {/* Syrup Drip Effect */}
-        <motion.div
-          className={`absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-1 ${style.accent} rounded-full`}
-          animate={{
-            height: [0, 16, 0],
-            opacity: [0, 1, 0]
-          }}
-          transition={{
-            duration: 1.5,
-            repeat: Infinity,
-            ease: 'easeInOut',
-            delay: 1
-          }}
-        />
+        </div>
       </div>
 
-      {/* Windows Phone Progress Dots */}
+      {/* Progress Dots */}
       <div className="flex space-x-2">
         {Array.from({ length: 3 }).map((_, i) => (
-          <motion.div
+          <div
             key={i}
             className={`w-2 h-2 ${style.accent} rounded-none`}
-            animate={{
-              opacity: [0.3, 1, 0.3],
-              scale: [1, 1.2, 1]
-            }}
-            transition={{
-              duration: 1,
-              repeat: Infinity,
-              delay: i * 0.2
-            }}
           />
         ))}
       </div>
 
       {/* Loading Message */}
       {message && (
-        <motion.p
-          className="text-sm font-medium text-gray-600"
-          animate={{
-            opacity: [0.7, 1, 0.7]
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity
-          }}
-        >
+        <p className="text-sm font-medium text-gray-600">
           {message}
-        </motion.p>
+        </p>
       )}
     </div>
   );
@@ -165,27 +95,11 @@ export function MetroProgressBar({
   };
 
   return (
-    <div className="w-full h-1 bg-gray-200 overflow-hidden">
-      <motion.div
-        className={`h-full ${variants[variant]}`}
-        initial={{ width: '0%' }}
-        animate={{ width: `${progress}%` }}
-        transition={{ duration: animated ? 0.5 : 0 }}
+    <div className="w-full h-1 bg-gray-200 overflow-hidden relative">
+      <div
+        className={`h-full transition-all duration-500 ${variants[variant]}`}
+        style={{ width: `${Math.min(Math.max(progress, 0), 100)}%` }}
       />
-      
-      {animated && (
-        <motion.div
-          className={`h-full ${variants[variant]} absolute top-0 opacity-50`}
-          animate={{
-            x: ['-100%', '100%']
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: 'linear'
-          }}
-        />
-      )}
     </div>
   );
 }
@@ -205,19 +119,8 @@ export function PancakeFlip({ variant = 'pancake', size = 'md' }: Pick<PancakeSw
   };
 
   return (
-    <motion.div
-      className={`${sizeClasses[size]} bg-gradient-to-br ${variants[variant]} rounded-full flex items-center justify-center text-white`}
-      animate={{
-        rotateY: [0, 180, 360],
-        scale: [1, 1.1, 1]
-      }}
-      transition={{
-        duration: 1.5,
-        repeat: Infinity,
-        ease: 'easeInOut'
-      }}
-    >
+    <div className={`${sizeClasses[size]} bg-gradient-to-br ${variants[variant]} rounded-full flex items-center justify-center text-white`}>
       🥞
-    </motion.div>
+    </div>
   );
 }

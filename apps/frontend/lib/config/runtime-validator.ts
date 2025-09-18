@@ -6,6 +6,7 @@
 
 import { z } from 'zod';
 import { logger, devLog, safeError } from '@/lib/logger';
+import { getBackendUrl } from '../../../../shared/utils/url-resolver';
 
 // Configuration schemas for validation
 const apiEndpointsSchema = z.object({
@@ -42,7 +43,7 @@ export const CONFIG_CONSTANTS = {
   // API Configuration
   API: {
     ENDPOINTS: {
-      BACKEND: process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080',
+      BACKEND: getBackendUrl('client'),
       AUTH: '/api/auth',
       ANALYTICS: '/api/analytics',
       NOTIFICATIONS: '/api/notifications',
@@ -256,7 +257,7 @@ class RuntimeConfigValidator {
   private validateSecurityConfig() {
     try {
       const securityConfig = {
-        allowedOrigins: ['http://localhost:3000', 'https://epsx.io', 'https://admin.epsx.io'],
+        allowedOrigins: ['https://epsx.io', 'https://admin.epsx.io', 'http://localhost:3000'],
         csrfProtection: true,
         sessionTimeout: CONFIG_CONSTANTS.SECURITY.SESSION.TIMEOUT,
         tokenRefreshThreshold: CONFIG_CONSTANTS.SECURITY.SESSION.REFRESH_THRESHOLD,

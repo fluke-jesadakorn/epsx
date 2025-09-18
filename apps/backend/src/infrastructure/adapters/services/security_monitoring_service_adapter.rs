@@ -6,6 +6,7 @@ use chrono::{DateTime, Utc, Duration};
 use tracing::{debug, info, warn};
 
 use crate::domain::authentication::repositories::SecurityMonitoringServicePort;
+use crate::application::ports::outbound::service_ports::{SecurityMonitoringServicePort as ServicePortsSecurityMonitoringServicePort, SecurityEvent, ThreatLevel};
 use crate::infrastructure::cache::Cache;
 
 /// Security monitoring service adapter
@@ -424,6 +425,87 @@ impl SecurityMonitoringServicePort for SecurityMonitoringServiceAdapter {
         }
         
         Ok(!is_limited)
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum SecurityMonitoringError {
+    #[error("Cache error: {0}")]
+    Cache(String),
+    #[error("Serialization error: {0}")]
+    Serialization(String),
+    #[error("Unknown error: {0}")]
+    Unknown(String),
+}
+
+#[async_trait]
+impl ServicePortsSecurityMonitoringServicePort for SecurityMonitoringServiceAdapter {
+    type Error = SecurityMonitoringError;
+    
+    async fn log_security_event(&self, event: SecurityEvent) -> Result<(), Self::Error> {
+        info!(
+            event_type = event.event_type,
+            source_ip = event.source_ip,
+            user_id = event.user_id.as_deref().unwrap_or("unknown"),
+            "Logging security event"
+        );
+        
+        // Store event in cache with timestamp key
+        let event_key = format!(
+            "security_events:{}:{}",
+            event.user_id.as_deref().unwrap_or("system"),
+            Utc::now().timestamp()
+        );
+        
+        let event_data = serde_json::to_string(&event)
+            .map_err(|e| SecurityMonitoringError::Serialization(e.to_string()))?;
+        self.cache.set(&event_key, event_data, Some(604800)); // 7 days TTL
+        
+        // Update user metrics if user_id is provided
+        if let Some(user_id) = &event.user_id {
+            self.update_user_security_metrics(user_id, "security_event", 1).await
+                .map_err(|e| SecurityMonitoringError::Cache(e))?;
+        }
+        
+        Ok(())
+    }
+    
+    async fn check_threat_level(&self, ip: &str) -> Result<ThreatLevel, Self::Error> {
+        debug!(ip = ip, "Checking threat level for IP");
+        
+        let ip_rep_key = self.get_ip_reputation_key(ip);
+        
+        match self.cache.get(&ip_rep_key) {
+            Some(data) => {
+                let reputation: IpReputation = serde_json::from_str(&data)
+                    .map_err(|e| SecurityMonitoringError::Serialization(e.to_string()))?;
+                
+                let threat_level = if reputation.reputation_score > 80.0 {
+                    ThreatLevel::Low
+                } else if reputation.reputation_score > 60.0 {
+                    ThreatLevel::Medium
+                } else if reputation.reputation_score > 30.0 {
+                    ThreatLevel::High
+                } else {
+                    ThreatLevel::Critical
+                };
+                
+                if matches!(threat_level, ThreatLevel::High | ThreatLevel::Critical) {
+                    warn!(
+                        ip = ip,
+                        reputation_score = reputation.reputation_score,
+                        threat_level = ?threat_level,
+                        "High threat level detected for IP"
+                    );
+                }
+                
+                Ok(threat_level)
+            },
+            None => {
+                debug!(ip = ip, "No reputation data found for IP, assuming low threat");
+                Ok(ThreatLevel::Low)
+            },
+        }
     }
 }
 

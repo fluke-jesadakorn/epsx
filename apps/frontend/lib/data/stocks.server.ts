@@ -1,7 +1,8 @@
 import { createApiClient, isApiError } from '@/lib/api-client';
 import { MarketCountry } from '../../types/market';
+import { getBackendUrl } from '../../../../shared/utils/url-resolver';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+const BACKEND_URL = getBackendUrl('server');
 const apiClient = createApiClient(BACKEND_URL);
 
 export async function getStockFinancialData(

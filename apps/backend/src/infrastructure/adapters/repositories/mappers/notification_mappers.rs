@@ -8,7 +8,8 @@ use crate::domain::shared_kernel::AggregateRoot;
 
 use crate::domain::notification::aggregates::notification::Notification;
 use crate::domain::notification::value_objects::*;
-use crate::infrastructure::adapters::repositories::diesel::types::{NotificationType, NotificationPriority};
+use crate::domain::notification::value_objects::user_preferences::NotificationType;
+use crate::domain::notification::aggregates::notification::NotificationPriority;
 use crate::infrastructure::adapters::services::fcm_service::{FcmMessage, FcmNotification, FcmTarget};
 use crate::infrastructure::adapters::services::email_service::SentEmail;
 

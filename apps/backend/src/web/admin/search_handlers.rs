@@ -6,7 +6,7 @@ use tracing::{warn, info};
 use std::sync::Arc;
 
 use crate::domain::shared_kernel::AggregateRoot;
-use crate::infrastructure::adapters::repositories::diesel::DbPool;
+use sqlx::PgPool as DbPool;
 use crate::web::auth::routes::AppState;
 
 #[derive(Debug, Serialize, Deserialize)]

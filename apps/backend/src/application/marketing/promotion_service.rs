@@ -1,20 +1,30 @@
 use std::sync::Arc;
+use sqlx::PgPool;
 
-use crate::{
-    infrastructure::{
-        adapters::repositories::diesel::pool::DbPool,
-        models::marketing::DiscountValidation,
-    },
-};
+// TODO: Migrate PromotionService to SQLx - currently disabled during Diesel migration
+
+// Placeholder struct for discount validation
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct DiscountValidation {
+    pub is_valid: bool,
+    pub discount_type: String,
+    pub discount_value: rust_decimal::Decimal,
+    pub max_discount_amount: Option<rust_decimal::Decimal>,
+    pub min_purchase_amount: Option<rust_decimal::Decimal>,
+    pub usage_limit: Option<i32>,
+    pub current_usage: i32,
+    pub is_expired: bool,
+    pub error_message: Option<String>,
+}
 
 pub struct PromotionService {
-    db_pool: Arc<DbPool>,
+    _db_pool: Arc<PgPool>,
 }
 
 impl PromotionService {
-    pub fn new(db_pool: Arc<DbPool>, _cache: Arc<dyn crate::infrastructure::cache::Cache>) -> Self {
+    pub fn new(db_pool: Arc<PgPool>, _cache: Arc<dyn crate::infrastructure::cache::Cache>) -> Self {
         Self {
-            db_pool,
+            _db_pool: db_pool,
         }
     }
 

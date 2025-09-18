@@ -1,12 +1,9 @@
 use std::sync::Arc;
 use serde::{Serialize, Deserialize};
+use sqlx::PgPool;
+use chrono::{DateTime, Utc};
 
-use crate::{
-    infrastructure::{
-        adapters::repositories::diesel::pool::DbPool,
-        models::marketing::{Affiliate, CommissionCalculation},
-    },
-};
+// TODO: Migrate AffiliateService to SQLx - currently disabled during Diesel migration
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AffiliateFilters {
@@ -15,14 +12,45 @@ pub struct AffiliateFilters {
     pub max_commission_rate: Option<f64>,
 }
 
+// Placeholder structs for affiliate data
+#[derive(Debug, Clone)]
+pub struct Affiliate {
+    pub id: i32,
+    pub user_id: Option<i32>,
+    pub affiliate_code: String,
+    pub status: String,
+    pub commission_rate: Option<rust_decimal::Decimal>,
+    pub total_referrals: Option<i32>,
+    pub total_sales: Option<rust_decimal::Decimal>,
+    pub total_commissions: Option<rust_decimal::Decimal>,
+    pub payment_method: Option<String>,
+    pub payment_details: Option<serde_json::Value>,
+    pub tier_id: Option<i32>,
+    pub notes: Option<String>,
+    pub approved_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct CommissionCalculation {
+    pub affiliate_id: i32,
+    pub plan_id: i32,
+    pub base_amount: rust_decimal::Decimal,
+    pub commission_rate: rust_decimal::Decimal,
+    pub commission_amount: rust_decimal::Decimal,
+    pub commission_type: String,
+    pub calculated_at: DateTime<Utc>,
+}
+
 pub struct AffiliateService {
-    db_pool: Arc<DbPool>,
+    _db_pool: Arc<PgPool>,
 }
 
 impl AffiliateService {
-    pub fn new(db_pool: Arc<DbPool>, _cache: Arc<dyn crate::infrastructure::cache::Cache>) -> Self {
+    pub fn new(db_pool: Arc<PgPool>, _cache: Arc<dyn crate::infrastructure::cache::Cache>) -> Self {
         Self {
-            db_pool,
+            _db_pool: db_pool,
         }
     }
 

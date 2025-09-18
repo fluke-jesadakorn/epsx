@@ -7,6 +7,7 @@
 
 import { redirect } from 'next/navigation'
 import { getOIDCAccessTokenFromCookies } from '@/lib/server/jwt'
+import { getBackendUrl } from '../../../shared/utils/url-resolver'
 
 // ============================================================================
 // Server-Side Initial Data Loading (Server Components Only)
@@ -23,7 +24,7 @@ async function serverFetcher(url: string, options: RequestInit = {}) {
     throw new Error('No valid access token found')
   }
   
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
+  const backendUrl = getBackendUrl('server')
   const fullUrl = url.startsWith('http') ? url : `${backendUrl}${url}`
   
   const response = await fetch(fullUrl, {

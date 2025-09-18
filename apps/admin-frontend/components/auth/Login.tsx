@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2 } from 'lucide-react'
+import { getBackendUrl } from '../../../shared/utils/url-resolver'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -28,7 +29,7 @@ export default function Login() {
 
     try {
       // POST directly to our backend OIDC endpoint
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : undefined);
+      const backendUrl = getBackendUrl('client');
       if (!backendUrl) {
         throw new Error('NEXT_PUBLIC_BACKEND_URL environment variable is required');
       }
@@ -70,7 +71,7 @@ export default function Login() {
   const handleOIDCLogin = async () => {
     try {
       // Redirect to backend OIDC login form for admin
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : undefined);
+      const backendUrl = getBackendUrl('client');
       if (!backendUrl) {
         throw new Error('NEXT_PUBLIC_BACKEND_URL environment variable is required');
       }
@@ -190,7 +191,7 @@ export function LoginButton({
   const handleClick = async () => {
     try {
       // Redirect to backend OIDC login form
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : undefined);
+      const backendUrl = getBackendUrl('client');
       if (!backendUrl) {
         throw new Error('NEXT_PUBLIC_BACKEND_URL environment variable is required');
       }

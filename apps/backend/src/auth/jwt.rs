@@ -11,7 +11,8 @@ use crate::config::env::get_env_var;
 
 use std::collections::HashSet;
 
-use crate::infrastructure::adapters::repositories::diesel::repos::RevokedTokenRepository;
+// TODO: Re-enable RevokedTokenRepository after SQLx migration
+// use crate::infrastructure::adapters::repositories::diesel::repos::RevokedTokenRepository;
 
 
 /// Check if user has admin permissions
@@ -172,7 +173,8 @@ pub enum Error {
 pub struct Service {
     key_manager: Arc<KeyManager>,
     issuer: String,
-    revoked_token_repo: Option<Arc<RevokedTokenRepository>>,
+    // TODO: Re-enable after SQLx migration
+    // revoked_token_repo: Option<Arc<RevokedTokenRepository>>,
 }
 
 impl Service {
@@ -186,14 +188,18 @@ impl Service {
         Ok(Self {
             key_manager,
             issuer,
-            revoked_token_repo: None,
+            // TODO: Re-enable after SQLx migration
+            // revoked_token_repo: None,
         })
     }
 
+    // TODO: Re-enable after SQLx migration
+    /*
     pub fn with_revoked_token_repo(mut self, revoked_token_repo: Arc<RevokedTokenRepository>) -> Self {
         self.revoked_token_repo = Some(revoked_token_repo);
         self
     }
+    */
 
     /// Create JWT token with complete standard claims (permission-only)
     pub fn create(&self, user_data: UserData) -> Result<String, Error> {
@@ -217,81 +223,49 @@ impl Service {
             permissions: user_data.permissions.clone().unwrap_or_default(),
         };
         
-        let current_key = self.key_manager.current_key();
-        let mut header = Header::new(Algorithm::RS256);
-        header.kid = Some(current_key.kid.clone());
+        // Use HS256 with shared secret for compatibility with frontend
+        let header = Header::new(Algorithm::HS256);
+        let secret = get_env_var("NEXTAUTH_SECRET")
+            .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
+        let key = jsonwebtoken::EncodingKey::from_secret(secret.as_ref());
         
-        encode(&header, &claims, &current_key.encoding_key)
+        encode(&header, &claims, &key)
             .map_err(|e| Error::Invalid(format!("Failed to encode JWT: {}", e)))
     }
 
     /// Verify and decode JWT token
     pub async fn verify(&self, token: &str) -> Result<Claims, Error> {
-        // Try RSA validation first
-        if let Ok(header) = jsonwebtoken::decode_header(token) {
-            // Try with specific key ID
-            if let Some(kid) = &header.kid {
-                if let Some(key_pair) = self.key_manager.get_key(kid) {
-                    let mut validation = Validation::new(Algorithm::RS256);
-                    validation.set_issuer(&[&self.issuer]);
-                    
-                    match decode::<Claims>(token, &key_pair.decoding_key, &validation) {
-                        Ok(token_data) => {
-                            let now = chrono::Utc::now().timestamp() as usize;
-                            
-                            // Check not before
-                            if token_data.claims.nbf > now {
-                                return Err(Error::NotYetValid);
-                            }
-                            
-                            // TODO: Implement token revocation check with proper DDD repository
-                            // Token revocation check skipped for now
-                            // if let Some(ref revoked_repo) = self.revoked_token_repo {
-                            //     // Check if token is revoked (JTI blacklist)  
-                            // }
-                            
-                            return Ok(token_data.claims);
-                        }
-                        Err(err) => match err.kind() {
-                            ErrorKind::ExpiredSignature => return Err(Error::Expired),
-                            ErrorKind::InvalidSignature => return Err(Error::InvalidSignature),
-                            _ => tracing::debug!("RSA validation failed: {}", err),
-                        }
-                    }
+        // Use HS256 with shared secret for compatibility with frontend
+        let secret = get_env_var("NEXTAUTH_SECRET")
+            .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
+        let key = jsonwebtoken::DecodingKey::from_secret(secret.as_ref());
+        
+        let mut validation = Validation::new(Algorithm::HS256);
+        validation.set_issuer(&[&self.issuer]);
+        
+        match decode::<Claims>(token, &key, &validation) {
+            Ok(token_data) => {
+                let now = chrono::Utc::now().timestamp() as usize;
+                
+                // Check not before
+                if token_data.claims.nbf > now {
+                    return Err(Error::NotYetValid);
                 }
+                
+                // TODO: Implement token revocation check with proper DDD repository
+                // Token revocation check skipped for now
+                // if let Some(ref revoked_repo) = self.revoked_token_repo {
+                //     // Check if token is revoked (JTI blacklist)
+                // }
+                
+                Ok(token_data.claims)
             }
-            
-            // Try with current key if no kid
-            let current_key = self.key_manager.current_key();
-            let mut validation = Validation::new(Algorithm::RS256);
-            validation.set_issuer(&[&self.issuer]);
-            
-            match decode::<Claims>(token, &current_key.decoding_key, &validation) {
-                Ok(token_data) => {
-                    let now = chrono::Utc::now().timestamp() as usize;
-                    
-                    // Check not before
-                    if token_data.claims.nbf > now {
-                        return Err(Error::NotYetValid);
-                    }
-                    
-                    // TODO: Implement token revocation check with proper DDD repository
-                    // Token revocation check skipped for now
-                    // if let Some(ref revoked_repo) = self.revoked_token_repo {
-                    //     // Check if token is revoked (JTI blacklist)
-                    // }
-                    
-                    return Ok(token_data.claims);
-                }
-                Err(err) => match err.kind() {
-                    ErrorKind::ExpiredSignature => return Err(Error::Expired),
-                    ErrorKind::InvalidSignature => return Err(Error::InvalidSignature),
-                    _ => tracing::debug!("Current key validation failed: {}", err),
-                }
+            Err(err) => match err.kind() {
+                ErrorKind::ExpiredSignature => Err(Error::Expired),
+                ErrorKind::InvalidSignature => Err(Error::InvalidSignature),
+                _ => Err(Error::Invalid(format!("Token validation failed: {}", err))),
             }
         }
-        
-        Err(Error::Invalid("Token validation failed".to_string()))
     }
 
     /// Decode token to user (without permissions field - permissions moved to separate table)

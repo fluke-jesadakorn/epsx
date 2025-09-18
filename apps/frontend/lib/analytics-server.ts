@@ -1,5 +1,6 @@
 // import { cache } from 'react'; // DISABLED: Removing cache to show real TradingView data
 import { getOIDCAccessTokenFromCookies } from '@/lib/server/jwt';
+import { getBackendUrl } from '../../../shared/utils/url-resolver';
 
 export interface EPSQueryParams {
   page: number;
@@ -67,7 +68,7 @@ export interface FilterOptions {
 
 // NO CACHE: Direct data fetching function for real TradingView data
 export const getAnalyticsData = async (params: EPSQueryParams): Promise<CardDashboardResponse> => {
-  const baseURL = process.env.BACKEND_URL || 'http://localhost:8080';
+  const baseURL = getBackendUrl('server');
   const queryString = new URLSearchParams();
   
   Object.keys(params).forEach(key => {
@@ -131,7 +132,7 @@ export const getAnalyticsData = async (params: EPSQueryParams): Promise<CardDash
 };
 
 export const getFilterOptions = async (): Promise<FilterOptions> => {
-  const baseURL = process.env.BACKEND_URL || 'http://localhost:8080';
+  const baseURL = getBackendUrl('server');
   
   try {
     console.log('🔧 Fetching filter options from:', baseURL);

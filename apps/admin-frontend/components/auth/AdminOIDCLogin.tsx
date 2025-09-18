@@ -20,6 +20,7 @@ import { Label } from '@/components/ui/label'
 import { _Card, _CardContent, _CardDescription, _CardHeader, _CardTitle } from '@/components/ui/card'
 import { useToast } from '@/components/ui/toast'
 import { AlertTriangle, Shield, Users, Loader2, CheckCircle } from 'lucide-react'
+import { getBackendUrl } from '../../../shared/utils/url-resolver'
 
 interface AdminOIDCLoginProps {
   redirectTo?: string
@@ -49,7 +50,7 @@ export function AdminOIDCLogin({ redirectTo = '/dashboard' }: AdminOIDCLoginProp
       // Step 1: Exchange Firebase ID token for OIDC tokens
       console.log('🔄 Starting admin Firebase → OIDC token exchange...')
       
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
+      const backendUrl = getBackendUrl('client')
       const response = await fetch(`${backendUrl}/api/v1/oidc/token/exchange`, {
         method: 'POST',
         headers: {
@@ -64,7 +65,25 @@ export function AdminOIDCLogin({ redirectTo = '/dashboard' }: AdminOIDCLoginProp
       
       if (!response.ok) {
         const errorData = await response.text()
-        throw new Error(`OIDC token exchange failed: ${response.status} - ${errorData}`)
+        console.error('❌ Admin token exchange response:', errorData);
+        
+        // Parse error response for user-friendly messages
+        try {
+          const errorJson = JSON.parse(errorData);
+          if (errorJson.error_description) {
+            throw new Error(errorJson.error_description);
+          }
+        } catch (e) {
+          // Not JSON, use raw error
+        }
+        
+        if (response.status === 401) {
+          throw new Error('Authentication failed. Please check your credentials.');
+        } else if (response.status === 403) {
+          throw new Error('Account not found or insufficient admin permissions. Please contact support.');
+        } else {
+          throw new Error(`Authentication error (${response.status}). Please try again.`);
+        }
       }
       
       const oidcTokens = await response.json()

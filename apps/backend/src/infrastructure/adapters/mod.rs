@@ -6,10 +6,9 @@ pub mod services;
 pub mod cache;
 
 // Re-export with explicit imports to avoid conflicts
-pub use repositories::{
-    diesel as repositories_diesel,
-    // Add other repository modules as needed
-};
+// TODO: Re-export repository adapters as they are migrated to SQLx
+// diesel as repositories_diesel,  // Removed during SQLx migration
+// Add other repository modules as needed
 pub use services::{
     SecurityMonitoringServiceAdapter, TokenValidationServiceAdapter, 
     UserIdentityServiceAdapter, FcmService, FcmTopicService, FcmNotification,

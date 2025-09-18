@@ -1,0 +1,74 @@
+# EPSX Frontend - Staging Environment
+# Deploy: gcloud run services replace deploy/services/staging/frontend.yaml --region=us-central1 --project=epsx-staging
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: frontend
+  labels:
+    service: epsx-frontend
+    environment: staging
+  annotations:
+    run.googleapis.com/ingress: all
+    run.googleapis.com/execution-environment: gen2
+spec:
+  template:
+    metadata:
+      labels:
+        service: epsx-frontend
+        environment: staging
+      annotations:
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "5"
+        run.googleapis.com/startup-cpu-boost: "true"
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      containerConcurrency: 1000
+      timeoutSeconds: 300
+      containers:
+      - name: frontend
+        image: us-central1-docker.pkg.dev/epsx-staging/epsx/frontend:latest
+        ports:
+        - name: http1
+          containerPort: 3000
+        resources:
+          limits:
+            cpu: "1"
+            memory: "1Gi"
+        startupProbe:
+          httpGet:
+            path: /
+            port: 3000
+          timeoutSeconds: 5
+          periodSeconds: 10
+          failureThreshold: 6
+        env:
+        - name: NODE_ENV
+          value: "${NODE_ENV}"
+        - name: BACKEND_URL
+          value: "${BACKEND_URL}"
+        - name: NEXT_PUBLIC_BACKEND_URL
+          value: "${BACKEND_URL}"
+        - name: NEXT_PUBLIC_APP_URL
+          value: "${NEXT_PUBLIC_APP_URL}"
+        - name: NEXT_PUBLIC_ADMIN_URL
+          value: "${NEXT_PUBLIC_ADMIN_URL}"
+        - name: NEXT_PUBLIC_OAUTH_CLIENT_ID
+          value: "${NEXT_PUBLIC_OAUTH_CLIENT_ID}"
+        - name: NEXT_PUBLIC_FIREBASE_API_KEY
+          value: "AIzaSyBof2MIWdFMfpvfl21Di2fOH08ElTgAurU"
+        - name: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
+          value: "epsx-449804.firebaseapp.com"
+        - name: NEXT_PUBLIC_FIREBASE_PROJECT_ID
+          value: "epsx-449804"
+        - name: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
+          value: "epsx-449804.firebasestorage.app"
+        - name: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
+          value: "351896526537"
+        - name: NEXT_PUBLIC_FIREBASE_APP_ID
+          value: "1:351896526537:web:c8ebf7f209ca7430b9f718"
+        - name: NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+          value: "G-FQWE9G37ZE"
+  traffic:
+  - percent: 100
+    revisionName: frontend-manual

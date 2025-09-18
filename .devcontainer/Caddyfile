@@ -1,0 +1,174 @@
+# EPSX Dev Container - Production Domain Proxy Configuration
+# Routes production domains to development services running in dev container
+
+# Global configuration
+{
+    # Development container settings
+    debug
+    
+    # Auto HTTPS for local development
+    auto_https off
+    
+    # Local CA for self-signed certificates
+    local_certs
+    
+    # Admin API endpoint
+    admin :2019
+    
+    # Global logging
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+}
+
+# Main Frontend Application
+epsx.io {
+    # Enable HTTPS with self-signed certificates for local development
+    tls internal
+    
+    # Reverse proxy to dev container frontend service
+    reverse_proxy devcontainer:3000 {
+        # Pass original host header
+        header_up Host {host}
+        header_up X-Real-IP {remote}
+        
+        # Handle WebSocket connections for Next.js hot reload
+        header_up Connection {>Connection}
+        header_up Upgrade {>Upgrade}
+    }
+    
+    # Security headers
+    header {
+        # HTTPS enforcement
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        
+        # Content security
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        X-XSS-Protection "1; mode=block"
+        
+        # CORS headers for development
+        Access-Control-Allow-Origin "https://epsx.io"
+        Access-Control-Allow-Credentials true
+        
+        # Remove server identification
+        -Server
+    }
+    
+    # Logging for development
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+}
+
+# Backend API
+api.epsx.io {
+    # Enable HTTPS with self-signed certificates
+    tls internal
+    
+    # Reverse proxy to dev container backend service
+    reverse_proxy devcontainer:8080 {
+        # Pass original host header
+        header_up Host {host}
+        header_up X-Real-IP {remote}
+        
+        # API-specific headers
+        header_up X-API-Gateway "caddy-devcontainer"
+    }
+    
+    # CORS for API (allow all origins for development)
+    @cors_preflight method OPTIONS
+    handle @cors_preflight {
+        header {
+            Access-Control-Allow-Origin "*"
+            Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+            Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, X-API-Version, X-Client-Version"
+            Access-Control-Allow-Credentials false
+            Access-Control-Max-Age 86400
+        }
+        respond 204
+    }
+    
+    # Security headers for API
+    header {
+        # HTTPS enforcement
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        
+        # API security
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        
+        # CORS for development (allow any origin)
+        Access-Control-Allow-Origin "*"
+        Access-Control-Allow-Credentials false
+        
+        # Remove server identification
+        -Server
+    }
+    
+    # Health check endpoint optimization
+    handle /health {
+        reverse_proxy devcontainer:8080
+    }
+    
+    # Logging for API requests
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+}
+
+# Admin Frontend
+admin.epsx.io {
+    # Enable HTTPS with self-signed certificates
+    tls internal
+    
+    # Reverse proxy to dev container admin service
+    reverse_proxy devcontainer:3001 {
+        # Pass original host header
+        header_up Host {host}
+        header_up X-Real-IP {remote}
+        
+        # Handle WebSocket connections for Next.js hot reload
+        header_up Connection {>Connection}
+        header_up Upgrade {>Upgrade}
+    }
+    
+    # Security headers (stricter for admin)
+    header {
+        # HTTPS enforcement
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        
+        # Content security
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        X-XSS-Protection "1; mode=block"
+        
+        # Admin-specific security
+        Referrer-Policy "strict-origin-when-cross-origin"
+        
+        # CORS headers for admin
+        Access-Control-Allow-Origin "https://admin.epsx.io"
+        Access-Control-Allow-Credentials true
+        
+        # Remove server identification
+        -Server
+    }
+    
+    # Logging for admin requests
+    log {
+        output stdout
+        format console
+        level INFO
+    }
+}
+
+# Health check endpoint
+:8080/caddy-health {
+    respond "Caddy Dev Container OK" 200
+}

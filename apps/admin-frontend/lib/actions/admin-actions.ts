@@ -7,8 +7,9 @@
 
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
+import { URL, URLContext, Service } from '../../../../shared/utils/url-resolver';
 
-const API_BASE_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
+const API_BASE_URL = URL.get(Service.BACKEND, URLContext.SERVER);
 
 // Server-side authenticated fetch for actions
 async function actionFetch(endpoint: string, options: RequestInit = {}): Promise<any> {
