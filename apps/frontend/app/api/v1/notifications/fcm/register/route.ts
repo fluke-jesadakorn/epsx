@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getBackendUrl } from '../../../../../../../../shared/utils/url-resolver';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Forward request to Rust backend
-    const backendResponse = await fetch(`${process.env.BACKEND_URL}/api/v1/notifications/fcm/register`, {
+    const backendResponse = await fetch(`${getBackendUrl('server')}/api/v1/notifications/fcm/register`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

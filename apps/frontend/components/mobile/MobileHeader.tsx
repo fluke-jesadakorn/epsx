@@ -45,8 +45,12 @@ export function MobileHeader({
             {title ? (
               <h1 className="text-lg font-semibold truncate">{title}</h1>
             ) : (
-              <Link href="/" className="text-lg font-semibold">
-                EPSX
+              <Link href="/" className="flex items-center">
+                <img 
+                  src="/logo.png" 
+                  alt="EPSX" 
+                  className="h-6 w-auto object-contain"
+                />
               </Link>
             )}
           </div>

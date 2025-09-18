@@ -155,9 +155,18 @@ export function getJWTTimeToExpiry(token: string): number {
 export async function verifyJWT(token: string, secret?: string): Promise<EPSXJWTPayload | null> {
   try {
     const jwtSecret = secret || env.NEXTAUTH_SECRET;
-    const { payload } = await jwtVerify(token, new TextEncoder().encode(jwtSecret));
+    const { payload } = await jwtVerify(
+      token, 
+      new TextEncoder().encode(jwtSecret),
+      {
+        algorithms: ['HS256'], // Match backend's HS256 algorithm
+        // Remove issuer validation for now to prevent mismatch
+        // issuer: 'http://localhost:8080', 
+      }
+    );
     return payload as EPSXJWTPayload;
-  } catch {
+  } catch (error) {
+    console.error('JWT verification failed:', error);
     return null;
   }
 }

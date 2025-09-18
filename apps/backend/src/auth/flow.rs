@@ -153,31 +153,22 @@ pub async fn login(
 
 /// Validate authorization code
 pub async fn validate_code(
-    app_state: &AppState,
+    _app_state: &AppState,
     code: &str,
 ) -> Result<CodeData, Error> {
     use crate::domain::shared_kernel::value_objects::SessionId;
     
-    let session_id = SessionId::from_string(format!("auth_code:{}", code));
+    let _session_id = SessionId::from_string(format!("auth_code:{}", code));
     
-    let session = app_state.session_repo.find_by_id(&session_id).await
-        .map_err(|e| Error::ServerError(e.to_string()))?
-        .ok_or(Error::InvalidRequest("Authorization code not found".to_string()))?;
+    // TODO: Remove session lookup - using stateless Bearer tokens
+    // let session = app_state.session_repo.find_by_id(&session_id).await
+    //     .map_err(|e| Error::ServerError(e.to_string()))?
+    //     .ok_or(Error::InvalidRequest("Authorization code not found".to_string()))?;
+    // app_state.session_repo.delete(&session_id).await
+    //     .map_err(|e| Error::ServerError(e.to_string()))?;
     
-    // Delete session (single use)
-    app_state.session_repo.delete(&session_id).await
-        .map_err(|e| Error::ServerError(e.to_string()))?;
-    
-    // Deserialize data
-    let code_data: CodeData = serde_json::from_str(session.access_token())
-        .map_err(|e| Error::ServerError(format!("Failed to parse code data: {}", e)))?;
-    
-    // Check expiration
-    if Utc::now() - code_data.created_at > Duration::minutes(10) {
-        return Err(Error::InvalidRequest("Authorization code expired".to_string()));
-    }
-    
-    Ok(code_data)
+    tracing::warn!("Authorization code flow disabled - using stateless Bearer tokens");
+    return Err(Error::InvalidRequest("Authorization code flow not supported with Bearer tokens".to_string()));
 }
 
 /// Validate PKCE challenge
@@ -280,7 +271,7 @@ fn create_code() -> String {
 }
 
 async fn store_code(
-    app_state: &AppState,
+    _app_state: &AppState,
     code: &str,
     data: &CodeData,
 ) -> Result<(), Error> {
@@ -293,7 +284,7 @@ async fn store_code(
     let data_json = serde_json::to_string(data)
         .map_err(|e| Error::ServerError(e.to_string()))?;
     
-    let session = Session::create(
+    let _session = Session::create(
         session_id,
         user_id,
         data_json,
@@ -302,8 +293,10 @@ async fn store_code(
         None, // user_agent
     ).map_err(|e| Error::ServerError(format!("Failed to create session: {}", e)))?;
     
-    app_state.session_repo.save(&session).await
-        .map_err(|e| Error::ServerError(e.to_string()))?;
+    // TODO: Remove session storage - using stateless Bearer tokens
+    // app_state.session_repo.save(&session).await
+    //     .map_err(|e| Error::ServerError(e.to_string()))?;
+    tracing::debug!("Session storage skipped - using stateless Bearer tokens");
     
     Ok(())
 }

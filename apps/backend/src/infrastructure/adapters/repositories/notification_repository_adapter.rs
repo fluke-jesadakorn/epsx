@@ -8,7 +8,8 @@ use tracing::{debug, info, warn};
 
 use crate::domain::notification::aggregates::notification::{Notification, NotificationStatus, DeliveryResult};
 use crate::domain::notification::value_objects::*;
-use crate::infrastructure::adapters::repositories::diesel::types::{NotificationType, NotificationPriority};
+use crate::domain::notification::value_objects::user_preferences::NotificationType;
+use crate::domain::notification::aggregates::notification::NotificationPriority;
 use crate::infrastructure::adapters::services::fcm_service::{FcmService, FcmNotification, FcmResponse, DeliveryStats};
 use crate::infrastructure::adapters::services::email_service::SendGridEmailService;
 use crate::application::ports::services::EmailServiceError;

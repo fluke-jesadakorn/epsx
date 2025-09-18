@@ -4,6 +4,12 @@
  */
 
 import { cookies } from 'next/headers'
+import { 
+  derivePackageTierFromPermissions,
+  deriveAccessiblePlatformsFromPermissions,
+  derivePrimaryPlatformFromPermissions
+} from '@/lib/auth-utils'
+import { getBackendUrl } from '../../../shared/utils/url-resolver'
 
 /**
  * Extract permissions array from JWT payload (handles both admin and user tokens)
@@ -159,14 +165,22 @@ export class AdminSessionValidator {
       // Cache miss - increment miss counter
       this.missCount++
       
-      // Validate JWT token locally using jose library
-      const { verifyJWT } = await import('@/lib/auth-utils')
-      const payload = await verifyJWT(token)
+      // OIDC Migration: Validate access token via userinfo endpoint instead of local JWT verification
+      console.log('🔄 Admin: Validating OIDC access token via userinfo endpoint...')
       
-      if (!payload) {
+      const backendUrl = getBackendUrl('server')
+      const userinfoResponse = await fetch(`${backendUrl}/oauth/userinfo`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (!userinfoResponse.ok) {
+        console.error('❌ Admin: Userinfo validation failed:', userinfoResponse.status, userinfoResponse.statusText)
         return {
           valid: false,
-          error: 'Invalid or expired JWT token',
+          error: 'Invalid or expired OIDC access token',
           performance: {
             validation_time_ms: performance.now() - startTime,
             cache_hit: false
@@ -174,22 +188,25 @@ export class AdminSessionValidator {
         }
       }
       
-      // Convert JWT payload to UserProfile format
-      // Handle both admin and user JWT structures
-      const permissions = extractPermissionsFromPayload(payload);
+      const userinfo = await userinfoResponse.json()
+      console.log('✅ Admin: OIDC userinfo validation successful:', {
+        email: userinfo.email,
+        permissions: userinfo.permissions?.slice(0, 3) // Log first 3 permissions for brevity
+      })
       
+      // Convert OIDC userinfo to UserProfile format
       const user: UserProfile = {
-        id: payload.sub,
-        email: payload.email,
-        name: payload.name,
-        role: payload.role || 'admin',
-        permissions: permissions,
-        package_tier: payload.package_tier || 'ENTERPRISE',
-        firebase_uid: payload.firebase_uid,
+        id: userinfo.sub || userinfo.id,
+        email: userinfo.email,
+        name: userinfo.name || userinfo.email?.split('@')[0],
+        role: userinfo.permissions?.some((p: string) => p.startsWith('admin:')) ? 'admin' : 'user',
+        permissions: userinfo.permissions || [],
+        package_tier: userinfo.package_tier || 'ENTERPRISE',
+        firebase_uid: userinfo.firebase_uid || userinfo.sub,
         
         // Cross-platform fields
-        platforms: payload.platforms || ['admin', 'epsx'],
-        primary_platform: payload.primary_platform || 'admin'
+        platforms: userinfo.platforms || ['admin', 'epsx'],
+        primary_platform: userinfo.primary_platform || 'admin'
       }
       
       // Validate admin permissions
@@ -204,8 +221,8 @@ export class AdminSessionValidator {
         }
       }
       
-      // Calculate expiration from JWT payload
-      const expires_at = payload.exp * 1000 // Convert to milliseconds
+      // Calculate expiration from OIDC token (default to 2 hours from now)
+      const expires_at = Date.now() + (2 * 60 * 60 * 1000) // 2 hours from now
       
       // Cache the successful validation
       this.cacheSession(cacheKey, {

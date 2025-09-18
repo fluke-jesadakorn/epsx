@@ -1,11 +1,11 @@
-// Server-side configuration utility
+// Server-side configuration utility - Modernized with centralized URL resolver
 import { env } from '@/config/env';
+import { URL, URLContext, Service, APIPath } from '../../../shared/utils/url-resolver';
 
 export const config = {
-  // Backend API URL - only available server-side
+  // Backend API URL - modernized with centralized URL resolver
   getBackendUrl(): string {
-    // Use consolidated environment configuration
-    return env.BACKEND_URL;
+    return URL.get(Service.BACKEND, URLContext.SERVER);
   },
 
   // Client-side should use relative URLs or API routes
@@ -16,17 +16,17 @@ export const config = {
 
   // Get backend API base URL for direct API calls
   getBackendApiUrl(): string {
-    return `${this.getBackendUrl()}/api`;
+    return URL.api(Service.BACKEND, 'api', URLContext.SERVER);
   },
 
   // Get backend v1 API URL
   getBackendV1Url(): string {
-    return `${this.getBackendUrl()}/api/v1`;
+    return URL.api(Service.BACKEND, 'api/v1', URLContext.SERVER);
   },
 
   // Get backend admin API URL
   getBackendAdminUrl(): string {
-    return `${this.getBackendUrl()}/api/admin`;
+    return URL.api(Service.BACKEND, APIPath.ADMIN, URLContext.SERVER);
   },
 
   // Check if we're on the server side

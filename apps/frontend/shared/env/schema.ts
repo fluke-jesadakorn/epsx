@@ -254,9 +254,9 @@ export const clientEnv = new Proxy({} as ClientEnv, {
           // During build or in browser, provide fallback values to prevent failures
           // In production browsers, Next.js embeds NEXT_PUBLIC_ variables at build time
           _clientEnv = {
-            NEXT_PUBLIC_BACKEND_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BACKEND_URL) || 'http://localhost:8080',
-            NEXT_PUBLIC_APP_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_APP_URL) || 'http://localhost:3000',
-            NEXT_PUBLIC_ADMIN_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_ADMIN_URL) || 'http://localhost:3001',
+            NEXT_PUBLIC_BACKEND_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BACKEND_URL) || 'https://api.epsx.io',
+            NEXT_PUBLIC_APP_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_APP_URL) || 'https://epsx.io',
+            NEXT_PUBLIC_ADMIN_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_ADMIN_URL) || 'https://admin.epsx.io',
             NEXT_PUBLIC_OAUTH_CLIENT_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_OAUTH_CLIENT_ID) || 'epsx-frontend'
           } as ClientEnv;
         } else {

@@ -131,13 +131,14 @@ export function PancakeAdminNav() {
       {/* Logo Section */}
       <div className="border-b border-yellow-200/50 p-6 dark:border-slate-700/50">
         <div className="flex items-center gap-3">
-          {isCollapsed ? (
-            <h1 className="bg-gradient-to-r from-yellow-600 to-orange-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-lg font-black text-transparent">
-              EPSX
-            </h1>
-          ) : (
+          <img 
+            src="/logo.png" 
+            alt="EPSX" 
+            className="h-8 w-auto object-contain"
+          />
+          {!isCollapsed && (
             <h1 className="bg-gradient-to-r from-yellow-600 to-orange-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-xl font-black text-transparent">
-              EPSX Admin
+              Admin
             </h1>
           )}
         </div>

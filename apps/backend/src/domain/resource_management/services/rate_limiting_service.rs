@@ -18,6 +18,24 @@ use crate::domain::{
 
 use super::resource_tracking_service::{RealTimeCachePort};
 
+/// Rate Limiting Service Port
+#[async_trait]
+pub trait RateLimitingServicePort: Send + Sync {
+    type Error: std::error::Error + Send + Sync + 'static;
+    
+    async fn check_rate_limit(&self, user_id: &str, resource: &str) -> Result<bool, Self::Error>;
+    async fn increment_usage(&self, user_id: &str, resource: &str) -> Result<(), Self::Error>;
+    async fn get_usage_stats(&self, user_id: &str) -> Result<UsageStats, Self::Error>;
+}
+
+#[derive(Debug, Clone)]
+pub struct UsageStats {
+    pub total_requests: u64,
+    pub current_window_requests: u64,
+    pub limit: u64,
+    pub reset_time: DateTime<Utc>,
+}
+
 /// Context-aware rate limiting service
 pub struct RateLimitingService {
     real_time_cache: Arc<dyn RealTimeCachePort>,

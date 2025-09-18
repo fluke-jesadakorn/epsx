@@ -6,7 +6,7 @@ use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
 
 use crate::core::errors::{AppResult, AppError};
-use crate::infrastructure::adapters::repositories::diesel::repos::{RefreshTokenRepository, RevokedTokenRepository, DieselSessionRepository};
+use crate::infrastructure::adapters::repositories::diesel_types::{RefreshTokenRepository, RevokedTokenRepository, DieselSessionRepository};
 
 /// Configuration for session cleanup service
 #[derive(Clone, Debug)]

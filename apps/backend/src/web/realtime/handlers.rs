@@ -76,7 +76,7 @@ pub async fn broadcast_notification_handler(
     verify_admin_access(&app_state, &currentuser_id).await?;
     
     // Parse notification level for DDD
-    let level = match payload.level.to_lowercase().as_str() {
+    let _level = match payload.level.to_lowercase().as_str() {
         "info" => crate::domain::realtime_events::value_objects::NotificationLevel::Info,
         "warning" => crate::domain::realtime_events::value_objects::NotificationLevel::Warning,
         "error" => crate::domain::realtime_events::value_objects::NotificationLevel::Error,
@@ -87,9 +87,9 @@ pub async fn broadcast_notification_handler(
     // Use DDD Real-time Events service
     let realtime_service = &app_state.ddd_container.realtime_events_service;
     let result = realtime_service.broadcast_system_notification(
-        payload.title,
-        payload.message,
-        level,
+        &payload.title,
+        &payload.message,
+        &payload.level, 
         payload.target_user,
         "admin-notification".to_string(),
     ).await.map_err(|e| {
@@ -209,8 +209,8 @@ pub async fn get_connection_stats_handler(
     
     // Convert DDD stats to API response format
     let stats = ConnectionStats {
-        total_connections: ddd_stats.total_connections,
-        unique_users: ddd_stats.unique_users,
+        total_connections: ddd_stats.total_connections as usize,
+        unique_users: ddd_stats.unique_users as usize,
         connections_by_event: std::collections::HashMap::new(), // TODO: Implement event-based grouping
     };
     
@@ -229,7 +229,7 @@ pub async fn send_user_notification_handler(
     verify_admin_access(&app_state, &currentuser_id).await?;
     
     // Parse notification level for DDD
-    let level = match payload.level.to_lowercase().as_str() {
+    let _level = match payload.level.to_lowercase().as_str() {
         "info" => crate::domain::realtime_events::value_objects::NotificationLevel::Info,
         "warning" => crate::domain::realtime_events::value_objects::NotificationLevel::Warning,
         "error" => crate::domain::realtime_events::value_objects::NotificationLevel::Error,
@@ -240,9 +240,9 @@ pub async fn send_user_notification_handler(
     // Use DDD Real-time Events service
     let realtime_service = &app_state.ddd_container.realtime_events_service;
     let result = realtime_service.broadcast_system_notification(
-        payload.title,
-        payload.message,
-        level,
+        &payload.title,
+        &payload.message,
+        &payload.level,
         Some(user_id.clone()),
         "admin-targeted-notification".to_string(),
     ).await.map_err(|e| {

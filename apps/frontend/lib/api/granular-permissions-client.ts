@@ -11,9 +11,10 @@ import {
   PermissionNotificationEvent,
   PermissionError
 } from '@/types/granular-permissions'
+import { getBackendUrl } from '../../../../shared/utils/url-resolver'
 
-// Base configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:8080'
+// Base configuration using centralized URL resolution
+const API_BASE_URL = getBackendUrl('client')
 
 // Helper function to get auth token
 function getAuthToken(): string | null {

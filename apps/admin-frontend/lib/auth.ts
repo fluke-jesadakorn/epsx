@@ -587,66 +587,9 @@ export function getPlatformIcon(platform: string): string {
   return platformIcons[platform] || '⚡'
 }
 
-// OIDC Authorization URL generation with PKCE
-export async function getAuthorizationUrl() {
-  // Use consolidated auth config
-  const { authConfig } = await import('../config/env')
-  
-  // Generate PKCE parameters
-  const codeVerifier = generateCodeVerifier()
-  const codeChallenge = await generateCodeChallenge(codeVerifier)
-  const state = generateRandomString(32)
-  
-  // Build authorization URL using consolidated config
-  const authorizationEndpoint = authConfig.authorizationEndpoint
-  const clientId = authConfig.clientId
-  const redirectUri = authConfig.callbackUrl
-  
-  const params = new URLSearchParams({
-    response_type: 'code',
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    scope: 'openid profile email',
-    state: state,
-    code_challenge: codeChallenge,
-    code_challenge_method: 'S256',
-  })
-  
-  const url = `${authorizationEndpoint}?${params.toString()}`
-  
-  return {
-    url,
-    codeVerifier,
-    state,
-  }
-}
+// OAuth authorization URL generation now handled by shared utilities
 
-// PKCE helper functions
-function generateCodeVerifier(): string {
-  const array = new Uint8Array(32)
-  crypto.getRandomValues(array)
-  return base64URLEncode(array)
-}
-
-async function generateCodeChallenge(verifier: string): Promise<string> {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(verifier)
-  const digest = await crypto.subtle.digest('SHA-256', data)
-  return base64URLEncode(new Uint8Array(digest))
-}
-
-function generateRandomString(length: number): string {
-  const array = new Uint8Array(length)
-  crypto.getRandomValues(array)
-  return base64URLEncode(array)
-}
-
-function base64URLEncode(array: Uint8Array): string {
-  return btoa(String.fromCharCode(...array))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '')
-}
+// PKCE helper functions now available from shared utilities
 
 // Sign in helper for components
 export async function signIn(callbackUrl?: string) {

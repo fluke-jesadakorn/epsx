@@ -15,7 +15,7 @@ export const isBuild = (typeof process !== 'undefined' && (process.env?.NEXT_PHA
 const getDefaultBackendUrl = () => {
   if (isDev) return 'http://localhost:8080';
   if (isStaging) return 'https://staging-api.epsx.io';
-  return undefined; // Force explicit configuration in production
+  return 'https://api.epsx.io'; // Production default - api.epsx.io maps to backend service
 };
 
 const getDefaultFrontendUrl = () => {
@@ -254,10 +254,10 @@ export const clientEnv = new Proxy({} as ClientEnv, {
           // During build or in browser, provide fallback values to prevent failures
           // In production browsers, Next.js embeds NEXT_PUBLIC_ variables at build time
           _clientEnv = {
-            NEXT_PUBLIC_BACKEND_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BACKEND_URL) || 'http://localhost:8080',
-            NEXT_PUBLIC_APP_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_APP_URL) || 'http://localhost:3000',
-            NEXT_PUBLIC_ADMIN_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_ADMIN_URL) || 'http://localhost:3001',
-            NEXT_PUBLIC_OAUTH_CLIENT_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_OAUTH_CLIENT_ID) || 'epsx-frontend',
+            NEXT_PUBLIC_BACKEND_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BACKEND_URL) || getDefaultBackendUrl(),
+            NEXT_PUBLIC_APP_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_APP_URL) || getDefaultFrontendUrl(),
+            NEXT_PUBLIC_ADMIN_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_ADMIN_URL) || getDefaultAdminUrl(),
+            NEXT_PUBLIC_OAUTH_CLIENT_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_OAUTH_CLIENT_ID) || getDefaultFrontendClientId(),
             // Firebase fallbacks - prevent undefined values
             NEXT_PUBLIC_FIREBASE_API_KEY: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_API_KEY) || undefined,
             NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN) || undefined,
@@ -271,10 +271,10 @@ export const clientEnv = new Proxy({} as ClientEnv, {
           // In development, log the error and provide safe fallbacks
           console.warn('Environment validation failed, using fallbacks:', error);
           _clientEnv = {
-            NEXT_PUBLIC_BACKEND_URL: 'http://localhost:8080',
-            NEXT_PUBLIC_APP_URL: 'http://localhost:3000',
-            NEXT_PUBLIC_ADMIN_URL: 'http://localhost:3001',
-            NEXT_PUBLIC_OAUTH_CLIENT_ID: 'epsx-frontend'
+            NEXT_PUBLIC_BACKEND_URL: getDefaultBackendUrl() || 'http://localhost:8080',
+            NEXT_PUBLIC_APP_URL: getDefaultFrontendUrl() || 'http://localhost:3000',
+            NEXT_PUBLIC_ADMIN_URL: getDefaultAdminUrl() || 'http://localhost:3001',
+            NEXT_PUBLIC_OAUTH_CLIENT_ID: getDefaultFrontendClientId()
           } as ClientEnv;
         }
       }
@@ -299,6 +299,9 @@ export const env = {
   },
   get CLIENT_ID() {
     return clientEnv.NEXT_PUBLIC_OAUTH_CLIENT_ID;
+  },
+  get ADMIN_CLIENT_ID() {
+    return serverEnv.OIDC_ADMIN_CLIENT_ID;
   },
   
   // Firebase Configuration
@@ -398,8 +401,17 @@ export const env = {
 
 /**
  * Environment URL Helpers - Consistent URL construction
+ * 
+ * Re-export centralized URL resolver for backward compatibility
+ * while maintaining the same API surface
  */
-export const urls = {
+export { urls, getBackendUrl, getFrontendUrl, getAdminUrl, oidcUrls, callbackUrls, apiUrls } from '../utils/url-resolver';
+
+/**
+ * @deprecated Legacy URL helpers - use imported functions from url-resolver instead
+ * These are kept for backward compatibility during migration
+ */
+export const legacyUrls = {
   get backend() {
     return env.BACKEND_URL;
   },

@@ -90,8 +90,11 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
               <p className="text-lg sm:text-xl md:text-2xl text-gray-600 dark:text-gray-300 max-w-4xl mx-auto leading-relaxed">
                 🚀 Discover comprehensive data insights with our advanced
                 analytics platform!
-                <span className="block mt-2 bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent font-bold">
-                  Make informed decisions with real-time insights 📈
+                <span className="block mt-2 font-bold">
+                  <span className="bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
+                    Make informed decisions with real-time insights
+                  </span>
+                  <span className="ml-2">📈</span>
                 </span>
               </p>
             </div>

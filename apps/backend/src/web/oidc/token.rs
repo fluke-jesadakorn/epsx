@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use chrono::{DateTime, Utc, Duration};
 use crate::domain::shared_kernel::value_objects::SessionId;// OIDC Token Endpoint implementation
+use crate::domain::shared_kernel::AggregateRoot;
 use uuid::Uuid;
 
 use axum::{
@@ -442,35 +443,69 @@ fn create_firebase_user_from_token_data(token_data: &crate::auth::RefreshTokenDa
     }
 }
 
-/// Validate and consume authorization code
+/// Validate and consume stateless authorization code
 async fn validate_and_consume_authorization_code(
-    app_state: &AppState,
+    _app_state: &AppState,
     code: &str,
 ) -> Result<AuthorizationCodeData, Box<dyn std::error::Error>> {
-    // SessId is available through SessionId re-export from shared_kernel::value_objects
+    use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
+    use serde::{Serialize, Deserialize};
+    use chrono::Utc;
     
-    // Get session for authorization code
-    let session_id = SessionId::from_string(format!("auth_code:{}", code));
-    tracing::debug!("Looking for session with ID: {}", session_id);
+    tracing::debug!("Validating authorization code: starts_with_ac_jwt={}", code.starts_with("ac_jwt_"));
     
-    let session_result = app_state.session_repo.find_by_id(&session_id).await;
-    tracing::debug!("Session repo result: success={}", session_result.is_ok());
-    
-    let session = session_result?
-        .ok_or("Authorization code not found")?;
-    
-    // Delete the session (single use)
-    app_state.session_repo.delete(&session_id).await?;
-    
-    // Deserialize auth data from access_token field
-    let auth_data: AuthorizationCodeData = serde_json::from_str(session.access_token())?;
-    
-    // Check expiration (extra safety)
-    if Utc::now() - auth_data.created_at > Duration::minutes(10) {
-        return Err("Authorization code expired".into());
+    // Check if this is a stateless JWT authorization code
+    if !code.starts_with("ac_jwt_") {
+        tracing::error!("Authorization code does not start with 'ac_jwt_': {}", &code[0..20.min(code.len())]);
+        return Err("Invalid authorization code format".into());
     }
     
-    Ok(auth_data)
+    // Extract JWT token from authorization code
+    let jwt_token = code.strip_prefix("ac_jwt_")
+        .ok_or("Invalid authorization code format")?;
+        
+    tracing::debug!("Extracted JWT token length: {}", jwt_token.len());
+    
+    #[derive(Debug, Serialize, Deserialize)]
+    struct AuthCodeClaims {
+        iss: String,
+        sub: String,
+        aud: String,
+        exp: i64,
+        iat: i64,
+        data: AuthorizationCodeData,
+    }
+    
+    // Use JWT secret for verification
+    let jwt_secret = std::env::var("NEXTAUTH_SECRET")
+        .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string());
+    
+    let decoding_key = DecodingKey::from_secret(jwt_secret.as_ref());
+    let mut validation = Validation::new(Algorithm::HS256);
+    
+    // Disable audience validation since we validate client_id separately
+    validation.validate_aud = false;
+    
+    // Decode and validate the JWT
+    tracing::debug!("Attempting to decode JWT authorization code with secret length: {}", jwt_secret.len());
+    let token_data = decode::<AuthCodeClaims>(jwt_token, &decoding_key, &validation)
+        .map_err(|e| {
+            tracing::error!("JWT decode failed: {:?}", e);
+            format!("Invalid authorization code: {}", e)
+        })?;
+    
+    let claims = token_data.claims;
+    
+    // Check if the authorization code has expired
+    let now = Utc::now().timestamp();
+    if now > claims.exp {
+        return Err("Authorization code has expired".into());
+    }
+    
+    tracing::info!("Successfully validated stateless authorization code for user: {}", claims.sub);
+    
+    // Return the embedded authorization data
+    Ok(claims.data)
 }
 
 /// Generate access token with database user data and admin/user context detection
@@ -801,21 +836,39 @@ async fn create_session(
 ) -> Result<(), Box<dyn std::error::Error>> {
     
 
-    // Look up user in database by firebase_uid to get the proper UUID
+    tracing::info!("🔄 Creating session for Firebase user: {} (email: {})", 
+        firebase_user.uid, 
+        firebase_user.email.as_deref().unwrap_or("no-email"));
+    
+    // Look up user in database by firebase_uid, create if doesn't exist
     let firebase_uid_vo = crate::domain::user_management::value_objects::FirebaseUid::new(&firebase_user.uid)
         .map_err(|e| format!("Invalid Firebase UID: {}", e))?;
+    
     let user = app_state.user_repo.find_by_firebase_uid(&firebase_uid_vo).await?;
     let user_id = match user {
-        Some(user) => user.id().clone(),
+        Some(user) => {
+            tracing::info!("✅ Found existing user in database: {} (ID: {})", 
+                firebase_user.uid, user.id().as_str());
+            user.id().clone()
+        }
         None => {
-            tracing::error!("User not found for firebase_uid: {}", firebase_user.uid);
-            return Err("User not found in database".into());
+            tracing::info!("👤 User not found in database, creating new user for Firebase UID: {}", firebase_user.uid);
+            
+            // Create new user using the same logic as token exchange
+            let user_id = create_user_from_firebase_data(app_state, firebase_user).await
+                .map_err(|e| {
+                    tracing::error!("❌ Failed to create user from Firebase data: {}", e);
+                    format!("Failed to create user: {}", e)
+                })?;
+            
+            tracing::info!("✅ Successfully created new user: {} (ID: {})", firebase_user.uid, user_id.as_str());
+            user_id
         }
     };
     
     let expires_at = Utc::now() + Duration::hours(24);
     let session_id = SessionId::new();
-    let session = crate::domain::user_management::aggregates::session::Session::create(
+    let _session = crate::domain::user_management::aggregates::session::Session::create(
         session_id,
         user_id,
         access_token.to_string(),
@@ -824,8 +877,196 @@ async fn create_session(
         None, // user_agent
     ).map_err(|e| format!("Failed to create session: {}", e))?;
 
-    app_state.session_repo.save(&session).await?;
+    // TODO: Remove session storage - using stateless Bearer tokens
+    // app_state.session_repo.save(&session).await?;
+    tracing::debug!("Session storage skipped - using stateless Bearer tokens");
     Ok(())
+}
+
+/// Create a new user from Firebase data
+/// This reuses the same robust user creation logic from the token exchange endpoint
+async fn create_user_from_firebase_data(
+    app_state: &AppState,
+    firebase_user: &FirebaseUser,
+) -> Result<crate::domain::shared_kernel::value_objects::UserId, Box<dyn std::error::Error + Send + Sync>> {
+    tracing::info!("🔨 Creating new user from Firebase data: {} (email: {})", 
+        firebase_user.uid, 
+        firebase_user.email.as_deref().unwrap_or("no-email"));
+
+    // Validate Firebase UID format
+    if firebase_user.uid.is_empty() {
+        return Err("Firebase UID cannot be empty".into());
+    }
+    
+    if firebase_user.uid.len() < 10 || firebase_user.uid.len() > 128 {
+        return Err(format!("Invalid Firebase UID length: {} (must be 10-128 characters)", firebase_user.uid.len()).into());
+    }
+
+    // Validate email is present
+    let email_str = firebase_user.email.as_ref()
+        .ok_or("Email is required for user registration")?;
+    
+    if email_str.is_empty() {
+        return Err("Email cannot be empty".into());
+    }
+
+    // Create domain value objects
+    let firebase_uid = crate::domain::user_management::value_objects::FirebaseUid::new(&firebase_user.uid)
+        .map_err(|e| format!("Firebase UID validation failed: {}", e))?;
+    
+    let email = crate::domain::user_management::value_objects::Email::new(email_str.clone())
+        .map_err(|e| format!("Invalid email format '{}': {}", email_str, e))?;
+
+    // Check if user already exists by email 
+    if let Ok(Some(existing_user)) = app_state.user_repo.find_by_email(&email).await {
+        if existing_user.firebase_uid().to_string() != firebase_user.uid {
+            tracing::warn!("⚠️ Email '{}' exists with different Firebase UID: {} (existing) vs {} (new)", 
+                email_str, existing_user.firebase_uid(), firebase_user.uid);
+            
+            // Handle Firebase UID change - update the existing user instead of creating new one
+            tracing::info!("🔄 Updating existing user's Firebase UID: {} -> {}", 
+                existing_user.firebase_uid(), firebase_user.uid);
+            
+            return update_user_firebase_uid(app_state, existing_user, &firebase_uid).await
+                .map_err(|e| Box::new(std::io::Error::new(std::io::ErrorKind::Other, 
+                    format!("Failed to update user Firebase UID: {}", e))) as Box<dyn std::error::Error + Send + Sync>);
+        } else {
+            // Same email and same Firebase UID - this shouldn't happen since we already checked by Firebase UID
+            tracing::info!("✅ User already exists with same email and Firebase UID: {}", email_str);
+            return Ok(existing_user.id().clone());
+        }
+    }
+
+    // Create new user domain object
+    let user_id = crate::domain::shared_kernel::value_objects::UserId::new();
+    let new_user = crate::domain::user_management::aggregates::user::User::create(
+        user_id.clone(), 
+        firebase_uid, 
+        email
+    ).map_err(|e| format!("User creation failed: {}", e))?;
+
+    // Save user to database
+    tracing::info!("💾 Saving new user to database: {} (ID: {})", firebase_user.uid, user_id.as_str());
+    app_state.user_repo.save(&new_user).await
+        .map_err(|e| format!("Failed to save user to database: {}", e))?;
+
+    // Grant default permissions
+    if let Err(e) = grant_default_permissions_to_new_user(app_state, &new_user).await {
+        tracing::warn!("⚠️ Failed to grant default permissions to new user {}: {}", firebase_user.uid, e);
+        // Don't fail user creation, just log the warning
+    }
+
+    tracing::info!("✅ User created successfully: {} (ID: {})", firebase_user.uid, user_id.as_str());
+    Ok(user_id)
+}
+
+/// Grant default permissions to newly created user
+async fn grant_default_permissions_to_new_user(
+    app_state: &AppState,
+    user: &crate::domain::user_management::aggregates::user::User,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    tracing::info!("🔐 Granting default permissions to new user: {}", user.firebase_uid());
+    
+    // Define default permissions for new users
+    let default_permissions = vec![
+        "epsx:analytics:view",      // View EPS analytics dashboard
+        "epsx:profile:manage",      // Manage their own profile
+        "epsx:rankings:view",       // View stock rankings
+        "epsx:realtime:access",     // Access to real-time data
+        "epsx:data:export",         // Basic data export capability
+        "epsx:notifications:manage" // Manage their notifications
+    ];
+    
+    let mut user_with_permissions = user.clone();
+    let mut permissions_granted = 0;
+    
+    // Grant each default permission
+    for permission_str in default_permissions {
+        match crate::domain::user_management::value_objects::Permission::new(permission_str) {
+            Ok(permission) => {
+                match user_with_permissions.grant_permission(permission.clone(), None) {
+                    Ok(_) => {
+                        tracing::info!("✅ Granted permission '{}' to user: {}", permission_str, user.firebase_uid());
+                        permissions_granted += 1;
+                    }
+                    Err(e) => {
+                        tracing::error!("❌ Failed to grant permission '{}' to user {}: {}", 
+                            permission_str, user.firebase_uid(), e);
+                    }
+                }
+            }
+            Err(e) => {
+                tracing::error!("❌ Invalid permission format '{}': {}", permission_str, e);
+            }
+        }
+    }
+    
+    // Save user with granted permissions to database
+    if permissions_granted > 0 {
+        tracing::info!("💾 Saving user with {} granted permissions to database: {}", 
+            permissions_granted, user.firebase_uid());
+        
+        app_state.user_repo.save(&user_with_permissions).await
+            .map_err(|e| format!("Failed to save user permissions to database: {}", e))?;
+        
+        tracing::info!("✅ User permissions saved successfully: {}", user.firebase_uid());
+    }
+    
+    Ok(())
+}
+
+/// Update an existing user's Firebase UID when it changes
+/// This handles cases where users recreate Firebase accounts with the same email
+async fn update_user_firebase_uid(
+    app_state: &AppState,
+    existing_user: crate::domain::user_management::aggregates::user::User,
+    new_firebase_uid: &crate::domain::user_management::value_objects::FirebaseUid,
+) -> Result<crate::domain::shared_kernel::value_objects::UserId, Box<dyn std::error::Error + Send + Sync>> {
+    tracing::info!("🔧 Updating Firebase UID for existing user: {} (email: {})", 
+        existing_user.firebase_uid(), existing_user.email().as_str());
+    
+    // Update the Firebase UID
+    // Note: This requires adding an update method to the User aggregate
+    // For now, let's create a new user record and handle the migration
+    
+    let old_firebase_uid = existing_user.firebase_uid().clone();
+    let user_id = existing_user.id().clone();
+    let email = existing_user.email().clone();
+    
+    // Create a new user with the updated Firebase UID but same email and permissions
+    let permissions = existing_user.permissions().clone();
+    let is_email_verified = existing_user.is_email_verified();
+    let created_at = existing_user.created_at();
+    
+    tracing::info!("📋 Preserving {} permissions and verification status: {}", 
+        permissions.len(), is_email_verified);
+    
+    // For now, we'll update by creating a new user record with the same data
+    // This is a safe approach that preserves all user data
+    let updated_user = crate::domain::user_management::aggregates::user::User::load(
+        user_id.clone(),
+        new_firebase_uid.clone(),
+        email,
+        existing_user.is_active(),
+        is_email_verified,
+        permissions,
+        created_at,
+        chrono::Utc::now(), // updated_at
+        existing_user.last_login_at(),
+        existing_user.version(),
+    );
+    
+    // Save the updated user
+    tracing::info!("💾 Saving updated user with new Firebase UID: {} -> {}", 
+        old_firebase_uid, new_firebase_uid);
+    
+    app_state.user_repo.save(&updated_user).await
+        .map_err(|e| format!("Failed to save updated user: {}", e))?;
+    
+    tracing::info!("✅ Successfully updated user Firebase UID: {} (email: {})", 
+        new_firebase_uid, updated_user.email().as_str());
+    
+    Ok(user_id)
 }
 
 /// Utility functions

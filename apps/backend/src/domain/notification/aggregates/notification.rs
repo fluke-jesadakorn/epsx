@@ -3,9 +3,37 @@ use std::collections::HashMap;
 use crate::domain::shared_kernel::aggregate_root::{AggregateRoot, AggregateBase};
 use crate::domain::shared_kernel::domain_event::{DomainEvent, EventMetadata};
 use crate::domain::notification::value_objects::*;
-use crate::infrastructure::adapters::repositories::diesel::types::{NotificationType, NotificationPriority};
+use crate::domain::notification::value_objects::user_preferences::NotificationType;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+/// Notification Priority - pure domain enum
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum NotificationPriority {
+    #[serde(rename = "urgent")]
+    Urgent,
+    #[serde(rename = "critical")]
+    Critical,
+    #[serde(rename = "high")]
+    High,
+    #[serde(rename = "normal")]
+    Normal,
+    #[serde(rename = "low")]
+    Low,
+}
+
+impl std::fmt::Display for NotificationPriority {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            NotificationPriority::Urgent => "Urgent",
+            NotificationPriority::Critical => "Critical",
+            NotificationPriority::High => "High",
+            NotificationPriority::Normal => "Normal",
+            NotificationPriority::Low => "Low",
+        };
+        write!(f, "{}", s)
+    }
+}
 
 /// Notification Aggregate Root
 /// Manages the lifecycle of a notification from creation to delivery

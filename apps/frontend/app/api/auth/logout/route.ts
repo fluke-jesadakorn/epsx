@@ -3,6 +3,7 @@
  * OIDC Migration: Properly clears OIDC cookies and revokes backend tokens
  */
 import { NextRequest, NextResponse } from 'next/server';
+import { getBackendUrl, getFrontendUrl } from '../../../../../../shared/utils/url-resolver';
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
     // Call backend OIDC token revocation endpoint
     if (refreshToken || accessToken) {
       try {
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+        const backendUrl = getBackendUrl('server');
         
         // Revoke refresh token (preferred) or access token
         const tokenToRevoke = refreshToken || accessToken;
@@ -76,8 +77,8 @@ export async function POST(request: NextRequest) {
     // Standard OIDC RP-Initiated Logout (if ID token available)
     if (idToken) {
       try {
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
-        const frontendUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+        const backendUrl = getBackendUrl('server');
+        const frontendUrl = getFrontendUrl('server');
         
         console.log('🔄 Initiating OIDC RP-Initiated Logout...');
         

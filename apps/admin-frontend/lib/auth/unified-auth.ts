@@ -6,6 +6,7 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import { URL, URLContext, OIDCEndpoint } from '../../../../shared/utils/url-resolver';
 
 // ============================================================================
 // Core Types
@@ -79,9 +80,9 @@ export async function getTokensFromCookies(): Promise<{
  */
 export async function validateTokenWithBackend(accessToken: string): Promise<OIDCUser | null> {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+    const userinfoEndpoint = URL.oidc(OIDCEndpoint.USERINFO, URLContext.CLIENT);
     
-    const response = await fetch(`${backendUrl}/oauth/userinfo`, {
+    const response = await fetch(userinfoEndpoint, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json'
@@ -319,7 +320,7 @@ export async function getAdminSession(): Promise<AdminSession> {
     }
     
     // Check admin permissions
-    const adminAccess = hasAdminAccess(user.permissions);
+    const adminAccess = hasAdminAccess(user);
     
     if (!adminAccess) {
       console.log('📝 User lacks admin permissions');
@@ -478,37 +479,11 @@ function generateRandomState(): string {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
 
-function generateCodeVerifier(): string {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-}
-
-function generateCodeChallenge(): string {
-  // For simplicity, using code_verifier as challenge (plain method)
-  // In production, should use S256 method with proper hashing
-  return generateCodeVerifier();
-}
+// PKCE functions now available from shared utilities
 
 // ============================================================================
-// Legacy Migration Support
+// Legacy Migration Support - Now handled by shared utilities
 // ============================================================================
-
-/**
- * Check for legacy authentication tokens
- */
-export async function hasLegacyTokens(): Promise<boolean> {
-  const cookieStore = await cookies();
-  return !!(cookieStore.get('admin_jwt_token')?.value || cookieStore.get('session_token')?.value);
-}
-
-/**
- * Clean up legacy authentication cookies
- */
-export async function cleanupLegacyAuth(): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.delete('admin_jwt_token');
-  cookieStore.delete('session_token');
-  cookieStore.delete('firebase_token');
-}
 
 // ============================================================================
 // Export Main Interface
@@ -536,9 +511,7 @@ export const UnifiedAuth = {
   handleCallback: handleAuthCallback,
   logout,
   
-  // Legacy support
-  hasLegacyTokens,
-  cleanupLegacy: cleanupLegacyAuth
+  // Legacy support - now handled by shared utilities
 };
 
 export default UnifiedAuth;

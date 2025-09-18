@@ -2,11 +2,13 @@
  * Unified Server Data Fetchers
  * Consolidated server-side data fetching for admin components
  * Uses OIDC Bearer tokens for authentication
+ * Modernized with centralized URL resolver
  */
 
 import { cookies } from 'next/headers'
+import { URL, URLContext, Service } from '../../../../shared/utils/url-resolver';
 
-const API_BASE_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
+const API_BASE_URL = URL.get(Service.BACKEND, URLContext.SERVER);
 
 // Unified server fetch with OIDC authentication
 async function serverFetch(endpoint: string, options: RequestInit = {}): Promise<any> {

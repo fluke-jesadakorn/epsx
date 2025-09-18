@@ -2,7 +2,50 @@ use std::fmt::{self, Display};
 use std::collections::HashSet;
 use chrono::{NaiveTime, Utc, DateTime};
 use serde::{Deserialize, Serialize};
-use crate::infrastructure::adapters::repositories::diesel::types::{NotificationType, DeliveryChannel as DeliveryChannelType};
+use super::delivery_channel::DeliveryChannelType;
+
+/// Notification Types - pure domain enums
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum NotificationType {
+    #[serde(rename = "system")]
+    System,
+    #[serde(rename = "admin")]
+    Admin,
+    #[serde(rename = "security")]
+    Security,
+    #[serde(rename = "feature")]
+    Feature,
+    #[serde(rename = "marketing")]
+    Marketing,
+    #[serde(rename = "info")]
+    Info,
+    #[serde(rename = "warning")]
+    Warning,
+    #[serde(rename = "error")]
+    Error,
+    #[serde(rename = "success")]
+    Success,
+    #[serde(rename = "general")]
+    General,
+}
+
+impl Display for NotificationType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            NotificationType::System => "System",
+            NotificationType::Admin => "Admin",
+            NotificationType::Security => "Security",
+            NotificationType::Feature => "Feature",
+            NotificationType::Marketing => "Marketing",
+            NotificationType::Info => "Info",
+            NotificationType::Warning => "Warning",
+            NotificationType::Error => "Error",
+            NotificationType::Success => "Success",
+            NotificationType::General => "General",
+        };
+        write!(f, "{}", s)
+    }
+}
 
 /// User Notification Preferences Value Object
 /// Encapsulates user's notification preferences, quiet hours, and channel settings

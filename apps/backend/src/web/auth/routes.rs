@@ -6,7 +6,7 @@ use axum::{
     Router,
     middleware,
 };
-use crate::infrastructure::adapters::repositories::diesel::DbPool;
+use sqlx::PgPool as DbPool;
 
 use crate::infrastructure::adapters::services::firebase::firebase_admin::FirebaseAdmin;
 use crate::infrastructure::cache::Cache;
@@ -22,8 +22,8 @@ use crate::web::user::handlers::{
     // Auth.js Integration
     get_user_claims, upsert_user,
     
-    // Session Management
-    validate_session_handler, rotate_session_handler,
+    // Token Validation (Bearer token-based)
+    validate_session_handler,
     
     // Permission System
     validate_route_access_handler, validate_bulk_routes_handler,
@@ -40,7 +40,6 @@ pub struct AppState {
     pub notification_service: Arc<dyn crate::application::ports::outbound::service_ports::NotificationServicePort<Error = crate::infrastructure::adapters::services::fcm_service::FcmServiceError>>,
     pub ddd_container: Arc<crate::infrastructure::container::ddd_container::DDDContainer>,
     pub user_repo: Arc<dyn crate::domain::user_management::UserRepositoryPort>,
-    pub session_repo: Arc<dyn crate::domain::user_management::SessionRepositoryPort>,
     pub permission_service: Arc<crate::domain::authorization::services::stateless_permission_service::StatelessPermissionService>,
     pub rate_limiting_service: Option<Arc<crate::domain::resource_management::services::RateLimitingService>>, // Context-aware rate limiting
 }
@@ -53,7 +52,6 @@ impl AppState {
         notification_service: Arc<dyn crate::application::ports::outbound::service_ports::NotificationServicePort<Error = crate::infrastructure::adapters::services::fcm_service::FcmServiceError>>,
         ddd_container: Arc<crate::infrastructure::container::ddd_container::DDDContainer>,
         user_repo: Arc<dyn crate::domain::user_management::UserRepositoryPort>,
-        session_repo: Arc<dyn crate::domain::user_management::SessionRepositoryPort>,
         permission_service: Arc<crate::domain::authorization::services::stateless_permission_service::StatelessPermissionService>,
         rate_limiting_service: Option<Arc<crate::domain::resource_management::services::RateLimitingService>>,
     ) -> Self {
@@ -64,7 +62,6 @@ impl AppState {
             notification_service,
             ddd_container,
             user_repo,
-            session_repo,
             permission_service,
             rate_limiting_service,
         }
@@ -83,11 +80,11 @@ pub fn create_auth_routes(app_state: AppState) -> Router {
         .route("/api/v1/auth/sessions", post(login_handler))
         .route("/api/v1/auth/users", post(register_user));
         
-    // Protected auth routes (require valid session)
+    // Protected auth routes (require valid Bearer token)
     let protected_auth_routes = Router::new()
         .route("/api/v1/auth/sessions", axum::routing::delete(logout_handler))
         .route("/api/v1/auth/sessions/current", get(validate_session_handler))
-        .route("/api/v1/auth/sessions/current", axum::routing::patch(rotate_session_handler))
+        // Session rotation removed - JWT tokens have built-in expiration
         .route("/api/v1/auth/user", get(me_handler))
         .route("/api/v1/auth/tokens/refresh", post(refresh_handler))
         .layer(middleware::from_fn_with_state(
@@ -95,7 +92,7 @@ pub fn create_auth_routes(app_state: AppState) -> Router {
             crate::web::middleware::modern_jwt_auth_middleware
         ));
 
-    // Permission validation routes (require valid session)
+    // Permission validation routes (require valid Bearer token)
     let permission_routes = Router::new()
         .route("/api/v1/permissions/validations", post(check_permission_handler))
         .route("/api/v1/permissions/routes/validations", post(validate_route_access_handler))
@@ -141,7 +138,7 @@ pub fn create_authjs_routes(pool: Arc<DbPool>) -> Router {
 pub fn create_combined_auth_routes(
     app_state: AppState,
     container: Arc<AppContainer>,
-    pool: crate::infrastructure::adapters::repositories::diesel::DbPool,
+    pool: sqlx::PgPool,
 ) -> Router {
     Router::new()
         .merge(create_auth_routes(app_state))

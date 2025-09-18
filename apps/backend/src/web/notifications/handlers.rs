@@ -8,9 +8,9 @@ use tracing::{info, warn, debug};
 use crate::core::errors::AppError;
 use crate::infrastructure::adapters::services::FcmTopicService;
 use crate::web::middleware::AuthenticatedUser;
-use crate::infrastructure::adapters::repositories::NotificationRepositoryAdapter;
-use crate::infrastructure::adapters::repositories::mappers::NotificationMapper;
-use crate::infrastructure::adapters::repositories::diesel::types::{NotificationType, NotificationPriority};
+use crate::infrastructure::adapters::repositories::diesel_types::{NotificationRepositoryAdapter, NotificationMapper};
+use crate::domain::notification::value_objects::user_preferences::NotificationType;
+use crate::domain::notification::aggregates::notification::NotificationPriority;
 use super::dto::*;
 
 #[derive(Debug, Deserialize)]
@@ -107,7 +107,7 @@ pub async fn send_notification(
         // Topic broadcast using DDD
         debug!("Sending notification to topic {} via DDD adapter", topic_name);
         
-        match notification_adapter.deliver_notification_to_topic(&ddd_notification, topic_name).await {
+        match notification_adapter.deliver_notification_to_topic(topic_name, &request.title, &request.body, request.data_payload.clone()).await {
             Ok(delivery_result) => {
                 match delivery_result {
                     crate::domain::notification::aggregates::notification::DeliveryResult::Success { .. } => {
@@ -148,38 +148,33 @@ pub async fn send_notification(
         let fcm_token = Some("placeholder_token".to_string()); 
         let email = Some("user@example.com".to_string());
         
-        match notification_adapter.deliver_notification_to_user(&ddd_notification, user_id, fcm_token, email).await {
-            Ok(delivery_results) => {
-                let successful_deliveries = delivery_results.iter().filter(|result| {
-                    matches!(result, crate::domain::notification::aggregates::notification::DeliveryResult::Success { .. })
-                }).count();
-                
-                if successful_deliveries > 0 {
-                    info!("DDD user notification sent successfully to {} via {} channels", user_id, successful_deliveries);
-                    recipient_count = 1;
-                } else {
-                    warn!("All DDD user notification deliveries failed for user {}", user_id);
-                    return Err(AppError {
-                        kind: crate::core::errors::ErrorKind::ExternalServiceError,
-                        message: "All notification delivery channels failed".to_string(),
-                        context: crate::core::errors::ErrorContext::default(),
-                        correlation_id: Uuid::new_v4().to_string(),
-                        timestamp: chrono::Utc::now(),
-                        stack_trace: None,
-                    });
-                }
-            }
-            Err(e) => {
-                warn!("DDD adapter error for user notification: {}", e);
-                return Err(AppError {
-                    kind: crate::core::errors::ErrorKind::ExternalServiceError,
-                    message: format!("Notification adapter error: {}", e),
-                    context: crate::core::errors::ErrorContext::default(),
-                    correlation_id: Uuid::new_v4().to_string(),
-                    timestamp: chrono::Utc::now(),
-                    stack_trace: None,
-                });
-            }
+        let delivery_results = notification_adapter.deliver_notification_to_user(&ddd_notification, user_id, fcm_token, email).await
+            .map_err(|e| AppError {
+                kind: crate::core::errors::ErrorKind::ExternalServiceError,
+                message: format!("Notification delivery failed: {}", e),
+                context: crate::core::errors::ErrorContext::default(),
+                correlation_id: Uuid::new_v4().to_string(),
+                timestamp: chrono::Utc::now(),
+                stack_trace: None,
+            })?;
+        
+        let successful_deliveries = delivery_results.iter().filter(|result| {
+            matches!(result, crate::domain::notification::aggregates::notification::DeliveryResult::Success { .. })
+        }).count();
+        
+        if successful_deliveries > 0 {
+            info!("DDD user notification sent successfully to {} via {} channels", user_id, successful_deliveries);
+            recipient_count = 1;
+        } else {
+            warn!("All DDD user notification deliveries failed for user {}", user_id);
+            return Err(AppError {
+                kind: crate::core::errors::ErrorKind::ExternalServiceError,
+                message: "All notification delivery channels failed".to_string(),
+                context: crate::core::errors::ErrorContext::default(),
+                correlation_id: Uuid::new_v4().to_string(),
+                timestamp: chrono::Utc::now(),
+                stack_trace: None,
+            });
         }
     }
 
@@ -224,7 +219,7 @@ pub async fn broadcast_to_topic(
 
     // Create DDD notification for topic broadcast
     let channels = vec!["push".to_string()];
-    let ddd_notification = NotificationMapper::create_ddd_notification_from_legacy(
+    let _ddd_notification = NotificationMapper::create_ddd_notification_from_legacy(
         None, // No specific user
         Some(request.topic.clone()), // Topic broadcast
         request.title.clone(),
@@ -247,7 +242,7 @@ pub async fn broadcast_to_topic(
     })?;
 
     // Deliver via DDD adapter
-    match notification_adapter.deliver_notification_to_topic(&ddd_notification, &request.topic).await {
+    match notification_adapter.deliver_notification_to_topic(&request.topic, &request.title, &request.body, request.data.clone()).await {
         Ok(delivery_result) => {
             match delivery_result {
                 crate::domain::notification::aggregates::notification::DeliveryResult::Success { message_id, .. } => {
@@ -311,7 +306,7 @@ pub async fn track_notification(
 /// Get user notifications with real database query
 pub async fn get_user_notifications(
     Extension(auth_user): Extension<AuthenticatedUser>,
-    Extension(_repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel::repos::UserNotificationRepository>>,
+    Extension(_repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel_types::UserNotificationRepository>>,
     Query(pagination): Query<PaginationQuery>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("Fetching notifications for user: {}", auth_user.user_id);
@@ -353,7 +348,7 @@ pub async fn get_user_notifications(
 /// Get unread notifications only with real database query
 pub async fn get_unread_notifications(
     Extension(auth_user): Extension<AuthenticatedUser>,
-    Extension(_repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel::repos::UserNotificationRepository>>,
+    Extension(_repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel_types::UserNotificationRepository>>,
 ) -> Result<impl IntoResponse, AppError> {
     info!("Fetching unread notifications for user: {}", auth_user.user_id);
     
@@ -406,7 +401,7 @@ pub async fn get_preferences(
 /// Get notification statistics (admin only) with real database query
 pub async fn get_notification_stats(
     Extension(auth_user): Extension<AuthenticatedUser>,
-    Extension(_repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel::repos::UserNotificationRepository>>,
+    Extension(_repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel_types::UserNotificationRepository>>,
 ) -> Result<impl IntoResponse, AppError> {
     // Check admin permissions
     if !auth_user.valid_permissions.iter().any(|p| p.starts_with("admin:")) {
@@ -511,7 +506,7 @@ pub async fn send_security_alert(
     // Create DDD security alert notification
     let channels = vec!["push".to_string()];
     let security_topic = "security_alerts".to_string();
-    let ddd_notification = NotificationMapper::create_ddd_notification_from_legacy(
+    let _ddd_notification = NotificationMapper::create_ddd_notification_from_legacy(
         None, // No specific user - broadcast to security topic
         Some(security_topic.clone()),
         request.title.clone(),
@@ -534,7 +529,7 @@ pub async fn send_security_alert(
     })?;
 
     // Deliver security alert via DDD adapter
-    match notification_adapter.deliver_notification_to_topic(&ddd_notification, &security_topic).await {
+    match notification_adapter.deliver_notification_to_topic(&security_topic, &request.title, &request.body, request.data.clone()).await {
         Ok(delivery_result) => {
             match delivery_result {
                 crate::domain::notification::aggregates::notification::DeliveryResult::Success { message_id, .. } => {

@@ -5,6 +5,7 @@
 
 import { cookies } from 'next/headers'
 import { logger, safeError } from '@/lib/logger'
+import { getBackendUrl } from '../../../shared/utils/url-resolver'
 
 // Types matching backend API
 interface SessionValidationRequest {
@@ -110,7 +111,7 @@ export class UserSessionValidator {
       }
       
       // Validate with backend API
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : (() => { throw new Error('NEXT_PUBLIC_BACKEND_URL is required') })())
+      const backendUrl = getBackendUrl('server')
       
       const validationRequest: SessionValidationRequest = {
         app_type: 'user',

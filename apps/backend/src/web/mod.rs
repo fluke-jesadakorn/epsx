@@ -60,111 +60,53 @@ pub async fn premium_rankings_handler() -> Json<Value> {
 }
 
 
-/// Configure CORS for frontend applications
+/// Configure CORS for frontend applications - Allow any origin with Next.js headers
 fn configure_cors_for_frontend() -> CorsLayer {
-  use crate::config::get_env_var;
-  use tower_http::cors::AllowOrigin;
-  use http::{ HeaderName, HeaderValue };
+  use tower_http::cors::Any;
+  use axum::http::HeaderName;
+  use std::time::Duration;
 
-  if
-    get_env_var("RUST_ENV").unwrap_or_else(|_| "development".to_string()) ==
-    "development"
-  {
-    // Development - allow common development origins
-    let dev_origins = vec![
-      "http://localhost:3000".parse::<HeaderValue>().unwrap(), // Frontend dev server
-      "http://localhost:3001".parse::<HeaderValue>().unwrap(), // Admin frontend dev server
-      "http://127.0.0.1:3000".parse::<HeaderValue>().unwrap(), // Alternative localhost
-      "http://127.0.0.1:3001".parse::<HeaderValue>().unwrap() // Alternative localhost
-    ];
-
-    CorsLayer::new()
-      .allow_origin(AllowOrigin::list(dev_origins))
-      .allow_methods([
-        Method::GET,
-        Method::POST,
-        Method::PUT,
-        Method::DELETE,
-        Method::OPTIONS,
-      ])
-      .allow_headers([
-        HeaderName::from_static("authorization"),
-        HeaderName::from_static("content-type"),
-        HeaderName::from_static("x-requested-with"),
-        HeaderName::from_static("accept"),
-        HeaderName::from_static("origin"),
-        HeaderName::from_static("x-client-id"),
-        HeaderName::from_static("x-api-key"),
-      ])
-      .allow_credentials(true)
-  } else {
-    // Production - only allow configured frontend URLs
-    let mut allowed_origins = vec![];
-
-    if let Ok(frontend_url) = get_env_var("FRONTEND_URL") {
-      if let Ok(origin) = frontend_url.parse() {
-        allowed_origins.push(origin);
-      }
-    }
-
-    if let Ok(admin_url) = get_env_var("ADMIN_FRONTEND_URL") {
-      if let Ok(origin) = admin_url.parse() {
-        allowed_origins.push(origin);
-      }
-    }
-
-    if let Ok(prod_frontend) = get_env_var("PRODUCTION_FRONTEND_URL") {
-      if let Ok(origin) = prod_frontend.parse() {
-        allowed_origins.push(origin);
-      }
-    }
-
-    if let Ok(prod_admin) = get_env_var("PRODUCTION_ADMIN_URL") {
-      if let Ok(origin) = prod_admin.parse() {
-        allowed_origins.push(origin);
-      }
-    }
-
-    // Allow any *.run.app domain for Cloud Run deployments
-    if get_env_var("RUST_ENV").unwrap_or_default() == "production" {
-      // Note: This is handled by the dynamic domains list below
-      // Could add more dynamic handling here if needed
-    }
-
-    // Add production deployment domains
-    let production_domains = vec![
-      "https://epsx.io",
-      "https://www.epsx.io",
-      "https://admin.epsx.io",
-      "https://api.epsx.io"
-    ];
-
-    for domain in production_domains {
-      if let Ok(origin) = domain.parse() {
-        allowed_origins.push(origin);
-      }
-    }
-
-    CorsLayer::new()
-      .allow_origin(AllowOrigin::list(allowed_origins))
-      .allow_methods([
-        Method::GET,
-        Method::POST,
-        Method::PUT,
-        Method::DELETE,
-        Method::OPTIONS,
-      ])
-      .allow_headers([
-        HeaderName::from_static("authorization"),
-        HeaderName::from_static("content-type"),
-        HeaderName::from_static("x-requested-with"),
-        HeaderName::from_static("accept"),
-        HeaderName::from_static("origin"),
-        HeaderName::from_static("x-client-id"),
-        HeaderName::from_static("x-api-key"),
-      ])
-      .allow_credentials(true)
-  }
+  // Allow any origin for all environments (per user request)
+  // Note: When using Any origin, credentials cannot be allowed per CORS spec
+  CorsLayer::new()
+    .allow_origin(Any)
+    .allow_methods([
+      Method::GET,
+      Method::POST,
+      Method::PUT,
+      Method::PATCH,
+      Method::DELETE,
+      Method::OPTIONS,
+    ])
+    .allow_headers([
+      // Standard HTTP headers
+      HeaderName::from_static("accept"),
+      HeaderName::from_static("authorization"),
+      HeaderName::from_static("content-type"),
+      HeaderName::from_static("origin"),
+      HeaderName::from_static("referer"),
+      // Custom API headers
+      HeaderName::from_static("x-api-version"),
+      HeaderName::from_static("x-request-id"),
+      HeaderName::from_static("x-client-version"),
+      HeaderName::from_static("x-admin-session"),
+      // Next.js React Server Components header
+      HeaderName::from_static("rsc"),
+      // Next.js Router headers for prefetching (CRITICAL FOR FRONTEND)
+      HeaderName::from_static("next-router-prefetch"),
+      HeaderName::from_static("next-router-state-tree"),
+      HeaderName::from_static("next-url"),
+      HeaderName::from_static("purpose"),
+      HeaderName::from_static("x-middleware-prefetch"),
+      HeaderName::from_static("x-nextjs-data"),
+    ])
+    .expose_headers([
+      HeaderName::from_static("x-request-id"),
+      HeaderName::from_static("x-rate-limit-remaining"),
+      HeaderName::from_static("x-rate-limit-reset"),
+    ])
+    .allow_credentials(false) // Must be false when using Any origin
+    .max_age(Duration::from_secs(86400)) // 24 hours
 }
 
 /// Create standalone analytics routes without AppState dependency
@@ -391,9 +333,7 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
     .layer(axum_middleware::from_fn(
       crate::web::middleware::performance_headers_middleware
     ))
-    .layer(axum_middleware::from_fn(
-      crate::web::middleware::enhanced_cors_middleware
-    ))
+    // Removed enhanced_cors_middleware as it conflicts with proper CORS layer
     .layer(cors))
 }
 

@@ -5,10 +5,11 @@
 
 import { test as setup, expect, chromium } from '@playwright/test';
 import { initializeTestUsers } from '../fixtures/user-fixtures';
+import { URL, URLContext, Service } from '../../../../shared/utils/url-resolver';
 
-const BASE_URL = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-const API_URL = process.env.NEXT_PUBLIC_API_URL || process.env.BACKEND_URL || 'http://localhost:8080';
-const ADMIN_URL = process.env.ADMIN_URL || process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001';
+const BASE_URL = URL.get(Service.FRONTEND, URLContext.CLIENT);
+const API_URL = URL.get(Service.BACKEND, URLContext.CLIENT);
+const ADMIN_URL = URL.get(Service.ADMIN, URLContext.CLIENT);
 
 setup('🔧 Global Setup - Service Health Check', async ({ page }) => {
   console.log('🚀 Starting comprehensive global setup...');

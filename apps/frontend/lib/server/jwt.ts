@@ -4,6 +4,7 @@
  */
 import { cookies } from 'next/headers';
 import { verifyJWT, type EPSXJWTPayload } from '@/lib/auth-utils';
+import { URL, URLContext, OIDCEndpoint } from '../../../../shared/utils/url-resolver';
 
 /**
  * OIDC Migration: Get access token from OIDC cookies
@@ -56,8 +57,8 @@ export async function getUserInfoFromOIDC(): Promise<EPSXJWTPayload | null> {
     }
     
     // Get user info from backend OIDC userinfo endpoint
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
-    const response = await fetch(`${backendUrl}/oauth/userinfo`, {
+    const userinfoEndpoint = URL.oidc(OIDCEndpoint.USERINFO, URLContext.SERVER);
+    const response = await fetch(userinfoEndpoint, {
       headers: {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json'

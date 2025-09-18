@@ -3,26 +3,36 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>🥞 EPSX</title>
+    <title>EPSX Analytics</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Kanit:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <style>
       :root {
-        --pancake-primary: #1fc7d4;
-        --pancake-secondary: #7645d9;
-        --pancake-success: #31d0aa;
-        --pancake-warning: #ffb237;
-        --pancake-failure: #ed4b9e;
-        --pancake-orange: #ff6c02;
-        --pancake-yellow: #ffb237;
-        --gradient-pancake: linear-gradient(135deg, #1fc7d4 0%, #7645d9 50%, #ff6c02 100%);
-        --gradient-warm: linear-gradient(135deg, #ff6c02 0%, #ffb237 100%);
-        --gradient-cool: linear-gradient(135deg, #1fc7d4 0%, #7645d9 100%);
-        --gradient-glow: linear-gradient(135deg, rgba(31, 199, 212, 0.2) 0%, rgba(118, 69, 217, 0.2) 100%);
+        --primary: #0066cc;
+        --primary-dark: #004499;
+        --secondary: #6366f1;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --error: #ef4444;
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-300: #d1d5db;
+        --gray-400: #9ca3af;
+        --gray-500: #6b7280;
+        --gray-600: #4b5563;
+        --gray-700: #374151;
+        --gray-800: #1f2937;
+        --gray-900: #111827;
+        --gradient-primary: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+        --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
       }
 
       * {
@@ -32,682 +42,351 @@
       }
 
       body {
-        font-family: 'Kanit', 'Inter', system-ui, -apple-system, sans-serif;
-        background: linear-gradient(135deg, #0d1421 0%, #1a2332 50%, #0d1421 100%);
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        background: linear-gradient(135deg, var(--gray-50) 0%, var(--gray-100) 100%);
         min-height: 100vh;
         display: flex;
         align-items: center;
         justify-content: center;
         padding: 20px;
-        position: relative;
-        overflow-x: hidden;
+        color: var(--gray-900);
       }
 
-      /* PancakeSwap-style animated background */
-      body::before {
-        content: '';
-        position: fixed;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: radial-gradient(circle, rgba(31, 199, 212, 0.03) 0%, transparent 50%);
-        animation: rotateGlow 30s linear infinite;
-        z-index: 0;
-      }
-
-      body::after {
-        content: '🥞';
-        position: fixed;
-        top: 10%;
-        right: 15%;
-        font-size: 120px;
-        opacity: 0.05;
-        animation: float 8s ease-in-out infinite;
-        z-index: 0;
-      }
-
-      @keyframes rotateGlow {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-
-      @keyframes float {
-        0%, 100% { transform: translateY(0px) rotate(0deg); }
-        25% { transform: translateY(-20px) rotate(5deg); }
-        50% { transform: translateY(-10px) rotate(-3deg); }
-        75% { transform: translateY(-15px) rotate(2deg); }
-      }
-
-      @keyframes pancakeFlip {
-        0% { transform: rotateY(0deg); }
-        50% { transform: rotateY(180deg); }
-        100% { transform: rotateY(360deg); }
-      }
-
-      @keyframes bounce {
-        0%, 20%, 53%, 80%, 100% { transform: translate3d(0,0,0) scale(1); }
-        40%, 43% { transform: translate3d(0,-20px,0) scale(1.1); }
-        70% { transform: translate3d(0,-10px,0) scale(1.05); }
-        90% { transform: translate3d(0,-4px,0) scale(1.02); }
-      }
-
-      .centered-screen {
-        position: relative;
-        z-index: 1;
+      .container {
         width: 100%;
         max-width: 400px;
       }
 
-      .container-400 {
-        width: 100%;
+      .card {
+        background: white;
+        border-radius: 12px;
+        padding: 40px 32px;
+        box-shadow: var(--shadow-xl);
+        border: 1px solid var(--gray-200);
       }
 
-      .stack-6 > * + * { margin-top: 24px; }
-      .stack-4 > * + * { margin-top: 16px; }
-      .stack-2 > * + * { margin-top: 8px; }
-
-      .inline-center {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-direction: column;
-      }
-
-      /* Enhanced PancakeSwap logo with advanced effects */
-      .metro-logo {
-        width: 120px;
-        height: 120px;
-        background: var(--gradient-pancake);
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 56px;
-        position: relative;
-        cursor: pointer;
-        transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        box-shadow: 
-          0 24px 48px rgba(31, 199, 212, 0.35),
-          0 8px 16px rgba(118, 69, 217, 0.2),
-          inset 0 2px 4px rgba(255, 255, 255, 0.3);
-        margin-bottom: 24px;
-        border: 3px solid rgba(255, 255, 255, 0.4);
-      }
-
-      .metro-logo:hover {
-        animation: pancakeFlip 1.2s ease-in-out;
-        box-shadow: 
-          0 40px 80px rgba(31, 199, 212, 0.6),
-          0 16px 32px rgba(118, 69, 217, 0.4),
-          inset 0 2px 4px rgba(255, 255, 255, 0.5);
-        transform: scale(1.15) rotateY(15deg);
-      }
-
-      .metro-live-tile {
-        position: relative;
-        overflow: hidden;
-      }
-
-      .metro-live-tile::before {
-        content: '';
-        position: absolute;
-        top: -2px;
-        left: -2px;
-        right: -2px;
-        bottom: -2px;
-        background: var(--gradient-pancake);
-        border-radius: 50%;
-        z-index: -1;
-        animation: rotate 4s linear infinite;
-      }
-
-      .metro-live-tile .icon {
-        position: relative;
-        z-index: 2;
-        filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
-      }
-
-      @keyframes rotate {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-
-      /* Error toast with PancakeSwap styling */
-      .metro-toast {
-        background: linear-gradient(135deg, var(--pancake-failure), #ff6b9d);
-        color: white;
-        padding: 16px 24px;
-        border-radius: 20px;
-        font-weight: 600;
-        box-shadow: 0 10px 30px rgba(237, 75, 158, 0.4);
-        animation: slideInBounce 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        border: 2px solid rgba(255, 255, 255, 0.2);
-        backdrop-filter: blur(10px);
-      }
-
-      @keyframes slideInBounce {
-        0% { transform: translateY(-50px) scale(0.8); opacity: 0; }
-        60% { transform: translateY(0px) scale(1.05); opacity: 1; }
-        100% { transform: translateY(0px) scale(1); opacity: 1; }
-      }
-
-      /* Loading spinner with pancake theme */
-      #loading {
-        background: rgba(31, 199, 212, 0.1);
-        backdrop-filter: blur(20px);
-        border-radius: 20px;
-        padding: 30px;
+      .header {
         text-align: center;
-        border: 1px solid rgba(31, 199, 212, 0.3);
-        color: white;
+        margin-bottom: 32px;
       }
 
-      .metro-spinner {
-        width: 50px;
-        height: 50px;
-        border: 4px solid rgba(31, 199, 212, 0.3);
-        border-left: 4px solid var(--pancake-primary);
-        border-right: 4px solid var(--pancake-warning);
+      .logo {
+        width: 64px;
+        height: 64px;
+        background: var(--gradient-primary);
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        color: white;
+        margin: 0 auto 16px;
+        font-weight: 600;
+      }
+
+      .title {
+        font-size: 24px;
+        font-weight: 600;
+        color: var(--gray-900);
+        margin-bottom: 8px;
+      }
+
+      .subtitle {
+        font-size: 16px;
+        color: var(--gray-600);
+        font-weight: 400;
+      }
+
+      .form {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .label {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--gray-700);
+      }
+
+      .input {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid var(--gray-300);
+        border-radius: 8px;
+        font-size: 16px;
+        background: white;
+        transition: all 0.2s ease;
+      }
+
+      .input:focus {
+        outline: none;
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgb(0 102 204 / 0.1);
+      }
+
+      .input:hover:not(:focus) {
+        border-color: var(--gray-400);
+      }
+
+      .input::placeholder {
+        color: var(--gray-400);
+      }
+
+      .password-group {
+        position: relative;
+      }
+
+      .password-toggle {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: var(--gray-500);
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        transition: color 0.2s ease;
+      }
+
+      .password-toggle:hover {
+        color: var(--gray-700);
+      }
+
+      .button {
+        width: 100%;
+        padding: 12px 24px;
+        background: var(--gradient-primary);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        min-height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      .button:hover:not(:disabled) {
+        transform: translateY(-1px);
+        box-shadow: var(--shadow-lg);
+      }
+
+      .button:active:not(:disabled) {
+        transform: translateY(0);
+      }
+
+      .button:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+      }
+
+      .error {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: var(--error);
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+      }
+
+      .loading {
+        background: var(--gray-50);
+        border: 1px solid var(--gray-200);
+        padding: 24px;
+        border-radius: 8px;
+        text-align: center;
+        color: var(--gray-600);
+      }
+
+      .spinner {
+        width: 24px;
+        height: 24px;
+        border: 2px solid var(--gray-300);
+        border-top: 2px solid var(--primary);
         border-radius: 50%;
         animation: spin 1s linear infinite;
-        margin: 0 auto 16px;
+        margin: 0 auto 12px;
       }
 
       @keyframes spin {
         to { transform: rotate(360deg); }
       }
 
-      /* Enhanced card design with morphism */
-      .metro-card {
-        background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(255, 255, 255, 0.92) 100%);
-        border-radius: 36px;
-        padding: 48px 40px;
-        box-shadow: 
-          0 32px 64px rgba(0, 0, 0, 0.12),
-          0 16px 32px rgba(31, 199, 212, 0.08),
-          0 0 0 1px rgba(31, 199, 212, 0.15),
-          inset 0 1px 0 rgba(255, 255, 255, 0.8);
-        backdrop-filter: blur(40px) saturate(200%);
-        position: relative;
-        overflow: hidden;
-        border: 1.5px solid rgba(31, 199, 212, 0.25);
-        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-      }
-
-      .metro-card:hover {
-        transform: translateY(-8px);
-        box-shadow: 
-          0 48px 80px rgba(0, 0, 0, 0.15),
-          0 24px 48px rgba(31, 199, 212, 0.12),
-          0 0 0 1px rgba(31, 199, 212, 0.2),
-          inset 0 1px 0 rgba(255, 255, 255, 0.9);
-      }
-
-      .metro-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 6px;
-        background: var(--gradient-pancake);
-        border-radius: 32px 32px 0 0;
-      }
-
-      .metro-card::after {
-        content: '';
-        position: absolute;
-        top: -50%;
-        left: -50%;
-        width: 200%;
-        height: 200%;
-        background: radial-gradient(circle, rgba(31, 199, 212, 0.05) 0%, transparent 70%);
-        animation: cardGlow 6s ease-in-out infinite;
-        z-index: 0;
-      }
-
-      @keyframes cardGlow {
-        0%, 100% { opacity: 0.5; transform: rotate(0deg); }
-        50% { opacity: 0.8; transform: rotate(180deg); }
-      }
-
-      /* Form styling */
-      .metro-card form {
-        position: relative;
-        z-index: 1;
-      }
-
-      /* Input field enhancements with advanced styling */
-      .metro-input {
-        width: 100%;
-        padding: 22px 28px;
-        border: 2px solid transparent;
-        border-radius: 24px;
-        font-size: 17px;
+      .security-badge {
+        background: var(--gray-50);
+        border: 1px solid var(--gray-200);
+        color: var(--gray-600);
+        padding: 12px 16px;
+        border-radius: 8px;
+        text-align: center;
+        font-size: 12px;
         font-weight: 500;
-        font-family: 'Kanit', sans-serif;
-        background: linear-gradient(135deg, #f8fafc 0%, #e8f4f8 100%);
-        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        outline: none;
-        position: relative;
-        box-shadow: 
-          inset 0 2px 4px rgba(0, 0, 0, 0.04),
-          0 2px 8px rgba(31, 199, 212, 0.08);
-      }
-
-      .metro-input:focus {
-        border-color: var(--pancake-primary);
-        background: rgba(255, 255, 255, 0.98);
-        box-shadow: 
-          0 0 0 6px rgba(31, 199, 212, 0.12),
-          0 12px 32px rgba(31, 199, 212, 0.18),
-          inset 0 2px 4px rgba(31, 199, 212, 0.1);
-        transform: translateY(-4px) scale(1.02);
-      }
-
-      .metro-input:hover:not(:focus) {
-        background: linear-gradient(135deg, #ffffff 0%, #f0f9ff 100%);
-        transform: translateY(-2px);
-        box-shadow: 
-          inset 0 2px 4px rgba(0, 0, 0, 0.04),
-          0 4px 12px rgba(31, 199, 212, 0.12);
-      }
-
-      .metro-input::placeholder {
-        font-size: 18px;
-        color: #64748b;
-        font-weight: 500;
-      }
-
-      /* Tile styling */
-      .metro-tile {
-        width: 48px;
-        height: 48px;
-        border-radius: 12px;
+        margin-top: 24px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 20px;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-      }
-
-      .tile-compact {
-        background: var(--gradient-warm);
-        color: white;
-        box-shadow: 0 6px 20px rgba(255, 108, 2, 0.3);
-      }
-
-      .metro-tile:hover {
-        transform: scale(1.1) rotate(10deg);
-        box-shadow: 0 10px 30px rgba(255, 108, 2, 0.5);
-      }
-
-      /* Button styling with enhanced effects */
-      .metro-button {
-        padding: 24px 36px;
-        border: none;
-        border-radius: 28px;
-        font-weight: 700;
-        font-size: 19px;
-        font-family: 'Kanit', sans-serif;
-        cursor: pointer;
-        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        position: relative;
-        overflow: hidden;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        text-decoration: none;
-        min-height: 68px;
-        width: 100%;
-        background: var(--gradient-pancake);
-        color: white;
-        box-shadow: 
-          0 12px 36px rgba(31, 199, 212, 0.4),
-          0 4px 8px rgba(118, 69, 217, 0.2),
-          inset 0 1px 2px rgba(255, 255, 255, 0.3);
-        border: 2px solid rgba(255, 255, 255, 0.25);
-      }
-
-      .metro-button:hover {
-        transform: translateY(-6px) scale(1.03);
-        box-shadow: 
-          0 24px 60px rgba(31, 199, 212, 0.6),
-          0 8px 16px rgba(118, 69, 217, 0.3),
-          inset 0 1px 2px rgba(255, 255, 255, 0.4);
-        animation: bounce 1.2s ease-in-out;
-      }
-
-      .metro-button:active {
-        transform: translateY(-2px) scale(0.98);
-      }
-
-      .metro-button::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-        transition: left 0.5s;
-      }
-
-      .metro-button:hover::before {
-        left: 100%;
-      }
-
-      /* Password toggle button */
-      .btn-icon {
-        padding: 14px;
-        min-width: 48px;
-        min-height: 48px;
-        background: var(--gradient-cool);
-        color: white;
-        border-radius: 12px;
-        font-size: 16px;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(118, 69, 217, 0.3);
-      }
-
-      .btn-icon:hover {
-        background: var(--gradient-warm);
-        transform: scale(1.1);
-        box-shadow: 0 8px 25px rgba(255, 108, 2, 0.4);
-      }
-
-      /* Security badge */
-      .metro-security-badge {
-        background: linear-gradient(135deg, rgba(31, 199, 212, 0.2), rgba(118, 69, 217, 0.2));
-        color: var(--pancake-primary);
-        padding: 16px 24px;
-        border-radius: 20px;
-        font-weight: 600;
-        font-size: 16px;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(31, 199, 212, 0.3);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        animation: glow 3s ease-in-out infinite alternate;
-      }
-
-      @keyframes glow {
-        0% { box-shadow: 0 5px 20px rgba(31, 199, 212, 0.3); }
-        100% { box-shadow: 0 5px 30px rgba(31, 199, 212, 0.6); }
-      }
-
-      /* Flex utilities */
-      .flex {
-        display: flex;
-      }
-
-      .items-center {
-        align-items: center;
-      }
-
-      .gap-2 {
-        gap: 8px;
+        gap: 6px;
       }
 
       .hidden {
         display: none;
       }
 
+      .stack > * + * {
+        margin-top: 20px;
+      }
+
       /* Mobile responsiveness */
-      @media (max-width: 768px) {
+      @media (max-width: 640px) {
         body {
           padding: 16px;
         }
 
-        .metro-card {
+        .card {
           padding: 32px 24px;
-          border-radius: 24px;
         }
 
-        .metro-logo {
-          width: 80px;
-          height: 80px;
-          font-size: 40px;
+        .title {
+          font-size: 20px;
         }
 
-        .metro-input {
-          padding: 18px 20px;
+        .input {
           font-size: 16px; /* Prevent zoom on iOS */
         }
+      }
 
-        .metro-button {
-          padding: 18px 28px;
-          font-size: 17px;
-          min-height: 58px;
-        }
-
-        .metro-tile {
-          width: 44px;
-          height: 44px;
-          font-size: 18px;
+      /* High contrast mode support */
+      @media (prefers-contrast: high) {
+        :root {
+          --gray-300: #999999;
+          --gray-400: #666666;
+          --gray-500: #333333;
         }
       }
 
-      /* Floating elements */
-      .floating-pancake {
-        position: fixed;
-        font-size: 24px;
-        opacity: 0.1;
-        animation: floatRandom 15s ease-in-out infinite;
-        pointer-events: none;
-        z-index: 0;
-      }
-
-      .floating-pancake:nth-child(1) { top: 20%; left: 10%; animation-delay: 0s; }
-      .floating-pancake:nth-child(2) { top: 60%; right: 20%; animation-delay: 3s; }
-      .floating-pancake:nth-child(3) { bottom: 30%; left: 20%; animation-delay: 6s; }
-
-      @keyframes floatRandom {
-        0%, 100% { transform: translateY(0px) translateX(0px) rotate(0deg); }
-        25% { transform: translateY(-20px) translateX(10px) rotate(90deg); }
-        50% { transform: translateY(0px) translateX(-10px) rotate(180deg); }
-        75% { transform: translateY(10px) translateX(5px) rotate(270deg); }
-      }
-
-      /* Enhanced focus styles */
-      .metro-input:focus::placeholder {
-        transform: translateY(-10px);
-        opacity: 0.7;
-        font-size: 14px;
-      }
-
-      /* Custom selection colors */
-      ::selection {
-        background: var(--pancake-primary);
-        color: white;
-      }
-
-      ::-moz-selection {
-        background: var(--pancake-primary);
-        color: white;
+      /* Reduced motion support */
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
       }
     </style>
   </head>
-  <body class="metro-theme">
-    <div class="centered-screen">
-      <div class="container-400 stack-6">
-        <!-- Metro Header -->
-        <div class="inline-center">
-          <div class="metro-logo metro-live-tile">
-            <span class="icon">🥞</span>
+  <body>
+    <div class="container">
+      <div class="stack">
+        <!-- Header -->
+        <div class="card">
+          <div class="header">
+            <div class="logo">E</div>
+            <h1 class="title">EPSX Analytics</h1>
+            <p class="subtitle">Professional trading analytics platform</p>
           </div>
-        </div>
 
-        <!-- Error Display -->
-        {% if !error.is_empty() %}
-        <div class="metro-toast error">⚠️ {{ error }}</div>
-        {% endif %}
+          <!-- Error Display -->
+          {% if !error.is_empty() %}
+          <div class="error">{{ error }}</div>
+          {% endif %}
 
-        <!-- Loading State -->
-        <div id="loading" class="hidden inline-center">
-          <div class="metro-spinner" style="margin: 0 auto"></div>
-        </div>
-
-        <!-- Metro Login Card -->
-        <div class="metro-card stack-4">
-          <!-- Header Section with enhanced typography -->
-          <div class="stack-3">
-            <div class="inline-center">
-              <h1 style="
-                color: var(--pancake-primary); 
-                font-size: 32px; 
-                font-weight: 800; 
-                margin: 0; 
-                text-shadow: 0 2px 4px rgba(31, 199, 212, 0.3);
-                background: linear-gradient(135deg, var(--pancake-primary), var(--pancake-secondary));
-                -webkit-background-clip: text;
-                -webkit-text-fill-color: transparent;
-                background-clip: text;
-              ">
-                📊 EPSX Portal
-              </h1>
-            </div>
-            <div class="inline-center">
-              <p style="
-                color: #64748b; 
-                font-size: 18px; 
-                margin: 0; 
-                font-weight: 500;
-                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-              ">
-                Advanced analytics platform
-              </p>
-            </div>
+          <!-- Loading State -->
+          <div id="loading" class="loading hidden">
+            <div class="spinner"></div>
+            <p>Signing you in...</p>
           </div>
-          
-          <form
-            method="POST"
-            action="/oauth/authorize"
-            id="metro-form"
-            class="stack-4"
-          >
+
+          <!-- Login Form -->
+          <form method="POST" action="/oauth/authorize" id="login-form" class="form">
             <!-- Hidden OAuth Fields -->
             <input type="hidden" name="client_id" value="{{ client_id }}" />
-            <input
-              type="hidden"
-              name="redirect_uri"
-              value="{{ redirect_uri }}"
-            />
+            <input type="hidden" name="redirect_uri" value="{{ redirect_uri }}" />
             <input type="hidden" name="state" value="{{ state }}" />
             <input type="hidden" name="scope" value="{{ scope }}" />
             <input type="hidden" name="response_type" value="code" />
             {% if code_challenge.is_some() %}
-            <input
-              type="hidden"
-              name="code_challenge"
-              value="{{ code_challenge.as_ref().unwrap() }}"
-            />
-            {% endif %} {% if code_challenge_method.is_some() %}
-            <input
-              type="hidden"
-              name="code_challenge_method"
-              value="{{ code_challenge_method.as_ref().unwrap() }}"
-            />
+            <input type="hidden" name="code_challenge" value="{{ code_challenge.as_ref().unwrap() }}" />
+            {% endif %}
+            {% if code_challenge_method.is_some() %}
+            <input type="hidden" name="code_challenge_method" value="{{ code_challenge_method.as_ref().unwrap() }}" />
             {% endif %}
 
             <!-- Email Field -->
-            <div class="stack-2">
-              <div class="flex items-center gap-2">
-                <div class="metro-tile small tile-compact inline-center">
-                  📧
-                </div>
-                <label for="email" style="color: var(--pancake-primary); font-weight: 600; font-size: 16px;">
-                  Email Address
-                </label>
-              </div>
+            <div class="form-group">
+              <label for="email" class="label">Email Address</label>
               <input
                 id="email"
                 name="email"
                 type="email"
                 autocomplete="email"
                 required
-                class="metro-input"
-                placeholder="📧 Enter your email"
-                data-autofocus
+                class="input"
+                placeholder="Enter your email"
+                autofocus
               />
             </div>
 
             <!-- Password Field -->
-            <div class="stack-2">
-              <div class="flex items-center gap-2">
-                <div class="metro-tile small tile-compact inline-center">
-                  🔐
-                </div>
-                <label for="password" style="color: var(--pancake-primary); font-weight: 600; font-size: 16px;">
-                  Password
-                </label>
+            <div class="form-group">
+              <label for="password" class="label">Password</label>
+              <div class="password-group">
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  autocomplete="current-password"
+                  required
+                  class="input"
+                  placeholder="Enter your password"
+                />
                 <button
                   type="button"
-                  class="metro-button secondary btn-compact btn-icon"
+                  class="password-toggle"
                   data-toggle="password"
-                  data-target="#password"
                   aria-label="Toggle password visibility"
                 >
-                  👁️
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                    <circle cx="12" cy="12" r="3"/>
+                  </svg>
                 </button>
               </div>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autocomplete="current-password"
-                required
-                class="metro-input"
-                placeholder="🔐 Enter your password"
-              />
             </div>
 
             <!-- Login Button -->
-            <button
-              type="submit"
-              id="login-button"
-              class="metro-button primary"
-              style="
-                width: 100%;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                gap: 8px;
-              "
-            >
-              <span style="font-size: 20px;">🚀</span>
-              <span style="font-weight: 600; font-size: 16px;">Launch to Analytics</span>
+            <button type="submit" id="login-button" class="button">
+              <span>Sign In</span>
             </button>
           </form>
         </div>
 
         <!-- Security Badge -->
-        <div class="inline-center">
-          <div class="metro-security-badge" style="display: flex; align-items: center; gap: 8px;">
-            <span style="font-size: 16px;">🔒 🛡️</span>
-            <span style="color: var(--pancake-success); font-weight: 500; font-size: 14px;">
-              Secured by EPSX
-            </span>
-          </div>
+        <div class="security-badge">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <span>Secured by EPSX</span>
         </div>
       </div>
     </div>
 
-    <!-- Floating pancake elements -->
-    <div class="floating-pancake">🥞</div>
-    <div class="floating-pancake">🚀</div>
-    <div class="floating-pancake">💎</div>
-
     <script>
-      // Enhanced PancakeSwap-style JavaScript
       document.addEventListener('DOMContentLoaded', function() {
-        // Password toggle functionality with pancake theme
+        // Password toggle functionality
         const passwordToggle = document.querySelector('[data-toggle="password"]');
         const passwordInput = document.querySelector('#password');
         
@@ -715,31 +394,28 @@
           passwordToggle.addEventListener('click', function() {
             const type = passwordInput.type === 'password' ? 'text' : 'password';
             passwordInput.type = type;
-            this.textContent = type === 'password' ? '👁️' : '🙈';
             
-            // Add bounce animation
-            this.style.animation = 'bounce 0.5s ease-in-out';
-            setTimeout(() => {
-              this.style.animation = '';
-            }, 500);
+            // Update icon
+            const svg = this.querySelector('svg');
+            if (type === 'text') {
+              svg.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+            } else {
+              svg.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+            }
           });
         }
 
-        // Enhanced form submission with PancakeSwap styling
-        const form = document.getElementById('metro-form');
+        // Form submission handling
+        const form = document.getElementById('login-form');
         const loginButton = document.getElementById('login-button');
         const loadingElement = document.getElementById('loading');
 
         if (form) {
           form.addEventListener('submit', function(e) {
-            // Show pancake loading state
+            // Show loading state
             if (loginButton) {
-              loginButton.innerHTML = `
-                <div style="margin-right: 12px; width: 24px; height: 24px; border: 3px solid rgba(255,255,255,0.3); border-left: 3px solid white; border-right: 3px solid #ffb237; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-                🥞 Flipping to login...
-              `;
+              loginButton.innerHTML = '<div class="spinner" style="width: 16px; height: 16px; margin: 0 8px 0 0;"></div>Signing in...';
               loginButton.disabled = true;
-              loginButton.style.background = 'linear-gradient(135deg, #1fc7d4 0%, #7645d9 100%)';
             }
             
             if (loadingElement) {
@@ -748,259 +424,33 @@
             
             // Reset after timeout if no redirect
             setTimeout(function() {
-              if (!form.hasAttribute('data-submitted')) {
-                if (loginButton) {
-                  loginButton.innerHTML = '🚀';
-                  loginButton.disabled = false;
-                  loginButton.style.background = 'var(--gradient-pancake)';
-                }
-                if (loadingElement) {
-                  loadingElement.classList.add('hidden');
-                }
+              if (loginButton) {
+                loginButton.innerHTML = 'Sign In';
+                loginButton.disabled = false;
+              }
+              if (loadingElement) {
+                loadingElement.classList.add('hidden');
               }
             }, 15000);
           });
         }
 
-        // Enhanced input interactions
-        const inputs = document.querySelectorAll('.metro-input');
-        inputs.forEach(input => {
-          // Focus effects
-          input.addEventListener('focus', function() {
-            this.style.transform = 'translateY(-3px) scale(1.02)';
-            createInputSparkles(this);
-          });
-          
-          input.addEventListener('blur', function() {
-            if (!this.value) {
-              this.style.transform = 'translateY(0) scale(1)';
-            }
-          });
-          
-          // Typing effects
-          input.addEventListener('input', function() {
-            if (this.value.length > 0) {
-              this.style.background = 'white';
-              this.style.borderColor = 'var(--pancake-primary)';
-            } else {
-              this.style.background = 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)';
-              this.style.borderColor = 'transparent';
-            }
-          });
-        });
-
-        // Auto-focus on first input with animation
-        const firstInput = document.querySelector('[data-autofocus]');
-        if (firstInput) {
-          setTimeout(() => {
-            firstInput.focus();
-            firstInput.style.animation = 'bounce 0.6s ease-in-out';
-          }, 500);
-        }
-
-        // Logo interaction with pancake flip
-        const logo = document.querySelector('.metro-logo');
-        if (logo) {
-          let clickCount = 0;
-          
-          logo.addEventListener('click', function() {
-            clickCount++;
-            this.style.animation = 'pancakeFlip 1s ease-in-out';
-            
-            // Easter egg: Triple click for pancake rain
-            if (clickCount >= 3) {
-              createPancakeRain();
-              clickCount = 0;
-            }
-            
-            setTimeout(() => {
-              this.style.animation = '';
-            }, 1000);
-          });
-
-          logo.addEventListener('mouseenter', function() {
-            this.style.transform = 'scale(1.1) rotate(5deg)';
-            createSparkleEffect(this);
-          });
-
-          logo.addEventListener('mouseleave', function() {
-            this.style.transform = 'scale(1) rotate(0deg)';
-          });
-        }
-
         // Enhanced keyboard navigation
         document.addEventListener('keydown', function(e) {
-          if (e.key === 'Enter' && e.target.classList.contains('metro-input')) {
+          if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
             e.preventDefault();
-            const inputs = Array.from(document.querySelectorAll('.metro-input'));
+            const inputs = Array.from(document.querySelectorAll('input[type="email"], input[type="password"]'));
             const currentIndex = inputs.indexOf(e.target);
             
             if (currentIndex < inputs.length - 1) {
               inputs[currentIndex + 1].focus();
-              // Add transition effect
-              inputs[currentIndex + 1].style.animation = 'slideInBounce 0.3s ease-out';
             } else {
               form.submit();
             }
           }
-          
-          // Konami code easter egg
-          handleKonamiCode(e);
         });
 
-        // Pancake rain effect
-        function createPancakeRain() {
-          const rainDuration = 3000;
-          const pancakeCount = 15;
-          
-          for (let i = 0; i < pancakeCount; i++) {
-            setTimeout(() => {
-              const pancake = document.createElement('div');
-              pancake.textContent = '🥞';
-              pancake.style.position = 'fixed';
-              pancake.style.fontSize = '24px';
-              pancake.style.top = '-50px';
-              pancake.style.left = Math.random() * window.innerWidth + 'px';
-              pancake.style.zIndex = '9999';
-              pancake.style.pointerEvents = 'none';
-              
-              document.body.appendChild(pancake);
-              
-              // Animate falling
-              pancake.animate([
-                { transform: 'translateY(-50px) rotate(0deg)', opacity: 1 },
-                { transform: `translateY(${window.innerHeight + 50}px) rotate(360deg)`, opacity: 0.5 }
-              ], {
-                duration: 2000 + Math.random() * 1000,
-                easing: 'cubic-bezier(0.4, 0.0, 0.2, 1)'
-              }).onfinish = () => pancake.remove();
-            }, i * 200);
-          }
-        }
-
-        // Sparkle effects for inputs
-        function createInputSparkles(element) {
-          const sparkleCount = 4;
-          for (let i = 0; i < sparkleCount; i++) {
-            setTimeout(() => {
-              const sparkle = document.createElement('div');
-              sparkle.style.position = 'absolute';
-              sparkle.style.width = '6px';
-              sparkle.style.height = '6px';
-              sparkle.style.background = 'linear-gradient(45deg, #1fc7d4, #7645d9)';
-              sparkle.style.borderRadius = '50%';
-              sparkle.style.pointerEvents = 'none';
-              sparkle.style.zIndex = '1000';
-              
-              const rect = element.getBoundingClientRect();
-              sparkle.style.left = (rect.left + Math.random() * rect.width) + 'px';
-              sparkle.style.top = (rect.top - 10 + Math.random() * 20) + 'px';
-              
-              document.body.appendChild(sparkle);
-              
-              sparkle.animate([
-                { transform: 'scale(0) translateY(0)', opacity: 1 },
-                { transform: 'scale(1) translateY(-20px)', opacity: 1, offset: 0.3 },
-                { transform: 'scale(0) translateY(-40px)', opacity: 0 }
-              ], {
-                duration: 800,
-                easing: 'cubic-bezier(0.4, 0.0, 0.2, 1)'
-              }).onfinish = () => sparkle.remove();
-            }, i * 100);
-          }
-        }
-
-        // Logo sparkle effect
-        function createSparkleEffect(element) {
-          for (let i = 0; i < 8; i++) {
-            setTimeout(() => {
-              const sparkle = document.createElement('div');
-              sparkle.style.position = 'absolute';
-              sparkle.style.width = '4px';
-              sparkle.style.height = '4px';
-              sparkle.style.background = 'linear-gradient(45deg, #fff, #1fc7d4, #ffb237)';
-              sparkle.style.borderRadius = '50%';
-              sparkle.style.pointerEvents = 'none';
-              sparkle.style.zIndex = '1000';
-              
-              const rect = element.getBoundingClientRect();
-              const angle = (i / 8) * Math.PI * 2;
-              const radius = 60 + Math.random() * 20;
-              sparkle.style.left = (rect.left + rect.width/2 + Math.cos(angle) * radius) + 'px';
-              sparkle.style.top = (rect.top + rect.height/2 + Math.sin(angle) * radius) + 'px';
-              
-              document.body.appendChild(sparkle);
-              
-              sparkle.animate([
-                { transform: 'scale(0) rotate(0deg)', opacity: 1 },
-                { transform: 'scale(1.5) rotate(180deg)', opacity: 1, offset: 0.5 },
-                { transform: 'scale(0) rotate(360deg)', opacity: 0 }
-              ], {
-                duration: 1200,
-                easing: 'cubic-bezier(0.4, 0.0, 0.2, 1)'
-              }).onfinish = () => sparkle.remove();
-            }, i * 150);
-          }
-        }
-
-        // Konami code easter egg
-        let konamiCode = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'];
-        let konamiIndex = 0;
-
-        function handleKonamiCode(e) {
-          if (e.code === konamiCode[konamiIndex]) {
-            konamiIndex++;
-            if (konamiIndex >= konamiCode.length) {
-              // Activate pancake mode
-              document.body.style.animation = 'rainbow 2s ease-in-out infinite';
-              createPancakeRain();
-              konamiIndex = 0;
-              
-              // Add rainbow animation
-              const style = document.createElement('style');
-              style.textContent = `
-                @keyframes rainbow {
-                  0% { filter: hue-rotate(0deg); }
-                  100% { filter: hue-rotate(360deg); }
-                }
-              `;
-              document.head.appendChild(style);
-              
-              setTimeout(() => {
-                document.body.style.animation = '';
-                style.remove();
-              }, 10000);
-            }
-          } else {
-            konamiIndex = 0;
-          }
-        }
-
-        // Security badge animation
-        const securityBadge = document.querySelector('.metro-security-badge');
-        if (securityBadge) {
-          securityBadge.addEventListener('mouseenter', function() {
-            this.style.animation = 'bounce 0.6s ease-in-out, glow 3s ease-in-out infinite';
-          });
-
-          securityBadge.addEventListener('mouseleave', function() {
-            this.style.animation = 'glow 3s ease-in-out infinite';
-          });
-        }
-
-        // Random floating elements animation enhancement
-        const floatingElements = document.querySelectorAll('.floating-pancake');
-        floatingElements.forEach((element, index) => {
-          element.addEventListener('click', function() {
-            this.style.animation = 'pancakeFlip 1s ease-in-out, floatRandom 15s ease-in-out infinite';
-            this.style.fontSize = '32px';
-            setTimeout(() => {
-              this.style.fontSize = '24px';
-            }, 1000);
-          });
-        });
-
-        console.log('📊 EPSX Portal initialized successfully! 🚀');
+        console.log('EPSX Analytics login page initialized');
       });
     </script>
   </body>

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { URL, URLContext, Service } from '../../../../../../shared/utils/url-resolver';
 
 interface StockRanking {
   rank: number;
@@ -30,12 +31,12 @@ interface ApiResponse {
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new globalThis.URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '5');
     const type = searchParams.get('type') || 'preview'; // 'preview' or 'cards'
     
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+    const apiUrl = URL.get(Service.BACKEND, URLContext.SERVER);
     
     // Show real top stocks instead of fake ranks 101+ 
     const url = `${apiUrl}/api/v1/public/analytics/eps-rankings?page=${page}&limit=${limit}&sort_by=market_cap`;

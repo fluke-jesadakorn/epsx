@@ -366,18 +366,20 @@ pub struct LoginRequest {
   pub token: String,
 }
 
-/// Logout request structure
+/// Logout request structure (Bearer token-based - body optional)
 #[derive(Debug, Deserialize)]
 pub struct LogoutRequest {
-  pub session_id: String,
-  pub user_id: String,
+  // Optional fields for backward compatibility
+  pub session_id: Option<String>,
+  pub user_id: Option<String>,
 }
 
-/// Validate session request structure
+/// Validate token request structure (Bearer token-based)
 #[derive(Debug, Deserialize)]
 pub struct ValidateSessionRequest {
-  pub session_id: String,
-  pub token: String,
+  // Optional fields for backward compatibility
+  pub session_id: Option<String>,
+  pub token: Option<String>,
 }
 
 /// Refresh token request structure
@@ -406,8 +408,9 @@ pub async fn login_handler(
     .map(|s| s.to_string());
 
   // Use DDD authentication service integration
-  match app_state.ddd_container.authentication_service_integration()
-    .create_session(&login_req.token, ip_address, user_agent).await {
+  let auth_service = app_state.ddd_container.authentication_service_integration()
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+  match auth_service.create_session(&login_req.token, ip_address, user_agent).await {
     Ok(result) => {
       tracing::info!(
         session_id = result.session_id,
@@ -445,50 +448,54 @@ pub async fn login_handler(
   }
 }
 
-/// POST /logout - Logout current user
+/// DELETE /logout - Logout current user (Bearer token-based)
 pub async fn logout_handler(
-  State(app_state): State<AppState>,
-  _headers: HeaderMap,
-  Json(logout_req): Json<LogoutRequest>
+  State(_app_state): State<AppState>,
+  headers: HeaderMap,
+  Json(_logout_req): Json<LogoutRequest>
 ) -> Result<Json<Value>, StatusCode> {
-  tracing::info!("Processing logout via DDD authentication service");
-
-  // Use DDD authentication service integration
-  match app_state.ddd_container.authentication_service_integration()
-    .terminate_session(&logout_req.session_id, &logout_req.user_id).await {
-    Ok(_) => {
-      tracing::info!(
-        session_id = logout_req.session_id,
-        user_id = logout_req.user_id,
-        "Logout successful via DDD"
-      );
-      
-      Ok(Json(json!({
-        "message": "Logout successful",
-        "logged_out_at": chrono::Utc::now()
-      })))
-    },
-    Err(e) => {
-      tracing::error!(error = %e, "Logout failed via DDD");
-      match e {
-        AuthenticationError::SessionNotFound => {
-          // Already logged out, return success
-          Ok(Json(json!({
-            "message": "Logout successful (session not found)",
-            "logged_out_at": chrono::Utc::now()
-          })))
-        },
-        _ => Err(StatusCode::INTERNAL_SERVER_ERROR)
+  tracing::info!("Processing Bearer token logout - stateless");
+  
+  // Extract user info from Bearer token for logging purposes
+  let user_info = if let Some(auth_header) = headers.get("authorization") {
+    if let Ok(auth_str) = auth_header.to_str() {
+      if auth_str.starts_with("Bearer ") {
+        let token = auth_str.strip_prefix("Bearer ").unwrap();
+        // Try to decode token for user info (for logging only)
+        match crate::auth::jwt::JWT.verify(token).await {
+          Ok(claims) => Some(format!("user: {}", claims.sub)),
+          Err(_) => Some("unknown user".to_string())
+        }
+      } else {
+        None
       }
+    } else {
+      None
     }
-  }
+  } else {
+    None
+  };
+  
+  tracing::info!(
+    user_info = user_info.as_deref().unwrap_or("anonymous"),
+    "Bearer token logout successful - client should delete token"
+  );
+  
+  // For stateless JWT authentication, logout is handled client-side
+  // The client should delete the Bearer token from storage
+  Ok(Json(json!({
+    "message": "Logout successful - please delete Bearer token from client storage",
+    "logged_out_at": chrono::Utc::now(),
+    "auth_type": "bearer_token",
+    "action_required": "client_delete_token"
+  })))
 }
 
 // Auth.js Integration Handlers
 
 /// Get user claims for JWT token generation
 pub async fn get_user_claims(
-  State(_pool): State<Arc<crate::infrastructure::adapters::repositories::diesel::DbPool>>,
+  State(_pool): State<Arc<crate::infrastructure::adapters::repositories::diesel_types::DbPool>>,
   Json(request): Json<serde_json::Value>
 ) -> Result<Json<serde_json::Value>, StatusCode> {
   tracing::info!("Getting user claims - stub implementation with request: {:?}", request);
@@ -511,7 +518,7 @@ pub async fn get_user_claims(
 
 /// Upsert user for OAuth flow
 pub async fn upsert_user(
-  State(_pool): State<Arc<crate::infrastructure::adapters::repositories::diesel::DbPool>>,
+  State(_pool): State<Arc<crate::infrastructure::adapters::repositories::diesel_types::DbPool>>,
   Json(request): Json<serde_json::Value>
 ) -> Result<Json<serde_json::Value>, StatusCode> {
   tracing::info!("Upserting user - stub implementation with request: {:?}", request);
@@ -550,8 +557,9 @@ pub async fn refresh_handler(
     .to_string();
 
   // Use DDD authentication service integration
-  match app_state.ddd_container.authentication_service_integration()
-    .refresh_token(&req.refresh_token, ip_address).await {
+  let auth_service = app_state.ddd_container.authentication_service_integration()
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+  match auth_service.refresh_token(&req.refresh_token, ip_address).await {
     Ok(result) => {
       tracing::info!("Token refresh successful via DDD");
       
@@ -614,42 +622,71 @@ pub async fn check_password_strength() -> Result<Json<Value>, StatusCode> {
 }
 
 pub async fn validate_session_handler(
-  State(app_state): State<AppState>,
+  State(_app_state): State<AppState>,
   headers: HeaderMap,
-  Json(req): Json<ValidateSessionRequest>
+  Json(_req): Json<ValidateSessionRequest>
 ) -> Result<Json<Value>, StatusCode> {
-  tracing::info!("Validating session via DDD authentication service");
+  tracing::info!("Validating Bearer token - stateless");
 
   // Extract IP address for security monitoring
-  let _ip_address = headers.get("x-forwarded-for")
+  let ip_address = headers.get("x-forwarded-for")
     .or_else(|| headers.get("x-real-ip"))
     .and_then(|h| h.to_str().ok())
     .unwrap_or("unknown")
     .to_string();
 
-  // Use DDD authentication service integration
-  match app_state.ddd_container.authentication_service_integration()
-    .validate_session(&req.session_id).await {
-    Ok(result) => {
+  // Extract Bearer token from Authorization header
+  let auth_header = headers.get("authorization")
+    .and_then(|header| header.to_str().ok())
+    .and_then(|header| {
+      if header.starts_with("Bearer ") {
+        Some(&header[7..])
+      } else {
+        None
+      }
+    });
+
+  let token = match auth_header {
+    Some(token) => token,
+    None => {
+      tracing::warn!("No Bearer token found in Authorization header");
+      return Ok(Json(json!({
+        "valid": false,
+        "error": "No Bearer token provided",
+        "auth_type": "bearer_token"
+      })));
+    }
+  };
+
+  // Validate JWT Bearer token
+  match crate::auth::jwt::JWT.decode_with_permissions(token).await {
+    Ok((user, permissions)) => {
       tracing::info!(
-        session_id = result.session_id,
-        user_id = result.user_id,
-        "Session validation successful via DDD"
+        user_id = user.id,
+        user_email = user.email,
+        ip_address = ip_address,
+        "Bearer token validation successful"
       );
       
       Ok(Json(json!({
-        "valid": result.is_valid,
-        "session_id": result.session_id,
-        "user_id": result.user_id,
-        "permissions": result.permissions,
-        "expires_at": result.expires_at
+        "valid": true,
+        "user_id": user.id,
+        "user_email": user.email,
+        "permissions": permissions,
+        "auth_type": "bearer_token",
+        "validated_at": chrono::Utc::now()
       })))
     },
     Err(e) => {
-      tracing::warn!(error = %e, "Session validation failed via DDD");
+      tracing::warn!(
+        error = %e, 
+        ip_address = ip_address,
+        "Bearer token validation failed"
+      );
       Ok(Json(json!({
         "valid": false,
-        "error": "Session validation failed"
+        "error": format!("Bearer token validation failed: {:?}", e),
+        "auth_type": "bearer_token"
       })))
     }
   }

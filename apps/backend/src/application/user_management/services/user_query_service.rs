@@ -12,42 +12,19 @@ use crate::application::user_management::{
 use crate::domain::user_management::UserRepositoryPort;
 use crate::domain::shared_kernel::AggregateRoot;
 
-// Import database access for enhanced UserSummary mapping
-use crate::infrastructure::adapters::repositories::diesel::{DbPool, schema::users, models::DieselUser};
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
-
 /// User Query Service
 /// Handles read-only operations for user data
 #[derive(Clone)]
 pub struct UserQueryService {
     user_repository: Arc<dyn UserRepositoryPort>,
-    db_pool: Arc<DbPool>,
 }
 
 impl UserQueryService {
     /// Create a new UserQueryService
-    pub fn new(user_repository: Arc<dyn UserRepositoryPort>, db_pool: Arc<DbPool>) -> Self {
+    pub fn new(user_repository: Arc<dyn UserRepositoryPort>) -> Self {
         Self { 
             user_repository,
-            db_pool,
         }
-    }
-
-    /// Get enhanced user data from database for UserSummary
-    async fn get_user_database_info(&self, firebase_uid: &str) -> ApplicationResult<Option<DieselUser>> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| ApplicationError::infrastructure(format!("Database connection failed: {}", e)))?;
-        
-        let diesel_user = users::table
-            .filter(users::firebase_uid.eq(firebase_uid))
-            .select(DieselUser::as_select())
-            .first::<DieselUser>(&mut conn)
-            .await
-            .optional()
-            .map_err(|e| ApplicationError::infrastructure(format!("Database query failed: {}", e)))?;
-        
-        Ok(diesel_user)
     }
     
     /// Get user by Firebase UID
@@ -104,7 +81,7 @@ impl UserQueryService {
         let users = search_result.users;
         let total_count = search_result.total_count as usize;
         
-        // Convert domain users to summary format with enhanced database fields
+        // Convert domain users to summary format using pure domain data
         let mut user_summaries = Vec::new();
         
         for user in users {
@@ -127,24 +104,18 @@ impl UserQueryService {
             } else {
                 "inactive".to_string()
             };
-
-            // Get enhanced database info for this user
-            let database_info = self.get_user_database_info(user.firebase_uid().to_string().as_str()).await?;
             
             user_summaries.push(UserSummary {
                 id: user.firebase_uid().to_string(),  // Use firebase_uid as id
                 firebase_uid: user.firebase_uid().clone(),
                 email: user.email().clone(),
-                display_name: database_info.as_ref()
-                    .and_then(|db_user| db_user.display_name.clone()), // Get from database
+                display_name: None, // Domain User doesn't expose display_name directly
                 role,
                 status,
                 is_active: user.is_active(),
                 email_verified: user.is_email_verified(),
                 permissions: user.permissions().clone(),
-                package_tier: database_info.as_ref()
-                    .and_then(|db_user| db_user.package_tier.clone())
-                    .unwrap_or_else(|| "free".to_string()), // Get from database with fallback
+                package_tier: "free".to_string(), // Default tier - should be derived from permissions
                 created_at: AggregateRoot::created_at(&user),
                 updated_at: AggregateRoot::updated_at(&user),
                 last_login_at: user.last_login_at(),
@@ -153,4 +124,39 @@ impl UserQueryService {
         
         Ok(ListUsersResponse::new(user_summaries, total_count))
     }
+
+    /// Update user (placeholder)
+    pub async fn update_user(
+        &self,
+        _user_id: &str,
+        _update_data: UserUpdateData,
+    ) -> ApplicationResult<()> {
+        // TODO: Implement user update with SQLx
+        Ok(())
+    }
+
+    /// Delete user (placeholder)
+    pub async fn delete_user(&self, _user_id: &str) -> ApplicationResult<()> {
+        // TODO: Implement user deletion with SQLx
+        Ok(())
+    }
+
+    /// Create user (placeholder)
+    pub async fn create_user(&self, _user_data: CreateUserData) -> ApplicationResult<String> {
+        // TODO: Implement user creation with SQLx
+        Ok("user_id_placeholder".to_string())
+    }
+}
+
+/// Placeholder structs for user operations
+#[derive(Debug)]
+pub struct UserUpdateData {
+    pub email: Option<String>,
+    pub is_active: Option<bool>,
+}
+
+#[derive(Debug)]
+pub struct CreateUserData {
+    pub email: String,
+    pub firebase_uid: String,
 }

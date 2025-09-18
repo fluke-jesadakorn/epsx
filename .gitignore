@@ -79,3 +79,6 @@ secrets/
 
 # Local Overrides
 *.local
+
+# Debug and Test Files
+.debug/

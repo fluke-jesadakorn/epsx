@@ -16,9 +16,10 @@ import {
   PermissionSearchFilters,
   PermissionTemplate
 } from '@/types/granular-permissions'
+import { URL, URLContext, Service } from '../../../../shared/utils/url-resolver';
 
 // Base configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:8080'
+const API_BASE_URL = URL.get(Service.BACKEND, URLContext.CLIENT);
 
 // Helper function to get auth token
 function getAuthToken(): string | null {

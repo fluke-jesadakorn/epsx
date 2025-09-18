@@ -6,6 +6,8 @@ import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { verifyJWTFromCookies, getSessionFromJWT } from './jwt';
 import { type EPSXJWTPayload, derivePackageTierFromPermissions, hasJWTPermission, isJWTAdmin } from '@/lib/auth-utils';
+import { getBackendUrl, getFrontendUrl, oidcUrls, callbackUrls, URL, URLContext, OIDCEndpoint, Service, APIPath } from '../../../../shared/utils/url-resolver';
+import { generateCodeVerifier, generateCodeChallenge, generateRandomString } from '../../../../shared/auth/pkce';
 
 /**
  * Get authenticated user from JWT cookies
@@ -208,9 +210,9 @@ export async function requireRole(requiredRole: string, redirectPath?: string): 
  * Redirect to backend Pancake login with callback URL
  */
 export function redirectToBackendLogin(callbackUrl?: string): never {
-  const backendLoginUrl = new URL('/oauth/authorize', process.env.NEXT_PUBLIC_BACKEND_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : (() => { throw new Error('NEXT_PUBLIC_BACKEND_URL is required') })()));
+  const backendLoginUrl = new URL('/oauth/authorize', getBackendUrl('server'));
   backendLoginUrl.searchParams.set('client_id', process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend');
-  backendLoginUrl.searchParams.set('redirect_uri', `${process.env.NEXT_PUBLIC_APP_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : (() => { throw new Error('NEXT_PUBLIC_APP_URL is required') })())}/api/auth/callback/epsx-backend`);
+  backendLoginUrl.searchParams.set('redirect_uri', callbackUrls.frontend('server'));
   backendLoginUrl.searchParams.set('scope', 'openid profile email');
   backendLoginUrl.searchParams.set('response_type', 'code');
   if (callbackUrl) {
@@ -223,59 +225,7 @@ export function redirectToBackendLogin(callbackUrl?: string): never {
 // OAuth 2.0 / OIDC Server-Side Functions
 // ============================================================================
 
-/**
- * Generate OAuth authorization URL with PKCE for server-side use
- * This function runs on the server and generates secure PKCE parameters
- */
-export async function getAuthorizationUrl() {
-  try {
-    console.log('🔄 Frontend: Generating PKCE parameters for OAuth authorization...')
-    
-    // Generate PKCE parameters (server-side only)
-    const codeVerifier = generateCodeVerifier()
-    console.log('✅ Frontend: Code verifier generated successfully')
-    
-    const codeChallenge = await generateCodeChallenge(codeVerifier)
-    console.log('✅ Frontend: Code challenge generated successfully')
-    
-    const state = generateRandomString(32)
-    console.log('✅ Frontend: State parameter generated successfully')
-    
-    // Build authorization URL
-    const authorizationEndpoint = `${process.env.NEXT_PUBLIC_BACKEND_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : (() => { throw new Error('NEXT_PUBLIC_BACKEND_URL is required') })())}/oauth/authorize`
-    const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend'
-    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : (() => { throw new Error('NEXT_PUBLIC_APP_URL is required') })())}/api/auth/callback/epsx-backend`
-    
-    console.log('🔧 Frontend: OAuth configuration:', {
-      authorizationEndpoint,
-      clientId,
-      redirectUri,
-      scope: 'openid profile email'
-    })
-    
-    const params = new URLSearchParams({
-      response_type: 'code',
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      scope: 'openid profile email',
-      state: state,
-      code_challenge: codeChallenge,
-      code_challenge_method: 'S256',
-    })
-    
-    const url = `${authorizationEndpoint}?${params.toString()}`
-    console.log('✅ Frontend: Authorization URL generated successfully:', url)
-    
-    return {
-      url,
-      codeVerifier,
-      state,
-    }
-  } catch (error) {
-    console.error('❌ Frontend: Failed to generate authorization URL:', error)
-    throw new Error(`OAuth authorization URL generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
-  }
-}
+// OAuth authorization URL generation now handled by shared utilities
 
 /**
  * Exchange authorization code for tokens (simplified flow)
@@ -284,14 +234,12 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string, 
   try {
     console.log('🔄 Frontend: Exchanging authorization code for access token...')
     
-    // Use internal Docker network URL for server-side requests
-    const apiUrl = process.env.NODE_ENV === 'production' 
-      ? (process.env.NEXT_PUBLIC_BACKEND_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : (() => { throw new Error('NEXT_PUBLIC_BACKEND_URL is required') })()))
-      : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080')
+    // Use centralized URL resolver for server-side requests
+    const tokenEndpoint = URL.oidc(OIDCEndpoint.TOKEN, URLContext.SERVER);
     const clientId = process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend'
-    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:3000' : (() => { throw new Error('NEXT_PUBLIC_APP_URL is required') })())}/api/auth/callback/epsx-backend`
+    const redirectUri = URL.callback(Service.FRONTEND, URLContext.SERVER);
     
-    const response = await fetch(`${apiUrl}/oauth/token`, {
+    const response = await fetch(tokenEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
@@ -330,11 +278,9 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string, 
  * Fetch user info from OAuth userinfo endpoint
  */
 export async function getUserInfo(accessToken: string) {
-  // Use internal Docker network URL for server-side requests
-  const apiUrl = process.env.NODE_ENV === 'production' 
-    ? (process.env.NEXT_PUBLIC_BACKEND_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:8080' : (() => { throw new Error('NEXT_PUBLIC_BACKEND_URL is required') })()))
-    : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080')
-  const response = await fetch(`${apiUrl}/oauth/userinfo`, {
+  // Use centralized URL resolver for server-side requests
+  const userinfoEndpoint = URL.oidc(OIDCEndpoint.USERINFO, URLContext.SERVER);
+  const response = await fetch(userinfoEndpoint, {
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
@@ -349,46 +295,8 @@ export async function getUserInfo(accessToken: string) {
 }
 
 // ============================================================================
-// PKCE Helper Functions (Server-Side Only)
+// PKCE Helper Functions - Now imported from shared utilities
 // ============================================================================
-
-/**
- * Generate code verifier for PKCE using Web Crypto API (Edge Runtime compatible)
- */
-function generateCodeVerifier(): string {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return base64URLEncode(array);
-}
-
-/**
- * Generate code challenge from verifier using SHA-256
- */
-async function generateCodeChallenge(verifier: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(verifier);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return base64URLEncode(new Uint8Array(digest));
-}
-
-/**
- * Generate cryptographically secure random string
- */
-function generateRandomString(length: number): string {
-  const array = new Uint8Array(length);
-  crypto.getRandomValues(array);
-  return base64URLEncode(array);
-}
-
-/**
- * Base64 URL encode (Edge Runtime compatible)
- */
-function base64URLEncode(array: Uint8Array): string {
-  return btoa(String.fromCharCode(...array))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
-}
 
 /**
  * Map feature to structured permission

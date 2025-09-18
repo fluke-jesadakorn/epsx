@@ -2,22 +2,31 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Button, Badge, Alert, AlertDescription } from '@/components/ui';
-import { CheckCircle, XCircle, RefreshCw, Wifi, WifiOff, Activity, AlertTriangle } from 'lucide-react';
-import { auth, isFirebaseAuthenticated, getFirebaseUserInfo } from '@/lib/firebase';
+import { CheckCircle, XCircle, RefreshCw, Wifi, WifiOff, Activity, AlertTriangle, BarChart3 } from 'lucide-react';
+import { 
+  isFirebaseInitialized, 
+  isServiceAvailable, 
+  trackEvent, 
+  getRemoteConfigValue, 
+  fetchRemoteConfig 
+} from '@/lib/firebase';
 
 interface FirebaseConnectionStatus {
   isConnected: boolean;
-  isAuthenticated: boolean;
-  userInfo: any;
+  analyticsAvailable: boolean;
+  remoteConfigAvailable: boolean;
+  messagingAvailable: boolean;
   lastChecked: Date;
   error?: string;
+  remoteConfigKeys?: string[];
 }
 
 export function FirebaseConfigSection() {
   const [connectionStatus, setConnectionStatus] = useState<FirebaseConnectionStatus>({
     isConnected: false,
-    isAuthenticated: false,
-    userInfo: null,
+    analyticsAvailable: false,
+    remoteConfigAvailable: false,
+    messagingAvailable: false,
     lastChecked: new Date()
   });
   const [isChecking, setIsChecking] = useState(false);
@@ -28,31 +37,65 @@ export function FirebaseConfigSection() {
     setTestResult(null);
     
     try {
-      // Check if Firebase is initialized
-      const isConnected = !!auth;
-      const isAuthenticated = isFirebaseAuthenticated();
-      const userInfo = getFirebaseUserInfo();
+      // Check if Firebase services are available
+      const isConnected = isFirebaseInitialized();
+      const analyticsAvailable = isServiceAvailable('analytics');
+      const remoteConfigAvailable = isServiceAvailable('remoteConfig');
+      const messagingAvailable = isServiceAvailable('messaging');
+      
+      let remoteConfigKeys: string[] = [];
+      
+      // Test remote config if available
+      if (remoteConfigAvailable) {
+        try {
+          await fetchRemoteConfig();
+          // You can add specific config keys to test here
+          remoteConfigKeys = ['feature_flags', 'api_version', 'maintenance_mode'];
+        } catch (error) {
+          console.warn('Remote config fetch failed:', error);
+        }
+      }
       
       setConnectionStatus({
         isConnected,
-        isAuthenticated,
-        userInfo,
-        lastChecked: new Date()
+        analyticsAvailable,
+        remoteConfigAvailable,
+        messagingAvailable,
+        lastChecked: new Date(),
+        remoteConfigKeys
       });
 
-      if (isConnected && isAuthenticated) {
-        setTestResult('✅ Firebase connection successful! Authentication working properly.');
-      } else if (isConnected && !isAuthenticated) {
-        setTestResult('⚠️ Firebase connected but user not authenticated.');
+      if (isConnected) {
+        const availableServices = [
+          analyticsAvailable && 'Analytics',
+          remoteConfigAvailable && 'Remote Config',
+          messagingAvailable && 'Messaging'
+        ].filter(Boolean);
+        
+        if (availableServices.length > 0) {
+          setTestResult(`✅ Firebase connected! Available services: ${availableServices.join(', ')}`);
+        } else {
+          setTestResult('⚠️ Firebase connected but no services available.');
+        }
       } else {
         setTestResult('❌ Firebase connection failed. Check configuration.');
       }
+      
+      // Test analytics event tracking
+      if (analyticsAvailable) {
+        trackEvent('firebase_config_test', {
+          timestamp: Date.now(),
+          services_available: availableServices.length
+        });
+      }
+      
     } catch (error) {
       console.error('Firebase connection test failed:', error);
       setConnectionStatus({
         isConnected: false,
-        isAuthenticated: false,
-        userInfo: null,
+        analyticsAvailable: false,
+        remoteConfigAvailable: false,
+        messagingAvailable: false,
         lastChecked: new Date(),
         error: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -84,26 +127,26 @@ export function FirebaseConfigSection() {
 
   const getConnectionIcon = () => {
     if (connectionStatus.isConnected) {
-      return connectionStatus.isAuthenticated ? 
-        <Wifi className="h-4 w-4 text-green-600" /> : 
+      return connectionStatus.analyticsAvailable ? 
+        <BarChart3 className="h-4 w-4 text-green-600" /> : 
         <Activity className="h-4 w-4 text-yellow-600" />;
     }
     return <WifiOff className="h-4 w-4 text-red-600" />;
   };
 
   const getConnectionBadge = () => {
-    if (connectionStatus.isConnected && connectionStatus.isAuthenticated) {
+    if (connectionStatus.isConnected && connectionStatus.analyticsAvailable) {
       return (
         <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
           <CheckCircle className="h-3 w-3 mr-1" />
-          Connected & Authenticated
+          Analytics Active
         </Badge>
       );
     } else if (connectionStatus.isConnected) {
       return (
         <Badge variant="default" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
           <AlertTriangle className="h-3 w-3 mr-1" />
-          Connected (Not Authenticated)
+          Connected (Limited Services)
         </Badge>
       );
     }
@@ -134,9 +177,15 @@ export function FirebaseConfigSection() {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Authentication:</span>
-              <span className={connectionStatus.isAuthenticated ? 'text-green-600' : 'text-yellow-600'}>
-                {connectionStatus.isAuthenticated ? 'Authenticated' : 'Not Authenticated'}
+              <span className="text-muted-foreground">Analytics:</span>
+              <span className={connectionStatus.analyticsAvailable ? 'text-green-600' : 'text-yellow-600'}>
+                {connectionStatus.analyticsAvailable ? 'Available' : 'Unavailable'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Remote Config:</span>
+              <span className={connectionStatus.remoteConfigAvailable ? 'text-green-600' : 'text-yellow-600'}>
+                {connectionStatus.remoteConfigAvailable ? 'Available' : 'Unavailable'}
               </span>
             </div>
           </div>
@@ -148,20 +197,31 @@ export function FirebaseConfigSection() {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">User ID:</span>
-              <span className="text-xs font-mono">
-                {connectionStatus.userInfo?.uid || 'N/A'}
+              <span className="text-muted-foreground">Messaging:</span>
+              <span className={connectionStatus.messagingAvailable ? 'text-green-600' : 'text-yellow-600'}>
+                {connectionStatus.messagingAvailable ? 'Available' : 'Unavailable'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Config Keys:</span>
+              <span className="text-xs">
+                {connectionStatus.remoteConfigKeys?.length || 0} loaded
               </span>
             </div>
           </div>
         </div>
 
-        {connectionStatus.userInfo && (
+        {connectionStatus.remoteConfigKeys && connectionStatus.remoteConfigKeys.length > 0 && (
           <div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg">
             <div className="text-sm text-green-700 dark:text-green-300 space-y-1">
-              <div><strong>Email:</strong> {connectionStatus.userInfo.email}</div>
-              <div><strong>Display Name:</strong> {connectionStatus.userInfo.displayName || 'Not set'}</div>
-              <div><strong>UID:</strong> <code className="text-xs">{connectionStatus.userInfo.uid}</code></div>
+              <div><strong>Remote Config Keys:</strong></div>
+              <div className="flex flex-wrap gap-1">
+                {connectionStatus.remoteConfigKeys.map(key => (
+                  <code key={key} className="text-xs bg-green-100 dark:bg-green-800 px-1 rounded">
+                    {key}
+                  </code>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -213,8 +273,8 @@ export function FirebaseConfigSection() {
 
         <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
           <div className="text-sm text-blue-700 dark:text-blue-300">
-            <strong>🔍 Debug Info:</strong> This section shows live Firebase connection status. 
-            If you're experiencing authentication issues, use the "Test Connection" button to diagnose problems.
+            <strong>📊 Firebase Analytics Status:</strong> This section shows Firebase Analytics, Remote Config, and Messaging service status. 
+            Authentication is now handled via OIDC OAuth flow. Use "Test Connection" to verify Firebase services are working.
           </div>
         </div>
       </CardContent>

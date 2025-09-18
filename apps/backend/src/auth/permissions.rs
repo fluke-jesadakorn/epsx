@@ -8,6 +8,7 @@ use uuid::Uuid;
 // No role concept - only permission-based access control
 
 use serde::{Deserialize, Serialize};
+use crate::infrastructure::adapters::repositories::diesel_types::{DieselUserDynamicLimit, ResolvedUserLimits};
 
 
 
@@ -451,10 +452,13 @@ pub fn require_permission_pure(
 // This section implements the core logic for resolving user limits dynamically
 // combining database-stored admin assignments with permission-based fallbacks
 
+// TODO: Re-enable after SQLx migration - dynamic limits functionality
+/*
 use crate::infrastructure::adapters::repositories::diesel::models::{
 
     DieselUserDynamicLimit, ResolvedUserLimits
 };
+*/
 
 /// Default limits for different permission levels (fallback when no dynamic limits)
 pub const DEFAULT_FREE_RANKING_LIMIT: i32 = 3;
@@ -479,11 +483,15 @@ fn resolve_from_dynamic_assignment(
     dynamic_limit: DieselUserDynamicLimit,
 ) -> ResolvedUserLimits {
     ResolvedUserLimits {
-        user_id: user_id.to_string(),
-        daily_limit: Some(dynamic_limit.limit_value),
-        weekly_limit: None,
-        monthly_limit: None,
-        total_limit: None,
+        user_id: Some(user_id),
+        ranking_limit: 10,
+        api_minute_limit: dynamic_limit.limit_value,
+        daily_limit: dynamic_limit.limit_value * 24,
+        weekly_limit: dynamic_limit.limit_value * 24 * 7,
+        monthly_limit: dynamic_limit.limit_value * 24 * 30,
+        total_limit: dynamic_limit.limit_value * 24 * 365,
+        has_premium_features: false,
+        is_admin: false,
     }
 }
 
@@ -497,11 +505,15 @@ fn resolve_from_permissions(
     let _api_endpoints = derive_api_endpoints_from_permissions(user_permissions);
 
     ResolvedUserLimits {
-        user_id: user_id.to_string(),
-        daily_limit: Some(api_per_hour as i64),
-        weekly_limit: None,
-        monthly_limit: None,
-        total_limit: None,
+        user_id: Some(user_id),
+        ranking_limit,
+        api_minute_limit: api_per_hour / 60,
+        daily_limit: api_per_hour * 24,
+        weekly_limit: api_per_hour * 24 * 7,
+        monthly_limit: api_per_hour * 24 * 30,
+        total_limit: api_per_hour * 24 * 365,
+        has_premium_features: user_permissions.iter().any(|p| p.contains("premium")),
+        is_admin: user_permissions.iter().any(|p| p.starts_with("admin:")),
     }
 }
 
@@ -624,11 +636,15 @@ fn endpoint_matches_pattern(endpoint: &str, pattern: &str) -> bool {
 /// Create a default resolved limits for a user (used as final fallback)
 pub fn create_default_limits(user_id: Uuid) -> ResolvedUserLimits {
     ResolvedUserLimits {
-        user_id: user_id.to_string(),
-        daily_limit: Some(DEFAULT_FREE_API_MINUTE_LIMIT as i64 * 1440), // 24 hours worth of minute limits
-        weekly_limit: None,
-        monthly_limit: None,
-        total_limit: None,
+        user_id: Some(user_id),
+        ranking_limit: DEFAULT_FREE_RANKING_LIMIT,
+        api_minute_limit: DEFAULT_FREE_API_MINUTE_LIMIT,
+        daily_limit: DEFAULT_FREE_API_MINUTE_LIMIT * 1440, // 24 hours worth of minute limits
+        weekly_limit: DEFAULT_FREE_API_MINUTE_LIMIT * 1440 * 7,
+        monthly_limit: DEFAULT_FREE_API_MINUTE_LIMIT * 1440 * 30,
+        total_limit: DEFAULT_FREE_API_MINUTE_LIMIT * 1440 * 365,
+        has_premium_features: false,
+        is_admin: false,
     }
 }
 

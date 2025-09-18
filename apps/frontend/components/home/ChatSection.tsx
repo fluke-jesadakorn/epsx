@@ -4,7 +4,7 @@ import { MessageCircle, Send, Minimize2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { streamChat } from "@/app/actions/chat";
-import { Button, Card, CardContent, CardFooter, CardHeader, CardTitle, Input } from "@/components/ui";
+import { Button, ProfessionalCard, Input } from "@/components/ui";
 
 
 import { ErrorBoundary } from "../common/ErrorBoundary";
@@ -101,24 +101,25 @@ export default function ChatSection() {
           <div className="absolute bottom-8 right-8 cursor-pointer">
             <Button
               onClick={() => setIsOpen(true)}
-              className="rounded-full w-14 h-14 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg transform hover:scale-105 transition-all duration-200"
+              className="rounded-full w-14 h-14 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg hover:shadow-xl transition-shadow duration-200"
             >
               <MessageCircle className="h-7 w-7" />
             </Button>
           </div>
         )}
-        <Card
+        <ProfessionalCard
+          variant="analytics"
           className={`${
             isOpen
-              ? "opacity-100 scale-100"
-              : "opacity-0 scale-95 pointer-events-none"
-          } transform transition-all duration-200 ease-in-out w-[400px] shadow-xl border absolute bottom-6 right-6`}
+              ? "opacity-100"
+              : "opacity-0 pointer-events-none"
+          } transition-opacity duration-200 w-[400px] shadow-xl absolute bottom-6 right-6`}
         >
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between gap-2">
+          <div className="p-6">
+            <div className="flex items-center justify-between gap-2 mb-4">
               <div className="flex items-center gap-2">
                 <MessageCircle className="h-5 w-5" />
-                Chat with EPSx AI
+                <h3 className="font-semibold">Chat with EPSX AI</h3>
               </div>
               <Button
                 variant="ghost"
@@ -128,9 +129,7 @@ export default function ChatSection() {
               >
                 <Minimize2 className="h-4 w-4" />
               </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+            </div>
             <div className="h-[400px] overflow-y-auto pr-4 space-y-4 custom-scrollbar">
               {messages.map((message, i) => (
                 <div
@@ -139,14 +138,14 @@ export default function ChatSection() {
                     message.role === "assistant"
                       ? "items-start"
                       : "items-end"
-                  } animate-fade-in`}
+                  }`}
                 >
                   <div
                     className={`relative max-w-[80%] p-4 ${
                       message.role === "assistant"
                         ? "bg-primary/10 text-foreground rounded-[20px] rounded-tl-none"
                         : "bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-[20px] rounded-br-none"
-                    } shadow-sm hover:shadow-md transition-shadow duration-200`}
+                    } shadow-sm`}
                   >
                     {message.role === "assistant" && (
                       <div className="absolute -left-2 -top-0 w-4 h-4 bg-primary/10 clip-bubble-left" />
@@ -170,8 +169,8 @@ export default function ChatSection() {
               ))}
               <div ref={chatEndRef} />
             </div>
-          </CardContent>
-          <CardFooter>
+            
+            <div className="border-t pt-4 mt-4">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -190,13 +189,14 @@ export default function ChatSection() {
               <Button
                 type="submit"
                 disabled={isLoading || !input.trim()}
-                className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white transform hover:scale-105 transition-all duration-200"
+                className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white"
               >
                 <Send className="h-4 w-4" />
               </Button>
             </form>
-          </CardFooter>
-        </Card>
+            </div>
+          </div>
+        </ProfessionalCard>
       </div>
     </ErrorBoundary>
   );

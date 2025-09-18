@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { URL, URLContext, Service } from '../../../../../../shared/utils/url-resolver';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,8 +30,8 @@ export async function POST(request: NextRequest) {
     // Call standard OpenID Connect logout endpoint (RFC compliant)
     if (jwt) {
       try {
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:8080';
-        const adminUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001';
+        const backendUrl = URL.get(Service.BACKEND, URLContext.SERVER);
+        const adminUrl = URL.get(Service.ADMIN, URLContext.SERVER);
         
         // Standard OpenID Connect RP-Initiated Logout
         const logoutParams = new URLSearchParams({
@@ -102,8 +103,8 @@ export async function GET(request: NextRequest) {
     // Call standard OpenID Connect logout endpoint (RFC compliant)
     if (jwt) {
       try {
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || process.env.BACKEND_URL || 'http://localhost:8080';
-        const adminUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001';
+        const backendUrl = URL.get(Service.BACKEND, URLContext.SERVER);
+        const adminUrl = URL.get(Service.ADMIN, URLContext.SERVER);
         
         // Standard OpenID Connect RP-Initiated Logout
         const logoutParams = new URLSearchParams({

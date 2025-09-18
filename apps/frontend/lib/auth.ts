@@ -3,6 +3,7 @@
 import { create } from 'zustand'
 import { isJWTExpired, getJWTTimeToExpiry, derivePackageTierFromPermissions, deriveAccessiblePlatformsFromPermissions, derivePrimaryPlatformFromPermissions } from '@/lib/auth-utils';
 import { authLogger, devLog, safeError } from '@/lib/logger';
+import { getBackendUrl, getFrontendUrl, oidcUrls, callbackUrls } from '../../../shared/utils/url-resolver';
 
 export interface User {
   id: string
@@ -82,19 +83,19 @@ export const useAuth = create<AuthState>((set, get) => ({
       
     } catch (error) {
       safeError('Login initiation failed', error)
-      // Fallback to direct redirect if PKCE initiation fails
-      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
-      const frontendUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      // Fallback to direct redirect if PKCE initiation fails using centralized URL resolution
+      const backendUrl = getBackendUrl('client')
+      const frontendUrl = getFrontendUrl('client')
       
       const params = new URLSearchParams({
         client_id: 'epsx-frontend',
         response_type: 'code',
         scope: 'openid profile email',
-        redirect_uri: `${frontendUrl}/api/auth/callback/epsx-backend`,
+        redirect_uri: callbackUrls.frontend('client'),
         state: Buffer.from(JSON.stringify({ redirectTo: window.location.href })).toString('base64url'),
       })
       
-      window.location.href = `${backendUrl}/oauth/authorize?${params.toString()}`
+      window.location.href = `${oidcUrls.authorize('client')}?${params.toString()}`
     }
   },
 
@@ -493,20 +494,20 @@ export async function signIn(callbackUrl?: string) {
     
   } catch (error) {
     safeError('SignIn initiation failed', error)
-    // Fallback to direct redirect if PKCE initiation fails
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
-    const frontendUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    // Fallback to direct redirect if PKCE initiation fails using centralized URL resolution
+    const backendUrl = getBackendUrl('client')
+    const frontendUrl = getFrontendUrl('client')
     const redirectTo = callbackUrl || window.location.href
     
     const params = new URLSearchParams({
       client_id: 'epsx-frontend',
       response_type: 'code',
       scope: 'openid profile email',
-      redirect_uri: `${frontendUrl}/api/auth/callback/epsx-backend`,
+      redirect_uri: callbackUrls.frontend('client'),
       state: Buffer.from(JSON.stringify({ redirectTo })).toString('base64url'),
     })
     
-    window.location.href = `${backendUrl}/oauth/authorize?${params.toString()}`
+    window.location.href = `${oidcUrls.authorize('client')}?${params.toString()}`
   }
 }
 

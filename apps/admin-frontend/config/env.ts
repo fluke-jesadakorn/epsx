@@ -22,7 +22,7 @@ export const config = {
   adminUrl: env.ADMIN_URL,
   backendUrl: env.BACKEND_URL,
   frontendUrl: env.APP_URL,  // Called frontendUrl in admin context
-  clientId: env.CLIENT_ID,   // Uses the client ID from unified schema
+  clientId: env.ADMIN_CLIENT_ID,   // Uses the admin client ID from unified schema
   
   // Environment flags
   isDev,
@@ -40,7 +40,7 @@ export const config = {
 export const authConfig = {
   appUrl: env.ADMIN_URL,
   apiUrl: env.BACKEND_URL,
-  clientId: env.CLIENT_ID,
+  clientId: env.ADMIN_CLIENT_ID,
   callbackPath: '/api/auth/callback/epsx-backend',
   
   get callbackUrl() {

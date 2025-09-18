@@ -9,13 +9,13 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::{
-    application::marketing::{PlanService, PlanFilters, PromotionService, AffiliateService},
+    application::marketing::{PlanService, PlanFilters, PromotionService, AffiliateService, PlanWithPromotions},
     infrastructure::{
-        adapters::repositories::diesel::pool::DbPool,
+        adapters::repositories::diesel_types::DbPool,
         cache::{Cache, CacheFactory},
-        models::marketing::PlanWithPromotions,
     },
 };
+use sqlx::PgPool;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlansResponse {
@@ -56,7 +56,7 @@ pub struct PlansHandlers {
 
 impl PlansHandlers {
     pub fn new(
-        db_pool: Arc<DbPool>,
+        db_pool: Arc<PgPool>,
         cache: Arc<dyn Cache>,
     ) -> Self {
         Self {

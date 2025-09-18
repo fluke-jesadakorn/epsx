@@ -1,5 +1,6 @@
 // Embedded timestamp permissions API client
 
+import { URL, URLContext, Service } from '../../../../shared/utils/url-resolver';
 import type {
   EmbeddedPermissionRequest,
   EmbeddedPermissionResponse,
@@ -16,7 +17,7 @@ import type {
   ApiErrorResponse
 } from '@/types/admin/embedded-permissions';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const API_BASE = URL.get(Service.BACKEND, URLContext.CLIENT);
 
 class EmbeddedPermissionError extends Error {
   constructor(

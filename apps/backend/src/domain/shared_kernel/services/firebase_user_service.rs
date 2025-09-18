@@ -96,7 +96,7 @@ impl FirebaseUserService {
     }
     
     /// Create service with simple roles (legacy method kept for compatibility)
-    pub async fn with_database_roles(_db_pool: Arc<crate::infrastructure::adapters::repositories::diesel::DbPool>) -> Result<Self, UserServiceError> {
+    pub async fn with_database_roles(_db_pool: Arc<sqlx::PgPool>) -> Result<Self, UserServiceError> {
         Self::new().await
     }
     

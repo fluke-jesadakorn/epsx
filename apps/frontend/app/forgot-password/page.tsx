@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { URL, URLContext, Service } from '../../../../shared/utils/url-resolver';
 
 interface ForgotPasswordPageProps {
   searchParams: {
@@ -14,7 +15,7 @@ export default async function ForgotPasswordPage({ searchParams }: ForgotPasswor
   const awaitedSearchParams = await searchParams;
   
   // Get backend URL from environment
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+  const backendUrl = URL.get(Service.BACKEND, URLContext.SERVER);
   
   // Build reset password URL
   const params = new URLSearchParams({
