@@ -22,7 +22,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 
-import { ThemeToggleCSS } from '@/components/features/theme/ThemeToggleCSS';
+import { UnifiedThemeToggle } from '@/components/ui';
 import { NavbarSkeleton } from '@/components/nav/NavbarSkeleton';
 import { NotificationBellSimple } from '@/components/notifications/NotificationBellSimple';
 import {
@@ -43,19 +43,12 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { type NotificationData } from '@/lib/actions/notification-actions';
+import { type NotificationData } from '@/lib/actions/notifications';
 import { navigationService } from '@/services/navigation.service';
-
-interface AuthUser {
-  user_id: string;
-  email: string;
-  role: string;
-  permissions: string[];
-  package_tier: string;
-}
+import { type User } from '../../../../shared/types/auth';
 
 interface NavigationClientProps {
-  user: AuthUser | null;
+  user: User | null;
   initialNotificationData?: NotificationData | null;
 }
 
@@ -209,12 +202,12 @@ function NavigationContent({
                 Notification
               </span>
               {initialNotificationData &&
-                initialNotificationData.unread_count > 0 && (
+                initialNotificationData.unreadCount > 0 && (
                   <div className="absolute -top-1 left-3 flex h-5 w-5 items-center justify-center rounded-full bg-red-500/90">
                     <span className="text-xs font-bold text-white">
-                      {initialNotificationData.unread_count > 99
+                      {initialNotificationData.unreadCount > 99
                         ? '99+'
-                        : initialNotificationData.unread_count}
+                        : initialNotificationData.unreadCount}
                     </span>
                   </div>
                 )}
@@ -224,7 +217,7 @@ function NavigationContent({
           {/* Theme Toggle and Auth Actions Group */}
           <div className="flex items-center gap-2">
             {/* Theme Toggle */}
-            <ThemeToggleCSS />
+            <UnifiedThemeToggle variant="minimal" />
 
             {/* Auth Actions - Only show Connect button when not logged in */}
             {!user && (

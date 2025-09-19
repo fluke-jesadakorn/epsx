@@ -8,7 +8,6 @@
 
 import { ReactNode } from 'react';
 import { useAuth } from '@/lib/auth';
-import { hasJWTPermission, isJWTAdmin } from '@/lib/auth-utils';
 
 // ============================================================================
 // SIMPLE FEATURE GUARD PROPS
@@ -35,7 +34,7 @@ export function FeatureGuard({
   fallback = <AccessDenied />,
   loading = <Loading />
 }: FeatureGuardProps) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, isAdmin: checkIsAdmin, can } = useAuth();
 
   if (isLoading) {
     return <>{loading}</>;
@@ -45,17 +44,17 @@ export function FeatureGuard({
     return <>{fallback}</>;
   }
 
-  if (isAdmin && !isJWTAdmin(user)) {
+  if (isAdmin && !checkIsAdmin()) {
     return <>{fallback}</>;
   }
 
-  if (permission && !hasJWTPermission(user, permission)) {
+  if (permission && !can(permission)) {
     return <>{fallback}</>;
   }
 
   if (feature) {
     const mappedPermission = mapFeatureToPermission(feature);
-    if (!hasJWTPermission(user, mappedPermission)) {
+    if (!can(mappedPermission)) {
       return <>{fallback}</>;
     }
   }

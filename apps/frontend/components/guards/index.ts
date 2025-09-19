@@ -3,14 +3,12 @@
  * Unified authentication and authorization guards
  */
 
-// Auth Guards
-export { default as AuthGuard, WithUser } from './AuthGuard';
+// Auth Guards - removed unused AuthGuard and WithUser
 
 // Simple role-based feature guards
 export { 
-  FeatureGuard,
+  PermissionGuard as FeatureGuard,
   AdminOnly,
-  UserOnly, 
   ViewEpsOnly,
   ExportDataOnly,
   RealtimeOnly,

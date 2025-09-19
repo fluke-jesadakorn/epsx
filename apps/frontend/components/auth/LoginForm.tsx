@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Eye, EyeOff, Lock, Mail, Loader2, CheckCircle, ExternalLink } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, CheckCircle, ExternalLink } from 'lucide-react';
 import { clientConfig } from '@/config/env';
 
 interface LoginFormProps {
@@ -27,7 +27,6 @@ export function LoginForm({ redirectTo = '/dashboard' }: LoginFormProps) {
       setError('');
       setLoginStep('redirecting');
       
-      console.log('🔄 Initiating OAuth Authorization Code Flow...');
       
       // Generate PKCE parameters and get authorization URL
       const response = await fetch('/api/auth/initiate', {
@@ -48,7 +47,6 @@ export function LoginForm({ redirectTo = '/dashboard' }: LoginFormProps) {
       
       const { authorizationUrl } = await response.json();
       
-      console.log('✅ Authorization URL generated, redirecting to OAuth provider...');
       
       // Redirect to backend OAuth authorization endpoint
       window.location.href = authorizationUrl;
@@ -76,7 +74,7 @@ export function LoginForm({ redirectTo = '/dashboard' }: LoginFormProps) {
         <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
           <div className="flex items-center gap-3">
             {loginStep === 'redirecting' ? (
-              <Loader2 className="h-5 w-5 animate-spin text-blue-600" />
+              <div className="h-5 w-5 bg-blue-600 rounded" />
             ) : (
               <CheckCircle className="h-5 w-5 text-green-600" />
             )}
@@ -108,7 +106,7 @@ export function LoginForm({ redirectTo = '/dashboard' }: LoginFormProps) {
       >
         {isLoading ? (
           <>
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            <div className="h-4 w-4 mr-2 bg-white rounded" />
             <span>Redirecting to secure authentication...</span>
           </>
         ) : (

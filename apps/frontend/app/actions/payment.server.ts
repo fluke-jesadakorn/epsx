@@ -7,8 +7,7 @@ import { createApiClient, isApiError } from '@/lib/api-client';
 import { getBackendUrl } from '../../../../shared/utils/url-resolver';
 
 const paymentService = createPaymentService();
-const BACKEND_URL = getBackendUrl('server');
-const apiClient = createApiClient(BACKEND_URL);
+const apiClient = createApiClient();
 
 export async function createDepositAddress(
   currency: string,

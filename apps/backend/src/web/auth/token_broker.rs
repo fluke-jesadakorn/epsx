@@ -436,6 +436,8 @@ impl TokenBroker {
     let expires_at = now + Duration::hours(self.config.token_ttl_hours);
     let jti = uuid::Uuid::new_v4().to_string();
 
+    let permissions = vec!["epsx:dashboard:read".to_string()];
+    
     let jwt_claims = crate::auth::jwt::Claims {
       sub: refresh_claims.sub.clone(),
       iss: "epsx-backend".to_string(),
@@ -450,8 +452,19 @@ impl TokenBroker {
         get_env_var("DEFAULT_EMAIL_DOMAIN").unwrap_or_else(|_| "epsx.io".to_string())), // Placeholder
       name: None,
       
-      // Authorization (minimal defaults for refresh token scenario)
-      permissions: vec!["epsx:dashboard:read".to_string()],
+      // ENHANCED: Embedded permissions with versioning
+      permissions: permissions.clone(),
+      permission_version: 1, // Default version for token broker
+      permission_last_updated: now.timestamp() as u64,
+      
+      // ENHANCED: Pre-computed context (fallback values for token broker)
+      tier: crate::auth::jwt::derive_package_tier_from_permissions(&permissions),
+      platforms: crate::auth::jwt::derive_accessible_platforms_from_permissions(&permissions),
+      verified: false, // Conservative default
+      
+      // ENHANCED: Refresh hints
+      needs_refresh: false, // Token broker generates longer-lived tokens
+      refresh_after: Some((expires_at.timestamp() - 300) as u64), // Refresh 5 min before expiry
     };
 
     let header = Header::new(Algorithm::HS256);

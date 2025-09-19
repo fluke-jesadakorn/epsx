@@ -9,7 +9,7 @@ import {
   trackEvent, 
   getRemoteConfigValue, 
   fetchRemoteConfig 
-} from '@/lib/firebase';
+} from '@/lib/utils/firebase';
 
 interface FirebaseConnectionStatus {
   isConnected: boolean;

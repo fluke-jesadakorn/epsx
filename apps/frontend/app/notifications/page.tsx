@@ -1,4 +1,4 @@
-import { getUserNotifications } from '@/lib/api/notifications'
+import { getUserNotifications } from '@/lib/actions/notifications'
 import { NotificationHistoryClient } from '@/components/notifications/NotificationHistoryClient'
 import { Metadata } from 'next'
 
@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 }
 
 export default async function NotificationsPage() {
-  const notificationData = await getUserNotifications(50, 0)
+  const notificationData = await getUserNotifications({ per_page: 50, page: 1 })
   
   console.log('NotificationData:', JSON.stringify(notificationData, null, 2))
   

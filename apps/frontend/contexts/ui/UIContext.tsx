@@ -1,9 +1,9 @@
 'use client';
 
 import React, { createContext, useContext, useMemo } from 'react';
-import { useContextStore, createAsyncState, loggingMiddleware } from '@/lib/state/core';
+import { useContextStore, createAsyncState, loggingMiddleware } from '@/lib/state';
 import type { UIState, StateAction } from '@/lib/state/types';
-import { uiLogger } from '@/lib/logger';
+import { uiLogger } from '@/lib/utils/logging';
 
 // Initial UI state
 const initialUIState: UIState = {

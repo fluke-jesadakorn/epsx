@@ -4,50 +4,20 @@
 export { getServerSession, getAuthUser } from './server/auth';
 
 import { create } from 'zustand'
-import { derivePackageTierFromPermissions, deriveAccessiblePlatformsFromPermissions, derivePrimaryPlatformFromPermissions } from './auth-utils'
+import { 
+  User, 
+  AuthState, 
+  AdminAuthState
+} from '../../../shared/types/auth'
+import { 
+  derivePackageTierFromPermissions, 
+  deriveAccessiblePlatformsFromPermissions, 
+  derivePrimaryPlatformFromPermissions 
+} from '../../../shared/permissions/utils/platform'
 import { config } from '@/config/env'
 
-export interface User {
-  id: string
-  email: string
-  name?: string
-  permissions: string[]  // Structured permissions only: "platform:resource:action"
-}
-
-export interface AuthState {
-  user: User | null
-  isLoading: boolean
-  isAuthenticated: boolean
-  error: string | null
-  expiresAt: number | null
-  
-  // Actions
-  login: () => void
-  logout: () => Promise<void>
-  getUser: () => Promise<User | null>
-  refreshSession: () => Promise<void>
-  clearError: () => void
-  
-  // Permission checks - pure permission system
-  can: (permission: string) => boolean
-  hasAnyPermission: (permissions: string[]) => boolean
-  hasAllPermissions: (permissions: string[]) => boolean
-  hasTier: (tier: string) => boolean
-  
-  // Cross-platform functionality
-  switchPlatform: (platform: string) => Promise<void>
-  getCurrentPlatform: () => string
-  getAvailablePlatforms: () => string[]
-  canAccessPlatform: (platform: string) => boolean
-  
-  // Admin-specific permission checks
-  isAdmin: () => boolean
-  canManageUsers: () => boolean
-  canManageSystem: () => boolean
-  canViewAnalytics: () => boolean
-  canManagePlatforms: () => boolean
-  canViewAudit: () => boolean
-}
+// Re-export types for compatibility
+export type { User, AuthState, AdminAuthState } from '../../../shared/types/auth'
 
 // Helper function to check structured permissions with wildcard support
 function checkPermissionAccess(userPermissions: string[], requiredPermission: string): boolean {
@@ -58,27 +28,22 @@ function checkPermissionAccess(userPermissions: string[], requiredPermission: st
     const userPerm = parsePermission(permStr);
     if (!userPerm) continue;
     
-    // Check for exact match
     if (userPerm.platform === required.platform && 
         userPerm.resource === required.resource && 
         userPerm.action === required.action) {
       return true;
     }
     
-    // Check for wildcard matches
     if (userPerm.platform === required.platform) {
-      // Platform-level wildcard: "epsx:*:*"
       if (userPerm.resource === '*' && userPerm.action === '*') {
         return true;
       }
       
-      // Resource-level wildcard: "epsx:analytics:*"
       if (userPerm.resource === required.resource && userPerm.action === '*') {
         return true;
       }
     }
     
-    // Global admin permission: "admin:*:*"
     if (userPerm.platform === 'admin' && userPerm.resource === '*' && userPerm.action === '*') {
       return true;
     }
@@ -98,8 +63,8 @@ function parsePermission(permissionString: string): { platform: string; resource
   };
 }
 
-// Create auth store without persistence (relies on server-side cookies)
-export const useAuth = create<AuthState>((set, get) => ({
+// Create admin auth store
+export const useAuth = create<AdminAuthState>((set, get) => ({
   user: null,
   isLoading: false,
   isAuthenticated: false,
@@ -108,7 +73,6 @@ export const useAuth = create<AuthState>((set, get) => ({
 
   login: async () => {
     try {
-      // Use PKCE initiation route for secure OAuth flow
       const currentUrl = window.location.href
       
       console.log('🔄 Admin: Initiating OAuth login with PKCE...')
@@ -135,13 +99,10 @@ export const useAuth = create<AuthState>((set, get) => ({
       }
       
       console.log('✅ Admin: PKCE parameters set, redirecting to authorization...')
-      
-      // Redirect to authorization URL
       window.location.href = data.authorizationUrl
       
     } catch (error) {
       console.error('❌ Admin: Login initiation failed:', error)
-      // Fallback to direct redirect if PKCE initiation fails
       const backendUrl = config.backendUrl
       const adminUrl = config.adminUrl
       
@@ -161,13 +122,11 @@ export const useAuth = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null })
     
     try {
-      // Call logout API to clear cookies and revoke tokens
       await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include'
       })
       
-      // Clear local state
       set({ 
         user: null, 
         isAuthenticated: false,
@@ -175,9 +134,7 @@ export const useAuth = create<AuthState>((set, get) => ({
         isLoading: false
       })
       
-      // Redirect to login page
       window.location.href = '/login'
-      
     } catch (error) {
       console.error('❌ Logout failed:', error)
       set({ 
@@ -188,7 +145,6 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   getUser: async () => {
-    // If we already have a user and it's still valid, return it
     const { user, expiresAt } = get()
     if (user && expiresAt && Date.now() < expiresAt) {
       return user
@@ -197,14 +153,12 @@ export const useAuth = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null })
 
     try {
-      // Fetch session from server
       const response = await fetch('/api/auth/session', {
         credentials: 'include'
       })
 
       if (!response.ok) {
         if (response.status === 401) {
-          // Unauthorized - clear state
           set({ 
             user: null,
             isAuthenticated: false,
@@ -242,9 +196,7 @@ export const useAuth = create<AuthState>((set, get) => ({
         isLoading: false
       })
 
-      // Set up auto-refresh based on JWT expiration
       setupTokenAutoRefresh(data.expiresAt)
-
       return userData
 
     } catch (error) {
@@ -262,12 +214,9 @@ export const useAuth = create<AuthState>((set, get) => ({
 
   refreshSession: async () => {
     try {
-      // For now, just re-fetch the user data
-      // In the future, this could implement refresh token logic
       await get().getUser()
     } catch (error) {
       console.error('❌ Session refresh failed:', error)
-      // On refresh failure, force logout
       get().logout()
     }
   },
@@ -280,7 +229,6 @@ export const useAuth = create<AuthState>((set, get) => ({
     const { user } = get()
     if (!user) return false
     
-    // If permission doesn't contain platform prefix, add current platform
     let checkPermission = permission
     if (!permission.includes(':')) {
       const currentPlatform = derivePrimaryPlatformFromPermissions(user.permissions)
@@ -324,12 +272,10 @@ export const useAuth = create<AuthState>((set, get) => ({
     return userLevel >= requiredLevel
   },
   
-  // Cross-platform functionality
   switchPlatform: async (platform: string) => {
     const { user } = get()
     if (!user) return
     
-    // Check if user can access the platform
     const availablePlatforms = deriveAccessiblePlatformsFromPermissions(user.permissions)
     if (!availablePlatforms.includes(platform)) {
       set({ error: `Access denied to platform: ${platform}` })
@@ -339,7 +285,6 @@ export const useAuth = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null })
     
     try {
-      // Update platform context on server
       const response = await fetch('/api/auth/switch-platform', {
         method: 'POST',
         headers: {
@@ -353,7 +298,6 @@ export const useAuth = create<AuthState>((set, get) => ({
         throw new Error(`Platform switch failed: ${response.status}`)
       }
       
-      // Update local user state
       set({ 
         user: { 
           ...user, 
@@ -388,29 +332,29 @@ export const useAuth = create<AuthState>((set, get) => ({
     return availablePlatforms.includes(platform)
   },
   
-  // Admin-specific permission checks - using structured permissions
+  // Admin-specific permission checks
   isAdmin: () => {
     const { can } = get()
     return can('admin:*:*')
   },
   
   canManageUsers: () => {
-    const { can, hasAnyPermission } = get()
+    const { hasAnyPermission } = get()
     return hasAnyPermission(['admin:users:manage', 'epsx:users:manage'])
   },
   
   canManageSystem: () => {
-    const { can, hasAnyPermission } = get()
+    const { hasAnyPermission } = get()
     return hasAnyPermission(['admin:system:manage', 'admin:*:*'])
   },
   
   canViewAnalytics: () => {
-    const { can, hasAnyPermission } = get()
+    const { hasAnyPermission } = get()
     return hasAnyPermission(['epsx:analytics:view', 'epsx:analytics:*', 'admin:*:*'])
   },
   
   canManagePlatforms: () => {
-    const { can, hasAnyPermission } = get()
+    const { hasAnyPermission } = get()
     return hasAnyPermission(['admin:platforms:manage', 'admin:*:*'])
   },
 
@@ -424,12 +368,10 @@ export const useAuth = create<AuthState>((set, get) => ({
 let refreshTimeout: NodeJS.Timeout | null = null
 
 function setupTokenAutoRefresh(expiresAt: number) {
-  // Clear any existing timeout
   if (refreshTimeout) {
     clearTimeout(refreshTimeout)
   }
   
-  // Calculate time until token expires (refresh 5 minutes before expiration)
   const refreshTime = Math.max(0, expiresAt - Date.now() - (5 * 60 * 1000))
   
   refreshTimeout = setTimeout(() => {
@@ -440,6 +382,7 @@ function setupTokenAutoRefresh(expiresAt: number) {
     }
   }, refreshTime)
 }
+
 
 // Initialize auth on client mount
 if (typeof window !== 'undefined') {

@@ -118,6 +118,17 @@ export const PARAMETER_CATEGORIES = {
       'ab_onboarding_flow',
       'ab_dashboard_style'
     ]
+  },
+  USER_TARGETING: {
+    name: 'User Targeting',
+    description: 'User segmentation and targeting configurations',
+    color: 'indigo',
+    parameters: [
+      'targeting_enable_segments',
+      'targeting_rollout_percentage',
+      'targeting_premium_features',
+      'targeting_mobile_features'
+    ]
   }
 } as const
 
@@ -141,9 +152,9 @@ export const DEFAULT_PARAMETERS: Record<string, RemoteConfigParameter> = {
   },
   ux_animations_enabled: {
     key: 'ux_animations_enabled',
-    value: true,
+    value: false,
     valueType: 'boolean',
-    description: 'Enable UI animations and transitions'
+    description: 'Enable UI animations and transitions (disabled for performance)'
   },
   ux_mobile_optimized: {
     key: 'ux_mobile_optimized',
@@ -278,6 +289,32 @@ export const DEFAULT_PARAMETERS: Record<string, RemoteConfigParameter> = {
     value: 'cards',
     valueType: 'string',
     description: 'Dashboard layout style variant'
+  },
+
+  // User Targeting
+  targeting_enable_segments: {
+    key: 'targeting_enable_segments',
+    value: true,
+    valueType: 'boolean',
+    description: 'Enable user segmentation for targeted configs'
+  },
+  targeting_rollout_percentage: {
+    key: 'targeting_rollout_percentage',
+    value: 100,
+    valueType: 'number',
+    description: 'Percentage of users to receive new features'
+  },
+  targeting_premium_features: {
+    key: 'targeting_premium_features',
+    value: true,
+    valueType: 'boolean',
+    description: 'Enable premium feature targeting'
+  },
+  targeting_mobile_features: {
+    key: 'targeting_mobile_features',
+    value: true,
+    valueType: 'boolean',
+    description: 'Enable mobile-specific feature targeting'
   }
 }
 
@@ -425,4 +462,136 @@ export function getParameterCategory(parameterKey: string): { category: keyof ty
     }
   }
   return null
+}
+
+// ============================================================================
+// User Targeting Integration
+// ============================================================================
+
+export interface UserSegment {
+  id: string
+  name: string
+  description: string
+  condition: string
+  userCount: number
+  isActive: boolean
+  color?: string
+  parameters?: Record<string, any>
+}
+
+/**
+ * Get user targeting related parameters
+ */
+export function getUserTargetingParameters(): RemoteConfigParameter[] {
+  return getParametersByCategory('USER_TARGETING')
+}
+
+/**
+ * Create user condition for specific user properties
+ */
+export function createUserCondition(
+  name: string,
+  userProperty: string,
+  operator: 'equals' | 'contains' | 'in' | 'greater_than' | 'less_than',
+  value: any,
+  description?: string
+): UserCondition {
+  let expression = ''
+  
+  switch (operator) {
+    case 'equals':
+      expression = `user.${userProperty} == "${value}"`
+      break
+    case 'contains':
+      expression = `user.${userProperty}.contains("${value}")`
+      break
+    case 'in':
+      expression = `user.${userProperty} in ${JSON.stringify(Array.isArray(value) ? value : [value])}`
+      break
+    case 'greater_than':
+      expression = `user.${userProperty} > ${value}`
+      break
+    case 'less_than':
+      expression = `user.${userProperty} < ${value}`
+      break
+  }
+  
+  return {
+    name,
+    expression,
+    description: description || `Users where ${userProperty} ${operator} ${value}`,
+    tagColor: 'blue'
+  }
+}
+
+/**
+ * Get common user segments for targeting
+ */
+export function getCommonUserSegments(): UserSegment[] {
+  return [
+    {
+      id: 'premium_users',
+      name: 'Premium Users',
+      description: 'Gold and Platinum tier users',
+      condition: 'user.level in ["GOLD", "PLATINUM"]',
+      userCount: 1250,
+      isActive: true,
+      color: 'gold',
+      parameters: {
+        'features_advanced_charts': true,
+        'business_premium_features': true
+      }
+    },
+    {
+      id: 'mobile_users',
+      name: 'Mobile Users',
+      description: 'Users accessing from mobile devices',
+      condition: 'device.type == "mobile"',
+      userCount: 3400,
+      isActive: true,
+      color: 'blue',
+      parameters: {
+        'ux_mobile_optimized': true,
+        'performance_lazy_load': true
+      }
+    },
+    {
+      id: 'beta_testers',
+      name: 'Beta Testers',
+      description: 'Users opted into beta testing',
+      condition: 'user.betaTester == true',
+      userCount: 156,
+      isActive: false,
+      color: 'purple',
+      parameters: {
+        'features_experimental_ui': true,
+        'features_beta_analytics': true
+      }
+    },
+    {
+      id: 'new_users',
+      name: 'New Users',
+      description: 'Users with accounts less than 30 days old',
+      condition: 'user.accountAge < 30',
+      userCount: 890,
+      isActive: true,
+      color: 'green',
+      parameters: {
+        'ab_onboarding_flow': 'enhanced',
+        'features_mobile_app_promo': true
+      }
+    }
+  ]
+}
+
+/**
+ * Calculate user segment overlap
+ */
+export function calculateSegmentOverlap(segments: UserSegment[]): { overlap: number; conflicts: string[] } {
+  // This would implement logic to calculate how many users might be in multiple segments
+  // For now, return mock data
+  return {
+    overlap: Math.floor(Math.random() * 500),
+    conflicts: []
+  }
 }

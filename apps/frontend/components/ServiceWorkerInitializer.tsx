@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { firebaseMessagingManager } from '@/lib/service-worker';
+import { fcmClient } from '@/lib/utils/firebase';
 
 export function FirebaseMessagingInitializer() {
   useEffect(() => {
@@ -19,22 +19,8 @@ export function FirebaseMessagingInitializer() {
       try {
         console.log('Initializing Firebase messaging service worker...');
         
-        const registration = await firebaseMessagingManager.register();
-        
-        if (registration) {
-          console.log('Firebase messaging service worker registered successfully');
-          
-          // Check for updates periodically
-          setInterval(async () => {
-            try {
-              await firebaseMessagingManager.update();
-            } catch (error) {
-              console.error('Firebase messaging service worker update check failed:', error);
-            }
-          }, 60000); // Check every minute
-        } else {
-          console.warn('Firebase messaging service worker registration failed');
-        }
+        await fcmClient.initialize();
+        console.log('Firebase messaging service worker registered successfully');
       } catch (error) {
         console.error('Firebase messaging service worker initialization error:', error);
       }

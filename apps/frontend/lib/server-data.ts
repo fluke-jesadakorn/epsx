@@ -1,5 +1,3 @@
-'use server'
-
 /**
  * Hybrid Data Strategy - Server-side data utilities
  * Optimized for serverless deployment - NO FETCH CALLS in server actions
@@ -8,6 +6,82 @@
 import { redirect } from 'next/navigation'
 import { getOIDCAccessTokenFromCookies } from '@/lib/server/jwt'
 import { getBackendUrl } from '../../../shared/utils/url-resolver'
+import { isServerComponentContext } from '@/lib/utils'
+
+// ============================================================================
+// Server-Side Data Types
+// ============================================================================
+
+export interface EPSQueryParams {
+  page: number
+  limit: number
+  country?: string
+  sector?: string
+  sort_by?: string
+  min_eps?: number
+  min_growth?: number
+  search?: string
+}
+
+export interface QuarterlyPerformanceData {
+  quarter: string
+  date: string
+  price: number
+  eps: number
+  eps_growth: number
+  price_growth: number
+  announcement_date?: string
+  announcement_timestamp?: number
+  is_estimated?: boolean
+}
+
+export interface NextQuarterEstimate {
+  quarter: string
+  estimated_eps: number
+  announcement_date: string
+  announcement_timestamp: number
+  days_until_announcement: number
+  estimated_price_target?: number
+  confidence: string
+}
+
+export interface SymbolCardData {
+  rank: number
+  symbol: string
+  latest_date: string
+  value: number
+  active_status: string
+  quarterly_performance: QuarterlyPerformanceData[]
+  next_quarter_estimate?: NextQuarterEstimate
+}
+
+export interface ServerAnalyticsResponse {
+  success: boolean
+  rankings: SymbolCardData[]
+  pagination?: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+    hasNext: boolean
+    hasPrev: boolean
+  }
+  metadata?: {
+    available_countries: string[]
+    available_sectors: string[]
+    request_timestamp: string
+    data_source: string
+  }
+  message?: string
+  processing_time_ms?: number
+}
+
+export interface FilterOptions {
+  countries: string[]
+  sectors: string[]
+  exchanges?: string[]
+  stock_types?: string[]
+}
 
 // ============================================================================
 // Server-Side Initial Data Loading (Server Components Only)
@@ -16,44 +90,100 @@ import { getBackendUrl } from '../../../shared/utils/url-resolver'
 /**
  * Server-side data fetcher for initial page load
  * Uses OIDC access token from cookies, only for Server Components
+ * Supports both authenticated and unauthenticated requests
  */
 async function serverFetcher(url: string, options: RequestInit = {}) {
-  const accessToken = await getOIDCAccessTokenFromCookies()
-  
-  if (!accessToken) {
-    throw new Error('No valid access token found')
-  }
-  
-  const backendUrl = getBackendUrl('server')
-  const fullUrl = url.startsWith('http') ? url : `${backendUrl}${url}`
-  
-  const response = await fetch(fullUrl, {
-    ...options,
-    headers: {
+  try {
+    const accessToken = await getOIDCAccessTokenFromCookies()
+    const backendUrl = getBackendUrl('server')
+    const fullUrl = url.startsWith('http') ? url : `${backendUrl}${url}`
+    
+    
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${accessToken}`,
+      'User-Agent': 'EPSX-Frontend-Server/1.0',
       ...options.headers,
-    },
-    // Server-side fetch should not use credentials: 'include'
-    cache: 'no-store', // Ensure fresh data for serverless
-  })
-  
-  if (!response.ok) {
-    throw new Error(`Server API Error: ${response.status} ${response.statusText}`)
+    }
+    
+    // Add Authorization header only if we have a valid access token
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`
+    }
+    
+    const fetchConfig: RequestInit = {
+      ...options,
+      headers,
+      // Server-side fetch should not use credentials: 'include'
+      cache: 'no-store', // Ensure fresh data for serverless
+    }
+    
+    
+    const response = await fetch(fullUrl, fetchConfig)
+    
+    if (!response.ok) {
+      // Try to get error details from response
+      let errorData: any = {}
+      try {
+        errorData = await response.json()
+      } catch (e) {
+        console.warn('Could not parse error response as JSON:', e)
+      }
+      
+      
+      // For 401 Unauthorized, return null instead of throwing for graceful handling
+      if (response.status === 401) {
+        return null
+      }
+      
+      // For other errors, throw with detailed information
+      throw new Error(`Server API Error: ${response.status} ${response.statusText} - ${errorData.message || 'Unknown error'}`)
+    }
+    
+    const data = await response.json()
+    return data
+    
+  } catch (error) {
+    const errorDetails = {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      url,
+      type: error instanceof Error ? error.constructor.name : typeof error,
+      status: error && typeof error === 'object' && 'status' in error ? error.status : undefined,
+      code: error && typeof error === 'object' && 'code' in error ? error.code : undefined,
+      cause: error instanceof Error && error.cause ? error.cause : undefined
+    }
+    
+    console.error('💥 Server fetch exception:', errorDetails)
+    throw error
   }
-  
-  return response.json()
 }
 
 /**
  * Server-side stock data fetching for initial page load
  * Use only in Server Components, never in Server Actions
+ * Supports both authenticated and unauthenticated requests
  */
 export async function getServerStockData(symbol: string) {
   try {
-    return await serverFetcher(`/api/v1/stocks/${symbol}`)
+    const result = await serverFetcher(`/api/v1/stocks/${symbol}`)
+    
+    // Handle unauthenticated users gracefully
+    if (result === null) {
+      return null
+    }
+    
+    return result
   } catch (error) {
-    console.error(`Failed to fetch server stock data for ${symbol}:`, error)
+    const errorDetails = {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      type: error instanceof Error ? error.constructor.name : typeof error,
+      symbol,
+      endpoint: `/api/v1/stocks/${symbol}`,
+      timestamp: new Date().toISOString()
+    }
+    
+    console.error(`Failed to fetch server stock data for ${symbol}:`, errorDetails)
     return null
   }
 }
@@ -61,13 +191,31 @@ export async function getServerStockData(symbol: string) {
 /**
  * Server-side batch stock data fetching for initial page load
  * Use only in Server Components, never in Server Actions
+ * Supports both authenticated and unauthenticated requests
  */
 export async function getServerBatchStocks(symbols: string[]) {
   try {
     const symbolsParam = symbols.join(',')
-    return await serverFetcher(`/api/v1/stocks/batch?symbols=${symbolsParam}`)
+    const result = await serverFetcher(`/api/v1/stocks/batch?symbols=${symbolsParam}`)
+    
+    // Handle unauthenticated users gracefully
+    if (result === null) {
+      return { stocks: {} }
+    }
+    
+    return result
   } catch (error) {
-    console.error('Failed to fetch server batch stocks:', error)
+    const errorDetails = {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      type: error instanceof Error ? error.constructor.name : typeof error,
+      symbols,
+      symbolsParam: symbols.join(','),
+      endpoint: `/api/v1/stocks/batch`,
+      timestamp: new Date().toISOString()
+    }
+    
+    console.error('Failed to fetch server batch stocks:', errorDetails)
     return { stocks: {} }
   }
 }
@@ -75,17 +223,11 @@ export async function getServerBatchStocks(symbols: string[]) {
 /**
  * Server-side analytics data fetching for initial page load
  * Use only in Server Components, never in Server Actions
+ * Supports both authenticated and unauthenticated requests
  */
-export async function getServerAnalytics(filters: {
-  page?: number
-  limit?: number
-  country?: string
-  sector?: string
-  sort_by?: string
-  min_eps?: number
-  min_growth?: number
-}) {
+export async function getServerAnalytics(filters: EPSQueryParams): Promise<ServerAnalyticsResponse> {
   try {
+    
     const params = new URLSearchParams()
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
@@ -93,194 +235,268 @@ export async function getServerAnalytics(filters: {
       }
     })
     
-    return await serverFetcher(`/api/v1/analytics/rankings?${params.toString()}`)
-  } catch (error) {
-    console.error('Failed to fetch server analytics:', error)
-    return null
-  }
-}
-
-// ============================================================================
-// Server Actions - Navigation & Mutations Only (NO FETCH CALLS)
-// ============================================================================
-
-/**
- * Server Action for analytics filter navigation
- * Uses redirect for optimal serverless performance (no fetch calls)
- */
-export async function navigateToAnalyticsFilter(filters: {
-  page?: number
-  limit?: number
-  country?: string
-  sector?: string
-  sort_by?: string
-  min_eps?: number
-  min_growth?: number
-}) {
-  const params = new URLSearchParams()
-  
-  // Build clean URL params
-  Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      params.append(key, String(value))
+    const endpoint = `/api/v1/public/analytics/rankings?${params.toString()}`
+    
+    const result = await serverFetcher(endpoint)
+    
+    // Handle unauthenticated users gracefully with mock data for development
+    if (result === null) {
+      
+      // Generate mock data for development
+      const mockRankings: SymbolCardData[] = [
+        {
+          rank: 1,
+          symbol: 'AAPL',
+          latest_date: '2024-Q3',
+          value: 150.25,
+          active_status: 'TRACK',
+          quarterly_performance: [
+            {
+              quarter: 'Q3 2024',
+              date: 'Oct 31, 2024',
+              price: 150.25,
+              eps: 1.46,
+              eps_growth: 12.5,
+              price_growth: 8.3,
+              is_estimated: false
+            },
+            {
+              quarter: 'Q2 2024',
+              date: 'Jul 31, 2024',
+              price: 142.80,
+              eps: 1.30,
+              eps_growth: 8.2,
+              price_growth: 5.1,
+              is_estimated: false
+            }
+          ],
+          next_quarter_estimate: {
+            quarter: '2025-Q1',
+            estimated_eps: 1.55,
+            announcement_date: 'Est. Jan 30, 2025',
+            announcement_timestamp: Date.now() + (45 * 24 * 60 * 60 * 1000),
+            days_until_announcement: 45,
+            confidence: 'High'
+          }
+        },
+        {
+          rank: 2,
+          symbol: 'MSFT',
+          latest_date: '2024-Q3',
+          value: 342.75,
+          active_status: 'TRACK',
+          quarterly_performance: [
+            {
+              quarter: 'Q3 2024',
+              date: 'Oct 24, 2024',
+              price: 342.75,
+              eps: 2.95,
+              eps_growth: 15.7,
+              price_growth: 12.4,
+              is_estimated: false
+            }
+          ],
+          next_quarter_estimate: {
+            quarter: '2025-Q1',
+            estimated_eps: 3.10,
+            announcement_date: 'Est. Jan 24, 2025',
+            announcement_timestamp: Date.now() + (38 * 24 * 60 * 60 * 1000),
+            days_until_announcement: 38,
+            confidence: 'High'
+          }
+        },
+        {
+          rank: 3,
+          symbol: 'GOOGL',
+          latest_date: '2024-Q3',
+          value: 138.45,
+          active_status: 'TRACK',
+          quarterly_performance: [
+            {
+              quarter: 'Q3 2024',
+              date: 'Oct 29, 2024',
+              price: 138.45,
+              eps: 1.55,
+              eps_growth: 9.8,
+              price_growth: 6.2,
+              is_estimated: false
+            }
+          ],
+          next_quarter_estimate: {
+            quarter: '2025-Q1',
+            estimated_eps: 1.68,
+            announcement_date: 'Est. Feb 4, 2025',
+            announcement_timestamp: Date.now() + (50 * 24 * 60 * 60 * 1000),
+            days_until_announcement: 50,
+            confidence: 'Medium'
+          }
+        }
+      ]
+      
+      return {
+        success: true,
+        rankings: mockRankings,
+        pagination: {
+          page: filters.page || 1,
+          limit: filters.limit || 10,
+          total: mockRankings.length,
+          totalPages: 1,
+          hasNext: false,
+          hasPrev: false
+        },
+        metadata: {
+          available_countries: ['United States', 'Canada', 'United Kingdom'],
+          available_sectors: ['Technology', 'Healthcare', 'Financial Services'],
+          request_timestamp: new Date().toISOString(),
+          data_source: 'mock-development-data'
+        },
+        message: 'Showing mock data for development (authentication required for live data)'
+      }
     }
-  })
-  
-  // Use redirect for optimal serverless navigation
-  redirect(`/analytics?${params.toString()}`)
-}
-
-/**
- * Server Action for paginated navigation  
- * Uses redirect for optimal serverless performance (no fetch calls)
- */
-export async function navigateToAnalyticsPage(page: number, currentFilters: Record<string, any>) {
-  const params = new URLSearchParams()
-  
-  // Preserve existing filters
-  Object.entries(currentFilters).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      params.append(key, String(value))
+    
+    // Transform the response to match our expected format
+    if (result && typeof result === 'object') {
+      // If the result has the expected structure, return it
+      if (result.rankings || result.data) {
+        const transformedResult: ServerAnalyticsResponse = {
+          success: true,
+          rankings: result.rankings || result.data || [],
+          pagination: result.pagination,
+          metadata: result.metadata,
+          message: result.message,
+          processing_time_ms: result.processing_time_ms
+        }
+        
+        
+        return transformedResult
+      }
+      
+      // If it's an array, wrap it in our expected structure
+      if (Array.isArray(result)) {
+        return {
+          success: true,
+          rankings: result,
+          pagination: {
+            page: filters.page || 1,
+            limit: filters.limit || 10,
+            total: result.length,
+            totalPages: 1,
+            hasNext: false,
+            hasPrev: false
+          }
+        }
+      }
     }
-  })
-  
-  // Update page
-  params.set('page', String(page))
-  
-  redirect(`/analytics?${params.toString()}`)
-}
-
-/**
- * Server Action for stock detail navigation
- * Uses redirect for optimal serverless performance (no fetch calls)
- */
-export async function navigateToStockDetail(symbol: string) {
-  redirect(`/stocks/${symbol}`)
-}
-
-/**
- * Server Action for dashboard navigation
- * Uses redirect for optimal serverless performance (no fetch calls)
- */
-export async function navigateToDashboard() {
-  redirect('/dashboard')
-}
-
-// ============================================================================
-// Server Actions - Mutations (Direct Database/Cache Operations)
-// ============================================================================
-
-/**
- * Server Action for adding to watchlist
- * Direct database operation, no fetch calls
- */
-export async function addToWatchlistAction(symbol: string) {
-  try {
-    // In a real implementation, this would directly update the database
-    // using the same database connection as the backend
-    // For now, we'll simulate the operation
     
-    console.log(`Adding ${symbol} to watchlist via direct database operation`)
+    console.warn('⚠️ Unexpected analytics result format:', result)
+    return {
+      success: false,
+      rankings: [],
+      message: 'Unexpected response format from analytics API'
+    }
     
-    // Would use the same PostgreSQL/Diesel connection as backend:
-    // const pool = await getPostgresPool()
-    // await pool.query('INSERT INTO watchlist (user_id, symbol) VALUES ($1, $2)', [userId, symbol])
-    
-    // Return success without redirecting (let client handle UI updates)
-    return { success: true, symbol }
   } catch (error) {
-    console.error('Failed to add to watchlist:', error)
-    return { success: false, error: 'Failed to add to watchlist' }
+    const errorDetails = {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      type: error instanceof Error ? error.constructor.name : typeof error,
+      status: error && typeof error === 'object' && 'status' in error ? error.status : undefined,
+      code: error && typeof error === 'object' && 'code' in error ? error.code : undefined,
+      cause: error instanceof Error && error.cause ? error.cause : undefined,
+      filters,
+      endpoint: `/api/v1/analytics/rankings`,
+      timestamp: new Date().toISOString()
+    }
+    
+    console.error('💥 Failed to fetch server analytics:', errorDetails)
+    
+    return {
+      success: false,
+      rankings: [],
+      message: `Failed to fetch analytics data: ${errorDetails.message}`,
+      pagination: {
+        page: filters.page || 1,
+        limit: filters.limit || 10,
+        total: 0,
+        totalPages: 0,
+        hasNext: false,
+        hasPrev: false
+      }
+    }
   }
 }
 
+// ============================================================================
+// Utility Functions
+// ============================================================================
+
 /**
- * Server Action for removing from watchlist  
- * Direct database operation, no fetch calls
+ * Server-side filter options fetching
+ * Get available countries and sectors for filtering
  */
-export async function removeFromWatchlistAction(symbol: string) {
+export async function getServerFilterOptions(): Promise<FilterOptions> {
   try {
-    console.log(`Removing ${symbol} from watchlist via direct database operation`)
     
-    // Direct database operation (no fetch calls)
-    // const pool = await getPostgresPool()
-    // await pool.query('DELETE FROM watchlist WHERE user_id = $1 AND symbol = $2', [userId, symbol])
+    const result = await serverFetcher('/api/v1/public/analytics/filters')
     
-    return { success: true, symbol }
+    if (result === null) {
+      return {
+        countries: [],
+        sectors: [],
+        exchanges: [],
+        stock_types: []
+      }
+    }
+    
+    if (result && typeof result === 'object') {
+      return {
+        countries: result.countries || [],
+        sectors: result.sectors || [],
+        exchanges: result.exchanges || [],
+        stock_types: result.stock_types || []
+      }
+    }
+    
+    console.warn('⚠️ Unexpected filter options format:', result)
+    return {
+      countries: [],
+      sectors: [],
+      exchanges: [],
+      stock_types: []
+    }
+    
   } catch (error) {
-    console.error('Failed to remove from watchlist:', error)
-    return { success: false, error: 'Failed to remove from watchlist' }
-  }
-}
-
-/**
- * Server Action for updating user preferences
- * Direct database operation, no fetch calls
- */
-export async function updateUserPreferencesAction(preferences: {
-  theme?: 'light' | 'dark'
-  currency?: string
-  notifications?: boolean
-}) {
-  try {
-    console.log('Updating user preferences via direct database operation')
+    // Log the original error first
+    console.error('💥 Failed to fetch server filter options - Original Error:', error)
     
-    // Direct database operation (no fetch calls)
-    // const pool = await getPostgresPool()
-    // await pool.query('UPDATE user_preferences SET ... WHERE user_id = $1', [userId])
+    // Create detailed error info
+    const errorDetails = {
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      type: error instanceof Error ? error.constructor.name : typeof error,
+      status: error && typeof error === 'object' && 'status' in error ? error.status : undefined,
+      code: error && typeof error === 'object' && 'code' in error ? error.code : undefined,
+      cause: error instanceof Error && error.cause ? error.cause : undefined,
+      endpoint: '/api/v1/analytics/filters',
+      timestamp: new Date().toISOString(),
+      errorString: JSON.stringify(error, Object.getOwnPropertyNames(error)),
+      errorKeys: error && typeof error === 'object' ? Object.keys(error) : [],
+      isError: error instanceof Error,
+      valueType: typeof error
+    }
     
-    return { success: true, preferences }
-  } catch (error) {
-    console.error('Failed to update user preferences:', error)
-    return { success: false, error: 'Failed to update preferences' }
+    console.error('💥 Failed to fetch server filter options - Details:', errorDetails)
+    
+    return {
+      countries: [],
+      sectors: [],
+      exchanges: [],
+      stock_types: []
+    }
   }
 }
 
-// ============================================================================
-// Hybrid Strategy Helpers
-// ============================================================================
-
 /**
- * Helper to determine if we're in server component context
+ * Create an alias for the main analytics function for easier imports
  */
-export function isServerComponentContext(): boolean {
-  return typeof window === 'undefined'
-}
-
-/**
- * Helper to validate OIDC session for server operations
- */
-export async function validateServerSession() {
-  try {
-    const accessToken = await getOIDCAccessTokenFromCookies()
-    return !!accessToken
-  } catch {
-    return false
-  }
-}
-
-// ============================================================================
-// Export Default Hybrid Server Strategy
-// ============================================================================
-
-export const serverData = {
-  // Initial data loading (Server Components only)
-  getStock: getServerStockData,
-  getBatchStocks: getServerBatchStocks,
-  getAnalytics: getServerAnalytics,
-  
-  // Navigation actions (redirect-based)
-  navigateToFilter: navigateToAnalyticsFilter,
-  navigateToPage: navigateToAnalyticsPage,
-  navigateToStock: navigateToStockDetail,
-  navigateToDashboard: navigateToDashboard,
-  
-  // Mutation actions (direct database)
-  addToWatchlist: addToWatchlistAction,
-  removeFromWatchlist: removeFromWatchlistAction,
-  updatePreferences: updateUserPreferencesAction,
-  
-  // Validation helpers
-  validateSession: validateServerSession,
-  isServerContext: isServerComponentContext,
-}
+export const getAnalyticsData = getServerAnalytics

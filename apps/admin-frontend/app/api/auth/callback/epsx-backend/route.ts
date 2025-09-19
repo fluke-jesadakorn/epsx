@@ -4,7 +4,7 @@
  * OIDC Migration: Uses standard OIDC tokens instead of custom JWT
  */
 import { NextRequest } from 'next/server';
-import { processOAuthCallback } from '../../../../../../shared/auth/oauth-callback';
+import { processOAuthCallback } from '../../../../../../../shared/auth/oauth-callback';
 import { getUserInfo, exchangeCodeForTokens } from '@/lib/server/auth';
 
 async function validateAdminPermissions(tokens: any) {

@@ -8,7 +8,7 @@ use axum::{
     middleware::Next,
     response::{Response, IntoResponse},
 };
-use tracing::{debug, info, warn, error};
+use tracing::{debug, warn, error};
 
 use crate::infrastructure::oidc::granular_service::{EnhancedOIDCService, TokenValidationResult};
 use crate::infrastructure::cache::permission_cache::PermissionCacheService;
@@ -43,32 +43,42 @@ pub async fn clean_auth_middleware(
         return Ok(next.run(request).await);
     }
 
-    // Development mode bypass
+    // SECURITY: Development bypass removed for production security
+    // Development mode authentication must be handled through proper test users in database
+    // This prevents accidental deployment with auth bypass enabled
     let rust_env = get_env_var("RUST_ENV").unwrap_or_default();
-    if rust_env == "development" || rust_env.is_empty() {
-        info!("🚨 Development mode: Bypassing authentication for endpoint: {}", path);
+    if rust_env == "development" && cfg!(debug_assertions) {
+        // Only allow in debug builds to prevent production bypass
+        warn!("🚨 Development mode detected in debug build - using test authentication for endpoint: {}", path);
         
-        let dev_user = AuthenticatedUser {
-            user_id: "dev-user-admin@epsx.io".to_string(),
-            email: Some("admin@epsx.io".to_string()),
-            name: Some("Development Admin".to_string()),
-            role: Some("admin".to_string()),
-            valid_permissions: vec![
-                "admin:*:*".to_string(),
-                "epsx:*:*".to_string(),
-            ],
-            permission_version: 1,
-        };
-        
-        request.extensions_mut().insert(dev_user);
-        
-        if path.starts_with("/api/v1/admin") {
-            request.extensions_mut().insert(PlatformContext { 
-                platform: "admin".to_string() 
-            });
+        // In development, require proper test user setup instead of bypass
+        // This forces developers to set up proper test data
+        if let Some(test_user_id) = get_env_var("DEV_TEST_USER_ID").ok() {
+            let dev_user = AuthenticatedUser {
+                user_id: test_user_id,
+                email: Some("test@epsx.io".to_string()),
+                name: Some("Test User".to_string()),
+                role: Some("user".to_string()),
+                valid_permissions: vec![
+                    "epsx:analytics:view".to_string(),
+                    "epsx:trading:basic".to_string(),
+                ],
+                permission_version: 1,
+            };
+            
+            request.extensions_mut().insert(dev_user);
+            
+            if path.starts_with("/api/v1/admin") {
+                request.extensions_mut().insert(PlatformContext { 
+                    platform: "admin".to_string() 
+                });
+            }
+            
+            return Ok(next.run(request).await);
+        } else {
+            warn!("Development mode detected but DEV_TEST_USER_ID not set - requiring proper authentication");
+            // Fall through to normal authentication
         }
-        
-        return Ok(next.run(request).await);
     }
 
     // Extract platform context

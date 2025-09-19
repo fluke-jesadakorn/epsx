@@ -15,7 +15,7 @@ async function makeServerRequest(endpoint: string, options: RequestInit = {}) {
     ...options.headers,
   };
 
-  const response = await fetch(`${env.NEXT_PUBLIC_BACKEND_URL}${endpoint}`, {
+  const response = await fetch(`${env.BACKEND_URL}${endpoint}`, {
     ...options,
     headers,
   });
@@ -368,7 +368,7 @@ async function makeIAMRequest(endpoint: string, options: RequestInit = {}) {
   const allCookies = cookieStore.getAll();
   const cookieHeader = allCookies.map(c => `${c.name}=${c.value}`).join('; ');
 
-  const backendUrl = env.NEXT_PUBLIC_BACKEND_URL;
+  const backendUrl = env.BACKEND_URL;
   const url = `${backendUrl}/api/v1/iam/${endpoint}`;
 
   const response = await fetch(url, {

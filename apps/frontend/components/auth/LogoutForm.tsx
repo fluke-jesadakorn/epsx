@@ -4,7 +4,7 @@ import { LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { logger, devLog, safeError } from '@/lib/logger';
+import { logger, devLog, safeError } from '@/lib/utils/logging';
 
 interface LogoutFormProps {
   className?: string;

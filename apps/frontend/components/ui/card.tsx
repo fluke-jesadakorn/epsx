@@ -2,6 +2,8 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
+export type CardProps = React.HTMLAttributes<HTMLDivElement>
+
 const Card = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>

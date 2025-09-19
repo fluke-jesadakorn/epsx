@@ -1,0 +1,138 @@
+'use server';
+
+import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+import { getBackendUrl, getFrontendUrl, oidcUrls, callbackUrls } from '../../../../../shared/utils/url-resolver';
+import { verifyJWT, type JWTUser } from '../../../../../shared/auth/jwt';
+import { logger, safeError } from '@/lib/utils/logging';
+
+// ============================================================================
+// Types
+// ============================================================================
+
+export interface User extends JWTUser {
+  id: string;
+  name?: string;
+  image?: string;
+  tier?: string;
+  level?: string;
+  user_id?: string;
+  emailVerified?: boolean;
+}
+
+// ============================================================================
+// Authentication Server Actions
+// ============================================================================
+
+/**
+ * Handle sign out action
+ */
+export async function handleSignOut() {
+  // Clear JWT cookie
+  const cookieStore = await cookies();
+  cookieStore.delete('epsx_frontend_jwt');
+  
+  // Redirect to backend OAuth login page - NEXT_REDIRECT error is expected behavior
+  const backendLoginUrl = new URL('/oauth/authorize', getBackendUrl('server'));
+  backendLoginUrl.searchParams.set('client_id', 'epsx-frontend');
+  backendLoginUrl.searchParams.set('redirect_uri', callbackUrls.frontend('server'));
+  backendLoginUrl.searchParams.set('scope', 'openid profile email');
+  backendLoginUrl.searchParams.set('response_type', 'code');
+  redirect(backendLoginUrl.toString());
+}
+
+/**
+ * Get current authenticated user from OIDC session
+ */
+export async function getCurrentUser(): Promise<User | null> {
+  try {
+    const cookieStore = await cookies();
+    const accessToken = cookieStore.get('access_token')?.value;
+    
+    if (!accessToken) {
+      return null;
+    }
+
+    // Verify the JWT token
+    const decoded = await verifyJWT(accessToken);
+    
+    return {
+      id: decoded.sub,
+      uid: decoded.sub,
+      email: decoded.email,
+      name: decoded.name,
+      permissions: decoded.permissions || [],
+      emailVerified: decoded.email_verified || false,
+    };
+  } catch (error) {
+    logger.error('Failed to get current user', { error: safeError(error).message });
+    return null;
+  }
+}
+
+/**
+ * Check if user is authenticated
+ */
+export async function isAuthenticated(): Promise<boolean> {
+  const user = await getCurrentUser();
+  return user !== null;
+}
+
+/**
+ * Get user permissions
+ */
+export async function getUserPermissions(): Promise<string[]> {
+  const user = await getCurrentUser();
+  return user?.permissions || [];
+}
+
+/**
+ * Check if user has specific permission
+ */
+export async function hasPermission(permission: string): Promise<boolean> {
+  const permissions = await getUserPermissions();
+  return permissions.includes(permission);
+}
+
+/**
+ * Check if user has any of the specified permissions
+ */
+export async function hasAnyPermission(requiredPermissions: string[]): Promise<boolean> {
+  const permissions = await getUserPermissions();
+  return requiredPermissions.some(permission => permissions.includes(permission));
+}
+
+/**
+ * Check if user has all specified permissions
+ */
+export async function hasAllPermissions(requiredPermissions: string[]): Promise<boolean> {
+  const permissions = await getUserPermissions();
+  return requiredPermissions.every(permission => permissions.includes(permission));
+}
+
+/**
+ * Require authentication - redirect to login if not authenticated
+ */
+export async function requireAuth(): Promise<User> {
+  const user = await getCurrentUser();
+  
+  if (!user) {
+    redirect('/login');
+  }
+  
+  return user;
+}
+
+/**
+ * Require specific permission - redirect if not authorized
+ */
+export async function requirePermission(permission: string, redirectPath: string = '/unauthorized'): Promise<User> {
+  const user = await requireAuth();
+  const hasPerms = await hasPermission(permission);
+  
+  if (!hasPerms) {
+    redirect(redirectPath);
+  }
+  
+  return user;
+}

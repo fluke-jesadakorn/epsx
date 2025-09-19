@@ -3,7 +3,7 @@
 
 pub mod env;
 
-// Re-export simplified items for backward compatibility
+// Re-export simplified items
 pub use env::{
     Config,
     init_config,
@@ -15,16 +15,4 @@ pub use env::{
     get_jwt_secret,
     get_fallback_config,
     ValidationError,
-    // Legacy config structs for backward compatibility
-    ServerConfig,
-    DatabaseConfig,
-    AuthConfig,
-    PaymentConfig,
-    FirebaseConfig,
-    EmailConfig,
-    BrandingConfig,
-    ExternalServicesConfig,
-    TradingViewConfig,
-    QrCodeConfig,
-    RateLimitingConfig,
 };

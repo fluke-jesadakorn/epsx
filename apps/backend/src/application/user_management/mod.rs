@@ -32,6 +32,14 @@ pub use queries::{
     UserSummary,
 };
 
+// Re-export services
+pub use services::{
+    UserReferenceResolver,
+    UserResolutionCapable,
+    UserApplicationService,
+    UserQueryService,
+};
+
 // Re-export handlers
 pub use commands::{
     CreateUserCommandHandler,

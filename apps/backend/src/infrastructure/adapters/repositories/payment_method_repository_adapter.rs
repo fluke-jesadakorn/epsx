@@ -7,18 +7,17 @@ use std::sync::Arc;
 
 use rust_decimal::prelude::FromPrimitive;
 
-use crate::infrastructure::adapters::repositories::diesel::DbPool;
+use crate::infrastructure::adapters::repositories::DbPool;
 use crate::domain::payment::{
     PaymentMethodRepositoryPort, PaymentMethod, PaymentMethodConfig, ExchangeRates, Currency
 };
 
 /// Repository adapter for managing payment methods
+#[derive(Clone)]
 pub struct PaymentMethodRepositoryAdapter {
     db_pool: Arc<DbPool>,
 }
 
-unsafe impl Send for PaymentMethodRepositoryAdapter {}
-unsafe impl Sync for PaymentMethodRepositoryAdapter {}
 
 impl PaymentMethodRepositoryAdapter {
     pub fn new(db_pool: Arc<DbPool>) -> Self {

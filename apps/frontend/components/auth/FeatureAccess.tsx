@@ -7,7 +7,6 @@ interface FeatureAccessProps {
   action?: string;
   children: ReactNode;
   fallback?: ReactNode;
-  showLimits?: boolean;
 }
 
 /**
@@ -19,12 +18,15 @@ export async function FeatureAccess({
   action = 'read',
   children,
   fallback,
-  showLimits = false,
 }: FeatureAccessProps) {
-  let access = { allowed: false, reason: 'Access check failed' };
+  let access = { allowed: false, reason: 'Access check failed', limits: undefined };
   try {
     const result = await checkFeatureAccess(feature);
-    access = result?.success ? result.data : access;
+    access = { 
+      allowed: result?.hasAccess || false, 
+      reason: result?.reason || 'Access denied',
+      limits: undefined // Add limits property
+    };
   } catch (error) {
     console.error('FeatureAccess: Failed to check feature access:', error);
   }
@@ -42,15 +44,6 @@ export async function FeatureAccess({
     );
   }
   
-  // Wrap children with limits data if available
-  if (showLimits && access.limits) {
-    return (
-      <div data-feature-limits={JSON.stringify(access.limits)}>
-        {children}
-      </div>
-    );
-  }
-  
   return <>{children}</>;
 }
 
@@ -59,7 +52,7 @@ export async function FeatureAccess({
  */
 export async function AnalyticsAccess({ children }: { children: ReactNode }) {
   return (
-    <FeatureAccess feature="analytics" showLimits>
+    <FeatureAccess feature="analytics">
       {children}
     </FeatureAccess>
   );
@@ -70,7 +63,7 @@ export async function AnalyticsAccess({ children }: { children: ReactNode }) {
  */
 export async function TradingAccess({ children }: { children: ReactNode }) {
   return (
-    <FeatureAccess feature="trading" showLimits>
+    <FeatureAccess feature="trading">
       {children}
     </FeatureAccess>
   );
@@ -110,10 +103,10 @@ export async function PremiumAccess({
  * API access wrapper with rate limiting info
  */
 export async function ApiAccess({ children }: { children: ReactNode }) {
-  let access = { allowed: false, reason: 'API access check failed' };
+  let access = { allowed: false, reason: 'API access check failed', limits: undefined };
   try {
     const result = await checkFeatureAccess('api');
-    access = result?.success ? result.data : access;
+    access = { allowed: result?.hasAccess || false, reason: result?.reason || 'API access denied', limits: undefined };
   } catch (error) {
     console.error('ApiAccess: Failed to check API access:', error);
   }
@@ -134,11 +127,6 @@ export async function ApiAccess({ children }: { children: ReactNode }) {
   
   return (
     <div className="relative">
-      {access.limits?.rate_limit && (
-        <div className="absolute top-0 right-0 bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 text-xs px-2 py-1 rounded">
-          Rate Limit: {access.limits.rate_limit}/min
-        </div>
-      )}
       {children}
     </div>
   );

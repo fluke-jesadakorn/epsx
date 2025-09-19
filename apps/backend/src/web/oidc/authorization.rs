@@ -1219,7 +1219,7 @@ async fn store_authorization_code_direct(
   // TODO: Re-enable after SQLx migration
   /*
     use crate::infrastructure::adapters::repositories::diesel::create_pool;
-    use crate::infrastructure::adapters::repositories::diesel::repos::DieselSessionRepository;
+    use crate::infrastructure::adapters::repositories::diesel::repos::SessionRepository;
     // Removed unused import
     use crate::infrastructure::adapters::repositories::diesel::repos::DieselUserRepository;
     */
@@ -1231,13 +1231,13 @@ async fn store_authorization_code_direct(
     .map_err(|_| "DATABASE_URL environment variable not found")?;
 
   // Create database pool
-  let pool = crate::infrastructure::adapters::repositories::diesel_types
+  let pool = crate::infrastructure::adapters::repositories::database_types
     ::create_pool().await
     .map_err(|e| format!("Failed to create database pool: {}", e))?;
 
   // Create repositories
   let session_repo =
-    crate::infrastructure::adapters::repositories::diesel_types::DieselSessionRepository::new(
+    crate::infrastructure::adapters::repositories::database_types::SessionRepository::new(
       pool.clone()
     );
   let _user_repo =

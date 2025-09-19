@@ -226,3 +226,15 @@ export interface PositionCardProps {
   position: PortfolioPosition;
   onActionChange: (symbol: string, action: PositionAction) => void;
 }
+
+// Unified ranking item type for compatibility
+export interface UnifiedRankingItem {
+  symbol: string;
+  name: string;
+  rank: number;
+  value: number;
+  growth: number;
+  sector?: string;
+  country?: string;
+  marketCap?: number;
+}

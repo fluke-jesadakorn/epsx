@@ -5,7 +5,8 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { verifyJWTFromCookies, getSessionFromJWT } from './jwt';
-import { type EPSXJWTPayload, derivePackageTierFromPermissions, hasJWTPermission, isJWTAdmin } from '@/lib/auth-utils';
+import { type EPSXJWTPayload, hasJWTPermission, isJWTAdmin } from '../../../../shared/auth/jwt';
+import { derivePackageTierFromPermissions } from '../../../../shared/permissions/utils/platform';
 import { getBackendUrl, getFrontendUrl, oidcUrls, callbackUrls, URL, URLContext, OIDCEndpoint, Service, APIPath } from '../../../../shared/utils/url-resolver';
 import { generateCodeVerifier, generateCodeChallenge, generateRandomString } from '../../../../shared/auth/pkce';
 
@@ -28,7 +29,6 @@ export async function clearSession(): Promise<void> {
   try {
     const cookieStore = await cookies();
     cookieStore.delete('epsx_frontend_jwt');
-    console.log('✅ Frontend: User session cleared successfully');
   } catch (error) {
     console.error('❌ Failed to clear session:', error);
     throw error;
@@ -232,7 +232,6 @@ export function redirectToBackendLogin(callbackUrl?: string): never {
  */
 export async function exchangeCodeForTokens(code: string, codeVerifier: string, state: string) {
   try {
-    console.log('🔄 Frontend: Exchanging authorization code for access token...')
     
     // Use centralized URL resolver for server-side requests
     const tokenEndpoint = URL.oidc(OIDCEndpoint.TOKEN, URLContext.SERVER);
@@ -261,7 +260,6 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string, 
     }
 
     const tokens = await response.json()
-    console.log('✅ Frontend: Successfully received tokens from backend')
     
     return {
       accessToken: tokens.access_token,

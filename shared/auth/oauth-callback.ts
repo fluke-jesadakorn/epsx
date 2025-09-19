@@ -129,14 +129,34 @@ async function validateCallback(
   // Admin-specific: Check backup cookies if primary missing
   if (config.appType === 'admin') {
     if (!storedCodeVerifier) {
-      storedCodeVerifier = cookieStore.get('pkce_verifier_backup')?.value;
-      console.log('🔄 Using backup code verifier');
+      storedCodeVerifier = cookieStore.get('pkce_verifier_backup')?.value || 
+                          cookieStore.get('admin_oauth_verifier')?.value;
+      if (storedCodeVerifier) {
+        console.log('🔄 Using backup code verifier');
+      }
     }
     
     if (!storedState) {
-      storedState = cookieStore.get('pkce_state_backup')?.value;
-      console.log('🔄 Using backup state');
+      storedState = cookieStore.get('pkce_state_backup')?.value ||
+                   cookieStore.get('admin_oauth_state')?.value;
+      if (storedState) {
+        console.log('🔄 Using backup state');
+      }
     }
+  }
+
+  // Comprehensive cookie debugging for admin
+  if (config.appType === 'admin') {
+    const allCookies = cookieStore.getAll();
+    const authCookies = allCookies.filter(cookie => 
+      cookie.name.includes('oauth') || 
+      cookie.name.includes('pkce') || 
+      cookie.name.includes('admin')
+    );
+    console.log(`🔍 ${appLabel} All auth-related cookies:`, authCookies.map(c => ({
+      name: c.name,
+      value: c.value ? `${c.value.slice(0,10)}...` : 'empty'
+    })));
   }
 
   console.log(`🔍 ${appLabel} Cookie debug info:`, {
@@ -145,8 +165,17 @@ async function validateCallback(
     callback_url: storedCallbackUrl || 'missing'
   });
 
-  // Validate PKCE parameters are present
+  // Final fallback: If still missing and in development, provide helpful error
   if (!storedCodeVerifier || !storedState) {
+    if (config.appType === 'admin') {
+      console.error('❌ Admin: All PKCE parameter sources failed:', {
+        primaryCookies: 'missing',
+        backupCookies: 'missing', 
+        additionalCookies: 'missing',
+        suggestion: 'Try logging out completely and starting fresh OAuth flow'
+      });
+    }
+    
     return {
       success: false,
       error: 'missing_pkce_parameters'

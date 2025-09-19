@@ -14,7 +14,7 @@ use serde::Deserialize;
 use std::{convert::Infallible, time::Duration};
 use tokio::sync::broadcast;
 use tokio_stream::{wrappers::BroadcastStream, StreamExt as _};
-use crate::web::middleware::AuthCtx;
+use crate::web::middleware::clean_auth::AuthenticatedUser;
 use tracing::{info, error};
 use super::events::{EventMessage, RealtimeEvent};
 use super::super::auth::routes::AppState;
@@ -33,11 +33,11 @@ pub struct SseParams {
 /// SSE handler for real-time events
 pub async fn sse_handler(
     Query(params): Query<SseParams>,
-    auth_ctx: AuthCtx,
+    auth_ctx: AuthenticatedUser,
     State(_app_state): State<AppState>,
 ) -> Result<Sse<impl Stream<Item = Result<Event, Infallible>>>, StatusCode> {
-    // Extract user from session
-    let user_id = auth_ctx.user_id;
+    // Extract user from session and convert to UserId
+    let user_id = crate::domain::shared_kernel::value_objects::UserId::from_string_unchecked(auth_ctx.user_id);
     
     // Parse subscribed events
     let subscribed_events: Vec<String> = params.events

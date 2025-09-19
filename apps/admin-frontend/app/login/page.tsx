@@ -70,9 +70,17 @@ export default function AdminLoginPage() {
         throw new Error(errorData.error || 'Failed to initiate OAuth flow')
       }
       
-      const { authorizationUrl } = await response.json()
+      const { authorizationUrl, debug } = await response.json()
       
       console.log('✅ OAuth flow initiated, redirecting to authorization URL...')
+      
+      // Store PKCE parameters in localStorage as backup for development
+      if (debug && typeof window !== 'undefined') {
+        localStorage.setItem('admin_oauth_verifier_backup', debug.codeVerifier)
+        localStorage.setItem('admin_oauth_state_backup', debug.state)
+        localStorage.setItem('admin_oauth_callback_backup', debug.callbackUrl)
+        console.log('💾 PKCE parameters backed up to localStorage for development')
+      }
       
       // Redirect to the OAuth authorization endpoint
       window.location.href = authorizationUrl

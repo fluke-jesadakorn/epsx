@@ -11,6 +11,7 @@ pub mod tradingview_websocket;
 pub mod firebase;
 pub mod oidc;
 pub mod combined_rate_limiting_service;
+pub mod comprehensive_rate_limiting_service;
 pub mod unified_admin_client_adapter;
 pub mod granular_permissions_admin_client_adapter;
 
@@ -30,5 +31,9 @@ pub use tradingview_websocket::{
 pub use firebase::{FirebaseAdmin, FirebaseUser, FirebaseError};
 pub use oidc::{OIDCService, TokenValidationResult as OidcTokenValidationResult};
 pub use combined_rate_limiting_service::CombinedRateLimitingService;
+pub use comprehensive_rate_limiting_service::{
+    ComprehensiveRateLimitingService, RateLimitTier, RateLimitClientId, 
+    RateLimitViolation, RateLimitResult
+};
 pub use unified_admin_client_adapter::{UnifiedAdminClientAdapter, AdminUser};
 pub use granular_permissions_admin_client_adapter::{GranularPermissionsAdminClientAdapter, GranularPermission};

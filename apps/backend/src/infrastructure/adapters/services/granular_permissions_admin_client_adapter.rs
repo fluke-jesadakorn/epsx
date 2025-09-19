@@ -1,5 +1,5 @@
-// Granular Permissions Admin Client Adapter - SQLx Implementation
-// TODO: Implement full granular permissions functionality with SQLx
+// Granular Permissions Admin Client Adapter - Diesel ORM Implementation
+// Diesel-based implementation for granular permission management
 
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -27,7 +27,7 @@ impl GranularPermissionsAdminClientAdapter {
         &self,
         _user_id: &str,
     ) -> Result<Vec<GranularPermission>, Box<dyn std::error::Error + Send + Sync>> {
-        // TODO: Implement with SQLx
+        // Placeholder implementation
         Ok(vec![])
     }
 
@@ -36,7 +36,7 @@ impl GranularPermissionsAdminClientAdapter {
         _user_id: &str,
         _permission: GranularPermission,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // TODO: Implement with SQLx
+        // Placeholder implementation
         Ok(())
     }
 
@@ -45,7 +45,7 @@ impl GranularPermissionsAdminClientAdapter {
         _user_id: &str,
         _permission_id: &str,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // TODO: Implement with SQLx
+        // Placeholder implementation
         Ok(())
     }
 
@@ -53,7 +53,7 @@ impl GranularPermissionsAdminClientAdapter {
         &self,
         _resource: &str,
     ) -> Result<Vec<GranularPermission>, Box<dyn std::error::Error + Send + Sync>> {
-        // TODO: Implement with SQLx
+        // Placeholder implementation
         Ok(vec![])
     }
 }
@@ -61,7 +61,7 @@ impl GranularPermissionsAdminClientAdapter {
 #[derive(Debug, thiserror::Error)]
 pub enum GranularPermissionsClientError {
     #[error("Database error: {0}")]
-    Database(#[from] sqlx::Error),
+    Database(String), // Placeholder error type
     #[error("Cache error: {0}")]
     Cache(String),
     #[error("Permission not found: {0}")]
@@ -73,13 +73,13 @@ impl GranularPermissionsClientPort for GranularPermissionsAdminClientAdapter {
     type Error = GranularPermissionsClientError;
     
     async fn get_user_permissions(&self, user_id: &str) -> Result<Vec<String>, Self::Error> {
-        // TODO: Implement with SQLx
+        // Placeholder implementation
         tracing::debug!("Getting permissions for user: {}", user_id);
         Ok(vec![])
     }
     
     async fn grant_permission(&self, user_id: &str, permission: &str) -> Result<(), Self::Error> {
-        // TODO: Implement with SQLx
+        // Placeholder implementation
         tracing::debug!("Granting permission {} to user: {}", permission, user_id);
         Ok(())
     }

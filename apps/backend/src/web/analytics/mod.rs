@@ -12,11 +12,11 @@ use axum::{
 };
 use serde::Deserialize;
 
-use crate::web::middleware::user_auth::{user_auth_middleware, AuthenticatedUser};
 use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
 use crate::infrastructure::container::InfraFactory;
 use crate::config::Config;
 use crate::infrastructure::cache::{CacheFactory, Cache};
+use crate::web::middleware::AuthenticatedUser;
 
 pub use eps_handlers::*;
 
@@ -107,6 +107,7 @@ pub async fn create_analytics_router(_infra_factory: &InfraFactory) -> Router {
         .route("/api/v1/analytics/eps-rankings/sectors", get(eps_handlers::get_sectors_by_country))
         .route("/api/v1/analytics/eps-rankings/health", get(eps_handlers::eps_health_check))
         // Simplified analytics endpoints for frontend compatibility
+        .route("/api/v1/analytics/filters", get(eps_handlers::get_filter_options))
         .route("/api/v1/analytics/countries", get(eps_handlers::get_available_countries))
         .route("/api/v1/analytics/sectors", get(eps_handlers::get_sectors_by_country))
         // Cache management endpoints - require epsx:analytics:manage permission
@@ -128,7 +129,8 @@ pub async fn create_analytics_router(_infra_factory: &InfraFactory) -> Router {
         .route("/api/v1/admin/stock-ranking/assignments/:assignment_id/revoke", post(revoke_assignment_handler))
         // No longer needs DDD adapter - using direct TradingView API
         // Apply user authentication middleware
-        .layer(from_fn(user_auth_middleware))
+        // TODO: Axum 0.7.9 trait bound issue - use clean_auth_middleware temporarily
+        .layer(from_fn(crate::web::middleware::clean_auth_middleware))
         // Apply analytics view permission requirement to all analytics routes
         .layer(from_fn(require_analytics_permission));
 
@@ -152,13 +154,15 @@ pub async fn create_analytics_router(_infra_factory: &InfraFactory) -> Router {
         .route("/v1/analytics/cache/refresh", post(eps_handlers::force_cache_refresh))
         .route("/v1/analytics/cache/health", get(eps_handlers::cache_health_check))
         // Apply same permission middleware to legacy routes
-        .layer(from_fn(user_auth_middleware))
+        // TODO: Axum 0.7.9 trait bound issue - use clean_auth_middleware temporarily  
+        .layer(from_fn(crate::web::middleware::clean_auth_middleware))
         .layer(from_fn(require_analytics_permission));
 
     // Public routes (no authentication required)
     let public_routes = Router::new()
         .route("/api/v1/public/analytics/rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
         .route("/api/v1/public/analytics/eps-rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
+        .route("/api/v1/public/analytics/filters", get(eps_handlers::get_filter_options))
         .route("/api/v1/public/analytics/countries", get(eps_handlers::get_available_countries))
         .route("/api/v1/public/analytics/sectors", get(eps_handlers::get_sectors_by_country));
         // No authentication middleware for public routes - now uses direct TradingView API
@@ -326,7 +330,7 @@ async fn require_analytics_permission(
 
     // Check if user has required permission (supports wildcards and embedded timestamps)
     let required_permission = "epsx:analytics:view";
-    if !user.permissions.iter().any(|p| permission_matches(p, required_permission)) {
+    if !user.valid_permissions.iter().any(|p| permission_matches(p, required_permission)) {
         tracing::info!(
             "User {} lacks required permission '{}' for analytics endpoint {}",
             user.user_id,

@@ -103,15 +103,8 @@ export function StateProvider({
       onError={(error, errorInfo) => {
         console.error('State Provider Error:', error, errorInfo);
         
-        // Send to monitoring service
-        if (typeof window !== 'undefined' && window.Sentry) {
-          window.Sentry.captureException(error, {
-            tags: {
-              component: 'StateProvider'
-            },
-            extra: errorInfo
-          });
-        }
+        // External error reporting disabled for security
+        // Errors are handled locally only
       }}
     >
       <Suspense

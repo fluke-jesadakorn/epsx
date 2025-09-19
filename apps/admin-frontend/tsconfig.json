@@ -20,7 +20,8 @@
       "@/services/*": ["./services/*"],
       "@/config/*": ["./config/*"],
       "@/design-system": ["./design-system/index.ts"],
-      "@/design-system/*": ["./design-system/*"]
+      "@/design-system/*": ["./design-system/*"],
+      "@/shared/*": ["../../shared/*"]
     },
     "target": "ES2022",
     "lib": ["dom", "dom.iterable", "esnext"],
@@ -45,7 +46,9 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    "../../shared/**/*.ts",
+    "../../shared/**/*.tsx"
   ],
   "exclude": ["node_modules", ".next", "out", "dist", "build"]
 }

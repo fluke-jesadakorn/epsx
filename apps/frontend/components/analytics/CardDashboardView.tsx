@@ -13,9 +13,7 @@ import {
 } from '@/components/ui/select';
 import { Download, Filter, RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { env } from '../../../../shared/env/schema';
-// Direct fetch implementation to avoid any axios bundling conflicts
-// import { AnalyticsClient, CardDashboardResponse, SymbolCardData, EPSQueryParams } from '@/lib/api-client';
+import { AnalyticsClient } from '@/lib/api-client';
 
 // Define types locally to avoid importing from api-client
 interface EPSQueryParams {
@@ -76,88 +74,7 @@ interface CardDashboardResponse {
   processing_time_ms: number;
 }
 
-// Simple fetch-based client to replace AnalyticsClient
-class DirectFetchClient {
-  private baseURL: string;
-
-  constructor() {
-    this.baseURL = env.BACKEND_URL;
-  }
-
-  async getCardDashboard(
-    params: EPSQueryParams
-  ): Promise<{ data: CardDashboardResponse }> {
-    const queryString = new URLSearchParams();
-    Object.keys(params).forEach(key => {
-      const value = (params as any)[key];
-      if (value !== undefined && value !== null) {
-        queryString.append(key, String(value));
-      }
-    });
-
-    const url = `${this.baseURL}/api/v1/analytics/eps-rankings?${queryString.toString()}`;
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return { data };
-  }
-
-  async getAvailableCountries(): Promise<{
-    data: { countries: Array<{ value: string; label: string }>; count: number };
-  }> {
-    const response = await fetch(
-      `${this.baseURL}/api/v1/analytics/eps-rankings/countries`,
-      {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return { data };
-  }
-
-  async getSectorsByCountry(
-    country?: string
-  ): Promise<{ data: { sectors: string[]; count: number; country?: string } }> {
-    let url = `${this.baseURL}/api/v1/analytics/eps-rankings/sectors`;
-    if (country) {
-      url += `?country=${encodeURIComponent(country)}`;
-    }
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    return { data };
-  }
-}
-// Temporarily disabled to avoid api-client dependency chain
-// import { exportCardDashboardData } from '@/lib/export-utils';
+// Use the main AnalyticsClient for consistent API handling
 
 interface CardDashboardViewProps {
   className?: string;
@@ -173,7 +90,7 @@ interface AdvancedFilters {
   limit: number;
 }
 
-const analyticsClient = new DirectFetchClient();
+const analyticsClient = new AnalyticsClient();
 
 export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
   const [data, setData] = useState<CardDashboardResponse | null>(null);
@@ -206,8 +123,8 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
         ]);
 
         setFilterOptions({
-          countries: countriesResponse.data.countries,
-          sectors: sectorsResponse.data.sectors,
+          countries: countriesResponse.data?.countries || [],
+          sectors: sectorsResponse.data?.sectors || [],
         });
       } catch (error) {
         console.error('Failed to load filter options:', error);
@@ -234,7 +151,9 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
       };
 
       const response = await analyticsClient.getCardDashboard(queryParams);
-      setData(response.data);
+      if (response.data) {
+        setData(response.data);
+      }
     } catch (error) {
       console.error('Failed to load card dashboard data:', error);
       setError('Failed to load dashboard data');

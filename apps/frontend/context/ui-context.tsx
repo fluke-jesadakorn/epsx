@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useCallback, useEffect, useMemo } from 'react';
 import { useAppState } from './app-state';
 import { Toast, UIState } from '@/lib/state/types';
-import { useClientOnly } from '@/lib/state/core';
+import { useClientOnly } from '@/lib/state';
 
 interface UIContextType {
   // Theme

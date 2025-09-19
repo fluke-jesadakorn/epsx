@@ -4,7 +4,7 @@ import ClientEpsCardSection from '@/components/home/ClientEpsCardSection';
 import HeroSection from '@/components/home/HeroSection';
 import { PublicRankingPreview } from '@/components/home/PublicRankingPreview';
 import DynamicPricingSection from '@/components/home/DynamicPricingSection';
-import { getAnalyticsData } from '@/lib/analytics-server';
+import { getAnalyticsData } from '@/lib/server-data';
 
 // DISABLE ISR caching to show real TradingView data immediately
 export const revalidate = 0;
@@ -21,7 +21,9 @@ export default async function HomePage() {
   
   try {
     const analyticsResponse = await getAnalyticsData({ page: 1, limit: 10, sort_by: 'growth_factor' });
-    if (analyticsResponse.success && analyticsResponse.data) {
+    
+    // Check if we have successful data or if authentication is required
+    if (analyticsResponse && analyticsResponse.success && analyticsResponse.data && analyticsResponse.data.length > 0) {
       // Convert analytics data to format expected by components
       initialData = analyticsResponse.data.slice(0, 6).map((item, index) => ({
         symbol: item.symbol,
@@ -63,10 +65,13 @@ export default async function HomePage() {
         startAction: { type: item.active_status === 'TRACK' ? 'hold' : 'hold', active: true },
         lastEarningsDate: item.quarterly_performance?.[0]?.date || 'N/A'
       }));
+    } else {
+      // Log the case where authentication is required or data is unavailable
+      console.log('Analytics data not available - user may need to authenticate for premium data');
     }
   } catch (error) {
-    // Silently handle error - keep fallback data
-    // Keep empty arrays as fallback
+    console.log('Home page: Analytics fetch failed, showing without data:', error);
+    // Keep empty arrays as fallback for graceful degradation
   }
   return (
     <div>

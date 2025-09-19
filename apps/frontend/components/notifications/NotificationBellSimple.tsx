@@ -18,7 +18,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { useNavbarContext } from '@/components/providers/NavbarProvider'
-import { type NotificationData } from '@/lib/actions/notification-actions'
+import { type NotificationData } from '@/lib/actions/notifications'
 import { clientConfig } from '@/config/env'
 
 interface SimpleNotification {
@@ -104,19 +104,17 @@ export function NotificationBellSimple({ className = "", showBadge = true, initi
       actionUrl: n.action_url 
     })) || []
   )
-  const [unreadCount, setUnreadCount] = useState(initialData?.unread_count || 0)
+  const [unreadCount, setUnreadCount] = useState(initialData?.unreadCount || 0)
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(!initialData) // Only show loading if no initial data
   const { isHydrated, isMobile } = useNavbarContext()
 
-  console.log('🔔 NotificationBellSimple component mounted, initial data:', !!initialData)
 
   // Fetch notifications (only if no initial data or for periodic updates)
   useEffect(() => {
     const fetchNotifications = async (isInitial = false) => {
       // Skip initial fetch if we have server-side data
       if (isInitial && initialData) {
-        console.log('🔔 Skipping initial fetch - using server data')
         return
       }
 
@@ -128,9 +126,7 @@ export function NotificationBellSimple({ className = "", showBadge = true, initi
         }
         
         const accessToken = getCookie('access_token')
-        console.log('🔔 Notification bell: Fetching notifications, token:', accessToken ? 'Found' : 'Missing')
         if (!accessToken) {
-          console.log('No access token available for notifications')
           setLoading(false)
           return
         }

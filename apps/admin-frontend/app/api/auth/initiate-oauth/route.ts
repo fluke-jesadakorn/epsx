@@ -9,14 +9,6 @@ export async function POST(request: NextRequest) {
     
     // Clear any existing OAuth cookies first
     const cookieStore = await cookies();
-    const response = NextResponse.json({ success: true });
-    
-    // Clear existing OAuth cookies
-    response.cookies.delete('oauth_code_verifier');
-    response.cookies.delete('oauth_state');
-    response.cookies.delete('oauth_callback_url');
-    response.cookies.delete('pkce_verifier_backup');
-    response.cookies.delete('pkce_state_backup');
     
     // Generate fresh PKCE parameters
     const codeVerifier = generateCodeVerifier();
@@ -39,36 +31,63 @@ export async function POST(request: NextRequest) {
     loginUrl.searchParams.set('code_challenge', codeChallenge);
     loginUrl.searchParams.set('code_challenge_method', 'S256');
     
-    // Set PKCE cookies
+    // Set PKCE cookies with enhanced persistence
     const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax' as const,
-      maxAge: 900, // 15 minutes
+      maxAge: 1800, // 30 minutes (extended from 15)
       path: '/',
     };
-
-    response.cookies.set('oauth_code_verifier', codeVerifier, cookieOptions);
-    response.cookies.set('oauth_state', state, cookieOptions);
-    response.cookies.set('oauth_callback_url', callbackUrl, cookieOptions);
-
-    // Set backup cookies
-    response.cookies.set('pkce_verifier_backup', codeVerifier, {
-      ...cookieOptions,
-      httpOnly: false,
-    });
-    response.cookies.set('pkce_state_backup', state, {
-      ...cookieOptions,
-      httpOnly: false,
-    });
     
     console.log('✅ Admin: Fresh OAuth flow initiated with new PKCE parameters');
     
-    // Return the authorization URL
-    return NextResponse.json({
+    // Create final response with all cookies attached
+    const finalResponse = NextResponse.json({
       success: true,
-      authorizationUrl: loginUrl.toString()
+      authorizationUrl: loginUrl.toString(),
+      // Include PKCE parameters for client-side backup in development
+      debug: process.env.NODE_ENV === 'development' ? {
+        codeVerifier,
+        state,
+        callbackUrl
+      } : undefined
     });
+
+    // Clear existing OAuth cookies on final response
+    finalResponse.cookies.delete('oauth_code_verifier');
+    finalResponse.cookies.delete('oauth_state');
+    finalResponse.cookies.delete('oauth_callback_url');
+    finalResponse.cookies.delete('pkce_verifier_backup');
+    finalResponse.cookies.delete('pkce_state_backup');
+
+    // Set primary PKCE cookies on final response
+    finalResponse.cookies.set('oauth_code_verifier', codeVerifier, cookieOptions);
+    finalResponse.cookies.set('oauth_state', state, cookieOptions);
+    finalResponse.cookies.set('oauth_callback_url', callbackUrl, cookieOptions);
+
+    // Set backup cookies (accessible to JavaScript for debugging)
+    finalResponse.cookies.set('pkce_verifier_backup', codeVerifier, {
+      ...cookieOptions,
+      httpOnly: false,
+    });
+    finalResponse.cookies.set('pkce_state_backup', state, {
+      ...cookieOptions,
+      httpOnly: false,
+    });
+    
+    // Set additional fallback cookies with different names
+    finalResponse.cookies.set('admin_oauth_verifier', codeVerifier, cookieOptions);
+    finalResponse.cookies.set('admin_oauth_state', state, cookieOptions);
+    
+    console.log('🍪 Admin: PKCE cookies set on final response:', {
+      codeVerifier: `${codeVerifier.slice(0, 10)}...`,
+      state: `${state.slice(0, 10)}...`,
+      callbackUrl,
+      maxAge: cookieOptions.maxAge
+    });
+    
+    return finalResponse;
     
   } catch (error) {
     console.error('❌ Failed to initiate OAuth flow:', error);

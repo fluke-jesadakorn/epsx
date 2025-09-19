@@ -18,7 +18,13 @@ export async function POST() {
     response.cookies.delete('oauth_state');
     response.cookies.delete('oauth_callback_url');
     
-    console.log('✅ OIDC authentication cookies cleared');
+    // Clear backup cookies
+    response.cookies.delete('pkce_verifier_backup');
+    response.cookies.delete('pkce_state_backup');
+    response.cookies.delete('admin_oauth_verifier');
+    response.cookies.delete('admin_oauth_state');
+    
+    console.log('✅ OIDC authentication and OAuth cookies cleared');
     return response;
     
   } catch (error) {

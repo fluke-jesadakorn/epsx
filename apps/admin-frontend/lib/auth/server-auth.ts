@@ -3,7 +3,7 @@
  * Provides types and utilities for server-side authentication
  */
 
-import type { EPSXJWTPayload } from '@/lib/auth-utils';
+import type { EPSXJWTPayload } from '../../../../shared/auth/jwt';
 
 /**
  * Enhanced auth user type based on our JWT structure
@@ -37,7 +37,7 @@ export function createEnhancedAuthUser(payload: EPSXJWTPayload): EnhancedAuthUse
 export async function getServerSession(): Promise<ServerSession | null> {
   try {
     const { cookies } = await import('next/headers');
-    const { verifyJWT } = await import('@/lib/auth-utils');
+    const { verifyJWT } = await import('../../../../shared/auth/jwt');
     
     const cookieStore = await cookies();
     // OIDC Migration: Use only OIDC access token

@@ -5,7 +5,7 @@
  */
 
 import './globals.css';
-import { AdminAuthWrapper } from '@/components/providers/AdminAuthWrapper';
+import { AuthProvider } from '@/components/providers/AuthProvider';
 import { ErrorBoundary } from '@/components/providers/ErrorBoundary';
 import { ServiceWorkerInitializer } from '@/components/ServiceWorkerInitializer';
 import { Toaster } from 'react-hot-toast';
@@ -73,11 +73,11 @@ export default function RootLayout({
         {/* Main application wrapper with consistent spacing */}
         <div className="flex min-h-screen flex-col">
           <ErrorBoundary>
-            <AdminAuthWrapper>
+            <AuthProvider>
               <main className="flex-1 relative">
                 {children}
               </main>
-            </AdminAuthWrapper>
+            </AuthProvider>
           </ErrorBoundary>
         </div>
 

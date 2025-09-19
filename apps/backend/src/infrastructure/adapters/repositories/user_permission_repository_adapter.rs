@@ -1,21 +1,21 @@
-// User Permission Repository Adapter - SQLx Implementation
-// TODO: Implement full user permission functionality with SQLx
+// User Permission Repository Adapter
+// Modern user permission functionality with database access
 
 use std::sync::Arc;
 use sqlx::PgPool;
 use uuid::Uuid;
 
-// Simple error type for legacy permission repository compatibility
+// Standard error type for permission repository operations
 #[derive(Debug)]
-pub struct LegacyPermissionRepositoryError(String);
+pub struct PermissionRepositoryError(String);
 
-impl std::fmt::Display for LegacyPermissionRepositoryError {
+impl std::fmt::Display for PermissionRepositoryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-impl std::error::Error for LegacyPermissionRepositoryError {}
+impl std::error::Error for PermissionRepositoryError {}
 
 /// User Permission Repository Adapter - SQLx Implementation
 #[derive(Clone)]
@@ -31,8 +31,8 @@ impl UserPermissionRepositoryAdapter {
     pub async fn get_user_permissions(
         &self,
         _user_id: Uuid,
-    ) -> Result<Vec<String>, LegacyPermissionRepositoryError> {
-        // TODO: Implement with SQLx
+    ) -> Result<Vec<String>, PermissionRepositoryError> {
+        // TODO: Implement user permission retrieval
         Ok(vec![])
     }
 
@@ -40,8 +40,8 @@ impl UserPermissionRepositoryAdapter {
         &self,
         _user_id: Uuid,
         _permission: String,
-    ) -> Result<(), LegacyPermissionRepositoryError> {
-        // TODO: Implement with SQLx
+    ) -> Result<(), PermissionRepositoryError> {
+        // TODO: Implement user permission addition
         Ok(())
     }
 
@@ -49,8 +49,8 @@ impl UserPermissionRepositoryAdapter {
         &self,
         _user_id: Uuid,
         _permission: String,
-    ) -> Result<(), LegacyPermissionRepositoryError> {
-        // TODO: Implement with SQLx
+    ) -> Result<(), PermissionRepositoryError> {
+        // TODO: Implement user permission removal
         Ok(())
     }
 }

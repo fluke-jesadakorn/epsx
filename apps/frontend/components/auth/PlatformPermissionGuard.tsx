@@ -33,7 +33,6 @@ export default function PlatformPermissionGuard({
     user, 
     isAuthenticated, 
     can, 
-    hasRole, 
     hasTier, 
     getCurrentPlatform,
     canAccessPlatform 
@@ -89,9 +88,12 @@ export default function PlatformPermissionGuard({
     conditions.push(can(permissionString))
   }
   
-  // Role check
+  // Role check (converted to admin permission check)
   if (role) {
-    conditions.push(hasRole(role))
+    // Convert legacy role check to permission-based check
+    if (role.toLowerCase() === 'admin') {
+      conditions.push(can('admin:*:*'))
+    }
   }
   
   // Tier check

@@ -11,24 +11,31 @@ use crate::domain::user_management::{
     UserRepositoryPort, User, Email, FirebaseUid, Permission
 };
 use crate::domain::user_management::{UserSearchCriteria, UserSearchResult};
-
-type DbPool = PgPool;
+use crate::infrastructure::adapters::repositories::{DbPool, SqlxBaseRepository};
 
 /// UserRepositoryPort implementation using SQLx for Cloud Run compatibility
+/// Safe Send/Sync implementation - SqlxBaseRepository contains Arc<PgPool> which is Send+Sync
+#[derive(Clone)]
 pub struct UserRepositoryAdapter {
-    pool: Arc<DbPool>,
+    base: SqlxBaseRepository,
 }
 
-unsafe impl Send for UserRepositoryAdapter {}
-unsafe impl Sync for UserRepositoryAdapter {}
+// Safe implementation - SqlxBaseRepository wraps Arc<PgPool> which is Send+Sync
+// This is safe because:
+// 1. SqlxBaseRepository contains Arc<PgPool> 
+// 2. Arc<T> is Send+Sync when T is Send+Sync
+// 3. PgPool is Send+Sync by design
+// No unsafe blocks needed - Rust's type system handles this correctly
 
 impl UserRepositoryAdapter {
     pub fn new(pool: Arc<DbPool>) -> Self {
-        Self { pool }
+        Self { 
+            base: SqlxBaseRepository::new(pool),
+        }
     }
     
     fn get_pool(&self) -> &PgPool {
-        &self.pool
+        self.base.get_pool()
     }
     
     /// Load user with permissions from database
@@ -415,15 +422,7 @@ impl UserRepositoryPort for UserRepositoryAdapter {
     }
     
     async fn health_check(&self) -> DomainResult<()> {
-        let pool = self.get_pool();
-        
-        // Health check query
-        let _ = sqlx::query("SELECT 1")
-            .fetch_one(pool)
-            .await
-            .map_err(|e| DomainError::invalid_operation(format!("Database operation failed: {}", e), "UserRepository"))?;
-        
-        Ok(())
+        self.base.health_check_impl().await
     }
     
     async fn cleanup_expired_permissions(&self) -> DomainResult<u32> {

@@ -8,7 +8,7 @@ use uuid::Uuid;
 // No role concept - only permission-based access control
 
 use serde::{Deserialize, Serialize};
-use crate::infrastructure::adapters::repositories::diesel_types::{DieselUserDynamicLimit, ResolvedUserLimits};
+use crate::infrastructure::adapters::repositories::database_types::ResolvedUserLimits;
 
 
 
@@ -98,11 +98,24 @@ pub fn parse_permission_with_timestamp(permission: &str) -> (String, Option<i64>
 /// Check if permission is valid (not expired if timestamp present)
 /// If no timestamp -> always valid (permanent)
 /// If timestamp present -> check expiry
+/// SECURITY: All timestamp validation is server-side only using UTC time
 pub fn is_permission_valid_with_time_check(permission: &str) -> bool {
     let (_, timestamp) = parse_permission_with_timestamp(permission);
     
     match timestamp {
-        Some(exp_time) => Utc::now().timestamp() <= exp_time, // Check expiry
+        Some(exp_time) => {
+            let now = Utc::now().timestamp();
+            // SECURITY: Additional validation - ensure timestamp is reasonable
+            // Reject timestamps that are too far in the future (> 10 years)
+            let max_future = now + (10 * 365 * 24 * 3600); // 10 years
+            if exp_time > max_future {
+                tracing::warn!("Permission timestamp too far in future: {} > {}", exp_time, max_future);
+                return false;
+            }
+            
+            // Check if not expired
+            now <= exp_time
+        },
         None => true, // No timestamp = permanent permission
     }
 }
@@ -111,25 +124,63 @@ pub fn is_permission_valid_with_time_check(permission: &str) -> bool {
 // PERMISSION ACCESS LOGIC - WITH EMBEDDED TIMESTAMP SUPPORT
 // ============================================================================
 
+/// Optimized permission checking with caching and early termination
 pub fn check_permission_access(user_permissions: &[String], required_permission: &str) -> bool {
-    // Parse required permission (may also have timestamp)
+    // Cache parsed required permission to avoid repeated parsing
+    thread_local! {
+        static PERMISSION_CACHE: std::cell::RefCell<std::collections::HashMap<String, Option<Permission>>> = 
+            std::cell::RefCell::new(std::collections::HashMap::new());
+    }
+    
+    // Parse required permission with caching
     let (required_base, _) = parse_permission_with_timestamp(required_permission);
-    let required = match Permission::from_string(&required_base) {
-        Ok(perm) => perm,
-        Err(_) => return false,
+    let required = PERMISSION_CACHE.with(|cache| {
+        let mut cache = cache.borrow_mut();
+        cache.entry(required_base.clone()).or_insert_with(|| {
+            Permission::from_string(&required_base).ok()
+        }).clone()
+    });
+    
+    let required = match required {
+        Some(perm) => perm,
+        None => return false,
     };
     
+    // Fast path: Check for exact matches first (most common case)
+    if user_permissions.contains(&required_permission.to_string()) {
+        return is_permission_valid_with_time_check(required_permission);
+    }
+    
+    // Fast path: Check for wildcard admin permissions early
     for perm_str in user_permissions {
-        // First check if this permission is expired
-        if !is_permission_valid_with_time_check(perm_str) {
-            continue; // Skip expired permissions
+        if perm_str == "admin:*:*" || perm_str.starts_with("admin:*:") {
+            return is_permission_valid_with_time_check(perm_str);
         }
-        
-        // Get base permission without timestamp
+    }
+    
+    // Standard path: Validate each permission with optimized parsing
+    let mut valid_permissions = Vec::with_capacity(user_permissions.len());
+    
+    // Pre-filter valid permissions to avoid repeated timestamp checks
+    for perm_str in user_permissions {
+        if is_permission_valid_with_time_check(perm_str) {
+            valid_permissions.push(perm_str);
+        }
+    }
+    
+    // Check permissions with optimized parsing
+    for perm_str in valid_permissions {
         let (base_permission, _) = parse_permission_with_timestamp(perm_str);
         
-        // Check permission match using base permissions
-        if let Ok(user_perm) = Permission::from_string(&base_permission) {
+        // Use cached parsing for base permissions
+        let user_perm = PERMISSION_CACHE.with(|cache| {
+            let mut cache = cache.borrow_mut();
+            cache.entry(base_permission.clone()).or_insert_with(|| {
+                Permission::from_string(&base_permission).ok()
+            }).clone()
+        });
+        
+        if let Some(user_perm) = user_perm {
             if user_perm.matches(&required) {
                 return true;
             }
@@ -452,11 +503,11 @@ pub fn require_permission_pure(
 // This section implements the core logic for resolving user limits dynamically
 // combining database-stored admin assignments with permission-based fallbacks
 
-// TODO: Re-enable after SQLx migration - dynamic limits functionality
+// DISABLED: Dynamic limits functionality - to be implemented
 /*
 use crate::infrastructure::adapters::repositories::diesel::models::{
 
-    DieselUserDynamicLimit, ResolvedUserLimits
+    crate::infrastructure::adapters::repositories::database_types::UserDynamicLimit, ResolvedUserLimits
 };
 */
 
@@ -469,7 +520,7 @@ pub const DEFAULT_FREE_API_HOUR_LIMIT: i32 = 100;
 pub fn resolve_user_limits(
     user_id: Uuid,
     user_permissions: &[String],
-    dynamic_limits: Option<DieselUserDynamicLimit>,
+    dynamic_limits: Option<crate::infrastructure::adapters::repositories::database_types::UserDynamicLimit>,
 ) -> ResolvedUserLimits {
     match dynamic_limits {
         Some(limits) => resolve_from_dynamic_assignment(user_id, limits),
@@ -480,7 +531,7 @@ pub fn resolve_user_limits(
 /// Create resolved limits from a dynamic database assignment
 fn resolve_from_dynamic_assignment(
     user_id: Uuid,
-    dynamic_limit: DieselUserDynamicLimit,
+    dynamic_limit: crate::infrastructure::adapters::repositories::database_types::UserDynamicLimit,
 ) -> ResolvedUserLimits {
     ResolvedUserLimits {
         user_id: Some(user_id),
@@ -571,7 +622,7 @@ pub fn has_unlimited_access(user_permissions: &[String]) -> bool {
 /// Get user's effective ranking limit (handles both dynamic and permission-based)
 pub fn get_effective_ranking_limit(
     user_permissions: &[String],
-    dynamic_limit: Option<&DieselUserDynamicLimit>,
+    dynamic_limit: Option<&crate::infrastructure::adapters::repositories::database_types::UserDynamicLimit>,
 ) -> i32 {
     match dynamic_limit {
         Some(limit) => {
@@ -589,7 +640,7 @@ pub fn get_effective_ranking_limit(
 /// Get user's effective API rate limits (handles both dynamic and permission-based)
 pub fn get_effective_api_limits(
     user_permissions: &[String],
-    dynamic_limit: Option<&DieselUserDynamicLimit>,
+    dynamic_limit: Option<&crate::infrastructure::adapters::repositories::database_types::UserDynamicLimit>,
 ) -> (i32, i32) {
     match dynamic_limit {
         Some(limit) => {
@@ -610,7 +661,7 @@ pub fn get_effective_api_limits(
 /// Validate if user can access a specific endpoint (dynamic-aware)
 pub fn can_access_endpoint(
     user_permissions: &[String], 
-    _dynamic_limit: Option<&DieselUserDynamicLimit>,
+    _dynamic_limit: Option<&crate::infrastructure::adapters::repositories::database_types::UserDynamicLimit>,
     endpoint: &str
 ) -> bool {
     // Dynamic limits don't contain endpoint restrictions in the current schema
@@ -665,9 +716,24 @@ pub fn require_any_permission_pure(
 
 /// Add timestamp to permission (creates timed permission)
 /// Example: add_timestamp_to_permission("admin:users:modify", 24) -> "admin:users:modify:1703980800"
-pub fn add_timestamp_to_permission(base_permission: &str, hours_from_now: i64) -> String {
+/// SECURITY: Server-side timestamp creation with validation
+pub fn add_timestamp_to_permission(base_permission: &str, hours_from_now: i64) -> Result<String, String> {
+    // SECURITY: Validate input parameters
+    if hours_from_now <= 0 {
+        return Err("Hours from now must be positive".to_string());
+    }
+    
+    if hours_from_now > (10 * 365 * 24) { // Max 10 years
+        return Err("Permission duration cannot exceed 10 years".to_string());
+    }
+    
+    if base_permission.is_empty() {
+        return Err("Base permission cannot be empty".to_string());
+    }
+    
+    // SECURITY: Server-side timestamp generation only
     let expires_at = Utc::now().timestamp() + (hours_from_now * 3600);
-    format!("{}:{}", base_permission, expires_at)
+    Ok(format!("{}:{}", base_permission, expires_at))
 }
 
 /// Remove timestamp from permission (convert timed to permanent)
@@ -686,7 +752,7 @@ pub fn get_permission_expiry_time(permission: &str) -> Option<DateTime<Utc>> {
 
 /// Create temporary admin permission with specified duration
 /// Example: create_temporary_admin_permission("admin:users:modify", 24) -> "admin:users:modify:1703980800"
-pub fn create_temporary_admin_permission(base_permission: &str, hours: i64) -> String {
+pub fn create_temporary_admin_permission(base_permission: &str, hours: i64) -> Result<String, String> {
     add_timestamp_to_permission(base_permission, hours)
 }
 

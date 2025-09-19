@@ -3,7 +3,7 @@
  * OIDC Migration: Uses OIDC-compliant cookies instead of custom JWT
  */
 import { cookies } from 'next/headers';
-import { verifyJWT, type EPSXJWTPayload } from '@/lib/auth-utils';
+import { verifyJWT, type EPSXJWTPayload } from '../../../../shared/auth/jwt';
 import { URL, URLContext, OIDCEndpoint } from '../../../../shared/utils/url-resolver';
 
 /**
@@ -52,7 +52,6 @@ export async function getUserInfoFromOIDC(): Promise<EPSXJWTPayload | null> {
   try {
     const accessToken = await getOIDCAccessTokenFromCookies();
     if (!accessToken) {
-      console.log('❌ No OIDC access token found in cookies');
       return null;
     }
     
@@ -71,7 +70,6 @@ export async function getUserInfoFromOIDC(): Promise<EPSXJWTPayload | null> {
     }
 
     const userInfo = await response.json();
-    console.log('✅ Successfully retrieved user info from OIDC backend');
     
     // Convert to EPSXJWTPayload format for compatibility
     return {

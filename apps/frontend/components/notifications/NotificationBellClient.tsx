@@ -17,7 +17,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { Notification } from '@/lib/api/notifications'
+import { Notification } from '@/lib/api'
 
 interface NotificationBellClientProps {
   count: number

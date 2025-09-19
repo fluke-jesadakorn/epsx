@@ -1,4 +1,4 @@
-import { fetchWithAuth } from './unified-admin-client';
+import { UnifiedAdminClient } from './unified-admin-client';
 import { URL, URLContext, Service } from '../../../../shared/utils/url-resolver';
 
 // Security Event Types
@@ -106,41 +106,52 @@ export interface UserThreatResponse {
 
 // API Client Class
 export class SecurityMonitoringClient {
-  private baseUrl: string;
+  private client: UnifiedAdminClient;
 
-  constructor(baseUrl: string = URL.get(Service.BACKEND, URLContext.CLIENT)) {
-    this.baseUrl = `${baseUrl}/admin/security`;
+  constructor(baseUrl?: string, token?: string, serverSide = false) {
+    this.client = new UnifiedAdminClient(baseUrl, token, serverSide);
   }
 
   /**
    * Get security events with optional filtering
    */
   async getSecurityEvents(query: SecurityEventsQuery = {}): Promise<SecurityEventsResponse> {
-    const params = new URLSearchParams();
+    const params: Record<string, string> = {};
     
-    if (query.limit) params.append('limit', query.limit.toString());
-    if (query.severity) params.append('severity', query.severity);
-    if (query.event_type) params.append('event_type', query.event_type);
-    if (query.resolved !== undefined) params.append('resolved', query.resolved.toString());
-    if (query.user_id) params.append('user_id', query.user_id);
+    if (query.limit) params.limit = query.limit.toString();
+    if (query.severity) params.severity = query.severity;
+    if (query.event_type) params.event_type = query.event_type;
+    if (query.resolved !== undefined) params.resolved = query.resolved.toString();
+    if (query.user_id) params.user_id = query.user_id;
 
-    const url = `${this.baseUrl}/events${params.toString() ? `?${params}` : ''}`;
-    return fetchWithAuth(url);
+    const response = await this.client.get<SecurityEventsResponse>('/admin/security/events', params);
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch security events');
+    }
+    return response.data;
   }
 
   /**
    * Get security metrics and analytics
    */
   async getSecurityMetrics(): Promise<SecurityMetricsResponse> {
-    return fetchWithAuth(`${this.baseUrl}/metrics`);
+    const response = await this.client.get<SecurityMetricsResponse>('/admin/security/metrics');
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch security metrics');
+    }
+    return response.data;
   }
 
   /**
    * Get threat assessment for a specific user
    */
   async getUserThreatAssessment(userId: string): Promise<UserThreatResponse> {
-    const params = new URLSearchParams({ user_id: userId });
-    return fetchWithAuth(`${this.baseUrl}/user-threat?${params}`);
+    const params = { user_id: userId };
+    const response = await this.client.get<UserThreatResponse>('/admin/security/user-threat', params);
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch user threat assessment');
+    }
+    return response.data;
   }
 
   /**

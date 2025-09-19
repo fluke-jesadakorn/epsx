@@ -5,18 +5,17 @@ use crate::domain::shared_kernel::value_objects::UserId;
 
 use std::sync::Arc;
 
-use crate::infrastructure::adapters::repositories::diesel::DbPool;
+use crate::infrastructure::adapters::repositories::DbPool;
 use crate::domain::payment::{
     CryptoAddressRepositoryPort, CryptoAddress, PaymentId, PaymentAmount
 };
 
 /// Repository adapter for managing crypto addresses  
+#[derive(Clone)]
 pub struct CryptoAddressRepositoryAdapter {
     db_pool: Arc<DbPool>,
 }
 
-unsafe impl Send for CryptoAddressRepositoryAdapter {}
-unsafe impl Sync for CryptoAddressRepositoryAdapter {}
 
 impl CryptoAddressRepositoryAdapter {
     pub fn new(db_pool: Arc<DbPool>) -> Self {

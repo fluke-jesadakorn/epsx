@@ -18,7 +18,7 @@ import {
   type FeatureFlags,
   type BusinessSettings,
   type ABTestSettings
-} from '@/lib/remote-config'
+} from '@/lib/utils/firebase'
 
 // ============================================================================
 // Main Remote Config Hook

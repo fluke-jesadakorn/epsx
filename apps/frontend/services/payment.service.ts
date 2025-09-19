@@ -6,7 +6,7 @@ import {
 import { getTransactionHistory } from '@/lib/server-actions';
 import { initQRPayment } from '@/lib/actions/payments.server';
 import type { PaymentStatus, PaymentTransaction } from '@/types/api';
-import { logger, safeError } from '@/lib/logger';
+import { logger, safeError } from '@/lib/utils/logging';
 
 // Simple ID generator to replace nanoid
 const generateId = () => Math.random().toString(36).substring(2) + Date.now().toString(36);

@@ -173,6 +173,13 @@ impl KeyManager {
         }
     }
     
+    /// List all available key IDs
+    pub fn list_key_ids(&self) -> Vec<String> {
+        let mut key_ids = vec![self.current_key.kid.clone()];
+        key_ids.extend(self.backup_keys.keys().cloned());
+        key_ids
+    }
+    
     /// Rotate keys (move current to backup, generate new current)
     pub fn rotate_keys(&mut self) -> Result<String, Box<dyn std::error::Error>> {
         // Move current key to backup

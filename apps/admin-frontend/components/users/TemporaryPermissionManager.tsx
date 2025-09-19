@@ -50,16 +50,12 @@ import { format, formatDistance, isPast, addDays, addHours } from 'date-fns';
 
 import {
   TemporaryPermission,
-  CreateTemporaryPermissionData,
-  UpdateTemporaryPermissionData,
-  ListTemporaryPermissionsParams,
-  createTemporaryPermission,
+  grantTemporaryPermission,
   getUserTemporaryPermissions,
-  updateTemporaryPermission,
   revokeTemporaryPermission,
-  deleteTemporaryPermission,
-  cleanupExpiredPermissions,
-} from '@/lib/actions/temporary-permission-actions';
+  getActiveTemporaryPermissions,
+  getExpiringTemporaryPermissions,
+} from '@/lib/actions/consolidated-permission-actions';
 import { AdminPermissionExpiryIndicator, parseEmbeddedPermissions } from '../auth/AdminPermissionExpiryIndicator';
 
 // Embedded timestamp permissions support

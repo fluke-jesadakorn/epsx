@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react'
 import { usePermissionExpiry } from '@/hooks/usePermissionExpiry'
-import { type TimestampedPermission } from '@/types/permissions'
+import { type TimestampedPermission } from '@/shared/permissions/types'
 import { deriveTierFromPermissions, type UserLevelType } from '@/lib/permission-utils'
 
 // ============================================================================
@@ -46,13 +46,13 @@ export function PermissionExpiryIndicator({
   const filteredExpiry = permission 
     ? {
         ...expiry,
-        allPermissionsWithExpiry: expiry.allPermissionsWithExpiry.filter(tp => 
+        allPermissionsWithExpiry: expiry.allPermissionsWithExpiry.filter((tp: TimestampedPermission) => 
           tp.basePermission === permission || tp.permission === permission
         ),
-        hasExpired: expiry.expiryInfo.expired.some(tp => 
+        hasExpired: expiry.expiryInfo.expired.some((tp: TimestampedPermission) => 
           tp.basePermission === permission || tp.permission === permission
         ),
-        hasExpiringSoon: expiry.expiryInfo.expiringSoon.some(tp => 
+        hasExpiringSoon: expiry.expiryInfo.expiringSoon.some((tp: TimestampedPermission) => 
           tp.basePermission === permission || tp.permission === permission
         )
       }
@@ -271,7 +271,7 @@ function ExpiryDetails({ expiry }: { expiry: ReturnType<typeof usePermissionExpi
         <div>
           <strong>Expired ({expiry.expiryInfo.expired.length}):</strong>
           <ul className="mt-1 ml-4 text-xs">
-            {expiry.expiryInfo.expired.slice(0, 3).map((tp, i) => (
+            {expiry.expiryInfo.expired.slice(0, 3).map((tp: TimestampedPermission, i: number) => (
               <li key={i}>• {tp.basePermission}</li>
             ))}
             {expiry.expiryInfo.expired.length > 3 && (
@@ -285,7 +285,7 @@ function ExpiryDetails({ expiry }: { expiry: ReturnType<typeof usePermissionExpi
         <div>
           <strong>Expiring Soon ({expiry.expiryInfo.expiringSoon.length}):</strong>
           <ul className="mt-1 ml-4 text-xs">
-            {expiry.expiryInfo.expiringSoon.slice(0, 3).map((tp, i) => (
+            {expiry.expiryInfo.expiringSoon.slice(0, 3).map((tp: TimestampedPermission, i: number) => (
               <li key={i}>
                 • {tp.basePermission} ({expiry.formatTimeUntilExpiry(tp.expiresAt)})
               </li>

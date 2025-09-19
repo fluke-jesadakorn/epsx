@@ -87,7 +87,7 @@ export function DashboardClient({ user, permissions, dashboardData: _dashboardDa
             </CardHeader>
             <CardContent className="relative z-10">
               <Link href="/profile">
-                <Button variant="pancake" className="w-full">
+                <Button variant="default" className="w-full">
                   <Sparkles className="mr-2 h-4 w-4" />
                   View Profile
                 </Button>
@@ -112,7 +112,7 @@ export function DashboardClient({ user, permissions, dashboardData: _dashboardDa
             </CardHeader>
             <CardContent className="relative z-10">
               <Link href="/settings">
-                <Button variant="pancake-blue" className="w-full">
+                <Button variant="secondary" className="w-full">
                   <Settings className="mr-2 h-4 w-4" />
                   Open Settings
                 </Button>
@@ -137,7 +137,7 @@ export function DashboardClient({ user, permissions, dashboardData: _dashboardDa
             </CardHeader>
             <CardContent className="relative z-10">
               <Link href="/analytics">
-                <Button variant="pancake-green" className="w-full">
+                <Button variant="outline" className="w-full">
                   <BarChart3 className="mr-2 h-4 w-4" />
                   View Analytics
                 </Button>
@@ -162,7 +162,7 @@ export function DashboardClient({ user, permissions, dashboardData: _dashboardDa
             </CardHeader>
             <CardContent className="relative z-10">
               <Link href="/premium">
-                <Button variant="pancake-purple" className="w-full">
+                <Button variant="secondary" className="w-full">
                   <Lock className="mr-2 h-4 w-4" />
                   Access Premium
                 </Button>
@@ -187,7 +187,7 @@ export function DashboardClient({ user, permissions, dashboardData: _dashboardDa
             </CardHeader>
             <CardContent className="relative z-10">
               <Link href="/moderator">
-                <Button variant="pancake-red" className="w-full">
+                <Button variant="destructive" className="w-full">
                   <Shield className="mr-2 h-4 w-4" />
                   Open Moderator Panel
                 </Button>
@@ -259,7 +259,7 @@ export function DashboardClient({ user, permissions, dashboardData: _dashboardDa
           {user ? (
             <Button
               onClick={handleLogout}
-              variant="pancake-outline"
+              variant="outline"
               className="px-8 py-3 text-lg font-semibold"
             >
               <Lock className="mr-2 h-5 w-5" />
@@ -268,7 +268,7 @@ export function DashboardClient({ user, permissions, dashboardData: _dashboardDa
           ) : (
             <Link href="/login">
               <Button
-                variant="pancake"
+                variant="default"
                 className="px-8 py-3 text-lg font-semibold"
               >
                 <Lock className="mr-2 h-5 w-5" />

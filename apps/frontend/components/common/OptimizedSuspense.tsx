@@ -1,5 +1,4 @@
 import { Suspense } from 'react';
-import { OptimizedLoadingSpinner } from './OptimizedLoadingSpinner';
 
 interface OptimizedSuspenseProps {
   children: React.ReactNode;
@@ -9,6 +8,7 @@ interface OptimizedSuspenseProps {
 
 /**
  * Optimized Suspense wrapper with performance-focused fallbacks
+ * Uses text-based loading to comply with zero-animation policy
  */
 export function OptimizedSuspense({ 
   children, 
@@ -16,9 +16,8 @@ export function OptimizedSuspense({
   name = 'component' 
 }: OptimizedSuspenseProps) {
   const defaultFallback = (
-    <div className="flex items-center justify-center p-8">
-      <OptimizedLoadingSpinner size="md" />
-      <span className="sr-only">Loading {name}...</span>
+    <div className="flex items-center justify-center p-8 text-gray-600">
+      <span>Loading {name}...</span>
     </div>
   );
 
