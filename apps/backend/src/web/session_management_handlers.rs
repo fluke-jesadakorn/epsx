@@ -9,9 +9,10 @@ use tracing::{debug, error, info, warn};
 
 use crate::application::auth::AuthUC;
 use crate::auth::{
-    RefreshTokenService, DeviceInfo,
-    SessionCleanupService, SessionSecurityService,
-    CleanupStats, CleanupHealthStatus, SecurityAnalysisResult, SecurityEvent, DeviceFingerprint, GeoLocation,
+    SessionCleanupService, 
+    CleanupStats, CleanupHealthStatus,
+    refresh_token_service::{RefreshTokenService, DeviceInfo},
+    session_security_service::{SessionSecurityService, DeviceFingerprint, GeoLocation, SecurityAnalysisResult, SecurityEvent},
 };
 
 /// Request to refresh an access token

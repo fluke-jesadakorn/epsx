@@ -15,7 +15,7 @@ import {
   UserPermissionOverview,
   PermissionSearchFilters,
   PermissionTemplate
-} from '@/types/granular-permissions'
+} from '@/shared/permissions/types'
 import { URL, URLContext, Service } from '../../../../shared/utils/url-resolver';
 
 // Base configuration

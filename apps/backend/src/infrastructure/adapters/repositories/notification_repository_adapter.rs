@@ -16,13 +16,12 @@ use crate::application::ports::services::EmailServiceError;
 use crate::application::shared::error::{ApplicationError, ApplicationResult};
 
 /// Notification repository adapter that bridges DDD domain with legacy infrastructure
+#[derive(Clone)]
 pub struct NotificationRepositoryAdapter {
     fcm_service: Arc<FcmService>,
     email_service: Arc<SendGridEmailService>,
 }
 
-unsafe impl Send for NotificationRepositoryAdapter {}
-unsafe impl Sync for NotificationRepositoryAdapter {}
 
 impl NotificationRepositoryAdapter {
     pub fn new(

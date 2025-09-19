@@ -495,7 +495,7 @@ pub async fn logout_handler(
 
 /// Get user claims for JWT token generation
 pub async fn get_user_claims(
-  State(_pool): State<Arc<crate::infrastructure::adapters::repositories::diesel_types::DbPool>>,
+  State(_pool): State<Arc<crate::infrastructure::adapters::repositories::database_types::DbPool>>,
   Json(request): Json<serde_json::Value>
 ) -> Result<Json<serde_json::Value>, StatusCode> {
   tracing::info!("Getting user claims - stub implementation with request: {:?}", request);
@@ -518,7 +518,7 @@ pub async fn get_user_claims(
 
 /// Upsert user for OAuth flow
 pub async fn upsert_user(
-  State(_pool): State<Arc<crate::infrastructure::adapters::repositories::diesel_types::DbPool>>,
+  State(_pool): State<Arc<crate::infrastructure::adapters::repositories::database_types::DbPool>>,
   Json(request): Json<serde_json::Value>
 ) -> Result<Json<serde_json::Value>, StatusCode> {
   tracing::info!("Upserting user - stub implementation with request: {:?}", request);

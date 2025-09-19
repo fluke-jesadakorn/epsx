@@ -49,11 +49,6 @@ export default async function DashboardPage() {
     },
   };
 
-  console.log('Dashboard: User session loaded for', user.email, {
-    package_tier: user.package_tier,
-    permissions_count: user.permissions?.length || 0,
-    permissions: user.permissions,
-  });
 
   return (
     <DashboardClient 

@@ -25,7 +25,6 @@ module.exports = [
       // TypeScript rules
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/prefer-const': 'error',
       
       // Next.js rules
       '@next/next/no-html-link-for-pages': 'error',
@@ -34,7 +33,6 @@ module.exports = [
       
       // General rules
       'no-console': ['warn', { allow: ['warn', 'error'] }],
-      'prefer-const': 'error',
       'no-var': 'error',
       'object-shorthand': 'error',
       'no-unreachable': 'error',

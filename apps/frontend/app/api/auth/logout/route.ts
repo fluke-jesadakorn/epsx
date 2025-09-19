@@ -4,21 +4,16 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getBackendUrl, getFrontendUrl } from '../../../../../../shared/utils/url-resolver';
+import { withCSRFProtection } from '@/lib/csrf';
 
-export async function POST(request: NextRequest) {
+async function logoutHandler(request: NextRequest) {
   try {
-    console.log('🔄 Frontend: Processing OIDC logout request');
 
     // OIDC Migration: Get tokens from OIDC cookies before clearing
     const accessToken = request.cookies.get('access_token')?.value;
     const idToken = request.cookies.get('id_token')?.value;
     const refreshToken = request.cookies.get('refresh_token')?.value;
 
-    console.log('🔍 OIDC Logout - Token Check:', {
-      accessToken: accessToken ? 'present' : 'missing',
-      idToken: idToken ? 'present' : 'missing',
-      refreshToken: refreshToken ? 'present' : 'missing'
-    });
 
     // Create success response
     const response = NextResponse.json({ 
@@ -35,7 +30,6 @@ export async function POST(request: NextRequest) {
     // Also clear legacy JWT cookie for backwards compatibility
     response.cookies.delete('epsx_frontend_jwt');
 
-    console.log('✅ Frontend: All OIDC cookies cleared');
 
     // Call backend OIDC token revocation endpoint
     if (refreshToken || accessToken) {
@@ -46,7 +40,6 @@ export async function POST(request: NextRequest) {
         const tokenToRevoke = refreshToken || accessToken;
         const tokenTypeHint = refreshToken ? 'refresh_token' : 'access_token';
         
-        console.log(`🔄 Revoking ${tokenTypeHint} with backend...`);
         
         const revokeResponse = await fetch(`${backendUrl}/api/v1/oidc/token/revoke`, {
           method: 'POST',
@@ -60,18 +53,11 @@ export async function POST(request: NextRequest) {
           signal: AbortSignal.timeout(5000), // 5 second timeout
         });
 
-        if (revokeResponse.ok) {
-          console.log('✅ Frontend: OIDC token revocation successful');
-        } else {
-          console.warn('⚠️ Frontend: OIDC token revocation failed, but cookies cleared');
-        }
         
       } catch (backendError) {
-        console.warn('⚠️ Frontend: OIDC token revocation error:', backendError);
         // Continue with cookie clearing even if backend fails
       }
     } else {
-      console.log('💡 Frontend: No OIDC tokens found, skipping revocation');
     }
 
     // Standard OIDC RP-Initiated Logout (if ID token available)
@@ -80,7 +66,6 @@ export async function POST(request: NextRequest) {
         const backendUrl = getBackendUrl('server');
         const frontendUrl = getFrontendUrl('server');
         
-        console.log('🔄 Initiating OIDC RP-Initiated Logout...');
         
         // Standard OpenID Connect RP-Initiated Logout
         const logoutParams = new URLSearchParams({
@@ -94,18 +79,11 @@ export async function POST(request: NextRequest) {
           signal: AbortSignal.timeout(5000),
         });
 
-        if (logoutResponse.ok) {
-          console.log('✅ Frontend: OIDC RP-Initiated logout successful');
-        } else {
-          console.warn('⚠️ Frontend: OIDC RP-Initiated logout failed, but tokens revoked');
-        }
         
       } catch (logoutError) {
-        console.warn('⚠️ Frontend: OIDC RP-Initiated logout error:', logoutError);
       }
     }
 
-    console.log('✅ Frontend: OIDC logout completed successfully');
     return response;
 
   } catch (error) {
@@ -128,7 +106,9 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Also support GET method for simple logout links
+export const POST = withCSRFProtection(logoutHandler);
+
+// Also support GET method for simple logout links (no CSRF needed for GET)
 export async function GET(request: NextRequest) {
-  return POST(request);
+  return logoutHandler(request);
 }

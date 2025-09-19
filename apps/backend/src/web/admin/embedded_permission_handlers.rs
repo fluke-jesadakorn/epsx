@@ -246,6 +246,16 @@ pub struct ApiErrorResponse {
     pub details: Option<String>,
 }
 
+impl ApiErrorResponse {
+    pub fn error(message: String) -> Self {
+        Self {
+            error: "error".to_string(),
+            message,
+            details: None,
+        }
+    }
+}
+
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
@@ -439,8 +449,13 @@ pub async fn grant_bulk_embedded_permissions(
         
         // Create embedded permissions
         let embedded_permissions: Vec<String> = request.permissions.iter()
-            .map(|p| add_timestamp_to_permission(&p.base_permission, 0) // Will need to use actual timestamp calculation
-                .replace(":0", &format!(":{}", p.expiry_timestamp)))
+            .filter_map(|p| {
+                // Calculate hours from now for the timestamp
+                let now = Utc::now().timestamp();
+                let hours_diff = ((p.expiry_timestamp - now) / 3600).max(1); // At least 1 hour
+                
+                add_timestamp_to_permission(&p.base_permission, hours_diff).ok()
+            })
             .collect();
         
         // Combine current permissions with new embedded permissions
@@ -745,8 +760,20 @@ pub async fn extend_embedded_permission(
     tracing::info!("Extending embedded permission for user {}: {}", user_id, request.permission);
     
     let (base_permission, old_timestamp) = parse_permission_with_timestamp(&request.permission);
-    let new_permission = add_timestamp_to_permission(&base_permission, 0) // Placeholder for calculation
-        .replace(":0", &format!(":{}", request.new_expiry_timestamp));
+    
+    // Calculate hours from now for the new timestamp
+    let now = Utc::now().timestamp();
+    let hours_diff = ((request.new_expiry_timestamp - now) / 3600).max(1); // At least 1 hour
+    
+    let new_permission = match add_timestamp_to_permission(&base_permission, hours_diff) {
+        Ok(perm) => perm,
+        Err(e) => {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(ApiErrorResponse::error(format!("Invalid permission timestamp: {}", e)))
+            ));
+        }
+    };
     
     // Get current user permissions - Firebase IDs are valid strings
     let user_id_typed = UserId::from_string_unchecked(user_id.clone());

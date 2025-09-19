@@ -1079,6 +1079,7 @@ name = "epsx"
 version = "0.1.0"
 dependencies = [
  "aes-gcm",
+ "anyhow",
  "argon2",
  "askama",
  "askama_axum",

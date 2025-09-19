@@ -7,7 +7,7 @@
 
 import useSWR, { mutate } from 'swr'
 import { useCallback } from 'react'
-import { logger, devLog, safeError } from '@/lib/logger'
+import { logger, devLog, safeError } from '@/lib/utils/logging'
 import { env } from '../../../shared/env/schema'
 
 // ============================================================================

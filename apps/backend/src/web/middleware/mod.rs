@@ -6,15 +6,12 @@ pub mod security_headers;
 // Stateless authentication with RS256 JWT and granular permissions
 pub mod stateless_auth;
 
-// Modern Auth.js v5 middleware (replaces Casbin)
-pub mod modern_auth;
-
 // Clean authentication with granular permissions
 pub mod clean_auth;
 
-// Separated authentication middleware
-pub mod admin_auth;
-pub mod user_auth;
+// Enhanced security validation middleware (RS256-only, comprehensive security)
+pub mod enhanced_security_middleware;
+
 
 // Contextual middleware for different access patterns
 pub mod contextual_middleware;
@@ -35,14 +32,6 @@ pub use security_headers::{
   enhanced_security_monitoring_middleware,
 };
 
-// Modern middleware exports
-pub use modern_auth::{
-  modern_jwt_auth_middleware,
-  cors_middleware,
-  request_logging_middleware,
-  AuthCtx,
-};
-
 // Clean auth exports
 pub use clean_auth::{
   clean_auth_middleware,
@@ -51,22 +40,17 @@ pub use clean_auth::{
   PlatformContext,
 };
 
-// Separated auth middleware exports
-pub use admin_auth::{
-  admin_auth_middleware,
-  require_admin_permission_middleware,
-  AuthenticatedAdmin,
-  AdminPlatformContext,
-  AdminSecurityInfo,
+// Enhanced security middleware exports
+pub use enhanced_security_middleware::{
+  enhanced_security_middleware,
+  SecurityContext,
+  SecurityMiddlewareConfig,
+  SecurityEvent,
+  extract_security_context,
+  check_permission,
+  create_secure_config,
 };
 
-pub use user_auth::{
-  user_auth_middleware,
-  require_user_permission_middleware,
-  AuthenticatedUser as AuthenticatedUserV2,
-  UserPlatformContext,
-  UserCacheInfo,
-};
 
 pub use rate_limiter::{
   UnifiedRateLimiter,

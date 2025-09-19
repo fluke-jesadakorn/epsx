@@ -11,12 +11,18 @@ importers:
       dotenv:
         specifier: ^17.2.1
         version: 17.2.1
+      jose:
+        specifier: ^5.2.3
+        version: 5.10.0
       react-icons:
         specifier: ^5.5.0
         version: 5.5.0(react@19.1.0)
       zod:
         specifier: 4.0.15
         version: 4.0.15
+      zustand:
+        specifier: ^5.0.3
+        version: 5.0.7(@types/react@19.0.0)(immer@10.1.1)(react@19.1.0)(use-sync-external-store@1.5.0(react@19.1.0))
     devDependencies:
       '@changesets/cli':
         specifier: ^2.27.1

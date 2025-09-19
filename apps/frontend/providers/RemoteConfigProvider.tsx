@@ -12,8 +12,8 @@ import {
   getRemoteConfigStatus,
   defaultConfig,
   type RemoteUserSettings 
-} from '@/lib/remote-config'
-import { logger, devLog, safeError } from '@/lib/logger'
+} from '@/lib/utils/firebase'
+import { logger, devLog, safeError } from '@/lib/utils/logging'
 
 // ============================================================================
 // Context Definition

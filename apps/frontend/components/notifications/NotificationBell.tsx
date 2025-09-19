@@ -1,4 +1,4 @@
-import { getUnreadNotifications } from '@/lib/api/notifications'
+import { getUnreadNotifications } from '@/lib/api'
 import { NotificationBellClient } from './NotificationBellClient'
 
 // Server Component that fetches notification data

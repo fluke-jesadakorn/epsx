@@ -5,7 +5,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { validateUserSession, canAccessUserPath } from '@/lib/session-validator';
-import { devLog, authLogger, logger } from '@/lib/logger';
+import { devLog, authLogger, logger } from '@/lib/utils/logging';
 import { getBackendUrl, getFrontendUrl } from '../../shared/utils/url-resolver';
 
 // Public routes that don't require authentication

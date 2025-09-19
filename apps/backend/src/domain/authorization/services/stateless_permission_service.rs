@@ -76,6 +76,10 @@ pub struct PermissionSummary {
 pub struct StatelessPermissionService;
 
 impl StatelessPermissionService {
+    /// Create a new instance of StatelessPermissionService
+    pub fn new() -> Self {
+        Self
+    }
     /// Check if user has required permission
     /// 
     /// # Examples

@@ -21,6 +21,10 @@ pub mod granular_permissions;
 pub mod notification_handlers;
 // Security monitoring handlers
 pub mod security_monitoring_handlers;
+// Permission hierarchy handlers (DISABLED during refactoring)
+// pub mod hierarchy_handlers;
+// Dynamic policy handlers
+pub mod policy_handlers;
 // Dynamic plan management handlers (simplified for compilation)
 pub mod plan_management_handlers_simple;
 

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useMemo } from 'react';
-import { useContextStore, createAsyncState, loggingMiddleware } from '@/lib/state/core';
+import { useContextStore, createAsyncState, loggingMiddleware } from '@/lib/state';
 import type { 
   UserState, 
   StateAction, 
@@ -9,7 +9,7 @@ import type {
   UserSubscription, 
   OptimisticUpdate 
 } from '@/lib/state/types';
-import { authLogger } from '@/lib/logger';
+import { authLogger } from '@/lib/utils/logging';
 
 // Initial user state
 const initialUserState: UserState = {

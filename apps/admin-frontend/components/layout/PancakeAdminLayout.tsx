@@ -45,10 +45,10 @@ export function PancakeAdminLayout({
       {/* Background Decorations */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         {/* Floating Circles */}
-        <div className="absolute top-20 left-20 h-32 w-32 animate-pulse rounded-full bg-gradient-to-r from-yellow-400/20 to-orange-500/20 blur-xl"></div>
-        <div className="absolute top-40 right-32 h-24 w-24 animate-pulse rounded-full bg-gradient-to-r from-pink-400/20 to-purple-500/20 blur-xl delay-1000"></div>
-        <div className="absolute bottom-32 left-40 h-40 w-40 animate-pulse rounded-full bg-gradient-to-r from-blue-400/20 to-teal-500/20 blur-xl delay-2000"></div>
-        <div className="absolute right-20 bottom-20 h-28 w-28 animate-pulse rounded-full bg-gradient-to-r from-green-400/20 to-emerald-500/20 blur-xl delay-500"></div>
+        <div className="absolute top-20 left-20 h-32 w-32 rounded-full bg-gradient-to-r from-yellow-400/20 to-orange-500/20 blur-xl"></div>
+        <div className="absolute top-40 right-32 h-24 w-24 rounded-full bg-gradient-to-r from-pink-400/20 to-purple-500/20 blur-xl"></div>
+        <div className="absolute bottom-32 left-40 h-40 w-40 rounded-full bg-gradient-to-r from-blue-400/20 to-teal-500/20 blur-xl"></div>
+        <div className="absolute right-20 bottom-20 h-28 w-28 rounded-full bg-gradient-to-r from-green-400/20 to-emerald-500/20 blur-xl"></div>
 
         {/* Grid Pattern */}
         <div className="bg-grid-pattern absolute inset-0 opacity-5"></div>

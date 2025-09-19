@@ -4,7 +4,7 @@
  */
 
 import { cookies } from 'next/headers'
-import { logger, safeError } from '@/lib/logger'
+import { logger, safeError } from '@/lib/utils/logging'
 import { getBackendUrl } from '../../../shared/utils/url-resolver'
 
 // Types matching backend API
@@ -276,16 +276,34 @@ export async function requireUserSession(request: {
   return result.user
 }
 
-// Permission checking utilities using simple role system
+// Permission checking utilities using shared permission system
 export function hasFeatureAccess(user: UserProfile, feature: string): boolean {
   try {
-    // Import the simple role system (using require for non-async context)
-    const { checkFeatureAccess, roleFromString } = require('../types/permissions');
+    // Simple feature mapping based on user role and permissions
+    const role = user.role.toLowerCase();
     
-    // Convert user role to simple role enum
-    const role = roleFromString(user.role.toLowerCase());
+    // Admin users have access to all features
+    if (role === 'admin') {
+      return true;
+    }
     
-    return checkFeatureAccess(role, feature);
+    // Map features to permission requirements
+    switch (feature) {
+      case 'view_eps':
+        return user.permissions?.some(p => p.startsWith('epsx:rankings:')) || true;
+      case 'export_data':
+        return user.permissions?.some(p => p.includes('export') || p.includes('advanced')) || user.package_tier !== 'FREE';
+      case 'realtime':
+        return user.permissions?.some(p => p.includes('realtime')) || user.package_tier !== 'FREE';
+      case 'profile':
+      case 'notifications':
+      case 'billing':
+        return true; // Basic features available to all users
+      case 'advanced_filters':
+        return user.permissions?.some(p => p.includes('advanced')) || ['SILVER', 'GOLD', 'PLATINUM', 'ENTERPRISE'].includes(user.package_tier);
+      default:
+        return user.permissions?.includes(feature) || false;
+    }
   } catch (error) {
     logger.error('Failed to check feature access', error);
     return false;
@@ -294,14 +312,32 @@ export function hasFeatureAccess(user: UserProfile, feature: string): boolean {
 
 export function hasRole(user: UserProfile, role: string): boolean {
   try {
-    // Import the simple role system
-    const { checkRoleAccess, roleFromString } = require('../types/permissions');
+    // Simple role hierarchy checking
+    const userRole = user.role.toLowerCase();
+    const requiredRole = role.toLowerCase();
     
-    // Convert both roles to simple role enums
-    const userRole = roleFromString(user.role.toLowerCase());
-    const requiredRoleEnum = roleFromString(role.toLowerCase());
+    // Admin role has access to everything
+    if (userRole === 'admin') {
+      return true;
+    }
     
-    return checkRoleAccess(userRole, requiredRoleEnum);
+    // Exact role match
+    if (userRole === requiredRole) {
+      return true;
+    }
+    
+    // Role hierarchy: admin > premium > user > guest
+    const roleHierarchy = {
+      'guest': 0,
+      'user': 1,
+      'premium': 2,
+      'admin': 3
+    };
+    
+    const userLevel = roleHierarchy[userRole as keyof typeof roleHierarchy] || 0;
+    const requiredLevel = roleHierarchy[requiredRole as keyof typeof roleHierarchy] || 0;
+    
+    return userLevel >= requiredLevel;
   } catch (error) {
     logger.error('Failed to check role access', error);
     return false;
@@ -399,23 +435,18 @@ export function getUserRateLimit(user: UserProfile): { perMinute: number; perHou
   return rateLimits[user.package_tier] || rateLimits.FREE
 }
 
-// Feature access helpers using simple role system
+// Feature access helpers using package tier and role
 export function getAvailableFeatures(user: UserProfile): string[] {
   try {
-    // Import the simple role system
-    const { getUserFeatures, roleFromString } = require('../types/permissions');
+    // Admin users get all features
+    if (user.role.toLowerCase() === 'admin') {
+      return ['view_eps', 'export_data', 'realtime', 'profile', 'notifications', 'billing', 'advanced_filters'];
+    }
     
-    // Convert user role to simple role enum
-    const role = roleFromString(user.role.toLowerCase());
-    
-    // Get the 7 core features based on role
-    return getUserFeatures(role);
-  } catch (error) {
-    logger.error('Failed to get available features', error);
-    // Fallback to legacy system
+    // Feature mapping by package tier
     const featuresByTier: Record<string, string[]> = {
-      FREE: ['view_eps'],
-      BRONZE: ['view_eps', 'export_data', 'realtime', 'profile', 'notifications', 'billing', 'advanced_filters'],
+      FREE: ['view_eps', 'profile'],
+      BRONZE: ['view_eps', 'export_data', 'realtime', 'profile', 'notifications', 'billing'],
       SILVER: ['view_eps', 'export_data', 'realtime', 'profile', 'notifications', 'billing', 'advanced_filters'],
       GOLD: ['view_eps', 'export_data', 'realtime', 'profile', 'notifications', 'billing', 'advanced_filters'],
       PLATINUM: ['view_eps', 'export_data', 'realtime', 'profile', 'notifications', 'billing', 'advanced_filters'],
@@ -423,6 +454,9 @@ export function getAvailableFeatures(user: UserProfile): string[] {
     }
     
     return featuresByTier[user.package_tier] || featuresByTier.FREE
+  } catch (error) {
+    logger.error('Failed to get available features', error);
+    return ['view_eps', 'profile']; // Safe fallback
   }
 }
 

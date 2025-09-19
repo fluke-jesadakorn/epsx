@@ -15,6 +15,7 @@ export default async function VerifyEmailPage() {
   if (!user) {
     const { redirectToBackendLogin } = await import('@/lib/server/auth');
     redirectToBackendLogin('/verify-email');
+    return;
   }
   if (user.emailVerified) {
     redirect('/dashboard');

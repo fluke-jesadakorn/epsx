@@ -2,7 +2,7 @@ import {
   getAnalyticsData,
   type EPSQueryParams,
   type SymbolCardData,
-} from '@/lib/analytics-server';
+} from '@/lib/server-data';
 import { Suspense } from 'react';
 import ServerFilters from './ServerFilters';
 import ServerPagination from './ServerPagination';
@@ -529,7 +529,7 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
 async function CardGrid({ params }: { params: EPSQueryParams }) {
   const data = await getAnalyticsData(params);
 
-  if (!data.success || !data.data || data.data.length === 0) {
+  if (!data || !data.rankings || data.rankings.length === 0) {
     return (
       <div className="py-12 text-center">
         <p className="mb-4 text-gray-600 dark:text-white">No data available</p>
@@ -538,8 +538,8 @@ async function CardGrid({ params }: { params: EPSQueryParams }) {
   }
 
   const isFirstPage = params.page === 1;
-  const hasTopRanks = data.data.some(card => card.rank <= 5);
-  const top5Data = data.data.filter(card => card.rank <= 5);
+  const hasTopRanks = data.rankings.some(card => card.rank <= 5);
+  const top5Data = data.rankings.filter(card => card.rank <= 5);
 
   return (
     <>
@@ -549,7 +549,7 @@ async function CardGrid({ params }: { params: EPSQueryParams }) {
       )}
 
       <div className="flex flex-wrap items-stretch justify-center gap-3 px-2 sm:gap-6 sm:px-0">
-        {data.data
+        {data.rankings
           .filter(cardData => cardData.rank > 5) // Skip ranks 1-5 to avoid duplication with Top 5 section
           .map(cardData =>
             cardData && cardData.symbol ? (

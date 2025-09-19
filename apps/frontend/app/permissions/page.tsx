@@ -351,7 +351,7 @@ export default function PermissionsPage() {
             <div>
               <p className="text-sm font-medium text-gray-500">Role</p>
               <Badge variant="outline" className="mt-1">
-                {user.role || 'User'}
+                {user.tier || 'User'}
               </Badge>
             </div>
             <div>

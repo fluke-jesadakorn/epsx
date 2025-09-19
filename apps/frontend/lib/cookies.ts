@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
-import { logger, safeError } from '@/lib/logger';
+import { logger, safeError } from '@/lib/utils/logging';
 
 // Cookie configuration constants
 export const COOKIE_NAMES = {

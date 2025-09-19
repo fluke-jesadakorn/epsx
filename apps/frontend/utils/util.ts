@@ -2,7 +2,7 @@
  * Utility functions for the EPSX frontend application
  */
 
-import { logger, devLog, safeError } from '@/lib/logger';
+import { logger, devLog, safeError } from '@/lib/utils/logging';
 
 /**
  * Debounce function to limit the rate of function calls

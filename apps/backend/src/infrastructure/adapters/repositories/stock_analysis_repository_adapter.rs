@@ -8,12 +8,11 @@ use crate::domain::shared_kernel::entities::eps_growth::{EPSRanking as LegacyEPS
 use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRankingService, EPSRankingParams};
 
 /// Repository adapter that bridges legacy EPS ranking system with DDD Trading Analytics
+#[derive(Clone)]
 pub struct StockAnalysisRepositoryAdapter {
     eps_service: Arc<EPSRankingService>,
 }
 
-unsafe impl Send for StockAnalysisRepositoryAdapter {}
-unsafe impl Sync for StockAnalysisRepositoryAdapter {}
 
 impl StockAnalysisRepositoryAdapter {
     pub fn new(eps_service: Arc<EPSRankingService>) -> Self {

@@ -1,4 +1,6 @@
 // IAM Types for AWS-style permission system
+import { PermissionSource } from '@/shared/permissions/types'
+
 export interface UserWithPermissions extends User {
   packageTier: PackageTier;
   customPermissions: CustomPermission[];
@@ -38,12 +40,7 @@ export interface EffectivePermission {
   grantedBy?: string;
 }
 
-export enum PermissionSource {
-  PACKAGE = 'package',
-  CUSTOM = 'custom',
-  ROLE = 'role',
-  GROUP = 'group',
-}
+// PermissionSource imported from shared system
 
 export enum PackageTier {
   FREE = 'free',

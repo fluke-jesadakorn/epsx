@@ -9,10 +9,11 @@ use std::sync::Arc;
 use crate::domain::payment::{
     PaymentId, TransactionHash, TransactionRepositoryPort, TransactionRecord
 };
-use crate::infrastructure::adapters::repositories::diesel::DbPool;
+use crate::infrastructure::adapters::repositories::DbPool;
 use crate::infrastructure::cache::Cache;
 
 /// Repository adapter for transaction monitoring operations
+#[derive(Clone)]
 pub struct TransactionRepositoryAdapter {
     /// Database pool for transaction storage
     db_pool: Arc<DbPool>,
@@ -21,8 +22,6 @@ pub struct TransactionRepositoryAdapter {
     cache: Arc<dyn Cache>,
 }
 
-unsafe impl Send for TransactionRepositoryAdapter {}
-unsafe impl Sync for TransactionRepositoryAdapter {}
 
 impl TransactionRepositoryAdapter {
     pub fn new(

@@ -1,18 +1,17 @@
 use std::sync::Arc;
-use sqlx::PgPool;
 use uuid::Uuid;
-use crate::infrastructure::adapters::repositories::UserRepositoryAdapter;
+use crate::infrastructure::adapters::repositories::{UserRepositoryAdapter, DbPool};
 use crate::domain::user_management::UserRepositoryPort;
 use crate::domain::user_management::repository_ports::session_repository_port::SessionRepositoryPort;
 use crate::domain::shared_kernel::domain_event::DomainEventBus;
-use crate::application::user_management::services::{UserQueryService, UserApplicationService};
-use crate::infrastructure::adapters::repositories::diesel_types::{DieselSessionRepository};
+use crate::application::user_management::services::{UserQueryService, UserApplicationService, UserReferenceResolver};
+use crate::infrastructure::adapters::repositories::database_types::{SessionRepository};
 
 // Placeholder traits and types for missing dependencies
 
 // Provide a minimal stub implementation for SessionRepositoryPort
 #[async_trait::async_trait]
-impl SessionRepositoryPort for DieselSessionRepository {
+impl SessionRepositoryPort for SessionRepository {
     async fn find_by_id(&self, _id: &crate::domain::shared_kernel::value_objects::SessionId) -> Result<Option<crate::domain::user_management::aggregates::Session>, crate::domain::shared_kernel::DomainError> { Ok(None) }
     async fn find_byuser_id(&self, _user_id: &crate::domain::shared_kernel::value_objects::UserId) -> Result<Vec<crate::domain::user_management::aggregates::Session>, crate::domain::shared_kernel::DomainError> { Ok(vec![]) }
     async fn find_active_byuser_id(&self, _user_id: &crate::domain::shared_kernel::value_objects::UserId) -> Result<Vec<crate::domain::user_management::aggregates::Session>, crate::domain::shared_kernel::DomainError> { Ok(vec![]) }
@@ -43,9 +42,7 @@ impl DomainEventBus for NoOpEventBus {
     }
 }
 
-type DbPool = PgPool;
-
-/// Clean DDD Container focused on working SQLx components
+/// Modern DDD Container with SQLx integration
 #[derive(Clone)]
 pub struct DDDContainer {
     db_pool: Arc<DbPool>,
@@ -58,13 +55,13 @@ pub struct DDDContainer {
 impl DDDContainer {
     /// Create new DDD container with SQLx database pool
     pub fn new(db_pool: Arc<DbPool>) -> Self {
-        // Create SQLx-based user repository
+        // Create real user repository with database pool
         let user_repository_port: Arc<dyn UserRepositoryPort> = 
             Arc::new(UserRepositoryAdapter::new(db_pool.clone()));
         
         // Create session repository
         let session_repository_port: Arc<dyn SessionRepositoryPort> = 
-            Arc::new(DieselSessionRepository::new(db_pool.clone()));
+            Arc::new(SessionRepository::new(db_pool.clone()));
         
         // Create event bus
         let event_bus: Arc<dyn DomainEventBus> = Arc::new(NoOpEventBus);
@@ -106,6 +103,11 @@ impl DDDContainer {
         ))
     }
     
+    /// Get user reference resolver for smart user lookup
+    pub fn user_reference_resolver(&self) -> Arc<UserReferenceResolver> {
+        Arc::new(UserReferenceResolver::new(self.user_repository_port.clone()))
+    }
+    
     /// Get authentication service integration (placeholder)
     pub fn authentication_service_integration(&self) -> Result<Arc<crate::infrastructure::integration::authentication_service_integration::AuthenticationServiceIntegration>, String> {
         // Use the real AuthenticationServiceIntegration, not the placeholder
@@ -143,7 +145,7 @@ impl RealtimeEventsService {
     }
     
     pub async fn send_event(&self, _event: &str) -> Result<(), String> {
-        // TODO: Implement with SQLx
+        // Placeholder implementation for realtime events
         Ok(())
     }
 

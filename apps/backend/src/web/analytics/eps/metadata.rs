@@ -70,6 +70,56 @@ pub async fn get_sectors_by_country(
     Ok(Json(response))
 }
 
+/// GET /api/v1/analytics/filters
+/// Returns combined filter options for the frontend
+pub async fn get_filter_options(
+    Extension(_service): Extension<Arc<EPSRankingService>>,
+) -> Result<Json<FiltersResponse>, AppError> {
+    debug!("Getting combined filter options for frontend");
+
+    let countries = get_available_countries_with_labels();
+    let sectors = vec![
+        "Technology".to_string(),
+        "Healthcare".to_string(),
+        "Financial Services".to_string(),
+        "Consumer Discretionary".to_string(),
+        "Industrials".to_string(),
+        "Energy".to_string(),
+        "Telecommunications".to_string(),
+        "Real Estate".to_string(),
+        "Materials".to_string(),
+        "Utilities".to_string(),
+        "Consumer Staples".to_string(),
+    ];
+    let exchanges = vec![
+        "NASDAQ".to_string(),
+        "NYSE".to_string(),
+        "LSE".to_string(),
+        "TSX".to_string(),
+        "ASX".to_string(),
+        "HKEX".to_string(),
+        "TSE".to_string(),
+        "EURONEXT".to_string(),
+    ];
+    let stock_types = vec![
+        "common".to_string(),
+        "preferred".to_string(),
+        "reit".to_string(),
+        "etf".to_string(),
+    ];
+
+    let response = FiltersResponse {
+        countries,
+        sectors,
+        exchanges,
+        stock_types,
+    };
+
+    info!("Returning combined filter options with {} countries, {} sectors, {} exchanges, {} stock types", 
+        response.countries.len(), response.sectors.len(), response.exchanges.len(), response.stock_types.len());
+    Ok(Json(response))
+}
+
 /// Get static list of available countries with proper display names
 pub fn get_available_countries_with_labels() -> Vec<CountryData> {
     vec![

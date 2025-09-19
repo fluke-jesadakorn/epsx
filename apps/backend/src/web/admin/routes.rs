@@ -86,6 +86,25 @@ use super::notification_handlers::{
 use super::security_monitoring_handlers::{
     SecurityMonitoringHandlers,
 };
+// Permission hierarchy handlers (DISABLED during refactoring)
+// use super::hierarchy_handlers::{
+//     get_hierarchy_stats,
+//     get_hierarchy_tree,
+//     create_hierarchy,
+//     remove_hierarchy,
+//     resolve_user_permissions,
+//     invalidate_user_cache,
+//     test_hierarchy_resolution,
+// };
+// Dynamic policy handlers
+use super::policy_handlers::{
+    list_policies_handler as get_policies,
+    create_policy_handler as create_policy,
+    evaluate_policy_handler as evaluate_policies,
+    delete_policy_handler as delete_policy,
+    get_policy_stats_handler as get_policy_stats,
+    toggle_policy_handler as toggle_policy_status,
+};
 // Dynamic plan management handlers (simplified)
 use super::plan_management_handlers_simple::{
     create_plan_handler,
@@ -183,6 +202,24 @@ pub fn create_admin_routes() -> Router<AppState> {
         
         // Simple role system: complex permission management routes removed
         // Use basic user role updates through /users/:user_id endpoints
+        
+        // Permission Hierarchy Management routes (DISABLED during refactoring)
+        // .route("/permissions/hierarchy/stats", get(get_hierarchy_stats))
+        // .route("/permissions/hierarchy/tree", get(get_hierarchy_tree))
+        // .route("/permissions/hierarchy", post(create_hierarchy))
+        // .route("/permissions/hierarchy/:hierarchy_id", delete(remove_hierarchy))
+        // .route("/permissions/hierarchy/resolve", post(resolve_user_permissions))
+        // .route("/permissions/hierarchy/test", get(test_hierarchy_resolution))
+        // .route("/users/:user_id/permissions/cache/invalidate", delete(invalidate_user_cache))
+        
+        // Dynamic Policy Management routes (require admin:policies:* module)
+        .route("/policies", get(get_policies))
+        .route("/policies", post(create_policy))
+        .route("/policies/:policy_id", delete(delete_policy))
+        .route("/policies/:policy_id/toggle", put(toggle_policy_status))
+        .route("/policies/evaluate", post(evaluate_policies))
+        // .route("/policies/templates", get(get_policy_templates)) // TODO: Implement
+        .route("/policies/stats", get(get_policy_stats))
         
         // Analytics routes (require analytics-access module)
         .route("/analytics/permissions", get(get_permission_analytics_handler))

@@ -19,25 +19,6 @@ name = "migrate"
 path = "src/bin/migrate.rs"
 required-features = ["cli-tools"]
 
-[[bin]]
-name = "test_sqlx"
-path = "src/bin/test_sqlx.rs"
-required-features = ["postgres"]
-
-[[bin]]
-name = "check_schema"
-path = "src/bin/check_schema.rs"
-required-features = ["postgres"]
-
-[[bin]]
-name = "schema_simple"
-path = "src/bin/schema_simple.rs"
-required-features = ["postgres"]
-
-[[bin]]
-name = "sqlx_backend"
-path = "src/bin/sqlx_backend.rs"
-required-features = ["postgres"]
 
 # Removed: fcm_cleanup binary - will be re-implemented
 
@@ -68,6 +49,7 @@ cli-tools = ["dep:clap", "database", "sqlx/migrate"]
 
 [dependencies]
 # Core server dependencies (always required)
+anyhow = "1.0"
 axum = { version = "0.7", features = ["ws", "macros"] }
 axum-extra = "0.9"
 async-trait = "0.1"

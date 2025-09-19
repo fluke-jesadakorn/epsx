@@ -31,9 +31,7 @@ function FinancialDataTable({
   // Enhanced touch interaction handlers
   const handleRefresh = async () => {
     // Simulate data refresh
-    console.log('Refreshing financial data...');
     await new Promise(resolve => setTimeout(resolve, 1500));
-    console.log('Financial data refreshed!');
   };
 
   const stockQuickActions = [
@@ -42,35 +40,35 @@ function FinancialDataTable({
       icon: <Heart className="h-5 w-5" />,
       label: 'Favorite',
       color: 'bg-red-500',
-      action: () => console.log('Added to favorites')
+      action: () => {}
     },
     {
       id: 'share',
       icon: <Share2 className="h-5 w-5" />,
       label: 'Share',
       color: 'bg-blue-500',
-      action: () => console.log('Shared stock')
+      action: () => {}
     },
     {
       id: 'watchlist',
       icon: <Bookmark className="h-5 w-5" />,
       label: 'Watch',
       color: 'bg-green-500',
-      action: () => console.log('Added to watchlist')
+      action: () => {}
     },
     {
       id: 'analyze',
       icon: <TrendingUp className="h-5 w-5" />,
       label: 'Analyze',
       color: 'bg-purple-500',
-      action: () => console.log('Opening analysis')
+      action: () => {}
     },
     {
       id: 'tradingview',
       icon: <ExternalLink className="h-5 w-5" />,
       label: 'TradingView',
       color: 'bg-orange-500',
-      action: () => console.log('Opening TradingView')
+      action: () => {}
     }
   ];
 

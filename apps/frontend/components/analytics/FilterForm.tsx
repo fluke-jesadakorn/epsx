@@ -28,7 +28,7 @@ import {
   EyeOff,
   ChevronDown
 } from 'lucide-react';
-import type { FilterOptions, EPSQueryParams } from '@/lib/analytics-server';
+import type { FilterOptions, EPSQueryParams } from '@/lib/server-data';
 
 interface FilterFormProps {
   filterOptions: FilterOptions;
@@ -52,7 +52,10 @@ function SmartCountrySelector({
   // Prepare options with "All Countries" at the top
   const options = [
     { value: 'all', label: 'All Countries' },
-    ...(countries || [])
+    ...(countries || []).map(country => typeof country === 'string' 
+      ? { value: country, label: country } 
+      : country
+    )
   ];
 
   // Find current selected index and scroll to it when opened
@@ -101,11 +104,16 @@ function SmartCountrySelector({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Countries</SelectItem>
-            {countries?.map(country => (
-              <SelectItem key={country.value} value={country.value}>
-                {country.label}
-              </SelectItem>
-            ))}
+            {countries?.map(country => {
+              const countryObj = typeof country === 'string' 
+                ? { value: country, label: country } 
+                : country;
+              return (
+                <SelectItem key={countryObj.value} value={countryObj.value}>
+                  {countryObj.label}
+                </SelectItem>
+              );
+            })}
           </SelectContent>
         </Select>
       </div>

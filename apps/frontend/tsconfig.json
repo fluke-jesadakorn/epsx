@@ -18,7 +18,8 @@
       "@/types/*": ["types/*"],
       "@/context/*": ["context/*"],
       "@/services/*": ["services/*"],
-      "@/config/*": ["config/*"]
+      "@/config/*": ["config/*"],
+      "@/shared/*": ["../../shared/*"]
     },
     "target": "ES2022",
     "lib": ["dom", "dom.iterable", "esnext"],
@@ -42,7 +43,9 @@
     "types/global.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    "../../shared/**/*.ts",
+    "../../shared/**/*.tsx"
   ],
   "exclude": ["node_modules", ".next", "out", "dist", "build", "**/__tests__/**", "**/__test__/**", "**/*.test.*", "**/*.spec.*"]
 }

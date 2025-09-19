@@ -12,6 +12,7 @@ use crate::infrastructure::adapters::repositories::diesel::DbPool;
 use crate::application::ports::repositories::SessionRepository;
 
 /// Repository adapter for authentication sessions
+#[derive(Clone)]
 pub struct AuthenticationSessionRepositoryAdapter {
     /// Legacy session repository
     legacy_session_repo: Arc<dyn SessionRepository<Error = Box<dyn std::error::Error + Send + Sync>>>,
@@ -20,8 +21,6 @@ pub struct AuthenticationSessionRepositoryAdapter {
     db_pool: Arc<DbPool>,
 }
 
-unsafe impl Send for AuthenticationSessionRepositoryAdapter {}
-unsafe impl Sync for AuthenticationSessionRepositoryAdapter {}
 
 impl AuthenticationSessionRepositoryAdapter {
     pub fn new(

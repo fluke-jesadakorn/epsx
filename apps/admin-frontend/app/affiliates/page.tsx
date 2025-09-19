@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { AffiliateManagement } from '@/components/affiliates/AffiliateManagement'
+import { AffiliateManagement, type Affiliate } from '@/components/affiliates/AffiliateManagement'
 import { UnifiedAuth } from '@/lib/auth/unified-auth'
 import { ServerAuth } from '@/lib/server/auth-helpers'
 import { notFound } from 'next/navigation'
@@ -76,7 +76,7 @@ async function AffiliatesDataWrapper() {
   }
   
   // Demo affiliate data
-  const demoAffiliates = [
+  const demoAffiliates: Affiliate[] = [
     {
       id: 1,
       name: 'TechInfluencer Pro',

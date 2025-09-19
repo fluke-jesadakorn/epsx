@@ -47,14 +47,11 @@ import { useToast } from '@/components/ui/use-toast';
 import { format } from 'date-fns';
 
 import {
-  bulkCreateTemporaryPermissions,
-  bulkRevokeTemporaryPermissions,
-  bulkUpdateTemporaryPermissions,
-  BulkCreateTemporaryPermissionsData,
-  BulkRevokeTemporaryPermissionsData,
-  BulkUpdateTemporaryPermissionsData,
-  CreateTemporaryPermissionData,
-} from '@/lib/actions/temporary-permission-actions';
+  grantTemporaryPermission,
+  revokeTemporaryPermission,
+  getActiveTemporaryPermissions,
+  type TemporaryPermission
+} from '@/lib/actions/consolidated-permission-actions';
 
 interface BulkOperationsInterfaceProps {
   selectedUserIds?: string[];

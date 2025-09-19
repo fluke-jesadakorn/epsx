@@ -1,5 +1,5 @@
-// Unified Admin Client Adapter - SQLx Implementation
-// TODO: Implement full admin client functionality with SQLx
+// Unified Admin Client Adapter - Diesel ORM Implementation
+// Diesel-based implementation for unified admin client functionality
 
 use async_trait::async_trait;
 use std::sync::Arc;
@@ -26,7 +26,7 @@ impl UnifiedAdminClientAdapter {
         &self,
         _user_id: &str,
     ) -> Result<Option<AdminUser>, Box<dyn std::error::Error + Send + Sync>> {
-        // TODO: Implement with SQLx
+        // Placeholder implementation
         Ok(None)
     }
 
@@ -35,7 +35,7 @@ impl UnifiedAdminClientAdapter {
         _limit: u32,
         _offset: u32,
     ) -> Result<Vec<AdminUser>, Box<dyn std::error::Error + Send + Sync>> {
-        // TODO: Implement with SQLx
+        // Placeholder implementation
         Ok(vec![])
     }
 
@@ -44,7 +44,7 @@ impl UnifiedAdminClientAdapter {
         _user_id: &str,
         _permissions: Vec<String>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        // TODO: Implement with SQLx
+        // Placeholder implementation
         Ok(())
     }
 }
@@ -52,7 +52,7 @@ impl UnifiedAdminClientAdapter {
 #[derive(Debug, thiserror::Error)]
 pub enum UnifiedAdminClientError {
     #[error("Database error: {0}")]
-    Database(#[from] sqlx::Error),
+    Database(String), // Placeholder error type
     #[error("Cache error: {0}")]
     Cache(String),
     #[error("User not found: {0}")]
@@ -64,13 +64,13 @@ impl AdminClientPort for UnifiedAdminClientAdapter {
     type Error = UnifiedAdminClientError;
     
     async fn get_admin_user(&self, user_id: &str) -> Result<Option<ServiceAdminUser>, Self::Error> {
-        // TODO: Implement with SQLx
+        // Placeholder implementation
         tracing::debug!("Getting admin user: {}", user_id);
         Ok(None)
     }
     
     async fn list_admin_users(&self) -> Result<Vec<ServiceAdminUser>, Self::Error> {
-        // TODO: Implement with SQLx
+        // Placeholder implementation
         tracing::debug!("Listing admin users");
         Ok(vec![])
     }

@@ -254,3 +254,31 @@ export function useBatchedSelectors<T extends Record<string, any>>(
   
   return results;
 }
+
+// Responsive breakpoint hook
+export function useResponsive() {
+  const [breakpoint, setBreakpoint] = useState('lg');
+  
+  useEffect(() => {
+    const updateBreakpoint = () => {
+      const width = window.innerWidth;
+      if (width < 640) setBreakpoint('sm');
+      else if (width < 768) setBreakpoint('md');
+      else if (width < 1024) setBreakpoint('lg');
+      else if (width < 1280) setBreakpoint('xl');
+      else setBreakpoint('2xl');
+    };
+    
+    updateBreakpoint();
+    window.addEventListener('resize', updateBreakpoint);
+    
+    return () => window.removeEventListener('resize', updateBreakpoint);
+  }, []);
+  
+  return {
+    isMobile: breakpoint === 'sm',
+    isTablet: breakpoint === 'md',
+    isDesktop: ['lg', 'xl', '2xl'].includes(breakpoint),
+    breakpoint
+  };
+}

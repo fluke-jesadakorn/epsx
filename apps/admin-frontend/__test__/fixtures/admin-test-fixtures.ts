@@ -8,8 +8,14 @@
  * - Test environment configuration
  */
 
-import { Role } from '@/types/admin/roles';
-import { getBackendUrl } from '../../../shared/utils/url-resolver';
+import { getBackendUrl } from '../../../../shared/utils/url-resolver';
+
+// Define Role enum for test fixtures
+export enum Role {
+  Admin = 'admin',
+  User = 'user', 
+  Guest = 'guest'
+}
 
 // ============================================================================
 // Simple Role Definitions
@@ -286,7 +292,7 @@ export const SECURITY_EVENT_FIXTURES: Record<string, SecurityEvent> = {
     id: 'evt-unauth-002',
     eventType: 'UNAUTHORIZED_ACCESS',
     severity: 'HIGH',
-    userId: TEST_USERS.RESTRICTED_ADMIN.id,
+    userId: TEST_USERS.RESTRICTED_USER.id,
     endpoint: '/api/v1/admin/admin-modules',
     method: 'GET',
     statusCode: 403,
@@ -786,9 +792,7 @@ export class TestUtilities {
 // ============================================================================
 
 export {
-  TestDatabaseUtilities as DatabaseUtilities,
-  MockAPIClient,
-  TestUtilities
+  TestDatabaseUtilities as DatabaseUtilities
 };
 
 export default {
@@ -800,7 +804,5 @@ export default {
   API_RESPONSE_FIXTURES,
   PERFORMANCE_TEST_DATA,
   TEST_ENVIRONMENT_CONFIG,
-  TestDatabaseUtilities,
-  MockAPIClient,
-  TestUtilities
+  TestDatabaseUtilities
 };

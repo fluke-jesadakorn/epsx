@@ -5,7 +5,7 @@ use uuid::Uuid;
 
 use tracing::{info, warn};
 
-use crate::infrastructure::adapters::repositories::diesel_types::{RefreshTokenRepository, RevokedTokenRepository, RefreshToken, NewRefreshToken};
+use crate::infrastructure::adapters::repositories::database_types::{RefreshTokenRepository, RevokedTokenRepository, RefreshToken, NewRefreshToken};
 
 use sha2::{Sha256, Digest};
 
@@ -17,15 +17,6 @@ use serde::{Serialize, Deserialize};
 
 
 use crate::core::errors::{AppResult, AppError};
-
-// TODO: Re-enable after SQLx migration
-/*
-use crate::infrastructure::adapters::repositories::diesel::{
-
-    models::{RefreshToken, NewRefreshToken},
-    repos::{RefreshTokenRepository, RevokedTokenRepository},
-};
-*/
 use crate::auth::session_security_service::DeviceFingerprint;
 
 
@@ -121,6 +112,30 @@ pub struct RefreshTokenResponse {
     pub token_id: Uuid,
     pub family_id: Uuid,
     pub expires_at: DateTime<Utc>,
+}
+
+/// ENHANCED: Response from refresh operations with permission sync
+#[derive(Debug, Clone)]
+pub struct SmartRefreshResponse {
+    pub access_token: String,
+    pub refresh_token: String,
+    pub token_id: Uuid,
+    pub family_id: Uuid,
+    pub expires_at: DateTime<Utc>,
+    pub permission_version: u32,
+    pub permissions_changed: bool,
+    pub new_permissions: Vec<String>,
+}
+
+/// ENHANCED: Request for smart refresh with permission sync
+#[derive(Debug, Clone)]
+pub struct SmartRefreshRequest {
+    pub refresh_token: String,
+    pub current_permission_version: Option<u32>,
+    pub device_info: Option<DeviceInfo>,
+    pub ip_address: Option<IpAddr>,
+    pub user_agent: Option<String>,
+    pub force_permission_reload: bool,
 }
 
 /// Refresh token service with secure rotation mechanism
@@ -320,12 +335,135 @@ impl RefreshTokenService {
         Ok(count)
     }
 
+    /// ENHANCED: Smart refresh with permission synchronization
+    pub async fn smart_refresh(&self, request: SmartRefreshRequest) -> AppResult<SmartRefreshResponse> {
+        info!("Starting smart refresh with permission sync for token");
+        
+        // 1. Validate the refresh token (placeholder for now)
+        let _token_hash = self.hash_token(&request.refresh_token);
+        // TODO: Implement actual token validation
+        
+        // 2. Extract user information from refresh token
+        // For now, mock a user ID - in real implementation, get from validated token
+        let user_id = "mock-user-id".to_string();
+        
+        // 3. Load fresh permissions from database
+        let fresh_permissions = self.load_user_permissions(&user_id).await?;
+        let current_permission_version = self.get_user_permission_version(&user_id).await?;
+        
+        // 4. Check if permissions have changed
+        let permissions_changed = if let Some(client_version) = request.current_permission_version {
+            current_permission_version > client_version || request.force_permission_reload
+        } else {
+            true // First time or missing version
+        };
+        
+        if permissions_changed {
+            info!("Permissions changed for user {}: v{} -> v{}", 
+                  user_id, 
+                  request.current_permission_version.unwrap_or(0), 
+                  current_permission_version);
+        }
+        
+        // 5. Create new access token with fresh permissions
+        let access_token = self.create_access_token_with_permissions(
+            &user_id,
+            &fresh_permissions,
+            current_permission_version
+        ).await?;
+        
+        // 6. Rotate refresh token if needed
+        let new_refresh_response = if self.config.enable_rotation {
+            // TODO: Implement proper token rotation
+            RefreshTokenResponse {
+                token: request.refresh_token.clone(), // Keep same for now
+                token_id: Uuid::new_v4(),
+                family_id: Uuid::new_v4(),
+                expires_at: Utc::now() + self.config.expiry_duration,
+            }
+        } else {
+            RefreshTokenResponse {
+                token: request.refresh_token,
+                token_id: Uuid::new_v4(),
+                family_id: Uuid::new_v4(),
+                expires_at: Utc::now() + self.config.expiry_duration,
+            }
+        };
+        
+        Ok(SmartRefreshResponse {
+            access_token,
+            refresh_token: new_refresh_response.token,
+            token_id: new_refresh_response.token_id,
+            family_id: new_refresh_response.family_id,
+            expires_at: new_refresh_response.expires_at,
+            permission_version: current_permission_version,
+            permissions_changed,
+            new_permissions: fresh_permissions,
+        })
+    }
+    
+    /// Check if permissions have changed for a user
+    pub async fn check_permission_changes(&self, user_id: &str, client_version: u32) -> AppResult<bool> {
+        let current_version = self.get_user_permission_version(user_id).await?;
+        Ok(current_version > client_version)
+    }
+
     /// Get active tokens for a user
     pub async fn get_user_tokens(&self, user_id: &str) -> AppResult<Vec<RefreshToken>> {
         // TODO: Implement find_by_user_id method in RefreshTokenRepository
         // For now, return empty list
         warn!("get_user_tokens not yet implemented for user: {}", user_id);
         Ok(Vec::new())
+    }
+
+    /// ENHANCED: Load fresh user permissions from database
+    async fn load_user_permissions(&self, user_id: &str) -> AppResult<Vec<String>> {
+        // TODO: Implement actual permission loading from database
+        // For now, return mock permissions
+        info!("Loading fresh permissions for user: {}", user_id);
+        
+        // Mock permissions - in real implementation, query user_permissions table
+        Ok(vec![
+            "epsx:analytics:read".to_string(),
+            "epsx:dashboard:view".to_string(),
+            "epsx:profile:manage".to_string(),
+        ])
+    }
+    
+    /// ENHANCED: Get current permission version for user
+    async fn get_user_permission_version(&self, user_id: &str) -> AppResult<u32> {
+        // TODO: Implement actual version retrieval from database
+        // For now, return incremented version based on current time
+        let version = (Utc::now().timestamp() % 1000) as u32;
+        info!("Current permission version for user {}: {}", user_id, version);
+        Ok(version)
+    }
+    
+    /// ENHANCED: Create access token with fresh permissions
+    async fn create_access_token_with_permissions(
+        &self,
+        user_id: &str,
+        permissions: &[String],
+        permission_version: u32
+    ) -> AppResult<String> {
+        use crate::auth::jwt;
+        
+        info!("Creating access token with {} permissions for user {}", permissions.len(), user_id);
+        
+        let user_data = jwt::UserData {
+            id: user_id.to_string(),
+            email: format!("{}@epsx.io", user_id), // Mock email
+            name: Some(format!("User {}", user_id)),
+            permissions: Some(permissions.to_vec()),
+            audience: Some("epsx-api".to_string()),
+            ttl_seconds: Some(60), // 60 seconds for fresh permissions
+            permission_version: Some(permission_version),
+            permission_last_updated: Some(Utc::now().timestamp() as u64),
+            verified: Some(true),
+        };
+        
+        jwt::JWT.create(user_data)
+            .map_err(|e| AppError::internal_server_error(format!("Failed to create access token: {}", e)))
     }
 
     /// Generate a cryptographically secure random token

@@ -6,7 +6,7 @@ use serde::{Serialize, Deserialize};
 use chrono::{DateTime, Utc};
 
 use crate::core::errors::{AppResult, AppError};
-use crate::infrastructure::adapters::repositories::diesel_types::{RefreshTokenRepository, RevokedTokenRepository, DieselSessionRepository};
+use crate::infrastructure::adapters::repositories::database_types::{RefreshTokenRepository, RevokedTokenRepository, SessionRepository};
 
 /// Configuration for session cleanup service
 #[derive(Clone, Debug)]
@@ -47,22 +47,21 @@ pub struct CleanupStats {
 }
 
 /// Session cleanup service that removes expired tokens and sessions
+#[derive(Clone)]
 pub struct SessionCleanupService {
     config: SessionCleanupConfig,
     refresh_token_repo: Arc<RefreshTokenRepository>,
     revoked_token_repo: Arc<RevokedTokenRepository>,
-    session_repo: Arc<DieselSessionRepository>,
+    session_repo: Arc<SessionRepository>,
 }
 
-unsafe impl Send for SessionCleanupService {}
-unsafe impl Sync for SessionCleanupService {}
 
 impl SessionCleanupService {
     pub fn new(
         config: SessionCleanupConfig,
         refresh_token_repo: Arc<RefreshTokenRepository>,
         revoked_token_repo: Arc<RevokedTokenRepository>,
-        session_repo: Arc<DieselSessionRepository>,
+        session_repo: Arc<SessionRepository>,
     ) -> Self {
         Self {
             config,
@@ -245,15 +244,17 @@ pub struct CleanupHealthStatus {
     pub last_check: DateTime<Utc>,
 }
 
-/// Global cleanup service instance
-static mut CLEANUP_SERVICE: Option<Arc<SessionCleanupService>> = None;
+use std::sync::OnceLock;
 
-/// Initialize global cleanup service
+/// Global cleanup service instance - thread-safe initialization
+static CLEANUP_SERVICE: OnceLock<Arc<SessionCleanupService>> = OnceLock::new();
+
+/// Initialize global cleanup service - thread-safe
 pub async fn init_global_cleanup_service(
     config: SessionCleanupConfig,
     refresh_token_repo: Arc<RefreshTokenRepository>,
     revoked_token_repo: Arc<RevokedTokenRepository>,
-    session_repo: Arc<DieselSessionRepository>,
+    session_repo: Arc<SessionRepository>,
 ) -> AppResult<()> {
     let service = Arc::new(SessionCleanupService::new(
         config,
@@ -262,17 +263,15 @@ pub async fn init_global_cleanup_service(
         session_repo,
     ));
     
-    unsafe {
-        CLEANUP_SERVICE = Some(service);
-    }
+    CLEANUP_SERVICE.set(service)
+        .map_err(|_| AppError::bad_request("Cleanup service already initialized"))?;
     
     Ok(())
 }
 
-/// Get global cleanup service
-#[allow(static_mut_refs)]
+/// Get global cleanup service - thread-safe
 pub fn get_global_cleanup_service() -> Option<Arc<SessionCleanupService>> {
-    unsafe { CLEANUP_SERVICE.clone() }
+    CLEANUP_SERVICE.get().cloned()
 }
 
 /// Start the global cleanup service in background

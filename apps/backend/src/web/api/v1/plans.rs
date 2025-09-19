@@ -11,11 +11,12 @@ use std::sync::Arc;
 use crate::{
     application::marketing::{PlanService, PlanFilters, PromotionService, AffiliateService, PlanWithPromotions},
     infrastructure::{
-        adapters::repositories::diesel_types::DbPool,
+        adapters::repositories::DbPool,
         cache::{Cache, CacheFactory},
     },
 };
-use sqlx::PgPool;
+// DISABLED: SQLx import for legacy cleanup
+// use sqlx::PgPool;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PlansResponse {
@@ -56,7 +57,7 @@ pub struct PlansHandlers {
 
 impl PlansHandlers {
     pub fn new(
-        db_pool: Arc<PgPool>,
+        db_pool: Arc<DbPool>,
         cache: Arc<dyn Cache>,
     ) -> Self {
         Self {

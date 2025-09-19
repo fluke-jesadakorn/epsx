@@ -2,7 +2,7 @@
 
 // Legacy ServerAuthProvider import removed - using multi-provider authentication
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { Navigation } from '@/components/nav';
+import { NavigationWithAuth } from '@/components/nav';
 import { StateProvider } from '@/components/state/StateProvider';
 import { ToastProvider } from '@/components/ui/toaster';
 import { useLoadingState, useUI } from '@/context/ui-context';
@@ -26,7 +26,7 @@ function InnerLayout({
   className?: string;
 }) {
   const { theme: _theme, globalLoading } = useUI();
-  const { isAnyLoading } = useLoadingState();
+  const { isLoading } = useLoadingState();
   const { isMobile, isTablet } = useResponsive();
 
   // Handle responsive classes
@@ -40,7 +40,7 @@ function InnerLayout({
   return (
     <div className={`min-h-screen ${className || ''}`}>
       {/* Global loading overlay */}
-      {(globalLoading || isAnyLoading) && (
+      {(globalLoading || isLoading()) && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">
           <LoadingSpinner size="lg" className="text-primary" />
         </div>
@@ -115,7 +115,7 @@ function InnerLayout({
         />
       </div>
 
-      <Navigation />
+      <NavigationWithAuth />
       <main className="relative z-10">{children}</main>
     </div>
   );

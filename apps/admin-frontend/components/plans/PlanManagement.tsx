@@ -128,7 +128,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
   }
 
   return (
-    <>
+    <div>
       {/* Plan Creation Form Modal */}
       {isCreating && (
         <CreatePlanForm 
@@ -145,260 +145,373 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
         />
       )}
 
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Hero Section */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-3 bg-gradient-to-r from-emerald-400 to-green-500 text-white px-8 py-4 rounded-2xl shadow-xl mb-6">
-            <span className="text-3xl">💳</span>
-            <h1 className="text-3xl font-bold">Dynamic Plans Management</h1>
-          </div>
-          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-            Create and manage unlimited plans with context-specific features for web app, API, and admin access
-          </p>
+      <div className="space-y-6 sm:space-y-8">
+        {/* Background Decorations */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-full blur-xl"></div>
+          <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-purple-500/20 rounded-full blur-lg"></div>
+          <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-orange-400/15 to-yellow-500/15 rounded-full blur-xl"></div>
         </div>
 
-        {/* Action Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <PancakeCard 
-            className="bg-gradient-to-br from-emerald-400 via-green-500 to-teal-500 text-white cursor-pointer hover:scale-105 transition-transform"
-            onClick={() => setIsCreating(true)}
-          >
-            <div className="p-8">
-              <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-6">
-                <span className="text-2xl">➕</span>
-              </div>
-              <h3 className="text-2xl font-bold mb-4">Create Dynamic Plan</h3>
-              <p className="text-white/80 mb-6">Create unlimited plans with context-specific features</p>
-              <div className="bg-white/20 rounded-2xl px-6 py-3 text-center font-semibold">
-                New Plan
-              </div>
+        <div className="relative max-w-7xl mx-auto">
+          {/* Hero Section */}
+          <div className="text-center mb-8 sm:mb-12">
+            <div className="relative inline-block">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-yellow-600 via-orange-600 via-pink-600 to-purple-600 bg-clip-text text-transparent mb-4">
+                💳 Dynamic Plans
+              </h1>
+              <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full"></div>
             </div>
-          </PancakeCard>
-
-          <PancakeCard 
-            className="bg-gradient-to-br from-blue-400 via-purple-500 to-pink-500 text-white cursor-pointer hover:scale-105 transition-transform"
-            onClick={() => loadPlans()}
-          >
-            <div className="p-8">
-              <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-6">
-                <span className="text-2xl">🔄</span>
-              </div>
-              <h3 className="text-2xl font-bold mb-4">Refresh Data</h3>
-              <p className="text-white/80 mb-6">Reload plan data and analytics from server</p>
-              <div className="bg-white/20 rounded-2xl px-6 py-3 text-center font-semibold">
-                Refresh
-              </div>
-            </div>
-          </PancakeCard>
-
-          <PancakeCard className="bg-gradient-to-br from-orange-400 via-red-500 to-pink-500 text-white">
-            <div className="p-8">
-              <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-6">
-                <span className="text-2xl">📊</span>
-              </div>
-              <h3 className="text-2xl font-bold mb-4">Global Analytics</h3>
-              <p className="text-white/80 mb-6">Overall plan performance and revenue metrics</p>
-              <div className="bg-white/20 rounded-2xl px-6 py-3 text-center font-semibold">
-                Coming Soon
-              </div>
-            </div>
-          </PancakeCard>
-        </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <PancakeCard className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-white/20">
-          <div className="p-6">
-            <div className="text-emerald-600 dark:text-emerald-400 font-semibold mb-2">Total Plans</div>
-            <div className="text-3xl font-bold text-gray-900 dark:text-white mb-1">{plans.length}</div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">All plan types</div>
-          </div>
-        </PancakeCard>
-
-        <PancakeCard className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-white/20">
-          <div className="p-6">
-            <div className="text-blue-600 dark:text-blue-400 font-semibold mb-2">Active Plans</div>
-            <div className="text-3xl font-bold text-gray-900 dark:text-white mb-1">{activePlans.length}</div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">Currently available</div>
-          </div>
-        </PancakeCard>
-
-        <PancakeCard className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-white/20">
-          <div className="p-6">
-            <div className="text-purple-600 dark:text-purple-400 font-semibold mb-2">Enterprise</div>
-            <div className="text-3xl font-bold text-gray-900 dark:text-white mb-1">{enterprisePlans.length}</div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">Enterprise plans</div>
-          </div>
-        </PancakeCard>
-
-        <PancakeCard className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-white/20">
-          <div className="p-6">
-            <div className="text-green-600 dark:text-green-400 font-semibold mb-2">Avg Price</div>
-            <div className="text-3xl font-bold text-gray-900 dark:text-white mb-1">
-              ${avgRevenue.toFixed(0)}
-            </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">USD per plan</div>
-          </div>
-        </PancakeCard>
-      </div>
-
-      {/* Filter Tabs */}
-      <div className="flex gap-4 mb-6">
-        <button
-          onClick={() => setFilterCategory('all')}
-          className={`px-6 py-3 rounded-xl font-semibold transition-all ${
-            filterCategory === 'all'
-              ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white shadow-lg'
-              : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-          }`}
-        >
-          All Plans ({plans.length})
-        </button>
-        <button
-          onClick={() => setFilterCategory('standard')}
-          className={`px-6 py-3 rounded-xl font-semibold transition-all ${
-            filterCategory === 'standard'
-              ? 'bg-gradient-to-r from-blue-400 to-purple-500 text-white shadow-lg'
-              : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-          }`}
-        >
-          Standard ({standardPlans.length})
-        </button>
-        <button
-          onClick={() => setFilterCategory('api')}
-          className={`px-6 py-3 rounded-xl font-semibold transition-all ${
-            filterCategory === 'api'
-              ? 'bg-gradient-to-r from-orange-400 to-red-500 text-white shadow-lg'
-              : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-          }`}
-        >
-          API Plans ({apiPlans.length})
-        </button>
-        <button
-          onClick={() => setFilterCategory('enterprise')}
-          className={`px-6 py-3 rounded-xl font-semibold transition-all ${
-            filterCategory === 'enterprise'
-              ? 'bg-gradient-to-r from-purple-400 to-pink-500 text-white shadow-lg'
-              : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-          }`}
-        >
-          Enterprise ({enterprisePlans.length})
-        </button>
-      </div>
-
-      {/* Plans List */}
-      <PancakeCard className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-white/30 overflow-hidden">
-        <div className="p-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
-              {filterCategory === 'all' ? 'All Plans' : 
-               filterCategory === 'standard' ? 'Standard Plans' : 
-               filterCategory === 'api' ? 'API Plans' : 'Enterprise Plans'}
-            </h2>
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              {filteredPlans.length} plans
-            </div>
+            <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+              Create and manage unlimited plans with context-specific features for web app, API, and admin access
+            </p>
           </div>
 
-          <div className="space-y-4">
-            {filteredPlans.map(plan => (
-              <div
-                key={plan.id}
-                className="flex items-center justify-between p-6 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-2xl hover:from-emerald-50 hover:to-green-50 dark:hover:from-gray-600 dark:hover:to-gray-700 transition-all cursor-pointer"
-                onClick={() => setSelectedPlan(plan)}
-              >
-                <div className="flex items-center gap-6 flex-1">
-                  <div className={`h-12 w-12 rounded-2xl flex items-center justify-center text-2xl ${
-                    plan.plan_category === 'standard' 
-                      ? 'bg-gradient-to-br from-blue-400 to-purple-500'
-                      : plan.plan_category === 'api'
-                      ? 'bg-gradient-to-br from-orange-400 to-red-500'
-                      : 'bg-gradient-to-br from-purple-400 to-pink-500'
-                  }`}>
-                    {plan.plan_category === 'standard' ? '👤' : 
-                     plan.plan_category === 'api' ? '🔧' : '🏢'}
+          {/* Action Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12">
+            <div 
+              className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-emerald-400/20 via-green-500/20 to-teal-500/20 p-0.5 cursor-pointer"
+              onClick={() => setIsCreating(true)}
+            >
+              <div className="relative bg-gradient-to-br from-emerald-400 via-green-500 to-teal-500 text-white rounded-2xl sm:rounded-3xl">
+                <div className="p-6 sm:p-8">
+                  <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
+                    <span className="text-xl sm:text-2xl">➕</span>
                   </div>
-                  
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                        {plan.name}
-                      </h3>
-                      {plan.plan_category === 'enterprise' && (
-                        <span className="bg-gradient-to-r from-purple-400 to-pink-500 text-white text-xs px-3 py-1 rounded-full font-semibold">
-                          ENTERPRISE
-                        </span>
-                      )}
-                      {!plan.is_active && (
-                        <span className="bg-gray-400 text-white text-xs px-3 py-1 rounded-full font-semibold">
-                          INACTIVE
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
-                      <span className="font-semibold">
-                        ${plan.current_price} {plan.currency}
-                      </span>
-                      <span>•</span>
-                      <span>{plan.features.length} features</span>
-                      <span>•</span>
-                      <span>{plan.target_audience.replace('_', ' ')}</span>
-                      <span>•</span>
-                      <span>${plan.revenue_last_30_days} revenue</span>
-                    </div>
+                  <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Create Dynamic Plan</h3>
+                  <p className="text-white/80 mb-4 sm:mb-6 text-sm sm:text-base">Create unlimited plans with context-specific features</p>
+                  <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
+                    New Plan
                   </div>
                 </div>
+              </div>
+            </div>
 
-                <div className="flex items-center gap-4">
-                  <div className="text-xs bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-3 py-1 rounded-full">
-                    {plan.subscriber_count} subscribers
+            <div 
+              className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-blue-400/20 via-purple-500/20 to-pink-500/20 p-0.5 cursor-pointer"
+              onClick={() => loadPlans()}
+            >
+              <div className="relative bg-gradient-to-br from-blue-400 via-purple-500 to-pink-500 text-white rounded-2xl sm:rounded-3xl">
+                <div className="p-6 sm:p-8">
+                  <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
+                    <span className="text-xl sm:text-2xl">🔄</span>
                   </div>
-                  
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleTogglePlanStatus(plan.id, plan.is_active)
-                    }}
-                    className={`px-4 py-2 rounded-xl font-semibold transition-all ${
-                      plan.is_active
-                        ? 'bg-gradient-to-r from-green-400 to-green-500 text-white'
-                        : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
-                    }`}
-                  >
-                    {plan.is_active ? 'Active' : 'Inactive'}
-                  </button>
-                  
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setShowAnalytics(plan.id)
-                    }}
-                    className="px-4 py-2 rounded-xl font-semibold bg-gradient-to-r from-blue-400 to-blue-500 text-white transition-all hover:from-blue-500 hover:to-blue-600"
-                  >
-                    Analytics
-                  </button>
+                  <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Refresh Data</h3>
+                  <p className="text-white/80 mb-4 sm:mb-6 text-sm sm:text-base">Reload plan data and analytics from server</p>
+                  <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
+                    Refresh
+                  </div>
                 </div>
               </div>
-            ))}
+            </div>
+
+            <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-orange-400/20 via-red-500/20 to-pink-500/20 p-0.5 sm:col-span-2 lg:col-span-1">
+              <div className="relative bg-gradient-to-br from-orange-400 via-red-500 to-pink-500 text-white rounded-2xl sm:rounded-3xl">
+                <div className="p-6 sm:p-8">
+                  <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
+                    <span className="text-xl sm:text-2xl">📊</span>
+                  </div>
+                  <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Global Analytics</h3>
+                  <p className="text-white/80 mb-4 sm:mb-6 text-sm sm:text-base">Overall plan performance and revenue metrics</p>
+                  <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
+                    Coming Soon
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {filteredPlans.length === 0 && (
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">📋</div>
-              <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">
-                No plans found
-              </h3>
-              <p className="text-gray-500 dark:text-gray-500">
-                {filterCategory === 'all' 
-                  ? 'Start by creating your first plan'
-                  : `No ${filterCategory} plans available. Try switching filters or create a new plan.`
-                }
-              </p>
+          {/* Stats Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-emerald-300/50 dark:border-emerald-700/50">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <div className="text-xl sm:text-2xl">💳</div>
+                <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Total</span>
+              </div>
+              <div className="space-y-1">
+                <div className="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400">{plans.length}</div>
+                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Plans</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">All types</div>
+              </div>
             </div>
-          )}
+
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-blue-300/50 dark:border-blue-700/50">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <div className="text-xl sm:text-2xl">✅</div>
+                <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Active</span>
+              </div>
+              <div className="space-y-1">
+                <div className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400">{activePlans.length}</div>
+                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Active</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">Available</div>
+              </div>
+            </div>
+
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-purple-300/50 dark:border-purple-700/50">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <div className="text-xl sm:text-2xl">🏢</div>
+                <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Enterprise</span>
+              </div>
+              <div className="space-y-1">
+                <div className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400">{enterprisePlans.length}</div>
+                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Enterprise</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">Premium</div>
+              </div>
+            </div>
+
+            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-green-300/50 dark:border-green-700/50">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <div className="text-xl sm:text-2xl">💵</div>
+                <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Price</span>
+              </div>
+              <div className="space-y-1">
+                <div className="text-xl sm:text-3xl font-bold text-green-600 dark:text-green-400 truncate">
+                  ${avgRevenue.toFixed(0)}
+                </div>
+                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Average</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">USD</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Filter Tabs */}
+          <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-purple-400/20 via-blue-400/20 to-green-400/20 p-0.5 mb-6">
+            <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4">
+              <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-4">
+                <button
+                  onClick={() => setFilterCategory('all')}
+                  className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${
+                    filterCategory === 'all'
+                      ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white shadow-lg'
+                      : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  All Plans ({plans.length})
+                </button>
+                <button
+                  onClick={() => setFilterCategory('standard')}
+                  className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${
+                    filterCategory === 'standard'
+                      ? 'bg-gradient-to-r from-blue-400 to-purple-500 text-white shadow-lg'
+                      : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Standard ({standardPlans.length})
+                </button>
+                <button
+                  onClick={() => setFilterCategory('api')}
+                  className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${
+                    filterCategory === 'api'
+                      ? 'bg-gradient-to-r from-orange-400 to-red-500 text-white shadow-lg'
+                      : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  API Plans ({apiPlans.length})
+                </button>
+                <button
+                  onClick={() => setFilterCategory('enterprise')}
+                  className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${
+                    filterCategory === 'enterprise'
+                      ? 'bg-gradient-to-r from-purple-400 to-pink-500 text-white shadow-lg'
+                      : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Enterprise ({enterprisePlans.length})
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Plans List */}
+          <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-emerald-400/20 via-green-400/20 to-teal-400/20 p-0.5">
+            <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
+                <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 bg-clip-text text-transparent">
+                  {filterCategory === 'all' ? 'All Plans' : 
+                   filterCategory === 'standard' ? 'Standard Plans' : 
+                   filterCategory === 'api' ? 'API Plans' : 'Enterprise Plans'}
+                </h2>
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  {filteredPlans.length} plans
+                </div>
+              </div>
+
+              {/* Mobile Card Layout */}
+              <div className="block sm:hidden space-y-4">
+                {filteredPlans.map(plan => (
+                  <div
+                    key={plan.id}
+                    className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-2xl cursor-pointer"
+                    onClick={() => setSelectedPlan(plan)}
+                  >
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className={`h-12 w-12 rounded-2xl flex items-center justify-center text-xl ${
+                        plan.plan_category === 'standard' 
+                          ? 'bg-gradient-to-br from-blue-400 to-purple-500'
+                          : plan.plan_category === 'api'
+                          ? 'bg-gradient-to-br from-orange-400 to-red-500'
+                          : 'bg-gradient-to-br from-purple-400 to-pink-500'
+                      }`}>
+                        {plan.plan_category === 'standard' ? '👤' : 
+                         plan.plan_category === 'api' ? '🔧' : '🏢'}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <h3 className="text-lg font-bold text-gray-900 dark:text-white truncate">{plan.name}</h3>
+                          {!plan.is_active && (
+                            <span className="bg-gray-400 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                              INACTIVE
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">${plan.current_price} {plan.currency}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                      <div className="bg-white/50 dark:bg-gray-600/30 rounded-xl p-3">
+                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Subscribers</div>
+                        <div className="text-lg font-bold text-green-600 dark:text-green-400">{plan.subscriber_count}</div>
+                      </div>
+                      <div className="bg-white/50 dark:bg-gray-600/30 rounded-xl p-3">
+                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Revenue</div>
+                        <div className="text-lg font-bold text-purple-600 dark:text-purple-400">${plan.revenue_last_30_days}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleTogglePlanStatus(plan.id, plan.is_active)
+                        }}
+                        className={`px-4 py-2 rounded-xl font-semibold flex-1 min-h-[44px] ${
+                          plan.is_active
+                            ? 'bg-gradient-to-r from-green-400 to-green-500 text-white'
+                            : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
+                        }`}
+                      >
+                        {plan.is_active ? 'Active' : 'Activate'}
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowAnalytics(plan.id)
+                        }}
+                        className="px-4 py-2 rounded-xl font-semibold bg-gradient-to-r from-blue-400 to-blue-500 text-white flex-1 min-h-[44px]"
+                      >
+                        Analytics
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Layout */}
+              <div className="hidden sm:block space-y-4">
+                {filteredPlans.map(plan => (
+                  <div
+                    key={plan.id}
+                    className="flex items-center justify-between p-6 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-2xl hover:from-emerald-50 hover:to-green-50 dark:hover:from-gray-600 dark:hover:to-gray-700 cursor-pointer"
+                    onClick={() => setSelectedPlan(plan)}
+                  >
+                    <div className="flex items-center gap-6 flex-1">
+                      <div className={`h-12 w-12 rounded-2xl flex items-center justify-center text-2xl ${
+                        plan.plan_category === 'standard' 
+                          ? 'bg-gradient-to-br from-blue-400 to-purple-500'
+                          : plan.plan_category === 'api'
+                          ? 'bg-gradient-to-br from-orange-400 to-red-500'
+                          : 'bg-gradient-to-br from-purple-400 to-pink-500'
+                      }`}>
+                        {plan.plan_category === 'standard' ? '👤' : 
+                         plan.plan_category === 'api' ? '🔧' : '🏢'}
+                      </div>
+                      
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2 flex-wrap">
+                          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                            {plan.name}
+                          </h3>
+                          {plan.plan_category === 'enterprise' && (
+                            <span className="bg-gradient-to-r from-purple-400 to-pink-500 text-white text-xs px-3 py-1 rounded-full font-semibold">
+                              ENTERPRISE
+                            </span>
+                          )}
+                          {!plan.is_active && (
+                            <span className="bg-gray-400 text-white text-xs px-3 py-1 rounded-full font-semibold">
+                              INACTIVE
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 flex-wrap">
+                          <span className="font-semibold">
+                            ${plan.current_price} {plan.currency}
+                          </span>
+                          <span>•</span>
+                          <span>{plan.features.length} features</span>
+                          <span>•</span>
+                          <span>{plan.target_audience.replace('_', ' ')}</span>
+                          <span>•</span>
+                          <span>${plan.revenue_last_30_days} revenue</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                      <div className="text-xs bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-3 py-1 rounded-full">
+                        {plan.subscriber_count} subscribers
+                      </div>
+                      
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleTogglePlanStatus(plan.id, plan.is_active)
+                        }}
+                        className={`px-4 py-2 rounded-xl font-semibold min-h-[44px] ${
+                          plan.is_active
+                            ? 'bg-gradient-to-r from-green-400 to-green-500 text-white'
+                            : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
+                        }`}
+                      >
+                        {plan.is_active ? 'Active' : 'Inactive'}
+                      </button>
+                      
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setShowAnalytics(plan.id)
+                        }}
+                        className="px-4 py-2 rounded-xl font-semibold bg-gradient-to-r from-blue-400 to-blue-500 text-white hover:from-blue-500 hover:to-blue-600 min-h-[44px]"
+                      >
+                        Analytics
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {filteredPlans.length === 0 && (
+                <div className="text-center py-12 sm:py-16">
+                  <div className="h-20 w-20 bg-gradient-to-br from-emerald-200 to-green-200 dark:from-emerald-800 dark:to-green-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <span className="text-4xl">📋</span>
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                    No plans found
+                  </h3>
+                  <p className="text-gray-500 dark:text-gray-500">
+                    {filterCategory === 'all' 
+                      ? 'Start by creating your first plan'
+                      : `No ${filterCategory} plans available. Try switching filters or create a new plan.`
+                    }
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      </PancakeCard>
+      </div>
     </div>
-    </>
   )
 }
+
+export default PlanManagement;

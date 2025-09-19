@@ -8,12 +8,11 @@ use crate::domain::shared_kernel::entities::market_data::StockScreeningResult;
 use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
 
 /// Repository adapter for market data that bridges legacy stock system with DDD Trading Analytics
+#[derive(Clone)]
 pub struct MarketDataRepositoryAdapter {
     tradingview_service: Arc<TradingViewApiService>,
 }
 
-unsafe impl Send for MarketDataRepositoryAdapter {}
-unsafe impl Sync for MarketDataRepositoryAdapter {}
 
 impl MarketDataRepositoryAdapter {
     pub fn new(tradingview_service: Arc<TradingViewApiService>) -> Self {

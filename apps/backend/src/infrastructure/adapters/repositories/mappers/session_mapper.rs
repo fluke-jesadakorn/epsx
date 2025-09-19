@@ -7,7 +7,7 @@ use crate::domain::shared_kernel::DomainResult;
 use crate::domain::user_management::{
     Session
 };
-use crate::infrastructure::adapters::repositories::diesel_types::{DieselSession, NewDieselSession, UpdateDieselSession, DieselIpAddr};
+use crate::infrastructure::adapters::repositories::database_types::{Session as DbSession, NewSession as NewDbSession, UpdateSession as UpdateDbSession, IpAddr as DbIpAddr};
 
 /// Maps between domain Session aggregate and database models
 pub struct SessionMapper;
@@ -38,23 +38,23 @@ impl SessionMapper {
     }
     
     /// Convert database model to domain aggregate
-    pub fn to_domain(diesel_session: DieselSession) -> DomainResult<Session> {
-        let session_id = SessionId::from_string(diesel_session.id.to_string());
-        let user_id = UserId::from_string(diesel_session.user_id.to_string())?;
+    pub fn to_domain(db_session: DbSession) -> DomainResult<Session> {
+        let session_id = SessionId::from_string(db_session.id.to_string());
+        let user_id = UserId::from_string(db_session.user_id.to_string())?;
         
         // Create session from existing data using new schema fields
         let session = Session::load(
             session_id,
             user_id,
-            diesel_session.access_token,
-            diesel_session.session_token, // This can be refresh_token
-            diesel_session.created_at,
-            diesel_session.created_at, // updated_at (using created_at as proxy)
-            diesel_session.expires_at,
-            diesel_session.created_at, // last_accessed_at (using created_at as proxy)
-            diesel_session.ip_address.map(|ip| ip.0.to_string()),
-            diesel_session.user_agent,
-            !diesel_session.is_active, // is_revoked is opposite of is_active
+            db_session.access_token,
+            db_session.session_token, // This can be refresh_token
+            db_session.created_at,
+            db_session.created_at, // updated_at (using created_at as proxy)
+            db_session.expires_at,
+            db_session.created_at, // last_accessed_at (using created_at as proxy)
+            db_session.ip_address.map(|ip| ip.0.to_string()),
+            db_session.user_agent,
+            !db_session.is_active, // is_revoked is opposite of is_active
             1, // version
         );
         
@@ -62,22 +62,23 @@ impl SessionMapper {
     }
     
     /// Convert domain aggregate to new database model
-    pub fn to_new_diesel(session: &Session) -> DomainResult<NewDieselSession> {
+    pub fn to_new_diesel(session: &Session) -> DomainResult<NewDbSession> {
         let session_uuid = Self::session_id_to_uuid(&session.id().to_string());
         let user_uuid = Self::session_id_to_uuid(&session.user_id().to_string());
         
-        // Convert IP address string to DieselIpAddr
+        // Convert IP address string to DbIpAddr
         let ip_address = match session.ip_address() {
             Some(ip_str) if !ip_str.is_empty() => {
-                let ip_addr: std::net::IpAddr = ip_str.parse().map_err(|e| crate::domain::shared_kernel::DomainError::validation_error(
+                // Validate the IP address format, but store as String
+                let _: std::net::IpAddr = ip_str.parse().map_err(|e| crate::domain::shared_kernel::DomainError::validation_error(
                         "ip_address", &format!("Invalid IP address: {}", e)
                     ))?;
-                Some(DieselIpAddr(ip_addr))
+                Some(DbIpAddr(ip_str.to_string()))
             }
             _ => None
         };
         
-        Ok(NewDieselSession {
+        Ok(NewDbSession {
             id: session_uuid,
             user_id: user_uuid,
             access_token: session.access_token().to_string(),
@@ -91,23 +92,10 @@ impl SessionMapper {
     }
     
     /// Convert domain aggregate to update database model
-    pub fn to_update_diesel(session: &Session) -> UpdateDieselSession {
-        let ip_address = match session.ip_address() {
-            Some(ip_str) if !ip_str.is_empty() => {
-                let ip_addr: std::net::IpAddr = ip_str.parse().unwrap_or("127.0.0.1".parse().unwrap());
-                Some(DieselIpAddr(ip_addr))
-            }
-            _ => None
-        };
-        
-        UpdateDieselSession {
+    pub fn to_update_diesel(session: &Session) -> UpdateDbSession {
+        UpdateDbSession {
             access_token: Some(session.access_token().to_string()),
             expires_at: Some(session.expires_at()),
-            provider: Some("oauth".to_string()),
-            session_token: session.refresh_token().map(|s| s.to_string()),
-            user_agent: session.user_agent().map(|s| s.to_string()),
-            ip_address,
-            is_active: Some(!session.is_revoked()),
         }
     }
 }

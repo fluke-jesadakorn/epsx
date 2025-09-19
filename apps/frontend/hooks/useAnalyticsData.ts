@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { AnalyticsClient, UnifiedAnalyticsRankingsResponse, EPSQueryParams } from '@/lib/api-client';
 import type { AnalyticsFilters } from '@/types/analytics';
-import { analyticsLogger } from '@/lib/logger';
+import { analyticsLogger } from '@/lib/utils/logging';
 
 interface RichFilterOptions {
   countries: Array<{ value: string; label: string }>;

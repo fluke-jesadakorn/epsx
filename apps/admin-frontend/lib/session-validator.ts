@@ -8,7 +8,7 @@ import {
   derivePackageTierFromPermissions,
   deriveAccessiblePlatformsFromPermissions,
   derivePrimaryPlatformFromPermissions
-} from '@/lib/auth-utils'
+} from '../../../shared/permissions/utils/platform'
 import { getBackendUrl } from '../../../shared/utils/url-resolver'
 
 /**

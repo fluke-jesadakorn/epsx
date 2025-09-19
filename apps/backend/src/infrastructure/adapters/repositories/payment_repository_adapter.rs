@@ -12,25 +12,24 @@ use crate::domain::payment::{
     PaymentRepositoryPort, PaymentStats
 };
 use crate::domain::shared_kernel::AggregateRoot;
-use crate::infrastructure::adapters::repositories::diesel::DbPool;
+use crate::infrastructure::adapters::repositories::database_types::DbPool;
 use crate::application::ports::repositories::UserRepository;
 
 /// Repository adapter for payment operations
+#[derive(Clone)]
 pub struct PaymentRepositoryAdapter {
     /// Database pool for payment storage
     db_pool: Arc<DbPool>,
     
-    /// Legacy user repository for user validation
-    user_repository: Arc<dyn UserRepository<Error = crate::infrastructure::adapters::repositories::user_repository_adapter::LegacyRepositoryError>>,
+    /// User repository for user validation
+    user_repository: Arc<dyn UserRepository<Error = crate::domain::shared_kernel::DomainError>>,
 }
 
-unsafe impl Send for PaymentRepositoryAdapter {}
-unsafe impl Sync for PaymentRepositoryAdapter {}
 
 impl PaymentRepositoryAdapter {
     pub fn new(
         db_pool: Arc<DbPool>,
-        user_repository: Arc<dyn UserRepository<Error = crate::infrastructure::adapters::repositories::user_repository_adapter::LegacyRepositoryError>>,
+        user_repository: Arc<dyn UserRepository<Error = crate::domain::shared_kernel::DomainError>>,
     ) -> Self {
         Self {
             db_pool,

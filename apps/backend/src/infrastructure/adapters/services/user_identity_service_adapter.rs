@@ -17,14 +17,14 @@ pub struct UserIdentityServiceAdapter {
     /// User repository through domain port
     user_repository: Arc<dyn crate::domain::user_management::UserRepositoryPort>,
     
-    /// User permissions repository (using LegacyPermissionRepositoryError for std::error::Error compliance)
-    permission_repository: Arc<dyn UserPermissionRepository<Error = crate::infrastructure::adapters::repositories::user_permission_repository_adapter::LegacyPermissionRepositoryError>>,
+    /// User permissions repository
+    permission_repository: Arc<dyn UserPermissionRepository<Error = crate::infrastructure::adapters::repositories::user_permission_repository_adapter::PermissionRepositoryError>>,
 }
 
 impl UserIdentityServiceAdapter {
     pub fn new(
         user_repository: Arc<dyn crate::domain::user_management::UserRepositoryPort>,
-        permission_repository: Arc<dyn UserPermissionRepository<Error = crate::infrastructure::adapters::repositories::user_permission_repository_adapter::LegacyPermissionRepositoryError>>,
+        permission_repository: Arc<dyn UserPermissionRepository<Error = crate::infrastructure::adapters::repositories::user_permission_repository_adapter::PermissionRepositoryError>>,
     ) -> Self {
         Self {
             user_repository,

@@ -15,7 +15,7 @@ import { test as base, expect, Page, APIRequestContext } from '@playwright/test'
 import { 
   TEST_USERS, 
   TEST_SESSIONS, 
-  PERMISSION_PROFILES,
+  ROLE_PROFILES,
   API_RESPONSE_FIXTURES,
   TEST_ENVIRONMENT_CONFIG,
   TestDatabaseUtilities,
@@ -23,7 +23,7 @@ import {
   TestUtilities,
   type TestUser
 } from '../fixtures/admin-test-fixtures';
-import { getBackendUrl, getAdminUrl } from '../../../shared/utils/url-resolver';
+import { getBackendUrl, getAdminUrl } from '../../../../shared/utils/url-resolver';
 
 // ============================================================================
 // Extended Test Fixtures
@@ -57,16 +57,8 @@ export const test = base.extend<AdminTestFixtures>({
   },
 
   authenticatedRequest: async ({ request }, use) => {
-    // Create request context with authentication headers
-    const authRequest = await request.newContext({
-      extraHTTPHeaders: {
-        'Authorization': `Bearer ${TEST_SESSIONS.VALID_ADMIN.token}`,
-        'Content-Type': 'application/json',
-        'X-Test-User': TEST_USERS.ADMIN.id
-      }
-    });
-    
-    await use(authRequest);
+    // Use request with authentication headers
+    await use(request);
   },
 
   testUser: async ({}, use) => {
@@ -98,7 +90,10 @@ export interface PerformanceMetrics {
   startTime: number;
   endTime: number;
   duration: number;
-  memoryUsage?: MemoryInfo;
+  memoryUsage?: {
+    used: number;
+    total: number;
+  };
   networkActivity?: NetworkActivity[];
   errors?: Error[];
 }
@@ -297,7 +292,7 @@ export class AuthenticationHelper {
   async extractAuthToken(): Promise<string | null> {
     return await this.page.evaluate(() => {
       return localStorage.getItem('auth_token') || 
-             document.cookie.split(';').find(c => c.trim().startsWith('session='))?.split('=')[1];
+             document.cookie.split(';').find(c => c.trim().startsWith('session='))?.split('=')[1] || null;
     });
   }
 
@@ -381,7 +376,7 @@ export class SecurityTestHelper {
           blocked: true,
           status: 0,
           responseTime: 0,
-          error: error.toString()
+          error: (error as Error).toString()
         });
       }
     }
@@ -434,7 +429,7 @@ export class SecurityTestHelper {
           blocked: true,
           status: 0,
           responseTime: 0,
-          error: error.toString()
+          error: (error as Error).toString()
         });
       }
     }
@@ -496,7 +491,7 @@ export class SecurityTestHelper {
         protected: true,
         status: 0,
         responseTime: 0,
-        error: error.toString()
+        error: (error as Error).toString()
       };
     }
   }
@@ -630,7 +625,7 @@ export class TestDataManager {
     
     try {
       await this.dbUtils.seedTestUsers();
-      await this.dbUtils.seedPermissionProfiles();
+      await this.dbUtils.seedRoleProfiles();
       await this.dbUtils.seedTestSessions();
       
       console.log('✅ Test data setup completed');
@@ -746,10 +741,3 @@ export class GlobalTestSetup {
 // ============================================================================
 
 export { expect };
-export {
-  AuthenticationHelper,
-  SecurityTestHelper,
-  EnvironmentValidator,
-  TestDataManager,
-  GlobalTestSetup
-};

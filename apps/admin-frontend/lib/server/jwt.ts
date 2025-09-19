@@ -2,7 +2,39 @@
  * Server-side JWT Cookie Utilities for Admin Frontend
  * Uses jose library for JWT verification and cookie management
  */
-import { verifyJWT, type EPSXJWTPayload } from '@/lib/auth-utils';
+// Legacy JWT support - consider migrating to OIDC
+import { jwtVerify } from 'jose';
+import { env } from '@/config/env';
+
+// Minimal JWT payload type for legacy support
+export interface EPSXJWTPayload {
+  sub: string;
+  email: string;
+  name: string;
+  permissions: string[];
+  iat: number;
+  exp: number;
+}
+
+/**
+ * Minimal JWT verification function for legacy support
+ */
+async function verifyJWT(token: string): Promise<EPSXJWTPayload | null> {
+  try {
+    const jwtSecret = env.NEXTAUTH_SECRET;
+    const { payload } = await jwtVerify(
+      token,
+      new TextEncoder().encode(jwtSecret),
+      {
+        algorithms: ['HS256'],
+      }
+    );
+    return payload as EPSXJWTPayload;
+  } catch (error) {
+    console.error('JWT verification failed:', error);
+    return null;
+  }
+}
 
 /**
  * Get JWT token from httpOnly cookies

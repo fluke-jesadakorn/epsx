@@ -128,7 +128,7 @@ impl<T> ApiResponse<T> {
 
 /// Grant permission to a user
 pub async fn grant_permission(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(user_id): Path<String>,
     admin: AuthenticatedUser,
     Json(request): Json<GrantPermissionRequest>,
@@ -146,9 +146,39 @@ pub async fn grant_permission(
         ));
     }
 
+    // Validate user exists using UserReferenceResolver
+    let user_resolver = state.ddd_container.user_reference_resolver();
+    let resolved_user = match user_resolver.resolve_user(&user_id).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    success: false,
+                    error: "user_not_found".to_string(),
+                    message: format!("User not found with reference: {}", user_id),
+                    timestamp: Utc::now(),
+                })
+            ));
+        }
+        Err(e) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    success: false,
+                    error: "user_lookup_failed".to_string(),
+                    message: format!("Failed to lookup user: {}", e),
+                    timestamp: Utc::now(),
+                })
+            ));
+        }
+    };
+
+    let actual_user_id = resolved_user.id().to_string();
+
     info!(
-        "Admin {} granting permission '{}' to user {}",
-        admin.user_id, request.permission, user_id
+        "Admin {} granting permission '{}' to user {} (resolved from reference: {})",
+        admin.user_id, request.permission, actual_user_id, user_id
     );
 
     // Determine permission source
@@ -236,7 +266,7 @@ pub async fn grant_permission(
 
     info!(
         "Permission '{}' granted to user {} by admin {}",
-        request.permission, user_id, admin.user_id
+        request.permission, actual_user_id, admin.user_id
     );
 
     Ok(Json(ApiResponse::success(
@@ -247,7 +277,7 @@ pub async fn grant_permission(
 
 /// Revoke permission from a user
 pub async fn revoke_permission(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(user_id): Path<String>,
     admin: AuthenticatedUser,
     Json(request): Json<RevokePermissionRequest>,
@@ -265,16 +295,46 @@ pub async fn revoke_permission(
         ));
     }
 
+    // Validate user exists using UserReferenceResolver
+    let user_resolver = state.ddd_container.user_reference_resolver();
+    let resolved_user = match user_resolver.resolve_user(&user_id).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    success: false,
+                    error: "user_not_found".to_string(),
+                    message: format!("User not found with reference: {}", user_id),
+                    timestamp: Utc::now(),
+                })
+            ));
+        }
+        Err(e) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    success: false,
+                    error: "user_lookup_failed".to_string(),
+                    message: format!("Failed to lookup user: {}", e),
+                    timestamp: Utc::now(),
+                })
+            ));
+        }
+    };
+
+    let actual_user_id = resolved_user.id().to_string();
+
     info!(
-        "Admin {} revoking permission '{}' from user {}",
-        admin.user_id, request.permission, user_id
+        "Admin {} revoking permission '{}' from user {} (resolved from reference: {})",
+        admin.user_id, request.permission, actual_user_id, user_id
     );
 
     // TODO: Remove permission from database and update permission hash
     
     // Skip cache for now - Arc to Box conversion is complex
     // TODO: Implement proper cache integration in DDD approach
-    info!("Permission revocation requested for user {}", user_id);
+    info!("Permission revocation requested for user {}", actual_user_id);
 
     // Fire notification event
     // Removed: notification events - will be re-implemented
@@ -324,7 +384,7 @@ pub async fn revoke_permission(
 
 /// List all permissions for a user
 pub async fn list_user_permissions(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(user_id): Path<String>,
     admin: AuthenticatedUser,
     Query(_query): Query<ListPermissionsQuery>,
@@ -341,6 +401,36 @@ pub async fn list_user_permissions(
             })
         ));
     }
+
+    // Validate user exists using UserReferenceResolver
+    let user_resolver = state.ddd_container.user_reference_resolver();
+    let resolved_user = match user_resolver.resolve_user(&user_id).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    success: false,
+                    error: "user_not_found".to_string(),
+                    message: format!("User not found with reference: {}", user_id),
+                    timestamp: Utc::now(),
+                })
+            ));
+        }
+        Err(e) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    success: false,
+                    error: "user_lookup_failed".to_string(),
+                    message: format!("Failed to lookup user: {}", e),
+                    timestamp: Utc::now(),
+                })
+            ));
+        }
+    };
+
+    let actual_user_id = resolved_user.id().to_string();
 
     // TODO: Get actual permissions from database
     // For now, create mock data
@@ -375,7 +465,7 @@ pub async fn list_user_permissions(
     ];
 
     let summary = UserPermissionsSummary {
-        user_id: user_id.clone(),
+        user_id: actual_user_id.clone(),
         permissions: mock_permissions.clone(),
         permission_version: 1,
         last_updated: now,
@@ -392,7 +482,7 @@ pub async fn list_user_permissions(
 
 /// Extend permission expiry
 pub async fn extend_permission(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Path(user_id): Path<String>,
     admin: AuthenticatedUser,
     Json(request): Json<ExtendPermissionRequest>,
@@ -409,6 +499,36 @@ pub async fn extend_permission(
             })
         ));
     }
+
+    // Validate user exists using UserReferenceResolver
+    let user_resolver = state.ddd_container.user_reference_resolver();
+    let resolved_user = match user_resolver.resolve_user(&user_id).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            return Err((
+                StatusCode::NOT_FOUND,
+                Json(ErrorResponse {
+                    success: false,
+                    error: "user_not_found".to_string(),
+                    message: format!("User not found with reference: {}", user_id),
+                    timestamp: Utc::now(),
+                })
+            ));
+        }
+        Err(e) => {
+            return Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    success: false,
+                    error: "user_lookup_failed".to_string(),
+                    message: format!("Failed to lookup user: {}", e),
+                    timestamp: Utc::now(),
+                })
+            ));
+        }
+    };
+
+    let _actual_user_id = resolved_user.id().to_string();
 
     info!(
         "Admin {} extending permission '{}' for user {} until {}",

@@ -7,12 +7,8 @@ import { clearSession } from '@/lib/server/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    console.log('🔄 Frontend: Processing sign out request');
-
     // Clear the user session
     await clearSession();
-
-    console.log('✅ Frontend: User session cleared successfully');
 
     // Return success response
     return NextResponse.json({ success: true }, { status: 200 });
@@ -30,12 +26,8 @@ export async function POST(request: NextRequest) {
 // Allow GET method for simple logout links
 export async function GET(request: NextRequest) {
   try {
-    console.log('🔄 Frontend: Processing sign out request (GET)');
-
     // Clear the user session
     await clearSession();
-
-    console.log('✅ Frontend: User session cleared successfully');
 
     // Redirect to login page
     return NextResponse.redirect(new URL('/login', request.url));

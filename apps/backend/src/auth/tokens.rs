@@ -224,6 +224,11 @@ async fn create_access_token(
         permissions: Some(permissions),
         audience: Some("epsx-api".to_string()),
         ttl_seconds: Some(expires_in as usize),
+        
+        // ENHANCED: Additional context fields
+        permission_version: Some(1), // Default version for tokens from Firebase
+        permission_last_updated: Some(chrono::Utc::now().timestamp() as u64),
+        verified: Some(firebase_user.email_verified),
     };
 
     jwt::JWT.create(user_data)

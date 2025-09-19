@@ -5,7 +5,7 @@ import {
   createAsyncState,
   loggingMiddleware,
   useContextStore,
-} from '@/lib/state/core';
+} from '@/lib/state';
 import {
   AppState,
   CacheState,

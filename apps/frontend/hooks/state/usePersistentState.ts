@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { storage } from '@/lib/state/core';
+import { storage } from '@/lib/state';
 
 interface PersistentStateOptions<T> {
   key: string;

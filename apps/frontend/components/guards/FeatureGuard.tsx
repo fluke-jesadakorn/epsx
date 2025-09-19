@@ -9,27 +9,12 @@
 import { ReactNode } from 'react';
 import { useAuth } from '@/lib/auth';
 import { 
-  UserClaims, 
-  hasPermission, 
-  hasAnyPermission,
-  checkFeatureAccess,
-  isAdmin,
-  canViewAnalytics,
-  canExportData,
-  canAccessRealtime,
-  canManageProfile,
-  canReceiveNotifications,
-  canManageBilling,
-  canUseAdvancedFilters,
-  // Timestamp-aware functions
-  hasPermissionWithTime,
-  hasAnyPermissionWithTime,
-  checkFeatureAccessWithTime,
-  isAdminWithTime,
-  filterValidPermissions,
-  type TimestampedPermission
-} from '@/types/permissions';
+  filterValidPermissions
+} from '@/shared/permissions/utils';
+import { type TimestampedPermission } from '@/shared/permissions/types';
 import { usePermissionExpiry } from '@/hooks/usePermissionExpiry';
+
+// Simplified permission checking using direct permission arrays
 
 // ============================================================================
 // PERMISSION GUARD PROPS
@@ -82,13 +67,13 @@ export function PermissionGuard({
     return <>{fallback}</>;
   }
 
-  const userClaims = user as UserClaims;
+  // User permissions available directly from user object
 
   // Helper function to check permission with optional expiry validation
   const checkPermissionWithExpiry = (perm: string): boolean => {
     if (validateExpiry) {
       // Check if permission is expired
-      if (onExpiredPermission && expiry.expiryInfo.expired.some(ep => ep.permission === perm)) {
+      if (onExpiredPermission && expiry.expiryInfo.expired.some((ep: TimestampedPermission) => ep.permission === perm)) {
         onExpiredPermission(perm);
         return false;
       }
@@ -104,9 +89,12 @@ export function PermissionGuard({
         }
       }
 
-      return hasPermissionWithTime(userClaims, perm);
+      // Use permissions array directly for timestamp checking
+      const validPermissions = filterValidPermissions(user.permissions);
+      return validPermissions.includes(perm);
     } else {
-      return hasPermission(userClaims, perm);
+      // Simple permission check
+      return user.permissions.includes(perm);
     }
   };
 
@@ -119,7 +107,7 @@ export function PermissionGuard({
   if (permissions) {
     const hasAnyValid = validateExpiry 
       ? permissions.some(perm => checkPermissionWithExpiry(perm))
-      : hasAnyPermission(userClaims, permissions);
+      : permissions.some(perm => user.permissions.includes(perm));
     
     if (!hasAnyValid) {
       return <>{expiryFallback || fallback}</>;
@@ -130,7 +118,7 @@ export function PermissionGuard({
   if (allPermissions) {
     const hasAllValid = validateExpiry 
       ? allPermissions.every(perm => checkPermissionWithExpiry(perm))
-      : allPermissions.every(perm => hasPermission(userClaims, perm));
+      : allPermissions.every(perm => user.permissions.includes(perm));
     
     if (!hasAllValid) {
       return <>{expiryFallback || fallback}</>;
@@ -139,9 +127,10 @@ export function PermissionGuard({
 
   // Check legacy feature access (mapped to permissions)
   if (feature) {
-    const hasFeatureAccess = validateExpiry 
-      ? checkFeatureAccessWithTime(userClaims, feature)
-      : checkFeatureAccess(userClaims, feature);
+    const permissions = validateExpiry ? filterValidPermissions(user.permissions) : user.permissions;
+    const hasFeatureAccess = feature === 'admin' 
+      ? permissions.some(p => p.startsWith('admin:'))
+      : permissions.some(p => p.includes(feature));
     
     if (!hasFeatureAccess) {
       return <>{expiryFallback || fallback}</>;
@@ -298,22 +287,25 @@ export const TokenPlatformOnly = ({ children, fallback }: { children: ReactNode,
 
 export function usePermissionGuard(permission: string): boolean {
   const { user } = useAuth();
-  return user ? hasPermission(user as UserClaims, permission) : false;
+  return user ? user.permissions.includes(permission) : false;
 }
 
 export function useMultiPermissionGuard(permissions: string[]): boolean {
   const { user } = useAuth();
-  return user ? hasAnyPermission(user as UserClaims, permissions) : false;
+  return user ? permissions.some(perm => user.permissions.includes(perm)) : false;
 }
 
 export function useAdminGuard(): boolean {
   const { user } = useAuth();
-  return user ? isAdmin(user as UserClaims) : false;
+  return user ? user.permissions.some(p => p.startsWith('admin:')) : false;
 }
 
 export function useFeatureGuard(feature: string): boolean {
   const { user } = useAuth();
-  return user ? checkFeatureAccess(user as UserClaims, feature) : false;
+  if (!user) return false;
+  return feature === 'admin' 
+    ? user.permissions.some(p => p.startsWith('admin:'))
+    : user.permissions.some(p => p.includes(feature));
 }
 
 // ============================================================================
@@ -322,22 +314,32 @@ export function useFeatureGuard(feature: string): boolean {
 
 export function usePermissionGuardWithTime(permission: string): boolean {
   const { user } = useAuth();
-  return user ? hasPermissionWithTime(user as UserClaims, permission) : false;
+  if (!user) return false;
+  const validPermissions = filterValidPermissions(user.permissions);
+  return validPermissions.includes(permission);
 }
 
 export function useMultiPermissionGuardWithTime(permissions: string[]): boolean {
   const { user } = useAuth();
-  return user ? hasAnyPermissionWithTime(user as UserClaims, permissions) : false;
+  if (!user) return false;
+  const validPermissions = filterValidPermissions(user.permissions);
+  return permissions.some(perm => validPermissions.includes(perm));
 }
 
 export function useAdminGuardWithTime(): boolean {
   const { user } = useAuth();
-  return user ? isAdminWithTime(user as UserClaims) : false;
+  if (!user) return false;
+  const validPermissions = filterValidPermissions(user.permissions);
+  return validPermissions.some(p => p.startsWith('admin:'));
 }
 
 export function useFeatureGuardWithTime(feature: string): boolean {
   const { user } = useAuth();
-  return user ? checkFeatureAccessWithTime(user as UserClaims, feature) : false;
+  if (!user) return false;
+  const validPermissions = filterValidPermissions(user.permissions);
+  return feature === 'admin' 
+    ? validPermissions.some(p => p.startsWith('admin:'))
+    : validPermissions.some(p => p.includes(feature));
 }
 
 export function usePermissionGuardWithDuration(permission: string, durationMinutes: number = 60): boolean {
@@ -346,7 +348,8 @@ export function usePermissionGuardWithDuration(permission: string, durationMinut
   
   if (!user) return false;
   
-  if (!hasPermissionWithTime(user as UserClaims, permission)) return false;
+  const validPermissions = filterValidPermissions(user.permissions);
+  if (!validPermissions.includes(permission)) return false;
   
   // Check if permission has enough time remaining
   const permWithExpiry = expiry.allPermissionsWithExpiry.find(tp => tp.basePermission === permission);

@@ -7,7 +7,7 @@ use crate::web::auth::AppState;
 
 type DbPool = PgPool;
 
-/// Clean AppContainer with SQLx dependencies
+/// Modern AppContainer with unified database abstraction
 #[derive(Clone)]
 pub struct AppContainer {
     ddd_container: DDDContainer,
@@ -28,9 +28,9 @@ pub struct InfraFactory {
 }
 
 impl AppContainer {
-    /// Create new AppContainer with SQLx database pool
+    /// Create new AppContainer with database connection pool
     pub async fn new() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
-        // Initialize SQLx database connection pool
+        // Initialize database connection pool
         let database_url = std::env::var("DATABASE_URL")
             .map_err(|_| "DATABASE_URL environment variable is required")?;
         let db_pool = sqlx::PgPool::connect(&database_url).await
@@ -38,7 +38,7 @@ impl AppContainer {
         
         let db_pool = Arc::new(db_pool);
         
-        // Create DDD container with SQLx
+        // Create DDD container
         let ddd_container = DDDContainer::new(db_pool.clone());
         
         // Initialize Firebase Admin
@@ -82,7 +82,7 @@ impl AppContainer {
     pub async fn create_app_state(&self) -> Result<AppState, Box<dyn std::error::Error + Send + Sync>> {
         let ddd_container = Arc::new(self.ddd_container.clone());
         
-        // Get user repository from SQLx-based container
+        // Get user repository from DDD container
         let user_repo = self.ddd_container.user_repository();
 
         Ok(AppState {
@@ -149,7 +149,7 @@ impl UserNotificationRepository {
     }
     
     pub async fn get_notifications(&self, _user_id: &str) -> Result<Vec<Notification>, String> {
-        // TODO: Implement with SQLx
+        // TODO: Implement notification retrieval
         Ok(vec![])
     }
 }

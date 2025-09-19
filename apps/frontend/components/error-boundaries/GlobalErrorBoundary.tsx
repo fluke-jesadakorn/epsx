@@ -4,7 +4,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { AlertTriangle, RefreshCw, Home, Bug } from 'lucide-react';
-import { safeError, uiLogger } from '@/lib/logger';
+import { safeError, uiLogger } from '@/lib/utils/logging';
 
 interface Props {
   children: ReactNode;
@@ -80,9 +80,8 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   }
 
   private reportErrorToService(error: Error, errorInfo: ErrorInfo, context: any) {
-    // Placeholder for external error reporting service
-    // Example: Sentry.captureException(error, { contexts: { errorBoundary: context } });
-    uiLogger.info('Error reported to external service', { error: error.message, context });
+    // External error reporting disabled for security
+    // Errors are handled locally only
   }
 
   private handleRetry = () => {

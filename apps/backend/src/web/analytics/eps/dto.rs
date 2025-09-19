@@ -59,6 +59,15 @@ pub struct SectorsResponse {
     pub country: Option<String>,
 }
 
+/// Combined filters response for frontend
+#[derive(Debug, Serialize)]
+pub struct FiltersResponse {
+    pub countries: Vec<CountryData>,
+    pub sectors: Vec<String>,
+    pub exchanges: Vec<String>,
+    pub stock_types: Vec<String>,
+}
+
 /// Health check response for EPS service
 #[derive(Debug, Serialize)]
 pub struct EPSHealthResponse {

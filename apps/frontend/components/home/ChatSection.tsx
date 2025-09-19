@@ -4,7 +4,7 @@ import { MessageCircle, Send, Minimize2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { streamChat } from "@/app/actions/chat";
-import { Button, ProfessionalCard, Input } from "@/components/ui";
+import { Button, UnifiedCard, Input } from "@/components/ui";
 
 
 import { ErrorBoundary } from "../common/ErrorBoundary";
@@ -107,7 +107,7 @@ export default function ChatSection() {
             </Button>
           </div>
         )}
-        <ProfessionalCard
+        <UnifiedCard
           variant="analytics"
           className={`${
             isOpen
@@ -184,7 +184,6 @@ export default function ChatSection() {
                 placeholder="Ask about EPS trends, data insights, or specific companies..."
                 disabled={isLoading}
                 className="flex-1"
-                error={undefined}
               />
               <Button
                 type="submit"
@@ -196,7 +195,7 @@ export default function ChatSection() {
             </form>
             </div>
           </div>
-        </ProfessionalCard>
+        </UnifiedCard>
       </div>
     </ErrorBoundary>
   );

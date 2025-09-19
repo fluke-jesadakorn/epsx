@@ -1,10 +1,10 @@
 import { ServiceWorkerInitializer } from '@/components/ServiceWorkerInitializer';
 import { NavigationClient } from '@/components/nav/NavigationClient';
 import { ClientProviders } from '@/components/providers/ClientProviders';
-import { type EPSXJWTPayload } from '@/lib/auth-utils';
+import { type EPSXJWTPayload } from '../../../shared/auth/jwt';
 import { getAuthUser } from '@/lib/server/auth';
-import { getNotifications, type NotificationData } from '@/lib/actions/notification-actions';
-import { initializeRuntimeEnvironment } from '@/shared/utils/runtime-env-validator';
+import { getUserNotifications, type NotificationData } from '@/lib/actions/notifications';
+import { initializeRuntimeEnvironment } from '../../../shared/utils/runtime-env-validator';
 import { Kanit } from 'next/font/google';
 import { Toaster } from 'sonner';
 import './globals.css';
@@ -83,7 +83,7 @@ export default async function RootLayout({
     
     // Fetch notifications if user is authenticated
     if (jwtPayload) {
-      notificationData = await getNotifications();
+      notificationData = await getUserNotifications();
     }
   } catch (error) {
     // Gracefully handle auth failures for static generation

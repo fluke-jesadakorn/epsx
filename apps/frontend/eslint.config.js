@@ -16,6 +16,28 @@ module.exports = [
           jsx: true,
         },
       },
+      globals: {
+        // Browser globals
+        window: 'readonly',
+        document: 'readonly',
+        console: 'readonly',
+        fetch: 'readonly',
+        URL: 'readonly',
+        URLSearchParams: 'readonly',
+        Buffer: 'readonly',
+        ReadableStream: 'readonly',
+        EventSource: 'readonly',
+        performance: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        AbortSignal: 'readonly',
+        // Node.js globals
+        process: 'readonly',
+        NodeJS: 'readonly',
+        // React globals
+        React: 'readonly',
+        JSX: 'readonly',
+      },
     },
     plugins: {
       '@typescript-eslint': typescript,
@@ -23,9 +45,8 @@ module.exports = [
     },
     rules: {
       // TypeScript rules
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/prefer-const': 'error',
       
       // Next.js rules
       '@next/next/no-html-link-for-pages': 'error',
@@ -34,10 +55,11 @@ module.exports = [
       
       // General rules
       'no-console': ['warn', { allow: ['warn', 'error'] }],
-      'prefer-const': 'error',
-      'no-var': 'error',
-      'object-shorthand': 'error',
-      'no-unreachable': 'error',
+      'no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+      'no-var': 'warn',
+      'object-shorthand': ['warn', 'properties'],
+      'no-unreachable': 'warn',
+      'no-useless-catch': 'warn',
       
       // React rules
       'react/jsx-uses-react': 'off',

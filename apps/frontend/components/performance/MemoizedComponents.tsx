@@ -4,13 +4,11 @@ import React, { memo, useMemo, useCallback, forwardRef } from 'react';
 import { Button, ButtonProps } from '@/components/ui/button';
 import { Card, CardProps } from '@/components/ui/card';
 import { Badge, BadgeProps } from '@/components/ui/badge';
-import { uiLogger } from '@/lib/logger';
+import { uiLogger } from '@/lib/utils/logging';
 
-// Performance logging utility
+// Performance logging disabled for better user experience
 const logRender = (componentName: string, props?: any) => {
-  if (process.env.NODE_ENV === 'development') {
-    uiLogger.debug(`Rendering ${componentName}`, { props });
-  }
+  // No-op for performance
 };
 
 // Memoized Button with performance optimizations
@@ -215,61 +213,29 @@ export const MemoizedStockCard = memo<MemoizedStockCardProps>(
 
 MemoizedStockCard.displayName = 'MemoizedStockCard';
 
-// Performance monitoring hook
+// Performance monitoring disabled for better user experience
 export function useRenderCount(componentName: string) {
-  const renderCount = React.useRef(0);
-  
-  React.useEffect(() => {
-    renderCount.current += 1;
-    if (process.env.NODE_ENV === 'development') {
-      uiLogger.debug(`${componentName} render count: ${renderCount.current}`);
-    }
-  });
-
-  return renderCount.current;
+  // Return 0 as no-op for performance
+  return 0;
 }
 
-// Hook to detect expensive re-renders
+// Expensive operation monitoring disabled for better user experience
 export function useExpensiveOperation<T>(
   computeFn: () => T,
   dependencies: React.DependencyList,
   threshold = 10 // ms
 ) {
-  return useMemo(() => {
-    const start = performance.now();
-    const result = computeFn();
-    const duration = performance.now() - start;
-    
-    if (duration > threshold && process.env.NODE_ENV === 'development') {
-      uiLogger.warn(`Expensive operation detected: ${duration.toFixed(2)}ms`, {
-        dependencies,
-        threshold
-      });
-    }
-    
-    return result;
-  }, dependencies);
+  // Just return the memoized result without performance monitoring
+  return useMemo(computeFn, dependencies);
 }
 
-// Component wrapper for performance monitoring
+// Performance monitoring disabled for better user experience
 export function withPerformanceMonitoring<T extends Record<string, any>>(
   Component: React.ComponentType<T>,
   componentName?: string
 ) {
+  // Just return the memoized component without performance monitoring
   return memo(forwardRef<any, T>((props, ref) => {
-    const name = componentName || Component.displayName || Component.name || 'Anonymous';
-    const renderCount = useRenderCount(name);
-    
-    const start = useMemo(() => performance.now(), []);
-    
-    React.useEffect(() => {
-      const duration = performance.now() - start;
-      if (duration > 16 && process.env.NODE_ENV === 'development') {
-        // More than one frame (16ms) to render
-        uiLogger.warn(`Slow render detected in ${name}: ${duration.toFixed(2)}ms`);
-      }
-    });
-    
     return <Component {...props} ref={ref} />;
   }));
 }

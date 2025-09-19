@@ -8,7 +8,7 @@ import { z } from 'zod';
 export const isServer = typeof window === 'undefined';
 export const isDev = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') || false;
 export const isProd = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production') || false;
-export const isStaging = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'staging') || false;
+export const isStaging = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production' && process.env?.DEPLOYMENT_ENV === 'staging') || false;
 export const isBuild = (typeof process !== 'undefined' && (process.env?.NEXT_PHASE === 'phase-production-build' || process.env?.CI === 'true')) || false;
 
 // URL defaults based on environment

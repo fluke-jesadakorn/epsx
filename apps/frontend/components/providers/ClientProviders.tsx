@@ -5,13 +5,13 @@ import { PerformanceProvider } from '@/components/common/PerformanceProvider';
 import { ToastProvider } from '@/components/ui/toaster';
 import { AppStateProvider } from '@/context/app-state';
 import { UIProvider } from '@/context/ui-context';
-import { GlobalThemeProvider } from '@/components/providers/ThemeProvider';
+import { ThemeProvider } from 'next-themes';
 import { OptimizedSuspenseBoundary } from '@/components/common/OptimizedSuspenseBoundary';
 import { RemoteConfigProvider } from '@/providers/RemoteConfigProvider';
 
 export function ClientProviders({ children }: { children: React.ReactNode }) {
   return (
-    <GlobalThemeProvider defaultTheme="system" enableSystem>
+    <ThemeProvider defaultTheme="system" enableSystem>
       <RemoteConfigProvider 
         autoRefreshInterval={300000} // 5 minutes
         fetchOnMount={true}
@@ -30,6 +30,6 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
           </AppStateProvider>
         </PerformanceProvider>
       </RemoteConfigProvider>
-    </GlobalThemeProvider>
+    </ThemeProvider>
   );
 }

@@ -1,8 +1,14 @@
 /**
- * Admin Permission Utilities
+ * Admin Permission Utilities - Updated to use shared permission system
  * Client-side utilities for validating admin permissions using structured permission system
  * Separated from server actions to avoid Next.js build errors
  */
+
+import { 
+  hasPermissionWithWildcard,
+  isAdminPermission,
+  hasGlobalAdminAccess
+} from '@/shared/permissions/utils'
 
 /**
  * Check if user has admin permissions using structured permission system
@@ -12,10 +18,9 @@ export function validateAdminPermissions(permissions: string[]): boolean {
     return false
   }
   
-  // Check for admin permissions using structured format
+  // Check for admin permissions using shared utilities
   const hasAdminAccess = permissions.some(permission => 
-    permission === 'admin:*:*' ||           // Full admin access
-    permission.startsWith('admin:')         // Any admin-scoped permission
+    isAdminPermission(permission) || hasGlobalAdminAccess({ permissions: {} }, permission)
   )
   
   console.log('🔍 Admin permission check:', {
@@ -36,14 +41,9 @@ export function hasAdminPermission(permissions: string[], resource: string, acti
   }
   
   const specificPermission = `admin:${resource}:${action}`
-  const wildcardResource = `admin:${resource}:*`
-  const fullAdmin = 'admin:*:*'
   
-  return permissions.some(permission => 
-    permission === specificPermission ||
-    permission === wildcardResource ||
-    permission === fullAdmin
-  )
+  // Use shared wildcard permission checking
+  return hasPermissionWithWildcard(permissions, specificPermission)
 }
 
 /**
@@ -60,7 +60,7 @@ export function getAdminPermissionLevel(permissions: string[]): 'none' | 'partia
     return 'full'
   }
   
-  if (permissionsArray.some(p => p.startsWith('admin:'))) {
+  if (permissionsArray.some(p => isAdminPermission(p))) {
     return 'partial'
   }
   

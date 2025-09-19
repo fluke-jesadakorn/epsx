@@ -13,7 +13,7 @@ use crate::{
             rate_limiting_service::{PlanRepositoryPort, PlanLimits, AccessContext},
         },
     },
-    infrastructure::adapters::repositories::diesel::DbPool,
+    infrastructure::adapters::repositories::DbPool,
 };
 
 /// Repository adapter that implements plan-based rate limiting using mock data

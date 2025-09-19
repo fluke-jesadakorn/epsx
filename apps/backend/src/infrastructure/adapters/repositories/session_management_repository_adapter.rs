@@ -13,6 +13,7 @@ use crate::infrastructure::cache::Cache;
 use crate::application::ports::repositories::SessionRepository;
 
 /// Repository adapter for session management
+#[derive(Clone)]
 pub struct SessionManagementRepositoryAdapter {
     /// Legacy session repository
     legacy_session_repo: Arc<dyn SessionRepository<Error = Box<dyn std::error::Error + Send + Sync>>>,
@@ -24,8 +25,6 @@ pub struct SessionManagementRepositoryAdapter {
     cache: Arc<dyn Cache>,
 }
 
-unsafe impl Send for SessionManagementRepositoryAdapter {}
-unsafe impl Sync for SessionManagementRepositoryAdapter {}
 
 impl SessionManagementRepositoryAdapter {
     pub fn new(
@@ -447,6 +446,7 @@ impl SessionManagementRepositoryAdapter {
 
 /// Session manager persistent state
 #[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct SessionManagerState {
     pub user_id: String,
     pub version: u64,
@@ -460,6 +460,7 @@ pub struct SessionManagerState {
 
 /// Session statistics for monitoring
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Clone)]
 pub struct SessionStatistics {
     pub user_id: String,
     pub total_sessions: u32,

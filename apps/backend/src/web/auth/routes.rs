@@ -89,7 +89,7 @@ pub fn create_auth_routes(app_state: AppState) -> Router {
         .route("/api/v1/auth/tokens/refresh", post(refresh_handler))
         .layer(middleware::from_fn_with_state(
             app_state.clone(),
-            crate::web::middleware::modern_jwt_auth_middleware
+            crate::web::middleware::clean_auth_middleware
         ));
 
     // Permission validation routes (require valid Bearer token)
@@ -102,7 +102,7 @@ pub fn create_auth_routes(app_state: AppState) -> Router {
         .route("/api/v1/permissions/features", get(user_features_handler))
         .layer(middleware::from_fn_with_state(
             app_state.clone(),
-            crate::web::middleware::modern_jwt_auth_middleware
+            crate::web::middleware::clean_auth_middleware
         ));
 
     // Legacy routes removed - use RESTful /api/v1/ endpoints only

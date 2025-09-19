@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod';
-import { logger, devLog, safeError } from '@/lib/logger';
+import { logger, devLog, safeError } from '@/lib/utils/logging';
 import { getBackendUrl } from '../../../../shared/utils/url-resolver';
 
 // Configuration schemas for validation

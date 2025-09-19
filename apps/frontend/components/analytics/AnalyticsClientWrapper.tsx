@@ -7,7 +7,7 @@ import {
   UnifiedRankingItem,
   EPSQueryParams
 } from '@/lib/api-client';
-import type { AnalyticsFilters } from '@/types/analytics';
+import type { AnalyticsFilters, EPSRanking } from '@/types/analytics';
 import { useEffect, useState } from 'react';
 import FilterPanel from './FilterPanel';
 import Pagination from './Pagination';
@@ -82,9 +82,41 @@ export default function AnalyticsClientWrapper({
     setIsLoading,
   } = useAnalyticsFilters();
 
+  // Helper function to convert UnifiedRankingItem to EPSRanking format
+  const convertToEPSRanking = (unified: UnifiedRankingItem): EPSRanking => {
+    return {
+      symbol: unified.symbol,
+      name: unified.company_name,
+      country: unified.market_data?.country || 'Unknown',
+      sector: unified.market_data?.sector || 'Unknown',
+      exchange: unified.market_data?.exchange || 'Unknown',
+      current_eps: unified.quarterly_data?.[0]?.eps || null,
+      growth_factor: unified.analytics?.growth_factor || null,
+      price_current: unified.current_price,
+      market_cap: unified.market_data?.market_cap || null,
+      volume: unified.market_data?.volume_24h || null,
+      pe_ratio: null, // Not available in MarketData
+      dividend_yield: null, // Not available in MarketData
+      price_change: null, // Not available in MarketData
+      price_change_pct: null, // Not available in MarketData
+      relative_volume: null, // Not available in MarketData
+      ranking_position: unified.ranking_position,
+      active_status: "Active", // Default value
+      quarterly_data: unified.quarterly_data?.map(q => ({
+        quarter: q.quarter,
+        date: q.date,
+        eps: q.eps,
+        eps_growth: q.eps_growth || 0,
+        price: q.price,
+        price_growth: q.price_growth || 0,
+        volume: q.volume
+      })) || []
+    };
+  };
+
   // Helper function to calculate Growth leaders using rich UnifiedRankingItem data
   const calculateGrowthLeaders = (data: UnifiedAnalyticsRankingsResponse | null) => {
-    if (!data?.data || data.data.length === 0) return { epsLeaders: [], priceLeaders: [] };
+    if (!data?.data || data.data.length === 0) return { growthLeaders: [], priceLeaders: [] };
 
     // Filter companies with quarterly data
     const companiesWithGrowth = data.data.filter(ranking => 
@@ -126,6 +158,7 @@ export default function AnalyticsClientWrapper({
   const [data, setData] = useState<UnifiedAnalyticsRankingsResponse | null>(initialData);
   const [error, setError] = useState<string | null>(null);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [activeTab, setActiveTab] = useState('list');
 
   // Export functionality state
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -326,10 +359,14 @@ export default function AnalyticsClientWrapper({
               <div className="rounded-2xl border border-orange-200/50 bg-white/80 p-6 backdrop-blur-md dark:border-orange-400/20 dark:bg-slate-800/80">
                 <FilterPanel
                   filters={filters}
-                  options={filterOptions}
+                  options={{
+                    countries: filterOptions.countries.map(c => c.value),
+                    sectors: filterOptions.sectors,
+                    exchanges: filterOptions.exchanges,
+                    stock_types: filterOptions.stock_types
+                  }}
                   onFiltersChange={updateFilters}
                   isLoading={isLoading}
-                  isMobile={true}
                 />
               </div>
             </div>
@@ -535,7 +572,7 @@ export default function AnalyticsClientWrapper({
           )}
 
           {/* Enhanced Layout with Tabbed Views */}
-          <Tabs defaultValue="list" className="space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <div className="flex justify-center">
               <TabsList className="grid w-full max-w-md grid-cols-2 rounded-2xl bg-white/80 backdrop-blur-xl border border-orange-200/50 dark:bg-slate-800/80 dark:border-orange-400/20">
                 <TabsTrigger 
@@ -563,10 +600,14 @@ export default function AnalyticsClientWrapper({
                     <div className="rounded-2xl border border-orange-200/50 bg-white/80 p-6 backdrop-blur-xl dark:border-orange-400/20 dark:bg-slate-800/80">
                       <FilterPanel
                         filters={filters}
-                        options={filterOptions}
+                        options={{
+                          countries: filterOptions.countries.map(c => c.value),
+                          sectors: filterOptions.sectors,
+                          exchanges: filterOptions.exchanges,
+                          stock_types: filterOptions.stock_types
+                        }}
                         onFiltersChange={updateFilters}
                         isLoading={isLoading}
-                        isMobile={false}
                       />
                     </div>
                   </div>
@@ -851,7 +892,7 @@ export default function AnalyticsClientWrapper({
                       {data.data.map((ranking, index) => (
                         <div key={ranking.symbol} className="w-72 flex-shrink-0">
                           <StockCard
-                            ranking={ranking}
+                            ranking={convertToEPSRanking(ranking)}
                             rank={ranking.ranking_position || index + 1}
                           />
                         </div>
@@ -871,7 +912,7 @@ export default function AnalyticsClientWrapper({
                   {data.data.map(ranking => (
                     <StockCard
                       key={ranking.symbol}
-                      ranking={ranking}
+                      ranking={convertToEPSRanking(ranking)}
                       rank={ranking.ranking_position || 0}
                     />
                   ))}
