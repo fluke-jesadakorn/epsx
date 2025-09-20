@@ -1,6 +1,6 @@
 'use client';
 
-import { LogoutForm } from '@/components/auth/LogoutForm';
+import { WalletConnectAuth } from '@/components/auth/WalletConnectAuth';
 import {
   Bell,
   ChartNoAxesColumnIncreasing,
@@ -17,6 +17,7 @@ import {
   Settings,
   Sun,
   User,
+  Wallet,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -67,6 +68,7 @@ const iconMap = {
   login: <LogIn className="h-4 w-4" />,
   logout: <LogOut className="h-4 w-4" />,
   menu: <Menu className="h-4 w-4" />,
+  profile: <User className="h-4 w-4" />,
 };
 
 export function NavigationClient({
@@ -94,11 +96,6 @@ function NavigationContent({
   // Use stable nav items to prevent hydration issues
   const navItems = navigationService.getNavItems(!!user);
 
-  // Debug logging
-  console.log('🔍 NavigationClient Debug:', {
-    user: user ? 'LOGGED_IN' : 'NOT_LOGGED_IN',
-    email: user?.email,
-  });
 
   // Don't render navigation content until hydrated to prevent mismatch
   if (!isHydrated) {
@@ -108,8 +105,15 @@ function NavigationContent({
         suppressHydrationWarning
       >
         <div className="max-w-8xl mx-auto flex h-20 items-center px-6">
+          {/* EPSX Logo - Skeleton */}
+          <Link href="/" className="flex items-center mr-8 hover:opacity-80">
+            <span className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
+              EPSX
+            </span>
+          </Link>
+
           {/* Navigation Skeleton - matches hydrated version exactly */}
-          <nav className="hidden items-center gap-2 lg:flex">
+          <nav className="hidden items-center gap-2 lg:flex mr-8">
             {navItems.map(item => {
               const IconComponent = iconMap[item.key as keyof typeof iconMap];
               return (
@@ -148,17 +152,15 @@ function NavigationContent({
       suppressHydrationWarning
     >
       <div className="max-w-8xl mx-auto flex h-20 items-center px-6">
-        {/* Logo Section */}
-        <div className="mr-8 flex items-center">
-          <Link href="/" className="group flex items-center gap-3">
-            <span className="bg-gradient-to-r from-orange-500 via-yellow-500 to-pink-500 bg-clip-text text-2xl font-bold text-transparent">
-              EPSX
-            </span>
-          </Link>
-        </div>
+        {/* EPSX Logo */}
+        <Link href="/" className="flex items-center mr-8 hover:opacity-80">
+          <span className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
+            EPSX
+          </span>
+        </Link>
 
         {/* Main Navigation */}
-        <nav className="hidden items-center gap-2 lg:flex">
+        <nav className="hidden items-center gap-2 lg:flex mr-8">
           {navItems.map(item => {
             const IconComponent = iconMap[item.key as keyof typeof iconMap];
             return (
@@ -193,96 +195,27 @@ function NavigationContent({
         <div className="hidden items-center gap-3 lg:flex">
           {/* Notifications */}
           {user && (
-            <div className="relative flex cursor-pointer items-center gap-2">
-              <NotificationBellSimple
-                className="!h-5 !w-5 !text-orange-500"
-                initialData={initialNotificationData}
-              />
-              <span className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                Notification
-              </span>
-              {initialNotificationData &&
-                initialNotificationData.unreadCount > 0 && (
-                  <div className="absolute -top-1 left-3 flex h-5 w-5 items-center justify-center rounded-full bg-red-500/90">
-                    <span className="text-xs font-bold text-white">
-                      {initialNotificationData.unreadCount > 99
-                        ? '99+'
-                        : initialNotificationData.unreadCount}
-                    </span>
-                  </div>
-                )}
-            </div>
+            <NotificationBellSimple
+              className="!h-5 !w-5 !text-orange-500"
+              initialData={initialNotificationData}
+            />
           )}
 
-          {/* Theme Toggle and Auth Actions Group */}
-          <div className="flex items-center gap-2">
-            {/* Theme Toggle */}
-            <UnifiedThemeToggle variant="minimal" />
+          {/* Theme Toggle */}
+          <UnifiedThemeToggle variant="minimal" />
 
-            {/* Auth Actions - Only show Connect button when not logged in */}
-            {!user && (
-              <Link
-                href="/login"
-                className="flex items-center gap-2 rounded-2xl border border-slate-200/50 bg-slate-50/80 px-4 py-2.5 text-sm font-medium text-slate-600 hover:border-slate-300/60 hover:bg-slate-100/80 dark:border-slate-700/40 dark:bg-slate-800/40 dark:text-slate-300 dark:hover:bg-slate-700/60"
-              >
-                <LogIn className="h-4 w-4 text-orange-500" />
-                Connect
-              </Link>
-            )}
-          </div>
+          {/* Web3-First Authentication */}
+          <WalletConnectAuth variant="compact" className="flex items-center gap-2" />
 
-          {/* User Dropdown */}
+          {/* Profile Link - Show for both Web3 and traditional auth */}
           {user?.email && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 rounded-2xl px-3 py-2 text-slate-600 hover:bg-slate-50/80 hover:text-orange-600 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-orange-400">
-                  <User className="h-5 w-5 text-orange-500" />
-                  <span className="text-sm font-medium">User</span>
-                  <ChevronDown className="h-4 w-4 opacity-60" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="w-48 border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-800"
-              >
-                <DropdownMenuItem asChild>
-                  <Link
-                    href="/my-data"
-                    className="flex w-full cursor-pointer items-center gap-3"
-                  >
-                    <Database className="h-4 w-4 text-orange-500" />
-                    <span>My Data</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link
-                    href="/settings"
-                    className="flex w-full cursor-pointer items-center gap-3"
-                  >
-                    <Settings className="h-4 w-4 text-orange-500" />
-                    <span>User Info</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link
-                    href="/developer"
-                    className="flex w-full cursor-pointer items-center gap-3"
-                  >
-                    <Code className="h-4 w-4 text-orange-500" />
-                    <span>Developer API</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="hover:bg-blue-100 dark:hover:bg-blue-900/30" asChild>
-                  <LogoutForm
-                    variant="ghost"
-                    className="flex w-full cursor-pointer items-center justify-start gap-3 !border-none focus-visible:ring-0 focus-visible:ring-offset-0 hover:!bg-transparent"
-                  />
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Link
+              href="/profile"
+              className="flex items-center gap-2 rounded-2xl px-3 py-2 text-slate-600 hover:bg-slate-50/80 hover:text-orange-600 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-orange-400"
+            >
+              <User className="h-5 w-5 text-orange-500" />
+              <span className="text-sm font-medium">Profile</span>
+            </Link>
           )}
         </div>
 
@@ -298,8 +231,15 @@ function NavigationContent({
             className="w-80 border-l border-orange-100/50 bg-white/95 backdrop-blur-xl dark:border-slate-700/50 dark:bg-slate-900/95"
           >
             <SheetHeader className="pb-6">
-              <SheetTitle className="bg-gradient-to-r from-orange-500 to-pink-500 bg-clip-text text-xl font-bold text-transparent">
-                EPSX Navigation
+              <div className="flex items-center gap-3 mb-4">
+                <Link href="/" onClick={() => setIsOpen(false)} className="flex items-center">
+                  <span className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
+                    EPSX
+                  </span>
+                </Link>
+              </div>
+              <SheetTitle className="text-xl font-bold text-slate-700 dark:text-slate-300">
+                Navigation
               </SheetTitle>
             </SheetHeader>
             <div className="my-2 border-t border-orange-100 dark:border-slate-700" />
@@ -333,83 +273,47 @@ function NavigationContent({
 
               <div className="my-4 border-t border-orange-100 dark:border-slate-700" />
 
-              {/* User-specific mobile menu items */}
+              {/* Profile link for mobile */}
               {user && (
                 <>
                   <Link
-                    href="/my-data"
+                    href="/profile"
                     onClick={() => setIsOpen(false)}
                     className={`flex items-center gap-4 rounded-2xl px-4 py-3 text-sm font-medium ${
-                      pathname === '/my-data'
+                      pathname === '/profile'
                         ? 'border border-orange-200/50 bg-orange-50/80 text-orange-700 dark:border-orange-700/30 dark:bg-orange-900/20 dark:text-orange-300'
                         : 'text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200'
                     }`}
                   >
-                    <Database className="h-4 w-4 text-orange-500" />
-                    My Data
-                  </Link>
-                  <Link
-                    href="/settings"
-                    onClick={() => setIsOpen(false)}
-                    className={`flex items-center gap-4 rounded-2xl px-4 py-3 text-sm font-medium ${
-                      pathname === '/settings'
-                        ? 'border border-orange-200/50 bg-orange-50/80 text-orange-700 dark:border-orange-700/30 dark:bg-orange-900/20 dark:text-orange-300'
-                        : 'text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200'
-                    }`}
-                  >
-                    <Settings className="h-4 w-4 text-orange-500" />
-                    User Info
-                  </Link>
-                  <Link
-                    href="/developer"
-                    onClick={() => setIsOpen(false)}
-                    className={`flex items-center gap-4 rounded-2xl px-4 py-3 text-sm font-medium ${
-                      pathname === '/developer'
-                        ? 'border border-orange-200/50 bg-orange-50/80 text-orange-700 dark:border-orange-700/30 dark:bg-orange-900/20 dark:text-orange-300'
-                        : 'text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200'
-                    }`}
-                  >
-                    <Code className="h-4 w-4 text-orange-500" />
-                    Developer API
+                    <User className="h-4 w-4 text-orange-500" />
+                    Profile
                   </Link>
                   <div className="my-2 border-t border-orange-100 dark:border-slate-700" />
                 </>
               )}
 
               {/* Theme Toggle */}
-              <button
-                onClick={() => {
-                  const theme = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
-                  if (theme === 'dark') {
-                    document.documentElement.classList.add('dark');
-                  } else {
-                    document.documentElement.classList.remove('dark');
-                  }
-                }}
-                className="flex items-center gap-4 rounded-2xl px-4 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200"
-              >
-                <Moon className="h-4 w-4 text-orange-500 dark:hidden" />
-                <Sun className="hidden h-4 w-4 text-orange-500 dark:block" />
-                <span className="dark:hidden">Dark</span>
-                <span className="hidden dark:block">Light</span>
-              </button>
+              <div className="w-full">
+                <UnifiedThemeToggle 
+                  variant="minimal" 
+                  showLabel={true} 
+                  showTooltip={false}
+                  className="w-full justify-start gap-4 rounded-2xl px-4 py-3 h-auto text-sm font-medium text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200"
+                />
+              </div>
               <div className="my-2 border-t border-orange-100 dark:border-slate-700" />
 
-              {user ? (
-                <LogoutForm
-                  variant="ghost"
-                  className="w-full justify-start rounded-2xl border border-slate-200/50 bg-slate-50/80 px-4 py-3 font-medium text-slate-600 hover:border-slate-300/60 hover:bg-slate-100/80 dark:border-slate-700/40 dark:bg-slate-800/40 dark:text-slate-300 dark:hover:bg-slate-700/60"
-                />
-              ) : (
-                <Link
-                  href="/login"
-                  onClick={() => setIsOpen(false)}
-                  className="flex items-center gap-4 rounded-2xl border border-slate-200/50 bg-slate-50/80 px-4 py-3 text-sm font-medium text-slate-600 hover:border-slate-300/60 hover:bg-slate-100/80 dark:border-slate-700/40 dark:bg-slate-800/40 dark:text-slate-300 dark:hover:bg-slate-700/60"
-                >
-                  <LogIn className="h-4 w-4 text-orange-500" />
-                  Connect
-                </Link>
-              )}
+              {/* Web3-First Authentication in Mobile */}
+              <div className="rounded-2xl border border-orange-200/50 bg-gradient-to-r from-orange-50/80 to-purple-50/80 p-4 dark:border-orange-700/40 dark:from-orange-900/20 dark:to-purple-900/20">
+                <div className="flex items-center gap-2 mb-3">
+                  <Wallet className="h-4 w-4 text-orange-500" />
+                  <span className="text-sm font-medium text-orange-900 dark:text-orange-100">
+                    Web3 Authentication
+                  </span>
+                </div>
+                <WalletConnectAuth variant="default" className="w-full" />
+              </div>
+
             </div>
           </SheetContent>
         </Sheet>

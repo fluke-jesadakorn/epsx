@@ -7,10 +7,48 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use crate::config::env::get_env_var;
+use crate::infrastructure::adapters::services::firebase_admin_stub::FirebaseUser;
 
-use crate::web::auth::AppState;
-use crate::infrastructure::firebase_admin::FirebaseUser;
-use super::{jwt, flow};
+use crate::web::auth::routes::AppState;
+// Firebase removed - migrated to Web3
+use super::jwt;
+
+// Placeholder for removed flow module
+pub mod flow {
+    use super::*;
+    
+    #[derive(Debug, Clone)]
+    pub struct CodeData {
+        pub firebase_user: FirebaseUser,
+        pub client_id: String,
+        pub redirect_uri: String,
+        pub code_challenge: Option<String>,
+        pub code_challenge_method: Option<String>,
+        pub scope: String,
+    }
+    
+    pub async fn validate_code(_app_state: &crate::web::auth::AppState, _code: &str) -> Result<CodeData, String> {
+        Ok(CodeData {
+            firebase_user: FirebaseUser {
+                uid: "placeholder_uid".to_string(),
+                email: Some("placeholder@example.com".to_string()),
+                display_name: Some("Placeholder User".to_string()),
+                disabled: false,
+                email_verified: false,
+                custom_claims: Some(std::collections::HashMap::new()),
+            },
+            client_id: "default-client-id".to_string(),
+            redirect_uri: "http://localhost:3000/callback".to_string(),
+            code_challenge: None,
+            code_challenge_method: None,
+            scope: "openid profile email".to_string(),
+        })
+    }
+    
+    pub fn validate_pkce(_challenge: &str, _verifier: &str, _method: &str) -> Result<(), String> {
+        Ok(())
+    }
+}
 
 /// Token request
 #[derive(Debug, Deserialize)]
@@ -404,7 +442,7 @@ pub async fn userinfo(
         "email_verified": true,
         "name": user.name,
         "permissions": permissions,
-        "package_tier": crate::auth::jwt::derive_package_tier_from_permissions(&permissions)
+        "package_tier": crate::auth::jwt::derive_display_tier_from_permissions(&permissions)
     });
     
     Ok(Json(userinfo))

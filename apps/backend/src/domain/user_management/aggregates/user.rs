@@ -13,7 +13,7 @@ use crate::domain::shared_kernel::{
 
 use crate::domain::shared_kernel::value_objects::UserId;
 use crate::domain::user_management::value_objects::{
-    Email, FirebaseUid, Permission
+    Email, Permission, WalletAddress
 };
 
 use crate::domain::user_management::events::{
@@ -33,7 +33,7 @@ use crate::domain::user_management::events::{
 pub struct User {
     // Identity
     id: UserId,
-    firebase_uid: FirebaseUid,
+    wallet_address: WalletAddress,
     email: Email,
     
     // Status
@@ -57,23 +57,23 @@ impl User {
     /// Create a new user
     pub fn create(
         id: UserId,
-        firebase_uid: FirebaseUid,
+        wallet_address: WalletAddress,
         email: Email,
     ) -> DomainResult<Self> {
         // Business rule: Email must be valid
         email.validate()
             .map_err(|e| DomainError::validation_error("email", e.to_string()))?;
         
-        // Business rule: Firebase UID must be valid  
-        firebase_uid.validate()
-            .map_err(|e| DomainError::validation_error("firebase_uid", e.to_string()))?;
+        // Business rule: Wallet address must be valid  
+        wallet_address.validate()
+            .map_err(|e| DomainError::validation_error("wallet_address", e.to_string()))?;
         
         let now = Utc::now();
         let base = AggregateBase::new();
         
         let mut user = Self {
             id: id.clone(),
-            firebase_uid: firebase_uid.clone(),
+            wallet_address: wallet_address.clone(),
             email: email.clone(),
             is_active: true, // New users are active by default
             email_verified: false, // Email verification required
@@ -88,7 +88,6 @@ impl User {
         user.base.add_event(Box::new(UserCreatedEvent::new(
             id,
             email,
-            firebase_uid,
             user.base.version
         )));
         
@@ -98,7 +97,7 @@ impl User {
     /// Load existing user (for repository reconstruction)
     pub fn load(
         id: UserId,
-        firebase_uid: FirebaseUid,
+        wallet_address: WalletAddress,
         email: Email,
         is_active: bool,
         email_verified: bool,
@@ -115,7 +114,7 @@ impl User {
         
         Self {
             id,
-            firebase_uid,
+            wallet_address,
             email,
             is_active,
             email_verified,
@@ -127,13 +126,95 @@ impl User {
         }
     }
     
+    /// Create a new Web3 user (wallet address can be added later)
+    pub fn create_web3_user(
+        id: UserId,
+        email: Email,
+    ) -> DomainResult<Self> {
+        // Business rule: Email must be valid
+        email.validate()
+            .map_err(|e| DomainError::validation_error("email", e.to_string()))?;
+        
+        // Use placeholder wallet address for Web3 users - will be updated when wallet is connected
+        let placeholder_wallet = WalletAddress::new("0x0000000000000000000000000000000000000000")
+            .map_err(|e| DomainError::validation_error("wallet_address", e.to_string()))?;
+        
+        let now = Utc::now();
+        let base = AggregateBase::new();
+        
+        let mut user = Self {
+            id,
+            wallet_address: placeholder_wallet,
+            email,
+            is_active: true,
+            email_verified: false, // Will be verified through Web3 process
+            permissions: HashSet::new(),
+            created_at: now,
+            updated_at: now,
+            last_login_at: None,
+            base,
+        };
+        
+        // Record creation event
+        user.record_event(Box::new(
+            crate::domain::user_management::events::UserCreatedEvent::new(
+                user.id.clone(),
+                user.email.clone(),
+                1, // Initial version
+            )
+        ));
+        
+        Ok(user)
+    }
+    
+    /// Load existing Web3 user (for repository reconstruction)
+    pub fn load_web3(
+        id: UserId,
+        email: Email,
+        is_active: bool,
+        email_verified: bool,
+        permissions: HashSet<Permission>,
+        created_at: DateTime<Utc>,
+        updated_at: DateTime<Utc>,
+        last_login_at: Option<DateTime<Utc>>,
+        version: u64,
+    ) -> Self {
+        // Use placeholder wallet address for legacy users - will be updated when wallet is connected
+        let placeholder_wallet = WalletAddress::new("0x0000000000000000000000000000000000000000")
+            .expect("Placeholder wallet address should be valid");
+        
+        let mut base = AggregateBase::new();
+        base.version = version;
+        base.created_at = created_at;
+        base.updated_at = updated_at;
+        
+        Self {
+            id,
+            wallet_address: placeholder_wallet,
+            email,
+            is_active,
+            email_verified,
+            permissions,
+            created_at,
+            updated_at,
+            last_login_at,
+            base,
+        }
+    }
+    
+    /// Record a domain event
+    pub fn record_event(&mut self, event: Box<dyn crate::domain::shared_kernel::domain_event::DomainEvent>) {
+        // Add event to base
+        self.base.add_event(event);
+    }
+    
     // Getters
     pub fn id(&self) -> &UserId {
         &self.id
     }
     
-    pub fn firebase_uid(&self) -> &FirebaseUid {
-        &self.firebase_uid
+    pub fn wallet_address(&self) -> &WalletAddress {
+        &self.wallet_address
     }
     
     pub fn email(&self) -> &Email {

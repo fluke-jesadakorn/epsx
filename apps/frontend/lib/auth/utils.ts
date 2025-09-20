@@ -8,21 +8,14 @@ import {
   UserSessionData,
   UserProfile,
   UserJWTPayload,
-  PackageTier,
   UserPermissionCheck,
   PermissionValidation,
   UserAnalyticsAccess,
   UserTradingAccess,
   hasValidSubscription,
-  canAccessFeature,
-  isPremiumTier,
-  isTrialUser
+  canAccessFeature
 } from '@/types/auth-separation';
-import {
-  derivePackageTierFromPermissions,
-  deriveAccessiblePlatformsFromPermissions,
-  derivePrimaryPlatformFromPermissions 
-} from '../../../../shared/permissions/utils/platform';
+import { getDisplayTierFromPermissions, getRankingLimitFromPermissions } from '@/app/constants/packages';
 import { authLogger, safeError } from '@/lib/utils/logging';
 
 // ============================================================================
@@ -114,21 +107,43 @@ interface SecurityMetrics {
  * Derive accessible platforms from permissions
  */
 export function getAccessiblePlatforms(permissions: string[]): string[] {
-  return deriveAccessiblePlatformsFromPermissions(permissions);
+  const platforms = new Set<string>();
+  
+  for (const permission of permissions) {
+    const platform = permission.split(':')[0];
+    if (platform) {
+      platforms.add(platform);
+    }
+  }
+  
+  return Array.from(platforms);
 }
 
 /**
- * Derive package tier from permissions
+ * Get display tier from permissions (replaces package tier)
  */
-export function getPackageTier(permissions: string[]): string {
-  return derivePackageTierFromPermissions(permissions);
+export function getDisplayTier(permissions: string[]): string {
+  return getDisplayTierFromPermissions(permissions);
 }
 
 /**
- * Derive primary platform from permissions
+ * Get primary platform from permissions
  */
 export function getPrimaryPlatform(permissions: string[]): string {
-  return derivePrimaryPlatformFromPermissions(permissions);
+  const platforms = getAccessiblePlatforms(permissions);
+  
+  // Priority order: admin > epsx > others
+  if (platforms.includes('admin')) return 'admin';
+  if (platforms.includes('epsx')) return 'epsx';
+  
+  return platforms[0] || 'epsx';
+}
+
+/**
+ * Get ranking limit from permissions
+ */
+export function getRankingLimit(permissions: string[]): number {
+  return getRankingLimitFromPermissions(permissions);
 }
 
 /**
@@ -531,3 +546,6 @@ export function canAccessTrading(user: UserSessionData | null): UserTradingAcces
     reason: level !== 'none' ? 'Access granted' : 'No trading permissions'
   };
 }
+
+// Export functions that are used in other modules
+export { getRankingLimitFromPermissions } from '@/app/constants/packages';

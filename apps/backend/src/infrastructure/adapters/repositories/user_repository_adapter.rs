@@ -8,7 +8,7 @@ use sqlx::{PgPool, Row};
 
 use crate::domain::shared_kernel::{DomainResult, DomainError};
 use crate::domain::user_management::{
-    UserRepositoryPort, User, Email, FirebaseUid, Permission
+    UserRepositoryPort, User, Email, Permission
 };
 use crate::domain::user_management::{UserSearchCriteria, UserSearchResult};
 use crate::infrastructure::adapters::repositories::{DbPool, SqlxBaseRepository};
@@ -44,7 +44,7 @@ impl UserRepositoryAdapter {
         
         // Load user data from database
         let user_row = sqlx::query(
-            "SELECT id, firebase_uid, email, created_at, updated_at, is_active, role, subscription_tier FROM users WHERE id = $1"
+            "SELECT id, email, created_at, updated_at, is_active, role, subscription_tier FROM users WHERE id = $1"
         )
         .bind(user_uuid)
         .fetch_optional(pool)
@@ -64,7 +64,6 @@ impl UserRepositoryAdapter {
                 // Convert to domain aggregate
                 let user = self.create_domain_user(
                     user_row.get("id"),
-                    user_row.get("firebase_uid"),
                     user_row.get("email"),
                     None, // No display_name in actual schema
                     permission_strings
@@ -79,7 +78,6 @@ impl UserRepositoryAdapter {
     fn create_domain_user(
         &self, 
         id: Uuid,
-        firebase_uid: String,
         email: String,
         _display_name: Option<String>,
         permissions: Vec<String>
@@ -90,17 +88,19 @@ impl UserRepositoryAdapter {
         let user_email = Email::new(email)
             .map_err(|e| DomainError::validation_error("email", &e.to_string()))?;
         
-        let user_firebase_uid = FirebaseUid::new(firebase_uid)
-            .map_err(|e| DomainError::validation_error("firebase_uid", &e.to_string()))?;
-        
         let _domain_permissions: Vec<Permission> = permissions
             .into_iter()
             .filter_map(|p| Permission::new(p).ok())
             .collect();
         
+        // For migration purposes, create a placeholder wallet address
+        // In a real system, this would need to be properly handled
+        let wallet_address = crate::domain::user_management::value_objects::WalletAddress::new("0x0000000000000000000000000000000000000000".to_string())
+            .map_err(|e| DomainError::validation_error("wallet_address", &e.to_string()))?;
+        
         User::create(
             user_id,
-            user_firebase_uid,
+            wallet_address,
             user_email
         ).map_err(DomainError::from)
     }
@@ -149,29 +149,13 @@ impl UserRepositoryPort for UserRepositoryAdapter {
     async fn find_by_id(&self, id: &UserId) -> DomainResult<Option<User>> {
         let id_str = id.to_string();
         
-        // Try to parse as UUID first (for database IDs)
+        // Try to parse as UUID (for database IDs)
         if let Ok(user_uuid) = Uuid::from_str(&id_str) {
             return self.load_user_with_permissions(&user_uuid).await;
         }
         
-        // If not a UUID, treat as Firebase UID and look up by firebase_uid field
-        let pool = self.get_pool();
-        
-        // Find user by Firebase UID
-        let user_row = sqlx::query!(
-            "SELECT id FROM users WHERE firebase_uid = $1",
-            id_str
-        )
-        .fetch_optional(pool)
-        .await
-        .map_err(|e| DomainError::invalid_operation(format!("Database operation failed: {}", e), "UserRepository"))?;
-        
-        match user_row {
-            Some(row) => {
-                self.load_user_with_permissions(&row.id).await
-            }
-            None => Ok(None)
-        }
+        // If not a UUID, return None since we no longer support Firebase UID lookup
+        Ok(None)
     }
     
     async fn find_by_email(&self, email: &Email) -> DomainResult<Option<User>> {
@@ -203,24 +187,7 @@ impl UserRepositoryPort for UserRepositoryAdapter {
         }
     }
     
-    async fn find_by_firebase_uid(&self, firebase_uid: &FirebaseUid) -> DomainResult<Option<User>> {
-        let pool = self.get_pool();
-        
-        // Find user by Firebase UID
-        let user_row = sqlx::query("SELECT id FROM users WHERE firebase_uid = $1")
-            .bind(firebase_uid.to_string())
-            .fetch_optional(pool)
-            .await
-            .map_err(|e| DomainError::invalid_operation(format!("Database operation failed: {}", e), "UserRepository"))?;
-        
-        match user_row {
-            Some(row) => {
-                let user_id: Uuid = row.get("id");
-                self.load_user_with_permissions(&user_id).await
-            }
-            None => Ok(None)
-        }
-    }
+    // Firebase UID lookup removed - migrated to Web3
     
     async fn save(&self, user: &User) -> DomainResult<()> {
         let pool = self.get_pool();
@@ -254,7 +221,7 @@ impl UserRepositoryPort for UserRepositoryAdapter {
                 "INSERT INTO users (id, firebase_uid, email, is_active, role, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)"
             )
             .bind(user_uuid)
-            .bind(user.firebase_uid().to_string())
+            .bind(user.id().to_string()) // Use user_id as firebase_uid for backward compatibility
             .bind(user.email().to_string())
             .bind(true) // is_active
             .bind("user") // default role

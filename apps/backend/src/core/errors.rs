@@ -159,6 +159,10 @@ impl AppError {
     pub fn cache_error(message: impl Into<String>) -> Self {
         Self::new(ErrorKind::ExternalServiceError, message)
     }
+
+    pub fn conflict(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::ConcurrencyConflict, message)
+    }
     
     pub fn with_context(mut self, context: ErrorContext) -> Self {
         self.context = context;

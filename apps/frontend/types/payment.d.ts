@@ -1,4 +1,4 @@
-import { PaymentTier } from '@/types/payment-types';
+import { PermissionTemplateName } from '@/app/constants/packages';
 import { UserSubscription as _UserSubscription } from '@/types/userLevel';
 
 export interface CreatePaymentRequest {
@@ -6,6 +6,7 @@ export interface CreatePaymentRequest {
   amount: string;
   payment_method: 'on_line' | 'on_chain';
   product_name: string;
+  permission_template: PermissionTemplateName;
   notify_url?: string;
 }
 
@@ -37,7 +38,9 @@ export interface PaymentResponse {
   created_at: string;
   updated_at: string;
   expiration_date: string;
-  payment_tier: PaymentTier; // Changed from user_level to payment_tier
+  permission_template: PermissionTemplateName;
+  permissions?: string[];
+  display_tier?: string;
   qr_code?: string;
   checkout_url?: string;
   payment_method: string;

@@ -8,98 +8,93 @@ use axum::{
 };
 use sqlx::PgPool as DbPool;
 
-use crate::infrastructure::adapters::services::firebase::firebase_admin::FirebaseAdmin;
 use crate::infrastructure::cache::Cache;
 use crate::infrastructure::container::AppContainer;
 
 use crate::web::user::handlers::{
-    // Core Authentication
-    login_handler, logout_handler, refresh_handler, me_handler,
-    
-    // Registration
-    register_user, check_email_availability, check_password_strength,
-    
-    // Auth.js Integration
-    get_user_claims, upsert_user,
-    
-    // Token Validation (Bearer token-based)
-    validate_session_handler,
-    
-    // Permission System
-    validate_route_access_handler, validate_bulk_routes_handler,
-    check_permission_handler, single_permission_handler,
-    navigation_handler, user_features_handler,
+    // Available handlers
+    get_permissions_handler,
+    verify_ownership_handler,
+    get_holdings_handler,
+    delegate_permission_handler,
 };
 
 /// Clean Application State for Dependency Injection
 #[derive(Clone)]
 pub struct AppState {
     pub db_pool: Arc<DbPool>,
-    pub firebase_admin: Arc<FirebaseAdmin>,
     pub cache: Arc<dyn Cache>,
-    pub notification_service: Arc<dyn crate::application::ports::outbound::service_ports::NotificationServicePort<Error = crate::infrastructure::adapters::services::fcm_service::FcmServiceError>>,
     pub ddd_container: Arc<crate::infrastructure::container::ddd_container::DDDContainer>,
     pub user_repo: Arc<dyn crate::domain::user_management::UserRepositoryPort>,
     pub permission_service: Arc<crate::domain::authorization::services::stateless_permission_service::StatelessPermissionService>,
     pub rate_limiting_service: Option<Arc<crate::domain::resource_management::services::RateLimitingService>>, // Context-aware rate limiting
+    pub web3_auth_service: Arc<crate::auth::Web3AuthService>,
+    pub web3_permission_service: Arc<crate::auth::Web3PermissionService>,
+    pub jwt_service: Arc<crate::auth::JWTService>,
+    pub firebase_admin: Arc<crate::infrastructure::adapters::services::FirebaseAdminStub>,
 }
 
 impl AppState {
     pub fn new(
         db_pool: Arc<DbPool>,
-        firebase_admin: Arc<FirebaseAdmin>,
         cache: Arc<dyn Cache>,
-        notification_service: Arc<dyn crate::application::ports::outbound::service_ports::NotificationServicePort<Error = crate::infrastructure::adapters::services::fcm_service::FcmServiceError>>,
         ddd_container: Arc<crate::infrastructure::container::ddd_container::DDDContainer>,
         user_repo: Arc<dyn crate::domain::user_management::UserRepositoryPort>,
         permission_service: Arc<crate::domain::authorization::services::stateless_permission_service::StatelessPermissionService>,
         rate_limiting_service: Option<Arc<crate::domain::resource_management::services::RateLimitingService>>,
+        web3_auth_service: Arc<crate::auth::Web3AuthService>,
+        web3_permission_service: Arc<crate::auth::Web3PermissionService>,
+        jwt_service: Arc<crate::auth::JWTService>,
+        firebase_admin: Arc<crate::infrastructure::adapters::services::FirebaseAdminStub>,
     ) -> Self {
         Self {
             db_pool,
-            firebase_admin,
             cache,
-            notification_service,
             ddd_container,
             user_repo,
             permission_service,
             rate_limiting_service,
+            web3_auth_service,
+            web3_permission_service,
+            jwt_service,
+            firebase_admin,
         }
     }
 }
 
 /// Create authentication routes with RESTful patterns and v1 versioning
 pub fn create_auth_routes(app_state: AppState) -> Router {
-    // Public validation routes (no authentication required)
-    let validation_routes = Router::new()
-        .route("/api/v1/validations/emails", post(check_email_availability))
-        .route("/api/v1/validations/passwords", post(check_password_strength));
+    // Note: Many handlers are missing after Web3 migration
+    // TODO: Implement Web3-compatible handlers
+    
+    // Available routes using existing handlers
+    let user_routes = Router::new()
+        .route("/api/v1/users/permissions", get(get_permissions_handler))
+        .route("/api/v1/users/holdings", get(get_holdings_handler))
+        .route("/api/v1/users/verify", post(verify_ownership_handler))
+        .route("/api/v1/users/delegate", post(delegate_permission_handler));
         
-    // Public auth routes (no authentication required)
-    let public_auth_routes = Router::new()
-        .route("/api/v1/auth/sessions", post(login_handler))
-        .route("/api/v1/auth/users", post(register_user));
-        
-    // Protected auth routes (require valid Bearer token)
+    // Placeholder for other routes - handlers need to be implemented
     let protected_auth_routes = Router::new()
-        .route("/api/v1/auth/sessions", axum::routing::delete(logout_handler))
-        .route("/api/v1/auth/sessions/current", get(validate_session_handler))
-        // Session rotation removed - JWT tokens have built-in expiration
-        .route("/api/v1/auth/user", get(me_handler))
-        .route("/api/v1/auth/tokens/refresh", post(refresh_handler))
+        // .route("/api/v1/auth/sessions", axum::routing::delete(logout_handler))
+        // .route("/api/v1/auth/sessions/current", get(validate_session_handler))
+        // .route("/api/v1/auth/user", get(me_handler))
+        // .route("/api/v1/auth/tokens/refresh", post(refresh_handler))
+        .route("/api/v1/health", get(|| async { "OK" })) // Basic health check
         .layer(middleware::from_fn_with_state(
             app_state.clone(),
             crate::web::middleware::clean_auth_middleware
         ));
 
-    // Permission validation routes (require valid Bearer token)
+    // Permission validation routes - handlers need to be implemented
     let permission_routes = Router::new()
-        .route("/api/v1/permissions/validations", post(check_permission_handler))
-        .route("/api/v1/permissions/routes/validations", post(validate_route_access_handler))
-        .route("/api/v1/permissions/validations/bulk", post(validate_bulk_routes_handler))
-        .route("/api/v1/permissions/single", get(single_permission_handler))
-        .route("/api/v1/permissions/navigation", get(navigation_handler))
-        .route("/api/v1/permissions/features", get(user_features_handler))
+        // .route("/api/v1/permissions/validations", post(check_permission_handler))
+        // .route("/api/v1/permissions/routes/validations", post(validate_route_access_handler))
+        // .route("/api/v1/permissions/validations/bulk", post(validate_bulk_routes_handler))
+        // .route("/api/v1/permissions/single", get(single_permission_handler))
+        // .route("/api/v1/permissions/navigation", get(navigation_handler))
+        // .route("/api/v1/permissions/features", get(user_features_handler))
+        .route("/api/v1/permissions/health", get(|| async { "OK" })) // Basic health check
         .layer(middleware::from_fn_with_state(
             app_state.clone(),
             crate::web::middleware::clean_auth_middleware
@@ -108,8 +103,7 @@ pub fn create_auth_routes(app_state: AppState) -> Router {
     // Legacy routes removed - use RESTful /api/v1/ endpoints only
     
     let router = Router::new()
-        .merge(validation_routes)
-        .merge(public_auth_routes)
+        .merge(user_routes)
         .merge(protected_auth_routes)
         .merge(permission_routes)
         .with_state(app_state.clone());
@@ -120,17 +114,21 @@ pub fn create_auth_routes(app_state: AppState) -> Router {
 /// Create registration routes with AppContainer state (RESTful patterns)
 pub fn create_registration_routes(container: Arc<AppContainer>) -> Router {
     Router::new()
-        .route("/api/v1/auth/users", post(register_user))
-        .route("/api/v1/validations/emails", post(check_email_availability))
-        .route("/api/v1/validations/passwords", post(check_password_strength))
+        // Note: Handlers missing after Web3 migration
+        // .route("/api/v1/auth/users", post(register_user))
+        // .route("/api/v1/validations/emails", post(check_email_availability))
+        // .route("/api/v1/validations/passwords", post(check_password_strength))
+        .route("/api/v1/health", get(|| async { "OK" }))
         .with_state(container)
 }
 
 /// Create Auth.js integration routes with PostgreSQL pool
 pub fn create_authjs_routes(pool: Arc<DbPool>) -> Router {
     Router::new()
-        .route("/api/v1/authjs/claims", post(get_user_claims))
-        .route("/api/v1/authjs/upsert", post(upsert_user))
+        // Note: Handlers missing after Web3 migration
+        // .route("/api/v1/authjs/claims", post(get_user_claims))
+        // .route("/api/v1/authjs/upsert", post(upsert_user))
+        .route("/api/v1/authjs/health", get(|| async { "OK" }))
         .with_state(pool)
 }
 

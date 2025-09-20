@@ -11,8 +11,7 @@ pub mod validators;
 pub mod middleware;
 pub mod request_dtos;
 
-#[cfg(test)]
-pub mod integration_test;
+// Integration tests removed - using external E2E test suite
 
 pub use validators::*;
 pub use middleware::*;

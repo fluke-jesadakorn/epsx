@@ -1,10 +1,21 @@
-import { PaymentTier, UserSubscription } from './index';
+import { UserSubscription } from './index';
 
-// Legacy enum - keep for backward compatibility
-export enum UserLevel {
-  Basic = 'Basic',
-  Premium = 'Premium',
-  VIP = 'VIP'
+// Permission Template Names for consistent typing
+export type PermissionTemplateName = 
+  | 'Free Template'
+  | 'Bronze Template' 
+  | 'Silver Template'
+  | 'Gold Template'
+  | 'Platinum Template'
+  | 'Enterprise Template'
+  | 'Admin Template';
+
+export interface PermissionTemplate {
+  name: PermissionTemplateName;
+  displayTier: string;
+  permissions: string[];
+  features: string[];
+  color?: string;
 }
 
 export interface PaymentStatus {
@@ -21,28 +32,35 @@ export interface USDTDetails {
   qrCodePath?: string
   tag?: string
   paymentStatus: PaymentStatus
-  userLevel: UserLevel // Legacy field
-  paymentTier?: PaymentTier // New payment tier field
-  subscription?: UserSubscription // New subscription field
+  permissionTemplate: PermissionTemplateName
+  permissions: string[]
+  subscription?: UserSubscription
 }
 
-// Helper function to convert legacy UserLevel to PaymentTier
-export function convertUserLevelToPaymentTier(userLevel: UserLevel): PaymentTier {
-  const mapping = {
-    [UserLevel.Basic]: PaymentTier.BRONZE,
-    [UserLevel.Premium]: PaymentTier.SILVER,
-    [UserLevel.VIP]: PaymentTier.GOLD
+// Helper function to get display tier from permission template
+export function getDisplayTierFromTemplate(templateName: PermissionTemplateName): string {
+  const mapping: Record<PermissionTemplateName, string> = {
+    'Free Template': 'FREE',
+    'Bronze Template': 'BRONZE',
+    'Silver Template': 'SILVER', 
+    'Gold Template': 'GOLD',
+    'Platinum Template': 'PLATINUM',
+    'Enterprise Template': 'ENTERPRISE',
+    'Admin Template': 'ADMIN'
   };
-  return mapping[userLevel] || PaymentTier.BRONZE;
+  return mapping[templateName] || 'FREE';
 }
 
-// Helper function to convert PaymentTier to legacy UserLevel
-export function convertPaymentTierToUserLevel(paymentTier: PaymentTier): UserLevel {
-  const mapping = {
-    [PaymentTier.BRONZE]: UserLevel.Basic,
-    [PaymentTier.SILVER]: UserLevel.Premium,
-    [PaymentTier.GOLD]: UserLevel.VIP,
-    [PaymentTier.PLATINUM]: UserLevel.VIP
+// Helper function to get permissions from template name
+export function getPermissionsFromTemplate(templateName: PermissionTemplateName): string[] {
+  const templatePermissions: Record<PermissionTemplateName, string[]> = {
+    'Free Template': ['epsx:rankings:view:3', 'epsx:trading:basic', 'epsx:portfolio:view'],
+    'Bronze Template': ['epsx:rankings:view:5', 'epsx:trading:basic', 'epsx:portfolio:view', 'epsx:portfolio:history'],
+    'Silver Template': ['epsx:rankings:view:25', 'epsx:trading:basic', 'epsx:trading:advanced', 'epsx:portfolio:view', 'epsx:analytics:basic'],
+    'Gold Template': ['epsx:rankings:view:50', 'epsx:trading:premium', 'epsx:portfolio:tools', 'epsx:analytics:advanced'],
+    'Platinum Template': ['epsx:rankings:view:100', 'epsx:trading:premium', 'epsx:analytics:premium', 'epsx:research:reports', 'epsx:dashboards:custom'],
+    'Enterprise Template': ['epsx:rankings:view:unlimited', 'epsx:*:*', 'epsx-pay:*:*', 'epsx-token:*:*'],
+    'Admin Template': ['admin:*:*', 'epsx:*:*', 'epsx-pay:*:*', 'epsx-token:*:*']
   };
-  return mapping[paymentTier] || UserLevel.Basic;
+  return templatePermissions[templateName] || [];
 }

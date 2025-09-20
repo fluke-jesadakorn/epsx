@@ -11,12 +11,14 @@ use super::handlers::{
     list_users_handler,
     update_user_handler,
     delete_user_handler,
-    get_user_stats_handler,
-    get_level_history_handler,
-    bulk_update_users_handler,
-    list_api_keys_handler,
+    grant_permission_handler,
+    revoke_permission_handler,
+    get_admin_stats_handler,
+    list_permissions_handler,
+    verify_wallet_handler,
+    get_wallet_permissions_handler,
 };
-use crate::web::user::handlers::{login_handler, logout_handler, me_handler};
+// Removed missing user handlers - they don't exist in the Web3 migration
 use super::unified_user_handlers::{
     get_unified_user_data_handler,
     update_user_profile_handler,
@@ -55,14 +57,7 @@ use super::bulk_permission_handlers::{
     bulk_apply_permission_template,
     bulk_validate_permissions,
 };
-use super::firebase_user_management::{
-    create_user as firebase_create_user,
-    get_user as firebase_get_user,
-    update_user as firebase_update_user,
-    delete_user as firebase_delete_user,
-    list_users as firebase_list_users,
-    set_user_role as firebase_set_user_role,
-};
+// Firebase user management removed - migrated to Web3
 // Database role management removed - using permissions-based system
 // V1 Granular permission management handlers
 use super::granular_permissions::{
@@ -112,13 +107,30 @@ use super::plan_management_handlers_simple::{
     list_plans_handler,
     create_subscription_handler,
 };
+// Performance monitoring handlers
+use super::performance_handlers::{
+    get_auth_cache_performance,
+    get_cache_summary,
+    clear_auth_cache,
+};
+// Web3 permission management handlers
+use super::web3_admin_handlers::{
+    get_wallet_permissions,
+    grant_manual_permission,
+    create_nft_gate,
+    create_token_gate,
+    create_dao_proposal,
+    get_nft_gates,
+    get_token_gates,
+    get_dao_proposals,
+};
 // Removed admin module management handlers - using simple roles
 use crate::web::auth::AppState;
 
 pub fn create_admin_routes() -> Router<AppState> {
     // Basic admin routes (require user-management module)
     let user_mgmt_routes = Router::new()
-        .route("/analytics/user-statistics", get(get_user_stats_handler))
+        .route("/analytics/user-statistics", get(get_admin_stats_handler))
         .route("/users", get(list_users_handler))
         .route("/users", post(create_user_handler))
         .route("/users/:user_id", get(get_user_handler))
@@ -131,7 +143,7 @@ pub fn create_admin_routes() -> Router<AppState> {
         
     // System administration routes (require system-configuration module)
     let system_config_routes = Router::new()
-        .route("/api-keys", get(list_api_keys_handler))
+        // .route("/api-keys", get(list_api_keys_handler)) // Handler missing
         // Role cleanup removed - using permissions-based system
         .layer(axum::middleware::from_fn(
             crate::web::middleware::clean_auth_middleware
@@ -144,29 +156,29 @@ pub fn create_admin_routes() -> Router<AppState> {
         ));
         
     Router::new()
-        // Public admin auth routes
-        .route("/auth/logout", post(logout_handler))
-        .route("/auth/profile", get(me_handler))
+        // Public admin auth routes - handlers missing
+        // .route("/auth/logout", post(logout_handler))
+        // .route("/auth/profile", get(me_handler))
         // Merge protected routes
         .merge(user_mgmt_routes)
         .merge(system_config_routes)
         .merge(security_mgmt_routes)
         
-        // Firebase User management routes (require user-management module)
-        .route("/firebase/users", get(firebase_list_users))
-        .route("/firebase/users", post(firebase_create_user))
-        .route("/firebase/users/:uid", get(firebase_get_user))
-        .route("/firebase/users/:uid", put(firebase_update_user))
-        .route("/firebase/users/:uid", delete(firebase_delete_user))
-        .route("/firebase/users/:uid/role", post(firebase_set_user_role))
+        // Firebase User management routes removed - migrated to Web3
+        // .route("/firebase/users", get(firebase_list_users))
+        // .route("/firebase/users", post(firebase_create_user))
+        // .route("/firebase/users/:uid", get(firebase_get_user))
+        // .route("/firebase/users/:uid", put(firebase_update_user))
+        // .route("/firebase/users/:uid", delete(firebase_delete_user))
+        // .route("/firebase/users/:uid/role", post(firebase_set_user_role))
         
         // Database role management routes removed - using permissions-based system
         
         // Admin module routes removed - using simple role system
         
-        // Bulk operations (require user-management module)
-        .route("/users/bulk-update", post(bulk_update_users_handler))
-        .route("/users/level-history", get(get_level_history_handler))
+        // Bulk operations - handlers missing
+        // .route("/users/bulk-update", post(bulk_update_users_handler))
+        // .route("/users/level-history", get(get_level_history_handler))
         
         // Bulk Permission Management routes (require user-management module)
         .route("/users/bulk/permissions/grant", post(bulk_grant_permissions))
@@ -251,6 +263,21 @@ pub fn create_admin_routes() -> Router<AppState> {
         // Subscription Management routes (require admin:subscriptions:* permissions) - Simplified
         .route("/subscriptions", post(create_subscription_handler))
         
+        // Performance monitoring routes (require admin:performance:* permissions)
+        .route("/performance/auth-cache", get(get_auth_cache_performance))
+        .route("/performance/cache-summary", get(get_cache_summary))
+        .route("/performance/clear-cache", post(clear_auth_cache))
+        
+        // Web3 Permission Management routes (require admin:web3:* permissions)
+        .route("/web3/permissions", get(get_wallet_permissions))
+        .route("/web3/permissions/grant", post(grant_manual_permission))
+        .route("/web3/nft-gates", get(get_nft_gates))
+        .route("/web3/nft-gates", post(create_nft_gate))
+        .route("/web3/token-gates", get(get_token_gates))
+        .route("/web3/token-gates", post(create_token_gate))
+        .route("/web3/dao-proposals", get(get_dao_proposals))
+        .route("/web3/dao-proposals", post(create_dao_proposal))
+        
         .layer(axum::middleware::from_fn(
             crate::web::middleware::clean_auth_middleware
         ))
@@ -258,6 +285,7 @@ pub fn create_admin_routes() -> Router<AppState> {
 
 pub fn create_admin_public_routes() -> Router<AppState> {
     Router::new()
-        // Public admin authentication routes (no auth required)
-        .route("/auth/login", post(login_handler))
+        // Public admin authentication routes - handler missing
+        // .route("/auth/login", post(login_handler))
+        .route("/health", get(|| async { "OK" }))
 }

@@ -2,7 +2,6 @@
 
 pub mod api;
 pub mod auth;
-pub mod oidc;
 pub mod admin;
 pub mod routes; // New contextual route architecture
 // Removed: permission_profile, permissions - replaced by auth/roles.rs
@@ -15,7 +14,6 @@ pub mod analytics;
 pub mod settings;
 pub mod templates;
 pub mod admin_assignment;
-pub mod realtime;
 pub mod session_management_handlers;
 pub mod session_management_routes;
 pub mod notifications;
@@ -136,8 +134,12 @@ async fn create_standalone_analytics_routes(
         firebase_project_id: "epsx-dev".to_string(),
         firebase_private_key: "-----BEGIN PRIVATE KEY-----\ndefault\n-----END PRIVATE KEY-----".to_string(),
         firebase_client_email: "firebase-adminsdk@epsx-dev.iam.gserviceaccount.com".to_string(),
-        musepay_partner_id: None,
-        musepay_private_key: None,
+        ethereum_rpc_url: "https://eth.llamarpc.com".to_string(),
+        polygon_rpc_url: "https://polygon.llamarpc.com".to_string(),
+        arbitrum_rpc_url: "https://arbitrum.llamarpc.com".to_string(),
+        optimism_rpc_url: "https://optimism.llamarpc.com".to_string(),
+        base_rpc_url: "https://base.llamarpc.com".to_string(),
+        bsc_rpc_url: "https://bsc-dataseed.binance.org".to_string(),
         redis_url: None,
         log_level: "info".to_string(),
       })
@@ -226,13 +228,12 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
     }
   };
 
-  // Create OIDC routes with full functionality including POST handlers  
+  // Web3-only authentication - create AppState for admin routes compatibility
   let app_state = container.create_app_state().await
     .map_err(|e| {
       tracing::error!("Failed to create app state: {}", e);
       e
     })?;
-  let oidc_routes = oidc::routes::oidc_routes().with_state(app_state.clone());
   
   // Create new contextual route architecture
   let internal_routes = routes::ContextualRouterBuilder::new(
@@ -250,18 +251,21 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
     container.clone()
   ).build().await?;
 
-  // Keep legacy admin routes for backward compatibility
+  // Create admin routes with AppState compatibility  
   let admin_routes = admin::routes::create_admin_routes().with_state(app_state.clone());
   let admin_public_routes = admin::routes::create_admin_public_routes().with_state(app_state.clone());
 
-  // Create realtime routes for SSE
-  let realtime_routes = realtime::routes::create_realtime_routes().with_state(app_state.clone());
+  // Create stateless notification routes
+  let notification_routes = notifications::stateless_handlers::create_routes().with_state((*container).clone());
 
   // Create analytics routes with permission middleware
   let analytics_routes = analytics::create_analytics_router(&container.infra).await;
   
   // Create marketing API routes (plans, promotions, affiliates)
   let marketing_routes = api::v1::create_plans_router(container.db_pool());
+  
+  // Create payments API routes
+  let payments_routes = api::v1::create_payments_router(container.clone());
 
   // Create core routes
   let core_routes = Router::new()
@@ -272,39 +276,22 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
   // Configure CORS for all routes
   let cors = configure_cors_for_frontend();
 
-  // Merge routes with new contextual architecture
+  // Create Web3 authentication routes
+  let web3_routes = auth::web3_routes::create_routes().with_state((*container).clone());
+
+  // Merge routes with Web3-only authentication
   Ok(core_routes
-    .merge(oidc_routes)
-    .merge(realtime_routes)
     .merge(analytics_routes)
+    .nest("/api/auth/web3", web3_routes)
+    .nest("/api/notifications", notification_routes)
     // New contextual routes with proper prefixes
     .nest("/web", internal_routes)
     .nest("/api/external", external_routes) 
     .nest("/admin", admin_routes_new)
     // Legacy routes for backward compatibility
     .nest("/api/v1/plans", marketing_routes)
-    .nest("/api/v1/notifications", notifications::notification_routes()
-      // DDD Notification infrastructure adapter - bridges legacy services with DDD bounded context
-      .layer(axum::Extension(Arc::new(crate::infrastructure::adapters::repositories::NotificationRepositoryAdapter::new(
-        Arc::new(crate::infrastructure::adapters::services::fcm_service::FcmService::new(container.infra.firebase_admin.clone())),
-        // Create stub email service for DDD migration - will be replaced with proper service
-        Arc::new(crate::infrastructure::adapters::services::email_service::SendGridEmailService::new(
-          std::env::var("SENDGRID_API_KEY").unwrap_or_default(),
-        )),
-      ))))
-      // Keep legacy services for endpoints that haven't been migrated yet
-      .layer(axum::Extension(container.fcm_topic_service.clone()))
-      .layer(axum::Extension(container.user_notification_repo.clone()))
-      .layer(axum_middleware::from_fn_with_state(
-        app_state.clone(),
-        crate::web::middleware::clean_auth_middleware
-      ))
-    )
-    .nest("/api/v1/admin", admin_routes
-      .layer(axum::Extension(container.fcm_service.clone()))
-      .layer(axum::Extension(container.fcm_topic_service.clone()))
-      .layer(axum::Extension(container.user_notification_repo.clone()))
-    )
+    .nest("/api/v1/payments", payments_routes)
+    .nest("/api/v1/admin", admin_routes)
     .merge(admin_public_routes)
     // Add comprehensive security middleware stack
     // TODO: Fix middleware state type compatibility

@@ -7,8 +7,7 @@ use std::sync::Arc;
 use tracing::{info, warn, error};
 
 use crate::domain::user_management::{
-    UserRepositoryPort, SessionRepositoryPort,
-    value_objects::FirebaseUid
+    UserRepositoryPort, SessionRepositoryPort
 };
 use crate::application::user_management::{
     CreateSessionCommandHandler, 
@@ -49,47 +48,8 @@ impl AuthenticationServiceIntegration {
     ) -> Result<SessionCreationResult, AuthenticationError> {
         info!("Creating session via DDD SessionManagement");
         
-        // For now, extract Firebase UID from token (this would be proper token validation)
-        let firebase_uid = FirebaseUid::new(token.to_string())
-            .map_err(|_| AuthenticationError::InvalidToken)?;
-        
-        // Find user by Firebase UID
-        let user = self.user_repository
-            .find_by_firebase_uid(&firebase_uid)
-            .await
-            .map_err(|e| AuthenticationError::UserIdentity(format!("{:?}", e)))?
-            .ok_or(AuthenticationError::UserNotFound)?;
-        
-        // Create session using command handler
-        let expires_at = chrono::Utc::now() + chrono::Duration::hours(24); // 24-hour session
-        let command = CreateSessionCommand::new(
-            user.id().to_string(),
-            token.to_string(), // Use token as access_token
-            expires_at
-        ).with_client_info(Some(ip_address), user_agent);
-        
-        let response = self.create_session_handler.handle(command)
-            .await
-            .map_err(|e| AuthenticationError::SessionCreation(e.to_string()))?;
-        
-        info!(
-            session_id = %response.session_id,
-            user_id = %user.id(),
-            "Session created successfully"
-        );
-        
-        Ok(SessionCreationResult {
-            session_id: response.session_id.to_string(),
-            user_id: user.id().to_string(),
-            profile: UserProfile {
-                email: user.email().to_string(),
-                display_name: format!("User {}", user.id().to_string()),
-                is_active: user.is_active(),
-                permissions: user.permissions().iter().map(|p| p.as_str().to_string()).collect(),
-            },
-            expires_at: response.expires_at,
-            created_at: response.created_at,
-        })
+        // Firebase UID authentication removed - migrated to Web3
+        Err(AuthenticationError::ServiceUnavailable("Firebase authentication disabled - use Web3".to_string()))
     }
     
     /// Terminate a session (logout)
@@ -314,6 +274,9 @@ pub enum AuthenticationError {
     
     #[error("Session operation failed: {0}")]
     SessionOperation(String),
+    
+    #[error("Service unavailable: {0}")]
+    ServiceUnavailable(String),
 }
 
 #[cfg(test)]

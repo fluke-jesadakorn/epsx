@@ -588,7 +588,8 @@ test.describe('🎯 Permission-Based Access Control System', () => {
       for (const testCase of testCases) {
         await authenticateUser(page, testCase.user);
         await verifyRouteAccess(page, testCase.route, testCase.shouldAccess);
-        console.log(`✅ ${testCase.user.package_tier} -> ${testCase.route}: ${testCase.shouldAccess ? 'ALLOWED' : 'BLOCKED'}`);
+        const derivedTier = deriveTierFromUserPermissions(testCase.user);
+        console.log(`✅ ${derivedTier} -> ${testCase.route}: ${testCase.shouldAccess ? 'ALLOWED' : 'BLOCKED'}`);
       }
     });
 
@@ -839,7 +840,8 @@ test.describe('🎯 Permission-Based Access Control System', () => {
         await page.goto('/dashboard');
         const loadTime = Date.now() - startTime;
         
-        console.log(`📊 ${user.package_tier} dashboard load time: ${loadTime}ms`);
+        const derivedTier = deriveTierFromUserPermissions(user);
+        console.log(`📊 ${derivedTier} dashboard load time: ${loadTime}ms`);
         
         // Higher tiers might have more features, so allow reasonable variance
         expect(loadTime).toBeLessThan(5000); // 5 second maximum

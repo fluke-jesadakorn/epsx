@@ -5,9 +5,9 @@
  */
 
 import './globals.css';
-import { AuthProvider } from '@/components/providers/AuthProvider';
 import { ErrorBoundary } from '@/components/providers/ErrorBoundary';
-import { ServiceWorkerInitializer } from '@/components/ServiceWorkerInitializer';
+import { Web3Provider } from '@/providers/Web3Provider';
+import { Web3AuthProvider } from '@/components/providers/Web3AuthProvider';
 import { Toaster } from 'react-hot-toast';
 import { Metadata, Viewport } from 'next';
 
@@ -73,16 +73,15 @@ export default function RootLayout({
         {/* Main application wrapper with consistent spacing */}
         <div className="flex min-h-screen flex-col">
           <ErrorBoundary>
-            <AuthProvider>
-              <main className="flex-1 relative">
-                {children}
-              </main>
-            </AuthProvider>
+            <Web3Provider>
+              <Web3AuthProvider>
+                <main className="flex-1 relative">
+                  {children}
+                </main>
+              </Web3AuthProvider>
+            </Web3Provider>
           </ErrorBoundary>
         </div>
-
-        {/* Service Worker for FCM notifications */}
-        <ServiceWorkerInitializer />
 
         {/* Enhanced Windows Phone + PancakeSwap Toast Notifications */}
         <Toaster

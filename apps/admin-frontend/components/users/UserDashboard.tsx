@@ -71,11 +71,12 @@ interface ModuleQuota {
   dailyUsage?: number
 }
 
-interface StockRankingPackage {
+interface PermissionTemplatePackage {
   id: string
   name: string
   description?: string
-  tier?: string
+  templateName: string
+  permissions: string[]
   price?: number
   billingCycle?: string
   isActive: boolean
@@ -102,7 +103,7 @@ export function UserDashboard({
   const [activityLogs, setActivityLogs] = useState<ActivityRecord[]>([])
   const [loginHistory, setLoginHistory] = useState<LoginRecord[]>([])
   const [moduleQuotas, setModuleQuotas] = useState<ModuleQuota[]>([])
-  const [stockPackages, setStockPackages] = useState<StockRankingPackage[]>([])
+  const [templatePackages, setTemplatePackages] = useState<PermissionTemplatePackage[]>([])
 
   // User stats
   const userStats = {
@@ -219,12 +220,13 @@ export function UserDashboard({
         }
       ]
 
-      const mockPackages: StockRankingPackage[] = [
+      const mockPackages: PermissionTemplatePackage[] = [
         {
           id: '1',
-          name: 'Premium Analytics Package',
-          description: 'Advanced EPS rankings and analytics tools',
-          tier: 'premium',
+          name: 'Gold Template Package',
+          description: 'Professional access with premium tools',
+          templateName: 'Gold Template',
+          permissions: ['epsx:rankings:view:50', 'epsx:trading:premium', 'epsx:portfolio:tools', 'epsx:analytics:advanced'],
           price: 99.99,
           billingCycle: 'month',
           isActive: true,
@@ -232,14 +234,15 @@ export function UserDashboard({
           expiresAt: new Date(Date.now() + 86400000 * 335),
           lastUsed: new Date(Date.now() - 3600000),
           usageCount: 1247,
-          features: ['Advanced Analytics', 'Custom Reports', 'Real-time Data'],
+          features: ['View 50 rankings', 'Premium trading tools', 'Advanced analytics'],
           autoRenew: true
         },
         {
           id: '2',
-          name: 'Basic Stock Rankings',
-          description: 'Essential stock ranking data',
-          tier: 'basic',
+          name: 'Silver Template Package',
+          description: 'Premium access with advanced analytics',
+          templateName: 'Silver Template',
+          permissions: ['epsx:rankings:view:25', 'epsx:trading:basic', 'epsx:trading:advanced', 'epsx:portfolio:view', 'epsx:analytics:basic'],
           price: 29.99,
           billingCycle: 'month',
           isActive: false,
@@ -247,7 +250,7 @@ export function UserDashboard({
           expiresAt: new Date(Date.now() - 86400000 * 30),
           lastUsed: new Date(Date.now() - 86400000 * 35),
           usageCount: 342,
-          features: ['Basic Rankings', 'Monthly Reports'],
+          features: ['View 25 rankings', 'Basic + Advanced trading', 'Basic analytics'],
           autoRenew: false
         }
       ]
@@ -255,7 +258,7 @@ export function UserDashboard({
       setActivityLogs(mockActivity)
       setLoginHistory(mockLogins)
       setModuleQuotas(mockQuotas)
-      setStockPackages(mockPackages)
+      setTemplatePackages(mockPackages)
     } catch (error) {
       console.error('Failed to load dashboard data:', error)
     } finally {
@@ -658,17 +661,17 @@ export function UserDashboard({
           </CardContent>
         </Card>
 
-        {/* Stock Ranking Packages */}
+        {/* Permission Template Packages */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Star className="h-5 w-5" />
-              Stock Packages
+              <Shield className="h-5 w-5" />
+              Permission Templates
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {stockPackages.map((pkg) => {
+              {templatePackages.map((pkg) => {
                 const isExpiringSoon = pkg.expiresAt && 
                   new Date(pkg.expiresAt).getTime() - Date.now() < 30 * 24 * 60 * 60 * 1000
 
@@ -676,7 +679,7 @@ export function UserDashboard({
                   <div key={pkg.id} className="p-3 border rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <Star className={`h-4 w-4 ${pkg.isActive ? 'text-yellow-500' : 'text-gray-400'}`} />
+                        <Shield className={`h-4 w-4 ${pkg.isActive ? 'text-blue-500' : 'text-gray-400'}`} />
                         <span className="font-medium text-sm">{pkg.name}</span>
                         <Badge variant={pkg.isActive ? 'default' : 'secondary'} size="sm">
                           {pkg.isActive ? 'Active' : 'Inactive'}
@@ -685,12 +688,14 @@ export function UserDashboard({
                     </div>
 
                     <div className="space-y-1 text-xs text-muted-foreground">
-                      {pkg.tier && (
-                        <div className="flex justify-between">
-                          <span>Tier:</span>
-                          <span className="font-medium capitalize">{pkg.tier}</span>
-                        </div>
-                      )}
+                      <div className="flex justify-between">
+                        <span>Template:</span>
+                        <span className="font-medium">{pkg.templateName}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Permissions:</span>
+                        <span className="font-medium">{pkg.permissions.length} granted</span>
+                      </div>
                       {pkg.price && (
                         <div className="flex justify-between">
                           <span>Price:</span>
@@ -725,6 +730,19 @@ export function UserDashboard({
                         </div>
                       </div>
                     )}
+
+                    {/* Show permission details */}
+                    <div className="mt-2 p-2 bg-gray-50 rounded text-xs">
+                      <div className="font-medium text-gray-700 mb-1">Active Permissions:</div>
+                      <div className="space-y-0.5">
+                        {pkg.permissions.slice(0, 3).map((permission, index) => (
+                          <div key={index} className="font-mono text-gray-600">{permission}</div>
+                        ))}
+                        {pkg.permissions.length > 3 && (
+                          <div className="text-gray-500">+{pkg.permissions.length - 3} more permissions</div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )
               })}

@@ -5,7 +5,7 @@ use tracing::{debug, warn};
 use crate::domain::shared_kernel::value_objects::UserId;
 use crate::domain::shared_kernel::DomainError;
 use crate::domain::user_management::{
-    User, UserRepositoryPort, Email, FirebaseUid
+    User, UserRepositoryPort, Email
 };
 
 /// Service for resolving user references in multiple formats
@@ -62,24 +62,8 @@ impl UserReferenceResolver {
             debug!("Reference is not a valid email: {}", reference);
         }
 
-        // 3. Try Firebase UID lookup
-        if let Ok(firebase_uid) = FirebaseUid::new(reference.to_string()) {
-            debug!("Attempting Firebase UID lookup for: {}", reference);
-            match self.user_repository.find_by_firebase_uid(&firebase_uid).await {
-                Ok(Some(user)) => {
-                    debug!("Found user by Firebase UID: {}", reference);
-                    return Ok(Some(user));
-                }
-                Ok(None) => {
-                    debug!("No user found by Firebase UID: {}", reference);
-                }
-                Err(e) => {
-                    warn!("Firebase UID lookup failed for {}: {:?}", reference, e);
-                }
-            }
-        } else {
-            debug!("Reference is not a valid Firebase UID: {}", reference);
-        }
+        // 3. Firebase UID lookup removed - migrated to Web3
+        debug!("Firebase UID lookup skipped - migrated to Web3 authentication");
 
         debug!("User not found with any lookup method: {}", reference);
         Ok(None)
@@ -118,7 +102,8 @@ impl UserReferenceResolver {
         // Check if it could be any of the valid formats
         UserId::from_string(reference.to_string()).is_ok() ||
         Email::new(reference.to_string()).is_ok() ||
-        FirebaseUid::new(reference.to_string()).is_ok()
+        // FirebaseUid validation removed - migrated to Web3
+        true // Accept all other strings as potential Web3 addresses
     }
 }
 

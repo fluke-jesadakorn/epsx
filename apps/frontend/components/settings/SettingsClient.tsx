@@ -4,10 +4,9 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Button, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui';
 import Link from 'next/link';
-import { Bell, User, Settings, Shield, CheckCircle, AlertCircle, Flame, Cloud, Crown } from 'lucide-react';
+import { Bell, User, Settings, Shield, CheckCircle, AlertCircle, Flame, Crown } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FirebaseConfigSection } from './FirebaseConfigSection';
-import { RemoteConfigTab } from './RemoteConfigTab';
 import { UserPlanDisplay } from './UserPlanDisplay';
 
 interface NotificationPreferences {
@@ -105,7 +104,7 @@ export function SettingsClient() {
 
   return (
     <Tabs defaultValue="plan" className="space-y-6">
-      <TabsList className="grid w-full grid-cols-6">
+      <TabsList className="grid w-full grid-cols-5">
         <TabsTrigger value="plan" className="flex items-center gap-2">
           <Crown className="h-4 w-4" />
           <span className="hidden sm:inline">Plan</span>
@@ -113,10 +112,6 @@ export function SettingsClient() {
         <TabsTrigger value="notifications" className="flex items-center gap-2">
           <Bell className="h-4 w-4" />
           <span className="hidden sm:inline">Notifications</span>
-        </TabsTrigger>
-        <TabsTrigger value="remote-config" className="flex items-center gap-2">
-          <Cloud className="h-4 w-4" />
-          <span className="hidden sm:inline">Remote</span>
         </TabsTrigger>
         <TabsTrigger value="firebase" className="flex items-center gap-2">
           <Flame className="h-4 w-4" />
@@ -291,10 +286,6 @@ export function SettingsClient() {
         </Card>
       </TabsContent>
 
-      {/* Remote Configuration */}
-      <TabsContent value="remote-config" className="space-y-6">
-        <RemoteConfigTab />
-      </TabsContent>
 
       {/* Firebase Configuration */}
       <TabsContent value="firebase" className="space-y-6">

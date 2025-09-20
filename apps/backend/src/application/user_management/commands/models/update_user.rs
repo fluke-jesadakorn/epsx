@@ -1,12 +1,13 @@
 use serde::{Serialize, Deserialize};
 use std::collections::HashSet;
 use crate::application::shared::{Command, ApplicationResult};
-use crate::domain::user_management::value_objects::{FirebaseUid, Email, Permission};
+use crate::domain::user_management::value_objects::{Email, Permission};
+use crate::domain::shared_kernel::value_objects::UserId;
 
 /// Command to update user information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateUserCommand {
-    pub firebase_uid: FirebaseUid,
+    pub user_id: UserId,
     pub email: Option<Email>,
     pub permissions: Option<Vec<String>>,
     pub is_active: Option<bool>,
@@ -14,9 +15,9 @@ pub struct UpdateUserCommand {
 }
 
 impl UpdateUserCommand {
-    pub fn new(firebase_uid: FirebaseUid) -> Self {
+    pub fn new(user_id: UserId) -> Self {
         Self {
-            firebase_uid,
+            user_id,
             email: None,
             permissions: None,
             is_active: None,
@@ -48,7 +49,7 @@ impl UpdateUserCommand {
 /// Response after successful user update
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateUserResponse {
-    pub firebase_uid: FirebaseUid,
+    pub user_id: UserId,
     pub email: Email,
     pub email_verified: bool,
     pub is_active: bool,

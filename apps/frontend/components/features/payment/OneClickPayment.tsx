@@ -1,9 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { 
-  CreditCard, 
   Check, 
   ChevronLeft, 
   ChevronRight, 
@@ -11,15 +10,17 @@ import {
   Shield,
   Zap,
   Users,
-  Globe,
   ArrowLeft,
   Lock,
   Smartphone,
-  CheckCircle2
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import MetaMaskPayment from './MetaMaskPayment'
+import PaymentDetails from './PaymentDetails'
 
 interface OneClickPaymentProps {
   className?: string
@@ -27,26 +28,140 @@ interface OneClickPaymentProps {
 }
 
 interface PaymentPackage {
-  id: string
+  id: number
   name: string
-  price: number
-  originalPrice?: number
+  plan_type: string
+  base_price: number
+  current_price: number
+  currency: string
   features: string[]
+  affiliate_commission_rate?: number
+  display_order?: number
+  is_active: boolean
+  is_highlighted: boolean
+  created_at: string
+  updated_at: string
+  // Promotion fields
+  promotional_badge?: string
+  promotional_message?: string
+  discount_type?: string
+  discount_value?: number
+  max_discount_amount?: number
+  // UI fields (derived)
+  icon?: string
+  description?: string
   popular?: boolean
-  recommended?: boolean
-  icon: string
-  description: string
-  highlight?: string
 }
 
 type PaymentStep = 'package' | 'payment' | 'confirmation'
 
-const MOCK_PACKAGES: PaymentPackage[] = [
+// API helper function to fetch plans
+const fetchPlans = async (): Promise<PaymentPackage[]> => {
+  try {
+    const response = await fetch('/api/v1/plans', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    })
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    
+    const plans = await response.json()
+    
+    // Transform API response to include UI-specific fields
+    return plans.map((plan: any) => ({
+      ...plan,
+      // Add UI-specific fields based on plan type or other criteria
+      icon: getIconForPlan(plan.plan_type),
+      description: getDescriptionForPlan(plan.plan_type),
+      popular: plan.is_highlighted || plan.plan_type === 'professional',
+      features: Array.isArray(plan.features) ? plan.features : 
+                typeof plan.features === 'string' ? JSON.parse(plan.features) :
+                getDefaultFeaturesForPlan(plan.plan_type)
+    }))
+  } catch (error) {
+    console.error('Failed to fetch plans:', error)
+    // Return fallback data in case of API failure
+    return getFallbackPlans()
+  }
+}
+
+// Helper functions for UI data
+const getIconForPlan = (planType: string): string => {
+  switch (planType.toLowerCase()) {
+    case 'starter':
+    case 'basic': return '🚀'
+    case 'professional':
+    case 'pro': return '⭐'
+    case 'enterprise':
+    case 'premium': return '👑'
+    default: return '📊'
+  }
+}
+
+const getDescriptionForPlan = (planType: string): string => {
+  switch (planType.toLowerCase()) {
+    case 'starter':
+    case 'basic': return 'Perfect for beginners'
+    case 'professional':
+    case 'pro': return 'Most popular choice'
+    case 'enterprise':
+    case 'premium': return 'For serious traders'
+    default: return 'Trading plan'
+  }
+}
+
+const getDefaultFeaturesForPlan = (planType: string): string[] => {
+  switch (planType.toLowerCase()) {
+    case 'starter':
+    case 'basic': return [
+      '5 API calls per day',
+      'Basic analytics dashboard', 
+      'Email support',
+      'Mobile app access',
+      'Basic stock alerts'
+    ]
+    case 'professional':
+    case 'pro': return [
+      'Everything in Starter',
+      '50 API calls per day',
+      'Advanced analytics & charts', 
+      'Priority email support',
+      'Real-time data streaming',
+      'Portfolio tracking',
+      'Custom alerts & notifications'
+    ]
+    case 'enterprise':
+    case 'premium': return [
+      'Everything in Professional',
+      'Unlimited API calls',
+      'Premium analytics suite',
+      '24/7 phone & chat support',
+      'AI-powered insights',
+      'Advanced portfolio management',
+      'Custom integrations',
+      'Dedicated account manager'
+    ]
+    default: return ['Standard features included']
+  }
+}
+
+const getFallbackPlans = (): PaymentPackage[] => [
   {
-    id: 'basic',
+    id: 1,
     name: 'Starter',
-    price: 29,
-    originalPrice: 49,
+    plan_type: 'starter',
+    base_price: 49,
+    current_price: 29,
+    currency: 'USD',
+    is_active: true,
+    is_highlighted: false,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
     icon: '🚀',
     description: 'Perfect for beginners',
     features: [
@@ -58,15 +173,19 @@ const MOCK_PACKAGES: PaymentPackage[] = [
     ]
   },
   {
-    id: 'pro',
-    name: 'Professional', 
-    price: 59,
-    originalPrice: 99,
+    id: 2,
+    name: 'Professional',
+    plan_type: 'professional', 
+    base_price: 99,
+    current_price: 59,
+    currency: 'USD',
+    is_active: true,
+    is_highlighted: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
     icon: '⭐',
     description: 'Most popular choice',
     popular: true,
-    recommended: true,
-    highlight: 'Best Value',
     features: [
       'Everything in Starter',
       '50 API calls per day',
@@ -78,10 +197,16 @@ const MOCK_PACKAGES: PaymentPackage[] = [
     ]
   },
   {
-    id: 'enterprise',
+    id: 3,
     name: 'Enterprise',
-    price: 99,
-    originalPrice: 149,
+    plan_type: 'enterprise',
+    base_price: 149,
+    current_price: 99,
+    currency: 'USD',
+    is_active: true,
+    is_highlighted: false,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
     icon: '👑',
     description: 'For serious traders',
     features: [
@@ -98,23 +223,71 @@ const MOCK_PACKAGES: PaymentPackage[] = [
 ]
 
 const PAYMENT_METHODS = [
-  { id: 'card', name: 'Credit/Debit Card', icon: CreditCard, description: 'Visa, Mastercard, Amex' },
-  { id: 'paypal', name: 'PayPal', icon: Globe, description: 'Fast & secure' },
-  { id: 'crypto', name: 'Cryptocurrency', icon: Zap, description: 'Bitcoin, Ethereum' },
+  { id: 'metamask', name: 'MetaMask (Instant)', icon: Zap, description: 'Pay directly with USDT/USDC via MetaMask' },
+  { id: 'crypto-manual', name: 'Manual Crypto Transfer', icon: Shield, description: 'Send USDT to provided address' },
 ]
 
 export default function OneClickPayment({ 
   className, 
   preselectedPackage 
 }: OneClickPaymentProps) {
-  const [selectedPackage, setSelectedPackage] = useState(
-    preselectedPackage || 'pro'
-  )
+  const [packages, setPackages] = useState<PaymentPackage[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedPackage, setSelectedPackage] = useState<number | null>(null)
   const [currentStep, setCurrentStep] = useState<PaymentStep>('package')
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('card')
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('metamask')
   const [isProcessing, setIsProcessing] = useState(false)
+  const [transactionHash, setTransactionHash] = useState<string | null>(null)
+
+  // Load plans from API
+  useEffect(() => {
+    const loadPlans = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const plans = await fetchPlans()
+        setPackages(plans)
+        
+        // Set default selected package
+        if (preselectedPackage) {
+          const selectedPlan = plans.find(p => 
+            p.plan_type.toLowerCase() === preselectedPackage.toLowerCase() ||
+            p.name.toLowerCase() === preselectedPackage.toLowerCase()
+          )
+          setSelectedPackage(selectedPlan?.id || plans[0]?.id || null)
+        } else {
+          // Default to professional plan or first plan
+          const defaultPlan = plans.find(p => p.popular) || plans[0]
+          setSelectedPackage(defaultPlan?.id || null)
+        }
+      } catch (err) {
+        console.error('Error loading plans:', err)
+        setError('Failed to load plans. Please try again.')
+        // Use fallback data
+        const fallbackPlans = getFallbackPlans()
+        setPackages(fallbackPlans)
+        setSelectedPackage(fallbackPlans[1]?.id || fallbackPlans[0]?.id || null)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadPlans()
+  }, [preselectedPackage])
 
   const handlePayment = async () => {
+    if (selectedPaymentMethod === 'metamask') {
+      // MetaMask payment is handled by the MetaMaskPayment component
+      return
+    }
+    
+    if (selectedPaymentMethod === 'crypto-manual') {
+      // Redirect to manual crypto payment flow (PaymentDetails component)
+      setCurrentStep('confirmation') // For now, skip to confirmation
+      return
+    }
+    
     setIsProcessing(true)
     
     try {
@@ -132,7 +305,85 @@ export default function OneClickPayment({
     }
   }
 
-  const selectedPkg = MOCK_PACKAGES.find(pkg => pkg.id === selectedPackage)
+  const handleMetaMaskSuccess = async (txHash: string) => {
+    setTransactionHash(txHash)
+    console.log('MetaMask payment successful:', txHash)
+    
+    // Call backend to confirm payment and activate subscription
+    if (selectedPkg) {
+      try {
+        const response = await fetch('/api/v1/payments/confirm', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            plan_id: selectedPkg.id,
+            transaction_hash: txHash,
+            amount: selectedPkg.current_price,
+            currency: selectedPkg.currency,
+            network: 'ethereum', // Default to Ethereum for now
+          }),
+        })
+
+        const result = await response.json()
+        
+        if (result.success) {
+          console.log('Subscription activated successfully:', result)
+          setCurrentStep('confirmation')
+        } else {
+          console.error('Failed to activate subscription:', result.message)
+          alert(`Payment confirmed but subscription activation failed: ${result.message}`)
+          setCurrentStep('confirmation') // Still show confirmation since payment succeeded
+        }
+      } catch (error) {
+        console.error('Error confirming payment:', error)
+        alert('Payment succeeded but there was an error activating your subscription. Please contact support.')
+        setCurrentStep('confirmation') // Still show confirmation since payment succeeded
+      }
+    }
+  }
+
+  const handleMetaMaskError = (error: string) => {
+    console.error('MetaMask payment error:', error)
+    alert(`Payment failed: ${error}`)
+  }
+
+  const selectedPkg = packages.find(pkg => pkg.id === selectedPackage)
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className={cn('max-w-5xl mx-auto p-4 sm:p-6', className)}>
+        <div className="text-center space-y-6">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+          <h2 className="text-xl font-semibold">Loading plans...</h2>
+          <p className="text-muted-foreground">Please wait while we fetch the latest pricing</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (error && packages.length === 0) {
+    return (
+      <div className={cn('max-w-5xl mx-auto p-4 sm:p-6', className)}>
+        <div className="text-center space-y-6">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+            <AlertCircle className="w-8 h-8 text-red-600" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-red-600">Failed to Load Plans</h2>
+            <p className="text-muted-foreground mt-2">{error}</p>
+          </div>
+          <Button onClick={() => window.location.reload()}>
+            Try Again
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   const StepIndicator = () => (
     <div className="flex items-center justify-center mb-6 sm:mb-8">
@@ -188,7 +439,7 @@ export default function OneClickPayment({
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-xl font-bold">${selectedPkg?.price}</p>
+                  <p className="text-xl font-bold">${selectedPkg?.current_price}</p>
                   <p className="text-xs text-muted-foreground">per month</p>
                 </div>
               </div>
@@ -241,7 +492,7 @@ export default function OneClickPayment({
           <div className="block md:hidden mb-6">
             <div className="overflow-x-auto pb-4">
               <div className="flex gap-4 px-2">
-                {MOCK_PACKAGES.map((pkg) => (
+                {packages.map((pkg) => (
                   <Card
                     key={pkg.id}
                     className={cn(
@@ -268,18 +519,18 @@ export default function OneClickPayment({
                       <p className="text-sm text-muted-foreground">{pkg.description}</p>
                       
                       <div className="pt-2">
-                        {pkg.originalPrice && (
+                        {pkg.base_price > pkg.current_price && (
                           <p className="text-sm text-muted-foreground line-through">
-                            ${pkg.originalPrice}/month
+                            ${pkg.base_price}/month
                           </p>
                         )}
                         <div className="flex items-baseline justify-center gap-1">
-                          <span className="text-3xl font-bold">${pkg.price}</span>
+                          <span className="text-3xl font-bold">${pkg.current_price}</span>
                           <span className="text-muted-foreground">/month</span>
                         </div>
-                        {pkg.originalPrice && (
+                        {pkg.base_price > pkg.current_price && (
                           <Badge variant="destructive" className="mt-2">
-                            Save ${pkg.originalPrice - pkg.price}/month
+                            Save ${pkg.base_price - pkg.current_price}/month
                           </Badge>
                         )}
                       </div>
@@ -308,7 +559,7 @@ export default function OneClickPayment({
 
           {/* Desktop: Grid */}
           <div className="hidden md:grid md:grid-cols-3 gap-6 mb-8">
-            {MOCK_PACKAGES.map((pkg) => (
+            {packages.map((pkg) => (
               <Card
                 key={pkg.id}
                 className={cn(
@@ -335,18 +586,18 @@ export default function OneClickPayment({
                   <p className="text-sm text-muted-foreground">{pkg.description}</p>
                   
                   <div className="pt-4">
-                    {pkg.originalPrice && (
+                    {pkg.base_price > pkg.current_price && (
                       <p className="text-sm text-muted-foreground line-through">
-                        ${pkg.originalPrice}/month
+                        ${pkg.base_price}/month
                       </p>
                     )}
                     <div className="flex items-baseline justify-center gap-1">
-                      <span className="text-3xl font-bold">${pkg.price}</span>
+                      <span className="text-3xl font-bold">${pkg.current_price}</span>
                       <span className="text-muted-foreground">/month</span>
                     </div>
-                    {pkg.originalPrice && (
+                    {pkg.base_price > pkg.current_price && (
                       <Badge variant="destructive" className="mt-2">
-                        Save ${pkg.originalPrice - pkg.price}/month
+                        Save ${pkg.base_price - pkg.current_price}/month
                       </Badge>
                     )}
                   </div>
@@ -399,7 +650,7 @@ export default function OneClickPayment({
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <CreditCard className="w-5 h-5" />
+                    <Zap className="w-5 h-5" />
                     Payment Method
                   </CardTitle>
                 </CardHeader>
@@ -430,6 +681,18 @@ export default function OneClickPayment({
                 </CardContent>
               </Card>
 
+              {/* MetaMask Payment Component */}
+              {selectedPaymentMethod === 'metamask' && selectedPkg && (
+                <MetaMaskPayment
+                  planId={selectedPkg.id}
+                  planName={selectedPkg.name}
+                  amount={selectedPkg.current_price}
+                  currency={selectedPkg.currency}
+                  onSuccess={handleMetaMaskSuccess}
+                  onError={handleMetaMaskError}
+                />
+              )}
+
               {/* Security Info */}
               <Card className="border-green-200 bg-green-50 dark:bg-green-950 dark:border-green-800">
                 <CardContent className="p-4">
@@ -438,7 +701,10 @@ export default function OneClickPayment({
                     <span className="font-medium">Secure Payment</span>
                   </div>
                   <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-                    Your payment information is encrypted and secure. We never store your card details.
+                    {selectedPaymentMethod === 'metamask' 
+                      ? 'Your MetaMask transaction is processed directly on the blockchain. We never have access to your private keys.'
+                      : 'Your payment information is encrypted and secure. We never store your card details.'
+                    }
                   </p>
                 </CardContent>
               </Card>
@@ -462,17 +728,17 @@ export default function OneClickPayment({
                   <div className="border-t pt-4 space-y-2">
                     <div className="flex justify-between">
                       <span>Subtotal</span>
-                      <span>${selectedPkg.price}</span>
+                      <span>${selectedPkg.current_price}</span>
                     </div>
-                    {selectedPkg.originalPrice && (
+                    {selectedPkg.base_price > selectedPkg.current_price && (
                       <div className="flex justify-between text-green-600">
                         <span>Discount</span>
-                        <span>-${selectedPkg.originalPrice - selectedPkg.price}</span>
+                        <span>-${selectedPkg.base_price - selectedPkg.current_price}</span>
                       </div>
                     )}
                     <div className="flex justify-between font-bold text-lg border-t pt-2">
                       <span>Total</span>
-                      <span>${selectedPkg.price}/month</span>
+                      <span>${selectedPkg.current_price}/month</span>
                     </div>
                   </div>
 
@@ -490,7 +756,7 @@ export default function OneClickPayment({
                     ) : (
                       <>
                         <Lock className="w-4 h-4 mr-2" />
-                        Pay ${selectedPkg.price} Now
+                        Pay ${selectedPkg.current_price} Now
                       </>
                     )}
                   </Button>

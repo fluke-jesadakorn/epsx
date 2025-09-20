@@ -3,8 +3,6 @@ use std::sync::Arc;
 use crate::application::shared::{ApplicationResult, ApplicationError};
 use crate::domain::user_management::UserSearchCriteria;
 use crate::application::user_management::{
-    GetUserByFirebaseUidQuery,
-    GetUserByFirebaseUidResponse,
     ListUsersQuery,
     ListUsersResponse,
     UserSummary,
@@ -27,27 +25,7 @@ impl UserQueryService {
         }
     }
     
-    /// Get user by Firebase UID
-    pub async fn get_user_by_firebase_uid(
-        &self,
-        query: GetUserByFirebaseUidQuery,
-    ) -> ApplicationResult<GetUserByFirebaseUidResponse> {
-        tracing::info!("Processing GetUserByFirebaseUidQuery for firebase_uid: {}", query.firebase_uid.to_string());
-        
-        let user = self.user_repository
-            .find_by_firebase_uid(&query.firebase_uid)
-            .await
-            .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
-            .ok_or_else(|| ApplicationError::not_found("User", query.firebase_uid.to_string()))?;
-        
-        Ok(GetUserByFirebaseUidResponse {
-            firebase_uid: user.firebase_uid().clone(),
-            email: user.email().clone(),
-            email_verified: user.is_email_verified(),
-            is_active: user.is_active(),
-            permissions: user.permissions().clone(),
-        })
-    }
+    // Firebase UID lookup removed - migrated to Web3
     
     /// List users with filtering and pagination
     pub async fn list_users(
@@ -106,8 +84,8 @@ impl UserQueryService {
             };
             
             user_summaries.push(UserSummary {
-                id: user.firebase_uid().to_string(),  // Use firebase_uid as id
-                firebase_uid: user.firebase_uid().clone(),
+                id: user.id().to_string(),  // Use user id instead of firebase_uid
+                // firebase_uid removed in Web3 migration
                 email: user.email().clone(),
                 display_name: None, // Domain User doesn't expose display_name directly
                 role,
@@ -158,5 +136,5 @@ pub struct UserUpdateData {
 #[derive(Debug)]
 pub struct CreateUserData {
     pub email: String,
-    pub firebase_uid: String,
+    pub wallet_address: String,
 }

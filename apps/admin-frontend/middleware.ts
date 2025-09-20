@@ -219,25 +219,31 @@ export async function middleware(request: NextRequest) {
 }
 
 /**
- * Create redirect response to login page (which will initiate PKCE OAuth)
+ * Create redirect response to login page (which will initiate wallet authentication)
  */
 function redirectToLogin(request: NextRequest): NextResponse {
   // Use current request host for development services to avoid hardcoded production URLs
   const adminUrl = `${request.nextUrl.protocol}//${request.nextUrl.host}`;
   const callbackUrl = `${adminUrl}${request.nextUrl.pathname}${request.nextUrl.search}`;
   
-  // Redirect to our login page which will initiate PKCE OAuth
+  // Redirect to our login page which will initiate wallet authentication
   const loginUrl = new URL('/login', adminUrl);
   loginUrl.searchParams.set('redirectTo', callbackUrl);
   
-  console.log(`🔄 Admin middleware: Redirecting to login: ${loginUrl.toString()}`);
+  console.log(`🔄 Admin middleware: Redirecting to wallet login: ${loginUrl.toString()}`);
   const redirect = NextResponse.redirect(loginUrl.toString());
   
-  // OIDC Migration: Clear OIDC tokens instead of legacy JWT
+  // Wallet Authentication: Clear wallet session cookies
+  redirect.cookies.delete('wallet_address');
+  redirect.cookies.delete('wallet_nonce');
+  redirect.cookies.delete('wallet_signature');
+  redirect.cookies.delete('wallet_message');
+  redirect.cookies.delete('wallet_expires_at');
+  
+  // Also clear legacy OIDC tokens for migration
   redirect.cookies.delete('access_token');
   redirect.cookies.delete('id_token');
   redirect.cookies.delete('refresh_token');
-  // Also clear legacy cookie for migration
   redirect.cookies.delete('epsx_admin_jwt');
   
   return redirect;

@@ -9,6 +9,7 @@ pub mod email_service;
 pub mod tradingview;
 pub mod tradingview_websocket;
 pub mod firebase;
+pub mod firebase_admin_stub;
 pub mod oidc;
 pub mod combined_rate_limiting_service;
 pub mod comprehensive_rate_limiting_service;
@@ -29,6 +30,7 @@ pub use tradingview_websocket::{
     TradingViewWebSocketService, FrontendEPSData as WebSocketFrontendEPSData
 };
 pub use firebase::{FirebaseAdmin, FirebaseUser, FirebaseError};
+pub use firebase_admin_stub::{FirebaseAdminStub};
 pub use oidc::{OIDCService, TokenValidationResult as OidcTokenValidationResult};
 pub use combined_rate_limiting_service::CombinedRateLimitingService;
 pub use comprehensive_rate_limiting_service::{

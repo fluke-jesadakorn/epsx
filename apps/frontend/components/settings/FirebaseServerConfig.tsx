@@ -9,6 +9,7 @@ interface FirebaseConfigValue {
 }
 
 export function FirebaseServerConfig() {
+  // Minimal Firebase config for analytics only
   const firebaseConfigs: FirebaseConfigValue[] = [
     {
       key: 'NEXT_PUBLIC_FIREBASE_API_KEY',
@@ -17,28 +18,10 @@ export function FirebaseServerConfig() {
       isRequired: true
     },
     {
-      key: 'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
-      value: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-      label: 'Auth Domain',
-      isRequired: true
-    },
-    {
       key: 'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
       value: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
       label: 'Project ID',
       isRequired: true
-    },
-    {
-      key: 'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET',
-      value: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-      label: 'Storage Bucket',
-      isRequired: false
-    },
-    {
-      key: 'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
-      value: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-      label: 'Messaging Sender ID',
-      isRequired: false
     },
     {
       key: 'NEXT_PUBLIC_FIREBASE_APP_ID',
@@ -49,7 +32,7 @@ export function FirebaseServerConfig() {
     {
       key: 'NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID',
       value: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
-      label: 'Measurement ID',
+      label: 'Measurement ID (Analytics)',
       isRequired: false
     }
   ];
@@ -64,11 +47,11 @@ export function FirebaseServerConfig() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          🔥 Firebase Configuration Status
+          📊 Firebase Analytics Configuration
           {isFullyConfigured ? (
             <Badge variant="default" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
               <CheckCircle className="h-3 w-3 mr-1" />
-              Ready
+              Analytics Ready
             </Badge>
           ) : (
             <Badge variant="destructive">
@@ -127,8 +110,8 @@ export function FirebaseServerConfig() {
 
         <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg">
           <div className="text-sm text-blue-700 dark:text-blue-300">
-            <strong>🔒 Security Note:</strong> Environment variables are safely handled by server components. 
-            API keys are public-facing and safe to display (they are prefixed with NEXT_PUBLIC_).
+            <strong>📊 Analytics Only:</strong> Firebase is configured for analytics only. 
+            FCM messaging has been removed for Web3 migration. Authentication is handled via OIDC.
           </div>
         </div>
 

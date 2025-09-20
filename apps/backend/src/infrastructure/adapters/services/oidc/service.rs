@@ -58,7 +58,7 @@ impl OIDCService {
         // If domain user is provided, generate JWT with complete user information
         if let Some(user) = domain_user {
             tracing::info!("✅ Using domain user data for JWT generation: {} ({})", 
-                user.firebase_uid(), user.email().as_str());
+                user.id(), user.email().as_str());
             
             // Create JWT service with secure configuration
             let jwt_secret = std::env::var("JWT_SECRET")
@@ -78,7 +78,6 @@ impl OIDCService {
             
             // Create user context for JWT
             let user_context = crate::auth::user_jwt::UserContext {
-                tier: determine_user_tier(&permissions),
                 verified: user.is_email_verified(),
                 created_at: user.created_at().timestamp() as u64,
                 last_login: chrono::Utc::now().timestamp() as u64,
@@ -117,7 +116,7 @@ impl OIDCService {
             // Generate refresh token (simple UUID for now)
             let refresh_token = uuid::Uuid::new_v4().to_string();
             
-            tracing::info!("✅ Generated production OIDC tokens for user: {}", user.firebase_uid());
+            tracing::info!("✅ Generated production OIDC tokens for user: {}", user.id());
             
             Ok(TokenResponse {
                 access_token,

@@ -1,4 +1,4 @@
 // Consolidated authentication exports
 export * from './store';
-export * from './service';  
+export { useUnifiedAuth as useAuth, AuthProvider, authService } from './service';  
 export * from './utils';

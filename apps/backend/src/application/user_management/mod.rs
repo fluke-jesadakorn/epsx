@@ -23,8 +23,6 @@ pub use commands::{
 pub use queries::{
     GetUserQuery,
     GetUserResponse,
-    GetUserByFirebaseUidQuery,
-    GetUserByFirebaseUidResponse,
     SearchUsersQuery,
     SearchUsersResponse,
     ListUsersQuery,

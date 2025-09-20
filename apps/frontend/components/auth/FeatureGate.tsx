@@ -8,10 +8,10 @@ import Link from 'next/link'
 
 interface FeatureAccess {
   hasAccess: boolean
-  planName?: string
+  permissionTemplate?: string
   featureKey: string
   context: string
-  requiredPlan?: string
+  requiredPermissions?: string[]
   usageLimit?: number
   currentUsage?: number
 }
@@ -78,10 +78,14 @@ export function FeatureGate({
     }
   }
 
-  const getUpgradeIcon = (requiredPlan?: string) => {
-    if (!requiredPlan) return Lock
-    if (requiredPlan.toLowerCase().includes('enterprise')) return Crown
-    if (requiredPlan.toLowerCase().includes('pro')) return Zap
+  const getUpgradeIcon = (requiredPermissions?: string[]) => {
+    if (!requiredPermissions || requiredPermissions.length === 0) return Lock
+    
+    const hasEnterprise = requiredPermissions.some(p => p.includes('*:*') || p.includes('enterprise'))
+    const hasPremium = requiredPermissions.some(p => p.includes('premium') || p.includes('pro'))
+    
+    if (hasEnterprise) return Crown
+    if (hasPremium) return Zap
     return Shield
   }
 
@@ -109,7 +113,7 @@ export function FeatureGate({
       
       if (usagePercentage >= 100) {
         // Usage limit exceeded
-        const UpgradeIcon = getUpgradeIcon(access.requiredPlan)
+        const UpgradeIcon = getUpgradeIcon(access.requiredPermissions)
         
         return (
           <Card className={`border-red-200 dark:border-red-800 ${className}`}>
@@ -124,16 +128,16 @@ export function FeatureGate({
                   </h3>
                   <p className="text-red-700 dark:text-red-300">
                     You've used {access.currentUsage} of {access.usageLimit} for "{featureKey}". 
-                    {showUpgrade && access.requiredPlan && ' Upgrade to continue using this feature.'}
+                    {showUpgrade && access.requiredPermissions && ' Upgrade your permissions to continue using this feature.'}
                   </p>
                 </div>
               </div>
-              {showUpgrade && access.requiredPlan && (
+              {showUpgrade && access.requiredPermissions && (
                 <div className="mt-4 flex gap-2">
-                  <Link href="/plans">
+                  <Link href="/templates">
                     <Button className="bg-gradient-to-r from-emerald-400 to-green-500 text-white">
                       <UpgradeIcon className="h-4 w-4 mr-2" />
-                      Upgrade Plan
+                      Upgrade Access
                     </Button>
                   </Link>
                   <Link href="/settings">
@@ -176,7 +180,7 @@ export function FeatureGate({
     return null
   }
 
-  const UpgradeIcon = getUpgradeIcon(access.requiredPlan)
+  const UpgradeIcon = getUpgradeIcon(access.requiredPermissions)
 
   return (
     <Card className={`border-gray-200 dark:border-gray-700 ${className}`}>
@@ -185,29 +189,29 @@ export function FeatureGate({
           <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded-full">
             <Lock className="h-5 w-5 text-gray-500" />
           </div>
-          Premium Feature
+          Permission Required
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
           <p className="text-gray-600 dark:text-gray-400">
-            {access.requiredPlan ? (
-              <>This feature requires a <strong>{access.requiredPlan}</strong> plan or higher.</>
+            {access.requiredPermissions && access.requiredPermissions.length > 0 ? (
+              <>This feature requires additional permissions: <strong>{access.requiredPermissions.join(', ')}</strong></>
             ) : (
-              <>This feature requires a premium subscription to access.</>
+              <>This feature requires additional permissions to access.</>
             )}
           </p>
           <div className="flex gap-3">
-            <Link href="/plans">
+            <Link href="/templates">
               <Button className="bg-gradient-to-r from-emerald-400 to-green-500 text-white">
                 <UpgradeIcon className="h-4 w-4 mr-2" />
-                {access.requiredPlan ? `Upgrade to ${access.requiredPlan}` : 'View Plans'}
+                View Permission Templates
               </Button>
             </Link>
             <Link href="/settings">
               <Button variant="outline">
                 <Shield className="h-4 w-4 mr-2" />
-                Current Plan
+                Current Permissions
               </Button>
             </Link>
           </div>

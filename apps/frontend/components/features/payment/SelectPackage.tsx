@@ -24,7 +24,7 @@ export function SelectPackage({
 }: SelectPackageProps) {
   const [isLoading, setIsLoading] = useState(false);
 
-  // Filter out free packages and API packages for standard plans display
+  // Filter out free packages and API packages for standard plans display  
   const standardPackages = PACKAGES.filter(pkg => 
     pkg.price > 0 && !pkg.id.startsWith('api_')
   );

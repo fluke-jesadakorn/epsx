@@ -1,2 +1,2 @@
 // Main authentication module - re-exports consolidated auth functionality
-export * from './auth';
+export * from './auth/index';

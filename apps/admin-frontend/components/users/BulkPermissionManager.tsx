@@ -25,46 +25,81 @@ interface BulkPermissionManagerProps {
 
 const PERMISSION_TEMPLATES = [
   {
-    id: 'basic-user',
-    name: 'Basic User',
-    description: 'Standard user permissions',
+    id: 'free-template',
+    name: 'Free Template',
+    description: 'Basic free tier permissions',
     permissions: [
-      { resource: 'profile', action: 'read' },
-      { resource: 'profile', action: 'write' },
-      { resource: 'api', action: 'basic' }
+      { resource: 'epsx', action: 'rankings:view:3' },
+      { resource: 'epsx', action: 'trading:basic' },
+      { resource: 'epsx', action: 'portfolio:view' }
     ]
   },
   {
-    id: 'premium-user', 
-    name: 'Premium User',
-    description: 'Premium user with extended features',
+    id: 'bronze-template',
+    name: 'Bronze Template',
+    description: 'Enhanced access with basic features',
     permissions: [
-      { resource: 'profile', action: 'read' },
-      { resource: 'profile', action: 'write' },
-      { resource: 'api', action: 'premium' },
-      { resource: 'analytics', action: 'read' },
-      { resource: 'reports', action: 'generate' }
+      { resource: 'epsx', action: 'rankings:view:5' },
+      { resource: 'epsx', action: 'trading:basic' },
+      { resource: 'epsx', action: 'portfolio:view' },
+      { resource: 'epsx', action: 'portfolio:history' }
     ]
   },
   {
-    id: 'moderator',
-    name: 'Moderator',
-    description: 'Content moderation permissions',
+    id: 'silver-template',
+    name: 'Silver Template',
+    description: 'Premium access with advanced analytics',
     permissions: [
-      { resource: 'users', action: 'read' },
-      { resource: 'content', action: 'moderate' },
-      { resource: 'reports', action: 'read' }
+      { resource: 'epsx', action: 'rankings:view:25' },
+      { resource: 'epsx', action: 'trading:basic' },
+      { resource: 'epsx', action: 'trading:advanced' },
+      { resource: 'epsx', action: 'portfolio:view' },
+      { resource: 'epsx', action: 'analytics:basic' }
     ]
   },
   {
-    id: 'admin',
-    name: 'Administrator', 
+    id: 'gold-template',
+    name: 'Gold Template',
+    description: 'Professional access with premium tools',
+    permissions: [
+      { resource: 'epsx', action: 'rankings:view:50' },
+      { resource: 'epsx', action: 'trading:premium' },
+      { resource: 'epsx', action: 'portfolio:tools' },
+      { resource: 'epsx', action: 'analytics:advanced' }
+    ]
+  },
+  {
+    id: 'platinum-template',
+    name: 'Platinum Template',
+    description: 'VIP access with advanced features',
+    permissions: [
+      { resource: 'epsx', action: 'rankings:view:100' },
+      { resource: 'epsx', action: 'trading:premium' },
+      { resource: 'epsx', action: 'analytics:premium' },
+      { resource: 'epsx', action: 'research:reports' },
+      { resource: 'epsx', action: 'dashboards:custom' }
+    ]
+  },
+  {
+    id: 'enterprise-template',
+    name: 'Enterprise Template',
+    description: 'Unlimited access with all platform features',
+    permissions: [
+      { resource: 'epsx', action: 'rankings:view:unlimited' },
+      { resource: 'epsx', action: '*:*' },
+      { resource: 'epsx-pay', action: '*:*' },
+      { resource: 'epsx-token', action: '*:*' }
+    ]
+  },
+  {
+    id: 'admin-template',
+    name: 'Admin Template',
     description: 'Full administrative access',
     permissions: [
-      { resource: 'admin', action: 'read' },
-      { resource: 'admin', action: 'write' },
-      { resource: 'users', action: 'manage' },
-      { resource: 'settings', action: 'modify' }
+      { resource: 'admin', action: '*:*' },
+      { resource: 'epsx', action: '*:*' },
+      { resource: 'epsx-pay', action: '*:*' },
+      { resource: 'epsx-token', action: '*:*' }
     ]
   }
 ]

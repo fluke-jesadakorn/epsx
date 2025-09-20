@@ -7,7 +7,6 @@ pub mod unified_user_handlers;
 pub mod setup_handlers;
 // Removed: permission handlers
 pub mod analytics_handlers;
-pub mod firebase_user_management;
 // pub mod database_role_management; // Removed - using permissions-based system
 // Removed admin_role_management - using simple roles
 pub mod search_handlers;
@@ -27,5 +26,9 @@ pub mod security_monitoring_handlers;
 pub mod policy_handlers;
 // Dynamic plan management handlers (simplified for compilation)
 pub mod plan_management_handlers_simple;
+// Performance monitoring handlers for authentication system
+pub mod performance_handlers;
+// Web3 permission management handlers
+pub mod web3_admin_handlers;
 
 pub use routes::{create_admin_routes, create_admin_public_routes};

@@ -93,21 +93,23 @@ const DynamicPricingSection = () => {
         const result = await response.json();
         
         if (result.success && result.data) {
-          const planData = result.data.map((item: any) => ({
-            ...item.plan,
-            planType: item.plan.plan_type,
-            basePrice: parseFloat(item.plan.base_price),
-            currentPrice: parseFloat(item.plan.current_price),
-            effectivePrice: parseFloat(item.effective_price),
-            displayOrder: item.plan.display_order,
-            isActive: item.plan.is_active,
-            isHighlighted: item.plan.is_highlighted,
-            features: Array.isArray(item.plan.features) ? item.plan.features : [],
-            activePromotions: item.active_promotions || [],
-            promotionalBadges: item.promotional_badges || [],
-            campaignSummary: item.campaign_summary,
-            affiliateCommissionRate: parseFloat(item.plan.affiliate_commission_rate || '0')
-          }));
+          const planData = result.data
+            .filter((item: any) => item?.plan)
+            .map((item: any) => ({
+              ...item.plan,
+              planType: item.plan.plan_type,
+              basePrice: parseFloat(item.plan.base_price),
+              currentPrice: parseFloat(item.plan.current_price),
+              effectivePrice: parseFloat(item.effective_price),
+              displayOrder: item.plan.display_order,
+              isActive: item.plan.is_active,
+              isHighlighted: item.plan.is_highlighted,
+              features: Array.isArray(item.plan.features) ? item.plan.features : [],
+              activePromotions: item.active_promotions || [],
+              promotionalBadges: item.promotional_badges || [],
+              campaignSummary: item.campaign_summary,
+              affiliateCommissionRate: parseFloat(item.plan.affiliate_commission_rate || '0')
+            }));
           
           // Separate personal and API plans
           const personal = planData

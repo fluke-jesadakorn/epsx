@@ -18,17 +18,21 @@ fn has_admin_permissions(permissions: &[String]) -> bool {
     permissions.iter().any(|p| p == "admin:*:*" || p.starts_with("admin:"))
 }
 
-/// Derive package tier from permissions
-pub fn derive_package_tier_from_permissions(permissions: &[String]) -> String {
-    if has_enterprise_permissions(permissions) {
+/// Derive display tier from permissions for UI compatibility (DEPRECATED)
+/// This function is deprecated - UI should use permissions directly instead
+pub fn derive_display_tier_from_permissions(permissions: &[String]) -> String {
+    // Simplified logic based on permission count and patterns
+    if has_admin_permissions(permissions) {
+        "ADMIN".to_string()
+    } else if permissions.iter().any(|p| p.contains("unlimited") || p.contains("*:*")) {
         "ENTERPRISE".to_string()
-    } else if has_platinum_permissions(permissions) {
+    } else if permissions.len() >= 8 {
         "PLATINUM".to_string()
-    } else if has_gold_permissions(permissions) {
+    } else if permissions.len() >= 5 {
         "GOLD".to_string()
-    } else if has_silver_permissions(permissions) {
+    } else if permissions.len() >= 3 {
         "SILVER".to_string()
-    } else if has_bronze_permissions(permissions) {
+    } else if permissions.len() >= 1 {
         "BRONZE".to_string()
     } else {
         "FREE".to_string()
@@ -67,47 +71,8 @@ pub fn derive_primary_platform_from_permissions(permissions: &[String]) -> Strin
     }
 }
 
-/// Helper functions for tier detection
-fn has_enterprise_permissions(permissions: &[String]) -> bool {
-    permissions.iter().any(|p| {
-        p.starts_with("enterprise:") || 
-        p == "admin:*:*" ||
-        p.contains("enterprise") ||
-        has_admin_permissions(permissions)
-    })
-}
-
-fn has_platinum_permissions(permissions: &[String]) -> bool {
-    permissions.iter().any(|p| {
-        p.starts_with("platinum:") ||
-        p.contains("platinum") ||
-        permissions.len() >= 10 // Many permissions indicate higher tier
-    })
-}
-
-fn has_gold_permissions(permissions: &[String]) -> bool {
-    permissions.iter().any(|p| {
-        p.starts_with("gold:") ||
-        p.contains("gold") ||
-        permissions.iter().any(|perm| perm.contains("export") || perm.contains("advanced"))
-    })
-}
-
-fn has_silver_permissions(permissions: &[String]) -> bool {
-    permissions.iter().any(|p| {
-        p.starts_with("silver:") ||
-        p.contains("silver") ||
-        permissions.len() >= 5 // Several permissions indicate silver tier
-    })
-}
-
-fn has_bronze_permissions(permissions: &[String]) -> bool {
-    permissions.iter().any(|p| {
-        p.starts_with("bronze:") ||
-        p.contains("bronze") ||
-        permissions.len() >= 3 // Few permissions indicate bronze tier
-    })
-}
+// Helper functions for tier detection removed - no longer needed
+// Tiers are now derived from permissions using simplified logic
 
 /// Enhanced JWT claims for stateless permission validation (OPTIMIZED)
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -134,8 +99,6 @@ pub struct Claims {
     pub permission_last_updated: u64,
     
     // OPTIMIZED: Compressed user context (shorter field names)
-    #[serde(rename = "t")]                  // User's package tier (FREE, BRONZE, etc.)
-    pub tier: String,
     #[serde(rename = "plats")]              // Accessible platforms
     pub platforms: Vec<String>,
     #[serde(rename = "v")]                  // Account verification status
@@ -224,7 +187,6 @@ impl Service {
         }
         
         // Compute enhanced fields for embedded validation
-        let tier = derive_package_tier_from_permissions(&permissions);
         let platforms = derive_accessible_platforms_from_permissions(&permissions);
         
         // Default TTL: 60 seconds for fresh permissions and security
@@ -258,7 +220,6 @@ impl Service {
             permission_last_updated: user_data.permission_last_updated.unwrap_or(now as u64),
             
             // ENHANCED: Pre-computed context for fast validation
-            tier,
             platforms,
             verified: user_data.verified.unwrap_or(false),
             
@@ -435,7 +396,6 @@ impl Service {
             permissions: valid_permissions,
             permission_version: claims.permission_version,
             permission_last_updated: claims.permission_last_updated,
-            tier: claims.tier,
             platforms: claims.platforms,
             verified: claims.verified,
             needs_refresh: claims.needs_refresh,
@@ -447,7 +407,8 @@ impl Service {
     // Permission checking methods removed - permissions are now handled by separate PermissionService
     // Use PermissionApplicationService.has_permission() instead
 
-    /// Check if user has package tier (now requires permissions parameter)
+    /// Check if user has package tier (DEPRECATED - use permission-based checks instead)
+    /// This method is provided for backward compatibility only
     pub fn has_tier_with_permissions(&self, permissions: &[String], required_tier: &str) -> bool {
         let tier_hierarchy = [
             ("FREE", 1),
@@ -456,9 +417,10 @@ impl Service {
             ("GOLD", 4),
             ("PLATINUM", 5),
             ("ENTERPRISE", 6),
+            ("ADMIN", 7),
         ].iter().cloned().collect::<std::collections::HashMap<_, _>>();
 
-        let user_tier = derive_package_tier_from_permissions(permissions);
+        let user_tier = derive_display_tier_from_permissions(permissions);
         let user_level = tier_hierarchy.get(user_tier.as_str()).unwrap_or(&0);
         let required_level = tier_hierarchy.get(required_tier).unwrap_or(&1);
 
@@ -491,6 +453,96 @@ impl Service {
     /// Check if user has package tier (alias for has_tier_with_permissions())
     pub fn has_package_tier_with_permissions(&self, permissions: &[String], required_tier: &str) -> bool {
         self.has_tier_with_permissions(permissions, required_tier)
+    }
+
+    /// Generate access token (for OIDC integration)
+    pub fn generate_access_token(&self, user_id: &str, permissions: &[String], expires_in: i64) -> Result<String, Error> {
+        let _now = chrono::Utc::now().timestamp();
+        let user_data = UserData {
+            id: user_id.to_string(),
+            email: format!("{}@epsx.placeholder", user_id),
+            name: Some("OIDC User".to_string()),
+            permissions: Some(permissions.to_vec()),
+            ttl_seconds: Some(expires_in as usize),
+            ..Default::default()
+        };
+        self.create(user_data)
+    }
+
+    /// Generate ID token (for OIDC integration)
+    pub fn generate_id_token(&self, user_id: &str, claims: &std::collections::HashMap<String, serde_json::Value>, expires_in: i64) -> Result<String, Error> {
+        let default_email = format!("{}@epsx.placeholder", user_id);
+        let email = claims.get("email")
+            .and_then(|v| v.as_str())
+            .unwrap_or(&default_email);
+        
+        let permissions = claims.get("permissions")
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+            .unwrap_or_default();
+
+        let user_data = UserData {
+            id: user_id.to_string(),
+            email: email.to_string(),
+            name: claims.get("name").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            permissions: Some(permissions),
+            ttl_seconds: Some(expires_in as usize),
+            ..Default::default()
+        };
+        self.create(user_data)
+    }
+
+    /// Generate refresh token (for OIDC integration)
+    pub fn generate_refresh_token(&self, user_id: &str) -> Result<String, Error> {
+        let now = chrono::Utc::now().timestamp();
+        let refresh_claims = RefreshTokenClaims {
+            sub: user_id.to_string(),
+            iss: self.issuer.clone(),
+            aud: "refresh".to_string(),
+            exp: now + (7 * 24 * 3600), // 7 days
+            iat: now,
+            session_id: Uuid::new_v4().to_string(),
+            token_type: "refresh".to_string(),
+        };
+
+        let mut header = Header::new(Algorithm::RS256);
+        header.kid = Some(self.key_manager.current_key().kid.clone());
+        let key = &self.key_manager.current_key().encoding_key;
+        
+        encode(&header, &refresh_claims, &key)
+            .map_err(|e| Error::Invalid(format!("Failed to encode refresh token: {}", e)))
+    }
+
+    /// Validate refresh token (for OIDC integration)
+    pub fn validate_refresh_token(&self, token: &str) -> Result<RefreshTokenClaims, Error> {
+        // Decode header to get key ID
+        let header = jsonwebtoken::decode_header(token)
+            .map_err(|_| Error::Invalid("Invalid refresh token header".to_string()))?;
+        
+        // Get the appropriate key
+        let key = self.key_manager.get_key(&header.kid.unwrap_or_default())
+            .ok_or_else(|| Error::Invalid("Unknown key ID".to_string()))?;
+        
+        // Set up validation
+        let mut validation = Validation::new(Algorithm::RS256);
+        validation.set_audience(&["refresh"]);
+        validation.set_issuer(&[&self.issuer]);
+        
+        // Decode and validate
+        decode::<RefreshTokenClaims>(token, &key.decoding_key, &validation)
+            .map(|data| data.claims)
+            .map_err(|e| match e.kind() {
+                ErrorKind::ExpiredSignature => Error::Expired,
+                ErrorKind::InvalidToken => Error::Invalid("Invalid refresh token".to_string()),
+                ErrorKind::InvalidSignature => Error::InvalidSignature,
+                ErrorKind::ImmatureSignature => Error::NotYetValid,
+                _ => Error::Invalid(format!("Refresh token validation failed: {}", e)),
+            })
+    }
+
+    /// Validate access token (for OIDC integration)
+    pub fn validate_access_token(&self, token: &str) -> Result<Claims, Error> {
+        // Access tokens are just regular JWT tokens, so we can use the verify method
+        futures::executor::block_on(self.verify(token))
     }
 }
 
@@ -558,7 +610,6 @@ pub struct EnhancedUserContext {
     pub permissions: Vec<String>,
     pub permission_version: u32,
     pub permission_last_updated: u64,
-    pub tier: String,
     pub platforms: Vec<String>,
     pub verified: bool,
     pub needs_refresh: bool,
@@ -721,6 +772,22 @@ pub struct UserData {
     pub verified: Option<bool>,              // Account verification status
 }
 
+impl Default for UserData {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            email: String::new(),
+            name: None,
+            permissions: None,
+            audience: None,
+            ttl_seconds: None,
+            permission_version: None,
+            permission_last_updated: None,
+            verified: None,
+        }
+    }
+}
+
 impl Default for Service {
     fn default() -> Self {
         Self::new().expect("Failed to create JWT service")
@@ -766,7 +833,7 @@ mod tests {
         let permissions = vec!["admin:*:*".to_string()];
         
         // Test permission derivation functions
-        assert_eq!(derive_package_tier_from_permissions(&permissions), "ENTERPRISE");
+        assert_eq!(derive_display_tier_from_permissions(&permissions), "ADMIN");
         assert!(service.has_tier_with_permissions(&permissions, "SILVER"));
         assert!(derive_accessible_platforms_from_permissions(&permissions).contains(&"admin".to_string()));
         assert_eq!(derive_primary_platform_from_permissions(&permissions), "admin");
@@ -836,7 +903,7 @@ mod tests {
         let admin_permissions = vec!["admin:*:*".to_string()];
 
         // Test admin derivations
-        assert_eq!(derive_package_tier_from_permissions(&admin_permissions), "ENTERPRISE");
+        assert_eq!(derive_display_tier_from_permissions(&admin_permissions), "ADMIN");
         assert_eq!(derive_primary_platform_from_permissions(&admin_permissions), "admin");
         
         // Admin should have access to all platforms through admin permissions

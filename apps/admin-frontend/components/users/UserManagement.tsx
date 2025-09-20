@@ -44,7 +44,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import type { User, UserStats, UserFilters } from '@/types/core';
 import type { TableColumn } from '@/types/ui';
 import { adminClient } from '@/lib/api/unified-admin-client';
-import { UnifiedAuth } from '@/lib/auth/unified-auth';
+import { getAdminSession } from '@/lib/auth/wallet-auth';
 
 interface UserManagementProps {
   initialUsers?: User[];
@@ -101,16 +101,22 @@ function UserCard({ user, isSelected, onSelect, onEdit, onDelete, onView }: {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <h4 className="font-semibold text-sm truncate text-gray-800 dark:text-gray-200">
-                  {user.displayName || user.name || user.email}
+                  {user.displayName || user.name || `${user.wallet_address?.substring(0, 6)}...${user.wallet_address?.substring(-4)}`}
                 </h4>
                 <div className={`px-2 py-0.5 rounded-full text-xs font-medium text-white ${getStatusColor(user.status || 'active')}`}>
                   {user.status || 'active'}
                 </div>
               </div>
               
-              <p className="text-sm text-gray-600 dark:text-gray-400 truncate mb-2">
-                {user.email}
+              <p className="text-sm text-gray-600 dark:text-gray-400 truncate mb-1 font-mono">
+                {user.wallet_address}
               </p>
+              
+              {user.email && (
+                <p className="text-xs text-gray-500 dark:text-gray-500 truncate mb-2">
+                  📧 {user.email}
+                </p>
+              )}
               
               <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
                 <span className="flex items-center gap-1">
@@ -123,9 +129,20 @@ function UserCard({ user, isSelected, onSelect, onEdit, onDelete, onView }: {
                     {user.permissions.length} permissions
                   </span>
                 )}
+                {user.nftHoldings && (
+                  <span className="flex items-center gap-1">
+                    🎨 {user.nftHoldings} NFTs
+                  </span>
+                )}
+                {user.tokenBalance && (
+                  <span className="flex items-center gap-1">
+                    🪙 {user.tokenBalance} ETH
+                  </span>
+                )}
                 <span className="flex items-center gap-1">
                   <Calendar className="h-3 w-3" />
-                  {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}
+                  {user.walletConnectedAt ? new Date(user.walletConnectedAt).toLocaleDateString() : 
+                   user.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}
                 </span>
               </div>
             </div>
@@ -216,7 +233,8 @@ export function UserManagement({
     // Apply search filter
     if (filters.search) {
       filtered = filtered.filter(user => 
-        user.email.toLowerCase().includes(filters.search!.toLowerCase()) ||
+        user.wallet_address.toLowerCase().includes(filters.search!.toLowerCase()) ||
+        (user.email && user.email.toLowerCase().includes(filters.search!.toLowerCase())) ||
         (user.name && user.name.toLowerCase().includes(filters.search!.toLowerCase())) ||
         (user.displayName && user.displayName.toLowerCase().includes(filters.search!.toLowerCase())) ||
         user.id.includes(filters.search!)
@@ -273,7 +291,8 @@ export function UserManagement({
   }
 
   const handleUserDelete = async (user: User) => {
-    if (!confirm(`Are you sure you want to delete user ${user.email}? This action cannot be undone.`)) {
+    const userIdentifier = user.email || `${user.wallet_address.substring(0, 6)}...${user.wallet_address.substring(-4)}`;
+    if (!confirm(`Are you sure you want to delete user ${userIdentifier}? This action cannot be undone.`)) {
       return;
     }
     
@@ -281,9 +300,10 @@ export function UserManagement({
       setUsers(prev => prev.filter(u => u.id !== user.id));
       onUserDelete?.(user.id);
       
+      const userIdentifier = user.email || `${user.wallet_address.substring(0, 6)}...${user.wallet_address.substring(-4)}`;
       toast({
         title: "User deleted",
-        description: `${user.email} has been successfully deleted.`,
+        description: `${userIdentifier} has been successfully deleted.`,
         variant: "default",
       });
     } catch (error) {
@@ -434,7 +454,7 @@ export function UserManagement({
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <Input
-                    placeholder="🔍 Search users by name, email, or ID..."
+                    placeholder="🔍 Search users by wallet address, name, email, or ID..."
                     value={filters.search || ''}
                     onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
                     className="pl-10 pr-4 rounded-2xl border-2 border-blue-200 dark:border-blue-700 bg-gradient-to-r from-blue-50/50 to-purple-50/50 dark:from-blue-900/20 dark:to-purple-900/20 h-12"
@@ -471,7 +491,9 @@ export function UserManagement({
                       <SelectValue placeholder="Sort" />
                     </SelectTrigger>
                     <SelectContent className="rounded-2xl">
+                      <SelectItem value="walletConnectedAt">🔗 Wallet Connected</SelectItem>
                       <SelectItem value="created_at">📅 Created Date</SelectItem>
+                      <SelectItem value="wallet_address">🔐 Wallet Address</SelectItem>
                       <SelectItem value="email">📧 Email</SelectItem>
                       <SelectItem value="name">👤 Name</SelectItem>
                       <SelectItem value="role">🎭 Role</SelectItem>
@@ -719,15 +741,19 @@ export function UserManagement({
                 <Button
                   onClick={() => {
                     const csvData = filteredUsers.map(user => ({
-                      email: user.email,
+                      wallet_address: user.wallet_address,
+                      email: user.email || '',
                       name: user.name || '',
                       role: user.role,
                       status: user.isActive ? 'active' : 'inactive',
-                      created: user.createdAt
+                      walletConnected: user.walletConnectedAt || '',
+                      created: user.createdAt,
+                      nftHoldings: user.nftHoldings || 0,
+                      tokenBalance: user.tokenBalance || '0'
                     }));
                     
                     const csvString = 'data:text/csv;charset=utf-8,'
-                      + 'Email,Name,Role,Status,Created\n'
+                      + 'Wallet Address,Email,Name,Role,Status,Wallet Connected,Created,NFT Holdings,Token Balance\n'
                       + csvData.map(row => Object.values(row).join(',')).join('\n');
                     
                     const encodedUri = encodeURI(csvString);

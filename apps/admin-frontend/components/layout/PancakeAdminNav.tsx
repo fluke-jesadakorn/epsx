@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import { AdminWalletAuth } from '@/components/auth/AdminWalletAuth';
 
 interface NavItem {
   id: string;
@@ -129,6 +130,14 @@ const navigationItems: NavItem[] = [ // Updated navigation with new features
     gradient: 'from-gray-400 to-gray-600 dark:from-gray-600 dark:to-gray-700',
     description: 'System Config',
   },
+  {
+    id: 'profile',
+    label: 'Profile',
+    href: '/profile',
+    icon: '👤',
+    gradient: 'from-slate-400 to-slate-600 dark:from-slate-500 dark:to-slate-700',
+    description: 'Admin Account',
+  },
 ];
 
 export function PancakeAdminNav() {
@@ -190,14 +199,9 @@ export function PancakeAdminNav() {
           : undefined
       }}
     >
-      {/* Logo Section */}
+      {/* Header Section */}
       <div className="border-b border-yellow-200/50 p-6 dark:border-slate-700/50">
         <div className="flex items-center gap-3">
-          <img 
-            src="/logo.png" 
-            alt="EPSX" 
-            className="h-8 w-auto object-contain"
-          />
           {!isCollapsed && (
             <h1 className="bg-gradient-to-r from-yellow-600 to-orange-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-xl font-black text-transparent">
               Admin
@@ -392,19 +396,18 @@ export function PancakeAdminNav() {
         })}
       </div>
 
-      {/* Bottom Section */}
+      {/* Admin Auth Section */}
       <div className="absolute right-0 bottom-0 left-0 border-t border-yellow-200/50 p-4 dark:border-slate-700/50">
-        <div className="rounded-2xl bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 dark:from-purple-600 dark:via-purple-500 dark:to-pink-600 p-4 shadow-xl">
-          <div className="text-center">
-            <div className="mb-1 text-lg font-bold text-white">⚡ EPSX!</div>
-            {!isCollapsed && (
-              <div className="text-sm text-white/80">
-                Advanced analytics and trading platform
-              </div>
-            )}
-          </div>
+        <div className="rounded-2xl bg-white/10 p-4 backdrop-blur-sm dark:bg-slate-800/30">
+          {!isCollapsed && (
+            <div className="mb-3 text-sm font-medium text-gray-700 dark:text-slate-300">
+              Admin Authentication
+            </div>
+          )}
+          <AdminWalletAuth className="w-full" />
         </div>
       </div>
+
     </div>
   );
 }

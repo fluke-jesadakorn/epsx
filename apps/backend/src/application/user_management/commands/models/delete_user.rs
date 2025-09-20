@@ -1,18 +1,18 @@
 // Delete User Command
 // Represents the intent to delete a user from the system
 
-use crate::domain::user_management::value_objects::FirebaseUid;
+use crate::domain::shared_kernel::value_objects::UserId;
 use crate::application::shared::{Command, ApplicationResult};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeleteUserCommand {
-    pub firebase_uid: FirebaseUid,
+    pub user_id: UserId,
 }
 
 impl DeleteUserCommand {
-    pub fn new(firebase_uid: FirebaseUid) -> Self {
-        Self { firebase_uid }
+    pub fn new(user_id: UserId) -> Self {
+        Self { user_id }
     }
 }
 
@@ -31,11 +31,11 @@ impl Command for DeleteUserCommand {
     type Response = DeleteUserResponse;
     
     fn validate(&self) -> ApplicationResult<()> {
-        // Basic validation - Firebase UID should not be empty
-        if self.firebase_uid.as_str().is_empty() {
+        // Basic validation - User ID should not be empty
+        if self.user_id.to_string().is_empty() {
             return Err(crate::application::shared::ApplicationError::validation(
-                "firebase_uid", 
-                "Firebase UID cannot be empty".to_string()
+                "user_id", 
+                "User ID cannot be empty".to_string()
             ));
         }
         Ok(())

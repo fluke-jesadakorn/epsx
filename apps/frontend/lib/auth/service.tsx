@@ -299,6 +299,9 @@ export function useUnifiedAuth(): AuthContextValue {
   return context;
 }
 
+// Backward compatibility alias
+export const useAuth = useUnifiedAuth;
+
 // Auth provider component
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<UnifiedUser | null>(null);

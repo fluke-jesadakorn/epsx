@@ -5,7 +5,7 @@ use axum::{
 use sqlx::PgPool as DbPool;
 use std::sync::Arc;
 
-use crate::web::user::handlers::{get_user_claims, upsert_user};
+// Note: get_user_claims and upsert_user handlers missing after Web3 migration
 
 /**
  * Modern Auth.js v5 routes
@@ -13,11 +13,9 @@ use crate::web::user::handlers::{get_user_claims, upsert_user};
  */
 pub fn create_modern_auth_routes() -> Router<Arc<DbPool>> {
     Router::new()
-        // User claims endpoint for JWT token generation
-        .route("/user-claims", post(get_user_claims))
-        
-        // User upsert endpoint for OAuth sign-in
-        .route("/upsert-user", post(upsert_user))
+        // Note: Handlers commented out - need Web3 implementation
+        // .route("/user-claims", post(get_user_claims))
+        // .route("/upsert-user", post(upsert_user))
         
         // Health check endpoint (public)
         .route("/auth/health", get(auth_health_check))

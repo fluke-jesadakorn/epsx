@@ -61,19 +61,13 @@ export default function EnvDebugPage() {
         try {
           const firebaseConfig = {
             apiKey: env.FIREBASE_API_KEY,
-            authDomain: env.FIREBASE_AUTH_DOMAIN,
             projectId: env.FIREBASE_PROJECT_ID,
-            storageBucket: env.FIREBASE_STORAGE_BUCKET,
-            messagingSenderId: env.FIREBASE_MESSAGING_SENDER_ID,
             appId: env.FIREBASE_APP_ID,
             measurementId: env.FIREBASE_MEASUREMENT_ID
           };
           return {
             apiKey: firebaseConfig.apiKey ? `${firebaseConfig.apiKey.substring(0, 10)}...` : 'undefined',
-            authDomain: firebaseConfig.authDomain || 'undefined',
             projectId: firebaseConfig.projectId || 'undefined',
-            storageBucket: firebaseConfig.storageBucket || 'undefined',
-            messagingSenderId: firebaseConfig.messagingSenderId || 'undefined',
             appId: firebaseConfig.appId ? `${firebaseConfig.appId.substring(0, 15)}...` : 'undefined',
             measurementId: firebaseConfig.measurementId || 'undefined',
           };
@@ -104,12 +98,9 @@ export default function EnvDebugPage() {
     // Make debug functions available globally
     (window as any).debugEnv = {
       checkFirebaseConfig: () => {
-        console.log('Firebase Config:', {
+        console.log('Firebase Analytics Config:', {
           apiKey: env.FIREBASE_API_KEY,
-          authDomain: env.FIREBASE_AUTH_DOMAIN,
           projectId: env.FIREBASE_PROJECT_ID,
-          storageBucket: env.FIREBASE_STORAGE_BUCKET,
-          messagingSenderId: env.FIREBASE_MESSAGING_SENDER_ID,
           appId: env.FIREBASE_APP_ID,
           measurementId: env.FIREBASE_MEASUREMENT_ID
         });

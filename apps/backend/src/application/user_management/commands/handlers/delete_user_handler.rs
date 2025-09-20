@@ -28,14 +28,14 @@ impl DeleteUserCommandHandler {
 #[async_trait]
 impl CommandHandler<DeleteUserCommand> for DeleteUserCommandHandler {
     async fn handle(&self, command: DeleteUserCommand) -> ApplicationResult<DeleteUserResponse> {
-        tracing::info!("Processing DeleteUserCommand for firebase_uid: {}", command.firebase_uid.to_string());
+        tracing::info!("Processing DeleteUserCommand for user_id: {}", command.user_id.to_string());
         
-        // Find user by Firebase UID
+        // Find user by User ID (Web3-first approach)
         let user = self.user_repository
-            .find_by_firebase_uid(&command.firebase_uid)
+            .find_by_id(&command.user_id)
             .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
-            .ok_or_else(|| ApplicationError::not_found("User", command.firebase_uid.to_string()))?;
+            .ok_or_else(|| ApplicationError::not_found("User", command.user_id.to_string()))?;
         
         // Delete the user (this should trigger domain events)
         self.user_repository
@@ -48,11 +48,11 @@ impl CommandHandler<DeleteUserCommand> for DeleteUserCommandHandler {
             self.event_bus.publish(event);
         }
         
-        tracing::info!("Successfully deleted user: {}", command.firebase_uid.to_string());
+        tracing::info!("Successfully deleted user: {}", command.user_id.to_string());
         
         // Create response
         Ok(DeleteUserResponse::new(
-            format!("User {} deleted successfully", command.firebase_uid.to_string())
+            format!("User {} deleted successfully", command.user_id.to_string())
         ))
     }
 }

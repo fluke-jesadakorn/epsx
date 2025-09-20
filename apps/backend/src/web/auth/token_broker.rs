@@ -115,9 +115,7 @@ impl TokenBroker {
   /// Register authentication providers
   pub fn with_providers(mut self) -> Self {
     // Register Firebase provider
-    let firebase_config =
-      super::providers::firebase_provider::FirebaseProviderConfig::default();
-    let firebase_provider = FirebaseProvider::new(firebase_config);
+    let firebase_provider = FirebaseProvider::new();
 
     // Register OIDC provider
     let oidc_config =
@@ -458,7 +456,6 @@ impl TokenBroker {
       permission_last_updated: now.timestamp() as u64,
       
       // ENHANCED: Pre-computed context (fallback values for token broker)
-      tier: crate::auth::jwt::derive_package_tier_from_permissions(&permissions),
       platforms: crate::auth::jwt::derive_accessible_platforms_from_permissions(&permissions),
       verified: false, // Conservative default
       

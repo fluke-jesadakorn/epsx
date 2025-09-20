@@ -22,6 +22,12 @@ pub mod error_handling;
 pub mod auth_monitoring;
 pub mod policy_validator;
 
+// Web3 authentication middleware
+pub mod web3_auth_middleware;
+
+// Web3 rate limiting middleware with cross-chain token verification
+pub mod rate_limit_middleware;
+
 // Security headers and monitoring exports
 pub use security_headers::{
   security_headers_middleware,
@@ -82,4 +88,22 @@ pub use error_handling::{
 pub use stateless_auth::{
   stateless_auth_middleware,
   AuthenticationError,
+};
+
+// Web3 auth middleware exports
+pub use web3_auth_middleware::{
+  web3_auth_middleware,
+  require_web3_permission,
+  Web3AuthContext,
+  Web3AuthExtractor,
+  web3_auth_stack,
+  require_permission as require_web3_permission_fn,
+};
+
+// Web3 rate limiting exports
+pub use rate_limit_middleware::{
+  web3_rate_limit_middleware,
+  Web3RateLimitService,
+  RateLimitTier,
+  TokenRateLimitConfig,
 };

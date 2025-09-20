@@ -44,9 +44,10 @@ const getDefaultAdminClientId = () => {
 };
 
 /**
- * Server-Only Environment Variables (15 total)
+ * Server-Only Environment Variables (12 total)
  * These variables are only available on the server-side and contain sensitive data
  * NEVER expose these to the client-side
+ * NOTE: Firebase server variables removed - only client analytics config remains
  */
 export const serverEnvSchema = z.object({
   // Core Infrastructure (4 variables) - Required for all services
@@ -105,27 +106,6 @@ export const serverEnvSchema = z.object({
     .min(1)
     .describe('OIDC client secret for secure admin authentication'),
 
-  // Firebase (3 variables) - Reduced from 15+ variables
-  FIREBASE_PROJECT_ID: z.string()
-    .min(1)
-    .describe('Firebase project identifier for authentication services'),
-    
-  FIREBASE_PRIVATE_KEY: z.string()
-    .refine(key => key.includes('-----BEGIN PRIVATE KEY-----'), {
-      message: 'FIREBASE_PRIVATE_KEY must be a valid private key in PEM format'
-    })
-    .describe('Firebase service account private key for server-side operations'),
-    
-  FIREBASE_CLIENT_EMAIL: z.string()
-    .email()
-    .describe('Firebase service account email for authentication'),
-
-  // Payment (2 variables) - Optional for payment processing
-  MUSEPAY_PARTNER_ID: z.string().optional()
-    .describe('MusePay partner identifier for payment processing integration'),
-    
-  MUSEPAY_PRIVATE_KEY: z.string().optional()
-    .describe('MusePay private key for secure payment transaction signing'),
 
   // Infrastructure (1 variable) - Optional performance optimization
   REDIS_URL: z.string().url().optional()
@@ -190,27 +170,18 @@ export const clientEnvSchema = z.object({
     .default(getDefaultFrontendClientId())
     .describe('OIDC client identifier exposed to browser'),
 
-  // Firebase Client Configuration (7 variables)
+  // Firebase Analytics Configuration (4 variables) - Minimal config for frontend analytics only
   NEXT_PUBLIC_FIREBASE_API_KEY: z.string().optional()
-    .describe('Firebase API key for client-side Firebase SDK'),
-    
-  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: z.string().optional()
-    .describe('Firebase auth domain for client-side authentication'),
+    .describe('Firebase API key for client-side analytics (frontend only)'),
     
   NEXT_PUBLIC_FIREBASE_PROJECT_ID: z.string().optional()
-    .describe('Firebase project ID for client-side Firebase SDK'),
-    
-  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: z.string().optional()
-    .describe('Firebase storage bucket for client-side file operations'),
-    
-  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: z.string().optional()
-    .describe('Firebase messaging sender ID for push notifications'),
+    .describe('Firebase project ID for client-side analytics (frontend only)'),
     
   NEXT_PUBLIC_FIREBASE_APP_ID: z.string().optional()
-    .describe('Firebase app ID for client-side app identification'),
+    .describe('Firebase app ID for client-side analytics (frontend only)'),
     
   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: z.string().optional()
-    .describe('Firebase measurement ID for analytics tracking')
+    .describe('Firebase measurement ID for analytics tracking (frontend only)')
 });
 
 /**
@@ -258,12 +229,9 @@ export const clientEnv = new Proxy({} as ClientEnv, {
             NEXT_PUBLIC_APP_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_APP_URL) || getDefaultFrontendUrl(),
             NEXT_PUBLIC_ADMIN_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_ADMIN_URL) || getDefaultAdminUrl(),
             NEXT_PUBLIC_OAUTH_CLIENT_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_OAUTH_CLIENT_ID) || getDefaultFrontendClientId(),
-            // Firebase fallbacks - prevent undefined values
+            // Firebase Analytics fallbacks - minimal config (frontend only)
             NEXT_PUBLIC_FIREBASE_API_KEY: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_API_KEY) || undefined,
-            NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN) || undefined,
             NEXT_PUBLIC_FIREBASE_PROJECT_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_PROJECT_ID) || undefined,
-            NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) || undefined,
-            NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID) || undefined,
             NEXT_PUBLIC_FIREBASE_APP_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_APP_ID) || undefined,
             NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID) || undefined
           } as ClientEnv;
@@ -304,21 +272,12 @@ export const env = {
     return serverEnv.OIDC_ADMIN_CLIENT_ID;
   },
   
-  // Firebase Configuration
+  // Firebase Analytics Configuration (minimal - frontend only)
   get FIREBASE_API_KEY() {
     return clientEnv.NEXT_PUBLIC_FIREBASE_API_KEY;
   },
-  get FIREBASE_AUTH_DOMAIN() {
-    return clientEnv.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
-  },
   get FIREBASE_PROJECT_ID() {
     return clientEnv.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  },
-  get FIREBASE_STORAGE_BUCKET() {
-    return clientEnv.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
-  },
-  get FIREBASE_MESSAGING_SENDER_ID() {
-    return clientEnv.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID;
   },
   get FIREBASE_APP_ID() {
     return clientEnv.NEXT_PUBLIC_FIREBASE_APP_ID;
@@ -366,26 +325,6 @@ export const env = {
       return undefined;
     }
     return serverEnv.OIDC_ADMIN_CLIENT_SECRET;
-  },
-  
-  get FIREBASE_PRIVATE_KEY() {
-    if (!isServer) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('FIREBASE_PRIVATE_KEY is server-only - returning undefined for client');
-      }
-      return undefined;
-    }
-    return serverEnv.FIREBASE_PRIVATE_KEY;
-  },
-  
-  get FIREBASE_CLIENT_EMAIL() {
-    if (!isServer) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('FIREBASE_CLIENT_EMAIL is server-only - returning undefined for client');
-      }
-      return undefined;
-    }
-    return serverEnv.FIREBASE_CLIENT_EMAIL;
   },
   
   get REDIS_URL() {

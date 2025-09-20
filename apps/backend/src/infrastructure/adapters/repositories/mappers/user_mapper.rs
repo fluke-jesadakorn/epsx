@@ -3,8 +3,9 @@ use std::collections::HashSet;
 
 use crate::domain::shared_kernel::DomainResult;
 use crate::domain::user_management::{
-    User, Email, FirebaseUid, Permission
+    User, Email, Permission
 };
+use crate::domain::user_management::value_objects::WalletAddress;
 use crate::infrastructure::adapters::repositories::database_types::{User as DbUser, NewUser as NewDbUser, UpdateUser as UpdateDbUser};
 
 /// Maps between domain User aggregate and database models
@@ -15,7 +16,7 @@ impl UserMapper {
     pub fn to_domain(db_user: DbUser, permissions: Vec<String>) -> DomainResult<User> {
         let user_id = UserId::from_string(db_user.id.to_string())?;
         let email = Email::new(&db_user.email)?;
-        let firebase_uid = FirebaseUid::new(&db_user.firebase_uid)?;
+        // Firebase UID removed - migrated to Web3
         
         // Convert string permissions to Permission value objects
         let mut domain_permissions = HashSet::new();
@@ -24,10 +25,9 @@ impl UserMapper {
             domain_permissions.insert(permission);
         }
         
-        // Create user from existing data using actual database fields
-        let user = User::load(
+        // Create user from existing data using actual database fields - Web3 compatible
+        let user = User::load_web3(
             user_id,
-            firebase_uid,
             email,
             db_user.is_active, // Use actual is_active field
             db_user.email_verified, // Use actual email_verified field
@@ -45,7 +45,8 @@ impl UserMapper {
     pub fn to_new_diesel(user: &User) -> DomainResult<NewDbUser> {
         Ok(NewDbUser {
             email: user.email().to_string(),
-            firebase_uid: user.firebase_uid().to_string(),
+            // Use user ID as firebase_uid for backward compatibility
+            firebase_uid: user.id().to_string(),
         })
     }
     
