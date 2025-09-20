@@ -70,7 +70,7 @@ pub async fn search_users_handler(
         created_after: None,
         created_before: None,
         last_login_after: None,
-        firebase_uid_pattern: None,
+        // firebase_uid_pattern removed - migrated to Web3
         custom_filters: std::collections::HashMap::new(),
     };
     
@@ -104,7 +104,8 @@ pub async fn search_users_handler(
                     id: user.id().to_string(),
                     email: user.email().to_string(),
                     display_name: Some(user.email().to_string().split('@').next().unwrap_or("User").to_string()), // Extract name from email
-                    firebase_uid: Some(user.firebase_uid().to_string()),
+                    // firebase_uid removed - migrated to Web3
+                    firebase_uid: Some(user.id().to_string()), // Use user ID as firebase_uid placeholder
                     package_tier: Some("basic".to_string()), // Default tier
                     subscription_tier,
                     permissions,

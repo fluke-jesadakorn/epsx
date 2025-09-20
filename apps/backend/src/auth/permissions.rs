@@ -247,83 +247,6 @@ impl PermissionSets {
         ]
     }
     
-    // ============================================================================
-    // PACKAGE TIER REPLACEMENT PERMISSION SETS
-    // ============================================================================
-    
-    // Bronze tier permissions (replaces BRONZE package)
-    pub fn bronze_user() -> Vec<String> {
-        vec![
-            "epsx:rankings:view:5".to_string(),
-            "epsx:trading:basic".to_string(),
-            "epsx:portfolio:view".to_string(),
-            "epsx:notifications:basic".to_string(),
-        ]
-    }
-    
-    // Silver tier permissions (replaces SILVER package)
-    pub fn silver_user() -> Vec<String> {
-        vec![
-            "epsx:rankings:view:25".to_string(),
-            "epsx:trading:basic".to_string(),
-            "epsx:trading:advanced".to_string(),
-            "epsx:portfolio:view".to_string(),
-            "epsx:portfolio:history".to_string(),
-            "epsx:notifications:enhanced".to_string(),
-            "epsx:analytics:basic".to_string(),
-            "epsx:alerts:email".to_string(),
-        ]
-    }
-    
-    // Gold tier permissions (replaces GOLD package)
-    pub fn gold_user() -> Vec<String> {
-        vec![
-            "epsx:rankings:view:50".to_string(),
-            "epsx:trading:basic".to_string(),
-            "epsx:trading:advanced".to_string(),
-            "epsx:trading:premium".to_string(),
-            "epsx:portfolio:view".to_string(),
-            "epsx:portfolio:history".to_string(),
-            "epsx:portfolio:tools".to_string(),
-            "epsx:notifications:enhanced".to_string(),
-            "epsx:analytics:basic".to_string(),
-            "epsx:analytics:advanced".to_string(),
-            "epsx:analytics:premium".to_string(),
-            "epsx:alerts:email".to_string(),
-            "epsx:support:priority".to_string(),
-        ]
-    }
-    
-    // Platinum tier permissions (replaces PLATINUM package)
-    pub fn platinum_user() -> Vec<String> {
-        vec![
-            "epsx:rankings:view:100".to_string(),
-            "epsx:trading:basic".to_string(),
-            "epsx:trading:advanced".to_string(),
-            "epsx:trading:premium".to_string(),
-            "epsx:portfolio:view".to_string(),
-            "epsx:portfolio:history".to_string(),
-            "epsx:portfolio:tools".to_string(),
-            "epsx:notifications:enhanced".to_string(),
-            "epsx:analytics:basic".to_string(),
-            "epsx:analytics:advanced".to_string(),
-            "epsx:analytics:premium".to_string(),
-            "epsx:alerts:email".to_string(),
-            "epsx:support:priority".to_string(),
-            "epsx:research:reports".to_string(),
-            "epsx:dashboards:custom".to_string(),
-        ]
-    }
-    
-    // Enterprise tier permissions (replaces ENTERPRISE package)
-    pub fn enterprise_user() -> Vec<String> {
-        vec![
-            "epsx:rankings:view:unlimited".to_string(),
-            "epsx:*:*".to_string(),
-            "epsx-pay:*:*".to_string(),
-            "epsx-token:*:*".to_string(),
-        ]
-    }
 }
 
 // ============================================================================
@@ -346,41 +269,18 @@ pub fn extract_ranking_limit(user_permissions: &[String]) -> i32 {
     5 // Default fallback to basic access (Bronze level)
 }
 
-/// Convert package tier string to permission set (for migration compatibility)
-pub fn convert_package_tier_to_permissions(tier: &str) -> Vec<String> {
-    match tier.to_uppercase().as_str() {
-        "BRONZE" => PermissionSets::bronze_user(),
-        "SILVER" => PermissionSets::silver_user(),
-        "GOLD" => PermissionSets::gold_user(),
-        "PLATINUM" => PermissionSets::platinum_user(),
-        "ENTERPRISE" => PermissionSets::enterprise_user(),
-        "VIP" => PermissionSets::enterprise_user(), // VIP maps to enterprise
-        _ => PermissionSets::bronze_user(), // Default fallback
-    }
-}
 
 /// Derive tier display name from ranking limit (for UI compatibility)
+/// Note: This is a simplified helper for UI display. Use database function get_user_display_tier() for production.
 pub fn derive_tier_from_ranking_limit(limit: i32) -> String {
     match limit {
-        5 => "BRONZE".to_string(),
-        25 => "SILVER".to_string(),
-        50 => "GOLD".to_string(),
-        100 => "PLATINUM".to_string(),
         -1 => "ENTERPRISE".to_string(), // Unlimited
-        _ => {
-            // Handle custom limits
-            if limit > 0 && limit <= 10 {
-                "BRONZE".to_string()
-            } else if limit <= 30 {
-                "SILVER".to_string()
-            } else if limit <= 75 {
-                "GOLD".to_string()
-            } else if limit <= 150 {
-                "PLATINUM".to_string()
-            } else {
-                "ENTERPRISE".to_string()
-            }
-        }
+        0..=5 => "FREE".to_string(),
+        6..=25 => "BRONZE".to_string(), 
+        26..=50 => "SILVER".to_string(),
+        51..=100 => "GOLD".to_string(),
+        101..=150 => "PLATINUM".to_string(),
+        _ => "ENTERPRISE".to_string(),
     }
 }
 
@@ -976,16 +876,18 @@ mod tests {
 
     #[test]
     fn test_tier_derivation() {
-        assert_eq!(derive_tier_from_ranking_limit(5), "BRONZE");
-        assert_eq!(derive_tier_from_ranking_limit(25), "SILVER");
-        assert_eq!(derive_tier_from_ranking_limit(50), "GOLD");
-        assert_eq!(derive_tier_from_ranking_limit(100), "PLATINUM");
+        // Test updated tier derivation logic
+        assert_eq!(derive_tier_from_ranking_limit(3), "FREE");
+        assert_eq!(derive_tier_from_ranking_limit(5), "FREE");
+        assert_eq!(derive_tier_from_ranking_limit(10), "BRONZE");
+        assert_eq!(derive_tier_from_ranking_limit(25), "BRONZE");
+        assert_eq!(derive_tier_from_ranking_limit(30), "SILVER");
+        assert_eq!(derive_tier_from_ranking_limit(50), "SILVER");
+        assert_eq!(derive_tier_from_ranking_limit(75), "GOLD");
+        assert_eq!(derive_tier_from_ranking_limit(100), "GOLD");
+        assert_eq!(derive_tier_from_ranking_limit(120), "PLATINUM");
         assert_eq!(derive_tier_from_ranking_limit(-1), "ENTERPRISE");
-        
-        // Test custom limits fall into appropriate tiers
-        assert_eq!(derive_tier_from_ranking_limit(8), "BRONZE"); // Custom but in bronze range
-        assert_eq!(derive_tier_from_ranking_limit(30), "SILVER"); // Custom but in silver range
-        assert_eq!(derive_tier_from_ranking_limit(75), "GOLD"); // Custom but in gold range
+        assert_eq!(derive_tier_from_ranking_limit(1000), "ENTERPRISE");
     }
 
     #[test]
@@ -999,18 +901,4 @@ mod tests {
         assert!(can_view_ranking_position(&unlimited_perms, 1000)); // Should allow any position
     }
 
-    #[test]
-    fn test_package_tier_conversion() {
-        let bronze_perms = convert_package_tier_to_permissions("BRONZE");
-        assert!(bronze_perms.contains(&"epsx:rankings:view:5".to_string()));
-        assert!(bronze_perms.contains(&"epsx:trading:basic".to_string()));
-        
-        let gold_perms = convert_package_tier_to_permissions("gold"); // Test case insensitive
-        assert!(gold_perms.contains(&"epsx:rankings:view:50".to_string()));
-        assert!(gold_perms.contains(&"epsx:trading:premium".to_string()));
-        
-        // Test fallback for unknown tier
-        let unknown_perms = convert_package_tier_to_permissions("UNKNOWN");
-        assert_eq!(unknown_perms, PermissionSets::bronze_user());
-    }
 }

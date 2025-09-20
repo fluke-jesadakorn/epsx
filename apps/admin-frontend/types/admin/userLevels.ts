@@ -1,91 +1,118 @@
-export enum UserLevel {
-  BRONZE = 'BRONZE',
-  SILVER = 'SILVER',
-  GOLD = 'GOLD',
-  PLATINUM = 'PLATINUM',
-  DIAMOND = 'DIAMOND',
-  VIP = 'VIP'
-}
+export type PermissionTemplateName = 
+  | 'Free Template'
+  | 'Bronze Template' 
+  | 'Silver Template'
+  | 'Gold Template'
+  | 'Platinum Template'
+  | 'Enterprise Template'
+  | 'Admin Template';
 
-export interface UserLevelConfig {
-  level: UserLevel;
+export interface PermissionTemplateConfig {
+  templateName: PermissionTemplateName;
+  displayTier: string;
   name: string;
   description: string;
   color: string;
-  benefits: string[];
+  permissions: string[];
+  features: string[];
   tokenMultiplier: number;
   maxTokens: number;
   priority: number;
 }
 
-export const USER_LEVEL_CONFIGS: Record<UserLevel, UserLevelConfig> = {
-  [UserLevel.BRONZE]: {
-    level: UserLevel.BRONZE,
-    name: 'Bronze',
-    description: 'Basic user level',
-    color: 'bg-amber-100 text-amber-800',
-    benefits: ['Basic features', 'Standard support'],
+export const PERMISSION_TEMPLATE_CONFIGS: Record<PermissionTemplateName, PermissionTemplateConfig> = {
+  'Free Template': {
+    templateName: 'Free Template',
+    displayTier: 'FREE',
+    name: 'Free',
+    description: 'Basic free tier with essential features',
+    color: 'bg-gray-100 text-gray-800',
+    permissions: ['epsx:rankings:view:3', 'epsx:trading:basic', 'epsx:portfolio:view'],
+    features: ['View 3 rankings', 'Basic trading', 'Portfolio view'],
     tokenMultiplier: 1,
+    maxTokens: 500,
+    priority: 0
+  },
+  'Bronze Template': {
+    templateName: 'Bronze Template',
+    displayTier: 'BRONZE',
+    name: 'Bronze',
+    description: 'Enhanced access with basic features',
+    color: 'bg-amber-100 text-amber-800',
+    permissions: ['epsx:rankings:view:5', 'epsx:trading:basic', 'epsx:portfolio:view', 'epsx:portfolio:history'],
+    features: ['View 5 rankings', 'Basic trading', 'Portfolio history'],
+    tokenMultiplier: 1.2,
     maxTokens: 1000,
     priority: 1
   },
-  [UserLevel.SILVER]: {
-    level: UserLevel.SILVER,
+  'Silver Template': {
+    templateName: 'Silver Template',
+    displayTier: 'SILVER',
     name: 'Silver',
-    description: 'Intermediate user level',
+    description: 'Premium access with advanced analytics',
     color: 'bg-gray-100 text-gray-800',
-    benefits: ['Enhanced features', 'Priority support'],
-    tokenMultiplier: 1.2,
+    permissions: ['epsx:rankings:view:25', 'epsx:trading:basic', 'epsx:trading:advanced', 'epsx:portfolio:view', 'epsx:analytics:basic'],
+    features: ['View 25 rankings', 'Advanced trading', 'Basic analytics'],
+    tokenMultiplier: 1.5,
     maxTokens: 2500,
     priority: 2
   },
-  [UserLevel.GOLD]: {
-    level: UserLevel.GOLD,
+  'Gold Template': {
+    templateName: 'Gold Template',
+    displayTier: 'GOLD',
     name: 'Gold',
-    description: 'Advanced user level',
+    description: 'Professional access with premium tools',
     color: 'bg-yellow-100 text-yellow-800',
-    benefits: ['Premium features', 'Fast support', 'API access'],
-    tokenMultiplier: 1.5,
+    permissions: ['epsx:rankings:view:50', 'epsx:trading:premium', 'epsx:portfolio:tools', 'epsx:analytics:advanced'],
+    features: ['View 50 rankings', 'Premium trading', 'Advanced analytics'],
+    tokenMultiplier: 2,
     maxTokens: 5000,
     priority: 3
   },
-  [UserLevel.PLATINUM]: {
-    level: UserLevel.PLATINUM,
+  'Platinum Template': {
+    templateName: 'Platinum Template',
+    displayTier: 'PLATINUM',
     name: 'Platinum',
-    description: 'Premium user level',
+    description: 'VIP access with advanced features',
     color: 'bg-purple-100 text-purple-800',
-    benefits: ['All features', 'Dedicated support', 'Custom integrations'],
-    tokenMultiplier: 2,
+    permissions: ['epsx:rankings:view:100', 'epsx:trading:premium', 'epsx:analytics:premium', 'epsx:research:reports', 'epsx:dashboards:custom'],
+    features: ['View 100 rankings', 'Premium trading', 'Custom dashboards'],
+    tokenMultiplier: 3,
     maxTokens: 10000,
     priority: 4
   },
-  [UserLevel.DIAMOND]: {
-    level: UserLevel.DIAMOND,
-    name: 'Diamond',
-    description: 'Elite user level',
+  'Enterprise Template': {
+    templateName: 'Enterprise Template',
+    displayTier: 'ENTERPRISE',
+    name: 'Enterprise',
+    description: 'Unlimited access with all platform features',
     color: 'bg-blue-100 text-blue-800',
-    benefits: ['Enterprise features', '24/7 support', 'White-label options'],
-    tokenMultiplier: 3,
+    permissions: ['epsx:rankings:view:unlimited', 'epsx:*:*', 'epsx-pay:*:*', 'epsx-token:*:*'],
+    features: ['Unlimited rankings', 'All platform features', 'API access'],
+    tokenMultiplier: 5,
     maxTokens: 25000,
     priority: 5
   },
-  [UserLevel.VIP]: {
-    level: UserLevel.VIP,
-    name: 'VIP',
-    description: 'Highest user level',
+  'Admin Template': {
+    templateName: 'Admin Template',
+    displayTier: 'ADMIN',
+    name: 'Admin',
+    description: 'Full administrative access',
     color: 'bg-red-100 text-red-800',
-    benefits: ['Unlimited features', 'Personal account manager', 'Custom solutions'],
-    tokenMultiplier: 5,
+    permissions: ['admin:*:*', 'epsx:*:*', 'epsx-pay:*:*', 'epsx-token:*:*'],
+    features: ['Full admin access', 'User management', 'System configuration'],
+    tokenMultiplier: 10,
     maxTokens: -1, // Unlimited
     priority: 6
   }
 };
 
-export interface UserLevelAssignment {
+export interface PermissionTemplateAssignment {
   uid: string;
-  userLevel: UserLevel;
+  templateName: PermissionTemplateName;
+  permissions: string[];
   assignedBy: string;
   assignedAt: Date;
   reason?: string;
-  previousLevel?: UserLevel;
+  previousTemplate?: PermissionTemplateName;
 }

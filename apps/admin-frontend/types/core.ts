@@ -9,8 +9,9 @@
 // ============================================================================
 
 export interface User {
-  id: string;
-  email: string;
+  id: string; // wallet_address as primary identifier
+  wallet_address: string; // Primary identifier for wallet authentication
+  email?: string; // Optional linked email
   name?: string;
   firstName?: string;
   lastName?: string;
@@ -22,9 +23,9 @@ export interface User {
   updatedAt: string;
   lastLoginAt?: string;
   
-  // Authentication context
-  sub?: string; // OIDC subject
-  firebaseUid?: string;
+  // Wallet authentication context
+  sub?: string; // wallet_address as subject
+  firebaseUid?: string; // Optional for legacy support
   
   // Permission system
   permissions?: string[];
@@ -34,20 +35,32 @@ export interface User {
   platforms?: string[];
   primaryPlatform?: string;
   platformContext?: string;
+  
+  // Wallet-specific fields
+  walletConnectedAt?: string;
+  lastSignatureAt?: string;
+  nftHoldings?: number;
+  tokenBalance?: string;
 }
 
-export interface OIDCUser {
-  sub: string;
-  email: string;
+export interface WalletUser {
+  sub: string; // wallet_address as subject
+  wallet_address: string;
+  email?: string; // Optional linked email
   name?: string;
   permissions: string[];
   platform_context?: string;
 }
 
+// Legacy interface for compatibility
+export interface OIDCUser extends WalletUser {
+  email: string; // Made required for legacy compatibility
+}
+
 export interface AdminSession {
   isAuthenticated: boolean;
   isLoggedIn: boolean; // Alias for backwards compatibility
-  user: OIDCUser | null;
+  user: WalletUser | null;
   hasAdminAccess: boolean;
   expiresAt?: number;
   error?: string;
@@ -290,7 +303,7 @@ export interface ActivityLog {
 // ============================================================================
 
 export function isAdminUser(user: User): boolean {
-  return user.role === 'admin' || user.permissions.some(p => 
+  return user.role === 'admin' || (user.permissions || []).some(p => 
     p === 'admin:*:*' || p.startsWith('admin:')
   );
 }

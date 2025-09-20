@@ -28,14 +28,14 @@ impl UpdateUserCommandHandler {
 #[async_trait]
 impl CommandHandler<UpdateUserCommand> for UpdateUserCommandHandler {
     async fn handle(&self, command: UpdateUserCommand) -> ApplicationResult<UpdateUserResponse> {
-        tracing::info!("Processing UpdateUserCommand for firebase_uid: {}", command.firebase_uid.to_string());
+        tracing::info!("Processing UpdateUserCommand for user_id: {}", command.user_id.to_string());
         
-        // Find user by Firebase UID
+        // Find user by ID (Web3 migration)
         let mut user = self.user_repository
-            .find_by_firebase_uid(&command.firebase_uid)
+            .find_by_id(&command.user_id)
             .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
-            .ok_or_else(|| ApplicationError::not_found("User", command.firebase_uid.to_string()))?;
+            .ok_or_else(|| ApplicationError::not_found("User", command.user_id.to_string()))?;
         
         // Update email if provided
         if let Some(email) = &command.email {
@@ -91,11 +91,12 @@ impl CommandHandler<UpdateUserCommand> for UpdateUserCommandHandler {
         // Clear events after publishing
         user.mark_events_as_committed();
         
-        tracing::info!("Successfully updated user: {}", command.firebase_uid.to_string());
+        tracing::info!("Successfully updated user: {}", command.user_id.to_string());
         
         // Create response
         Ok(UpdateUserResponse {
-            firebase_uid: user.firebase_uid().clone(),
+            // firebase_uid removed in Web3 migration
+            user_id: user.id().clone(),
             email: user.email().clone(),
             email_verified: user.is_email_verified(),
             is_active: user.is_active(),

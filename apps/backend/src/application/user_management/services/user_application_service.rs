@@ -145,7 +145,7 @@ impl UserApplicationService {
         user_agent: Option<String>,
     ) -> ApplicationResult<UserRegistrationResponse> {
         // 1. Create user with default permissions
-        let create_user_cmd = CreateUserCommand::new(email, firebase_uid)
+        let create_user_cmd = CreateUserCommand::new_web3(email)
             .with_permissions(vec![
                 "epsx:analytics:view".to_string(),
                 "epsx:user:read".to_string(),
@@ -237,7 +237,7 @@ impl UserApplicationService {
         Ok(GetUserResponse {
             user_id: user.id().clone(),
             email: user.email().clone(),
-            firebase_uid: user.firebase_uid().clone(),
+            // firebase_uid removed in Web3 migration
             is_active: user.is_active(),
             email_verified: user.is_email_verified(),
             created_at: user.created_at(),

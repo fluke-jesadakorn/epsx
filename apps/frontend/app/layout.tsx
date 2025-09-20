@@ -1,6 +1,7 @@
-import { ServiceWorkerInitializer } from '@/components/ServiceWorkerInitializer';
 import { NavigationClient } from '@/components/nav/NavigationClient';
 import { ClientProviders } from '@/components/providers/ClientProviders';
+import { Web3Provider } from '@/providers/Web3Provider';
+import { Web3AuthProvider } from '@/providers/Web3AuthProvider';
 import { type EPSXJWTPayload } from '../../../shared/auth/jwt';
 import { getAuthUser } from '@/lib/server/auth';
 import { getUserNotifications, type NotificationData } from '@/lib/actions/notifications';
@@ -119,28 +120,27 @@ export default async function RootLayout({
         className={`${kanit.variable} bg-background text-foreground overflow-x-hidden font-sans antialiased`}
       >
         <ClientProviders>
-          {/* Service Worker Registration */}
-          <ServiceWorkerInitializer />
+          <Web3Provider>
+            <Web3AuthProvider>
+              {/* Mobile navigation optimized for touch */}
+              <NavigationClient user={user} initialNotificationData={notificationData} />
 
-          {/* Notifications now handled in NavigationClient with server components */}
+              {/* Main content with mobile scroll optimization */}
+              <main className="relative min-h-screen">{children}</main>
 
-          {/* Mobile navigation optimized for touch */}
-          <NavigationClient user={user} initialNotificationData={notificationData} />
-
-          {/* Main content with mobile scroll optimization */}
-          <main className="relative min-h-screen">{children}</main>
-
-          {/* Toast notifications */}
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              style: {
-                background: 'hsl(var(--background))',
-                color: 'hsl(var(--foreground))',
-                border: '1px solid hsl(var(--border))',
-              },
-            }}
-          />
+              {/* Toast notifications */}
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  style: {
+                    background: 'hsl(var(--background))',
+                    color: 'hsl(var(--foreground))',
+                    border: '1px solid hsl(var(--border))',
+                  },
+                }}
+              />
+            </Web3AuthProvider>
+          </Web3Provider>
         </ClientProviders>
       </body>
     </html>

@@ -48,7 +48,15 @@ pub async fn admin_send_notification(
     if let Some(topic_name) = &request.fcm_topic_id {
         let _message_id = fcm_service
             .send_to_topic(topic_name.clone(), notification, request.data_payload)
-            .await?;
+            .await
+            .map_err(|e| AppError {
+                kind: crate::core::errors::ErrorKind::InternalError,
+                message: format!("Failed to send notification: {}", e),
+                context: crate::core::errors::ErrorContext::default(),
+                correlation_id: Uuid::new_v4().to_string(),
+                timestamp: chrono::Utc::now(),
+                stack_trace: None,
+            })?;
 
         let response = SendNotificationResponse {
             id: notification_id,

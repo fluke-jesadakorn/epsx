@@ -155,15 +155,22 @@ impl ServiceContainer {
     
     /// Create application state for web handlers
     pub fn create_app_state(&self) -> crate::web::auth::routes::AppState {
+        // Create missing services that are required for AppState
+        let web3_auth_service = Arc::new(crate::auth::Web3AuthService::new((*self.db_pool).clone(), "localhost".to_string()));
+        let web3_permission_service = Arc::new(crate::auth::Web3PermissionService::new((*self.db_pool).clone(), "https://eth.llamarpc.com".to_string(), "https://polygon.llamarpc.com".to_string()));
+        let jwt_service = Arc::new(crate::auth::JWTService::new().expect("Failed to create JWT service"));
+        
         crate::web::auth::routes::AppState::new(
             self.db_pool.clone(),
-            self.firebase_admin.clone(),
             self.cache.clone(),
-            self.notification_service.clone(),
             Arc::new(crate::infrastructure::container::ddd_container::DDDContainer::new(self.db_pool.clone())),
             self.user_repository.clone(),
             Arc::new(crate::domain::authorization::services::stateless_permission_service::StatelessPermissionService::new()),
             None, // Rate limiting service - optional
+            web3_auth_service,
+            web3_permission_service,
+            jwt_service,
+            Arc::new(crate::infrastructure::adapters::services::firebase_admin_stub::FirebaseAdminStub::new("epsx-web3".to_string())),
         )
     }
 }

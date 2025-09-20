@@ -10,8 +10,7 @@ import {
   Clock, 
   CheckCircle,
   AlertCircle,
-  Loader2,
-  CreditCard
+  Loader2
 } from 'lucide-react';
 // TODO: Fix realtime client imports
 // import { realtimeClient  } from '@/lib/api-client';
@@ -72,7 +71,6 @@ export default function PaymentDetails({
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'confirmed' | 'failed'>('pending');
   const [activePayment, setActivePayment] = useState<any>(null);
 
-  const isCardPayment = selectedMethod === 'credit_card';
 
   // Load active payment from session storage
   useEffect(() => {
@@ -141,57 +139,7 @@ export default function PaymentDetails({
     }, 2000);
   };
 
-  const handleCardPayment = () => {
-    // Redirect to card payment processor
-    router.push(`/payment/card?package=${selectedPackage}&amount=${amount}`);
-  };
 
-  if (isCardPayment) {
-    return (
-      <Card className="max-w-lg mx-auto border-0 shadow-2xl bg-gradient-to-br from-white via-purple-50/50 to-pink-50/50 dark:from-gray-800 dark:via-purple-900/20 dark:to-pink-900/20 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-400/5 via-pink-400/5 to-orange-400/5"></div>
-        <CardHeader className="relative z-10">
-          <CardTitle className="flex items-center gap-3 text-gray-900 dark:text-white text-2xl font-bold">
-            <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-              <CreditCard className="h-5 w-5 text-white" />
-            </div>
-            Credit Card Payment
-            <div className="ml-auto text-2xl">💳</div>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6 relative z-10">
-          <div className="text-center p-6 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/30 dark:to-pink-900/30 rounded-2xl border-2 border-purple-200 dark:border-purple-700">
-            <div className="text-4xl font-black bg-gradient-to-r from-purple-600 via-pink-600 to-orange-600 bg-clip-text text-transparent mb-3">
-              ${amount}
-            </div>
-            <p className="text-gray-600 dark:text-gray-300 font-medium">
-              You will be redirected to our secure payment processor
-            </p>
-          </div>
-          
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Button 
-              variant="outline" 
-              onClick={onBack} 
-              className="flex-1 h-12 border-2 border-gray-300 dark:border-gray-600 hover:border-purple-400 dark:hover:border-purple-500 font-semibold"
-            >
-              ← Back
-            </Button>
-            <Button 
-              onClick={handleCardPayment} 
-              className="flex-1 h-12 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500 hover:from-purple-600 hover:via-pink-600 hover:to-orange-600 font-bold text-white border-0 shadow-xl transition-all duration-300 hover:scale-[1.02]"
-            >
-              <div className="flex items-center gap-2">
-                <span>Pay with Card</span>
-                <ArrowRight className="h-4 w-4" />
-                <span>🚀</span>
-              </div>
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">

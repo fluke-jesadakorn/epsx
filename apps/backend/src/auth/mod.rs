@@ -6,9 +6,25 @@ pub mod session_service;
 // SECURE JWT SERVICE - RS256 ONLY (Security Critical)
 pub mod secure_jwt_service;
 
+// WEB3 AUTHENTICATION MODULES (New)
+pub mod web3_auth_service;
+pub mod web3_permission_service;
+pub mod multi_chain_cache_service;
+
+// UNIFIED AUTHENTICATION SERVICE (Web3-First)
+pub mod unified_auth_service;
+pub mod migration_service;
+pub mod unified_permission_service;
+pub mod enhanced_bearer_token_service;
+
+// PERFORMANCE OPTIMIZATIONS
+// pub mod auth_performance_cache; // TODO: Fix compilation issues
+// pub mod optimized_unified_auth_service; // TODO: Fix compilation issues  
+pub mod simplified_auth_cache;
+
 // LEGACY MODULES (to be phased out gradually)
 pub mod jwt;
-pub mod flow;
+// Firebase flow module removed - replaced by Web3-first authentication
 pub mod tokens;
 pub mod key_manager;
 pub mod permissions; // New permission-only system
@@ -39,10 +55,59 @@ pub use secure_jwt_service::{
     SecureJWTService, SecureJWTClaims, TokenRequest, TokenValidationResult, JWTSecurityError
 };
 
+// WEB3 AUTHENTICATION EXPORTS (New)
+pub use web3_auth_service::{Web3AuthService, AuthChallenge, VerifyRequest as Web3VerifyRequest, AuthResult as Web3AuthResult};
+pub use web3_permission_service::{
+    Web3PermissionService, PermissionInfo as Web3PermissionInfo, NFTConfig, TokenConfig, 
+    DAOProposal, PermissionVerificationResult
+};
+pub use multi_chain_cache_service::{
+    MultiChainCacheService, NetworkCacheConfig, CachedVerification, CacheStatistics,
+    NetworkStats, CacheHealthStatus, CacheWarmingService
+};
+
+// UNIFIED AUTHENTICATION SERVICE EXPORTS (Web3-First)
+pub use unified_auth_service::{
+    UnifiedAuthService, AuthMethod, AuthChallenge as UnifiedAuthChallenge, 
+    AuthChallengeData, UnifiedVerifyRequest, VerificationData, UnifiedAuthResult,
+    UserProfile, MigrationRequest, AuthContext as UnifiedAuthContext
+};
+
+// MIGRATION SERVICE EXPORTS
+pub use migration_service::{
+    MigrationService, MigrationStatus, MigrationResult, MigrationPlan,
+    DataPreservationPlan, BatchMigrationRequest, SingleUserMigration, MigrationStats
+};
+
+// UNIFIED PERMISSION SERVICE EXPORTS
+pub use unified_permission_service::{
+    UnifiedPermissionService, UnifiedPermission, PermissionSource as UnifiedPermissionSource, PermissionCheck,
+    PermissionResult, BulkPermissionCheck, BulkPermissionResult, AccessLevel,
+    GrantPermissionRequest, PermissionStats as UnifiedPermissionStats
+};
+
+// ENHANCED BEARER TOKEN SERVICE EXPORTS
+pub use enhanced_bearer_token_service::{
+    EnhancedBearerTokenService, EnhancedTokenClaims, Web3PermissionClaim, NftHolding,
+    TokenBalance, DaoMembership, RateLimitTier, CacheHints as EnhancedCacheHints, ApiKeyRequest, ApiKey,
+    TokenValidation, EnterpriseTeam, TeamMember, TeamRole
+};
+
+// PERFORMANCE OPTIMIZATION EXPORTS
+// TODO: Re-enable when compilation issues are fixed
+// pub use auth_performance_cache::{AuthPerformanceCache, AuthCacheConfig};
+// pub use optimized_unified_auth_service::{OptimizedUnifiedAuthService, AuthPerformanceMonitor};
+
+pub use simplified_auth_cache::{
+    SimplifiedAuthCache, SimplifiedCacheConfig, SimplifiedCacheStats,
+    PermissionCacheEntry as SimplifiedPermissionCacheEntry, 
+    ChallengeCacheEntry as SimplifiedChallengeCacheEntry
+};
+
 // LEGACY EXPORTS (to be phased out gradually)
 pub use jwt::{Service as JWTService, Claims, User, Error as JWTError, UserData};
 pub use key_manager::KeyManager;
-pub use flow::{AuthRequest, LoginForm, CodeData, Error as FlowError};
+// Firebase flow exports removed - functionality replaced by Web3-first auth
 pub use tokens::{TokenRequest as LegacyTokenRequest, TokenResponse, ErrorResponse as TokenError};
 pub use revocation::{TokenRevocationService, RevokedToken, RevocationError, TOKEN_REVOCATION_SERVICE};
 pub use refresh_tokens::{RefreshTokenData, RefreshTokenRotation, RefreshTokenError, REFRESH_TOKEN_SERVICE};

@@ -6,28 +6,19 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Crown, Zap, Shield, TrendingUp, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
+import { PermissionTemplateName, PERMISSION_TEMPLATES, getDisplayTierColor, getRankingLimitFromPermissions } from '@/app/constants/packages'
 
-interface PlanFeature {
-  id: number
-  context_name: string
-  feature_key: string
-  feature_config: Record<string, any>
-  resource_cost: number
-  is_active: boolean
-}
-
-interface UserSubscription {
+interface UserPermissionInfo {
   id: string
-  plan_id: number
-  plan_name: string
-  access_context: string
-  status: string
+  permissionTemplate: PermissionTemplateName
+  permissions: string[]
+  displayTier: string
+  status: 'active' | 'expired' | 'cancelled'
   current_usage: Record<string, any>
   quota_limits: Record<string, any>
-  started_at: string
+  granted_at: string
   expires_at?: string
   auto_renew: boolean
-  features: PlanFeature[]
 }
 
 interface UserPlanDisplayProps {
@@ -35,39 +26,106 @@ interface UserPlanDisplayProps {
 }
 
 export function UserPlanDisplay({ userId }: UserPlanDisplayProps) {
-  const [subscriptions, setSubscriptions] = useState<UserSubscription[]>([])
+  const [userPermissions, setUserPermissions] = useState<UserPermissionInfo | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    loadUserSubscriptions()
+    loadUserPermissions()
   }, [userId])
 
-  const loadUserSubscriptions = async () => {
+  const loadUserPermissions = async () => {
     try {
       setLoading(true)
-      // This would be a call to your backend API to get user's subscriptions
-      const response = await fetch(`/api/v1/user/subscriptions`)
+      // Fetch user permissions from the new permission-based API
+      const response = await fetch(`/api/v1/user/permissions`)
       
       if (response.ok) {
         const data = await response.json()
-        setSubscriptions(data.subscriptions || [])
+        if (data.permissions && data.permissions.length > 0) {
+          // Convert backend data to our interface
+          const permissionInfo: UserPermissionInfo = {
+            id: data.id || userId,
+            permissionTemplate: data.permissionTemplate || getTemplateFromPermissions(data.permissions),
+            permissions: data.permissions,
+            displayTier: getDisplayTierFromPermissions(data.permissions),
+            status: data.status || 'active',
+            current_usage: data.current_usage || {},
+            quota_limits: generateQuotaFromPermissions(data.permissions),
+            granted_at: data.granted_at || new Date().toISOString(),
+            expires_at: data.expires_at,
+            auto_renew: data.auto_renew || false
+          }
+          setUserPermissions(permissionInfo)
+        } else {
+          setUserPermissions(null) // Free tier - no permissions
+        }
       } else if (response.status === 404) {
-        // No subscriptions found - user might be on free tier
-        setSubscriptions([])
+        setUserPermissions(null) // Free tier
       } else {
-        throw new Error('Failed to load subscription data')
+        throw new Error('Failed to load permission data')
       }
     } catch (error) {
-      console.error('Error loading subscriptions:', error)
-      setError('Unable to load subscription information')
+      console.error('Error loading permissions:', error)
+      setError('Unable to load permission information')
     } finally {
       setLoading(false)
     }
   }
 
+  // Helper functions for permission-based display
+  const getTemplateFromPermissions = (permissions: string[]): PermissionTemplateName => {
+    const displayTier = getDisplayTierFromPermissions(permissions)
+    switch (displayTier) {
+      case 'ENTERPRISE': return 'Enterprise Template'
+      case 'PLATINUM': return 'Platinum Template'
+      case 'GOLD': return 'Gold Template'
+      case 'SILVER': return 'Silver Template'
+      case 'BRONZE': return 'Bronze Template'
+      default: return 'Free Template'
+    }
+  }
+
+  const getDisplayTierFromPermissions = (permissions: string[]): string => {
+    for (const permission of permissions) {
+      if (permission.startsWith('epsx:rankings:view:')) {
+        const limitStr = permission.split(':')[3]
+        if (limitStr === 'unlimited') return 'ENTERPRISE'
+        const limit = parseInt(limitStr, 10)
+        if (limit >= 100) return 'PLATINUM'
+        if (limit >= 50) return 'GOLD'
+        if (limit >= 25) return 'SILVER'
+        if (limit >= 5) return 'BRONZE'
+      }
+    }
+    if (permissions.some(p => p.includes('admin:'))) return 'ENTERPRISE'
+    return 'FREE'
+  }
+
+  const generateQuotaFromPermissions = (permissions: string[]) => {
+    const rankingLimit = getRankingLimitFromPermissions(permissions)
+    let apiCalls = 100
+    
+    if (rankingLimit === -1) {
+      apiCalls = -1 // Unlimited
+    } else if (rankingLimit >= 100) {
+      apiCalls = 5000
+    } else if (rankingLimit >= 50) {
+      apiCalls = 2000
+    } else if (rankingLimit >= 25) {
+      apiCalls = 500
+    }
+
+    return {
+      api_calls: apiCalls,
+      rankings_limit: rankingLimit,
+      analytics_queries: permissions.some(p => p.includes('analytics')) ? Math.floor(apiCalls / 10) : 0,
+      export_limit: rankingLimit > 25 ? 50 : 10
+    }
+  }
+
   const calculateUsagePercentage = (used: number, limit: number) => {
-    if (limit === 0) return 0
+    if (limit === 0 || limit === -1) return 0
     return Math.min((used / limit) * 100, 100)
   }
 
@@ -84,10 +142,10 @@ export function UserPlanDisplay({ userId }: UserPlanDisplayProps) {
     }
   }
 
-  const getPlanIcon = (planName: string) => {
-    if (planName.toLowerCase().includes('enterprise')) return Crown
-    if (planName.toLowerCase().includes('pro') || planName.toLowerCase().includes('premium')) return Zap
-    if (planName.toLowerCase().includes('api')) return Shield
+  const getTierIcon = (displayTier: string) => {
+    if (displayTier === 'ENTERPRISE') return Crown
+    if (displayTier === 'PLATINUM' || displayTier === 'GOLD') return Zap
+    if (displayTier === 'SILVER') return Shield
     return TrendingUp
   }
 
@@ -130,7 +188,7 @@ export function UserPlanDisplay({ userId }: UserPlanDisplayProps) {
     )
   }
 
-  if (subscriptions.length === 0) {
+  if (!userPermissions) {
     return (
       <Card>
         <CardHeader>
@@ -143,13 +201,13 @@ export function UserPlanDisplay({ userId }: UserPlanDisplayProps) {
           <div className="text-center space-y-4">
             <div className="text-6xl mb-4">🚀</div>
             <h3 className="text-xl font-semibold text-gray-600 dark:text-gray-400">
-              No Active Plans
+              Free Tier Access
             </h3>
             <p className="text-gray-500 dark:text-gray-500 mb-6">
-              Choose a plan to unlock powerful analytics features and API access
+              You have basic access with 3 rankings. Upgrade to unlock more features and data.
             </p>
             <Button className="bg-gradient-to-r from-emerald-400 to-green-500 text-white">
-              View Available Plans
+              View Permission Templates
             </Button>
           </div>
         </CardContent>
@@ -157,172 +215,173 @@ export function UserPlanDisplay({ userId }: UserPlanDisplayProps) {
     )
   }
 
+  const TierIcon = getTierIcon(userPermissions.displayTier)
+  const isActive = userPermissions.status === 'active'
+  const template = PERMISSION_TEMPLATES[userPermissions.permissionTemplate]
+
   return (
-    <div className="space-y-6">
-      {subscriptions.map(subscription => {
-        const PlanIcon = getPlanIcon(subscription.plan_name)
-        const isActive = subscription.status === 'active'
-        
-        return (
-          <Card key={subscription.id}>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-3">
-                  <PlanIcon className="h-6 w-6 text-emerald-600" />
-                  {subscription.plan_name}
-                </CardTitle>
-                <Badge className={getStatusColor(subscription.status)}>
-                  {subscription.status.toUpperCase()}
-                </Badge>
-              </div>
-              <div className="flex items-center gap-4 text-sm text-gray-500">
-                <span>Access: {subscription.access_context}</span>
-                {subscription.expires_at && (
-                  <span>
-                    Expires: {new Date(subscription.expires_at).toLocaleDateString()}
-                  </span>
-                )}
-                <span>
-                  Auto-renew: {subscription.auto_renew ? 'Yes' : 'No'}
-                </span>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Usage Statistics */}
-              {isActive && Object.keys(subscription.current_usage).length > 0 && (
-                <div>
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Current Usage</h4>
-                  <div className="space-y-4">
-                    {Object.entries(subscription.current_usage).map(([key, used]) => {
-                      const limit = subscription.quota_limits[key] || 0
-                      const percentage = calculateUsagePercentage(Number(used), Number(limit))
-                      const isOverLimit = percentage >= 100
-                      
-                      return (
-                        <div key={key} className="space-y-2">
-                          <div className="flex justify-between items-center text-sm">
-                            <span className="font-medium capitalize">
-                              {key.replace(/_/g, ' ')}
-                            </span>
-                            <span className={`font-semibold ${isOverLimit ? 'text-red-600' : 'text-gray-600'}`}>
-                              {used} / {limit === 0 ? '∞' : limit}
-                            </span>
-                          </div>
-                          <Progress 
-                            value={percentage} 
-                            className={`h-2 ${isOverLimit ? 'bg-red-100' : 'bg-gray-100'}`}
-                          />
-                          {isOverLimit && (
-                            <div className="text-xs text-red-600 flex items-center gap-1">
-                              <AlertCircle className="h-3 w-3" />
-                              Usage limit exceeded
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-3">
+            <TierIcon className="h-6 w-6 text-emerald-600" />
+            {userPermissions.displayTier} Access
+          </CardTitle>
+          <Badge className={getStatusColor(userPermissions.status)}>
+            {userPermissions.status.toUpperCase()}
+          </Badge>
+        </div>
+        <div className="flex items-center gap-4 text-sm text-gray-500">
+          <span>Template: {userPermissions.permissionTemplate}</span>
+          {userPermissions.expires_at && (
+            <span>
+              Expires: {new Date(userPermissions.expires_at).toLocaleDateString()}
+            </span>
+          )}
+          <span>
+            Auto-renew: {userPermissions.auto_renew ? 'Yes' : 'No'}
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Usage Statistics */}
+        {isActive && Object.keys(userPermissions.current_usage).length > 0 && (
+          <div>
+            <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Current Usage</h4>
+            <div className="space-y-4">
+              {Object.entries(userPermissions.current_usage).map(([key, used]) => {
+                const limit = userPermissions.quota_limits[key] || 0
+                const percentage = calculateUsagePercentage(Number(used), Number(limit))
+                const isOverLimit = percentage >= 100 && limit !== -1
+                
+                return (
+                  <div key={key} className="space-y-2">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="font-medium capitalize">
+                        {key.replace(/_/g, ' ')}
+                      </span>
+                      <span className={`font-semibold ${isOverLimit ? 'text-red-600' : 'text-gray-600'}`}>
+                        {used} / {limit === -1 ? '∞' : limit}
+                      </span>
+                    </div>
+                    {limit !== -1 && (
+                      <Progress 
+                        value={percentage} 
+                        className={`h-2 ${isOverLimit ? 'bg-red-100' : 'bg-gray-100'}`}
+                      />
+                    )}
+                    {isOverLimit && (
+                      <div className="text-xs text-red-600 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" />
+                        Usage limit exceeded
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Permissions Display */}
+        <div>
+          <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Active Permissions</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {userPermissions.permissions.map((permission, index) => (
+              <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-sm">
+                    {permission.replace(/:/g, ' → ').replace(/_/g, ' ')}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    <Badge variant="outline" className="text-xs">
+                      {permission.split(':')[0]}
+                    </Badge>
+                    {permission.includes('view:') && (
+                      <span className="ml-2">
+                        Limit: {permission.split(':')[3] === 'unlimited' ? '∞' : permission.split(':')[3]}
+                      </span>
+                    )}
                   </div>
                 </div>
-              )}
+              </div>
+            ))}
+          </div>
+        </div>
 
-              {/* Plan Features */}
-              <div>
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Plan Features</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {subscription.features.map(feature => (
-                    <div key={feature.id} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                      {feature.is_active ? (
-                        <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
-                      ) : (
-                        <XCircle className="h-5 w-5 text-gray-400 mt-0.5 flex-shrink-0" />
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <div className="font-medium text-sm">
-                          {feature.feature_key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          <Badge variant="outline" className="text-xs">
-                            {feature.context_name}
-                          </Badge>
-                          {feature.resource_cost > 0 && (
-                            <span className="ml-2">Cost: {feature.resource_cost}</span>
-                          )}
-                        </div>
-                        {Object.keys(feature.feature_config).length > 0 && (
-                          <div className="text-xs text-gray-400 mt-1">
-                            {Object.entries(feature.feature_config).map(([key, value]) => (
-                              <span key={key} className="mr-2">
-                                {key}: {String(value)}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+        {/* Template Features */}
+        <div>
+          <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Template Features</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {template.features.map((feature, index) => (
+              <div key={index} className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium text-sm">{feature}</div>
                 </div>
               </div>
+            ))}
+          </div>
+        </div>
 
-              {/* Action Buttons */}
-              <div className="flex gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                {isActive ? (
-                  <>
-                    <Button variant="outline" className="flex-1">
-                      Manage Plan
-                    </Button>
-                    <Button variant="outline">
-                      View Usage Details
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Button className="flex-1 bg-gradient-to-r from-emerald-400 to-green-500 text-white">
-                      Renew Plan
-                    </Button>
-                    <Button variant="outline">
-                      View History
-                    </Button>
-                  </>
-                )}
-              </div>
+        {/* Action Buttons */}
+        <div className="flex gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+          {isActive ? (
+            <>
+              <Button variant="outline" className="flex-1">
+                Manage Permissions
+              </Button>
+              <Button variant="outline">
+                View Usage Details
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button className="flex-1 bg-gradient-to-r from-emerald-400 to-green-500 text-white">
+                Reactivate Access
+              </Button>
+              <Button variant="outline">
+                View History
+              </Button>
+            </>
+          )}
+        </div>
 
-              {/* Expiry Warning */}
-              {isActive && subscription.expires_at && (
-                (() => {
-                  const daysUntilExpiry = Math.ceil(
-                    (new Date(subscription.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-                  )
-                  
-                  if (daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
-                    return (
-                      <Alert>
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                          Your plan expires in {daysUntilExpiry} day{daysUntilExpiry !== 1 ? 's' : ''}. 
-                          {!subscription.auto_renew && ' Consider enabling auto-renewal.'}
-                        </AlertDescription>
-                      </Alert>
-                    )
-                  }
-                  
-                  if (daysUntilExpiry <= 0) {
-                    return (
-                      <Alert variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>
-                          Your plan has expired. Renew now to continue using premium features.
-                        </AlertDescription>
-                      </Alert>
-                    )
-                  }
-                  
-                  return null
-                })()
-              )}
-            </CardContent>
-          </Card>
-        )
-      })}
-    </div>
+        {/* Expiry Warning */}
+        {isActive && userPermissions.expires_at && (
+          (() => {
+            const daysUntilExpiry = Math.ceil(
+              (new Date(userPermissions.expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+            )
+            
+            if (daysUntilExpiry <= 7 && daysUntilExpiry > 0) {
+              return (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Your access expires in {daysUntilExpiry} day{daysUntilExpiry !== 1 ? 's' : ''}. 
+                    {!userPermissions.auto_renew && ' Consider enabling auto-renewal.'}
+                  </AlertDescription>
+                </Alert>
+              )
+            }
+            
+            if (daysUntilExpiry <= 0) {
+              return (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Your access has expired. Renew now to continue using premium features.
+                  </AlertDescription>
+                </Alert>
+              )
+            }
+            
+            return null
+          })()
+        )}
+      </CardContent>
+    </Card>
   )
 }

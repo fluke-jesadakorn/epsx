@@ -1,29 +1,16 @@
-// Payment and User Level Types
-
-export enum PaymentTier {
-  BRONZE = 'BRONZE',
-  SILVER = 'SILVER', 
-  GOLD = 'GOLD',
-  PLATINUM = 'PLATINUM'
-}
-
-export interface ApiLimits {
-  requestsPerMinute: number;
-  requestsPerDay: number;
-  maxRankings: number;
-  maxFileSize: number;
-}
+// Permission-based Payment Types
+import { PermissionTemplateName } from '@/app/constants/packages';
 
 export interface PaymentPlan {
   id: string;
-  tier: PaymentTier;
   name: string;
+  permissionTemplate: PermissionTemplateName;
+  permissions: string[];
+  displayTier: string;
   price: number;
   currency: string;
   features: string[];
-  apiLimits: ApiLimits;
   duration: number;
-  numericLevel: number;
   color: string;
 }
 
@@ -31,8 +18,9 @@ export interface User {
   id: string;
   email: string;
   name?: string;
-  level?: string;
-  tier?: PaymentTier;
+  permissions?: string[];
+  permissionTemplate?: PermissionTemplateName;
+  displayTier?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -44,7 +32,7 @@ export interface PaymentStatus {
   currency: string;
   createdAt: string;
   userId?: string;
-  tier?: PaymentTier;
+  permissionTemplate?: PermissionTemplateName;
 }
 
 export interface PaymentTransaction {
@@ -55,5 +43,5 @@ export interface PaymentTransaction {
   createdAt: string;
   description?: string;
   userId?: string;
-  tier?: PaymentTier;
+  permissionTemplate?: PermissionTemplateName;
 }

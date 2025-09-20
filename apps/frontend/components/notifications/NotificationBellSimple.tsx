@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useBrowserNotifications } from './BrowserNotifications'
 import Link from 'next/link'
 import { Bell } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -108,6 +109,7 @@ export function NotificationBellSimple({ className = "", showBadge = true, initi
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(!initialData) // Only show loading if no initial data
   const { isHydrated, isMobile } = useNavbarContext()
+  const { showNotification } = useBrowserNotifications()
 
 
   // Fetch notifications (only if no initial data or for periodic updates)
@@ -147,6 +149,33 @@ export function NotificationBellSimple({ className = "", showBadge = true, initi
             readAt: notification.read_at,
             actionUrl: notification.action_url
           }))
+          
+          // Check for new notifications and show browser notifications
+          if (!isInitial && mappedNotifications.length > notifications.length) {
+            const newNotifications = mappedNotifications.slice(0, mappedNotifications.length - notifications.length)
+            
+            newNotifications.forEach((notification: SimpleNotification) => {
+              // Determine notification type for browser notification
+              let notificationType: 'trading' | 'security' | 'system' | 'permissions' = 'system'
+              
+              if (notification.type === 'admin' || notification.type === 'security') {
+                notificationType = 'security'
+              } else if (notification.type === 'data') {
+                notificationType = 'trading'
+              } else if (notification.priority === 'urgent' || notification.priority === 'high') {
+                notificationType = 'permissions'
+              }
+              
+              // Show browser notification for new notification
+              showNotification(
+                notificationType,
+                notification.title,
+                notification.body,
+                notification.actionUrl
+              )
+            })
+          }
+          
           setNotifications(mappedNotifications || [])
           setUnreadCount(mappedNotifications?.length || 0)
         } else {

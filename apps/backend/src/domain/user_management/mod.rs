@@ -14,7 +14,6 @@ pub use aggregates::{User, Session};
 
 pub use value_objects::{
     Email, 
-    FirebaseUid, 
     Permission
 };
 

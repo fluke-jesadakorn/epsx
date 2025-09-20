@@ -11,22 +11,67 @@ use serde::{Serialize, Deserialize};
 use crate::domain::shared_kernel::value_objects::Email;
 use crate::core::types::AppError;
 
-pub mod firebase_provider;
 pub mod oidc_provider;
+
+// Placeholder firebase provider module (Firebase removed)
+pub mod firebase_provider {
+    use super::*;
+    
+    #[derive(Debug, Clone)]
+    pub struct FirebaseProvider;
+
+    #[derive(Debug, Clone)]
+    pub struct FirebaseProviderConfig;
+    
+    impl FirebaseProvider {
+        pub fn new() -> Self {
+            Self
+        }
+    }
+    
+    #[async_trait]
+    impl AuthProvider for FirebaseProvider {
+        async fn validate_token(&self, _token: &str) -> Result<UserClaims, AuthProviderError> {
+            Err(AuthProviderError::InternalError("Firebase provider removed".to_string()))
+        }
+        
+        async fn refresh_token(&self, _refresh_token: &str) -> Result<TokenPair, AuthProviderError> {
+            Err(AuthProviderError::InternalError("Firebase provider removed".to_string()))
+        }
+        
+        fn provider_name(&self) -> &'static str {
+            "firebase_stub"
+        }
+        
+        fn provider_type(&self) -> ProviderType {
+            ProviderType::Firebase
+        }
+        
+        fn priority(&self) -> u8 {
+            50
+        }
+        
+        fn can_handle_token(&self, _token: &str) -> bool {
+            false
+        }
+    }
+}
 
 /// Authentication provider types
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ProviderType {
-    Firebase,
     OIDC,
+    Web3,
+    Firebase,
     Custom,
 }
 
 impl std::fmt::Display for ProviderType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ProviderType::Firebase => write!(f, "firebase"),
             ProviderType::OIDC => write!(f, "oidc"),
+            ProviderType::Web3 => write!(f, "web3"),
+            ProviderType::Firebase => write!(f, "firebase"),
             ProviderType::Custom => write!(f, "custom"),
         }
     }
@@ -172,7 +217,7 @@ pub trait AuthProvider: Send + Sync {
     fn provider_type(&self) -> ProviderType;
     
     /// Provider priority for conflict resolution (higher = more priority)
-    /// Firebase: 100, OIDC: 90, Custom: 80
+    /// OIDC: 100, Web3: 95, Custom: 80
     fn priority(&self) -> u8;
     
     /// Check if this provider can handle the given token format
@@ -232,8 +277,8 @@ mod tests {
     
     #[test]
     fn test_provider_type_display() {
-        assert_eq!(ProviderType::Firebase.to_string(), "firebase");
         assert_eq!(ProviderType::OIDC.to_string(), "oidc");
+        assert_eq!(ProviderType::Web3.to_string(), "web3");
         assert_eq!(ProviderType::Custom.to_string(), "custom");
     }
     
@@ -242,8 +287,8 @@ mod tests {
         let user_id = UserId::generate();
         let email = Email::new("test@example.com".to_string()).unwrap();
         let permissions = vec!["epsx:analytics:view".to_string(), "epsx:profile:manage".to_string()];
-        let provideruser_id = "firebase_user_123".to_string();
-        let provider = ProviderType::Firebase;
+        let provider_user_id = "wallet_user_123".to_string();
+        let provider = ProviderType::Web3;
         let expires_at = Utc::now() + chrono::Duration::hours(1);
         let iat = chrono::Utc::now().timestamp() as u64;
         let exp = (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp() as u64;
@@ -258,18 +303,12 @@ mod tests {
             iat,
             exp,
             Some("basic".to_string()),
-            "firebase_uid_123".to_string(),
-            ProviderType::Firebase,
-            expires_at,
-            0,
-            0,
-            None,
         );
         
         assert_eq!(claims.user_id, user_id);
         assert_eq!(claims.email, email);
         assert_eq!(claims.permissions, permissions);
-        assert_eq!(claims.provider, ProviderType::Firebase);
+        assert_eq!(claims.provider, ProviderType::Web3);
         assert!(!claims.is_expired());
     }
     

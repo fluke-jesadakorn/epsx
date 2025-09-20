@@ -24,53 +24,32 @@ export interface TestUser {
   jwt_token?: string; // Will be populated during test setup
 }
 
-export interface TierFeatureMap {
-  [tier: string]: {
-    features: string[];
-    routes: string[];
-    restrictions: string[];
-    api_endpoints: string[];
-  };
-}
+// Permission-based route access mapping (for test validation)
+export const PERMISSION_ROUTE_MAP: Record<string, string[]> = {
+  'epsx:rankings:view': ['/'],
+  'epsx:trading:basic': ['/trading'],
+  'epsx:portfolio:view': ['/portfolio'],
+  'epsx:analytics:basic': ['/premium', '/advanced-analytics'],
+  'epsx:trading:advanced': ['/professional'],
+  'epsx:alerts:email': ['/alerts'],
+  'epsx:portfolio:tools': ['/vip'],
+  'epsx:support:priority': ['/priority-support'],
+  'epsx:research:reports': ['/elite', '/reports'],
+  'epsx:dashboards:custom': ['/custom-dashboards'],
+  'epsx:*:*': ['/enterprise'],
+  'admin:*:*': ['/api-access']
+};
 
-// Package tier feature mapping
-export const TIER_FEATURES: TierFeatureMap = {
-  FREE: {
-    features: ['basic-trading', 'portfolio-view', 'basic-notifications'],
-    routes: ['/', '/trading', '/portfolio'],
-    restrictions: ['advanced-analytics', 'portfolio-tools', 'research-reports', 'api-access'],
-    api_endpoints: ['/api/portfolio/basic', '/api/trading/basic']
-  },
-  BRONZE: {
-    features: ['basic-trading', 'portfolio-view', 'enhanced-notifications', 'portfolio-history'],
-    routes: ['/', '/trading', '/portfolio', '/premium', '/advanced-analytics'],
-    restrictions: ['portfolio-tools', 'research-reports', 'api-access', 'institutional-features'],
-    api_endpoints: ['/api/portfolio/basic', '/api/trading/basic', '/api/analytics/basic']
-  },
-  SILVER: {
-    features: ['basic-trading', 'portfolio-view', 'enhanced-notifications', 'portfolio-history', 'advanced-trading', 'advanced-analytics'],
-    routes: ['/', '/trading', '/portfolio', '/premium', '/advanced-analytics', '/professional', '/alerts'],
-    restrictions: ['portfolio-tools', 'research-reports', 'api-access', 'institutional-features'],
-    api_endpoints: ['/api/portfolio/basic', '/api/trading/basic', '/api/analytics/basic', '/api/trading/advanced']
-  },
-  GOLD: {
-    features: ['basic-trading', 'portfolio-view', 'enhanced-notifications', 'portfolio-history', 'advanced-trading', 'advanced-analytics', 'portfolio-tools', 'premium-analytics', 'advanced-order-types'],
-    routes: ['/', '/trading', '/portfolio', '/premium', '/advanced-analytics', '/professional', '/alerts', '/vip', '/priority-support'],
-    restrictions: ['research-reports', 'api-access', 'institutional-features'],
-    api_endpoints: ['/api/portfolio/basic', '/api/trading/basic', '/api/analytics/basic', '/api/trading/advanced', '/api/portfolio/tools']
-  },
-  PLATINUM: {
-    features: ['basic-trading', 'portfolio-view', 'enhanced-notifications', 'portfolio-history', 'advanced-trading', 'advanced-analytics', 'portfolio-tools', 'premium-analytics', 'advanced-order-types', 'research-reports', 'priority-support'],
-    routes: ['/', '/trading', '/portfolio', '/premium', '/advanced-analytics', '/professional', '/alerts', '/vip', '/priority-support', '/elite', '/custom-dashboards', '/reports'],
-    restrictions: ['api-access', 'institutional-features'],
-    api_endpoints: ['/api/portfolio/basic', '/api/trading/basic', '/api/analytics/basic', '/api/trading/advanced', '/api/portfolio/tools', '/api/research/reports']
-  },
-  ENTERPRISE: {
-    features: ['basic-trading', 'portfolio-view', 'enhanced-notifications', 'portfolio-history', 'advanced-trading', 'advanced-analytics', 'portfolio-tools', 'premium-analytics', 'advanced-order-types', 'research-reports', 'priority-support', 'api-access', 'institutional-features', 'bulk-operations'],
-    routes: ['/', '/trading', '/portfolio', '/premium', '/advanced-analytics', '/professional', '/alerts', '/vip', '/priority-support', '/elite', '/custom-dashboards', '/reports', '/enterprise', '/api-access'],
-    restrictions: [],
-    api_endpoints: ['/api/portfolio/basic', '/api/trading/basic', '/api/analytics/basic', '/api/trading/advanced', '/api/portfolio/tools', '/api/research/reports', '/api/enterprise/bulk', '/api/institutional/access']
-  }
+// Permission-based API endpoint mapping (for test validation)
+export const PERMISSION_API_MAP: Record<string, string[]> = {
+  'epsx:portfolio:view': ['/api/portfolio/basic'],
+  'epsx:trading:basic': ['/api/trading/basic'],
+  'epsx:analytics:basic': ['/api/analytics/basic'],
+  'epsx:trading:advanced': ['/api/trading/advanced'],
+  'epsx:portfolio:tools': ['/api/portfolio/tools'],
+  'epsx:research:reports': ['/api/research/reports'],
+  'epsx:*:*': ['/api/enterprise/bulk'],
+  'admin:*:*': ['/api/institutional/access']
 };
 
 // Test users for each package tier
@@ -89,7 +68,7 @@ export const TEST_USERS: Record<string, TestUser> = {
     ],
     firebase_uid: 'firebase_free_001',
     subscription_status: 'active',
-    features: TIER_FEATURES.FREE.features, // @deprecated
+    features: [], // @deprecated - derive from permissions
     rate_limits: { per_minute: 10, per_hour: 100 },
     created_at: '2024-01-01T00:00:00Z',
     last_login: '2024-08-22T10:00:00Z'
@@ -112,7 +91,7 @@ export const TEST_USERS: Record<string, TestUser> = {
     firebase_uid: 'firebase_bronze_001',
     subscription_status: 'active',
     subscription_expires_at: '2025-01-01T00:00:00Z',
-    features: TIER_FEATURES.BRONZE.features, // @deprecated
+    features: [], // @deprecated - derive from permissions
     rate_limits: { per_minute: 30, per_hour: 500 },
     created_at: '2024-02-01T00:00:00Z',
     last_login: '2024-08-22T10:15:00Z'
@@ -138,7 +117,7 @@ export const TEST_USERS: Record<string, TestUser> = {
     firebase_uid: 'firebase_silver_001',
     subscription_status: 'active',
     subscription_expires_at: '2025-03-01T00:00:00Z',
-    features: TIER_FEATURES.SILVER.features, // @deprecated
+    features: [], // @deprecated - derive from permissions
     rate_limits: { per_minute: 60, per_hour: 1500 },
     created_at: '2024-03-01T00:00:00Z',
     last_login: '2024-08-22T10:30:00Z'
@@ -168,7 +147,7 @@ export const TEST_USERS: Record<string, TestUser> = {
     firebase_uid: 'firebase_gold_001',
     subscription_status: 'active',
     subscription_expires_at: '2025-06-01T00:00:00Z',
-    features: TIER_FEATURES.GOLD.features, // @deprecated
+    features: [], // @deprecated - derive from permissions
     rate_limits: { per_minute: 120, per_hour: 5000 },
     created_at: '2024-04-01T00:00:00Z',
     last_login: '2024-08-22T10:45:00Z'
@@ -200,7 +179,7 @@ export const TEST_USERS: Record<string, TestUser> = {
     firebase_uid: 'firebase_platinum_001',
     subscription_status: 'active',
     subscription_expires_at: '2025-12-01T00:00:00Z',
-    features: TIER_FEATURES.PLATINUM.features, // @deprecated
+    features: [], // @deprecated - derive from permissions
     rate_limits: { per_minute: 300, per_hour: 15000 },
     created_at: '2024-05-01T00:00:00Z',
     last_login: '2024-08-22T11:00:00Z'
@@ -222,7 +201,7 @@ export const TEST_USERS: Record<string, TestUser> = {
     firebase_uid: 'firebase_enterprise_001',
     subscription_status: 'active',
     subscription_expires_at: '2026-01-01T00:00:00Z',
-    features: TIER_FEATURES.ENTERPRISE.features, // @deprecated
+    features: [], // @deprecated - derive from permissions
     rate_limits: { per_minute: 1000, per_hour: 50000 },
     created_at: '2024-06-01T00:00:00Z',
     last_login: '2024-08-22T11:15:00Z'
@@ -244,7 +223,7 @@ export const TEST_USERS: Record<string, TestUser> = {
     firebase_uid: 'firebase_expired_001',
     subscription_status: 'expired',
     subscription_expires_at: '2024-06-01T00:00:00Z',
-    features: TIER_FEATURES.FREE.features, // @deprecated
+    features: [], // @deprecated - derive from permissions
     rate_limits: { per_minute: 10, per_hour: 100 },
     created_at: '2024-01-01T00:00:00Z',
     last_login: '2024-08-22T09:00:00Z'
@@ -272,7 +251,7 @@ export const TEST_USERS: Record<string, TestUser> = {
     firebase_uid: 'firebase_trial_001',
     subscription_status: 'trial',
     subscription_expires_at: '2024-09-22T00:00:00Z', // 30 days from now
-    features: TIER_FEATURES.GOLD.features, // @deprecated
+    features: [], // @deprecated - derive from permissions
     rate_limits: { per_minute: 120, per_hour: 5000 },
     created_at: '2024-08-22T00:00:00Z',
     last_login: '2024-08-22T11:30:00Z'
@@ -297,7 +276,7 @@ export const TEST_USERS: Record<string, TestUser> = {
     firebase_uid: 'firebase_cancelled_001',
     subscription_status: 'cancelled',
     subscription_expires_at: '2024-09-30T00:00:00Z',
-    features: TIER_FEATURES.SILVER.features, // @deprecated
+    features: [], // @deprecated - derive from permissions
     rate_limits: { per_minute: 60, per_hour: 1500 },
     created_at: '2024-03-01T00:00:00Z',
     last_login: '2024-08-22T09:30:00Z'
@@ -370,47 +349,56 @@ export function initializeTestUsers(): void {
   });
 }
 
-// Feature access validation helpers
+// Permission-based access validation helpers
 export function canUserAccessRoute(user: TestUser, route: string): boolean {
-  const tierFeatures = TIER_FEATURES[user.package_tier];
-  if (!tierFeatures) return false;
-  
-  // Check if route is explicitly allowed
-  if (tierFeatures.routes.includes(route)) return true;
-  
-  // Check if route matches any allowed patterns
-  return tierFeatures.routes.some(allowedRoute => {
-    if (allowedRoute.endsWith('*')) {
-      return route.startsWith(allowedRoute.slice(0, -1));
+  // Check if any user permission grants access to this route
+  for (const permission of user.permissions) {
+    const allowedRoutes = PERMISSION_ROUTE_MAP[permission] || [];
+    if (allowedRoutes.includes(route)) return true;
+    
+    // Check for wildcard permission matches
+    if (permission.endsWith(':*:*') || permission.endsWith(':*')) {
+      const basePermission = permission.replace(/:.*$/, '');
+      for (const [perm, routes] of Object.entries(PERMISSION_ROUTE_MAP)) {
+        if (perm.startsWith(basePermission) && routes.includes(route)) {
+          return true;
+        }
+      }
     }
-    return route === allowedRoute || route.startsWith(allowedRoute + '/');
-  });
+  }
+  return false;
 }
 
 export function canUserAccessFeature(user: TestUser, feature: string): boolean {
-  const tierFeatures = TIER_FEATURES[user.package_tier];
-  if (!tierFeatures) return false;
-  
-  return tierFeatures.features.includes(feature);
+  // Check if user has permission that grants this feature
+  return userHasPermission(user, feature);
 }
 
 export function isFeatureRestricted(user: TestUser, feature: string): boolean {
-  const tierFeatures = TIER_FEATURES[user.package_tier];
-  if (!tierFeatures) return true;
-  
-  return tierFeatures.restrictions.includes(feature);
+  return !canUserAccessFeature(user, feature);
 }
 
 export function canUserAccessApiEndpoint(user: TestUser, endpoint: string): boolean {
-  const tierFeatures = TIER_FEATURES[user.package_tier];
-  if (!tierFeatures) return false;
-  
-  return tierFeatures.api_endpoints.some(allowedEndpoint => {
-    if (allowedEndpoint.endsWith('*')) {
-      return endpoint.startsWith(allowedEndpoint.slice(0, -1));
+  // Check if any user permission grants access to this API endpoint
+  for (const permission of user.permissions) {
+    const allowedEndpoints = PERMISSION_API_MAP[permission] || [];
+    if (allowedEndpoints.some(allowed => endpoint.startsWith(allowed))) {
+      return true;
     }
-    return endpoint === allowedEndpoint || endpoint.startsWith(allowedEndpoint + '/');
-  });
+    
+    // Check for wildcard permission matches
+    if (permission.endsWith(':*:*') || permission.endsWith(':*')) {
+      const basePermission = permission.replace(/:.*$/, '');
+      for (const [perm, endpoints] of Object.entries(PERMISSION_API_MAP)) {
+        if (perm.startsWith(basePermission)) {
+          if (endpoints.some(allowed => endpoint.startsWith(allowed))) {
+            return true;
+          }
+        }
+      }
+    }
+  }
+  return false;
 }
 
 // Rate limiting helpers

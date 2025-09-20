@@ -136,3 +136,57 @@ export async function requirePermission(permission: string, redirectPath: string
   
   return user;
 }
+
+// ============================================================================
+// Payment Server Actions
+// ============================================================================
+
+export interface PaymentTransaction {
+  orderNo: string;
+  amount: number;
+  currency: string;
+  status: string;
+  finishTime: string;
+  blockchainData: {
+    txHash: string;
+    network: string;
+  };
+  blockExplorerUrl: string;
+}
+
+/**
+ * Get transaction history for current user
+ */
+export async function getTransactionHistory(excludePending = false): Promise<PaymentTransaction[]> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return [];
+    }
+
+    // Mock transaction data for now - TODO: implement real API call
+    const mockTransactions: PaymentTransaction[] = [
+      {
+        orderNo: 'ORDER_001',
+        amount: 29.99,
+        currency: 'USDT',
+        status: 'completed',
+        finishTime: new Date().toISOString(),
+        blockchainData: {
+          txHash: '0x1234567890abcdef1234567890abcdef12345678',
+          network: 'ethereum'
+        },
+        blockExplorerUrl: 'https://etherscan.io/tx/0x1234567890abcdef1234567890abcdef12345678'
+      }
+    ];
+
+    if (excludePending) {
+      return mockTransactions.filter(tx => tx.status === 'completed');
+    }
+
+    return mockTransactions;
+  } catch (error) {
+    logger.error('Failed to get transaction history', { error: safeError(error).message });
+    return [];
+  }
+}

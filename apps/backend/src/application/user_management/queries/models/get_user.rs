@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 
 use crate::application::shared::{Query, ApplicationResult, ValidationUtils};
 use crate::domain::shared_kernel::value_objects::UserId;
-use crate::domain::user_management::value_objects::{Email, FirebaseUid};
+use crate::domain::user_management::value_objects::Email;
 
 /// Query to get a user by ID
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,9 +30,6 @@ pub struct GetUserResponse {
     
     /// User email
     pub email: Email,
-    
-    /// Firebase UID
-    pub firebase_uid: FirebaseUid,
     
     /// Whether the user is active
     pub is_active: bool,

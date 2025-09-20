@@ -2,8 +2,8 @@
 
 import type { StockFinancialData } from '@/types/financialChartData';
 import { getStockFinancialData } from '@/lib/services/stock.service';
-import { extractRankingLimitFromPermissions, deriveTierFromPermissions, convertTierToPermissions } from '@/lib/permission-utils';
-import type { UserLevelType } from '@/app/constants/packages';
+import { getRankingLimitFromPermissions } from '@/lib/auth/utils';
+import type { PermissionTemplateName } from '@/types/userLevel';
 
 /**
  * Reusable server action for fetching stock financial data

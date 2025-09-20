@@ -6,6 +6,8 @@ pub mod password;
 pub mod providers;
 pub mod token_broker;
 pub mod modern_routes;
+pub mod web3_routes;
+pub mod unified_routes;
 
 // Main exports
 pub use routes::AppState;

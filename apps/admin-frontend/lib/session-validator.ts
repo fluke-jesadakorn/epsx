@@ -1,9 +1,11 @@
 /**
- * Admin Session Validator Service
- * Integrates with backend session validation API for middleware operations
+ * Admin Session Validator Service - Wallet Authentication
+ * Validates wallet-based admin sessions for middleware operations
+ * Replaces OIDC token validation with wallet signature validation
  */
 
 import { cookies } from 'next/headers'
+import { SiweMessage } from 'siwe'
 import { 
   derivePackageTierFromPermissions,
   deriveAccessiblePlatformsFromPermissions,
@@ -54,8 +56,9 @@ interface SessionValidationRequest {
 }
 
 interface UserProfile {
-  id: string
-  email: string
+  id: string // wallet_address as primary identifier
+  wallet_address: string
+  email?: string // Optional linked email
   name?: string
   role: string
   permissions: string[]  // Structured permissions: "platform:resource:action"
@@ -113,7 +116,7 @@ export class AdminSessionValidator {
   }
   
   /**
-   * Validate admin session using local JWT verification
+   * Validate admin session using wallet authentication
    */
   async validateSession(request: {
     userAgent?: string
@@ -124,15 +127,19 @@ export class AdminSessionValidator {
     const startTime = performance.now()
     
     try {
-      // OIDC Migration: Get access token from OIDC cookies
+      // Wallet Authentication: Get wallet session from cookies
       const cookieStore = await cookies()
-      const jwtCookie = cookieStore.get('access_token')
+      const walletAddress = cookieStore.get('wallet_address')?.value
+      const walletNonce = cookieStore.get('wallet_nonce')?.value
+      const walletSignature = cookieStore.get('wallet_signature')?.value
+      const walletMessage = cookieStore.get('wallet_message')?.value
+      const walletExpiresAt = cookieStore.get('wallet_expires_at')?.value
       
-      if (!jwtCookie?.value) {
+      if (!walletAddress || !walletSignature || !walletMessage || !walletExpiresAt) {
         this.missCount++
         return {
           valid: false,
-          error: 'No session token found',
+          error: 'No wallet session found',
           performance: {
             validation_time_ms: performance.now() - startTime,
             cache_hit: false
@@ -140,10 +147,49 @@ export class AdminSessionValidator {
         }
       }
       
-      const token = jwtCookie.value
+      // Check if wallet session is expired
+      const expiresAt = parseInt(walletExpiresAt, 10)
+      if (Date.now() > expiresAt) {
+        this.missCount++
+        return {
+          valid: false,
+          error: 'Wallet session expired',
+          performance: {
+            validation_time_ms: performance.now() - startTime,
+            cache_hit: false
+          }
+        }
+      }
+      
+      // Validate SIWE message format
+      try {
+        const siweMessage = new SiweMessage(walletMessage)
+        
+        // Verify wallet address matches
+        if (siweMessage.address.toLowerCase() !== walletAddress.toLowerCase()) {
+          return {
+            valid: false,
+            error: 'Wallet address mismatch in SIWE message',
+            performance: {
+              validation_time_ms: performance.now() - startTime,
+              cache_hit: false
+            }
+          }
+        }
+      } catch (error) {
+        console.error('❌ Admin: Invalid SIWE message format:', error)
+        return {
+          valid: false,
+          error: 'Invalid SIWE message format',
+          performance: {
+            validation_time_ms: performance.now() - startTime,
+            cache_hit: false
+          }
+        }
+      }
       
       // Check cache first
-      const cacheKey = `admin:${token.substring(0, 20)}:${request.path || ''}`
+      const cacheKey = `wallet:${walletAddress.substring(0, 20)}:${request.path || ''}`
       const cached = this.getCachedSession(cacheKey)
       
       if (cached) {
@@ -165,22 +211,30 @@ export class AdminSessionValidator {
       // Cache miss - increment miss counter
       this.missCount++
       
-      // OIDC Migration: Validate access token via userinfo endpoint instead of local JWT verification
-      console.log('🔄 Admin: Validating OIDC access token via userinfo endpoint...')
+      // Wallet Authentication: Validate wallet with backend
+      console.log('🔄 Admin: Validating wallet session with backend:', walletAddress)
       
       const backendUrl = getBackendUrl('server')
-      const userinfoResponse = await fetch(`${backendUrl}/oauth/userinfo`, {
+      const walletResponse = await fetch(`${backendUrl}/api/auth/web3/verify`, {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+          'X-Admin-Context': 'true'
+        },
+        body: JSON.stringify({
+          wallet_address: walletAddress,
+          signature: walletSignature,
+          nonce: walletNonce,
+          message: walletMessage,
+          admin_context: true
+        })
       })
       
-      if (!userinfoResponse.ok) {
-        console.error('❌ Admin: Userinfo validation failed:', userinfoResponse.status, userinfoResponse.statusText)
+      if (!walletResponse.ok) {
+        console.error('❌ Admin: Wallet validation failed:', walletResponse.status, walletResponse.statusText)
         return {
           valid: false,
-          error: 'Invalid or expired OIDC access token',
+          error: 'Invalid or expired wallet session',
           performance: {
             validation_time_ms: performance.now() - startTime,
             cache_hit: false
@@ -188,25 +242,26 @@ export class AdminSessionValidator {
         }
       }
       
-      const userinfo = await userinfoResponse.json()
-      console.log('✅ Admin: OIDC userinfo validation successful:', {
-        email: userinfo.email,
-        permissions: userinfo.permissions?.slice(0, 3) // Log first 3 permissions for brevity
+      const walletInfo = await walletResponse.json()
+      console.log('✅ Admin: Wallet validation successful:', {
+        wallet_address: walletInfo.wallet_address,
+        permissions: walletInfo.permissions?.slice(0, 3) // Log first 3 permissions for brevity
       })
       
-      // Convert OIDC userinfo to UserProfile format
+      // Convert wallet info to UserProfile format
       const user: UserProfile = {
-        id: userinfo.sub || userinfo.id,
-        email: userinfo.email,
-        name: userinfo.name || userinfo.email?.split('@')[0],
-        role: userinfo.permissions?.some((p: string) => p.startsWith('admin:')) ? 'admin' : 'user',
-        permissions: userinfo.permissions || [],
-        package_tier: userinfo.package_tier || 'ENTERPRISE',
-        firebase_uid: userinfo.firebase_uid || userinfo.sub,
+        id: walletInfo.wallet_address,
+        wallet_address: walletInfo.wallet_address,
+        email: walletInfo.email,
+        name: walletInfo.name || walletInfo.wallet_address.substring(0, 8) + '...',
+        role: walletInfo.permissions?.some((p: string) => p.startsWith('admin:')) ? 'admin' : 'user',
+        permissions: walletInfo.permissions || [],
+        package_tier: walletInfo.package_tier || 'ENTERPRISE',
+        firebase_uid: walletInfo.firebase_uid,
         
         // Cross-platform fields
-        platforms: userinfo.platforms || ['admin', 'epsx'],
-        primary_platform: userinfo.primary_platform || 'admin'
+        platforms: walletInfo.platforms || ['admin', 'epsx'],
+        primary_platform: walletInfo.primary_platform || 'admin'
       }
       
       // Validate admin permissions
@@ -221,8 +276,8 @@ export class AdminSessionValidator {
         }
       }
       
-      // Calculate expiration from OIDC token (default to 2 hours from now)
-      const expires_at = Date.now() + (2 * 60 * 60 * 1000) // 2 hours from now
+      // Use wallet session expiration
+      const expires_at = expiresAt
       
       // Cache the successful validation
       this.cacheSession(cacheKey, {

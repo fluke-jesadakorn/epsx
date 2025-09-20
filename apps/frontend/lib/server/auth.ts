@@ -210,15 +210,29 @@ export async function requireRole(requiredRole: string, redirectPath?: string): 
  * Redirect to backend Pancake login with callback URL
  */
 export function redirectToBackendLogin(callbackUrl?: string): never {
-  const backendLoginUrl = new URL('/oauth/authorize', getBackendUrl('server'));
-  backendLoginUrl.searchParams.set('client_id', process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend');
-  backendLoginUrl.searchParams.set('redirect_uri', callbackUrls.frontend('server'));
-  backendLoginUrl.searchParams.set('scope', 'openid profile email');
-  backendLoginUrl.searchParams.set('response_type', 'code');
-  if (callbackUrl) {
-    backendLoginUrl.searchParams.set('state', encodeURIComponent(callbackUrl));
+  try {
+    const backendBaseUrl = getBackendUrl('server');
+    if (!backendBaseUrl) {
+      throw new Error('Backend URL not configured');
+    }
+    
+    // Ensure backend URL is valid and construct URL safely
+    const baseUrl = backendBaseUrl.endsWith('/') ? backendBaseUrl.slice(0, -1) : backendBaseUrl;
+    const backendLoginUrl = new URL(`${baseUrl}/oauth/authorize`);
+    
+    backendLoginUrl.searchParams.set('client_id', process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend');
+    backendLoginUrl.searchParams.set('redirect_uri', callbackUrls.frontend('server'));
+    backendLoginUrl.searchParams.set('scope', 'openid profile email');
+    backendLoginUrl.searchParams.set('response_type', 'code');
+    if (callbackUrl) {
+      backendLoginUrl.searchParams.set('state', encodeURIComponent(callbackUrl));
+    }
+    redirect(backendLoginUrl.toString());
+  } catch (error) {
+    console.error('Failed to redirect to backend login:', error);
+    // Fallback redirect to home page if backend login fails
+    redirect('/');
   }
-  redirect(backendLoginUrl.toString());
 }
 
 // ============================================================================

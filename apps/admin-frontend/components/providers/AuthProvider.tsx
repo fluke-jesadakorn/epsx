@@ -1,12 +1,12 @@
 /**
- * Unified Authentication Provider
- * Consolidates AdminAuthWrapper and ServerAuthProvider into a single component
- * Uses OIDC authentication with structured permissions
+ * Unified Authentication Provider - Wallet Authentication
+ * Uses wallet-based authentication with SIWE instead of OIDC
+ * Maintains same interface for compatibility with existing code
  */
 
 import { ReactNode } from 'react';
 import { headers } from 'next/headers';
-import { UnifiedAuth } from '@/lib/auth/unified-auth';
+import { UnifiedAuth } from '@/lib/auth/wallet-auth';
 import { redirect } from 'next/navigation';
 import { PancakeAdminLayout } from '@/components/layout/PancakeAdminLayout';
 import { ClientProviders } from './ClientProviders';
@@ -59,11 +59,11 @@ export async function AuthProvider({
   
   // Check authentication if required
   if (requireAuth) {
-    // OIDC Migration: Validate authentication using OIDC tokens
+    // Wallet Authentication: Validate authentication using wallet signatures
     const session = await UnifiedAuth.getSession();
     
     if (!session?.user) {
-      console.log('❌ AuthProvider: No valid session found');
+      console.log('❌ AuthProvider: No valid wallet session found');
       redirect('/login');
     }
     
@@ -72,16 +72,18 @@ export async function AuthProvider({
       const hasAdminAccess = UnifiedAuth.hasAdminAccess(session.user);
       
       if (!hasAdminAccess) {
-        console.warn('⚠️ AuthProvider: User lacks admin permissions', {
-          user: session.user?.email,
+        console.warn('⚠️ AuthProvider: Wallet lacks admin permissions', {
+          wallet_address: session.user?.wallet_address,
+          email: session.user?.email,
           permissions: session.user?.permissions,
           required: 'admin:*:* or admin:{resource}:{action}'
         });
         redirect('/access-denied?reason=insufficient_admin_permissions');
       }
       
-      console.log('✅ AuthProvider: Admin authentication successful', {
-        user: session.user?.email,
+      console.log('✅ AuthProvider: Admin wallet authentication successful', {
+        wallet_address: session.user?.wallet_address,
+        email: session.user?.email,
         permissions: session.user?.permissions?.filter(p => p.startsWith('admin:')).length || 0,
         hasAdminAccess
       });

@@ -9,10 +9,10 @@ use crate::domain::shared_kernel::value_objects::UserId;
 use crate::domain::user_management::{
     User,
     Email, 
-    FirebaseUid,
     Permission,
     UserRepositoryPort
 };
+use crate::domain::user_management::value_objects::WalletAddress;
 
 /// Command handler for creating new users
 /// Demonstrates hexagonal architecture by depending only on ports/interfaces
@@ -45,24 +45,21 @@ impl CommandHandler<CreateUserCommand> for CreateUserCommandHandler {
         let email = Email::new(&command.email)
             .map_err(|e| ApplicationError::validation("email", e.to_string()))?;
         
-        let firebase_uid = FirebaseUid::new(&command.firebase_uid)
-            .map_err(|e| ApplicationError::validation("firebase_uid", e.to_string()))?;
+        // Firebase UID removed - migrated to Web3
         
         // 3. Check business rules - user must not already exist
         if let Ok(Some(_)) = self.user_repository.find_by_email(&email).await {
             return Err(ApplicationError::conflict("User with this email already exists"));
         }
         
-        if let Ok(Some(_)) = self.user_repository.find_by_firebase_uid(&firebase_uid).await {
-            return Err(ApplicationError::conflict("User with this Firebase UID already exists"));
-        }
+        // Firebase UID check removed - migrated to Web3
         
         // 4. Generate new user ID
         let user_id = self.user_repository.next_identity().await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
         
-        // 5. Create user aggregate using domain logic
-        let mut user = User::create(user_id, firebase_uid.clone(), email.clone())
+        // 5. Create user aggregate using domain logic - Web3 compatible
+        let mut user = User::create_web3_user(user_id, email.clone())
             .map_err(ApplicationError::from)?;
         
         // 6. Grant initial permissions if provided
@@ -107,7 +104,7 @@ impl CommandHandler<CreateUserCommand> for CreateUserCommandHandler {
         Ok(CreateUserResponse {
             user_id: user.id().clone(),
             email: user.email().clone(),
-            firebase_uid: user.firebase_uid().clone(),
+            // firebase_uid removed in Web3 migration
             permissions: user.active_permissions(),
             created_at: user.created_at(),
             is_active: user.is_active(),

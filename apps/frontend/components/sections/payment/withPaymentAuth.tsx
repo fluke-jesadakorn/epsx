@@ -2,7 +2,7 @@
 
 import { ComponentType } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuth, usePackageTier } from '@/lib/auth'
+import { useAuth } from '@/lib/auth'
 
 /**
  * Higher-order component for payment authentication
@@ -13,24 +13,22 @@ export function withPaymentAuth<P extends object>(
 ) {
   const PaymentAuthComponent = (props: P) => {
     const router = useRouter()
-    const { user, isAuthenticated, isLoading } = useAuth()
-    const { hasRequiredTier, currentTier } = usePackageTier('BRONZE')
+    const { user, loading: isLoading } = useAuth()
+    const isAuthenticated = !!user
     
-    // Payment access means user has at least BRONZE tier
-    const hasPaymentAccess = hasRequiredTier
+    // Payment access means user has basic permissions
+    const hasPaymentAccess = user?.permissions?.some(p => 
+      p.includes('epsx:') || p.includes('premium:')
+    ) ?? false
 
     // Show loading state
     if (isLoading) {
       return (
         <div className="flex items-center justify-center min-h-[400px]">
           <div className="text-center">
-            <div className="relative">
-              <div className="w-16 h-16 border-4 border-gray-200 dark:border-gray-700 rounded-full animate-spin"></div>
-              <div className="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-t-blue-500 rounded-full animate-spin"></div>
-            </div>
-            <p className="mt-4 text-gray-600 dark:text-gray-400">
+            <div className="text-blue-500 text-lg mb-4">
               Verifying payment access...
-            </p>
+            </div>
           </div>
         </div>
       )
@@ -52,7 +50,7 @@ export function withPaymentAuth<P extends object>(
             </p>
             <button
               onClick={() => router.push('/login')}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               Sign In
             </button>
@@ -73,11 +71,11 @@ export function withPaymentAuth<P extends object>(
             </div>
             <h3 className="text-lg font-semibold mb-2">Premium Access Required</h3>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
-              You need at least a Bronze subscription to access payment features. Current tier: {currentTier}
+              You need premium permissions to access payment features. Current access: {hasPaymentAccess ? 'Allowed' : 'Denied'}
             </p>
             <button
               onClick={() => router.push('/payment')}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               Upgrade Plan
             </button>

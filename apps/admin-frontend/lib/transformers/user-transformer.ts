@@ -9,8 +9,9 @@ import type { User } from '@/types/core';
 export interface BackendUserSummary {
   // Identity fields
   id: string;
+  wallet_address: string; // Primary identifier for wallet authentication
   firebase_uid?: string;
-  email: string;
+  email?: string; // Optional for wallet authentication
   display_name?: string;
   
   // Status and role fields
@@ -46,7 +47,8 @@ export function transformBackendUser(backendUser: BackendUserSummary): User {
   return {
     // Identity mapping
     id: backendUser.id,
-    email: backendUser.email || `user-${backendUser.id}@unknown.com`,
+    wallet_address: backendUser.wallet_address,
+    email: backendUser.email || undefined,
     displayName: backendUser.display_name || undefined,
     name: backendUser.display_name || undefined,
     firstName: backendUser.display_name?.split(' ')[0] || undefined,
@@ -154,6 +156,7 @@ function derivePlatforms(permissions: string[]): string[] {
 export function createMockUser(overrides: Partial<BackendUserSummary> = {}): User {
   const mockBackendUser: BackendUserSummary = {
     id: 'mock-user-id',
+    wallet_address: '0x1234567890123456789012345678901234567890',
     firebase_uid: 'mock-firebase-uid',
     email: 'user@example.com',
     display_name: 'Mock User',
@@ -181,7 +184,7 @@ export function validateBackendUser(data: any): data is BackendUserSummary {
     typeof data === 'object' &&
     data !== null &&
     typeof data.id === 'string' &&
-    typeof data.email === 'string' &&
+    typeof data.wallet_address === 'string' &&
     typeof data.is_active === 'boolean' &&
     Array.isArray(data.permissions) &&
     typeof data.created_at === 'string' &&
@@ -194,6 +197,7 @@ export function validateBackendUser(data: any): data is BackendUserSummary {
   
   // Allow optional fields to be missing or have correct types
   const optionalFieldsValid = (
+    (data.email === undefined || typeof data.email === 'string') &&
     (data.firebase_uid === undefined || typeof data.firebase_uid === 'string') &&
     (data.display_name === undefined || typeof data.display_name === 'string') &&
     (data.role === undefined || typeof data.role === 'string') &&

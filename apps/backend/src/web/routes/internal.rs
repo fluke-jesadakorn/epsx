@@ -30,7 +30,8 @@ impl InternalRoutes {
         let user_routes = Router::new()
             .route("/profile", get(crate::web::user::handlers::get_profile_handler))
             .route("/profile", put(crate::web::user::handlers::update_profile_handler))
-            .route("/me", get(crate::web::user::handlers::me_handler));
+            // .route("/me", get(crate::web::user::handlers::me_handler)) // Handler missing
+            ;
 
         // Internal analytics routes - feature usage (not billable)
         let analytics_routes = Router::new()

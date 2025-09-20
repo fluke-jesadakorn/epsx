@@ -4,19 +4,18 @@ export type * from './financialChartData';
 export type * from './market';
 export type * from './stockFetchData';
 
-// Export userLevel types except UserSubscription to avoid conflicts
+// Export permission template types
 export type { 
-  UserLevel, 
+  PermissionTemplateName,
+  PermissionTemplate,
   PaymentStatus, 
   USDTDetails
 } from './userLevel';
 
 export {
-  convertUserLevelToPaymentTier,
-  convertPaymentTierToUserLevel,
-  convertUserLevelToRole,
-  convertPaymentTierToRole,
-  convertRoleToPaymentTier
+  getDisplayTierFromPermissions,
+  getPermissionTemplateByName,
+  PERMISSION_TEMPLATES
 } from './userLevel';
 
 // Export separated authentication types for user frontend (includes UserSubscription)

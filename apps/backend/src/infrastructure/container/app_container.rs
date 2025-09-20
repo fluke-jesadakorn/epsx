@@ -85,21 +85,76 @@ impl AppContainer {
         // Get user repository from DDD container
         let user_repo = self.ddd_container.user_repository();
 
+        // Create Web3 services
+        let web3_auth_service = Arc::new(crate::auth::Web3AuthService::new(
+            (*self.infra.db_pool).clone(),
+            "epsx.io".to_string(), // TODO: Get from env
+        ));
+
+        let web3_permission_service = Arc::new(crate::auth::Web3PermissionService::new_multi_chain(
+            (*self.infra.db_pool).clone(),
+            std::env::var("ETHEREUM_RPC_URL").unwrap_or_else(|_| "https://eth.llamarpc.com".to_string()),
+            std::env::var("POLYGON_RPC_URL").unwrap_or_else(|_| "https://polygon.llamarpc.com".to_string()),
+            std::env::var("ARBITRUM_RPC_URL").unwrap_or_else(|_| "https://arbitrum.llamarpc.com".to_string()),
+            std::env::var("OPTIMISM_RPC_URL").unwrap_or_else(|_| "https://optimism.llamarpc.com".to_string()),
+            std::env::var("BASE_RPC_URL").unwrap_or_else(|_| "https://base.llamarpc.com".to_string()),
+            std::env::var("BSC_RPC_URL").unwrap_or_else(|_| "https://bsc-dataseed.binance.org".to_string()),
+        ));
+
+        let jwt_service = Arc::new(crate::auth::JWTService::new()?);
+
+        let firebase_admin_stub = Arc::new(crate::infrastructure::adapters::services::FirebaseAdminStub::new(
+            std::env::var("FIREBASE_PROJECT_ID").unwrap_or_else(|_| "epsx-web3".to_string()),
+        ));
+
         Ok(AppState {
             db_pool: self.infra.db_pool.clone(),
-            firebase_admin: self.firebase_admin.clone(),
             cache: self.cache.clone(),
-            notification_service: self.fcm_service.clone(),
             ddd_container,
             user_repo: user_repo,
             permission_service: Arc::new(crate::domain::authorization::services::stateless_permission_service::StatelessPermissionService),
             rate_limiting_service: None, // TODO: Implement proper rate limiting service wrapper
+            web3_auth_service,
+            web3_permission_service,
+            jwt_service,
+            firebase_admin: firebase_admin_stub,
         })
     }
     
     /// Get database pool
     pub fn db_pool(&self) -> Arc<DbPool> {
         self.infra.db_pool.clone()
+    }
+    
+    /// Get Web3 auth service
+    pub fn web3_auth_service(&self) -> Arc<crate::auth::Web3AuthService> {
+        Arc::new(crate::auth::Web3AuthService::new(
+            (*self.infra.db_pool).clone(),
+            "epsx.io".to_string(), // TODO: Get from env
+        ))
+    }
+    
+    /// Get Web3 permission service
+    pub fn web3_permission_service(&self) -> Arc<crate::auth::Web3PermissionService> {
+        Arc::new(crate::auth::Web3PermissionService::new_multi_chain(
+            (*self.infra.db_pool).clone(),
+            "https://eth.llamarpc.com".to_string(),
+            "https://polygon.llamarpc.com".to_string(),
+            "https://arbitrum.llamarpc.com".to_string(),
+            "https://optimism.llamarpc.com".to_string(),
+            "https://base.llamarpc.com".to_string(),
+            "https://bsc-dataseed.binance.org".to_string(),
+        ))
+    }
+    
+    /// Get JWT service
+    pub fn jwt_service(&self) -> Result<Arc<crate::auth::JWTService>, Box<dyn std::error::Error + Send + Sync>> {
+        Ok(Arc::new(crate::auth::JWTService::new()?))
+    }
+    
+    /// Get unified auth service (legacy compatibility)
+    pub fn unified_auth_service(&self) -> Arc<crate::auth::Web3AuthService> {
+        self.web3_auth_service() // Delegate to Web3 auth service
     }
     
     // Helper methods for creating services

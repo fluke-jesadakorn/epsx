@@ -3,16 +3,13 @@ use serde::{Serialize, Deserialize};
 
 use crate::application::shared::{Command, ApplicationResult, ValidationUtils};
 use crate::domain::shared_kernel::value_objects::UserId;
-use crate::domain::user_management::value_objects::{Email, FirebaseUid};
+use crate::domain::user_management::value_objects::Email;
 
 /// Command to create a new user in the system
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateUserCommand {
     /// Email address for the new user
     pub email: String,
-    
-    /// Firebase UID for authentication integration
-    pub firebase_uid: String,
     
     /// Optional initial permissions to grant
     pub initial_permissions: Vec<String>,
@@ -33,9 +30,6 @@ pub struct CreateUserResponse {
     
     /// The validated email address
     pub email: Email,
-    
-    /// Firebase UID
-    pub firebase_uid: FirebaseUid,
     
     /// Permissions granted to the user
     pub permissions: Vec<String>,
@@ -66,17 +60,6 @@ impl Command for CreateUserCommand {
             ));
         }
         
-        // Validate firebase_uid
-        if let Some(error) = ValidationUtils::required("firebase_uid", &self.firebase_uid) {
-            return Err(crate::application::ApplicationError::validation(
-                &error.field, &error.message
-            ));
-        }
-        if let Some(error) = ValidationUtils::length("firebase_uid", &self.firebase_uid, 10, 128) {
-            return Err(crate::application::ApplicationError::validation(
-                &error.field, &error.message
-            ));
-        }
         
         // Validate permissions format if provided
         for permission in &self.initial_permissions {
@@ -94,15 +77,19 @@ impl Command for CreateUserCommand {
 
 impl CreateUserCommand {
     /// Create a new CreateUserCommand with required fields
-    pub fn new(email: String, firebase_uid: String) -> Self {
+    pub fn new(email: String) -> Self {
         Self {
             email,
-            firebase_uid,
             initial_permissions: Vec::new(),
             email_verified: None,
             initiated_by: None,
             correlation_id: None,
         }
+    }
+    
+    /// Create a new CreateUserCommand for Web3 users (alias for new)
+    pub fn new_web3(email: String) -> Self {
+        Self::new(email)
     }
     
     /// Add initial permissions to the command
@@ -137,8 +124,7 @@ mod tests {
     #[test]
     fn create_user_command_validation_success() {
         let command = CreateUserCommand::new(
-            "test@example.com".to_string(),
-            "firebase_uid_123".to_string()
+            "test@example.com".to_string()
         );
         
         assert!(command.validate().is_ok());
@@ -147,18 +133,7 @@ mod tests {
     #[test]
     fn create_user_command_validation_invalid_email() {
         let command = CreateUserCommand::new(
-            "invalid-email".to_string(),
-            "firebase_uid_123".to_string()
-        );
-        
-        assert!(command.validate().is_err());
-    }
-    
-    #[test]
-    fn create_user_command_validation_empty_firebase_uid() {
-        let command = CreateUserCommand::new(
-            "test@example.com".to_string(),
-            "".to_string()
+            "invalid-email".to_string()
         );
         
         assert!(command.validate().is_err());
@@ -167,8 +142,7 @@ mod tests {
     #[test]
     fn create_user_command_validation_invalid_permissions() {
         let command = CreateUserCommand::new(
-            "test@example.com".to_string(),
-            "firebase_uid_123".to_string()
+            "test@example.com".to_string()
         ).with_permissions(vec!["invalid_permission".to_string()]);
         
         assert!(command.validate().is_err());
@@ -177,8 +151,7 @@ mod tests {
     #[test]
     fn create_user_command_builder_pattern() {
         let command = CreateUserCommand::new(
-            "test@example.com".to_string(),
-            "firebase_uid_123".to_string()
+            "test@example.com".to_string()
         )
         .with_permissions(vec!["epsx:analytics:view".to_string()])
         .with_email_verified(true)

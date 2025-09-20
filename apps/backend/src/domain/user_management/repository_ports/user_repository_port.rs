@@ -5,7 +5,7 @@ use crate::domain::shared_kernel::DomainError;
 use crate::domain::shared_kernel::value_objects::UserId;
 use crate::domain::user_management::{
     aggregates::User,
-    value_objects::{Email, FirebaseUid, Permission}
+    value_objects::{Email, Permission}
 };
 
 /// Repository port for User aggregate persistence
@@ -18,8 +18,6 @@ pub trait UserRepositoryPort: Send + Sync {
     /// Find a user by their email address
     async fn find_by_email(&self, email: &Email) -> Result<Option<User>, DomainError>;
     
-    /// Find a user by their Firebase UID
-    async fn find_by_firebase_uid(&self, firebase_uid: &FirebaseUid) -> Result<Option<User>, DomainError>;
     
     /// Save a user (create or update)
     async fn save(&self, user: &User) -> Result<(), DomainError>;
@@ -84,8 +82,6 @@ pub struct UserSearchCriteria {
     /// Filter by users who logged in after this date
     pub last_login_after: Option<chrono::DateTime<chrono::Utc>>,
     
-    /// Filter by Firebase UID pattern
-    pub firebase_uid_pattern: Option<String>,
     
     /// Custom filters for extensibility
     pub custom_filters: HashMap<String, String>,

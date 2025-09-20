@@ -14,7 +14,6 @@ import {
   Bell, 
   Settings, 
   User,
-  CreditCard,
   Shield,
   HelpCircle,
   LogOut
@@ -39,7 +38,7 @@ const MAIN_NAV_ITEMS: NavItem[] = [
 
 const ACCOUNT_NAV_ITEMS: NavItem[] = [
   { label: 'Profile', href: '/profile', icon: User },
-  { label: 'Billing', href: '/billing', icon: CreditCard },
+  { label: 'Billing', href: '/billing', icon: Settings },
   { label: 'Settings', href: '/settings', icon: Settings },
   { label: 'Admin', href: '/admin', icon: Shield },
   { label: 'Help', href: '/help', icon: HelpCircle }

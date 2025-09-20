@@ -4,8 +4,6 @@ const PAYS = [
   { id: 'USDT_TRC20', name: 'USDT TRC20', fee: '$0.1', fast: true },
   { id: 'USDT_BSC', name: 'USDT BSC', fee: '$0.2' },
   { id: 'USDT_ERC20', name: 'USDT ERC20', fee: '$2-15' },
-  // Temporarily disabled as per request
-  // { id: 'card', name: 'Credit Card', fee: '2.9%' }
 ];
 
 interface MethodsProps {

@@ -12,9 +12,6 @@ use tracing::{info, error};
 /// Lightweight user context for performance optimization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserContext {
-    /// User tier (FREE, BRONZE, SILVER, GOLD, PLATINUM, ENTERPRISE)
-    pub tier: String,
-    
     /// Email verification status
     pub verified: bool,
     
@@ -104,8 +101,8 @@ pub struct UserSessionMeta {
 /// Subscription information for users
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserSubscription {
-    /// Subscription tier
-    pub tier: String,
+    /// Permission template name (replaces tier)
+    pub template_name: String,
     
     /// Subscription status (active, cancelled, expired)
     pub status: String,
@@ -432,9 +429,9 @@ impl UserJWTService {
         &claims.permissions.platforms
     }
     
-    /// Get user tier with fallback
-    pub fn get_user_tier<'a>(&self, claims: &'a UserJWTClaims) -> &'a str {
-        &claims.user_context.tier
+    /// Get user template name from subscription (DEPRECATED - use permissions directly)
+    pub fn get_template_name<'a>(&self, claims: &'a UserJWTClaims) -> Option<&'a str> {
+        claims.subscription.as_ref().map(|s| s.template_name.as_str())
     }
     
     /// Check if user has access to specific platform
@@ -459,7 +456,6 @@ impl UserJWTService {
         _api_client_id: String,
     ) -> Result<String, Box<dyn std::error::Error>> {
         let user_context = UserContext {
-            tier: "API".to_string(),
             verified: true,
             created_at: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
             last_login: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),

@@ -38,9 +38,14 @@ pub struct Config {
     pub firebase_private_key: String,
     pub firebase_client_email: String,
 
-    // Payment (2 optional variables)
-    pub musepay_partner_id: Option<String>,
-    pub musepay_private_key: Option<String>,
+
+    // Blockchain Infrastructure (6 variables)
+    pub ethereum_rpc_url: String,
+    pub polygon_rpc_url: String,
+    pub arbitrum_rpc_url: String,
+    pub optimism_rpc_url: String,
+    pub base_rpc_url: String,
+    pub bsc_rpc_url: String,
 
     // Infrastructure (1 variable)
     pub redis_url: Option<String>,
@@ -203,9 +208,13 @@ impl Config {
             }
         };
 
-        // Payment - Optional
-        let musepay_partner_id = get_optional("MUSEPAY_PARTNER_ID");
-        let musepay_private_key = get_optional("MUSEPAY_PRIVATE_KEY");
+        // Blockchain Infrastructure - with fallbacks to free RPC endpoints
+        let ethereum_rpc_url = get_with_default("ETHEREUM_RPC_URL", "https://eth.llamarpc.com");
+        let polygon_rpc_url = get_with_default("POLYGON_RPC_URL", "https://polygon.llamarpc.com");
+        let arbitrum_rpc_url = get_with_default("ARBITRUM_RPC_URL", "https://arbitrum.llamarpc.com");
+        let optimism_rpc_url = get_with_default("OPTIMISM_RPC_URL", "https://optimism.llamarpc.com");
+        let base_rpc_url = get_with_default("BASE_RPC_URL", "https://base.llamarpc.com");
+        let bsc_rpc_url = get_with_default("BSC_RPC_URL", "https://bsc-dataseed.binance.org");
 
         // Infrastructure - Optional
         let redis_url = get_optional("REDIS_URL");
@@ -228,8 +237,12 @@ impl Config {
             firebase_project_id,
             firebase_private_key,
             firebase_client_email,
-            musepay_partner_id,
-            musepay_private_key,
+            ethereum_rpc_url,
+            polygon_rpc_url,
+            arbitrum_rpc_url,
+            optimism_rpc_url,
+            base_rpc_url,
+            bsc_rpc_url,
             redis_url,
             log_level,
         })
@@ -315,8 +328,12 @@ pub fn get_fallback_config() -> Config {
         firebase_project_id: "epsx-dev".to_string(),
         firebase_private_key: "-----BEGIN PRIVATE KEY-----\ndefault\n-----END PRIVATE KEY-----".to_string(),
         firebase_client_email: "firebase-adminsdk@epsx-dev.iam.gserviceaccount.com".to_string(),
-        musepay_partner_id: None,
-        musepay_private_key: None,
+        ethereum_rpc_url: "https://eth.llamarpc.com".to_string(),
+        polygon_rpc_url: "https://polygon.llamarpc.com".to_string(),
+        arbitrum_rpc_url: "https://arbitrum.llamarpc.com".to_string(),
+        optimism_rpc_url: "https://optimism.llamarpc.com".to_string(),
+        base_rpc_url: "https://base.llamarpc.com".to_string(),
+        bsc_rpc_url: "https://bsc-dataseed.binance.org".to_string(),
         redis_url: None,
         log_level: "info".to_string(),
     }

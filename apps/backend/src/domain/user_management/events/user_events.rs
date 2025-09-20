@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use crate::domain::shared_kernel::{DomainEvent, domain_event::EventMetadata};
 use crate::domain::shared_kernel::value_objects::UserId;
-use crate::domain::user_management::value_objects::{Email, FirebaseUid};
+use crate::domain::user_management::value_objects::Email;
 
 /// Event raised when a new user is created
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -12,16 +12,14 @@ pub struct UserCreatedEvent {
     pub metadata: EventMetadata,
     pub user_id: UserId,
     pub email: Email,
-    pub firebase_uid: FirebaseUid,
 }
 
 impl UserCreatedEvent {
-    pub fn new(user_id: UserId, email: Email, firebase_uid: FirebaseUid, aggregate_version: u64) -> Self {
+    pub fn new(user_id: UserId, email: Email, aggregate_version: u64) -> Self {
         Self {
             metadata: EventMetadata::new(user_id.to_string(), aggregate_version),
             user_id,
             email,
-            firebase_uid,
         }
     }
 }

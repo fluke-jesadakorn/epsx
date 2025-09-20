@@ -2,8 +2,22 @@
 
 import { useState } from 'react'
 import { PancakeCard } from '@/components/ui/PancakeCard'
-import { adminClient, CreatePlanRequest, PlanFeatureRequest, isApiSuccess } from '@/lib/api/unified-admin-client'
+import { adminClient, isApiSuccess } from '@/lib/api/unified-admin-client'
 import { toast } from '@/hooks/use-toast'
+import { PermissionTemplateName, PERMISSION_TEMPLATE_CONFIGS } from '@/types/admin/userLevels'
+
+interface CreatePermissionTemplateRequest {
+  name: string
+  description: string
+  template_name: PermissionTemplateName
+  permissions: string[]
+  current_price: number
+  currency: string
+  target_audience: string
+  billing_model: string
+  features: string[]
+  metadata: any
+}
 
 interface CreatePlanFormProps {
   onClose: () => void
@@ -12,25 +26,19 @@ interface CreatePlanFormProps {
 
 export function CreatePlanForm({ onClose, onSuccess }: CreatePlanFormProps) {
   const [loading, setLoading] = useState(false)
-  const [formData, setFormData] = useState<CreatePlanRequest>({
+  const [formData, setFormData] = useState<CreatePermissionTemplateRequest>({
     name: '',
     description: '',
-    plan_type: 'subscription',
+    template_name: 'Free Template',
+    permissions: [],
     current_price: 0,
     currency: 'USD',
     target_audience: 'web_users',
     billing_model: 'subscription',
-    plan_category: 'standard',
     features: [],
     metadata: {}
   })
-  const [newFeature, setNewFeature] = useState<PlanFeatureRequest>({
-    context_name: 'web_app',
-    feature_key: '',
-    feature_config: {},
-    resource_cost: 1.0,
-    is_active: true
-  })
+  const [customPermission, setCustomPermission] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -53,15 +61,48 @@ export function CreatePlanForm({ onClose, onSuccess }: CreatePlanFormProps) {
       return
     }
 
+    if (formData.permissions.length === 0) {
+      toast({
+        title: "Error", 
+        description: "At least one permission is required",
+        variant: "destructive"
+      })
+      return
+    }
+
     try {
       setLoading(true)
-      const response = await adminClient.createPlan(formData)
+      // Convert to the expected plan format
+      const planRequest = {
+        name: formData.name,
+        description: formData.description,
+        plan_type: 'subscription',
+        current_price: formData.current_price,
+        currency: formData.currency,
+        target_audience: formData.target_audience,
+        billing_model: formData.billing_model,
+        plan_category: 'permission_template',
+        features: formData.features.map(feature => ({
+          context_name: 'web_app',
+          feature_key: feature,
+          feature_config: {},
+          resource_cost: 1.0,
+          is_active: true
+        })),
+        metadata: {
+          permission_template: formData.template_name,
+          permissions: formData.permissions,
+          ...formData.metadata
+        }
+      }
+      
+      const response = await adminClient.createPlan(planRequest)
       
       if (isApiSuccess(response)) {
         onSuccess()
         toast({
           title: "Success",
-          description: "Plan created successfully",
+          description: "Permission template plan created successfully",
         })
       } else {
         toast({
@@ -81,11 +122,31 @@ export function CreatePlanForm({ onClose, onSuccess }: CreatePlanFormProps) {
     }
   }
 
-  const addFeature = () => {
-    if (!newFeature.feature_key.trim()) {
+  const handleTemplateChange = (templateName: PermissionTemplateName) => {
+    const template = PERMISSION_TEMPLATE_CONFIGS[templateName]
+    setFormData({
+      ...formData,
+      template_name: templateName,
+      permissions: [...template.permissions],
+      features: [...template.features],
+      current_price: templateName === 'Free Template' ? 0 : formData.current_price
+    })
+  }
+
+  const addCustomPermission = () => {
+    if (!customPermission.trim()) {
       toast({
         title: "Error",
-        description: "Feature key is required",
+        description: "Permission string is required",
+        variant: "destructive"
+      })
+      return
+    }
+
+    if (formData.permissions.includes(customPermission)) {
+      toast({
+        title: "Error",
+        description: "Permission already exists",
         variant: "destructive"
       })
       return
@@ -93,22 +154,15 @@ export function CreatePlanForm({ onClose, onSuccess }: CreatePlanFormProps) {
 
     setFormData({
       ...formData,
-      features: [...formData.features, { ...newFeature }]
+      permissions: [...formData.permissions, customPermission]
     })
-
-    setNewFeature({
-      context_name: 'web_app',
-      feature_key: '',
-      feature_config: {},
-      resource_cost: 1.0,
-      is_active: true
-    })
+    setCustomPermission('')
   }
 
-  const removeFeature = (index: number) => {
+  const removePermission = (permission: string) => {
     setFormData({
       ...formData,
-      features: formData.features.filter((_, i) => i !== index)
+      permissions: formData.permissions.filter(p => p !== permission)
     })
   }
 
@@ -118,7 +172,7 @@ export function CreatePlanForm({ onClose, onSuccess }: CreatePlanFormProps) {
         <div className="p-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
-              Create New Plan
+              Create Permission Template Plan
             </h2>
             <button
               onClick={onClose}
@@ -166,24 +220,32 @@ export function CreatePlanForm({ onClose, onSuccess }: CreatePlanFormProps) {
               </div>
             </div>
 
-            {/* Categories */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Plan Category
-                </label>
-                <select
-                  value={formData.plan_category}
-                  onChange={(e) => setFormData({ ...formData, plan_category: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
-                >
-                  <option value="standard">Standard</option>
-                  <option value="api">API</option>
-                  <option value="enterprise">Enterprise</option>
-                  <option value="custom">Custom</option>
-                </select>
-              </div>
+            {/* Permission Template Selection */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Permission Template *
+              </label>
+              <select
+                value={formData.template_name}
+                onChange={(e) => handleTemplateChange(e.target.value as PermissionTemplateName)}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
+              >
+                {Object.keys(PERMISSION_TEMPLATE_CONFIGS).map(templateName => {
+                  const template = PERMISSION_TEMPLATE_CONFIGS[templateName as PermissionTemplateName]
+                  return (
+                    <option key={templateName} value={templateName}>
+                      {template.name} - {template.description}
+                    </option>
+                  )
+                })}
+              </select>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                Selecting a template will automatically populate permissions and features
+              </p>
+            </div>
 
+            {/* Categories */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Target Audience
@@ -229,73 +291,81 @@ export function CreatePlanForm({ onClose, onSuccess }: CreatePlanFormProps) {
               />
             </div>
 
-            {/* Features */}
+            {/* Permissions Management */}
             <div>
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">
-                Plan Features
+                Plan Permissions
               </label>
               
-              {/* Add Feature */}
+              {/* Add Custom Permission */}
               <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl mb-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                  <select
-                    value={newFeature.context_name}
-                    onChange={(e) => setNewFeature({ ...newFeature, context_name: e.target.value })}
-                    className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                  >
-                    <option value="web_app">Web App</option>
-                    <option value="api_access">API Access</option>
-                    <option value="admin_interface">Admin Interface</option>
-                  </select>
-                  
+                <div className="flex gap-4">
                   <input
                     type="text"
-                    value={newFeature.feature_key}
-                    onChange={(e) => setNewFeature({ ...newFeature, feature_key: e.target.value })}
-                    placeholder="Feature key"
-                    className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    value={customPermission}
+                    onChange={(e) => setCustomPermission(e.target.value)}
+                    placeholder="e.g., epsx:rankings:view:100"
+                    className="flex-1 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
                   />
-                  
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={newFeature.resource_cost}
-                    onChange={(e) => setNewFeature({ ...newFeature, resource_cost: parseFloat(e.target.value) || 1.0 })}
-                    placeholder="Cost"
-                    className="px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                  />
-                  
                   <button
                     type="button"
-                    onClick={addFeature}
+                    onClick={addCustomPermission}
                     className="px-4 py-2 bg-gradient-to-r from-emerald-400 to-green-500 text-white rounded-lg font-semibold hover:from-emerald-500 hover:to-green-600"
                   >
-                    Add
+                    Add Permission
                   </button>
                 </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  Format: platform:resource:action or platform:resource:action:limit
+                </p>
               </div>
 
-              {/* Feature List */}
-              {formData.features.length > 0 && (
+              {/* Current Template Info */}
+              {formData.template_name && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl mb-4">
+                  <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-2">
+                    Current Template: {PERMISSION_TEMPLATE_CONFIGS[formData.template_name].name}
+                  </h4>
+                  <p className="text-sm text-blue-700 dark:text-blue-400">
+                    {PERMISSION_TEMPLATE_CONFIGS[formData.template_name].description}
+                  </p>
+                </div>
+              )}
+
+              {/* Permission List */}
+              {formData.permissions.length > 0 && (
                 <div className="space-y-2">
-                  {formData.features.map((feature, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
-                      <div className="flex items-center gap-4">
-                        <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded text-sm">
-                          {feature.context_name}
-                        </span>
-                        <span className="font-medium">{feature.feature_key}</span>
-                        <span className="text-sm text-gray-500">Cost: {feature.resource_cost}</span>
+                  <h4 className="font-medium text-gray-800 dark:text-gray-200">Assigned Permissions ({formData.permissions.length})</h4>
+                  <div className="max-h-48 overflow-y-auto space-y-2">
+                    {formData.permissions.map((permission, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600">
+                        <code className="text-sm font-mono text-gray-800 dark:text-gray-200">
+                          {permission}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() => removePermission(permission)}
+                          className="text-red-500 hover:text-red-700 font-bold ml-2"
+                        >
+                          ✕
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => removeFeature(index)}
-                        className="text-red-500 hover:text-red-700 font-bold"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Features Preview */}
+              {formData.features.length > 0 && (
+                <div className="mt-4">
+                  <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-2">Template Features</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {formData.features.map((feature, index) => (
+                      <span key={index} className="px-3 py-1 bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-300 rounded-full text-sm">
+                        {feature}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -314,7 +384,7 @@ export function CreatePlanForm({ onClose, onSuccess }: CreatePlanFormProps) {
                 disabled={loading}
                 className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-400 to-green-500 text-white font-semibold hover:from-emerald-500 hover:to-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {loading ? 'Creating...' : 'Create Plan'}
+                {loading ? 'Creating...' : 'Create Permission Template Plan'}
               </button>
             </div>
           </form>

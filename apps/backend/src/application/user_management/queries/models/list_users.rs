@@ -1,7 +1,7 @@
 // List Users Query
 // Query to retrieve multiple users with filtering and pagination
 
-use crate::domain::user_management::value_objects::{FirebaseUid, Email, Permission};
+use crate::domain::user_management::value_objects::{Email, Permission};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use chrono::{DateTime, Utc};
@@ -54,8 +54,7 @@ pub struct ListUsersResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserSummary {
     // Identity fields
-    pub id: String,                        // User ID for frontend (maps from firebase_uid)
-    pub firebase_uid: FirebaseUid,
+    pub id: String,                        // User ID for frontend
     pub email: Email,
     pub display_name: Option<String>,       // Display name from database
     

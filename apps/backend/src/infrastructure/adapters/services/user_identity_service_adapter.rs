@@ -36,7 +36,7 @@ impl UserIdentityServiceAdapter {
     fn map_legacy_user_to_identity(&self, legacy_user: &LegacyUser) -> UserIdentityInfo {
         UserIdentityInfo {
             user_id: legacy_user.id().to_string(),
-            firebase_uid: Some(legacy_user.firebase_uid().to_string()),
+            firebase_uid: Some(legacy_user.id().to_string()), // Use user_id as firebase_uid for backward compatibility
             email: legacy_user.email().to_string(),
             is_verified: legacy_user.is_active(), // Use is_active as proxy for email verification
             is_active: legacy_user.is_active(),
