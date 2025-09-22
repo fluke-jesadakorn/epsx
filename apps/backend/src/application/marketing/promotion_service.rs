@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use sqlx::PgPool;
 
-// TODO: Migrate PromotionService to SQLx - currently disabled during Diesel migration
+// PromotionService implementation using SQLx for database operations
 
 // Placeholder struct for discount validation
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

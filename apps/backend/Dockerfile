@@ -1,5 +1,5 @@
 # EPSX Backend - Local Docker Build
-# Rust API server with Diesel ORM for Portainer deployment
+# Rust API server with SQLx for Portainer deployment
 
 # Stage 1: Build stage with Rust and dependencies
 FROM rust:1.85-slim AS builder
@@ -26,11 +26,9 @@ RUN cargo build --release && rm -rf src
 # Copy source code
 COPY apps/backend/src/ ./src/
 
-# Copy askama templates and diesel migrations (required at compile time)
+# Copy askama templates (required at compile time)
 COPY apps/backend/askama.toml ./
 COPY apps/backend/templates/ ./templates/
-COPY apps/backend/diesel_migrations/ ./diesel_migrations/
-COPY apps/backend/diesel.toml ./
 
 # Build application with optimizations
 RUN cargo build --release --bin epsx

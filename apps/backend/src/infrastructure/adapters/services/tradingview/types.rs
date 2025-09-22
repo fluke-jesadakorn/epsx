@@ -131,7 +131,7 @@ impl From<&Config> for TradingViewConfig {
             origin_url: "https://www.tradingview.com".to_string(),
             referer_url: "https://www.tradingview.com/".to_string(),
             http_timeout_seconds: 30,
-            auth_token: config.firebase_project_id.clone(),
+            auth_token: "tradingview-api-token".to_string(), // TODO: Replace with proper TradingView API token
         }
     }
 }

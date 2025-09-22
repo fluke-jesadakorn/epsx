@@ -20,6 +20,7 @@ const publicRoutes = [
   '/terms',
   '/privacy',
   '/analytics',
+  '/login',
   '/upgrade',
   '/api/auth/callback/epsx-backend',
   '/api/auth/initiate',
@@ -222,22 +223,13 @@ export async function middleware(request: NextRequest) {
  * Create redirect response to backend login for trading platform users
  */
 function redirectToLogin(request: NextRequest): NextResponse {
-  const backendUrl = getBackendUrl('client');
-  const frontendUrl = getFrontendUrl('client');
-  const callbackUrl = `${frontendUrl}${request.nextUrl.pathname}${request.nextUrl.search}`;
-  
-  const loginUrl = new URL('/oauth/authorize', backendUrl);
-  loginUrl.searchParams.set('client_id', 'epsx-frontend');
-  loginUrl.searchParams.set('response_type', 'code');
-  loginUrl.searchParams.set('scope', 'openid profile email');
-  loginUrl.searchParams.set('redirect_uri', `${frontendUrl}/api/auth/callback/epsx-backend`);
-  loginUrl.searchParams.set('state', Buffer.from(JSON.stringify({ redirectTo: callbackUrl })).toString('base64url'));
-  
+  const callbackPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
+  const loginUrl = new URL('/login', request.url);
+  loginUrl.searchParams.set('redirectTo', callbackPath);
+
   const redirect = NextResponse.redirect(loginUrl.toString());
-  
   // Clear any invalid JWT token
   redirect.cookies.delete('epsx_jwt');
-  
   return redirect;
 }
 

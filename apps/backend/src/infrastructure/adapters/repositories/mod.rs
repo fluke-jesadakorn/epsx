@@ -20,7 +20,7 @@ pub mod payment_method_repository_adapter;
 pub mod plan_repository_adapter;
 pub mod mappers;
 
-pub use base_repository::{BaseRepository, SqlxBaseRepository};
+pub use base_repository::{ BaseRepository, SqlxBaseRepository };
 pub use user_repository_adapter::UserRepositoryAdapter;
 pub use realtime_event_repository_adapter::RealtimeEventRepositoryAdapter;
 pub use connection_repository_adapter::ConnectionRepositoryAdapter;
@@ -33,3 +33,23 @@ pub use stock_analysis_repository_adapter::StockAnalysisRepositoryAdapter;
 
 // Database connection pool type - SQLx PostgreSQL pool
 pub type DbPool = sqlx::PgPool;
+
+/// Create a database connection pool for production use
+pub async fn create_pool() -> Result<DbPool, sqlx::Error> {
+  let database_url = std::env
+    ::var("DATABASE_URL")
+    .expect("DATABASE_URL must be set");
+
+  sqlx::PgPool::connect(&database_url).await
+}
+
+/// Create a test database connection pool
+pub async fn create_test_pool() -> Result<DbPool, sqlx::Error> {
+  let database_url = std::env
+    ::var("DATABASE_URL")
+    .unwrap_or_else(|_|
+      "postgresql://postgres:password@localhost:5432/epsx_test_db".to_string()
+    );
+
+  sqlx::PgPool::connect(&database_url).await
+}

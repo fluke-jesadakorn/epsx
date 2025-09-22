@@ -35,12 +35,12 @@ export function NavbarSkeleton({ showNotifications = false, showUser = false }: 
         </div>
       )}
       
-      {/* Auth Action Skeleton */}
+      {/* Auth Action Skeleton - matches WalletConnectAuth appearance */}
       {!showUser && (
         <div className="hidden md:block">
-          <div className="px-6 py-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-2xl font-bold flex items-center gap-2 text-sm shadow-lg border border-yellow-300/50 animate-pulse text-white">
+          <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-orange-500 to-purple-600 text-white rounded-md text-sm font-medium animate-pulse opacity-75">
             <div className="h-4 w-4 bg-white/40 rounded"></div>
-            <div className="h-4 w-16 bg-white/40 rounded"></div>
+            <div className="h-4 w-20 bg-white/40 rounded"></div>
           </div>
         </div>
       )}

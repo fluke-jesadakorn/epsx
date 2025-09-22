@@ -99,8 +99,6 @@ pub async fn admin_broadcast_to_topic() -> Result<impl IntoResponse, AppError> {
 /// Admin notification stats handler with real database query
 pub async fn admin_get_notification_stats(
     Extension(auth_user): Extension<AuthenticatedUser>,
-    // TODO: Re-enable after SQLx migration
-    // Extension(_repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel::repos::UserNotificationRepository>>,
 ) -> Result<impl IntoResponse, AppError> {
     // Check admin permissions
     if !auth_user.valid_permissions.iter().any(|p| p.starts_with("admin:")) {
@@ -134,8 +132,6 @@ pub async fn admin_get_notification_stats(
 /// Admin get user notifications handler with real database query
 pub async fn admin_get_user_notifications(
     Extension(auth_user): Extension<AuthenticatedUser>,
-    // TODO: Re-enable after SQLx migration
-    // Extension(_repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel::repos::UserNotificationRepository>>,
     Query(pagination): Query<PaginationQuery>,
     OriginalUri(uri): OriginalUri,
 ) -> Result<impl IntoResponse, AppError> {
@@ -233,8 +229,6 @@ pub async fn admin_get_user_notifications(
 /// Admin mark notification as read handler with real database operation
 pub async fn admin_mark_notification_read(
     Extension(auth_user): Extension<AuthenticatedUser>,
-    // TODO: Re-enable after SQLx migration
-    // Extension(_repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel::repos::UserNotificationRepository>>,
     Path(notification_id): Path<Uuid>,
 ) -> Result<impl IntoResponse, AppError> {
     // Check admin permissions
@@ -265,8 +259,6 @@ pub async fn admin_mark_notification_read(
 /// Admin delete notification handler with real database operation
 pub async fn admin_delete_notification(
     Extension(auth_user): Extension<AuthenticatedUser>,
-    // TODO: Re-enable after SQLx migration
-    // Extension(_repo): Extension<Arc<crate::infrastructure::adapters::repositories::diesel::repos::UserNotificationRepository>>,
     Path(notification_id): Path<Uuid>,
 ) -> Result<impl IntoResponse, AppError> {
     // Check admin permissions

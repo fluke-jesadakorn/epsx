@@ -31,7 +31,6 @@ pub struct AppState {
     pub web3_auth_service: Arc<crate::auth::Web3AuthService>,
     pub web3_permission_service: Arc<crate::auth::Web3PermissionService>,
     pub jwt_service: Arc<crate::auth::JWTService>,
-    pub firebase_admin: Arc<crate::infrastructure::adapters::services::FirebaseAdminStub>,
 }
 
 impl AppState {
@@ -45,7 +44,6 @@ impl AppState {
         web3_auth_service: Arc<crate::auth::Web3AuthService>,
         web3_permission_service: Arc<crate::auth::Web3PermissionService>,
         jwt_service: Arc<crate::auth::JWTService>,
-        firebase_admin: Arc<crate::infrastructure::adapters::services::FirebaseAdminStub>,
     ) -> Self {
         Self {
             db_pool,
@@ -57,7 +55,6 @@ impl AppState {
             web3_auth_service,
             web3_permission_service,
             jwt_service,
-            firebase_admin,
         }
     }
 }

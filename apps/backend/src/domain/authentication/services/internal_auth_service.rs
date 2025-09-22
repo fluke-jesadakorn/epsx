@@ -241,7 +241,7 @@ impl InternalAuthService {
         
         let user_id_clone = validated_token.user_id.clone();
         let user_id = AuthenticatedUserId::from_verified_user(validated_token.user_id);
-        let provider = AuthenticationProvider::firebase();
+        let provider = AuthenticationProvider::internal_service();
         
         let auth_session = AuthenticationSession::create_new(
             user_id,

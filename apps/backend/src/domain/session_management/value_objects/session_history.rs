@@ -423,12 +423,12 @@ mod tests {
         let history = SessionHistory::new(session_id, user_id);
         
         history.add_event(HistoryEventType::SessionCreated, None);
-        history.add_event(HistoryEventType::AuthenticationSucceeded { provider: "Firebase".to_string() }, None);
+        history.add_event(HistoryEventType::AuthenticationSucceeded { provider: "Web3".to_string() }, None);
         history.add_event(HistoryEventType::TokensIssued { scopes: vec!["openid".to_string(), "profile".to_string()] }, None);
         
         assert_eq!(history.events.len(), 3);
         
-        let auth_events = history.get_events_by_type(&HistoryEventType::AuthenticationSucceeded { provider: "Firebase".to_string() });
+        let auth_events = history.get_events_by_type(&HistoryEventType::AuthenticationSucceeded { provider: "Web3".to_string() });
         assert_eq!(auth_events.len(), 1);
     }
     
@@ -440,7 +440,7 @@ mod tests {
         
         // Add session lifecycle events
         history.add_event(HistoryEventType::SessionCreated, None);
-        history.add_event(HistoryEventType::AuthenticationSucceeded { provider: "Firebase".to_string() }, None);
+        history.add_event(HistoryEventType::AuthenticationSucceeded { provider: "Web3".to_string() }, None);
         history.add_event(HistoryEventType::TokenRefreshed, None);
         history.add_event(HistoryEventType::SecurityAlert { alert_type: "suspicious_ip".to_string() }, None);
         history.add_event(HistoryEventType::SessionTerminated { reason: "user_logout".to_string() }, None);

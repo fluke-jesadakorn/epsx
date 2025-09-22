@@ -1,3 +1,5 @@
+// Import browser polyfills first to handle SSR issues
+import '@/lib/browser-polyfills';
 import { NavigationClient } from '@/components/nav/NavigationClient';
 import { ClientProviders } from '@/components/providers/ClientProviders';
 import { Web3Provider } from '@/providers/Web3Provider';

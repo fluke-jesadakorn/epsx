@@ -45,7 +45,7 @@ mod performance_tests {
     #[tokio::test]
     async fn test_challenge_generation_performance() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string());
+        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
         
         let num_challenges = 100;
         let wallet_base = "0xperf742d35Cc6634C0532925a3b8D369D7763F";
@@ -74,7 +74,7 @@ mod performance_tests {
     #[tokio::test]
     async fn test_concurrent_challenge_generation() {
         let pool = setup_test_db().await;
-        let service = Arc::new(Web3AuthService::new(pool.clone(), "epsx.io".to_string()));
+        let service = Arc::new(Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97));
         
         let num_concurrent = 50;
         let wallet_base = "0xperf742d35Cc6634C0532925a3b8D369D7763F";
@@ -312,7 +312,7 @@ mod performance_tests {
     #[tokio::test]
     async fn test_nonce_cleanup_performance() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string());
+        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
         
         let num_nonces = 10000;
         let wallet_base = "0xperf742d35Cc6634C0532925a3b8D369D7763F";
@@ -398,7 +398,7 @@ mod performance_tests {
     #[tokio::test]
     async fn test_database_connection_pool_efficiency() {
         let pool = setup_test_db().await;
-        let service = Arc::new(Web3AuthService::new(pool.clone(), "epsx.io".to_string()));
+        let service = Arc::new(Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97));
         
         let num_concurrent_users = 100;
         let operations_per_user = 10;
@@ -461,7 +461,7 @@ mod performance_tests {
     #[tokio::test]
     async fn test_timeout_handling() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string());
+        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
         
         let wallet = "0xperf742d35Cc6634C0532925a3b8D369D7763F3c45c6";
         let timeout_duration = StdDuration::from_millis(100);
@@ -487,7 +487,7 @@ mod performance_tests {
     #[tokio::test]
     async fn test_load_spike_handling() {
         let pool = setup_test_db().await;
-        let service = Arc::new(Web3AuthService::new(pool.clone(), "epsx.io".to_string()));
+        let service = Arc::new(Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97));
         
         // Simulate sudden load spike
         let spike_size = 200;

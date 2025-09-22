@@ -1,28 +1,25 @@
 // Performance monitoring handlers for authentication system
 // Provides cache statistics and performance metrics
 
-use axum::{
-    extract::State,
-    http::StatusCode,
-    response::Json,
-};
-use serde_json::{json, Value};
-use tracing::{error, info};
+use axum::{ extract::State, http::StatusCode, response::Json };
+use serde_json::{ json, Value };
+use tracing::info;
 
 use crate::web::auth::AppState;
 
 /// Get authentication cache performance metrics
-/// 
+///
 /// Returns cache hit rates, usage statistics, and performance indicators
 /// for the authentication system's performance cache.
-pub async fn get_auth_cache_performance(
-    State(app_state): State<AppState>,
-) -> Result<Json<Value>, StatusCode> {
-    info!("Fetching authentication cache performance metrics");
-    
-    // For now, return a placeholder since we need to integrate cache with AppState
-    // TODO: Integrate SimplifiedAuthCache with AppState
-    let metrics = json!({
+pub async fn get_auth_cache_performance(State(
+  _app_state,
+): State<AppState>) -> Result<Json<Value>, StatusCode> {
+  info!("Fetching authentication cache performance metrics");
+
+  // For now, return a placeholder since we need to integrate cache with AppState
+  // TODO: Integrate SimplifiedAuthCache with AppState
+  let metrics =
+    json!({
         "permission_cache": {
             "hits": 0,
             "misses": 0,
@@ -40,36 +37,43 @@ pub async fn get_auth_cache_performance(
             "total_evictions": 0
         }
     });
-    
-    info!("Successfully retrieved auth cache performance metrics");
-    Ok(Json(json!({
+
+  info!("Successfully retrieved auth cache performance metrics");
+  Ok(
+    Json(
+      json!({
         "status": "success",
         "data": {
             "cache_metrics": metrics,
             "timestamp": chrono::Utc::now().to_rfc3339(),
             "note": "Cache integration with AppState pending"
         }
-    })))
+    })
+    )
+  )
 }
 
 /// Get cache statistics summary
-/// 
+///
 /// Returns a summary of cache performance including hit rates,
 /// cache sizes, and health indicators.
-pub async fn get_cache_summary(
-    State(app_state): State<AppState>,
-) -> Result<Json<Value>, StatusCode> {
-    info!("Fetching authentication cache summary");
-    
-    // Placeholder for cache integration with AppState
-    let health_status = "pending_integration";
-    
-    info!(
+pub async fn get_cache_summary(State(_app_state): State<AppState>) -> Result<
+  Json<Value>,
+  StatusCode
+> {
+  info!("Fetching authentication cache summary");
+
+  // Placeholder for cache integration with AppState
+  let health_status = "pending_integration";
+
+  info!(
         health_status = %health_status,
         "Cache summary retrieved (placeholder)"
     );
-    
-    Ok(Json(json!({
+
+  Ok(
+    Json(
+      json!({
         "status": "success",
         "data": {
             "health_status": health_status,
@@ -87,25 +91,31 @@ pub async fn get_cache_summary(
             },
             "recommendations": vec!["Cache integration with AppState pending implementation"]
         }
-    })))
+    })
+    )
+  )
 }
 
 /// Clear authentication cache
-/// 
+///
 /// Clears all cached authentication data. Use with caution as this
 /// will cause a temporary increase in database load.
-pub async fn clear_auth_cache(
-    State(app_state): State<AppState>,
-) -> Result<Json<Value>, StatusCode> {
-    info!("Clearing authentication cache");
-    
-    // Placeholder for cache integration with AppState
-    info!("Authentication cache clear requested (placeholder implementation)");
-    
-    Ok(Json(json!({
+pub async fn clear_auth_cache(State(_app_state): State<AppState>) -> Result<
+  Json<Value>,
+  StatusCode
+> {
+  info!("Clearing authentication cache");
+
+  // Placeholder for cache integration with AppState
+  info!("Authentication cache clear requested (placeholder implementation)");
+
+  Ok(
+    Json(
+      json!({
         "status": "success",
         "message": "Authentication cache clear requested - integration pending",
         "timestamp": chrono::Utc::now().to_rfc3339()
-    })))
+    })
+    )
+  )
 }
-

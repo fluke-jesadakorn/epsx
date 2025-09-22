@@ -16,7 +16,6 @@ use epsx::{
         user_management::queries::models::{GetUserQuery, ListUsersQuery},
     },
     domain::user_management::value_objects::{FirebaseUid},
-    infra::db::diesel::create_pool,
 };
 
 /// Test the User Management DDD bounded context end-to-end

@@ -1,8 +1,8 @@
 // Token Validation Service Adapter
-// Bridges DDD token validation with existing OIDC providers
+// Bridges DDD token validation with OIDC providers for Web3-first authentication
 
 use async_trait::async_trait;
-use tracing::{info, warn, error, debug};
+use tracing::{info, warn, error};
 use std::sync::Arc;
 
 use crate::domain::authentication::{
@@ -10,54 +10,25 @@ use crate::domain::authentication::{
 };
 use crate::domain::authentication::value_objects::RefreshToken;
 use crate::web::auth::providers::{AuthProvider, ProviderType};
-use crate::infrastructure::firebase_admin::FirebaseAdmin;
 
-/// Token validation service adapter
+/// Token validation service adapter for Web3-first authentication
 pub struct TokenValidationServiceAdapter {
-    /// Firebase provider for Firebase tokens
-    firebase_provider: Arc<dyn AuthProvider>,
-    
     /// OIDC provider for backend-issued tokens
     oidc_provider: Arc<dyn AuthProvider>,
-    
-    /// Firebase admin for direct validation
-    firebase_admin: Arc<FirebaseAdmin>,
 }
 
 impl TokenValidationServiceAdapter {
     pub fn new(
-        firebase_provider: Arc<dyn AuthProvider>,
         oidc_provider: Arc<dyn AuthProvider>,
-        firebase_admin: Arc<FirebaseAdmin>,
     ) -> Self {
         Self {
-            firebase_provider,
             oidc_provider,
-            firebase_admin,
         }
     }
     
-    /// Determine which provider should handle the token
-    fn determine_provider(&self, token: &str) -> Arc<dyn AuthProvider> {
-        // Basic token type detection
-        if self.firebase_provider.can_handle_token(token) {
-            debug!("Token identified as Firebase token");
-            self.firebase_provider.clone()
-        } else if self.oidc_provider.can_handle_token(token) {
-            debug!("Token identified as OIDC token");
-            self.oidc_provider.clone()
-        } else {
-            // Default to OIDC for unknown tokens
-            debug!("Unknown token type, defaulting to OIDC provider");
-            self.oidc_provider.clone()
-        }
-    }
-    
-    /// Validate token using appropriate provider
+    /// Validate token using OIDC provider
     async fn validate_with_provider(&self, token: &str) -> Result<TokenValidationResult, String> {
-        let provider = self.determine_provider(token);
-        
-        match provider.validate_token(token).await {
+        match self.oidc_provider.validate_token(token).await {
             Ok(user_claims) => {
                 Ok(TokenValidationResult {
                     is_valid: true,
@@ -75,7 +46,7 @@ impl TokenValidationServiceAdapter {
                     user_id: None,
                     scopes: vec![],
                     expires_at: None,
-                    provider_type: provider.provider_type(),
+                    provider_type: self.oidc_provider.provider_type(),
                     error: Some(e.to_string()),
                 })
             }
@@ -117,10 +88,6 @@ impl TokenValidationServicePort for TokenValidationServiceAdapter {
             return Ok(false);
         }
         
-        // Refresh tokens are typically opaque strings that need special handling
-        // For Firebase tokens, we can't validate refresh tokens directly
-        // For OIDC tokens, we need to check token format and expiry
-        
         if token.starts_with("rt_") {
             // Our internal refresh token format
             let refresh_token = RefreshToken::from_string(token.to_string())
@@ -136,22 +103,8 @@ impl TokenValidationServicePort for TokenValidationServiceAdapter {
             
             Ok(is_valid)
         } else {
-            // External refresh token - validate with appropriate provider
-            let provider = self.determine_provider(token);
-            
-            // Most providers don't allow direct refresh token validation
-            // We'll assume it's valid if it has the right format
-            match provider.provider_type() {
-                ProviderType::Firebase => {
-                    // Firebase refresh tokens are opaque - assume valid if not empty
-                    Ok(!token.is_empty())
-                },
-                ProviderType::OIDC => {
-                    // Try to validate as JWT if possible
-                    self.validate_with_provider(token).await.map(|r| r.is_valid)
-                },
-                _ => Ok(false),
-            }
+            // External refresh token - validate with OIDC provider
+            self.validate_with_provider(token).await.map(|r| r.is_valid)
         }
     }
     
@@ -210,36 +163,15 @@ impl TokenValidationServicePort for TokenValidationServiceAdapter {
     async fn revoke_token(&self, token: &str) -> Result<(), String> {
         info!("Revoking token");
         
-        let provider = self.determine_provider(token);
+        // For OIDC tokens, add to blacklist
+        info!("Adding OIDC token to revocation list");
         
-        match provider.provider_type() {
-            ProviderType::Firebase => {
-                // Firebase doesn't support token revocation via API
-                // We'd need to maintain a revocation list or use Firebase Admin SDK
-                warn!("Firebase token revocation not implemented - using local revocation list");
-                
-                // In production, add to revocation cache/database
-                // self.add_to_revocation_list(token).await?;
-                
-                Ok(())
-            },
-            ProviderType::OIDC => {
-                // For our own OIDC tokens, we can revoke by adding to blacklist
-                info!("Adding OIDC token to revocation list");
-                
-                // In production, implement proper token revocation
-                // This might involve:
-                // 1. Adding to Redis blacklist with TTL
-                // 2. Database revocation table
-                // 3. JWT revocation endpoint
-                
-                Ok(())
-            },
-            _ => {
-                error!("Token revocation not supported for this provider type");
-                Err("Token revocation not supported".to_string())
-            }
-        }
+        // In production, implement proper token revocation:
+        // 1. Adding to Redis blacklist with TTL
+        // 2. Database revocation table
+        // 3. JWT revocation endpoint
+        
+        Ok(())
     }
     
     async fn introspect_token(&self, token: &str) -> Result<TokenIntrospectionResult, String> {
@@ -269,8 +201,6 @@ struct TokenValidationResult {
     provider_type: ProviderType,
     error: Option<String>,
 }
-
-// TokenClaims and TokenIntrospectionResult now come from domain layer
 
 #[cfg(test)]
 mod tests {
@@ -339,15 +269,9 @@ mod tests {
     
     #[tokio::test]
     async fn test_access_token_validation() {
-        let firebase_provider = Arc::new(MockAuthProvider::new(ProviderType::Firebase, true));
         let oidc_provider = Arc::new(MockAuthProvider::new(ProviderType::OIDC, true));
-        let firebase_admin = Arc::new(FirebaseAdmin::new());
         
-        let adapter = TokenValidationServiceAdapter::new(
-            firebase_provider,
-            oidc_provider,
-            firebase_admin,
-        );
+        let adapter = TokenValidationServiceAdapter::new(oidc_provider);
         
         let result = adapter.validate_access_token("valid_token").await;
         assert!(result.is_ok());
@@ -360,20 +284,13 @@ mod tests {
     
     #[tokio::test]
     async fn test_refresh_token_validation() {
-        let firebase_provider = Arc::new(MockAuthProvider::new(ProviderType::Firebase, true));
         let oidc_provider = Arc::new(MockAuthProvider::new(ProviderType::OIDC, true));
-        let firebase_admin = Arc::new(FirebaseAdmin::new());
         
-        let adapter = TokenValidationServiceAdapter::new(
-            firebase_provider,
-            oidc_provider,
-            firebase_admin,
-        );
+        let adapter = TokenValidationServiceAdapter::new(oidc_provider);
         
         // Test our internal refresh token format
         let result = adapter.validate_refresh_token("rt_sess_123_jti456").await;
         // This should fail because we can't actually create a valid refresh token in test
-        // but it tests the code path
         assert!(result.is_err() || !result.unwrap());
         
         // Test empty token
@@ -384,15 +301,9 @@ mod tests {
     
     #[tokio::test]
     async fn test_token_claims_extraction() {
-        let firebase_provider = Arc::new(MockAuthProvider::new(ProviderType::Firebase, true));
         let oidc_provider = Arc::new(MockAuthProvider::new(ProviderType::OIDC, true));
-        let firebase_admin = Arc::new(FirebaseAdmin::new());
         
-        let adapter = TokenValidationServiceAdapter::new(
-            firebase_provider,
-            oidc_provider,
-            firebase_admin,
-        );
+        let adapter = TokenValidationServiceAdapter::new(oidc_provider);
         
         let result = adapter.get_token_claims("valid_token").await;
         assert!(result.is_ok());

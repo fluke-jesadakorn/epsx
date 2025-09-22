@@ -256,7 +256,7 @@ pub async fn create_pool() -> Result<Arc<PgPool>, Box<dyn std::error::Error + Se
 pub struct User {
     pub id: uuid::Uuid,
     pub email: String,
-    pub firebase_uid: String,
+    // firebase_uid removed for Web3-first architecture
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub is_active: bool,
     pub email_verified: bool,
@@ -267,7 +267,7 @@ pub struct User {
 #[derive(Debug, Clone)]
 pub struct NewUser {
     pub email: String,
-    pub firebase_uid: String,
+    // firebase_uid removed for Web3-first architecture
 }
 
 #[derive(Debug, Clone)]

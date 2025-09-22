@@ -342,7 +342,7 @@ mod tests {
         SessionMetadata::new(
             session_id,
             user_id,
-            ProviderType::Firebase,
+            ProviderType::Web3,
             Utc::now() + Duration::hours(8),
         )
     }
@@ -424,7 +424,7 @@ mod tests {
         // Add sessions with different providers
         let session1_id = SessionId::generate();
         let session1 = create_test_session(session1_id, user_id.clone());
-        session1.provider_type = ProviderType::Firebase;
+        session1.provider_type = ProviderType::Web3;
         collection.add_session(session1).unwrap();
         
         let session2_id = SessionId::generate();
@@ -437,7 +437,7 @@ mod tests {
         assert_eq!(summary.total_sessions, 2);
         assert_eq!(summary.active_sessions, 2);
         assert_eq!(summary.provider_distribution.len(), 2);
-        assert!(summary.provider_distribution.contains_key("Firebase"));
+        assert!(summary.provider_distribution.contains_key("Web3"));
         assert!(summary.provider_distribution.contains_key("OpenIdConnect"));
     }
 }

@@ -1,340 +1,316 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { Wallet, LogOut, Shield, AlertCircle, Crown, Zap, Users } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { useWeb3Auth, getPermissionIcon, formatAddress, getTierDescription } from '@/lib/auth/web3';
-import { useRouter } from 'next/navigation';
+import { formatAddress } from '@/lib/auth/web3';
+import { useWeb3AuthContext } from '@/providers/Web3AuthProvider';
+import { useProgressiveAuth } from '@/hooks/useProgressiveAuth';
+import { AuthLevel } from '@/types/progressive-auth';
+import { WalletDisconnectModal } from './WalletDisconnectModal';
+import { Wallet, Link, Loader2, AlertCircle, Shield, Eye } from 'lucide-react';
+import { useAccount } from 'wagmi';
 
 interface WalletConnectAuthProps {
   onAuthSuccess?: (walletAddress: string) => void;
   onAuthError?: (error: string) => void;
   className?: string;
-  variant?: 'default' | 'compact' | 'detailed';
+  
+  /**
+   * Preferred authentication level for this component instance
+   * - CONNECTED: Show "Connect Wallet" for personalization
+   * - AUTHENTICATED: Show "Sign In" for full access
+   */
+  preferredLevel?: AuthLevel;
+  
+  /**
+   * Show compact mode for navigation bars
+   */
+  compact?: boolean;
+}
+
+// Simple loading button for 2-step flow
+function LoadingButton({ message, className = '' }: { 
+  message: string; 
+  className?: string; 
+}) {
+  return (
+    <button
+      disabled
+      className={`flex items-center gap-2 bg-orange-500 text-white opacity-75 px-4 py-2 rounded-lg text-sm font-medium ${className}`}
+    >
+      <Loader2 className="h-4 w-4 animate-pulse" />
+      {message}
+    </button>
+  );
+}
+
+// Simple error display
+function ErrorDisplay({ error, onReset }: { 
+  error: string; 
+  onReset: () => void; 
+}) {
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <div className="flex items-center gap-1 text-red-500 max-w-32 truncate" title={error}>
+        <AlertCircle className="h-3 w-3" />
+        <span>{error}</span>
+      </div>
+      <button
+        onClick={onReset}
+        className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+        title="Try again"
+      >
+        Try again
+      </button>
+    </div>
+  );
 }
 
 export function WalletConnectAuth({ 
   onAuthSuccess, 
   onAuthError, 
   className = '',
-  variant = 'default'
+  preferredLevel = AuthLevel.CONNECTED,
+  compact = false
 }: WalletConnectAuthProps) {
-  const router = useRouter();
+  const [isHydrated, setIsHydrated] = useState(false);
+  const [showDisconnectModal, setShowDisconnectModal] = useState(false);
+  const [autoAuthFailed, setAutoAuthFailed] = useState(false);
+  const { address, isConnected: wagmiConnected } = useAccount();
   const {
     isConnected,
     isAuthenticated,
     isAuthenticating,
     walletAddress,
-    permissions,
-    userTier,
-    hasApiAccess,
     error,
     authenticate,
     disconnect,
-  } = useWeb3Auth();
+    resetAuthState,
+    hasInitialized,
+    isLoading,
+  } = useWeb3AuthContext();
+  
+  // Progressive authentication state
+  const progressiveAuth = useProgressiveAuth();
 
-  // Handle auth success callback
+  // Handle hydration to prevent SSR/client mismatch
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      setIsHydrated(true);
+    });
+  }, []);
+
+  // DISABLED: Auto-authentication causing conflicts and initialization issues
+  // Manual authentication only to prevent race conditions and wallet bugs
+  useEffect(() => {
+    // Only check if wallet is connected, but don't auto-authenticate
+    if (
+      isHydrated && 
+      hasInitialized && 
+      !isLoading && 
+      wagmiConnected && 
+      address && 
+      !isAuthenticated && 
+      !isAuthenticating
+    ) {
+      console.log('🔗 Wallet connected but auto-authentication disabled - manual sign-in required');
+      // Always require manual authentication to prevent conflicts
+      setAutoAuthFailed(true);
+    }
+  }, [isHydrated, hasInitialized, isLoading, wagmiConnected, address, isAuthenticated, isAuthenticating]);
+
+  // Reset autoAuthFailed when wallet disconnects
+  useEffect(() => {
+    if (!wagmiConnected) {
+      setAutoAuthFailed(false);
+    }
+  }, [wagmiConnected]);
+
+  // Handle callbacks
   if (isAuthenticated && walletAddress && onAuthSuccess) {
     onAuthSuccess(walletAddress);
   }
 
-  // Handle auth error callback
   if (error && onAuthError) {
     onAuthError(error);
   }
 
-  const getTierIcon = () => {
-    switch (userTier) {
-      case 'nft': return <Crown className="h-4 w-4 text-purple-500" />;
-      case 'token': return <Zap className="h-4 w-4 text-orange-500" />;
-      case 'dao': return <Users className="h-4 w-4 text-blue-500" />;
-      case 'enterprise': return <Shield className="h-4 w-4 text-green-500" />;
-      default: return <Wallet className="h-4 w-4 text-slate-500" />;
+
+  // Loading state during hydration or context initialization
+  if (!isHydrated || !hasInitialized || isLoading) {
+    return <LoadingButton message="Loading..." className={className} />;
+  }
+
+  // Get button info based on progressive auth level and preferred level
+  const getButtonInfo = () => {
+    switch (progressiveAuth.level) {
+      case AuthLevel.PUBLIC:
+        return {
+          icon: <Wallet className="h-4 w-4" />,
+          text: compact ? 'Connect' : 'Connect Wallet',
+          description: compact ? '' : 'for personalization',
+          gradient: 'from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700',
+        };
+      case AuthLevel.CONNECTED:
+        if (preferredLevel === AuthLevel.AUTHENTICATED) {
+          return {
+            icon: <Shield className="h-4 w-4" />,
+            text: compact ? 'Sign In' : 'Sign In',
+            description: compact ? '' : 'for full access',
+            gradient: 'from-orange-500 to-purple-600 hover:from-orange-600 hover:to-purple-700',
+          };
+        }
+        return {
+          icon: <div className="w-2 h-2 bg-blue-400 rounded-full"></div>,
+          text: compact ? formatAddress(walletAddress!) : formatAddress(walletAddress!),
+          description: compact ? '' : 'Connected',
+          gradient: 'from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700',
+        };
+      case AuthLevel.AUTHENTICATED:
+        return {
+          icon: <div className="w-2 h-2 bg-green-400 rounded-full"></div>,
+          text: compact ? formatAddress(walletAddress!) : formatAddress(walletAddress!),
+          description: compact ? '' : 'Authenticated',
+          gradient: 'from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700',
+        };
+      default:
+        return {
+          icon: <Eye className="h-4 w-4" />,
+          text: compact ? 'Connect' : 'Connect Wallet',
+          description: '',
+          gradient: 'from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700',
+        };
     }
   };
 
-  const getTierBadgeColor = () => {
-    switch (userTier) {
-      case 'nft': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300';
-      case 'token': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300';
-      case 'dao': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300';
-      case 'enterprise': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300';
-      default: return 'bg-slate-100 text-slate-800 dark:bg-slate-900/20 dark:text-slate-300';
-    }
-  };
+  const buttonInfo = getButtonInfo();
 
-  // Compact variant for navigation
-  if (variant === 'compact') {
-    if (!isConnected) {
-      return (
-        <ConnectButton.Custom>
-          {({ openConnectModal }) => (
-            <Button
-              onClick={openConnectModal}
-              size="sm"
-              className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-purple-600 text-white hover:from-orange-600 hover:to-purple-700"
-            >
-              <Wallet className="h-4 w-4" />
-              Connect
-            </Button>
-          )}
-        </ConnectButton.Custom>
-      );
-    }
-
-    if (!isAuthenticated) {
-      return (
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={authenticate}
-            disabled={isAuthenticating}
-            size="sm"
-            className="bg-orange-500 text-white hover:bg-orange-600"
-          >
-            <Shield className="h-4 w-4 mr-1" />
-            {isAuthenticating ? 'Signing...' : 'Sign In'}
-          </Button>
-        </div>
-      );
-    }
-
-    return (
-      <div className="flex items-center gap-2">
-        <Badge className={getTierBadgeColor()}>
-          {getTierIcon()}
-          <span className="ml-1 capitalize">{userTier}</span>
-        </Badge>
-        <Button
-          onClick={disconnect}
-          variant="ghost"
-          size="sm"
-          className="p-1"
-        >
-          <LogOut className="h-4 w-4" />
-        </Button>
-      </div>
-    );
-  }
-
-  // Default variant for main authentication
-  if (!isConnected) {
-    return (
-      <div className={`flex flex-col items-center gap-3 ${className}`}>
-        <ConnectButton.Custom>
-          {({ openConnectModal }) => (
-            <Button
-              onClick={openConnectModal}
-              className="flex items-center gap-3 bg-gradient-to-r from-orange-500 to-purple-600 text-white hover:from-orange-600 hover:to-purple-700 px-6 py-3 text-base font-semibold rounded-xl shadow-lg"
-            >
-              <Wallet className="h-5 w-5" />
-              Connect Web3 Wallet
-            </Button>
-          )}
-        </ConnectButton.Custom>
-        <p className="text-xs text-slate-600 dark:text-slate-400 text-center">
-          Connect your wallet to access Web3 features and permissions
-        </p>
-      </div>
-    );
-  }
-
-  // Connected but not authenticated
-  if (!isAuthenticated) {
-    return (
-      <div className={`flex flex-col gap-4 ${className}`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Wallet className="h-5 w-5 text-orange-500" />
-            <span className="font-medium text-slate-900 dark:text-slate-100">
-              {formatAddress(walletAddress!)}
-            </span>
-          </div>
-          <ConnectButton.Custom>
-            {({ openAccountModal }) => (
-              <Button variant="outline" size="sm" onClick={openAccountModal}>
-                Manage
-              </Button>
-            )}
-          </ConnectButton.Custom>
-        </div>
-
-        <div className="flex flex-col gap-3">
-          <Button
-            onClick={authenticate}
-            disabled={isAuthenticating}
-            className="flex items-center gap-3 bg-gradient-to-r from-orange-500 to-purple-600 text-white hover:from-orange-600 hover:to-purple-700 px-6 py-3 text-base font-semibold rounded-xl"
-          >
-            <Shield className="h-5 w-5" />
-            {isAuthenticating ? 'Signing Message...' : 'Sign In with Wallet'}
-          </Button>
-          
-          {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-              <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-              <span className="text-sm text-red-700 dark:text-red-400">{error}</span>
-            </div>
-          )}
-        </div>
-
-        <div className="text-center">
-          <p className="text-xs text-slate-600 dark:text-slate-400">
-            Sign a message to prove wallet ownership and access your Web3 permissions
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Authenticated - show detailed user info
-  if (variant === 'detailed') {
-    return (
-      <div className={`flex flex-col gap-4 ${className}`}>
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
-              <Wallet className="h-5 w-5 text-green-600 dark:text-green-400" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-slate-900 dark:text-slate-100">
-                {formatAddress(walletAddress!)}
-              </h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Web3 Authenticated
-              </p>
-            </div>
-          </div>
-          <Button
-            onClick={disconnect}
-            variant="outline"
-            size="sm"
-            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-          >
-            <LogOut className="h-4 w-4 mr-1" />
-            Disconnect
-          </Button>
-        </div>
-
-        {/* User Tier */}
-        <div className="flex items-center gap-2">
-          <Badge className={`${getTierBadgeColor()} px-3 py-1`}>
-            {getTierIcon()}
-            <span className="ml-2 font-medium capitalize">{userTier} Tier</span>
-          </Badge>
-          {hasApiAccess && (
-            <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300">
-              API Access
-            </Badge>
-          )}
-        </div>
-
-        {/* Permissions */}
-        {permissions.length > 0 && (
-          <div className="space-y-2">
-            <h4 className="text-sm font-medium text-slate-900 dark:text-slate-100">
-              Active Permissions ({permissions.length})
-            </h4>
-            <div className="grid grid-cols-2 gap-2">
-              {permissions.slice(0, 4).map((permission, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-800 rounded-lg"
-                >
-                  <span className="text-sm">{getPermissionIcon(permission.source)}</span>
-                  <span className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate">
-                    {permission.permission.split(':').pop()}
-                  </span>
-                </div>
-              ))}
-            </div>
-            {permissions.length > 4 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => router.push('/profile')}
-                className="w-full text-slate-600 hover:text-slate-900"
-              >
-                View all {permissions.length} permissions
-              </Button>
-            )}
-          </div>
-        )}
-
-        {/* Quick Actions */}
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => router.push('/profile')}
-            className="flex-1"
-          >
-            View Profile
-          </Button>
-          {hasApiAccess && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.push('/profile?tab=api')}
-              className="flex-1"
-            >
-              API Keys
-            </Button>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Default authenticated view
+  // Progressive authentication flow
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
-      {/* Wallet Info */}
-      <div className="flex items-center gap-2">
-        <div className="p-1.5 bg-green-100 dark:bg-green-900/20 rounded-lg">
-          <Wallet className="h-4 w-4 text-green-600 dark:text-green-400" />
-        </div>
-        <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
-          {formatAddress(walletAddress!)}
-        </span>
-      </div>
+    <ConnectButton.Custom>
+      {({ openConnectModal, account, chain }) => {
+        // AUTHENTICATED: Show connected state with disconnect option
+        if (progressiveAuth.level === AuthLevel.AUTHENTICATED) {
+          return (
+            <>
+              <button
+                onClick={() => setShowDisconnectModal(true)}
+                className={`flex items-center gap-2 bg-gradient-to-r ${buttonInfo.gradient} text-white px-4 py-2 rounded-lg text-sm font-medium ${className}`}
+              >
+                {buttonInfo.icon}
+                <span>{buttonInfo.text}</span>
+                {!compact && buttonInfo.description && (
+                  <span className="text-xs opacity-75">({buttonInfo.description})</span>
+                )}
+              </button>
 
-      {/* User Tier Badge */}
-      <Badge className={getTierBadgeColor()}>
-        {getTierIcon()}
-        <span className="ml-1 capitalize">{userTier}</span>
-      </Badge>
+              <WalletDisconnectModal
+                isOpen={showDisconnectModal}
+                onClose={() => setShowDisconnectModal(false)}
+                onDisconnect={disconnect}
+                walletAddress={walletAddress!}
+              />
+            </>
+          );
+        }
 
-      {/* Permissions Indicator */}
-      {permissions.length > 0 && (
-        <div className="flex items-center gap-1">
-          {permissions.slice(0, 3).map((permission, index) => (
-            <span
-              key={index}
-              title={`${permission.permission} (${permission.source})`}
-              className="text-sm"
-            >
-              {getPermissionIcon(permission.source)}
-            </span>
-          ))}
-          {permissions.length > 3 && (
-            <span className="text-xs text-slate-500 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
-              +{permissions.length - 3}
-            </span>
-          )}
-        </div>
-      )}
+        // CONNECTED: Show connected state or upgrade to authenticated if preferred
+        if (progressiveAuth.level === AuthLevel.CONNECTED) {
+          // If this component prefers authentication and we're only connected, show sign-in button
+          if (preferredLevel === AuthLevel.AUTHENTICATED) {
+            return (
+              <div className="flex items-center gap-2">
+                {isAuthenticating ? (
+                  <LoadingButton message="Signing..." className={className} />
+                ) : (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await authenticate();
+                      } catch (error: any) {
+                        console.error('Authentication failed:', error);
+                        onAuthError?.(error.message || 'Authentication failed');
+                      }
+                    }}
+                    disabled={isAuthenticating}
+                    className={`flex items-center gap-2 bg-gradient-to-r ${buttonInfo.gradient} text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 ${className}`}
+                  >
+                    {buttonInfo.icon}
+                    <span>{buttonInfo.text}</span>
+                    {!compact && buttonInfo.description && (
+                      <span className="text-xs opacity-75">({buttonInfo.description})</span>
+                    )}
+                  </button>
+                )}
+                
+                {error && (
+                  <ErrorDisplay 
+                    error={error} 
+                    onReset={() => {
+                      resetAuthState();
+                      setAutoAuthFailed(false);
+                    }} 
+                  />
+                )}
+              </div>
+            );
+          }
 
-      {/* Disconnect Button */}
-      <Button
-        onClick={disconnect}
-        variant="ghost"
-        size="sm"
-        className="px-2 py-2 hover:text-red-600"
-        title="Disconnect Wallet"
-      >
-        <LogOut className="h-4 w-4" />
-      </Button>
-    </div>
+          // Show connected state with option to disconnect
+          return (
+            <>
+              <button
+                onClick={() => setShowDisconnectModal(true)}
+                className={`flex items-center gap-2 bg-gradient-to-r ${buttonInfo.gradient} text-white px-4 py-2 rounded-lg text-sm font-medium ${className}`}
+              >
+                {buttonInfo.icon}
+                <span>{buttonInfo.text}</span>
+                {!compact && buttonInfo.description && (
+                  <span className="text-xs opacity-75">({buttonInfo.description})</span>
+                )}
+              </button>
+
+              <WalletDisconnectModal
+                isOpen={showDisconnectModal}
+                onClose={() => setShowDisconnectModal(false)}
+                onDisconnect={disconnect}
+                walletAddress={walletAddress!}
+              />
+            </>
+          );
+        }
+
+        // PUBLIC: Show connect wallet button
+        return (
+          <div className="flex items-center gap-2">
+            {isAuthenticating ? (
+              <LoadingButton message="Connecting..." className={className} />
+            ) : (
+              <button
+                onClick={openConnectModal}
+                disabled={isAuthenticating}
+                className={`flex items-center gap-2 bg-gradient-to-r ${buttonInfo.gradient} text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 ${className}`}
+              >
+                {buttonInfo.icon}
+                <span>{buttonInfo.text}</span>
+                {!compact && buttonInfo.description && (
+                  <span className="text-xs opacity-75">({buttonInfo.description})</span>
+                )}
+              </button>
+            )}
+            
+            {error && (
+              <ErrorDisplay 
+                error={error} 
+                onReset={() => {
+                  resetAuthState();
+                  setAutoAuthFailed(false);
+                }} 
+              />
+            )}
+          </div>
+        );
+      }}
+    </ConnectButton.Custom>
   );
 }

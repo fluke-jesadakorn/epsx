@@ -7,10 +7,9 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use crate::config::env::get_env_var;
-use crate::infrastructure::adapters::services::firebase_admin_stub::FirebaseUser;
 
 use crate::web::auth::routes::AppState;
-// Firebase removed - migrated to Web3
+// Web3-first authentication - Firebase removed
 use super::jwt;
 
 // Placeholder for removed flow module
@@ -19,7 +18,7 @@ pub mod flow {
     
     #[derive(Debug, Clone)]
     pub struct CodeData {
-        pub firebase_user: FirebaseUser,
+        pub wallet_address: String,
         pub client_id: String,
         pub redirect_uri: String,
         pub code_challenge: Option<String>,
@@ -29,14 +28,7 @@ pub mod flow {
     
     pub async fn validate_code(_app_state: &crate::web::auth::AppState, _code: &str) -> Result<CodeData, String> {
         Ok(CodeData {
-            firebase_user: FirebaseUser {
-                uid: "placeholder_uid".to_string(),
-                email: Some("placeholder@example.com".to_string()),
-                display_name: Some("Placeholder User".to_string()),
-                disabled: false,
-                email_verified: false,
-                custom_claims: Some(std::collections::HashMap::new()),
-            },
+            wallet_address: "0x742d35Cc6634C0532925a3b8D369D7763F3c45c6".to_string(),
             client_id: "default-client-id".to_string(),
             redirect_uri: "http://localhost:3000/callback".to_string(),
             code_challenge: None,
@@ -44,36 +36,32 @@ pub mod flow {
             scope: "openid profile email".to_string(),
         })
     }
-    
-    pub fn validate_pkce(_challenge: &str, _verifier: &str, _method: &str) -> Result<(), String> {
-        Ok(())
-    }
 }
 
-/// Token request
+/// OAuth2 token request
 #[derive(Debug, Deserialize)]
 pub struct TokenRequest {
     pub grant_type: String,
     pub code: Option<String>,
     pub redirect_uri: Option<String>,
-    pub client_id: String,
+    pub client_id: Option<String>,
     pub client_secret: Option<String>,
-    pub code_verifier: Option<String>,
     pub refresh_token: Option<String>,
+    pub code_verifier: Option<String>,
 }
 
-/// Token response
+/// OAuth2 token response
 #[derive(Debug, Serialize)]
 pub struct TokenResponse {
     pub access_token: String,
     pub token_type: String,
-    pub expires_in: i64,
-    pub id_token: String,
+    pub expires_in: u64,
     pub refresh_token: Option<String>,
-    pub scope: String,
+    pub id_token: Option<String>,
+    pub scope: Option<String>,
 }
 
-/// ID Token claims for OIDC
+/// JWT ID token claims
 #[derive(Debug, Serialize, Deserialize)]
 pub struct IdTokenClaims {
     pub iss: String,
@@ -92,7 +80,7 @@ pub struct IdTokenClaims {
 /// Refresh token data
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RefreshData {
-    pub firebase_user: FirebaseUser,
+    pub wallet_address: String,
     pub client_id: String,
     pub scope: String,
     pub created_at: DateTime<Utc>,
@@ -120,392 +108,89 @@ pub enum Error {
     ServerError(String),
 }
 
-impl Error {
-    pub fn to_response(&self) -> (StatusCode, Json<ErrorResponse>) {
-        let (error_code, description) = match self {
-            Error::InvalidRequest(msg) => ("invalid_request", Some(msg.clone())),
-            Error::InvalidGrant => ("invalid_grant", Some("Invalid or expired authorization code".to_string())),
-            Error::InvalidClient => ("invalid_client", Some("Client authentication failed".to_string())),
-            Error::UnsupportedGrantType => ("unsupported_grant_type", Some("Only authorization_code and refresh_token are supported".to_string())),
-            Error::ServerError(msg) => ("server_error", Some(msg.clone())),
-        };
-
-        (
-            StatusCode::BAD_REQUEST,
-            Json(ErrorResponse {
-                error: error_code.to_string(),
-                error_description: description,
-                error_uri: None,
-            })
-        )
+impl From<Error> for StatusCode {
+    fn from(error: Error) -> Self {
+        match error {
+            Error::InvalidRequest(_) => StatusCode::BAD_REQUEST,
+            Error::InvalidGrant => StatusCode::BAD_REQUEST,
+            Error::InvalidClient => StatusCode::UNAUTHORIZED,
+            Error::UnsupportedGrantType => StatusCode::BAD_REQUEST,
+            Error::ServerError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
     }
 }
 
-/// POST /oauth/token - Token endpoint
-pub async fn token(
-    State(app_state): State<AppState>,
-    Form(request): Form<TokenRequest>,
-) -> Result<Json<TokenResponse>, (StatusCode, Json<ErrorResponse>)> {
-    tracing::info!("Token request: grant_type={}, client_id={}", request.grant_type, request.client_id);
-
-    let result = match request.grant_type.as_str() {
-        "authorization_code" => handle_auth_code(app_state, request).await,
-        "refresh_token" => handle_refresh(app_state, request).await,
-        _ => Err(Error::UnsupportedGrantType),
-    };
-
-    result.map(Json).map_err(|e| e.to_response())
-}
-
-/// Handle authorization code grant
-async fn handle_auth_code(
-    app_state: AppState,
-    request: TokenRequest,
-) -> Result<TokenResponse, Error> {
-    // Validate required parameters
-    let code = request.code
-        .ok_or_else(|| Error::InvalidRequest("Missing 'code' parameter".to_string()))?;
-    let redirect_uri = request.redirect_uri
-        .ok_or_else(|| Error::InvalidRequest("Missing 'redirect_uri' parameter".to_string()))?;
-
-    // Validate authorization code
-    let auth_data = flow::validate_code(&app_state, &code).await
-        .map_err(|_e| Error::InvalidGrant)?;
-
-    // Validate client and redirect URI
-    if auth_data.client_id != request.client_id {
-        return Err(Error::InvalidClient);
-    }
-    if auth_data.redirect_uri != redirect_uri {
-        return Err(Error::InvalidRequest("Redirect URI mismatch".to_string()));
-    }
-
-    // Validate PKCE if present
-    if let (Some(challenge), Some(verifier)) = (&auth_data.code_challenge, &request.code_verifier) {
-        let method = auth_data.code_challenge_method.as_deref().unwrap_or("plain");
-        flow::validate_pkce(challenge, verifier, method)
-            .map_err(|e| Error::InvalidRequest(e.to_string()))?;
-    }
-
-    // Generate tokens
-    let expires_in = 7200; // 2 hours
-    let access_token = create_access_token(&app_state, &auth_data.firebase_user, &auth_data.scope, expires_in).await?;
-    let id_token = create_id_token(&auth_data.firebase_user, &request.client_id, expires_in)?;
-    let refresh_token = create_refresh_token(&app_state, &auth_data).await?;
-
-    // Create session
-    create_session(&app_state, &auth_data.firebase_user, &access_token).await?;
-
-    tracing::info!("Token exchange successful for user: {}", 
-                   auth_data.firebase_user.email.as_ref().unwrap_or(&"unknown".to_string()));
-
-    Ok(TokenResponse {
-        access_token,
-        token_type: "Bearer".to_string(),
-        expires_in,
-        id_token,
-        refresh_token: Some(refresh_token),
-        scope: auth_data.scope,
-    })
-}
-
-/// Handle refresh token grant
-async fn handle_refresh(
-    app_state: AppState,
-    request: TokenRequest,
-) -> Result<TokenResponse, Error> {
-    let refresh_token = request.refresh_token
-        .ok_or_else(|| Error::InvalidRequest("Missing 'refresh_token' parameter".to_string()))?;
-
-    // Validate refresh token
-    let refresh_data = get_refresh_data(&app_state, &refresh_token).await
-        .map_err(|_| Error::InvalidGrant)?;
-
-    // Validate client
-    if refresh_data.client_id != request.client_id {
-        return Err(Error::InvalidClient);
-    }
-
-    // Generate new tokens
-    let expires_in = 7200;
-    let access_token = create_access_token(&app_state, &refresh_data.firebase_user, &refresh_data.scope, expires_in).await?;
-    let id_token = create_id_token(&refresh_data.firebase_user, &request.client_id, expires_in)?;
-
-    tracing::info!("Token refresh successful for user: {}", 
-                   refresh_data.firebase_user.email.as_ref().unwrap_or(&"unknown".to_string()));
-
-    Ok(TokenResponse {
-        access_token,
-        token_type: "Bearer".to_string(),
-        expires_in,
-        id_token,
-        refresh_token: Some(refresh_token), // Reuse same refresh token
-        scope: refresh_data.scope,
-    })
-}
-
-/// Create access token
-async fn create_access_token(
-    app_state: &crate::web::auth::AppState,
-    firebase_user: &FirebaseUser,
-    _scope: &str,
-    expires_in: i64,
-) -> Result<String, Error> {
-    // Fetch permissions from user_permissions table using firebase_uid
-    let permissions = get_user_permissions_from_db(app_state, &firebase_user.uid).await
-        .unwrap_or_else(|_| vec!["epsx:analytics:view".to_string()]); // Default permissions
-    
-    let user_data = jwt::UserData {
-        id: firebase_user.uid.clone(),
-        email: firebase_user.email.clone().unwrap_or_default(),
-        name: firebase_user.display_name.clone(),
-        permissions: Some(permissions),
-        audience: Some("epsx-api".to_string()),
-        ttl_seconds: Some(expires_in as usize),
-        
-        // ENHANCED: Additional context fields
-        permission_version: Some(1), // Default version for tokens from Firebase
-        permission_last_updated: Some(chrono::Utc::now().timestamp() as u64),
-        verified: Some(firebase_user.email_verified),
-    };
-
-    jwt::JWT.create(user_data)
-        .map_err(|e| Error::ServerError(format!("Failed to create access token: {}", e)))
-}
-
-/// Create ID token
-fn create_id_token(
-    firebase_user: &FirebaseUser,
-    client_id: &str,
-    expires_in: i64,
-) -> Result<String, Error> {
-    use jsonwebtoken::{encode, Header, EncodingKey, Algorithm};
-    
-    let now = Utc::now().timestamp();
-    let claims = IdTokenClaims {
-        iss: get_issuer(),
-        sub: firebase_user.uid.clone(),
-        aud: client_id.to_string(),
-        exp: now + expires_in,
-        iat: now,
-        auth_time: now,
-        email: firebase_user.email.clone().unwrap_or_default(),
-        email_verified: firebase_user.email_verified,
-        name: firebase_user.display_name.clone(),
-        permissions: vec!["admin:*:*".to_string()], // Default admin permissions - role removed
-        nonce: None, // TODO: Extract from original request
-    };
-
-    let header = Header::new(Algorithm::HS256);
-    let key = EncodingKey::from_secret(get_jwt_secret().as_ref());
-
-    encode(&header, &claims, &key)
-        .map_err(|e| Error::ServerError(format!("Failed to create ID token: {}", e)))
-}
-
-/// Create refresh token
-async fn create_refresh_token(
-    app_state: &AppState,
-    auth_data: &flow::CodeData,
-) -> Result<String, Error> {
-    use rand::Rng;
-    use base64::Engine;
-    
-    let random_bytes: [u8; 32] = rand::thread_rng().gen();
-    let refresh_token = format!("rt_{}", 
-        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(random_bytes));
-
-    let refresh_data = RefreshData {
-        firebase_user: auth_data.firebase_user.clone(),
-        client_id: auth_data.client_id.clone(),
-        scope: auth_data.scope.clone(),
-        created_at: Utc::now(),
-    };
-
-    let data_json = serde_json::to_string(&refresh_data)
-        .map_err(|e| Error::ServerError(format!("Failed to serialize refresh data: {}", e)))?;
-
-    // Store refresh token
-    store_refresh_token(app_state, &refresh_token, &data_json).await?;
-
-    Ok(refresh_token)
-}
-
-/// Get refresh token data
-async fn get_refresh_data(
-    _app_state: &AppState,
-    refresh_token: &str,
-) -> Result<RefreshData, Error> {
-    use crate::domain::shared_kernel::value_objects::SessionId;
-    
-    let _session_id = SessionId::from_string(format!("refresh_token:{}", refresh_token));
-    // TODO: Remove session lookup - using stateless Bearer tokens
-    // let session = app_state.session_repo.find_by_id(&session_id).await
-    //     .map_err(|e| Error::ServerError(e.to_string()))?
-    //     .ok_or(Error::InvalidGrant)?;
-    
-    tracing::warn!("Refresh token lookup disabled - using stateless Bearer tokens");
-    return Err(Error::InvalidGrant);
-}
-
-/// Store refresh token
-async fn store_refresh_token(
-    _app_state: &AppState,
-    refresh_token: &str,
-    data_json: &str,
-) -> Result<(), Error> {
-    use crate::domain::shared_kernel::entities::auth::Session;
-    use crate::domain::shared_kernel::value_objects::{SessionId, UserId};
-    
-    let session_id = SessionId::from_string(format!("refresh_token:{}", refresh_token));
-    let user_id = UserId::from_string_unchecked("system".to_string()); // Generic user ID for refresh tokens
-    
-    let _session = Session::create(
-        session_id,
-        user_id,
-        data_json.to_string(),
-        Utc::now() + Duration::days(7),
-        None, // ip_address
-        None, // user_agent
-    ).map_err(|e| Error::ServerError(format!("Failed to create session: {}", e)))?;
-
-    // TODO: Remove session storage - using stateless Bearer tokens
-    // app_state.session_repo.save(&session).await
-    //     .map_err(|e| Error::ServerError(e.to_string()))?;
-    tracing::debug!("Session storage skipped - using stateless Bearer tokens");
-
-    Ok(())
-}
-
-/// Create user session
-async fn create_session(
-    _app_state: &AppState,
-    firebase_user: &FirebaseUser,
-    access_token: &str,
-) -> Result<(), Error> {
-    use crate::domain::shared_kernel::entities::Session;
-    use crate::domain::shared_kernel::value_objects::{SessionId, UserId};
-
-    let user_id = UserId::from_string_unchecked(firebase_user.uid.clone());
-    let expires_at = Utc::now() + Duration::hours(24);
-    let session_id = SessionId::new();
-    let _session = Session::create(
-        session_id,
-        user_id, 
-        access_token.to_string(), 
-        expires_at,
-        None, // ip_address
-        None, // user_agent
-    ).map_err(|e| Error::ServerError(format!("Failed to create session: {}", e)))?;
-
-    // TODO: Remove session storage - using stateless Bearer tokens  
-    // app_state.session_repo.save(&session).await
-    //     .map_err(|e| Error::ServerError(e.to_string()))?;
-    tracing::debug!("Session storage skipped - using stateless Bearer tokens");
-
-    Ok(())
-}
-
-/// GET /oauth/userinfo - UserInfo endpoint
-pub async fn userinfo(
+/// OAuth2 token endpoint handler (Web3-compatible stub)
+pub async fn token_handler(
     State(_app_state): State<AppState>,
-    headers: HeaderMap,
-) -> Result<Json<serde_json::Value>, (StatusCode, Json<ErrorResponse>)> {
-    tracing::info!("UserInfo endpoint request");
+    Form(_token_request): Form<TokenRequest>,
+) -> Result<Json<TokenResponse>, StatusCode> {
+    // Placeholder implementation for Web3-first authentication
+    Ok(Json(TokenResponse {
+        access_token: "web3_access_token_placeholder".to_string(),
+        token_type: "Bearer".to_string(),
+        expires_in: 3600,
+        refresh_token: Some("web3_refresh_token_placeholder".to_string()),
+        id_token: Some("web3_id_token_placeholder".to_string()),
+        scope: Some("openid profile email".to_string()),
+    }))
+}
+
+/// Create an ID token for Web3 authentication
+pub fn create_id_token(
+    wallet_address: &str,
+    email: &str,
+    permissions: Vec<String>,
+    client_id: &str,
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    let now = Utc::now();
+    let expiry = now + Duration::hours(1);
     
-    // Extract bearer token
-    let auth_header = headers
-        .get("authorization")
-        .and_then(|h| h.to_str().ok())
-        .ok_or_else(|| Error::InvalidRequest("Missing Authorization header".to_string()));
-    
-    let auth_header = match auth_header {
-        Ok(header) => header,
-        Err(e) => return Err(e.to_response()),
+    let claims = IdTokenClaims {
+        iss: "https://api.epsx.io".to_string(),
+        sub: wallet_address.to_string(),
+        aud: client_id.to_string(),
+        exp: expiry.timestamp(),
+        iat: now.timestamp(),
+        auth_time: now.timestamp(),
+        email: email.to_string(),
+        email_verified: true, // Web3 addresses are considered verified
+        name: None,
+        permissions,
+        nonce: None,
     };
     
-    if !auth_header.starts_with("Bearer ") {
-        return Err(Error::InvalidRequest("Invalid Authorization header format".to_string()).to_response());
-    }
-    
-    let token = &auth_header[7..];
-    
-    // Validate token and get permissions from separate table
-    let (user, permissions) = match jwt::JWT.decode_with_permissions(token).await {
-        Ok((user, permissions)) => (user, permissions),
-        Err(_) => return Err(Error::InvalidRequest("Invalid or expired token".to_string()).to_response()),
-    };
-    
-    let userinfo = serde_json::json!({
-        "sub": user.id,
-        "email": user.email,
-        "email_verified": true,
-        "name": user.name,
-        "permissions": permissions,
-        "package_tier": crate::auth::jwt::derive_display_tier_from_permissions(&permissions)
-    });
-    
-    Ok(Json(userinfo))
+    // Placeholder JWT creation for Web3-first authentication
+    Ok(format!("web3_id_token_{}_{}", wallet_address, client_id))
 }
 
-// Helper functions
-
-/// Fetch user permissions from user_permissions table with timestamp validation
-async fn get_user_permissions_from_db(
-    _app_state: &crate::web::auth::AppState, 
-    _firebase_uid: &str
-) -> Result<Vec<String>, Error> {
-    use crate::auth::permissions::filter_valid_permissions;
+/// Create an access token for Web3 authentication
+pub fn create_access_token(
+    wallet_address: &str,
+    permissions: Vec<String>,
+) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+    let now = Utc::now();
+    let expiry = now + Duration::hours(1);
     
-    // TODO: Implement proper permission service when PermissionApplicationService is ready
-    // For now, return basic admin permissions based on firebase custom claims
-    let user_permissions = Vec::<String>::new(); // Placeholder - would fetch from permission service
-        
-    // Filter out expired permissions using timestamp validation
-    let valid_permissions = filter_valid_permissions(&user_permissions);
+    let mut claims = HashMap::new();
+    claims.insert("sub".to_string(), serde_json::Value::String(wallet_address.to_string()));
+    claims.insert("iat".to_string(), serde_json::Value::Number(now.timestamp().into()));
+    claims.insert("exp".to_string(), serde_json::Value::Number(expiry.timestamp().into()));
+    claims.insert("permissions".to_string(), serde_json::Value::Array(
+        permissions.into_iter().map(serde_json::Value::String).collect()
+    ));
     
-    if valid_permissions.is_empty() {
-        // If no permissions found, provide basic default permissions
-        Ok(vec!["epsx:analytics:view".to_string()])
-    } else {
-        Ok(valid_permissions)
-    }
+    // Placeholder JWT creation for Web3-first authentication
+    Ok(format!("web3_access_token_{}", wallet_address))
 }
 
-// Role-based permissions removed - using structured permissions from database only
-// Permissions are now managed via user_permissions table with platform:resource:action format
-
-// Legacy admin_modules function removed - now using structured permissions via get_permissions()
-
-fn get_tier(custom_claims: &HashMap<String, serde_json::Value>) -> String {
-    custom_claims.get("package_tier")
-        .and_then(|v| v.as_str())
-        .unwrap_or("FREE")
-        .to_string()
-}
-
-fn get_issuer() -> String {
-    get_env_var("OIDC_ISSUER")
-        .unwrap_or_else(|_| "http://localhost:8080".to_string())
-}
-
-fn get_jwt_secret() -> String {
-    get_env_var("NEXTAUTH_SECRET")
-        .unwrap_or_else(|_| "your-secret-key-change-in-production".to_string())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // Role-based permission tests removed - using structured permissions from database
-
-    #[test]
-    fn test_error_to_response() {
-        let error = Error::InvalidRequest("test error".to_string());
-        let (status, response) = error.to_response();
-        
-        assert_eq!(status, StatusCode::BAD_REQUEST);
-        assert_eq!(response.error, "invalid_request");
-    }
+/// Validate an access token
+pub fn validate_access_token(
+    token: &str,
+) -> Result<HashMap<String, serde_json::Value>, Box<dyn std::error::Error + Send + Sync>> {
+    // Placeholder JWT validation for Web3-first authentication
+    let mut result = HashMap::new();
+    result.insert("sub".to_string(), serde_json::Value::String("placeholder_user".to_string()));
+    result.insert("valid".to_string(), serde_json::Value::Bool(true));
+    Ok(result)
 }

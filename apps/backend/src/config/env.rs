@@ -33,10 +33,7 @@ pub struct Config {
     pub oidc_admin_client_id: String,
     pub oidc_admin_client_secret: String,
 
-    // Firebase (3 variables)
-    pub firebase_project_id: String,
-    pub firebase_private_key: String,
-    pub firebase_client_email: String,
+    // Firebase removed for Web3-first architecture
 
 
     // Blockchain Infrastructure (6 variables)
@@ -163,50 +160,7 @@ impl Config {
             }
         };
 
-        // Firebase - Required
-        let firebase_project_id = match get_required("FIREBASE_PROJECT_ID") {
-            Ok(id) => id,
-            Err(e) => {
-                errors.push(e);
-                String::new()
-            }
-        };
-
-        let firebase_private_key = match get_required("FIREBASE_PRIVATE_KEY") {
-            Ok(key) => {
-                if !key.contains("-----BEGIN PRIVATE KEY-----") {
-                    errors.push(ValidationError {
-                        variable: "FIREBASE_PRIVATE_KEY".to_string(),
-                        reason: "Must be a valid private key in PEM format".to_string(),
-                    });
-                    String::new()
-                } else {
-                    key
-                }
-            },
-            Err(e) => {
-                errors.push(e);
-                String::new()
-            }
-        };
-
-        let firebase_client_email = match get_required("FIREBASE_CLIENT_EMAIL") {
-            Ok(email) => {
-                if !email.contains("@") {
-                    errors.push(ValidationError {
-                        variable: "FIREBASE_CLIENT_EMAIL".to_string(),
-                        reason: "Must be a valid email address".to_string(),
-                    });
-                    String::new()
-                } else {
-                    email
-                }
-            },
-            Err(e) => {
-                errors.push(e);
-                String::new()
-            }
-        };
+        // Firebase validation removed for Web3-first architecture
 
         // Blockchain Infrastructure - with fallbacks to free RPC endpoints
         let ethereum_rpc_url = get_with_default("ETHEREUM_RPC_URL", "https://eth.llamarpc.com");
@@ -234,9 +188,6 @@ impl Config {
             oidc_client_secret,
             oidc_admin_client_id,
             oidc_admin_client_secret,
-            firebase_project_id,
-            firebase_private_key,
-            firebase_client_email,
             ethereum_rpc_url,
             polygon_rpc_url,
             arbitrum_rpc_url,
@@ -325,9 +276,6 @@ pub fn get_fallback_config() -> Config {
         oidc_client_secret: "default-secret".to_string(),
         oidc_admin_client_id: "epsx-admin".to_string(),
         oidc_admin_client_secret: "default-secret".to_string(),
-        firebase_project_id: "epsx-dev".to_string(),
-        firebase_private_key: "-----BEGIN PRIVATE KEY-----\ndefault\n-----END PRIVATE KEY-----".to_string(),
-        firebase_client_email: "firebase-adminsdk@epsx-dev.iam.gserviceaccount.com".to_string(),
         ethereum_rpc_url: "https://eth.llamarpc.com".to_string(),
         polygon_rpc_url: "https://polygon.llamarpc.com".to_string(),
         arbitrum_rpc_url: "https://arbitrum.llamarpc.com".to_string(),

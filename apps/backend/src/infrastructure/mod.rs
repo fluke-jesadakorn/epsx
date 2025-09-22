@@ -17,7 +17,6 @@ pub use adapters::{
 };
 
 // Re-export commonly needed services for backward compatibility
-pub use adapters::services::firebase as firebase_admin;
 pub use event_bus::{SimpleEventBus};
 pub use container::{AppContainer, DDDContainer};
 pub use integration::{

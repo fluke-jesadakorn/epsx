@@ -62,7 +62,7 @@ impl SessionMapper {
     }
     
     /// Convert domain aggregate to new database model
-    pub fn to_new_diesel(session: &Session) -> DomainResult<NewDbSession> {
+    pub fn to_new_db(session: &Session) -> DomainResult<NewDbSession> {
         let session_uuid = Self::session_id_to_uuid(&session.id().to_string());
         let user_uuid = Self::session_id_to_uuid(&session.user_id().to_string());
         
@@ -92,7 +92,7 @@ impl SessionMapper {
     }
     
     /// Convert domain aggregate to update database model
-    pub fn to_update_diesel(session: &Session) -> UpdateDbSession {
+    pub fn to_update_db(session: &Session) -> UpdateDbSession {
         UpdateDbSession {
             access_token: Some(session.access_token().to_string()),
             expires_at: Some(session.expires_at()),

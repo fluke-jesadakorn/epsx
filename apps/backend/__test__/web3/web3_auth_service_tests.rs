@@ -42,7 +42,7 @@ mod tests {
     #[tokio::test]
     async fn test_generate_challenge_success() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string());
+        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
         
         let wallet = "0x742d35Cc6634C0532925a3b8D369D7763F3c45c6";
         let challenge = service.generate_challenge(wallet).await.unwrap();
@@ -72,7 +72,7 @@ mod tests {
     #[tokio::test]
     async fn test_generate_challenge_invalid_wallet() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool, "epsx.io".to_string());
+        let service = Web3AuthService::new(pool, "epsx.io".to_string(), 97);
         
         let result = service.generate_challenge("invalid_address").await;
         assert!(result.is_err());
@@ -82,7 +82,7 @@ mod tests {
     #[tokio::test]
     async fn test_generate_challenge_duplicate_nonce_handling() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string());
+        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
         
         let wallet = "0x742d35Cc6634C0532925a3b8D369D7763F3c45c6";
         
@@ -99,7 +99,7 @@ mod tests {
     #[tokio::test]
     async fn test_verify_signature_invalid_message() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool, "epsx.io".to_string());
+        let service = Web3AuthService::new(pool, "epsx.io".to_string(), 97);
         
         let request = VerifyRequest {
             message: "invalid SIWE message".to_string(),
@@ -115,7 +115,7 @@ mod tests {
     #[tokio::test]
     async fn test_verify_signature_domain_mismatch() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool, "epsx.io".to_string());
+        let service = Web3AuthService::new(pool, "epsx.io".to_string(), 97);
         
         // Create a valid SIWE message but for wrong domain
         let message = "example.com wants you to sign in with your Ethereum account:\n0x742d35Cc6634C0532925a3b8D369D7763F3c45c6\n\nSign in to EPSX trading platform\n\nURI: https://example.com\nVersion: 1\nChain ID: 1\nNonce: test_nonce\nIssued At: 2024-01-01T00:00:00.000Z";
@@ -134,7 +134,7 @@ mod tests {
     #[tokio::test]
     async fn test_verify_signature_wallet_address_mismatch() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool, "epsx.io".to_string());
+        let service = Web3AuthService::new(pool, "epsx.io".to_string(), 97);
         
         // Create a valid SIWE message but for different wallet
         let message = "epsx.io wants you to sign in with your Ethereum account:\n0x742d35Cc6634C0532925a3b8D369D7763F3c45c6\n\nSign in to EPSX trading platform\n\nURI: https://epsx.io\nVersion: 1\nChain ID: 1\nNonce: test_nonce\nIssued At: 2024-01-01T00:00:00.000Z";
@@ -152,7 +152,7 @@ mod tests {
     #[tokio::test]
     async fn test_link_wallet_to_user_success() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string());
+        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
         
         let user_id = Uuid::new_v4();
         let wallet = "0xtest742d35Cc6634C0532925a3b8D369D7763F3c45c6";
@@ -196,7 +196,7 @@ mod tests {
     #[tokio::test]
     async fn test_link_wallet_invalid_address() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool, "epsx.io".to_string());
+        let service = Web3AuthService::new(pool, "epsx.io".to_string(), 97);
         
         let user_id = Uuid::new_v4();
         let result = service.link_wallet_to_user(
@@ -213,7 +213,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_user_by_wallet_success() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string());
+        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
         
         let user_id = Uuid::new_v4();
         let wallet = "0xtest742d35Cc6634C0532925a3b8D369D7763F3c45c6";
@@ -247,7 +247,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_user_by_wallet_not_found() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool, "epsx.io".to_string());
+        let service = Web3AuthService::new(pool, "epsx.io".to_string(), 97);
         
         let result = service.get_user_by_wallet("0x1234567890123456789012345678901234567890").await.unwrap();
         assert_eq!(result, None);
@@ -256,7 +256,7 @@ mod tests {
     #[tokio::test]
     async fn test_is_wallet_available_true() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool, "epsx.io".to_string());
+        let service = Web3AuthService::new(pool, "epsx.io".to_string(), 97);
         
         let result = service.is_wallet_available("0x1234567890123456789012345678901234567890").await.unwrap();
         assert!(result);
@@ -265,7 +265,7 @@ mod tests {
     #[tokio::test]
     async fn test_is_wallet_available_false() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string());
+        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
         
         let user_id = Uuid::new_v4();
         let wallet = "0xtest742d35Cc6634C0532925a3b8D369D7763F3c45c6";
@@ -299,7 +299,7 @@ mod tests {
     #[tokio::test]
     async fn test_cleanup_expired_nonces() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string());
+        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
         
         let wallet = "0x742d35Cc6634C0532925a3b8D369D7763F3c45c6";
         
@@ -333,7 +333,7 @@ mod tests {
     #[tokio::test]
     async fn test_nonce_replay_protection() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string());
+        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
         
         let wallet = "0x742d35Cc6634C0532925a3b8D369D7763F3c45c6";
         let nonce = "test_replay_nonce";
@@ -364,7 +364,7 @@ mod tests {
     #[tokio::test]
     async fn test_case_insensitive_wallet_handling() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string());
+        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
         
         let wallet_upper = "0xTEST742D35CC6634C0532925A3B8D369D7763F3C45C6";
         let wallet_lower = "0xtest742d35cc6634c0532925a3b8d369d7763f3c45c6";

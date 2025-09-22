@@ -21,11 +21,19 @@ export function Web3AuthProvider({ children }: Web3AuthProviderProps) {
   const web3Auth = useWeb3Auth();
   const [isLoading, setIsLoading] = useState(true);
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
 
   // Initialize authentication state on mount
   useEffect(() => {
     const initializeAuth = async () => {
+      // Prevent multiple simultaneous initialization attempts
+      if (isInitializing || hasInitialized) {
+        console.log('Web3 auth already initializing or initialized, skipping');
+        return;
+      }
+
       try {
+        setIsInitializing(true);
         setIsLoading(true);
         
         // If wallet is connected, check authentication status
@@ -39,38 +47,27 @@ export function Web3AuthProvider({ children }: Web3AuthProviderProps) {
         toast.error('Failed to initialize authentication');
       } finally {
         setIsLoading(false);
+        setIsInitializing(false);
       }
     };
 
     initializeAuth();
-  }, [isConnected]);
+  }, [isConnected, isInitializing, hasInitialized]);
 
-  // Auto-authenticate if wallet connects and user was previously authenticated
+  // DISABLED: Auto-authentication to prevent conflicts and race conditions
+  // Manual authentication only - users must explicitly sign in
   useEffect(() => {
-    const handleAutoAuth = async () => {
-      if (!hasInitialized || !isConnected || web3Auth.isAuthenticated) return;
-
-      // Check if user was previously authenticated by looking for session
-      try {
-        const response = await fetch('/api/auth/session', {
-          credentials: 'include',
-        });
-
-        if (response.ok) {
-          const session = await response.json();
-          if (session.wallet_address && session.is_authenticated) {
-            // User has valid session, refresh permissions
-            await web3Auth.refreshPermissions();
-          }
-        }
-      } catch (error) {
-        // Silent fail - user can manually authenticate
-        console.debug('No previous session found:', error);
-      }
+    // Only check auth status for already authenticated users, don't auto-authenticate
+    const handleAuthCheck = async () => {
+      if (!hasInitialized || !isConnected) return;
+      
+      // Only check existing session status, don't trigger new authentication
+      console.log('🔍 Checking existing Web3 authentication status (no auto-auth)');
+      await web3Auth.checkAuthStatus();
     };
 
-    handleAutoAuth();
-  }, [isConnected, hasInitialized, web3Auth.isAuthenticated]);
+    handleAuthCheck();
+  }, [isConnected, hasInitialized, web3Auth.checkAuthStatus]);
 
   const contextValue: Web3AuthContextType = {
     ...web3Auth,

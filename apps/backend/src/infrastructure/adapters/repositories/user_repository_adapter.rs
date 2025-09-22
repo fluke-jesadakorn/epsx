@@ -216,12 +216,11 @@ impl UserRepositoryPort for UserRepositoryAdapter {
             .await
             .map_err(|e| DomainError::invalid_operation(format!("Database operation failed: {}", e), "UserRepository"))?;
         } else {
-            // Insert new user - using actual schema
+            // Insert new user - Web3-first schema (Firebase UID removed)
             sqlx::query(
-                "INSERT INTO users (id, firebase_uid, email, is_active, role, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)"
+                "INSERT INTO users (id, email, is_active, role, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)"
             )
             .bind(user_uuid)
-            .bind(user.id().to_string()) // Use user_id as firebase_uid for backward compatibility
             .bind(user.email().to_string())
             .bind(true) // is_active
             .bind("user") // default role

@@ -8,7 +8,7 @@ EPSX is a production analytics platform with modern architecture:
 
 - **Frontend** (Port 3000): Next.js 15.5.0 + React 19.1.0 analytics dashboard
 - **Admin Frontend** (Port 3001): Administrative dashboard with OIDC authentication
-- **Backend** (Port 8080): Rust API server with Diesel ORM and OIDC Bearer token validation
+- **Backend** (Port 8080): Rust API server with SQLx and OIDC Bearer token validation
 
 ## Major Completed Migrations
 
@@ -27,7 +27,7 @@ The EPSX platform has successfully completed comprehensive OIDC migration:
 - **Bearer Token API**: Pure Bearer token validation with no cookie dependencies
 - **RS256 Validation**: RSA public key JWT verification
 - **OIDC Endpoints**: `/oauth/authorize`, `/oauth/token`, `/oauth/userinfo`
-- **Diesel ORM**: Complete PostgreSQL integration with type safety
+- **SQLx**: Complete PostgreSQL integration with async support and type safety
 
 **Frontend Applications:**
 - **Hybrid Data Strategy**: Client-side initial load + Server Actions post-hydration
@@ -47,13 +47,13 @@ Migrated from legacy admin_modules to structured permissions:
 - **Multi-Platform**: epsx:*, admin:*, epsx-pay:*, epsx-token:* scoping
 - **Performance**: 50% faster queries with GIN indexes
 
-### ✅ Diesel ORM Migration (100% Complete)
+### ✅ SQLx Database Layer (100% Complete)
 
-Complete migration from SQLx to Diesel ORM:
-- **Type Safety**: Compile-time SQL validation
-- **Performance**: bb8 connection pooling
-- **Schema Management**: Automated migrations
-- **Repository Pattern**: Clean architecture implementation
+Native async PostgreSQL integration with SQLx:
+- **Type Safety**: Compile-time SQL validation with macro-based queries
+- **Performance**: Built-in connection pooling optimized for async workloads
+- **Schema Management**: Automated migrations with sqlx-migrate
+- **Repository Pattern**: Clean architecture implementation with async/await
 
 ### ✅ Embedded Timestamp Permissions System (100% Complete)
 
@@ -79,7 +79,7 @@ Complete transformation to local Docker builds with Cloud Run deployment:
 
 ### Technology Stack
 - **Frontend**: Next.js 15 + React 19 + Tailwind CSS
-- **Backend**: Rust + Axum + Diesel ORM + PostgreSQL
+- **Backend**: Rust + Axum + SQLx + PostgreSQL
 - **Authentication**: OIDC + Firebase + RS256 JWT
 - **Deployment**: Local Docker builds + Google Cloud Run
 - **Cache**: Redis for sessions and performance
@@ -142,7 +142,7 @@ pnpm test:e2e       # End-to-end tests
 # From apps/backend/
 cargo run           # Start server
 cargo test          # Run tests
-diesel migration run # Apply migrations
+cargo run --bin migrate up # Apply migrations
 
 # Local Docker build and deploy
 ./scripts/build/local-backend.sh   # Build Docker image locally
@@ -178,7 +178,7 @@ pnpm format         # Prettier
 
 ### Backend Stack  
 - **Language**: Rust with Axum framework
-- **Database**: PostgreSQL with Diesel ORM
+- **Database**: PostgreSQL with SQLx
 - **Authentication**: OIDC with RS256 JWT validation
 - **Cache**: Redis for sessions and performance
 - **Architecture**: Clean architecture with repository pattern
@@ -205,6 +205,14 @@ pnpm format         # Prettier
 - **Admin Permissions**: admin:*:* for full access
 - **Platform Scoped**: epsx:*, admin:*, epsx-pay:*, etc.
 - **Database**: PostgreSQL with GIN indexes for performance
+
+### Web3 Integration
+- **Chain Support**: BSC Mainnet (56) and BSC Testnet (97)
+- **Environment Controlled**: `NEXT_PUBLIC_BLOCKCHAIN_NETWORK=mainnet|testnet`
+- **SIWE Authentication**: Sign-In with Ethereum standard
+- **Dynamic Configuration**: Auto-switches between mainnet/testnet
+- **Wallet Support**: MetaMask, WalletConnect, and RainbowKit
+- **Network Detection**: Automatic chain ID detection and switching
 
 ## Performance & Animation Policy
 
@@ -489,6 +497,10 @@ NEXT_PUBLIC_ADMIN_URL=http://localhost:3001
 NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-frontend
 NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+
+# Web3/Blockchain Configuration
+NEXT_PUBLIC_BLOCKCHAIN_NETWORK=testnet  # mainnet or testnet
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=epsx-web3-frontend
 ```
 
 **Complexity Reduction:**
@@ -517,7 +529,7 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
 ### ✅ Completed Migrations
 1. **OIDC Authentication**: 100% complete with Bearer token API
 2. **Structured Permissions**: 100% complete with performance improvements  
-3. **Diesel ORM**: 100% complete with type safety and performance
+3. **SQLx Database**: 100% complete with async support and type safety
 4. **Admin OIDC**: 100% complete with proper token management
 5. **Embedded Timestamp Permissions**: 100% complete with temporal control
 6. **Zero Animation Policy**: 100% complete - all animations removed for performance
@@ -604,7 +616,7 @@ For local development, use the credentials from your `.env` file or create test 
 ### Common Issues
 - **Build Errors**: Clear cache with `pnpm clean`
 - **Auth Issues**: Check OIDC configuration and token validation
-- **Database**: Ensure PostgreSQL running and Diesel migrations applied
+- **Database**: Ensure PostgreSQL running and SQLx migrations applied
 - **Environment**: Verify all required environment variables set
 
 ### Cloud Run Deployment Issues
@@ -684,11 +696,11 @@ gcloud logging read "resource.type=cloud_run_revision" --limit=20
 - **Multi-Platform Ready**: Support for multiple business units
 - **Developer Experience**: Clear permission structure
 
-### Diesel ORM Benefits
-- **Compile-time Safety**: Catch SQL errors at compile time
-- **Type Safety**: Strong typing prevents runtime errors
-- **Performance**: Connection pooling and optimized queries
-- **Maintainability**: Schema management and migrations
+### SQLx Database Benefits
+- **Async Performance**: Native async/await support for Cloud Run environments
+- **Type Safety**: Compile-time SQL validation with macro-based queries
+- **Connection Pooling**: Built-in async connection management
+- **Schema Management**: Automated migrations with sqlx-migrate
 
 ### Embedded Timestamp Benefits
 - **Temporal Control**: Set exact expiry times for permissions
@@ -725,7 +737,7 @@ gcloud logging read "resource.type=cloud_run_revision" --limit=20
 
 ---
 
-**🎉 EPSX has successfully completed all major migrations and is production-ready with OIDC compliance, structured permissions, Diesel ORM, embedded timestamp permissions, CORS "allow any origin" configuration, and optimized local Docker builds with deployment testing for Google Cloud Run!**
+**🎉 EPSX has successfully completed all major migrations and is production-ready with OIDC compliance, structured permissions, SQLx database layer, embedded timestamp permissions, CORS "allow any origin" configuration, and optimized local Docker builds with deployment testing for Google Cloud Run!**
 
 ## Latest Backend Deployment
 

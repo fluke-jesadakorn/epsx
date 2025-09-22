@@ -12,11 +12,17 @@ export interface Notification {
   id: string;
   title: string;
   body: string;
-  type: string;
-  priority: string;
+  type: 'system' | 'admin' | 'data' | 'feature' | 'security';
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  sender: 'system' | 'admin' | 'automated';
+  imageUrl?: string;
+  actionUrl?: string;
+  customData?: Record<string, any>;
   createdAt: string;
   readAt?: string;
-  actionUrl?: string;
+  clickedAt?: string;
+  deliveredAt?: string;
+  expiresAt?: string;
 }
 
 export interface NotificationData {

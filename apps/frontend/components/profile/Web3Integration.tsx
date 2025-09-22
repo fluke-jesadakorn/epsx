@@ -114,7 +114,7 @@ export function Web3Integration({ user }: Web3IntegrationProps) {
                 Unlock the full potential of EPSX with Web3 authentication. Get access to NFT-gated content, 
                 token-based permissions, DAO governance, and enterprise API features.
               </p>
-              <WalletConnectAuth variant="detailed" className="max-w-md mx-auto" />
+              <WalletConnectAuth className="max-w-md mx-auto" />
             </div>
           ) : (
             <div className="space-y-6">
@@ -313,7 +313,7 @@ export function Web3Integration({ user }: Web3IntegrationProps) {
                       <CardContent>
                         <div className="space-y-4">
                           <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
-                            <WalletConnectAuth variant="detailed" />
+                            <WalletConnectAuth />
                           </div>
                         </div>
                       </CardContent>

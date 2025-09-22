@@ -2,8 +2,34 @@
 
 import type { StockFinancialData } from '@/types/financialChartData';
 import { getStockFinancialData } from '@/lib/services/stock.service';
-import { getRankingLimitFromPermissions } from '@/lib/auth/utils';
-import type { PermissionTemplateName } from '@/types/userLevel';
+import { getRankingLimitFromPermissions, getDisplayTierFromPermissions } from '@/app/constants/packages';
+import type { PermissionTemplateName } from '@/app/constants/packages';
+
+// Type for user levels (legacy compatibility)
+type UserLevelType = 'FREE' | 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'ENTERPRISE';
+
+// Helper function to extract ranking limit from permissions (alias for consistency)
+function extractRankingLimitFromPermissions(permissions: string[]): number {
+  return getRankingLimitFromPermissions(permissions);
+}
+
+// Helper function to derive tier from permissions
+function deriveTierFromPermissions(permissions: string[]): string {
+  return getDisplayTierFromPermissions(permissions);
+}
+
+// Helper function to convert tier to permissions (legacy compatibility)
+function convertTierToPermissions(userLevel: UserLevelType): string[] {
+  const tierMap: Record<UserLevelType, string[]> = {
+    'FREE': ['epsx:rankings:view:3', 'epsx:trading:basic'],
+    'BRONZE': ['epsx:rankings:view:5', 'epsx:trading:basic'],
+    'SILVER': ['epsx:rankings:view:25', 'epsx:trading:advanced'],
+    'GOLD': ['epsx:rankings:view:50', 'epsx:trading:premium'],
+    'PLATINUM': ['epsx:rankings:view:100', 'epsx:analytics:premium'],
+    'ENTERPRISE': ['epsx:rankings:view:unlimited', 'epsx:*:*']
+  };
+  return tierMap[userLevel] || tierMap['FREE'];
+}
 
 /**
  * Reusable server action for fetching stock financial data

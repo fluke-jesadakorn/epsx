@@ -1,8 +1,7 @@
 use std::sync::Arc;
-use sqlx::PgPool;
+use sqlx::{PgPool, FromRow};
 
-// TODO: Migrate PlanService to SQLx - currently disabled during Diesel migration
-// This service depends on MarketingRepository which needs to be migrated to SQLx
+// PlanService implementation using SQLx for database operations
 
 #[derive(Debug, Clone)]
 pub struct PlanFilters {
@@ -14,29 +13,62 @@ pub struct PlanFilters {
 }
 
 // Placeholder struct for plan data
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, FromRow)]
 pub struct PlanWithPromotions {
     pub id: i32,
     pub plan_type: String,
     pub name: String,
-    pub current_price: rust_decimal::Decimal,
+    pub current_price: sqlx::types::BigDecimal,
+    pub currency: String,
+    pub features: sqlx::types::Json<Vec<String>>,
     pub is_active: bool,
 }
 
 pub struct PlanService {
-    _db_pool: Arc<PgPool>,
+    db_pool: Arc<PgPool>,
 }
 
 impl PlanService {
     pub fn new(db_pool: Arc<PgPool>, _cache: Arc<dyn crate::infrastructure::cache::Cache>) -> Self {
         Self {
-            _db_pool: db_pool,
+            db_pool,
         }
     }
 
-    pub async fn list_plans(&self, _filters: Option<PlanFilters>) -> Result<Vec<PlanWithPromotions>, Box<dyn std::error::Error + Send + Sync>> {
-        // TODO: Implement with SQLx queries
-        Ok(vec![])
+    pub async fn list_plans(&self, filters: Option<PlanFilters>) -> Result<Vec<PlanWithPromotions>, Box<dyn std::error::Error + Send + Sync>> {
+        let mut query = sqlx::QueryBuilder::new("SELECT id, name, plan_type, current_price, currency, features, is_active FROM pricing_plans WHERE 1=1");
+        
+        if let Some(f) = filters {
+            if let Some(plan_type) = f.plan_type {
+                query.push(" AND plan_type = ");
+                query.push_bind(plan_type);
+            }
+            if let Some(is_active) = f.is_active {
+                query.push(" AND is_active = ");
+                query.push_bind(is_active);
+            }
+            if let Some(is_highlighted) = f.is_highlighted {
+                query.push(" AND is_highlighted = ");
+                query.push_bind(is_highlighted);
+            }
+            if let Some(min_price) = f.min_price {
+                query.push(" AND current_price >= ");
+                query.push_bind(min_price);
+            }
+            if let Some(max_price) = f.max_price {
+                query.push(" AND current_price <= ");
+                query.push_bind(max_price);
+            }
+        }
+        
+        query.push(" ORDER BY display_order ASC, id ASC");
+        
+        let plans = query
+            .build_query_as::<PlanWithPromotions>()
+            .fetch_all(self.db_pool.as_ref())
+            .await?;
+            
+        Ok(plans)
     }
 
     pub async fn get_plans_by_type(&self, _plan_type: &str) -> Result<Vec<PlanWithPromotions>, Box<dyn std::error::Error + Send + Sync>> {

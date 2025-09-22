@@ -12,7 +12,6 @@ use epsx::{
     infrastructure::DDDContainer,
     application::user_management::commands::models::CreateUserCommand,
     domain::user_management::value_objects::FirebaseUid,
-    infra::db::diesel::{create_pool, DbPool},
 };
 
 /// Test DDD Container initialization
@@ -170,7 +169,7 @@ async fn test_overall_ddd_migration() -> Result<(), Box<dyn std::error::Error + 
                 ddd_container.create_user_handler(),
             );
             
-            println!("  ✅ Database integration - DDD components work with Diesel ORM");
+            println!("  ✅ Database integration - DDD components work with SQLx");
         },
         Err(_) => {
             println!("  ⚠️  Database not available - DDD structure validation only");

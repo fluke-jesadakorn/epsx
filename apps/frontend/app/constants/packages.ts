@@ -125,12 +125,15 @@ export const TRANSACTION_STATUSES = {
   FAILED: 'failed',
 } as const;
 
+// Get network from environment variable
+const isMainnet = process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === 'mainnet';
+
 export const BLOCKCHAIN_CONFIG = {
   BSC: {
-    name: 'BSC',
+    name: isMainnet ? 'BSC Mainnet' : 'BSC Testnet',
     currency: 'USDT_BSC',
-    explorerUrl: 'https://bscscan.com/tx/',
-    networkId: '56',
+    explorerUrl: isMainnet ? 'https://bscscan.com/tx/' : 'https://testnet.bscscan.com/tx/',
+    networkId: isMainnet ? '56' : '97',
   },
 } as const;
 
