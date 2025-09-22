@@ -1,10 +1,10 @@
 # EPSX Backend - Clean Architecture Implementation
 
-A high-performance Rust backend implementing Clean Architecture principles for the EPSX trading platform, featuring comprehensive authentication, permission management, real-time data processing, and financial analytics with **complete Diesel ORM migration**.
+A high-performance Rust backend implementing Clean Architecture principles for the EPSX trading platform, featuring comprehensive authentication, permission management, real-time data processing, and financial analytics with **SQLx async database integration**.
 
 [![Rust](https://img.shields.io/badge/Rust-2021-000000?style=flat-square&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![Axum](https://img.shields.io/badge/Axum-0.7-orange?style=flat-square)](https://docs.rs/axum/)
-[![Diesel](https://img.shields.io/badge/Diesel-2.2-green?style=flat-square)](https://diesel.rs/)
+[![SQLx](https://img.shields.io/badge/SQLx-0.8-green?style=flat-square)](https://github.com/launchbadge/sqlx)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue?style=flat-square&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
 [![WebSocket](https://img.shields.io/badge/WebSocket-Support-green?style=flat-square)](https://tools.ietf.org/html/rfc6455)
 
@@ -12,19 +12,19 @@ A high-performance Rust backend implementing Clean Architecture principles for t
 
 ## 🚀 **Major Updates: Complete System Migrations**
 
-### **Diesel ORM Migration** - **Migration Status: 100% Complete** ✅
+### **SQLx Database Integration** - **Implementation Status: 100% Complete** ✅
 
-The EPSX backend has undergone a comprehensive migration from SQLx to **Diesel ORM**, providing:
+The EPSX backend uses **SQLx** for async database operations, providing:
 
 ### **Admin Modules to Structured Permissions Migration** - **Migration Status: 100% Complete** ✅ **New**
 
 The EPSX platform has completed migration from legacy `admin_modules` to a modern **structured permissions** system, providing:
 
-**Diesel ORM Benefits:**
-- ✅ **Type-Safe Database Operations**: Compile-time query validation
-- ✅ **Schema Management**: Automated migrations with `diesel_migrations`
-- ✅ **Performance**: Connection pooling with bb8-diesel
-- ✅ **Code Generation**: Automatic model generation from database schema
+**SQLx Database Benefits:**
+- ✅ **Async Performance**: Native async/await support optimized for Cloud Run
+- ✅ **Type Safety**: Compile-time SQL validation with macro-based queries
+- ✅ **Built-in Pooling**: Integrated connection pooling for async workloads
+- ✅ **Migration System**: Automated schema management with sqlx-migrate
 
 **Structured Permissions Benefits:**
 - ✅ **Enhanced Security**: Platform-isolated permissions prevent cross-platform privilege escalation
@@ -35,13 +35,13 @@ The EPSX platform has completed migration from legacy `admin_modules` to a moder
 
 ### Migration Components:
 
-**Diesel ORM Migration:**
-- ✅ **Core Database Schema**: All 24 tables migrated to Diesel
-- ✅ **User Management**: Complete Diesel implementation  
-- ✅ **Notification System**: Full async Diesel CRUD operations
-- ✅ **Authentication**: Firebase integration with Diesel
-- ✅ **Security System**: Complete Diesel implementation with security events, alerts, and audit trails
-- ✅ **Testing**: All tests updated for Diesel
+**SQLx Database Implementation:**
+- ✅ **Core Database Schema**: All 24 tables accessible via SQLx queries
+- ✅ **User Management**: Complete async SQLx implementation  
+- ✅ **Notification System**: Full async SQLx CRUD operations
+- ✅ **Authentication**: Firebase integration with SQLx
+- ✅ **Security System**: Complete SQLx implementation with security events, alerts, and audit trails
+- ✅ **Testing**: All tests use SQLx integration patterns
 
 **Structured Permissions Migration:**
 - ✅ **Permission Schema**: Added `permissions` column with GIN indexes to users table
@@ -138,26 +138,21 @@ The EPSX backend implements a well-structured Clean Architecture pattern with fi
 #### DTOs (`dtos/`)
 - Data transfer objects for API communication with validation
 
-### 4. Infrastructure Layer (`src/infra/`) - **Fully Diesel-Powered**
+### 4. Infrastructure Layer (`src/infra/`) - **SQLx-Powered**
 **External adapters and technical implementations:**
 
-#### Database (`db/diesel/`)
-- **Diesel ORM**: Type-safe database queries and migrations
-- **Models** (`models/`): Complete Diesel model definitions
-  - User models (`user.rs`)
-  - Session models (`session.rs`) 
-  - Notification models (`notification.rs`) ✅ **New**
-  - Security models (`security.rs`) ✅ **New**
-  - IAM models (`iam.rs`)
-  - Payment models (`payment.rs`)
-  - Stock models (`stock.rs`)
-- **Schema** (`schema.rs`): Auto-generated Diesel schema with 24 tables
-- **Connection Pool** (`pool.rs`): bb8-diesel connection management
-- **Repositories** (`repos/`): Diesel-based repository implementations
-
-#### Legacy PostgreSQL (`db/postgres/`)
-- **Notification Repository** (`notification_repo.rs`) ✅ **Migrated to Diesel**
-- Migration in progress for remaining components
+#### Database Integration
+- **SQLx**: Async database queries and type safety
+- **Repository Adapters**: Complete SQLx implementations
+  - User repository (`user_repository_adapter.rs`)
+  - Session repository (`session_repository_adapter.rs`) 
+  - Notification repository (`notification_repository_adapter.rs`)
+  - Security repository adapters
+  - Payment repository adapters
+  - Transaction repository adapters
+- **Database Types** (`database_types.rs`): Type definitions for SQLx integration
+- **Connection Management**: Built-in SQLx connection pooling
+- **Mappers** (`mappers/`): Domain to database model mapping
 
 #### Services (`services/`)
 - **Email** (`email.rs`): SendGrid integration with fallback support
@@ -260,9 +255,9 @@ The EPSX backend implements a well-structured Clean Architecture pattern with fi
 - **Node.js** 18+ (for running the monorepo)
 - **Diesel CLI** (for database migrations)
 
-### Install Diesel CLI
+### Install SQLx CLI
 ```bash
-cargo install diesel_cli --no-default-features --features postgres
+cargo install sqlx-cli --no-default-features --features rustls,postgres
 ```
 
 ### Environment Configuration
@@ -293,14 +288,14 @@ FRONTEND_URL=http://localhost:3000
 NEXTAUTH_SECRET=your_jwt_secret_here
 ```
 
-### Database Setup with Diesel
+### Database Setup with SQLx
 
 ```bash
-# Setup database (first time only)
-diesel setup
+# Create database (first time only)
+sqlx database create
 
 # Run database migrations
-cargo run --bin migrate up --features cli-tools
+cargo run --bin migrate up
 
 # Check migration status  
 cargo run --bin migrate status --features cli-tools

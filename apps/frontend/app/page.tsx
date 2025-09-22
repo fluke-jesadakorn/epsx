@@ -23,9 +23,9 @@ export default async function HomePage() {
     const analyticsResponse = await getAnalyticsData({ page: 1, limit: 10, sort_by: 'growth_factor' });
     
     // Check if we have successful data or if authentication is required
-    if (analyticsResponse && analyticsResponse.success && analyticsResponse.data && analyticsResponse.data.length > 0) {
+    if (analyticsResponse && analyticsResponse.success && analyticsResponse.rankings && analyticsResponse.rankings.length > 0) {
       // Convert analytics data to format expected by components
-      initialData = analyticsResponse.data.slice(0, 6).map((item, index) => ({
+      initialData = analyticsResponse.rankings.slice(0, 6).map((item, index) => ({
         symbol: item.symbol,
         rank: item.rank,
         quarters: item.quarterly_performance || [],
@@ -33,7 +33,7 @@ export default async function HomePage() {
       }));
       
       // Use top 3 for EPS card data - convert to TableDataMetrics format
-      epsCardData = analyticsResponse.data.slice(0, 3).map((item, index) => ({
+      epsCardData = analyticsResponse.rankings.slice(0, 3).map((item, index) => ({
         symbol: item.symbol,
         name: item.symbol, // Use symbol as name for now
         valueIndex: `${index + 1}`,

@@ -50,13 +50,13 @@ impl OIDCService {
 
     pub async fn generate_tokens(
         &self, 
-        firebase_user: &crate::infrastructure::adapters::services::firebase::types::FirebaseUser, 
-        domain_user: Option<&crate::domain::user_management::aggregates::user::User>
+        domain_user: &crate::domain::user_management::aggregates::user::User
     ) -> Result<TokenResponse, OIDCError> {
-        tracing::info!("🔄 Generating production OIDC tokens for Firebase user: {}", firebase_user.uid);
+        tracing::info!("🔄 Generating production OIDC tokens for Web3 user: {}", domain_user.id());
         
-        // If domain user is provided, generate JWT with complete user information
-        if let Some(user) = domain_user {
+        // Generate JWT with complete user information
+        {
+            let user = domain_user;
             tracing::info!("✅ Using domain user data for JWT generation: {} ({})", 
                 user.id(), user.email().as_str());
             
@@ -93,7 +93,7 @@ impl OIDCService {
             let access_token = jwt_service.generate_user_token(
                 user.id().to_string(),
                 user.email().as_str().to_string(),
-                firebase_user.display_name.clone(),
+                None, // display_name - not available in Web3 authentication
                 user_context,
                 permissions,
                 None // subscription - can be enhanced later
@@ -125,18 +125,6 @@ impl OIDCService {
                 refresh_token: Some(refresh_token),
                 id_token: Some(id_token),
                 scope: Some("openid profile email".to_string()),
-            })
-        } else {
-            // Fallback for when domain user is not available (should be rare)
-            tracing::warn!("⚠️ No domain user provided, generating minimal tokens for Firebase user: {}", firebase_user.uid);
-            
-            Ok(TokenResponse {
-                access_token: format!("fallback_access_token_{}", firebase_user.uid),
-                token_type: "Bearer".to_string(),
-                expires_in: 3600,
-                refresh_token: Some(format!("fallback_refresh_token_{}", firebase_user.uid)),
-                id_token: Some(format!("fallback_id_token_{}", firebase_user.uid)),
-                scope: Some("openid email profile".to_string()),
             })
         }
     }

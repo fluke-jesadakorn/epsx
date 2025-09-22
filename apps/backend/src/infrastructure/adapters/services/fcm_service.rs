@@ -1,13 +1,11 @@
 use serde::{Deserialize, Serialize};
 use async_trait::async_trait;
-use std::sync::Arc;
 use crate::application::ports::outbound::service_ports::NotificationServicePort;
-use crate::infrastructure::firebase_admin::FirebaseAdmin;
 
 #[derive(Debug, thiserror::Error)]
 pub enum FcmServiceError {
-    #[error("Firebase error: {0}")]
-    FirebaseError(String),
+    #[error("Notification error: {0}")]
+    NotificationError(String),
     #[error("Network error: {0}")]
     NetworkError(String),
     #[error("Invalid token: {0}")]
@@ -16,20 +14,17 @@ pub enum FcmServiceError {
 
 impl From<Box<dyn std::error::Error + Send + Sync>> for FcmServiceError {
     fn from(err: Box<dyn std::error::Error + Send + Sync>) -> Self {
-        FcmServiceError::FirebaseError(err.to_string())
+        FcmServiceError::NotificationError(err.to_string())
     }
 }
 
-/// FCM (Firebase Cloud Messaging) service for push notifications
-pub struct FcmService {
-    firebase_admin: Arc<FirebaseAdmin>,
-}
+/// FCM (Firebase Cloud Messaging) service stub for push notifications (Web3-First)
+pub struct FcmService;
+
 
 impl FcmService {
-    pub fn new(firebase_admin: Arc<FirebaseAdmin>) -> Self {
-        Self {
-            firebase_admin
-        }
+    pub fn new() -> Self {
+        Self
     }
 
     pub async fn send_notification(
@@ -101,13 +96,13 @@ impl NotificationServicePort for FcmService {
         
         // Use the existing send_notification method
         let response = self.send_notification(&notification).await
-            .map_err(|e| FcmServiceError::FirebaseError(e.to_string()))?;
+            .map_err(|e| FcmServiceError::NotificationError(e.to_string()))?;
         
         // Check if the notification was sent successfully
         if response.success {
             Ok(())
         } else {
-            Err(FcmServiceError::FirebaseError(
+            Err(FcmServiceError::NotificationError(
                 response.error.unwrap_or_else(|| "Unknown FCM error".to_string())
             ))
         }

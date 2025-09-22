@@ -408,7 +408,7 @@ impl SessionManagementRepositoryAdapter {
         let metadata = SessionMetadata::new(
             session_id,
             user_id,
-            crate::domain::authentication::ProviderType::Firebase, // Default provider
+            crate::domain::authentication::ProviderType::Web3, // Web3-first provider
             legacy_session.expires_at,
         );
         
@@ -435,7 +435,7 @@ impl SessionManagementRepositoryAdapter {
         Ok(crate::domain::shared_kernel::entities::session::Session {
             id: None, // Will be auto-generated
             user_id: numericuser_id,
-            firebase_uid: Some(metadata.user_id.to_string()),
+            // firebase_uid removed for Web3-first architecture
             ip_address: metadata.ip_addresses.first().map(|ip| ip.address.clone()),
             expires_at: metadata.expires_at,
             created_at: metadata.created_at,
@@ -492,7 +492,7 @@ mod tests {
             Ok(Some(crate::domain::shared_kernel::entities::session::Session {
                 id: Some(1),
                 user_id: 123,
-                firebase_uid: Some("test_uid".to_string()),
+                // Test session without Firebase reference
                 ip_address: Some("192.168.1.1".to_string()),
                 expires_at: chrono::Utc::now() + chrono::Duration::hours(1),
                 created_at: chrono::Utc::now(),
@@ -563,7 +563,7 @@ mod tests {
         let metadata = SessionMetadata::new(
             session_id.clone(),
             user_id,
-            crate::domain::authentication::ProviderType::Firebase,
+            crate::domain::authentication::ProviderType::Web3,
             chrono::Utc::now() + chrono::Duration::hours(1),
         );
         

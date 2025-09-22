@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
     // Fix WebSocket connection issues in Next.js 15
     webpackBuildWorker: true,
   },
-  // Improve HMR WebSocket reliability
+  // Improve HMR WebSocket reliability and fix SSR issues
   webpack: (config, { dev, isServer }) => {
     if (dev && !isServer) {
       config.watchOptions = {
@@ -18,6 +18,16 @@ const nextConfig: NextConfig = {
         aggregateTimeout: 300,
       };
     }
+    
+    // Fix browser-only APIs during SSR
+    if (isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        'indexeddb-js': false,
+        'fake-indexeddb': false,
+      };
+    }
+    
     return config;
   },
 };

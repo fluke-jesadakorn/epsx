@@ -4,9 +4,9 @@ import { useAnalyticsFilters } from '@/hooks/useAnalyticsFilters';
 import { 
   AnalyticsClient, 
   UnifiedAnalyticsRankingsResponse, 
-  UnifiedRankingItem,
-  EPSQueryParams
+  UnifiedRankingItem
 } from '@/lib/api-client';
+import { EPSQueryParams } from '@/lib/server-data';
 import type { AnalyticsFilters, EPSRanking } from '@/types/analytics';
 import { useEffect, useState } from 'react';
 import FilterPanel from './FilterPanel';

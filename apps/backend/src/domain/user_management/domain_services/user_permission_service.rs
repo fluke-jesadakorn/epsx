@@ -309,12 +309,12 @@ impl Specification<User> for HasPlatformAccessSpecification {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::user_management::value_objects::{Email, FirebaseUid};
+    use crate::domain::user_management::value_objects::{Email, WalletAddress};
     
     fn create_test_user() -> User {
         User::create(
             UserId::new(),
-            FirebaseUid::new("test_uid").unwrap(),
+            WalletAddress::new("0x742d35Cc6634C0532925a3b8D369D7763F3c45c6").unwrap(),
             Email::new("test@example.com").unwrap(),
         ).unwrap()
     }

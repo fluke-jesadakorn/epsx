@@ -10,7 +10,7 @@ import { OptimizedSuspenseBoundary } from '@/components/common/OptimizedSuspense
 
 export function ClientProviders({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider defaultTheme="system" enableSystem>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       <PerformanceProvider>
         <AppStateProvider>
           <UIProvider>

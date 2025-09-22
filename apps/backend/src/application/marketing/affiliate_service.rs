@@ -3,7 +3,7 @@ use serde::{Serialize, Deserialize};
 use sqlx::PgPool;
 use chrono::{DateTime, Utc};
 
-// TODO: Migrate AffiliateService to SQLx - currently disabled during Diesel migration
+// AffiliateService implementation using SQLx for database operations
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AffiliateFilters {

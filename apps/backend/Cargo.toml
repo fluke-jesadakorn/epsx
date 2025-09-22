@@ -31,8 +31,8 @@ default = ["production"]
 
 # Core component features
 websockets = ["dep:tokio-tungstenite", "dep:futures-util"]
-database = ["dep:sqlx"]
-postgres = ["database", "sqlx/postgres"]
+database = []
+postgres = ["database"]
 cache = ["dep:redis"]
 auth = ["jwt", "crypto", "dep:sha2"]
 jwt = ["dep:jsonwebtoken", "dep:hmac", "dep:sha2"]
@@ -45,7 +45,7 @@ tls-rustls = ["reqwest?/rustls-tls"]
 
 # Build configurations
 production = ["postgres", "cache", "auth", "websockets", "templates", "http-client"]
-cli-tools = ["dep:clap", "database", "sqlx/migrate"]
+cli-tools = ["dep:clap", "database"]
 
 [dependencies]
 # Core server dependencies (always required)
@@ -134,7 +134,7 @@ askama_axum = { version = "0.4", optional = true }
 redis = { version = "0.23", features = ["tokio-comp", "connection-manager"], optional = true }
 
 # Database access with SQLx - Cloud Run native async database driver
-sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json", "migrate", "bigdecimal"], optional = true }
+sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json", "migrate", "bigdecimal"] }
 bigdecimal = { version = "0.4", features = ["serde"] }
 # SQLx provides native async PostgreSQL access optimized for Cloud Run environments
 # Eliminates bb8/deadpool connection pool complexity with built-in async connection management

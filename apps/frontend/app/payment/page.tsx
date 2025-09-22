@@ -1,7 +1,8 @@
 import { getCurrentUser } from '@/lib/server-actions';
-import { redirect } from 'next/navigation';
 import { PaymentPageClient } from './PaymentPageClient';
 import { PaymentStatusServer } from '@/components/sections/payment/PaymentStatusServer';
+import { ProgressiveAuthGate } from '@/components/auth/ProgressiveAuthGate';
+import { AuthLevel } from '@/types/progressive-auth';
 import { Suspense } from 'react';
 
 export const dynamic = 'force-dynamic';
@@ -11,13 +12,8 @@ interface PaymentPageProps {
 }
 
 export default async function PaymentPage({ searchParams }: PaymentPageProps) {
-  // Server-side auth check - redirect to login if not authenticated
+  // Get user data but don't redirect on failure - allow viewing pricing plans
   const user = await getCurrentUser();
-
-  if (!user) {
-    const { redirectToBackendLogin } = await import('@/lib/server/auth');
-    redirectToBackendLogin('/payment');
-  }
   
   // Extract package parameter from search params
   const selectedPackageId = searchParams.package || '';
@@ -48,24 +44,33 @@ export default async function PaymentPage({ searchParams }: PaymentPageProps) {
           </p>
         </div>
 
+        {/* Always show pricing plans - no auth required */}
         <PaymentPageClient selectedPackageId={selectedPackageId} />
 
+        {/* Payment status requires authentication */}
         <div className="mb-12">
-          <Suspense
-            fallback={
-              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-pink-200/50 dark:border-pink-700/50">
-                <div>
-                  <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
-                  <div className="space-y-3">
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
+          <ProgressiveAuthGate
+            requiredLevel={AuthLevel.AUTHENTICATED}
+            actionName="view your payment status and transaction history"
+            authMessage="Sign in with your wallet to view your payment status, subscription details, and transaction history"
+            showUpgradePrompts={true}
+          >
+            <Suspense
+              fallback={
+                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-pink-200/50 dark:border-pink-700/50">
+                  <div>
+                    <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
+                    <div className="space-y-3">
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            }
-          >
-            <PaymentStatusServer className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-pink-200/50 dark:border-pink-700/50" />
-          </Suspense>
+              }
+            >
+              <PaymentStatusServer className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-pink-200/50 dark:border-pink-700/50" />
+            </Suspense>
+          </ProgressiveAuthGate>
         </div>
       </div>
     </main>

@@ -185,7 +185,7 @@ describe('WalletConnectAuth', () => {
         </TestWrapper>
       );
 
-      expect(screen.getByText('Sign In')).toBeInTheDocument();
+      expect(screen.getByText('Connect')).toBeInTheDocument();
     });
   });
 

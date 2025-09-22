@@ -43,7 +43,7 @@ mod security_tests {
     #[tokio::test]
     async fn test_nonce_replay_attack_prevention() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string());
+        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
         
         let wallet = "0xtest742d35Cc6634C0532925a3b8D369D7763F3c45c6";
         
@@ -91,7 +91,7 @@ mod security_tests {
     #[tokio::test]
     async fn test_expired_nonce_rejection() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string());
+        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
         
         let wallet = "0xtest742d35Cc6634C0532925a3b8D369D7763F3c45c6";
         let nonce = "expired_test_nonce";
@@ -130,7 +130,7 @@ mod security_tests {
     #[tokio::test]
     async fn test_domain_validation_security() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string());
+        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
         
         let wallet = "0xtest742d35Cc6634C0532925a3b8D369D7763F3c45c6";
         
@@ -160,7 +160,7 @@ mod security_tests {
     #[tokio::test]
     async fn test_wallet_address_validation() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string());
+        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
         
         let wallet = "0xtest742d35Cc6634C0532925a3b8D369D7763F3c45c6";
         
@@ -191,7 +191,7 @@ mod security_tests {
     #[tokio::test]
     async fn test_sql_injection_protection() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string());
+        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
         let permission_service = Web3PermissionService::new(
             pool.clone(),
             "test".to_string(),
@@ -256,7 +256,7 @@ mod security_tests {
     #[tokio::test]
     async fn test_nonce_uniqueness_enforcement() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string());
+        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
         
         let wallet1 = "0xtest742d35Cc6634C0532925a3b8D369D7763F3c45c6";
         let wallet2 = "0xtest1234567890123456789012345678901234567890";
@@ -282,7 +282,7 @@ mod security_tests {
     #[tokio::test]
     async fn test_timestamp_verification() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string());
+        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
         
         let wallet = "0xtest742d35Cc6634C0532925a3b8D369D7763F3c45c6";
         
@@ -346,7 +346,7 @@ mod security_tests {
     #[tokio::test]
     async fn test_concurrent_nonce_generation() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string());
+        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
         
         let wallet = "0xtest742d35Cc6634C0532925a3b8D369D7763F3c45c6";
         
@@ -410,7 +410,7 @@ mod security_tests {
     #[tokio::test]
     async fn test_malformed_siwe_message_rejection() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string());
+        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
         
         let wallet = "0xtest742d35Cc6634C0532925a3b8D369D7763F3c45c6";
         

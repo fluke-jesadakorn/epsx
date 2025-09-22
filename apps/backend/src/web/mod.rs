@@ -12,7 +12,6 @@ pub mod validation;
 pub mod health;
 pub mod analytics;
 pub mod settings;
-pub mod templates;
 pub mod admin_assignment;
 pub mod session_management_handlers;
 pub mod session_management_routes;
@@ -131,9 +130,6 @@ async fn create_standalone_analytics_routes(
         oidc_client_secret: "default-secret".to_string(),
         oidc_admin_client_id: "epsx-admin".to_string(),
         oidc_admin_client_secret: "default-secret".to_string(),
-        firebase_project_id: "epsx-dev".to_string(),
-        firebase_private_key: "-----BEGIN PRIVATE KEY-----\ndefault\n-----END PRIVATE KEY-----".to_string(),
-        firebase_client_email: "firebase-adminsdk@epsx-dev.iam.gserviceaccount.com".to_string(),
         ethereum_rpc_url: "https://eth.llamarpc.com".to_string(),
         polygon_rpc_url: "https://polygon.llamarpc.com".to_string(),
         arbitrum_rpc_url: "https://arbitrum.llamarpc.com".to_string(),
@@ -266,6 +262,9 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
   
   // Create payments API routes
   let payments_routes = api::v1::create_payments_router(container.clone());
+  
+  // Create progressive authentication routes
+  let progressive_auth_routes = api::v1::create_progressive_auth_routes(container.clone());
 
   // Create core routes
   let core_routes = Router::new()
@@ -291,8 +290,9 @@ pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<d
     // Legacy routes for backward compatibility
     .nest("/api/v1/plans", marketing_routes)
     .nest("/api/v1/payments", payments_routes)
+    .nest("/api/v1/progressive", progressive_auth_routes)
     .nest("/api/v1/admin", admin_routes)
-    .merge(admin_public_routes)
+    .nest("/admin", admin_public_routes)
     // Add comprehensive security middleware stack
     // TODO: Fix middleware state type compatibility
     // .layer(axum_middleware::from_fn_with_state(

@@ -18,7 +18,8 @@ export default defineConfig({
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
     ['json', { outputFile: 'test-results/results.json' }],
     ['junit', { outputFile: 'test-results/results.xml' }],
-    ['list']
+    ['list'],
+    ['./test-results/coverage-reporter.js'] // Custom coverage reporter
   ],
   outputDir: 'test-results',
   use: {
@@ -72,6 +73,37 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['setup'],
     },
+
+    // Web3 Wallet Comprehensive Testing - 100% Coverage
+    {
+      name: 'web3-comprehensive',
+      testMatch: '**/web3-wallet-comprehensive.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+    },
+
+    // Web3 Complete Coverage Suite
+    {
+      name: 'web3-complete-coverage',
+      testMatch: '**/web3-complete-coverage.spec.ts',
+      use: { 
+        ...devices['Desktop Chrome'],
+        // Enable coverage collection
+        contextOptions: {
+          recordVideo: { dir: 'test-results/videos' },
+          recordHar: { path: 'test-results/network.har' },
+        }
+      },
+      dependencies: ['setup'],
+    },
+
+    // Web3 Authentication Flows
+    {
+      name: 'web3-auth-flows',
+      testMatch: '**/web3-authentication-flows.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+    },
     
     // Enhanced auth flow tests
     {
@@ -103,7 +135,51 @@ export default defineConfig({
       dependencies: ['setup'],
     },
     
-    // Cross-browser testing
+    // Cross-browser Web3 testing
+    {
+      name: 'web3-firefox',
+      testMatch: [
+        '**/web3-complete-coverage.spec.ts',
+        '**/web3-wallet-comprehensive.spec.ts'
+      ],
+      use: { ...devices['Desktop Firefox'] },
+      dependencies: ['setup'],
+    },
+    
+    {
+      name: 'web3-webkit',
+      testMatch: [
+        '**/web3-complete-coverage.spec.ts',
+        '**/web3-wallet-comprehensive.spec.ts'
+      ], 
+      use: { ...devices['Desktop Safari'] },
+      dependencies: ['setup'],
+    },
+    
+    // Mobile Web3 testing
+    {
+      name: 'web3-mobile-chrome',
+      testMatch: [
+        '**/web3-complete-coverage.spec.ts',
+        '**/web3-wallet-comprehensive.spec.ts',
+        '**/web3-authentication-flows.spec.ts'
+      ],
+      use: { ...devices['Pixel 5'] },
+      dependencies: ['setup'],
+    },
+    
+    {
+      name: 'web3-mobile-safari',
+      testMatch: [
+        '**/web3-complete-coverage.spec.ts',
+        '**/web3-wallet-comprehensive.spec.ts',
+        '**/web3-authentication-flows.spec.ts'
+      ],
+      use: { ...devices['iPhone 12'] },
+      dependencies: ['setup'],
+    },
+
+    // Legacy coverage tests
     {
       name: 'firefox',
       testMatch: '**/complete-coverage.spec.ts',
@@ -118,7 +194,6 @@ export default defineConfig({
       dependencies: ['setup'],
     },
     
-    // Mobile testing
     {
       name: 'mobile-chrome',
       testMatch: [

@@ -13,7 +13,8 @@ pub mod multi_chain_cache_service;
 
 // UNIFIED AUTHENTICATION SERVICE (Web3-First)
 pub mod unified_auth_service;
-pub mod migration_service;
+// Migration service removed - Web3-first approach eliminates need for Firebase migration
+// pub mod migration_service;
 pub mod unified_permission_service;
 pub mod enhanced_bearer_token_service;
 
@@ -70,14 +71,15 @@ pub use multi_chain_cache_service::{
 pub use unified_auth_service::{
     UnifiedAuthService, AuthMethod, AuthChallenge as UnifiedAuthChallenge, 
     AuthChallengeData, UnifiedVerifyRequest, VerificationData, UnifiedAuthResult,
-    UserProfile, MigrationRequest, AuthContext as UnifiedAuthContext
+    UserProfile, AuthContext as UnifiedAuthContext
 };
 
-// MIGRATION SERVICE EXPORTS
-pub use migration_service::{
-    MigrationService, MigrationStatus, MigrationResult, MigrationPlan,
-    DataPreservationPlan, BatchMigrationRequest, SingleUserMigration, MigrationStats
-};
+// MIGRATION SERVICE EXPORTS - REMOVED (Web3-First Migration)
+// Migration service removed - new users should register directly with Web3 wallets
+// pub use migration_service::{
+//     MigrationService, MigrationStatus, MigrationResult, MigrationPlan,
+//     DataPreservationPlan, BatchMigrationRequest, SingleUserMigration, MigrationStats
+// };
 
 // UNIFIED PERMISSION SERVICE EXPORTS
 pub use unified_permission_service::{

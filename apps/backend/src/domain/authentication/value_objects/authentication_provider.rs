@@ -32,20 +32,6 @@ impl AuthenticationProvider {
         }
     }
     
-    /// Create Firebase provider (primary for EPSX)
-    pub fn firebase() -> Self {
-        let scopes = vec![
-            Scope::OpenId,
-            Scope::Profile,
-            Scope::Email,
-            Scope::EpsxAnalytics,
-            Scope::EpsxTrading,
-            Scope::EpsxNotifications,
-        ];
-        
-        Self::new(ProviderType::Firebase, scopes)
-    }
-    
     /// Create OIDC provider for admin access
     pub fn oidc_admin() -> Self {
         let scopes = vec![
@@ -84,14 +70,6 @@ impl AuthenticationProvider {
         
         // Provider-specific validations
         match &self.provider_type {
-            ProviderType::Firebase => {
-                // Firebase must include profile for user info
-                if requested_scopes.contains(&Scope::OpenId) && !requested_scopes.contains(&Scope::Profile) {
-                    return Err(AuthProviderError::InvalidScopeConfiguration(
-                        "Firebase OIDC requires profile scope".to_string()
-                    ));
-                }
-            },
             ProviderType::OpenIdConnect => {
                 // Admin OIDC must include email for verification
                 if requested_scopes.contains(&Scope::EpsxAdmin) && !requested_scopes.contains(&Scope::Email) {
@@ -122,7 +100,6 @@ impl AuthenticationProvider {
     /// Get token lifetime for this provider
     pub fn token_lifetime(&self) -> chrono::Duration {
         match self.provider_type {
-            ProviderType::Firebase => chrono::Duration::hours(1),
             ProviderType::OpenIdConnect => chrono::Duration::hours(2),
             ProviderType::Internal => chrono::Duration::hours(24),
         }
@@ -131,7 +108,6 @@ impl AuthenticationProvider {
     /// Get refresh token lifetime for this provider  
     pub fn refresh_token_lifetime(&self) -> chrono::Duration {
         match self.provider_type {
-            ProviderType::Firebase => chrono::Duration::days(30),
             ProviderType::OpenIdConnect => chrono::Duration::days(7),
             ProviderType::Internal => chrono::Duration::days(90),
         }
@@ -146,7 +122,6 @@ impl AuthenticationProvider {
         
         // Provider-specific MFA requirements
         match self.provider_type {
-            ProviderType::Firebase => false,
             ProviderType::OpenIdConnect => true,
             ProviderType::Internal => false,
         }
@@ -159,11 +134,9 @@ impl AuthenticationProvider {
     pub fn config(&self) -> &ProviderConfiguration { &self.provider_config }
 }
 
-/// Types of authentication providers
+/// Types of authentication providers (Web3-First)
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum ProviderType {
-    /// Firebase Authentication (primary for EPSX users)
-    Firebase,
     /// Standard OpenID Connect provider (admin access)
     OpenIdConnect,
     /// Internal service authentication
@@ -173,7 +146,6 @@ pub enum ProviderType {
 impl std::fmt::Display for ProviderType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            ProviderType::Firebase => write!(f, "firebase"),
             ProviderType::OpenIdConnect => write!(f, "oidc"),
             ProviderType::Internal => write!(f, "internal"),
         }
@@ -194,18 +166,6 @@ pub struct ProviderCapabilities {
 impl ProviderCapabilities {
     fn from_provider_type(provider_type: &ProviderType) -> Self {
         match provider_type {
-            ProviderType::Firebase => Self {
-                supported_methods: [
-                    AuthenticationMethod::Password,
-                    AuthenticationMethod::OAuth2,
-                    AuthenticationMethod::SocialLogin,
-                ].into_iter().collect(),
-                supportsrefresh_tokens: true,
-                supports_id_tokens: true,
-                supports_userinfo: true,
-                supports_revocation: true,
-                supports_introspection: false,
-            },
             ProviderType::OpenIdConnect => Self {
                 supported_methods: [
                     AuthenticationMethod::OAuth2,
@@ -259,14 +219,6 @@ pub struct ProviderConfiguration {
 impl ProviderConfiguration {
     fn default_for_type(provider_type: &ProviderType) -> Self {
         match provider_type {
-            ProviderType::Firebase => Self {
-                issuer_url: Some("https://securetoken.google.com/epsx-449804".to_string()),
-                client_id: Some("epsx-firebase-client".to_string()),
-                jwks_uri: Some("https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com".to_string()),
-                userinfo_endpoint: Some("https://www.googleapis.com/oauth2/v1/userinfo".to_string()),
-                revocation_endpoint: None,
-                introspection_endpoint: None,
-            },
             ProviderType::OpenIdConnect => Self {
                 issuer_url: Some("https://api.epsx.io".to_string()),
                 client_id: Some("epsx-admin-client".to_string()),
@@ -310,15 +262,6 @@ pub enum AuthProviderError {
 mod tests {
     use super::*;
     
-    #[test]
-    fn firebase_provider_creation() {
-        let provider = AuthenticationProvider::firebase();
-        
-        assert_eq!(provider.provider_type(), &ProviderType::Firebase);
-        assert!(provider.supported_scopes().contains(&Scope::OpenId));
-        assert!(provider.supported_scopes().contains(&Scope::EpsxAnalytics));
-        assert!(provider.supports_method(&AuthenticationMethod::OAuth2));
-    }
     
     #[test]
     fn oidc_admin_provider_validation() {
@@ -348,30 +291,26 @@ mod tests {
     
     #[test]
     fn provider_mfa_requirements() {
-        let firebase = AuthenticationProvider::firebase();
         let oidc_admin = AuthenticationProvider::oidc_admin();
+        let internal = AuthenticationProvider::internal_service();
         
         // Admin access requires MFA
         let admin_scopes = vec![Scope::EpsxAdmin];
-        assert!(firebase.requires_mfa(&admin_scopes));
         assert!(oidc_admin.requires_mfa(&admin_scopes));
         
-        // Regular scopes don't require MFA for Firebase
-        let user_scopes = vec![Scope::OpenId, Scope::Profile];
-        assert!(!firebase.requires_mfa(&user_scopes));
+        // Regular scopes don't require MFA for Internal
+        let user_scopes = vec![Scope::EpsxAnalytics];
+        assert!(!internal.requires_mfa(&user_scopes));
     }
     
     #[test]
     fn provider_token_lifetimes() {
-        let firebase = AuthenticationProvider::firebase();
         let oidc = AuthenticationProvider::oidc_admin();
         let internal = AuthenticationProvider::internal_service();
         
-        assert_eq!(firebase.token_lifetime(), chrono::Duration::hours(1));
         assert_eq!(oidc.token_lifetime(), chrono::Duration::hours(2));
         assert_eq!(internal.token_lifetime(), chrono::Duration::hours(24));
         
-        assert_eq!(firebase.refresh_token_lifetime(), chrono::Duration::days(30));
         assert_eq!(oidc.refresh_token_lifetime(), chrono::Duration::days(7));
         assert_eq!(internal.refresh_token_lifetime(), chrono::Duration::days(90));
     }

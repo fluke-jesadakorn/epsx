@@ -21,5 +21,8 @@ export {
 // Export separated authentication types for user frontend (includes UserSubscription)
 export type * from './auth-separation';
 
+// Export progressive authentication types
+export type * from './progressive-auth';
+
 // Shared types are now exported from @epsx/types package
 // Auth types are now imported from @epsx/types or @epsx/auth-shared

@@ -63,7 +63,7 @@ impl CreateSessionCommand {
         
         Self {
             user_id,
-            provider: AuthenticationProvider::firebase(),
+            provider: AuthenticationProvider::oidc_admin(),
             client_info,
             scopes,
             client_ip: None,

@@ -94,21 +94,22 @@ const DynamicPricingSection = () => {
         
         if (result.success && result.data) {
           const planData = result.data
-            .filter((item: any) => item?.plan)
             .map((item: any) => ({
-              ...item.plan,
-              planType: item.plan.plan_type,
-              basePrice: parseFloat(item.plan.base_price),
-              currentPrice: parseFloat(item.plan.current_price),
-              effectivePrice: parseFloat(item.effective_price),
-              displayOrder: item.plan.display_order,
-              isActive: item.plan.is_active,
-              isHighlighted: item.plan.is_highlighted,
-              features: Array.isArray(item.plan.features) ? item.plan.features : [],
-              activePromotions: item.active_promotions || [],
-              promotionalBadges: item.promotional_badges || [],
-              campaignSummary: item.campaign_summary,
-              affiliateCommissionRate: parseFloat(item.plan.affiliate_commission_rate || '0')
+              id: item.id,
+              name: item.name,
+              planType: item.plan_type,
+              basePrice: parseFloat(item.current_price) || 0,
+              currentPrice: parseFloat(item.current_price) || 0,
+              effectivePrice: parseFloat(item.current_price) || 0,
+              currency: item.currency || 'USD',
+              displayOrder: item.display_order || 0,
+              isActive: item.is_active,
+              isHighlighted: item.is_highlighted || false,
+              features: Array.isArray(item.features) ? item.features : [],
+              activePromotions: [],
+              promotionalBadges: [],
+              campaignSummary: item.description,
+              affiliateCommissionRate: 0
             }));
           
           // Separate personal and API plans
@@ -129,6 +130,9 @@ const DynamicPricingSection = () => {
           if (affiliateCode && planData.length > 0) {
             fetchAffiliateInfo(affiliateCode);
           }
+        } else {
+          // If no valid data from API, use fallback
+          throw new Error('No valid plan data received');
         }
       } catch (error) {
         console.error('Error fetching dynamic plans:', error);
@@ -169,8 +173,8 @@ const DynamicPricingSection = () => {
     return {
       id: plan.id,
       title: plan.name,
-      price: `${plan.effectivePrice} ${plan.currency}`,
-      originalPrice: hasDiscount ? `${plan.basePrice} ${plan.currency}` : undefined,
+      price: `$${plan.effectivePrice.toFixed(2)} ${plan.currency}`,
+      originalPrice: hasDiscount ? `$${plan.basePrice.toFixed(2)} ${plan.currency}` : undefined,
       features: plan.features.map(feature => ({ text: feature, included: true })),
       highlight: plan.isHighlighted,
       buttonText: plan.effectivePrice === 0 ? 'Start Free' : 'Get Started',
@@ -186,14 +190,16 @@ const DynamicPricingSection = () => {
     const fallbackPersonal: DynamicPricingCard[] = [
       {
         id: 1,
-        title: 'Basic Plan',
-        price: '19.99 USD',
+        title: 'Free Plan',
+        price: '0 USD',
         features: [
-          { text: 'Basic Analytics', included: true },
-          { text: 'Email Support', included: true },
-          { text: '5 Ranking Limit', included: true },
+          { text: 'View 3 rankings', included: true },
+          { text: 'Basic analytics', included: true },
+          { text: 'Community support', included: true },
+          { text: 'Public data access', included: true },
         ],
-        buttonText: 'Get Started',
+        buttonText: 'Start Free',
+        buttonVariant: 'outline',
         promotions: [],
         badges: [],
       },
@@ -203,10 +209,12 @@ const DynamicPricingSection = () => {
         price: '49.99 USD',
         originalPrice: '59.99 USD',
         features: [
-          { text: 'Advanced Analytics', included: true },
-          { text: 'Priority Support', included: true },
-          { text: '50 Ranking Limit', included: true },
-          { text: 'Custom Reports', included: true },
+          { text: 'View 50 rankings', included: true },
+          { text: 'Advanced analytics', included: true },
+          { text: 'Priority support', included: true },
+          { text: 'Custom reports', included: true },
+          { text: 'Real-time data', included: true },
+          { text: 'Export capabilities', included: true },
         ],
         highlight: true,
         buttonText: 'Most Popular',
@@ -214,21 +222,69 @@ const DynamicPricingSection = () => {
         badges: ['POPULAR'],
         savings: 'Save USD 10.00',
       },
+      {
+        id: 3,
+        title: 'Enterprise Plan',
+        price: '199.99 USD',
+        features: [
+          { text: 'Unlimited rankings', included: true },
+          { text: 'Full platform access', included: true },
+          { text: 'Dedicated support', included: true },
+          { text: 'Custom integrations', included: true },
+          { text: 'White-label options', included: true },
+          { text: 'SLA guarantee', included: true },
+        ],
+        buttonText: 'Contact Sales',
+        promotions: [],
+        badges: ['ENTERPRISE'],
+      },
     ];
 
     const fallbackApi: DynamicPricingCard[] = [
       {
-        id: 3,
-        title: 'API Starter',
-        price: '99.99 USD',
+        id: 4,
+        title: 'API Basic',
+        price: '29.99 USD',
         features: [
-          { text: '1000 API calls/month', included: true },
+          { text: '1,000 API calls/month', included: true },
           { text: 'Basic endpoints', included: true },
           { text: 'Documentation access', included: true },
+          { text: 'Email support', included: true },
         ],
         buttonText: 'Get Started',
         promotions: [],
         badges: [],
+      },
+      {
+        id: 5,
+        title: 'API Pro',
+        price: '99.99 USD',
+        features: [
+          { text: '10,000 API calls/month', included: true },
+          { text: 'All endpoints', included: true },
+          { text: 'Webhook support', included: true },
+          { text: 'Priority support', included: true },
+          { text: 'Rate limit increase', included: true },
+        ],
+        highlight: true,
+        buttonText: 'Popular Choice',
+        promotions: [],
+        badges: ['RECOMMENDED'],
+      },
+      {
+        id: 6,
+        title: 'API Enterprise',
+        price: '299.99 USD',
+        features: [
+          { text: 'Unlimited API calls', included: true },
+          { text: 'Custom endpoints', included: true },
+          { text: 'SLA guarantee', included: true },
+          { text: 'Dedicated support', included: true },
+          { text: 'Custom rate limits', included: true },
+        ],
+        buttonText: 'Contact Sales',
+        promotions: [],
+        badges: ['ENTERPRISE'],
       },
     ];
 

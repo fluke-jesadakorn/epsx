@@ -7,18 +7,34 @@ pub mod user_preferences;
 
 // Re-export all value objects for easier import
 pub use notification_id::NotificationId;
-pub use notification_content::{NotificationContent, ContentUrgency};
+pub use notification_content::{ NotificationContent, ContentUrgency };
 pub use delivery_channel::{
-    DeliveryChannel, DeliveryChannelType, MultiChannelConfig, RetryConfiguration,
-    ContentLimits, DeliveryCost, PrivacyLevel
+  DeliveryChannel,
+  DeliveryChannelType,
+  DeliveryChannelConfig,
+  MultiChannelConfig,
+  RetryConfiguration,
+  ContentLimits,
+  DeliveryCost,
+  PrivacyLevel,
 };
 pub use notification_topic::{
-    NotificationTopic, TopicCategory, AccessLevel, SubscriberScale
+  NotificationTopic,
+  TopicCategory,
+  AccessLevel,
+  SubscriberScale,
 };
 pub use schedule_info::{
-    ScheduleInfo, ScheduleType, ScheduleStatus, DeliveryWindow
+  ScheduleInfo,
+  ScheduleType,
+  ScheduleStatus,
+  DeliveryWindow,
 };
 pub use user_preferences::{
-    UserNotificationPreferences, ChannelSettings, ContentPreferences,
-    QuietHours, FrequencyLimits, PreferenceSummary
+  UserNotificationPreferences,
+  ChannelSettings,
+  ContentPreferences,
+  QuietHours,
+  FrequencyLimits,
+  PreferenceSummary,
 };

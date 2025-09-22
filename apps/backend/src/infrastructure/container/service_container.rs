@@ -6,7 +6,6 @@ use sqlx::PgPool;
 use anyhow::Result;
 
 use crate::infrastructure::cache::Cache;
-use crate::infrastructure::adapters::services::firebase::firebase_admin::FirebaseAdmin;
 use crate::auth::{AuthenticationService, AuthorizationService, SessionService, KeyManager};
 use crate::domain::user_management::UserRepositoryPort;
 use crate::infrastructure::adapters::repositories::UserRepositoryAdapter;
@@ -19,7 +18,6 @@ pub struct ServiceContainer {
     // Core infrastructure
     pub db_pool: Arc<PgPool>,
     pub cache: Arc<dyn Cache>,
-    pub firebase_admin: Arc<FirebaseAdmin>,
     
     // New unified auth services
     pub auth_service: Arc<AuthenticationService>,
@@ -40,7 +38,6 @@ impl ServiceContainer {
     pub async fn new(
         db_pool: Arc<PgPool>,
         cache: Arc<dyn Cache>,
-        firebase_admin: Arc<FirebaseAdmin>,
         notification_service: Arc<dyn crate::application::ports::outbound::service_ports::NotificationServicePort<Error = crate::infrastructure::adapters::services::fcm_service::FcmServiceError>>,
     ) -> Result<Self> {
         // Create new unified auth services with KeyManager
@@ -87,7 +84,6 @@ impl ServiceContainer {
         Ok(Self {
             db_pool,
             cache,
-            firebase_admin,
             auth_service,
             authorization_service,
             session_service,
@@ -156,7 +152,26 @@ impl ServiceContainer {
     /// Create application state for web handlers
     pub fn create_app_state(&self) -> crate::web::auth::routes::AppState {
         // Create missing services that are required for AppState
-        let web3_auth_service = Arc::new(crate::auth::Web3AuthService::new((*self.db_pool).clone(), "localhost".to_string()));
+        // Get Web3 configuration from environment
+        let web3_domain = std::env::var("WEB3_DOMAIN")
+            .unwrap_or_else(|_| {
+                match std::env::var("NODE_ENV").unwrap_or_else(|_| "development".to_string()).as_str() {
+                    "development" => "localhost:3000".to_string(),
+                    _ => "epsx.io".to_string(),
+                }
+            });
+        
+        let web3_chain_id = std::env::var("WEB3_CHAIN_ID")
+            .unwrap_or_else(|_| {
+                match std::env::var("NEXT_PUBLIC_BLOCKCHAIN_NETWORK").unwrap_or_else(|_| "testnet".to_string()).as_str() {
+                    "mainnet" => "56".to_string(), // BSC mainnet
+                    _ => "97".to_string(), // BSC testnet (default)
+                }
+            })
+            .parse::<u64>()
+            .unwrap_or(97); // Default to BSC testnet
+            
+        let web3_auth_service = Arc::new(crate::auth::Web3AuthService::new((*self.db_pool).clone(), web3_domain, web3_chain_id));
         let web3_permission_service = Arc::new(crate::auth::Web3PermissionService::new((*self.db_pool).clone(), "https://eth.llamarpc.com".to_string(), "https://polygon.llamarpc.com".to_string()));
         let jwt_service = Arc::new(crate::auth::JWTService::new().expect("Failed to create JWT service"));
         
@@ -170,7 +185,6 @@ impl ServiceContainer {
             web3_auth_service,
             web3_permission_service,
             jwt_service,
-            Arc::new(crate::infrastructure::adapters::services::firebase_admin_stub::FirebaseAdminStub::new("epsx-web3".to_string())),
         )
     }
 }
@@ -230,13 +244,13 @@ mod tests {
         if let Ok(pool) = PgPool::connect(&db_url).await {
             let db_pool = Arc::new(pool);
             let cache = Arc::new(MemoryCache::new());
-            let firebase_admin = Arc::new(FirebaseAdmin::new().unwrap());
+            let firebase_admin_stub = Arc::new(FirebaseAdminStub::new("test-project".to_string()));
             let notification_service = Arc::new(NotificationServiceAdapter::new());
             
             let container = ServiceContainer::new(
                 db_pool,
                 cache,
-                firebase_admin,
+                firebase_admin_stub,
                 notification_service,
             ).await;
             

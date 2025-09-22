@@ -19,6 +19,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { JustInTimeAuth } from '@/components/auth/JustInTimeAuth'
+import { AuthLevel } from '@/types/progressive-auth'
 import MetaMaskPayment from './MetaMaskPayment'
 import PaymentDetails from './PaymentDetails'
 
@@ -742,24 +744,30 @@ export default function OneClickPayment({
                     </div>
                   </div>
 
-                  <Button 
-                    onClick={handlePayment}
-                    disabled={isProcessing}
-                    className="w-full"
-                    size="lg"
+                  <JustInTimeAuth
+                    requiredLevel={AuthLevel.AUTHENTICATED}
+                    actionName={`process payment of $${selectedPkg.current_price}`}
+                    onAuthenticated={handlePayment}
+                    authMessage="Sign in with your wallet to complete your payment securely"
                   >
-                    {isProcessing ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <Lock className="w-4 h-4 mr-2" />
-                        Pay ${selectedPkg.current_price} Now
-                      </>
-                    )}
-                  </Button>
+                    <Button 
+                      disabled={isProcessing}
+                      className="w-full"
+                      size="lg"
+                    >
+                      {isProcessing ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="w-4 h-4 mr-2" />
+                          Pay ${selectedPkg.current_price} Now
+                        </>
+                      )}
+                    </Button>
+                  </JustInTimeAuth>
 
                   <p className="text-xs text-muted-foreground text-center">
                     By continuing, you agree to our Terms of Service and Privacy Policy

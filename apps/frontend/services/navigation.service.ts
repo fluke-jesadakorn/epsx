@@ -4,6 +4,8 @@ interface NavItem {
   key: string;
   icon?: React.ReactNode;
   requireAuth?: boolean;
+  hasDropdown?: boolean;
+  children?: NavItem[];
 }
 
 class NavigationService {
@@ -18,11 +20,47 @@ class NavigationService {
         label: 'Analytics',
         href: '/analytics',
         key: 'analytics',
+        hasDropdown: true,
+        children: [
+          {
+            label: 'EPS Ranking',
+            href: '/analytics',
+            key: 'ranking',
+          },
+          {
+            label: 'Market Overview',
+            href: '/analytics/market',
+            key: 'market',
+          },
+          {
+            label: 'Stock Screener',
+            href: '/analytics/screener',
+            key: 'screener',
+          },
+        ],
       },
       {
         label: 'About Us',
         href: '/about',
         key: 'about',
+        hasDropdown: true,
+        children: [
+          {
+            label: 'Our Story',
+            href: '/about',
+            key: 'story',
+          },
+          {
+            label: 'Team',
+            href: '/about/team',
+            key: 'team',
+          },
+          {
+            label: 'Contact',
+            href: '/about/contact',
+            key: 'contact',
+          },
+        ],
       },
     ];
 

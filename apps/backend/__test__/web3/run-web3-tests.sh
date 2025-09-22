@@ -39,7 +39,7 @@ fi
 # Run database migrations for test database
 echo -e "${YELLOW}🔄 Running database migrations...${NC}"
 cd "$(dirname "$0")/../../"
-diesel migration run --database-url="$DATABASE_URL" || {
+DATABASE_URL="$DATABASE_URL" cargo run --bin migrate up || {
     echo -e "${RED}❌ Failed to run migrations${NC}"
     exit 1
 }
