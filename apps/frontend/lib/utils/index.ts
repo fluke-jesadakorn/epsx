@@ -210,6 +210,16 @@ export function formatFileSize(bytes: number): string {
 }
 
 /**
+ * Utility function to format currency
+ */
+export function fmtCurrency(amount: number, currency: string = 'USD'): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency
+  }).format(amount);
+}
+
+/**
  * Utility function to get contrast color (black or white) for a background color
  */
 export function getContrastColor(hexColor: string): string {

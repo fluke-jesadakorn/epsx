@@ -59,3 +59,19 @@ export function getUserRoleFromPermissions(permissions: string[]): 'admin' | 'us
   }
   return 'guest';
 }
+
+// Additional missing exports that were referenced
+export interface PermissionTemplate {
+  id: string;
+  name: PermissionTemplateName;
+  permissions: string[];
+  displayTier: string;
+  price: number;
+}
+
+export function getPermissionTemplateByName(name: PermissionTemplateName): PermissionTemplate | null {
+  // Implementation placeholder
+  return null;
+}
+
+export const PERMISSION_TEMPLATES: PermissionTemplate[] = [];

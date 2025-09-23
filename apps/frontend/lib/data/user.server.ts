@@ -34,23 +34,6 @@ export async function getUserProfile() {
   }
 }
 
-export async function getAuditLogs(searchParams?: URLSearchParams) {
-  try {
-    const queryString = searchParams?.toString() || '';
-    const endpoint = `/audit/logs${queryString ? `?${queryString}` : ''}`;
-    
-    const response = await apiClient.serverGetAuditLogs(endpoint);
-
-    if (isApiError(response)) {
-      throw new Error(response.error || 'Failed to fetch audit logs');
-    }
-
-    return response.data;
-  } catch (error) {
-    console.error('Audit logs fetch error:', error);
-    throw error;
-  }
-}
 
 export async function getPremiumRankings() {
   try {

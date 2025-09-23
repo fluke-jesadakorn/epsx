@@ -1,13 +1,28 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { useWeb3Auth, type Web3AuthState, type Web3AuthActions } from '@/lib/auth/web3';
+import { createContext, useContext, useEffect, type ReactNode } from 'react';
+import { useWeb3Auth } from '@/lib/auth/use-web3-auth';
 import { useAccount } from 'wagmi';
 import { toast } from 'sonner';
 
-interface Web3AuthContextType extends Web3AuthState, Web3AuthActions {
+interface Web3AuthContextType {
+  isConnected: boolean;
+  isAuthenticated: boolean;
+  isAuthenticating: boolean;
   isLoading: boolean;
   hasInitialized: boolean;
+  walletAddress?: string;
+  permissions: any[];
+  userTier: 'free' | 'nft' | 'token' | 'dao' | 'enterprise';
+  hasApiAccess: boolean;
+  error?: string;
+  authenticate: () => Promise<void>;
+  disconnect: () => Promise<void>;
+  checkAuthStatus: () => Promise<boolean | undefined>;
+  refreshPermissions: () => Promise<boolean>;
+  linkEmail: (email: string, password: string) => Promise<void>;
+  generateApiKey: (name: string) => Promise<string>;
+  resetAuthState: () => void;
 }
 
 const Web3AuthContext = createContext<Web3AuthContextType | null>(null);
@@ -19,60 +34,51 @@ interface Web3AuthProviderProps {
 export function Web3AuthProvider({ children }: Web3AuthProviderProps) {
   const { isConnected } = useAccount();
   const web3Auth = useWeb3Auth();
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasInitialized, setHasInitialized] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(false);
 
-  // Initialize authentication state on mount
+  // Initialize authentication when wallet connects
   useEffect(() => {
     const initializeAuth = async () => {
-      // Prevent multiple simultaneous initialization attempts
-      if (isInitializing || hasInitialized) {
-        console.log('Web3 auth already initializing or initialized, skipping');
+      if (!isConnected) {
+        console.log('🔄 Wallet disconnected, Web3 auth state managed by store');
+        return;
+      }
+
+      if (web3Auth.hasInitialized) {
+        console.log('Web3 auth already initialized');
         return;
       }
 
       try {
-        setIsInitializing(true);
-        setIsLoading(true);
-        
-        // If wallet is connected, check authentication status
-        if (isConnected) {
-          await web3Auth.checkAuthStatus();
-        }
-        
-        setHasInitialized(true);
+        console.log('🚀 Initializing Web3 auth for connected wallet');
+        await web3Auth.checkAuthStatus();
+        console.log('✅ Web3 auth initialization completed');
       } catch (error) {
-        console.error('Failed to initialize Web3 auth:', error);
+        console.error('❌ Failed to initialize Web3 auth:', error);
         toast.error('Failed to initialize authentication');
-      } finally {
-        setIsLoading(false);
-        setIsInitializing(false);
       }
     };
 
     initializeAuth();
-  }, [isConnected, isInitializing, hasInitialized]);
-
-  // DISABLED: Auto-authentication to prevent conflicts and race conditions
-  // Manual authentication only - users must explicitly sign in
-  useEffect(() => {
-    // Only check auth status for already authenticated users, don't auto-authenticate
-    const handleAuthCheck = async () => {
-      if (!hasInitialized || !isConnected) return;
-      
-      // Only check existing session status, don't trigger new authentication
-      console.log('🔍 Checking existing Web3 authentication status (no auto-auth)');
-      await web3Auth.checkAuthStatus();
-    };
-
-    handleAuthCheck();
-  }, [isConnected, hasInitialized, web3Auth.checkAuthStatus]);
+  }, [isConnected, web3Auth.hasInitialized, web3Auth.checkAuthStatus]);
 
   const contextValue: Web3AuthContextType = {
-    ...web3Auth,
-    isLoading,
-    hasInitialized,
+    isConnected: web3Auth.isConnected,
+    isAuthenticated: web3Auth.isAuthenticated,
+    isAuthenticating: web3Auth.isAuthenticating,
+    isLoading: web3Auth.isLoading,
+    hasInitialized: web3Auth.hasInitialized,
+    walletAddress: web3Auth.walletAddress,
+    permissions: web3Auth.permissions,
+    userTier: web3Auth.userTier,
+    hasApiAccess: web3Auth.hasApiAccess,
+    error: web3Auth.error,
+    authenticate: web3Auth.authenticate,
+    disconnect: web3Auth.disconnect,
+    checkAuthStatus: web3Auth.checkAuthStatus,
+    refreshPermissions: web3Auth.refreshPermissions,
+    linkEmail: web3Auth.linkEmail,
+    generateApiKey: web3Auth.generateApiKey,
+    resetAuthState: web3Auth.resetAuthState,
   };
 
   return (
@@ -109,7 +115,7 @@ export function withWeb3Auth<P extends object>(
       return (
         <div className="flex items-center justify-center min-h-[200px]">
           <div className="flex flex-col items-center gap-3">
-            <div className="h-8 w-8 bg-orange-500 rounded animate-pulse" />
+            <div className="h-8 w-8 bg-orange-500 rounded" />
             <p className="text-sm text-slate-600 dark:text-slate-400">
               Initializing Web3 authentication...
             </p>
@@ -168,34 +174,5 @@ export function withWeb3Auth<P extends object>(
   };
 }
 
-// Hook for checking specific permissions
-export function useWeb3Permission(permission: string): boolean {
-  const { permissions, isAuthenticated } = useWeb3AuthContext();
-  
-  if (!isAuthenticated) return false;
-  
-  return permissions.some(p => 
-    p.permission === permission || 
-    p.permission.includes('*') ||
-    permission.startsWith(p.permission.replace('*', ''))
-  );
-}
-
-// Hook for checking tier requirements
-export function useWeb3Tier(requiredTier: 'nft' | 'token' | 'dao' | 'enterprise'): boolean {
-  const { userTier, isAuthenticated } = useWeb3AuthContext();
-  
-  if (!isAuthenticated) return false;
-  
-  const tierHierarchy = {
-    nft: 1,
-    token: 2,
-    dao: 3,
-    enterprise: 4,
-  };
-
-  const userLevel = tierHierarchy[userTier as keyof typeof tierHierarchy] || 0;
-  const requiredLevel = tierHierarchy[requiredTier];
-
-  return userLevel >= requiredLevel;
-}
+// Re-export hooks from the store-based implementation
+export { useWeb3Permission, useWeb3Tier } from '@/lib/auth/use-web3-auth';

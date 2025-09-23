@@ -55,20 +55,6 @@ export async function getStockFinancialDataPaginated(
   }
 }
 
-export async function getStockSymbols() {
-  try {
-    const response = await apiClient.serverGetStockSymbols();
-
-    if (isApiError(response)) {
-      throw new Error(response.error || 'Failed to fetch stock symbols');
-    }
-
-    return response.data;
-  } catch (error) {
-    console.error('Stock symbols fetch error:', error);
-    throw error;
-  }
-}
 
 export async function getIndividualStockData(symbol: string) {
   try {
@@ -133,17 +119,3 @@ export async function getPremiumRankings() {
   }
 }
 
-export async function getCacheStats() {
-  try {
-    const response = await apiClient.serverGetSystemCache();
-
-    if (isApiError(response)) {
-      throw new Error(response.error || 'Failed to fetch cache stats');
-    }
-
-    return response.data;
-  } catch (error) {
-    console.error('Cache stats fetch error:', error);
-    throw error;
-  }
-}

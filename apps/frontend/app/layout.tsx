@@ -1,15 +1,18 @@
 // Import browser polyfills first to handle SSR issues
-import '@/lib/browser-polyfills';
 import { NavigationClient } from '@/components/nav/NavigationClient';
 import { ClientProviders } from '@/components/providers/ClientProviders';
-import { Web3Provider } from '@/providers/Web3Provider';
-import { Web3AuthProvider } from '@/providers/Web3AuthProvider';
-import { type EPSXJWTPayload } from '../../../shared/auth/jwt';
+import { MinimalWeb3Provider } from '@/components/providers/MinimalWeb3Provider';
+import {
+  getUserNotifications,
+  type NotificationData,
+} from '@/lib/actions/notifications';
+import '@/lib/browser-polyfills';
 import { getAuthUser } from '@/lib/server/auth';
-import { getUserNotifications, type NotificationData } from '@/lib/actions/notifications';
-import { initializeRuntimeEnvironment } from '../../../shared/utils/runtime-env-validator';
+import { Web3AuthProvider } from '@/providers/Web3AuthProvider';
 import { Kanit } from 'next/font/google';
 import { Toaster } from 'sonner';
+import { type EPSXJWTPayload } from '../../../shared/auth/jwt';
+import { initializeRuntimeEnvironment } from '../../../shared/utils/runtime-env-validator';
 import './globals.css';
 
 // Initialize runtime environment validation
@@ -83,7 +86,7 @@ export default async function RootLayout({
 
   try {
     jwtPayload = await getAuthUser();
-    
+
     // Fetch notifications if user is authenticated
     if (jwtPayload) {
       notificationData = await getUserNotifications();
@@ -122,10 +125,13 @@ export default async function RootLayout({
         className={`${kanit.variable} bg-background text-foreground overflow-x-hidden font-sans antialiased`}
       >
         <ClientProviders>
-          <Web3Provider>
+          <MinimalWeb3Provider>
             <Web3AuthProvider>
               {/* Mobile navigation optimized for touch */}
-              <NavigationClient user={user} initialNotificationData={notificationData} />
+              <NavigationClient
+                user={user}
+                initialNotificationData={notificationData}
+              />
 
               {/* Main content with mobile scroll optimization */}
               <main className="relative min-h-screen">{children}</main>
@@ -142,7 +148,7 @@ export default async function RootLayout({
                 }}
               />
             </Web3AuthProvider>
-          </Web3Provider>
+          </MinimalWeb3Provider>
         </ClientProviders>
       </body>
     </html>

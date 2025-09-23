@@ -238,7 +238,7 @@ function PermissionStats({ permissions }: { permissions: TimestampedPermission[]
 }
 
 export default function PermissionsPage() {
-  const { user, isLoading } = useAuth();
+  const { user, loading } = useAuth();
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'expiring' | 'expired'>('active');
   const [timestampedPermissions, setTimestampedPermissions] = useState<TimestampedPermission[]>([]);
 
@@ -281,7 +281,7 @@ export default function PermissionsPage() {
     }
   });
 
-  if (isLoading) {
+  if (loading) {
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-center h-64">
@@ -351,7 +351,7 @@ export default function PermissionsPage() {
             <div>
               <p className="text-sm font-medium text-gray-500">Role</p>
               <Badge variant="outline" className="mt-1">
-                {user.tier || 'User'}
+                {user.packageTier || 'User'}
               </Badge>
             </div>
             <div>

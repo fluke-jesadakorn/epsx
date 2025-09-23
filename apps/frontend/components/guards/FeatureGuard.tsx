@@ -54,11 +54,11 @@ export function PermissionGuard({
   showExpiryWarning = false,
   expiryFallback
 }: PermissionGuardProps) {
-  const { user, isLoading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const expiry = usePermissionExpiry();
 
   // Show loading while fetching user data
-  if (isLoading) {
+  if (authLoading) {
     return <>{loading}</>;
   }
 

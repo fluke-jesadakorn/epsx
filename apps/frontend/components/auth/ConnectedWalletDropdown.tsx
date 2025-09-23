@@ -1,0 +1,141 @@
+'use client';
+
+import { useState } from 'react';
+import { useAccount, useDisconnect } from 'wagmi';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Button } from '@/components/ui/button';
+import { Wallet, Copy, ExternalLink, LogOut, Check } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface ConnectedWalletDropdownProps {
+  className?: string;
+}
+
+export function ConnectedWalletDropdown({ className }: ConnectedWalletDropdownProps) {
+  const { address, connector } = useAccount();
+  const { disconnect } = useDisconnect();
+  const [copied, setCopied] = useState(false);
+
+  const formatAddress = (addr: string) => {
+    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  };
+
+  const copyToClipboard = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error('Failed to copy:', error);
+    }
+  };
+
+  const openBSCScan = () => {
+    if (address) {
+      window.open(`https://bscscan.com/address/${address}`, '_blank');
+    }
+  };
+
+  if (!address) return null;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="outline"
+          className={cn(
+            "flex items-center gap-2 px-4 py-2 h-auto",
+            "bg-slate-800 hover:bg-slate-700 border-slate-600",
+            "text-white rounded-full",
+            className
+          )}
+        >
+          <Wallet className="h-4 w-4 text-orange-500" />
+          <span className="font-medium">{formatAddress(address)}</span>
+        </Button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent
+        className={cn(
+          "w-80 p-0 bg-slate-800 border-slate-600",
+          "rounded-2xl shadow-xl"
+        )}
+        align="end"
+        sideOffset={8}
+      >
+        {/* Wallet Status Section */}
+        <div className="px-4 py-4 border-b border-slate-700">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-orange-500/10">
+              <Wallet className="h-5 w-5 text-orange-500" />
+            </div>
+            <div>
+              <div className="text-white font-medium">Browser Wallet</div>
+              <div className="text-slate-400 text-sm">Connected</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Copy Address Section */}
+        <DropdownMenuItem
+          className={cn(
+            "flex items-center gap-3 px-4 py-4 cursor-pointer",
+            "hover:bg-slate-700 focus:bg-slate-700",
+            "border-b border-slate-700"
+          )}
+          onClick={() => copyToClipboard(address)}
+        >
+          <div className="p-2 rounded-lg bg-orange-500/10">
+            {copied ? (
+              <Check className="h-4 w-4 text-orange-500" />
+            ) : (
+              <Copy className="h-4 w-4 text-orange-500" />
+            )}
+          </div>
+          <div className="flex-1">
+            <div className="text-white font-medium">Copy Address</div>
+            <div className="text-slate-400 text-sm font-mono">{formatAddress(address)}</div>
+          </div>
+        </DropdownMenuItem>
+
+        {/* View on Explorer Section */}
+        <DropdownMenuItem
+          className={cn(
+            "flex items-center gap-3 px-4 py-4 cursor-pointer",
+            "hover:bg-slate-700 focus:bg-slate-700",
+            "border-b border-slate-700"
+          )}
+          onClick={openBSCScan}
+        >
+          <div className="p-2 rounded-lg bg-orange-500/10">
+            <ExternalLink className="h-4 w-4 text-orange-500" />
+          </div>
+          <div className="flex-1">
+            <div className="text-white font-medium">View on Explorer</div>
+            <div className="text-slate-400 text-sm">Open in BSCScan</div>
+          </div>
+        </DropdownMenuItem>
+
+        {/* Disconnect Section */}
+        <DropdownMenuItem
+          className={cn(
+            "flex items-center gap-3 px-4 py-4 cursor-pointer",
+            "hover:bg-red-500/10 focus:bg-red-500/10"
+          )}
+          onClick={() => {
+            disconnect();
+            window.location.reload();
+          }}
+        >
+          <div className="p-2 rounded-lg bg-red-500/10">
+            <LogOut className="h-4 w-4 text-red-500" />
+          </div>
+          <div className="flex-1">
+            <div className="text-red-500 font-medium">Disconnect</div>
+            <div className="text-red-400/70 text-sm">Disconnect your wallet</div>
+          </div>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
