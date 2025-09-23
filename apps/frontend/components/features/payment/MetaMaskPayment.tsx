@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
-import { parseUnits, formatUnits } from 'viem'
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useConnect } from 'wagmi'
+import { parseUnits, formatUnits, getAddress, isAddress } from 'viem'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -45,7 +45,22 @@ const USDC_CONTRACTS = {
 } as const
 
 // Payment recipient address (should be from env or config)
-const PAYMENT_RECIPIENT = process.env.NEXT_PUBLIC_PAYMENT_RECIPIENT_ADDRESS || '0x742B1e18D6b5e2C6FFB9e0Bf6Bd1E8cC9e2B7F9A'
+const getPaymentRecipient = () => {
+  const address = process.env.NEXT_PUBLIC_PAYMENT_RECIPIENT_ADDRESS || '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'
+  
+  // Log for debugging
+  console.log('Payment recipient address from env:', address)
+  
+  // Validate and checksum the address
+  if (!isAddress(address)) {
+    console.error('Address validation failed for:', address)
+    throw new Error(`Invalid payment recipient address: ${address}`)
+  }
+  
+  const checksummedAddress = getAddress(address)
+  console.log('Checksummed address:', checksummedAddress)
+  return checksummedAddress
+}
 
 // ERC20 ABI for transfer function
 const ERC20_ABI = [
@@ -85,9 +100,11 @@ export default function MetaMaskPayment({
   className = ''
 }: MetaMaskPaymentProps) {
   const { address, isConnected, chain } = useAccount()
+  const { connect, connectors } = useConnect()
   const [selectedToken, setSelectedToken] = useState<'USDT' | 'USDC'>('USDT')
   const [estimatedGas, setEstimatedGas] = useState<string>('0.005')
   const [isEstimatingGas, setIsEstimatingGas] = useState(false)
+  const [autoConnectAttempted, setAutoConnectAttempted] = useState(false)
 
   const { 
     writeContract, 
@@ -127,7 +144,12 @@ export default function MetaMaskPayment({
   // Handle transaction errors
   useEffect(() => {
     if (writeError) {
-      onError(`Transaction failed: ${writeError.message}`)
+      // Check if it's an address validation error
+      if (writeError.message.includes('invalid') && writeError.message.includes('address')) {
+        onError(`Invalid payment address configuration. Please contact support.`)
+      } else {
+        onError(`Transaction failed: ${writeError.message}`)
+      }
     }
     if (receiptError) {
       onError(`Transaction receipt error: ${receiptError.message}`)
@@ -146,14 +168,21 @@ export default function MetaMaskPayment({
       const decimals = 6 // USDT and USDC both use 6 decimals
       const transferAmount = parseUnits(amount.toString(), decimals)
 
+      // Validate payment recipient address
+      const recipient = getPaymentRecipient()
+      
       writeContract({
         address: contractAddress as `0x${string}`,
         abi: ERC20_ABI,
         functionName: 'transfer',
-        args: [PAYMENT_RECIPIENT as `0x${string}`, transferAmount],
+        args: [recipient as `0x${string}`, transferAmount],
       })
     } catch (error) {
-      onError(`Payment preparation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      if (error instanceof Error && error.message.includes('Invalid payment recipient address')) {
+        onError('Payment configuration error: Invalid recipient address. Please contact support.')
+      } else {
+        onError(`Payment preparation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      }
     }
   }
 
@@ -188,17 +217,69 @@ export default function MetaMaskPayment({
     }
   }, [isConnected, chain, selectedToken])
 
+  // Auto-connect to MetaMask when component mounts
+  useEffect(() => {
+    if (!isConnected && !autoConnectAttempted && connectors.length > 0) {
+      setAutoConnectAttempted(true)
+      
+      const attemptAutoConnect = async () => {
+        try {
+          // Look for MetaMask connector first
+          const metaMaskConnector = connectors.find(
+            connector => connector.name === 'MetaMask' || 
+                        connector.name === 'Injected' ||
+                        connector.id === 'metaMask'
+          )
+          
+          if (metaMaskConnector) {
+            console.log('🦊 Auto-connecting to MetaMask...')
+            await connect({ connector: metaMaskConnector })
+            console.log('✅ MetaMask auto-connect successful')
+          } else {
+            console.log('ℹ️ MetaMask connector not found, trying first available connector')
+            // Fallback to first connector if MetaMask not found
+            if (connectors[0]) {
+              await connect({ connector: connectors[0] })
+              console.log('✅ Auto-connect to', connectors[0].name, 'successful')
+            }
+          }
+        } catch (error) {
+          console.log('ℹ️ Auto-connect failed (user likely hasn\'t connected before):', error)
+          // This is expected behavior if user hasn't connected before
+        }
+      }
+
+      // Small delay to ensure connectors are ready
+      const timeoutId = setTimeout(attemptAutoConnect, 500)
+      return () => clearTimeout(timeoutId)
+    }
+  }, [isConnected, autoConnectAttempted, connectors, connect])
+
   if (!isConnected) {
     return (
       <Card className={className}>
         <CardContent className="p-6 text-center space-y-4">
-          <Wallet className="w-12 h-12 mx-auto text-muted-foreground" />
-          <div>
-            <h3 className="font-semibold">Connect Your Wallet</h3>
-            <p className="text-sm text-muted-foreground">
-              Connect MetaMask to pay with cryptocurrency
-            </p>
-          </div>
+          {!autoConnectAttempted ? (
+            <>
+              <Loader2 className="w-12 h-12 mx-auto text-primary animate-spin" />
+              <div>
+                <h3 className="font-semibold">Auto-connecting...</h3>
+                <p className="text-sm text-muted-foreground">
+                  Attempting to connect to your wallet automatically
+                </p>
+              </div>
+            </>
+          ) : (
+            <>
+              <Wallet className="w-12 h-12 mx-auto text-muted-foreground" />
+              <div>
+                <h3 className="font-semibold">Connect Your Wallet</h3>
+                <p className="text-sm text-muted-foreground">
+                  Connect MetaMask to pay with cryptocurrency
+                </p>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     )

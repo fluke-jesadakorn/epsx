@@ -48,14 +48,14 @@ export async function getSession(config: SessionConfig): Promise<NextResponse> {
       refreshToken: refreshToken ? 'present' : 'missing'
     });
     
-    // Validate required OIDC tokens
+    // Return unauthenticated response if no tokens (this is normal for public access)
     if (!accessToken || !idToken) {
-      console.log(`❌ Missing required OIDC tokens for ${appLabel.toLowerCase()} session`);
+      console.log(`ℹ️ No OIDC tokens found for ${appLabel.toLowerCase()} session - returning unauthenticated state`);
       return NextResponse.json({
         isAuthenticated: false,
         user: null,
-        error: `No valid OIDC ${appLabel.toLowerCase()} session found`
-      } as SessionResponse, { status: 401 });
+        tokenType: 'none'
+      } as SessionResponse, { status: 200 });
     }
 
     // Get user info from backend

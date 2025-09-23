@@ -137,6 +137,34 @@ export async function requirePermission(permission: string, redirectPath: string
   return user;
 }
 
+/**
+ * Check feature access for server components
+ */
+export async function checkFeatureAccess(feature: string): Promise<{ hasAccess: boolean; reason: string }> {
+  try {
+    const user = await getCurrentUser();
+    
+    if (!user) {
+      return { hasAccess: false, reason: 'Authentication required' };
+    }
+    
+    // Basic feature access logic - can be expanded based on actual requirements
+    switch (feature) {
+      case 'api':
+        return { hasAccess: true, reason: 'API access granted' };
+      case 'analytics':
+        return { hasAccess: user.permissions.some(p => p.includes('epsx:')), reason: 'Analytics access granted' };
+      case 'admin':
+        return { hasAccess: user.permissions.some(p => p.includes('admin:')), reason: 'Admin access granted' };
+      default:
+        return { hasAccess: true, reason: 'Default access granted' };
+    }
+  } catch (error) {
+    logger.error('Failed to check feature access', { feature, error: safeError(error).message });
+    return { hasAccess: false, reason: 'Feature access check failed' };
+  }
+}
+
 // ============================================================================
 // Payment Server Actions
 // ============================================================================

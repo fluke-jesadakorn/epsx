@@ -1,5 +1,4 @@
 import { Button } from '@/components/ui/button';
-import { navigateToPage } from '@/lib/server-actions';
 import LimitSelectorForm from './LimitSelectorForm';
 import PaginationButton from './PaginationButton';
 import JumpToPageForm from './JumpToPageForm';

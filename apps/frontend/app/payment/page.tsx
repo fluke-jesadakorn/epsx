@@ -8,7 +8,7 @@ import { Suspense } from 'react';
 export const dynamic = 'force-dynamic';
 
 interface PaymentPageProps {
-  searchParams: { package?: string };
+  searchParams: Promise<{ package?: string }>;
 }
 
 export default async function PaymentPage({ searchParams }: PaymentPageProps) {
@@ -16,7 +16,8 @@ export default async function PaymentPage({ searchParams }: PaymentPageProps) {
   const user = await getCurrentUser();
   
   // Extract package parameter from search params
-  const selectedPackageId = searchParams.package || '';
+  const resolvedSearchParams = await searchParams;
+  const selectedPackageId = resolvedSearchParams.package || '';
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-orange-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-gray-800 py-12 px-4 relative overflow-hidden">

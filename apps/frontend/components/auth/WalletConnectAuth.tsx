@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { formatAddress } from '@/lib/auth/web3';
+import { useState, useEffect, useCallback } from 'react';
+import { formatAddress } from '@/lib/auth/web3-store';
 import { useWeb3AuthContext } from '@/providers/Web3AuthProvider';
+import { useWeb3Context } from '@/providers/Web3Provider';
 import { useProgressiveAuth } from '@/hooks/useProgressiveAuth';
 import { AuthLevel } from '@/types/progressive-auth';
-import { WalletDisconnectModal } from './WalletDisconnectModal';
-import { Wallet, Link, Loader2, AlertCircle, Shield, Eye } from 'lucide-react';
+import { ConnectedWalletDropdown } from './ConnectedWalletDropdown';
+import { WalletConnectionModal } from './WalletConnectionModal';
+import { Wallet, Link, Loader2, AlertCircle, Shield, Eye, RefreshCw } from 'lucide-react';
 import { useAccount } from 'wagmi';
 
 interface WalletConnectAuthProps {
@@ -44,10 +45,11 @@ function LoadingButton({ message, className = '' }: {
   );
 }
 
-// Simple error display
-function ErrorDisplay({ error, onReset }: { 
+// Enhanced error display with reset options
+function ErrorDisplay({ error, onReset, onFullReset }: { 
   error: string; 
-  onReset: () => void; 
+  onReset: () => void;
+  onFullReset?: () => void;
 }) {
   return (
     <div className="flex items-center gap-2 text-xs">
@@ -60,8 +62,18 @@ function ErrorDisplay({ error, onReset }: {
         className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600"
         title="Try again"
       >
-        Try again
+        Retry
       </button>
+      {onFullReset && (
+        <button
+          onClick={onFullReset}
+          className="flex items-center gap-1 px-2 py-1 bg-gray-500 text-white rounded hover:bg-gray-600"
+          title="Full reset"
+        >
+          <RefreshCw className="h-3 w-3" />
+          Reset
+        </button>
+      )}
     </div>
   );
 }
@@ -74,9 +86,10 @@ export function WalletConnectAuth({
   compact = false
 }: WalletConnectAuthProps) {
   const [isHydrated, setIsHydrated] = useState(false);
-  const [showDisconnectModal, setShowDisconnectModal] = useState(false);
   const [autoAuthFailed, setAutoAuthFailed] = useState(false);
+  
   const { address, isConnected: wagmiConnected } = useAccount();
+  const { isInitialized } = useWeb3Context();
   const {
     isConnected,
     isAuthenticated,
@@ -95,9 +108,7 @@ export function WalletConnectAuth({
 
   // Handle hydration to prevent SSR/client mismatch
   useEffect(() => {
-    requestAnimationFrame(() => {
-      setIsHydrated(true);
-    });
+    setIsHydrated(true);
   }, []);
 
   // DISABLED: Auto-authentication causing conflicts and initialization issues
@@ -136,7 +147,7 @@ export function WalletConnectAuth({
   }
 
 
-  // Loading state during hydration or context initialization
+  // Loading state during hydration, initialization, or validation
   if (!isHydrated || !hasInitialized || isLoading) {
     return <LoadingButton message="Loading..." className={className} />;
   }
@@ -185,132 +196,71 @@ export function WalletConnectAuth({
 
   const buttonInfo = getButtonInfo();
 
-  // Progressive authentication flow
+  // Progressive authentication flow with custom components
+  // AUTHENTICATED or CONNECTED: Show connected wallet dropdown
+  if (progressiveAuth.level === AuthLevel.AUTHENTICATED || progressiveAuth.level === AuthLevel.CONNECTED) {
+    // If this component prefers authentication and we're only connected, show sign-in button
+    if (progressiveAuth.level === AuthLevel.CONNECTED && preferredLevel === AuthLevel.AUTHENTICATED) {
+      return (
+        <div className="flex items-center gap-2">
+          {isAuthenticating ? (
+            <LoadingButton message="Signing..." className={className} />
+          ) : (
+            <button
+              onClick={async () => {
+                try {
+                  await authenticate();
+                } catch (error: any) {
+                  console.error('Authentication failed:', error);
+                  onAuthError?.(error.message || 'Authentication failed');
+                }
+              }}
+              disabled={isAuthenticating}
+              className={`flex items-center gap-2 bg-gradient-to-r ${buttonInfo.gradient} text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 ${className}`}
+            >
+              {buttonInfo.icon}
+              <span>{buttonInfo.text}</span>
+              {!compact && buttonInfo.description && (
+                <span className="text-xs opacity-75">({buttonInfo.description})</span>
+              )}
+            </button>
+          )}
+          
+          {error && (
+            <ErrorDisplay 
+              error={error} 
+              onReset={() => {
+                resetAuthState();
+                setAutoAuthFailed(false);
+              }}
+            />
+          )}
+        </div>
+      );
+    }
+
+    // Show connected wallet dropdown
+    return <ConnectedWalletDropdown className={className} />;
+  }
+
+  // PUBLIC: Show connect wallet modal
   return (
-    <ConnectButton.Custom>
-      {({ openConnectModal, account, chain }) => {
-        // AUTHENTICATED: Show connected state with disconnect option
-        if (progressiveAuth.level === AuthLevel.AUTHENTICATED) {
-          return (
-            <>
-              <button
-                onClick={() => setShowDisconnectModal(true)}
-                className={`flex items-center gap-2 bg-gradient-to-r ${buttonInfo.gradient} text-white px-4 py-2 rounded-lg text-sm font-medium ${className}`}
-              >
-                {buttonInfo.icon}
-                <span>{buttonInfo.text}</span>
-                {!compact && buttonInfo.description && (
-                  <span className="text-xs opacity-75">({buttonInfo.description})</span>
-                )}
-              </button>
-
-              <WalletDisconnectModal
-                isOpen={showDisconnectModal}
-                onClose={() => setShowDisconnectModal(false)}
-                onDisconnect={disconnect}
-                walletAddress={walletAddress!}
-              />
-            </>
-          );
-        }
-
-        // CONNECTED: Show connected state or upgrade to authenticated if preferred
-        if (progressiveAuth.level === AuthLevel.CONNECTED) {
-          // If this component prefers authentication and we're only connected, show sign-in button
-          if (preferredLevel === AuthLevel.AUTHENTICATED) {
-            return (
-              <div className="flex items-center gap-2">
-                {isAuthenticating ? (
-                  <LoadingButton message="Signing..." className={className} />
-                ) : (
-                  <button
-                    onClick={async () => {
-                      try {
-                        await authenticate();
-                      } catch (error: any) {
-                        console.error('Authentication failed:', error);
-                        onAuthError?.(error.message || 'Authentication failed');
-                      }
-                    }}
-                    disabled={isAuthenticating}
-                    className={`flex items-center gap-2 bg-gradient-to-r ${buttonInfo.gradient} text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 ${className}`}
-                  >
-                    {buttonInfo.icon}
-                    <span>{buttonInfo.text}</span>
-                    {!compact && buttonInfo.description && (
-                      <span className="text-xs opacity-75">({buttonInfo.description})</span>
-                    )}
-                  </button>
-                )}
-                
-                {error && (
-                  <ErrorDisplay 
-                    error={error} 
-                    onReset={() => {
-                      resetAuthState();
-                      setAutoAuthFailed(false);
-                    }} 
-                  />
-                )}
-              </div>
-            );
-          }
-
-          // Show connected state with option to disconnect
-          return (
-            <>
-              <button
-                onClick={() => setShowDisconnectModal(true)}
-                className={`flex items-center gap-2 bg-gradient-to-r ${buttonInfo.gradient} text-white px-4 py-2 rounded-lg text-sm font-medium ${className}`}
-              >
-                {buttonInfo.icon}
-                <span>{buttonInfo.text}</span>
-                {!compact && buttonInfo.description && (
-                  <span className="text-xs opacity-75">({buttonInfo.description})</span>
-                )}
-              </button>
-
-              <WalletDisconnectModal
-                isOpen={showDisconnectModal}
-                onClose={() => setShowDisconnectModal(false)}
-                onDisconnect={disconnect}
-                walletAddress={walletAddress!}
-              />
-            </>
-          );
-        }
-
-        // PUBLIC: Show connect wallet button
-        return (
-          <div className="flex items-center gap-2">
-            {isAuthenticating ? (
-              <LoadingButton message="Connecting..." className={className} />
-            ) : (
-              <button
-                onClick={openConnectModal}
-                disabled={isAuthenticating}
-                className={`flex items-center gap-2 bg-gradient-to-r ${buttonInfo.gradient} text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 ${className}`}
-              >
-                {buttonInfo.icon}
-                <span>{buttonInfo.text}</span>
-                {!compact && buttonInfo.description && (
-                  <span className="text-xs opacity-75">({buttonInfo.description})</span>
-                )}
-              </button>
-            )}
-            
-            {error && (
-              <ErrorDisplay 
-                error={error} 
-                onReset={() => {
-                  resetAuthState();
-                  setAutoAuthFailed(false);
-                }} 
-              />
-            )}
-          </div>
-        );
-      }}
-    </ConnectButton.Custom>
+    <div className="flex items-center gap-2">
+      {isAuthenticating ? (
+        <LoadingButton message="Connecting..." className={className} />
+      ) : (
+        <WalletConnectionModal className={className} />
+      )}
+      
+      {error && (
+        <ErrorDisplay 
+          error={error} 
+          onReset={() => {
+            resetAuthState();
+            setAutoAuthFailed(false);
+          }}
+        />
+      )}
+    </div>
   );
 }

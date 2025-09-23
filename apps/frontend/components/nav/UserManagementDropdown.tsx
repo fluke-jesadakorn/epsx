@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useProgressiveAuth } from '@/hooks/useProgressiveAuth';
 import { AuthLevel } from '@/types/progressive-auth';
-import { formatAddress } from '@/lib/auth/web3';
+import { formatAddress } from '@/lib/auth/web3-store';
 import {
   User,
   Settings,

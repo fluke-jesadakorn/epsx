@@ -15,7 +15,7 @@ import {
   Info
 } from 'lucide-react';
 import { useWeb3AuthContext } from '@/providers/Web3AuthProvider';
-import { getPermissionIcon, getPermissionBadgeColor, isPermissionExpired } from '@/lib/auth/web3';
+import { getPermissionIcon, getPermissionBadgeColor, isPermissionExpired } from '@/lib/auth/web3-store';
 import { formatDistanceToNow } from 'date-fns';
 
 interface Web3PermissionsDisplayProps {

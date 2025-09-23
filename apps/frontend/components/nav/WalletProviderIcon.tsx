@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useAccount, useDisconnect } from 'wagmi';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Wallet, ExternalLink, Copy, Check } from 'lucide-react';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { formatAddress } from '@/lib/auth/web3';
+import { formatAddress } from '@/lib/auth/web3-store';
 
 interface WalletProviderIconProps {
   className?: string;
@@ -62,7 +62,13 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
 
   useEffect(() => {
     setIsHydrated(true);
-  }, []);
+    console.log('🔍 WalletProviderIcon Debug:', {
+      isConnected,
+      address,
+      connector: connector?.id,
+      isHydrated: true
+    });
+  }, [isConnected, address, connector]);
 
   const handleCopyAddress = async () => {
     if (!address) return;
@@ -92,25 +98,26 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   if (!isConnected || !address) {
     return (
       <ConnectButton.Custom>
-        {({ openConnectModal, connectModalOpen }) => (
-          <Button
-            variant="default"
-            size={compact ? "sm" : "default"}
-            className={`
-              ${compact ? 'h-8 px-3 text-xs' : 'h-10 px-4 text-sm'} 
-              rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 
-              hover:from-yellow-500 hover:to-orange-600 
-              text-white font-semibold shadow-lg hover:shadow-xl
-              border-0 transition-all duration-200
-              ${className}
-            `}
-            onClick={openConnectModal}
-            disabled={connectModalOpen}
-          >
-            <Wallet className={`${compact ? 'h-3 w-3' : 'h-4 w-4'} mr-2 text-white`} />
-            Connect
-          </Button>
-        )}
+        {({ openConnectModal, connectModalOpen, mounted }) => {
+          return (
+            <Button
+              onClick={openConnectModal}
+              variant="default"
+              size={compact ? "sm" : "default"}
+              className={`
+                ${compact ? 'h-8 px-3 text-xs' : 'h-10 px-4 text-sm'} 
+                rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 
+                hover:from-yellow-500 hover:to-orange-600 
+                text-white font-semibold shadow-lg hover:shadow-xl
+                border-0 transition-all duration-200
+                ${className}
+              `}
+            >
+              <Wallet className={`${compact ? 'h-3 w-3' : 'h-4 w-4'} mr-2 text-white`} />
+              Connect
+            </Button>
+          );
+        }}
       </ConnectButton.Custom>
     );
   }

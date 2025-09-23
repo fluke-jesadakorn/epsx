@@ -6,7 +6,6 @@ import {
   UnifiedAnalyticsRankingsResponse, 
   UnifiedRankingItem
 } from '@/lib/api-client';
-import { EPSQueryParams } from '@/lib/server-data';
 import type { AnalyticsFilters, EPSRanking } from '@/types/analytics';
 import { useEffect, useState } from 'react';
 import FilterPanel from './FilterPanel';
@@ -43,24 +42,23 @@ interface AnalyticsClientWrapperProps {
   filterOptions: RichFilterOptions;
 }
 
-// Analytics client instance
-const analyticsClient = new AnalyticsClient();
+import { analyticsClient } from '@/lib/api-client';
 
 // API helper functions using new AnalyticsClient
 async function fetchEPSRankings(filters: AnalyticsFilters): Promise<UnifiedAnalyticsRankingsResponse | null> {
   try {
-    const queryParams: EPSQueryParams = {
+    const queryParams = {
       page: filters.page,
-      limit: filters.limit,
+      per_page: filters.limit,
       sort_by: filters.sort_by,
       country: filters.country,
       sector: filters.sector,
-      min_eps: filters.min_eps,
-      min_growth: filters.min_growth,
+      min_market_cap: filters.min_eps,
+      sort_order: 'desc' as const,
     };
 
-    const response = await analyticsClient.getUnifiedAnalyticsRankings(queryParams);
-    return response.data;
+    const response = await analyticsClient.getRankings(queryParams);
+    return response;
   } catch (error) {
     console.error('Error fetching EPS rankings:', error);
     return null;
@@ -86,70 +84,40 @@ export default function AnalyticsClientWrapper({
   const convertToEPSRanking = (unified: UnifiedRankingItem): EPSRanking => {
     return {
       symbol: unified.symbol,
-      name: unified.company_name,
-      country: unified.market_data?.country || 'Unknown',
-      sector: unified.market_data?.sector || 'Unknown',
-      exchange: unified.market_data?.exchange || 'Unknown',
-      current_eps: unified.quarterly_data?.[0]?.eps || null,
-      growth_factor: unified.analytics?.growth_factor || null,
-      price_current: unified.current_price,
-      market_cap: unified.market_data?.market_cap || null,
-      volume: unified.market_data?.volume_24h || null,
-      pe_ratio: null, // Not available in MarketData
-      dividend_yield: null, // Not available in MarketData
-      price_change: null, // Not available in MarketData
-      price_change_pct: null, // Not available in MarketData
-      relative_volume: null, // Not available in MarketData
-      ranking_position: unified.ranking_position,
+      name: unified.companyName,
+      country: unified.country || 'Unknown',
+      sector: unified.sector || 'Unknown',
+      exchange: 'Unknown', // Not available in API response
+      current_eps: unified.eps || null,
+      growth_factor: unified.epsGrowth || null,
+      price_current: null, // Not available in API response
+      market_cap: unified.marketCap || null,
+      volume: null, // Not available in API response
+      pe_ratio: unified.pe || null,
+      dividend_yield: unified.dividend_yield || null,
+      price_change: null, // Not available in API response
+      price_change_pct: null, // Not available in API response
+      relative_volume: null, // Not available in API response
+      ranking_position: unified.rank,
       active_status: "Active", // Default value
-      quarterly_data: unified.quarterly_data?.map(q => ({
-        quarter: q.quarter,
-        date: q.date,
-        eps: q.eps,
-        eps_growth: q.eps_growth || 0,
-        price: q.price,
-        price_growth: q.price_growth || 0,
-        volume: q.volume
-      })) || []
+      quarterly_data: [] // Not available in current API response
     };
   };
 
-  // Helper function to calculate Growth leaders using rich UnifiedRankingItem data
+  // Helper function to calculate Growth leaders using simplified data
   const calculateGrowthLeaders = (data: UnifiedAnalyticsRankingsResponse | null) => {
-    if (!data?.data || data.data.length === 0) return { growthLeaders: [], priceLeaders: [] };
+    if (!data?.rankings || data.rankings.length === 0) return { growthLeaders: [], priceLeaders: [] };
 
-    // Filter companies with quarterly data
-    const companiesWithGrowth = data.data.filter(ranking => 
-      ranking.quarterly_data && ranking.quarterly_data.length >= 2
-    );
-
-    // Calculate Growth Factor leaders using analytics.growth_factor for better accuracy
-    const growthLeaders = companiesWithGrowth
-      .filter(ranking => ranking.analytics.growth_factor !== null && ranking.analytics.growth_factor !== undefined)
-      .sort((a, b) => b.analytics.growth_factor - a.analytics.growth_factor)
+    // Calculate Growth Factor leaders using epsGrowth
+    const growthLeaders = data.rankings
+      .filter(ranking => ranking.epsGrowth !== null && ranking.epsGrowth !== undefined)
+      .sort((a, b) => (b.epsGrowth || 0) - (a.epsGrowth || 0))
       .slice(0, 3);
 
-    // Calculate Price Growth leaders using quarterly_data
-    const priceLeaders = companiesWithGrowth
-      .filter(ranking => {
-        const latestQuarter = ranking.quarterly_data?.[0];
-        const previousQuarter = ranking.quarterly_data?.[1];
-        const latestGrowth = latestQuarter?.price_growth || 0;
-        const previousGrowth = previousQuarter?.price_growth || 0;
-        const displayGrowth = latestGrowth === 0 ? previousGrowth : latestGrowth;
-        return displayGrowth !== null && displayGrowth !== undefined && displayGrowth !== 0;
-      })
-      .sort((a, b) => {
-        const aLatest = a.quarterly_data?.[0]?.price_growth || 0;
-        const aPrevious = a.quarterly_data?.[1]?.price_growth || 0;
-        const aGrowth = aLatest === 0 ? aPrevious : aLatest;
-        
-        const bLatest = b.quarterly_data?.[0]?.price_growth || 0;
-        const bPrevious = b.quarterly_data?.[1]?.price_growth || 0;
-        const bGrowth = bLatest === 0 ? bPrevious : bLatest;
-        
-        return bGrowth - aGrowth;
-      })
+    // For price leaders, use momentum data since quarterly_data is not available
+    const priceLeaders = data.rankings
+      .filter(ranking => ranking.momentum_1m !== null && ranking.momentum_1m !== undefined)
+      .sort((a, b) => (b.momentum_1m || 0) - (a.momentum_1m || 0))
       .slice(0, 3);
 
     return { growthLeaders, priceLeaders };
@@ -232,17 +200,17 @@ export default function AnalyticsClientWrapper({
 
     switch (exportType) {
       case 'current':
-        exportCurrentViewData(data.data, { ...options, viewType: 'list' });
+        exportCurrentViewData(data.rankings, options);
         break;
       case 'filtered':
-        exportFilteredData(data, filters, options);
+        exportFilteredData(data.rankings, filters, options);
         break;
       case 'leaders':
         const { growthLeaders, priceLeaders } = calculateGrowthLeaders(data);
-        exportGrowthLeadersData(growthLeaders, priceLeaders, options);
+        exportGrowthLeadersData([...growthLeaders, ...priceLeaders], options);
         break;
       case 'full':
-        exportUnifiedAnalyticsData(data, options);
+        exportUnifiedAnalyticsData(data.rankings, options);
         break;
     }
 
@@ -252,9 +220,9 @@ export default function AnalyticsClientWrapper({
   const getExportDescription = () => {
     switch (exportType) {
       case 'current':
-        return `Export current page data (${data?.data?.length || 0} records)`;
+        return `Export current page data (${data?.rankings?.length || 0} records)`;
       case 'filtered':
-        return `Export all filtered data (${data?.pagination?.total || 0} total records)`;
+        return `Export all filtered data (${data?.pagination?.total_items || 0} total records)`;
       case 'leaders':
         return 'Export Growth performance leaders only';
       case 'full':
@@ -373,7 +341,7 @@ export default function AnalyticsClientWrapper({
           )}
 
           {/* Enhanced Growth Leaders Section */}
-          {!isLoading && data && data.data.length > 0 && (() => {
+          {!isLoading && data && data.rankings.length > 0 && (() => {
             const { growthLeaders, priceLeaders } = calculateGrowthLeaders(data);
             return (
               <div className="mb-8">
@@ -416,15 +384,15 @@ export default function AnalyticsClientWrapper({
                                 </span>
                                 <div>
                                   <span className="font-semibold text-gray-900 dark:text-gray-100">{leader.symbol}</span>
-                                  <p className="text-xs text-gray-500 dark:text-gray-400">{leader.company_name}</p>
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">{leader.companyName}</p>
                                 </div>
                               </div>
                               <div className="text-right">
                                 <span className="rounded-lg bg-gradient-to-r from-green-500 to-emerald-500 px-3 py-1 text-sm font-bold text-white shadow-md">
-                                  +{leader.analytics.growth_factor.toFixed(1)}%
+                                  +{(leader.epsGrowth || 0).toFixed(1)}%
                                 </span>
                                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                  Score: {leader.analytics.ranking_score.toFixed(1)}
+                                  Score: {(leader.score || 0).toFixed(1)}
                                 </p>
                               </div>
                             </div>
@@ -449,10 +417,8 @@ export default function AnalyticsClientWrapper({
                         </h3>
                         <div className="space-y-3">
                           {priceLeaders.slice(0, 3).map((leader, index) => {
-                            // Use same logic as StockCard: show previous quarter if latest is 0.0
-                            const latestGrowth = leader.quarterly_data?.[0]?.price_growth || 0;
-                            const previousGrowth = leader.quarterly_data?.[1]?.price_growth || 0;
-                            const priceGrowth = latestGrowth === 0 ? previousGrowth : latestGrowth;
+                            // Use momentum data since quarterly_data is not available
+                            const priceGrowth = leader.momentum_1m || 0;
                             
                             return (
                               <div key={leader.symbol} className="flex items-center justify-between rounded-xl bg-white/60 p-3 backdrop-blur-sm dark:bg-slate-800/60">
@@ -462,7 +428,7 @@ export default function AnalyticsClientWrapper({
                                   </span>
                                   <div>
                                     <span className="font-semibold text-gray-900 dark:text-gray-100">{leader.symbol}</span>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">{leader.company_name}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">{leader.companyName}</p>
                                   </div>
                                 </div>
                                 <div className="text-right">
@@ -474,7 +440,7 @@ export default function AnalyticsClientWrapper({
                                     {priceGrowth >= 0 ? '+' : ''}{priceGrowth.toFixed(1)}%
                                   </span>
                                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                    {leader.analytics.trend} • Vol: {leader.analytics.volatility.toFixed(1)}
+                                    Vol: {(leader.volatility || 0).toFixed(1)}
                                   </p>
                                 </div>
                               </div>
@@ -523,7 +489,7 @@ export default function AnalyticsClientWrapper({
                         </div>
                         <span className="text-sm font-semibold text-green-700 dark:text-green-400">Processing Time</span>
                       </div>
-                      <p className="text-lg font-bold text-green-800 dark:text-green-300">{data.processing_time_ms}ms</p>
+                      <p className="text-lg font-bold text-green-800 dark:text-green-300">{data.metadata.query_time}ms</p>
                     </div>
 
                     <div className="rounded-2xl border border-blue-200/50 bg-gradient-to-br from-blue-50/80 to-cyan-50/80 p-4 backdrop-blur-sm dark:border-blue-400/20 dark:from-blue-900/20 dark:to-cyan-900/20">
@@ -549,7 +515,7 @@ export default function AnalyticsClientWrapper({
                         </div>
                         <span className="text-sm font-semibold text-orange-700 dark:text-orange-400">Data Source</span>
                       </div>
-                      <p className="text-sm font-bold text-orange-800 dark:text-orange-300">{data.metadata.data_source}</p>
+                      <p className="text-sm font-bold text-orange-800 dark:text-orange-300">Analytics API</p>
                     </div>
 
                     <div className="rounded-2xl border border-purple-200/50 bg-gradient-to-br from-purple-50/80 to-pink-50/80 p-4 backdrop-blur-sm dark:border-purple-400/20 dark:from-purple-900/20 dark:to-pink-900/20">
@@ -562,7 +528,7 @@ export default function AnalyticsClientWrapper({
                         <span className="text-sm font-semibold text-purple-700 dark:text-purple-400">Markets</span>
                       </div>
                       <p className="text-sm font-bold text-purple-800 dark:text-purple-300">
-                        {data.metadata.available_countries.length} Countries
+                        Global Markets
                       </p>
                     </div>
                   </div>
@@ -621,13 +587,13 @@ export default function AnalyticsClientWrapper({
                   <div className="flex-1">
                     <h2 className="mb-2 bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-lg font-bold text-transparent sm:text-xl">
                       {data
-                        ? `${data.pagination.total} Companies Found`
+                        ? `${data.pagination.total_items} Companies Found`
                         : 'Loading Analytics...'}
                     </h2>
                     <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
                       <span className="flex items-center gap-1">
                         <div className="h-2 w-2 rounded-full bg-blue-400"></div>
-                        Page {filters.page} of {data?.pagination.totalPages || 1}
+                        Page {filters.page} of {data?.pagination.total_pages || 1}
                       </span>
                       {hasActiveFilters && (
                         <span className="flex items-center gap-1">
@@ -883,17 +849,17 @@ export default function AnalyticsClientWrapper({
             )}
 
             {/* Results grid - Responsive HTTP Data */}
-            {!isLoading && data && data.data.length > 0 && (
+            {!isLoading && data && data.rankings.length > 0 && (
               <>
                 {/* Mobile: Horizontal scrolling cards */}
                 <div className="mb-6 block sm:hidden">
                   <div className="overflow-x-auto pb-4">
                     <div className="flex gap-3">
-                      {data.data.map((ranking, index) => (
+                      {data.rankings.map((ranking, index) => (
                         <div key={ranking.symbol} className="w-72 flex-shrink-0">
                           <StockCard
                             ranking={convertToEPSRanking(ranking)}
-                            rank={ranking.ranking_position || index + 1}
+                            rank={ranking.rank || index + 1}
                           />
                         </div>
                       ))}
@@ -909,11 +875,11 @@ export default function AnalyticsClientWrapper({
 
                 {/* Desktop: Grid layout */}
                 <div className="mb-6 hidden sm:grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {data.data.map(ranking => (
+                  {data.rankings.map(ranking => (
                     <StockCard
                       key={ranking.symbol}
                       ranking={convertToEPSRanking(ranking)}
-                      rank={ranking.ranking_position || 0}
+                      rank={ranking.rank || 0}
                     />
                   ))}
                 </div>
@@ -921,7 +887,14 @@ export default function AnalyticsClientWrapper({
                 {/* Mobile-optimized Pagination */}
                 <div className="px-2 sm:px-0">
                   <Pagination
-                    pagination={data.pagination}
+                    pagination={{
+                      page: data.pagination.page,
+                      limit: data.pagination.per_page,
+                      total: data.pagination.total_items,
+                      totalPages: data.pagination.total_pages,
+                      hasNext: data.pagination.page < data.pagination.total_pages,
+                      hasPrev: data.pagination.page > 1
+                    }}
                     onPageChange={changePage}
                     onLimitChange={(limit) => updateFilters({ limit })}
                     isLoading={isLoading}
@@ -931,7 +904,7 @@ export default function AnalyticsClientWrapper({
             )}
 
               {/* Enhanced Empty state */}
-              {!isLoading && data && data.data.length === 0 && (
+              {!isLoading && data && data.rankings.length === 0 && (
                 <div className="rounded-2xl border border-gray-200/50 bg-white/80 p-8 text-center backdrop-blur-xl dark:border-gray-600/20 dark:bg-slate-800/80">
                   <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600">
                     <svg

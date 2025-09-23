@@ -6,6 +6,7 @@ import '@rainbow-me/rainbowkit/styles.css';
 import { connectorsForWallets, RainbowKitProvider, darkTheme, lightTheme } from '@rainbow-me/rainbowkit';
 import { metaMaskWallet, walletConnectWallet, injectedWallet } from '@rainbow-me/rainbowkit/wallets';
 import { createConfig, http } from 'wagmi';
+import { reconnect } from '@wagmi/core';
 import { WagmiProvider } from 'wagmi';
 import { bsc, bscTestnet } from 'wagmi/chains';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
@@ -93,6 +94,7 @@ interface Web3ProviderProps {
 export function Web3Provider({ children }: Web3ProviderProps) {
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
+  const [autoConnectAttempted, setAutoConnectAttempted] = useState(false);
 
   useEffect(() => {
     // Add IndexedDB polyfill for SSR
@@ -102,6 +104,28 @@ export function Web3Provider({ children }: Web3ProviderProps) {
     }
     setMounted(true);
   }, []);
+
+  // Auto-reconnect to previous wallet connection
+  useEffect(() => {
+    if (mounted && !autoConnectAttempted) {
+      setAutoConnectAttempted(true);
+      
+      const attemptReconnect = async () => {
+        try {
+          console.log('🔄 Attempting auto-reconnect to previous wallet...');
+          await reconnect(config);
+          console.log('✅ Auto-reconnect successful');
+        } catch (error) {
+          console.log('ℹ️ No previous wallet connection found or auto-reconnect failed:', error);
+          // This is expected if user hasn't connected before
+        }
+      };
+
+      // Small delay to ensure everything is mounted
+      const timeoutId = setTimeout(attemptReconnect, 1000);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [mounted, autoConnectAttempted]);
 
   // Create theme based on current app theme - default to light for SSR
   const rainbowKitTheme = (!mounted || resolvedTheme === 'light') 

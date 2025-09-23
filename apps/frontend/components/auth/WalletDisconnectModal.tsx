@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { formatAddress } from '@/lib/auth/web3';
+import { formatAddress } from '@/lib/auth/web3-store';
 import {
   Dialog,
   DialogContent,
@@ -44,6 +44,7 @@ export function WalletDisconnectModal({
       setIsDisconnecting(true);
       await onDisconnect();
       onClose();
+      window.location.reload();
     } catch (error) {
       console.error('Disconnect error:', error);
     } finally {

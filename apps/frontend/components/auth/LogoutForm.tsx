@@ -4,7 +4,7 @@ import { LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useWeb3Auth } from '@/lib/auth/web3';
+import { useWeb3Auth } from '@/lib/auth/use-web3-auth';
 import { logger } from '@/lib/utils/logging';
 
 interface LogoutFormProps {
