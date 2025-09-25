@@ -1,12 +1,39 @@
 /**
  * Consolidated Admin Actions
- * Combines: admin-actions.ts, admin-notification-actions.ts, page-actions.ts
+ * Combines: admin-actions.ts, admin-notification-actions.ts, page-actions.ts, admin.ts, and auth.ts
+ * 
+ * This file contains ALL admin management operations including:
+ * - Admin notifications management
+ * - System configuration and health monitoring
+ * - Audit logs and session management
+ * - User management operations
+ * - Permission profile assignments
+ * - Stock ranking package management
+ * - Cache and session cleanup
+ * - Authentication operations (sign out)
  */
 
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { makeAuthenticatedRequest, createSuccessResult, createErrorResult, type ActionResult } from './shared-utils';
+import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
+import { makeAuthenticatedRequest } from './shared-utils';
+import { createSuccessResult, createErrorResult, type ActionResult } from '@/lib/action-utils';
+import { env } from '@/config/env';
+import { getServerSession } from '@/lib/server/auth';
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
+/**
+ * Get bearer token from custom JWT session
+ */
+export const getBearerToken = async () => {
+  const session = await getServerSession();
+  return (session as any)?.accessToken || null;
+};
 
 // ============================================================================
 // TYPES AND INTERFACES
@@ -41,6 +68,18 @@ export interface AuditLogEntry {
   userAgent: string;
   timestamp: string;
   success: boolean;
+}
+
+export interface AssignmentResult {
+  success: boolean;
+  message?: string;
+  data?: any;
+}
+
+export interface StockRankingAssignmentUpdateRequest {
+  status?: string;
+  expires_at?: string;
+  package_tier?: string;
 }
 
 // ============================================================================
@@ -407,3 +446,235 @@ export async function revokeUserSession(sessionId: string): Promise<ActionResult
     return createErrorResult(error instanceof Error ? error.message : 'Failed to revoke session');
   }
 }
+
+// ============================================================================
+// ADMIN USER MANAGEMENT OPERATIONS
+// ============================================================================
+
+/**
+ * Get users with admin authentication
+ */
+export async function getUsersAction(): Promise<ActionResult<any[]>> {
+  try {
+    const response = await makeAuthenticatedRequest('/admin/users');
+    return createSuccessResult(response.users || []);
+  } catch (error) {
+    console.error('Failed to fetch users:', error);
+    return createErrorResult(error instanceof Error ? error.message : 'Failed to fetch users');
+  }
+}
+
+/**
+ * Soft delete user
+ */
+export async function softDeleteUserAction(formData: FormData): Promise<ActionResult<{ message: string }>> {
+  const userId = formData.get('userId') as string;
+  const reason = formData.get('reason') as string;
+
+  try {
+    const response = await makeAuthenticatedRequest(`/admin/users/${userId}/soft-delete`, {
+      method: 'DELETE',
+      body: JSON.stringify({
+        reason: reason || 'Deleted via admin interface'
+      })
+    });
+
+    revalidatePath('/users');
+    return createSuccessResult(response, 'User deleted successfully');
+  } catch (error) {
+    console.error('Failed to soft delete user:', error);
+    return createErrorResult(error instanceof Error ? error.message : 'Failed to delete user');
+  }
+}
+
+// ============================================================================
+// PERMISSION PROFILE ASSIGNMENT OPERATIONS
+// ============================================================================
+
+/**
+ * Assign permission profile to user (form-based)
+ */
+export async function assignPermissionProfileAction(formData: FormData): Promise<ActionResult<AssignmentResult>> {
+  const profileId = formData.get('profileId') as string;
+  const userId = formData.get('userId') as string;
+  const expiresAt = formData.get('expiresAt') as string;
+
+  try {
+    const response = await makeAuthenticatedRequest('/admin/permission-profiles/assign', {
+      method: 'POST',
+      body: JSON.stringify({
+        profile_id: profileId,
+        user_id: userId,
+        expires_at: expiresAt || undefined
+      })
+    });
+
+    revalidatePath('/admin/permission-profiles');
+    revalidatePath('/users');
+    return createSuccessResult(response, 'Permission profile assigned successfully');
+  } catch (error) {
+    console.error('Failed to assign permission profile:', error);
+    return createErrorResult(error instanceof Error ? error.message : 'Assignment failed');
+  }
+}
+
+// ============================================================================
+// STOCK RANKING MANAGEMENT OPERATIONS
+// ============================================================================
+
+/**
+ * Bulk assign stock ranking packages
+ */
+export async function assignBulkStockRankingAction(formData: FormData): Promise<ActionResult<AssignmentResult>> {
+  const userIds = JSON.parse(formData.get('userIds') as string);
+  const packageTier = formData.get('packageTier') as string;
+  const expiresAt = formData.get('expiresAt') as string;
+
+  try {
+    const response = await makeAuthenticatedRequest('/admin/stock-ranking/bulk-assign', {
+      method: 'POST',
+      body: JSON.stringify({
+        user_ids: userIds,
+        package_tier: packageTier,
+        expires_at: expiresAt || undefined
+      })
+    });
+
+    revalidatePath('/admin/stock-ranking');
+    revalidatePath('/users');
+    return createSuccessResult(response, 'Stock ranking packages assigned successfully');
+  } catch (error) {
+    console.error('Failed to assign bulk stock ranking:', error);
+    return createErrorResult(error instanceof Error ? error.message : 'Assignment failed');
+  }
+}
+
+/**
+ * Revoke stock ranking assignment
+ */
+export async function revokeStockRankingAssignmentAction(assignmentId: string): Promise<ActionResult<AssignmentResult>> {
+  try {
+    const response = await makeAuthenticatedRequest(`/admin/stock-ranking/assignments/${assignmentId}`, {
+      method: 'DELETE'
+    });
+
+    revalidatePath('/admin/stock-ranking');
+    return createSuccessResult(response, 'Stock ranking assignment revoked successfully');
+  } catch (error) {
+    console.error('Failed to revoke stock ranking assignment:', error);
+    return createErrorResult(error instanceof Error ? error.message : 'Revocation failed');
+  }
+}
+
+/**
+ * Extend stock ranking assignment
+ */
+export async function extendStockRankingAssignmentAction(assignmentId: string, formData: FormData): Promise<ActionResult<AssignmentResult>> {
+  const newExpiresAt = formData.get('newExpiresAt') as string;
+
+  try {
+    const response = await makeAuthenticatedRequest(`/admin/stock-ranking/assignments/${assignmentId}/extend`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        new_expires_at: newExpiresAt
+      })
+    });
+
+    revalidatePath('/admin/stock-ranking');
+    return createSuccessResult(response, 'Stock ranking assignment extended successfully');
+  } catch (error) {
+    console.error('Failed to extend stock ranking assignment:', error);
+    return createErrorResult(error instanceof Error ? error.message : 'Extension failed');
+  }
+}
+
+/**
+ * Update stock ranking assignment
+ */
+export async function updateStockRankingAssignmentAction(assignmentId: string, formData: FormData): Promise<ActionResult<AssignmentResult>> {
+  const updateData: StockRankingAssignmentUpdateRequest = {
+    status: formData.get('status') as string,
+    expires_at: formData.get('expiresAt') as string,
+    package_tier: formData.get('packageTier') as string
+  };
+
+  try {
+    const response = await makeAuthenticatedRequest(`/admin/stock-ranking/assignments/${assignmentId}`, {
+      method: 'PUT',
+      body: JSON.stringify(updateData)
+    });
+
+    revalidatePath('/admin/stock-ranking');
+    return createSuccessResult(response, 'Stock ranking assignment updated successfully');
+  } catch (error) {
+    console.error('Failed to update stock ranking assignment:', error);
+    return createErrorResult(error instanceof Error ? error.message : 'Update failed');
+  }
+}
+
+// ============================================================================
+// AUTHENTICATION OPERATIONS
+// ============================================================================
+
+/**
+ * Handle admin sign out with OIDC token revocation
+ */
+export async function handleSignOut(): Promise<void> {
+  // Use OIDC logout endpoint to properly revoke tokens
+  const backendUrl = env.BACKEND_URL;
+  
+  // OIDC Migration: Get current OIDC access token for revocation
+  const cookieStore = await cookies();
+  const jwt = cookieStore.get('access_token')?.value;
+  
+  if (jwt) {
+    try {
+      // Call OIDC logout endpoint to revoke token
+      await fetch(`${backendUrl}/oauth/logout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwt}`
+        }
+      });
+    } catch (logoutError) {
+      console.error('❌ Backend logout failed:', logoutError);
+      // Continue with local logout even if backend fails
+    }
+  }
+  
+  // OIDC Migration: Clear OIDC tokens instead of legacy JWT
+  cookieStore.delete('access_token');
+  cookieStore.delete('id_token'); 
+  cookieStore.delete('refresh_token');
+  
+  // Redirect to login page with proper PKCE flow
+  redirect('/login');
+}
+
+/**
+ * Cleanup expired permissions - alias for clearing permissions cache
+ */
+export async function cleanupExpiredPermissionsAction(): Promise<ActionResult<void>> {
+  try {
+    // Call permissions-specific cleanup endpoint
+    await makeAuthenticatedRequest('/admin/permissions/cleanup-expired', {
+      method: 'POST'
+    });
+
+    return createSuccessResult(undefined, 'Expired permissions cleaned up successfully');
+  } catch (error) {
+    console.error('Failed to cleanup expired permissions:', error);
+    return createErrorResult(error instanceof Error ? error.message : 'Failed to cleanup expired permissions');
+  }
+}
+
+/**
+ * Send notification - alias for createAdminNotification
+ */
+export const sendNotification = createAdminNotification;
+
+/**
+ * Send broadcast notification - alias for broadcastNotification
+ */
+export const sendBroadcastNotification = broadcastNotification;

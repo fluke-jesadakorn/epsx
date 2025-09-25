@@ -1,6 +1,6 @@
-// Simplified Backend Environment Configuration for EPSX Platform
-// Reduced from 1447 lines to ~100 lines (93% reduction)
-// Uses unified environment schema with 15 essential variables
+// Pure Web3 Enterprise Configuration for EPSX Platform
+// OIDC completely removed - Web3-only authentication
+// Supports multi-chain enterprise permissions and token-gated access
 
 use std::env;
 use std::fmt;
@@ -17,7 +17,7 @@ impl fmt::Display for ValidationError {
     }
 }
 
-/// Simplified Configuration - Only Essential Variables
+/// Pure Web3 Enterprise Configuration - Zero OIDC Dependencies
 #[derive(Debug, Clone)]
 pub struct Config {
     // Core Infrastructure (4 variables)
@@ -26,15 +26,8 @@ pub struct Config {
     pub frontend_url: String,
     pub admin_frontend_url: String,
 
-    // Authentication (5 variables)
-    pub jwt_secret: String,
-    pub oidc_client_id: String,
-    pub oidc_client_secret: String,
-    pub oidc_admin_client_id: String,
-    pub oidc_admin_client_secret: String,
-
-    // Firebase removed for Web3-first architecture
-
+    // Web3 Authentication (1 variable) - OIDC completely removed
+    pub jwt_secret: String, // For Web3 session tokens only
 
     // Blockchain Infrastructure (6 variables)
     pub ethereum_rpc_url: String,
@@ -43,6 +36,11 @@ pub struct Config {
     pub optimism_rpc_url: String,
     pub base_rpc_url: String,
     pub bsc_rpc_url: String,
+
+    // Enterprise Web3 Features
+    pub enterprise_nft_contract: Option<String>,
+    pub enterprise_dao_contract: Option<String>,
+    pub enterprise_governance_token: Option<String>,
 
     // Infrastructure (1 variable)
     pub redis_url: Option<String>,
@@ -120,43 +118,41 @@ impl Config {
             }
         }
 
-        // Authentication - Required
-        let jwt_secret = match get_required("NEXTAUTH_SECRET") {
+        // Web3 Authentication - Required
+        let jwt_secret = match get_required("WEB3_JWT_SECRET") {
             Ok(secret) => {
                 if secret.len() < 32 {
                     errors.push(ValidationError {
-                        variable: "NEXTAUTH_SECRET".to_string(),
-                        reason: "JWT secret must be at least 32 characters for security".to_string(),
+                        variable: "WEB3_JWT_SECRET".to_string(),
+                        reason: "Web3 JWT secret must be at least 32 characters for security".to_string(),
                     });
                     String::new()
                 } else {
                     secret
                 }
             },
-            Err(e) => {
-                errors.push(e);
-                String::new()
-            }
-        };
-
-        let oidc_client_id = get_with_default("OIDC_CLIENT_ID",
-            if Self::is_development() { "epsx-frontend" } else { "epsx-frontend-prod" });
-        let oidc_admin_client_id = get_with_default("OIDC_ADMIN_CLIENT_ID",
-            if Self::is_development() { "epsx-admin" } else { "epsx-admin-prod" });
-
-        let oidc_client_secret = match get_required("OIDC_CLIENT_SECRET") {
-            Ok(secret) => secret,
-            Err(e) => {
-                errors.push(e);
-                String::new()
-            }
-        };
-
-        let oidc_admin_client_secret = match get_required("OIDC_ADMIN_CLIENT_SECRET") {
-            Ok(secret) => secret,
-            Err(e) => {
-                errors.push(e);
-                String::new()
+            Err(_) => {
+                // Fallback to NEXTAUTH_SECRET for backward compatibility during migration
+                match get_required("NEXTAUTH_SECRET") {
+                    Ok(secret) => {
+                        if secret.len() < 32 {
+                            errors.push(ValidationError {
+                                variable: "WEB3_JWT_SECRET or NEXTAUTH_SECRET".to_string(),
+                                reason: "JWT secret must be at least 32 characters for security".to_string(),
+                            });
+                            String::new()
+                        } else {
+                            secret
+                        }
+                    },
+                    Err(_e) => {
+                        errors.push(ValidationError {
+                            variable: "WEB3_JWT_SECRET".to_string(),
+                            reason: "Required for Web3 session management".to_string(),
+                        });
+                        String::new()
+                    }
+                }
             }
         };
 
@@ -169,6 +165,11 @@ impl Config {
         let optimism_rpc_url = get_with_default("OPTIMISM_RPC_URL", "https://optimism.llamarpc.com");
         let base_rpc_url = get_with_default("BASE_RPC_URL", "https://base.llamarpc.com");
         let bsc_rpc_url = get_with_default("BSC_RPC_URL", "https://bsc-dataseed.binance.org");
+
+        // Enterprise Web3 Features - Optional
+        let enterprise_nft_contract = get_optional("ENTERPRISE_NFT_CONTRACT");
+        let enterprise_dao_contract = get_optional("ENTERPRISE_DAO_CONTRACT");
+        let enterprise_governance_token = get_optional("ENTERPRISE_GOVERNANCE_TOKEN");
 
         // Infrastructure - Optional
         let redis_url = get_optional("REDIS_URL");
@@ -184,16 +185,15 @@ impl Config {
             frontend_url,
             admin_frontend_url,
             jwt_secret,
-            oidc_client_id,
-            oidc_client_secret,
-            oidc_admin_client_id,
-            oidc_admin_client_secret,
             ethereum_rpc_url,
             polygon_rpc_url,
             arbitrum_rpc_url,
             optimism_rpc_url,
             base_rpc_url,
             bsc_rpc_url,
+            enterprise_nft_contract,
+            enterprise_dao_contract,
+            enterprise_governance_token,
             redis_url,
             log_level,
         })
@@ -211,29 +211,24 @@ impl Config {
         env::var("NODE_ENV").unwrap_or_default() == "production"
     }
 
-    /// Get OIDC issuer URL
-    pub fn oidc_issuer(&self) -> &str {
-        &self.backend_url
+    /// Get Web3 challenge endpoint
+    pub fn web3_challenge_url(&self) -> String {
+        format!("{}/api/auth/web3/challenge", self.backend_url)
     }
 
-    /// Get OAuth authorization endpoint
-    pub fn oauth_authorize_url(&self) -> String {
-        format!("{}/oauth/authorize", self.backend_url)
+    /// Get Web3 verify endpoint
+    pub fn web3_verify_url(&self) -> String {
+        format!("{}/api/auth/web3/verify", self.backend_url)
     }
 
-    /// Get OAuth token endpoint
-    pub fn oauth_token_url(&self) -> String {
-        format!("{}/oauth/token", self.backend_url)
+    /// Get Web3 permissions endpoint
+    pub fn web3_permissions_url(&self) -> String {
+        format!("{}/api/auth/web3/permissions", self.backend_url)
     }
 
-    /// Get OAuth userinfo endpoint
-    pub fn oauth_userinfo_url(&self) -> String {
-        format!("{}/oauth/userinfo", self.backend_url)
-    }
-
-    /// Get JWKS endpoint
-    pub fn oauth_jwks_url(&self) -> String {
-        format!("{}/oauth/jwks", self.backend_url)
+    /// Get enterprise API endpoint
+    pub fn enterprise_api_url(&self) -> String {
+        format!("{}/api/v1/enterprise", self.backend_url)
     }
 }
 
@@ -264,36 +259,42 @@ pub fn init_config() -> Config {
     }
 }
 
-/// Create a fallback configuration for testing and development
+/// Create a fallback configuration for testing and development - Web3 only
 pub fn get_fallback_config() -> Config {
     Config {
         database_url: "postgresql://localhost/epsx".to_string(),
         backend_url: "http://localhost:8080".to_string(),
         frontend_url: "http://localhost:3000".to_string(),
         admin_frontend_url: "http://localhost:3001".to_string(),
-        jwt_secret: "default-jwt-secret".to_string(),
-        oidc_client_id: "epsx-frontend".to_string(),
-        oidc_client_secret: "default-secret".to_string(),
-        oidc_admin_client_id: "epsx-admin".to_string(),
-        oidc_admin_client_secret: "default-secret".to_string(),
+        jwt_secret: "default-web3-jwt-secret-for-development-only".to_string(),
         ethereum_rpc_url: "https://eth.llamarpc.com".to_string(),
         polygon_rpc_url: "https://polygon.llamarpc.com".to_string(),
         arbitrum_rpc_url: "https://arbitrum.llamarpc.com".to_string(),
         optimism_rpc_url: "https://optimism.llamarpc.com".to_string(),
         base_rpc_url: "https://base.llamarpc.com".to_string(),
         bsc_rpc_url: "https://bsc-dataseed.binance.org".to_string(),
+        enterprise_nft_contract: None,
+        enterprise_dao_contract: None,
+        enterprise_governance_token: None,
         redis_url: None,
         log_level: "info".to_string(),
     }
 }
 
-// Convenience functions for backward compatibility
+// Convenience functions for Web3 configuration
 pub fn get_database_url() -> String {
     env::var("DATABASE_URL").expect("DATABASE_URL must be set")
 }
 
+pub fn get_web3_jwt_secret() -> String {
+    env::var("WEB3_JWT_SECRET")
+        .or_else(|_| env::var("NEXTAUTH_SECRET")) // Fallback during migration
+        .expect("WEB3_JWT_SECRET or NEXTAUTH_SECRET must be set")
+}
+
+// Deprecated: Use get_web3_jwt_secret() instead
 pub fn get_jwt_secret() -> String {
-    env::var("NEXTAUTH_SECRET").expect("NEXTAUTH_SECRET must be set")
+    get_web3_jwt_secret()
 }
 
 pub fn get_log_level() -> String {

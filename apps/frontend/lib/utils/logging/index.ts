@@ -130,15 +130,40 @@ export class Logger {
   private log(level: LogLevel['level'], message: string, data?: any): void {
     if (!this.shouldLog(level)) return;
 
+    // Skip logging if console is not available (SSR/hydration safety)
+    if (typeof console === 'undefined') return;
+
     // Simplified logging - console output only, no buffering or transmission
     const consoleMethod = level === 'debug' ? 'log' : level;
     const timestamp = new Date().toLocaleTimeString();
     const prefix = `[${timestamp}] [${level.toUpperCase()}] [${this.context}]`;
     
-    if (data) {
-      console[consoleMethod](prefix, message, data);
-    } else {
-      console[consoleMethod](prefix, message);
+    // Safe console access with fallback to console.log
+    const logFunction = console[consoleMethod as keyof Console] || console.log;
+    if (typeof logFunction !== 'function') {
+      // Fallback to console.log if specific method doesn't exist
+      const fallbackLog = console.log;
+      if (typeof fallbackLog === 'function') {
+        if (data) {
+          fallbackLog(prefix, message, data);
+        } else {
+          fallbackLog(prefix, message);
+        }
+      }
+      return;
+    }
+
+    try {
+      if (data) {
+        logFunction(prefix, message, data);
+      } else {
+        logFunction(prefix, message);
+      }
+    } catch (error) {
+      // Fallback to console.log if specific method fails
+      if (console.log && typeof console.log === 'function') {
+        console.log(`[LOGGER ERROR] ${prefix}`, message, data || '');
+      }
     }
   }
 

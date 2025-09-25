@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { assignTemporaryPermission, validatePermissionAssignment } from '@/lib/actions/users'
+import { assignTemporaryPermission, validatePermissionAssignment } from '@/lib/actions/consolidated-user-actions'
 import { useToast } from '@/components/ui/use-toast'
 import { format, addDays, addHours, addWeeks } from 'date-fns'
 
@@ -161,7 +161,7 @@ export function TemporaryPermissionForm({ userId, onPermissionUpdated }: Tempora
       } else {
         toast({
           title: 'Error',
-          description: result.error?.message || 'Failed to assign temporary permission',
+          description: result.error || 'Failed to assign temporary permission',
           variant: 'destructive'
         })
       }

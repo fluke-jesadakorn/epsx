@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use anyhow::{ anyhow, Result };
 use chrono::{ DateTime, Duration, Utc };
 use ethers::types::Address;
@@ -193,18 +194,7 @@ impl Web3PermissionService {
       .map_err(|e| anyhow!("Failed to create provider for {}: {}", network, e))
   }
 
-  /// Get chain ID for the specified network
-  fn get_chain_id(&self, network: &str) -> Result<u64> {
-    match network.to_lowercase().as_str() {
-      "ethereum" | "mainnet" => Ok(1),
-      "polygon" => Ok(137),
-      "arbitrum" => Ok(42161),
-      "optimism" => Ok(10),
-      "base" => Ok(8453),
-      "bsc" | "binance" => Ok(56),
-      _ => Err(anyhow!("Unsupported network: {}", network)),
-    }
-  }
+  // Removed unused get_chain_id method
 
   /// Verify BSC-specific token standards (BEP-20, BEP-721)
   pub async fn verify_bsc_token_balance(
@@ -272,7 +262,7 @@ impl Web3PermissionService {
   }
 
   /// Get all active permissions for a wallet address
-  pub async fn get_wallet_permissions(
+  pub async fn get_user_permissions(
     &self,
     wallet_address: &str
   ) -> Result<Vec<PermissionInfo>> {
@@ -810,6 +800,126 @@ impl Web3PermissionService {
     Ok(delegation_id)
   }
 
+  /// Verify token balance with USD value calculation
+  pub async fn verify_token_balance_usd(
+    &self,
+    wallet_address: &str,
+    contract_address: &str,
+    network: &str,
+    minimum_usd_value: u64,
+    decimals: i32
+  ) -> Result<bool> {
+    // First get the raw token balance
+    let has_tokens = self.verify_token_balance(
+      wallet_address,
+      contract_address,
+      network,
+      "1", // Just check if they have any tokens first
+      decimals
+    ).await?;
+
+    if !has_tokens {
+      return Ok(false);
+    }
+
+    // Get the actual balance
+    let provider = self.get_provider(network)?;
+    let wallet_addr = wallet_address.parse::<ethers::types::Address>()?;
+    let contract_addr = contract_address.parse::<ethers::types::Address>()?;
+
+    use ethers::abi::{Function, Param, ParamType, StateMutability, Token};
+    use ethers::providers::Middleware;
+
+    let balance_of = Function {
+      name: "balanceOf".to_string(),
+      inputs: vec![Param {
+        name: "account".to_string(),
+        kind: ParamType::Address,
+        internal_type: None,
+      }],
+      outputs: vec![Param {
+        name: "".to_string(),
+        kind: ParamType::Uint(256),
+        internal_type: None,
+      }],
+      constant: None,
+      state_mutability: StateMutability::View,
+    };
+
+    let calldata = balance_of.encode_input(&[Token::Address(wallet_addr)])?;
+    let tx = ethers::types::transaction::eip2718::TypedTransaction::Legacy(ethers::types::TransactionRequest::new()
+        .to(contract_addr)
+        .data(calldata));
+    let result = provider.call(&tx, None).await?;
+
+    let balance = match balance_of.decode_output(&result) {
+      Ok(tokens) => {
+        if let Some(Token::Uint(balance)) = tokens.get(0) {
+          *balance
+        } else {
+          return Ok(false);
+        }
+      }
+      Err(_) => return Ok(false),
+    };
+
+    // Convert balance to human readable format
+    let decimals_multiplier = ethers::types::U256::from(10).pow(ethers::types::U256::from(decimals));
+    let human_balance = balance.checked_div(decimals_multiplier).unwrap_or_default();
+
+    // Get USD price (placeholder - in production would use real price oracle)
+    let usd_price = self.get_token_usd_price(contract_address, network).await?;
+    let usd_value = human_balance.as_u64() * usd_price;
+
+    debug!(
+      "Token USD value verification: wallet={}, token={}, balance={}, usd_price=${}, total_value=${}, required=${}, verified={}",
+      wallet_address, contract_address, human_balance, usd_price, usd_value, minimum_usd_value, usd_value >= minimum_usd_value
+    );
+
+    Ok(usd_value >= minimum_usd_value)
+  }
+
+  /// Get USD price for a token (placeholder implementation)
+  async fn get_token_usd_price(
+    &self,
+    contract_address: &str,
+    network: &str
+  ) -> Result<u64> {
+    // Placeholder USD prices for common tokens
+    let price = match (network, contract_address.to_lowercase().as_str()) {
+      // USDC on various networks
+      (_, addr) if addr.contains("a0b86a33") => 1, // USDC = $1
+      ("ethereum", "0xa0b86a33e6f2b84af98e67b1f6b40f5af1b1b1b1") => 1, // USDC
+      ("polygon", "0x2791bca1f2de4661ed88a30c99a7a9449aa84174") => 1, // USDC on Polygon
+      ("arbitrum", "0xff970a61a04b1ca14834a43f5de4533ebddb5cc8") => 1, // USDC on Arbitrum
+      ("optimism", "0x7f5c764cbc13c35c5e0f0db4ef72c0b1f47af4c") => 1, // USDC on Optimism
+      ("base", "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913") => 1, // USDC on Base
+      ("bsc", "0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d") => 1, // USDC on BSC
+
+      // USDT
+      ("ethereum", "0xdac17f958d2ee523a2206206994597c13d831ec7") => 1, // USDT
+      ("polygon", "0xc2132d05d31c914a87c6611c10748aeb04b58e8f") => 1, // USDT on Polygon
+      ("bsc", "0x55d398326f99059ff775485246999027b3197955") => 1, // USDT on BSC
+
+      // ETH and native tokens (approximate)
+      ("ethereum", "0x0000000000000000000000000000000000000000") => 2500, // ETH
+      ("polygon", "0x0000000000000000000000000000000000000000") => 1, // MATIC
+      ("arbitrum", "0x0000000000000000000000000000000000000000") => 2500, // ETH on Arbitrum
+      ("optimism", "0x0000000000000000000000000000000000000000") => 2500, // ETH on Optimism
+      ("base", "0x0000000000000000000000000000000000000000") => 2500, // ETH on Base
+      ("bsc", "0x0000000000000000000000000000000000000000") => 400, // BNB
+
+      // Default fallback
+      _ => {
+        warn!("Unknown token price for {} on {}, using $1 default", contract_address, network);
+        1
+      }
+    };
+
+    debug!("Token USD price lookup: {} on {} = ${}", contract_address, network, price);
+    Ok(price)
+  }
+
   /// Verify cross-chain permission across all supported networks
   pub async fn verify_cross_chain_permission(
     &self,
@@ -910,74 +1020,280 @@ impl Web3PermissionService {
 
   // Private helper methods
 
-  async fn verify_nft_ownership(
+  pub async fn verify_nft_ownership(
     &self,
     wallet_address: &str,
     contract_address: &str,
     network: &str,
-    _specific_token_id: Option<&str>
+    specific_token_id: Option<&str>
   ) -> Result<bool> {
     // Check cache first
-    if
-      let Some(cached_result) = self.get_cached_verification(
-        wallet_address,
-        contract_address,
-        network,
-        "nft_gated"
-      ).await?
-    {
+    if let Some(cached_result) = self.get_cached_verification(
+      wallet_address,
+      contract_address,
+      network,
+      "nft_gated"
+    ).await? {
       return Ok(cached_result);
     }
 
-    // TEMPORARILY DISABLED: Real blockchain verification using ethers
-    // Complex Web3 integration requires proper ethers setup
-    tracing::warn!(
-      "NFT ownership verification temporarily disabled during compilation fixes"
-    );
+    // Real blockchain verification using ethers
+    let provider = match self.get_provider(network) {
+      Ok(provider) => provider,
+      Err(e) => {
+        warn!("Failed to get provider for {}: {}", network, e);
+        return Ok(false);
+      }
+    };
 
-    // For now, return true to allow compilation
-    let result = true;
+    // Parse addresses
+    let wallet_addr = match wallet_address.parse::<ethers::types::Address>() {
+      Ok(addr) => addr,
+      Err(e) => {
+        warn!("Invalid wallet address {}: {}", wallet_address, e);
+        return Ok(false);
+      }
+    };
 
-    // Temporarily stub the verification logic
-    let verified = result;
+    let contract_addr = match contract_address.parse::<ethers::types::Address>() {
+      Ok(addr) => addr,
+      Err(e) => {
+        warn!("Invalid contract address {}: {}", contract_address, e);
+        return Ok(false);
+      }
+    };
+
+    use ethers::abi::{Function, Param, ParamType, StateMutability, Token};
+    use ethers::providers::Middleware;
+
+    let verified = if let Some(token_id) = specific_token_id {
+      // Check ownership of specific token ID using ownerOf
+      let owner_of = Function {
+        name: "ownerOf".to_string(),
+        inputs: vec![Param {
+          name: "tokenId".to_string(),
+          kind: ParamType::Uint(256),
+          internal_type: None,
+        }],
+        outputs: vec![Param {
+          name: "".to_string(),
+          kind: ParamType::Address,
+          internal_type: None,
+        }],
+        constant: None,
+        state_mutability: StateMutability::View,
+      };
+
+      let token_id_uint = match token_id.parse::<u128>() {
+        Ok(val) => ethers::types::U256::from(val),
+        Err(e) => {
+          warn!("Invalid token ID format {}: {}", token_id, e);
+          return Ok(false);
+        }
+      };
+
+      let calldata = owner_of.encode_input(&[Token::Uint(token_id_uint)])?;
+
+      let tx = ethers::types::transaction::eip2718::TypedTransaction::Legacy(ethers::types::TransactionRequest::new()
+          .to(contract_addr)
+          .data(calldata));
+      let call_result = provider.call(&tx, None).await;
+
+      match call_result {
+        Ok(result) => {
+          match owner_of.decode_output(&result) {
+            Ok(tokens) => {
+              if let Some(Token::Address(owner)) = tokens.get(0) {
+                *owner == wallet_addr
+              } else {
+                warn!("Unexpected ownerOf response format");
+                false
+              }
+            }
+            Err(e) => {
+              warn!("Failed to decode ownerOf response: {}", e);
+              false
+            }
+          }
+        }
+        Err(e) => {
+          warn!("Failed to call ownerOf for token {} on {}: {}", token_id, network, e);
+          false
+        }
+      }
+    } else {
+      // Check total balance using balanceOf
+      let balance_of = Function {
+        name: "balanceOf".to_string(),
+        inputs: vec![Param {
+          name: "owner".to_string(),
+          kind: ParamType::Address,
+          internal_type: None,
+        }],
+        outputs: vec![Param {
+          name: "".to_string(),
+          kind: ParamType::Uint(256),
+          internal_type: None,
+        }],
+        constant: None,
+        state_mutability: StateMutability::View,
+      };
+
+      let calldata = balance_of.encode_input(&[Token::Address(wallet_addr)])?;
+
+      let tx = ethers::types::transaction::eip2718::TypedTransaction::Legacy(ethers::types::TransactionRequest::new()
+          .to(contract_addr)
+          .data(calldata));
+      let call_result = provider.call(&tx, None).await;
+
+      match call_result {
+        Ok(result) => {
+          match balance_of.decode_output(&result) {
+            Ok(tokens) => {
+              if let Some(Token::Uint(balance)) = tokens.get(0) {
+                *balance > ethers::types::U256::zero()
+              } else {
+                warn!("Unexpected NFT balance response format");
+                false
+              }
+            }
+            Err(e) => {
+              warn!("Failed to decode NFT balance response: {}", e);
+              false
+            }
+          }
+        }
+        Err(e) => {
+          warn!("Failed to call balanceOf for NFT {} on {}: {}", contract_address, network, e);
+          false
+        }
+      }
+    };
 
     debug!(
-      "NFT ownership verification for {}: {} (temporarily stubbed)",
-      contract_address,
-      verified
+      "NFT ownership verification for {} on {}: wallet={}, specific_token={:?}, verified={}",
+      contract_address, network, wallet_address, specific_token_id, verified
     );
 
-    // Cache the result (temporarily disabled during compilation fixes)
-    // self.cache_verification_result(wallet_address, contract_address, network, "nft_gated", verified).await?;
+    // Cache the result
+    self.cache_verification_result(wallet_address, contract_address, network, "nft_gated", verified).await?;
 
     Ok(verified)
   }
 
-  async fn verify_token_balance(
+  pub async fn verify_token_balance(
     &self,
-    _wallet_address: &str,
+    wallet_address: &str,
     contract_address: &str,
-    _network: &str,
-    _required_balance: &str,
+    network: &str,
+    required_balance: &str,
     _decimals: i32
   ) -> Result<bool> {
-    // TEMPORARILY DISABLED: Real blockchain verification using ethers
-    // Complex Web3 integration requires proper ethers setup
-    tracing::warn!(
-      "Token balance verification temporarily disabled during compilation fixes"
-    );
+    // Check cache first
+    if let Some(cached_result) = self.get_cached_verification(
+      wallet_address,
+      contract_address,
+      network,
+      "token_gated"
+    ).await? {
+      return Ok(cached_result);
+    }
 
-    // For now, return true to allow compilation
-    let verified = true;
+    // Real blockchain verification using ethers
+    let provider = match self.get_provider(network) {
+      Ok(provider) => provider,
+      Err(e) => {
+        warn!("Failed to get provider for {}: {}", network, e);
+        return Ok(false);
+      }
+    };
+
+    // Parse addresses
+    let wallet_addr = match wallet_address.parse::<ethers::types::Address>() {
+      Ok(addr) => addr,
+      Err(e) => {
+        warn!("Invalid wallet address {}: {}", wallet_address, e);
+        return Ok(false);
+      }
+    };
+
+    let contract_addr = match contract_address.parse::<ethers::types::Address>() {
+      Ok(addr) => addr,
+      Err(e) => {
+        warn!("Invalid contract address {}: {}", contract_address, e);
+        return Ok(false);
+      }
+    };
+
+    // ERC-20 balanceOf function signature
+    use ethers::abi::{Function, Param, ParamType, StateMutability, Token};
+    let balance_of = Function {
+      name: "balanceOf".to_string(),
+      inputs: vec![Param {
+        name: "account".to_string(),
+        kind: ParamType::Address,
+        internal_type: None,
+      }],
+      outputs: vec![Param {
+        name: "".to_string(),
+        kind: ParamType::Uint(256),
+        internal_type: None,
+      }],
+      constant: None,
+      state_mutability: StateMutability::View,
+    };
+
+    // Encode function call
+    let calldata = balance_of.encode_input(&[Token::Address(wallet_addr)])?;
+
+    // Make the call
+    use ethers::providers::Middleware;
+    let tx = ethers::types::transaction::eip2718::TypedTransaction::Legacy(ethers::types::TransactionRequest::new()
+        .to(contract_addr)
+        .data(calldata));
+    let call_result = provider.call(&tx, None).await;
+
+    let balance = match call_result {
+      Ok(result) => {
+        match balance_of.decode_output(&result) {
+          Ok(tokens) => {
+            if let Some(Token::Uint(balance)) = tokens.get(0) {
+              *balance
+            } else {
+              warn!("Unexpected token balance response format");
+              return Ok(false);
+            }
+          }
+          Err(e) => {
+            warn!("Failed to decode balance response: {}", e);
+            return Ok(false);
+          }
+        }
+      }
+      Err(e) => {
+        warn!("Failed to call balanceOf for {} on {}: {}", contract_address, network, e);
+        return Ok(false);
+      }
+    };
+
+    // Parse required balance
+    let required = match required_balance.parse::<u128>() {
+      Ok(val) => ethers::types::U256::from(val),
+      Err(e) => {
+        warn!("Invalid required balance format {}: {}", required_balance, e);
+        return Ok(false);
+      }
+    };
+
+    let verified = balance >= required;
 
     debug!(
-      "Token balance verification for {}: {} (temporarily stubbed)",
-      contract_address,
-      verified
+      "Token balance verification for {} on {}: wallet={}, balance={}, required={}, verified={}",
+      contract_address, network, wallet_address, balance, required, verified
     );
 
-    // Cache the result (temporarily disabled during compilation fixes)
-    // self.cache_verification_result(wallet_address, contract_address, network, "token_gated", verified).await?;
+    // Cache the result
+    self.cache_verification_result(wallet_address, contract_address, network, "token_gated", verified).await?;
 
     Ok(verified)
   }

@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { useProgressiveAuth } from '@/hooks/useProgressiveAuth';
 import { WalletConnectAuth } from './WalletConnectAuth';
-import { AuthLevel } from '@/types/progressive-auth';
+import { AuthLevel, AuthLevelType } from '@/types/progressive-auth';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Wallet, Shield, AlertCircle } from 'lucide-react';
@@ -16,7 +16,7 @@ interface JustInTimeAuthProps {
   /**
    * Authentication level required for this action
    */
-  requiredLevel: AuthLevel;
+  requiredLevel: AuthLevelType;
   
   /**
    * Action to execute once authentication is successful
@@ -31,7 +31,12 @@ interface JustInTimeAuthProps {
   /**
    * The trigger element (button, link, etc.)
    */
-  children: React.ReactNode;
+  children: React.ReactNode | ((props: {
+    onClick: () => void;
+    disabled: boolean;
+    isAuthRequired: boolean;
+    isExecuting: boolean;
+  }) => React.ReactNode);
   
   /**
    * Whether to show the trigger as disabled when auth is required
@@ -195,7 +200,7 @@ export function JustInTimeAuth({
 export function withJustInTimeAuth<P extends object>(
   Component: React.ComponentType<P>,
   authConfig: {
-    requiredLevel: AuthLevel;
+    requiredLevel: AuthLevelType;
     actionName: string;
     authMessage?: string;
   }

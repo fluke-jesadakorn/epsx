@@ -48,7 +48,7 @@ export default async function BulkOperationsPage({ searchParams }: Props) {
 
   // Get user data for bulk operations
   const client = new UnifiedAdminClient()
-  let users = []
+  let users: any[] = []
   try {
     const userPromises = selectedUserIds.map(id => client.getUser(id))
     users = await Promise.all(userPromises)
@@ -62,27 +62,16 @@ export default async function BulkOperationsPage({ searchParams }: Props) {
       <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-6">
         <div className="relative z-10 max-w-6xl mx-auto">
           {operation === 'grant' && (
-            <PermissionForms
-              mode="bulkGrant"
-              users={users}
-              selectedUserIds={selectedUserIds}
-              currentUser={session.user}
-            />
+            <PermissionForms />
           )}
           {operation === 'revoke' && (
-            <PermissionForms
-              mode="bulkRevoke"
-              users={users}
-              selectedUserIds={selectedUserIds}
-              currentUser={session.user}
-            />
+            <PermissionForms />
           )}
           {operation === 'export' && (
             <UserForms
-              mode="bulkExport"
+              mode="bulk"
               users={users}
-              selectedUserIds={selectedUserIds}
-              currentUser={session.user}
+              currentUser={session.user as any}
             />
           )}
         </div>

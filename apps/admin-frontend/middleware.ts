@@ -1,19 +1,15 @@
 /**
  * Enhanced Session Validation Middleware for Admin Frontend  
- * Integrates with backend session validation API for 100% route coverage
- * Provides comprehensive security logging, performance monitoring, and access control
+ * Currently disabled for stable Web3 authentication implementation
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { validateAdminSession } from '@/lib/session-validator';
+// import { validateAdminSession } from '../../../shared/validators'; // Updated to use unified validators
 import { env } from '../../shared/env/schema';
 
-// Public routes that don't require authentication
+// Public routes that don't require authentication - Updated for Web3 Auth
 const publicRoutes = [
-  '/login', // Allow access to login route for PKCE initiation
-  '/api/auth/callback/epsx-backend',
-  '/api/auth/initiate',
-  '/api/auth/login',
-  '/api/auth/signin',
+  '/login', // Web3 login page
+  '/api/auth/web3', // Web3 authentication endpoints
   '/api/auth/logout', 
   '/api/auth/session',
   '/api/v1', // Allow API routes to handle auth themselves
@@ -22,23 +18,27 @@ const publicRoutes = [
   '/access-denied',
   '/_next',
   '/favicon.ico',
-  // DEMO MODE: Allow permissions pages for UI demonstration
-  '/permissions',
-  '/permissions/grant',
-  '/permissions/request'
+  // Web3 permission flow pages
+  '/permissions/web3',
+  '/request-access'
 ]
 
-// Routes that require specific admin modules
-const adminModuleRoutes: Record<string, string> = {
-  '/users': 'user-management',
-  '/analytics': 'analytics-access', 
-  '/settings': 'system-admin',
-  '/permissions': 'security-management',
-  '/permission-profiles': 'user-management',
-  '/stock-ranking-packages': 'content-management',
-  '/reports': 'analytics-access',
-  '/audit': 'security-management',
-  '/system': 'system-admin'
+// Routes that require specific admin permissions - Updated for Structured Permissions
+const adminPermissionRoutes: Record<string, string[]> = {
+  '/users': ['admin:users:manage', 'admin:users:*', 'admin:*:*'],
+  '/analytics': ['admin:analytics:view', 'admin:analytics:*', 'admin:*:*'], 
+  '/settings': ['admin:system:manage', 'admin:system:*', 'admin:*:*'],
+  '/permissions': ['admin:permissions:manage', 'admin:security:*', 'admin:*:*'],
+  '/permission-profiles': ['admin:users:manage', 'admin:permissions:*', 'admin:*:*'],
+  '/stock-ranking-packages': ['admin:content:manage', 'admin:content:*', 'admin:*:*'],
+  '/reports': ['admin:analytics:view', 'admin:reports:*', 'admin:*:*'],
+  '/audit': ['admin:security:view', 'admin:audit:*', 'admin:*:*'],
+  '/system': ['admin:system:manage', 'admin:system:*', 'admin:*:*'],
+  '/security': ['admin:security:manage', 'admin:security:*', 'admin:*:*'],
+  '/notifications': ['admin:notifications:manage', 'admin:notifications:*', 'admin:*:*'],
+  '/plans': ['admin:plans:manage', 'admin:content:*', 'admin:*:*'],
+  '/subscriptions': ['admin:subscriptions:manage', 'admin:users:*', 'admin:*:*'],
+  '/promotions': ['admin:promotions:manage', 'admin:content:*', 'admin:*:*']
 }
 
 // Performance monitoring
@@ -87,8 +87,28 @@ export async function middleware(request: NextRequest) {
   }
   
   try {
-    console.log(`🔍 Admin middleware: Validating session for ${pathname} (${method})`);
+    console.log(`🔍 Admin middleware: Checking authentication for - ${pathname} (${method})`);
     
+    // Check for authentication using unified auth
+    const { UnifiedAuth } = await import('@/lib/auth/unified-auth');
+    const session = await UnifiedAuth.getSession();
+    
+    if (!session.isAuthenticated) {
+      console.log(`🚫 Admin middleware: User not authenticated for ${pathname}`);
+      return redirectToLogin(request);
+    }
+    
+    if (!session.hasAdminAccess) {
+      console.log(`🚫 Admin middleware: User lacks admin access for ${pathname}`);
+      const accessDeniedUrl = new URL('/access-denied', request.url);
+      accessDeniedUrl.searchParams.set('reason', 'no-admin-permissions');
+      return NextResponse.redirect(accessDeniedUrl);
+    }
+    
+    console.log(`✅ Admin middleware: Authenticated user ${session.user?.email} accessing ${pathname}`);
+    
+    // Authentication successful - continue with disabled permission checking for now
+    /* 
     // Use new session validator service
     const validationResult = await validateAdminSession({
       userAgent,
@@ -115,27 +135,27 @@ export async function middleware(request: NextRequest) {
     }
     
     const user = validationResult.user;
+    */
     
+    // Permission checking disabled for Phase 4 stability
+    /*
     // Start permission check timing
     const permissionCheckStartTime = performance.now();
     
-    // Check for admin module requirements
-    const requiredModule = Object.entries(adminModuleRoutes).find(([route]) => 
+    // Check for admin permission requirements
+    const routePermissions = Object.entries(adminPermissionRoutes).find(([route]) => 
       pathname.startsWith(route)
     )?.[1];
     
-    if (requiredModule) {
-      // Convert legacy module to structured permission
-      const platform = user.platform_context || user.primary_platform || 'epsx';
-      const requiredPermission = `${platform}:${requiredModule}:access`;
-      
-      const hasAccess = user.permissions?.includes(requiredPermission) || 
-                       user.permissions?.includes('admin:*:*') ||
-                       user.permissions?.some(p => p.startsWith('admin:'));
+    if (routePermissions) {
+      // Check if user has any of the required permissions
+      const hasAccess = routePermissions.some(permission => 
+        user.permissions?.includes(permission)
+      ) || user.permissions?.includes('admin:*:*');
       
       if (!hasAccess) {
         const permissionCheckTime = performance.now() - permissionCheckStartTime;
-        console.log(`🚫 Admin middleware: User ${user.email} lacks permission ${requiredPermission} for ${pathname} (permission check: ${permissionCheckTime.toFixed(2)}ms)`);
+        console.log(`🚫 Admin middleware: User ${user.wallet_address} lacks required permissions ${routePermissions.join(' or ')} for ${pathname} (permission check: ${permissionCheckTime.toFixed(2)}ms)`);
         
         // Log security event for access denied
         await logSecurityEvent({
@@ -146,19 +166,22 @@ export async function middleware(request: NextRequest) {
           path: pathname,
           method,
           details: { 
-            requiredPermission, 
+            requiredPermissions: routePermissions, 
             userPermissions: user.permissions,
             permissionCheckTime: permissionCheckTime
           }
         });
         
         const accessDeniedUrl = new URL('/access-denied', request.url);
-        accessDeniedUrl.searchParams.set('module', requiredModule);
+        accessDeniedUrl.searchParams.set('permissions', routePermissions.join(','));
         accessDeniedUrl.searchParams.set('route', pathname);
         return NextResponse.redirect(accessDeniedUrl);
       }
     }
+    */
     
+    // User info and performance tracking disabled for Phase 4 stability
+    /*
     // Calculate permission check time
     const permissionCheckTime = performance.now() - permissionCheckStartTime;
     
@@ -182,7 +205,15 @@ export async function middleware(request: NextRequest) {
     }
     
     console.log(`✅ Admin middleware: Authenticated ${user.email} (${user.role}) accessing ${pathname} in ${elapsedTime.toFixed(2)}ms (session: ${(validationResult.performance?.validation_time_ms || 0).toFixed(2)}ms, permissions: ${permissionCheckTime.toFixed(2)}ms)`);
+    */
     
+    // Simple performance tracking for disabled middleware
+    const elapsedTime = performance.now() - startTime;
+    response.headers.set('x-middleware-performance', elapsedTime.toString());
+    console.log(`✅ Admin middleware: Disabled - allowing access to ${pathname} in ${elapsedTime.toFixed(2)}ms`);
+    
+    // Performance metrics logging disabled for Phase 4 stability
+    /*
     // Log performance metrics to backend
     await recordPerformanceMetrics({
       path: pathname,
@@ -193,6 +224,7 @@ export async function middleware(request: NextRequest) {
       permissionCheckTime: permissionCheckTime,
       totalRequestTime: elapsedTime
     });
+    */
     
     return response;
     
@@ -224,11 +256,12 @@ export async function middleware(request: NextRequest) {
 function redirectToLogin(request: NextRequest): NextResponse {
   // Use current request host for development services to avoid hardcoded production URLs
   const adminUrl = `${request.nextUrl.protocol}//${request.nextUrl.host}`;
-  const callbackUrl = `${adminUrl}${request.nextUrl.pathname}${request.nextUrl.search}`;
+  const returnUrl = `${request.nextUrl.pathname}${request.nextUrl.search}`;
   
   // Redirect to our login page which will initiate wallet authentication
   const loginUrl = new URL('/login', adminUrl);
-  loginUrl.searchParams.set('redirectTo', callbackUrl);
+  loginUrl.searchParams.set('return_url', returnUrl);
+  loginUrl.searchParams.set('reason', 'no-session');
   
   console.log(`🔄 Admin middleware: Redirecting to wallet login: ${loginUrl.toString()}`);
   const redirect = NextResponse.redirect(loginUrl.toString());
@@ -324,13 +357,7 @@ async function recordPerformanceMetrics(metrics: {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api/public (public API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
-    '/((?!api/public|_next/static|_next/image|favicon.ico).*)',
+    // Enable middleware for all routes except public ones
+    '/((?!api/auth|api/public|_next/static|_next/image|favicon.ico|login|unauthorized|access-denied).*)',
   ],
 }

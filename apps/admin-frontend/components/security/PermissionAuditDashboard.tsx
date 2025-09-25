@@ -47,8 +47,14 @@ interface SecurityAlert {
 
 export function PermissionAuditDashboard() {
   const [selectedTimeRange, setSelectedTimeRange] = useState('24h');
+  const [securityAlerts, setSecurityAlerts] = useState<SecurityAlert[]>([]);
   const [filterUser, setFilterUser] = useState('');
   const [filterPermission, setFilterPermission] = useState('');
+  
+  // Stub function for loading audit data
+  const loadAuditData = () => {
+    console.log('Loading audit data...');
+  };
 
   // Get current user's permissions for access control
   const { can, isAdmin } = useAuth();
@@ -162,31 +168,31 @@ export function PermissionAuditDashboard() {
           <div className="bg-white p-6 rounded-lg shadow border">
             <h3 className="text-sm font-medium text-gray-500">Total Permissions</h3>
             <div className="mt-2 flex items-baseline">
-              <p className="text-2xl font-semibold text-gray-900">{metrics.total_permissions.toLocaleString()}</p>
+              <p className="text-2xl font-semibold text-gray-900">{(metrics.total_events || 0).toLocaleString()}</p>
             </div>
           </div>
           
           <div className="bg-white p-6 rounded-lg shadow border">
-            <h3 className="text-sm font-medium text-gray-500">Active Permissions</h3>
+            <h3 className="text-sm font-medium text-gray-500">Active Threats</h3>
             <div className="mt-2 flex items-baseline">
-              <p className="text-2xl font-semibold text-green-600">{metrics.active_permissions.toLocaleString()}</p>
+              <p className="text-2xl font-semibold text-green-600">{(metrics.active_threats || 0).toLocaleString()}</p>
               <p className="ml-2 text-sm text-gray-500">
-                {metrics.total_permissions > 0 ? Math.round((metrics.active_permissions / metrics.total_permissions) * 100) : 0}%
+                {metrics.total_events > 0 ? Math.round((metrics.active_threats / metrics.total_events) * 100) : 0}%
               </p>
             </div>
           </div>
 
           <div className="bg-white p-6 rounded-lg shadow border">
-            <h3 className="text-sm font-medium text-gray-500">Expired Permissions</h3>
+            <h3 className="text-sm font-medium text-gray-500">Resolved Threats</h3>
             <div className="mt-2 flex items-baseline">
-              <p className="text-2xl font-semibold text-orange-600">{metrics.expired_permissions.toLocaleString()}</p>
+              <p className="text-2xl font-semibold text-orange-600">{(metrics.resolved_threats || 0).toLocaleString()}</p>
             </div>
           </div>
 
           <div className="bg-white p-6 rounded-lg shadow border">
-            <h3 className="text-sm font-medium text-gray-500">Security Violations</h3>
+            <h3 className="text-sm font-medium text-gray-500">Avg Threat Score</h3>
             <div className="mt-2 flex items-baseline">
-              <p className="text-2xl font-semibold text-red-600">{metrics.permission_violations.toLocaleString()}</p>
+              <p className="text-2xl font-semibold text-red-600">{(metrics.avg_threat_score || 0).toFixed(1)}</p>
             </div>
           </div>
         </div>
@@ -285,50 +291,42 @@ export function PermissionAuditDashboard() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {auditEvents.map((event) => (
+              {events.map((event) => (
                 <tr key={event.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {event.timestamp.toLocaleString()}
+                    {new Date(event.timestamp).toLocaleString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
-                      <div className="text-sm font-medium text-gray-900">{event.user_email}</div>
-                      <div className="text-xs text-gray-500">{event.user_id}</div>
+                      <div className="text-sm font-medium text-gray-900">{event.user_id}</div>
+                      <div className="text-xs text-gray-500">User ID: {event.user_id}</div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <code className="text-sm bg-gray-100 px-2 py-1 rounded">
-                      {event.permission}
+                      {event.event_type}
                     </code>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`text-sm font-medium ${getActionColor(event.action)}`}>
-                      {event.action.toUpperCase()}
+                    <span className={`text-sm font-medium ${getActionColor(event.event_type)}`}>
+                      {event.event_type.toUpperCase()}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {event.expires_at ? (
-                      <span className={event.expires_at < new Date() ? 'text-red-500' : 'text-gray-600'}>
-                        {event.expires_at.toLocaleDateString()}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">Permanent</span>
-                    )}
+                    <span className="text-gray-400">N/A</span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getThreatLevelColor(event.threat_level)}`}>
-                      {event.threat_level}
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getThreatLevelColor(event.severity)}`}>
+                      {event.severity}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <div className="space-y-1">
-                      {event.granted_by && (
-                        <div>Granted by: {event.granted_by}</div>
-                      )}
+                      <div>Score: {event.risk_score}</div>
                       {event.ip_address && (
                         <div>IP: {event.ip_address}</div>
                       )}
-                      <div>Security Level: {event.security_level}</div>
+                      <div>Resolved: {event.resolved ? 'Yes' : 'No'}</div>
                     </div>
                   </td>
                 </tr>
@@ -337,7 +335,7 @@ export function PermissionAuditDashboard() {
           </table>
         </div>
         
-        {auditEvents.length === 0 && !isLoading && (
+        {events.length === 0 && !isLoading && (
           <div className="text-center py-8">
             <p className="text-gray-500">No audit events found for the selected criteria.</p>
           </div>
@@ -351,27 +349,27 @@ export function PermissionAuditDashboard() {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Permission Distribution</h3>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Permanent Permissions</span>
+                <span className="text-sm text-gray-600">Total Events</span>
                 <span className="text-sm font-medium">
-                  {(metrics.total_permissions - metrics.temporary_permissions).toLocaleString()}
+                  {(metrics.total_events || 0).toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Temporary Permissions</span>
+                <span className="text-sm text-gray-600">Active Threats</span>
                 <span className="text-sm font-medium text-orange-600">
-                  {metrics.temporary_permissions.toLocaleString()}
+                  {(metrics.active_threats || 0).toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Wildcard Permissions</span>
+                <span className="text-sm text-gray-600">Resolved Threats</span>
                 <span className="text-sm font-medium text-blue-600">
-                  {metrics.wildcard_permissions.toLocaleString()}
+                  {(metrics.resolved_threats || 0).toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">High Privilege Users</span>
+                <span className="text-sm text-gray-600">Avg Threat Score</span>
                 <span className="text-sm font-medium text-purple-600">
-                  {metrics.high_privilege_users.toLocaleString()}
+                  {(metrics.avg_threat_score || 0).toFixed(1)}
                 </span>
               </div>
             </div>
@@ -381,21 +379,21 @@ export function PermissionAuditDashboard() {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Security Health</h3>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Average Permission Lifetime</span>
+                <span className="text-sm text-gray-600">Average Threat Score</span>
                 <span className="text-sm font-medium">
-                  {Math.round(metrics.avg_permission_lifetime)} hours
+                  {(metrics.avg_threat_score || 0).toFixed(1)}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Permission Violations</span>
+                <span className="text-sm text-gray-600">Active Threats</span>
                 <span className="text-sm font-medium text-red-600">
-                  {metrics.permission_violations.toLocaleString()}
+                  {(metrics.active_threats || 0).toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Security Score</span>
+                <span className="text-sm text-gray-600">Security Health</span>
                 <span className="text-sm font-medium text-green-600">
-                  {Math.max(0, 100 - metrics.permission_violations * 2)}/100
+                  {Math.max(0, 100 - (metrics.active_threats || 0) * 5)}/100
                 </span>
               </div>
             </div>

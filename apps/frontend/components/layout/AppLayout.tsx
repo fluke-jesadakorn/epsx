@@ -154,7 +154,7 @@ export function withAppLayout<P extends object>(
   const WrappedComponent = React.forwardRef<any, P>((props, ref) => {
     return (
       <AppLayout {...options}>
-        <Component {...props} ref={ref} />
+        <Component {...(props as any)} ref={ref} />
       </AppLayout>
     );
   });

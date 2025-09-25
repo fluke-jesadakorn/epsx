@@ -95,7 +95,7 @@ export function useSmartPolling<T = any>(
     connectionQuality: globalPollingState.connectionQuality
   });
 
-  const retryTimeoutRef = useRef<NodeJS.Timeout>();
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lastFetchTimeRef = useRef<number>(0);
 
   // Calculate adaptive interval based on multiple factors

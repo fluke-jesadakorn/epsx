@@ -92,6 +92,7 @@ interface DAOProposal {
 export function Web3PermissionManager() {
   const { address } = useAccount();
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState('permissions');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
@@ -341,7 +342,7 @@ export function Web3PermissionManager() {
       </Card>
 
       {/* Management Tabs */}
-      <Tabs defaultValue="permissions" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="permissions">Permissions ({permissions.length})</TabsTrigger>
           <TabsTrigger value="manual">👤 Manual</TabsTrigger>

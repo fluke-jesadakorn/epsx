@@ -2,7 +2,7 @@
 
 import { createApiClient, isApiError } from '@/lib/api-client';
 import { requireAuth, requirePermission } from '../auth';
-import { safeError } from '@/lib/utils/logging';
+import { safeError } from '@/lib/shared';
 
 // ============================================================================
 // Types

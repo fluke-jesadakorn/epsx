@@ -190,6 +190,7 @@ pub struct RateLimitResult {
 /// Unified rate limiter with Redis + in-memory fallback supporting both user and IP-based rate limiting
 pub struct UnifiedRateLimiter {
     cache: Arc<dyn Cache>,
+    #[allow(dead_code)]
     config: Arc<Config>,
 }
 

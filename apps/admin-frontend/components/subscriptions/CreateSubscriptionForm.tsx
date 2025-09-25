@@ -33,7 +33,7 @@ export function CreateSubscriptionForm({ onClose, onSuccess }: CreateSubscriptio
     try {
       const response = await adminClient.getPlans({ is_active: true })
       if (isApiSuccess(response)) {
-        setPlans(response.data?.plans || [])
+        setPlans((response.data as any)?.plans || response.data as any || [])
       }
     } catch (error) {
       logger.error('Failed to load plans', { error })

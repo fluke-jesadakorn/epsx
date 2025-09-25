@@ -77,12 +77,7 @@ async function PermissionRequestDataWrapper({ searchParams }: { searchParams?: P
           </p>
         </div>
         
-        <PermissionForms 
-          mode="request"
-          currentUser={session.user}
-          featureName={featureName}
-          requiredPermission={requiredPermission}
-        />
+        <PermissionForms />
       </div>
     </div>
   )

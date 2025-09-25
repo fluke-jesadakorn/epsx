@@ -11,48 +11,7 @@ pub struct UserProfileRequest {
   pub email: Option<String>,
 }
 
-/// Helper function to check if a permission matches a required permission pattern
-fn permission_matches(
-  user_permission: &str,
-  required_permission: &str
-) -> bool {
-  // Simple wildcard matching for permissions like "admin:*:*"
-  if user_permission == required_permission {
-    return true;
-  }
 
-  let user_parts: Vec<&str> = user_permission.split(':').collect();
-  let required_parts: Vec<&str> = required_permission.split(':').collect();
-
-  if user_parts.len() != required_parts.len() {
-    return false;
-  }
-
-  for (user_part, required_part) in user_parts
-    .iter()
-    .zip(required_parts.iter()) {
-    if *user_part != "*" && *user_part != *required_part {
-      return false;
-    }
-  }
-
-  true
-}
-
-/// Helper function to verify user permissions (Web3 Compatible)
-async fn verify_user_permissions(
-  _app_state: &AppState,
-  wallet_address: &str,
-  required_permission: &str
-) -> Result<(), StatusCode> {
-  // TODO: Implement Web3-based permission verification
-  info!(
-    "Verifying permission {} for wallet {}",
-    required_permission,
-    wallet_address
-  );
-  Ok(())
-}
 
 /// GET /users/profile - Get current user profile (Web3 Compatible)
 pub async fn get_profile_handler(State(_app_state): State<AppState>) -> Result<

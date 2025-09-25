@@ -6,18 +6,18 @@ pub mod memory_cache;
 pub mod redis_cache;
 pub mod unified_cache;
 pub mod permission_cache;
-pub mod plan_cache;
-pub mod promotion_cache;
-pub mod affiliate_cache;
+// pub mod plan_cache; // Removed - deprecated marketing system
+// pub mod promotion_cache; // Removed - deprecated marketing system
+// pub mod affiliate_cache; // Removed - deprecated marketing system
 
 // Re-export cache types
 pub use memory_cache::*;
 pub use redis_cache::*;
 pub use unified_cache::*;
 pub use permission_cache::*;
-pub use plan_cache::*;
-pub use promotion_cache::*;
-pub use affiliate_cache::*;
+// pub use plan_cache::*; // Removed - deprecated marketing system
+// pub use promotion_cache::*; // Removed - deprecated marketing system
+// pub use affiliate_cache::*; // Removed - deprecated marketing system
 
 // Legacy alias
 pub use memory_cache::MemoryCache as InMemoryCache;

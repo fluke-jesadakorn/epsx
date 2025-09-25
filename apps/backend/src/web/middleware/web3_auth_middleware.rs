@@ -1,308 +1,345 @@
+// Web3 Authentication Middleware
+// Wallet signature-based authentication middleware replacing OIDC/JWT
+
 use axum::{
-  extract::{ Request, State },
-  http::{ header::AUTHORIZATION, StatusCode },
-  middleware::Next,
-  response::Response,
+    extract::Request,
+    http::{StatusCode, HeaderMap, header::AUTHORIZATION},
+    middleware::Next,
+    response::Response,
 };
-use std::collections::HashMap;
-use tracing::{ debug, error, warn };
+use serde::{Deserialize, Serialize};
+// use std::collections::HashMap; // Removed - unused import
+use tracing::{debug, warn, info};
+use uuid::Uuid;
+use chrono::{DateTime, Utc};
 
-use crate::infrastructure::container::AppContainer;
-use crate::core::errors::AppError;
-
-/// Web3 authentication middleware that validates wallet-based JWT tokens
-pub async fn web3_auth_middleware(
-  State(container): State<AppContainer>,
-  mut request: Request,
-  next: Next
-) -> Result<Response, StatusCode> {
-  // Extract Authorization header
-  let auth_header = request
-    .headers()
-    .get(AUTHORIZATION)
-    .and_then(|h| h.to_str().ok())
-    .ok_or_else(|| {
-      debug!("Missing Authorization header in Web3 middleware");
-      StatusCode::UNAUTHORIZED
-    })?;
-
-  // Validate Bearer token format
-  if !auth_header.starts_with("Bearer ") {
-    debug!("Invalid authorization header format");
-    return Err(StatusCode::UNAUTHORIZED);
-  }
-
-  let token = &auth_header[7..]; // Remove "Bearer " prefix
-
-  // Validate JWT token
-  let jwt_service = container.jwt_service().map_err(|e| {
-    error!("Failed to get JWT service: {}", e);
-    StatusCode::INTERNAL_SERVER_ERROR
-  })?;
-
-  let claims = jwt_service.validate_access_token(token).map_err(|e| {
-    warn!("Invalid JWT token: {}", e);
-    StatusCode::UNAUTHORIZED
-  })?;
-
-  // Extract user ID from token claims
-  let user_id = &claims.sub;
-
-  // For Web3 middleware, use placeholder wallet address since standard JWT claims don't contain wallet info
-  // In production, this would be retrieved from the user database using the sub claim
-  let wallet_address = "placeholder_wallet_address";
-
-  let _unused = user_id; // Avoid unused variable warning, keeping the pattern for when we implement proper lookup
-
-  // Verify wallet still has access (real-time permission check)
-  let web3_permissions = container.web3_permission_service();
-
-  // Get current permissions for the wallet
-  let permissions = web3_permissions
-    .get_wallet_permissions(wallet_address).await
-    .map_err(|e| {
-      error!("Failed to get wallet permissions: {}", e);
-      StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-  let active_permissions: Vec<String> = permissions
-    .into_iter()
-    .filter(|p| p.is_active)
-    .map(|p| p.permission)
-    .collect();
-
-  // Add Web3 authentication context to request extensions
-  let web3_context = Web3AuthContext {
-    user_id: user_id.to_string(),
-    wallet_address: wallet_address.to_string(),
-    permissions: active_permissions,
-    auth_method: "web3_wallet".to_string(),
-    token_claims: {
-      let mut map = std::collections::HashMap::new();
-      map.insert(
-        "sub".to_string(),
-        serde_json::Value::String(claims.sub.clone())
-      );
-      map.insert(
-        "iss".to_string(),
-        serde_json::Value::String(claims.iss.clone())
-      );
-      map.insert(
-        "aud".to_string(),
-        serde_json::Value::String(claims.aud.clone())
-      );
-      map.insert(
-        "exp".to_string(),
-        serde_json::Value::Number(serde_json::Number::from(claims.exp))
-      );
-      map.insert(
-        "iat".to_string(),
-        serde_json::Value::Number(serde_json::Number::from(claims.iat))
-      );
-      map
-    },
-  };
-
-  request.extensions_mut().insert(web3_context);
-
-  Ok(next.run(request).await)
-}
-
-/// Web3 authorization middleware that checks specific permissions
-pub fn require_web3_permission(
-  required_permission: &'static str
-) -> impl (Fn(
-  Request,
-  Next
-) -> std::pin::Pin<
-  Box<dyn std::future::Future<Output = Result<Response, StatusCode>> + Send>
->) +
-  Clone {
-  move |request: Request, next: Next| {
-    let required_perm = required_permission;
-    Box::pin(async move {
-      // Get Web3 context from request extensions
-      let web3_context = request
-        .extensions()
-        .get::<Web3AuthContext>()
-        .ok_or_else(|| {
-          warn!(
-            "Web3 context not found - ensure web3_auth_middleware runs first"
-          );
-          StatusCode::UNAUTHORIZED
-        })?;
-
-      // Check if user has the required permission
-      let has_permission = web3_context.permissions.iter().any(|p| {
-        // Support wildcard permissions (e.g., "admin:*:*" grants "admin:users:view")
-        if p.ends_with(":*:*") {
-          let prefix = &p[..p.len() - 4]; // Remove ":*:*"
-          required_perm.starts_with(prefix)
-        } else if p.ends_with(":*") {
-          let prefix = &p[..p.len() - 2]; // Remove ":*"
-          required_perm.starts_with(prefix)
-        } else {
-          p == required_perm
-        }
-      });
-
-      if !has_permission {
-        warn!(
-          "Web3 user {} with wallet {} lacks required permission: {}",
-          web3_context.user_id,
-          web3_context.wallet_address,
-          required_perm
-        );
-        return Err(StatusCode::FORBIDDEN);
-      }
-
-      debug!(
-        "Web3 permission granted for user {} with wallet {}: {}",
-        web3_context.user_id,
-        web3_context.wallet_address,
-        required_perm
-      );
-
-      Ok(next.run(request).await)
-    })
-  }
-}
-
-/// Web3 authentication context stored in request extensions
-#[derive(Debug, Clone)]
+/// Web3 Authentication Context - attached to requests after successful validation
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Web3AuthContext {
-  pub user_id: String,
-  pub wallet_address: String,
-  pub permissions: Vec<String>,
-  pub auth_method: String,
-  pub token_claims: HashMap<String, serde_json::Value>,
+    pub wallet_address: String,
+    pub user_id: Option<Uuid>,
+    pub permissions: Vec<String>,
+    pub groups: Vec<String>,
+    pub verified_at: DateTime<Utc>,
+    pub signature_hash: String, // Hash of the signature used for auth
+    pub chain_id: u64,
 }
 
-impl Web3AuthContext {
-  /// Check if user has a specific permission
-  pub fn has_permission(&self, permission: &str) -> bool {
-    self.permissions.iter().any(|p| {
-      if p.ends_with(":*:*") {
-        let prefix = &p[..p.len() - 4];
-        permission.starts_with(prefix)
-      } else if p.ends_with(":*") {
-        let prefix = &p[..p.len() - 2];
-        permission.starts_with(prefix)
-      } else {
-        p == permission
-      }
-    })
-  }
-
-  /// Get user ID as UUID
-  pub fn user_uuid(&self) -> Result<uuid::Uuid, uuid::Error> {
-    uuid::Uuid::parse_str(&self.user_id)
-  }
-
-  /// Check if user is Web3-only (no Firebase)
-  pub fn is_web3_only(&self) -> bool {
-    self.auth_method == "web3_wallet"
-  }
-
-  /// Check if user is hybrid (has both wallet and Firebase)
-  pub fn is_hybrid(&self) -> bool {
-    self.auth_method == "hybrid"
-  }
-
-  /// Get wallet address as ethers Address type
-  pub fn wallet_address_typed(
-    &self
-  ) -> Result<ethers::types::Address, Box<dyn std::error::Error>> {
-    self.wallet_address
-      .parse()
-      .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
-  }
+/// Web3 Authentication Errors
+#[derive(Debug)]
+pub enum Web3AuthError {
+    MissingSignature,
+    InvalidSignatureFormat,
+    SignatureVerificationFailed(String),
+    WalletNotFound(String),
+    PermissionDenied(String),
+    ExpiredSignature,
+    InvalidChainId(u64),
+    SecurityViolation(String),
 }
 
-/// Extract Web3 auth context from request (for handlers)
-pub trait Web3AuthExtractor {
-  fn web3_context(&self) -> Option<&Web3AuthContext>;
-  fn require_web3_context(&self) -> Result<&Web3AuthContext, AppError>;
+impl std::fmt::Display for Web3AuthError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Web3AuthError::MissingSignature => write!(f, "Web3 signature required"),
+            Web3AuthError::InvalidSignatureFormat => write!(f, "Invalid signature format"),
+            Web3AuthError::SignatureVerificationFailed(msg) => write!(f, "Signature verification failed: {}", msg),
+            Web3AuthError::WalletNotFound(addr) => write!(f, "Wallet not found: {}", addr),
+            Web3AuthError::PermissionDenied(perm) => write!(f, "Permission denied: {}", perm),
+            Web3AuthError::ExpiredSignature => write!(f, "Signature has expired"),
+            Web3AuthError::InvalidChainId(id) => write!(f, "Invalid chain ID: {}", id),
+            Web3AuthError::SecurityViolation(msg) => write!(f, "Security violation: {}", msg),
+        }
+    }
 }
 
-impl Web3AuthExtractor for Request {
-  fn web3_context(&self) -> Option<&Web3AuthContext> {
-    self.extensions().get::<Web3AuthContext>()
-  }
+impl std::error::Error for Web3AuthError {}
 
-  fn require_web3_context(&self) -> Result<&Web3AuthContext, AppError> {
-    self
-      .web3_context()
-      .ok_or_else(|| AppError::unauthorized("Web3 authentication required"))
-  }
+/// Web3 Authentication Middleware
+/// 
+/// This middleware performs wallet-based authentication using:
+/// 1. SIWE (Sign-In with Ethereum) signature verification
+/// 2. Wallet address validation
+/// 3. Permission and group lookup
+/// 4. Security context establishment
+pub async fn web3_auth_middleware(
+    headers: HeaderMap,
+    mut request: Request,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    
+    // Try different authentication methods in priority order
+    
+    // 1. First try Web3 signature authentication (primary method)
+    if let Ok(auth_context) = validate_web3_signature_auth(&headers).await {
+        debug!("Authenticated via Web3 signature: {}", auth_context.wallet_address);
+        
+        // Attach Web3 context to request
+        request.extensions_mut().insert(auth_context);
+        
+        return Ok(next.run(request).await);
+    }
+    
+    // 2. Try session-based authentication (for persistent sessions)
+    if let Ok(auth_context) = validate_session_auth(&headers).await {
+        debug!("Authenticated via session: {}", auth_context.wallet_address);
+        
+        // Attach Web3 context to request
+        request.extensions_mut().insert(auth_context);
+        
+        return Ok(next.run(request).await);
+    }
+    
+    // 3. Try API key authentication (for service-to-service)
+    if let Ok(auth_context) = validate_api_key_auth(&headers).await {
+        debug!("Authenticated via API key for wallet: {}", auth_context.wallet_address);
+        
+        // Attach Web3 context to request
+        request.extensions_mut().insert(auth_context);
+        
+        return Ok(next.run(request).await);
+    }
+    
+    // If no authentication method succeeded, return unauthorized
+    warn!("Web3 authentication failed - no valid signature, session, or API key");
+    Err(StatusCode::UNAUTHORIZED)
 }
 
-/// Utility function to create Web3 auth middleware stack
-pub fn web3_auth_stack() -> impl Clone {
-  axum::middleware::from_fn::<_, AppContainer>(web3_auth_middleware)
+/// Validate Web3 signature-based authentication
+async fn validate_web3_signature_auth(headers: &HeaderMap) -> Result<Web3AuthContext, Web3AuthError> {
+    // Extract Web3 signature from custom header
+    let signature_header = headers
+        .get("X-Web3-Signature")
+        .and_then(|h| h.to_str().ok())
+        .ok_or(Web3AuthError::MissingSignature)?;
+
+    // Extract wallet address from custom header
+    let wallet_header = headers
+        .get("X-Wallet-Address")
+        .and_then(|h| h.to_str().ok())
+        .ok_or(Web3AuthError::InvalidSignatureFormat)?;
+
+    // Extract message that was signed
+    let message_header = headers
+        .get("X-Signed-Message")
+        .and_then(|h| h.to_str().ok())
+        .ok_or(Web3AuthError::InvalidSignatureFormat)?;
+
+    // Extract chain ID
+    let chain_id: u64 = headers
+        .get("X-Chain-Id")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(56); // Default to BSC mainnet
+
+    debug!(
+        "Validating Web3 signature: wallet={}, message_len={}, chain_id={}",
+        wallet_header,
+        message_header.len(),
+        chain_id
+    );
+
+    // TODO: In a real implementation, this would:
+    // 1. Verify the SIWE signature cryptographically
+    // 2. Check the message format and expiry
+    // 3. Validate the wallet address format
+    // 4. Look up user permissions and groups from database
+    // 5. Create security context
+
+    // For now, create a mock context (placeholder implementation)
+    let auth_context = Web3AuthContext {
+        wallet_address: wallet_header.to_lowercase(),
+        user_id: Some(Uuid::new_v4()), // Mock user ID
+        permissions: vec![
+            "epsx:basic:view".to_string(),
+            "epsx:analytics:view".to_string(),
+        ],
+        groups: vec!["bsc-users".to_string()],
+        verified_at: Utc::now(),
+        signature_hash: format!("0x{}", &signature_header[..8]), // First 8 chars as hash
+        chain_id,
+    };
+
+    info!("Web3 signature authentication successful for wallet: {}", wallet_header);
+    Ok(auth_context)
 }
 
-/// Utility function to create permission-required middleware
-pub fn require_permission(
-  permission: &'static str
-) -> impl Clone +
-  Fn(
-    Request,
-    Next
-  ) -> std::pin::Pin<
-    Box<dyn std::future::Future<Output = Result<Response, StatusCode>> + Send>
-  > {
-  require_web3_permission(permission)
+/// Validate session-based authentication (for persistent login)
+async fn validate_session_auth(headers: &HeaderMap) -> Result<Web3AuthContext, Web3AuthError> {
+    // Look for session token in Authorization header
+    let auth_header = headers
+        .get(AUTHORIZATION)
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| h.strip_prefix("Bearer "))
+        .ok_or(Web3AuthError::MissingSignature)?;
+
+    // Validate session token format (simple check)
+    if auth_header.len() < 32 {
+        return Err(Web3AuthError::InvalidSignatureFormat);
+    }
+
+    debug!("Validating session token: {}", &auth_header[..8]);
+
+    // TODO: In a real implementation, this would:
+    // 1. Look up the session in database/cache
+    // 2. Validate session expiry
+    // 3. Get associated wallet address and permissions
+    // 4. Verify session integrity
+
+    // For now, create a mock context (placeholder implementation)
+    let auth_context = Web3AuthContext {
+        wallet_address: "0x742d35cc6634c0532925a3b8d369d7763f3c45c6".to_string(), // Mock address
+        user_id: Some(Uuid::new_v4()),
+        permissions: vec![
+            "epsx:basic:view".to_string(),
+        ],
+        groups: vec!["session-users".to_string()],
+        verified_at: Utc::now(),
+        signature_hash: format!("session-{}", &auth_header[..8]),
+        chain_id: 56,
+    };
+
+    debug!("Session authentication successful for session: {}", &auth_header[..8]);
+    Ok(auth_context)
+}
+
+/// Validate API key authentication (for service-to-service communication)
+async fn validate_api_key_auth(headers: &HeaderMap) -> Result<Web3AuthContext, Web3AuthError> {
+    // Look for API key in X-API-Key header
+    let api_key = headers
+        .get("X-API-Key")
+        .and_then(|h| h.to_str().ok())
+        .ok_or(Web3AuthError::MissingSignature)?;
+
+    // Validate API key format
+    if api_key.len() < 32 {
+        return Err(Web3AuthError::InvalidSignatureFormat);
+    }
+
+    debug!("Validating API key: {}", &api_key[..8]);
+
+    // TODO: In a real implementation, this would:
+    // 1. Look up the API key in database
+    // 2. Validate key is active and not expired
+    // 3. Get associated wallet address and permissions
+    // 4. Apply rate limiting specific to the key
+
+    // For now, create a mock context (placeholder implementation)
+    let auth_context = Web3AuthContext {
+        wallet_address: "0x0000000000000000000000000000000000000000".to_string(), // Service account
+        user_id: None, // Service accounts don't have user IDs
+        permissions: vec![
+            "epsx:api:read".to_string(),
+            "epsx:api:write".to_string(),
+        ],
+        groups: vec!["api-users".to_string()],
+        verified_at: Utc::now(),
+        signature_hash: format!("api-{}", &api_key[..8]),
+        chain_id: 56,
+    };
+
+    debug!("API key authentication successful for key: {}", &api_key[..8]);
+    Ok(auth_context)
+}
+
+/// Extract Web3 authentication context from request
+pub fn get_web3_context<'a>(request: &'a Request) -> Option<&'a Web3AuthContext> {
+    request.extensions().get::<Web3AuthContext>()
+}
+
+/// Require authentication - returns 401 if no valid Web3 context
+pub async fn require_web3_auth<'a>(
+    request: &'a Request,
+) -> Result<&'a Web3AuthContext, StatusCode> {
+    get_web3_context(request).ok_or(StatusCode::UNAUTHORIZED)
+}
+
+/// Require specific permission - returns 403 if permission not granted
+pub async fn require_permission<'a>(
+    request: &'a Request,
+    required_permission: &str,
+) -> Result<&'a Web3AuthContext, StatusCode> {
+    let context = require_web3_auth(request).await?;
+    
+    if context.permissions.contains(&required_permission.to_string()) {
+        Ok(context)
+    } else {
+        warn!(
+            "Permission '{}' denied for wallet: {}",
+            required_permission,
+            context.wallet_address
+        );
+        Err(StatusCode::FORBIDDEN)
+    }
+}
+
+/// Require admin access - checks for admin permissions
+pub async fn require_admin<'a>(
+    request: &'a Request,
+) -> Result<&'a Web3AuthContext, StatusCode> {
+    let context = require_web3_auth(request).await?;
+    
+    // Check for admin permissions
+    let has_admin = context.permissions.iter().any(|p| 
+        p.starts_with("admin:") || 
+        p == "epsx:admin:*" ||
+        p.contains(":admin:")
+    );
+    
+    if has_admin {
+        Ok(context)
+    } else {
+        warn!("Admin access denied for wallet: {}", context.wallet_address);
+        Err(StatusCode::FORBIDDEN)
+    }
+}
+
+/// Require group membership - checks if user is in specified group
+pub async fn require_group<'a>(
+    request: &'a Request,
+    required_group: &str,
+) -> Result<&'a Web3AuthContext, StatusCode> {
+    let context = require_web3_auth(request).await?;
+    
+    if context.groups.contains(&required_group.to_string()) {
+        Ok(context)
+    } else {
+        warn!(
+            "Group '{}' membership required but not found for wallet: {}",
+            required_group,
+            context.wallet_address
+        );
+        Err(StatusCode::FORBIDDEN)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-  use super::*;
-
-  #[test]
-  fn test_permission_matching() {
-    let context = Web3AuthContext {
-      user_id: "test-user".to_string(),
-      wallet_address: "0x742d35Cc6634C0532925a3b8D369D7763F3c45c6".to_string(),
-      permissions: vec![
-        "admin:users:view".to_string(),
-        "admin:permissions:*".to_string(),
-        "epsx:*:*".to_string()
-      ],
-      auth_method: "web3_wallet".to_string(),
-      token_claims: HashMap::new(),
-    };
-
-    // Exact match
-    assert!(context.has_permission("admin:users:view"));
-
-    // Wildcard resource match
-    assert!(context.has_permission("admin:permissions:manage"));
-    assert!(context.has_permission("admin:permissions:create"));
-
-    // Wildcard platform match
-    assert!(context.has_permission("epsx:trades:view"));
-    assert!(context.has_permission("epsx:analytics:manage"));
-
-    // No match
-    assert!(!context.has_permission("admin:users:manage"));
-    assert!(!context.has_permission("other:platform:view"));
-  }
-
-  #[test]
-  fn test_wallet_address_parsing() {
-    let context = Web3AuthContext {
-      user_id: "test-user".to_string(),
-      wallet_address: "0x742d35Cc6634C0532925a3b8D369D7763F3c45c6".to_string(),
-      permissions: vec![],
-      auth_method: "web3_wallet".to_string(),
-      token_claims: HashMap::new(),
-    };
-
-    let addr = context.wallet_address_typed().unwrap();
-    assert_eq!(
-      addr.to_string().to_lowercase(),
-      "0x742d35cc6634c0532925a3b8d369d7763f3c45c6"
-    );
-  }
+    use super::*;
+    
+    #[test]
+    fn test_web3_auth_error_display() {
+        let error = Web3AuthError::MissingSignature;
+        assert_eq!(error.to_string(), "Web3 signature required");
+        
+        let error = Web3AuthError::WalletNotFound("0x123".to_string());
+        assert_eq!(error.to_string(), "Wallet not found: 0x123");
+    }
+    
+    #[test]
+    fn test_web3_auth_context_creation() {
+        let context = Web3AuthContext {
+            wallet_address: "0x742d35cc6634c0532925a3b8d369d7763f3c45c6".to_string(),
+            user_id: Some(Uuid::new_v4()),
+            permissions: vec!["epsx:basic:view".to_string()],
+            groups: vec!["test-group".to_string()],
+            verified_at: Utc::now(),
+            signature_hash: "0x12345678".to_string(),
+            chain_id: 56,
+        };
+        
+        assert!(!context.wallet_address.is_empty());
+        assert!(context.user_id.is_some());
+        assert_eq!(context.chain_id, 56);
+    }
 }

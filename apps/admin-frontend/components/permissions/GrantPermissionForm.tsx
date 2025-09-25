@@ -310,7 +310,7 @@ export function GrantPermissionForm({ user, currentUser, onClose }: GrantPermiss
                 </h3>
                 <p className="text-gray-600 dark:text-gray-300">{user.email}</p>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Current role: {user.role} • {user.permissions.length} existing permissions
+                  Current role: {user.role} • {user.permissions?.length || 0} existing permissions
                 </p>
               </div>
             </div>

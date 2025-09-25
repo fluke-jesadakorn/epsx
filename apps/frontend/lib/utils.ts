@@ -1,5 +1,13 @@
-// Main utils module - re-exports consolidated utility functionality
-// Direct export of the cn function to fix immediate import issues
+/**
+ * FRONTEND UTILS - MIGRATED TO SHARED
+ * All utilities moved to shared/utils with compatibility layer
+ * This file now re-exports shared utilities for backward compatibility
+ */
+
+// Re-export everything from shared utils
+export * from '../../../shared/utils'
+
+// Keep local cn function for immediate compatibility (also available in shared)
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -9,6 +17,3 @@ import { twMerge } from 'tailwind-merge';
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
-
-// Re-export everything else from utils directory
-export * from './utils';

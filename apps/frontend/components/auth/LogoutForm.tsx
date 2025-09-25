@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWeb3Auth } from '@/lib/auth/use-web3-auth';
-import { logger } from '@/lib/utils/logging';
 
 interface LogoutFormProps {
   className?: string;
@@ -21,24 +20,14 @@ export function LogoutForm({ className, variant = 'outline' }: LogoutFormProps) 
     try {
       setIsLoggingOut(true);
       
-      if (isAuthenticated) {
-        // Use Web3 disconnect for authenticated Web3 users
-        await disconnect();
-      } else {
-        // Clear any legacy session markers for non-Web3 users
-        if (typeof window !== 'undefined') {
-          try {
-            window.localStorage.removeItem('oidc_session');
-            document.cookie = 'oidc_session=; Max-Age=0; path=/; SameSite=Lax';
-          } catch {}
-        }
-      }
+      // Use Web3 disconnect for all users (Web3-first approach)
+      await disconnect();
       
       // Redirect to home
       router.push('/');
       router.refresh();
     } catch (error) {
-      logger.error('Logout error', error);
+      console.error('Logout error', error);
       // Still redirect even if there's an error
       router.push('/');
       router.refresh();

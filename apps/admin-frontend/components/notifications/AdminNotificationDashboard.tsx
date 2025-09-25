@@ -68,7 +68,7 @@ function StatCard({ title, value, description, icon: Icon, gradient }: {
   }
 
   return (
-    <div className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl p-6 shadow-xl border-2 hover:shadow-2xl transition-shadow ${getBorderColor()}`}>
+    <div className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl p-6 shadow-xl border-2 hover:shadow-2xl ${getBorderColor()}`}>
       <div className="flex items-center justify-between mb-4">
         <Icon className={`h-8 w-8 ${getIconColor()}`} />
         <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{getStatusLabel()}</span>
@@ -98,7 +98,7 @@ function RecentNotificationCard({ notification }: { notification: RecentNotifica
   }
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-gray-100/50 to-gray-200/50 dark:from-gray-800/50 dark:to-gray-700/50 p-0.5 group hover:scale-[1.02] transition-all duration-200">
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-gray-100/50 to-gray-200/50 dark:from-gray-800/50 dark:to-gray-700/50 p-0.5 group">
       <div className="relative bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm rounded-2xl p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
@@ -209,20 +209,26 @@ export function AdminNotificationDashboard({
           }
         }
 
-        const result = await sendNotification({
+        // Map priority values to match expected types
+        const mappedPriority = form.priority === 'normal' ? 'medium' : 
+          form.priority === 'urgent' ? 'high' : 
+          form.priority as 'high' | 'low' | 'medium';
+
+        // Map type values to match expected types
+        const mappedType = form.type === 'admin' || form.type === 'system' ? 'info' : 
+          form.type === 'security' ? 'warning' : 
+          form.type === 'data' || form.type === 'feature' ? 'success' : 
+          'info' as 'error' | 'info' | 'warning' | 'success';
+
+        const result = await createAdminNotification({
           title: form.title,
-          body: form.body,
-          target: form.target,
-          targetUserId: form.targetUserId,
-          priority: form.priority,
-          type: form.type,
-          imageUrl: form.imageUrl,
-          actionUrl: form.actionUrl,
-          customData
+          message: form.body,
+          priority: mappedPriority,
+          type: mappedType
         })
 
         if (result.success) {
-          toast.success(`Notification sent successfully to ${result.recipientCount || 1} recipients!`)
+          toast.success('Notification sent successfully!')
           
           // Reset form after successful send
           setForm({
@@ -249,9 +255,9 @@ export function AdminNotificationDashboard({
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-6">
       {/* Background Decorations */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-full blur-xl animate-pulse"></div>
-        <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-purple-500/20 rounded-full blur-lg animate-pulse animation-delay-1000"></div>
-        <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-orange-400/15 to-yellow-500/15 rounded-full blur-xl animate-pulse animation-delay-2000"></div>
+        <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-full blur-xl"></div>
+        <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-purple-500/20 rounded-full blur-lg"></div>
+        <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-orange-400/15 to-yellow-500/15 rounded-full blur-xl"></div>
       </div>
 
       <div className="relative space-y-8">
@@ -261,7 +267,7 @@ export function AdminNotificationDashboard({
             <h1 className="text-5xl font-bold bg-gradient-to-r from-yellow-600 via-orange-600 via-pink-600 to-purple-600 bg-clip-text text-transparent mb-4">
               📤 Notification Control Center
             </h1>
-            <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full animate-pulse"></div>
+            <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full"></div>
           </div>
           <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
             Send real-time notifications to users and administrators across the EPSX platform
@@ -305,7 +311,7 @@ export function AdminNotificationDashboard({
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-yellow-400/20 via-orange-400/20 to-pink-400/20 p-0.5 group">
           <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-3xl">
             {/* Floating decoration */}
-            <div className="absolute top-4 right-4 w-6 h-6 bg-gradient-to-r from-yellow-400/40 to-orange-500/40 rounded-full blur-sm animate-pulse"></div>
+            <div className="absolute top-4 right-4 w-6 h-6 bg-gradient-to-r from-yellow-400/40 to-orange-500/40 rounded-full blur-sm"></div>
             
             <div className="p-8">
               <div className="mb-6">
@@ -328,25 +334,25 @@ export function AdminNotificationDashboard({
               </label>
               <div className="grid grid-cols-2 gap-3">
                 <button
-                  className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-orange-400/10 to-red-400/10 hover:from-orange-400/20 hover:to-red-400/20 border border-orange-200 dark:border-orange-700 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-105"
+                  className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-orange-400/10 to-red-400/10 hover:from-orange-400/20 hover:to-red-400/20 border border-orange-200 dark:border-orange-700 rounded-2xl text-sm font-medium"
                   onClick={() => handleQuickTemplate('maintenance')}
                 >
                   🔧 Maintenance
                 </button>
                 <button
-                  className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-red-400/10 to-pink-400/10 hover:from-red-400/20 hover:to-pink-400/20 border border-red-200 dark:border-red-700 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-105"
+                  className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-red-400/10 to-pink-400/10 hover:from-red-400/20 hover:to-pink-400/20 border border-red-200 dark:border-red-700 rounded-2xl text-sm font-medium"
                   onClick={() => handleQuickTemplate('security')}
                 >
                   🔒 Security
                 </button>
                 <button
-                  className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-400/10 to-purple-400/10 hover:from-blue-400/20 hover:to-purple-400/20 border border-blue-200 dark:border-blue-700 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-105"
+                  className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-400/10 to-purple-400/10 hover:from-blue-400/20 hover:to-purple-400/20 border border-blue-200 dark:border-blue-700 rounded-2xl text-sm font-medium"
                   onClick={() => handleQuickTemplate('feature')}
                 >
                   ✨ Feature
                 </button>
                 <button
-                  className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-green-400/10 to-teal-400/10 hover:from-green-400/20 hover:to-teal-400/20 border border-green-200 dark:border-green-700 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-105"
+                  className="flex items-center gap-2 px-4 py-3 bg-gradient-to-r from-green-400/10 to-teal-400/10 hover:from-green-400/20 hover:to-teal-400/20 border border-green-200 dark:border-green-700 rounded-2xl text-sm font-medium"
                   onClick={() => handleQuickTemplate('announcement')}
                 >
                   📢 Announcement
@@ -361,7 +367,7 @@ export function AdminNotificationDashboard({
                 Target Audience
               </label>
               <Select value={form.target} onValueChange={(value: any) => setForm(prev => ({ ...prev, target: value }))}>
-                <SelectTrigger className="rounded-2xl border-2 border-purple-200 dark:border-purple-700 bg-gradient-to-r from-purple-50/50 to-pink-50/50 dark:from-purple-900/20 dark:to-pink-900/20 hover:border-purple-300 dark:hover:border-purple-600 transition-all duration-200">
+                <SelectTrigger className="rounded-2xl border-2 border-purple-200 dark:border-purple-700 bg-gradient-to-r from-purple-50/50 to-pink-50/50 dark:from-purple-900/20 dark:to-pink-900/20 hover:border-purple-300 dark:hover:border-purple-600">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="rounded-2xl border-2 border-purple-200 dark:border-purple-700">
@@ -380,7 +386,7 @@ export function AdminNotificationDashboard({
                   placeholder="user@example.com"
                   value={form.targetUserId || ''}
                   onChange={(e) => setForm(prev => ({ ...prev, targetUserId: e.target.value }))}
-                  className="rounded-2xl border-2 border-blue-200 dark:border-blue-700 bg-gradient-to-r from-blue-50/50 to-cyan-50/50 dark:from-blue-900/20 dark:to-cyan-900/20 hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200"
+                  className="rounded-2xl border-2 border-blue-200 dark:border-blue-700 bg-gradient-to-r from-blue-50/50 to-cyan-50/50 dark:from-blue-900/20 dark:to-cyan-900/20 hover:border-blue-300 dark:hover:border-blue-600"
                 />
               </div>
             )}
@@ -395,7 +401,7 @@ export function AdminNotificationDashboard({
                 placeholder="Notification title"
                 value={form.title}
                 onChange={(e) => setForm(prev => ({ ...prev, title: e.target.value }))}
-                className="rounded-2xl border-2 border-yellow-200 dark:border-yellow-700 bg-gradient-to-r from-yellow-50/50 to-orange-50/50 dark:from-yellow-900/20 dark:to-orange-900/20 hover:border-yellow-300 dark:hover:border-yellow-600 transition-all duration-200"
+                className="rounded-2xl border-2 border-yellow-200 dark:border-yellow-700 bg-gradient-to-r from-yellow-50/50 to-orange-50/50 dark:from-yellow-900/20 dark:to-orange-900/20 hover:border-yellow-300 dark:hover:border-yellow-600"
               />
             </div>
 
@@ -409,7 +415,7 @@ export function AdminNotificationDashboard({
                 rows={3}
                 value={form.body}
                 onChange={(e) => setForm(prev => ({ ...prev, body: e.target.value }))}
-                className="rounded-2xl border-2 border-orange-200 dark:border-orange-700 bg-gradient-to-r from-orange-50/50 to-pink-50/50 dark:from-orange-900/20 dark:to-pink-900/20 hover:border-orange-300 dark:hover:border-orange-600 transition-all duration-200 resize-none"
+                className="rounded-2xl border-2 border-orange-200 dark:border-orange-700 bg-gradient-to-r from-orange-50/50 to-pink-50/50 dark:from-orange-900/20 dark:to-pink-900/20 hover:border-orange-300 dark:hover:border-orange-600 resize-none"
               />
             </div>
 
@@ -421,7 +427,7 @@ export function AdminNotificationDashboard({
                   Priority
                 </label>
                 <Select value={form.priority} onValueChange={(value: any) => setForm(prev => ({ ...prev, priority: value }))}>
-                  <SelectTrigger className="rounded-2xl border-2 border-red-200 dark:border-red-700 bg-gradient-to-r from-red-50/50 to-pink-50/50 dark:from-red-900/20 dark:to-pink-900/20 hover:border-red-300 dark:hover:border-red-600 transition-all duration-200">
+                  <SelectTrigger className="rounded-2xl border-2 border-red-200 dark:border-red-700 bg-gradient-to-r from-red-50/50 to-pink-50/50 dark:from-red-900/20 dark:to-pink-900/20 hover:border-red-300 dark:hover:border-red-600">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-2 border-red-200 dark:border-red-700">
@@ -438,7 +444,7 @@ export function AdminNotificationDashboard({
                   Type
                 </label>
                 <Select value={form.type} onValueChange={(value: any) => setForm(prev => ({ ...prev, type: value }))}>
-                  <SelectTrigger className="rounded-2xl border-2 border-green-200 dark:border-green-700 bg-gradient-to-r from-green-50/50 to-teal-50/50 dark:from-green-900/20 dark:to-teal-900/20 hover:border-green-300 dark:hover:border-green-600 transition-all duration-200">
+                  <SelectTrigger className="rounded-2xl border-2 border-green-200 dark:border-green-700 bg-gradient-to-r from-green-50/50 to-teal-50/50 dark:from-green-900/20 dark:to-teal-900/20 hover:border-green-300 dark:hover:border-green-600">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-2 border-green-200 dark:border-green-700">
@@ -454,10 +460,10 @@ export function AdminNotificationDashboard({
 
             {/* Optional Fields */}
             <details className="group space-y-4">
-              <summary className="flex items-center gap-2 text-sm font-semibold cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200 p-3 rounded-2xl bg-gradient-to-r from-blue-50/30 to-purple-50/30 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200/50 dark:border-blue-700/50">
+              <summary className="flex items-center gap-2 text-sm font-semibold cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 p-3 rounded-2xl bg-gradient-to-r from-blue-50/30 to-purple-50/30 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200/50 dark:border-blue-700/50">
                 <Sparkles className="h-4 w-4 text-blue-500" />
                 Advanced Options
-                <div className="ml-auto transform transition-transform group-open:rotate-180">
+                <div className="ml-auto transform group-open:rotate-180">
                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
@@ -470,7 +476,7 @@ export function AdminNotificationDashboard({
                     placeholder="https://example.com/image.jpg"
                     value={form.imageUrl || ''}
                     onChange={(e) => setForm(prev => ({ ...prev, imageUrl: e.target.value }))}
-                    className="rounded-2xl border-2 border-indigo-200 dark:border-indigo-700 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 dark:from-indigo-900/20 dark:to-purple-900/20 hover:border-indigo-300 dark:hover:border-indigo-600 transition-all duration-200"
+                    className="rounded-2xl border-2 border-indigo-200 dark:border-indigo-700 bg-gradient-to-r from-indigo-50/50 to-purple-50/50 dark:from-indigo-900/20 dark:to-purple-900/20 hover:border-indigo-300 dark:hover:border-indigo-600"
                   />
                 </div>
                 <div>
@@ -479,7 +485,7 @@ export function AdminNotificationDashboard({
                     placeholder="/dashboard or https://epsx.io/page"
                     value={form.actionUrl || ''}
                     onChange={(e) => setForm(prev => ({ ...prev, actionUrl: e.target.value }))}
-                    className="rounded-2xl border-2 border-teal-200 dark:border-teal-700 bg-gradient-to-r from-teal-50/50 to-cyan-50/50 dark:from-teal-900/20 dark:to-cyan-900/20 hover:border-teal-300 dark:hover:border-teal-600 transition-all duration-200"
+                    className="rounded-2xl border-2 border-teal-200 dark:border-teal-700 bg-gradient-to-r from-teal-50/50 to-cyan-50/50 dark:from-teal-900/20 dark:to-cyan-900/20 hover:border-teal-300 dark:hover:border-teal-600"
                   />
                 </div>
                 <div>
@@ -489,7 +495,7 @@ export function AdminNotificationDashboard({
                     rows={3}
                     value={form.customData || ''}
                     onChange={(e) => setForm(prev => ({ ...prev, customData: e.target.value }))}
-                    className="rounded-2xl border-2 border-violet-200 dark:border-violet-700 bg-gradient-to-r from-violet-50/50 to-purple-50/50 dark:from-violet-900/20 dark:to-purple-900/20 hover:border-violet-300 dark:hover:border-violet-600 transition-all duration-200 resize-none font-mono text-sm"
+                    className="rounded-2xl border-2 border-violet-200 dark:border-violet-700 bg-gradient-to-r from-violet-50/50 to-purple-50/50 dark:from-violet-900/20 dark:to-purple-900/20 hover:border-violet-300 dark:hover:border-violet-600 resize-none font-mono text-sm"
                   />
                 </div>
               </div>
@@ -498,11 +504,11 @@ export function AdminNotificationDashboard({
             <button 
               onClick={handleSendNotification}
               disabled={isPending || !form.title.trim() || !form.body.trim()}
-              className="w-full px-6 py-4 bg-gradient-to-r from-yellow-500 via-orange-500 to-pink-500 hover:from-yellow-600 hover:via-orange-600 hover:to-pink-600 text-white font-semibold rounded-2xl transition-all duration-300 hover:scale-105 hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center gap-2"
+              className="w-full px-6 py-4 bg-gradient-to-r from-yellow-500 via-orange-500 to-pink-500 hover:from-yellow-600 hover:via-orange-600 hover:to-pink-600 text-white font-semibold rounded-2xl hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {isPending ? (
                 <>
-                  <div className="animate-spin w-5 h-5 border-2 border-white border-t-transparent rounded-full"></div>
+                  <div className="text-white font-medium">Sending...</div>
                   Sending...
                 </>
               ) : (
@@ -521,7 +527,7 @@ export function AdminNotificationDashboard({
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-pink-400/20 via-purple-400/20 to-blue-400/20 p-0.5 group">
           <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-3xl">
             {/* Floating decoration */}
-            <div className="absolute top-4 right-4 w-6 h-6 bg-gradient-to-r from-pink-400/40 to-purple-500/40 rounded-full blur-sm animate-pulse"></div>
+            <div className="absolute top-4 right-4 w-6 h-6 bg-gradient-to-r from-pink-400/40 to-purple-500/40 rounded-full blur-sm"></div>
             
             <div className="p-8">
               <div className="mb-6">
@@ -549,11 +555,11 @@ export function AdminNotificationDashboard({
             </div>
 
             <div className="border-t border-gray-200/50 dark:border-gray-700/50 pt-6 mt-6 flex justify-between items-center">
-              <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-400/10 to-pink-400/10 hover:from-purple-400/20 hover:to-pink-400/20 border border-purple-200 dark:border-purple-700 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-105">
+              <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-400/10 to-pink-400/10 hover:from-purple-400/20 hover:to-pink-400/20 border border-purple-200 dark:border-purple-700 rounded-2xl text-sm font-medium">
                 <BarChart3 className="h-4 w-4" />
                 View Analytics
               </button>
-              <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gray-400/10 to-gray-500/10 hover:from-gray-400/20 hover:to-gray-500/20 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-105">
+              <button className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-gray-400/10 to-gray-500/10 hover:from-gray-400/20 hover:to-gray-500/20 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm font-medium">
                 <Settings className="h-4 w-4" />
                 Settings
               </button>
@@ -567,7 +573,7 @@ export function AdminNotificationDashboard({
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-green-400/20 via-blue-400/20 to-purple-400/20 p-0.5 group">
         <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-3xl">
           {/* Floating decoration */}
-          <div className="absolute top-4 right-4 w-6 h-6 bg-gradient-to-r from-green-400/40 to-blue-500/40 rounded-full blur-sm animate-pulse"></div>
+          <div className="absolute top-4 right-4 w-6 h-6 bg-gradient-to-r from-green-400/40 to-blue-500/40 rounded-full blur-sm"></div>
           
           <div className="p-8">
             <div className="mb-6">
@@ -588,7 +594,7 @@ export function AdminNotificationDashboard({
               <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
             </div>
-            <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-green-400/30 to-emerald-500/30 rounded-full blur-sm animate-pulse"></div>
+            <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-green-400/30 to-emerald-500/30 rounded-full blur-sm"></div>
             
             <div className="space-y-2 mt-4">
               <div className="flex items-center gap-2">
@@ -608,7 +614,7 @@ export function AdminNotificationDashboard({
                 <span>16:45:15 → user456@domain.com: Notification clicked</span>
               </div>
               <div className="flex items-center gap-2 text-green-500 font-semibold pt-2">
-                <span className="animate-pulse">■</span>
+                <span>■</span>
                 <span>Ready for new notifications</span>
               </div>
             </div>

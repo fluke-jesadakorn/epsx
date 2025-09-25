@@ -1,7 +1,6 @@
 import { Suspense } from 'react'
 import { UnifiedAdminClient } from '@/lib/api/unified-admin-client'
 import { UnifiedAuth } from '@/lib/auth/unified-auth'
-import { AnalyticsHub } from '@/components/hubs/AnalyticsHub'
 import { UserManagement } from '@/components/users/UserManagement'
 import { PermissionManagement } from '@/components/permissions/PermissionManagement'
 import { PancakeCard } from '@/components/ui/PancakeCard'
@@ -13,13 +12,13 @@ function DashboardSkeleton() {
   return (
     <div className="wp-pancake-page-bg p-6">
       <div className="mb-8">
-        <div className="h-10 bg-gray-700/50 rounded w-64 mb-2 animate-pulse"></div>
-        <div className="h-4 bg-gray-700/50 rounded w-48 animate-pulse"></div>
+        <div className="h-10 bg-gray-700/50 rounded w-64 mb-2 "></div>
+        <div className="h-4 bg-gray-700/50 rounded w-48 "></div>
       </div>
       
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 max-w-7xl">
         {Array.from({ length: 9 }).map((_, i) => (
-          <div key={i} className="h-32 bg-gray-700/30 backdrop-blur-sm rounded-lg animate-pulse border border-yellow-500/10"></div>
+          <div key={i} className="h-32 bg-gray-700/30 backdrop-blur-sm rounded-lg  border border-yellow-500/10"></div>
         ))}
       </div>
     </div>
@@ -61,7 +60,7 @@ export default async function DashboardPage() {
   try {
     const [usersResult, analyticsResult] = await Promise.allSettled([
       client.getUsers({ limit: 100 }),
-      client.getAnalytics?.() || Promise.resolve({})
+      Promise.resolve({})
     ])
     
     if (usersResult.status === 'fulfilled' && Array.isArray(usersResult.value)) {
@@ -84,14 +83,15 @@ export default async function DashboardPage() {
     console.error('Failed to load dashboard stats:', error)
   }
 
+
   return (
     <Suspense fallback={<DashboardSkeleton />}>
       <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-3 sm:p-6">
         {/* Background Decorations */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-full blur-xl animate-pulse"></div>
-          <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-purple-500/20 rounded-full blur-lg animate-pulse animation-delay-1000"></div>
-          <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-orange-400/15 to-yellow-500/15 rounded-full blur-xl animate-pulse animation-delay-2000"></div>
+          <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-full blur-xl "></div>
+          <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-purple-500/20 rounded-full blur-lg  animation-delay-1000"></div>
+          <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-orange-400/15 to-yellow-500/15 rounded-full blur-xl  animation-delay-2000"></div>
         </div>
 
         <div className="relative space-y-6 sm:space-y-8">
@@ -101,10 +101,10 @@ export default async function DashboardPage() {
               <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-yellow-600 via-orange-600 via-pink-600 to-purple-600 bg-clip-text text-transparent mb-4">
                 🏠 EPSX Admin Center
               </h1>
-              <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full animate-pulse"></div>
+              <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full "></div>
             </div>
             <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-              Welcome back, {session.user.displayName || session.user.email}
+              Welcome back, {session.user.email}
             </p>
             <div className="text-sm text-gray-500 dark:text-gray-500 mt-2">
               {new Date().toLocaleDateString()} • System Status: Operational 🟢
@@ -230,7 +230,7 @@ export default async function DashboardPage() {
                 <div className={`relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r ${action.bgGradient} p-0.5 hover:scale-105 transition-all duration-300`}>
                   <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl">
                     {/* Floating decoration */}
-                    <div className={`absolute top-4 right-4 w-4 h-4 bg-gradient-to-r ${action.gradient} rounded-full blur-sm animate-pulse opacity-60`}></div>
+                    <div className={`absolute top-4 right-4 w-4 h-4 bg-gradient-to-r ${action.gradient} rounded-full blur-sm  opacity-60`}></div>
                     
                     <div className="p-4 sm:p-6">
                       <div className="mb-4">

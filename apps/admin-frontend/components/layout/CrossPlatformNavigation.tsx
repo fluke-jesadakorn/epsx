@@ -18,7 +18,7 @@ import {
   Wallet,
   Gavel
 } from 'lucide-react';
-import { PlatformSwitcher } from '../platforms/PlatformSwitcher';
+import { PlatformSwitcher } from '../shared/UnifiedPlatformSwitcher';
 import { useCrossPlatformAuth, usePlatformContext, usePlatformPermissions } from '../../hooks/useCrossPlatformAuth';
 
 interface NavigationItem {

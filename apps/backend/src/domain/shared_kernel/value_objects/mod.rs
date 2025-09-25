@@ -6,6 +6,7 @@ pub mod email;
 pub mod common_types;
 pub mod identifiers;
 pub mod payments;
+pub mod quarterly_eps_data;
 pub mod symbol;
 pub mod market;
 
@@ -16,5 +17,6 @@ pub use email::Email;
 pub use common_types::*;
 pub use identifiers::*;
 pub use payments::{ Currency, Network };
+pub use quarterly_eps_data::QuarterlyEPSData;
 pub use symbol::Symbol;
 pub use market::Market;

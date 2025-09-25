@@ -81,7 +81,7 @@ function PermissionCard({ user, isSelected, onSelect }: {
   };
 
   return (
-    <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r from-gray-100/50 to-gray-200/50 dark:from-gray-800/50 dark:to-gray-700/50 p-0.5 group hover:scale-[1.02] transition-all duration-200 ${isSelected ? 'ring-2 ring-yellow-400' : ''}`}>
+    <div className={`relative overflow-hidden rounded-2xl bg-gradient-to-r from-gray-100/50 to-gray-200/50 dark:from-gray-800/50 dark:to-gray-700/50 p-0.5 group   ${isSelected ? 'ring-2 ring-yellow-400' : ''}`}>
       <div className="relative bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm rounded-2xl p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -148,13 +148,13 @@ function PermissionCard({ user, isSelected, onSelect }: {
           <div className="flex flex-col gap-1">
             <a 
               href={`/permissions/grant?user=${user.id}`}
-              className="px-3 py-1 bg-gradient-to-r from-green-400 to-emerald-500 hover:from-green-500 hover:to-emerald-600 text-white text-xs rounded-full transition-all duration-200 hover:scale-105"
+              className="px-3 py-1 bg-gradient-to-r from-green-400 to-emerald-500 hover:from-green-500 hover:to-emerald-600 text-white text-xs rounded-full  "
             >
               Grant
             </a>
             <a 
               href={`/users/${user.id}/edit`}
-              className="px-3 py-1 bg-gradient-to-r from-blue-400 to-cyan-500 hover:from-blue-500 hover:to-cyan-600 text-white text-xs rounded-full transition-all duration-200 hover:scale-105"
+              className="px-3 py-1 bg-gradient-to-r from-blue-400 to-cyan-500 hover:from-blue-500 hover:to-cyan-600 text-white text-xs rounded-full  "
             >
               Edit
             </a>
@@ -192,7 +192,7 @@ export function PermissionManagement({
         typeof p === 'string' && p.includes('admin')
       )
     ).length;
-    const premiumUsers = userArray.filter(user => user.role === 'premium').length;
+    const premiumUsers = userArray.filter(user => user.role === 'premium_user').length;
     
     return {
       totalPermissions,
@@ -210,7 +210,7 @@ export function PermissionManagement({
     
     return userArray.filter(user => {
       const matchesSearch = searchQuery === '' || 
-        user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (user.email && user.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (user.name && user.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
         (user.displayName && user.displayName.toLowerCase().includes(searchQuery.toLowerCase()));
       
@@ -239,9 +239,9 @@ export function PermissionManagement({
     <div className="space-y-6 sm:space-y-8">
       {/* Background Decorations */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-full blur-xl animate-pulse"></div>
-        <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-purple-500/20 rounded-full blur-lg animate-pulse animation-delay-1000"></div>
-        <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-orange-400/15 to-yellow-500/15 rounded-full blur-xl animate-pulse animation-delay-2000"></div>
+        <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-full blur-xl "></div>
+        <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-purple-500/20 rounded-full blur-lg  "></div>
+        <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-orange-400/15 to-yellow-500/15 rounded-full blur-xl  "></div>
       </div>
 
       <div className="relative">
@@ -251,7 +251,7 @@ export function PermissionManagement({
             <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-yellow-600 via-orange-600 via-pink-600 to-purple-600 bg-clip-text text-transparent mb-4">
               🔐 Permission Center
             </h1>
-            <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full animate-pulse"></div>
+            <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full "></div>
           </div>
           <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
             Manage user permissions and access control across the EPSX platform
@@ -260,7 +260,7 @@ export function PermissionManagement({
 
         {/* Stats Dashboard */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-purple-300/50 dark:border-purple-700/50 hover:shadow-2xl transition-shadow">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-purple-300/50 dark:border-purple-700/50 hover:shadow-2xl ">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="text-2xl sm:text-3xl">🔐</div>
               <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Total</span>
@@ -272,7 +272,7 @@ export function PermissionManagement({
             </div>
           </div>
 
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-blue-300/50 dark:border-blue-700/50 hover:shadow-2xl transition-shadow">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-blue-300/50 dark:border-blue-700/50 hover:shadow-2xl ">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="text-2xl sm:text-3xl">👥</div>
               <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Users</span>
@@ -284,7 +284,7 @@ export function PermissionManagement({
             </div>
           </div>
 
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-orange-300/50 dark:border-orange-700/50 hover:shadow-2xl transition-shadow">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-orange-300/50 dark:border-orange-700/50 hover:shadow-2xl ">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="text-2xl sm:text-3xl">👑</div>
               <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Admin</span>
@@ -296,7 +296,7 @@ export function PermissionManagement({
             </div>
           </div>
 
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-green-300/50 dark:border-green-700/50 hover:shadow-2xl transition-shadow">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-green-300/50 dark:border-green-700/50 hover:shadow-2xl ">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="text-2xl sm:text-3xl">⭐</div>
               <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Premium</span>
@@ -312,7 +312,7 @@ export function PermissionManagement({
         {/* Search and Filters */}
         <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-purple-400/20 via-blue-400/20 to-green-400/20 p-0.5 mb-6 sm:mb-8">
           <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl">
-            <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-purple-400 to-blue-500 rounded-full blur-sm animate-pulse opacity-60"></div>
+            <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-purple-400 to-blue-500 rounded-full blur-sm  opacity-60"></div>
             
             <div className="p-4 sm:p-6 space-y-4">
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
@@ -394,7 +394,7 @@ export function PermissionManagement({
             </div>
           ) : isLoading ? (
             <div className="text-center py-12 sm:py-16">
-              <div className="text-6xl sm:text-8xl mb-4 animate-pulse">⏳</div>
+              <div className="text-6xl sm:text-8xl mb-4 ">⏳</div>
               <p className="text-gray-500 dark:text-gray-400">Loading permissions...</p>
             </div>
           ) : (
@@ -429,7 +429,7 @@ export function PermissionManagement({
         {/* Quick Actions Footer */}
         <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-purple-400/20 via-pink-400/20 to-blue-400/20 p-0.5 mt-6 sm:mt-8">
           <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl">
-            <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full blur-sm animate-pulse opacity-60"></div>
+            <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full blur-sm  opacity-60"></div>
             
             <div className="p-4 sm:p-6">
               <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 bg-clip-text text-transparent mb-4">
@@ -437,25 +437,25 @@ export function PermissionManagement({
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <a href="/permissions/grant" className="block">
-                  <div className="text-center p-3 sm:p-4 bg-gradient-to-r from-green-400/10 to-emerald-400/10 hover:from-green-400/20 hover:to-emerald-400/20 border border-green-200 dark:border-green-700 rounded-2xl transition-all duration-200 hover:scale-105">
+                  <div className="text-center p-3 sm:p-4 bg-gradient-to-r from-green-400/10 to-emerald-400/10 hover:from-green-400/20 hover:to-emerald-400/20 border border-green-200 dark:border-green-700 rounded-2xl  ">
                     <div className="text-2xl sm:text-3xl mb-2">✅</div>
                     <div className="text-sm font-medium">Grant Perms</div>
                   </div>
                 </a>
                 <a href="/permissions/request" className="block">
-                  <div className="text-center p-3 sm:p-4 bg-gradient-to-r from-blue-400/10 to-cyan-400/10 hover:from-blue-400/20 hover:to-cyan-400/20 border border-blue-200 dark:border-blue-700 rounded-2xl transition-all duration-200 hover:scale-105">
+                  <div className="text-center p-3 sm:p-4 bg-gradient-to-r from-blue-400/10 to-cyan-400/10 hover:from-blue-400/20 hover:to-cyan-400/20 border border-blue-200 dark:border-blue-700 rounded-2xl  ">
                     <div className="text-2xl sm:text-3xl mb-2">📝</div>
                     <div className="text-sm font-medium">Request</div>
                   </div>
                 </a>
                 <a href="/users" className="block">
-                  <div className="text-center p-3 sm:p-4 bg-gradient-to-r from-purple-400/10 to-pink-400/10 hover:from-purple-400/20 hover:to-pink-400/20 border border-purple-200 dark:border-purple-700 rounded-2xl transition-all duration-200 hover:scale-105">
+                  <div className="text-center p-3 sm:p-4 bg-gradient-to-r from-purple-400/10 to-pink-400/10 hover:from-purple-400/20 hover:to-pink-400/20 border border-purple-200 dark:border-purple-700 rounded-2xl  ">
                     <div className="text-2xl sm:text-3xl mb-2">👥</div>
                     <div className="text-sm font-medium">Users</div>
                   </div>
                 </a>
                 <div onClick={handleRefresh} className="cursor-pointer">
-                  <div className="text-center p-3 sm:p-4 bg-gradient-to-r from-orange-400/10 to-yellow-400/10 hover:from-orange-400/20 hover:to-yellow-400/20 border border-orange-200 dark:border-orange-700 rounded-2xl transition-all duration-200 hover:scale-105">
+                  <div className="text-center p-3 sm:p-4 bg-gradient-to-r from-orange-400/10 to-yellow-400/10 hover:from-orange-400/20 hover:to-yellow-400/20 border border-orange-200 dark:border-orange-700 rounded-2xl  ">
                     <div className={`text-2xl sm:text-3xl mb-2 ${isLoading ? 'animate-spin' : ''}`}>🔄</div>
                     <div className="text-sm font-medium">Refresh</div>
                   </div>

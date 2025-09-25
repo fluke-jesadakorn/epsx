@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
-import { getPermissionImpact } from '@/lib/actions/users'
+import { getPermissionImpact } from '@/lib/actions/consolidated-user-actions'
 
 interface PermissionImpactAnalysisProps {
   userId: string
@@ -28,6 +28,7 @@ export function PermissionImpactAnalysis({ userId, className = '' }: PermissionI
   const [impact, setImpact] = useState<PermissionImpact | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState('accessible')
 
   useEffect(() => {
     loadImpactAnalysis()
@@ -41,9 +42,9 @@ export function PermissionImpactAnalysis({ userId, className = '' }: PermissionI
       const result = await getPermissionImpact(userId)
       
       if (result.success) {
-        setImpact(result.data)
+        setImpact(result.data || null)
       } else {
-        setError(result.error?.message || 'Failed to analyze permission impact')
+        setError(result.error || 'Failed to analyze permission impact')
       }
     } catch (err) {
       setError('An unexpected error occurred')
@@ -170,7 +171,7 @@ export function PermissionImpactAnalysis({ userId, className = '' }: PermissionI
       </div>
 
       {/* Detailed Access Lists */}
-      <Tabs defaultValue="accessible" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="accessible" className="flex items-center gap-2">
             <Check className="h-4 w-4" />

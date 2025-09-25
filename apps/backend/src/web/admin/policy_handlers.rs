@@ -14,7 +14,7 @@ use crate::auth::{
     PolicyCondition, PolicyAction, PolicyEvaluationResult
 };
 use crate::auth::policy_engine::PolicyType;
-use crate::web::middleware::clean_auth::AuthenticatedUser;
+use crate::infrastructure::container::AuthenticatedUser;
 use crate::web::auth::AppState;
 
 /// Request to create a dynamic policy

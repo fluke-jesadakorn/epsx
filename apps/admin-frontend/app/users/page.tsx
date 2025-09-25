@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { UserManagement } from '@/components/users/UserManagement'
+import { GroupBasedUserManagement } from '@/components/users/GroupBasedUserManagement'
 import { UnifiedAuth } from '@/lib/auth/unified-auth'
 import { UnifiedAdminClient } from '@/lib/api/unified-admin-client'
 import { ServerAuth } from '@/lib/server/auth-helpers'
@@ -128,7 +128,7 @@ async function UsersDataWrapper({ searchParams }: { searchParams?: UsersPageProp
   // Get server-side authentication token and create properly configured client
   const { accessToken } = await ServerAuth.getTokens()
   const client = new UnifiedAdminClient(undefined, accessToken, true)
-  let users = []
+  let users: any[] = []
   
   try {
     const response = await client.getUsers({ 
@@ -140,10 +140,10 @@ async function UsersDataWrapper({ searchParams }: { searchParams?: UsersPageProp
     // Transform backend response to frontend format
     if (response.success && response.data) {
       // Validate and transform backend data
-      const validUsers = response.data.users?.filter(validateBackendUser) || []
+      const validUsers = (response.data as any)?.users?.filter(validateBackendUser) || []
       const transformedData = transformBackendUsersResponse({
         users: validUsers,
-        total_count: response.data.total || response.data.total_count || 0
+        total_count: (response.data as any)?.total || (response.data as any)?.total_count || 0
       })
       users = transformedData.users
     } else {
@@ -155,9 +155,10 @@ async function UsersDataWrapper({ searchParams }: { searchParams?: UsersPageProp
     users = []
   }
   
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-6">
-      <UserManagement 
+      <GroupBasedUserManagement 
         initialUsers={users}
       />
     </div>

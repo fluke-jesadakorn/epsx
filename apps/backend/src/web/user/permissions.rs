@@ -11,7 +11,7 @@ use crate::auth::granular_permissions::{
   GranularPermissionClaim,
   PermissionSource,
 };
-use crate::web::middleware::clean_auth::AuthenticatedUser;
+use crate::infrastructure::container::AuthenticatedUser;
 use crate::web::auth::AppState;
 
 /// Query parameters for permission check
@@ -109,7 +109,7 @@ pub async fn get_user_permissions(
   Json<ApiResponse<UserPermissionStatus>>,
   (StatusCode, Json<ErrorResponse>)
 > {
-  info!("Getting permission status for user {}", user.user_id);
+  info!("Getting permission status for user {}", user.id);
 
   // Skip cache for now - complex Arc to Box conversion needed
   // TODO: Implement proper cache integration with DDD approach
@@ -227,7 +227,7 @@ pub async fn get_user_permissions(
     .any(|p| (p.starts_with("admin:") || p == "admin:*:*"));
 
   let status = UserPermissionStatus {
-    user_id: user.user_id.clone(),
+    user_id: user.id.clone(),
     permissions: permission_infos,
     permission_version,
     last_updated: now,
@@ -267,7 +267,7 @@ pub async fn check_user_permission(
     )
   })?;
 
-  info!("Checking permission '{}' for user {}", permission, user.user_id);
+  info!("Checking permission '{}' for user {}", permission, user.id);
 
   // Check if user has the permission (supports wildcard matching)
   let has_permission = user.valid_permissions
@@ -282,7 +282,7 @@ pub async fn check_user_permission(
   // For now, expiry info will remain None
 
   let check_result = SimplePermissionCheck {
-    user_id: user.user_id.clone(),
+    user_id: user.id.clone(),
     permission,
     has_permission,
     expires_at,

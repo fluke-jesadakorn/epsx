@@ -154,19 +154,21 @@ export function useOptimisticUpdates<T>(
           result.push(update.data);
           break;
         
-        case 'update':
+        case 'update': {
           const updateIndex = result.findIndex(item => String(item.id) === update.id);
           if (updateIndex !== -1) {
             result[updateIndex] = update.data;
           }
           break;
+        }
         
-        case 'delete':
+        case 'delete': {
           const deleteIndex = result.findIndex(item => String(item.id) === update.id);
           if (deleteIndex !== -1) {
             result.splice(deleteIndex, 1);
           }
           break;
+        }
       }
     });
 

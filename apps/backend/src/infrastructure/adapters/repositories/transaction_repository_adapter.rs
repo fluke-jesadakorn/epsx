@@ -19,6 +19,7 @@ use crate::infrastructure::cache::Cache;
 #[derive(Clone)]
 pub struct TransactionRepositoryAdapter {
   /// Database pool for transaction storage
+  #[allow(dead_code)]
   db_pool: Arc<DbPool>,
 
   /// Cache for fast transaction lookups
@@ -38,10 +39,7 @@ impl TransactionRepositoryAdapter {
     format!("transaction:{}", tx_hash.to_string())
   }
 
-  /// Get cache key for payment transactions
-  fn get_payment_transactions_key(&self, payment_id: &PaymentId) -> String {
-    format!("payment_transactions:{}", payment_id.to_string())
-  }
+  // Removed unused get_payment_transactions_key method
 
   /// Store transaction data in cache
   async fn cache_transaction_record(

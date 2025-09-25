@@ -22,7 +22,7 @@ export async function makeAuthenticatedRequest(endpoint: string, options: Reques
     ...options.headers,
   };
 
-  const response = await fetch(`${env.NEXT_PUBLIC_BACKEND_URL}${endpoint}`, {
+  const response = await fetch(`${env.BACKEND_URL}${endpoint}`, {
     ...options,
     headers,
   });
@@ -43,33 +43,5 @@ export async function getBearerTokenFromSession() {
   return cookieStore.get('access_token')?.value || null;
 }
 
-/**
- * Common response types for consistency
- */
-export interface ActionResult<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
-}
-
-/**
- * Create successful action result
- */
-export function createSuccessResult<T>(data: T, message?: string): ActionResult<T> {
-  return {
-    success: true,
-    data,
-    message
-  };
-}
-
-/**
- * Create error action result
- */
-export function createErrorResult(error: string): ActionResult {
-  return {
-    success: false,
-    error
-  };
-}
+// Note: ActionResult types and utility functions are now in @/lib/action-utils
+// Import them directly where needed since server actions can only export async functions

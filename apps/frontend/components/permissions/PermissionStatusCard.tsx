@@ -75,6 +75,7 @@ export function PermissionStatusCard({
       action: 'view',
       source: 'Subscription',
       granted_at: Math.floor(Date.now() / 1000) - (30 * 24 * 60 * 60),
+      is_expired: false,
       health_status: 'healthy'
     },
     {
@@ -108,6 +109,7 @@ export function PermissionStatusCard({
       action: 'manage',
       source: 'System',
       granted_at: Math.floor(Date.now() / 1000) - (60 * 24 * 60 * 60),
+      is_expired: false,
       health_status: 'healthy'
     }
   ];

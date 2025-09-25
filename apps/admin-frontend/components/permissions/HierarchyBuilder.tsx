@@ -249,7 +249,7 @@ export default function HierarchyBuilder() {
                     h.parent_permission === node.parent && 
                     h.child_permission === node.permission
                   );
-                  if (hierarchy) {
+                  if (hierarchy && node.parent && node.permission) {
                     handleDeleteHierarchy(hierarchy.id, node.parent, node.permission);
                   }
                 }}

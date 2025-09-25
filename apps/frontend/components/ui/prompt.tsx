@@ -2,11 +2,11 @@
 
 import { Crown, Star, ArrowRight, Lock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import type { UserLevelType } from '@/app/constants/packages';
+import type { PermissionTemplateName } from '@/app/constants/packages';
 import { Button, Card, CardContent } from '@/components/ui';
 
 interface UpgradePromptProps {
-  currentLevel: UserLevelType;
+  currentLevel: PermissionTemplateName;
   lockedRankings: number;
   className?: string;
 }
@@ -16,19 +16,19 @@ export function UpgradePrompt({ currentLevel, lockedRankings, className }: Upgra
   
   const getNextLevel = () => {
     const levelMap = {
-      'BRONZE': 'Level 1',
-      'SILVER': 'Level 2', 
-      'GOLD': 'Level 3',
-      'PLATINUM': 'Level 4'
+      'Bronze Template': 'Level 1',
+      'Silver Template': 'Level 2', 
+      'Gold Template': 'Level 3',
+      'Platinum Template': 'Level 4'
     };
     return levelMap[currentLevel as keyof typeof levelMap] || 'Level 1';
   };
 
   const getNextLevelBenefits = () => {
     switch (currentLevel) {
-      case 'BRONZE': return '25 rankings + Priority support';
-      case 'SILVER': return '50 rankings + Premium features';
-      case 'GOLD': return '100 rankings + Custom analytics';
+      case 'Bronze Template': return '25 rankings + Priority support';
+      case 'Silver Template': return '50 rankings + Premium features';
+      case 'Gold Template': return '100 rankings + Custom analytics';
       default: return 'Full access + VIP support';
     }
   };
@@ -66,16 +66,16 @@ export function UpgradePrompt({ currentLevel, lockedRankings, className }: Upgra
 
 interface LockedRankingCardProps {
   index: number;
-  userLevel: UserLevelType;
+  userLevel: PermissionTemplateName;
   onUpgrade: () => void;
 }
 
 export function LockedRankingCard({ index, userLevel, onUpgrade }: LockedRankingCardProps) {
   const getNextLevel = () => {
     switch (userLevel) {
-      case 'BRONZE': return 'Level 1';
-      case 'SILVER': return 'Level 2';
-      case 'GOLD': return 'Level 3';
+      case 'Bronze Template': return 'Level 1';
+      case 'Silver Template': return 'Level 2';
+      case 'Gold Template': return 'Level 3';
       default: return 'Level 1';
     }
   };

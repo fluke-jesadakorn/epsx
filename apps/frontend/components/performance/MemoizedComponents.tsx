@@ -54,7 +54,7 @@ export const MemoizedCard = memo<CardProps>(
     return (
       prevProps.className === nextProps.className &&
       JSON.stringify(prevProps.children) === JSON.stringify(nextProps.children) &&
-      Object.keys(prevProps).every(key => prevProps[key] === nextProps[key])
+      Object.keys(prevProps).every(key => (prevProps as any)[key] === (nextProps as any)[key])
     );
   }
 );
@@ -126,7 +126,7 @@ export const MemoizedList = memo(<T extends any>(props: MemoizedListProps<T>) =>
   );
 }) as <T>(props: MemoizedListProps<T>) => JSX.Element;
 
-MemoizedList.displayName = 'MemoizedList';
+(MemoizedList as any).displayName = 'MemoizedList';
 
 // Memoized analytics card for stock rankings
 interface StockCardData {
@@ -236,6 +236,6 @@ export function withPerformanceMonitoring<T extends Record<string, any>>(
 ) {
   // Just return the memoized component without performance monitoring
   return memo(forwardRef<any, T>((props, ref) => {
-    return <Component {...props} ref={ref} />;
+    return <Component {...(props as any)} ref={ref} />;
   }));
 }

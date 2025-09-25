@@ -8,65 +8,67 @@ use super::handlers::{
   list_users_handler,
   update_user_handler,
   delete_user_handler,
-  get_admin_stats_handler,
 };
 // Removed missing user handlers - they don't exist in the Web3 migration
-use super::unified_user_handlers::{
-  get_unified_user_data_handler,
-  update_user_profile_handler,
-  update_user_roles_handler,
-  update_user_modules_handler,
-  update_user_billing_handler,
-  get_user_activity_handler,
-};
+// use super::unified_user_handlers::{
+//   get_unified_user_data_handler,
+//   update_user_profile_handler,
+//   update_user_roles_handler,
+//   update_user_modules_handler,
+//   update_user_billing_handler,
+//   get_user_activity_handler,
+// }; // Removed - module deleted
 // Casbin handlers removed - using modern JWT auth system
 // Removed permission profile handlers - using simple roles
 // Removed temporary permission handlers - using simple roles
 // Removed permission export/import handlers - using simple roles
-use super::analytics_handlers::{
-  get_permission_analytics_handler,
-  get_permission_recommendations_handler,
-  get_performance_metrics_handler,
-  get_security_risk_analysis_handler,
-};
-use super::search_handlers::{ search_users_handler };
-// Embedded timestamp permission handlers
-use super::embedded_permission_handlers::{
-  grant_embedded_permission,
-  grant_bulk_embedded_permissions,
-  validate_embedded_permissions,
-  get_permission_expiry_status,
-  revoke_embedded_permission,
-  extend_embedded_permission,
-  cleanup_expired_permissions,
-};
-use super::bulk_permission_handlers::{
-  bulk_grant_permissions,
-  bulk_revoke_permissions,
-  bulk_assign_roles,
-  bulk_apply_permission_template,
-  bulk_validate_permissions,
-};
+// Legacy analytics handlers removed for Web3-first migration
+// use super::analytics_handlers::{
+//   get_permission_analytics_handler,
+//   get_permission_recommendations_handler,
+//   get_performance_metrics_handler,
+//   get_security_risk_analysis_handler,
+// };
+// use super::search_handlers::{ search_users_handler }; // Removed - module deleted
+// Legacy embedded timestamp permission handlers removed for Web3-first migration
+// use super::embedded_permission_handlers::{
+//   grant_embedded_permission,
+//   grant_bulk_embedded_permissions,
+//   validate_embedded_permissions,
+//   get_permission_expiry_status,
+//   revoke_embedded_permission,
+//   extend_embedded_permission,
+//   cleanup_expired_permissions,
+// };
+// Legacy bulk permission handlers removed for Web3-first migration
+// use super::bulk_permission_handlers::{
+//   bulk_grant_permissions,
+//   bulk_revoke_permissions,
+//   bulk_assign_roles,
+// //   bulk_apply_permission_template,
+//   bulk_validate_permissions,
+// };
 // Firebase user management removed - migrated to Web3
 // Database role management removed - using permissions-based system
 // V1 Granular permission management handlers
-use super::granular_permissions::{
-  grant_permission,
-  revoke_permission,
-  list_user_permissions,
-  extend_permission,
-  bulk_grant_permissions as granular_bulk_grant_permissions,
-  get_permission_statistics,
-};
-// Admin notification handlers
-use super::notification_handlers::{
-  admin_send_notification,
-  admin_broadcast_to_topic,
-  admin_get_notification_stats,
-  admin_get_user_notifications,
-  admin_mark_notification_read,
-  admin_delete_notification,
-};
+// Legacy granular permission handlers removed for Web3-first migration
+// use super::granular_permissions::{
+//   grant_permission,
+//   revoke_permission,
+//   list_user_permissions,
+//   extend_permission,
+//   bulk_grant_permissions as granular_bulk_grant_permissions,
+//   get_permission_statistics,
+// };
+// Legacy admin notification handlers removed for Web3-first migration
+// use super::notification_handlers::{
+//   admin_send_notification,
+//   admin_broadcast_to_topic,
+//   admin_get_notification_stats,
+//   admin_get_user_notifications,
+//   admin_mark_notification_read,
+//   admin_delete_notification,
+// };
 // Security monitoring handlers
 use super::security_monitoring_handlers::{ SecurityMonitoringHandlers };
 // Permission hierarchy handlers (DISABLED during refactoring)
@@ -79,21 +81,36 @@ use super::security_monitoring_handlers::{ SecurityMonitoringHandlers };
 //     invalidate_user_cache,
 //     test_hierarchy_resolution,
 // };
-// Dynamic policy handlers
-use super::policy_handlers::{
-  list_policies_handler as get_policies,
-  create_policy_handler as create_policy,
-  evaluate_policy_handler as evaluate_policies,
-  delete_policy_handler as delete_policy,
-  get_policy_stats_handler as get_policy_stats,
-  toggle_policy_handler as toggle_policy_status,
-};
+// Legacy dynamic policy handlers removed for Web3-first migration
+// use super::policy_handlers::{
+//   list_policies_handler as get_policies,
+//   create_policy_handler as create_policy,
+//   evaluate_policy_handler as evaluate_policies,
+//   delete_policy_handler as delete_policy,
+//   get_policy_stats_handler as get_policy_stats,
+//   toggle_policy_handler as toggle_policy_status,
+// };
 // Dynamic plan management handlers (simplified)
 use super::plan_management_handlers_simple::{
   create_plan_handler,
   get_plan_handler,
   list_plans_handler,
   create_subscription_handler,
+};
+// Tier group management handlers (unified permission system)
+use super::tier_group_handlers::{
+  create_tier_group_handler,
+  get_tier_group_handler,
+  list_tier_groups_handler,
+  update_tier_group_handler,
+  delete_tier_group_handler,
+  create_tier_assignment_handler,
+  get_user_tier_assignments_handler,
+  // NEW: Backend-centric permission validation handlers (THE AUTHORITY)
+  validate_permission_handler,
+  validate_bulk_permissions_handler,
+  get_user_permissions_handler,
+  list_permission_templates_handler,
 };
 // Performance monitoring handlers
 use super::performance_handlers::{
@@ -103,7 +120,7 @@ use super::performance_handlers::{
 };
 // Web3 permission management handlers
 use super::web3_admin_handlers::{
-  get_wallet_permissions,
+  get_user_permissions,
   grant_manual_permission,
   create_nft_gate,
   create_token_gate,
@@ -118,15 +135,15 @@ use crate::web::auth::AppState;
 pub fn create_admin_routes() -> Router<AppState> {
   // Basic admin routes (require user-management module)
   let user_mgmt_routes = Router::new()
-    .route("/analytics/user-statistics", get(get_admin_stats_handler))
+    // .route("/analytics/user-statistics", get(get_admin_stats_handler))
     .route("/users", get(list_users_handler))
     .route("/users", post(create_user_handler))
     .route("/users/:user_id", get(get_user_handler))
     .route("/users/:user_id", put(update_user_handler))
     .route("/users/:user_id", delete(delete_user_handler))
-    .route("/users/search", get(search_users_handler))
+    // .route("/users/search", get(search_users_handler)) // Removed - handler deleted
     .layer(
-      axum::middleware::from_fn(crate::web::middleware::clean_auth_middleware)
+      axum::middleware::from_fn(crate::web::middleware::stateless_auth_middleware)
     );
 
   // System administration routes (require system-configuration module)
@@ -134,12 +151,12 @@ pub fn create_admin_routes() -> Router<AppState> {
     // .route("/api-keys", get(list_api_keys_handler)) // Handler missing
     // Role cleanup removed - using permissions-based system
     .layer(
-      axum::middleware::from_fn(crate::web::middleware::clean_auth_middleware)
+      axum::middleware::from_fn(crate::web::middleware::stateless_auth_middleware)
     );
 
   // Security management routes (require security-management module)
   let security_mgmt_routes = Router::new().layer(
-    axum::middleware::from_fn(crate::web::middleware::clean_auth_middleware)
+    axum::middleware::from_fn(crate::web::middleware::stateless_auth_middleware)
   );
 
   Router::new()
@@ -166,64 +183,64 @@ pub fn create_admin_routes() -> Router<AppState> {
     // .route("/users/bulk-update", post(bulk_update_users_handler))
     // .route("/users/level-history", get(get_level_history_handler))
 
-    // Bulk Permission Management routes (require user-management module)
-    .route("/users/bulk/permissions/grant", post(bulk_grant_permissions))
-    .route("/users/bulk/permissions/revoke", post(bulk_revoke_permissions))
-    .route("/users/bulk/roles/assign", post(bulk_assign_roles))
-    .route("/users/bulk/templates/apply", post(bulk_apply_permission_template))
-    .route("/users/bulk/permissions/validate", post(bulk_validate_permissions))
+    // Legacy bulk permission handlers removed for Web3-first migration
+    // .route("/users/bulk/permissions/grant", post(bulk_grant_permissions))
+    // .route("/users/bulk/permissions/revoke", post(bulk_revoke_permissions))
+    // .route("/users/bulk/roles/assign", post(bulk_assign_roles))
+    // .route("/users/bulk/templates/apply", post(bulk_apply_permission_template))
+    // .route("/users/bulk/permissions/validate", post(bulk_validate_permissions))
     // Unified User Management routes (require user-management module)
-    .route("/users/:user_id/unified", get(get_unified_user_data_handler))
-    .route("/users/:user_id/profile", put(update_user_profile_handler))
-    .route("/users/:user_id/roles", put(update_user_roles_handler))
-    .route("/users/:user_id/modules", put(update_user_modules_handler))
-    .route("/users/:user_id/billing", put(update_user_billing_handler))
-    .route("/users/:user_id/activity", get(get_user_activity_handler))
-    // Embedded Timestamp Permission Management routes (require user-management module)
-    .route(
-      "/users/:user_id/embedded-permissions",
-      post(grant_embedded_permission)
-    )
-    .route(
-      "/users/bulk/embedded-permissions",
-      post(grant_bulk_embedded_permissions)
-    )
-    .route(
-      "/users/:user_id/embedded-permissions/validate",
-      post(validate_embedded_permissions)
-    )
-    .route(
-      "/users/:user_id/permissions/expiry-status",
-      get(get_permission_expiry_status)
-    )
-    .route(
-      "/users/:user_id/embedded-permissions/revoke",
-      post(revoke_embedded_permission)
-    )
-    .route(
-      "/users/:user_id/embedded-permissions/extend",
-      post(extend_embedded_permission)
-    )
-    .route(
-      "/embedded-permissions/cleanup-expired",
-      post(cleanup_expired_permissions)
-    )
-    // V1 Granular Permission Management API (require user-management module)
-    .route("/users/:user_id/granular-permissions/grant", post(grant_permission))
-    .route(
-      "/users/:user_id/granular-permissions/revoke",
-      post(revoke_permission)
-    )
-    .route("/users/:user_id/granular-permissions", get(list_user_permissions))
-    .route(
-      "/users/:user_id/granular-permissions/extend",
-      post(extend_permission)
-    )
-    .route(
-      "/granular-permissions/bulk/grant",
-      post(granular_bulk_grant_permissions)
-    )
-    .route("/granular-permissions/statistics", get(get_permission_statistics))
+    // .route("/users/:user_id/unified", get(get_unified_user_data_handler)) // Removed - handler deleted
+    // .route("/users/:user_id/profile", put(update_user_profile_handler)) // Removed - handler deleted
+    // .route("/users/:user_id/roles", put(update_user_roles_handler)) // Removed - handler deleted
+    // .route("/users/:user_id/modules", put(update_user_modules_handler)) // Removed - handler deleted
+    // .route("/users/:user_id/billing", put(update_user_billing_handler)) // Removed - handler deleted
+    // .route("/users/:user_id/activity", get(get_user_activity_handler)) // Removed - handler deleted
+    // Legacy embedded permission handlers removed for Web3-first migration
+    // .route(
+    //   "/users/:user_id/embedded-permissions",
+    //   post(grant_embedded_permission)
+    // )
+    // .route(
+    //   "/users/bulk/embedded-permissions",
+    //   post(grant_bulk_embedded_permissions)
+    // )
+    // .route(
+    //   "/users/:user_id/embedded-permissions/validate",
+    //   post(validate_embedded_permissions)
+    // )
+    // .route(
+    //   "/users/:user_id/permissions/expiry-status",
+    //   get(get_permission_expiry_status)
+    // )
+    // .route(
+    //   "/users/:user_id/embedded-permissions/revoke",
+    //   post(revoke_embedded_permission)
+    // )
+    // .route(
+    //   "/users/:user_id/embedded-permissions/extend",
+    //   post(extend_embedded_permission)
+    // )
+    // .route(
+    //   "/embedded-permissions/cleanup-expired",
+    //   post(cleanup_expired_permissions)
+    // )
+    // Legacy granular permission handlers removed for Web3-first migration
+    // .route("/users/:user_id/granular-permissions/grant", post(grant_permission))
+    // .route(
+    //   "/users/:user_id/granular-permissions/revoke",
+    //   post(revoke_permission)
+    // )
+    // .route("/users/:user_id/granular-permissions", get(list_user_permissions))
+    // .route(
+    //   "/users/:user_id/granular-permissions/extend",
+    //   post(extend_permission)
+    // )
+    // .route(
+    //   "/granular-permissions/bulk/grant",
+    //   post(granular_bulk_grant_permissions)
+    // )
+    // .route("/granular-permissions/statistics", get(get_permission_statistics))
     // Simple role system: complex permission management routes removed
     // Use basic user role updates through /users/:user_id endpoints
 
@@ -237,31 +254,31 @@ pub fn create_admin_routes() -> Router<AppState> {
     // .route("/users/:user_id/permissions/cache/invalidate", delete(invalidate_user_cache))
 
     // Dynamic Policy Management routes (require admin:policies:* module)
-    .route("/policies", get(get_policies))
-    .route("/policies", post(create_policy))
-    .route("/policies/:policy_id", delete(delete_policy))
-    .route("/policies/:policy_id/toggle", put(toggle_policy_status))
-    .route("/policies/evaluate", post(evaluate_policies))
+    // .route("/policies", get(get_policies))
+    // .route("/policies", post(create_policy))
+    // .route("/policies/:policy_id", delete(delete_policy))
+    // .route("/policies/:policy_id/toggle", put(toggle_policy_status))
+    // .route("/policies/evaluate", post(evaluate_policies))
     // .route("/policies/templates", get(get_policy_templates)) // TODO: Implement
-    .route("/policies/stats", get(get_policy_stats))
-    // Analytics routes (require analytics-access module)
-    .route("/analytics/permissions", get(get_permission_analytics_handler))
-    .route(
-      "/analytics/recommendations",
-      get(get_permission_recommendations_handler)
-    )
-    .route("/analytics/performance", get(get_performance_metrics_handler))
-    .route("/analytics/security-risks", get(get_security_risk_analysis_handler))
+    // .route("/policies/stats", get(get_policy_stats))
+    // Legacy analytics handlers removed for Web3-first migration
+    // .route("/analytics/permissions", get(get_permission_analytics_handler))
+    // .route(
+    //   "/analytics/recommendations",
+    //   get(get_permission_recommendations_handler)
+    // )
+    // .route("/analytics/performance", get(get_performance_metrics_handler))
+    // .route("/analytics/security-risks", get(get_security_risk_analysis_handler))
     // Admin notification routes (require admin permissions)
-    .route("/notifications/send", post(admin_send_notification))
-    .route("/notifications/broadcast", post(admin_broadcast_to_topic))
-    .route("/notifications/stats", get(admin_get_notification_stats))
-    .route("/notifications/list", get(admin_get_user_notifications))
-    .route("/notifications/recent", get(admin_get_user_notifications))
-    .route("/notifications/history", get(admin_get_user_notifications))
-    .route("/notifications/unread", get(admin_get_user_notifications))
-    .route("/notifications/:id/read", put(admin_mark_notification_read))
-    .route("/notifications/:id", delete(admin_delete_notification))
+    // .route("/notifications/send", post(admin_send_notification))
+    // .route("/notifications/broadcast", post(admin_broadcast_to_topic))
+    // .route("/notifications/stats", get(admin_get_notification_stats))
+    // .route("/notifications/list", get(admin_get_user_notifications))
+    // .route("/notifications/recent", get(admin_get_user_notifications))
+    // .route("/notifications/history", get(admin_get_user_notifications))
+    // .route("/notifications/unread", get(admin_get_user_notifications))
+    // .route("/notifications/:id/read", put(admin_mark_notification_read))
+    // .route("/notifications/:id", delete(admin_delete_notification))
     // Security monitoring routes (require admin:security:* permissions)
     .route(
       "/security/events",
@@ -286,7 +303,7 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/performance/cache-summary", get(get_cache_summary))
     .route("/performance/clear-cache", post(clear_auth_cache))
     // Web3 Permission Management routes (require admin:web3:* permissions)
-    .route("/web3/permissions", get(get_wallet_permissions))
+    .route("/web3/permissions", get(get_user_permissions))
     .route("/web3/permissions/grant", post(grant_manual_permission))
     .route("/web3/nft-gates", get(get_nft_gates))
     .route("/web3/nft-gates", post(create_nft_gate))
@@ -295,8 +312,28 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/web3/dao-proposals", get(get_dao_proposals))
     .route("/web3/dao-proposals", post(create_dao_proposal))
 
+    // ============================================================================
+    // BACKEND-CENTRIC PERMISSION AUTHORITY SYSTEM (THE SINGLE SOURCE OF TRUTH)
+    // These endpoints are THE AUTHORITY for all permission decisions
+    // Frontend and admin apps consume these APIs and handle only error responses
+    // ============================================================================
+    
+    // Tier Group Management (Enhanced with permission authority)
+    .route("/tier-groups", get(list_tier_groups_handler))
+    .route("/tier-groups", post(create_tier_group_handler))
+    .route("/tier-groups/:tier_group_id", get(get_tier_group_handler))
+    .route("/tier-groups/:tier_group_id", put(update_tier_group_handler))
+    .route("/tier-groups/:tier_group_id", delete(delete_tier_group_handler))
+    
+    // Tier Assignment Management 
+    .route("/tier-assignments", post(create_tier_assignment_handler))
+    .route("/users/:user_id/tier-assignments", get(get_user_tier_assignments_handler))
+    
+    // Permission Template Management
+    .route("/permission-templates", get(list_permission_templates_handler))
+
     .layer(
-      axum::middleware::from_fn(crate::web::middleware::clean_auth_middleware)
+      axum::middleware::from_fn(crate::web::middleware::stateless_auth_middleware)
     )
 }
 
@@ -307,5 +344,31 @@ pub fn create_admin_public_routes() -> Router<AppState> {
     .route(
       "/health",
       get(|| async { "OK" })
+    )
+}
+
+// ============================================================================
+// PERMISSION AUTHORITY ROUTES (THE SINGLE SOURCE OF TRUTH)
+// These routes are accessible to ALL applications (frontend, admin, external APIs)
+// and provide THE AUTHORITATIVE permission decisions
+// ============================================================================
+
+pub fn create_permission_authority_routes() -> Router<AppState> {
+  Router::new()
+    // ⚡ CRITICAL: Real-time permission validation - THE AUTHORITY
+    // This endpoint is called by frontend/admin for ALL permission checks
+    .route("/api/permissions/validate", post(validate_permission_handler))
+    
+    // ⚡ CRITICAL: Bulk permission validation for performance
+    // Used by frontend/admin for batch permission checking
+    .route("/api/permissions/validate-bulk", post(validate_bulk_permissions_handler))
+    
+    // ⚡ CRITICAL: User's effective permissions - what they can actually do
+    // Used by frontend/admin to understand user capabilities
+    .route("/api/permissions/user/:user_id", get(get_user_permissions_handler))
+    
+    // Apply authentication middleware to permission authority routes
+    .layer(
+      axum::middleware::from_fn(crate::web::middleware::stateless_auth_middleware)
     )
 }

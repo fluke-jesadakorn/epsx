@@ -105,26 +105,6 @@ impl CreatePaymentCommandHandler {
                     expires_at: payment.expires_at(),
                 })
             },
-            crate::domain::payment::PaymentMethodType::BankTransfer => {
-                // For bank transfers, provide bank details
-                Some(PaymentInstructions {
-                    method: "Bank Transfer".to_string(),
-                    address: None,
-                    amount: payment.amount().clone(),
-                    memo: Some(format!("Reference: {}", payment.reference())),
-                    expires_at: payment.expires_at(),
-                })
-            },
-            crate::domain::payment::PaymentMethodType::CreditCard => {
-                // For credit cards, redirect to payment processor
-                Some(PaymentInstructions {
-                    method: "Credit Card".to_string(),
-                    address: None,
-                    amount: payment.amount().clone(),
-                    memo: Some("Complete payment via secure payment form".to_string()),
-                    expires_at: payment.expires_at(),
-                })
-            },
         }
     }
 }

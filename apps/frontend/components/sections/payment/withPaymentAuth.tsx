@@ -17,9 +17,10 @@ export function withPaymentAuth<P extends object>(
     const isAuthenticated = !!user
     
     // Payment access means user has basic permissions
-    const hasPaymentAccess = user?.permissions?.some(p => 
-      p.includes('epsx:') || p.includes('premium:')
-    ) ?? false
+    const hasPaymentAccess = user?.permissions ? 
+      Object.keys(user.permissions).some(p => 
+        p.includes('epsx:') || p.includes('premium:')
+      ) : false
 
     // Show loading state
     if (isLoading) {

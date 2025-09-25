@@ -9,11 +9,7 @@
 export { 
   PermissionGuard as FeatureGuard,
   AdminOnly,
-  ViewEpsOnly,
-  ExportDataOnly,
   RealtimeOnly,
-  ProfileOnly,
   NotificationsOnly,
-  BillingOnly,
-  AdvancedFiltersOnly
+  BillingOnly
 } from './FeatureGuard';

@@ -184,7 +184,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('User search API error:', error);
     
-    if (error.name === 'AbortError') {
+    if ((error as Error).name === 'AbortError') {
       return NextResponse.json(
         { 
           success: false, 
@@ -197,7 +197,7 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    if (error.code === 'ECONNREFUSED' || error.code === 'ENOTFOUND') {
+    if ((error as any).code === 'ECONNREFUSED' || (error as any).code === 'ENOTFOUND') {
       return NextResponse.json(
         { 
           success: false, 

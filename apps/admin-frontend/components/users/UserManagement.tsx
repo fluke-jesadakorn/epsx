@@ -82,9 +82,9 @@ function UserCard({ user, isSelected, onSelect, onEdit, onDelete, onView }: {
   }
 
   return (
-    <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-r from-yellow-400/20 via-orange-400/20 to-pink-400/20 p-0.5 group hover:scale-[1.02] transition-all duration-200 ${isSelected ? 'ring-2 ring-yellow-500 shadow-lg shadow-yellow-400/25' : ''}`}>
+    <div className={`relative overflow-hidden rounded-3xl bg-gradient-to-r from-yellow-400/20 via-orange-400/20 to-pink-400/20 p-0.5 group   ${isSelected ? 'ring-2 ring-yellow-500 shadow-lg shadow-yellow-400/25' : ''}`}>
       <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-3xl p-4">
-        <div className="absolute top-2 right-2 w-3 h-3 bg-gradient-to-br from-yellow-300/30 to-orange-400/30 rounded-full blur-sm animate-pulse opacity-60"></div>
+        <div className="absolute top-2 right-2 w-3 h-3 bg-gradient-to-br from-yellow-300/30 to-orange-400/30 rounded-full blur-sm  opacity-60"></div>
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 flex-1 min-w-0">
             <div className="relative">
@@ -201,7 +201,7 @@ export function UserManagement({
   const [filters, setFilters] = useState<UserFilters>({
     search: '',
     role: 'all',
-    status: 'all',
+    status: undefined,
     tier: 'all',
     sortBy: 'created_at',
     sortOrder: 'desc',
@@ -213,7 +213,7 @@ export function UserManagement({
   const statsFromUsers = useMemo(() => {
     const activeUsers = users.filter(user => user.status === 'active' || !user.status).length
     const adminUsers = users.filter(user => user.role === 'admin').length
-    const premiumUsers = users.filter(user => user.role === 'premium').length
+    const premiumUsers = users.filter(user => user.role === 'premium_user').length
     const totalPermissions = users.reduce((acc, user) => acc + (user.permissions?.length || 0), 0)
 
     return {
@@ -247,7 +247,7 @@ export function UserManagement({
     }
 
     // Apply status filter
-    if (filters.status && filters.status !== 'all') {
+    if (filters.status) {
       filtered = filtered.filter(user => 
         filters.status === 'active' ? user.isActive : !user.isActive
       );
@@ -374,9 +374,9 @@ export function UserManagement({
     <div className="space-y-6 sm:space-y-8">
       {/* Background Decorations */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-full blur-xl animate-pulse"></div>
-        <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-purple-500/20 rounded-full blur-lg animate-pulse animation-delay-1000"></div>
-        <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-orange-400/15 to-yellow-500/15 rounded-full blur-xl animate-pulse animation-delay-2000"></div>
+        <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-full blur-xl "></div>
+        <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-purple-500/20 rounded-full blur-lg  "></div>
+        <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-orange-400/15 to-yellow-500/15 rounded-full blur-xl  "></div>
       </div>
 
       <div className="relative">
@@ -386,7 +386,7 @@ export function UserManagement({
             <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-yellow-600 via-orange-600 via-pink-600 to-purple-600 bg-clip-text text-transparent mb-4">
               👥 User Management
             </h1>
-            <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full animate-pulse"></div>
+            <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full "></div>
           </div>
           <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
             Manage users, roles, and permissions across the EPSX platform
@@ -395,7 +395,7 @@ export function UserManagement({
 
         {/* Stats Dashboard */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-blue-300/50 dark:border-blue-700/50 hover:shadow-2xl transition-shadow">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-blue-300/50 dark:border-blue-700/50 hover:shadow-2xl ">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="text-2xl sm:text-3xl">👥</div>
               <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Total</span>
@@ -407,7 +407,7 @@ export function UserManagement({
             </div>
           </div>
 
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-green-300/50 dark:border-green-700/50 hover:shadow-2xl transition-shadow">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-green-300/50 dark:border-green-700/50 hover:shadow-2xl ">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="text-2xl sm:text-3xl">✅</div>
               <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Active</span>
@@ -419,7 +419,7 @@ export function UserManagement({
             </div>
           </div>
 
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-purple-300/50 dark:border-purple-700/50 hover:shadow-2xl transition-shadow">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-purple-300/50 dark:border-purple-700/50 hover:shadow-2xl ">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="text-2xl sm:text-3xl">👑</div>
               <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Admin</span>
@@ -431,7 +431,7 @@ export function UserManagement({
             </div>
           </div>
 
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-orange-300/50 dark:border-orange-700/50 hover:shadow-2xl transition-shadow">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-orange-300/50 dark:border-orange-700/50 hover:shadow-2xl ">
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="text-2xl sm:text-3xl">⭐</div>
               <span className="text-xs sm:text-sm font-medium text-gray-500 dark:text-gray-400">Premium</span>
@@ -447,7 +447,7 @@ export function UserManagement({
         {/* Search and Filters */}
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-400/20 via-purple-400/20 to-pink-400/20 p-0.5 mb-6 sm:mb-8">
           <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-3xl">
-            <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full blur-sm animate-pulse opacity-60"></div>
+            <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full blur-sm  opacity-60"></div>
             
             <div className="p-4 sm:p-6 space-y-4">
               <div className="flex flex-col lg:flex-row gap-3 sm:gap-4">
@@ -474,7 +474,7 @@ export function UserManagement({
                     </SelectContent>
                   </Select>
                   
-                  <Select value={filters.status || 'all'} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
+                  <Select value={filters.status || 'all'} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value === 'all' ? undefined : value as 'active' | 'inactive' | 'deleted' }))}>
                     <SelectTrigger className="w-36 sm:w-40 rounded-2xl border-2 border-purple-200 dark:border-purple-700 h-12">
                       <SelectValue placeholder="Status" />
                     </SelectTrigger>
@@ -546,7 +546,7 @@ export function UserManagement({
                         onClick={() => setFilters({
                           search: '',
                           role: 'all',
-                          status: 'all',
+                          status: undefined,
                           tier: 'all',
                           sortBy: 'created_at',
                           sortOrder: 'desc',
@@ -569,7 +569,7 @@ export function UserManagement({
         {selectedUsers.length > 0 && (
           <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-yellow-400/20 to-orange-500/20 p-0.5 mb-4">
             <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-3xl p-4">
-              <div className="absolute top-2 right-2 w-3 h-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full blur-sm animate-pulse opacity-60"></div>
+              <div className="absolute top-2 right-2 w-3 h-3 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full blur-sm  opacity-60"></div>
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <Checkbox
@@ -639,7 +639,7 @@ export function UserManagement({
             </div>
           ) : isLoading ? (
             <div className="text-center py-12 sm:py-16">
-              <div className="text-6xl sm:text-8xl mb-4 animate-pulse">⏳</div>
+              <div className="text-6xl sm:text-8xl mb-4 ">⏳</div>
               <p className="text-gray-500 dark:text-gray-400">Loading users...</p>
             </div>
           ) : (
@@ -704,7 +704,7 @@ export function UserManagement({
         {/* Quick Actions Footer */}
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-green-400/20 via-blue-400/20 to-purple-400/20 p-0.5 mt-6 sm:mt-8">
           <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-3xl">
-            <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-green-400 to-blue-500 rounded-full blur-sm animate-pulse opacity-60"></div>
+            <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-green-400 to-blue-500 rounded-full blur-sm  opacity-60"></div>
             
             <div className="p-4 sm:p-6">
               <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-green-600 via-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">
@@ -713,7 +713,7 @@ export function UserManagement({
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 <Button
                   onClick={() => router.push('/users/create')}
-                  className="h-auto p-4 flex flex-col items-center gap-2 bg-gradient-to-r from-green-400/10 to-emerald-400/10 hover:from-green-400/20 hover:to-emerald-400/20 border-2 border-green-200 dark:border-green-700 rounded-2xl transition-all duration-200 hover:scale-105 text-gray-700 dark:text-gray-300"
+                  className="h-auto p-4 flex flex-col items-center gap-2 bg-gradient-to-r from-green-400/10 to-emerald-400/10 hover:from-green-400/20 hover:to-emerald-400/20 border-2 border-green-200 dark:border-green-700 rounded-2xl  hover:scale-105 text-gray-700 dark:text-gray-300"
                   variant="ghost"
                 >
                   <UserPlus className="w-6 h-6" />
@@ -722,7 +722,7 @@ export function UserManagement({
                 
                 <Button
                   onClick={() => router.push('/users/bulk')}
-                  className="h-auto p-4 flex flex-col items-center gap-2 bg-gradient-to-r from-blue-400/10 to-cyan-400/10 hover:from-blue-400/20 hover:to-cyan-400/20 border-2 border-blue-200 dark:border-blue-700 rounded-2xl transition-all duration-200 hover:scale-105 text-gray-700 dark:text-gray-300"
+                  className="h-auto p-4 flex flex-col items-center gap-2 bg-gradient-to-r from-blue-400/10 to-cyan-400/10 hover:from-blue-400/20 hover:to-cyan-400/20 border-2 border-blue-200 dark:border-blue-700 rounded-2xl  hover:scale-105 text-gray-700 dark:text-gray-300"
                   variant="ghost"
                 >
                   <Users className="w-6 h-6" />
@@ -731,7 +731,7 @@ export function UserManagement({
                 
                 <Button
                   onClick={() => router.push('/permissions')}
-                  className="h-auto p-4 flex flex-col items-center gap-2 bg-gradient-to-r from-purple-400/10 to-pink-400/10 hover:from-purple-400/20 hover:to-pink-400/20 border-2 border-purple-200 dark:border-purple-700 rounded-2xl transition-all duration-200 hover:scale-105 text-gray-700 dark:text-gray-300"
+                  className="h-auto p-4 flex flex-col items-center gap-2 bg-gradient-to-r from-purple-400/10 to-pink-400/10 hover:from-purple-400/20 hover:to-pink-400/20 border-2 border-purple-200 dark:border-purple-700 rounded-2xl  hover:scale-105 text-gray-700 dark:text-gray-300"
                   variant="ghost"
                 >
                   <Shield className="w-6 h-6" />
@@ -770,7 +770,7 @@ export function UserManagement({
                       variant: "default",
                     });
                   }}
-                  className="h-auto p-4 flex flex-col items-center gap-2 bg-gradient-to-r from-orange-400/10 to-yellow-400/10 hover:from-orange-400/20 hover:to-yellow-400/20 border-2 border-orange-200 dark:border-orange-700 rounded-2xl transition-all duration-200 hover:scale-105 text-gray-700 dark:text-gray-300"
+                  className="h-auto p-4 flex flex-col items-center gap-2 bg-gradient-to-r from-orange-400/10 to-yellow-400/10 hover:from-orange-400/20 hover:to-yellow-400/20 border-2 border-orange-200 dark:border-orange-700 rounded-2xl  hover:scale-105 text-gray-700 dark:text-gray-300"
                   variant="ghost"
                 >
                   <Download className="w-6 h-6" />
@@ -780,7 +780,7 @@ export function UserManagement({
                 <Button
                   onClick={handleRefresh}
                   disabled={isLoading}
-                  className="h-auto p-4 flex flex-col items-center gap-2 bg-gradient-to-r from-gray-400/10 to-slate-400/10 hover:from-gray-400/20 hover:to-slate-400/20 border-2 border-gray-200 dark:border-gray-700 rounded-2xl transition-all duration-200 hover:scale-105 text-gray-700 dark:text-gray-300"
+                  className="h-auto p-4 flex flex-col items-center gap-2 bg-gradient-to-r from-gray-400/10 to-slate-400/10 hover:from-gray-400/20 hover:to-slate-400/20 border-2 border-gray-200 dark:border-gray-700 rounded-2xl  hover:scale-105 text-gray-700 dark:text-gray-300"
                   variant="ghost"
                 >
                   <RefreshCw className={`w-6 h-6 ${isLoading ? 'animate-spin' : ''}`} />
@@ -789,7 +789,7 @@ export function UserManagement({
                 
                 <Button
                   onClick={() => router.push('/settings')}
-                  className="h-auto p-4 flex flex-col items-center gap-2 bg-gradient-to-r from-indigo-400/10 to-purple-400/10 hover:from-indigo-400/20 hover:to-purple-400/20 border-2 border-indigo-200 dark:border-indigo-700 rounded-2xl transition-all duration-200 hover:scale-105 text-gray-700 dark:text-gray-300"
+                  className="h-auto p-4 flex flex-col items-center gap-2 bg-gradient-to-r from-indigo-400/10 to-purple-400/10 hover:from-indigo-400/20 hover:to-purple-400/20 border-2 border-indigo-200 dark:border-indigo-700 rounded-2xl  hover:scale-105 text-gray-700 dark:text-gray-300"
                   variant="ghost"
                 >
                   <Settings className="w-6 h-6" />

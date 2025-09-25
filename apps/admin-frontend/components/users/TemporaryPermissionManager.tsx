@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, memo, useCallback } from 'react';
 import { 
   Clock, 
   Plus, 
@@ -62,6 +62,16 @@ import { AdminPermissionExpiryIndicator, parseEmbeddedPermissions } from '../aut
 interface EmbeddedPermissionData {
   basePermission: string;
   expiryTimestamp: number;
+  reason?: string;
+}
+
+// Form data for creating temporary permissions
+interface CreateTemporaryPermissionData {
+  user_id: string;
+  permission: string;
+  resource: string;
+  action: string;
+  expires_at: string;
   reason?: string;
 }
 
@@ -135,7 +145,7 @@ const STATUS_ICONS = {
   revoked: XCircle,
 };
 
-export function TemporaryPermissionManager({ 
+function TemporaryPermissionManager({ 
   userId, 
   enableEmbeddedTimestamps = true,
   showTimeline = true,
@@ -182,7 +192,7 @@ export function TemporaryPermissionManager({
       } else {
         toast({
           title: 'Error',
-          description: result.error?.message || 'Failed to load temporary permissions',
+          description: result.error || 'Failed to load temporary permissions',
           variant: 'destructive',
         });
       }
@@ -204,9 +214,12 @@ export function TemporaryPermissionManager({
 
   const filteredPermissions = useMemo(() => {
     return permissions.filter(permission => {
-      // Status filter
-      if (filter !== 'all' && permission.status !== filter) {
-        return false;
+      // Status filter based on isActive and expiry
+      const isExpired = new Date(permission.expiresAt) < new Date();
+      if (filter !== 'all') {
+        if (filter === 'active' && (!permission.isActive || isExpired)) return false;
+        if (filter === 'expired' && !isExpired) return false;
+        if (filter === 'revoked' && permission.isActive) return false;
       }
       
       // Search filter
@@ -214,8 +227,6 @@ export function TemporaryPermissionManager({
         const searchLower = searchTerm.toLowerCase();
         return (
           permission.permission.toLowerCase().includes(searchLower) ||
-          permission.resource.toLowerCase().includes(searchLower) ||
-          permission.action.toLowerCase().includes(searchLower) ||
           (permission.reason && permission.reason.toLowerCase().includes(searchLower))
         );
       }
@@ -224,7 +235,7 @@ export function TemporaryPermissionManager({
     });
   }, [permissions, filter, searchTerm]);
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleCreate = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.permission || !formData.resource || !formData.action || !formData.expires_at) {
@@ -239,7 +250,12 @@ export function TemporaryPermissionManager({
     try {
       setLoading(true);
       
-      const result = await createTemporaryPermission(formData);
+      const result = await grantTemporaryPermission({
+        userId: formData.user_id,
+        permission: formData.permission,
+        expiresAt: formData.expires_at,
+        reason: formData.reason
+      });
       
       if (result.success) {
         toast({
@@ -261,7 +277,7 @@ export function TemporaryPermissionManager({
       } else {
         toast({
           title: 'Error',
-          description: result.error?.message || 'Failed to create temporary permission',
+          description: result.error || 'Failed to create temporary permission',
           variant: 'destructive',
         });
       }
@@ -275,11 +291,11 @@ export function TemporaryPermissionManager({
     } finally {
       setLoading(false);
     }
-  };
+  }, [formData, toast]);
 
-  const handleRevoke = async (permission: TemporaryPermission, reason?: string) => {
+  const handleRevoke = useCallback(async (permission: TemporaryPermission, reason?: string) => {
     try {
-      const result = await revokeTemporaryPermission(permission.id, reason);
+      const result = await revokeTemporaryPermission(permission.id);
       
       if (result.success) {
         toast({
@@ -290,7 +306,7 @@ export function TemporaryPermissionManager({
       } else {
         toast({
           title: 'Error',
-          description: result.error?.message || 'Failed to revoke permission',
+          description: result.error || 'Failed to revoke permission',
           variant: 'destructive',
         });
       }
@@ -302,11 +318,11 @@ export function TemporaryPermissionManager({
         variant: 'destructive',
       });
     }
-  };
+  }, [toast]);
 
   const handleDelete = async (permission: TemporaryPermission) => {
     try {
-      const result = await deleteTemporaryPermission(permission.id);
+      const result = await revokeTemporaryPermission(permission.id);
       
       if (result.success) {
         toast({
@@ -317,7 +333,7 @@ export function TemporaryPermissionManager({
       } else {
         toast({
           title: 'Error',
-          description: result.error?.message || 'Failed to delete permission',
+          description: result.error || 'Failed to delete permission',
           variant: 'destructive',
         });
       }
@@ -333,7 +349,12 @@ export function TemporaryPermissionManager({
 
   const handleCleanup = async () => {
     try {
-      const result = await cleanupExpiredPermissions();
+      // TODO: Implement cleanup functionality when available
+      const result = { 
+        success: false, 
+        error: 'Cleanup functionality not yet implemented',
+        data: null as any
+      };
       
       if (result.success && result.data) {
         toast({
@@ -344,7 +365,7 @@ export function TemporaryPermissionManager({
       } else {
         toast({
           title: 'Error',
-          description: result.error?.message || 'Failed to cleanup expired permissions',
+          description: result.error || 'Failed to cleanup expired permissions',
           variant: 'destructive',
         });
       }
@@ -444,9 +465,14 @@ export function TemporaryPermissionManager({
     }
   };
 
-  const activePermissions = permissions.filter(p => p.status === 'active' && !p.is_expired);
-  const expiredPermissions = permissions.filter(p => p.is_expired || p.status === 'expired');
-  const revokedPermissions = permissions.filter(p => p.status === 'revoked');
+  // Memoized permission categorization to avoid repeated filtering
+  const { activePermissions, expiredPermissions, revokedPermissions } = useMemo(() => {
+    return {
+      activePermissions: permissions.filter(p => p.isActive && new Date(p.expiresAt) > new Date()),
+      expiredPermissions: permissions.filter(p => new Date(p.expiresAt) <= new Date()),
+      revokedPermissions: permissions.filter(p => !p.isActive)
+    };
+  }, [permissions]);
 
   return (
     <div className="space-y-6">
@@ -465,7 +491,7 @@ export function TemporaryPermissionManager({
             onClick={loadPermissions}
             disabled={refreshing}
           >
-            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className="h-4 w-4" />
           </Button>
           
           {enableEmbeddedTimestamps && (
@@ -505,7 +531,7 @@ export function TemporaryPermissionManager({
                 </div>
               </div>
               {activePermissions.length > 0 && (
-                <div className="h-2 w-2 bg-green-500 rounded-full animate-pulse"></div>
+                <div className="h-2 w-2 bg-green-500 rounded-full opacity-75"></div>
               )}
             </div>
           </CardContent>
@@ -540,8 +566,8 @@ export function TemporaryPermissionManager({
               </div>
               {expiredPermissions.length > 0 && (
                 <div className="flex items-center gap-1">
-                  <AlertTriangle className="h-4 w-4 text-red-500 animate-pulse" />
-                  <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse"></div>
+                  <AlertTriangle className="h-4 w-4 text-red-500 opacity-75" />
+                  <div className="h-2 w-2 bg-red-500 rounded-full opacity-75"></div>
                 </div>
               )}
             </div>
@@ -659,52 +685,56 @@ export function TemporaryPermissionManager({
           </Card>
         ) : (
           filteredPermissions.map((permission) => {
-            const StatusIcon = STATUS_ICONS[permission.status];
-            const isExpiringSoon = !permission.is_expired && 
-              new Date(permission.expires_at) < addHours(new Date(), 24);
-            const isCritical = !permission.is_expired && 
-              new Date(permission.expires_at) < addHours(new Date(), 1); // Less than 1 hour
+            // Calculate status based on actual TemporaryPermission properties
+            const isExpired = new Date(permission.expiresAt) <= new Date();
+            const status = !permission.isActive ? 'revoked' : isExpired ? 'expired' : 'active';
+            
+            const StatusIcon = STATUS_ICONS[status];
+            const isExpiringSoon = !isExpired && 
+              new Date(permission.expiresAt) < addHours(new Date(), 24);
+            const isCritical = !isExpired && 
+              new Date(permission.expiresAt) < addHours(new Date(), 1); // Less than 1 hour
             
             // Enhanced visual styling based on expiry status
             let cardClassName = "p-4"
-            let badgeClassName = STATUS_COLORS[permission.status]
+            let badgeClassName = STATUS_COLORS[status]
             
-            if (isCritical && permission.status === 'active') {
+            if (isCritical && status === 'active') {
               cardClassName = "p-4 bg-gradient-to-r from-orange-50 to-red-50 border-l-4 border-orange-400 dark:from-orange-950/20 dark:to-red-950/20"
               badgeClassName = STATUS_COLORS_ENHANCED.expiring_critical
-            } else if (isExpiringSoon && permission.status === 'active') {
+            } else if (isExpiringSoon && status === 'active') {
               cardClassName = "p-4 bg-gradient-to-r from-yellow-50 to-amber-50 border-l-4 border-yellow-400 dark:from-yellow-950/20 dark:to-amber-950/20"
               badgeClassName = STATUS_COLORS_ENHANCED.expiring_soon
-            } else if (permission.status === 'expired') {
+            } else if (status === 'expired') {
               cardClassName = "p-4 bg-gradient-to-r from-gray-50 to-slate-50 border-l-4 border-gray-400 opacity-80 dark:from-gray-950/20 dark:to-slate-950/20"
             }
             
             return (
-              <Card key={permission.id} className={permission.is_expired ? "opacity-75" : ""}>
+              <Card key={permission.id} className={isExpired ? "opacity-75" : ""}>
                 <CardContent className={cardClassName}>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-3">
                         <Badge className={badgeClassName}>
                           <StatusIcon className="h-3 w-3 mr-1" />
-                          {permission.status}
+                          {status}
                         </Badge>
                         
-                        {isCritical && permission.status === 'active' && (
-                          <Badge className="bg-red-100 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-200 animate-pulse">
+                        {isCritical && status === 'active' && (
+                          <Badge className="bg-red-100 text-red-800 border border-red-200 dark:bg-red-900/20 dark:text-red-200 opacity-75">
                             <AlertTriangle className="h-3 w-3 mr-1" />
                             Critical - Expires in &lt;1h
                           </Badge>
                         )}
                         
-                        {isExpiringSoon && !isCritical && permission.status === 'active' && (
+                        {isExpiringSoon && !isCritical && status === 'active' && (
                           <Badge className="bg-amber-100 text-amber-800 border border-amber-200 dark:bg-amber-900/20 dark:text-amber-200">
                             <Clock className="h-3 w-3 mr-1" />
                             Expiring Soon
                           </Badge>
                         )}
                         
-                        {permission.is_expired && (
+                        {isExpired && (
                           <Badge className="bg-gray-100 text-gray-800 border border-gray-200 dark:bg-gray-900/20 dark:text-gray-200">
                             <XCircle className="h-3 w-3 mr-1" />
                             Expired
@@ -717,26 +747,18 @@ export function TemporaryPermissionManager({
                           <p className="text-xs text-muted-foreground">Permission</p>
                           <p className="font-medium">{permission.permission}</p>
                         </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Resource</p>
-                          <p className="font-medium">{permission.resource}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-muted-foreground">Action</p>
-                          <p className="font-medium">{permission.action}</p>
-                        </div>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-muted-foreground">
                         <div>
                           <p className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
-                            Granted: {format(new Date(permission.granted_at), 'PPp')}
+                            Granted: {format(new Date(permission.grantedAt), 'PPp')}
                           </p>
                           <p className="flex items-center gap-1 mt-1">
                             <Clock className="h-3 w-3" />
-                            Expires: {format(new Date(permission.expires_at), 'PPp')} 
-                            ({formatDistance(new Date(permission.expires_at), new Date(), { addSuffix: true })})
+                            Expires: {format(new Date(permission.expiresAt), 'PPp')} 
+                            ({formatDistance(new Date(permission.expiresAt), new Date(), { addSuffix: true })})
                           </p>
                         </div>
                         {permission.reason && (
@@ -749,11 +771,10 @@ export function TemporaryPermissionManager({
                         )}
                       </div>
 
-                      {permission.status === 'revoked' && permission.revoked_at && (
+                      {status === 'revoked' && (
                         <div className="mt-2 p-2 bg-red-50 rounded text-sm">
                           <p className="text-red-700">
-                            Revoked on {format(new Date(permission.revoked_at), 'PPp')}
-                            {permission.revocation_reason && ` - ${permission.revocation_reason}`}
+                            This permission has been revoked
                           </p>
                         </div>
                       )}
@@ -766,7 +787,7 @@ export function TemporaryPermissionManager({
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        {permission.status === 'active' && !permission.is_expired && (
+                        {status === 'active' && !isExpired && (
                           <>
                             <DropdownMenuItem onClick={() => setEditingPermission(permission)}>
                               <Edit className="h-4 w-4 mr-2" />
@@ -1062,3 +1083,6 @@ export function TemporaryPermissionManager({
     </div>
   );
 }
+
+// Export memoized component to prevent unnecessary re-renders on prop changes
+export default memo(TemporaryPermissionManager);

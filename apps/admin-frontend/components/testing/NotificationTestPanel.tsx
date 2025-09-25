@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Send, TestTube, Users, Mail } from 'lucide-react'
-import { sendNotificationToUser, sendBroadcastNotification } from '@/lib/actions/notification-actions'
+import { sendNotification as sendNotificationToUser, sendNotification as sendBroadcastNotification } from '@/lib/actions/consolidated-admin-actions'
 import { logger } from '@/lib/logger'
 
 export function NotificationTestPanel() {
@@ -38,18 +38,20 @@ export function NotificationTestPanel() {
     try {
       let response
       if (testForm.type === 'user') {
-        response = await sendNotificationToUser(
-          testForm.userEmail,
-          testForm.title,
-          testForm.body,
-          testForm.priority
-        )
+        response = await sendNotificationToUser({
+          title: testForm.title,
+          message: testForm.body,
+          type: 'info',
+          priority: testForm.priority as 'low' | 'medium' | 'high',
+          targetUsers: [testForm.userEmail]
+        })
       } else {
-        response = await sendBroadcastNotification(
-          testForm.title,
-          testForm.body,
-          testForm.priority
-        )
+        response = await sendBroadcastNotification({
+          title: testForm.title,
+          message: testForm.body,
+          type: 'info',
+          priority: testForm.priority as 'low' | 'medium' | 'high'
+        })
       }
 
       setResult(response)

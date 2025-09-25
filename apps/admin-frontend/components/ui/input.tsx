@@ -8,7 +8,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const adminInputVariants = cva(
-  "flex w-full transition-all duration-300 font-light ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 relative",
+  "flex w-full font-light ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 relative",
   {
     variants: {
       variant: {
@@ -21,7 +21,7 @@ const adminInputVariants = cva(
         ghost: 
           "border-0 border-b-2 border-muted-foreground/30 bg-transparent rounded-none text-foreground focus-visible:border-primary focus-visible:ring-0 hover:border-muted-foreground/50 px-0",
         tile: 
-          "border-0 bg-gradient-to-br from-card to-muted rounded-xl text-foreground focus-visible:ring-2 focus-visible:ring-primary shadow-lg hover:shadow-xl hover:scale-[1.01] active:scale-[0.99]",
+          "border-0 bg-gradient-to-br from-card to-muted rounded-xl text-foreground focus-visible:ring-2 focus-visible:ring-primary shadow-lg hover:shadow-xl",
         outlined:
           "border-2 border-primary bg-transparent text-foreground focus-visible:bg-primary/5 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30 hover:border-primary/80",
       },
@@ -48,7 +48,7 @@ const adminInputVariants = cva(
 )
 
 export interface InputProps
-  extends React.InputHTMLAttributes<HTMLInputElement>,
+  extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'>,
     VariantProps<typeof adminInputVariants> {}
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(

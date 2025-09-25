@@ -21,7 +21,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-import type { UserLevelType } from '@/app/constants/packages';
+import type { PermissionTemplateName } from '@/app/constants/packages';
 import { extractRankingLimitFromPermissions, deriveTierFromPermissions, canViewRankingPosition } from '@/lib/permission-utils';
 import { LockedRankingCard, UpgradePrompt } from '@/components/ui/prompt';
 import { Button } from '../ui/button';
@@ -272,17 +272,14 @@ function DataRankTable({
   const router = useRouter();
 
   // Helper function to calculate next tier limit for upgrade prompts
-  const getNextTierLimit = (currentTier: UserLevelType): number => {
-    const tierLimits: Record<UserLevelType, number> = {
-      'BRONZE': 25, // Next is SILVER
-      'SILVER': 50, // Next is GOLD  
-      'GOLD': 100, // Next is PLATINUM
-      'PLATINUM': -1, // Next is unlimited (VIP)
-      'DIAMOND': -1,
-      'VIP': -1,
-      'API_PERSONAL': -1,
-      'API_COMPANY': -1,
-      'API_PARTNER': -1,
+  const getNextTierLimit = (currentTier: PermissionTemplateName): number => {
+    const tierLimits: Record<PermissionTemplateName, number> = {
+      'Free Template': 3,
+      'Bronze Template': 5, 
+      'Silver Template': 25, 
+      'Gold Template': 50, 
+      'Platinum Template': -1, // Unlimited
+      'Enterprise Template': -1, // Unlimited
     };
     return tierLimits[currentTier] || 25;
   };
@@ -297,9 +294,9 @@ function DataRankTable({
 
   // Permission-based ranking access control
   const maxRankings = extractRankingLimitFromPermissions(userPermissions);
-  const userLevel: UserLevelType = deriveTierFromPermissions(userPermissions);
+  const userLevel = deriveTierFromPermissions(userPermissions) as PermissionTemplateName;
   const upgradeRequired = maxRankings < 100 && maxRankings !== -1; // Show upgrade if not unlimited and less than 100
-  const canViewRanking = (index: number) => canViewRankingPosition(userPermissions, index + 1);
+  const canViewRanking = (index: number) => canViewRankingPosition(index + 1, userPermissions);
 
   // Ensure data is always an array to prevent runtime errors
   let safeData = Array.isArray(data) ? data : [];

@@ -1,7 +1,9 @@
-import { Suspense } from 'react'
-import { Web3PermissionManager } from '@/components/admin/Web3PermissionManager'
-import { getWeb3AdminSession, createWeb3AdminUser } from '@/lib/web3-admin-session'
-import { notFound, redirect } from 'next/navigation'
+'use client'
+
+import { Suspense, useState, useEffect } from 'react'
+import { GroupManager } from '@/components/groups/GroupManager'
+import { Web3AssignmentRulesManager } from '@/components/web3/Web3AssignmentRulesManager'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,63 +42,115 @@ function Web3PermissionsHubSkeleton() {
   )
 }
 
-async function Web3PermissionsDataWrapper() {
-  // Get Web3 admin session
-  const session = await getWeb3AdminSession()
-  
-  if (!session?.isAuthenticated) {
-    console.log('❌ Web3 Admin: No authenticated session, redirecting to login')
-    redirect('/login?reason=no-session&return_url=/permissions/web3')
+// Simple client-side authentication check component
+function ClientAuthWrapper({ children }: { children: React.ReactNode }) {
+  const [authState, setAuthState] = useState<'loading' | 'authenticated' | 'unauthenticated' | 'no-access'>('loading')
+  const [walletAddress, setWalletAddress] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function checkAuth() {
+      try {
+        // Simple client-side check - just verify we have wallet_address cookie
+        const response = await fetch('/api/auth/web3/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ admin_context: true }),
+          credentials: 'include',
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success && data.wallet_address) {
+            console.log('✅ Client Auth: Authenticated as:', data.wallet_address)
+            setWalletAddress(data.wallet_address)
+            setAuthState('authenticated')
+          } else {
+            console.log('❌ Client Auth: Invalid response')
+            setAuthState('unauthenticated')
+          }
+        } else {
+          console.log('❌ Client Auth: Request failed')
+          setAuthState('unauthenticated')
+        }
+      } catch (error) {
+        console.error('❌ Client Auth: Error checking authentication:', error)
+        setAuthState('unauthenticated')
+      }
+    }
+
+    checkAuth()
+  }, [])
+
+  if (authState === 'loading') {
+    return <Web3PermissionsHubSkeleton />
   }
 
-  // Check if user has admin permissions
-  if (!session.hasAdminAccess) {
-    console.log('❌ Web3 Admin: User lacks admin permissions:', session.walletAddress)
-    notFound()
-  }
-
-  // Create compatible user object
-  const adminUser = createWeb3AdminUser(session)
-  
-  if (!adminUser) {
-    console.error('❌ Web3 Admin: Failed to create admin user object')
-    notFound()
-  }
-
-  console.log('✅ Web3 Admin: Session validated, rendering Web3PermissionManager for:', session.walletAddress)
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Hero Section */}
-        <div className="text-center mb-12">
-          <div className="relative">
-            <h1 className="text-6xl font-bold bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 bg-clip-text text-transparent mb-4 drop-shadow-lg">
-              🌐 Web3 Permission Hub
-            </h1>
-            <div className="absolute -top-2 -right-2 text-2xl animate-pulse">⚡</div>
-          </div>
-          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
-            Advanced blockchain-based permission management with real NFT, token, and DAO governance verification
-          </p>
-          <div className="mt-4 flex items-center justify-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-              Connected: {session.walletAddress?.slice(0, 6)}...{session.walletAddress?.slice(-4)}
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 bg-blue-500 rounded-full"></span>
-              Level: {session.adminLevel}
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-2 h-2 bg-purple-500 rounded-full"></span>
-              Permissions: {session.permissions?.length || 0}
-            </span>
-          </div>
+  if (authState === 'unauthenticated') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-gray-900 dark:to-purple-900">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Authentication Required</h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">Please connect your wallet to access the admin panel.</p>
+          <button 
+            onClick={() => window.location.href = '/login'}
+            className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-6 py-3 rounded-lg font-medium"
+          >
+            Connect Wallet
+          </button>
         </div>
+      </div>
+    )
+  }
 
-        {/* Web3 Permission Manager */}
-        <Web3PermissionManager />
+  if (authState === 'no-access') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-gray-900 dark:to-purple-900">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Access Denied</h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">Your wallet does not have admin permissions.</p>
+          <p className="text-sm text-gray-500">Wallet: {walletAddress}</p>
+        </div>
+      </div>
+    )
+  }
+
+  return <>{children}</>
+}
+
+function Web3PermissionsDataWrapper() {
+  console.log('✅ Client: Rendering Group-based Web3 Permission Manager')
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-gray-900 dark:to-purple-900 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent mb-4">
+            Web3 Permission Management
+          </h1>
+          <p className="text-lg text-gray-600 dark:text-gray-300">
+            Manage permission groups and blockchain-based auto-assignment rules
+          </p>
+        </div>
+        
+        {/* Tabs for different management areas */}
+        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/30 overflow-hidden">
+          <Tabs value="groups" onValueChange={() => {}} className="w-full">
+            <div className="border-b border-gray-200/50 dark:border-gray-700/50 p-6">
+              <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto">
+                <TabsTrigger value="groups">Permission Groups</TabsTrigger>
+                <TabsTrigger value="web3rules">Web3 Auto-Assignment</TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="groups" className="p-6">
+              <GroupManager />
+            </TabsContent>
+
+            <TabsContent value="web3rules" className="p-6">
+              <Web3AssignmentRulesManager />
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </div>
   )
@@ -104,8 +158,10 @@ async function Web3PermissionsDataWrapper() {
 
 export default function Web3AdminPermissionsPage() {
   return (
-    <Suspense fallback={<Web3PermissionsHubSkeleton />}>
-      <Web3PermissionsDataWrapper />
-    </Suspense>
+    <ClientAuthWrapper>
+      <Suspense fallback={<Web3PermissionsHubSkeleton />}>
+        <Web3PermissionsDataWrapper />
+      </Suspense>
+    </ClientAuthWrapper>
   )
 }

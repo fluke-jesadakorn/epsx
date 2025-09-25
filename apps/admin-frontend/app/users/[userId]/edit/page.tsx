@@ -29,10 +29,10 @@ export default async function UserEditPage({ params }: Props) {
   }
 
   const client = new UnifiedAdminClient()
-  let user
-  let availableRoles = []
-  let availablePackageTiers = []
-  let availablePermissions = []
+  let user: any = null
+  let availableRoles: any[] = []
+  let availablePackageTiers: any[] = []
+  let availablePermissions: any[] = []
   
   try {
     const userResponse = await client.getUser(userId)
@@ -107,7 +107,7 @@ export default async function UserEditPage({ params }: Props) {
         <UserForms 
           mode="edit"
           editUser={user}
-          currentUser={session.user}
+          currentUser={session.user as any}
           availableRoles={availableRoles}
           availablePackageTiers={availablePackageTiers}
           availablePermissions={availablePermissions}

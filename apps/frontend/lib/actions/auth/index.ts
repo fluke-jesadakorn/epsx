@@ -2,9 +2,9 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { getBackendUrl, getFrontendUrl, oidcUrls, callbackUrls } from '../../../../../shared/utils/url-resolver';
-import { verifyJWT, type JWTUser } from '../../../../../shared/auth/jwt';
-import { logger, safeError } from '@/lib/utils/logging';
+import { getBackendUrl, getFrontendUrl, oidcUrls, callbackUrls } from '@/lib/shared';
+import { verifyJWT, type JWTUser } from '@/lib/shared';
+import { logger, safeError } from '@/lib/shared';
 
 // ============================================================================
 // Types

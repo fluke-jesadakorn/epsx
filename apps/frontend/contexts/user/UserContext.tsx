@@ -45,7 +45,7 @@ interface UserContextType {
   state: UserState;
   actions: {
     setProfile: (profile: UserProfile | null) => void;
-    updatePreferences: (preferences: Partial<UserState['data']['preferences']>) => void;
+    updatePreferences: (preferences: Record<string, any>) => void;
     setSubscription: (subscription: UserSubscription | null) => void;
     updatePermissions: (permissions: string[]) => void;
     setPackageTier: (tier: string) => void;
@@ -61,63 +61,64 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 
 // User Reducer
 function userReducer(state: UserState, action: StateAction): UserState {
+  const userState = state as any; // Cast for AsyncState access
   switch (action.type) {
     case 'SET_USER_PROFILE':
       return {
         ...state,
-        data: state.data
+        data: (state as any).data
           ? {
-              ...state.data,
+              ...(state as any).data,
               profile: action.payload,
             }
-          : state.data,
-      };
+          : (state as any).data,
+      } as UserState;
 
     case 'UPDATE_USER_PREFERENCES':
       return {
         ...state,
-        data: state.data
+        data: (state as any).data
           ? {
-              ...state.data,
+              ...(state as any).data,
               preferences: {
-                ...state.data.preferences,
-                ...action.payload,
+                ...(state as any).data.preferences,
+                ...(action.payload as any),
               },
             }
-          : state.data,
-      };
+          : (state as any).data,
+      } as UserState;
 
     case 'SET_USER_SUBSCRIPTION':
       return {
         ...state,
-        data: state.data
+        data: (state as any).data
           ? {
-              ...state.data,
+              ...(state as any).data,
               subscription: action.payload,
             }
-          : state.data,
-      };
+          : (state as any).data,
+      } as UserState;
 
     case 'UPDATE_USER_PERMISSIONS':
       return {
         ...state,
-        data: state.data
+        data: (state as any).data
           ? {
-              ...state.data,
+              ...(state as any).data,
               permissions: action.payload,
             }
-          : state.data,
-      };
+          : (state as any).data,
+      } as UserState;
 
     case 'SET_USER_PACKAGE_TIER':
       return {
         ...state,
-        data: state.data
+        data: (state as any).data
           ? {
-              ...state.data,
+              ...(state as any).data,
               packageTier: action.payload,
             }
-          : state.data,
+          : (state as any).data,
       };
 
     case 'SET_USER_LOADING':
@@ -135,30 +136,30 @@ function userReducer(state: UserState, action: StateAction): UserState {
     case 'ADD_OPTIMISTIC_UPDATE':
       return {
         ...state,
-        optimisticUpdates: [...state.optimisticUpdates, action.payload],
+        optimisticUpdates: [...userState.optimisticUpdates, action.payload],
       };
 
     case 'CONFIRM_OPTIMISTIC_UPDATE':
       return {
         ...state,
-        optimisticUpdates: state.optimisticUpdates.filter(
-          update => update.id !== action.payload
+        optimisticUpdates: userState.optimisticUpdates.filter(
+          (update: any) => update.id !== action.payload
         ),
-      };
+      } as UserState;
 
     case 'ROLLBACK_OPTIMISTIC_UPDATE':
-      const updateToRollback = state.optimisticUpdates.find(
-        update => update.id === action.payload
+      const updateToRollback = userState.optimisticUpdates.find(
+        (update: any) => update.id === action.payload
       );
       if (updateToRollback) {
         updateToRollback.rollback();
       }
       return {
         ...state,
-        optimisticUpdates: state.optimisticUpdates.filter(
-          update => update.id !== action.payload
+        optimisticUpdates: userState.optimisticUpdates.filter(
+          (update: any) => update.id !== action.payload
         ),
-      };
+      } as UserState;
 
     default:
       return state;
@@ -189,104 +190,74 @@ export function UserProvider({ children, initialState }: UserProviderProps) {
   const actions = useMemo(
     () => ({
       setProfile: (profile: UserProfile | null) =>
-        dispatch(
-          {
+        dispatch({
             type: 'SET_USER_PROFILE',
             payload: profile,
             meta: { timestamp: Date.now(), source: 'user' },
-          },
-          userReducer
-        ),
+          }),
 
-      updatePreferences: (preferences: Partial<UserState['data']['preferences']>) =>
-        dispatch(
-          {
+      updatePreferences: (preferences: Record<string, any>) =>
+        dispatch({
             type: 'UPDATE_USER_PREFERENCES',
             payload: preferences,
             meta: { timestamp: Date.now(), source: 'user' },
-          },
-          userReducer
-        ),
+          }),
 
       setSubscription: (subscription: UserSubscription | null) =>
-        dispatch(
-          {
+        dispatch({
             type: 'SET_USER_SUBSCRIPTION',
             payload: subscription,
             meta: { timestamp: Date.now(), source: 'user' },
-          },
-          userReducer
-        ),
+          }),
 
       updatePermissions: (permissions: string[]) =>
-        dispatch(
-          {
+        dispatch({
             type: 'UPDATE_USER_PERMISSIONS',
             payload: permissions,
             meta: { timestamp: Date.now(), source: 'user' },
-          },
-          userReducer
-        ),
+          }),
 
       setPackageTier: (tier: string) =>
-        dispatch(
-          {
+        dispatch({
             type: 'SET_USER_PACKAGE_TIER',
             payload: tier,
             meta: { timestamp: Date.now(), source: 'user' },
-          },
-          userReducer
-        ),
+          }),
 
       setLoading: (loading: boolean) =>
-        dispatch(
-          {
+        dispatch({
             type: 'SET_USER_LOADING',
             payload: loading,
             meta: { timestamp: Date.now(), source: 'user' },
-          },
-          userReducer
-        ),
+          }),
 
       setError: (error: string | null) =>
-        dispatch(
-          {
+        dispatch({
             type: 'SET_USER_ERROR',
             payload: error,
             meta: { timestamp: Date.now(), source: 'user' },
-          },
-          userReducer
-        ),
+          }),
 
       addOptimisticUpdate: (update: OptimisticUpdate) =>
-        dispatch(
-          {
+        dispatch({
             type: 'ADD_OPTIMISTIC_UPDATE',
             payload: update,
             meta: { timestamp: Date.now(), source: 'user' },
-          },
-          userReducer
-        ),
+          }),
 
       confirmOptimisticUpdate: (id: string) =>
-        dispatch(
-          {
+        dispatch({
             type: 'CONFIRM_OPTIMISTIC_UPDATE',
             payload: id,
             meta: { timestamp: Date.now(), source: 'user' },
-          },
-          userReducer
-        ),
+          }),
 
       rollbackOptimisticUpdate: (id: string) =>
-        dispatch(
-          {
+        dispatch({
             type: 'ROLLBACK_OPTIMISTIC_UPDATE',
             payload: id,
             meta: { timestamp: Date.now(), source: 'user' },
-          },
-          userReducer
-        ),
+          }),
     }),
     [dispatch]
   );
@@ -318,17 +289,17 @@ export function useUserContext() {
 export function useUserProfile() {
   const { state, actions } = useUserContext();
   return {
-    profile: state.data?.profile,
+    profile: (state as any).data?.profile,
     setProfile: actions.setProfile,
-    isLoading: state.loading,
-    error: state.error,
+    isLoading: (state as any).loading,
+    error: (state as any).error,
   };
 }
 
 export function useUserPreferences() {
   const { state, actions } = useUserContext();
   return {
-    preferences: state.data?.preferences,
+    preferences: (state as any).data?.preferences,
     updatePreferences: actions.updatePreferences,
   };
 }
@@ -336,9 +307,9 @@ export function useUserPreferences() {
 export function useUserSubscription() {
   const { state, actions } = useUserContext();
   return {
-    subscription: state.data?.subscription,
+    subscription: (state as any).data?.subscription,
     setSubscription: actions.setSubscription,
-    packageTier: state.data?.packageTier,
+    packageTier: (state as any).data?.packageTier,
     setPackageTier: actions.setPackageTier,
   };
 }
@@ -346,7 +317,7 @@ export function useUserSubscription() {
 export function useUserPermissions() {
   const { state, actions } = useUserContext();
   return {
-    permissions: state.data?.permissions || [],
+    permissions: (state as any).data?.permissions || [],
     updatePermissions: actions.updatePermissions,
   };
 }
@@ -354,7 +325,7 @@ export function useUserPermissions() {
 export function useOptimisticUpdates() {
   const { state, actions } = useUserContext();
   return {
-    optimisticUpdates: state.optimisticUpdates,
+    optimisticUpdates: (state as any).optimisticUpdates,
     addOptimisticUpdate: actions.addOptimisticUpdate,
     confirmOptimisticUpdate: actions.confirmOptimisticUpdate,
     rollbackOptimisticUpdate: actions.rollbackOptimisticUpdate,

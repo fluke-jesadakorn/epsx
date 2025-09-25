@@ -1,3 +1,7 @@
+/**
+ * Web3 Enterprise Verification API Route
+ * Verifies SIWE signatures and establishes enterprise session
+ */
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { env } from '@/config/env';
@@ -11,13 +15,13 @@ export async function POST(request: NextRequest) {
 
     if (!wallet_address || !signature || !nonce || !message) {
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Missing required fields for enterprise verification' },
         { status: 400 }
       );
     }
 
-    // Forward to backend Web3 verify endpoint
-    const response = await fetch(`${BACKEND_URL}/api/auth/web3/verify`, {
+    // Forward to enterprise API verify endpoint
+    const response = await fetch(`${BACKEND_URL}/api/v1/enterprise/auth/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -31,61 +35,67 @@ export async function POST(request: NextRequest) {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Verification failed' }));
+      const errorData = await response.json().catch(() => ({ 
+        error: 'Enterprise verification failed' 
+      }));
+      console.warn('❌ Enterprise verification failed for wallet:', wallet_address.slice(0, 8) + '...');
       return NextResponse.json(errorData, { status: response.status });
     }
 
-    const data = await response.json();
+    const enterpriseData = await response.json();
     
-    // Set OIDC tokens as httpOnly cookies if provided by backend
-    if (data.access_token) {
+    // Set enterprise Bearer tokens as httpOnly cookies
+    if (enterpriseData.access_token) {
       const cookieStore = await cookies();
       
-      // Set access token
-      cookieStore.set('access_token', data.access_token, {
+      // Set access token (Bearer token for enterprise API)
+      cookieStore.set('access_token', enterpriseData.access_token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 60 * 60, // 1 hour
+        maxAge: 60 * 60 * 24, // 24 hours for enterprise sessions
         path: '/',
       });
 
       // Set refresh token if provided
-      if (data.refresh_token) {
-        cookieStore.set('refresh_token', data.refresh_token, {
+      if (enterpriseData.refresh_token) {
+        cookieStore.set('refresh_token', enterpriseData.refresh_token, {
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
-          maxAge: 60 * 60 * 24 * 7, // 7 days
+          maxAge: 60 * 60 * 24 * 30, // 30 days for enterprise refresh
           path: '/',
         });
       }
 
-      // Set ID token if provided
-      if (data.id_token) {
-        cookieStore.set('id_token', data.id_token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
-          maxAge: 60 * 60, // 1 hour
-          path: '/',
-        });
-      }
+      // Set enterprise session marker
+      cookieStore.set('web3_session', '1', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24, // 24 hours
+        path: '/',
+      });
     }
 
-    // Return success response without sensitive tokens
+    console.log('✅ Enterprise verification successful for wallet:', wallet_address.slice(0, 8) + '...');
+
+    // Return enterprise-specific response
     return NextResponse.json({
       success: true,
-      wallet_address: data.wallet_address,
-      user_id: data.user_id,
-      email: data.email,
-      permissions: data.permissions || [],
+      wallet_address: enterpriseData.wallet_address,
+      enterprise_tier: enterpriseData.enterprise_tier || 'Starter',
+      permissions: enterpriseData.permissions || [],
+      has_api_access: enterpriseData.has_api_access || false,
+      verified_tokens_usd: enterpriseData.verified_tokens_usd || 0,
+      nft_collections: enterpriseData.nft_collections || [],
+      dao_memberships: enterpriseData.dao_memberships || [],
     });
 
   } catch (error) {
-    console.error('Web3 verify API error:', error);
+    console.error('❌ Web3 enterprise verify API error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Enterprise authentication service unavailable' },
       { status: 500 }
     );
   }

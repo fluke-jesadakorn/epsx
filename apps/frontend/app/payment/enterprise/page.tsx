@@ -9,8 +9,7 @@ export default async function EnterprisePaymentPage() {
   const user = await getCurrentUser();
 
   if (!user) {
-    const { redirectToBackendLogin } = await import('@/lib/server/auth');
-    redirectToBackendLogin('/payment/enterprise');
+    redirect('/login?redirectTo=/payment/enterprise');
   }
 
   return <EnterprisePaymentClient />;

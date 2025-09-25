@@ -56,7 +56,7 @@ const CustomTooltip = ({
   payload, 
   label, 
   formatTooltip 
-}: TooltipProps<any, any> & { formatTooltip?: (value: any, name: string) => [string, string] }) => {
+}: any) => {
   if (!active || !payload || !payload.length) return null
 
   return (
@@ -65,7 +65,7 @@ const CustomTooltip = ({
         {label}
       </div>
       <div className="space-y-1">
-        {payload.map((entry, index) => {
+        {payload.map((entry: any, index: number) => {
           const [formattedValue, formattedName] = formatTooltip 
             ? formatTooltip(entry.value, entry.name || '') 
             : [entry.value, entry.name || '']

@@ -310,7 +310,7 @@ export function getThemeColors() {
 /**
  * Type guard for valid button variants
  */
-export function isValidButtonVariant(variant: string): variant is AdminButtonVariants['variant'] {
+export function isValidButtonVariant(variant: string): variant is 'primary' | 'secondary' | 'success' | 'destructive' | 'warning' | 'outline' | 'ghost' | 'link' {
   const validVariants = ['primary', 'secondary', 'success', 'destructive', 'warning', 'outline', 'ghost', 'link'];
   return validVariants.includes(variant);
 }
@@ -318,7 +318,7 @@ export function isValidButtonVariant(variant: string): variant is AdminButtonVar
 /**
  * Type guard for valid card variants
  */
-export function isValidCardVariant(variant: string): variant is AdminCardVariants['variant'] {
+export function isValidCardVariant(variant: string): variant is 'default' | 'pancake' | 'user' | 'permission' | 'billing' | 'analytics' | 'warning' | 'error' {
   const validVariants = ['default', 'pancake', 'user', 'permission', 'billing', 'analytics', 'warning', 'error'];
   return validVariants.includes(variant);
 }
@@ -326,7 +326,7 @@ export function isValidCardVariant(variant: string): variant is AdminCardVariant
 /**
  * Type guard for valid badge variants
  */
-export function isValidBadgeVariant(variant: string): variant is AdminBadgeVariants['variant'] {
+export function isValidBadgeVariant(variant: string): variant is 'active' | 'inactive' | 'pending' | 'suspended' | 'premium' | 'granted' | 'denied' | 'inherited' | 'paid' | 'overdue' | 'trial' | 'enterprise' | 'success' | 'warning' | 'error' | 'info' | 'default' {
   const validVariants = [
     'active', 'inactive', 'pending', 'suspended', 'premium',
     'granted', 'denied', 'inherited',

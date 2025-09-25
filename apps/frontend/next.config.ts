@@ -27,6 +27,29 @@ const nextConfig: NextConfig = {
         'fake-indexeddb': false,
       };
     }
+
+    // Fix RainbowKit and wagmi chunking issues
+    config.optimization = {
+      ...config.optimization,
+      splitChunks: {
+        ...config.optimization.splitChunks,
+        cacheGroups: {
+          ...config.optimization.splitChunks?.cacheGroups,
+          rainbowkit: {
+            test: /[\\/]node_modules[\\/]@rainbow-me[\\/]rainbowkit[\\/]/,
+            name: 'rainbowkit',
+            chunks: 'all',
+            priority: 10,
+          },
+          wagmi: {
+            test: /[\\/]node_modules[\\/]wagmi[\\/]/,
+            name: 'wagmi',
+            chunks: 'all',
+            priority: 10,
+          },
+        },
+      },
+    };
     
     return config;
   },

@@ -136,7 +136,7 @@ export function PermissionAnalytics({
     try {
       const response = await adminClient.getPermissionAnalytics();
       if (response.success) {
-        setAnalytics(response.data);
+        setAnalytics(response.data as PermissionAnalytics);
       }
     } catch (error) {
       console.error('Failed to load permission analytics:', error);
@@ -361,16 +361,16 @@ export function PermissionAnalytics({
                 {Object.entries(platformDistribution).map(([platform, count]) => (
                   <div key={platform} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Badge variant="secondary" size="sm">
+                      <Badge variant="secondary">
                         {platform}
                       </Badge>
                       <span className="text-sm text-gray-300">
-                        {count} permissions
+                        {count as number} permissions
                       </span>
                     </div>
                     <div className="w-24">
                       <Progress 
-                        value={(count / Object.values(platformDistribution).reduce((a, b) => a + b, 0)) * 100} 
+                        value={((count as number) / Object.values(platformDistribution as Record<string, number>).reduce((a, b) => (a as number) + (b as number), 0)) * 100} 
                         className="h-2"
                       />
                     </div>
@@ -443,7 +443,7 @@ export function PermissionAnalytics({
                             Permission {event.type} for {event.userEmail}
                           </p>
                           <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="secondary" size="sm">
+                            <Badge variant="secondary">
                               {event.platform}
                             </Badge>
                             <code className="text-xs bg-gray-800 px-2 py-1 rounded">
@@ -481,7 +481,7 @@ export function PermissionAnalytics({
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center font-medium">
-                        {user.email[0].toUpperCase()}
+                        {user.email?.[0]?.toUpperCase() || 'U'}
                       </div>
                       <div>
                         <h3 className="font-medium text-white">{user.email}</h3>

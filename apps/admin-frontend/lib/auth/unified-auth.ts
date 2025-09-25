@@ -1,39 +1,44 @@
 /**
- * Unified Authentication Module
- * Consolidates all authentication logic into a single, consistent interface
- * Replaces: admin-oidc-auth.ts, admin-auth-helpers.ts, server-auth.ts, session.ts, helpers.ts
+ * Web3-First Admin Authentication Module
+ * Complete Web3 wallet-first authentication for admin users
+ * Uses SIWE (Sign-In with Ethereum) standard with group-based permissions
  */
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { URL, URLContext, OIDCEndpoint } from '../../../../shared/utils/url-resolver';
+import { getWeb3AdminSession, Web3AdminSessionData } from '@/lib/web3-admin-session';
 
 // ============================================================================
-// Core Types
+// Core Types - Web3-First
 // ============================================================================
 
-export interface OIDCUser {
-  sub: string;
-  email: string;
-  name?: string;
+export interface Web3AdminUser {
+  walletAddress: string;
+  chainId: number;
+  displayName: string;
   permissions: string[];
-  platform_context?: string;
+  groups: string[];
+  isAdmin: boolean;
+  sessionExpiry?: number;
+  lastVerified?: number;
 }
 
 export interface AdminSession {
   isAuthenticated: boolean;
   isLoggedIn: boolean; // Alias for backwards compatibility
-  user: OIDCUser | null;
+  user: Web3AdminUser | null;
   hasAdminAccess: boolean;
   expiresAt?: number;
   error?: string;
 }
 
-export interface TokenPair {
-  access_token: string;
-  id_token?: string;
-  refresh_token?: string;
-  expires_in?: number;
+export interface Web3SessionData {
+  walletAddress: string;
+  signature: string;
+  message: string;
+  nonce: string;
+  chainId: number;
+  expiresAt: number;
 }
 
 export interface AuthenticationResult {
@@ -44,131 +49,188 @@ export interface AuthenticationResult {
 }
 
 // ============================================================================
-// Token Management
+// Web3 Session Management
 // ============================================================================
 
 /**
- * Get OIDC tokens from HttpOnly cookies
+ * Get Web3 authentication data from HttpOnly cookies
  */
-export async function getTokensFromCookies(): Promise<{
-  accessToken: string | null;
-  idToken: string | null;
-  refreshToken: string | null;
-}> {
+export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | null> {
   try {
     const cookieStore = await cookies();
     
-    const accessToken = cookieStore.get('access_token')?.value || null;
-    const idToken = cookieStore.get('id_token')?.value || null;
-    const refreshToken = cookieStore.get('refresh_token')?.value || null;
+    const walletAddress = cookieStore.get('wallet_address')?.value;
+    const signature = cookieStore.get('wallet_signature')?.value;
+    const message = cookieStore.get('wallet_message')?.value;
+    const nonce = cookieStore.get('wallet_nonce')?.value;
+    const chainId = cookieStore.get('wallet_chain_id')?.value;
+    const expiresAt = cookieStore.get('wallet_expires_at')?.value;
     
-    console.log('🔍 Token check:', {
-      accessToken: accessToken ? 'present' : 'missing',
-      idToken: idToken ? 'present' : 'missing',
-      refreshToken: refreshToken ? 'present' : 'missing'
-    });
-    
-    return { accessToken, idToken, refreshToken };
-  } catch (error) {
-    console.error('❌ Failed to get tokens from cookies:', error);
-    return { accessToken: null, idToken: null, refreshToken: null };
-  }
-}
-
-/**
- * Validate access token with backend
- */
-export async function validateTokenWithBackend(accessToken: string): Promise<OIDCUser | null> {
-  try {
-    const userinfoEndpoint = URL.oidc(OIDCEndpoint.USERINFO, URLContext.CLIENT);
-    
-    const response = await fetch(userinfoEndpoint, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (!response.ok) {
-      console.error('❌ Token validation failed:', response.status);
+    if (!walletAddress || !signature || !message || !nonce || !chainId || !expiresAt) {
+      console.log('📝 Web3 Session: Missing required session data');
       return null;
     }
     
-    const userInfo = await response.json();
-    
-    return {
-      sub: userInfo.sub,
-      email: userInfo.email,
-      name: userInfo.name,
-      permissions: userInfo.permissions || [],
-      platform_context: userInfo.platform_context
+    const sessionData: Web3SessionData = {
+      walletAddress,
+      signature,
+      message,
+      nonce,
+      chainId: parseInt(chainId, 10),
+      expiresAt: parseInt(expiresAt, 10)
     };
+    
+    // Check if session has expired
+    if (Date.now() > sessionData.expiresAt) {
+      console.log('📝 Web3 Session: Session has expired');
+      await clearWeb3Session();
+      return null;
+    }
+    
+    console.log('🔍 Web3 Session: Retrieved valid session for:', walletAddress);
+    return sessionData;
+    
   } catch (error) {
-    console.error('❌ Token validation error:', error);
+    console.error('❌ Failed to get Web3 session from cookies:', error);
     return null;
   }
 }
 
 /**
- * Set authentication tokens in cookies
+ * Validate Web3 authentication with backend
  */
-export async function setAuthTokens(tokens: TokenPair): Promise<void> {
+export async function validateWeb3Session(sessionData: Web3SessionData): Promise<Web3AdminUser | null> {
+  try {
+    console.log('🔍 Web3 Auth: Validating session with backend...');
+    
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/web3/verify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        walletAddress: sessionData.walletAddress,
+        signature: sessionData.signature,
+        message: sessionData.message,
+        nonce: sessionData.nonce,
+        chainId: sessionData.chainId
+      })
+    });
+    
+    if (!response.ok) {
+      console.error('❌ Web3 validation failed:', response.status, await response.text().catch(() => 'No response text'));
+      return null;
+    }
+    
+    const validationResult = await response.json();
+    
+    if (!validationResult.valid || !validationResult.hasAdminAccess) {
+      console.log('📝 Web3 Auth: Wallet validation failed or lacks admin access');
+      return null;
+    }
+    
+    // Create Web3AdminUser from validation result
+    const web3User: Web3AdminUser = {
+      walletAddress: sessionData.walletAddress,
+      chainId: sessionData.chainId,
+      displayName: `Admin (${sessionData.walletAddress.slice(0, 6)}...${sessionData.walletAddress.slice(-4)})`,
+      permissions: validationResult.permissions || [],
+      groups: validationResult.groups || [],
+      isAdmin: validationResult.hasAdminAccess,
+      sessionExpiry: sessionData.expiresAt,
+      lastVerified: Date.now()
+    };
+    
+    console.log('✅ Web3 Auth: Successfully validated Web3 session for:', sessionData.walletAddress);
+    return web3User;
+    
+  } catch (error) {
+    console.error('❌ Web3 validation error:', error);
+    return null;
+  }
+}
+
+/**
+ * Set Web3 session data in secure cookies
+ */
+export async function setWeb3Session(sessionData: Web3SessionData): Promise<void> {
   const cookieStore = await cookies();
   
   const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax' as const,
-    maxAge: tokens.expires_in || 3600, // 1 hour default
+    maxAge: Math.floor((sessionData.expiresAt - Date.now()) / 1000), // Convert to seconds
     path: '/'
   };
 
-  cookieStore.set('access_token', tokens.access_token, cookieOptions);
-  
-  if (tokens.id_token) {
-    cookieStore.set('id_token', tokens.id_token, cookieOptions);
-  }
-  
-  if (tokens.refresh_token) {
-    cookieStore.set('refresh_token', tokens.refresh_token, {
-      ...cookieOptions,
-      maxAge: 7 * 24 * 60 * 60 // 7 days for refresh token
-    });
-  }
+  cookieStore.set('wallet_address', sessionData.walletAddress, cookieOptions);
+  cookieStore.set('wallet_signature', sessionData.signature, cookieOptions);
+  cookieStore.set('wallet_message', sessionData.message, cookieOptions);
+  cookieStore.set('wallet_nonce', sessionData.nonce, cookieOptions);
+  cookieStore.set('wallet_chain_id', sessionData.chainId.toString(), cookieOptions);
+  cookieStore.set('wallet_expires_at', sessionData.expiresAt.toString(), cookieOptions);
 }
 
 /**
- * Clear authentication tokens
+ * Clear Web3 session data
  */
-export async function clearAuthTokens(): Promise<void> {
+export async function clearWeb3Session(): Promise<void> {
   const cookieStore = await cookies();
   
+  // Clear Web3 session cookies
+  cookieStore.delete('wallet_address');
+  cookieStore.delete('wallet_signature');
+  cookieStore.delete('wallet_message');
+  cookieStore.delete('wallet_nonce');
+  cookieStore.delete('wallet_chain_id');
+  cookieStore.delete('wallet_expires_at');
+  
+  // Clear any legacy tokens
+  cookieStore.delete('admin_jwt_token');
+  cookieStore.delete('session_token');
   cookieStore.delete('access_token');
   cookieStore.delete('id_token');
   cookieStore.delete('refresh_token');
-  
-  // Clear legacy tokens
-  cookieStore.delete('admin_jwt_token');
-  cookieStore.delete('session_token');
 }
 
 // ============================================================================
-// Permission System
+// Permission System - Web3 Group-Based
 // ============================================================================
 
 /**
- * Check if user has admin access
+ * Check if Web3 user has admin access
  */
-export function hasAdminAccess(user: OIDCUser | undefined): boolean {
-  if (!user || !user.permissions || !Array.isArray(user.permissions)) {
+export function hasAdminAccess(user: Web3AdminUser | undefined): boolean {
+  if (!user) {
     return false;
   }
   
-  return user.permissions.some(permission => 
-    permission === 'admin:*:*' || 
-    permission.startsWith('admin:') ||
-    permission === 'epsx:admin:*'
-  );
+  // Direct admin flag check (fastest)
+  if (user.isAdmin) {
+    return true;
+  }
+  
+  // Check permissions array
+  if (user.permissions && Array.isArray(user.permissions)) {
+    return user.permissions.some(permission => 
+      permission === 'admin:*:*' || 
+      permission.startsWith('admin:') ||
+      permission === 'epsx:admin:*'
+    );
+  }
+  
+  // Check admin groups
+  if (user.groups && Array.isArray(user.groups)) {
+    return user.groups.some(group => 
+      group.includes('admin') || 
+      group.includes('Admin') ||
+      group === 'admin-users' ||
+      group === 'admin-full'
+    );
+  }
+  
+  return false;
 }
 
 /**
@@ -187,10 +249,19 @@ export function checkAdminPermissions(permissions: string[]): boolean {
 }
 
 /**
- * Check specific permission
+ * Check specific permission for Web3 user
  */
-export function hasPermission(user: OIDCUser | undefined, requiredPermission: string): boolean {
-  if (!user || !user.permissions || !Array.isArray(user.permissions)) {
+export function hasPermission(user: Web3AdminUser | undefined, requiredPermission: string): boolean {
+  if (!user) {
+    return false;
+  }
+  
+  // Admin users have all permissions
+  if (user.isAdmin || hasAdminAccess(user)) {
+    return true;
+  }
+  
+  if (!user.permissions || !Array.isArray(user.permissions)) {
     return false;
   }
   
@@ -287,59 +358,62 @@ export function getExpiringPermissions(permissions: string[], withinDays = 7): s
 
 /**
  * Get current admin session
+ * Web3-only authentication using wallet signatures
  */
 export async function getAdminSession(): Promise<AdminSession> {
   try {
-    // Get tokens from cookies
-    const { accessToken, idToken } = await getTokensFromCookies();
+    console.log('🔍 Web3 Auth: Attempting Web3 authentication...');
     
-    // Check if required tokens are present
-    if (!accessToken || !idToken) {
-      console.log('📝 No valid tokens found');
+    // Get Web3 session data from cookies
+    const sessionData = await getWeb3SessionFromCookies();
+    
+    if (!sessionData) {
+      console.log('📝 Web3 Auth: No Web3 session data found');
       return {
         isAuthenticated: false,
         isLoggedIn: false,
         user: null,
         hasAdminAccess: false,
-        error: 'No authentication tokens found'
+        error: 'No Web3 session found'
       };
     }
     
-    // Validate token with backend
-    const user = await validateTokenWithBackend(accessToken);
+    // Validate session with backend
+    const web3User = await validateWeb3Session(sessionData);
     
-    if (!user) {
-      console.log('📝 Token validation failed');
+    if (!web3User) {
+      console.log('📝 Web3 Auth: Session validation failed');
+      await clearWeb3Session(); // Clear invalid session
       return {
         isAuthenticated: false,
         isLoggedIn: false,
         user: null,
         hasAdminAccess: false,
-        error: 'Token validation failed'
+        error: 'Session validation failed'
       };
     }
     
     // Check admin permissions
-    const adminAccess = hasAdminAccess(user);
+    const adminAccess = hasAdminAccess(web3User);
     
     if (!adminAccess) {
-      console.log('📝 User lacks admin permissions');
+      console.log('📝 Web3 Auth: Wallet lacks admin permissions');
       return {
         isAuthenticated: true,
         isLoggedIn: true,
-        user,
+        user: web3User,
         hasAdminAccess: false,
         error: 'Insufficient admin permissions'
       };
     }
     
-    console.log('✅ Valid admin session established for:', user.email);
-    
+    console.log('✅ Web3 Auth: Valid admin session established for:', web3User.walletAddress);
     return {
       isAuthenticated: true,
       isLoggedIn: true,
-      user,
-      hasAdminAccess: true
+      user: web3User,
+      hasAdminAccess: true,
+      expiresAt: sessionData.expiresAt
     };
     
   } catch (error) {
@@ -379,139 +453,43 @@ export async function isValidSession(): Promise<boolean> {
   return session.isAuthenticated && session.hasAdminAccess;
 }
 
-// ============================================================================
-// Authentication Flows
-// ============================================================================
-
-/**
- * Initiate OIDC authentication flow
- */
-export async function initiateAuth(): Promise<string> {
-  const state = generateRandomState();
-  const codeChallenge = generateCodeChallenge();
-  
-  const authUrl = new URL(`${process.env.NEXT_PUBLIC_BACKEND_URL}/oauth/authorize`);
-  authUrl.searchParams.append('response_type', 'code');
-  authUrl.searchParams.append('client_id', 'admin-frontend');
-  authUrl.searchParams.append('redirect_uri', `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback/epsx-backend`);
-  authUrl.searchParams.append('scope', 'openid profile email admin:*:*');
-  authUrl.searchParams.append('state', state);
-  authUrl.searchParams.append('code_challenge', codeChallenge);
-  authUrl.searchParams.append('code_challenge_method', 'S256');
-  
-  // Store state and code verifier in cookies for validation
-  const cookieStore = await cookies();
-  cookieStore.set('oauth_state', state, { httpOnly: true, maxAge: 600 }); // 10 minutes
-  cookieStore.set('code_verifier', generateCodeVerifier(), { httpOnly: true, maxAge: 600 });
-  
-  return authUrl.toString();
-}
-
-/**
- * Handle authentication callback
- */
-export async function handleAuthCallback(code: string, state: string): Promise<AuthenticationResult> {
-  try {
-    const cookieStore = await cookies();
-    const storedState = cookieStore.get('oauth_state')?.value;
-    const codeVerifier = cookieStore.get('code_verifier')?.value;
-    
-    // Validate state
-    if (state !== storedState) {
-      return { success: false, error: 'Invalid state parameter' };
-    }
-    
-    // Exchange code for tokens
-    const tokenResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/oauth/token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code',
-        client_id: 'admin-frontend',
-        code,
-        redirect_uri: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback/epsx-backend`,
-        code_verifier: codeVerifier || ''
-      })
-    });
-    
-    if (!tokenResponse.ok) {
-      return { success: false, error: 'Token exchange failed' };
-    }
-    
-    const tokens = await tokenResponse.json();
-    
-    // Set tokens in cookies
-    await setAuthTokens(tokens);
-    
-    // Clean up temporary cookies
-    cookieStore.delete('oauth_state');
-    cookieStore.delete('code_verifier');
-    
-    // Get session to validate
-    const session = await getAdminSession();
-    
-    return {
-      success: true,
-      session,
-      redirectUrl: '/' // Redirect to dashboard
-    };
-    
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Authentication failed'
-    };
-  }
-}
-
 /**
  * Logout user
  */
 export async function logout(): Promise<void> {
-  await clearAuthTokens();
+  console.log('🔐 Logout: Clearing Web3 session...');
+  await clearWeb3Session();
+  console.log('✅ Logout: Web3 session cleared successfully');
 }
 
 // ============================================================================
-// Utility Functions
+// Export Main Web3 Authentication Interface
 // ============================================================================
 
-function generateRandomState(): string {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-}
-
-// PKCE functions now available from shared utilities
-
-// ============================================================================
-// Legacy Migration Support - Now handled by shared utilities
-// ============================================================================
-
-// ============================================================================
-// Export Main Interface
-// ============================================================================
-
-export const UnifiedAuth = {
+export const Web3AdminAuth = {
   // Session management
   getSession: getAdminSession,
   requireSession: requireAdminSession,
   isValid: isValidSession,
   
-  // Token management
-  getTokens: getTokensFromCookies,
-  setTokens: setAuthTokens,
-  clearTokens: clearAuthTokens,
+  // Web3 session management
+  getWeb3Session: getWeb3SessionFromCookies,
+  setWeb3Session,
+  clearWeb3Session,
+  validateWeb3Session,
   
   // Permission checking
   hasPermission,
   hasAdminAccess,
+  checkAdminPermissions,
   getPermissionsByPlatform,
   getExpiringPermissions,
   
   // Authentication flows
-  initiateAuth,
-  handleCallback: handleAuthCallback,
-  logout,
-  
-  // Legacy support - now handled by shared utilities
+  logout
 };
 
-export default UnifiedAuth;
+// Backward compatibility export
+export const UnifiedAuth = Web3AdminAuth;
+
+export default Web3AdminAuth;

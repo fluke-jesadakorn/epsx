@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Zap, CreditCard, Wallet, ArrowRight, Check, X } from 'lucide-react';
+import { Zap, Wallet, ArrowRight, Check, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Button, Card, CardContent, Badge } from '@/components/ui';
 
@@ -21,25 +21,17 @@ export default function QuickPayButton({
   className = '',
 }: QuickPayButtonProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [selectedMethod, setSelectedMethod] = useState<'crypto' | 'card'>(
-    'crypto',
-  );
   const router = useRouter();
 
   const handleQuickPay = () => {
     onPaymentStart?.();
-    const paymentUrl = `/quick-payment?package=${packageId}&amount=${amount}`;
-    window.open(paymentUrl, '_blank');
+    // Redirect to main payment page with Web3-first flow
+    router.push(`/payment?package=${packageId}`);
   };
 
   const handleInlinePayment = () => {
-    if (selectedMethod === 'card') {
-      // Redirect to card payment
-      router.push(`/payment/card?package=${packageId}&amount=${amount}`);
-    } else {
-      // Open crypto payment
-      handleQuickPay();
-    }
+    // Always use Web3 payment (crypto only)
+    handleQuickPay();
   };
 
   return (
@@ -75,55 +67,22 @@ export default function QuickPayButton({
         <Card className="mt-2 border-dashed border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg">
           <CardContent className="p-4 space-y-3">
             <div className="text-sm font-medium text-center text-gray-900 dark:text-white">
-              Choose Payment Method
+              Web3 Payment Method
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              <div
-                className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                  selectedMethod === 'crypto'
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-400'
-                    : 'border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-400 bg-white dark:bg-gray-700'
-                }`}
-                onClick={() => setSelectedMethod('crypto')}
-              >
+            <div className="grid grid-cols-1 gap-2">
+              <div className="p-3 rounded-lg border-2 border-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-400">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Wallet className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      Crypto
+                      Web3 Wallet Payment
                     </span>
                   </div>
-                  {selectedMethod === 'crypto' && (
-                    <Check className="h-4 w-4 text-blue-500" />
-                  )}
+                  <Check className="h-4 w-4 text-blue-500" />
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  USDT • 1-3 min
-                </div>
-              </div>
-
-              <div
-                className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                  selectedMethod === 'card'
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-400'
-                    : 'border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-400 bg-white dark:bg-gray-700'
-                }`}
-                onClick={() => setSelectedMethod('card')}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                      Card
-                    </span>
-                  </div>
-                  {selectedMethod === 'card' && (
-                    <Check className="h-4 w-4 text-blue-500" />
-                  )}
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">
-                  Instant • 2.9% fee
+                  USDT/USDC • Instant • No fees
                 </div>
               </div>
             </div>
@@ -142,7 +101,7 @@ export default function QuickPayButton({
               className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 dark:from-blue-500 dark:to-purple-500 dark:hover:from-blue-600 dark:hover:to-purple-600"
               size="sm"
             >
-              Pay with {selectedMethod === 'crypto' ? 'Crypto' : 'Card'}
+              Pay with Web3 Wallet
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
 

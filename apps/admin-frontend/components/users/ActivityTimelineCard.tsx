@@ -39,7 +39,7 @@ export function ActivityTimelineCard({ activity, isLast = false, compact = false
   const getActivityIcon = () => {
     const iconClass = "h-4 w-4"
     
-    switch (activity.category) {
+    switch ((activity as any).category || 'general') {
       case 'security':
         return <Shield className={`${iconClass} text-red-500`} />
       case 'permissions':
@@ -54,7 +54,7 @@ export function ActivityTimelineCard({ activity, isLast = false, compact = false
   }
 
   const getStatusIcon = () => {
-    switch (activity.status) {
+    switch ((activity as any).status || 'info') {
       case 'success':
         return <CheckCircle className="h-3 w-3 text-green-500" />
       case 'error':
@@ -67,7 +67,7 @@ export function ActivityTimelineCard({ activity, isLast = false, compact = false
   }
 
   const getSeverityColor = () => {
-    switch (activity.severity) {
+    switch ((activity as any).severity || 'low') {
       case 'high':
         return 'border-l-red-500 bg-red-50'
       case 'medium':
@@ -123,12 +123,12 @@ export function ActivityTimelineCard({ activity, isLast = false, compact = false
             </div>
 
             {activity.details && (
-              <p className="mt-2 text-sm text-muted-foreground">{activity.details}</p>
+              <p className="mt-2 text-sm text-muted-foreground">{JSON.stringify(activity.details)}</p>
             )}
 
-            {activity.metadata && Object.keys(activity.metadata).length > 0 && (
+            {(activity as any).metadata && Object.keys((activity as any).metadata).length > 0 && (
               <div className="mt-2 space-y-1">
-                {Object.entries(activity.metadata).map(([key, value]) => (
+                {Object.entries((activity as any).metadata).map(([key, value]) => (
                   <div key={key} className="text-xs text-muted-foreground flex items-center gap-2">
                     <span className="capitalize">{key.replace('_', ' ')}:</span>
                     <span className="font-mono">{String(value)}</span>

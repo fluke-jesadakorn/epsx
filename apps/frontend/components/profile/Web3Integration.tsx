@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WalletConnectAuth } from '@/components/auth/WalletConnectAuth';
-import { EmailLinking } from '@/components/auth/EmailLinking';
+// import { EmailLinking } from '@/components/auth/EmailLinking'; // Removed - not needed for wallet-first auth
 import { Web3PermissionsDisplay } from '@/components/auth/Web3PermissionsDisplay';
 import { ApiKeyManager } from '@/components/auth/ApiKeyManager';
 import { useWeb3AuthContext } from '@/providers/Web3AuthProvider';
@@ -319,24 +319,7 @@ export function Web3Integration({ user }: Web3IntegrationProps) {
                       </CardContent>
                     </Card>
 
-                    {/* Email Integration */}
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                          <Link className="h-5 w-5 text-orange-500" />
-                          Email Integration
-                        </CardTitle>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          Link your email account for enhanced account recovery and notifications.
-                        </p>
-                      </CardHeader>
-                      <CardContent>
-                        <EmailLinking 
-                          showAsDialog={false}
-                          onLinkSuccess={() => refreshPermissions()}
-                        />
-                      </CardContent>
-                    </Card>
+                    {/* Email Integration removed - not needed for wallet-first authentication */}
 
                     {/* Security Notice */}
                     <Alert>

@@ -4,7 +4,7 @@
  */
 
 // Re-export existing types
-export * from './userLevel';
+export * from './permission-templates';
 
 // Export separated authentication types
 export * from './auth-separation';

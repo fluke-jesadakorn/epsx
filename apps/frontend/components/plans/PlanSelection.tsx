@@ -61,7 +61,7 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
     try {
       setLoading(true)
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
-      const response = await fetch(`${backendUrl}/api/v1/plans`)
+      const response = await fetch(`${backendUrl}/api/v1/public/plans`)
       
       if (response.ok) {
         const data = await response.json()

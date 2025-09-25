@@ -10,6 +10,7 @@ pub mod value_objects;
 pub mod entities;
 pub mod services;
 pub mod event_bus;
+pub mod ports;
 
 pub use aggregate_root::{ AggregateRoot, Identity, new_id };
 pub use domain_event::{ DomainEvent, DomainEventBus };
@@ -20,3 +21,4 @@ pub use value_objects::*;
 pub use entities::*;
 pub use services::*;
 pub use event_bus::InMemoryEventBus;
+pub use ports::*;

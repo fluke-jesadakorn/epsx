@@ -20,7 +20,7 @@ export function GrantPermissionHub({ users, currentUser }: GrantPermissionHubPro
     
     const query = searchQuery.toLowerCase()
     return users.filter(user => 
-      user.email.toLowerCase().includes(query) ||
+      user.email?.toLowerCase().includes(query) ||
       user.name?.toLowerCase().includes(query) ||
       user.displayName?.toLowerCase().includes(query)
     )
@@ -202,7 +202,7 @@ export function GrantPermissionHub({ users, currentUser }: GrantPermissionHubPro
                         {user.role.replace('_', ' ').toUpperCase()}
                       </span>
                       <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {user.permissions.length} permissions
+                        {user.permissions?.length || 0} permissions
                       </span>
                     </div>
 

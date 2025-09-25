@@ -21,22 +21,22 @@ function UserPermissionsSkeleton() {
       <div className="max-w-7xl mx-auto">
         {/* Back Navigation */}
         <div className="flex items-center gap-3 mb-6">
-          <div className="h-8 w-8 bg-gray-200 rounded animate-pulse"></div>
-          <div className="h-6 bg-gray-200 rounded w-32 animate-pulse"></div>
+          <div className="h-8 w-8 bg-gray-200 rounded "></div>
+          <div className="h-6 bg-gray-200 rounded w-32 "></div>
         </div>
         
         {/* Header skeleton */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
-            <div className="h-6 w-6 bg-blue-400 rounded animate-pulse"></div>
+            <div className="h-6 w-6 bg-blue-400 rounded "></div>
             <div className="space-y-2">
-              <div className="h-6 bg-gradient-to-r from-blue-400 to-green-500 rounded w-64 animate-pulse"></div>
-              <div className="h-4 bg-gray-200 rounded w-48 animate-pulse"></div>
+              <div className="h-6 bg-gradient-to-r from-blue-400 to-green-500 rounded w-64 "></div>
+              <div className="h-4 bg-gray-200 rounded w-48 "></div>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="h-9 bg-gray-200 rounded w-32 animate-pulse"></div>
-            <div className="h-9 bg-blue-500 rounded w-36 animate-pulse"></div>
+            <div className="h-9 bg-gray-200 rounded w-32 "></div>
+            <div className="h-9 bg-blue-500 rounded w-36 "></div>
           </div>
         </div>
         
@@ -45,10 +45,10 @@ function UserPermissionsSkeleton() {
           <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="flex items-center gap-2">
-                <div className="h-4 w-4 bg-blue-400 rounded animate-pulse"></div>
+                <div className="h-4 w-4 bg-blue-400 rounded "></div>
                 <div className="space-y-1">
-                  <div className="h-3 bg-gray-200 rounded w-16 animate-pulse"></div>
-                  <div className="h-5 bg-blue-300 rounded w-8 animate-pulse"></div>
+                  <div className="h-3 bg-gray-200 rounded w-16 "></div>
+                  <div className="h-5 bg-blue-300 rounded w-8 "></div>
                 </div>
               </div>
             ))}
@@ -60,17 +60,17 @@ function UserPermissionsSkeleton() {
           {Array.from({ length: 2 }).map((_, cardIndex) => (
             <div key={cardIndex} className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-2xl p-6">
               <div className="flex items-center gap-2 mb-4">
-                <div className="h-5 w-5 bg-blue-400 rounded animate-pulse"></div>
-                <div className="h-5 bg-gray-200 rounded w-32 animate-pulse"></div>
-                <div className="h-6 bg-gray-100 rounded w-8 ml-auto animate-pulse"></div>
+                <div className="h-5 w-5 bg-blue-400 rounded "></div>
+                <div className="h-5 bg-gray-200 rounded w-32 "></div>
+                <div className="h-6 bg-gray-100 rounded w-8 ml-auto "></div>
               </div>
               
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {Array.from({ length: 4 }).map((_, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-                    <div className="h-4 w-4 bg-blue-400 rounded animate-pulse"></div>
-                    <div className="h-4 bg-gray-200 rounded flex-1 animate-pulse"></div>
-                    <div className="h-5 bg-gray-100 rounded w-20 animate-pulse"></div>
+                    <div className="h-4 w-4 bg-blue-400 rounded "></div>
+                    <div className="h-4 bg-gray-200 rounded flex-1 "></div>
+                    <div className="h-5 bg-gray-100 rounded w-20 "></div>
                   </div>
                 ))}
               </div>
@@ -80,14 +80,14 @@ function UserPermissionsSkeleton() {
         
         {/* Impact Analysis */}
         <div className="bg-gray-50 rounded-3xl p-6">
-          <div className="h-6 bg-gray-200 rounded w-48 mb-4 animate-pulse"></div>
+          <div className="h-6 bg-gray-200 rounded w-48 mb-4 "></div>
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, i) => (
               <div key={i} className="p-4 bg-blue-50 rounded-lg">
-                <div className="h-5 bg-blue-300 rounded w-64 mb-2 animate-pulse"></div>
+                <div className="h-5 bg-blue-300 rounded w-64 mb-2 "></div>
                 <div className="space-y-1">
-                  <div className="h-3 bg-blue-200 rounded w-full animate-pulse"></div>
-                  <div className="h-3 bg-blue-200 rounded w-3/4 animate-pulse"></div>
+                  <div className="h-3 bg-blue-200 rounded w-full "></div>
+                  <div className="h-3 bg-blue-200 rounded w-3/4 "></div>
                 </div>
               </div>
             ))}
@@ -154,7 +154,7 @@ async function UserPermissionsDataWrapper({ params }: Props) {
           </Link>
         </div>
         
-        <UserPermissionInheritance userId={params.userId} user={user} />
+        <UserPermissionInheritance userId={params.userId} user={user as any} />
       </div>
     </div>
   )

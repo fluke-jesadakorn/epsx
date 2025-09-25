@@ -65,7 +65,7 @@ export async function getFeatureFlags(): Promise<Record<string, boolean>> {
 /**
  * Check feature access for user
  */
-export async function checkFeatureAccess(feature: string): Promise<{
+export async function checkSystemFeatureAccess(feature: string): Promise<{
   hasAccess: boolean;
   tier: string;
   feature: string;

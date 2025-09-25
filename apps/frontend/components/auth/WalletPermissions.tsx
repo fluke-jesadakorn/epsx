@@ -272,7 +272,7 @@ export function WalletPermissions({
         </div>
 
         {/* Permissions Tabs */}
-        <Tabs defaultValue="all" className="w-full">
+        <Tabs value="all" onValueChange={() => {}} className="w-full">
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="all">All ({filteredPermissions.length})</TabsTrigger>
             <TabsTrigger value="manual">👤 {groupedPermissions.manual.length}</TabsTrigger>

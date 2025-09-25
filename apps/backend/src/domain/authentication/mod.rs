@@ -27,7 +27,13 @@ pub use value_objects::{
 };
 pub use services::{
     ExternalAuthService, InternalAuthService, SecureRefreshService,
-    ThreatDetectionService
+    // ThreatDetectionService, // Removed - service deleted
+    Web3AuthService, Web3PermissionService,
+    Web3Challenge, Web3VerificationRequest, Web3AuthResult, Web3AuthError,
+    Web3Permission, Web3PermissionType, PermissionVerificationRequest,
+    PermissionVerificationResult, Web3PermissionError, VerificationMethod,
+    Web3ChallengeRepositoryPort, Web3UserRepositoryPort, Web3PermissionRepositoryPort,
+    BlockchainServicePort, NftBalance, TokenBalance, DaoMembership
 };
 pub use events::{
     AuthenticationSessionCreatedEvent, TokensIssuedEvent, TokensRefreshedEvent,

@@ -5,7 +5,8 @@
 
 import { Cpu, Database, Zap, Activity } from 'lucide-react'
 import type { SystemMetrics } from '@/lib/data/dashboard'
-import { adminCardVariants, cn } from '@/design-system'
+import { adminCardVariants } from '@/design-system'
+import { cn } from '@/lib/utils'
 
 interface SystemHealthCardProps {
   metrics: SystemMetrics

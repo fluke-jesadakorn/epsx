@@ -3,7 +3,8 @@
 use axum::{ routing::{ get, put }, Router };
 use crate::web::auth::routes::AppState;
 use super::handlers::{ get_profile_handler, update_profile_handler };
-use super::permissions::{ get_user_permissions, check_user_permission };
+// Legacy permissions module removed for Web3-first migration
+// use super::permissions::{ get_user_permissions, check_user_permission };
 
 /// Create v1 API routes for user operations with RESTful patterns
 pub fn user_routes_v1() -> Router<AppState> {
@@ -14,8 +15,9 @@ pub fn user_routes_v1() -> Router<AppState> {
     // .route("/api/v1/users/me/expiration", get(get_expiration_status_handler)) // Handler missing
     // .route("/api/v1/users/me/notifications", get(get_notifications_handler)) // Handler missing
     // .route("/api/v1/users/me/notifications/mark-read", post(mark_notifications_read_handler)) // Handler missing
-    .route("/api/v1/users/me/permissions", get(get_user_permissions))
-    .route("/api/v1/users/me/permissions/check", get(check_user_permission));
+    // .route("/api/v1/users/me/permissions", get(get_user_permissions))
+    // .route("/api/v1/users/me/permissions/check", get(check_user_permission))
+    ;
 
   // Premium features (user role and above - simple role system)
   let premium_routes = Router::new()

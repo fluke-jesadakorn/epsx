@@ -3,7 +3,7 @@
 import React, { Suspense, useMemo } from 'react';
 import { AppStateProvider } from '@/context/app-state';
 import { UIProvider } from '@/context/ui-context';
-import { NotificationProvider } from '@/context/notification-context';
+// NotificationProvider not available - commented out
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 
@@ -36,11 +36,9 @@ function ProviderStack({ children, initialState }: {
   return (
     <AppStateProvider initialState={memoizedInitialState}>
       <UIProvider>
-        <NotificationProvider>
-          <ProviderWrapper>
-            {children}
-          </ProviderWrapper>
-        </NotificationProvider>
+        <ProviderWrapper>
+          {children}
+        </ProviderWrapper>
       </UIProvider>
     </AppStateProvider>
   );
@@ -100,12 +98,6 @@ export function StateProvider({
           </div>
         </div>
       }
-      onError={(error, errorInfo) => {
-        console.error('State Provider Error:', error, errorInfo);
-        
-        // External error reporting disabled for security
-        // Errors are handled locally only
-      }}
     >
       <Suspense
         fallback={
@@ -135,7 +127,7 @@ export function withStateProvider<P extends object>(
 
     const ComponentWithState = (
       <StateProvider initialState={initialState}>
-        <Component {...props} ref={ref} />
+        <Component {...(props as P)} ref={ref} />
       </StateProvider>
     );
 
@@ -253,8 +245,8 @@ function StateViewer({ store }: { store: string }) {
 
   React.useEffect(() => {
     const interval = setInterval(() => {
-      if (typeof window !== 'undefined' && window.__EPSX_DEV_TOOLS__) {
-        const storeState = window.__EPSX_DEV_TOOLS__.getStore(store);
+      if (typeof window !== 'undefined' && window.__EPSX_DEV_TOOLS__ && (window.__EPSX_DEV_TOOLS__ as any).getStore) {
+        const storeState = (window.__EPSX_DEV_TOOLS__ as any).getStore(store);
         setState(storeState);
       }
     }, 1000);

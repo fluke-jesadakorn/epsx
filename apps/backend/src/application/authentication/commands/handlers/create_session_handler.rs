@@ -18,6 +18,7 @@ use super::super::{CreateSessionCommand, CreateSessionResponse};
 /// Handler for creating authentication sessions
 pub struct CreateSessionHandler {
     session_repository: Arc<dyn AuthenticationSessionRepositoryPort>,
+    #[allow(dead_code)]
     token_validation_service: Arc<dyn TokenValidationServicePort>,
     security_monitoring_service: Arc<dyn SecurityMonitoringServicePort>,
 }

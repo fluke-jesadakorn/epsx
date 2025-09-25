@@ -9,19 +9,17 @@ export interface TestUser {
   email: string;
   name: string;
   role: string;
-  package_tier: string; // @deprecated - kept for backward compatibility, derive from permissions
-  permissions: string[]; // NEW: Structured permission format
-  firebase_uid?: string;
+  permissions: string[]; // Structured permission format
+  wallet_address: string;
   subscription_status: 'active' | 'expired' | 'trial' | 'cancelled';
   subscription_expires_at?: string;
-  features: string[]; // @deprecated - derive from permissions
   rate_limits: {
     per_minute: number;
     per_hour: number;
   };
   created_at: string;
   last_login?: string;
-  jwt_token?: string; // Will be populated during test setup
+  auth_token?: string; // Web3 authentication token
 }
 
 // Permission-based route access mapping (for test validation)
@@ -59,16 +57,14 @@ export const TEST_USERS: Record<string, TestUser> = {
     email: 'free.user@epsx.io',
     name: 'Free User',
     role: 'user',
-    package_tier: 'FREE', // @deprecated - for backward compatibility
     permissions: [
       'epsx:rankings:view:3',
       'epsx:trading:basic',
       'epsx:portfolio:view',
       'epsx:notifications:basic'
     ],
-    firebase_uid: 'firebase_free_001',
+    wallet_address: '0x1234567890123456789012345678901234567890',
     subscription_status: 'active',
-    features: [], // @deprecated - derive from permissions
     rate_limits: { per_minute: 10, per_hour: 100 },
     created_at: '2024-01-01T00:00:00Z',
     last_login: '2024-08-22T10:00:00Z'
@@ -79,7 +75,6 @@ export const TEST_USERS: Record<string, TestUser> = {
     email: 'bronze.user@epsx.io',
     name: 'Bronze User',
     role: 'user',
-    package_tier: 'BRONZE', // @deprecated
     permissions: [
       'epsx:rankings:view:5',
       'epsx:trading:basic',
@@ -88,10 +83,9 @@ export const TEST_USERS: Record<string, TestUser> = {
       'epsx:notifications:enhanced',
       'epsx:analytics:basic'
     ],
-    firebase_uid: 'firebase_bronze_001',
+    wallet_address: '0x2345678901234567890123456789012345678901',
     subscription_status: 'active',
     subscription_expires_at: '2025-01-01T00:00:00Z',
-    features: [], // @deprecated - derive from permissions
     rate_limits: { per_minute: 30, per_hour: 500 },
     created_at: '2024-02-01T00:00:00Z',
     last_login: '2024-08-22T10:15:00Z'
@@ -102,7 +96,6 @@ export const TEST_USERS: Record<string, TestUser> = {
     email: 'silver.user@epsx.io',
     name: 'Silver User',
     role: 'user',
-    package_tier: 'SILVER', // @deprecated
     permissions: [
       'epsx:rankings:view:25',
       'epsx:trading:basic',
@@ -114,10 +107,9 @@ export const TEST_USERS: Record<string, TestUser> = {
       'epsx:analytics:advanced',
       'epsx:alerts:email'
     ],
-    firebase_uid: 'firebase_silver_001',
+    wallet_address: '0x3456789012345678901234567890123456789012',
     subscription_status: 'active',
     subscription_expires_at: '2025-03-01T00:00:00Z',
-    features: [], // @deprecated - derive from permissions
     rate_limits: { per_minute: 60, per_hour: 1500 },
     created_at: '2024-03-01T00:00:00Z',
     last_login: '2024-08-22T10:30:00Z'
@@ -128,7 +120,6 @@ export const TEST_USERS: Record<string, TestUser> = {
     email: 'gold.user@epsx.io',
     name: 'Gold User',
     role: 'premium',
-    package_tier: 'GOLD', // @deprecated
     permissions: [
       'epsx:rankings:view:50',
       'epsx:trading:basic',
@@ -144,10 +135,9 @@ export const TEST_USERS: Record<string, TestUser> = {
       'epsx:alerts:email',
       'epsx:support:priority'
     ],
-    firebase_uid: 'firebase_gold_001',
+    wallet_address: '0x4567890123456789012345678901234567890123',
     subscription_status: 'active',
     subscription_expires_at: '2025-06-01T00:00:00Z',
-    features: [], // @deprecated - derive from permissions
     rate_limits: { per_minute: 120, per_hour: 5000 },
     created_at: '2024-04-01T00:00:00Z',
     last_login: '2024-08-22T10:45:00Z'
@@ -158,7 +148,6 @@ export const TEST_USERS: Record<string, TestUser> = {
     email: 'platinum.user@epsx.io',
     name: 'Platinum User',
     role: 'premium',
-    package_tier: 'PLATINUM', // @deprecated
     permissions: [
       'epsx:rankings:view:100',
       'epsx:trading:basic',
@@ -176,10 +165,9 @@ export const TEST_USERS: Record<string, TestUser> = {
       'epsx:research:reports',
       'epsx:dashboards:custom'
     ],
-    firebase_uid: 'firebase_platinum_001',
+    wallet_address: '0x5678901234567890123456789012345678901234',
     subscription_status: 'active',
     subscription_expires_at: '2025-12-01T00:00:00Z',
-    features: [], // @deprecated - derive from permissions
     rate_limits: { per_minute: 300, per_hour: 15000 },
     created_at: '2024-05-01T00:00:00Z',
     last_login: '2024-08-22T11:00:00Z'
@@ -190,7 +178,6 @@ export const TEST_USERS: Record<string, TestUser> = {
     email: 'enterprise.user@epsx.io',
     name: 'Enterprise User',
     role: 'enterprise',
-    package_tier: 'ENTERPRISE', // @deprecated
     permissions: [
       'epsx:rankings:view:unlimited',
       'epsx:*:*',
@@ -198,10 +185,9 @@ export const TEST_USERS: Record<string, TestUser> = {
       'epsx-token:*:*',
       'admin:*:*'
     ], // Enterprise users get unlimited access across all platforms
-    firebase_uid: 'firebase_enterprise_001',
+    wallet_address: '0x6789012345678901234567890123456789012345',
     subscription_status: 'active',
     subscription_expires_at: '2026-01-01T00:00:00Z',
-    features: [], // @deprecated - derive from permissions
     rate_limits: { per_minute: 1000, per_hour: 50000 },
     created_at: '2024-06-01T00:00:00Z',
     last_login: '2024-08-22T11:15:00Z'
@@ -213,17 +199,15 @@ export const TEST_USERS: Record<string, TestUser> = {
     email: 'expired.user@epsx.io',
     name: 'Expired Subscription User',
     role: 'user',
-    package_tier: 'FREE', // @deprecated - Downgraded from GOLD
     permissions: [
       'epsx:rankings:view:3',
       'epsx:trading:basic',
       'epsx:portfolio:view',
       'epsx:notifications:basic'
     ], // Downgraded permissions after expiry
-    firebase_uid: 'firebase_expired_001',
+    wallet_address: '0x7890123456789012345678901234567890123456',
     subscription_status: 'expired',
     subscription_expires_at: '2024-06-01T00:00:00Z',
-    features: [], // @deprecated - derive from permissions
     rate_limits: { per_minute: 10, per_hour: 100 },
     created_at: '2024-01-01T00:00:00Z',
     last_login: '2024-08-22T09:00:00Z'
@@ -234,7 +218,6 @@ export const TEST_USERS: Record<string, TestUser> = {
     email: 'trial.user@epsx.io',
     name: 'Trial User',
     role: 'user',
-    package_tier: 'GOLD', // @deprecated - On trial
     permissions: [
       'epsx:rankings:view:50',
       'epsx:trading:basic',
@@ -248,10 +231,9 @@ export const TEST_USERS: Record<string, TestUser> = {
       'epsx:analytics:advanced',
       'epsx:analytics:premium'
     ], // Full Gold permissions during trial
-    firebase_uid: 'firebase_trial_001',
+    wallet_address: '0x8901234567890123456789012345678901234567',
     subscription_status: 'trial',
     subscription_expires_at: '2024-09-22T00:00:00Z', // 30 days from now
-    features: [], // @deprecated - derive from permissions
     rate_limits: { per_minute: 120, per_hour: 5000 },
     created_at: '2024-08-22T00:00:00Z',
     last_login: '2024-08-22T11:30:00Z'
@@ -262,7 +244,6 @@ export const TEST_USERS: Record<string, TestUser> = {
     email: 'cancelled.user@epsx.io',
     name: 'Cancelled Subscription User',
     role: 'user',
-    package_tier: 'SILVER', // @deprecated - Still active until expiry
     permissions: [
       'epsx:rankings:view:25',
       'epsx:trading:basic',
@@ -273,10 +254,9 @@ export const TEST_USERS: Record<string, TestUser> = {
       'epsx:analytics:basic',
       'epsx:analytics:advanced'
     ], // Silver permissions until expiry
-    firebase_uid: 'firebase_cancelled_001',
+    wallet_address: '0x9012345678901234567890123456789012345678',
     subscription_status: 'cancelled',
     subscription_expires_at: '2024-09-30T00:00:00Z',
-    features: [], // @deprecated - derive from permissions
     rate_limits: { per_minute: 60, per_hour: 1500 },
     created_at: '2024-03-01T00:00:00Z',
     last_login: '2024-08-22T09:30:00Z'
@@ -554,11 +534,9 @@ export function createTestUserWithPermissions(
     email: `test.user.${Date.now()}@epsx.io`,
     name: 'Test User',
     role: 'user',
-    package_tier: derivedTier, // @deprecated but derived for compatibility
     permissions,
-    firebase_uid: `firebase_${Date.now()}`,
+    wallet_address: `0xa${Date.now()}234567890123456789012345678901234567890`,
     subscription_status: 'active',
-    features: [], // @deprecated
     rate_limits: { per_minute: 60, per_hour: 1000 },
     created_at: new Date().toISOString(),
     ...overrides

@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken } from '@/lib/actions/admin';
+import { getBearerToken } from '@/lib/actions/consolidated-admin-actions';
 import { env } from '@/config/env';
 
-const BACKEND_URL = env.NEXT_PUBLIC_BACKEND_URL || env.NEXT_PUBLIC_BACKEND_URL;
+const BACKEND_URL = env.BACKEND_URL;
 
 export async function GET(request: NextRequest) {
   try {
     console.log('🔍 [Admin Modules API] Fetching user admin modules');
 
     // Get bearer token from request
-    const bearerToken = await getBearerToken(request);
+    const bearerToken = await getBearerToken();
     
     if (!bearerToken) {
       console.log('❌ [Admin Modules API] No bearer token available');

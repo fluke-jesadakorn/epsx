@@ -69,7 +69,7 @@ const DEFAULT_PROPS = {
 export function AutoPermissionRefresh(props: AutoPermissionRefreshProps) {
   const config = { ...DEFAULT_PROPS, ...props };
   
-  const { user, refreshUser, isLoading: authLoading } = useAuth();
+  const { user, refreshUser } = useAuth();
   const expiry = usePermissionExpiry();
   const { toast } = useToast();
   
@@ -160,7 +160,6 @@ export function AutoPermissionRefresh(props: AutoPermissionRefreshProps) {
       toast({
         title: 'Refresh Failed',
         description: errorMessage,
-        variant: 'destructive',
       });
       
     } finally {
@@ -174,7 +173,7 @@ export function AutoPermissionRefresh(props: AutoPermissionRefreshProps) {
     
     // Check for expired permissions
     if (expiry.hasExpired && expiry.expiryInfo.expired.length > 0) {
-      const expiredPermissions = expiry.expiryInfo.expired.map(p => p.basePermission);
+      const expiredPermissions = expiry.expiryInfo.expired.map((p: any) => p.basePermission);
       config.onPermissionExpired?.(expiredPermissions);
       
       // Auto-refresh to get updated permissions
@@ -183,11 +182,11 @@ export function AutoPermissionRefresh(props: AutoPermissionRefreshProps) {
     
     // Check for expiring permissions
     if (expiry.hasExpiringSoon && expiry.expiryInfo.expiringSoon.length > 0) {
-      const expiringPermissions = expiry.expiryInfo.expiringSoon.map(p => p.basePermission);
+      const expiringPermissions = expiry.expiryInfo.expiringSoon.map((p: any) => p.basePermission);
       const minutesUntilExpiry = Math.min(
         ...expiry.expiryInfo.expiringSoon
-          .filter(p => p.timeRemaining)
-          .map(p => Math.floor(p.timeRemaining! / (1000 * 60)))
+          .filter((p: any) => p.timeRemaining)
+          .map((p: any) => Math.floor(p.timeRemaining! / (1000 * 60)))
       );
       
       config.onPermissionExpiring?.(expiringPermissions, minutesUntilExpiry);

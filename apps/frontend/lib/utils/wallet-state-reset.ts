@@ -226,27 +226,58 @@ function invalidateQueryClientCache(queryClient?: QueryClient): void {
   if (!queryClient) return;
 
   try {
-    // Invalidate all queries
-    queryClient.invalidateQueries();
+    console.log('🗑️ Invalidating QueryClient cache for wallet data...');
     
-    // Clear all queries with specific patterns
+    // First, invalidate specific wagmi queries
+    queryClient.invalidateQueries({
+      predicate: (query) => {
+        const queryKey = query.queryKey;
+        if (Array.isArray(queryKey)) {
+          const keyString = queryKey.join('.').toLowerCase();
+          return keyString.includes('wagmi') || 
+                 keyString.includes('connector') || 
+                 keyString.includes('account') ||
+                 keyString.includes('balance') ||
+                 keyString.includes('chain') ||
+                 keyString.includes('wallet');
+        }
+        return false;
+      }
+    });
+    
+    // Remove queries that might be stale after disconnect
     queryClient.removeQueries({
       predicate: (query) => {
         const queryKey = query.queryKey;
         if (Array.isArray(queryKey)) {
-          const keyString = queryKey.join('.');
+          const keyString = queryKey.join('.').toLowerCase();
           return keyString.includes('wallet') || 
                  keyString.includes('connect') || 
                  keyString.includes('auth') ||
-                 keyString.includes('wagmi');
+                 keyString.includes('wagmi') ||
+                 keyString.includes('metamask') ||
+                 keyString.includes('ethereum');
         }
         return false;
       }
     });
 
-    // Force garbage collection of removed queries
-    queryClient.getQueryCache().clear();
-    queryClient.getMutationCache().clear();
+    // Clear specific wagmi-related queries that could cause reconnection issues
+    const wagmiQueryPatterns = [
+      ['wagmi', 'account'],
+      ['wagmi', 'balance'],
+      ['wagmi', 'chain'],
+      ['wagmi', 'connector'],
+      ['wagmi', 'connection'],
+      ['connect'],
+      ['disconnect'],
+      ['ethereum'],
+      ['metamask']
+    ];
+
+    wagmiQueryPatterns.forEach(pattern => {
+      queryClient.removeQueries({ queryKey: pattern });
+    });
 
     console.log('✅ QueryClient cache invalidated successfully');
   } catch (error) {

@@ -19,7 +19,9 @@ pub struct PaymentServiceIntegration {
     // Payment bounded context repositories
     payment_repository: Arc<dyn PaymentRepositoryPort>,
     transaction_repository: Arc<dyn TransactionRepositoryPort>,
+    #[allow(dead_code)]
     crypto_address_repository: Arc<dyn CryptoAddressRepositoryPort>,
+    #[allow(dead_code)]
     payment_method_repository: Arc<dyn PaymentMethodRepositoryPort>,
     
     // Command handlers

@@ -17,7 +17,6 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { toast } from '@/components/ui/toast'
 import type { Permission } from '@/lib/types/unified-user'
-import { UserStatusBadge } from './UserStatusBadge'
 
 interface PermissionAssignmentCardProps {
   permission: Permission
@@ -96,28 +95,16 @@ export function PermissionAssignmentCard({
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
               <span className="font-medium text-sm">{permission.name}</span>
-              <UserStatusBadge 
-                status={permission.isActive ? 'active' : 'disabled'} 
-                size="sm" 
-              />
+              <Badge variant="default">
+                Active
+              </Badge>
               <Badge className={`text-xs px-2 py-0.5 ${getActionColor(getActionFromPermissionName(permission.name))}`}>
                 {getActionFromPermissionName(permission.name).toUpperCase()}
               </Badge>
             </div>
             <div className="text-xs text-muted-foreground flex items-center gap-2">
               <span>{permission.description || 'Custom permission'}</span>
-              {permission.assignedAt && (
-                <>
-                  <span>•</span>
-                  <span>Assigned {formatDate(permission.assignedAt)}</span>
-                </>
-              )}
             </div>
-            {permission.expiresAt && (
-              <div className="text-xs text-orange-600 mt-1">
-                Expires {formatDate(permission.expiresAt)}
-              </div>
-            )}
           </div>
         </div>
 

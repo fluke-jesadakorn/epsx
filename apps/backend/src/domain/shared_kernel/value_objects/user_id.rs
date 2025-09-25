@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use uuid::Uuid;
 use crate::domain::shared_kernel::value_object::{ValueObject, ValueObjectError};
+use crate::domain::shared_kernel::aggregate_root::Identity;
 
 /// User identifier value object
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -76,5 +77,37 @@ impl From<i32> for UserId {
 impl From<&str> for UserId {
     fn from(id: &str) -> Self {
         Self(id.to_string())
+    }
+}
+
+impl Identity for UserId {
+    fn new() -> Self {
+        Self::new()
+    }
+
+    fn from_uuid(uuid: Uuid) -> Self {
+        Self(uuid.to_string())
+    }
+
+    fn to_uuid(&self) -> Uuid {
+        // Try to parse as UUID, fall back to generating from string hash if invalid
+        Uuid::parse_str(&self.0).unwrap_or_else(|_| {
+            // Generate a deterministic UUID from the string
+            use std::collections::hash_map::DefaultHasher;
+            use std::hash::{Hash, Hasher};
+            let mut hasher = DefaultHasher::new();
+            self.0.hash(&mut hasher);
+            let hash = hasher.finish();
+            // Convert hash to UUID bytes
+            let bytes = hash.to_le_bytes();
+            let mut uuid_bytes = [0u8; 16];
+            uuid_bytes[..8].copy_from_slice(&bytes);
+            uuid_bytes[8..16].copy_from_slice(&bytes);
+            Uuid::from_bytes(uuid_bytes)
+        })
+    }
+
+    fn to_string(&self) -> String {
+        self.0.clone()
     }
 }

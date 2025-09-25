@@ -7,7 +7,7 @@ import {
   UnifiedRankingItem
 } from '@/lib/api-client';
 import type { AnalyticsFilters, EPSRanking } from '@/types/analytics';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, memo, useMemo, useCallback } from 'react';
 import FilterPanel from './FilterPanel';
 import Pagination from './Pagination';
 import StockCard from './StockCard';
@@ -65,7 +65,7 @@ async function fetchEPSRankings(filters: AnalyticsFilters): Promise<UnifiedAnaly
   }
 }
 
-export default function AnalyticsClientWrapper({ 
+function AnalyticsClientWrapper({ 
   initialData, 
   filterOptions 
 }: AnalyticsClientWrapperProps) {
@@ -80,8 +80,8 @@ export default function AnalyticsClientWrapper({
     setIsLoading,
   } = useAnalyticsFilters();
 
-  // Helper function to convert UnifiedRankingItem to EPSRanking format
-  const convertToEPSRanking = (unified: UnifiedRankingItem): EPSRanking => {
+  // Memoized helper function to convert UnifiedRankingItem to EPSRanking format
+  const convertToEPSRanking = useCallback((unified: UnifiedRankingItem): EPSRanking => {
     return {
       symbol: unified.symbol,
       name: unified.companyName,
@@ -102,10 +102,10 @@ export default function AnalyticsClientWrapper({
       active_status: "Active", // Default value
       quarterly_data: [] // Not available in current API response
     };
-  };
+  }, []);
 
-  // Helper function to calculate Growth leaders using simplified data
-  const calculateGrowthLeaders = (data: UnifiedAnalyticsRankingsResponse | null) => {
+  // Memoized calculation of Growth leaders - expensive array operations
+  const calculateGrowthLeaders = useCallback((data: UnifiedAnalyticsRankingsResponse | null) => {
     if (!data?.rankings || data.rankings.length === 0) return { growthLeaders: [], priceLeaders: [] };
 
     // Calculate Growth Factor leaders using epsGrowth
@@ -121,7 +121,7 @@ export default function AnalyticsClientWrapper({
       .slice(0, 3);
 
     return { growthLeaders, priceLeaders };
-  };
+  }, []);
 
   const [data, setData] = useState<UnifiedAnalyticsRankingsResponse | null>(initialData);
   const [error, setError] = useState<string | null>(null);
@@ -135,6 +135,11 @@ export default function AnalyticsClientWrapper({
   const [includeMetadata, setIncludeMetadata] = useState(true);
   const [includeQuarterlyData, setIncludeQuarterlyData] = useState(true);
   const [exportType, setExportType] = useState<'current' | 'filtered' | 'leaders' | 'full'>('current');
+
+  // Memoized growth leaders calculation to avoid repeated expensive operations
+  const { growthLeaders, priceLeaders } = useMemo(() => {
+    return calculateGrowthLeaders(data);
+  }, [data, calculateGrowthLeaders]);
 
   // Load data when filters change (skip on initial load if we have initialData)
   useEffect(() => {
@@ -206,7 +211,7 @@ export default function AnalyticsClientWrapper({
         exportFilteredData(data.rankings, filters, options);
         break;
       case 'leaders':
-        const { growthLeaders, priceLeaders } = calculateGrowthLeaders(data);
+        // Use memoized growth leaders
         exportGrowthLeadersData([...growthLeaders, ...priceLeaders], options);
         break;
       case 'full':
@@ -342,7 +347,7 @@ export default function AnalyticsClientWrapper({
 
           {/* Enhanced Growth Leaders Section */}
           {!isLoading && data && data.rankings.length > 0 && (() => {
-            const { growthLeaders, priceLeaders } = calculateGrowthLeaders(data);
+            // Use memoized growth leaders
             return (
               <div className="mb-8">
                 <div className="relative overflow-hidden rounded-3xl border border-orange-200/50 bg-white/80 p-6 sm:p-8 shadow-2xl backdrop-blur-xl dark:border-orange-400/20 dark:bg-slate-800/80">
@@ -948,3 +953,6 @@ export default function AnalyticsClientWrapper({
     </div>
   );
 }
+
+// Export memoized component to prevent unnecessary re-renders
+export default memo(AnalyticsClientWrapper);

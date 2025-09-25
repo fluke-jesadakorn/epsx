@@ -6,11 +6,8 @@
  */
 
 import { LucideIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-// Simple className utility to replace design system cn function
-function cn(...classes: (string | undefined | null | false)[]): string {
-  return classes.filter(Boolean).join(' ');
-}
 
 export interface StatsCardProps {
   title: string;

@@ -33,7 +33,7 @@ export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
   const [isFlipping, setIsFlipping] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const previousValueRef = useRef(tile.value);
-  const flipTimeoutRef = useRef<NodeJS.Timeout>();
+  const flipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Smart polling for real-time data if fetcher is provided
   const {
@@ -45,8 +45,8 @@ export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
     refresh,
     connectionStatus
   } = useSmartPolling(
-    tile.isRealTime && fetcher ? `tile-${tile.id}` : null,
-    fetcher || (() => Promise.resolve(null)),
+    `tile-${tile.id}`,
+    (tile.isRealTime && fetcher) ? fetcher : (() => Promise.resolve(null)),
     {
       priority: tile.priority,
       customInterval: tile.refreshInterval,
@@ -278,15 +278,14 @@ export function UserStatsTile(props: Omit<LiveTileProps, 'tile'> & {
     title: 'Users',
     value: props.userCount,
     subtitle: `${props.activeCount} active`,
-    icon: props.tile?.icon || (() => null),
+    icon: (() => null),
     size: 'wide',
     color: 'primary',
     trend: props.trend,
     isRealTime: true,
     priority: 'important',
     refreshInterval: 60000,
-    href: '/users',
-    ...props.tile
+    href: '/users'
   };
 
   return <LiveTile {...props} tile={tile} />;
@@ -308,14 +307,13 @@ export function SecurityAlertsTile(props: Omit<LiveTileProps, 'tile'> & {
     title: 'Security',
     value: props.alertCount,
     subtitle: props.alertCount > 0 ? `${props.severity} alerts` : 'All clear',
-    icon: props.tile?.icon || (() => null),
+    icon: (() => null),
     size: 'small',
     color: props.alertCount > 0 ? colors[props.severity] : 'success',
     isRealTime: true,
     priority: 'critical',
     refreshInterval: 30000,
     href: '/security/alerts',
-    ...props.tile
   };
 
   return <LiveTile {...props} tile={tile} />;
@@ -332,7 +330,7 @@ export function AnalyticsTile(props: Omit<LiveTileProps, 'tile'> & {
     title: props.metric,
     value: props.value,
     subtitle: props.period,
-    icon: props.tile?.icon || (() => null),
+    icon: (() => null),
     size: 'large',
     color: 'info',
     trend: props.trend,
@@ -340,7 +338,6 @@ export function AnalyticsTile(props: Omit<LiveTileProps, 'tile'> & {
     priority: 'normal',
     refreshInterval: 300000,
     href: '/analytics',
-    ...props.tile
   };
 
   return <LiveTile {...props} tile={tile} />;

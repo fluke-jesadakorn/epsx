@@ -10,7 +10,7 @@ import { Card } from '@/components/ui/card'
 import { getServerSession } from '@/lib/server/auth'
 import { serverAdminClient } from '@/lib/api/unified-admin-client'
 
-interface CreateApiKeyForm {
+interface CreateApiKeyFormData {
   client_name: string
   client_description?: string
   client_contact_email?: string
@@ -81,7 +81,7 @@ async function CreateApiKeyForm() {
         const searchParams = new URLSearchParams({
           success: 'true',
           client_name: client_name,
-          new_key: response.data.full_key || 'key-created'
+          new_key: response.data?.full_key || 'key-created'
         })
         redirect(`/developer-portal?${searchParams.toString()}`)
       } else {

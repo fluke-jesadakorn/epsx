@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { AlertTriangle, Clock, Eye, Shield, Trash2, RefreshCcw } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
-import { URL, URLContext, OIDCEndpoint } from '../../../../shared/utils/url-resolver';
+// Legacy OIDC imports removed - now using Web3 authentication
 
 interface TokenIntrospectionResult {
   active: boolean
@@ -58,7 +58,7 @@ export function GranularTokenManagement({ userId, className }: GranularTokenMana
     setError(null)
 
     try {
-      const introspectEndpoint = URL.oidc(OIDCEndpoint.INTROSPECT, URLContext.CLIENT);
+      const introspectEndpoint = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/web3/verify`;
       const response = await fetch(introspectEndpoint, {
         method: 'POST',
         headers: {
@@ -112,7 +112,7 @@ export function GranularTokenManagement({ userId, className }: GranularTokenMana
     setError(null)
 
     try {
-      const introspectEndpoint = URL.oidc(OIDCEndpoint.INTROSPECT, URLContext.CLIENT);
+      const introspectEndpoint = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/web3/verify`;
       
       const params: Record<string, string> = {
         token: token.trim(),
@@ -124,7 +124,7 @@ export function GranularTokenManagement({ userId, className }: GranularTokenMana
         params.revoke_type = 'granular'
       }
 
-      const revokeEndpoint = URL.oidc(OIDCEndpoint.REVOKE, URLContext.CLIENT);
+      const revokeEndpoint = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/web3/logout`;
       const response = await fetch(revokeEndpoint, {
         method: 'POST',
         headers: {

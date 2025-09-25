@@ -26,7 +26,8 @@ import {
 import { useToast } from '@/components/ui/use-toast'
 
 import type { UnifiedUserData } from '@/lib/types/unified-user'
-import { adminCardVariants, cn } from '@/design-system'
+import { adminCardVariants } from '@/design-system'
+import { cn } from '@/lib/utils'
 
 // Types
 interface UserDashboardProps {
@@ -111,7 +112,7 @@ export function UserDashboard({
     totalPermissions: (user.customPermissions || []).length,
     totalRoles: (user.roles || []).length,
     totalProfiles: (user.permissionProfiles || []).length,
-    lastLoginDays: user.lastLoginAt ? Math.floor((Date.now() - new Date(user.lastLoginAt).getTime()) / (1000 * 60 * 60 * 24)) : null
+    lastLoginDays: user.lastLogin ? Math.floor((Date.now() - new Date(user.lastLogin).getTime()) / (1000 * 60 * 60 * 24)) : null
   }
 
   // Permission checks
@@ -318,7 +319,7 @@ export function UserDashboard({
       // Mock API call
       toast({
         title: 'User Status Updated',
-        description: `User ${user.isActive ? 'deactivated' : 'activated'} successfully`,
+        description: `User ${user.status === 'active' ? 'deactivated' : 'activated'} successfully`,
       })
       onUserUpdate?.()
     } catch (error) {
@@ -395,7 +396,7 @@ export function UserDashboard({
                     {user.email.slice(0, 2).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white ${user.isActive ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                <div className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-white ${user.status === 'active' ? 'bg-green-500' : 'bg-gray-400'}`}></div>
               </div>
 
               {/* User Info */}
@@ -405,11 +406,11 @@ export function UserDashboard({
                     {user.displayName || user.email.split('@')[0]}
                   </h3>
                   <div className="flex gap-2">
-                    <Badge variant={user.isActive ? 'default' : 'secondary'}>
-                      {user.isActive ? 'Active' : 'Inactive'}
+                    <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
+                      {user.status === 'active' ? 'Active' : 'Inactive'}
                     </Badge>
-                    <Badge variant={user.role === 'admin' ? 'destructive' : 'outline'}>
-                      {user.role}
+                    <Badge variant={user.roles?.[0]?.name === 'admin' ? 'destructive' : 'outline'}>
+                      {user.roles?.[0]?.name || 'User'}
                     </Badge>
                   </div>
                 </div>
@@ -429,10 +430,10 @@ export function UserDashboard({
                   </div>
                 </div>
 
-                {user.lastLoginAt && (
+                {user.lastLogin && (
                   <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
                     <Clock className="w-3 h-3" />
-                    Last seen: {formatTimestamp(user.lastLoginAt)}
+                    Last seen: {formatTimestamp(user.lastLogin)}
                   </p>
                 )}
               </div>
@@ -463,7 +464,7 @@ export function UserDashboard({
                     <>
                       <DropdownMenuItem onClick={handleToggleUserStatus}>
                         <Power className="w-4 h-4 mr-2" />
-                        {user.isActive ? 'Deactivate' : 'Activate'}
+                        {user.status === 'active' ? 'Deactivate' : 'Activate'}
                       </DropdownMenuItem>
                       <DropdownMenuItem>
                         <Key className="w-4 h-4 mr-2" />
@@ -681,7 +682,7 @@ export function UserDashboard({
                       <div className="flex items-center gap-2">
                         <Shield className={`h-4 w-4 ${pkg.isActive ? 'text-blue-500' : 'text-gray-400'}`} />
                         <span className="font-medium text-sm">{pkg.name}</span>
-                        <Badge variant={pkg.isActive ? 'default' : 'secondary'} size="sm">
+                        <Badge variant={pkg.isActive ? 'default' : 'secondary'}>
                           {pkg.isActive ? 'Active' : 'Inactive'}
                         </Badge>
                       </div>

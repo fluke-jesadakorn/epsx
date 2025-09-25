@@ -9,15 +9,13 @@ import {
   formatPercentage,
   formatCurrency,
   formatEPS,
-  formatPERatio
-} from '@/lib/utils/eps-calculations'
-import {
+  formatPERatio,
   formatQuarterDate,
   formatAnnouncementDate,
   getQuarterLabel,
   formatTimeRemaining,
   formatCompactDate
-} from '@/lib/utils/date-formatting'
+} from '@/lib/consolidated-utils'
 
 interface AdminEPSCardData {
   rank: number
@@ -208,7 +206,7 @@ export default function AdminEPSCard({ cardData }: AdminEPSCardProps) {
               <div className="text-lg font-bold text-green-900 dark:text-green-100">{formatEPS(currentEPS)}</div>
               <div className={`text-xs font-medium flex items-center justify-center gap-1 ${epsGrowthIndicator.color}`}>
                 <span>{epsGrowthIndicator.emoji}</span>
-                <span>{formatPercentage(epsGrowth, 0)}</span>
+                <span>{formatPercentage(epsGrowth)}</span>
               </div>
             </div>
           </div>
@@ -273,7 +271,7 @@ export default function AdminEPSCard({ cardData }: AdminEPSCardProps) {
                         {quarter.priceGrowth !== null && (
                           <>
                             <span>{getGrowthIndicator(quarter.priceGrowth).emoji}</span>
-                            <span>{formatPercentage(quarter.priceGrowth, 1)}</span>
+                            <span>{formatPercentage(quarter.priceGrowth)}</span>
                           </>
                         )}
                       </div>
@@ -290,7 +288,7 @@ export default function AdminEPSCard({ cardData }: AdminEPSCardProps) {
                         {quarter.epsGrowth !== null ? (
                           <>
                             <span>{getGrowthIndicator(quarter.epsGrowth).emoji}</span>
-                            <span>{formatPercentage(quarter.epsGrowth, 0)}</span>
+                            <span>{formatPercentage(quarter.epsGrowth)}</span>
                           </>
                         ) : quarter.label === 'Q-2' ? (
                           <span className="text-slate-500 dark:text-slate-400">📊</span>
@@ -328,14 +326,14 @@ export default function AdminEPSCard({ cardData }: AdminEPSCardProps) {
               <span className="text-slate-600 dark:text-slate-300">📊 QoQ</span>
               <span className={getGrowthIndicator(cardData.eps_quarterly?.qoq_growth_current || 0).color}>
                 {getGrowthIndicator(cardData.eps_quarterly?.qoq_growth_current || 0).emoji}
-                {formatPercentage(cardData.eps_quarterly?.qoq_growth_current || 0, 0)}
+                {formatPercentage(cardData.eps_quarterly?.qoq_growth_current || 0)}
               </span>
             </span>
             <span className="flex items-center gap-1">
               <span className="text-slate-600 dark:text-slate-300">📈 YoY</span>
               <span className={getGrowthIndicator(cardData.eps_quarterly?.yoy_growth_current || 0).color}>
                 {getGrowthIndicator(cardData.eps_quarterly?.yoy_growth_current || 0).emoji}
-                {formatPercentage(cardData.eps_quarterly?.yoy_growth_current || 0, 1)}
+                {formatPercentage(cardData.eps_quarterly?.yoy_growth_current || 0)}
               </span>
             </span>
             <span className="flex items-center gap-1">

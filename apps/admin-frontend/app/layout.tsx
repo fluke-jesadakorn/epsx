@@ -7,7 +7,9 @@
 import './globals.css';
 import { ErrorBoundary } from '@/components/providers/ErrorBoundary';
 import { Web3Provider } from '@/providers/Web3Provider';
-import { Web3AuthProvider } from '@/components/providers/Web3AuthProvider';
+import { PureWeb3AuthProvider } from '@/providers/PureWeb3AuthProvider';
+import { ServerConditionalLayout } from '@/components/layout/ServerConditionalLayout';
+import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { Toaster } from 'react-hot-toast';
 import { Metadata, Viewport } from 'next';
 
@@ -55,31 +57,22 @@ export default function RootLayout({
       className="font-sans antialiased scroll-smooth"
     >
       <body className="min-h-screen bg-background text-foreground">
-        {/* Prevent flash of unstyled content */}
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              try {
-                if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                  document.documentElement.classList.add('dark')
-                } else {
-                  document.documentElement.classList.remove('dark')
-                }
-              } catch (_) {}
-            `,
-          }}
-        />
+        {/* Theme handled by ThemeProvider to prevent FOUC securely */}
         
         {/* Main application wrapper with consistent spacing */}
         <div className="flex min-h-screen flex-col">
           <ErrorBoundary>
-            <Web3Provider>
-              <Web3AuthProvider>
-                <main className="flex-1 relative">
-                  {children}
-                </main>
-              </Web3AuthProvider>
-            </Web3Provider>
+            <ThemeProvider>
+              <Web3Provider>
+                <PureWeb3AuthProvider>
+                  <main className="flex-1 relative">
+                    <ServerConditionalLayout>
+                      {children}
+                    </ServerConditionalLayout>
+                  </main>
+                </PureWeb3AuthProvider>
+              </Web3Provider>
+            </ThemeProvider>
           </ErrorBoundary>
         </div>
 

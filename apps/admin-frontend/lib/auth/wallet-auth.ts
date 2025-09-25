@@ -88,13 +88,12 @@ export async function getWalletSessionFromCookies(): Promise<WalletSession | nul
 }
 
 /**
- * Validate wallet session with backend
+ * Validate wallet session with local admin API
  */
 export async function validateWalletWithBackend(session: WalletSession): Promise<WalletUser | null> {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
-    
-    const response = await fetch(`${backendUrl}/api/auth/web3/verify`, {
+    // Use local admin frontend API route instead of backend
+    const response = await fetch('/api/auth/web3/verify', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -103,8 +102,10 @@ export async function validateWalletWithBackend(session: WalletSession): Promise
         wallet_address: session.wallet_address,
         signature: session.signature,
         nonce: session.nonce,
-        message: session.message
-      })
+        message: session.message,
+        admin_context: true
+      }),
+      credentials: 'include'
     });
     
     if (!response.ok) {
@@ -544,9 +545,9 @@ export async function getTokensFromCookies(): Promise<{
   };
 }
 
-export async function setAuthTokens(data: any): Promise<void> {
+export async function setAuthTokens(data: unknown): Promise<void> {
   // This function is deprecated in wallet auth
-  console.warn('setAuthTokens is deprecated in wallet authentication');
+  console.warn('setAuthTokens is deprecated in wallet authentication', data);
 }
 
 export async function clearAuthTokens(): Promise<void> {

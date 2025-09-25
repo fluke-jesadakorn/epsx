@@ -4,7 +4,8 @@
  */
 
 import React from 'react'
-import { adminCardVariants, cn } from '@/design-system'
+import { adminCardVariants } from '@/design-system'
+import { cn } from '@/lib/utils'
 
 interface ChartContainerProps {
   title: string
@@ -30,8 +31,7 @@ export function ChartContainer({
       adminCardVariants({ 
         variant, 
         hover: 'glow', 
-        size,
-        animation: 'subtle'
+        size: size as any
       }),
       'relative overflow-hidden',
       className

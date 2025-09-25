@@ -1,9 +1,8 @@
 import { Suspense } from 'react'
 import { UnifiedAuth } from '@/lib/auth/unified-auth'
 import { notFound } from 'next/navigation'
-import PolicyBuilder from '@/components/policies/PolicyBuilder'
-import PolicyMonitor from '@/components/policies/PolicyMonitor'
-import { ShieldIcon, ActivityIcon, BarChart3Icon } from 'lucide-react'
+import { PolicyTabs } from '@/components/policies/PolicyTabs'
+import { BarChart3Icon } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -105,83 +104,25 @@ async function PoliciesDataWrapper() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-3 sm:p-6">
       <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
-        {/* Background Decorations */}
+        {/* Static Background */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-full blur-xl"></div>
-          <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-purple-500/20 rounded-full blur-lg"></div>
-          <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-orange-400/15 to-yellow-500/15 rounded-full blur-xl"></div>
+          <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-full opacity-30"></div>
+          <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-purple-500/20 rounded-full opacity-30"></div>
+          <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-orange-400/15 to-yellow-500/15 rounded-full opacity-30"></div>
         </div>
 
         {/* Page Header */}
         <div className="text-center mb-8 sm:mb-12">
-          <div className="relative inline-block">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-yellow-600 via-orange-600 via-pink-600 to-purple-600 bg-clip-text text-transparent mb-4">
-              🛡️ Dynamic Policies
-            </h1>
-            <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full"></div>
-          </div>
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-yellow-600 via-orange-600 via-pink-600 to-purple-600 bg-clip-text text-transparent mb-4">
+            🛡️ Dynamic Policies
+          </h1>
           <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
             Build advanced permission policies with conditional logic and real-time monitoring
           </p>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-purple-400/20 via-blue-400/20 to-green-400/20 p-0.5 mb-6 sm:mb-8">
-          <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl">
-            <div className="flex space-x-1 p-4">
-              <button 
-                className="px-4 sm:px-6 py-3 text-sm font-medium rounded-2xl bg-gradient-to-r from-purple-600 to-blue-600 text-white whitespace-nowrap flex-shrink-0 min-h-[44px] shadow-lg"
-                id="builder-tab"
-              >
-                <ShieldIcon className="h-4 w-4 inline mr-2" />
-                Policy Builder
-              </button>
-              <button 
-                className="px-4 sm:px-6 py-3 text-sm font-medium rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 whitespace-nowrap flex-shrink-0 min-h-[44px]"
-                id="monitor-tab"
-              >
-                <ActivityIcon className="h-4 w-4 inline mr-2" />
-                Live Monitor
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        {/* Policy Builder Section */}
-        <div id="builder-section">
-          <PolicyBuilder />
-        </div>
-        
-        {/* Policy Monitor Section (Hidden by default) */}
-        <div id="monitor-section" className="hidden">
-          <PolicyMonitor />
-        </div>
-        
-        {/* Client-side tab switching script */}
-        <script dangerouslySetInnerHTML={{
-          __html: `
-            document.addEventListener('DOMContentLoaded', function() {
-              const builderTab = document.getElementById('builder-tab');
-              const monitorTab = document.getElementById('monitor-tab');
-              const builderSection = document.getElementById('builder-section');
-              const monitorSection = document.getElementById('monitor-section');
-              
-              builderTab?.addEventListener('click', function() {
-                builderTab.className = 'px-4 sm:px-6 py-3 text-sm font-medium rounded-2xl bg-gradient-to-r from-purple-600 to-blue-600 text-white whitespace-nowrap flex-shrink-0 min-h-[44px] shadow-lg';
-                monitorTab.className = 'px-4 sm:px-6 py-3 text-sm font-medium rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 whitespace-nowrap flex-shrink-0 min-h-[44px]';
-                builderSection.classList.remove('hidden');
-                monitorSection.classList.add('hidden');
-              });
-              
-              monitorTab?.addEventListener('click', function() {
-                monitorTab.className = 'px-4 sm:px-6 py-3 text-sm font-medium rounded-2xl bg-gradient-to-r from-purple-600 to-blue-600 text-white whitespace-nowrap flex-shrink-0 min-h-[44px] shadow-lg';
-                builderTab.className = 'px-4 sm:px-6 py-3 text-sm font-medium rounded-2xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 whitespace-nowrap flex-shrink-0 min-h-[44px]';
-                monitorSection.classList.remove('hidden');
-                builderSection.classList.add('hidden');
-              });
-            });
-          `
-        }} />
+        {/* Secure Policy Tabs */}
+        <PolicyTabs />
       </div>
     </div>
   )

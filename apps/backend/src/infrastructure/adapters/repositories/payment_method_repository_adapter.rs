@@ -15,6 +15,7 @@ use crate::domain::payment::{
 /// Repository adapter for managing payment methods
 #[derive(Clone)]
 pub struct PaymentMethodRepositoryAdapter {
+    #[allow(dead_code)]
     db_pool: Arc<DbPool>,
 }
 
@@ -39,14 +40,6 @@ impl PaymentMethodRepositoryPort for PaymentMethodRepositoryAdapter {
         use crate::domain::shared_kernel::value_objects::{Currency, Network};
         
         let stub_methods = vec![
-            PaymentMethod::new(
-                PaymentMethodType::CreditCard,
-                Currency::USD, // Default to USD for credit card
-                None, // No network for credit card
-            ).unwrap_or_else(|_| {
-                // Fallback if creation fails
-                PaymentMethod::new(PaymentMethodType::CreditCard, Currency::USD, None).unwrap()
-            }),
             PaymentMethod::new(
                 PaymentMethodType::Crypto,
                 Currency::ETH, // Default to ETH for crypto

@@ -70,7 +70,7 @@ const initialUserState: UserState = {
   optimisticUpdates: [],
 };
 
-const initialAnalyticsState: AnalyticsState = {
+const initialAnalyticsState = {
   ...createAsyncState(),
   data: {
     rankings: [],
@@ -82,9 +82,9 @@ const initialAnalyticsState: AnalyticsState = {
   realtime: {
     connected: false,
     subscriptions: [],
-    lastHeartbeat: null,
+    lastHeartbeat: undefined,
   },
-};
+} as AnalyticsState;
 
 const initialNotificationState: NotificationState = {
   ...createAsyncState(),
@@ -137,7 +137,7 @@ interface AppStateContextType {
     user: {
       setProfile: (profile: UserProfile | null) => void;
       updatePreferences: (
-        preferences: Partial<UserState['data']['preferences']>
+        preferences: Partial<Record<string, any>>
       ) => void;
       setSubscription: (subscription: UserSubscription | null) => void;
       updatePermissions: (permissions: string[]) => void;
@@ -160,7 +160,7 @@ interface AppStateContextType {
       markRead: (id: string) => void;
       markAllRead: () => void;
       updatePreferences: (
-        preferences: Partial<NotificationState['data']['preferences']>
+        preferences: Partial<Record<string, any>>
       ) => void;
       setRealtimeStatus: (status: {
         connected: boolean;
@@ -183,12 +183,16 @@ const AppStateContext = createContext<AppStateContextType | undefined>(
 
 // Reducers
 function appStateReducer(state: AppState, action: StateAction): AppState {
+  const payload = action.payload as any; // Cast to any for flexibility
+  const userState = state.user as any; // Cast for AsyncState access
+  const analyticsState = state.analytics as any; // Cast for AsyncState access
+  const notificationState = state.notifications as any; // Cast for AsyncState access
   switch (action.type) {
     // UI Actions
     case 'SET_THEME':
       return {
         ...state,
-        ui: { ...state.ui, theme: action.payload },
+        ui: { ...state.ui, theme: payload },
       };
 
     case 'TOGGLE_SIDEBAR':
@@ -205,7 +209,7 @@ function appStateReducer(state: AppState, action: StateAction): AppState {
         ...state,
         ui: {
           ...state.ui,
-          sidebar: { ...state.ui.sidebar, collapsed: action.payload },
+          sidebar: { ...state.ui.sidebar, collapsed: payload },
         },
       };
 
@@ -216,9 +220,9 @@ function appStateReducer(state: AppState, action: StateAction): AppState {
           ...state.ui,
           modals: {
             ...state.ui.modals,
-            [action.payload.key]: {
+            [payload.key]: {
               open: true,
-              data: action.payload.data,
+              data: payload.data,
             },
           },
         },
@@ -231,14 +235,14 @@ function appStateReducer(state: AppState, action: StateAction): AppState {
           ...state.ui,
           modals: {
             ...state.ui.modals,
-            [action.payload]: { open: false },
+            [payload]: { open: false },
           },
         },
       };
 
     case 'ADD_TOAST':
       const newToast = {
-        ...action.payload,
+        ...payload,
         id: Math.random().toString(36).substr(2, 9),
         timestamp: Date.now(),
       };
@@ -255,7 +259,7 @@ function appStateReducer(state: AppState, action: StateAction): AppState {
         ...state,
         ui: {
           ...state.ui,
-          toasts: state.ui.toasts.filter(toast => toast.id !== action.payload),
+          toasts: state.ui.toasts.filter(toast => toast.id !== payload),
         },
       };
 
@@ -264,17 +268,17 @@ function appStateReducer(state: AppState, action: StateAction): AppState {
         ...state,
         ui: {
           ...state.ui,
-          loading: action.payload.key
+          loading: payload.key
             ? {
                 ...state.ui.loading,
                 requests: {
                   ...state.ui.loading.requests,
-                  [action.payload.key]: action.payload.loading,
+                  [payload.key]: payload.loading,
                 },
               }
             : {
                 ...state.ui.loading,
-                global: action.payload.loading,
+                global: payload.loading,
               },
         },
       };
@@ -284,7 +288,7 @@ function appStateReducer(state: AppState, action: StateAction): AppState {
         ...state,
         ui: {
           ...state.ui,
-          responsive: { ...state.ui.responsive, ...action.payload },
+          responsive: { ...state.ui.responsive, ...payload },
         },
       };
 
@@ -294,10 +298,10 @@ function appStateReducer(state: AppState, action: StateAction): AppState {
         ...state,
         user: {
           ...state.user,
-          data: state.user.data
+          data: userState.data
             ? {
-                ...state.user.data,
-                profile: action.payload,
+                ...userState.data,
+                profile: payload,
               }
             : null,
         },
@@ -308,12 +312,12 @@ function appStateReducer(state: AppState, action: StateAction): AppState {
         ...state,
         user: {
           ...state.user,
-          data: state.user.data
+          data: userState.data
             ? {
-                ...state.user.data,
+                ...userState.data,
                 preferences: {
-                  ...state.user.data.preferences,
-                  ...action.payload,
+                  ...userState.data.preferences,
+                  ...payload,
                 },
               }
             : null,
@@ -326,13 +330,13 @@ function appStateReducer(state: AppState, action: StateAction): AppState {
         ...state,
         analytics: {
           ...state.analytics,
-          data: state.analytics.data
+          data: analyticsState.data
             ? {
-                ...state.analytics.data,
-                rankings: action.payload,
+                ...analyticsState.data,
+                rankings: payload,
               }
             : null,
-        },
+        } as AnalyticsState,
       };
 
     case 'SET_FILTERS':
@@ -340,13 +344,13 @@ function appStateReducer(state: AppState, action: StateAction): AppState {
         ...state,
         analytics: {
           ...state.analytics,
-          data: state.analytics.data
+          data: analyticsState.data
             ? {
-                ...state.analytics.data,
-                filters: action.payload,
+                ...analyticsState.data,
+                filters: payload,
               }
             : null,
-        },
+        } as AnalyticsState,
       };
 
     case 'ADD_BOOKMARK':
@@ -354,13 +358,13 @@ function appStateReducer(state: AppState, action: StateAction): AppState {
         ...state,
         analytics: {
           ...state.analytics,
-          data: state.analytics.data
+          data: analyticsState.data
             ? {
-                ...state.analytics.data,
-                bookmarks: [...state.analytics.data.bookmarks, action.payload],
+                ...analyticsState.data,
+                bookmarks: [...analyticsState.data.bookmarks, payload],
               }
             : null,
-        },
+        } as AnalyticsState,
       };
 
     case 'REMOVE_BOOKMARK':
@@ -368,15 +372,15 @@ function appStateReducer(state: AppState, action: StateAction): AppState {
         ...state,
         analytics: {
           ...state.analytics,
-          data: state.analytics.data
+          data: analyticsState.data
             ? {
-                ...state.analytics.data,
-                bookmarks: state.analytics.data.bookmarks.filter(
-                  symbol => symbol !== action.payload
+                ...analyticsState.data,
+                bookmarks: analyticsState.data.bookmarks.filter(
+                  (symbol: any) => symbol !== payload
                 ),
               }
             : null,
-        },
+        } as AnalyticsState,
       };
 
     case 'ADD_RECENT_SEARCH':
@@ -384,18 +388,18 @@ function appStateReducer(state: AppState, action: StateAction): AppState {
         ...state,
         analytics: {
           ...state.analytics,
-          data: state.analytics.data
+          data: analyticsState.data
             ? {
-                ...state.analytics.data,
+                ...analyticsState.data,
                 recentSearches: [
-                  action.payload,
-                  ...state.analytics.data.recentSearches.filter(
-                    search => search !== action.payload
+                  payload,
+                  ...analyticsState.data.recentSearches.filter(
+                    (search: any) => search !== payload
                   ).slice(0, 9)
                 ],
               }
             : null,
-        },
+        } as AnalyticsState,
       };
 
     case 'SET_ANALYTICS_REALTIME_STATUS':
@@ -405,10 +409,10 @@ function appStateReducer(state: AppState, action: StateAction): AppState {
           ...state.analytics,
           realtime: {
             ...state.analytics.realtime,
-            ...action.payload,
-            lastHeartbeat: action.payload.connected ? Date.now() : null,
+            ...payload,
+            lastHeartbeat: payload.connected ? Date.now() : null,
           },
-        },
+        } as AnalyticsState,
       };
 
     // Cache Actions
@@ -419,10 +423,10 @@ function appStateReducer(state: AppState, action: StateAction): AppState {
           ...state.cache,
           stockData: {
             ...state.cache.stockData,
-            [action.payload.symbol]: {
-              data: action.payload.data,
+            [payload.symbol]: {
+              data: payload.data,
               timestamp: Date.now(),
-              ttl: action.payload.ttl || 300000, // 5 minutes default
+              ttl: payload.ttl || 300000, // 5 minutes default
             },
           },
         },
@@ -482,93 +486,66 @@ export function AppStateProvider({
   const uiActions = useMemo(
     () => ({
       setTheme: (theme: UIState['theme']) =>
-        dispatch(
-          {
-            type: 'SET_THEME',
-            payload: theme,
-            meta: { timestamp: Date.now(), source: 'ui' },
-          },
-          appStateReducer
-        ),
+        dispatch({
+          type: 'SET_THEME',
+          payload: theme,
+          meta: { timestamp: Date.now(), source: 'ui' },
+        }),
 
       toggleSidebar: () =>
-        dispatch(
-          {
-            type: 'TOGGLE_SIDEBAR',
-            meta: { timestamp: Date.now(), source: 'ui' },
-          },
-          appStateReducer
-        ),
+        dispatch({
+          type: 'TOGGLE_SIDEBAR',
+          meta: { timestamp: Date.now(), source: 'ui' },
+        }),
 
       collapseSidebar: (collapsed: boolean) =>
-        dispatch(
-          {
-            type: 'COLLAPSE_SIDEBAR',
-            payload: collapsed,
-            meta: { timestamp: Date.now(), source: 'ui' },
-          },
-          appStateReducer
-        ),
+        dispatch({
+          type: 'COLLAPSE_SIDEBAR',
+          payload: collapsed,
+          meta: { timestamp: Date.now(), source: 'ui' },
+        }),
 
       openModal: (key: string, data?: unknown) =>
-        dispatch(
-          {
+        dispatch({
             type: 'OPEN_MODAL',
             payload: { key, data },
             meta: { timestamp: Date.now(), source: 'ui' },
-          },
-          appStateReducer
-        ),
+          }),
 
       closeModal: (key: string) =>
-        dispatch(
-          {
+        dispatch({
             type: 'CLOSE_MODAL',
             payload: key,
             meta: { timestamp: Date.now(), source: 'ui' },
-          },
-          appStateReducer
-        ),
+          }),
 
       addToast: (toast: Omit<UIState['toasts'][0], 'id' | 'timestamp'>) =>
-        dispatch(
-          {
+        dispatch({
             type: 'ADD_TOAST',
             payload: toast,
             meta: { timestamp: Date.now(), source: 'ui' },
-          },
-          appStateReducer
-        ),
+          }),
 
       removeToast: (id: string) =>
-        dispatch(
-          {
+        dispatch({
             type: 'REMOVE_TOAST',
             payload: id,
             meta: { timestamp: Date.now(), source: 'ui' },
-          },
-          appStateReducer
-        ),
+          }),
 
       setLoading: (key: string | null, loading: boolean) =>
-        dispatch(
-          {
+        dispatch({
             type: 'SET_LOADING',
             payload: { key, loading },
             meta: { timestamp: Date.now(), source: 'ui' },
-          },
-          appStateReducer
-        ),
+          }),
 
       setResponsive: (responsive: Partial<UIState['responsive']>) =>
-        dispatch(
-          {
+        dispatch({
             type: 'SET_RESPONSIVE',
             payload: responsive,
             meta: { timestamp: Date.now(), source: 'ui' },
-          },
-          appStateReducer
-        ),
+          }),
     }),
     [dispatch]
   );
@@ -577,56 +554,41 @@ export function AppStateProvider({
   const userActions = useMemo(
     () => ({
       setProfile: (profile: UserProfile | null) =>
-        dispatch(
-          {
+        dispatch({
             type: 'SET_USER_PROFILE',
             payload: profile,
             meta: { timestamp: Date.now(), source: 'user' },
-          },
-          appStateReducer
-        ),
+          }),
 
       updatePreferences: (
-        preferences: Partial<UserState['data']['preferences']>
+        preferences: Record<string, any>
       ) =>
-        dispatch(
-          {
+        dispatch({
             type: 'UPDATE_USER_PREFERENCES',
             payload: preferences,
             meta: { timestamp: Date.now(), source: 'user' },
-          },
-          appStateReducer
-        ),
+          }),
 
       setSubscription: (subscription: UserSubscription | null) =>
-        dispatch(
-          {
+        dispatch({
             type: 'SET_USER_SUBSCRIPTION',
             payload: subscription,
             meta: { timestamp: Date.now(), source: 'user' },
-          },
-          appStateReducer
-        ),
+          }),
 
       updatePermissions: (permissions: string[]) =>
-        dispatch(
-          {
+        dispatch({
             type: 'UPDATE_USER_PERMISSIONS',
             payload: permissions,
             meta: { timestamp: Date.now(), source: 'user' },
-          },
-          appStateReducer
-        ),
+          }),
 
       setPackageTier: (tier: string) =>
-        dispatch(
-          {
+        dispatch({
             type: 'SET_USER_PACKAGE_TIER',
             payload: tier,
             meta: { timestamp: Date.now(), source: 'user' },
-          },
-          appStateReducer
-        ),
+          }),
     }),
     [dispatch]
   );
@@ -635,67 +597,49 @@ export function AppStateProvider({
   const analyticsActions = useMemo(
     () => ({
       setRankings: (rankings: StockRanking[]) =>
-        dispatch(
-          {
+        dispatch({
             type: 'SET_RANKINGS',
             payload: rankings,
             meta: { timestamp: Date.now(), source: 'analytics' },
-          },
-          appStateReducer
-        ),
+          }),
 
       setFilters: (filters: AnalyticsFilters) =>
-        dispatch(
-          {
+        dispatch({
             type: 'SET_FILTERS',
             payload: filters,
             meta: { timestamp: Date.now(), source: 'analytics' },
-          },
-          appStateReducer
-        ),
+          }),
 
       addBookmark: (symbol: string) =>
-        dispatch(
-          {
+        dispatch({
             type: 'ADD_BOOKMARK',
             payload: symbol,
             meta: { timestamp: Date.now(), source: 'analytics' },
-          },
-          appStateReducer
-        ),
+          }),
 
       removeBookmark: (symbol: string) =>
-        dispatch(
-          {
+        dispatch({
             type: 'REMOVE_BOOKMARK',
             payload: symbol,
             meta: { timestamp: Date.now(), source: 'analytics' },
-          },
-          appStateReducer
-        ),
+          }),
 
       addRecentSearch: (symbol: string) =>
-        dispatch(
-          {
+        dispatch({
             type: 'ADD_RECENT_SEARCH',
             payload: symbol,
             meta: { timestamp: Date.now(), source: 'analytics' },
-          },
-          appStateReducer
-        ),
+          }),
 
       setRealtimeStatus: (status: {
         connected: boolean;
         subscriptions?: string[];
       }) =>
-        dispatch(
-          {
+        dispatch({
             type: 'SET_ANALYTICS_REALTIME_STATUS',
             payload: status,
             meta: { timestamp: Date.now(), source: 'analytics' },
-          },
-          appStateReducer
-        ),
+          }),
     }),
     [dispatch]
   );
@@ -704,65 +648,47 @@ export function AppStateProvider({
   const notificationActions = useMemo(
     () => ({
       setNotifications: (notifications: Notification[]) =>
-        dispatch(
-          {
+        dispatch({
             type: 'SET_NOTIFICATIONS',
             payload: notifications,
             meta: { timestamp: Date.now(), source: 'notifications' },
-          },
-          appStateReducer
-        ),
+          }),
 
       addNotification: (notification: Notification) =>
-        dispatch(
-          {
+        dispatch({
             type: 'ADD_NOTIFICATION',
             payload: notification,
             meta: { timestamp: Date.now(), source: 'notifications' },
-          },
-          appStateReducer
-        ),
+          }),
 
       markRead: (id: string) =>
-        dispatch(
-          {
+        dispatch({
             type: 'MARK_NOTIFICATION_READ',
             payload: id,
             meta: { timestamp: Date.now(), source: 'notifications' },
-          },
-          appStateReducer
-        ),
+          }),
 
       markAllRead: () =>
-        dispatch(
-          {
+        dispatch({
             type: 'MARK_ALL_NOTIFICATIONS_READ',
             meta: { timestamp: Date.now(), source: 'notifications' },
-          },
-          appStateReducer
-        ),
+          }),
 
       updatePreferences: (
-        preferences: Partial<NotificationState['data']['preferences']>
+        preferences: Record<string, any>
       ) =>
-        dispatch(
-          {
+        dispatch({
             type: 'UPDATE_NOTIFICATION_PREFERENCES',
             payload: preferences,
             meta: { timestamp: Date.now(), source: 'notifications' },
-          },
-          appStateReducer
-        ),
+          }),
 
       setRealtimeStatus: (status: { connected: boolean; lastSync?: number }) =>
-        dispatch(
-          {
+        dispatch({
             type: 'SET_NOTIFICATION_REALTIME_STATUS',
             payload: status,
             meta: { timestamp: Date.now(), source: 'notifications' },
-          },
-          appStateReducer
-        ),
+          }),
     }),
     [dispatch]
   );
@@ -771,52 +697,37 @@ export function AppStateProvider({
   const cacheActions = useMemo(
     () => ({
       setStockData: (symbol: string, data: StockItem, ttl?: number) =>
-        dispatch(
-          {
+        dispatch({
             type: 'SET_STOCK_DATA',
             payload: { symbol, data, ttl },
             meta: { timestamp: Date.now(), source: 'cache' },
-          },
-          appStateReducer
-        ),
+          }),
 
       setRankingsData: (key: string, data: StockRanking[], ttl?: number) =>
-        dispatch(
-          {
+        dispatch({
             type: 'SET_RANKINGS_DATA',
             payload: { key, data, ttl },
             meta: { timestamp: Date.now(), source: 'cache' },
-          },
-          appStateReducer
-        ),
+          }),
 
       setAnalyticsData: (key: string, data: unknown, ttl?: number) =>
-        dispatch(
-          {
+        dispatch({
             type: 'SET_ANALYTICS_DATA',
             payload: { key, data, ttl },
             meta: { timestamp: Date.now(), source: 'cache' },
-          },
-          appStateReducer
-        ),
+          }),
 
       clearExpired: () =>
-        dispatch(
-          {
+        dispatch({
             type: 'CLEAR_EXPIRED_CACHE',
             meta: { timestamp: Date.now(), source: 'cache' },
-          },
-          appStateReducer
-        ),
+          }),
 
       clearAll: () =>
-        dispatch(
-          {
+        dispatch({
             type: 'CLEAR_ALL_CACHE',
             meta: { timestamp: Date.now(), source: 'cache' },
-          },
-          appStateReducer
-        ),
+          }),
     }),
     [dispatch]
   );

@@ -124,7 +124,7 @@ pub struct TradingViewConfig {
 }
 
 impl From<&Config> for TradingViewConfig {
-    fn from(config: &Config) -> Self {
+    fn from(_config: &Config) -> Self {
         Self {
             scanner_api_url: "https://scanner.tradingview.com/global/scan?label-product=screener-stock".to_string(),
             websocket_url: "wss://data.tradingview.com/socket.io/websocket".to_string(),

@@ -310,6 +310,146 @@ impl Payment {
         Ok(())
     }
 
+    /// Start blockchain verification process
+    pub fn start_blockchain_verification(&mut self, tx_hash: TransactionHash) -> Result<(), PaymentError> {
+        if !matches!(self.status, PaymentStatus::AwaitingPayment) {
+            return Err(PaymentError::InvalidStatusTransition {
+                from: self.status.clone(),
+                to: PaymentStatus::PendingVerification,
+                reason: "Can only start verification for awaiting payments".to_string(),
+            });
+        }
+
+        if let Some(details) = &mut self.crypto_details {
+            details.transaction_hash = Some(tx_hash.clone());
+            details.start_verification();
+            self.status = PaymentStatus::PendingVerification;
+            self.metadata.updated_at = Utc::now();
+
+            self.base.add_event(Box::new(PaymentVerificationStarted {
+                payment_id: self.id.clone(),
+                transaction_hash: tx_hash,
+                timestamp: Utc::now(),
+            }));
+        } else {
+            return Err(PaymentError::NotCryptoPayment);
+        }
+
+        Ok(())
+    }
+
+    /// Mark payment as verifying on blockchain
+    pub fn mark_verifying(&mut self) -> Result<(), PaymentError> {
+        if !matches!(self.status, PaymentStatus::PendingVerification) {
+            return Err(PaymentError::InvalidStatusTransition {
+                from: self.status.clone(),
+                to: PaymentStatus::Verifying,
+                reason: "Can only mark as verifying from pending verification".to_string(),
+            });
+        }
+
+        self.status = PaymentStatus::Verifying;
+        self.metadata.updated_at = Utc::now();
+
+        Ok(())
+    }
+
+    /// Complete blockchain verification successfully
+    pub fn complete_blockchain_verification(
+        &mut self,
+        block_number: u64,
+        block_timestamp: DateTime<Utc>,
+        verified_amount: Decimal,
+        verified_recipient: String,
+        token_contract: String,
+        confirmations: u32,
+    ) -> Result<(), PaymentError> {
+        if !matches!(self.status, PaymentStatus::Verifying | PaymentStatus::PendingVerification) {
+            return Err(PaymentError::InvalidStatusTransition {
+                from: self.status.clone(),
+                to: PaymentStatus::Confirmed,
+                reason: "Can only complete verification from verifying state".to_string(),
+            });
+        }
+
+        if let Some(details) = &mut self.crypto_details {
+            details.mark_verified(
+                block_number,
+                block_timestamp,
+                verified_amount,
+                verified_recipient.clone(),
+                token_contract.clone(),
+            );
+            details.confirmations = confirmations;
+            
+            self.status = PaymentStatus::Confirmed;
+            self.metadata.mark_confirmed();
+
+            self.base.add_event(Box::new(PaymentBlockchainVerified {
+                payment_id: self.id.clone(),
+                block_number,
+                block_timestamp,
+                verified_amount,
+                verified_recipient,
+                token_contract,
+                confirmations,
+                timestamp: Utc::now(),
+            }));
+        } else {
+            return Err(PaymentError::NotCryptoPayment);
+        }
+
+        Ok(())
+    }
+
+    /// Fail blockchain verification
+    pub fn fail_blockchain_verification(&mut self, error_reason: String) -> Result<(), PaymentError> {
+        if !matches!(self.status, PaymentStatus::Verifying | PaymentStatus::PendingVerification) {
+            return Err(PaymentError::InvalidStatusTransition {
+                from: self.status.clone(),
+                to: PaymentStatus::VerificationFailed,
+                reason: "Can only fail verification from verifying state".to_string(),
+            });
+        }
+
+        if let Some(details) = &mut self.crypto_details {
+            details.mark_verification_failed(error_reason.clone());
+            self.status = PaymentStatus::VerificationFailed;
+            self.metadata.mark_failed(Utc::now(), error_reason.clone());
+
+            self.base.add_event(Box::new(PaymentVerificationFailed {
+                payment_id: self.id.clone(),
+                error_reason,
+                timestamp: Utc::now(),
+            }));
+        } else {
+            return Err(PaymentError::NotCryptoPayment);
+        }
+
+        Ok(())
+    }
+
+    /// Mark payment as pending confirmations
+    pub fn mark_pending_confirmations(&mut self) -> Result<(), PaymentError> {
+        if !matches!(self.status, PaymentStatus::Verifying | PaymentStatus::PendingVerification) {
+            return Err(PaymentError::InvalidStatusTransition {
+                from: self.status.clone(),
+                to: PaymentStatus::PendingVerification,
+                reason: "Can only mark pending confirmations from verifying state".to_string(),
+            });
+        }
+
+        if let Some(details) = &mut self.crypto_details {
+            details.mark_pending_confirmations();
+            self.status = PaymentStatus::PendingVerification;
+            self.metadata.updated_at = Utc::now();
+        } else {
+            return Err(PaymentError::NotCryptoPayment);
+        }
+
+        Ok(())
+    }
+
     /// Check if payment is in final state
     pub fn is_final(&self) -> bool {
         matches!(
@@ -359,11 +499,7 @@ impl Payment {
                     self.method.network().unwrap().clone(),
                 ));
             }
-            PaymentMethodType::BankTransfer | PaymentMethodType::CreditCard => {
-                self.fiat_details = Some(FiatPaymentDetails::new(
-                    self.method.method_type().clone(),
-                ));
-            }
+            // Only crypto payments supported in Web3-first approach
         }
 
         Ok(())
@@ -413,6 +549,12 @@ pub enum PaymentStatus {
     Created,
     /// Awaiting payment from user (crypto address assigned)
     AwaitingPayment,
+    /// Transaction submitted by user, awaiting blockchain verification
+    PendingVerification,
+    /// Blockchain verification in progress
+    Verifying,
+    /// Blockchain verification failed
+    VerificationFailed,
     /// Payment has been received and confirmed on blockchain
     Confirmed,
     /// Payment is being processed
@@ -436,6 +578,9 @@ impl std::str::FromStr for PaymentStatus {
         match s.to_lowercase().as_str() {
             "created" => Ok(PaymentStatus::Created),
             "awaiting_payment" | "awaiting" => Ok(PaymentStatus::AwaitingPayment),
+            "pending_verification" | "pending" => Ok(PaymentStatus::PendingVerification),
+            "verifying" => Ok(PaymentStatus::Verifying),
+            "verification_failed" => Ok(PaymentStatus::VerificationFailed),
             "confirmed" => Ok(PaymentStatus::Confirmed),
             "processing" => Ok(PaymentStatus::Processing),
             "completed" => Ok(PaymentStatus::Completed),
@@ -457,6 +602,9 @@ impl PaymentStatus {
         match self {
             PaymentStatus::Created => "created",
             PaymentStatus::AwaitingPayment => "awaiting_payment",
+            PaymentStatus::PendingVerification => "pending_verification",
+            PaymentStatus::Verifying => "verifying",
+            PaymentStatus::VerificationFailed => "verification_failed",
             PaymentStatus::Confirmed => "confirmed",
             PaymentStatus::Processing => "processing",
             PaymentStatus::Completed => "completed",
@@ -471,7 +619,8 @@ impl PaymentStatus {
         matches!(
             self,
             PaymentStatus::Completed | PaymentStatus::Failed | 
-            PaymentStatus::Cancelled | PaymentStatus::Refunded
+            PaymentStatus::Cancelled | PaymentStatus::Refunded |
+            PaymentStatus::VerificationFailed
         )
     }
 }
@@ -554,6 +703,37 @@ pub struct CryptoPaymentDetails {
     pub payment_address: Option<CryptoAddress>,
     pub transaction_hash: Option<TransactionHash>,
     pub confirmations: u32,
+    /// Blockchain verification status
+    pub verification_status: BlockchainVerificationStatus,
+    /// Block number where transaction was mined
+    pub block_number: Option<u64>,
+    /// Block timestamp when transaction was mined
+    pub block_timestamp: Option<DateTime<Utc>>,
+    /// Amount verified on blockchain (in token units)
+    pub verified_amount: Option<Decimal>,
+    /// Recipient address verified on blockchain
+    pub verified_recipient: Option<String>,
+    /// Token contract address used for verification
+    pub token_contract: Option<String>,
+    /// Verification failure reason if any
+    pub verification_error: Option<String>,
+    /// Last verification attempt timestamp
+    pub last_verification_attempt: Option<DateTime<Utc>>,
+}
+
+/// Blockchain verification status for crypto payments
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BlockchainVerificationStatus {
+    /// Not yet verified
+    NotVerified,
+    /// Verification in progress
+    InProgress,
+    /// Successfully verified on blockchain
+    Verified,
+    /// Verification failed
+    Failed,
+    /// Pending insufficient confirmations
+    PendingConfirmations,
 }
 
 impl CryptoPaymentDetails {
@@ -564,7 +744,59 @@ impl CryptoPaymentDetails {
             payment_address: None,
             transaction_hash: None,
             confirmations: 0,
+            verification_status: BlockchainVerificationStatus::NotVerified,
+            block_number: None,
+            block_timestamp: None,
+            verified_amount: None,
+            verified_recipient: None,
+            token_contract: None,
+            verification_error: None,
+            last_verification_attempt: None,
         }
+    }
+    
+    /// Mark verification as in progress
+    pub fn start_verification(&mut self) {
+        self.verification_status = BlockchainVerificationStatus::InProgress;
+        self.last_verification_attempt = Some(Utc::now());
+        self.verification_error = None;
+    }
+    
+    /// Mark verification as successful with blockchain data
+    pub fn mark_verified(
+        &mut self,
+        block_number: u64,
+        block_timestamp: DateTime<Utc>,
+        verified_amount: Decimal,
+        verified_recipient: String,
+        token_contract: String,
+    ) {
+        self.verification_status = BlockchainVerificationStatus::Verified;
+        self.block_number = Some(block_number);
+        self.block_timestamp = Some(block_timestamp);
+        self.verified_amount = Some(verified_amount);
+        self.verified_recipient = Some(verified_recipient);
+        self.token_contract = Some(token_contract);
+        self.verification_error = None;
+    }
+    
+    /// Mark verification as failed with error reason
+    pub fn mark_verification_failed(&mut self, error: String) {
+        self.verification_status = BlockchainVerificationStatus::Failed;
+        self.verification_error = Some(error);
+    }
+    
+    /// Mark as pending confirmations
+    pub fn mark_pending_confirmations(&mut self) {
+        self.verification_status = BlockchainVerificationStatus::PendingConfirmations;
+    }
+    
+    /// Check if verification is complete (either verified or failed)
+    pub fn is_verification_complete(&self) -> bool {
+        matches!(
+            self.verification_status,
+            BlockchainVerificationStatus::Verified | BlockchainVerificationStatus::Failed
+        )
     }
 
     pub fn update_confirmations(&mut self, confirmations: u32) {
@@ -854,6 +1086,32 @@ pub struct PaymentRefundCompleted {
     pub timestamp: DateTime<Utc>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaymentVerificationStarted {
+    pub payment_id: PaymentId,
+    pub transaction_hash: TransactionHash,
+    pub timestamp: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaymentBlockchainVerified {
+    pub payment_id: PaymentId,
+    pub block_number: u64,
+    pub block_timestamp: DateTime<Utc>,
+    pub verified_amount: Decimal,
+    pub verified_recipient: String,
+    pub token_contract: String,
+    pub confirmations: u32,
+    pub timestamp: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PaymentVerificationFailed {
+    pub payment_id: PaymentId,
+    pub error_reason: String,
+    pub timestamp: DateTime<Utc>,
+}
+
 impl DomainEvent for PaymentRefundCompleted {
     fn event_id(&self) -> Uuid {
         Uuid::new_v4()
@@ -876,6 +1134,84 @@ impl DomainEvent for PaymentRefundCompleted {
         self.payment_id.to_string()
     }
 
+
+    fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
+        Ok(serde_json::to_string(self)?)
+    }
+}
+
+impl DomainEvent for PaymentVerificationStarted {
+    fn event_id(&self) -> Uuid {
+        Uuid::new_v4()
+    }
+
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.timestamp
+    }
+
+    fn aggregate_version(&self) -> u64 {
+        1
+    }
+
+    fn event_type(&self) -> &'static str {
+        "payment.verification_started"
+    }
+
+    fn aggregate_id(&self) -> String {
+        self.payment_id.to_string()
+    }
+
+    fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
+        Ok(serde_json::to_string(self)?)
+    }
+}
+
+impl DomainEvent for PaymentBlockchainVerified {
+    fn event_id(&self) -> Uuid {
+        Uuid::new_v4()
+    }
+
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.timestamp
+    }
+
+    fn aggregate_version(&self) -> u64 {
+        1
+    }
+
+    fn event_type(&self) -> &'static str {
+        "payment.blockchain_verified"
+    }
+
+    fn aggregate_id(&self) -> String {
+        self.payment_id.to_string()
+    }
+
+    fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
+        Ok(serde_json::to_string(self)?)
+    }
+}
+
+impl DomainEvent for PaymentVerificationFailed {
+    fn event_id(&self) -> Uuid {
+        Uuid::new_v4()
+    }
+
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.timestamp
+    }
+
+    fn aggregate_version(&self) -> u64 {
+        1
+    }
+
+    fn event_type(&self) -> &'static str {
+        "payment.verification_failed"
+    }
+
+    fn aggregate_id(&self) -> String {
+        self.payment_id.to_string()
+    }
 
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)

@@ -1,13 +1,14 @@
 /**
  * Consolidated Permission Actions
  * Combines: permission-export-import-actions.ts, temporary-permission-actions.ts, 
- * embedded-permission-actions.ts, app/actions/permission-actions.ts
+ * app/actions/permission-actions.ts (embedded-permission-actions.ts removed)
  */
 
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { makeAuthenticatedRequest, createSuccessResult, createErrorResult, type ActionResult } from './shared-utils';
+import { makeAuthenticatedRequest } from './shared-utils';
+import { createSuccessResult, createErrorResult, type ActionResult } from '@/lib/action-utils';
 
 // ============================================================================
 // TYPES AND INTERFACES
@@ -226,58 +227,7 @@ export async function getExpiringTemporaryPermissions(daysAhead: number = 7): Pr
 // EMBEDDED TIMESTAMP PERMISSION OPERATIONS
 // ============================================================================
 
-/**
- * Grant embedded timestamp permission
- */
-export async function grantEmbeddedPermission(grant: {
-  userId: string;
-  permission: string;
-  expiryTimestamp: number;
-  reason?: string;
-}): Promise<ActionResult<void>> {
-  try {
-    // Convert to embedded format: "platform:resource:action:timestamp"
-    const embeddedPermission = `${grant.permission}:${grant.expiryTimestamp}`;
-    
-    await makeAuthenticatedRequest('/admin/permissions/embedded', {
-      method: 'POST',
-      body: JSON.stringify({
-        userId: grant.userId,
-        permission: embeddedPermission,
-        reason: grant.reason
-      })
-    });
-
-    revalidatePath('/permissions');
-    revalidatePath(`/users/${grant.userId}`);
-    return createSuccessResult(undefined, 'Embedded permission granted successfully');
-  } catch (error) {
-    console.error('Failed to grant embedded permission:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to grant embedded permission');
-  }
-}
-
-/**
- * Get embedded permissions with health check
- */
-export async function getEmbeddedPermissionsHealth(): Promise<ActionResult<{
-  totalEmbedded: number;
-  expiring: number;
-  expired: number;
-  healthScore: number;
-  predictions: Array<{
-    date: string;
-    expiringCount: number;
-  }>;
-}>> {
-  try {
-    const response = await makeAuthenticatedRequest('/admin/permissions/embedded/health');
-    return createSuccessResult(response);
-  } catch (error) {
-    console.error('Failed to fetch embedded permissions health:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to fetch embedded permissions health');
-  }
-}
+// Embedded permission functions removed - migrated to group-based permissions
 
 // ============================================================================
 // PERMISSION EXPORT/IMPORT OPERATIONS

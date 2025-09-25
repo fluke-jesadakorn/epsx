@@ -1,93 +1,79 @@
 /**
- * Enhanced Session Validation Middleware for Frontend (Trading Platform)
- * Integrates with backend session validation API for 100% route coverage
- * Provides comprehensive security logging, performance monitoring, and tier-based access control
+ * Web3 Enterprise Authentication Middleware for Frontend
+ * Validates Web3 wallet authentication and enterprise tier access
+ * Provides comprehensive security logging and performance monitoring
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { validateUserSession, canAccessUserPath } from '@/lib/session-validator';
-import { devLog, authLogger, logger } from '@/lib/utils/logging';
-import { getBackendUrl, getFrontendUrl } from '../../shared/utils/url-resolver';
+import { enterpriseUrls } from '@/config/env';
 
-// Public routes that don't require authentication
+// Public routes that don't require Web3 authentication
 const publicRoutes = [
   '/',
-  '/register', 
-  '/forgot-password',
-  '/reset-password',
-  '/verify-email',
+  '/connect-wallet',
   '/access-denied',
-  '/unauthorized',
+  '/unauthorized', 
   '/terms',
   '/privacy',
   '/analytics',
   '/login',
   '/upgrade',
-  '/api/auth/callback/epsx-backend',
-  '/api/auth/initiate',
-  '/api/auth/login',
-  '/api/auth/signin',
-  '/api/auth/signout',
-  '/api/auth/logout',
+  '/api/auth/web3/challenge',
+  '/api/auth/web3/authenticate',
+  '/api/auth/web3/verify',
+  '/api/auth/web3/logout',
   '/api/auth/session',
-  // New versioned auth routes
-  '/api/v1/auth/callback/epsx-backend',
-  '/api/v1/auth/initiate',
-  '/api/v1/auth/sessions',
-  '/api/v1/auth/users',
-  '/api/v1/auth/user',
-  '/api/v1/auth/tokens/refresh',
-  '/api/v1/validations/emails',
-  '/api/v1/validations/passwords',
-  '/api/public', // Allow public API routes to handle auth themselves
+  '/api/public',
   '/_next',
   '/favicon.ico'
 ]
 
-// Premium routes that require specific package tiers
-const premiumRoutes: Record<string, string> = {
-  '/premium': 'BRONZE',
-  '/advanced-analytics': 'BRONZE',
-  '/professional': 'SILVER',
-  '/alerts': 'SILVER',
-  '/vip': 'GOLD',
-  '/priority-support': 'GOLD',
-  '/elite': 'PLATINUM',
-  '/custom-dashboards': 'PLATINUM',
-  '/enterprise': 'ENTERPRISE',
-  '/api-access': 'ENTERPRISE'
+// Enterprise tier routes that require specific access levels
+const enterpriseRoutes: Record<string, string> = {
+  '/starter': 'Starter',        // $1,000+ in verified tokens
+  '/business': 'Business',      // $10,000+ in tokens OR enterprise NFT
+  '/enterprise': 'Enterprise',  // $100,000+ in tokens OR DAO membership
+  '/whale': 'Whale',           // $1,000,000+ in tokens (unlimited access)
+  '/marketplace': 'Starter',    // Marketplace access
+  '/billing': 'Starter',        // Billing dashboard
+  '/api-access': 'Business',    // API key generation
+  '/advanced-analytics': 'Business',
+  '/white-label': 'Enterprise',
+  '/custom-integration': 'Enterprise',
+  '/priority-support': 'Whale',
+  '/unlimited-access': 'Whale'
 }
 
-// Performance monitoring interface
-interface MiddlewareMetrics {
-  startTime: number
-  path: string
-  method: string
-  userAgent?: string
-  ipAddress?: string
+// Web3 Enterprise User interface
+interface EnterpriseUser {
+  wallet_address: string;
+  enterprise_tier: string;
+  permissions: string[];
+  has_api_access: boolean;
+  verified_tokens_usd: number;
+  nft_collections: string[];
+  dao_memberships: string[];
 }
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const startTime = performance.now();
   
-  // /login is now handled by API route instead of middleware
-  
-  // Extract request metadata for session validation
+  // Extract request metadata for authentication
   const userAgent = request.headers.get('user-agent') || undefined;
   const ipAddress = getClientIpAddress(request);
   const method = request.method;
   
-  // Create response with enhanced security headers for trading platform
+  // Create response with enhanced security headers for Web3 enterprise platform
   const response = NextResponse.next();
   
-  // Add comprehensive security headers for trading platform
+  // Add comprehensive security headers
   response.headers.set('x-pathname', pathname);
   response.headers.set('x-middleware-timestamp', Date.now().toString());
   response.headers.set('X-Content-Type-Options', 'nosniff');
-  response.headers.set('X-Frame-Options', 'SAMEORIGIN'); // Allow framing for charts/widgets
+  response.headers.set('X-Frame-Options', 'SAMEORIGIN');
   response.headers.set('X-XSS-Protection', '1; mode=block');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  response.headers.set('X-Robots-Tag', 'index, follow'); // Allow indexing for public content
+  response.headers.set('X-Robots-Tag', 'index, follow');
   response.headers.set('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=*');
   response.headers.set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   
@@ -103,103 +89,80 @@ export async function middleware(request: NextRequest) {
   }
   
   try {
-    devLog(`Validating session for ${pathname} (${method})`);
+    // Validate Web3 enterprise authentication
+    const authResult = await validateWeb3Authentication(request);
     
-    // Use session validator service
-    const validationResult = await validateUserSession({
-      userAgent,
-      ipAddress,
-      path: pathname,
-      method
-    });
-    
-    if (!validationResult.valid || !validationResult.user) {
-      authLogger.warn(`Session validation failed for ${pathname}`, validationResult.error);
-      
-      // Log security event for failed validation
+    if (!authResult.valid || !authResult.user) {
+      // Log security event for failed authentication
       await logSecurityEvent({
-        type: 'AUTHENTICATION_FAILED',
+        type: 'WEB3_AUTHENTICATION_FAILED',
         userAgent,
         ipAddress,
         path: pathname,
         method,
-        details: { error: validationResult.error }
+        details: { error: authResult.error }
       });
       
-      // Redirect to login
-      return redirectToLogin(request);
+      // Redirect to wallet connection
+      return redirectToWalletConnect(request);
     }
     
-    const user = validationResult.user;
+    const user = authResult.user;
     
-    // Check tier-based access control for premium routes
-    const requiredTier = Object.entries(premiumRoutes).find(([route]) => 
+    // Check enterprise tier access for protected routes
+    const requiredTier = Object.entries(enterpriseRoutes).find(([route]) => 
       pathname.startsWith(route)
     )?.[1];
     
     if (requiredTier) {
-      if (!canAccessUserPath(user, pathname)) {
-        authLogger.warn(`Access denied: User ${user.email} lacks tier ${requiredTier} for ${pathname}`);
-        
+      if (!hasEnterpriseAccess(user, requiredTier)) {
         // Log security event for access denied
         await logSecurityEvent({
-          type: 'ACCESS_DENIED',
-          userId: user.id,
+          type: 'ENTERPRISE_ACCESS_DENIED',
+          walletAddress: user.wallet_address,
           userAgent,
           ipAddress,
           path: pathname,
           method,
           details: { 
             requiredTier, 
-            userTier: user.package_tier,
-            requiredFeatures: pathname 
+            userTier: user.enterprise_tier,
+            verifiedTokensUsd: user.verified_tokens_usd
           }
         });
         
         const upgradeUrl = new URL('/upgrade', request.url);
         upgradeUrl.searchParams.set('tier', requiredTier);
         upgradeUrl.searchParams.set('feature', pathname);
-        upgradeUrl.searchParams.set('current', user.package_tier);
+        upgradeUrl.searchParams.set('current', user.enterprise_tier);
         return NextResponse.redirect(upgradeUrl);
       }
     }
     
-    // Add user info to headers for server components
-    response.headers.set('x-user-id', user.id);
-    response.headers.set('x-user-email', user.email);
-    response.headers.set('x-user-role', user.role);
-    response.headers.set('x-user-permissions', JSON.stringify(user.permissions || []));
-    response.headers.set('x-user-package-tier', user.package_tier);
+    // Add Web3 user info to headers for server components
+    response.headers.set('x-wallet-address', user.wallet_address);
+    response.headers.set('x-enterprise-tier', user.enterprise_tier);
+    response.headers.set('x-verified-tokens-usd', user.verified_tokens_usd.toString());
+    response.headers.set('x-has-api-access', user.has_api_access.toString());
+    response.headers.set('x-permissions', JSON.stringify(user.permissions || []));
     
     // Add performance metrics
     const elapsedTime = performance.now() - startTime;
     response.headers.set('x-middleware-performance', elapsedTime.toString());
-    response.headers.set('x-session-cache-hit', validationResult.performance?.cache_hit.toString() || 'false');
-    response.headers.set('x-session-validation-time', validationResult.performance?.validation_time_ms.toString() || '0');
-    
-    // Log successful access
-    if (elapsedTime > 100) { // Log slow requests
-      logger.warn(`User middleware: Slow validation for ${pathname}: ${elapsedTime.toFixed(2)}ms`);
-    }
-    
-    devLog(`Authenticated ${user.email} (${user.role}/${user.package_tier}) accessing ${pathname} in ${elapsedTime.toFixed(2)}ms`);
     
     // Log performance metrics to backend
     await recordPerformanceMetrics({
       path: pathname,
       method,
       middlewareExecutionTime: elapsedTime,
-      cacheHit: validationResult.performance?.cache_hit || false,
-      sessionValidationTime: validationResult.performance?.validation_time_ms || 0,
-      permissionCheckTime: 0, // TODO: Measure permission check time
-      totalRequestTime: elapsedTime
+      walletAddress: user.wallet_address,
+      enterpriseTier: user.enterprise_tier
     });
     
     return response;
     
   } catch (error) {
-    logger.error('User middleware validation error', error instanceof Error ? error.message : 'Unknown error');
-    const elapsedTime = performance.now() - startTime;
+    console.error('Web3 middleware validation error:', error);
     
     // Log security event for middleware error
     await logSecurityEvent({
@@ -209,45 +172,118 @@ export async function middleware(request: NextRequest) {
       path: pathname,
       method,
       details: { 
-        error: error instanceof Error ? error.message : 'Unknown error',
-        elapsedTime
+        error: error instanceof Error ? error.message : 'Unknown error'
       }
     });
     
-    // Redirect to login on any validation error
-    return redirectToLogin(request);
+    // Redirect to wallet connection on any validation error
+    return redirectToWalletConnect(request);
   }
 }
 
 /**
- * Create redirect response to backend login for trading platform users
+ * Create redirect response to Web3 wallet connection
  */
-function redirectToLogin(request: NextRequest): NextResponse {
+function redirectToWalletConnect(request: NextRequest): NextResponse {
   const callbackPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
-  const loginUrl = new URL('/login', request.url);
-  loginUrl.searchParams.set('redirectTo', callbackPath);
+  const connectUrl = new URL('/connect-wallet', request.url);
+  connectUrl.searchParams.set('redirectTo', callbackPath);
 
-  const redirect = NextResponse.redirect(loginUrl.toString());
-  // Clear any invalid JWT token
-  redirect.cookies.delete('epsx_jwt');
+  const redirect = NextResponse.redirect(connectUrl.toString());
+  // Clear any invalid session tokens
+  redirect.cookies.delete('access_token');
+  redirect.cookies.delete('id_token');
+  redirect.cookies.delete('refresh_token');
   return redirect;
 }
 
 /**
- * Log security event to backend security API
+ * Validate Web3 enterprise authentication
+ */
+async function validateWeb3Authentication(request: NextRequest): Promise<{
+  valid: boolean;
+  user?: EnterpriseUser;
+  error?: string;
+}> {
+  try {
+    // Extract Bearer token from Authorization header or session cookies
+    const authHeader = request.headers.get('authorization');
+    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    
+    // Fallback to session cookies
+    const accessToken = bearerToken || request.cookies.get('access_token')?.value;
+    
+    if (!accessToken) {
+      return { valid: false, error: 'No authentication token found' };
+    }
+    
+    // Validate with enterprise API
+    const response = await fetch(enterpriseUrls.permissions, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      return { valid: false, error: `Authentication validation failed: ${response.status}` };
+    }
+    
+    const data = await response.json();
+    
+    return {
+      valid: true,
+      user: {
+        wallet_address: data.wallet_address,
+        enterprise_tier: data.enterprise_tier,
+        permissions: data.permissions || [],
+        has_api_access: data.has_api_access || false,
+        verified_tokens_usd: data.verified_tokens_usd || 0,
+        nft_collections: data.nft_collections || [],
+        dao_memberships: data.dao_memberships || []
+      }
+    };
+    
+  } catch (error) {
+    return { 
+      valid: false, 
+      error: error instanceof Error ? error.message : 'Authentication validation error' 
+    };
+  }
+}
+
+/**
+ * Check if user has access to required enterprise tier
+ */
+function hasEnterpriseAccess(user: EnterpriseUser, requiredTier: string): boolean {
+  const tierHierarchy = {
+    'Starter': 1,
+    'Business': 2,
+    'Enterprise': 3,
+    'Whale': 4
+  };
+  
+  const userLevel = tierHierarchy[user.enterprise_tier as keyof typeof tierHierarchy] || 0;
+  const requiredLevel = tierHierarchy[requiredTier as keyof typeof tierHierarchy] || 1;
+  
+  return userLevel >= requiredLevel;
+}
+
+/**
+ * Log security event to enterprise backend API
  */
 interface SecurityEventDetails {
   error?: string;
   requiredTier?: string;
   userTier?: string;
-  requiredFeatures?: string;
-  elapsedTime?: number;
+  verifiedTokensUsd?: number;
   [key: string]: unknown;
 }
 
 async function logSecurityEvent(event: {
   type: string
-  userId?: string
+  walletAddress?: string
   userAgent?: string
   ipAddress?: string
   path: string
@@ -255,9 +291,7 @@ async function logSecurityEvent(event: {
   details: SecurityEventDetails
 }): Promise<void> {
   try {
-    const backendUrl = getBackendUrl('client');
-    
-    const response = await fetch(`${backendUrl}/api/security/events`, {
+    const response = await fetch(`${enterpriseUrls.health.replace('/health', '/security/events')}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -265,7 +299,7 @@ async function logSecurityEvent(event: {
       body: JSON.stringify({
         event_type: event.type,
         severity: determineSeverity(event.type),
-        user_id: event.userId,
+        wallet_address: event.walletAddress,
         ip_address: event.ipAddress,
         user_agent: event.userAgent,
         path: event.path,
@@ -277,30 +311,26 @@ async function logSecurityEvent(event: {
     });
     
     if (!response.ok) {
-      logger.warn(`Failed to log security event: ${response.status}`);
+      console.warn(`Failed to log security event: ${response.status}`);
     }
   } catch (error) {
-    logger.error('Failed to log security event', error instanceof Error ? error.message : 'Unknown error');
+    console.error('Failed to log security event:', error);
     // Don't throw - security logging is non-critical for middleware flow
   }
 }
 
 /**
- * Record performance metrics to backend monitoring API
+ * Record performance metrics to enterprise backend
  */
 async function recordPerformanceMetrics(metrics: {
   path: string
   method: string
   middlewareExecutionTime: number
-  cacheHit: boolean
-  sessionValidationTime: number
-  permissionCheckTime: number
-  totalRequestTime: number
+  walletAddress: string
+  enterpriseTier: string
 }): Promise<void> {
   try {
-    const backendUrl = getBackendUrl('client');
-    
-    const response = await fetch(`${backendUrl}/api/security/metrics`, {
+    const response = await fetch(`${enterpriseUrls.health.replace('/health', '/metrics')}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -310,30 +340,28 @@ async function recordPerformanceMetrics(metrics: {
         path: metrics.path,
         method: metrics.method,
         middleware_execution_time: metrics.middlewareExecutionTime,
-        cache_hit_rate: metrics.cacheHit ? 1.0 : 0.0,
-        session_validation_time: metrics.sessionValidationTime,
-        permission_check_time: metrics.permissionCheckTime,
-        total_request_time: metrics.totalRequestTime,
+        wallet_address: metrics.walletAddress,
+        enterprise_tier: metrics.enterpriseTier,
         timestamp: new Date().toISOString()
       })
     });
     
     if (!response.ok) {
-      logger.warn(`Failed to record performance metrics: ${response.status}`);
+      console.warn(`Failed to record performance metrics: ${response.status}`);
     }
   } catch (error) {
-    logger.error('Failed to record performance metrics', error instanceof Error ? error.message : 'Unknown error');
+    console.error('Failed to record performance metrics:', error);
     // Don't throw - metrics recording is non-critical for middleware flow
   }
 }
 
 /**
- * Determine security event severity based on event type
+ * Determine security event severity for Web3 enterprise events
  */
 function determineSeverity(eventType: string): string {
-  const criticalEvents = ['PRIVILEGE_ESCALATION_ATTEMPT', 'ACCOUNT_LOCKED', 'SUSPICIOUS_ACTIVITY'];
-  const highEvents = ['AUTHENTICATION_FAILED', 'ACCESS_DENIED', 'RATE_LIMIT_EXCEEDED', 'MIDDLEWARE_ERROR'];
-  const mediumEvents = ['SESSION_EXPIRED', 'INVALID_TOKEN'];
+  const criticalEvents = ['WALLET_COMPROMISE_DETECTED', 'ENTERPRISE_BREACH_ATTEMPT', 'SUSPICIOUS_TRANSACTION'];
+  const highEvents = ['WEB3_AUTHENTICATION_FAILED', 'ENTERPRISE_ACCESS_DENIED', 'RATE_LIMIT_EXCEEDED', 'MIDDLEWARE_ERROR'];
+  const mediumEvents = ['TOKEN_EXPIRED', 'INVALID_SIGNATURE', 'TIER_INSUFFICIENT'];
   
   if (criticalEvents.includes(eventType)) return 'CRITICAL';
   if (highEvents.includes(eventType)) return 'HIGH';
@@ -342,7 +370,7 @@ function determineSeverity(eventType: string): string {
 }
 
 /**
- * Safely extract client IP address from NextRequest with proper type safety
+ * Safely extract client IP address from NextRequest
  */
 function getClientIpAddress(request: NextRequest): string | undefined {
   // Check headers in order of preference

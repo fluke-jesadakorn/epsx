@@ -83,7 +83,7 @@ export function getChartColor(index: number): string {
  * Get gradient colors for Windows Phone tiles
  */
 export function getGradientColors(type: keyof typeof PancakeSwapColors.gradients): [string, string] {
-  return PancakeSwapColors.gradients[type]
+  return PancakeSwapColors.gradients[type] as [string, string]
 }
 
 /**

@@ -283,7 +283,7 @@ export function AdminWalletPermissions({
           <CardTitle>Permission Details</CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="admin" className="w-full">
+          <Tabs value="admin" onValueChange={() => {}} className="w-full">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="admin">Admin Permissions</TabsTrigger>
               <TabsTrigger value="platform">Platform Access</TabsTrigger>

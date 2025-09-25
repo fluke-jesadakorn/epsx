@@ -10,7 +10,7 @@ use uuid::Uuid;
 use crate::core::errors::AppError;
 use crate::infrastructure::adapters::services::{FcmService, FcmNotification};
 use crate::web::notifications::dto::*;
-use crate::web::middleware::AuthenticatedUser;
+use crate::infrastructure::container::AuthenticatedUser;
 
 #[derive(Debug, serde::Deserialize)]
 pub struct PaginationQuery {

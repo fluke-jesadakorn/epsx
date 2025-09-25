@@ -647,7 +647,7 @@ function getUrgencyConfig(urgency: string) {
       icon: Shield
     }
   }
-  return configs[urgency] || configs.normal
+  return configs[urgency as keyof typeof configs] || configs.normal
 }
 
 function getUrgencyIconColor(urgency: string): string {

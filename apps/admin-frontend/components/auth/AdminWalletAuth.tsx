@@ -8,6 +8,7 @@ import { Wallet, LogOut, Shield, Crown, AlertTriangle, CheckCircle } from 'lucid
 import { Button } from '@/components/ui/button';
 import { useRouter } from 'next/navigation';
 import { toast } from 'react-hot-toast';
+import { usePermissionCache } from '@/lib/auth/permission-cache-service';
 
 interface AdminWalletAuthProps {
   onAuthSuccess?: (walletAddress: string) => void;
@@ -42,6 +43,7 @@ export function AdminWalletAuth({
   const { disconnect } = useDisconnect();
   const { signMessageAsync } = useSignMessage();
   const router = useRouter();
+  const { getPermissions, getCachedPermissions, clearCache } = usePermissionCache();
 
   const [authState, setAuthState] = useState<AdminAuthState>({
     isConnected: false,
@@ -114,42 +116,24 @@ export function AdminWalletAuth({
 
   const checkAdminPermissions = async (walletAddress: string) => {
     try {
-      const response = await fetch('/api/auth/web3/permissions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet_address: walletAddress }),
-        credentials: 'include',
-      });
+      // Use cache service to prevent heavy loops
+      const cached = getCachedPermissions(walletAddress);
+      if (cached) {
+        console.log('🚀 AdminAuth: Using cached permissions for', walletAddress.slice(0, 6));
+        return {
+          isAdmin: cached.has_admin_access,
+          level: cached.admin_level as 'super' | 'manager' | 'moderator' | undefined
+        };
+      }
 
-      if (response.ok) {
-        const data = await response.json();
-        const { permissions = [] } = data;
-        
-        // Check for admin permissions
-        const adminPerms = permissions.filter((p: AdminPermission) => 
-          p.permission.startsWith('admin:') || p.permission === 'admin:*:*'
-        );
-        
-        let isAdmin = false;
-        let level: 'super' | 'manager' | 'moderator' | undefined;
-
-        if (adminPerms.some((p: AdminPermission) => p.permission === 'admin:*:*')) {
-          isAdmin = true;
-          level = 'super';
-        } else if (adminPerms.some((p: AdminPermission) => p.permission.includes('admin:web3:manage'))) {
-          isAdmin = true;
-          level = 'manager';
-        } else if (adminPerms.length > 0) {
-          isAdmin = true;
-          level = 'moderator';
-        }
-
-        return { isAdmin, level };
+      const data = await getPermissions(walletAddress);
+      if (data) {
+        return {
+          isAdmin: data.has_admin_access,
+          level: data.admin_level as 'super' | 'manager' | 'moderator' | undefined
+        };
       }
       
-      // Handle non-200 responses
-      const errorText = await response.text();
-      console.error('Permission check failed:', errorText);
       return { isAdmin: false, level: undefined };
     } catch (error) {
       console.error('Failed to check admin permissions:', error);
@@ -159,16 +143,10 @@ export function AdminWalletAuth({
 
   const fetchPermissions = async (walletAddress: string) => {
     try {
-      const response = await fetch('/api/auth/web3/permissions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet_address: walletAddress }),
-        credentials: 'include',
-      });
-
-      if (response.ok) {
-        const { permissions } = await response.json();
-        setAuthState(prev => ({ ...prev, permissions }));
+      // Use cache service for permissions too
+      const data = await getPermissions(walletAddress);
+      if (data) {
+        setAuthState(prev => ({ ...prev, permissions: data.permissions }));
       }
     } catch (error) {
       console.error('Failed to fetch permissions:', error);
@@ -296,6 +274,11 @@ export function AdminWalletAuth({
 
   const handleDisconnect = async () => {
     try {
+      // Clear cache for this wallet
+      if (address) {
+        clearCache(address);
+      }
+
       // Logout from backend
       await fetch('/api/auth/logout', {
         method: 'POST',
@@ -321,7 +304,7 @@ export function AdminWalletAuth({
   };
 
   const formatAddress = (addr: string) => {
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+    return `${addr.slice(0, 3)}...${addr.slice(-2)}`;
   };
 
   const getAdminLevelIcon = (level?: string) => {
@@ -361,41 +344,9 @@ export function AdminWalletAuth({
     );
   }
 
-  // Connected but not authenticated
+  // Connected but not authenticated - hide the section
   if (!authState.isAuthenticated) {
-    return (
-      <div className={`flex flex-col gap-2 ${className}`}>
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={handleAuthenticate}
-            disabled={authState.isAuthenticating}
-            className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-orange-400 to-red-500 px-4 py-2.5 text-sm font-medium text-white hover:from-orange-500 hover:to-red-600 dark:from-orange-600 dark:to-red-700"
-          >
-            <Shield className="h-4 w-4" />
-            {authState.isAuthenticating ? 'Authenticating...' : 'Admin Sign In'}
-          </Button>
-          
-          <ConnectButton.Custom>
-            {({ openAccountModal }) => (
-              <Button
-                variant="outline"
-                onClick={openAccountModal}
-                className="px-3 py-2.5 text-sm"
-              >
-                {formatAddress(address!)}
-              </Button>
-            )}
-          </ConnectButton.Custom>
-        </div>
-        
-        {authState.error && (
-          <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
-            <AlertTriangle className="h-4 w-4" />
-            {authState.error}
-          </div>
-        )}
-      </div>
-    );
+    return null;
   }
 
   // Check if admin privileges exist

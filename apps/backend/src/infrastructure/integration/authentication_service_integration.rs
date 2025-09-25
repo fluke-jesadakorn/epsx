@@ -17,6 +17,7 @@ use crate::application::user_management::CreateSessionCommandHandler;
 pub struct AuthenticationServiceIntegration {
   user_repository: Arc<dyn UserRepositoryPort>,
   session_repository: Arc<dyn SessionRepositoryPort>,
+  #[allow(dead_code)]
   create_session_handler: Arc<CreateSessionCommandHandler>,
 }
 

@@ -10,7 +10,7 @@ import { AlertTriangle, Shield, CheckCircle, XCircle, Info, AlertCircle, Setting
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { validatePermissionAssignment } from '@/lib/actions/users'
+import { validatePermissionAssignment } from '@/lib/actions/consolidated-user-actions'
 import { PermissionConflictResolver } from './PermissionConflictResolver'
 
 interface ValidationResult {
@@ -84,11 +84,11 @@ export function PermissionValidator({
         action
       })
 
-      if (result.success) {
+      if (result.success && result.data) {
         // Transform backend response to our validation format
         const validationResult: ValidationResult = {
-          isValid: result.data.conflicts.length === 0,
-          conflicts: result.data.conflicts.map((conflict: any) => ({
+          isValid: result.data.conflicts?.length === 0,
+          conflicts: (result.data.conflicts || []).map((conflict: any) => ({
             type: conflict.type || 'permission_duplicate',
             severity: conflict.severity || 'warning',
             message: conflict.message,
@@ -132,7 +132,7 @@ export function PermissionValidator({
   }
 
   const hasErrors = validationResult?.conflicts.some(c => c.severity === 'error') || false
-  const hasWarnings = validationResult?.conflicts.some(c => c.severity === 'warning') || validationResult?.warnings.length > 0 || false
+  const hasWarnings = validationResult?.conflicts.some(c => c.severity === 'warning') || (validationResult?.warnings?.length || 0) > 0 || false
 
   return (
     <div className={`space-y-3 ${className}`}>
@@ -173,7 +173,6 @@ export function PermissionValidator({
             
             <Badge 
               variant={validationResult.isValid ? "default" : hasErrors ? "destructive" : "secondary"}
-              size="sm"
             >
               {validationResult.isValid ? 'Safe' : hasErrors ? 'Blocked' : 'Caution'}
             </Badge>
@@ -316,12 +315,12 @@ export function BatchPermissionValidator({
           action: permission.action
         })
 
-        if (result.success) {
+        if (result.success && result.data) {
           results.push({
             permission,
             result: {
-              isValid: result.data.conflicts.length === 0,
-              conflicts: result.data.conflicts.map((conflict: any) => ({
+              isValid: (result.data.conflicts?.length || 0) === 0,
+              conflicts: (result.data.conflicts || []).map((conflict: any) => ({
                 type: conflict.type || 'permission_duplicate',
                 severity: conflict.severity || 'warning',
                 message: conflict.message,
@@ -396,7 +395,6 @@ export function BatchPermissionValidator({
                   </span>
                   <Badge 
                     variant={result.result.isValid ? "default" : hasErrors ? "destructive" : "secondary"}
-                    size="sm"
                   >
                     {result.result.isValid ? 'Valid' : 'Issues'}
                   </Badge>

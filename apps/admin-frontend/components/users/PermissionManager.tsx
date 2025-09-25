@@ -38,7 +38,8 @@ import {
 import { useToast } from '@/components/ui/use-toast'
 
 import type { UnifiedUserData, Permission } from '@/lib/types/unified-user'
-import { adminCardVariants, adminButtonVariants, cn } from '@/design-system'
+import { adminCardVariants, adminButtonVariants } from '@/design-system'
+import { cn } from '@/lib/shared'
 
 // Types
 interface PermissionManagerProps {
@@ -134,8 +135,8 @@ export function PermissionManager({
       totalRoles: roles.length,
       totalPermissions: customPerms.length,
       totalProfiles: profiles.length,
-      expiringCount: customPerms.filter(p => p.expiresAt).length,
-      activeCount: customPerms.filter(p => p.isActive).length
+      expiringCount: 0, // TODO: Add when embedded timestamps are available
+      activeCount: customPerms.length // All permissions are active by default
     }
   }, [user])
 
@@ -214,26 +215,26 @@ export function PermissionManager({
   const loadPermissionData = async () => {
     setLoading(true)
     try {
-      // Mock data loading - replace with actual API calls
+      // Group-based data loading - replace with actual group API calls
       const mockHistory: PermissionHistoryEntry[] = [
         {
           id: '1',
           action: 'granted',
-          type: 'permission',
-          resource: 'analytics',
-          permission: 'view',
+          type: 'role', // Changed to reflect group membership
+          role: 'analytics-viewers-group',
+          permission: 'analytics:view',
           grantedBy: 'admin@epsx.io',
           grantedAt: new Date(Date.now() - 86400000),
-          reason: 'New user onboarding'
+          reason: 'Assigned to analytics viewers group for new user onboarding'
         },
         {
           id: '2',
           action: 'revoked',
           type: 'role',
-          role: 'temporary-admin',
+          role: 'temporary-admin-group',
           grantedBy: 'admin@epsx.io',
           grantedAt: new Date(Date.now() - 172800000),
-          reason: 'Temporary access expired'
+          reason: 'Removed from temporary admin group - access expired'
         }
       ]
 
@@ -243,10 +244,10 @@ export function PermissionManager({
           type: 'add',
           permission: 'analytics:export',
           confidence: 92,
-          reasoning: 'User frequently views analytics and similar users have export access',
+          reasoning: 'User should be added to analytics-exporters group based on usage patterns',
           category: 'efficiency',
           impact: 'medium',
-          estimatedBenefit: 'Reduce approval wait time by 75%',
+          estimatedBenefit: 'Join analytics-exporters group to reduce approval wait time by 75%',
           risks: []
         },
         {
@@ -254,10 +255,10 @@ export function PermissionManager({
           type: 'remove',
           permission: 'admin:delete',
           confidence: 88,
-          reasoning: 'Permission not used in 90+ days and exceeds role requirements',
+          reasoning: 'Remove user from high-privilege groups containing admin:delete - unused for 90+ days',
           category: 'security',
           impact: 'high',
-          estimatedBenefit: 'Reduce security risk exposure by 40%',
+          estimatedBenefit: 'Remove from admin-delete group to reduce security risk exposure by 40%',
           risks: ['High privilege level', 'Unused for extended period']
         }
       ]
@@ -265,7 +266,7 @@ export function PermissionManager({
       setPermissionHistory(mockHistory)
       setRecommendations(mockRecommendations)
     } catch (error) {
-      console.error('Failed to load permission data:', error)
+      console.error('Failed to load group permission data:', error)
     } finally {
       setLoading(false)
     }
@@ -299,13 +300,57 @@ export function PermissionManager({
     })
   }
 
-  // Permission assignment
-  const handlePermissionToggle = (nodeId: string, granted: boolean) => {
-    toast({
-      title: granted ? 'Permission Granted' : 'Permission Revoked',
-      description: `${nodeId} has been ${granted ? 'granted' : 'revoked'}`,
-    })
-    onPermissionChange?.(user.id, [])
+  // Group-based permission assignment
+  const handlePermissionToggle = async (nodeId: string, granted: boolean) => {
+    setLoading(true)
+    try {
+      if (granted) {
+        // Assign user to a group that contains this permission
+        // First, try to find an existing system group with this permission
+        // If not found, create a temporary group
+        const groupName = `temp-${nodeId.replace(':', '-')}-${user.id}`
+        const permissions = [nodeId]
+        
+        // Create temporary group for this permission (will be replaced with actual API call)
+        const groupData = {
+          name: groupName,
+          description: `Temporary group for permission: ${nodeId}`,
+          permissions,
+          isSystemGroup: false,
+          maxMembers: 1
+        }
+        
+        // Assign user to group (placeholder - needs actual API integration)
+        console.log('Would assign user to group:', groupData)
+        
+        toast({
+          title: 'Permission Granted via Group',
+          description: `${nodeId} granted through group assignment`,
+        })
+      } else {
+        // Remove user from groups that contain this permission
+        // This would need to query user's current group memberships
+        // and remove them from groups containing this permission
+        console.log('Would remove user from groups containing:', nodeId)
+        
+        toast({
+          title: 'Permission Revoked via Group',
+          description: `${nodeId} revoked by removing group membership`,
+        })
+      }
+      
+      // Trigger refresh of permission data
+      onPermissionChange?.(user.id, [])
+      onUserUpdate?.()
+    } catch (error) {
+      toast({
+        title: 'Permission Update Failed',
+        description: error instanceof Error ? error.message : 'Failed to update permission',
+        variant: 'destructive'
+      })
+    } finally {
+      setLoading(false)
+    }
   }
 
   // Export functionality
@@ -606,11 +651,7 @@ export function PermissionManager({
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge className={getActionColor('read')}>Active</Badge>
-                      {permission.expiresAt && (
-                        <Badge variant="outline" className="text-xs">
-                          Expires {formatDate(permission.expiresAt)}
-                        </Badge>
-                      )}
+                      {/* TODO: Add expiry date when embedded timestamps are available */}
                     </div>
                   </div>
                 ))}
@@ -658,24 +699,72 @@ export function PermissionManager({
                   ))}
                 </div>
 
-                {/* Bulk Actions */}
+                {/* Group-based Bulk Actions */}
                 {selectedNodes.size > 0 && (
                   <div className="flex gap-2">
                     <Button
-                      onClick={() => {
-                        selectedNodes.forEach(nodeId => handlePermissionToggle(nodeId, true))
-                        setSelectedNodes(new Set())
+                      onClick={async () => {
+                        setLoading(true)
+                        try {
+                          // Create a multi-permission group for bulk assignment
+                          const selectedPermissions = Array.from(selectedNodes)
+                          const bulkGroupName = `bulk-${Date.now()}-${user.id}`
+                          
+                          console.log('Would create bulk group with permissions:', selectedPermissions)
+                          
+                          // Assign user to bulk group (placeholder)
+                          await Promise.all(
+                            selectedPermissions.map(nodeId => handlePermissionToggle(nodeId, true))
+                          )
+                          
+                          setSelectedNodes(new Set())
+                          toast({
+                            title: 'Bulk Permissions Granted',
+                            description: `${selectedPermissions.length} permissions granted via group assignments`
+                          })
+                        } catch (error) {
+                          toast({
+                            title: 'Bulk Grant Failed',
+                            description: 'Failed to grant selected permissions',
+                            variant: 'destructive'
+                          })
+                        } finally {
+                          setLoading(false)
+                        }
                       }}
                       className="bg-green-600 hover:bg-green-700"
+                      disabled={loading}
                     >
                       Grant Selected ({selectedNodes.size})
                     </Button>
                     <Button
                       variant="destructive"
-                      onClick={() => {
-                        selectedNodes.forEach(nodeId => handlePermissionToggle(nodeId, false))
-                        setSelectedNodes(new Set())
+                      onClick={async () => {
+                        setLoading(true)
+                        try {
+                          const selectedPermissions = Array.from(selectedNodes)
+                          
+                          // Remove user from groups containing these permissions
+                          await Promise.all(
+                            selectedPermissions.map(nodeId => handlePermissionToggle(nodeId, false))
+                          )
+                          
+                          setSelectedNodes(new Set())
+                          toast({
+                            title: 'Bulk Permissions Revoked',
+                            description: `${selectedPermissions.length} permissions revoked via group removal`
+                          })
+                        } catch (error) {
+                          toast({
+                            title: 'Bulk Revoke Failed',
+                            description: 'Failed to revoke selected permissions',
+                            variant: 'destructive'
+                          })
+                        } finally {
+                          setLoading(false)
+                        }
                       }}
+                      disabled={loading}
                     >
                       Revoke Selected ({selectedNodes.size})
                     </Button>

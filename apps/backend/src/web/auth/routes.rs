@@ -9,7 +9,18 @@ use axum::{
 use sqlx::PgPool as DbPool;
 
 use crate::infrastructure::cache::Cache;
-use crate::infrastructure::container::AppContainer;
+use crate::infrastructure::container::DomainContainer;
+
+// Import Web3 authentication handlers
+use crate::web::auth::web3_handlers::{
+    generate_challenge_handler,
+    verify_signature_handler,
+    logout_handler,
+    get_session_handler,
+    check_permission_handler,
+    grant_permission_handler,
+    revoke_permission_handler,
+};
 
 use crate::web::user::handlers::{
     // Available handlers
@@ -19,42 +30,41 @@ use crate::web::user::handlers::{
     delegate_permission_handler,
 };
 
+// Import group permission routes
+// use super::group_routes::{
+//     get_user_permissions,
+//     check_permission,
+//     get_user_groups,
+//     create_permission_group,
+//     get_permission_groups,
+//     assign_user_to_group,
+//     remove_user_from_group, // Removed - group routes no longer exist
+    // get_group_memberships,
+    // cleanup_expired_memberships,
+    // permission_updates_sse,
+// }; // Removed - group routes no longer exist
+
 /// Clean Application State for Dependency Injection
 #[derive(Clone)]
 pub struct AppState {
     pub db_pool: Arc<DbPool>,
     pub cache: Arc<dyn Cache>,
-    pub ddd_container: Arc<crate::infrastructure::container::ddd_container::DDDContainer>,
-    pub user_repo: Arc<dyn crate::domain::user_management::UserRepositoryPort>,
-    pub permission_service: Arc<crate::domain::authorization::services::stateless_permission_service::StatelessPermissionService>,
-    pub rate_limiting_service: Option<Arc<crate::domain::resource_management::services::RateLimitingService>>, // Context-aware rate limiting
-    pub web3_auth_service: Arc<crate::auth::Web3AuthService>,
-    pub web3_permission_service: Arc<crate::auth::Web3PermissionService>,
-    pub jwt_service: Arc<crate::auth::JWTService>,
+    pub domain_container: Arc<DomainContainer>,
+    // Add back user_repo as stub to fix admin handlers
+    pub user_repo: Option<String>, // Placeholder
 }
 
 impl AppState {
     pub fn new(
         db_pool: Arc<DbPool>,
         cache: Arc<dyn Cache>,
-        ddd_container: Arc<crate::infrastructure::container::ddd_container::DDDContainer>,
-        user_repo: Arc<dyn crate::domain::user_management::UserRepositoryPort>,
-        permission_service: Arc<crate::domain::authorization::services::stateless_permission_service::StatelessPermissionService>,
-        rate_limiting_service: Option<Arc<crate::domain::resource_management::services::RateLimitingService>>,
-        web3_auth_service: Arc<crate::auth::Web3AuthService>,
-        web3_permission_service: Arc<crate::auth::Web3PermissionService>,
-        jwt_service: Arc<crate::auth::JWTService>,
+        domain_container: Arc<DomainContainer>,
     ) -> Self {
         Self {
             db_pool,
             cache,
-            ddd_container,
-            user_repo,
-            permission_service,
-            rate_limiting_service,
-            web3_auth_service,
-            web3_permission_service,
-            jwt_service,
+            domain_container,
+            user_repo: None,
         }
     }
 }
@@ -71,51 +81,44 @@ pub fn create_auth_routes(app_state: AppState) -> Router {
         .route("/api/v1/users/verify", post(verify_ownership_handler))
         .route("/api/v1/users/delegate", post(delegate_permission_handler));
         
-    // Placeholder for other routes - handlers need to be implemented
-    let protected_auth_routes = Router::new()
-        // .route("/api/v1/auth/sessions", axum::routing::delete(logout_handler))
-        // .route("/api/v1/auth/sessions/current", get(validate_session_handler))
-        // .route("/api/v1/auth/user", get(me_handler))
-        // .route("/api/v1/auth/tokens/refresh", post(refresh_handler))
-        .route("/api/v1/health", get(|| async { "OK" })) // Basic health check
-        .layer(middleware::from_fn_with_state(
-            app_state.clone(),
-            crate::web::middleware::clean_auth_middleware
+    // Web3 authentication routes
+    let web3_auth_routes = Router::new()
+        .route("/api/v1/auth/web3/challenge", post(generate_challenge_handler))
+        .route("/api/v1/auth/web3/verify", post(verify_signature_handler))
+        .route("/api/v1/auth/web3/logout", axum::routing::delete(logout_handler))
+        .route("/api/v1/auth/web3/session", get(get_session_handler))
+        .layer(middleware::from_fn(
+            crate::web::middleware::web3_auth_middleware
         ));
 
-    // Permission validation routes - handlers need to be implemented
+    // Web3 permission management routes
     let permission_routes = Router::new()
-        // .route("/api/v1/permissions/validations", post(check_permission_handler))
-        // .route("/api/v1/permissions/routes/validations", post(validate_route_access_handler))
-        // .route("/api/v1/permissions/validations/bulk", post(validate_bulk_routes_handler))
-        // .route("/api/v1/permissions/single", get(single_permission_handler))
-        // .route("/api/v1/permissions/navigation", get(navigation_handler))
-        // .route("/api/v1/permissions/features", get(user_features_handler))
+        .route("/api/v1/auth/web3/permissions/check", post(check_permission_handler))
+        .route("/api/v1/auth/web3/permissions/grant", post(grant_permission_handler))
+        .route("/api/v1/auth/web3/permissions/revoke", axum::routing::delete(revoke_permission_handler))
         .route("/api/v1/permissions/health", get(|| async { "OK" })) // Basic health check
-        .layer(middleware::from_fn_with_state(
-            app_state.clone(),
-            crate::web::middleware::clean_auth_middleware
+        .layer(middleware::from_fn(
+            crate::web::middleware::web3_auth_middleware
         ));
 
     // Legacy routes removed - use RESTful /api/v1/ endpoints only
     
     let router = Router::new()
         .merge(user_routes)
-        .merge(protected_auth_routes)
+        .merge(web3_auth_routes)
         .merge(permission_routes)
         .with_state(app_state.clone());
 
     router
 }
 
-/// Create registration routes with AppContainer state (RESTful patterns)
-pub fn create_registration_routes(container: Arc<AppContainer>) -> Router {
+/// Create registration routes with DomainContainer state (RESTful patterns)
+pub fn create_registration_routes(container: Arc<DomainContainer>) -> Router {
     Router::new()
         // Note: Handlers missing after Web3 migration
         // .route("/api/v1/auth/users", post(register_user))
         // .route("/api/v1/validations/emails", post(check_email_availability))
         // .route("/api/v1/validations/passwords", post(check_password_strength))
-        .route("/api/v1/health", get(|| async { "OK" }))
         .with_state(container)
 }
 
@@ -125,14 +128,13 @@ pub fn create_authjs_routes(pool: Arc<DbPool>) -> Router {
         // Note: Handlers missing after Web3 migration
         // .route("/api/v1/authjs/claims", post(get_user_claims))
         // .route("/api/v1/authjs/upsert", post(upsert_user))
-        .route("/api/v1/authjs/health", get(|| async { "OK" }))
         .with_state(pool)
 }
 
 /// Create combined authentication router with RESTful structure
 pub fn create_combined_auth_routes(
     app_state: AppState,
-    container: Arc<AppContainer>,
+    container: Arc<DomainContainer>,
     pool: sqlx::PgPool,
 ) -> Router {
     Router::new()

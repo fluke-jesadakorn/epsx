@@ -30,26 +30,17 @@ impl PaymentMethod {
             });
         }
 
-        // Validate network requirements
-        match &method_type {
-            PaymentMethodType::Crypto => {
-                if network.is_none() {
-                    return Err(PaymentMethodError::NetworkRequired(method_type));
-                }
-                
-                let network = network.as_ref().unwrap();
-                if !currency.supported_networks().contains(network) {
-                    return Err(PaymentMethodError::UnsupportedNetwork {
-                        currency: currency.clone(),
-                        network: network.clone(),
-                    });
-                }
-            }
-            PaymentMethodType::BankTransfer | PaymentMethodType::CreditCard => {
-                if network.is_some() {
-                    return Err(PaymentMethodError::NetworkNotAllowed(method_type));
-                }
-            }
+        // Validate network requirements (Web3-only)
+        if network.is_none() {
+            return Err(PaymentMethodError::NetworkRequired(method_type));
+        }
+        
+        let network = network.as_ref().unwrap();
+        if !currency.supported_networks().contains(network) {
+            return Err(PaymentMethodError::UnsupportedNetwork {
+                currency: currency.clone(),
+                network: network.clone(),
+            });
         }
 
         let configuration = PaymentMethodConfig::default_for_method(&method_type, &currency);
@@ -57,7 +48,7 @@ impl PaymentMethod {
         Ok(Self {
             method_type,
             currency,
-            network,
+            network: Some(network.clone()),
             configuration,
         })
     }
@@ -112,23 +103,17 @@ impl PaymentMethod {
         amount >= self.minimum_amount() && amount <= self.maximum_amount()
     }
 
-    /// Get user-friendly display name
+    /// Get user-friendly display name (Web3-only)
     pub fn display_name(&self) -> String {
         match (&self.method_type, &self.network) {
             (PaymentMethodType::Crypto, Some(network)) => {
                 format!("{} ({})", self.currency.symbol(), network.short_name())
             }
-            (PaymentMethodType::BankTransfer, None) => {
-                format!("Bank Transfer ({})", self.currency.symbol())
-            }
-            (PaymentMethodType::CreditCard, None) => {
-                format!("Credit Card ({})", self.currency.symbol())
-            }
             _ => format!("{} ({})", self.method_type, self.currency.symbol()),
         }
     }
 
-    /// Get payment instructions for users
+    /// Get payment instructions for users (Web3-only)
     pub fn get_instructions(&self) -> PaymentInstructions {
         match &self.method_type {
             PaymentMethodType::Crypto => PaymentInstructions::Crypto {
@@ -143,14 +128,6 @@ impl PaymentMethod {
                     Network::Bitcoin => 6,
                     Network::BinanceSmartChain => 20,
                 }).unwrap_or(1),
-            },
-            PaymentMethodType::BankTransfer => PaymentInstructions::BankTransfer {
-                currency: self.currency.clone(),
-                processing_days: 1..=3,
-            },
-            PaymentMethodType::CreditCard => PaymentInstructions::CreditCard {
-                currency: self.currency.clone(),
-                instant_processing: true,
             },
         }
     }
@@ -176,15 +153,11 @@ impl PaymentMethod {
     }
 }
 
-/// Payment method types
+/// Payment method types (Web3-only)
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PaymentMethodType {
     /// Cryptocurrency payment (requires network)
     Crypto,
-    /// Traditional bank transfer
-    BankTransfer,
-    /// Credit/debit card payment
-    CreditCard,
 }
 
 impl std::str::FromStr for PaymentMethodType {
@@ -193,47 +166,38 @@ impl std::str::FromStr for PaymentMethodType {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "crypto" | "cryptocurrency" => Ok(PaymentMethodType::Crypto),
-            "bank" | "banktransfer" | "bank_transfer" => Ok(PaymentMethodType::BankTransfer),
-            "card" | "creditcard" | "credit_card" => Ok(PaymentMethodType::CreditCard),
-            _ => Err(ValueObjectError::InvalidFormat(format!("Unknown payment method type: {}", s))),
+            _ => Err(ValueObjectError::InvalidFormat(format!("Only crypto payments are supported. Got: {}", s))),
         }
     }
 }
 
 impl PaymentMethodType {
-    /// Check if this method supports a currency
+    /// Check if this method supports a currency (Web3-only)
     pub fn supports_currency(&self, currency: &Currency) -> bool {
         match self {
             PaymentMethodType::Crypto => currency.is_crypto(),
-            PaymentMethodType::BankTransfer => !currency.is_crypto(),
-            PaymentMethodType::CreditCard => !currency.is_crypto(),
         }
     }
 
-    /// Get supported currencies for this method
+    /// Get supported currencies for this method (Web3-only)
     pub fn supported_currencies(&self) -> Vec<Currency> {
         match self {
             PaymentMethodType::Crypto => vec![
                 Currency::USDT, Currency::USDC, Currency::ETH, 
                 Currency::BTC, Currency::BNB, Currency::TRX
             ],
-            PaymentMethodType::BankTransfer | PaymentMethodType::CreditCard => vec![
-                Currency::USD
-            ],
         }
     }
 
-    /// Check if method requires network specification
+    /// Check if method requires network specification (always true for Web3)
     pub fn requires_network(&self) -> bool {
-        matches!(self, PaymentMethodType::Crypto)
+        true
     }
 
-    /// Get default processing time in seconds
+    /// Get default processing time in seconds (Web3-only)
     pub fn default_processing_time(&self) -> u32 {
         match self {
             PaymentMethodType::Crypto => 600,        // 10 minutes (depends on network)
-            PaymentMethodType::BankTransfer => 86400, // 1 day
-            PaymentMethodType::CreditCard => 30,     // 30 seconds
         }
     }
 }
@@ -242,8 +206,6 @@ impl Display for PaymentMethodType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             PaymentMethodType::Crypto => write!(f, "Cryptocurrency"),
-            PaymentMethodType::BankTransfer => write!(f, "Bank Transfer"),
-            PaymentMethodType::CreditCard => write!(f, "Credit Card"),
         }
     }
 }
@@ -266,20 +228,16 @@ impl PaymentMethodConfig {
         use rust_decimal_macros::dec;
 
         let (min_amount, max_amount, fee_rate) = match (method_type, currency) {
-            // Crypto payments
-            (PaymentMethodType::Crypto, Currency::USDT) => (dec!(10), dec!(100000), dec!(0.02)),
-            (PaymentMethodType::Crypto, Currency::USDC) => (dec!(10), dec!(100000), dec!(0.02)),
-            (PaymentMethodType::Crypto, Currency::ETH) => (dec!(0.01), dec!(100), dec!(0.025)),
-            (PaymentMethodType::Crypto, Currency::BTC) => (dec!(0.001), dec!(10), dec!(0.015)),
-            (PaymentMethodType::Crypto, Currency::BNB) => (dec!(0.1), dec!(1000), dec!(0.02)),
-            (PaymentMethodType::Crypto, Currency::TRX) => (dec!(100), dec!(1000000), dec!(0.03)),
+            // Crypto payments only
+            (PaymentMethodType::Crypto, Currency::USDT) => (dec!(10), dec!(100000), dec!(0.00)),
+            (PaymentMethodType::Crypto, Currency::USDC) => (dec!(10), dec!(100000), dec!(0.00)),
+            (PaymentMethodType::Crypto, Currency::ETH) => (dec!(0.01), dec!(100), dec!(0.00)),
+            (PaymentMethodType::Crypto, Currency::BTC) => (dec!(0.001), dec!(10), dec!(0.00)),
+            (PaymentMethodType::Crypto, Currency::BNB) => (dec!(0.1), dec!(1000), dec!(0.00)),
+            (PaymentMethodType::Crypto, Currency::TRX) => (dec!(100), dec!(1000000), dec!(0.00)),
             
-            // Fiat payments
-            (PaymentMethodType::BankTransfer, Currency::USD) => (dec!(50), dec!(50000), dec!(0.01)),
-            (PaymentMethodType::CreditCard, Currency::USD) => (dec!(10), dec!(10000), dec!(0.035)),
-            
-            // Fallback
-            _ => (dec!(1), dec!(10000), dec!(0.03)),
+            // Fallback for any other crypto
+            _ => (dec!(1), dec!(10000), dec!(0.00)),
         };
 
         Self {
@@ -313,7 +271,7 @@ impl PaymentMethodConfig {
     }
 }
 
-/// Payment instructions for users
+/// Payment instructions for users (Web3-only)
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum PaymentInstructions {
     Crypto {
@@ -321,48 +279,25 @@ pub enum PaymentInstructions {
         network: Network,
         estimated_confirmations: u32,
     },
-    BankTransfer {
-        currency: Currency,
-        processing_days: std::ops::RangeInclusive<u32>,
-    },
-    CreditCard {
-        currency: Currency,
-        instant_processing: bool,
-    },
 }
 
 impl PaymentInstructions {
-    /// Get user-friendly instructions text
+    /// Get user-friendly instructions text (Web3-only)
     pub fn instructions_text(&self) -> String {
         match self {
             PaymentInstructions::Crypto { currency, network, estimated_confirmations } => {
                 format!(
-                    "Send {} via {} network. Payment will be confirmed after {} network confirmations. \
+                    "Send {} via {} network using your Web3 wallet. Payment will be confirmed after {} network confirmations. \
                      Please ensure you're using the correct network to avoid loss of funds.",
                     currency.symbol(),
                     network.name(),
                     estimated_confirmations
                 )
             }
-            PaymentInstructions::BankTransfer { currency, processing_days } => {
-                format!(
-                    "Bank transfer in {}. Processing typically takes {:?} business days. \
-                     Please include the payment reference in your transfer.",
-                    currency.symbol(),
-                    processing_days
-                )
-            }
-            PaymentInstructions::CreditCard { currency, instant_processing } => {
-                if *instant_processing {
-                    format!("Credit/debit card payment in {}. Payment is processed instantly.", currency.symbol())
-                } else {
-                    format!("Credit/debit card payment in {}. Payment may take a few minutes to process.", currency.symbol())
-                }
-            }
         }
     }
 
-    /// Get estimated processing time in seconds
+    /// Get estimated processing time in seconds (Web3-only)
     pub fn estimated_processing_time(&self) -> u32 {
         match self {
             PaymentInstructions::Crypto { network, estimated_confirmations, .. } => {
@@ -377,12 +312,6 @@ impl PaymentInstructions {
                 };
                 block_time * estimated_confirmations
             }
-            PaymentInstructions::BankTransfer { processing_days, .. } => {
-                // Convert days to seconds (use average of range)
-                let avg_days = (*processing_days.start() + *processing_days.end()) / 2;
-                avg_days * 24 * 60 * 60
-            }
-            PaymentInstructions::CreditCard { .. } => 30, // 30 seconds
         }
     }
 }
@@ -409,9 +338,6 @@ pub enum PaymentMethodError {
 
     #[error("{0} requires network specification")]
     NetworkRequired(PaymentMethodType),
-
-    #[error("{0} does not allow network specification")]
-    NetworkNotAllowed(PaymentMethodType),
 
     #[error("Invalid configuration: {0}")]
     InvalidConfiguration(String),
@@ -459,37 +385,12 @@ mod tests {
     }
 
     #[test]
-    fn test_fiat_method_no_network() {
-        let method = PaymentMethod::new(
-            PaymentMethodType::CreditCard,
-            Currency::USD,
-            None,
-        ).unwrap();
-
-        assert_eq!(method.method_type(), &PaymentMethodType::CreditCard);
-        assert_eq!(method.currency(), &Currency::USD);
-        assert_eq!(method.network(), None);
-    }
-
-    #[test]
-    fn test_fiat_method_with_network_fails() {
-        let result = PaymentMethod::new(
-            PaymentMethodType::CreditCard,
-            Currency::USD,
-            Some(Network::Ethereum), // Not allowed
-        );
-        
-        assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), PaymentMethodError::NetworkNotAllowed(_)));
-    }
-
-    #[test]
     fn test_unsupported_currency() {
-        // Trying to use crypto currency with bank transfer
+        // Trying to use fiat currency with crypto payment method
         let result = PaymentMethod::new(
-            PaymentMethodType::BankTransfer,
-            Currency::ETH,
-            None,
+            PaymentMethodType::Crypto,
+            Currency::USD,
+            Some(Network::Ethereum),
         );
         
         assert!(result.is_err());
@@ -545,13 +446,6 @@ mod tests {
             Some(Network::Ethereum),
         ).unwrap();
         assert_eq!(crypto_method.display_name(), "USDT (ETH)");
-
-        let card_method = PaymentMethod::new(
-            PaymentMethodType::CreditCard,
-            Currency::USD,
-            None,
-        ).unwrap();
-        assert_eq!(card_method.display_name(), "Credit Card (USD)");
     }
 
     #[test]
@@ -605,9 +499,6 @@ mod tests {
     fn test_method_type_currency_support() {
         assert!(PaymentMethodType::Crypto.supports_currency(&Currency::ETH));
         assert!(!PaymentMethodType::Crypto.supports_currency(&Currency::USD));
-        
-        assert!(PaymentMethodType::CreditCard.supports_currency(&Currency::USD));
-        assert!(!PaymentMethodType::CreditCard.supports_currency(&Currency::ETH));
     }
 
     #[test]
@@ -620,13 +511,5 @@ mod tests {
         
         let processing_time = crypto_instructions.estimated_processing_time();
         assert_eq!(processing_time, 15 * 12); // 15 seconds * 12 confirmations
-
-        let card_instructions = PaymentInstructions::CreditCard {
-            currency: Currency::USD,
-            instant_processing: true,
-        };
-        
-        let card_time = card_instructions.estimated_processing_time();
-        assert_eq!(card_time, 30); // 30 seconds
     }
 }

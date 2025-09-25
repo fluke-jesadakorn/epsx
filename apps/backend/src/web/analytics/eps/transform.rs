@@ -238,6 +238,7 @@ fn generate_quarterly_data_from_real_scanner_data(
 }
 
 /// Generate quarterly data from new frontend EPS data (real-time TradingView data)
+#[allow(dead_code)]
 fn generate_quarterly_data_from_frontend_eps(
   enhanced_data: &FrontendEPSData,
   current_date: chrono::DateTime<chrono::Utc>
@@ -299,6 +300,7 @@ fn generate_quarterly_data_from_frontend_eps(
 }
 
 /// Generate quarterly data from real WebSocket quarterly EPS data
+#[allow(dead_code)]
 fn generate_quarterly_data_from_real_websocket_data(
   ranking: &EPSRanking,
   quarterly_data: &[
@@ -470,6 +472,7 @@ fn generate_quarterly_data_from_real_websocket_data(
 }
 
 /// Generate proper consecutive quarterly data when no WebSocket data is available
+#[allow(dead_code)]
 fn generate_consecutive_quarterly_data(
   ranking: &EPSRanking,
   current_date: chrono::DateTime<chrono::Utc>
@@ -579,6 +582,7 @@ fn generate_consecutive_quarterly_data(
 }
 
 /// Calculate unique price growth for WebSocket data with aggressive differentiation
+#[allow(dead_code)]
 fn calculate_unique_price_growth(
   ranking: &EPSRanking,
   quarterly_eps: f64,
@@ -698,6 +702,7 @@ fn calculate_unique_price_growth(
 }
 
 /// Calculate price growth for fallback consecutive data
+#[allow(dead_code)]
 fn calculate_fallback_price_growth(
   ranking: &EPSRanking,
   quarter_eps: f64,

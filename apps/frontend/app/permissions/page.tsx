@@ -249,7 +249,14 @@ export default function PermissionsPage() {
       return;
     }
     
-    const parsed = user.permissions.map(perm => {
+    // Convert granular permissions to string array format
+    const permissionStrings = typeof user.permissions === 'object' && user.permissions !== null
+      ? Object.keys(user.permissions as Record<string, any>)
+      : Array.isArray(user.permissions) 
+        ? user.permissions as string[]
+        : [];
+    
+    const parsed = permissionStrings.map(perm => {
       const { basePermission, timestamp } = parsePermissionWithTimestamp(perm);
       const expiresAt = timestamp;
       const isExpired = expiresAt ? Date.now() / 1000 > expiresAt : false;
@@ -356,7 +363,13 @@ export default function PermissionsPage() {
             </div>
             <div>
               <p className="text-sm font-medium text-gray-500">Permissions Count</p>
-              <p className="text-sm text-gray-900">{user.permissions?.length || 0} permissions</p>
+              <p className="text-sm text-gray-900">
+                {typeof user.permissions === 'object' && user.permissions !== null
+                  ? Object.keys(user.permissions).length
+                  : Array.isArray(user.permissions) 
+                    ? (user.permissions as string[]).length
+                    : 0} permissions
+              </p>
             </div>
           </div>
         </CardContent>

@@ -534,35 +534,7 @@ impl SecurityMonitoringServiceAdapter {
         score.min(100.0)
     }
     
-    /// Generate security recommendations based on metrics
-    fn generate_security_recommendations(&self, metrics: &SecurityMetrics, risk_score: f64) -> Vec<String> {
-        let mut recommendations = Vec::new();
-        
-        if risk_score > 70.0 {
-            recommendations.push("Consider terminating all sessions and requiring re-authentication".to_string());
-            recommendations.push("Enable additional security monitoring".to_string());
-        }
-        
-        if metrics.failed_auth_attempts > 5 {
-            recommendations.push("Review failed authentication attempts for potential brute force attacks".to_string());
-            recommendations.push("Consider implementing account lockout after repeated failures".to_string());
-        }
-        
-        if metrics.suspicious_activities > 3 {
-            recommendations.push("Investigate recent suspicious activities".to_string());
-            recommendations.push("Consider requiring additional verification for sensitive operations".to_string());
-        }
-        
-        if metrics.sessions_created > 15 {
-            recommendations.push("User has many sessions - review for potential account sharing".to_string());
-        }
-        
-        if recommendations.is_empty() {
-            recommendations.push("Security posture looks good - continue monitoring".to_string());
-        }
-        
-        recommendations
-    }
+    // Removed unused generate_security_recommendations method
 }
 
 /// Security monitoring configuration

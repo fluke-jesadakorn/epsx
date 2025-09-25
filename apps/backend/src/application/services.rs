@@ -1,7 +1,7 @@
 // Application Services re-exports
 
 // Re-export specific application services
-pub use super::user_management::services::UserApplicationService;
+// pub use super::user_management::services::UserApplicationService; // Removed - service deleted
 
 // Permission service placeholder
 pub struct PermissionApplicationService;

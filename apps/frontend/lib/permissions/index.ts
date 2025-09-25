@@ -21,7 +21,6 @@ export {
   useAnalyticsPermissions,
   useProfilePermissions,
   useRankingPermissions,
-  useLegacyPermissionMigration,
   useRequirePermission,
   useRequireAnyPermission,
   useRequireAnalyticsAccess,

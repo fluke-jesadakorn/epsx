@@ -59,11 +59,26 @@ export async function clearSession(): Promise<void> {
   }
 }
 
+// OAuth userinfo response interface
+interface OAuthUserInfo {
+  sub?: string;
+  id?: string;
+  email?: string;
+  name?: string;
+  display_name?: string;
+  role?: string;
+  permissions?: string[];
+  platform_context?: string;
+  primary_platform?: string;
+  package_tier?: string;
+  firebase_uid?: string;
+}
+
 /**
  * Create user session data from userinfo (used in OAuth callback)
  */
 export function createUserSession(
-  userinfo: any, 
+  userinfo: OAuthUserInfo, 
   accessToken?: string, 
   refreshToken?: string
 ): SessionData {

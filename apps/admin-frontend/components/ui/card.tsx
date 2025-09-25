@@ -1,19 +1,37 @@
-import * as React from "react"
+/**
+ * ADMIN FRONTEND CARD COMPONENT
+ * Migrated to use shared PancakeCard with backward compatibility
+ */
 
+import * as React from "react"
+import { 
+  PancakeCard, 
+  PancakeCardHeader, 
+  PancakeCardTitle, 
+  PancakeCardDescription, 
+  PancakeCardContent, 
+  PancakeCardFooter 
+} from "../../../../shared/components"
 import { cn } from "@/lib/utils"
 
+// ============================================================================
+// LEGACY COMPATIBILITY LAYER
+// ============================================================================
+
+// Keep the same interface for seamless migration
 const Card = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
+>(({ className, children, onClick, ...props }, ref) => (
+  <PancakeCard
     ref={ref}
-    className={cn(
-      "border-0 bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-950 dark:to-yellow-950 text-card-foreground shadow-xl backdrop-blur-sm transition-all duration-300 hover:scale-[1.01] hover:shadow-2xl hover:shadow-orange-200 dark:hover:shadow-orange-900 relative overflow-hidden group",
-      className
-    )}
-    {...props}
-  />
+    variant="elevated" // Use elevated variant to match existing styling
+    className={className}
+    onClick={onClick ? () => onClick({} as any) : undefined}
+    {...(props as any)}
+  >
+    {children}
+  </PancakeCard>
 ))
 Card.displayName = "Card"
 
@@ -21,9 +39,9 @@ const CardHeader = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div
+  <PancakeCardHeader
     ref={ref}
-    className={cn("flex flex-col space-y-1.5 p-6", className)}
+    className={className}
     {...props}
   />
 ))
@@ -33,12 +51,9 @@ const CardTitle = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLHeadingElement>
 >(({ className, ...props }, ref) => (
-  <h3
+  <PancakeCardTitle
     ref={ref}
-    className={cn(
-      "text-2xl font-bold leading-none tracking-tight bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent",
-      className
-    )}
+    className={className}
     {...props}
   />
 ))
@@ -48,9 +63,9 @@ const CardDescription = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
-  <p
+  <PancakeCardDescription
     ref={ref}
-    className={cn("text-sm text-muted-foreground", className)}
+    className={className}
     {...props}
   />
 ))
@@ -60,7 +75,11 @@ const CardContent = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("p-6 pt-0", className)} {...props} />
+  <PancakeCardContent
+    ref={ref}
+    className={className}
+    {...props}
+  />
 ))
 CardContent.displayName = "CardContent"
 
@@ -68,9 +87,9 @@ const CardFooter = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
 >(({ className, ...props }, ref) => (
-  <div
+  <PancakeCardFooter
     ref={ref}
-    className={cn("flex items-center p-6 pt-0", className)}
+    className={className}
     {...props}
   />
 ))
