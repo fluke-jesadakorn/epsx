@@ -7,7 +7,7 @@
 
 import { useState } from 'react'
 import { Settings, Plus, Loader2, X } from 'lucide-react'
-import { addCustomPermission, removeCustomPermission } from '@/lib/actions/users'
+import { addCustomPermission, removeCustomPermission } from '@/lib/actions/consolidated-user-actions'
 
 interface CustomPermissionFormProps {
   userId: string
@@ -40,14 +40,16 @@ export function CustomPermissionForm({ userId, existingPermissions, onPermission
     setError(null)
 
     try {
+      const [platform, resource, action] = selectedPermission.split(':');
       const result = await addCustomPermission({
         userId,
-        permission: selectedPermission,
-        grantedBy: 'current-admin' // This should come from auth context
+        resource: resource || 'unknown',
+        action: action || 'unknown',
+        reason: 'Custom permission granted by admin'
       })
 
       if (!result.success) {
-        setError(result.error?.message || 'Failed to add permission')
+        setError(result.error || 'Failed to add permission')
         return
       }
 
@@ -66,14 +68,16 @@ export function CustomPermissionForm({ userId, existingPermissions, onPermission
     setError(null)
 
     try {
+      const [platform, resource, action] = permission.split(':');
       const result = await removeCustomPermission({
         userId,
-        permission,
-        removedBy: 'current-admin' // This should come from auth context
+        resource: resource || 'unknown',
+        action: action || 'unknown',
+        reason: 'Permission removed by admin'
       })
 
       if (!result.success) {
-        setError(result.error?.message || 'Failed to remove permission')
+        setError(result.error || 'Failed to remove permission')
         return
       }
 

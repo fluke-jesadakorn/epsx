@@ -13,6 +13,7 @@ use crate::domain::payment::{
 /// Repository adapter for managing crypto addresses  
 #[derive(Clone)]
 pub struct CryptoAddressRepositoryAdapter {
+    #[allow(dead_code)]
     db_pool: Arc<DbPool>,
 }
 

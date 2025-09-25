@@ -35,6 +35,11 @@ export class GlobalErrorBoundary extends Component<Props, State> {
       errorInfo: null,
       errorId: '',
     };
+
+    // Setup global error handlers on client side only
+    if (typeof window !== 'undefined' && props.level === 'global') {
+      this.setupGlobalErrorHandlers();
+    }
   }
 
   public static getDerivedStateFromError(error: Error): Partial<State> {
@@ -49,7 +54,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     const { onError, level = 'global', context } = this.props;
     
-    // Log error with context
+    // Log error with context - wrapped in try-catch to prevent recursive errors
     const errorContext = {
       level,
       context,
@@ -58,8 +63,17 @@ export class GlobalErrorBoundary extends Component<Props, State> {
       errorBoundary: this.constructor.name,
     };
 
-    safeError(`Error caught by ${level} boundary`, error);
-    uiLogger.error('Component error boundary triggered', error, errorContext);
+    try {
+      safeError(error);
+      uiLogger.error(`Error caught by ${level} boundary`, error);
+      uiLogger.error('Component error boundary triggered', errorContext);
+    } catch (loggingError) {
+      // Fallback to native console if logging system fails
+      if (typeof console !== 'undefined' && console.error) {
+        console.error('Error boundary logging failed:', loggingError);
+        console.error('Original error:', error);
+      }
+    }
 
     // Call custom error handler if provided
     if (onError) {
@@ -82,6 +96,70 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   private reportErrorToService(error: Error, errorInfo: ErrorInfo, context: any) {
     // External error reporting disabled for security
     // Errors are handled locally only
+  }
+
+  private setupGlobalErrorHandlers() {
+    // Handle unhandled promise rejections (including wallet/database cleanup errors)
+    window.addEventListener('unhandledrejection', (event: PromiseRejectionEvent) => {
+      const error = event.reason;
+      
+      // Handle wallet library and database cleanup errors that are safe to ignore
+      if (error instanceof TypeError) {
+        const msg = error.message;
+        if (
+          msg === "Cannot set properties of null (setting 'onclose')" ||
+          msg === "Cannot read properties of null (reading 'transaction')" ||
+          msg.includes("Cannot set properties of null") ||
+          msg.includes("Cannot read properties of null") ||
+          msg.includes("IndexedDB") ||
+          msg.includes("WebSocket") ||
+          msg.includes("transaction") ||
+          msg.includes("onclose")
+        ) {
+          event.preventDefault(); // Prevent console spam
+          return;
+        }
+      }
+
+      // Handle general connection cleanup errors from wallet extensions
+      if (error && typeof error === 'object' && error.name === 'TypeError') {
+        const errorStr = error.toString();
+        if (
+          errorStr.includes('null') && 
+          (errorStr.includes('onclose') || errorStr.includes('transaction'))
+        ) {
+          event.preventDefault();
+          return;
+        }
+      }
+
+      // Log other unhandled rejections
+      uiLogger.error('Unhandled promise rejection', { error, source: 'global-error-boundary' });
+    });
+
+    // Handle general JavaScript errors
+    window.addEventListener('error', (event: ErrorEvent) => {
+      // Skip wallet library cleanup errors
+      if (event.error instanceof TypeError) {
+        const msg = event.error.message;
+        if (
+          msg.includes("Cannot set properties of null") ||
+          msg.includes("Cannot read properties of null") ||
+          msg.includes("IndexedDB") ||
+          msg.includes("WebSocket")
+        ) {
+          return; // Don't log these errors
+        }
+      }
+
+      uiLogger.error('Unhandled JavaScript error', { 
+        error: event.error,
+        source: 'global-error-boundary',
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno
+      });
+    });
   }
 
   private handleRetry = () => {

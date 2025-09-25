@@ -3,9 +3,6 @@
  * Domain-organized utility functions and classes
  */
 
-// Firebase utilities
-export * from './firebase';
-
 // Logging and monitoring
 export * from './logging';
 

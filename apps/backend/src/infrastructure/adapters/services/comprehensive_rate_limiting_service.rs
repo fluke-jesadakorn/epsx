@@ -255,6 +255,7 @@ pub struct RateLimitResult {
 /// Comprehensive rate limiting service
 pub struct ComprehensiveRateLimitingService {
     cache: Arc<dyn Cache>,
+    #[allow(dead_code)]
     database: Arc<PgPool>,
     default_tiers: HashMap<String, RateLimitTier>,
 }

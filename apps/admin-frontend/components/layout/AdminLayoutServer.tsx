@@ -77,7 +77,14 @@ export async function AdminLayoutServer({ children }: AdminLayoutServerProps) {
     const sessionData = await getSessionFromJWT();
     if (sessionData?.isAuthenticated && sessionData.user) {
       session = {
-        user: sessionData.user,
+        user: {
+          id: sessionData.user.sub,
+          email: sessionData.user.email,
+          name: sessionData.user.name,
+          role: 'admin', // Default role for admin frontend
+          permissions: sessionData.user.permissions || [],
+          packageTier: 'ENTERPRISE' // Default tier for admin users
+        },
         isLoggedIn: sessionData.isAuthenticated
       };
     }

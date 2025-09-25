@@ -1,81 +1,45 @@
 /**
- * Progressive Authentication Types
- * Defines the three-tier authentication system for EPSX
+ * FRONTEND PROGRESSIVE AUTH TYPES - MIGRATED TO SHARED
+ * All progressive auth types moved to shared/types/progressive-auth with compatibility layer
+ * This file now re-exports shared types for backward compatibility with user context
  */
 
-export enum AuthLevel {
-  PUBLIC = 'public',           // No wallet needed - anyone can access
-  CONNECTED = 'connected',     // Wallet connected, no signature - personalization
-  AUTHENTICATED = 'authenticated' // Cryptographic signature required - sensitive actions
-}
+// Re-export everything from shared progressive auth types
+export * from '../../../shared/types/progressive-auth';
 
-export interface AuthState {
-  level: AuthLevel;
-  walletAddress?: string;
-  isAuthenticated: boolean;
-  isWalletConnected: boolean;
-}
+// Import for local re-export with legacy names (maintaining compatibility)
+import type {
+  AuthLevel as SharedAuthLevel,
+  AuthState as SharedAuthState,
+  UserAuthState as SharedUserAuthState,
+  ProgressiveAuthProps as SharedProgressiveAuthProps,
+  UserProgressiveAuthProps as SharedUserProgressiveAuthProps,
+  AuthGateProps as SharedAuthGateProps,
+  ConnectedComponentProps as SharedConnectedComponentProps,
+  UserConnectedComponentProps as SharedUserConnectedComponentProps,
+  AuthenticatedComponentProps as SharedAuthenticatedComponentProps,
+  UserAuthenticatedComponentProps as SharedUserAuthenticatedComponentProps
+} from '../../../shared/types/progressive-auth';
 
-export interface ProgressiveAuthProps {
-  /**
-   * Minimum authentication level required for this component
-   */
-  requiredLevel: AuthLevel;
-  
-  /**
-   * Content to show when user meets the required auth level
-   */
-  children: React.ReactNode;
-  
-  /**
-   * Optional fallback content for unauthorized users
-   */
-  fallback?: React.ReactNode;
-  
-  /**
-   * Custom message explaining why authentication is needed
-   */
-  authMessage?: string;
-  
-  /**
-   * Whether to show upgrade prompts
-   */
-  showUpgradePrompts?: boolean;
-  
-  /**
-   * Action name for better UX messaging (e.g., "view premium data", "make payment")
-   */
-  actionName?: string;
-}
+// Re-export with exact same names for backward compatibility
+export const AuthLevel = {
+  PUBLIC: 'public' as const,
+  CONNECTED: 'connected' as const,
+  AUTHENTICATED: 'authenticated' as const,
+};
 
-export interface AuthGateProps extends ProgressiveAuthProps {
-  /**
-   * Loading component to show while determining auth state
-   */
-  loading?: React.ReactNode;
-}
+// Export type version for components that use AuthLevel as a type
+export type AuthLevelType = typeof AuthLevel[keyof typeof AuthLevel];
 
-/**
- * Progressive authentication component props for different scenarios
- */
-export interface ConnectedComponentProps {
-  /**
-   * Enhanced props when wallet is connected (personalization)
-   */
-  walletAddress?: string;
-  isConnected: boolean;
-}
+export type AuthState = SharedUserAuthState;
+export type ProgressiveAuthProps = SharedUserProgressiveAuthProps;
+export type AuthGateProps = SharedAuthGateProps;
 
-export interface AuthenticatedComponentProps extends ConnectedComponentProps {
-  /**
-   * Full authentication state for sensitive operations
-   */
-  isAuthenticated: boolean;
-}
+// Component props for different auth levels (user-focused)
+export type ConnectedComponentProps = SharedUserConnectedComponentProps;
+export type AuthenticatedComponentProps = SharedUserAuthenticatedComponentProps;
 
-/**
- * Standard auth messages for different scenarios
- */
+// User-specific constants (re-exported from shared with user context)
 export const AUTH_MESSAGES = {
   CONNECT_WALLET: 'Connect your wallet to personalize your experience',
   SIGN_IN_REQUIRED: 'Sign in with your wallet to access this feature',
@@ -85,9 +49,6 @@ export const AUTH_MESSAGES = {
   PREMIUM_REQUIRED: 'Sign in to access premium features',
 } as const;
 
-/**
- * Action names for better UX
- */
 export const ACTION_NAMES = {
   VIEW_PREMIUM: 'view premium analytics',
   MAKE_PAYMENT: 'process payment',

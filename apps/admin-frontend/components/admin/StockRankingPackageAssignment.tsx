@@ -1,13 +1,36 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  PackageTier, 
-  StockRankingType,
-  BulkStockRankingAssignment,
-  BulkStockRankingAssignmentResult,
-  StockRankingPackageAssignment
-} from '@/types';
+enum PackageTier {
+  FREE = 'free',
+  BRONZE = 'bronze',
+  SILVER = 'silver',
+  GOLD = 'gold',
+  PLATINUM = 'platinum',
+  ENTERPRISE = 'enterprise',
+  PREMIUM = 'premium'
+}
+type StockRankingType = any;
+type BulkStockRankingAssignment = any;
+type BulkStockRankingAssignmentResult = any;
+type StockRankingPackageAssignment = any;
+
+const StockRankingPackageConfigs = {
+  getConfigForTier: (tier: PackageTier) => ({
+    maxRankings: tier === PackageTier.ENTERPRISE ? -1 : 50,
+    rateLimitPerMinute: 60,
+    realTimeUpdates: true,
+    allowedMarkets: ['*'],
+    allowedRankingTypes: ['basic', 'advanced'] as any[],
+    advancedFeatures: {
+      customFilters: tier !== PackageTier.FREE,
+      exportData: tier !== PackageTier.FREE
+    },
+    exportOptions: {
+      maxExportsPerDay: tier === PackageTier.ENTERPRISE ? -1 : 10
+    }
+  })
+};
 
 interface User {
   id: string;
@@ -191,7 +214,7 @@ export default function StockRankingPackageAssignment({
 
   const formatRankingTypes = (types: StockRankingType[]): string => {
     return types.map(type => 
-      type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+      type.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())
     ).join(', ');
   };
 

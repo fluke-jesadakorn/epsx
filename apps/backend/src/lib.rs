@@ -1,5 +1,4 @@
 // Clean architecture library exports
-#![allow(dead_code)]
 
 pub mod core; // Shared kernel
 pub mod domain; // DDD Domain layer with bounded contexts (User Management, Trading Analytics, Notification, Payment)
@@ -12,5 +11,5 @@ pub mod auth; // Modern authentication with OIDC
 
 // Selective re-exports for clean namespace
 pub use core::{ errors, types, telemetry };
-pub use infrastructure::container::app_container::AppContainer;
+pub use infrastructure::container::DomainContainer;
 pub use web::create_router;

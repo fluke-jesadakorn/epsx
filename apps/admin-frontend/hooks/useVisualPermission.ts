@@ -1,6 +1,6 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
+import { useAuth } from '@/lib/auth';
 import { useMemo } from 'react';
 
 // Package tiers in order from lowest to highest
@@ -35,11 +35,11 @@ export function useVisualPermission({
   feature,
   customCheck
 }: UseVisualPermissionOptions): VisualPermissionResult {
-  const { data: session, status } = useSession();
+  const { user, isAuthenticated, isLoading } = useAuth();
   
   const result = useMemo<VisualPermissionResult>(() => {
-    // Default result for no session
-    if (!session?.user) {
+    // Default result for no user
+    if (!user || !isAuthenticated) {
       return {
         hasPermission: false,
         restrictionReason: 'Authentication required',
@@ -51,9 +51,8 @@ export function useVisualPermission({
       };
     }
 
-    const user = session.user;
     const userPermissions = Array.isArray(user.permissions) ? user.permissions : [];
-    const userTier = (user.package_tier || 'FREE') as PackageTier;
+    const userTier = 'ENTERPRISE' as PackageTier; // Web3 users are enterprise tier
     const isAdmin = userPermissions.includes('admin:*:*') || 
                    userPermissions.some(p => p.startsWith('admin:'));
 
@@ -129,7 +128,7 @@ export function useVisualPermission({
       isAdmin,
       currentTier: userTier
     };
-  }, [session, permission, requiredTier, feature, customCheck]);
+  }, [user, isAuthenticated, permission, requiredTier, feature, customCheck]);
 
   return result;
 }
@@ -190,12 +189,12 @@ export function useVisualPermissions(permissions: string[]): VisualPermissionRes
   grantedPermissions: string[];
   deniedPermissions: string[];
 } {
-  const { data: session } = useSession();
+  const { user, isAuthenticated } = useAuth();
   
   return useMemo(() => {
     const baseResult = useVisualPermission({ permission: permissions[0] });
     
-    if (!session?.user) {
+    if (!user || !isAuthenticated) {
       return {
         ...baseResult,
         grantedPermissions: [],
@@ -203,7 +202,7 @@ export function useVisualPermissions(permissions: string[]): VisualPermissionRes
       };
     }
 
-    const userPermissions = Array.isArray(session.user.permissions) ? session.user.permissions : [];
+    const userPermissions = Array.isArray(user.permissions) ? user.permissions : [];
     const grantedPermissions: string[] = [];
     const deniedPermissions: string[] = [];
 
@@ -224,7 +223,7 @@ export function useVisualPermissions(permissions: string[]): VisualPermissionRes
       grantedPermissions,
       deniedPermissions
     };
-  }, [session, permissions]);
+  }, [user, isAuthenticated, permissions]);
 }
 
 /**

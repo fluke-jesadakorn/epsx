@@ -74,6 +74,7 @@ pub struct TradingViewCache {
     market_cache: HashMap<String, CacheEntry<FrontendDataBatch>>,
     request_cache: HashMap<String, CacheEntry<serde_json::Value>>,
     default_ttl: Duration,
+    #[allow(dead_code)]
     max_cache_size: usize,
     hit_count: u64,
     miss_count: u64,

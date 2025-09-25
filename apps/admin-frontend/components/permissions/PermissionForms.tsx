@@ -10,7 +10,6 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { 
   Users, 
   Shield, 
@@ -22,6 +21,15 @@ import {
   XCircle,
   AlertCircle
 } from 'lucide-react';
+
+// Import shared validation schemas
+import { z } from 'zod';
+import {
+  grantPermissionSchema,
+  bulkUserSchema,
+  type GrantPermissionForm,
+  type BulkUserForm
+} from '../../../../shared/validators/schemas';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,21 +45,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { User, Permission, Platform } from '@/types/core';
 import { adminClient } from '@/lib/api/unified-admin-client';
 
-// Form validation schemas
-const grantPermissionSchema = z.object({
-  userId: z.string().min(1, 'User is required'),
-  permissions: z.array(z.string()).min(1, 'At least one permission is required'),
-  expiresAt: z.string().optional(),
-  reason: z.string().min(3, 'Reason must be at least 3 characters').optional()
-});
-
-const bulkPermissionSchema = z.object({
-  userIds: z.array(z.string()).min(1, 'At least one user is required'),
-  permissions: z.array(z.string()).min(1, 'At least one permission is required'),
-  expiresAt: z.string().optional(),
-  reason: z.string().min(3, 'Reason must be at least 3 characters').optional()
-});
-
+// Local schema for permission requests (not yet in shared)
 const requestPermissionSchema = z.object({
   permissions: z.array(z.string()).min(1, 'At least one permission is required'),
   justification: z.string().min(10, 'Justification must be at least 10 characters'),
@@ -60,8 +54,8 @@ const requestPermissionSchema = z.object({
   expiresAt: z.string().optional()
 });
 
-type GrantPermissionForm = z.infer<typeof grantPermissionSchema>;
-type BulkPermissionForm = z.infer<typeof bulkPermissionSchema>;
+// Use shared types for grant/bulk, local type for request
+type BulkPermissionForm = BulkUserForm; // Reuse bulk user form type
 type RequestPermissionForm = z.infer<typeof requestPermissionSchema>;
 
 interface PermissionFormsProps {
@@ -124,11 +118,11 @@ export function PermissionForms({
 
   // Bulk Permission Form
   const bulkForm = useForm<BulkPermissionForm>({
-    resolver: zodResolver(bulkPermissionSchema),
+    resolver: zodResolver(bulkUserSchema),
     defaultValues: {
       userIds: [],
       permissions: [],
-      expiresAt: '',
+      operation: 'assign_permissions',
       reason: ''
     }
   });
@@ -435,7 +429,7 @@ export function PermissionForms({
                             <SelectItem key={user.id} value={user.id}>
                               <div className="flex items-center gap-2">
                                 <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-xs">
-                                  {user.email[0].toUpperCase()}
+                                  {user.email?.[0]?.toUpperCase() || 'U'}
                                 </div>
                                 <div>
                                   <div className="font-medium">{user.email}</div>
@@ -569,7 +563,7 @@ export function PermissionForms({
                               />
                               <div className="flex items-center gap-3 flex-1">
                                 <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-xs text-white font-semibold">
-                                  {user.email[0].toUpperCase()}
+                                  {user.email?.[0]?.toUpperCase() || 'U'}
                                 </div>
                                 <div className="flex-1">
                                   <div className="text-sm font-semibold text-gray-900 dark:text-white">{user.email}</div>

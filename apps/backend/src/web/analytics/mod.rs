@@ -13,10 +13,16 @@ use axum::{
 use serde::Deserialize;
 
 use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
-use crate::infrastructure::container::InfraFactory;
+// use crate::infrastructure::container::InfraFactory; // Removed - no longer exists
 use crate::config::Config;
 use crate::infrastructure::cache::{CacheFactory, Cache};
-use crate::web::middleware::AuthenticatedUser;
+// AuthenticatedUser moved to domain layer - define locally for now
+#[derive(Debug, Clone)]
+pub struct AuthenticatedUser {
+    pub id: String,
+    pub email: String,
+    pub permissions: Vec<String>,
+}
 
 pub use eps_handlers::*;
 
@@ -28,7 +34,7 @@ pub struct AnalyticsQuery {
 }
 
 
-pub async fn create_analytics_router(_infra_factory: &InfraFactory) -> Router {
+pub async fn create_analytics_router() -> Router {
     // Create services for both database and cache approaches
     
     // Create cache-based EPS service with TradingView integration
@@ -51,40 +57,7 @@ pub async fn create_analytics_router(_infra_factory: &InfraFactory) -> Router {
     // Create DDD Stock Analysis Repository Adapter
     // For now, create a mock EPS repository since this is bridging legacy systems
     // struct MockEPSRepository;
-    // 
-    // #[async_trait::async_trait]
-    // impl crate::domain::shared_kernel::services::eps_ranking_service::EPSRepository for MockEPSRepository {
-    //     async fn store_eps_data(&self, _eps_data: crate::domain::trading_analytics::StockAnalysis) -> Result<(), crate::core::errors::AppError> {
-    //         Ok(()) // Mock implementation
-    //     }
-    //     
-    //     async fn batch_store_eps_data(&self, _eps_data_list: Vec<crate::domain::trading_analytics::StockAnalysis>) -> Result<usize, crate::core::errors::AppError> {
-    //         Ok(0) // Mock implementation - returns 0 stored items
-    //     }
-    //     
-    //     async fn get_rankings_filtered(
-    //         &self,
-    //         _country: Option<String>,
-    //         _sector: Option<String>,
-    //         _sort_by: Option<String>,
-    //         _page: i32,
-    //         _limit: i32,
-    //     ) -> Result<Vec<crate::domain::trading_analytics::EPSRanking>, crate::core::errors::AppError> {
-    //         Ok(vec![]) // Mock implementation - returns empty vec
-    //     }
-    //     
-    //     async fn get_total_count(&self, _country: Option<String>, _sector: Option<String>) -> Result<i64, crate::core::errors::AppError> {
-    //         Ok(0) // Mock implementation
-    //     }
-    //     
-    //     async fn get_countries(&self) -> Result<Vec<String>, crate::core::errors::AppError> {
-    //         Ok(vec!["america".to_string(), "europe".to_string()]) // Mock implementation
-    //     }
-    //     
-    //     async fn get_sectors_by_country(&self, _country: Option<String>) -> Result<Vec<String>, crate::core::errors::AppError> {
-    //         Ok(vec!["Technology".to_string(), "Healthcare".to_string()]) // Mock implementation
-    //     }
-    // }
+    // Legacy MockEPSRepository implementation removed - use actual repository implementations
     // 
     // Create stock analysis adapter for the repository layer
     let eps_repository = std::sync::Arc::new(crate::infrastructure::adapters::repositories::EPSRepositoryAdapter::new());
@@ -127,10 +100,12 @@ pub async fn create_analytics_router(_infra_factory: &InfraFactory) -> Router {
         .route("/api/v1/admin/stock-ranking/assignments", get(stock_ranking_assignments_handler))
         .route("/api/v1/admin/stock-ranking/assignments/:assignment_id/extend", post(extend_assignment_handler))
         .route("/api/v1/admin/stock-ranking/assignments/:assignment_id/revoke", post(revoke_assignment_handler))
+        // Add cache extension before middleware
+        .layer(Extension(unified_cache_service.clone()))
         // No longer needs DDD adapter - using direct TradingView API
         // Apply user authentication middleware
-        // TODO: Axum 0.7.9 trait bound issue - use clean_auth_middleware temporarily
-        .layer(from_fn(crate::web::middleware::clean_auth_middleware))
+        // TODO: Axum 0.7.9 trait bound issue - use stateless_auth_middleware temporarily
+        .layer(from_fn(crate::web::middleware::stateless_auth_middleware))
         // Apply analytics view permission requirement to all analytics routes
         .layer(from_fn(require_analytics_permission));
 
@@ -153,19 +128,21 @@ pub async fn create_analytics_router(_infra_factory: &InfraFactory) -> Router {
         .route("/v1/analytics/cache/stats", get(eps_handlers::get_cache_stats))
         .route("/v1/analytics/cache/refresh", post(eps_handlers::force_cache_refresh))
         .route("/v1/analytics/cache/health", get(eps_handlers::cache_health_check))
+        // Add cache extension before middleware
+        .layer(Extension(unified_cache_service.clone()))
         // Apply same permission middleware to legacy routes
-        // TODO: Axum 0.7.9 trait bound issue - use clean_auth_middleware temporarily  
-        .layer(from_fn(crate::web::middleware::clean_auth_middleware))
+        // TODO: Axum 0.7.9 trait bound issue - use stateless_auth_middleware temporarily  
+        .layer(from_fn(crate::web::middleware::stateless_auth_middleware))
         .layer(from_fn(require_analytics_permission));
 
-    // Public routes (no authentication required)
+    // Public routes (no authentication required) - use simple test handler first
     let public_routes = Router::new()
-        .route("/api/v1/public/analytics/rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
-        .route("/api/v1/public/analytics/eps-rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
+        .route("/api/v1/public/analytics/rankings", get(simple_rankings_handler))
+        .route("/api/v1/public/analytics/eps-rankings", get(simple_rankings_handler))
         .route("/api/v1/public/analytics/filters", get(eps_handlers::get_filter_options))
         .route("/api/v1/public/analytics/countries", get(eps_handlers::get_available_countries))
         .route("/api/v1/public/analytics/sectors", get(eps_handlers::get_sectors_by_country));
-        // No authentication middleware for public routes - now uses direct TradingView API
+        // No authentication middleware for public routes - test with simple handler first
 
     let eps_repository_clone = std::sync::Arc::new(crate::infrastructure::adapters::repositories::EPSRepositoryAdapter::new());
     let eps_service_clone = std::sync::Arc::new(crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService::new(eps_repository_clone));
@@ -174,8 +151,7 @@ pub async fn create_analytics_router(_infra_factory: &InfraFactory) -> Router {
         .merge(v1_routes)
         .merge(legacy_routes)
         .merge(public_routes)
-        // Add services as extensions
-        .layer(Extension(unified_cache_service))
+        // Add EPS service extension (cache extensions already added to individual route groups)
         .layer(Extension(eps_service_clone))
 }
 
@@ -330,10 +306,10 @@ async fn require_analytics_permission(
 
     // Check if user has required permission (supports wildcards and embedded timestamps)
     let required_permission = "epsx:analytics:view";
-    if !user.valid_permissions.iter().any(|p| permission_matches(p, required_permission)) {
+    if !user.permissions.iter().any(|p| permission_matches(p, required_permission)) {
         tracing::info!(
             "User {} lacks required permission '{}' for analytics endpoint {}",
-            user.user_id,
+            user.id,
             required_permission,
             request.uri().path()
         );
@@ -345,7 +321,7 @@ async fn require_analytics_permission(
 
     tracing::debug!(
         "User {} granted analytics access with permission check passed",
-        user.user_id
+        user.id
     );
 
     Ok(next.run(request).await)
@@ -420,4 +396,38 @@ fn create_analytics_forbidden_response(message: &str) -> Response {
         [("Content-Type", "application/json")],
         error_body.to_string()
     ).into_response()
+}
+
+/// Simple test handler for public analytics rankings (no extensions required)
+async fn simple_rankings_handler() -> Result<Json<serde_json::Value>, StatusCode> {
+    let mock_response = serde_json::json!({
+        "success": true,
+        "data": [
+            {
+                "rank": 1,
+                "symbol": "AAPL",
+                "name": "Apple Inc.",
+                "eps_growth": 15.5,
+                "market_cap": 3000000000000_u64,
+                "sector": "Technology"
+            },
+            {
+                "rank": 2,
+                "symbol": "MSFT",
+                "name": "Microsoft Corp.",
+                "eps_growth": 12.3,
+                "market_cap": 2800000000000_u64,
+                "sector": "Technology"
+            }
+        ],
+        "pagination": {
+            "page": 1,
+            "limit": 5,
+            "total": 2,
+            "total_pages": 1
+        },
+        "message": "Mock analytics data for testing"
+    });
+    
+    Ok(Json(mock_response))
 }

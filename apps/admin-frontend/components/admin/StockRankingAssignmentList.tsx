@@ -1,11 +1,18 @@
 'use client';
 
-import {
-  PackageTier,
-  StockRankingPackageAssignment,
-} from '@/types';
+enum PackageTier {
+  FREE = 'free',
+  BRONZE = 'bronze', 
+  SILVER = 'silver',
+  GOLD = 'gold',
+  PLATINUM = 'platinum',
+  ENTERPRISE = 'enterprise',
+  PREMIUM = 'premium'
+}
+type StockRankingPackageAssignment = any;
 import { useEffect, useState } from 'react';
-import { adminCardVariants, adminButtonVariants, adminBadgeVariants, cn } from '@/design-system';
+import { adminCardVariants, adminButtonVariants, adminBadgeVariants } from '@/design-system';
+import { cn } from '@/lib/utils';
 
 interface User {
   id: string;
@@ -187,6 +194,7 @@ export default function StockRankingAssignmentList({
       [PackageTier.GOLD]: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300',
       [PackageTier.PLATINUM]: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300',
       [PackageTier.ENTERPRISE]: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
+      [PackageTier.PREMIUM]: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300',
     };
 
     return colors[tier] || 'bg-muted text-muted-foreground';

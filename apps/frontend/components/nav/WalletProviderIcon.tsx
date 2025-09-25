@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { formatAddress } from '@/lib/auth/web3-store';
+import { useWeb3Context } from '@/components/providers/MinimalWeb3Provider';
 
 interface WalletProviderIconProps {
   className?: string;
@@ -59,6 +60,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   const [copied, setCopied] = useState(false);
   const { address, isConnected, connector } = useAccount();
   const { disconnect } = useDisconnect();
+  const { isInitialized } = useWeb3Context();
 
   useEffect(() => {
     setIsHydrated(true);
@@ -66,9 +68,10 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
       isConnected,
       address,
       connector: connector?.id,
-      isHydrated: true
+      isHydrated: true,
+      isInitialized
     });
-  }, [isConnected, address, connector]);
+  }, [isConnected, address, connector, isInitialized]);
 
   const handleCopyAddress = async () => {
     if (!address) return;
@@ -82,7 +85,8 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
     }
   };
 
-  if (!isHydrated) {
+  // Show loading state during hydration or before RainbowKit is ready
+  if (!isHydrated || !isInitialized) {
     return (
       <Button
         variant="ghost"
@@ -95,6 +99,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
     );
   }
 
+  // Only render connect button when RainbowKit is fully initialized
   if (!isConnected || !address) {
     return (
       <ConnectButton.Custom>

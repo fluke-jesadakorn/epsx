@@ -72,7 +72,6 @@ export default function CreateUserError({
               <Button
                 onClick={reset}
                 variant="secondary"
-                size="default"
                 className="w-full group"
               >
                 <RefreshCw className="h-4 w-4 group-hover:rotate-180 transition-transform duration-500" />
@@ -82,7 +81,6 @@ export default function CreateUserError({
               <Button
                 onClick={() => router.push('/users')}
                 variant="pancake"
-                size="default"
                 className="w-full"
               >
                 <ArrowLeft className="h-4 w-4" />

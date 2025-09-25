@@ -33,6 +33,7 @@ pub struct TradingViewApiService {
     scanner: TradingViewScanner,
     websocket_handler: TradingViewWebSocketHandler,
     cache: RwLock<TradingViewCache>,
+    #[allow(dead_code)]
     config: TradingViewConfig,
 }
 

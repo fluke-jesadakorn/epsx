@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { serverPermissionCache } from '@/lib/server/permission-cache';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
 
@@ -15,68 +16,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify wallet session exists
+    // Verify wallet session exists (allow for initial login check)
     const cookieStore = await cookies();
     const sessionWalletAddress = cookieStore.get('wallet_address')?.value;
     
-    if (!sessionWalletAddress || sessionWalletAddress.toLowerCase() !== wallet_address.toLowerCase()) {
+    // During login, wallet session might not exist yet - that's OK
+    const isInitialLogin = !sessionWalletAddress;
+    
+    if (sessionWalletAddress && sessionWalletAddress.toLowerCase() !== wallet_address.toLowerCase()) {
       return NextResponse.json(
-        { error: 'Invalid or missing wallet session' },
+        { error: 'Wallet address mismatch' },
         { status: 401 }
       );
     }
 
     console.log('🔄 Admin: Fetching permissions for wallet:', wallet_address);
 
-    // Forward to backend Web3 permissions endpoint
-    const response = await fetch(`${BACKEND_URL}/api/auth/web3/permissions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Admin-Context': 'true',
-        'Authorization': `Bearer ${sessionWalletAddress}`, // Use wallet address as token
-      },
-      body: JSON.stringify({ 
-        wallet_address,
-        admin_context: true
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Failed to fetch permissions' }));
-      console.error('❌ Admin: Backend permissions fetch failed:', errorData);
-      return NextResponse.json(errorData, { status: response.status });
-    }
-
-    const data = await response.json();
+    // Use server-side cache to prevent heavy database queries
+    const permissionData = await serverPermissionCache.getPermissions(wallet_address);
     
-    // Filter and validate admin permissions
-    const allPermissions = data.permissions || [];
-    const adminPermissions = allPermissions.filter((permission: string) => 
-      permission === 'admin:*:*' || 
-      permission.startsWith('admin:') ||
-      permission === 'epsx:admin:*'
-    );
-    
-    // Determine admin level based on permissions
-    let adminLevel = 'none';
-    if (adminPermissions.includes('admin:*:*')) {
-      adminLevel = 'super';
-    } else if (adminPermissions.some((p: string) => p.includes('admin:web3:manage'))) {
-      adminLevel = 'manager';
-    } else if (adminPermissions.length > 0) {
-      adminLevel = 'moderator';
-    }
-    
-    console.log('✅ Admin: Permissions fetched for wallet:', wallet_address, 'Level:', adminLevel);
+    console.log('✅ Admin: Permissions fetched for wallet:', wallet_address, 'Level:', permissionData.admin_level, 'All permissions:', permissionData.permissions);
     
     return NextResponse.json({
-      wallet_address,
-      permissions: allPermissions,
-      admin_permissions: adminPermissions,
-      admin_level: adminLevel,
-      has_admin_access: adminPermissions.length > 0,
-      timestamp: Date.now()
+      wallet_address: permissionData.wallet_address,
+      permissions: permissionData.permissions,
+      admin_permissions: permissionData.permissions.filter(p => 
+        p === 'admin:*:*' || 
+        p.startsWith('admin:') ||
+        p === 'epsx:admin:*' ||
+        p === 'epsx:*:*'
+      ),
+      admin_level: permissionData.admin_level,
+      has_admin_access: permissionData.has_admin_access,
+      timestamp: permissionData.timestamp
     });
 
   } catch (error) {

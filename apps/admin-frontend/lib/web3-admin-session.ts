@@ -10,7 +10,8 @@ export interface Web3AdminSessionData {
 }
 
 /**
- * Get Web3 admin session from wallet authentication
+ * Get Web3 admin session - Simple wallet address + database check
+ * No complex signature validation, just wallet address and permissions
  */
 export async function getWeb3AdminSession(): Promise<Web3AdminSessionData | null> {
   try {
@@ -18,29 +19,52 @@ export async function getWeb3AdminSession(): Promise<Web3AdminSessionData | null
     const walletAddress = cookieStore.get('wallet_address')?.value;
     
     if (!walletAddress) {
+      console.log('🔍 Web3 Admin: No wallet address found in cookies');
       return { isAuthenticated: false };
     }
 
     console.log('🔍 Web3 Admin: Checking session for wallet:', walletAddress);
 
-    // Get permissions from Web3 backend
-    const response = await fetch('/api/auth/web3/permissions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ wallet_address: walletAddress }),
+    // Simple database permission check - no complex validation
+    const { Pool } = require('pg');
+    const databaseUrl = process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/epsx_db';
+    const pool = new Pool({
+      connectionString: databaseUrl,
+      max: 5,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+      native: false
     });
-
-    if (!response.ok) {
-      console.warn('⚠️ Web3 Admin: Failed to get permissions for wallet:', walletAddress);
+    
+    let walletPermissions: any[] = [];
+    
+    try {
+      const client = await pool.connect();
+      try {
+        const result = await client.query(`
+          SELECT permission, permission_type, is_active, expires_at, granted_at
+          FROM wallet_permissions 
+          WHERE wallet_address = $1 
+            AND is_active = true 
+            AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+          ORDER BY granted_at DESC
+        `, [walletAddress.toLowerCase()]);
+        
+        walletPermissions = result.rows;
+        console.log('✅ Web3 Admin: Found', walletPermissions.length, 'permissions for wallet:', walletAddress);
+      } finally {
+        client.release();
+      }
+    } catch (dbError) {
+      console.error('❌ Web3 Admin: Database query failed:', dbError);
       return { isAuthenticated: false };
+    } finally {
+      await pool.end();
     }
-
-    const data = await response.json();
+    
+    const allPermissions = walletPermissions.map((p: any) => p.permission);
     
     // Check if wallet has admin permissions
-    const allPermissions = data.permissions || [];
     const adminPermissions = allPermissions.filter((permission: string) => 
       permission === 'admin:*:*' || 
       permission.startsWith('admin:') ||
@@ -64,7 +88,7 @@ export async function getWeb3AdminSession(): Promise<Web3AdminSessionData | null
       adminLevel = 'moderator';
     }
     
-    console.log('✅ Web3 Admin: Session validated for wallet:', walletAddress, 'Level:', adminLevel);
+    console.log('✅ Web3 Admin: Simple authentication successful for wallet:', walletAddress, 'Level:', adminLevel);
     
     return {
       isAuthenticated: true,
@@ -72,7 +96,7 @@ export async function getWeb3AdminSession(): Promise<Web3AdminSessionData | null
       permissions: allPermissions,
       adminLevel,
       hasAdminAccess: true,
-      expiresAt: data.timestamp ? data.timestamp + (24 * 60 * 60 * 1000) : undefined, // 24 hours
+      expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
     };
     
   } catch (error) {

@@ -97,7 +97,7 @@ function NotificationCard({ notification }: { notification: SimpleNotification }
 
 export function NotificationBellSimple({ className = "", showBadge = true, initialData }: NotificationBellSimpleProps) {
   const [notifications, setNotifications] = useState<SimpleNotification[]>(
-    initialData?.notifications.map(n => ({ 
+    initialData?.notifications.map((n: any) => ({ 
       ...n, 
       type: n.notification_type,
       createdAt: n.created_at,
@@ -133,7 +133,7 @@ export function NotificationBellSimple({ className = "", showBadge = true, initi
           return
         }
 
-        const response = await fetch(`${clientConfig.apiUrl}/api/v1/notifications/unread`, {
+        const response = await fetch(`${clientConfig.backendUrl}/api/v1/notifications/unread`, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json'

@@ -30,7 +30,5 @@ export {
   RequireUserManagementAccess as RequireUserManagementGranular,
   RequireSystemManagementAccess as RequireSystemManagementGranular,
   RequirePermissionManagementAccess as RequirePermissionManagementGranular,
-  RequireAnalyticsAccess as RequireAnalyticsAccessGranular,
-  RequireFullAdminAccess as RequireFullAdminAccess,
-  RequireValidAdminPermissionFor as RequireValidAdminPermissionFor
+  RequireAnalyticsAccess as RequireAnalyticsAccessGranular
 } from '@/lib/permissions'

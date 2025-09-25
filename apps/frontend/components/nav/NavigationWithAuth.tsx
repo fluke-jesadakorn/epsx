@@ -8,10 +8,10 @@ export async function NavigationWithAuth() {
   try {
     const user = await getCurrentUser();
     
-    return <NavigationClient user={user} />;
+    return <NavigationClient />;
   } catch (error) {
     console.error('NavigationWithAuth error:', error);
     // Return navigation with no user data on error
-    return <NavigationClient user={null} />;
+    return <NavigationClient />;
   }
 }

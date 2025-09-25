@@ -1,7 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { PancakeCard } from '@/components/ui/PancakeCard'
+import { 
+  PancakeModal, 
+  PancakeCard, 
+  PancakeButton,
+  type PancakeModalProps 
+} from '../../../../shared/components'
 import { adminClient, SubscriptionResponse, UpdateSubscriptionRequest, isApiSuccess } from '@/lib/api/unified-admin-client'
 import { toast } from '@/hooks/use-toast'
 import { logger } from '@/lib/logger'
@@ -10,9 +15,10 @@ interface SubscriptionDetailsModalProps {
   subscription: SubscriptionResponse
   onClose: () => void
   onUpdate: () => void
+  isOpen: boolean
 }
 
-export function SubscriptionDetailsModal({ subscription, onClose, onUpdate }: SubscriptionDetailsModalProps) {
+export function SubscriptionDetailsModal({ subscription, onClose, onUpdate, isOpen }: SubscriptionDetailsModalProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
   const [plans, setPlans] = useState<any[]>([])
@@ -31,7 +37,7 @@ export function SubscriptionDetailsModal({ subscription, onClose, onUpdate }: Su
     try {
       const response = await adminClient.getPlans({ is_active: true })
       if (isApiSuccess(response)) {
-        setPlans(response.data?.plans || [])
+        setPlans((response.data as any)?.plans || response.data as any || [])
       }
     } catch (error) {
       logger.error('Failed to load plans', { error })
@@ -133,45 +139,45 @@ export function SubscriptionDetailsModal({ subscription, onClose, onUpdate }: Su
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <PancakeCard className="bg-white dark:bg-gray-800 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-8">
-          {/* Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
-                Subscription Details
-              </h2>
-              <div className="flex items-center gap-3 mt-2">
-                <span className="text-lg font-semibold text-gray-700 dark:text-gray-300">
-                  {subscription.plan_name}
-                </span>
-                <span className={`px-3 py-1 text-sm rounded-full font-semibold ${getStatusColor(subscription.status)}`}>
-                  {subscription.status.toUpperCase()}
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              {!isEditing && subscription.status !== 'cancelled' && (
-                <button
-                  onClick={() => setIsEditing(true)}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-400 to-blue-500 text-white rounded-xl font-semibold hover:from-blue-500 hover:to-blue-600"
-                >
-                  Edit
-                </button>
-              )}
-              <button
-                onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-2xl"
-              >
-                ✕
-              </button>
+    <PancakeModal
+      isOpen={isOpen}
+      onClose={onClose}
+      size="xl"
+      variant="elevated"
+      title={
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-yellow-600 bg-clip-text text-transparent">
+              Subscription Details
+            </h2>
+            <div className="flex items-center gap-3 mt-2">
+              <span className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+                {subscription.plan_name}
+              </span>
+              <span className={`px-3 py-1 text-sm rounded-full font-semibold ${getStatusColor(subscription.status)}`}>
+                {subscription.status.toUpperCase()}
+              </span>
             </div>
           </div>
+        </div>
+      }
+    >
+      <div className="space-y-6">
+        {/* Edit Button */}
+        <div className="flex items-center justify-end">
+          {!isEditing && subscription.status !== 'cancelled' && (
+            <PancakeButton
+              variant="secondary"
+              onClick={() => setIsEditing(true)}
+            >
+              Edit
+            </PancakeButton>
+          )}
+        </div>
 
-          {/* Basic Information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            <PancakeCard className="bg-gray-50 dark:bg-gray-700 p-6">
+        {/* Basic Information */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <PancakeCard variant="outlined" className="p-6">
               <h3 className="font-bold text-gray-900 dark:text-white mb-4">Basic Information</h3>
               <div className="space-y-3">
                 <div className="flex justify-between">
@@ -340,37 +346,34 @@ export function SubscriptionDetailsModal({ subscription, onClose, onUpdate }: Su
             </PancakeCard>
           )}
 
-          {/* Metadata */}
-          {subscription.metadata && Object.keys(subscription.metadata).length > 0 && (
-            <PancakeCard className="bg-gray-50 dark:bg-gray-700 p-6 mb-8">
-              <h3 className="font-bold text-gray-900 dark:text-white mb-4">Metadata</h3>
-              <pre className="text-sm text-gray-600 dark:text-gray-400 bg-gray-200 dark:bg-gray-600 p-3 rounded font-mono overflow-x-auto">
-                {JSON.stringify(subscription.metadata, null, 2)}
-              </pre>
-            </PancakeCard>
-          )}
+        {/* Metadata */}
+        {subscription.metadata && Object.keys(subscription.metadata).length > 0 && (
+          <PancakeCard variant="outlined" className="p-6">
+            <h3 className="font-bold text-gray-900 dark:text-white mb-4">Metadata</h3>
+            <pre className="text-sm text-gray-600 dark:text-gray-400 bg-gray-200 dark:bg-gray-600 p-3 rounded font-mono overflow-x-auto">
+              {JSON.stringify(subscription.metadata, null, 2)}
+            </pre>
+          </PancakeCard>
+        )}
 
-          {/* Action Buttons */}
-          <div className="flex gap-4">
-            <button
-              onClick={onClose}
-              className="flex-1 px-6 py-3 rounded-xl border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-50 dark:hover:bg-gray-700"
+        {/* Footer Buttons */}
+        <div className="flex gap-4 pt-4">
+          <PancakeButton variant="outline" onClick={onClose} className="flex-1">
+            Close
+          </PancakeButton>
+          
+          {subscription.status === 'active' && !isEditing && (
+            <PancakeButton 
+              variant="destructive" 
+              onClick={handleCancel}
+              disabled={loading}
+              className="flex-1"
             >
-              Close
-            </button>
-            
-            {subscription.status === 'active' && !isEditing && (
-              <button
-                onClick={handleCancel}
-                disabled={loading}
-                className="flex-1 px-6 py-3 rounded-xl bg-gradient-to-r from-red-400 to-red-500 text-white font-semibold hover:from-red-500 hover:to-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Cancelling...' : 'Cancel Subscription'}
-              </button>
-            )}
-          </div>
+              {loading ? 'Cancelling...' : 'Cancel Subscription'}
+            </PancakeButton>
+          )}
         </div>
-      </PancakeCard>
-    </div>
+      </div>
+    </PancakeModal>
   )
 }

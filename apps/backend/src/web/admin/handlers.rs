@@ -334,7 +334,7 @@ pub async fn verify_wallet_handler(
 }
 
 /// GET /admin/web3/permissions/{wallet_address} - Get wallet permissions (Web3 Specific)
-pub async fn get_wallet_permissions_handler(
+pub async fn get_user_permissions_handler(
   State(_app_state): State<AppState>,
   Path(wallet_address): Path<String>
 ) -> Result<Json<Value>, StatusCode> {

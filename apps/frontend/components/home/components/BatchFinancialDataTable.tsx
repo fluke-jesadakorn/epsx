@@ -36,8 +36,8 @@ function BatchFinancialDataTable({
       try {
         setLoading(true);
         // Use the existing stock action for faster data fetching
-        const { fetchStockFinancialData } = await import('@/app/actions/stock');
-        const result = await fetchStockFinancialData();
+        const { fetchStockData } = await import('@/app/actions/stock');
+        const result = await fetchStockData();
         // Limit the results based on maxCards
         const limitedResult = Array.isArray(result) ? result.slice(0, maxCards) : [];
         setData(limitedResult);

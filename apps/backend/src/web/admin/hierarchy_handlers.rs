@@ -8,7 +8,7 @@ use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::auth::{HierarchyResolver, PermissionHierarchy, InheritanceType, HierarchyStats};
-use crate::web::middleware::clean_auth::AuthenticatedUser;
+use crate::infrastructure::container::AuthenticatedUser;
 use crate::web::auth::AppState;
 
 /// Request to create a permission hierarchy

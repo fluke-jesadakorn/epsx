@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { PancakeCard } from '@/components/ui/PancakeCard'
 import { adminClient, isApiSuccess } from '@/lib/api/unified-admin-client'
 import { toast } from '@/hooks/use-toast'
-import { PermissionTemplateName, PERMISSION_TEMPLATE_CONFIGS } from '@/types/admin/userLevels'
+import { PermissionTemplateName, PERMISSION_TEMPLATE_CONFIGS } from '@/types/permission-templates'
 
 interface CreatePermissionTemplateRequest {
   name: string

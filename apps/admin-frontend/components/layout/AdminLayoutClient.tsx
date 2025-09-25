@@ -49,7 +49,7 @@ export function AdminLayoutClient({
 }: AdminLayoutClientProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { logout, isLoading: isSigningOut } = useAuth();
+  const { disconnectWallet, isLoading: isSigningOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isClient, setIsClient] = useState(false);
@@ -450,8 +450,8 @@ export function AdminLayoutClient({
 
   const handleLogout = async () => {
     try {
-      // Use Zustand auth logout
-      await logout();
+      // Use Zustand auth disconnectWallet
+      await disconnectWallet();
     } catch (error) {
       console.error('Logout failed:', error);
       // Fallback to manual redirect
@@ -503,7 +503,7 @@ export function AdminLayoutClient({
       {/* PancakeSwap x Windows Phone Sidebar */}
       <div
         ref={sidebarRef}
-        className={`fixed inset-y-0 left-0 z-50 flex transform flex-col border-r border-yellow-500/20 transition-all duration-300 ease-out ${
+        className={`fixed inset-y-0 left-0 z-50 flex transform flex-col border-r border-yellow-500/20  ease-out ${
           sidebarOpen
             ? 'translate-x-0'
             : isMobile
@@ -565,7 +565,7 @@ export function AdminLayoutClient({
                 onKeyDown={handleSearchKeyDown}
                 onFocus={() => setSearchFocused(true)}
                 onBlur={() => setSearchFocused(false)}
-                className={`min-h-[44px] w-full touch-manipulation border border-gray-600 bg-gradient-to-r from-gray-800 to-gray-700 py-3 pr-4 pl-10 font-light text-white placeholder-gray-400 transition-all duration-300 focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400 ${
+                className={`min-h-[44px] w-full touch-manipulation border border-gray-600 bg-gradient-to-r from-gray-800 to-gray-700 py-3 pr-4 pl-10 font-light text-white placeholder-gray-400  focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400 ${
                   searchFocused
                     ? 'shadow-lg ring-2 shadow-yellow-400/20 ring-yellow-400'
                     : ''
@@ -598,13 +598,13 @@ export function AdminLayoutClient({
                   key={group.id}
                   href={group.href!}
                   onClick={() => setSidebarOpen(false)}
-                  className={`group relative flex w-full items-center gap-3 overflow-hidden px-4 py-4 text-left transition-all duration-500 ${
+                  className={`group relative flex w-full items-center gap-3 overflow-hidden px-4 py-4 text-left  ${
                     sidebarCollapsed ? 'justify-center px-2' : ''
                   } ${
                     isActiveItem
                       ? 'border border-yellow-500/20 bg-gradient-to-r from-gray-800/40 to-gray-700/40 text-yellow-300 shadow-sm backdrop-blur-sm'
                       : 'border border-transparent text-gray-300 hover:border-yellow-500/20 hover:bg-gradient-to-r hover:from-gray-800/40 hover:to-gray-700/40 hover:text-yellow-100 hover:shadow-sm hover:backdrop-blur-sm'
-                  } min-h-[48px] touch-manipulation hover:scale-[1.01] focus:ring-1 focus:ring-yellow-400/50 focus:outline-none active:scale-[0.99]`}
+                  } min-h-[48px] touch-manipulation  focus:ring-1 focus:ring-yellow-400/50 focus:outline-none `}
                   title={sidebarCollapsed ? group.label : undefined}
                 >
                   {/* Subtle corner accent */}
@@ -613,14 +613,14 @@ export function AdminLayoutClient({
                   )}
 
                   <div
-                    className={`rounded-lg p-2 transition-all duration-500 ${
+                    className={`rounded-lg p-2  ${
                       isActiveItem
                         ? 'bg-gray-600/30 shadow-sm'
                         : 'bg-gray-700/30 group-hover:bg-gray-600/30'
                     }`}
                   >
                     <Icon
-                      className={`h-5 w-5 transition-colors duration-500 ${
+                      className={`h-5 w-5  ${
                         isActiveItem
                           ? 'text-yellow-300'
                           : 'text-gray-400 group-hover:text-yellow-200'
@@ -630,7 +630,7 @@ export function AdminLayoutClient({
                   {!sidebarCollapsed && (
                     <div className="min-w-0 flex-1">
                       <div
-                        className={`text-sm font-light tracking-wide transition-colors duration-500 ${
+                        className={`text-sm font-light tracking-wide  ${
                           isActiveItem
                             ? 'font-medium text-yellow-300'
                             : 'text-gray-300 group-hover:text-yellow-100'
@@ -652,13 +652,13 @@ export function AdminLayoutClient({
                 {/* PancakeSwap Group Header */}
                 <button
                   onClick={() => toggleMenu(group.id)}
-                  className={`group relative flex w-full items-center gap-3 overflow-hidden px-4 py-4 text-left transition-all duration-500 ${
+                  className={`group relative flex w-full items-center gap-3 overflow-hidden px-4 py-4 text-left  ${
                     sidebarCollapsed ? 'justify-center px-2' : ''
                   } ${
                     isExpanded
                       ? 'border border-yellow-500/30 bg-gradient-to-r from-gray-700/60 to-gray-800/60 text-yellow-300 shadow-lg backdrop-blur-sm'
                       : 'border border-transparent text-gray-300 hover:border-yellow-500/20 hover:bg-gradient-to-r hover:from-gray-800/70 hover:to-gray-700/70 hover:text-yellow-100 hover:shadow-md hover:backdrop-blur-sm'
-                  } min-h-[48px] touch-manipulation hover:scale-[1.01] focus:ring-1 focus:ring-yellow-400/50 focus:outline-none active:scale-[0.99]`}
+                  } min-h-[48px] touch-manipulation  focus:ring-1 focus:ring-yellow-400/50 focus:outline-none `}
                   title={sidebarCollapsed ? group.label : undefined}
                 >
                   {/* PancakeSwap corner accent */}
@@ -667,7 +667,7 @@ export function AdminLayoutClient({
                   )}
 
                   <div
-                    className={`rounded-lg p-2 transition-all duration-500 ${
+                    className={`rounded-lg p-2  ${
                       isExpanded
                         ? 'bg-yellow-500/20 shadow-sm'
                         : hasActiveChildItem
@@ -676,7 +676,7 @@ export function AdminLayoutClient({
                     }`}
                   >
                     <Icon
-                      className={`h-5 w-5 transition-colors duration-500 ${
+                      className={`h-5 w-5  ${
                         isExpanded
                           ? 'text-yellow-300'
                           : hasActiveChildItem
@@ -689,7 +689,7 @@ export function AdminLayoutClient({
                     <>
                       <div className="min-w-0 flex-1">
                         <div
-                          className={`text-sm font-light tracking-wide transition-colors duration-500 ${
+                          className={`text-sm font-light tracking-wide  ${
                             isExpanded
                               ? 'font-medium text-yellow-300'
                               : hasActiveChildItem
@@ -700,7 +700,7 @@ export function AdminLayoutClient({
                           {group.label}
                         </div>
                         <div
-                          className={`mt-0.5 text-xs font-light transition-colors duration-500 ${
+                          className={`mt-0.5 text-xs font-light  ${
                             isExpanded
                               ? 'text-yellow-400/80'
                               : hasActiveChildItem
@@ -712,10 +712,10 @@ export function AdminLayoutClient({
                         </div>
                       </div>
                       <div
-                        className={`transition-transform duration-500 ${isExpanded ? 'rotate-90' : ''}`}
+                        className={` ${isExpanded ? 'rotate-90' : ''}`}
                       >
                         <ChevronRight
-                          className={`h-4 w-4 transition-colors duration-500 ${
+                          className={`h-4 w-4  ${
                             isExpanded
                               ? 'text-yellow-300'
                               : hasActiveChildItem
@@ -741,7 +741,7 @@ export function AdminLayoutClient({
                             key={item.id}
                             href={item.href}
                             onClick={() => setSidebarOpen(false)}
-                            className={`group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-all duration-300 ${
+                            className={`group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left  ${
                               isActiveItem
                                 ? 'border border-yellow-500/40 bg-gradient-to-r from-yellow-500/20 to-yellow-600/20 text-yellow-300 shadow-sm backdrop-blur-sm'
                                 : 'border border-transparent text-gray-400 hover:border-yellow-500/20 hover:bg-gradient-to-r hover:from-gray-700/50 hover:to-gray-600/50 hover:text-gray-200 hover:shadow-sm hover:backdrop-blur-sm'
@@ -756,7 +756,7 @@ export function AdminLayoutClient({
                                 }`}
                               ></div>
                               <div
-                                className={`rounded-lg p-2 transition-all duration-300 ${
+                                className={`rounded-lg p-2  ${
                                   isActiveItem
                                     ? 'bg-yellow-500/20 shadow-sm'
                                     : 'bg-gray-700/50 group-hover:bg-gray-600/70'
@@ -948,7 +948,7 @@ export function AdminLayoutClient({
         <div className="wp-pancake-page-bg relative flex-1 overflow-auto">
           <div className="wp-pancake-content-bg relative z-10 p-4 lg:p-6">
             <div className="mx-auto max-w-7xl">
-              <div className="animate-fade-in transition-all duration-300">
+              <div className="animate-fade-in ">
                 {children}
               </div>
             </div>

@@ -22,14 +22,13 @@ export function LoginHistoryCard({ login }: LoginHistoryCardProps) {
   }
 
   const getDeviceIcon = () => {
-    const deviceType = login.deviceType?.toLowerCase()
-    switch (deviceType) {
-      case 'mobile':
-        return <Smartphone className="h-4 w-4 text-green-500" />
-      case 'desktop':
-        return <Monitor className="h-4 w-4 text-blue-500" />
-      default:
-        return <Globe className="h-4 w-4 text-gray-500" />
+    const userAgent = login.userAgent?.toLowerCase() || ''
+    if (userAgent.includes('mobile') || userAgent.includes('android') || userAgent.includes('iphone')) {
+      return <Smartphone className="h-4 w-4 text-green-500" />
+    } else if (userAgent.includes('desktop') || userAgent.includes('windows') || userAgent.includes('mac')) {
+      return <Monitor className="h-4 w-4 text-blue-500" />
+    } else {
+      return <Globe className="h-4 w-4 text-gray-500" />
     }
   }
 
@@ -58,11 +57,11 @@ export function LoginHistoryCard({ login }: LoginHistoryCardProps) {
       <div className="space-y-1 text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
           {getDeviceIcon()}
-          <span>{login.deviceType || 'Unknown device'}</span>
-          {login.browser && (
+          <span>{login.userAgent ? 'Browser' : 'Unknown device'}</span>
+          {login.userAgent && (
             <>
               <span>•</span>
-              <span>{login.browser}</span>
+              <span className="truncate max-w-32">{login.userAgent}</span>
             </>
           )}
         </div>
@@ -74,18 +73,12 @@ export function LoginHistoryCard({ login }: LoginHistoryCardProps) {
             {login.location && (
               <>
                 <span>•</span>
-                <span>{login.location}</span>
+                <span>{login.location.city ? `${login.location.city}, ${login.location.country}` : login.location.country}</span>
               </>
             )}
           </div>
         )}
 
-        {login.sessionDuration && (
-          <div className="flex items-center gap-2">
-            <LogIn className="h-3 w-3" />
-            <span>Session: {Math.round(login.sessionDuration)} minutes</span>
-          </div>
-        )}
 
         {!login.success && login.failureReason && (
           <div className="text-red-600">

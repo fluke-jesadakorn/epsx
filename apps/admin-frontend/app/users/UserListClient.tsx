@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Search, Filter } from 'lucide-react'
-import { UserListFilters } from '@/lib/actions/users'
+import { UserListFilters } from '@/lib/actions/consolidated-user-actions'
 
 interface UserListClientProps {
   currentFilters: UserListFilters

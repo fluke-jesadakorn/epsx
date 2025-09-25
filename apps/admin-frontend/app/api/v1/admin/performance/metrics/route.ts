@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdminSession } from '@/lib/session-validator'
+import { UnifiedAuth } from '@/lib/auth/unified-auth'
 
 /**
  * GET /api/v1/admin/performance/metrics
@@ -8,12 +8,10 @@ import { requireAdminSession } from '@/lib/session-validator'
 export async function GET(request: NextRequest) {
   try {
     // Require admin session for accessing performance metrics
-    const user = await requireAdminSession({
-      userAgent: request.headers.get('user-agent') || undefined,
-      ipAddress: request.ip || request.headers.get('x-forwarded-for') || undefined,
-      path: '/api/v1/admin/performance/metrics',
-      method: 'GET'
-    })
+    const session = await UnifiedAuth.getSession()
+    if (!session?.user || !UnifiedAuth.hasPermission(session.user, 'admin:system:view')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     
     // Get performance metrics from current request headers
     const middlewarePerformance = parseFloat(request.headers.get('x-middleware-performance') || '0')
@@ -38,10 +36,9 @@ export async function GET(request: NextRequest) {
           authOverheadPercentage: `${authOverheadPercentage.toFixed(1)}%`
         },
         user: {
-          email: user.email,
-          role: user.role,
-          permissions: user.permissions?.length || 0,
-          packageTier: user.package_tier
+          email: session.user.email || 'unknown',
+          userId: session.user.sub,
+          authenticated: true
         },
         performance: {
           classification: classifyPerformance({

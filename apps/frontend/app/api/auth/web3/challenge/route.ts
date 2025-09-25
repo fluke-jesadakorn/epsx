@@ -1,3 +1,7 @@
+/**
+ * Web3 Enterprise Challenge API Route
+ * Generates SIWE challenges for wallet authentication
+ */
 import { NextRequest, NextResponse } from 'next/server';
 import { env } from '@/config/env';
 
@@ -10,13 +14,13 @@ export async function POST(request: NextRequest) {
 
     if (!wallet_address) {
       return NextResponse.json(
-        { error: 'Wallet address is required' },
+        { error: 'Wallet address is required for enterprise authentication' },
         { status: 400 }
       );
     }
 
-    // Forward to backend Web3 challenge endpoint
-    const response = await fetch(`${BACKEND_URL}/api/auth/web3/challenge`, {
+    // Forward to enterprise API challenge endpoint
+    const response = await fetch(`${BACKEND_URL}/api/v1/enterprise/auth/challenge`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -25,17 +29,21 @@ export async function POST(request: NextRequest) {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Challenge generation failed' }));
+      const errorData = await response.json().catch(() => ({ 
+        error: 'Enterprise challenge generation failed' 
+      }));
       return NextResponse.json(errorData, { status: response.status });
     }
 
     const data = await response.json();
+    console.log('✅ Enterprise challenge generated for wallet:', wallet_address.slice(0, 8) + '...');
+    
     return NextResponse.json(data);
 
   } catch (error) {
-    console.error('Web3 challenge API error:', error);
+    console.error('❌ Web3 enterprise challenge API error:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Enterprise authentication service unavailable' },
       { status: 500 }
     );
   }

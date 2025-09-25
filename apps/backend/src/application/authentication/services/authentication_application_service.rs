@@ -32,7 +32,9 @@ pub struct AuthenticationApplicationService {
     session_repository: Arc<dyn AuthenticationSessionRepositoryPort>,
     
     // Services
+    #[allow(dead_code)]
     security_monitoring_service: Arc<dyn SecurityMonitoringServicePort>,
+    #[allow(dead_code)]
     user_identity_service: Arc<dyn UserIdentityServicePort>,
 }
 
@@ -253,47 +255,7 @@ pub struct AuthenticationStatistics {
     pub most_common_provider: String,
 }
 
-// Helper trait for cloning boxed repository traits
-// This is needed because we need to pass the same repository to multiple handlers
-
-trait CloneBoxAuthenticationSessionRepositoryPort {
-    fn clone_box(&self) -> Box<dyn AuthenticationSessionRepositoryPort>;
-}
-
-impl<T> CloneBoxAuthenticationSessionRepositoryPort for T
-where
-    T: AuthenticationSessionRepositoryPort + Clone + 'static,
-{
-    fn clone_box(&self) -> Box<dyn AuthenticationSessionRepositoryPort> {
-        Box::new(self.clone())
-    }
-}
-
-trait CloneBoxTokenValidationServicePort {
-    fn clone_box(&self) -> Box<dyn TokenValidationServicePort>;
-}
-
-impl<T> CloneBoxTokenValidationServicePort for T
-where
-    T: TokenValidationServicePort + Clone + 'static,
-{
-    fn clone_box(&self) -> Box<dyn TokenValidationServicePort> {
-        Box::new(self.clone())
-    }
-}
-
-trait CloneBoxSecurityMonitoringServicePort {
-    fn clone_box(&self) -> Box<dyn SecurityMonitoringServicePort>;
-}
-
-impl<T> CloneBoxSecurityMonitoringServicePort for T
-where
-    T: SecurityMonitoringServicePort + Clone + 'static,
-{
-    fn clone_box(&self) -> Box<dyn SecurityMonitoringServicePort> {
-        Box::new(self.clone())
-    }
-}
+// Removed unused CloneBox traits - not used in implementation
 
 #[cfg(test)]
 mod tests {

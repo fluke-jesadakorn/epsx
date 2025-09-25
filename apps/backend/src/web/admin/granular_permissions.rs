@@ -14,7 +14,7 @@ use tracing::info;
 use crate::auth::granular_permissions::{
     GranularPermissionClaim, PermissionSource
 };
-use crate::web::middleware::clean_auth::AuthenticatedUser;
+use crate::infrastructure::container::AuthenticatedUser;
 use crate::web::auth::AppState;
 // Removed: notification events - will be re-implemented
 

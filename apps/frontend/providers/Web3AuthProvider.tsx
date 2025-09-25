@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useWeb3Auth } from '@/lib/auth/use-web3-auth';
 import { useAccount } from 'wagmi';
 import { toast } from 'sonner';

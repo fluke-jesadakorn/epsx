@@ -1,5 +1,10 @@
-import { getUnreadNotifications } from '@/lib/api'
 import { NotificationBellClient } from './NotificationBellClient'
+
+// Mock function for notifications (to be implemented)
+async function getUnreadNotifications() {
+  // TODO: Implement actual notification fetching
+  return [];
+}
 
 // Server Component that fetches notification data
 export default async function NotificationBell() {

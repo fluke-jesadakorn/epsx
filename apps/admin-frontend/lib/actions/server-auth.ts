@@ -112,7 +112,7 @@ export async function hasPlatformPermission(
       return false;
     }
 
-    const targetPlatform = platform || user.platform_context || user.primary_platform || 'epsx';
+    const targetPlatform = platform || (user as any).platform_context || (user as any).primary_platform || 'epsx';
     const permission = `${targetPlatform}:${resource}:${action}`;
 
     return hasPermission(permission);

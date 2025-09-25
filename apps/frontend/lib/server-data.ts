@@ -99,6 +99,7 @@ async function serverFetcher(url: string, options: RequestInit = {}) {
     const fullUrl = url.startsWith('http') ? url : `${backendUrl}${url}`
     
     
+    
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'User-Agent': 'EPSX-Frontend-Server/1.0',
@@ -147,10 +148,12 @@ async function serverFetcher(url: string, options: RequestInit = {}) {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
       url,
+      fullUrl: url.startsWith('http') ? url : `${getBackendUrl('server') || 'MISSING_BACKEND_URL'}${url}`,
       type: error instanceof Error ? error.constructor.name : typeof error,
       status: error && typeof error === 'object' && 'status' in error ? error.status : undefined,
       code: error && typeof error === 'object' && 'code' in error ? error.code : undefined,
-      cause: error instanceof Error && error.cause ? error.cause : undefined
+      cause: error instanceof Error && error.cause ? error.cause : undefined,
+      rawError: error
     }
     
     console.error('💥 Server fetch exception:', errorDetails)

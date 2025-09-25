@@ -1,6 +1,6 @@
 /// Bridges legacy notification persistence with DDD Notification bounded context
 
-use async_trait::async_trait;
+// Removed unused async_trait import
 use std::sync::Arc;
 use chrono::Utc;
 use uuid::Uuid;
@@ -8,7 +8,7 @@ use tracing::{ debug, info, warn };
 
 use crate::domain::notification::aggregates::notification::{
   Notification,
-  NotificationStatus,
+  // NotificationStatus, // Removed - unused after trait removal
   DeliveryResult,
 };
 use crate::domain::notification::value_objects::*;
@@ -422,27 +422,7 @@ impl NotificationRepositoryAdapter {
   }
 }
 
-/// For future implementation - would need database schema for notifications
-#[async_trait]
-trait NotificationRepository {
-  async fn save(&self, notification: &Notification) -> ApplicationResult<()>;
-  async fn find_by_id(
-    &self,
-    id: &NotificationId
-  ) -> ApplicationResult<Option<Notification>>;
-  async fn find_byuser_id(
-    &self,
-    user_id: Uuid
-  ) -> ApplicationResult<Vec<Notification>>;
-  async fn find_pending_for_processing(
-    &self
-  ) -> ApplicationResult<Vec<Notification>>;
-  async fn update_status(
-    &self,
-    id: &NotificationId,
-    status: NotificationStatus
-  ) -> ApplicationResult<()>;
-}
+// Removed unused NotificationRepository trait - not implemented
 
 #[cfg(test)]
 mod tests {

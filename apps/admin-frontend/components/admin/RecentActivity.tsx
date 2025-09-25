@@ -4,7 +4,8 @@
  */
 
 import { Clock, User, Settings, AlertTriangle, CheckCircle } from 'lucide-react'
-import { adminCardVariants, adminBadgeVariants, cn } from '@/design-system'
+import { adminCardVariants, adminBadgeVariants } from '@/design-system'
+import { cn } from '@/lib/utils'
 
 interface ActivityItem {
   id: string

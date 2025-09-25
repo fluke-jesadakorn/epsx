@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState } from 'react';
-import { BulkStockRankingAssignmentResult } from '@/types';
+type BulkStockRankingAssignmentResult = any;
 import StockRankingPackageAssignment from './StockRankingPackageAssignment';
 import StockRankingAssignmentList from './StockRankingAssignmentList';
-import { adminCardVariants, adminButtonVariants, adminBadgeVariants, cn } from '@/design-system';
+import { adminCardVariants, adminButtonVariants, adminBadgeVariants } from '@/design-system';
+import { cn } from '@/lib/utils';
 
 export default function StockRankingPackageDashboard() {
   const [activeTab, setActiveTab] = useState<'assign' | 'manage'>('assign');

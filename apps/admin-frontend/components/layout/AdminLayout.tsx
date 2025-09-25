@@ -24,7 +24,7 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { Breadcrumb } from './Breadcrumb';
+import { DynamicBreadcrumb } from './DynamicBreadcrumb';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -442,8 +442,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="
             p-3 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700
-            hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-150
-            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900
+            hover:bg-gray-50 dark:hover:bg-gray-700             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900
             min-h-[44px] min-w-[44px] touch-manipulation
           "
           aria-label={sidebarOpen ? 'Close mobile menu (Alt+M)' : 'Open mobile menu (Alt+M)'}
@@ -464,8 +463,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           onClick={toggleSidebar}
           className="
             p-3 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700
-            hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-150
-            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900
+            hover:bg-gray-50 dark:hover:bg-gray-700             focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900
             min-h-[44px] min-w-[44px] touch-manipulation
           "
           aria-label={sidebarCollapsed ? 'Expand sidebar (Ctrl+B)' : 'Collapse sidebar (Ctrl+B)'}
@@ -473,7 +471,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           <PanelLeft
-            className={`h-5 w-5 text-gray-600 dark:text-gray-400 transition-transform duration-150 ${sidebarCollapsed ? 'rotate-180' : ''}`}
+            className={`h-5 w-5 text-gray-600 dark:text-gray-400  ${sidebarCollapsed ? 'rotate-180' : ''}`}
           />
         </button>
       </div>
@@ -583,14 +581,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   onClick={() => setSidebarOpen(false)}
                   onKeyDown={e => handleMenuKeyDown(e)}
                   className={`
-                    submenu-item group w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-150
-                    ${sidebarCollapsed ? 'justify-center px-2' : ''}
+                    submenu-item group w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left                     ${sidebarCollapsed ? 'justify-center px-2' : ''}
                     ${
                       isActiveItem
                         ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-800/50 shadow-sm'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 border border-transparent hover:border-gray-200 dark:hover:border-gray-600'
                     }
-                    transform hover:scale-[1.01] active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800
+                    transform  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800
                     min-h-[44px] touch-manipulation
                   `}
                   data-menu-item
@@ -601,8 +598,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 >
                   <div
                     className={`
-                      p-2.5 rounded-lg transition-all duration-200
-                      ${
+                      p-2.5 rounded-lg                       ${
                         isActiveItem
                           ? 'bg-blue-100 dark:bg-blue-800/30 shadow-sm'
                           : 'bg-gray-100 dark:bg-gray-600 group-hover:bg-gray-200 dark:group-hover:bg-gray-500'
@@ -610,13 +606,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     `}
                   >
                     <Icon
-                      className={`h-5 w-5 transition-colors ${isActiveItem ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}
+                      className={`h-5 w-5  ${isActiveItem ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}
                     />
                   </div>
                   {!sidebarCollapsed && (
                     <div className="flex-1 min-w-0">
                       <div
-                        className={`font-medium text-sm transition-colors ${isActiveItem ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-white'}`}
+                        className={`font-medium text-sm  ${isActiveItem ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-white'}`}
                       >
                         {group.label}
                       </div>
@@ -638,14 +634,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   onClick={() => toggleMenu(group.id)}
                   onKeyDown={e => handleMenuKeyDown(e, group.id)}
                   className={`
-                    submenu-item group w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-150
-                    ${sidebarCollapsed ? 'justify-center px-2' : ''}
+                    submenu-item group w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left                     ${sidebarCollapsed ? 'justify-center px-2' : ''}
                     ${
                       isGroupActiveState
                         ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-800/50 shadow-sm'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 border border-transparent hover:border-gray-200 dark:hover:border-gray-600'
                     }
-                    transform hover:scale-[1.01] active:scale-[0.99] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800
+                    transform  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800
                     min-h-[44px] touch-manipulation
                   `}
                   data-menu-item
@@ -659,8 +654,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 >
                   <div
                     className={`
-                      p-2.5 rounded-lg transition-all duration-200
-                      ${
+                      p-2.5 rounded-lg                       ${
                         isGroupActiveState
                           ? 'bg-blue-100 dark:bg-blue-800/30 shadow-sm'
                           : 'bg-gray-100 dark:bg-gray-600 group-hover:bg-gray-200 dark:group-hover:bg-gray-500'
@@ -668,19 +662,19 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     `}
                   >
                     <Icon
-                      className={`h-5 w-5 transition-colors ${isGroupActiveState ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}
+                      className={`h-5 w-5  ${isGroupActiveState ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}
                     />
                   </div>
                   {!sidebarCollapsed && (
                     <>
                       <div className="flex-1 min-w-0">
                         <div
-                          className={`font-medium text-sm transition-colors ${isGroupActiveState ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-white'}`}
+                          className={`font-medium text-sm  ${isGroupActiveState ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-white'}`}
                         >
                           {group.label}
                         </div>
                         <div
-                          className={`text-xs mt-0.5 transition-colors ${isGroupActiveState ? 'text-blue-600/80 dark:text-blue-400/80' : 'text-gray-500 dark:text-gray-400'}`}
+                          className={`text-xs mt-0.5  ${isGroupActiveState ? 'text-blue-600/80 dark:text-blue-400/80' : 'text-gray-500 dark:text-gray-400'}`}
                         >
                           {group.items?.length} items
                         </div>
@@ -689,7 +683,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                         className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
                       >
                         <ChevronRight
-                          className={`h-4 w-4 transition-colors ${isGroupActiveState ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}
+                          className={`h-4 w-4  ${isGroupActiveState ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}
                         />
                       </div>
                     </>
@@ -717,8 +711,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                             onClick={() => setSidebarOpen(false)}
                             onKeyDown={e => handleMenuKeyDown(e)}
                             className={`
-                              submenu-item group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left transition-all duration-150
-                              ${
+                              submenu-item group w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left                               ${
                                 isActiveItem
                                   ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 text-blue-700 dark:text-blue-300 border border-blue-200/50 dark:border-blue-800/50 shadow-sm'
                                   : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50 border border-transparent hover:border-gray-200 dark:hover:border-gray-600'
@@ -734,12 +727,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                           >
                             <div className="flex items-center gap-2 w-full">
                               <div
-                                className={`w-1 h-6 rounded-full transition-colors ${isActiveItem ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                className={`w-1 h-6 rounded-full  ${isActiveItem ? 'bg-blue-500' : 'bg-gray-300 dark:bg-gray-600'}`}
                               ></div>
                               <div
                                 className={`
-                                  p-2 rounded-lg transition-all duration-200
-                                  ${
+                                  p-2 rounded-lg                                   ${
                                     isActiveItem
                                       ? 'bg-blue-100 dark:bg-blue-800/30 shadow-sm'
                                       : 'bg-gray-100 dark:bg-gray-600 group-hover:bg-gray-200 dark:group-hover:bg-gray-500'
@@ -747,17 +739,17 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                                 `}
                               >
                                 <ItemIcon
-                                  className={`h-4 w-4 transition-colors ${isActiveItem ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}
+                                  className={`h-4 w-4  ${isActiveItem ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}
                                 />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div
-                                  className={`font-medium text-sm transition-colors ${isActiveItem ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-white'}`}
+                                  className={`font-medium text-sm  ${isActiveItem ? 'text-blue-700 dark:text-blue-300' : 'text-gray-900 dark:text-white'}`}
                                 >
                                   {item.label}
                                 </div>
                                 <div
-                                  className={`text-xs mt-0.5 truncate transition-colors ${isActiveItem ? 'text-blue-600/80 dark:text-blue-400/80' : 'text-gray-500 dark:text-gray-400'}`}
+                                  className={`text-xs mt-0.5 truncate  ${isActiveItem ? 'text-blue-600/80 dark:text-blue-400/80' : 'text-gray-500 dark:text-gray-400'}`}
                                 >
                                   {item.description}
                                 </div>
@@ -863,7 +855,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4 shadow-sm">
           <div className="flex items-center justify-between">
             {/* Breadcrumb */}
-            <Breadcrumb />
+            <DynamicBreadcrumb />
 
             {/* Header Actions */}
             <div className="flex items-center gap-4">
@@ -880,7 +872,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                 className="
                   p-3 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 
                   relative rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 
-                  transition-colors duration-150 min-h-[44px] min-w-[44px] touch-manipulation
+                   duration-150 min-h-[44px] min-w-[44px] touch-manipulation
                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800
                 "
                 aria-label="Notifications (1 unread)"

@@ -9,9 +9,10 @@ import { useState, useEffect } from 'react'
 import { Calendar, User, Shield, Key, Users, Clock, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { getPermissionHistory, type PermissionHistoryEntry } from '@/lib/actions/users'
+import { getPermissionHistory, type PermissionHistoryEntry } from '@/lib/actions/consolidated-user-actions'
 import { formatDistanceToNow, format } from 'date-fns'
-import { adminCardVariants, adminButtonVariants, adminBadgeVariants, cn } from '@/design-system'
+import { adminCardVariants, adminButtonVariants, adminBadgeVariants } from '@/design-system'
+import { cn } from '@/lib/shared'
 
 interface PermissionHistoryCardProps {
   userId: string
@@ -62,7 +63,7 @@ export function PermissionHistoryCard({ userId, className = '' }: PermissionHist
       if (result.success) {
         setHistory(result.data || [])
       } else {
-        setError(result.error?.message || 'Failed to load permission history')
+        setError(result.error || 'Failed to load permission history')
       }
     } catch (err) {
       setError('An unexpected error occurred')
@@ -78,7 +79,7 @@ export function PermissionHistoryCard({ userId, className = '' }: PermissionHist
     return (
       <div className={cn(adminCardVariants({ variant: 'pancake' }), className)}>
         <div className="flex items-center justify-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          <div className="text-muted-foreground text-sm">Loading...</div>
         </div>
       </div>
     )
@@ -147,7 +148,7 @@ export function PermissionHistoryCard({ userId, className = '' }: PermissionHist
                           {entry.action === 'revoked' && 'Revoked'}
                           {entry.action === 'modified' && 'Modified'}
                         </span>
-                        <Badge variant="outline" size="sm">
+                        <Badge variant="outline">
                           {entry.type}
                         </Badge>
                       </div>

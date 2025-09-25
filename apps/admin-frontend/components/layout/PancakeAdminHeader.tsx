@@ -1,52 +1,71 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { ThemeToggle } from '@/components/ui/ThemeToggle'
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useState } from 'react';
+import { useAccount, useDisconnect } from 'wagmi';
 
 interface User {
-  id: string
-  email: string
-  name?: string
-  role: string
+  id: string;
+  email: string;
+  name?: string;
+  role: string;
 }
 
 interface PancakeAdminHeaderProps {
-  user?: User
+  user?: User;
 }
 
 export function PancakeAdminHeader({ user }: PancakeAdminHeaderProps) {
-  const router = useRouter()
-  const [showUserMenu, setShowUserMenu] = useState(false)
-  const [showNotifications, setShowNotifications] = useState(false)
+  const { address, isConnected } = useAccount();
+  const { disconnect } = useDisconnect();
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
 
-  const handleLogout = () => {
-    router.push('/login')
-  }
+  const handleWalletDisconnect = async () => {
+    try {
+      // Logout from backend
+      await fetch('/api/auth/web3/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      // Disconnect wallet
+      disconnect();
+
+      setShowUserMenu(false);
+    } catch (error) {
+      console.error('Disconnect error:', error);
+    }
+  };
+
+  const formatAddress = (addr: string) => {
+    return `${addr.slice(0, 3)}...${addr.slice(-3)}`;
+  };
 
   return (
-    <header className="bg-gradient-to-r from-white via-yellow-50 to-orange-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 border-b border-yellow-200/50 dark:border-slate-700/50 backdrop-blur-sm shadow-lg sticky top-0 z-40">
-      <div className="flex items-center justify-between h-16 px-6">
+    <header className="sticky top-0 z-40 border-b border-yellow-200/50 bg-gradient-to-r from-white via-yellow-50 to-orange-50 shadow-lg backdrop-blur-sm dark:border-slate-700/50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+      <div className="flex h-16 items-center justify-between px-6">
         {/* Search Section */}
-        <div className="flex items-center gap-6 flex-1">
-          <div className="relative max-w-md w-full">
+        <div className="flex flex-1 items-center gap-6">
+          <div className="relative w-full max-w-md">
             <input
               type="search"
               placeholder="Search users, permissions..."
-              className="w-full h-12 pl-12 pr-4 bg-gradient-to-r from-white to-yellow-50 dark:from-slate-800 dark:to-slate-700 border-2 border-yellow-200/50 dark:border-slate-600/50 rounded-2xl text-gray-900 dark:text-slate-100 placeholder:text-gray-500 dark:placeholder:text-slate-400 focus:border-orange-400 dark:focus:border-slate-500 focus:ring-2 focus:ring-orange-200 dark:focus:ring-slate-500/20 focus:outline-none transition-all duration-200 shadow-lg"
+              className="h-12 w-full rounded-2xl border-2 border-yellow-200/50 bg-gradient-to-r from-white to-yellow-50 pr-4 pl-12 text-gray-900 shadow-lg  placeholder:text-gray-500 focus:border-orange-400 focus:ring-2 focus:ring-orange-200 focus:outline-none dark:border-slate-600/50 dark:from-slate-800 dark:to-slate-700 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-slate-500 dark:focus:ring-slate-500/20"
             />
-            <div className="absolute left-4 top-1/2 -translate-y-1/2">
+            <div className="absolute top-1/2 left-4 -translate-y-1/2">
               <span className="text-xl">🔍</span>
             </div>
           </div>
 
           {/* Quick Actions */}
-          <div className="hidden md:flex items-center gap-3">
-            <button className="h-12 px-4 bg-gradient-to-r from-green-400 to-teal-500 text-white rounded-2xl font-semibold hover:from-green-500 hover:to-teal-600 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200">
+          <div className="hidden items-center gap-3 md:flex">
+            <button className="h-12 rounded-2xl bg-gradient-to-r from-green-400 to-teal-500 px-4 font-semibold text-white shadow-lg   hover:from-green-500 hover:to-teal-600 hover:shadow-xl">
               <span className="mr-2">➕</span>
               Add User
             </button>
-            <button className="h-12 px-4 bg-gradient-to-r from-blue-400 to-purple-500 text-white rounded-2xl font-semibold hover:from-blue-500 hover:to-purple-600 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200">
+            <button className="h-12 rounded-2xl bg-gradient-to-r from-blue-400 to-purple-500 px-4 font-semibold text-white shadow-lg   hover:from-blue-500 hover:to-purple-600 hover:shadow-xl">
               <span className="mr-2">🔑</span>
               Grant Access
             </button>
@@ -59,57 +78,75 @@ export function PancakeAdminHeader({ user }: PancakeAdminHeaderProps) {
           <div className="relative">
             <button
               onClick={() => setShowNotifications(!showNotifications)}
-              className="h-12 w-12 bg-gradient-to-r from-orange-400 to-red-500 text-white rounded-2xl font-semibold hover:from-orange-500 hover:to-red-600 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 relative"
+              className="relative h-12 w-12 rounded-2xl bg-gradient-to-r from-orange-400 to-red-500 font-semibold text-white shadow-lg   hover:from-orange-500 hover:to-red-600 hover:shadow-xl"
             >
               <span className="text-xl">🔔</span>
-              <div className="absolute -top-2 -right-2 h-6 w-6 bg-gradient-to-r from-pink-500 to-red-500 rounded-full flex items-center justify-center text-xs text-white shadow-lg animate-pulse">
+              <div className="absolute -top-2 -right-2 flex h-6 w-6  items-center justify-center rounded-full bg-gradient-to-r from-pink-500 to-red-500 text-xs text-white shadow-lg">
                 3
               </div>
             </button>
 
             {showNotifications && (
-              <div className="absolute right-0 top-14 w-80 bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-yellow-200 dark:border-slate-700/50 p-6 z-50">
+              <div className="absolute top-14 right-0 z-50 w-80 rounded-3xl border border-yellow-200 bg-white p-6 shadow-2xl dark:border-slate-700/50 dark:bg-slate-800">
                 <div className="space-y-4">
-                  <h3 className="font-bold text-lg bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+                  <h3 className="bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-lg font-bold text-transparent">
                     🔥 Recent Notifications
                   </h3>
-                  
+
                   <div className="space-y-3">
-                    <div className="p-4 bg-gradient-to-r from-green-50 to-teal-50 dark:from-green-900/20 dark:to-teal-900/20 rounded-2xl border border-green-200 dark:border-green-500/30">
+                    <div className="rounded-2xl border border-green-200 bg-gradient-to-r from-green-50 to-teal-50 p-4 dark:border-green-500/30 dark:from-green-900/20 dark:to-teal-900/20">
                       <div className="flex items-start gap-3">
                         <span className="text-xl">✅</span>
                         <div>
-                          <div className="font-semibold text-green-800 dark:text-green-300">New user registered</div>
-                          <div className="text-sm text-green-600 dark:text-green-400">sarah@example.com just signed up</div>
-                          <div className="text-xs text-gray-500 mt-1">2 minutes ago</div>
+                          <div className="font-semibold text-green-800 dark:text-green-300">
+                            New user registered
+                          </div>
+                          <div className="text-sm text-green-600 dark:text-green-400">
+                            sarah@example.com just signed up
+                          </div>
+                          <div className="mt-1 text-xs text-gray-500">
+                            2 minutes ago
+                          </div>
                         </div>
                       </div>
                     </div>
 
-                    <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-2xl border border-blue-200 dark:border-blue-500/30">
+                    <div className="rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-purple-50 p-4 dark:border-blue-500/30 dark:from-blue-900/20 dark:to-purple-900/20">
                       <div className="flex items-start gap-3">
                         <span className="text-xl">🔑</span>
                         <div>
-                          <div className="font-semibold text-blue-800 dark:text-blue-300">Permission request</div>
-                          <div className="text-sm text-blue-600 dark:text-blue-400">mike@example.com wants admin access</div>
-                          <div className="text-xs text-gray-500 mt-1">5 minutes ago</div>
+                          <div className="font-semibold text-blue-800 dark:text-blue-300">
+                            Permission request
+                          </div>
+                          <div className="text-sm text-blue-600 dark:text-blue-400">
+                            mike@example.com wants admin access
+                          </div>
+                          <div className="mt-1 text-xs text-gray-500">
+                            5 minutes ago
+                          </div>
                         </div>
                       </div>
                     </div>
 
-                    <div className="p-4 bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-2xl border border-orange-200 dark:border-orange-500/30">
+                    <div className="rounded-2xl border border-orange-200 bg-gradient-to-r from-orange-50 to-red-50 p-4 dark:border-orange-500/30 dark:from-orange-900/20 dark:to-red-900/20">
                       <div className="flex items-start gap-3">
                         <span className="text-xl">⚠️</span>
                         <div>
-                          <div className="font-semibold text-orange-800 dark:text-orange-300">Permission expiring</div>
-                          <div className="text-sm text-orange-600 dark:text-orange-400">john@example.com access expires in 2 days</div>
-                          <div className="text-xs text-gray-500 mt-1">10 minutes ago</div>
+                          <div className="font-semibold text-orange-800 dark:text-orange-300">
+                            Permission expiring
+                          </div>
+                          <div className="text-sm text-orange-600 dark:text-orange-400">
+                            john@example.com access expires in 2 days
+                          </div>
+                          <div className="mt-1 text-xs text-gray-500">
+                            10 minutes ago
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <button className="w-full bg-gradient-to-r from-orange-400 to-red-500 text-white py-2 rounded-2xl font-semibold hover:from-orange-500 hover:to-red-600 transition-all duration-200">
+                  <button className="w-full rounded-2xl bg-gradient-to-r from-orange-400 to-red-500 py-2 font-semibold text-white  hover:from-orange-500 hover:to-red-600">
                     View All Notifications
                   </button>
                 </div>
@@ -118,69 +155,88 @@ export function PancakeAdminHeader({ user }: PancakeAdminHeaderProps) {
           </div>
 
           {/* Theme Toggle */}
-          <div className="h-12 w-12 bg-gradient-to-r from-purple-400 to-pink-500 hover:from-purple-500 hover:to-pink-600 rounded-2xl shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200 flex items-center justify-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-r from-purple-400 to-pink-500 shadow-lg   hover:from-purple-500 hover:to-pink-600 hover:shadow-xl">
             <ThemeToggle />
           </div>
 
-          {/* User Menu */}
+          {/* User Menu / Connect Wallet */}
           <div className="relative">
-            <button
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-3 h-12 pl-4 pr-5 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-2xl font-semibold hover:from-yellow-500 hover:to-orange-600 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-200"
-            >
-              <div className="h-8 w-8 bg-white/20 rounded-xl flex items-center justify-center">
-                <span className="text-lg">👤</span>
-              </div>
-              <span className="hidden md:block">
-                {user?.name || user?.email || 'Admin'}
-              </span>
-              <span className="text-sm">↓</span>
-            </button>
+            {isConnected ? (
+              // Show Admin User Menu when connected
+              <button
+                onClick={() => setShowUserMenu(!showUserMenu)}
+                className="flex h-12 items-center gap-3 rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-500 pr-5 pl-4 font-semibold text-white shadow-lg   hover:from-yellow-500 hover:to-orange-600 hover:shadow-xl"
+              >
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20">
+                  <span className="text-lg">👤</span>
+                </div>
+                <span className="hidden md:block">
+                  {isConnected && address ? formatAddress(address) : (user?.name || 'Admin')}
+                </span>
+                <span className="text-sm">↓</span>
+              </button>
+            ) : (
+              // Show Connect Wallet button when disconnected
+              <ConnectButton.Custom>
+                {({ openConnectModal }) => (
+                  <button
+                    onClick={openConnectModal}
+                    className="flex h-12 items-center gap-3 rounded-2xl bg-gradient-to-r from-blue-400 to-indigo-500 pr-5 pl-4 font-semibold text-white shadow-lg   hover:from-blue-500 hover:to-indigo-600 hover:shadow-xl"
+                  >
+                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20">
+                      <span className="text-lg">🔗</span>
+                    </div>
+                    <span className="hidden md:block">Connect Wallet</span>
+                  </button>
+                )}
+              </ConnectButton.Custom>
+            )}
 
-            {showUserMenu && (
-              <div className="absolute right-0 top-14 w-64 bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-yellow-200 dark:border-slate-700/50 p-4 z-50">
+            {showUserMenu && isConnected && (
+              <div className="absolute top-14 right-0 z-50 w-64 rounded-3xl border border-yellow-200 bg-white p-4 shadow-2xl dark:border-slate-700/50 dark:bg-slate-800">
                 <div className="space-y-3">
-                  <div className="p-4 bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 rounded-2xl">
+                  <div className="rounded-2xl bg-gradient-to-r from-yellow-50 to-orange-50 p-4 dark:from-yellow-900/20 dark:to-orange-900/20">
                     <div className="flex items-center gap-3">
-                      <div className="h-12 w-12 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-2xl flex items-center justify-center">
-                        <span className="text-white text-lg">👤</span>
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-500">
+                        <span className="text-lg text-white">🔗</span>
                       </div>
                       <div>
                         <div className="font-semibold text-gray-900 dark:text-white">
-                          {user?.name || 'Admin User'}
+                          Wallet Connected
                         </div>
                         <div className="text-sm text-gray-600 dark:text-gray-400">
-                          {user?.email || 'admin@epsx.io'}
+                          {formatAddress(address!)}
                         </div>
-                        <div className="text-xs bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent font-semibold">
-                          {user?.role || 'Administrator'}
+                        <div className="bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-xs font-semibold text-transparent">
+                          Admin Access
                         </div>
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-1">
-                    <button className="w-full text-left p-3 rounded-2xl hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-600 transition-all duration-200 flex items-center gap-3">
+                    <button className="flex w-full items-center gap-3 rounded-2xl p-3 text-left  hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-600">
                       <span>👤</span>
                       <span>Profile Settings</span>
                     </button>
-                    <button className="w-full text-left p-3 rounded-2xl hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-600 transition-all duration-200 flex items-center gap-3">
+                    <button className="flex w-full items-center gap-3 rounded-2xl p-3 text-left  hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-600">
                       <span>🔒</span>
                       <span>Security</span>
                     </button>
-                    <button className="w-full text-left p-3 rounded-2xl hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-600 transition-all duration-200 flex items-center gap-3">
+                    <button className="flex w-full items-center gap-3 rounded-2xl p-3 text-left  hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-600">
                       <span>❓</span>
                       <span>Help & Support</span>
                     </button>
                   </div>
 
-                  <div className="border-t border-gray-200 dark:border-gray-600 pt-3">
+                  {/* Logout Section */}
+                  <div className="border-t border-gray-200 pt-3 dark:border-gray-600">
                     <button
-                      onClick={handleLogout}
-                      className="w-full p-3 bg-gradient-to-r from-red-400 to-pink-500 text-white rounded-2xl font-semibold hover:from-red-500 hover:to-pink-600 transition-all duration-200 flex items-center justify-center gap-2"
+                      onClick={handleWalletDisconnect}
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-400 to-red-500 p-3 font-semibold text-white  hover:from-orange-500 hover:to-red-600"
                     >
-                      <span>🚪</span>
-                      <span>Sign Out</span>
+                      <span>🔌</span>
+                      <span>Disconnect Wallet</span>
                     </button>
                   </div>
                 </div>
@@ -190,5 +246,5 @@ export function PancakeAdminHeader({ user }: PancakeAdminHeaderProps) {
         </div>
       </div>
     </header>
-  )
+  );
 }

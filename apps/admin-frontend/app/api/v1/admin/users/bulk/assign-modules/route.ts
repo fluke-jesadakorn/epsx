@@ -8,7 +8,7 @@ const getBearerToken = async () => {
   return (session as any)?.accessToken || null;
 };
 
-const BACKEND_URL = env.NEXT_PUBLIC_BACKEND_URL;
+const BACKEND_URL = env.BACKEND_URL;
 
 export async function POST(request: NextRequest) {
   try {

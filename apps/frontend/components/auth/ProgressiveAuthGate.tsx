@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { useProgressiveAuth } from '@/hooks/useProgressiveAuth';
 import { WalletConnectAuth } from './WalletConnectAuth';
-import { AuthLevel, type AuthGateProps } from '@/types/progressive-auth';
+import { AuthLevel, AuthLevelType, type AuthGateProps } from '@/types/progressive-auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Wallet, Shield, Lock, Eye } from 'lucide-react';
@@ -48,7 +48,7 @@ export function ProgressiveAuthGate({
   const upgradeAction = auth.getUpgradeAction(requiredLevel);
 
   // Get appropriate icon for auth level
-  const getAuthIcon = (level: AuthLevel) => {
+  const getAuthIcon = (level: AuthLevelType) => {
     switch (level) {
       case AuthLevel.PUBLIC:
         return <Eye className="h-6 w-6" />;
@@ -62,7 +62,7 @@ export function ProgressiveAuthGate({
   };
 
   // Get level display name
-  const getLevelName = (level: AuthLevel) => {
+  const getLevelName = (level: AuthLevelType) => {
     switch (level) {
       case AuthLevel.PUBLIC:
         return 'Public Access';
@@ -76,7 +76,7 @@ export function ProgressiveAuthGate({
   };
 
   // Get level description
-  const getLevelDescription = (level: AuthLevel) => {
+  const getLevelDescription = (level: AuthLevelType) => {
     switch (level) {
       case AuthLevel.PUBLIC:
         return 'No authentication needed';

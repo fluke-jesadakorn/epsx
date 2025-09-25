@@ -195,7 +195,7 @@ export function PancakeStatsCard({
   }
 
   return (
-    <div className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl p-6 shadow-xl border-2 hover:shadow-2xl transition-shadow cursor-pointer ${getBorderColor(icon)}`} onClick={onClick}>
+    <div className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl p-6 shadow-xl border-2 hover:shadow-2xl cursor-pointer ${getBorderColor(icon)}`} onClick={onClick}>
       <div className="flex items-center justify-between mb-4">
         {icon && (
           <span className={`text-2xl ${getIconColor(icon)}`}>{icon}</span>

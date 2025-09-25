@@ -141,12 +141,12 @@ export default function AdminEPSFilters({ currentParams }: AdminEPSFiltersProps)
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search stocks... (e.g., AAPL, NVDA)"
-                className="w-full rounded-2xl border border-gray-200 bg-white/80 py-3 pl-10 pr-4 text-sm backdrop-blur-sm transition-all focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-400/20 dark:border-gray-600 dark:bg-gray-800/80"
+                className="w-full rounded-2xl border border-gray-200 bg-white/80 py-3 pl-10 pr-4 text-sm backdrop-blur-sm  focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-400/20 dark:border-gray-600 dark:bg-gray-800/80"
               />
             </div>
             <button
               type="submit"
-              className="rounded-2xl bg-gradient-to-r from-orange-500 to-yellow-500 px-6 py-3 text-sm font-semibold text-white shadow-lg transition-all hover:from-orange-600 hover:to-yellow-600 hover:scale-105"
+              className="rounded-2xl bg-gradient-to-r from-orange-500 to-yellow-500 px-6 py-3 text-sm font-semibold text-white shadow-lg  hover:from-orange-600 hover:to-yellow-600 "
             >
               🔍 Search
             </button>
@@ -155,18 +155,18 @@ export default function AdminEPSFilters({ currentParams }: AdminEPSFiltersProps)
           {/* Advanced filters toggle */}
           <button
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-2 rounded-2xl bg-white/60 px-4 py-3 text-sm font-medium text-gray-700 backdrop-blur-sm transition-all hover:bg-white/80 dark:bg-gray-800/60 dark:text-gray-300 dark:hover:bg-gray-800/80"
+            className="flex items-center gap-2 rounded-2xl bg-white/60 px-4 py-3 text-sm font-medium text-gray-700 backdrop-blur-sm  hover:bg-white/80 dark:bg-gray-800/60 dark:text-gray-300 dark:hover:bg-gray-800/80"
           >
             <Filter className="h-4 w-4" />
             Advanced Filters
-            <ChevronDown className={`h-4 w-4 transition-transform ${showAdvanced ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`h-4 w-4  ${showAdvanced ? 'rotate-180' : ''}`} />
           </button>
 
           {/* Clear filters */}
           {hasActiveFilters && (
             <button
               onClick={clearAllFilters}
-              className="flex items-center gap-2 rounded-2xl bg-red-100 px-4 py-3 text-sm font-medium text-red-700 transition-all hover:bg-red-200 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/40"
+              className="flex items-center gap-2 rounded-2xl bg-red-100 px-4 py-3 text-sm font-medium text-red-700  hover:bg-red-200 dark:bg-red-900/20 dark:text-red-300 dark:hover:bg-red-900/40"
             >
               <X className="h-4 w-4" />
               Clear All
@@ -196,7 +196,7 @@ export default function AdminEPSFilters({ currentParams }: AdminEPSFiltersProps)
               <select
                 value={currentParams.country || ''}
                 onChange={(e) => handleSelectChange('country', e.target.value)}
-                className="w-full rounded-2xl border border-gray-200 bg-white/80 py-2.5 px-3 text-sm backdrop-blur-sm transition-all focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 dark:border-gray-600 dark:bg-gray-800/80"
+                className="w-full rounded-2xl border border-gray-200 bg-white/80 py-2.5 px-3 text-sm backdrop-blur-sm  focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 dark:border-gray-600 dark:bg-gray-800/80"
               >
                 {COUNTRIES.map(option => (
                   <option key={option.value} value={option.value}>
@@ -214,7 +214,7 @@ export default function AdminEPSFilters({ currentParams }: AdminEPSFiltersProps)
               <select
                 value={currentParams.sector || ''}
                 onChange={(e) => handleSelectChange('sector', e.target.value)}
-                className="w-full rounded-2xl border border-gray-200 bg-white/80 py-2.5 px-3 text-sm backdrop-blur-sm transition-all focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 dark:border-gray-600 dark:bg-gray-800/80"
+                className="w-full rounded-2xl border border-gray-200 bg-white/80 py-2.5 px-3 text-sm backdrop-blur-sm  focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 dark:border-gray-600 dark:bg-gray-800/80"
               >
                 {SECTORS.map(option => (
                   <option key={option.value} value={option.value}>
@@ -232,7 +232,7 @@ export default function AdminEPSFilters({ currentParams }: AdminEPSFiltersProps)
               <select
                 value={currentParams.sort_by || 'growth_factor'}
                 onChange={(e) => handleSelectChange('sort_by', e.target.value)}
-                className="w-full rounded-2xl border border-gray-200 bg-white/80 py-2.5 px-3 text-sm backdrop-blur-sm transition-all focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 dark:border-gray-600 dark:bg-gray-800/80"
+                className="w-full rounded-2xl border border-gray-200 bg-white/80 py-2.5 px-3 text-sm backdrop-blur-sm  focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 dark:border-gray-600 dark:bg-gray-800/80"
               >
                 {SORT_OPTIONS.map(option => (
                   <option key={option.value} value={option.value}>
@@ -250,7 +250,7 @@ export default function AdminEPSFilters({ currentParams }: AdminEPSFiltersProps)
               <select
                 value={searchParams.get('admin_priority') || ''}
                 onChange={(e) => handleSelectChange('admin_priority', e.target.value)}
-                className="w-full rounded-2xl border border-gray-200 bg-white/80 py-2.5 px-3 text-sm backdrop-blur-sm transition-all focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 dark:border-gray-600 dark:bg-gray-800/80"
+                className="w-full rounded-2xl border border-gray-200 bg-white/80 py-2.5 px-3 text-sm backdrop-blur-sm  focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 dark:border-gray-600 dark:bg-gray-800/80"
               >
                 {ADMIN_PRIORITY_OPTIONS.map(option => (
                   <option key={option.value} value={option.value}>
@@ -268,7 +268,7 @@ export default function AdminEPSFilters({ currentParams }: AdminEPSFiltersProps)
               <select
                 value={searchParams.get('admin_status') || ''}
                 onChange={(e) => handleSelectChange('admin_status', e.target.value)}
-                className="w-full rounded-2xl border border-gray-200 bg-white/80 py-2.5 px-3 text-sm backdrop-blur-sm transition-all focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 dark:border-gray-600 dark:bg-gray-800/80"
+                className="w-full rounded-2xl border border-gray-200 bg-white/80 py-2.5 px-3 text-sm backdrop-blur-sm  focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 dark:border-gray-600 dark:bg-gray-800/80"
               >
                 {ADMIN_STATUS_OPTIONS.map(option => (
                   <option key={option.value} value={option.value}>
@@ -289,7 +289,7 @@ export default function AdminEPSFilters({ currentParams }: AdminEPSFiltersProps)
                 value={minEPS}
                 onChange={(e) => setMinEPS(e.target.value)}
                 placeholder="e.g., 1.50"
-                className="w-full rounded-2xl border border-gray-200 bg-white/80 py-2.5 px-3 text-sm backdrop-blur-sm transition-all focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 dark:border-gray-600 dark:bg-gray-800/80"
+                className="w-full rounded-2xl border border-gray-200 bg-white/80 py-2.5 px-3 text-sm backdrop-blur-sm  focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 dark:border-gray-600 dark:bg-gray-800/80"
               />
             </div>
 
@@ -304,7 +304,7 @@ export default function AdminEPSFilters({ currentParams }: AdminEPSFiltersProps)
                 value={minGrowth}
                 onChange={(e) => setMinGrowth(e.target.value)}
                 placeholder="e.g., 10.0"
-                className="w-full rounded-2xl border border-gray-200 bg-white/80 py-2.5 px-3 text-sm backdrop-blur-sm transition-all focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 dark:border-gray-600 dark:bg-gray-800/80"
+                className="w-full rounded-2xl border border-gray-200 bg-white/80 py-2.5 px-3 text-sm backdrop-blur-sm  focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-400/20 dark:border-gray-600 dark:bg-gray-800/80"
               />
             </div>
 
@@ -312,7 +312,7 @@ export default function AdminEPSFilters({ currentParams }: AdminEPSFiltersProps)
             <div className="flex items-end">
               <button
                 onClick={handleRangeSubmit}
-                className="w-full rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 py-2.5 px-4 text-sm font-semibold text-white shadow-lg transition-all hover:from-blue-600 hover:to-indigo-700 hover:scale-105"
+                className="w-full rounded-2xl bg-gradient-to-r from-blue-500 to-indigo-600 py-2.5 px-4 text-sm font-semibold text-white shadow-lg  hover:from-blue-600 hover:to-indigo-700 "
               >
                 Apply Ranges
               </button>

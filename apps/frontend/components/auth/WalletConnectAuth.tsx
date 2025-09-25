@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { formatAddress } from '@/lib/auth/web3-store';
 import { useWeb3AuthContext } from '@/providers/Web3AuthProvider';
-import { useWeb3Context } from '@/providers/Web3Provider';
+import { useWeb3Context } from '@/components/providers/MinimalWeb3Provider';
 import { useProgressiveAuth } from '@/hooks/useProgressiveAuth';
-import { AuthLevel } from '@/types/progressive-auth';
+import { AuthLevel, AuthLevelType } from '@/types/progressive-auth';
 import { ConnectedWalletDropdown } from './ConnectedWalletDropdown';
 import { WalletConnectionModal } from './WalletConnectionModal';
 import { Wallet, Link, Loader2, AlertCircle, Shield, Eye, RefreshCw } from 'lucide-react';
@@ -21,7 +21,7 @@ interface WalletConnectAuthProps {
    * - CONNECTED: Show "Connect Wallet" for personalization
    * - AUTHENTICATED: Show "Sign In" for full access
    */
-  preferredLevel?: AuthLevel;
+  preferredLevel?: AuthLevelType;
   
   /**
    * Show compact mode for navigation bars
@@ -130,12 +130,15 @@ export function WalletConnectAuth({
     }
   }, [isHydrated, hasInitialized, isLoading, wagmiConnected, address, isAuthenticated, isAuthenticating]);
 
-  // Reset autoAuthFailed when wallet disconnects
+  // Reset autoAuthFailed when wallet disconnects or connects
   useEffect(() => {
     if (!wagmiConnected) {
       setAutoAuthFailed(false);
+    } else if (wagmiConnected && address && !isAuthenticated && !isAuthenticating) {
+      // Clear any previous error states when wallet reconnects
+      setAutoAuthFailed(false);
     }
-  }, [wagmiConnected]);
+  }, [wagmiConnected, address, isAuthenticated, isAuthenticating]);
 
   // Handle callbacks
   if (isAuthenticated && walletAddress && onAuthSuccess) {
@@ -210,9 +213,10 @@ export function WalletConnectAuth({
               onClick={async () => {
                 try {
                   await authenticate();
-                } catch (error: any) {
+                } catch (error: unknown) {
                   console.error('Authentication failed:', error);
-                  onAuthError?.(error.message || 'Authentication failed');
+                  const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
+                  onAuthError?.(errorMessage);
                 }
               }}
               disabled={isAuthenticating}
@@ -232,6 +236,14 @@ export function WalletConnectAuth({
               onReset={() => {
                 resetAuthState();
                 setAutoAuthFailed(false);
+              }}
+              onFullReset={() => {
+                resetAuthState();
+                setAutoAuthFailed(false);
+                // Clear any wallet connection state that might be causing issues
+                if (typeof window !== 'undefined') {
+                  window.location.reload();
+                }
               }}
             />
           )}
@@ -258,6 +270,14 @@ export function WalletConnectAuth({
           onReset={() => {
             resetAuthState();
             setAutoAuthFailed(false);
+          }}
+          onFullReset={() => {
+            resetAuthState();
+            setAutoAuthFailed(false);
+            // Clear any wallet connection state that might be causing issues
+            if (typeof window !== 'undefined') {
+              window.location.reload();
+            }
           }}
         />
       )}

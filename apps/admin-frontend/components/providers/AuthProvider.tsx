@@ -94,7 +94,7 @@ export async function AuthProvider({
       try {
         return (
           <ClientProviders>
-            <PancakeAdminLayout user={session.user}>
+            <PancakeAdminLayout user={session.user as any}>
               {children}
             </PancakeAdminLayout>
           </ClientProviders>

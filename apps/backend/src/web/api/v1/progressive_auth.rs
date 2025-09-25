@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::sync::Arc;
 
-use crate::infrastructure::container::AppContainer;
+use crate::infrastructure::container::DomainContainer;
 
 // ===== DTOs =====
 
@@ -58,7 +58,7 @@ pub struct QueryParams {
 /// Get wallet preferences - requires wallet address only
 pub async fn get_wallet_preferences(
     Query(params): Query<QueryParams>,
-    State(_container): State<Arc<AppContainer>>,
+    State(_container): State<Arc<DomainContainer>>,
 ) -> Result<Json<Value>, StatusCode> {
     let wallet_address = params.wallet_address
         .ok_or(StatusCode::BAD_REQUEST)?;
@@ -90,7 +90,7 @@ pub async fn get_wallet_preferences(
 
 /// Update wallet preferences - requires wallet address only
 pub async fn update_wallet_preferences(
-    State(_container): State<Arc<AppContainer>>,
+    State(_container): State<Arc<DomainContainer>>,
     Json(request): Json<UpdatePreferencesRequest>,
 ) -> Result<Json<Value>, StatusCode> {
     // Validate wallet address format
@@ -116,7 +116,7 @@ pub async fn update_wallet_preferences(
 /// Get wallet watchlist - requires wallet address only
 pub async fn get_wallet_watchlist(
     Query(params): Query<QueryParams>,
-    State(_container): State<Arc<AppContainer>>,
+    State(_container): State<Arc<DomainContainer>>,
 ) -> Result<Json<Value>, StatusCode> {
     let wallet_address = params.wallet_address
         .ok_or(StatusCode::BAD_REQUEST)?;
@@ -154,7 +154,7 @@ pub async fn get_wallet_watchlist(
 
 /// Add symbol to wallet watchlist - requires wallet address only
 pub async fn add_to_wallet_watchlist(
-    State(_container): State<Arc<AppContainer>>,
+    State(_container): State<Arc<DomainContainer>>,
     Json(request): Json<AddToWatchlistRequest>,
 ) -> Result<Json<Value>, StatusCode> {
     // Validate wallet address format
@@ -185,7 +185,7 @@ pub async fn add_to_wallet_watchlist(
 /// Remove symbol from wallet watchlist - requires wallet address only
 pub async fn remove_from_wallet_watchlist(
     Path((wallet_address, symbol)): Path<(String, String)>,
-    State(_container): State<Arc<AppContainer>>,
+    State(_container): State<Arc<DomainContainer>>,
 ) -> Result<Json<Value>, StatusCode> {
     // Validate wallet address format
     if !is_valid_wallet_address(&wallet_address) {
@@ -203,7 +203,7 @@ pub async fn remove_from_wallet_watchlist(
 /// Get personalized analytics based on wallet address - requires wallet address only
 pub async fn get_personalized_analytics(
     Query(params): Query<QueryParams>,
-    State(_container): State<Arc<AppContainer>>,
+    State(_container): State<Arc<DomainContainer>>,
 ) -> Result<Json<Value>, StatusCode> {
     let wallet_address = params.wallet_address
         .ok_or(StatusCode::BAD_REQUEST)?;
@@ -253,7 +253,7 @@ fn is_valid_wallet_address(address: &str) -> bool {
 // ===== ROUTER CREATION =====
 
 /// Create progressive authentication routes
-pub fn create_progressive_auth_routes(container: Arc<AppContainer>) -> Router {
+pub fn create_progressive_auth_routes(container: Arc<DomainContainer>) -> Router {
     Router::new()
         // CONNECTED level endpoints (wallet address only, no signature)
         .route("/connected/preferences", get(get_wallet_preferences))

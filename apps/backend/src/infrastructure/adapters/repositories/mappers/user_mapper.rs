@@ -69,25 +69,7 @@ impl UserMapper {
       .collect()
   }
 
-  /// Map subscription tier from user permissions or domain data
-  fn map_subscription_tier(user: &User) -> String {
-    // Check if user has admin permissions to determine if they have premium access
-    let permissions = user.permissions();
-
-    // Look for admin permissions that might indicate premium tier
-    for permission in permissions {
-      let perm_str = permission.to_string();
-      if perm_str.starts_with("admin:") {
-        return "premium".to_string();
-      }
-      if perm_str.contains(":premium:") || perm_str.contains(":pro:") {
-        return "premium".to_string();
-      }
-    }
-
-    // Default to free tier
-    "free".to_string()
-  }
+  // Removed unused map_subscription_tier method
 
   /// Check if user is admin based on permissions (for backwards compatibility)
   pub fn is_admin_from_permissions(user: &User) -> bool {

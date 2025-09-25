@@ -27,6 +27,15 @@ export const analyticsMiddleware = (action: any, prevState: any, nextState: any,
   // State changes are not sent to external services
 };
 
+// Logging middleware for debugging state changes
+export const loggingMiddleware = (action: any, prevState: any, nextState: any, store: string) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[${store}] Action:`, action.type, action);
+    console.log(`[${store}] Previous State:`, prevState);
+    console.log(`[${store}] Next State:`, nextState);
+  }
+};
+
 // Client-only hook for components that need to run only on client side
 export function useClientOnly() {
   const [hasMounted, setHasMounted] = React.useState(false);

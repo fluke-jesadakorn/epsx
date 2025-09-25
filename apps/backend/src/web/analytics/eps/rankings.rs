@@ -145,10 +145,6 @@ pub fn convert_screening_result_to_eps_ranking(
     }
 }
 
-/// Helper function to parse f64 from string fields with fallback handling
-fn parse_f64_from_string(value: &str) -> Option<f64> {
-    value.parse::<f64>().ok().filter(|f| f.is_finite() && !f.is_nan())
-}
 
 /// Dynamic EPS validation for ranking updates - no hardcoded country/stock limits
 pub fn is_valid_eps_for_ranking(eps: f64) -> bool {

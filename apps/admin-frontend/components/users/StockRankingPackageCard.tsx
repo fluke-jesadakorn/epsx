@@ -5,7 +5,7 @@
 
 import { MoreHorizontal, Star, Calendar, AlertTriangle, CheckCircle } from 'lucide-react'
 import type { StockRankingPackage } from '@/lib/types/unified-user'
-import { UserStatusBadge } from './UserStatusBadge'
+import { Badge } from '@/components/ui/badge'
 
 interface StockRankingPackageCardProps {
   package: StockRankingPackage
@@ -51,13 +51,14 @@ export function StockRankingPackageCard({ package: pkg, canManage }: StockRankin
           <div>
             <div className="flex items-center gap-2">
               <span className="font-medium">{pkg.name}</span>
-              <UserStatusBadge 
-                status={pkg.isActive ? 'active' : 'disabled'} 
-                size="sm" 
-              />
+              <Badge 
+                variant={pkg.isActive ? 'default' : 'secondary'}
+              >
+                {pkg.isActive ? 'Active' : 'Disabled'}
+              </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
-              {pkg.description || 'Stock ranking package'}
+              Stock ranking package
             </p>
           </div>
         </div>
@@ -79,26 +80,10 @@ export function StockRankingPackageCard({ package: pkg, canManage }: StockRankin
           </div>
         )}
 
-        {pkg.price && (
-          <div className="flex items-center justify-between">
-            <span>Price:</span>
-            <span className="font-medium">
-              {formatPrice(pkg.price)}
-              {pkg.billingCycle && (
-                <span className="text-muted-foreground ml-1">
-                  /{pkg.billingCycle}
-                </span>
-              )}
-            </span>
-          </div>
-        )}
-        
-        {pkg.purchasedAt && (
-          <div className="flex items-center justify-between">
-            <span>Purchased:</span>
-            <span>{formatDate(pkg.purchasedAt)}</span>
-          </div>
-        )}
+        <div className="flex items-center justify-between">
+          <span>Assigned:</span>
+          <span>{formatDate(pkg.assignedAt)}</span>
+        </div>
         
         {pkg.expiresAt && (
           <div className="flex items-center justify-between">
@@ -114,19 +99,6 @@ export function StockRankingPackageCard({ package: pkg, canManage }: StockRankin
           </div>
         )}
 
-        {pkg.lastUsed && (
-          <div className="flex items-center justify-between">
-            <span>Last Used:</span>
-            <span>{formatDate(pkg.lastUsed)}</span>
-          </div>
-        )}
-
-        {pkg.usageCount !== undefined && (
-          <div className="flex items-center justify-between">
-            <span>Usage Count:</span>
-            <span>{pkg.usageCount.toLocaleString()}</span>
-          </div>
-        )}
       </div>
 
       {/* Package Features */}
@@ -160,12 +132,6 @@ export function StockRankingPackageCard({ package: pkg, canManage }: StockRankin
           </div>
         )}
 
-        {pkg.isActive && pkg.autoRenew && (
-          <div className="flex items-center gap-1 p-2 bg-green-50 border border-green-200 rounded text-xs text-green-800">
-            <CheckCircle className="h-3 w-3" />
-            <span>Auto-renewal enabled</span>
-          </div>
-        )}
 
         {!pkg.isActive && (
           <div className="flex items-center gap-1 p-2 bg-gray-50 border border-gray-200 rounded text-xs text-gray-600">

@@ -20,7 +20,7 @@ export function validateAdminOIDCEnvironment(): ValidationResult {
   const required = {
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
     ADMIN_URL: process.env.ADMIN_URL,
-    NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL,
+    NEXT_PUBLIC_BACKEND_URL: process.env.BACKEND_URL,
     NEXT_PUBLIC_ADMIN_URL: process.env.NEXT_PUBLIC_ADMIN_URL,
   };
 
@@ -125,7 +125,7 @@ export function validateAdminDevelopmentEnvironment(): void {
   logValidationResults(adminResults, 'Admin OIDC Environment');
 
   // Additional development checks
-  if (!process.env.NEXT_PUBLIC_BACKEND_URL?.includes('localhost')) {
+  if (!process.env.BACKEND_URL?.includes('localhost')) {
     console.warn('⚠️ Admin Development: NEXT_PUBLIC_BACKEND_URL should point to localhost for local development');
   }
 

@@ -34,7 +34,7 @@ export function ModuleQuotaCard({ quota, canManage }: ModuleQuotaCardProps) {
         <div className="flex items-center gap-2">
           <BarChart3 className="h-5 w-5 text-blue-500" />
           <div>
-            <span className="font-medium">{quota.moduleName}</span>
+            <span className="font-medium">{quota.moduleId}</span>
             <p className="text-xs text-muted-foreground">
               {quota.quotaType} quota
             </p>
@@ -90,15 +90,6 @@ export function ModuleQuotaCard({ quota, canManage }: ModuleQuotaCardProps) {
         </div>
       )}
 
-      {/* Usage Trends */}
-      {quota.dailyUsage && (
-        <div className="text-xs text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <TrendingUp className="h-3 w-3" />
-            <span>Daily average: {formatNumber(quota.dailyUsage)}</span>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

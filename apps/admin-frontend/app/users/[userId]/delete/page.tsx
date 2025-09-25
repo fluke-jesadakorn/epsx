@@ -124,7 +124,7 @@ export default async function DeleteUserPage({ params }: Props) {
               <p className="text-gray-600 dark:text-gray-400 mb-2">{user.email}</p>
               
               <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                <span>ID: {(user.id || user.user_id || user.firebase_uid || userId)?.substring(0, 8)}...</span>
+                <span>ID: {(user.id || userId)?.substring(0, 8)}...</span>
                 <span>Tier: {user.subscription_tier || 'basic'}</span>
                 <span>Created: {new Date(user.created_at).toLocaleDateString()}</span>
               </div>

@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle, Button, Tabs, TabsContent, Ta
 import Link from 'next/link';
 import { Bell, User, Settings, Shield, CheckCircle, AlertCircle, Flame, Crown } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { FirebaseConfigSection } from './FirebaseConfigSection';
 import { UserPlanDisplay } from './UserPlanDisplay';
 
 interface NotificationPreferences {
@@ -19,6 +18,7 @@ interface NotificationPreferences {
 
 export function SettingsClient() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState('plan');
   const [notificationPrefs, setNotificationPrefs] = useState<NotificationPreferences>({
     trading: true,
     security: true,
@@ -69,7 +69,7 @@ export function SettingsClient() {
   };
 
   const handleSignOut = async () => {
-    // Redirect to OIDC logout endpoint
+    // Redirect to Web3 logout endpoint
     router.push('/auth/logout');
   };
 
@@ -103,7 +103,7 @@ export function SettingsClient() {
   };
 
   return (
-    <Tabs defaultValue="plan" className="space-y-6">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
       <TabsList className="grid w-full grid-cols-5">
         <TabsTrigger value="plan" className="flex items-center gap-2">
           <Crown className="h-4 w-4" />
@@ -112,10 +112,6 @@ export function SettingsClient() {
         <TabsTrigger value="notifications" className="flex items-center gap-2">
           <Bell className="h-4 w-4" />
           <span className="hidden sm:inline">Notifications</span>
-        </TabsTrigger>
-        <TabsTrigger value="firebase" className="flex items-center gap-2">
-          <Flame className="h-4 w-4" />
-          <span className="hidden sm:inline">Firebase</span>
         </TabsTrigger>
         <TabsTrigger value="account" className="flex items-center gap-2">
           <User className="h-4 w-4" />
@@ -287,10 +283,6 @@ export function SettingsClient() {
       </TabsContent>
 
 
-      {/* Firebase Configuration */}
-      <TabsContent value="firebase" className="space-y-6">
-        <FirebaseConfigSection />
-      </TabsContent>
 
       {/* Account Settings */}
       <TabsContent value="account">

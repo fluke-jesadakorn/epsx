@@ -19,12 +19,13 @@ export default async function CreateUserPage({ searchParams }: Props) {
   if (!session?.user) {
     notFound()
   }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-6">
       <div className="relative z-10 max-w-6xl mx-auto">
         <UserForms
           mode="create"
-          currentUser={session.user}
+          currentUser={session.user as any}
         />
       </div>
     </div>

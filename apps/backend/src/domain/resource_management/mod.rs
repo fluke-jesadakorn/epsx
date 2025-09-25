@@ -9,7 +9,7 @@ pub mod events;
 
 // Re-export domain concepts with explicit imports to avoid conflicts
 pub use services::{
-    BillingCalculationService, RateLimitingService, ResourceTrackingService, 
+    BillingCalculationService, // RateLimitingService, // ResourceTrackingService, // Removed - services deleted 
     UsageAnalyticsService
 };
 pub use value_objects::{

@@ -22,21 +22,21 @@ import { Badge } from '@/components/ui/badge'
 import { JustInTimeAuth } from '@/components/auth/JustInTimeAuth'
 import { AuthLevel } from '@/types/progressive-auth'
 import MetaMaskPayment from './MetaMaskPayment'
-import PaymentDetails from './PaymentDetails'
 
 interface OneClickPaymentProps {
   className?: string
   preselectedPackage?: string
 }
 
-interface PaymentPackage {
+// Raw API response interface (backend data)
+interface ApiPaymentPlan {
   id: number
   name: string
   plan_type: string
   base_price: number
   current_price: number
   currency: string
-  features: string[]
+  features: string[] | string // Can be JSON string from API
   affiliate_commission_rate?: number
   display_order?: number
   is_active: boolean
@@ -49,6 +49,11 @@ interface PaymentPackage {
   discount_type?: string
   discount_value?: number
   max_discount_amount?: number
+}
+
+// UI-enhanced payment package interface
+interface PaymentPackage extends Omit<ApiPaymentPlan, 'features'> {
+  features: string[] // Always array in UI
   // UI fields (derived)
   icon?: string
   description?: string
@@ -60,7 +65,7 @@ type PaymentStep = 'package' | 'payment' | 'confirmation'
 // API helper function to fetch plans
 const fetchPlans = async (): Promise<PaymentPackage[]> => {
   try {
-    const response = await fetch('/api/v1/plans', {
+    const response = await fetch('/api/v1/public/plans', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -72,10 +77,10 @@ const fetchPlans = async (): Promise<PaymentPackage[]> => {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
     
-    const plans = await response.json()
+    const plans: ApiPaymentPlan[] = await response.json()
     
     // Transform API response to include UI-specific fields
-    return plans.map((plan: any) => ({
+    return plans.map((plan: ApiPaymentPlan): PaymentPackage => ({
       ...plan,
       // Add UI-specific fields based on plan type or other criteria
       icon: getIconForPlan(plan.plan_type),
@@ -226,7 +231,6 @@ const getFallbackPlans = (): PaymentPackage[] => [
 
 const PAYMENT_METHODS = [
   { id: 'metamask', name: 'MetaMask (Instant)', icon: Zap, description: 'Pay directly with USDT/USDC via MetaMask' },
-  { id: 'crypto-manual', name: 'Manual Crypto Transfer', icon: Shield, description: 'Send USDT to provided address' },
 ]
 
 export default function OneClickPayment({ 
@@ -281,12 +285,6 @@ export default function OneClickPayment({
   const handlePayment = async () => {
     if (selectedPaymentMethod === 'metamask') {
       // MetaMask payment is handled by the MetaMaskPayment component
-      return
-    }
-    
-    if (selectedPaymentMethod === 'crypto-manual') {
-      // Redirect to manual crypto payment flow (PaymentDetails component)
-      setCurrentStep('confirmation') // For now, skip to confirmation
       return
     }
     
@@ -703,10 +701,7 @@ export default function OneClickPayment({
                     <span className="font-medium">Secure Payment</span>
                   </div>
                   <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-                    {selectedPaymentMethod === 'metamask' 
-                      ? 'Your MetaMask transaction is processed directly on the blockchain. We never have access to your private keys.'
-                      : 'Your payment information is encrypted and secure. We never store your card details.'
-                    }
+                    Your MetaMask transaction is processed directly on the blockchain. We never have access to your private keys.
                   </p>
                 </CardContent>
               </Card>

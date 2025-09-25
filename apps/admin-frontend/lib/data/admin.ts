@@ -66,7 +66,7 @@ function getAuthToken(): string | null {
 // Create admin API client with backend URL and auth
 const getApiClient = () => {
   const token = getAuthToken();
-  return createApiClient(env.NEXT_PUBLIC_BACKEND_URL, token || undefined);
+  return createApiClient(env.BACKEND_URL, token || undefined);
 };
 
 const isApiError = (response: any) => !response.success && response.error;

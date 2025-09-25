@@ -59,7 +59,8 @@ export default function PaymentWidget({
 
   const handlePayNow = () => {
     if (selectedTemplate_obj) {
-      window.open(`/quick-payment?template=${selectedTemplate_obj.id}&amount=${selectedTemplate_obj.price}`, '_blank');
+      // Redirect to main payment page with Web3-first flow
+      window.location.href = `/payment?package=${selectedTemplate_obj.id}`;
     }
   };
 

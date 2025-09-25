@@ -77,7 +77,7 @@ const DynamicPricingSection = () => {
         
         // Build API URL with affiliate tracking
         const baseUrl = env.BACKEND_URL;
-        let apiUrl = `${baseUrl}/api/v1/plans`;
+        let apiUrl = `${baseUrl}/api/v1/public/plans`;
         
         // Add affiliate code if available
         if (affiliateCode) {
@@ -114,13 +114,13 @@ const DynamicPricingSection = () => {
           
           // Separate personal and API plans
           const personal = planData
-            .filter(plan => plan.planType === 'personal' && plan.isActive)
-            .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+            .filter((plan: any) => plan.planType === 'personal' && plan.isActive)
+            .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
             .map(transformToPricingCard);
             
           const api = planData
-            .filter(plan => plan.planType === 'api' && plan.isActive)
-            .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+            .filter((plan: any) => plan.planType === 'api' && plan.isActive)
+            .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
             .map(transformToPricingCard);
           
           setPersonalPlans(personal);
@@ -150,7 +150,7 @@ const DynamicPricingSection = () => {
   const fetchAffiliateInfo = async (code: string) => {
     try {
       const baseUrl = env.BACKEND_URL;
-      const response = await fetch(`${baseUrl}/api/v1/plans/calculate-price/1?affiliate_code=${code}`);
+      const response = await fetch(`${baseUrl}/api/v1/public/plans/calculate-price/1?affiliate_code=${code}`);
       
       if (response.ok) {
         const result = await response.json();

@@ -37,18 +37,21 @@ export function QuickActions({ user, currentUser }: QuickActionsProps) {
     window.location.href = `mailto:${user.email}`
   }
 
-  const canModifyUser = currentUser.permissions?.includes('admin:users:manage') || 
-                       currentUser.permissions?.includes('admin:*:*') ||
-                       currentUser.canManageUsers
+  const canModifyUser = Boolean(
+    currentUser.permissions?.includes('admin:users:manage') || 
+    currentUser.permissions?.includes('admin:*:*') ||
+    currentUser.canManageUsers
+  )
 
   return (
     <div className="flex items-center gap-2">
-      {/* Edit Profile Button */}
       {canModifyUser && (
-        <EditProfileButton 
-          userId={user.id}
-          disabled={isLoading}
-        />
+        <>
+          <EditProfileButton 
+            userId={user.id}
+            disabled={isLoading}
+          />
+        </>
       )}
 
       {/* Quick Actions Dropdown */}

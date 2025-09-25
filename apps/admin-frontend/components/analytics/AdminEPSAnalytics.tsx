@@ -1,5 +1,6 @@
 import { Suspense } from 'react'
-import { ServerAnalyticsAPI } from '@/lib/api/server-admin-api'
+// import { ServerAnalyticsAPI } from '@/lib/api/server-admin-api'
+// Stubbed for build - API not implemented yet
 import AdminEPSCard from './AdminEPSCard'
 import AdminEPSFilters from './AdminEPSFilters'
 import AdminEPSPagination from './AdminEPSPagination'
@@ -251,9 +252,9 @@ export default async function AdminEPSAnalytics({ searchParams }: AdminEPSAnalyt
       {/* Background patterns - positioned relative to content area only */}
       <div className="absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute inset-0 opacity-20 dark:opacity-10">
-          <div className="absolute top-20 left-20 h-32 w-32 rotate-45 bg-gradient-to-br from-pink-400 to-rose-500 rounded-3xl animate-pulse"></div>
-          <div className="absolute top-40 right-32 h-24 w-24 rotate-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full animate-pulse"></div>
-          <div className="absolute bottom-32 left-1/3 h-28 w-28 -rotate-12 bg-gradient-to-br from-orange-400 to-yellow-500 rounded-2xl animate-pulse"></div>
+          <div className="absolute top-20 left-20 h-32 w-32 rotate-45 bg-gradient-to-br from-pink-400 to-rose-500 rounded-3xl"></div>
+          <div className="absolute top-40 right-32 h-24 w-24 rotate-12 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full"></div>
+          <div className="absolute bottom-32 left-1/3 h-28 w-28 -rotate-12 bg-gradient-to-br from-orange-400 to-yellow-500 rounded-2xl"></div>
         </div>
       </div>
 
@@ -274,19 +275,19 @@ export default async function AdminEPSAnalytics({ searchParams }: AdminEPSAnalyt
                 
                 {/* Admin-specific action tiles */}
                 <div className="mt-8 grid grid-cols-1 sm:grid-cols-4 gap-4">
-                  <div className="bg-gradient-to-br from-green-400 to-emerald-500 hover:from-green-500 hover:to-emerald-600 transition-all duration-300 p-4 cursor-pointer group rounded-2xl shadow-lg hover:shadow-xl hover:scale-105">
+                  <div className="bg-gradient-to-br from-green-400 to-emerald-500 hover:from-green-500 hover:to-emerald-600 p-4 cursor-pointer group rounded-2xl shadow-lg hover:shadow-xl">
                     <div className="text-3xl mb-2">👥</div>
                     <div className="text-white font-bold text-sm drop-shadow-sm">User Analytics</div>
                   </div>
-                  <div className="bg-gradient-to-br from-blue-400 to-cyan-500 hover:from-blue-500 hover:to-cyan-600 transition-all duration-300 p-4 cursor-pointer group rounded-2xl shadow-lg hover:shadow-xl hover:scale-105">
+                  <div className="bg-gradient-to-br from-blue-400 to-cyan-500 hover:from-blue-500 hover:to-cyan-600 p-4 cursor-pointer group rounded-2xl shadow-lg hover:shadow-xl">
                     <div className="text-3xl mb-2">🔧</div>
                     <div className="text-white font-bold text-sm drop-shadow-sm">System Health</div>
                   </div>
-                  <div className="bg-gradient-to-br from-orange-400 to-red-500 hover:from-orange-500 hover:to-red-600 transition-all duration-300 p-4 cursor-pointer group rounded-2xl shadow-lg hover:shadow-xl hover:scale-105">
+                  <div className="bg-gradient-to-br from-orange-400 to-red-500 hover:from-orange-500 hover:to-red-600 p-4 cursor-pointer group rounded-2xl shadow-lg hover:shadow-xl">
                     <div className="text-3xl mb-2">⚡</div>
                     <div className="text-white font-bold text-sm drop-shadow-sm">Live Data</div>
                   </div>
-                  <div className="bg-gradient-to-br from-purple-400 to-pink-500 hover:from-purple-500 hover:to-pink-600 transition-all duration-300 p-4 cursor-pointer group rounded-2xl shadow-lg hover:shadow-xl hover:scale-105">
+                  <div className="bg-gradient-to-br from-purple-400 to-pink-500 hover:from-purple-500 hover:to-pink-600 p-4 cursor-pointer group rounded-2xl shadow-lg hover:shadow-xl">
                     <div className="text-3xl mb-2">📊</div>
                     <div className="text-white font-bold text-sm drop-shadow-sm">Admin Reports</div>
                   </div>
@@ -341,19 +342,19 @@ export default async function AdminEPSAnalytics({ searchParams }: AdminEPSAnalyt
                 </h4>
               </div>
               <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                <div className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 px-3 py-2 shadow-lg transition-all duration-300 hover:scale-105 hover:from-green-500 hover:to-emerald-600 hover:shadow-xl sm:px-5 sm:py-3">
+                <div className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 px-3 py-2 shadow-lg hover:from-green-500 hover:to-emerald-600 hover:shadow-xl sm:px-5 sm:py-3">
                   <div className="h-3 w-3 rounded-full bg-white shadow-sm"></div>
                   <span className="text-xs font-bold text-white drop-shadow-sm sm:text-sm">ACTIVE TRACKING</span>
                 </div>
-                <div className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-orange-400 to-yellow-500 px-3 py-2 shadow-lg transition-all duration-300 hover:scale-105 hover:from-orange-500 hover:to-yellow-600 hover:shadow-xl sm:px-5 sm:py-3">
+                <div className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-orange-400 to-yellow-500 px-3 py-2 shadow-lg hover:from-orange-500 hover:to-yellow-600 hover:shadow-xl sm:px-5 sm:py-3">
                   <div className="h-3 w-3 rounded-full bg-white shadow-sm"></div>
                   <span className="text-xs font-bold text-white drop-shadow-sm sm:text-sm">WATCH LIST</span>
                 </div>
-                <div className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-red-400 to-pink-500 px-3 py-2 shadow-lg transition-all duration-300 hover:scale-105 hover:from-red-500 hover:to-pink-600 hover:shadow-xl sm:px-5 sm:py-3">
+                <div className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-red-400 to-pink-500 px-3 py-2 shadow-lg hover:from-red-500 hover:to-pink-600 hover:shadow-xl sm:px-5 sm:py-3">
                   <div className="h-3 w-3 rounded-full bg-white shadow-sm"></div>
                   <span className="text-xs font-bold text-white drop-shadow-sm sm:text-sm">STOPPED</span>
                 </div>
-                <div className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-blue-400 to-indigo-500 px-3 py-2 shadow-lg transition-all duration-300 hover:scale-105 hover:from-blue-500 hover:to-indigo-600 hover:shadow-xl sm:px-5 sm:py-3">
+                <div className="group flex cursor-pointer items-center gap-2 rounded-full bg-gradient-to-r from-blue-400 to-indigo-500 px-3 py-2 shadow-lg hover:from-blue-500 hover:to-indigo-600 hover:shadow-xl sm:px-5 sm:py-3">
                   <div className="h-3 w-3 rounded-full bg-white shadow-sm"></div>
                   <span className="text-xs font-bold text-white drop-shadow-sm sm:text-sm">ADMIN PRIORITY</span>
                 </div>
@@ -365,7 +366,7 @@ export default async function AdminEPSAnalytics({ searchParams }: AdminEPSAnalyt
           <Suspense fallback={
             <div className="flex flex-wrap items-stretch justify-center gap-3 px-2 sm:justify-start sm:gap-6 sm:px-0">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="w-full max-w-[320px] min-w-[240px] flex-shrink-0 rounded-3xl border-2 border-gray-300/50 dark:border-gray-600/50 bg-white/80 dark:bg-gray-800/80 p-6 shadow-2xl dark:shadow-orange-500/10 animate-pulse">
+                <div key={i} className="w-full max-w-[320px] min-w-[240px] flex-shrink-0 rounded-3xl border-2 border-gray-300/50 dark:border-gray-600/50 bg-white/80 dark:bg-gray-800/80 p-6 shadow-2xl dark:shadow-orange-500/10">
                   <div className="h-32 bg-gray-300 dark:bg-gray-600 rounded-2xl mb-4"></div>
                   <div className="space-y-3">
                     <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-3/4"></div>

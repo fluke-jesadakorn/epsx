@@ -10,6 +10,7 @@ use crate::infrastructure::adapters::services::tradingview::TradingViewApiServic
 /// Repository adapter for market data that bridges legacy stock system with DDD Trading Analytics
 #[derive(Clone)]
 pub struct MarketDataRepositoryAdapter {
+    #[allow(dead_code)]
     tradingview_service: Arc<TradingViewApiService>,
 }
 

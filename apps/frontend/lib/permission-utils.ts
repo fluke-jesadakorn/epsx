@@ -6,7 +6,7 @@
 // Re-export from shared permissions utilities
 export { 
   derivePackageTierFromPermissions as deriveTierFromPermissions 
-} from '../../../../shared/permissions/utils/platform';
+} from '@/lib/shared';
 
 // Type definitions
 export type UserLevelType = 'FREE' | 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'ENTERPRISE';
@@ -64,4 +64,22 @@ export function hasFeaturePermission(feature: string, permissions: string[]): bo
     default:
       return true;
   }
+}
+
+/**
+ * Filter valid permissions from array
+ */
+export function filterValidPermissions(permissions: string[]): string[] {
+  return permissions.filter(perm => {
+    // Valid permission format: platform:resource:action or platform:resource:action:timestamp
+    const parts = perm.split(':');
+    return parts.length >= 3 && parts[0] && parts[1] && parts[2];
+  });
+}
+
+/**
+ * Get package tier from permissions
+ */
+export function getPackageFromPermissions(permissions: string[]): string {
+  return getTierFromPermissions(permissions);
 }

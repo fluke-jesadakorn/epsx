@@ -1,5 +1,5 @@
-// Admin Frontend Lib Tests - Infrastructure Layer (External Dependencies)
-// Tests for admin API clients and external service integrations
+// Admin Frontend Lib Tests - Web3 Infrastructure Layer
+// Tests for Web3 admin API clients and wallet-based user management
 // Clean Architecture: Infrastructure Layer - Tests external integrations with mocked responses
 
 import { 
@@ -14,29 +14,33 @@ import {
 global.fetch = jest.fn()
 const mockFetch = fetch as jest.MockedFunction<typeof fetch>
 
-describe('Admin API Client', () => {
+describe('Admin API Client - Web3 Users', () => {
   beforeEach(() => {
     mockFetch.mockClear()
     
-    // Mock admin token
-    Storage.prototype.getItem = jest.fn(() => 'mock-admin-jwt-token')
+    // Mock wallet-based admin session
+    Storage.prototype.getItem = jest.fn(() => 'mock-wallet-admin-token')
   })
 
-  describe('User Management API', () => {
-    test('fetchUsers should return paginated user data', async () => {
+  describe('Web3 User Management API', () => {
+    test('fetchUsers should return paginated Web3 user data', async () => {
       const mockUsersResponse = {
         users: [
           {
-            id: '123',
+            id: '0x742d35Cc6634C0532925a3b8D369D7763F3c45c6',
+            wallet_address: '0x742d35Cc6634C0532925a3b8D369D7763F3c45c6',
             email: 'user1@example.com',
-            permissionProfile: 'user-basic-001',
+            permissions: ['epsx:analytics:view', 'epsx:trading:basic'],
+            tier: 'nft',
             createdAt: '2024-01-01T00:00:00Z',
             lastLoginAt: '2024-08-01T10:00:00Z'
           },
           {
-            id: '456',
+            id: '0x8f42C5A9F7FaE8D8C3A5e9B2F3c8F9E6A7B8C9D0',
+            wallet_address: '0x8f42C5A9F7FaE8D8C3A5e9B2F3c8F9E6A7B8C9D0',
             email: 'user2@example.com',
-            permissionProfile: 'user-premium-002',
+            permissions: ['epsx:*:*', 'admin:users:view'],
+            tier: 'enterprise',
             createdAt: '2024-01-02T00:00:00Z',
             lastLoginAt: '2024-08-02T11:00:00Z'
           }

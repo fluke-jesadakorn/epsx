@@ -81,11 +81,11 @@ export const PancakePhoneTheme = {
       large: 'w-80 h-80'       // 320x320px
     },
     
-    animations: {
-      flip: 'animate-flip-vertical',
-      slide: 'animate-slide-left',
-      fade: 'animate-fade-in',
-      pulse: 'animate-pulse-soft'
+    states: {
+      active: 'opacity-100',
+      inactive: 'opacity-75',
+      disabled: 'opacity-50',
+      hidden: 'opacity-0'
     }
   },
   
@@ -102,14 +102,14 @@ export const PancakePhoneTheme = {
   // Component styles
   components: {
     tile: {
-      base: 'transition-all duration-300 hover:scale-105 cursor-pointer shadow-lg',
+      base: 'cursor-pointer shadow-lg hover:shadow-xl',
       padding: 'p-4',
       rounded: 'rounded-none' // Windows Phone sharp corners
     },
     
     pivot: {
       base: 'flex overflow-x-auto gap-6 border-b border-gray-700',
-      item: 'font-light text-lg pb-2 whitespace-nowrap transition-colors',
+      item: 'font-light text-lg pb-2 whitespace-nowrap',
       active: 'text-white border-b-2 border-primary-500',
       inactive: 'text-gray-400 hover:text-white'
     },

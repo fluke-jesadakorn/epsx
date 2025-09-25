@@ -25,6 +25,7 @@ pub enum EmailStatus {
 
 /// SendGrid email service implementation
 pub struct SendGridEmailService {
+    #[allow(dead_code)]
     api_key: String,
 }
 
@@ -79,7 +80,9 @@ impl EmailServicePort for SendGridEmailService {
 pub struct SmtpEmailService {
     host: String,
     port: u16,
+    #[allow(dead_code)]
     username: String,
+    #[allow(dead_code)]
     password: String,
 }
 

@@ -47,7 +47,7 @@ const UIContext = createContext<UIContextType | undefined>(undefined);
 function uiReducer(state: UIState, action: StateAction): UIState {
   switch (action.type) {
     case 'SET_THEME':
-      return { ...state, theme: action.payload };
+      return { ...state, theme: action.payload as UIState['theme'] };
 
     case 'TOGGLE_SIDEBAR':
       return {
@@ -58,33 +58,35 @@ function uiReducer(state: UIState, action: StateAction): UIState {
     case 'COLLAPSE_SIDEBAR':
       return {
         ...state,
-        sidebar: { ...state.sidebar, collapsed: action.payload },
+        sidebar: { ...state.sidebar, collapsed: action.payload as boolean },
       };
 
-    case 'OPEN_MODAL':
+    case 'OPEN_MODAL': {
+      const payload = action.payload as { key: string; data?: any };
       return {
         ...state,
         modals: {
           ...state.modals,
-          [action.payload.key]: {
+          [payload.key]: {
             open: true,
-            data: action.payload.data,
+            data: payload.data,
           },
         },
       };
+    }
 
     case 'CLOSE_MODAL':
       return {
         ...state,
         modals: {
           ...state.modals,
-          [action.payload]: { open: false },
+          [action.payload as string]: { open: false },
         },
       };
 
     case 'ADD_TOAST':
       const newToast = {
-        ...action.payload,
+        ...(action.payload as any),
         id: Math.random().toString(36).substr(2, 9),
         timestamp: Date.now(),
       };
@@ -99,27 +101,29 @@ function uiReducer(state: UIState, action: StateAction): UIState {
         toasts: state.toasts.filter(toast => toast.id !== action.payload),
       };
 
-    case 'SET_LOADING':
+    case 'SET_LOADING': {
+      const payload = action.payload as { key?: string; loading: boolean };
       return {
         ...state,
-        loading: action.payload.key
+        loading: payload.key
           ? {
               ...state.loading,
               requests: {
                 ...state.loading.requests,
-                [action.payload.key]: action.payload.loading,
+                [payload.key]: payload.loading,
               },
             }
           : {
               ...state.loading,
-              global: action.payload.loading,
+              global: payload.loading,
             },
       };
+    }
 
     case 'SET_RESPONSIVE':
       return {
         ...state,
-        responsive: { ...state.responsive, ...action.payload },
+        responsive: { ...state.responsive, ...(action.payload as any) },
       };
 
     default:
@@ -151,93 +155,66 @@ export function UIProvider({ children, initialState }: UIProviderProps) {
   const actions = useMemo(
     () => ({
       setTheme: (theme: UIState['theme']) =>
-        dispatch(
-          {
+        dispatch({
             type: 'SET_THEME',
             payload: theme,
             meta: { timestamp: Date.now(), source: 'ui' },
-          },
-          uiReducer
-        ),
+          }),
 
       toggleSidebar: () =>
-        dispatch(
-          {
+        dispatch({
             type: 'TOGGLE_SIDEBAR',
             meta: { timestamp: Date.now(), source: 'ui' },
-          },
-          uiReducer
-        ),
+          }),
 
       collapseSidebar: (collapsed: boolean) =>
-        dispatch(
-          {
+        dispatch({
             type: 'COLLAPSE_SIDEBAR',
             payload: collapsed,
             meta: { timestamp: Date.now(), source: 'ui' },
-          },
-          uiReducer
-        ),
+          }),
 
       openModal: (key: string, data?: unknown) =>
-        dispatch(
-          {
+        dispatch({
             type: 'OPEN_MODAL',
             payload: { key, data },
             meta: { timestamp: Date.now(), source: 'ui' },
-          },
-          uiReducer
-        ),
+          }),
 
       closeModal: (key: string) =>
-        dispatch(
-          {
+        dispatch({
             type: 'CLOSE_MODAL',
             payload: key,
             meta: { timestamp: Date.now(), source: 'ui' },
-          },
-          uiReducer
-        ),
+          }),
 
       addToast: (toast: Omit<UIState['toasts'][0], 'id' | 'timestamp'>) =>
-        dispatch(
-          {
+        dispatch({
             type: 'ADD_TOAST',
             payload: toast,
             meta: { timestamp: Date.now(), source: 'ui' },
-          },
-          uiReducer
-        ),
+          }),
 
       removeToast: (id: string) =>
-        dispatch(
-          {
+        dispatch({
             type: 'REMOVE_TOAST',
             payload: id,
             meta: { timestamp: Date.now(), source: 'ui' },
-          },
-          uiReducer
-        ),
+          }),
 
       setLoading: (key: string | null, loading: boolean) =>
-        dispatch(
-          {
+        dispatch({
             type: 'SET_LOADING',
             payload: { key, loading },
             meta: { timestamp: Date.now(), source: 'ui' },
-          },
-          uiReducer
-        ),
+          }),
 
       setResponsive: (responsive: Partial<UIState['responsive']>) =>
-        dispatch(
-          {
+        dispatch({
             type: 'SET_RESPONSIVE',
             payload: responsive,
             meta: { timestamp: Date.now(), source: 'ui' },
-          },
-          uiReducer
-        ),
+          }),
     }),
     [dispatch]
   );

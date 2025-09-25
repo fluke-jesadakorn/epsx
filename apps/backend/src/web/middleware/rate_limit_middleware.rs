@@ -9,7 +9,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use chrono::{ DateTime, Utc, Duration };
 use tracing::{ debug, warn };
-use crate::infrastructure::container::AppContainer;
+use crate::infrastructure::container::DomainContainer;
 use crate::auth::Web3PermissionService;
 
 /// Rate limit tier based on token holdings
@@ -144,9 +144,12 @@ impl RateLimitBucket {
 /// Cross-chain token holdings cache
 #[derive(Debug, Clone)]
 pub struct TokenHoldingsCache {
+  #[allow(dead_code)]
   wallet_address: String,
+  #[allow(dead_code)]
   total_value_usd: f64,
   tier: RateLimitTier,
+  #[allow(dead_code)]
   cached_at: DateTime<Utc>,
   expires_at: DateTime<Utc>,
 }
@@ -156,6 +159,7 @@ pub struct Web3RateLimitService {
   buckets: Arc<RwLock<HashMap<String, RateLimitBucket>>>,
   holdings_cache: Arc<RwLock<HashMap<String, TokenHoldingsCache>>>,
   config: TokenRateLimitConfig,
+  #[allow(dead_code)]
   web3_service: Arc<Web3PermissionService>,
 }
 
@@ -382,7 +386,7 @@ impl Web3RateLimitService {
 
 /// Middleware function for Web3 rate limiting
 pub async fn web3_rate_limit_middleware(
-  State(_container): State<Arc<AppContainer>>,
+  State(_container): State<Arc<DomainContainer>>,
   headers: HeaderMap,
   request: Request,
   next: Next
@@ -391,7 +395,7 @@ pub async fn web3_rate_limit_middleware(
   let wallet_address = extract_wallet_address(&headers);
 
   if let Some(wallet_address) = wallet_address {
-    // Get rate limit service (this would be added to AppContainer)
+    // Get rate limit service (this would be added to DomainContainer)
     // For now, we'll create a simplified check
 
     let is_premium = wallet_address.to_lowercase().contains("742d35"); // Demo logic
@@ -438,6 +442,18 @@ fn extract_wallet_address(headers: &HeaderMap) -> Option<String> {
   }
 
   None
+}
+
+/// Unified rate limit middleware - alias for web3_rate_limit_middleware
+/// Provides a unified entry point for rate limiting across the application
+pub async fn unified_rate_limit_middleware(
+  State(container): State<Arc<DomainContainer>>,
+  headers: HeaderMap,
+  request: Request,
+  next: Next
+) -> Result<Response, StatusCode> {
+  // Delegate to web3_rate_limit_middleware for unified behavior
+  web3_rate_limit_middleware(State(container), headers, request, next).await
 }
 
 #[cfg(test)]

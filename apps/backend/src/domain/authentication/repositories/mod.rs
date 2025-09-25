@@ -8,6 +8,14 @@ use super::{
     AuthenticationSession, SessionId, AuthenticatedUserId
 };
 
+/// Provider type for authentication (simplified for Web3-first architecture)
+#[derive(Debug, Clone, PartialEq)]
+pub enum ProviderType {
+    Web3,
+    Firebase, // Legacy support only
+    Internal, // Service-to-service
+}
+
 /// Port for authentication session repository operations
 #[async_trait]
 pub trait AuthenticationSessionRepositoryPort: Send + Sync {
@@ -132,7 +140,7 @@ pub struct TokenClaims {
     pub user_id: String,
     pub scopes: Vec<String>,
     pub expires_at: DateTime<Utc>,
-    pub provider_type: crate::web::auth::providers::ProviderType,
+    pub provider_type: ProviderType,
     pub issued_at: DateTime<Utc>,
     pub audience: String,
     pub issuer: String,
@@ -148,7 +156,7 @@ pub struct TokenIntrospectionResult {
     pub expires_at: Option<DateTime<Utc>>,
     pub issued_at: Option<DateTime<Utc>>,
     pub token_type: Option<String>,
-    pub provider_type: crate::web::auth::providers::ProviderType,
+    pub provider_type: ProviderType,
 }
 
 /// User profile information

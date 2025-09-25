@@ -34,7 +34,7 @@ pub use queries::{
 pub use services::{
     UserReferenceResolver,
     UserResolutionCapable,
-    UserApplicationService,
+    // UserApplicationService, // Removed - service deleted
     UserQueryService,
 };
 

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useAccount, useDisconnect } from 'wagmi';
+import { useAccount } from 'wagmi';
+import { useWeb3AuthContext } from '@/providers/Web3AuthProvider';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Wallet, Copy, ExternalLink, LogOut, Check } from 'lucide-react';
@@ -13,7 +14,7 @@ interface ConnectedWalletDropdownProps {
 
 export function ConnectedWalletDropdown({ className }: ConnectedWalletDropdownProps) {
   const { address, connector } = useAccount();
-  const { disconnect } = useDisconnect();
+  const { disconnect } = useWeb3AuthContext();
   const [copied, setCopied] = useState(false);
 
   const formatAddress = (addr: string) => {
@@ -122,9 +123,12 @@ export function ConnectedWalletDropdown({ className }: ConnectedWalletDropdownPr
             "flex items-center gap-3 px-4 py-4 cursor-pointer",
             "hover:bg-red-500/10 focus:bg-red-500/10"
           )}
-          onClick={() => {
-            disconnect();
-            window.location.reload();
+          onClick={async () => {
+            try {
+              await disconnect();
+            } catch (error) {
+              console.error('Disconnect error:', error);
+            }
           }}
         >
           <div className="p-2 rounded-lg bg-red-500/10">

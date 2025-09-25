@@ -1,153 +1,111 @@
-// NEW UNIFIED AUTH SERVICES (Phase 2 Refactoring)
-pub mod authentication_service;
-pub mod authorization_service;
-pub mod session_service;
+// WEB3-FIRST AUTHENTICATION MODULE  
+// Clean, focused authentication system using Web3 wallet signatures
 
-// SECURE JWT SERVICE - RS256 ONLY (Security Critical)
-pub mod secure_jwt_service;
+// NEW GROUP-BASED PERMISSION SYSTEM (replaces all legacy services)
+// pub mod group_permission_service; // Removed - references non-existent tables
+// pub mod web3_auto_assignment_engine; // Removed - references non-existent imports
+// pub mod auth_trigger_service; // Removed - references non-existent imports
 
-// WEB3 AUTHENTICATION MODULES (New)
-pub mod web3_auth_service;
+// CONSOLIDATED PERMISSION SERVICE (replaces 6+ duplicate services)
+// pub mod consolidated_permission_service; // Removed - references non-existent imports
+
+// LEGACY PERMISSION MODULES (marked for removal)
 pub mod web3_permission_service;
-pub mod multi_chain_cache_service;
-
-// UNIFIED AUTHENTICATION SERVICE (Web3-First)
-pub mod unified_auth_service;
-// Migration service removed - Web3-first approach eliminates need for Firebase migration
-// pub mod migration_service;
-pub mod unified_permission_service;
-pub mod enhanced_bearer_token_service;
+pub mod web3_group_bridge;
+// pub mod unified_permission_service; // Removed - references non-existent imports
 
 // PERFORMANCE OPTIMIZATIONS
-// pub mod auth_performance_cache; // TODO: Fix compilation issues
-// pub mod optimized_unified_auth_service; // TODO: Fix compilation issues  
 pub mod simplified_auth_cache;
 
-// LEGACY MODULES (to be phased out gradually)
-pub mod jwt;
-// Firebase flow module removed - replaced by Web3-first authentication
-pub mod tokens;
+// DYNAMIC GROUP SYSTEM MODULES
+pub mod dynamic_group_rules_engine;
+pub mod group_template_system;
+
+// CORE AUTH MODULES (Web3-First)
 pub mod key_manager;
-pub mod permissions; // New permission-only system
-pub mod granular_permissions; // Clean granular permission system
-pub mod hierarchy_resolver; // Permission hierarchy resolution
-pub mod policy_engine; // Dynamic policy evaluation engine
-pub mod revocation;
-pub mod refresh_tokens;
-pub mod refresh_token_service;
+pub mod permissions;
+pub mod granular_permissions;
+pub mod hierarchy_resolver;
+pub mod policy_engine;
 pub mod scopes;
 pub mod cleanup;
-pub mod session_cleanup_service;
-pub mod session_security_service;
-// pub mod roles; // Removed - using permissions-based system only
 
-// Separated JWT systems
-pub mod admin_jwt;
-pub mod user_jwt;
+// WEB3-FIRST AUTH EXPORTS (Security Critical)
 
+// GROUP-BASED PERMISSION SERVICE EXPORTS (LATEST)
+// pub use group_permission_service::{
+//     GroupPermissionService, UserGroupMembership, PermissionGroup, Web3AssignmentRule,
+//     PermissionCache as GroupPermissionCache, InMemoryPermissionCache
+// }; // Removed - references non-existent tables
 
-// NEW UNIFIED SERVICE EXPORTS (Phase 2 Refactoring)
-pub use authentication_service::{AuthenticationService, AuthClaims, AuthResult};
-pub use authorization_service::{AuthorizationService, Permission as NewPermission, AuthContext, AuthDecision, PermissionStats};
-pub use session_service::{SessionService, SessionInfo, RefreshToken, CreateSessionRequest, SessionStats, SecurityEvent, SecurityEventType, DeviceInfo};
+// WEB3 AUTO-ASSIGNMENT ENGINE EXPORTS (NEW)
+// pub use web3_auto_assignment_engine::{
+//     Web3AutoAssignmentEngine, BlockchainNetwork, NFTOwnership, TokenBalance, DAOMembership, Web3VerificationResult, WalletAssetVerification
+// }; // Removed - references non-existent imports
 
-// SECURE JWT SERVICE EXPORTS (Security Critical - RS256 Only)
-pub use secure_jwt_service::{
-    SecureJWTService, SecureJWTClaims, TokenRequest, TokenValidationResult, JWTSecurityError
-};
+// AUTH TRIGGER SERVICE EXPORTS (NEW)
+// pub use auth_trigger_service::{
+//     AuthTriggerService, TriggerConfig, TriggerFrequency, TriggerResult, TriggerStats
+// }; // Removed - references non-existent imports
 
-// WEB3 AUTHENTICATION EXPORTS (New)
-pub use web3_auth_service::{Web3AuthService, AuthChallenge, VerifyRequest as Web3VerifyRequest, AuthResult as Web3AuthResult};
+// CONSOLIDATED PERMISSION SERVICE EXPORTS (NEW)
+// pub use consolidated_permission_service::{
+//     ConsolidatedPermissionService, Permission, PermissionSource, PermissionCheck, PermissionResult, 
+//     BlockchainConfig, PermissionCache
+// }; // Removed - references non-existent imports
+
+// LEGACY WEB3 AUTHENTICATION EXPORTS (marked for removal)
 pub use web3_permission_service::{
     Web3PermissionService, PermissionInfo as Web3PermissionInfo, NFTConfig, TokenConfig, 
     DAOProposal, PermissionVerificationResult
 };
-pub use multi_chain_cache_service::{
-    MultiChainCacheService, NetworkCacheConfig, CachedVerification, CacheStatistics,
-    NetworkStats, CacheHealthStatus, CacheWarmingService
-};
 
-// UNIFIED AUTHENTICATION SERVICE EXPORTS (Web3-First)
-pub use unified_auth_service::{
-    UnifiedAuthService, AuthMethod, AuthChallenge as UnifiedAuthChallenge, 
-    AuthChallengeData, UnifiedVerifyRequest, VerificationData, UnifiedAuthResult,
-    UserProfile, AuthContext as UnifiedAuthContext
+// WEB3 GROUP BRIDGE EXPORTS (NEW)
+pub use web3_group_bridge::{
+    Web3GroupBridge, Web3GroupRule, GroupAssignmentResult, GroupAssignment
 };
-
-// MIGRATION SERVICE EXPORTS - REMOVED (Web3-First Migration)
-// Migration service removed - new users should register directly with Web3 wallets
-// pub use migration_service::{
-//     MigrationService, MigrationStatus, MigrationResult, MigrationPlan,
-//     DataPreservationPlan, BatchMigrationRequest, SingleUserMigration, MigrationStats
-// };
 
 // UNIFIED PERMISSION SERVICE EXPORTS
-pub use unified_permission_service::{
-    UnifiedPermissionService, UnifiedPermission, PermissionSource as UnifiedPermissionSource, PermissionCheck,
-    PermissionResult, BulkPermissionCheck, BulkPermissionResult, AccessLevel,
-    GrantPermissionRequest, PermissionStats as UnifiedPermissionStats
-};
-
-// ENHANCED BEARER TOKEN SERVICE EXPORTS
-pub use enhanced_bearer_token_service::{
-    EnhancedBearerTokenService, EnhancedTokenClaims, Web3PermissionClaim, NftHolding,
-    TokenBalance, DaoMembership, RateLimitTier, CacheHints as EnhancedCacheHints, ApiKeyRequest, ApiKey,
-    TokenValidation, EnterpriseTeam, TeamMember, TeamRole
-};
+// pub use unified_permission_service::{
+//     UnifiedPermissionService, UnifiedPermission, PermissionSource as UnifiedPermissionSource, 
+//     PermissionCheck as UnifiedPermissionCheck, PermissionResult as UnifiedPermissionResult, 
+//     BulkPermissionCheck, BulkPermissionResult, AccessLevel,
+//     GrantPermissionRequest, PermissionStats as UnifiedPermissionStats
+// }; // Removed - references non-existent imports
 
 // PERFORMANCE OPTIMIZATION EXPORTS
-// TODO: Re-enable when compilation issues are fixed
-// pub use auth_performance_cache::{AuthPerformanceCache, AuthCacheConfig};
-// pub use optimized_unified_auth_service::{OptimizedUnifiedAuthService, AuthPerformanceMonitor};
-
 pub use simplified_auth_cache::{
     SimplifiedAuthCache, SimplifiedCacheConfig, SimplifiedCacheStats,
     PermissionCacheEntry as SimplifiedPermissionCacheEntry, 
     ChallengeCacheEntry as SimplifiedChallengeCacheEntry
 };
 
-// LEGACY EXPORTS (to be phased out gradually)
-pub use jwt::{Service as JWTService, Claims, User, Error as JWTError, UserData};
+// CORE AUTH EXPORTS (Web3-First)
 pub use key_manager::KeyManager;
-// Firebase flow exports removed - functionality replaced by Web3-first auth
-pub use tokens::{TokenRequest as LegacyTokenRequest, TokenResponse, ErrorResponse as TokenError};
-pub use revocation::{TokenRevocationService, RevokedToken, RevocationError, TOKEN_REVOCATION_SERVICE};
-pub use refresh_tokens::{RefreshTokenData, RefreshTokenRotation, RefreshTokenError, REFRESH_TOKEN_SERVICE};
-// Disabled to avoid conflicts with new session service
-// pub use refresh_token_service::{RefreshTokenService, RefreshTokenConfig, DeviceInfo, CreateRefreshTokenRequest, RefreshTokenResponse};
-pub use scopes::{ScopeService, Scope, ValidatedScopes, ScopeError, SCOPE_SERVICE};
-pub use cleanup::{TokenCleanupService, CleanupConfig, CleanupResult, CleanupError, start_cleanup_service, manual_cleanup, get_cleanup_stats};
-pub use session_cleanup_service::{SessionCleanupService, SessionCleanupConfig, CleanupStats, CleanupHealthStatus, init_global_cleanup_service, start_global_cleanup_service, run_manual_cleanup, get_cleanup_health};
-// Disabled to avoid conflicts with new session service
-// pub use session_security_service::{SessionSecurityService, SessionSecurityConfig, DeviceFingerprint, GeoLocation, SecurityEvent, SecurityEventType, SecurityAnalysisResult, UserSessionInfo};
-// Role-based exports removed - using permissions-based system only
-pub use permissions::{Permission, UserClaims, check_permission_access, PermissionError, require_permission_pure, PermissionSets};
+pub use permissions::{Permission as LegacyPermission, UserClaims, check_permission_access, PermissionError, require_permission_pure, PermissionSets};
 pub use granular_permissions::{
-    GranularPermissionClaim, PermissionSource, GranularPermissionSet, 
+    GranularPermissionClaim, PermissionSource as GranularPermissionSource, GranularPermissionSet, 
     PermissionValidationResult, ValidationContext, GranularPermissionError
 };
 pub use hierarchy_resolver::{
     HierarchyResolver, PermissionHierarchy, InheritanceType, HierarchyResolution, 
-    InheritanceChain, PermissionCache, HierarchyStats
+    InheritanceChain, PermissionCache as HierarchyPermissionCache, HierarchyStats
 };
 pub use policy_engine::{
     PolicyEngine, DynamicPolicy, PolicyCondition, PolicyAction, PolicyDecision,
     PolicyEvaluationContext, PolicyTemplate, PolicyEvaluationResult
 };
 
-// Separated JWT exports
-pub use admin_jwt::{
-    AdminJWTService, AdminJWTClaims, AdminValidationResult, AdminSecurityContext,
-    AdminPermissionMatrix, PrivilegedOperationContext, RiskAssessment
-};
-pub use user_jwt::{
-    UserJWTService, UserJWTClaims, UserValidationResult, UserContext,
-    UserPermissionSet, UserSubscription, CacheHints
-};
+pub use scopes::{ScopeService, Scope, ValidatedScopes, ScopeError, SCOPE_SERVICE};
+pub use cleanup::{TokenCleanupService, CleanupConfig, CleanupResult, CleanupError, start_cleanup_service, manual_cleanup, get_cleanup_stats};
 
-// Create simplified global JWT service
-lazy_static::lazy_static! {
-    pub static ref JWT: jwt::Service = jwt::Service::new()
-        .expect("Failed to initialize JWT service");
-}
-
+// DYNAMIC GROUP SYSTEM EXPORTS
+pub use dynamic_group_rules_engine::{
+    DynamicGroupRulesEngine, DynamicRule, RuleCondition, LogicOperator, 
+    RuleActions, RuleEvaluationResult, ConditionOperator, RuleType,
+    UserContext, UserBehavioralData, Web3UserData, EvaluationContext
+};
+pub use group_template_system::{
+    GroupTemplateSystem, GroupTemplate, TemplateCategory, EvaluationFrequency,
+    TemplateParameters, ParameterDefinition, ParameterType, ValidationRule
+};

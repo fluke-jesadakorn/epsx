@@ -109,7 +109,7 @@ export function UserPermissions({
   const processPermissions = (): PermissionItem[] => {
     const now = Date.now() / 1000;
     
-    return user.permissions.map((permission, index) => {
+    return (user.permissions || []).map((permission, index) => {
       const parts = permission.split(':');
       const hasTimestamp = parts.length === 4 && !isNaN(parseInt(parts[3]));
       const expiresAt = hasTimestamp ? new Date(parseInt(parts[3]) * 1000).toISOString() : undefined;
@@ -192,7 +192,7 @@ export function UserPermissions({
       // Load permission health
       const healthResponse = await adminClient.getPermissionExpiryStatus(user.id);
       if (healthResponse.success) {
-        setPermissionHealth(healthResponse.data);
+        setPermissionHealth(healthResponse.data as PermissionHealth);
       }
 
       // Generate mock recommendations
@@ -226,7 +226,7 @@ export function UserPermissions({
     try {
       const response = await adminClient.grantPermission(user.id, permission, expiresAt);
       if (response.success) {
-        const updatedPermissions = [...user.permissions, permission];
+        const updatedPermissions = [...(user.permissions || []), permission];
         onPermissionChange?.(user.id, updatedPermissions);
         onPermissionGranted?.(permission);
         loadPermissionData(); // Refresh data
@@ -241,7 +241,7 @@ export function UserPermissions({
     try {
       const response = await adminClient.revokePermission(user.id, permission);
       if (response.success) {
-        const updatedPermissions = user.permissions.filter(p => p !== permission);
+        const updatedPermissions = (user.permissions || []).filter(p => p !== permission);
         onPermissionChange?.(user.id, updatedPermissions);
         onPermissionRevoked?.(permission);
         loadPermissionData(); // Refresh data
@@ -302,8 +302,7 @@ export function UserPermissions({
         <div className="flex gap-2">
           <Button
             variant="outline"
-            size="sm"
-            onClick={loadPermissionData}
+                        onClick={loadPermissionData}
             disabled={isLoading}
           >
             <RefreshCw className={`w-4 h-4 mr-1 ${isLoading ? 'animate-spin' : ''}`} />
@@ -311,14 +310,12 @@ export function UserPermissions({
           </Button>
           <Button
             variant="outline"
-            size="sm"
-          >
+                      >
             <Download className="w-4 h-4 mr-1" />
             Export
           </Button>
           <Button
-            size="sm"
-            onClick={() => setShowGrantDialog(true)}
+                        onClick={() => setShowGrantDialog(true)}
           >
             <Plus className="w-4 h-4 mr-1" />
             Grant Permission
@@ -440,7 +437,7 @@ export function UserPermissions({
                         
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <Badge variant="secondary" size="sm">
+                            <Badge variant="secondary">
                               {permission.platform}
                             </Badge>
                             <code className="text-sm bg-gray-800 px-2 py-1 rounded">
@@ -469,8 +466,7 @@ export function UserPermissions({
                         {permission.isExpiring && (
                           <Button
                             variant="outline"
-                            size="sm"
-                            onClick={() => {
+                                                        onClick={() => {
                               // Extend permission logic
                               console.log('Extend permission:', permission.permission);
                             }}
@@ -482,8 +478,7 @@ export function UserPermissions({
                         
                         <Button
                           variant="destructive"
-                          size="sm"
-                          onClick={() => handleRevokePermission(permission.permission)}
+                                                    onClick={() => handleRevokePermission(permission.permission)}
                         >
                           <Minus className="w-4 h-4 mr-1" />
                           Revoke
@@ -534,12 +529,11 @@ export function UserPermissions({
                       />
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <Badge variant="secondary" size="sm">
+                          <Badge variant="secondary">
                             {permission.platform}
                           </Badge>
                           <Badge 
-                            variant={permission.risk === 'high' ? 'destructive' : 'outline'} 
-                            size="sm"
+                            variant={permission.risk === 'high' ? 'destructive' : 'outline'}
                           >
                             {permission.risk} risk
                           </Badge>
@@ -584,13 +578,12 @@ export function UserPermissions({
                     
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
-                        <Badge variant="secondary" size="sm">
+                        <Badge variant="secondary">
                           {rec.type}
                         </Badge>
                         <Badge 
                           variant={rec.impact === 'high' ? 'destructive' : 'outline'} 
-                          size="sm"
-                        >
+                                                  >
                           {rec.impact} impact
                         </Badge>
                         <code className="text-sm bg-gray-800 px-2 py-1 rounded">
@@ -649,7 +642,7 @@ export function UserPermissions({
                 />
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <Badge variant="secondary" size="sm">
+                    <Badge variant="secondary">
                       {permission.platform}
                     </Badge>
                     <span className="font-medium">{permission.name}</span>

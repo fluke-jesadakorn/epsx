@@ -7,12 +7,7 @@ import { ChevronDown, Lock, Shield, Crown, AlertCircle } from 'lucide-react';
 import { VisualPermissionGuard } from '@/components/guards/VisualPermissionGuard';
 import { PermissionRequestModal } from '@/components/modals/PermissionRequestModal';
 import { useVisualPermission } from '@/hooks/useVisualPermission';
-import { 
-  Tooltip, 
-  TooltipContent, 
-  TooltipProvider, 
-  TooltipTrigger 
-} from '@/components/ui';
+// Tooltip components not available
 
 interface MenuItem {
   id: string;
@@ -57,10 +52,10 @@ export function RestrictedMenuItem({
       
       // Check for role-based permission
       if (item.requiredRole === 'super_admin') {
-        return permissions.some(p => p.includes('admin:') && p.includes('manage'));
+        return permissions.some((p: string) => p.includes('admin:') && p.includes('manage'));
       }
       
-      return permissions.some(p => p.startsWith('admin:'));
+      return permissions.some((p: string) => p.startsWith('admin:'));
     } : undefined
   });
 
@@ -136,29 +131,19 @@ export function RestrictedMenuItem({
       </div>
     );
 
-    // Wrap in tooltip for collapsed sidebar
+    // Add title attribute for collapsed sidebar
     if (sidebarCollapsed) {
-      return (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              {permission.hasPermission && item.href ? (
-                <Link href={item.href}>{content}</Link>
-              ) : (
-                content
-              )}
-            </TooltipTrigger>
-            <TooltipContent side="right" className="max-w-xs">
-              <div className="space-y-1">
-                <p className="font-medium">{item.label}</p>
-                <p className="text-xs text-muted-foreground">{item.description}</p>
-                {!permission.hasPermission && (
-                  <p className="text-xs text-red-400">{getRestrictionReason()}</p>
-                )}
-              </div>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+      const tooltipText = `${item.label} - ${item.description}${!permission.hasPermission ? ` - ${getRestrictionReason()}` : ''}`;
+      const wrappedContent = (
+        <div title={tooltipText}>
+          {content}
+        </div>
+      );
+      
+      return permission.hasPermission && item.href ? (
+        <Link href={item.href}>{wrappedContent}</Link>
+      ) : (
+        wrappedContent
       );
     }
 
@@ -175,12 +160,10 @@ export function RestrictedMenuItem({
         <PermissionRequestModal
           isOpen={showPermissionModal}
           onClose={() => setShowPermissionModal(false)}
-          featureName={item.label}
-          restrictionReason={getRestrictionReason()}
           requiredPermission={item.requiredPermission}
-          canRequest={permission.canRequest}
-          isAdmin={permission.isAdmin}
-          onRequestPermission={onRequestAccess}
+          requiredRole={item.requiredRole}
+          itemLabel={item.label}
+          itemDescription={item.description}
         />
       </>
     );
@@ -196,7 +179,7 @@ export function RestrictedMenuItem({
         customCheck: child.requiredRole ? (user) => {
           if (!user?.permissions) return false;
           const permissions = Array.isArray(user.permissions) ? user.permissions : [];
-          return permissions.includes('admin:*:*') || permissions.some(p => p.startsWith('admin:'));
+          return permissions.includes('admin:*:*') || permissions.some((p: string) => p.startsWith('admin:'));
         } : undefined
       }).hasPermission
     }));
@@ -266,61 +249,27 @@ export function RestrictedMenuItem({
       </div>
     );
 
-    // Wrap in tooltip for collapsed sidebar
+    // Add title attribute for collapsed sidebar
     if (sidebarCollapsed) {
+      const childList = allItems.slice(0, 3).map(child => child.label).join(', ');
+      const tooltipText = `${item.label} - ${item.description}${!permission.hasPermission ? ` - ${getRestrictionReason()}` : ''}${allItems.length > 0 ? ` - Includes: ${childList}${allItems.length > 3 ? '...' : ''}` : ''}`;
+      
       return (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              {groupContent}
-            </TooltipTrigger>
-            <TooltipContent side="right" className="max-w-xs">
-              <div className="space-y-2">
-                <div>
-                  <p className="font-medium">{item.label}</p>
-                  <p className="text-xs text-muted-foreground">{item.description}</p>
-                  {!permission.hasPermission && (
-                    <p className="text-xs text-red-400">{getRestrictionReason()}</p>
-                  )}
-                </div>
-                
-                {/* Show child items in tooltip */}
-                {allItems.length > 0 && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">Includes:</p>
-                    <ul className="text-xs space-y-1">
-                      {allItems.slice(0, 4).map((child: any) => (
-                        <li key={child.id} className="flex items-center">
-                          {child.isRestricted ? (
-                            <Lock className="h-2 w-2 mr-1 text-red-400" />
-                          ) : (
-                            <div className="h-2 w-2 mr-1 bg-green-400 rounded-full" />
-                          )}
-                          <span className={child.isRestricted ? 'text-red-400' : ''}>{child.label}</span>
-                        </li>
-                      ))}
-                      {allItems.length > 4 && (
-                        <li className="text-muted-foreground">...and {allItems.length - 4} more</li>
-                      )}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </TooltipContent>
-          </Tooltip>
+        <>
+          <div title={tooltipText}>
+            {groupContent}
+          </div>
           
           {/* Permission request modal */}
           <PermissionRequestModal
             isOpen={showPermissionModal}
             onClose={() => setShowPermissionModal(false)}
-            featureName={item.label}
-            restrictionReason={getRestrictionReason()}
             requiredPermission={item.requiredPermission}
-            canRequest={permission.canRequest}
-            isAdmin={permission.isAdmin}
-            onRequestPermission={onRequestAccess}
+            requiredRole={item.requiredRole}
+            itemLabel={item.label}
+            itemDescription={item.description}
           />
-        </TooltipProvider>
+        </>
       );
     }
 
@@ -332,12 +281,10 @@ export function RestrictedMenuItem({
         <PermissionRequestModal
           isOpen={showPermissionModal}
           onClose={() => setShowPermissionModal(false)}
-          featureName={item.label}
-          restrictionReason={getRestrictionReason()}
           requiredPermission={item.requiredPermission}
-          canRequest={permission.canRequest}
-          isAdmin={permission.isAdmin}
-          onRequestPermission={onRequestAccess}
+          requiredRole={item.requiredRole}
+          itemLabel={item.label}
+          itemDescription={item.description}
         />
       </>
     );

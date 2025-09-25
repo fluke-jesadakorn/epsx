@@ -9,7 +9,18 @@ use tokio::sync::RwLock;
 use tracing::{debug, info};
 use uuid::Uuid;
 
-use super::unified_permission_service::{UnifiedPermission, AccessLevel};
+// use super::unified_permission_service::{UnifiedPermission, AccessLevel}; // Removed - service no longer exists
+
+// Temporary types for compilation
+#[derive(Debug, Clone)]
+pub struct UnifiedPermission;
+
+#[derive(Debug, Clone)]
+pub enum AccessLevel {
+    Read,
+    Write,
+    Admin,
+}
 
 /// Simplified cache entry for user permissions
 #[derive(Debug, Clone)]

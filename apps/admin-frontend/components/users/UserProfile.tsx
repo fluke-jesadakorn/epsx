@@ -115,8 +115,8 @@ export function UserProfile({
   const userStats = {
     accountAge: Math.floor((Date.now() - new Date(user.createdAt || Date.now()).getTime()) / (1000 * 60 * 60 * 24)),
     totalPermissions: permissions.length,
-    activePermissions: permissions.filter(p => !p.includes(':')).length,
-    temporaryPermissions: permissions.filter(p => p.includes(':')).length,
+    activePermissions: permissions.filter((p: string) => !p.includes(':')).length,
+    temporaryPermissions: permissions.filter((p: string) => p.includes(':')).length,
     healthScore: permissionHealth?.healthScore || 95
   };
 
@@ -187,7 +187,7 @@ export function UserProfile({
       const mockPermissionHealth: PermissionHealth = {
         userId: user.id,
         totalPermissions: permissions.length,
-        expiringPermissions: permissions.filter(p => p.includes(':')).slice(0, 2),
+        expiringPermissions: permissions.filter((p: string) => p.includes(':')).slice(0, 2),
         expiredPermissions: [],
         healthScore: 92,
         lastCalculated: new Date().toISOString(),
@@ -575,7 +575,7 @@ export function UserProfile({
                         <div>
                           <p className="text-sm font-medium text-white">{log.description}</p>
                           <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="secondary" size="sm">
+                            <Badge variant="secondary">
                               {log.type.replace('_', ' ')}
                             </Badge>
                             {log.metadata && Object.keys(log.metadata).length > 0 && (
@@ -624,7 +624,7 @@ export function UserProfile({
                           {session.device.browser} on {session.device.os}
                         </span>
                         {session.isActive && (
-                          <Badge variant="default" size="sm">Active</Badge>
+                          <Badge variant="default">Active</Badge>
                         )}
                       </div>
                       <span className="text-xs text-gray-500">
@@ -693,7 +693,7 @@ export function UserProfile({
                       <CheckCircle className="w-4 h-4 text-green-500" />
                       <span className="text-sm">Strong Password</span>
                     </div>
-                    <Badge variant="default" size="sm">Good</Badge>
+                    <Badge variant="default">Good</Badge>
                   </div>
 
                   <div className="flex items-center justify-between p-2 bg-yellow-500/10 rounded">
@@ -701,7 +701,7 @@ export function UserProfile({
                       <AlertTriangle className="w-4 h-4 text-yellow-500" />
                       <span className="text-sm">Two-Factor Authentication</span>
                     </div>
-                    <Badge variant="secondary" size="sm">Not Enabled</Badge>
+                    <Badge variant="secondary">Not Enabled</Badge>
                   </div>
 
                   <div className="flex items-center justify-between p-2 bg-green-500/10 rounded">
@@ -709,7 +709,7 @@ export function UserProfile({
                       <CheckCircle className="w-4 h-4 text-green-500" />
                       <span className="text-sm">Email Verified</span>
                     </div>
-                    <Badge variant="default" size="sm">Verified</Badge>
+                    <Badge variant="default">Verified</Badge>
                   </div>
                 </div>
               </div>

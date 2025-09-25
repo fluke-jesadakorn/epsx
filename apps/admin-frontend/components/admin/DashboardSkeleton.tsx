@@ -3,11 +3,12 @@
  * Shows while dashboard data is being fetched
  */
 
-import { adminCardVariants, cn } from '@/design-system'
+import { adminCardVariants } from '@/design-system'
+import { cn } from '@/lib/utils'
 
 export function DashboardSkeleton() {
   return (
-    <div className="space-y-8 p-6 animate-pulse">
+    <div className="space-y-8 p-6">
       {/* Header Skeleton */}
       <div className={cn(adminCardVariants({ variant: 'pancake' }), 'p-6')}>
         <div className="flex items-center justify-between">

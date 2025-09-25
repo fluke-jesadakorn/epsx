@@ -1,6 +1,5 @@
 'use client';
 
-import { motion } from 'framer-motion';
 import { ReactNode } from 'react';
 
 interface PancakeButtonProps {
@@ -67,7 +66,7 @@ export function PancakeButton({
   const style = variants[variant];
 
   return (
-    <motion.button
+    <button
       onClick={onClick}
       disabled={disabled || loading}
       className={`
@@ -82,54 +81,15 @@ export function PancakeButton({
         border-2 ${style.accent}
         relative
         overflow-hidden
-        transition-all duration-300
         ${disabled || loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
       `}
-      whileHover={disabled || loading ? {} : { scale: 1.02, y: -2 }}
-      whileTap={disabled || loading ? {} : { scale: 0.98 }}
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
     >
-      {/* Windows Phone Live Tile Effect */}
-      {metro && (
-        <motion.div
-          className="absolute inset-0 opacity-20"
-          animate={{
-            background: [
-              'linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%)',
-              'linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.1) 60%, transparent 80%)',
-              'linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%)'
-            ]
-          }}
-          transition={{ duration: 3, repeat: Infinity }}
-        />
-      )}
-
-      {/* Button shine effect */}
-      <motion.div
-        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-        style={{
-          background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
-        }}
-        animate={{
-          x: ['-100%', '100%']
-        }}
-        transition={{
-          duration: 2,
-          repeat: Infinity,
-          repeatDelay: 3
-        }}
-      />
-
       {/* Content */}
       <div className="relative z-10 flex items-center justify-center space-x-2">
         {loading ? (
-          <motion.div
-            className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-          />
+          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full">
+            Loading...
+          </div>
         ) : (
           <>
             {icon && <span className="text-lg">{icon}</span>}
@@ -140,14 +100,9 @@ export function PancakeButton({
 
       {/* Metro accent line */}
       {metro && (
-        <motion.div
-          className="absolute bottom-0 left-0 h-1 bg-white/30"
-          initial={{ width: '0%' }}
-          animate={{ width: '100%' }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-        />
+        <div className="absolute bottom-0 left-0 h-1 bg-white/30 w-full" />
       )}
-    </motion.button>
+    </button>
   );
 }
 
@@ -182,7 +137,7 @@ export function PancakeIconButton({
   };
 
   return (
-    <motion.button
+    <button
       onClick={onClick}
       disabled={disabled}
       className={`
@@ -194,37 +149,17 @@ export function PancakeIconButton({
         shadow-lg
         ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
       `}
-      whileHover={disabled ? {} : { scale: 1.05, rotate: 5 }}
-      whileTap={disabled ? {} : { scale: 0.95 }}
     >
       {/* Badge */}
       {badge && (
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold z-10"
-        >
+        <div className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold z-10">
           {badge}
-        </motion.div>
+        </div>
       )}
 
       {/* Icon */}
       <span className="relative z-5">{icon}</span>
-
-      {/* Pulse effect */}
-      <motion.div
-        className="absolute inset-0 bg-white"
-        animate={{
-          scale: [0, 1],
-          opacity: [0.5, 0]
-        }}
-        transition={{
-          duration: 1.5,
-          repeat: Infinity,
-          repeatDelay: 2
-        }}
-      />
-    </motion.button>
+    </button>
   );
 }
 
@@ -256,7 +191,7 @@ export function PancakeFAB({
   };
 
   return (
-    <motion.button
+    <button
       onClick={onClick}
       className={`
         fixed ${positions[position]}
@@ -266,33 +201,12 @@ export function PancakeFAB({
         shadow-2xl
         z-50
         overflow-hidden
+        rounded-full
       `}
-      whileHover={{ scale: 1.1, rotate: 15 }}
-      whileTap={{ scale: 0.9 }}
-      initial={{ scale: 0, rotate: -180 }}
-      animate={{ scale: 1, rotate: 0 }}
-      transition={{ type: 'spring', duration: 0.5 }}
     >
-      <motion.div
-        animate={{ rotate: [0, 360] }}
-        transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
-      >
+      <div>
         {icon}
-      </motion.div>
-
-      {/* Ripple effect */}
-      <motion.div
-        className="absolute inset-0 bg-white rounded-full"
-        animate={{
-          scale: [0, 2],
-          opacity: [0.3, 0]
-        }}
-        transition={{
-          duration: 2,
-          repeat: Infinity,
-          repeatDelay: 1
-        }}
-      />
-    </motion.button>
+      </div>
+    </button>
   );
 }

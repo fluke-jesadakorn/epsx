@@ -51,14 +51,11 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { type NotificationData } from '@/lib/actions/notifications';
 import { navigationService } from '@/services/navigation.service';
-import { type User } from '../../../../shared/types/auth';
+import { usePureWeb3AuthContext } from '@/providers/PureWeb3AuthProvider';
 
-interface NavigationClientProps {
-  user: User | null;
-  initialNotificationData?: NotificationData | null;
-}
+// Pure Web3 Navigation - no props needed
+interface NavigationClientProps {}
 
 const iconMap = {
   docs: <File className="h-5 w-5 text-orange-500" />,
@@ -83,24 +80,16 @@ const iconMap = {
   contact: <Settings className="h-5 w-5 text-orange-500" />,
 };
 
-export function NavigationClient({
-  user,
-  initialNotificationData,
-}: NavigationClientProps) {
+export function NavigationClient({}: NavigationClientProps = {}) {
+  // Pure Web3 authentication data will be accessed via context hooks
   return (
     <NavbarProvider>
-      <NavigationContent
-        user={user}
-        initialNotificationData={initialNotificationData}
-      />
+      <NavigationContent />
     </NavbarProvider>
   );
 }
 
-function NavigationContent({
-  user,
-  initialNotificationData,
-}: NavigationClientProps) {
+function NavigationContent() {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const { isHydrated } = useNavbarContext();
@@ -108,8 +97,11 @@ function NavigationContent({
   const { switchChain, isPending: isSwitching } = useSwitchChain();
   const { isConnected } = useAccount();
 
-  // Use stable nav items to prevent hydration issues
-  const navItems = navigationService.getNavItems(!!user);
+  // Get pure Web3 authentication state
+  const { isAuthenticated, permissions } = usePureWeb3AuthContext();
+  
+  // Use permission-aware nav items to prevent hydration issues
+  const navItems = navigationService.getNavItems(isAuthenticated, permissions);
 
   // Get current chain name
   const getCurrentChainName = () => {
@@ -159,7 +151,7 @@ function NavigationContent({
 
           {/* Navigation Skeleton - matches hydrated version exactly */}
           <nav className="hidden items-center gap-2 lg:flex mr-8">
-            {navItems.map(item => {
+            {navigationService.getNavItems(false, []).map(item => {
               const IconComponent = iconMap[item.key as keyof typeof iconMap];
               return (
                 <div
@@ -189,7 +181,7 @@ function NavigationContent({
           {/* Right Actions Skeleton */}
           <div className="hidden items-center gap-2 lg:flex">
             {/* Notifications Skeleton */}
-            {user && (
+            {false && (
               <div className="flex items-center gap-2 rounded-2xl px-3 py-2">
                 <div className="h-5 w-5 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
                 <div className="h-4 w-20 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
@@ -316,7 +308,7 @@ function NavigationContent({
         {/* Right Actions - Hidden on mobile */}
         <div className="hidden items-center gap-2 lg:flex">
           {/* Notifications Dropdown */}
-          {user && (
+          {isAuthenticated && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200">

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { LineChart, BarChart, File, Settings, Database, Crown, Shield, Code } from 'lucide-react';
-import { auth } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/actions/auth';
 
 const iconMap = {
   docs: <File className="h-4 w-4" />,
@@ -27,11 +27,11 @@ const userMenuItems = [
 ];
 
 export async function NavigationServer() {
-  const session = await auth();
-  const user = session?.user ? {
-    displayName: session.user.name || session.user.email || 'User',
-    email: session.user.email || '',
-    role: session.user.role || 'user',
+  const user = await getCurrentUser();
+  const displayUser = user ? {
+    displayName: user.name || user.email || 'User',
+    email: user.email || '',
+    role: user.role || 'user',
   } : null;
 
   return (
@@ -62,7 +62,7 @@ export async function NavigationServer() {
             ))}
 
             {/* User menu items (only if authenticated) */}
-            {user && userMenuItems.map((item) => (
+            {displayUser && userMenuItems.map((item) => (
               <Link
                 key={item.key}
                 href={item.href}
@@ -76,9 +76,9 @@ export async function NavigationServer() {
 
           {/* User section - this would need client component for interactivity */}
           <div className="flex items-center space-x-4">
-            {user ? (
+            {displayUser ? (
               <div className="flex items-center space-x-2">
-                <span className="text-sm text-muted-foreground">Welcome, {user.displayName}</span>
+                <span className="text-sm text-muted-foreground">Welcome, {displayUser.displayName}</span>
                 {/* Interactive logout button would be in client component */}
               </div>
             ) : (

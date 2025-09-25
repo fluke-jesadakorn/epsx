@@ -2,36 +2,19 @@
 import { NavigationClient } from '@/components/nav/NavigationClient';
 import { ClientProviders } from '@/components/providers/ClientProviders';
 import { MinimalWeb3Provider } from '@/components/providers/MinimalWeb3Provider';
-import {
-  getUserNotifications,
-  type NotificationData,
-} from '@/lib/actions/notifications';
+import { GlobalErrorBoundary } from '@/components/error-boundaries/GlobalErrorBoundary';
 import '@/lib/browser-polyfills';
-import { getAuthUser } from '@/lib/server/auth';
-import { Web3AuthProvider } from '@/providers/Web3AuthProvider';
+import { PureWeb3AuthProvider } from '@/providers/PureWeb3AuthProvider';
 import { Kanit } from 'next/font/google';
 import { Toaster } from 'sonner';
-import { type EPSXJWTPayload } from '../../../shared/auth/jwt';
 import { initializeRuntimeEnvironment } from '../../../shared/utils/runtime-env-validator';
 import './globals.css';
 
 // Initialize runtime environment validation
 initializeRuntimeEnvironment();
 
+// Pure Web3 layout - no server-side session checking required
 export const dynamic = 'force-dynamic';
-
-// Convert EPSXJWTPayload to AuthUser format
-function mapToAuthUser(payload: EPSXJWTPayload | null) {
-  if (!payload) return null;
-
-  return {
-    user_id: payload.sub,
-    email: payload.email,
-    role: String(payload.role || 'user'),
-    permissions: payload.permissions || [],
-    package_tier: String(payload.package_tier || 'basic'),
-  };
-}
 
 const kanit = Kanit({
   subsets: ['latin'],
@@ -76,27 +59,12 @@ export const viewport = {
   ],
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  let jwtPayload: EPSXJWTPayload | null = null;
-  let notificationData: NotificationData | null = null;
-
-  try {
-    jwtPayload = await getAuthUser();
-
-    // Fetch notifications if user is authenticated
-    if (jwtPayload) {
-      notificationData = await getUserNotifications();
-    }
-  } catch (error) {
-    // Gracefully handle auth failures for static generation
-    console.warn('Failed to get auth user in layout:', error);
-  }
-
-  const user = mapToAuthUser(jwtPayload);
+  // Pure Web3 - authentication handled entirely client-side
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -124,17 +92,15 @@ export default async function RootLayout({
       <body
         className={`${kanit.variable} bg-background text-foreground overflow-x-hidden font-sans antialiased`}
       >
-        <ClientProviders>
-          <MinimalWeb3Provider>
-            <Web3AuthProvider>
-              {/* Mobile navigation optimized for touch */}
-              <NavigationClient
-                user={user}
-                initialNotificationData={notificationData}
-              />
+        <GlobalErrorBoundary level="global">
+          <ClientProviders>
+            <MinimalWeb3Provider>
+              <PureWeb3AuthProvider>
+                {/* Mobile navigation optimized for touch */}
+                <NavigationClient />
 
-              {/* Main content with mobile scroll optimization */}
-              <main className="relative min-h-screen">{children}</main>
+                {/* Main content with mobile scroll optimization */}
+                <main className="relative min-h-screen">{children}</main>
 
               {/* Toast notifications */}
               <Toaster
@@ -147,9 +113,10 @@ export default async function RootLayout({
                   },
                 }}
               />
-            </Web3AuthProvider>
-          </MinimalWeb3Provider>
-        </ClientProviders>
+              </PureWeb3AuthProvider>
+            </MinimalWeb3Provider>
+          </ClientProviders>
+        </GlobalErrorBoundary>
       </body>
     </html>
   );

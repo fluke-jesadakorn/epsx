@@ -155,7 +155,7 @@ export function PermissionExportImport({
           });
         }
       } else {
-        throw new Error(result.error?.message || 'Export failed');
+        throw new Error(result.error || 'Export failed');
       }
     } catch (error) {
       console.error('Export failed:', error);
@@ -202,13 +202,13 @@ export function PermissionExportImport({
       if (result.success && result.data) {
         toast({
           title: 'Bulk Export Complete',
-          description: `Exported permissions for ${result.data.summary.totalUsers} users`,
+          description: `Exported permissions for ${result.data?.length || 0} users`,
         });
 
-        // Open download URL
-        window.open(result.data.downloadUrl, '_blank');
+        // TODO: Handle download when functionality is implemented
+        // window.open(result.data.downloadUrl, '_blank');
       } else {
-        throw new Error(result.error?.message || 'Bulk export failed');
+        throw new Error(result.error || 'Bulk export failed');
       }
     } catch (error) {
       console.error('Bulk export failed:', error);
@@ -245,7 +245,13 @@ export function PermissionExportImport({
     try {
       const parsedData = JSON.parse(importContent) as PermissionExportData;
       
-      const result = await validatePermissionImport(user.id, parsedData, {
+      const importData: PermissionImportData = {
+        permissions: parsedData.permissions || [],
+        overrideExisting: importOptions.replaceExisting,
+        reason: 'Permissions imported from file'
+      };
+      
+      const result = await validatePermissionImport(user.id, importData, {
         includeRoles: importOptions.includeRoles,
         includeCustomPermissions: importOptions.includeCustomPermissions,
         includeProfiles: importOptions.includeProfiles,
@@ -256,9 +262,12 @@ export function PermissionExportImport({
         setValidationResult(result.data);
       } else {
         setValidationResult({
+          valid: false,
           isValid: false,
-          errors: [result.error?.message || 'Validation failed'],
+          errors: [result.error || 'Validation failed'],
           warnings: [],
+          permissionsToAdd: [],
+          permissionsToRemove: [],
           preview: {
             rolesToAdd: 0,
             rolesToRemove: 0,
@@ -271,9 +280,12 @@ export function PermissionExportImport({
       }
     } catch (error) {
       setValidationResult({
+        valid: false,
         isValid: false,
         errors: [`Parse error: ${error instanceof Error ? error.message : 'Invalid JSON'}`],
         warnings: [],
+        permissionsToAdd: [],
+        permissionsToRemove: [],
         preview: {
           rolesToAdd: 0,
           rolesToRemove: 0,
@@ -299,20 +311,21 @@ export function PermissionExportImport({
 
       const parsedData = JSON.parse(importData) as PermissionExportData;
       
-      const result = await importUserPermissions({
-        userId: user.id,
-        importData: parsedData,
-        replaceExisting: importOptions.replaceExisting,
-        importOptions,
-      });
+      const importPayload: PermissionImportData = {
+        permissions: parsedData.permissions || [],
+        overrideExisting: importOptions.replaceExisting,
+        reason: 'Permissions imported from file'
+      };
+      
+      const result = await importUserPermissions(user.id, importPayload);
 
       clearInterval(progressInterval);
       setProgress(100);
 
-      if (result.success && result.data) {
+      if (result.success) {
         toast({
           title: 'Import Complete',
-          description: `Successfully imported permissions (${result.data.summary.rolesAdded} roles, ${result.data.summary.permissionsAdded} permissions, ${result.data.summary.profilesAdded} profiles)`,
+          description: `Successfully imported permissions for user`,
         });
 
         setImportData('');
@@ -320,7 +333,7 @@ export function PermissionExportImport({
         setValidationResult(null);
         onPermissionsUpdated?.();
       } else {
-        throw new Error(result.error?.message || 'Import failed');
+        throw new Error(result.error || 'Import failed');
       }
     } catch (error) {
       console.error('Import failed:', error);
@@ -728,18 +741,18 @@ export function PermissionExportImport({
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                         <div className="space-y-1">
                           <div className="text-muted-foreground">Roles</div>
-                          <div className="text-green-600">+{validationResult.preview.rolesToAdd}</div>
-                          <div className="text-red-600">-{validationResult.preview.rolesToRemove}</div>
+                          <div className="text-green-600">+{validationResult.preview?.rolesToAdd || 0}</div>
+                          <div className="text-red-600">-{validationResult.preview?.rolesToRemove || 0}</div>
                         </div>
                         <div className="space-y-1">
                           <div className="text-muted-foreground">Permissions</div>
-                          <div className="text-green-600">+{validationResult.preview.permissionsToAdd}</div>
-                          <div className="text-red-600">-{validationResult.preview.permissionsToRemove}</div>
+                          <div className="text-green-600">+{validationResult.preview?.permissionsToAdd || 0}</div>
+                          <div className="text-red-600">-{validationResult.preview?.permissionsToRemove || 0}</div>
                         </div>
                         <div className="space-y-1">
                           <div className="text-muted-foreground">Profiles</div>
-                          <div className="text-green-600">+{validationResult.preview.profilesToAdd}</div>
-                          <div className="text-red-600">-{validationResult.preview.profilesToRemove}</div>
+                          <div className="text-green-600">+{validationResult.preview?.profilesToAdd || 0}</div>
+                          <div className="text-red-600">-{validationResult.preview?.profilesToRemove || 0}</div>
                         </div>
                       </div>
                     </div>

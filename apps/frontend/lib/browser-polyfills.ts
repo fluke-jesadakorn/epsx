@@ -2,23 +2,52 @@
 
 // IndexedDB polyfill for server-side rendering
 if (typeof globalThis !== 'undefined' && typeof globalThis.indexedDB === 'undefined') {
-  // Create a minimal IndexedDB mock for SSR
+  // Create a minimal IndexedDB mock for SSR with proper error handling
   const mockIndexedDB = {
     open: () => {
+      const mockDB = {
+        onclose: null,
+        onerror: null,
+        onversionchange: null,
+        transaction: () => {
+          const mockTransaction = {
+            oncomplete: null,
+            onerror: null,
+            onabort: null,
+            objectStore: () => ({
+              get: () => ({ onsuccess: null, onerror: null, result: null }),
+              put: () => ({ onsuccess: null, onerror: null }),
+              delete: () => ({ onsuccess: null, onerror: null }),
+              clear: () => ({ onsuccess: null, onerror: null }),
+              count: () => ({ onsuccess: null, onerror: null, result: 0 }),
+            })
+          };
+          return mockTransaction;
+        },
+        close: () => {},
+        createObjectStore: () => ({}),
+        deleteObjectStore: () => {},
+      };
+
       const mockRequest = {
         onsuccess: null,
         onerror: null,
-        result: null,
+        result: mockDB,
         error: null,
         readyState: 'done',
         addEventListener: () => {},
         removeEventListener: () => {},
         dispatchEvent: () => false,
       };
-      // Simulate async success
+
+      // Simulate async success with proper error handling
       setTimeout(() => {
-        if (mockRequest.onsuccess) {
-          mockRequest.onsuccess({ target: mockRequest } as any);
+        try {
+          if (mockRequest.onsuccess) {
+            mockRequest.onsuccess({ target: mockRequest } as any);
+          }
+        } catch (error) {
+          // Silently handle mock database initialization errors
         }
       }, 0);
       return mockRequest;

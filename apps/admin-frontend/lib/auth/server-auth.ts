@@ -69,7 +69,7 @@ export async function getCurrentUser(): Promise<EnhancedAuthUser | null> {
     const session = await getServerSession();
     if (!session?.user) return null;
     
-    return createEnhancedAuthUser(session.user as any);
+    return createEnhancedAuthUser(session.user as EPSXJWTPayload);
   } catch (error) {
     console.error('❌ Failed to get current user:', error);
     return null;

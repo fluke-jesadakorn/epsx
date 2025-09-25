@@ -1,6 +1,5 @@
 import React from 'react'
-import { formatEPS, formatPercentage, getGrowthIndicator } from '@/lib/utils/eps-calculations'
-import { formatQuarterDate, getQuarterLabel } from '@/lib/utils/date-formatting'
+import { formatEPS, formatPercentage, getGrowthIndicator, formatQuarterDate, getQuarterLabel } from '@/lib/utils'
 
 interface QuarterlyEPSData {
   quarter: string           // "Q-2", "Q-1", "Q0", "Q+1"

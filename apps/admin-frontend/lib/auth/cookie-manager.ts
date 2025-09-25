@@ -228,9 +228,10 @@ export function createCookieManager(appName: 'frontend' | 'admin' | 'shared'): J
 /**
  * Utility function to extract JWT claims without verification
  */
-export function extractJWTClaims(token: string): any {
+export function extractJWTClaims(token: string): Record<string, unknown> {
   try {
-    return JSON.parse(atob(token.split('.')[1]));
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload as Record<string, unknown>;
   } catch (error) {
     throw new Error('Invalid JWT token format');
   }

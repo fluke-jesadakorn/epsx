@@ -11,8 +11,8 @@ function CreateNotificationPageSkeleton() {
       <div className="max-w-4xl mx-auto">
         {/* Header skeleton */}
         <div className="mb-8">
-          <div className="h-12 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text w-96 mb-2 animate-pulse rounded-lg shadow-xl"></div>
-          <div className="h-4 bg-gradient-to-r from-gray-400 to-gray-500 w-80 animate-pulse rounded-lg shadow-lg"></div>
+          <div className="h-12 bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text w-96 mb-2 opacity-75 rounded-lg shadow-xl"></div>
+          <div className="h-4 bg-gradient-to-r from-gray-400 to-gray-500 w-80 opacity-75 rounded-lg shadow-lg"></div>
         </div>
 
         {/* Delivery mode cards skeleton */}
@@ -20,7 +20,7 @@ function CreateNotificationPageSkeleton() {
           {Array.from({ length: 3 }).map((_, i) => (
             <div 
               key={i} 
-              className="h-32 bg-gradient-to-br from-purple-600 via-purple-700 to-purple-800 rounded-2xl shadow-2xl border-2 border-purple-400/30 animate-pulse"
+              className="h-32 bg-gradient-to-br from-purple-600 via-purple-700 to-purple-800 rounded-2xl shadow-2xl border-2 border-purple-400/30 opacity-75"
             >
               <div className="p-4">
                 <div className="h-6 bg-purple-300/40 rounded mb-2 w-1/2"></div>
@@ -35,8 +35,8 @@ function CreateNotificationPageSkeleton() {
           <div className="space-y-6">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="space-y-2">
-                <div className="h-4 bg-gradient-to-r from-purple-300 to-blue-300 w-32 rounded animate-pulse"></div>
-                <div className="h-12 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg animate-pulse"></div>
+                <div className="h-4 bg-gradient-to-r from-purple-300 to-blue-300 w-32 rounded opacity-75"></div>
+                <div className="h-12 bg-gradient-to-r from-gray-200 to-gray-300 rounded-lg opacity-75"></div>
               </div>
             ))}
           </div>

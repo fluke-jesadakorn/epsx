@@ -31,7 +31,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
       const response = await adminClient.getPlans({
         limit: 100,
         plan_category: filterCategory === 'all' ? undefined : filterCategory,
-        is_active: filterActive
+        is_active: filterActive === null ? undefined : filterActive
       })
 
       if (isApiSuccess(response)) {

@@ -1,109 +1,61 @@
-// Web layer middleware implementations
+// Web layer middleware implementations - Optimized and minimal
+// Phase 10: Reduced from 13 middleware files to 3 essential ones
 
-// Security headers and enhanced monitoring
+// Essential security middleware (core functionality)
 pub mod security_headers;
 
-// Stateless authentication with RS256 JWT and granular permissions
+// Authentication middleware (actively used)
 pub mod stateless_auth;
 
-// Clean authentication with granular permissions
-pub mod clean_auth;
-
-// Enhanced security validation middleware (RS256-only, comprehensive security)
-pub mod enhanced_security_middleware;
-
-
-// Contextual middleware for different access patterns
-pub mod contextual_middleware;
-
-// Core middleware modules
-pub mod rate_limiter;
-pub mod error_handling;
-pub mod auth_monitoring;
-pub mod policy_validator;
-
-// Web3 authentication middleware
+// Web3 wallet authentication middleware (replaces OIDC/JWT)
 pub mod web3_auth_middleware;
 
-// Web3 rate limiting middleware with cross-chain token verification
+// Rate limiting for API protection
+pub mod rate_limiter;
 pub mod rate_limit_middleware;
 
-// Security headers and monitoring exports
+// ⚡ CRITICAL: Bulletproof Permission Validation Middleware (Phase 1.2)
+// THE SINGLE SOURCE OF TRUTH for all permission enforcement
+pub mod permission_validation_middleware;
+
+// Security headers exports (only functions actually used)
 pub use security_headers::{
   security_headers_middleware,
-  csp_middleware,
   request_id_middleware,
-  performance_headers_middleware,
-  enhanced_cors_middleware,
-  enhanced_security_monitoring_middleware,
 };
 
-// Clean auth exports
-pub use clean_auth::{
-  clean_auth_middleware,
-  require_permission,
-  AuthenticatedUser,
-  PlatformContext,
-};
-
-// Enhanced security middleware exports
-pub use enhanced_security_middleware::{
-  enhanced_security_middleware,
-  SecurityContext,
-  SecurityMiddlewareConfig,
-  SecurityEvent,
-  extract_security_context,
-  check_permission,
-  create_secure_config,
-};
-
-
-pub use rate_limiter::{
-  UnifiedRateLimiter,
-  RateLimiter,
-  RateLimitConfig,
-  RateLimitResult,
-  RateLimitError,
-  ClientId,
-  RateLimitStatus,
-};
-
-// Contextual middleware exports for different access patterns
-pub use contextual_middleware::{
-  internal_middleware_stack,
-  external_middleware_stack,
-  admin_middleware_stack,
-  ResourceTracker,
-};
-pub use error_handling::{
-  error_handling_middleware,
-  error_recovery_middleware,
-  app_error_to_response,
-  extract_error_context_from_request,
-  ErrorCircuitBreaker,
-  ErrorResponseFormat,
-};
-
-// Stateless auth exports
+// Stateless auth exports (legacy - will be removed)
 pub use stateless_auth::{
   stateless_auth_middleware,
   AuthenticationError,
 };
 
-// Web3 auth middleware exports
+// Web3 auth exports (new wallet-first authentication)
 pub use web3_auth_middleware::{
   web3_auth_middleware,
-  require_web3_permission,
   Web3AuthContext,
-  Web3AuthExtractor,
-  web3_auth_stack,
-  require_permission as require_web3_permission_fn,
+  Web3AuthError,
+  get_web3_context,
+  require_web3_auth,
+  require_permission,
+  require_admin,
+  require_group,
 };
 
-// Web3 rate limiting exports
+// Rate limiter exports (used in validation)
+pub use rate_limiter::{
+  UnifiedRateLimiter,
+  RateLimitConfig,
+  ClientId,
+};
+
+// Web3 rate limiting exports (used for Web3 API protection)
 pub use rate_limit_middleware::{
   web3_rate_limit_middleware,
-  Web3RateLimitService,
-  RateLimitTier,
-  TokenRateLimitConfig,
+  unified_rate_limit_middleware,
+};
+
+// ⚡ CRITICAL: Permission validation exports (THE SINGLE SOURCE OF TRUTH)
+pub use permission_validation_middleware::{
+  permission_validation_middleware,
 };

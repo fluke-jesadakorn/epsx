@@ -25,7 +25,6 @@ export interface User {
   
   // Wallet authentication context
   sub?: string; // wallet_address as subject
-  firebaseUid?: string; // Optional for legacy support
   
   // Permission system
   permissions?: string[];
@@ -52,9 +51,11 @@ export interface WalletUser {
   platform_context?: string;
 }
 
-// Legacy interface for compatibility
-export interface OIDCUser extends WalletUser {
-  email: string; // Made required for legacy compatibility
+// Standard authenticated admin user interface
+export interface AuthenticatedAdminUser extends WalletUser {
+  email?: string; // Optional linked email
+  adminPermissions: string[];
+  adminLevel: 'super' | 'manager' | 'moderator';
 }
 
 export interface AdminSession {
@@ -172,10 +173,11 @@ export interface TokenPair {
   token_type?: string;
 }
 
-export interface OIDCTokens {
+export interface Web3AuthTokens {
   accessToken: string | null;
-  idToken: string | null;
-  refreshToken: string | null;
+  sessionToken: string | null;
+  signatureHash: string | null;
+  expiresAt?: number;
 }
 
 // ============================================================================

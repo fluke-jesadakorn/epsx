@@ -6,7 +6,7 @@
 
 import { useProgressiveAuth } from '@/hooks/useProgressiveAuth';
 import { WalletConnectAuth } from './WalletConnectAuth';
-import { AuthLevel } from '@/types/progressive-auth';
+import { AuthLevel, AuthLevelType } from '@/types/progressive-auth';
 import { Badge } from '@/components/ui/badge';
 import { Eye, Wallet, Shield, ChevronRight } from 'lucide-react';
 
@@ -35,7 +35,7 @@ export function ProgressiveAuthStatus({
   const auth = useProgressiveAuth();
 
   // Get auth level info
-  const getAuthLevelInfo = (level: AuthLevel) => {
+  const getAuthLevelInfo = (level: AuthLevelType) => {
     switch (level) {
       case AuthLevel.PUBLIC:
         return {

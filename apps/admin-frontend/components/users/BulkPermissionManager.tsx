@@ -14,7 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { bulkAssignPermissions, bulkRemovePermissions } from '@/lib/actions/users'
+import { bulkAssignPermissions, bulkRemovePermissions } from '@/lib/actions/consolidated-user-actions'
 import { useToast } from '@/components/ui/use-toast'
 
 interface BulkPermissionManagerProps {
@@ -210,7 +210,7 @@ export function BulkPermissionManager({
       })
 
       if (result.success) {
-        const { succeeded, failed } = result.data
+        const { succeeded, failed } = result.data || { succeeded: [], failed: [] }
         
         let message = `Successfully assigned permissions to ${succeeded.length} user(s)`
         if (failed.length > 0) {
@@ -234,7 +234,7 @@ export function BulkPermissionManager({
       } else {
         toast({
           title: 'Error',
-          description: result.error?.message || 'Failed to assign permissions',
+          description: result.error || 'Failed to assign permissions',
           variant: 'destructive'
         })
       }
@@ -273,7 +273,7 @@ export function BulkPermissionManager({
       })
 
       if (result.success) {
-        const { succeeded, failed } = result.data
+        const { succeeded, failed } = result.data || { succeeded: [], failed: [] }
         
         let message = `Successfully removed permissions from ${succeeded.length} user(s)`
         if (failed.length > 0) {
@@ -296,7 +296,7 @@ export function BulkPermissionManager({
       } else {
         toast({
           title: 'Error',
-          description: result.error?.message || 'Failed to remove permissions',
+          description: result.error || 'Failed to remove permissions',
           variant: 'destructive'
         })
       }

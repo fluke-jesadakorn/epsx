@@ -30,8 +30,11 @@ export interface Web3AuthState {
   // User data
   walletAddress?: string;
   permissions: Web3Permission[];
-  userTier: 'free' | 'nft' | 'token' | 'dao' | 'enterprise';
+  enterpriseTier: 'Starter' | 'Business' | 'Enterprise' | 'Whale';
   hasApiAccess: boolean;
+  verifiedTokensUsd: number;
+  nftCollections: string[];
+  daoMemberships: string[];
   error?: string;
 }
 
@@ -44,16 +47,18 @@ export interface Web3AuthActions {
   setInitialized: (initialized: boolean) => void;
   setWalletAddress: (address?: string) => void;
   setPermissions: (permissions: Web3Permission[]) => void;
-  setUserTier: (tier: Web3AuthState['userTier']) => void;
+  setEnterpriseTier: (tier: Web3AuthState['enterpriseTier']) => void;
   setApiAccess: (hasAccess: boolean) => void;
+  setVerifiedTokensUsd: (amount: number) => void;
+  setNftCollections: (collections: string[]) => void;
+  setDaoMemberships: (memberships: string[]) => void;
   setError: (error?: string) => void;
   
-  // Auth actions
+  // Enterprise auth actions
   authenticate: () => Promise<void>;
   disconnect: () => Promise<void>;
   checkAuthStatus: () => Promise<boolean | undefined>;
-  refreshPermissions: () => Promise<boolean>;
-  linkEmail: (email: string, password: string) => Promise<void>;
+  refreshEnterpriseData: () => Promise<boolean>;
   generateApiKey: (name: string) => Promise<string>;
   resetAuthState: () => void;
   
@@ -74,8 +79,11 @@ export const useWeb3AuthStore = create<Web3AuthStore>()(
       isLoading: true,
       hasInitialized: false,
       permissions: [],
-      userTier: 'free',
+      enterpriseTier: 'Starter',
       hasApiAccess: false,
+      verifiedTokensUsd: 0,
+      nftCollections: [],
+      daoMemberships: [],
 
       // State setters
       setConnected: (connected) => set({ isConnected: connected }),
@@ -85,8 +93,11 @@ export const useWeb3AuthStore = create<Web3AuthStore>()(
       setInitialized: (initialized) => set({ hasInitialized: initialized }),
       setWalletAddress: (address) => set({ walletAddress: address }),
       setPermissions: (permissions) => set({ permissions }),
-      setUserTier: (tier) => set({ userTier: tier }),
+      setEnterpriseTier: (tier) => set({ enterpriseTier: tier }),
       setApiAccess: (hasAccess) => set({ hasApiAccess: hasAccess }),
+      setVerifiedTokensUsd: (amount) => set({ verifiedTokensUsd: amount }),
+      setNftCollections: (collections) => set({ nftCollections: collections }),
+      setDaoMemberships: (memberships) => set({ daoMemberships: memberships }),
       setError: (error) => set({ error }),
 
       // Initialize authentication state
@@ -97,16 +108,14 @@ export const useWeb3AuthStore = create<Web3AuthStore>()(
         if (state.hasInitialized) return;
         
         try {
-          console.log('🚀 Initializing Web3 auth store');
           set({ isLoading: true, error: undefined });
           
           // Check authentication status
           await get().checkAuthStatus();
           
           set({ hasInitialized: true });
-          console.log('✅ Web3 auth store initialization completed');
         } catch (error) {
-          console.error('❌ Failed to initialize Web3 auth store:', error);
+          console.error('❌ Failed to initialize Web3 enterprise auth store:', error);
           set({ error: error instanceof Error ? error.message : 'Initialization failed' });
         } finally {
           set({ isLoading: false });
@@ -135,8 +144,8 @@ export const useWeb3AuthStore = create<Web3AuthStore>()(
                 error: undefined,
               });
               
-              // Refresh permissions
-              await get().refreshPermissions();
+              // Refresh enterprise data
+              await get().refreshEnterpriseData();
               return true;
             }
           }
@@ -149,8 +158,8 @@ export const useWeb3AuthStore = create<Web3AuthStore>()(
         }
       },
 
-      // Refresh user permissions
-      refreshPermissions: async () => {
+      // Refresh enterprise data and permissions
+      refreshEnterpriseData: async () => {
         const state = get();
         if (!state.walletAddress) return false;
 
@@ -164,29 +173,38 @@ export const useWeb3AuthStore = create<Web3AuthStore>()(
           );
 
           if (response.ok) {
-            const { permissions, user_tier, has_api_access } = await response.json();
+            const data = await response.json();
             set({
-              permissions: permissions || [],
-              userTier: user_tier || 'free',
-              hasApiAccess: has_api_access || false,
+              permissions: data.permissions || [],
+              enterpriseTier: data.enterprise_tier || 'Starter',
+              hasApiAccess: data.has_api_access || false,
+              verifiedTokensUsd: data.verified_tokens_usd || 0,
+              nftCollections: data.nft_collections || [],
+              daoMemberships: data.dao_memberships || []
             });
             return true;
           } else if (response.status === 405) {
             // Set default values when endpoint is not available
             set({
               permissions: [],
-              userTier: 'free',
+              enterpriseTier: 'Starter',
               hasApiAccess: false,
+              verifiedTokensUsd: 0,
+              nftCollections: [],
+              daoMemberships: []
             });
             return true;
           }
           return false;
         } catch (error) {
-          console.warn('Failed to fetch permissions:', error);
+          console.warn('Failed to fetch enterprise data:', error);
           set({
             permissions: [],
-            userTier: 'free',
+            enterpriseTier: 'Starter',
             hasApiAccess: false,
+            verifiedTokensUsd: 0,
+            nftCollections: [],
+            daoMemberships: []
           });
           return false;
         }
@@ -208,9 +226,9 @@ export const useWeb3AuthStore = create<Web3AuthStore>()(
         set({ isAuthenticating: true, error: undefined });
 
         try {
-          // Get challenge from backend
+          // Get challenge from enterprise API
           const challengeResponse = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/web3/challenge`,
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/enterprise/auth/challenge`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -236,9 +254,9 @@ export const useWeb3AuthStore = create<Web3AuthStore>()(
             throw new Error('Wallet signing function not available');
           }
 
-          // Verify signature with backend
+          // Verify signature with enterprise API
           const authResponse = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/web3/verify`,
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/enterprise/auth/verify`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -262,23 +280,29 @@ export const useWeb3AuthStore = create<Web3AuthStore>()(
             throw new Error(errorData.error || 'Authentication failed');
           }
 
-          // Success
+          // Success - extract enterprise data
+          const authData = await authResponse.json();
+          
           set({
             isAuthenticated: true,
             isAuthenticating: false,
+            enterpriseTier: authData.enterprise_tier || 'Starter',
+            hasApiAccess: authData.has_api_access || false,
+            verifiedTokensUsd: authData.verified_tokens_usd || 0,
+            permissions: authData.permissions || [],
           });
 
           // Mark session for future checks
           if (typeof window !== 'undefined') {
             try {
-              window.localStorage.setItem('oidc_session', '1');
-              document.cookie = 'oidc_session=1; path=/; SameSite=Lax';
+              window.localStorage.setItem('web3_session', '1');
+              document.cookie = 'web3_session=1; path=/; SameSite=Lax';
             } catch {}
           }
 
-          // Refresh permissions after successful authentication
-          await get().refreshPermissions();
-          toast.success('Successfully authenticated with Web3 wallet');
+          // Refresh enterprise data after successful authentication
+          await get().refreshEnterpriseData();
+          toast.success('Successfully authenticated with Web3 enterprise wallet');
         } catch (error: any) {
           let errorMessage = 'Authentication failed';
           if (
@@ -306,7 +330,6 @@ export const useWeb3AuthStore = create<Web3AuthStore>()(
 
       // Disconnect wallet
       disconnect: async () => {
-        console.log('🔄 Starting Web3 wallet disconnect...');
 
         try {
           const state = get();
@@ -323,7 +346,6 @@ export const useWeb3AuthStore = create<Web3AuthStore>()(
                   logout_reason: 'user_initiated_disconnect',
                 }),
               });
-              console.log('✅ Server-side session invalidated');
             } catch (error) {
               console.warn('⚠️ Server-side session invalidation failed:', error);
             }
@@ -342,7 +364,7 @@ export const useWeb3AuthStore = create<Web3AuthStore>()(
                     key.startsWith('rainbow') ||
                     key.includes('wallet') ||
                     key.includes('auth') ||
-                    key.includes('oidc'))
+                    key.includes('web3'))
                 ) {
                   keysToRemove.push(key);
                 }
@@ -352,8 +374,8 @@ export const useWeb3AuthStore = create<Web3AuthStore>()(
                 window.localStorage.removeItem(key);
               });
 
-              // Clear cookies
-              const cookiesToClear = ['oidc_session', 'access_token', 'id_token', 'refresh_token'];
+              // Clear enterprise session cookies
+              const cookiesToClear = ['web3_session', 'access_token', 'id_token', 'refresh_token'];
               cookiesToClear.forEach(cookieName => {
                 document.cookie = `${cookieName}=; Max-Age=0; path=/; SameSite=Lax`;
                 document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
@@ -363,105 +385,109 @@ export const useWeb3AuthStore = create<Web3AuthStore>()(
             }
           }
 
-          // Reset store state
+          // Reset store state completely to enterprise defaults
           set({
             isConnected: false,
             isAuthenticated: false,
             isAuthenticating: false,
+            isLoading: false,
+            hasInitialized: false, // Reset initialization flag
             permissions: [],
-            userTier: 'free',
+            enterpriseTier: 'Starter',
             hasApiAccess: false,
+            verifiedTokensUsd: 0,
+            nftCollections: [],
+            daoMemberships: [],
             walletAddress: undefined,
             error: undefined,
           });
 
-          toast.success('Wallet disconnected successfully');
-          console.log('✅ Web3 wallet disconnect completed');
+          // Clear any persisted storage to prevent conflicts
+          if (typeof window !== 'undefined') {
+            try {
+              window.localStorage.removeItem('web3-auth-storage');
+            } catch (error) {
+              console.warn('Failed to clear persisted storage:', error);
+            }
+          }
 
-          // Refresh page for complete state reset
-          window.location.reload();
+          toast.success('Enterprise wallet disconnected successfully');
+
+          // Broadcast disconnect to other tabs
+          if (typeof window !== 'undefined' && window.BroadcastChannel) {
+            try {
+              const channel = new BroadcastChannel('auth_session');
+              channel.postMessage({
+                type: 'SESSION_INVALIDATED',
+                source: 'web3_enterprise_disconnect',
+                walletAddress: state.walletAddress,
+                timestamp: Date.now(),
+              });
+              channel.close();
+            } catch (broadcastError) {
+              console.warn('Failed to broadcast disconnect:', broadcastError);
+            }
+          }
         } catch (error) {
-          console.error('❌ Error during wallet disconnect:', error);
-          toast.error('Wallet disconnected with errors - refreshing page...');
-          window.location.reload();
+          console.error('❌ Error during enterprise wallet disconnect:', error);
+          toast.error('Enterprise wallet disconnected with errors');
         }
       },
 
-      // Link email to wallet
-      linkEmail: async (email: string, password: string) => {
-        const state = get();
-        if (!state.walletAddress) {
-          throw new Error('Wallet not connected');
-        }
-
-        const response = await fetch('/api/auth/web3/link-email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            wallet_address: state.walletAddress,
-            email,
-            password,
-          }),
-          credentials: 'include',
-        });
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.message || 'Failed to link email');
-        }
-
-        toast.success('Email linked successfully');
-        await get().refreshPermissions();
-      },
-
-      // Generate API key
+      // Generate enterprise API key
       generateApiKey: async (name: string): Promise<string> => {
         const state = get();
         if (!state.walletAddress || !state.hasApiAccess) {
-          throw new Error('API access not available');
+          throw new Error('Enterprise API access not available for current tier');
         }
 
-        const response = await fetch('/api/auth/web3/api-keys', {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/enterprise/billing/api-keys`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.walletAddress}` // Temporary - should use proper Bearer token
+          },
           body: JSON.stringify({
             wallet_address: state.walletAddress,
             name,
+            enterprise_tier: state.enterpriseTier,
           }),
           credentials: 'include',
         });
 
         if (!response.ok) {
           const error = await response.json();
-          throw new Error(error.message || 'Failed to generate API key');
+          throw new Error(error.message || 'Failed to generate enterprise API key');
         }
 
         const { api_key } = await response.json();
-        toast.success('API key generated successfully');
+        toast.success('Enterprise API key generated successfully');
         return api_key;
       },
 
-      // Reset authentication state
+      // Reset authentication state to enterprise defaults
       resetAuthState: () => {
-        console.log('🔄 Resetting Web3 authentication state...');
-        const state = get();
         set({
           isAuthenticated: false,
           isAuthenticating: false,
+          isLoading: false,
+          hasInitialized: false, // Reset to allow fresh initialization
           permissions: [],
-          userTier: 'free',
+          enterpriseTier: 'Starter',
           hasApiAccess: false,
+          verifiedTokensUsd: 0,
+          nftCollections: [],
+          daoMemberships: [],
           error: undefined,
         });
-        console.log('✅ Web3 authentication state reset');
       },
     }),
     {
       name: 'web3-auth-storage',
       partialize: (state) => ({
-        // Only persist essential connection state, not auth state
-        walletAddress: state.walletAddress,
-        hasInitialized: state.hasInitialized,
+        // Don't persist connection-related state to prevent conflicts
+        // Only persist non-connection preferences if needed
+        // walletAddress and hasInitialized removed to fix reconnection issues
       }),
     }
   )
@@ -477,8 +503,11 @@ export const useWeb3AuthenticatedState = () => useWeb3AuthStore(state => ({
   isAuthenticated: state.isAuthenticated,
   isAuthenticating: state.isAuthenticating,
   permissions: state.permissions,
-  userTier: state.userTier,
+  enterpriseTier: state.enterpriseTier,
   hasApiAccess: state.hasApiAccess,
+  verifiedTokensUsd: state.verifiedTokensUsd,
+  nftCollections: state.nftCollections,
+  daoMemberships: state.daoMemberships,
 }));
 
 export const useWeb3LoadingState = () => useWeb3AuthStore(state => ({
@@ -508,14 +537,33 @@ export function getPermissionBadgeColor(source: Web3Permission['source']): strin
   }
 }
 
-export function getTierDescription(tier: Web3AuthState['userTier']): string {
+export function getEnterpriseTierDescription(tier: Web3AuthState['enterpriseTier']): string {
   switch (tier) {
-    case 'free': return 'Basic access to platform features';
-    case 'nft': return 'Enhanced access via NFT ownership';
-    case 'token': return 'Token-gated premium features';
-    case 'dao': return 'DAO governance access and voting';
-    case 'enterprise': return 'Full API access and team management';
-    default: return 'Standard user access';
+    case 'Starter': return 'Basic enterprise features - $1,000+ in verified tokens';
+    case 'Business': return 'Advanced features - $10,000+ in tokens OR enterprise NFT';
+    case 'Enterprise': return 'Full enterprise features - $100,000+ in tokens OR DAO membership';
+    case 'Whale': return 'Unlimited access - $1,000,000+ in tokens with custom infrastructure';
+    default: return 'Enterprise user access';
+  }
+}
+
+export function getEnterpriseTierColor(tier: Web3AuthState['enterpriseTier']): string {
+  switch (tier) {
+    case 'Starter': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300';
+    case 'Business': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300';
+    case 'Enterprise': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300';
+    case 'Whale': return 'bg-gold-100 text-gold-800 dark:bg-gold-900/20 dark:text-gold-300';
+    default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300';
+  }
+}
+
+export function getEnterpriseTierIcon(tier: Web3AuthState['enterpriseTier']): string {
+  switch (tier) {
+    case 'Starter': return '🚀';
+    case 'Business': return '💼';
+    case 'Enterprise': return '🏢';
+    case 'Whale': return '🐋';
+    default: return '⭐';
   }
 }
 

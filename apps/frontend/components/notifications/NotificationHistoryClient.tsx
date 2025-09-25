@@ -135,11 +135,11 @@ export function NotificationHistoryClient({
 
   const handleMarkAllAsRead = async () => {
     startTransition(async () => {
-      const result = await markAllNotificationsAsRead()
-      if (result.success) {
+      try {
+        await markAllNotificationsRead()
         toast.success('All notifications marked as read')
         router.refresh()
-      } else {
+      } catch (error) {
         toast.error('Failed to mark all notifications as read')
       }
     })

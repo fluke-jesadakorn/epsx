@@ -2,12 +2,7 @@
 
 import { ReactNode, useState, MouseEvent } from 'react';
 import { Lock, Crown, Shield, Zap } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui';
+import { Card } from '@/components/ui';
 
 // Define visual restriction modes
 type RestrictionMode = 'blur' | 'opacity' | 'locked' | 'premium' | 'admin';
@@ -160,25 +155,13 @@ export function VisualPermissionGuard({
     </div>
   );
 
-  // Wrap in tooltip if enabled
+  // Add tooltip info via title attribute if enabled
   if (showTooltip) {
+    const tooltipText = `${finalRestrictionReason} - ${finalUpgradeMessage}${(onRequestAccess || onUpgradePrompt) ? ' - Click to learn more' : ''}`;
     return (
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            {restrictedContent}
-          </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-xs">
-            <div className="space-y-2">
-              <p className="font-semibold">{finalRestrictionReason}</p>
-              <p className="text-sm text-muted-foreground">{finalUpgradeMessage}</p>
-              {(onRequestAccess || onUpgradePrompt) && (
-                <p className="text-xs text-blue-400">Click to learn more</p>
-              )}
-            </div>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <div title={tooltipText}>
+        {restrictedContent}
+      </div>
     );
   }
 

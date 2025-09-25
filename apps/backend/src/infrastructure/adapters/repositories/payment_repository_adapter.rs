@@ -24,9 +24,11 @@ use crate::application::ports::repositories::UserRepository;
 #[derive(Clone)]
 pub struct PaymentRepositoryAdapter {
   /// Database pool for payment storage
+  #[allow(dead_code)]
   db_pool: Arc<DbPool>,
 
   /// User repository for user validation
+  #[allow(dead_code)]
   user_repository: Arc<
     dyn UserRepository<Error = crate::domain::shared_kernel::DomainError>
   >,
@@ -296,6 +298,7 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
 
 /// Legacy payment data structure for database mapping
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct LegacyPaymentData {
   id: String,
   user_id: String,

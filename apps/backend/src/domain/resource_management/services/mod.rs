@@ -1,16 +1,16 @@
 // Resource management services
 // Domain services for usage tracking, billing, and resource optimization
 
-pub mod resource_tracking_service;
+// pub mod resource_tracking_service; // Removed - unused service
 pub mod billing_calculation_service;
 pub mod usage_analytics_service;
-pub mod rate_limiting_service;
+// pub mod rate_limiting_service; // Removed - too many unused fields
 
 // Re-export service types with specific imports to avoid conflicts
-pub use resource_tracking_service::{
-    ResourceTrackingService, ResourceUsageEvent,
-    BillingSummary as ResourceBillingSummary, IdentifierType as ResourceIdentifierType
-};
+// pub use resource_tracking_service::{
+//     ResourceTrackingService, ResourceUsageEvent,
+//     BillingSummary as ResourceBillingSummary, IdentifierType as ResourceIdentifierType
+// }; // Removed - unused service
 pub use billing_calculation_service::{
     BillingCalculationService,
     BillingSummary as BillingServiceSummary
@@ -18,7 +18,7 @@ pub use billing_calculation_service::{
 pub use usage_analytics_service::{
     UsageAnalyticsService
 };
-pub use rate_limiting_service::{
-    RateLimitingService, RateLimitRequest, RateLimitResult,
-    IdentifierType as RateLimitIdentifierType, RateLimitConfig
-};
+// pub use rate_limiting_service::{
+//     RateLimitingService, RateLimitRequest, RateLimitResult,
+//     IdentifierType as RateLimitIdentifierType, RateLimitConfig
+// }; // Removed - service deleted

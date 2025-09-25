@@ -6,13 +6,13 @@ use tokio::sync::RwLock;
 
 use crate::domain::shared_kernel::entities::eps_growth::{EPSGrowthData, EPSRanking, EPSRankingsResponse, EPSPagination};
 use crate::core::errors::AppError;
-use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
+use crate::domain::shared_kernel::ports::MarketDataServicePort;
 use crate::domain::shared_kernel::services::eps_ranking_service::EPSRepository;
 
 /// Cache-based EPS service for live data fetching
 pub struct EPSCacheService {
     cache: Arc<RwLock<EPSCache>>,
-    tradingview_service: Arc<TradingViewApiService>,
+    market_data_service: Arc<dyn MarketDataServicePort>,
     eps_repository: Arc<dyn EPSRepository + Send + Sync>,
     config: EPSCacheConfig,
 }
@@ -96,7 +96,7 @@ impl Default for EPSCacheParams {
 
 impl EPSCacheService {
     pub fn new(
-        tradingview_service: Arc<TradingViewApiService>,
+        market_data_service: Arc<dyn MarketDataServicePort>,
         eps_repository: Arc<dyn EPSRepository + Send + Sync>,
         config: Option<EPSCacheConfig>,
     ) -> Self {
@@ -110,7 +110,7 @@ impl EPSCacheService {
 
         Self {
             cache,
-            tradingview_service,
+            market_data_service,
             eps_repository,
             config,
         }
@@ -406,7 +406,7 @@ impl Clone for EPSCacheService {
     fn clone(&self) -> Self {
         Self {
             cache: Arc::clone(&self.cache),
-            tradingview_service: Arc::clone(&self.tradingview_service),
+            market_data_service: Arc::clone(&self.market_data_service),
             eps_repository: Arc::clone(&self.eps_repository),
             config: self.config.clone(),
         }

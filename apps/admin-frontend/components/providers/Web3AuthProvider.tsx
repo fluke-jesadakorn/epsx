@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
 import { toast } from 'react-hot-toast';
+import { usePermissionCache } from '@/lib/auth/permission-cache-service';
 
 interface Web3AuthContextType {
   isAuthenticated: boolean;
@@ -34,6 +35,7 @@ export function Web3AuthProvider({ children }: Web3AuthProviderProps) {
   const { address, isConnected } = useAccount();
   const { connect, connectors } = useConnect();
   const { disconnect } = useDisconnect();
+  const { getPermissions, getCachedPermissions, clearCache } = usePermissionCache();
   
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -60,38 +62,46 @@ export function Web3AuthProvider({ children }: Web3AuthProviderProps) {
     try {
       console.log('🔍 Web3 Auth: Verifying session for wallet:', walletAddress);
 
-      // Get permissions from backend
-      const response = await fetch('/api/auth/web3/permissions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ wallet_address: walletAddress }),
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        console.warn('⚠️ Web3 Auth: Permission check failed:', response.status);
-        setIsAuthenticated(false);
-        setHasAdminAccess(false);
+      // Use cache service to prevent heavy loops
+      const cached = getCachedPermissions(walletAddress);
+      if (cached) {
+        console.log('🚀 Web3 Auth: Using cached permissions for', walletAddress.slice(0, 6));
+        updateAuthState(cached.permissions, cached.admin_level, cached.has_admin_access, walletAddress);
+        setIsLoading(false);
         return;
       }
 
-      const data = await response.json();
-      const allPermissions = data.permissions || [];
-      const adminPermissions = data.admin_permissions || [];
-      const level = data.admin_level || 'none';
-      const hasAdmin = data.has_admin_access || false;
+      // Fetch fresh permissions using cache service
+      const data = await getPermissions(walletAddress);
+      if (data) {
+        updateAuthState(data.permissions, data.admin_level, data.has_admin_access, walletAddress);
+      } else {
+        console.warn('⚠️ Web3 Auth: Permission check failed');
+        setIsAuthenticated(false);
+        setHasAdminAccess(false);
+      }
+    } catch (error) {
+      console.error('💥 Web3 Auth: Session verification failed:', error);
+      setIsAuthenticated(false);
+      setHasAdminAccess(false);
+      toast.error('Failed to verify wallet permissions');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-      setPermissions(allPermissions);
-      setAdminLevel(level);
-      setHasAdminAccess(hasAdmin);
-      setIsAuthenticated(hasAdmin); // Only authenticate if user has admin access
+  // Helper to update auth state
+  const updateAuthState = async (allPermissions: string[], level: string, hasAdmin: boolean, walletAddress: string) => {
+    setPermissions(allPermissions);
+    setAdminLevel(level as 'none' | 'moderator' | 'manager' | 'super');
+    setHasAdminAccess(hasAdmin);
+    setIsAuthenticated(hasAdmin);
 
-      if (hasAdmin) {
-        console.log('✅ Web3 Auth: Admin session verified for wallet:', walletAddress, 'Level:', level);
-        
-        // Set wallet session cookie
+    if (hasAdmin) {
+      console.log('✅ Web3 Auth: Admin session verified for wallet:', walletAddress, 'Level:', level);
+      
+      // Set wallet session cookie
+      try {
         await fetch('/api/auth/web3/verify', {
           method: 'POST',
           headers: {
@@ -103,20 +113,15 @@ export function Web3AuthProvider({ children }: Web3AuthProviderProps) {
           }),
           credentials: 'include',
         });
-        
-        toast.success(`Welcome, Admin ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`);
-      } else {
-        console.warn('❌ Web3 Auth: Wallet has no admin permissions:', walletAddress);
-        toast.error('This wallet does not have admin permissions');
-        setIsAuthenticated(false);
+      } catch (error) {
+        console.warn('Failed to set session cookie:', error);
       }
-    } catch (error) {
-      console.error('💥 Web3 Auth: Session verification failed:', error);
+      
+      toast.success(`Welcome, Admin ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`);
+    } else {
+      console.warn('❌ Web3 Auth: Wallet has no admin permissions:', walletAddress);
+      toast.error('This wallet does not have admin permissions');
       setIsAuthenticated(false);
-      setHasAdminAccess(false);
-      toast.error('Failed to verify wallet permissions');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -147,6 +152,11 @@ export function Web3AuthProvider({ children }: Web3AuthProviderProps) {
   const logout = async () => {
     try {
       setIsLoading(true);
+      
+      // Clear permission cache
+      if (address) {
+        clearCache(address);
+      }
       
       // Clear session cookie
       await fetch('/api/auth/web3/logout', {

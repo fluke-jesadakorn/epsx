@@ -349,29 +349,7 @@ impl UserIdentityServiceAdapter {
         }
     }
     
-    /// Get limits for subscription tier
-    fn get_tier_limits(&self, tier: &SubscriptionTier) -> UserLimits {
-        match tier {
-            SubscriptionTier::Free => UserLimits {
-                api_calls_per_day: 1000,
-                concurrent_sessions: 2,
-                data_retention_days: 30,
-                export_limit_per_month: 5,
-            },
-            SubscriptionTier::Premium => UserLimits {
-                api_calls_per_day: 10000,
-                concurrent_sessions: 5,
-                data_retention_days: 90,
-                export_limit_per_month: 50,
-            },
-            SubscriptionTier::Enterprise => UserLimits {
-                api_calls_per_day: u32::MAX, // Unlimited
-                concurrent_sessions: 20,
-                data_retention_days: 365,
-                export_limit_per_month: u32::MAX, // Unlimited
-            },
-        }
-    }
+    // Removed unused get_tier_limits method
 }
 
 /// User identity information

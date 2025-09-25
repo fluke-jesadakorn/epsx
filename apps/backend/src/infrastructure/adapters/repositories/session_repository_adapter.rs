@@ -12,15 +12,11 @@ use crate::domain::user_management::{
 use crate::domain::user_management::{SessionSearchCriteria, SessionSearchResult, SessionStatistics};
 
 /// Placeholder implementation of SessionRepositoryPort
-pub struct SessionRepositoryAdapter {
-    disabled: bool,
-}
+pub struct SessionRepositoryAdapter;
 
 impl SessionRepositoryAdapter {
     pub fn new() -> Self {
-        Self {
-            disabled: true,
-        }
+        Self
     }
 }
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { RefreshCw } from 'lucide-react'
-import { cleanupExpiredPermissionsAction } from '@/lib/actions/admin-actions'
+import { cleanupExpiredPermissionsAction } from '@/lib/actions/consolidated-admin-actions'
 
 export function CleanupButton() {
   const handleCleanup = async () => {

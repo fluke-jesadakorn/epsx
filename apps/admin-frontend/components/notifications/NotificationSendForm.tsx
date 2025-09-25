@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { Send, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { sendNotification, sendBroadcastNotification } from '@/app/actions/admin-server';
+import { sendNotification, sendBroadcastNotification } from '@/lib/actions/consolidated-admin-actions';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -60,9 +60,20 @@ export function NotificationSendForm() {
       try {
         let result;
         if (data.target === 'broadcast') {
-          result = await sendBroadcastNotification(data.title, data.message, data.priority);
+          result = await sendBroadcastNotification({
+            title: data.title,
+            message: data.message,
+            type: 'info' as 'error' | 'info' | 'warning' | 'success',
+            priority: data.priority as 'high' | 'medium' | 'low'
+          });
         } else {
-          result = await sendNotification(data.userEmail!, data.title, data.message, data.priority);
+          result = await sendNotification({
+            targetUsers: [data.userEmail!],
+            title: data.title,
+            message: data.message,
+            type: 'info' as 'error' | 'info' | 'warning' | 'success',
+            priority: data.priority as 'high' | 'medium' | 'low'
+          });
         }
 
         if (result.success) {

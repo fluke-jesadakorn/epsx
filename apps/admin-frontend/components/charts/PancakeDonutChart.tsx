@@ -52,7 +52,7 @@ const CustomTooltip = ({
   active, 
   payload, 
   formatTooltip 
-}: TooltipProps<any, any> & { formatTooltip?: (value: any, name: string) => [string, string] }) => {
+}: any) => {
   if (!active || !payload || !payload.length) return null
 
   const data = payload[0]
