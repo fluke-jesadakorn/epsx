@@ -3,14 +3,14 @@
 import '@rainbow-me/rainbowkit/styles.css';
 import { getDefaultConfig, RainbowKitProvider, darkTheme, lightTheme } from '@rainbow-me/rainbowkit';
 import { WagmiProvider } from 'wagmi';
-import { mainnet, polygon, arbitrum, base, optimism } from 'wagmi/chains';
+import { bscTestnet } from 'wagmi/chains';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
 import { createContext, useContext, type ReactNode } from 'react';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 
-// Create Query Client with admin-optimized settings
-const queryClient = new QueryClient({
+// Query client factory for admin-optimized settings
+const createQueryClient = () => new QueryClient({
   defaultOptions: {
     queries: {
       retry: 3,
@@ -20,12 +20,12 @@ const queryClient = new QueryClient({
   },
 });
 
-// Configure Wagmi for Admin with enhanced chains
+// Configure Wagmi for Admin with BSC testnet
 const config = getDefaultConfig({
   appName: 'EPSX Admin - Web3 Management',
   projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'epsx-admin-web3',
-  chains: [mainnet, polygon, arbitrum, base, optimism],
-  ssr: true, // Next.js SSR support
+  chains: [bscTestnet],
+  ssr: false, // Disable SSR to prevent indexedDB issues
 });
 
 // Admin Web3 Context for additional admin-specific state
@@ -110,6 +110,22 @@ function ThemedRainbowKitProvider({ children }: { children: ReactNode }) {
 }
 
 export function AdminWeb3Provider({ children }: AdminWeb3ProviderProps) {
+  const [queryClient] = useState(() => createQueryClient());
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Prevent hydration mismatch by only rendering Web3 on client
+  if (!mounted) {
+    return (
+      <AdminWeb3Context.Provider value={{ isInitialized: false, isAdminMode: true }}>
+        {children}
+      </AdminWeb3Context.Provider>
+    );
+  }
+  
   return (
     <AdminWeb3Context.Provider value={{ isInitialized: true, isAdminMode: true }}>
       <WagmiProvider config={config}>

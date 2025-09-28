@@ -1,86 +1,56 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { SiweMessage } from 'siwe';
+import { env } from '@/config/env';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:8080';
+const BACKEND_URL = env.BACKEND_URL;
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { wallet_address, signature, nonce, message, admin_context } = body;
+    const { wallet_address, signature, nonce, message } = body;
 
-    // For admin context calls, only wallet_address is required
-    if (!wallet_address) {
+    if (!wallet_address || !signature || !nonce || !message) {
       return NextResponse.json(
-        { error: 'Missing required field: wallet_address' },
-        { status: 400 }
-      );
-    }
-
-    // For non-admin context calls, all SIWE fields are required
-    if (!admin_context && (!signature || !nonce || !message)) {
-      return NextResponse.json(
-        { error: 'Missing required fields: signature, nonce, message' },
+        { error: 'Missing required fields: wallet_address, signature, nonce, message' },
         { status: 400 }
       );
     }
 
     console.log('🔄 Admin: Verifying Web3 signature for wallet:', wallet_address);
-    console.log('🔄 Admin: Request body received:', JSON.stringify(body, null, 2));
-    console.log('🔄 Admin: Simplified verification - checking wallet permissions directly');
 
-    // Verify permissions directly from database (bypassing complex backend verification)
-    // Since we already confirmed this wallet has admin permissions, simplify the flow
-    
-    // Import the same database connection logic from permissions route
-    const { Pool } = require('pg');
-    const databaseUrl = process.env.DATABASE_URL || 'postgresql://postgres:password@localhost:5432/epsx_db';
-    const pool = new Pool({
-      connectionString: databaseUrl,
-      max: 5,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+    // Forward verification request to backend
+    const response = await fetch(`${BACKEND_URL}/api/v1/auth/web3/verify`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Admin-Context': 'true',
+      },
+      body: JSON.stringify({
+        wallet_address,
+        signature,
+        nonce,
+        message
+      }),
     });
-    
-    let walletPermissions: any[] = [];
-    let hasAdminPerms = false;
-    
-    try {
-      const client = await pool.connect();
-      try {
-        const result = await client.query(`
-          SELECT permission, permission_type, is_active, expires_at, granted_at
-          FROM wallet_permissions 
-          WHERE wallet_address = $1 
-            AND is_active = true 
-            AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
-          ORDER BY granted_at DESC
-        `, [wallet_address.toLowerCase()]);
-        
-        walletPermissions = result.rows;
-        
-        // Check for admin permissions
-        hasAdminPerms = walletPermissions.some((p: any) => 
-          p.permission === 'admin:*:*' || 
-          p.permission.startsWith('admin:') ||
-          p.permission === 'epsx:admin:*' ||
-          p.permission === 'epsx:*:*'
-        );
-        
-        console.log('✅ Admin: Found', walletPermissions.length, 'permissions for wallet:', wallet_address);
-        console.log('✅ Admin: Has admin permissions:', hasAdminPerms);
-      } finally {
-        client.release();
-      }
-    } catch (dbError) {
-      console.error('❌ Admin: Database query failed:', dbError);
-      return NextResponse.json(
-        { error: 'Failed to verify wallet permissions' },
-        { status: 500 }
-      );
-    } finally {
-      await pool.end();
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ 
+        error: 'Backend verification failed' 
+      }));
+      console.error('❌ Admin: Backend Web3 verification failed:', response.status);
+      return NextResponse.json(errorData, { status: response.status });
     }
+
+    const authData = await response.json();
+    
+    // Verify this is an admin by checking permissions
+    const permissions = authData.permissions || [];
+    const hasAdminPerms = permissions.some((p: string) => 
+      p === 'admin:*:*' || 
+      p.startsWith('admin:') ||
+      p === 'epsx:admin:*' ||
+      p === 'epsx:*:*'
+    );
     
     if (!hasAdminPerms) {
       console.error('❌ Admin: Wallet lacks admin permissions:', wallet_address);
@@ -90,21 +60,11 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Create mock data structure matching expected backend response
-    const data = {
-      wallet_address,
-      user_id: wallet_address, // Use wallet address as user ID for simplicity
-      email: null,
-      permissions: walletPermissions.map((p: any) => p.permission),
-      admin_level: 'super', // Since we confirmed admin:*:* exists
-    };
+    console.log('✅ Admin: Web3 verification successful for admin:', wallet_address);
     
-    console.log('✅ Admin: Wallet verification successful for admin:', wallet_address);
-    
-    // Set wallet session cookies
+    // Set admin session cookies using backend tokens
     const cookieStore = await cookies();
     const expiresIn = 3600; // 1 hour
-    const expiresAt = Date.now() + (expiresIn * 1000);
     
     const cookieOptions = {
       httpOnly: true,
@@ -114,29 +74,27 @@ export async function POST(request: NextRequest) {
       path: '/',
     };
 
-    // Phase 5: Simplified cookie management - only wallet_address needed
+    // Set Bearer token cookies from backend
+    if (authData.access_token) {
+      cookieStore.set('access_token', authData.access_token, cookieOptions);
+    }
+    
+    if (authData.refresh_token) {
+      cookieStore.set('refresh_token', authData.refresh_token, cookieOptions);
+    }
+
+    // Set admin session marker
+    cookieStore.set('admin_session', 'true', cookieOptions);
     cookieStore.set('wallet_address', wallet_address, cookieOptions);
     
-    // Clean up any existing complex session cookies
-    cookieStore.delete('wallet_nonce');
-    cookieStore.delete('wallet_signature');
-    cookieStore.delete('wallet_message');
-    cookieStore.delete('wallet_expires_at');
-    
-    // Clear any legacy OIDC tokens
-    cookieStore.delete('access_token');
-    cookieStore.delete('id_token');
-    cookieStore.delete('refresh_token');
-    
-    // Return success response without sensitive data
+    // Return success response
     return NextResponse.json({
       success: true,
-      wallet_address: data.wallet_address,
-      user_id: data.user_id,
-      email: data.email,
-      permissions: data.permissions,
-      admin_level: data.admin_level || 'admin',
-      expires_at: expiresAt
+      wallet_address: authData.wallet_address,
+      user_id: authData.user_id || authData.wallet_address,
+      permissions: authData.permissions,
+      admin_level: 'admin',
+      expires_at: authData.expires_at
     });
 
   } catch (error) {

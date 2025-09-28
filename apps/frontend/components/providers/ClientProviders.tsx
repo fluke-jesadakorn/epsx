@@ -1,7 +1,6 @@
 'use client';
 
 import { PerformanceProvider } from '@/components/common/PerformanceProvider';
-// import { BackgroundDecorationsClient } from '../layout/BackgroundDecorations.client';
 import { ToastProvider } from '@/components/ui/toaster';
 import { AppStateProvider } from '@/context/app-state';
 import { UIProvider } from '@/context/ui-context';

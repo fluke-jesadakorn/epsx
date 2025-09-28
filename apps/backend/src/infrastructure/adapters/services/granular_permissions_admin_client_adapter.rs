@@ -25,7 +25,7 @@ impl GranularPermissionsAdminClientAdapter {
 
     pub async fn get_user_permissions(
         &self,
-        _user_id: &str,
+        _wallet_address: &str,
     ) -> Result<Vec<GranularPermission>, Box<dyn std::error::Error + Send + Sync>> {
         // Placeholder implementation
         Ok(vec![])
@@ -33,7 +33,7 @@ impl GranularPermissionsAdminClientAdapter {
 
     pub async fn grant_permission(
         &self,
-        _user_id: &str,
+        _wallet_address: &str,
         _permission: GranularPermission,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Placeholder implementation
@@ -42,7 +42,7 @@ impl GranularPermissionsAdminClientAdapter {
 
     pub async fn revoke_permission(
         &self,
-        _user_id: &str,
+        _wallet_address: &str,
         _permission_id: &str,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Placeholder implementation
@@ -72,15 +72,15 @@ pub enum GranularPermissionsClientError {
 impl GranularPermissionsClientPort for GranularPermissionsAdminClientAdapter {
     type Error = GranularPermissionsClientError;
     
-    async fn get_user_permissions(&self, user_id: &str) -> Result<Vec<String>, Self::Error> {
+    async fn get_user_permissions(&self, wallet_address: &str) -> Result<Vec<String>, Self::Error> {
         // Placeholder implementation
-        tracing::debug!("Getting permissions for user: {}", user_id);
+        tracing::debug!("Getting permissions for user: {}", wallet_address);
         Ok(vec![])
     }
     
-    async fn grant_permission(&self, user_id: &str, permission: &str) -> Result<(), Self::Error> {
+    async fn grant_permission(&self, wallet_address: &str, permission: &str) -> Result<(), Self::Error> {
         // Placeholder implementation
-        tracing::debug!("Granting permission {} to user: {}", permission, user_id);
+        tracing::debug!("Granting permission {} to user: {}", permission, wallet_address);
         Ok(())
     }
 }
@@ -89,7 +89,7 @@ impl GranularPermissionsClientPort for GranularPermissionsAdminClientAdapter {
 #[derive(Debug, Clone)]
 pub struct GranularPermission {
     pub id: String,
-    pub user_id: String,
+    pub wallet_address: String,
     pub permission: String,
     pub resource: String,
     pub action: String,

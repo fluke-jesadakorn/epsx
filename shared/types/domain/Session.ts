@@ -39,6 +39,11 @@ export interface BaseSessionData {
   lastAccessedAt: number
   ipAddress?: string
   userAgent?: string
+  
+  // Backward compatibility with legacy validators
+  permissions?: string[]
+  packageTier?: string
+  platforms?: string[]
 }
 
 /**
@@ -434,3 +439,24 @@ export type SessionResult = SessionValidationResponse
 
 /** @deprecated Use SessionCacheEntry instead */
 export type SessionCache = SessionCacheEntry
+
+// Re-export domain types for validator use
+export type { UserProfile, AdminUserProfile, PackageTier } from './User'
+export type { EPSXPermission } from './Permission'
+
+// JWT payload types for backward compatibility
+export interface AdminJWTPayload {
+  user_id: string;
+  email: string;
+  permissions: string[];
+  exp: number;
+  iat: number;
+}
+
+export interface UserJWTPayload {
+  user_id: string;
+  email?: string;
+  wallet_address?: string;
+  exp: number;
+  iat: number;
+}

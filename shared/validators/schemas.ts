@@ -123,8 +123,8 @@ export const createUserSchema = z.object({
   ...baseUserFields,
   role: roleSchema,
   packageTier: z.string().min(1, 'Package tier is required'), // Legacy, will be removed
-  permissions: z.array(permissionSchema).default([]),
-  isActive: z.boolean().default(true)
+  permissions: z.array(permissionSchema),
+  isActive: z.boolean()
 });
 
 // Edit user schema (admin-frontend)  

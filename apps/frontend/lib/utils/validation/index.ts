@@ -374,12 +374,6 @@ envValidator.add({
 });
 
 envValidator.add({
-  key: 'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
-  required: true,
-  description: 'Firebase project ID'
-});
-
-envValidator.add({
   key: 'NEXTAUTH_SECRET',
   required: true,
   validator: (value) => value.length >= 32,

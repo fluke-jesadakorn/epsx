@@ -126,10 +126,10 @@ impl SimplifiedAuthCache {
     /// Get cached permissions
     pub async fn get_permissions(
         &self,
-        user_id: &Uuid,
-        wallet_address: Option<&str>,
+        wallet_address: &str,
+        additional_context: Option<&str>,
     ) -> Option<(Vec<UnifiedPermission>, AccessLevel)> {
-        let cache_key = self.make_permission_key(user_id, wallet_address);
+        let cache_key = self.make_permission_key(wallet_address, additional_context);
         
         if let Some(entry) = self.permission_cache.get(&cache_key) {
             if Instant::now() < entry.expires_at {
@@ -137,7 +137,7 @@ impl SimplifiedAuthCache {
                 stats.permission_hits += 1;
                 
                 debug!(
-                    user_id = %user_id,
+                    user_id = %wallet_address,
                     wallet_address = ?wallet_address,
                     "Permission cache hit"
                 );
@@ -156,12 +156,12 @@ impl SimplifiedAuthCache {
     /// Cache user permissions
     pub async fn cache_permissions(
         &self,
-        user_id: &Uuid,
-        wallet_address: Option<&str>,
+        wallet_address: &str,
+        additional_context: Option<&str>,
         permissions: Vec<UnifiedPermission>,
         access_level: AccessLevel,
     ) {
-        let cache_key = self.make_permission_key(user_id, wallet_address);
+        let cache_key = self.make_permission_key(wallet_address, additional_context);
         let now = Instant::now();
         
         let entry = PermissionCacheEntry {
@@ -174,7 +174,7 @@ impl SimplifiedAuthCache {
         self.permission_cache.insert(cache_key, entry);
         
         debug!(
-            user_id = %user_id,
+            user_id = %wallet_address,
             wallet_address = ?wallet_address,
             ttl_seconds = self.config.permission_cache_ttl.as_secs(),
             "Cached user permissions"
@@ -223,11 +223,11 @@ impl SimplifiedAuthCache {
     }
     
     /// Invalidate user permissions
-    pub async fn invalidate_user_permissions(&self, user_id: &Uuid) {
+    pub async fn invalidate_user_permissions(&self, wallet_address: &Uuid) {
         let keys_to_remove: Vec<String> = self.permission_cache
             .iter()
             .filter_map(|entry| {
-                if entry.key().starts_with(&user_id.to_string()) {
+                if entry.key().starts_with(&wallet_address.to_string()) {
                     Some(entry.key().clone())
                 } else {
                     None
@@ -239,7 +239,7 @@ impl SimplifiedAuthCache {
             self.permission_cache.remove(&key);
         }
         
-        info!(user_id = %user_id, "Invalidated user permission cache");
+        info!(user_id = %wallet_address, "Invalidated user permission cache");
     }
     
     /// Get cache statistics
@@ -284,10 +284,10 @@ impl SimplifiedAuthCache {
     
     // Private helper methods
     
-    fn make_permission_key(&self, user_id: &Uuid, wallet_address: Option<&str>) -> String {
-        match wallet_address {
-            Some(addr) => format!("{}:{}", user_id, addr),
-            None => user_id.to_string(),
+    fn make_permission_key(&self, wallet_address: &str, additional_context: Option<&str>) -> String {
+        match additional_context {
+            Some(context) => format!("{}:{}", wallet_address, context),
+            None => wallet_address.to_string(),
         }
     }
     

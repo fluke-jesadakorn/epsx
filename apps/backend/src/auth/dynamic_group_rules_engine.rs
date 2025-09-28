@@ -128,7 +128,7 @@ pub struct RuleActions {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserContext {
-    pub user_id: Uuid,
+    pub wallet_address: Uuid,
     pub email: Option<String>,
     pub subscription_tier: Option<String>,
     pub last_login: Option<DateTime<Utc>>,
@@ -177,7 +177,7 @@ pub struct NftHolding {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuleEvaluationResult {
     pub rule_id: Uuid,
-    pub user_id: Uuid,
+    pub wallet_address: Uuid,
     pub group_id: Uuid,
     pub evaluation_result: bool,
     pub confidence_score: f64,
@@ -228,6 +228,12 @@ pub struct PerformanceMetrics {
     cache_misses: u64,
 }
 
+impl Default for DynamicGroupRulesEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DynamicGroupRulesEngine {
     pub fn new() -> Self {
         Self {
@@ -253,7 +259,7 @@ impl DynamicGroupRulesEngine {
         let start_time = std::time::Instant::now();
         let mut results = Vec::new();
 
-        info!("Evaluating {} rules for user {}", rules.len(), user_context.user_id);
+        info!("Evaluating {} rules for wallet {}", rules.len(), user_context.wallet_address);
 
         // Sort rules by priority (higher priority first)
         let mut sorted_rules = rules;
@@ -275,7 +281,7 @@ impl DynamicGroupRulesEngine {
                 // Create result from cache
                 let result = RuleEvaluationResult {
                     rule_id: rule.id,
-                    user_id: user_context.user_id,
+                    wallet_address: user_context.wallet_address,
                     group_id: rule.group_id,
                     evaluation_result: cached.result,
                     confidence_score: cached.confidence,
@@ -309,7 +315,7 @@ impl DynamicGroupRulesEngine {
         }
 
         let total_duration = start_time.elapsed();
-        info!("Evaluated {} rules in {:?} for user {}", results.len(), total_duration, user_context.user_id);
+        info!("Evaluated {} rules in {:?} for user {}", results.len(), total_duration, user_context.wallet_address);
 
         Ok(results)
     }
@@ -380,7 +386,7 @@ impl DynamicGroupRulesEngine {
 
         Ok(RuleEvaluationResult {
             rule_id: rule.id,
-            user_id: user_context.user_id,
+            wallet_address: user_context.wallet_address,
             group_id: rule.group_id,
             evaluation_result: final_result,
             confidence_score,
@@ -579,7 +585,7 @@ impl DynamicGroupRulesEngine {
         let parts: Vec<&str> = field_path.split('.').collect();
         
         match parts.as_slice() {
-            ["user", "id"] => Ok(serde_json::Value::String(user_context.user_id.to_string())),
+            ["user", "id"] => Ok(serde_json::Value::String(user_context.wallet_address.to_string())),
             ["user", "email"] => Ok(user_context.email.as_ref()
                 .map(|e| serde_json::Value::String(e.clone()))
                 .unwrap_or(serde_json::Value::Null)),
@@ -968,7 +974,7 @@ impl DynamicGroupRulesEngine {
         // Generate a deterministic cache key based on rule, user, and relevant context
         format!("rule_{}:user_{}:env_{}:time_{}", 
             rule.id, 
-            user_context.user_id,
+            user_context.wallet_address,
             evaluation_context.environment,
             evaluation_context.current_time.timestamp() / 300 // 5-minute buckets
         )
@@ -1016,7 +1022,7 @@ impl DynamicGroupRulesEngine {
     ) -> Result<RuleEvaluationResult> {
         Ok(RuleEvaluationResult {
             rule_id: rule.id,
-            user_id: user_context.user_id,
+            wallet_address: user_context.wallet_address,
             group_id: rule.group_id,
             evaluation_result: false,
             confidence_score: 1.0, // We're confident it doesn't match
@@ -1051,7 +1057,7 @@ mod tests {
 
     fn create_test_user_context() -> UserContext {
         UserContext {
-            user_id: Uuid::new_v4(),
+            wallet_address: Uuid::new_v4(),
             email: Some("test@example.com".to_string()),
             subscription_tier: Some("premium".to_string()),
             last_login: Some(Utc::now() - chrono::Duration::hours(2)),

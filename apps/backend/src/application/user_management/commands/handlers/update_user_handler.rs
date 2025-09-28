@@ -4,18 +4,18 @@ use std::sync::Arc;
 use crate::application::shared::{ApplicationResult, ApplicationError, CommandHandler};
 use crate::application::user_management::{UpdateUserCommand, UpdateUserResponse};
 use crate::domain::shared_kernel::{DomainEventBus, AggregateRoot};
-use crate::domain::user_management::UserRepositoryPort;
+use crate::domain::user_management::{WalletUserRepositoryPort, WalletAddress};
 
 /// Update User Command Handler
 /// Handles the business logic for updating user information
 pub struct UpdateUserCommandHandler {
-    user_repository: Arc<dyn UserRepositoryPort>,
+    user_repository: Arc<dyn WalletUserRepositoryPort>,
     event_bus: Arc<dyn DomainEventBus>,
 }
 
 impl UpdateUserCommandHandler {
     pub fn new(
-        user_repository: Arc<dyn UserRepositoryPort>,
+        user_repository: Arc<dyn WalletUserRepositoryPort>,
         event_bus: Arc<dyn DomainEventBus>,
     ) -> Self {
         Self {
@@ -28,19 +28,19 @@ impl UpdateUserCommandHandler {
 #[async_trait]
 impl CommandHandler<UpdateUserCommand> for UpdateUserCommandHandler {
     async fn handle(&self, command: UpdateUserCommand) -> ApplicationResult<UpdateUserResponse> {
-        tracing::info!("Processing UpdateUserCommand for user_id: {}", command.user_id.to_string());
+        tracing::info!("Processing UpdateUserCommand for wallet_address: {}", command.wallet_address.to_string());
         
-        // Find user by ID (Web3 migration)
+        // Find user by wallet address (Web3 migration)
+        let wallet_addr = WalletAddress::new(command.wallet_address.clone())?;
         let mut user = self.user_repository
-            .find_by_id(&command.user_id)
+            .find_by_wallet(&wallet_addr)
             .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
-            .ok_or_else(|| ApplicationError::not_found("User", command.user_id.to_string()))?;
+            .ok_or_else(|| ApplicationError::not_found("User", command.wallet_address.to_string()))?;
         
-        // Update email if provided
-        if let Some(email) = &command.email {
-            user.update_email(email.clone())
-                .map_err(|e| ApplicationError::business_rule(e.to_string()))?;
+        // Web3-first: Email operations not supported
+        if command.email.is_some() {
+            return Err(ApplicationError::not_implemented("Email updates not supported in Web3-first architecture"));
         }
         
         // Update permissions if provided
@@ -54,27 +54,24 @@ impl CommandHandler<UpdateUserCommand> for UpdateUserCommandHandler {
             }
             
             // Update all permissions at once
-            user.update_permissions(new_permissions, None)
-                .map_err(|e| ApplicationError::business_rule(e.to_string()))?;
+            user.update_permissions(new_permissions)
+                .map_err(ApplicationError::from)?;
         }
         
         // Update active status if provided
         if let Some(is_active) = command.is_active {
             if is_active {
                 user.activate()
-                    .map_err(|e| ApplicationError::business_rule(e.to_string()))?;
+                    .map_err(ApplicationError::from)?;
             } else {
-                user.deactivate(Some("Admin deactivated".to_string()))
-                    .map_err(|e| ApplicationError::business_rule(e.to_string()))?;
+                user.deactivate("Admin deactivated".to_string())
+                    .map_err(ApplicationError::from)?;
             }
         }
         
-        // Update email verified status if provided
-        if let Some(email_verified) = command.email_verified {
-            if email_verified {
-                user.verify_email()
-                    .map_err(|e| ApplicationError::business_rule(e.to_string()))?;
-            }
+        // Web3-first: Email verification not supported
+        if command.email_verified.is_some() {
+            return Err(ApplicationError::not_implemented("Email verification not supported in Web3-first architecture"));
         }
         
         // Save the updated user
@@ -91,14 +88,13 @@ impl CommandHandler<UpdateUserCommand> for UpdateUserCommandHandler {
         // Clear events after publishing
         user.mark_events_as_committed();
         
-        tracing::info!("Successfully updated user: {}", command.user_id.to_string());
+        tracing::info!("Successfully updated user: {}", command.wallet_address.to_string());
         
-        // Create response
+        // Create response (Web3-first approach)
         Ok(UpdateUserResponse {
-            // firebase_uid removed in Web3 migration
-            user_id: user.id().clone(),
-            email: user.email().clone(),
-            email_verified: user.is_email_verified(),
+            wallet_address: user.wallet_address().to_string(),
+            email: format!("{}@wallet.web3", user.wallet_address().to_string()), // Web3-first: synthetic email
+            email_verified: false, // Web3-first: no email verification needed
             is_active: user.is_active(),
             permissions: user.permissions().clone(),
         })

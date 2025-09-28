@@ -1,7 +1,7 @@
 use crate::domain::shared_kernel::value_objects::UserId;
 use chrono::Duration;
 
-use crate::domain::shared_kernel::{DomainError, DomainResult};
+use crate::core::errors::{AppError, AppResult};
 use crate::domain::user_management::aggregates::Session;
 
 /// Domain service for session security and anomaly detection
@@ -55,17 +55,17 @@ impl SessionSecurityService {
         &self,
         session: &Session,
         security_policy: &SessionSecurityPolicy
-    ) -> DomainResult<()> {
+    ) -> AppResult<()> {
         // Check maximum session age
         if session.age_seconds() > security_policy.max_session_age_seconds {
-            return Err(DomainError::business_rule_violation(
+            return Err(AppError::business_rule_violation(
                 "Session has exceeded maximum allowed age"
             ));
         }
         
         // Check if session should be renewed
         if session.needs_renewal(Duration::seconds(security_policy.renewal_threshold_seconds)) {
-            return Err(DomainError::business_rule_violation(
+            return Err(AppError::business_rule_violation(
                 "Session requires renewal"
             ));
         }
@@ -84,10 +84,10 @@ impl SessionSecurityService {
     /// Analyze sessions for security anomalies
     pub fn analyze_user_sessions(
         &self,
-        user_id: &UserId,
+        wallet_address: &UserId,
         sessions: &[Session]
     ) -> SessionSecurityAnalysis {
-        let mut analysis = SessionSecurityAnalysis::new(user_id.clone());
+        let mut analysis = SessionSecurityAnalysis::new(wallet_address.clone());
         
         // Check for multiple active sessions from different locations
         let mut unique_ips = std::collections::HashSet::new();
@@ -220,7 +220,7 @@ pub enum SuspicionLevel {
 /// Analysis result for user sessions
 #[derive(Debug, Clone)]
 pub struct SessionSecurityAnalysis {
-    pub user_id: UserId,
+    pub wallet_address: UserId,
     pub unique_ip_count: usize,
     pub unique_user_agent_count: usize,
     pub active_session_count: usize,
@@ -229,9 +229,9 @@ pub struct SessionSecurityAnalysis {
 }
 
 impl SessionSecurityAnalysis {
-    fn new(user_id: UserId) -> Self {
+    fn new(wallet_address: UserId) -> Self {
         Self {
-            user_id,
+            wallet_address,
             unique_ip_count: 0,
             unique_user_agent_count: 0,
             active_session_count: 0,
@@ -306,7 +306,7 @@ mod tests {
     #[test]
     fn multiple_active_sessions_triggers_analysis() {
         let service = SessionSecurityService;
-        let user_id = UserId::new();
+        let wallet_address = UserId::new();
         
         let sessions = vec![
             create_test_session_with_ip("192.168.1.1"),
@@ -314,7 +314,7 @@ mod tests {
             create_test_session_with_ip("172.16.0.1"),
         ];
         
-        let analysis = service.analyze_user_sessions(&user_id, &sessions);
+        let analysis = service.analyze_user_sessions(&wallet_address, &sessions);
         
         assert_eq!(analysis.active_session_count, 3);
         assert_eq!(analysis.unique_ip_count, 3);

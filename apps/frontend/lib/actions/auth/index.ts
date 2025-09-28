@@ -2,7 +2,7 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { getBackendUrl, getFrontendUrl, oidcUrls, callbackUrls } from '@/lib/shared';
+import { getBackendUrl, getFrontendUrl, oidcUrls, callbackUrls } from '@/lib/server-shared';
 import { verifyJWT, type JWTUser } from '@/lib/shared';
 import { logger, safeError } from '@/lib/shared';
 
@@ -56,13 +56,17 @@ export async function getCurrentUser(): Promise<User | null> {
     // Verify the JWT token
     const decoded = await verifyJWT(accessToken);
     
+    if (!decoded) {
+      return null;
+    }
+    
     return {
       id: decoded.sub,
       uid: decoded.sub,
       email: decoded.email,
       name: decoded.name,
       permissions: decoded.permissions || [],
-      emailVerified: decoded.email_verified || false,
+      emailVerified: Boolean(decoded.email_verified),
     };
   } catch (error) {
     logger.error('Failed to get current user', { error: safeError(error).message });

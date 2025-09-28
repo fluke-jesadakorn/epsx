@@ -3,9 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Check, Clock, X, ArrowLeft, Loader2 } from 'lucide-react';
-// Temporarily removed realtime client imports for build fix
-// import { realtimeClient  } from '@/lib/api-client';
-// import type {PaymentStatusUpdate} from '@/lib/api-client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -64,16 +61,16 @@ export default function PaymentReturnPage() {
       }, 1000);
       return () => clearTimeout(timer);
     } else if (paymentStatus === 'success' && countdown === 0) {
-      router.push('/my-data?payment=success');
+      router.push('/portfolio?payment=success');
       return;
     }
     return;
   }, [paymentStatus, countdown, router]);
   const handleReturnToMyData = () => {
     if (paymentStatus === 'success') {
-      router.push('/my-data?payment=success');
+      router.push('/portfolio?payment=success');
     } else {
-      router.push('/my-data');
+      router.push('/portfolio');
     }
   };
   const handleRetryPayment = () => {
@@ -118,14 +115,14 @@ export default function PaymentReturnPage() {
             <div className="mb-6">
               <div className="inline-flex items-center gap-2 text-sm font-medium text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/30 px-4 py-2 rounded-full">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                Redirecting to my data in {countdown}s...
+                Redirecting to portfolio in {countdown}s...
               </div>
             </div>
             <Button
               onClick={handleReturnToMyData}
               className="w-full h-12 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-600 hover:via-emerald-600 hover:to-teal-600 text-white border-0 shadow-xl transition-all duration-300 hover:scale-[1.02]"
             >
-              Go to My Data Now
+              Go to Portfolio Now
             </Button>
           </CardContent>
         </Card>
@@ -154,7 +151,7 @@ export default function PaymentReturnPage() {
                 className="w-full h-12 border-2 border-gray-300 dark:border-gray-600 hover:border-yellow-400 dark:hover:border-yellow-500 font-semibold flex items-center gap-2"
               >
                 <ArrowLeft className="h-4 w-4" />
-                Return to My Data
+                Return to Portfolio
               </Button>
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 We&apos;ll notify you once the payment is confirmed
@@ -194,7 +191,7 @@ export default function PaymentReturnPage() {
               className="w-full h-12 border-2 border-gray-300 dark:border-gray-600 hover:border-red-400 dark:hover:border-red-500 font-semibold flex items-center gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
-              Return to My Data
+              Return to Portfolio
             </Button>
           </div>
         </CardContent>

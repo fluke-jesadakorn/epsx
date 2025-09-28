@@ -1,3 +1,5 @@
+'use client'
+
 /**
  * BASE CARD COMPONENT
  * Unified card component to replace 20+ duplicate card implementations

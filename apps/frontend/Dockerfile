@@ -31,7 +31,7 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Create build-time environment for Next.js validation
-# Note: Firebase environment variables are set at runtime via Cloud Run to avoid placeholder values
+# Note: Web3 and optional environment variables are set at runtime via Cloud Run to avoid placeholder values
 RUN echo "NODE_ENV=production" > .env && \
     echo "NEXT_PUBLIC_BACKEND_URL=https://api.epsx.io" >> .env && \
     echo "NEXT_PUBLIC_APP_URL=https://epsx.io" >> .env && \

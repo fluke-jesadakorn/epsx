@@ -29,6 +29,10 @@ export interface PureWeb3AuthState {
     permissions: string[];
   }>;
   
+  // Bearer token data (from Web3 auth verification)
+  bearerToken?: string;
+  tokenExpiresAt?: string;
+  
   // Nonce management
   currentNonce?: string;
   nonceExpiry?: number;
@@ -45,6 +49,7 @@ export interface PureWeb3AuthActions {
   setInitialized: (initialized: boolean) => void;
   setPermissions: (permissions: string[]) => void;
   setGroups: (groups: PureWeb3AuthState['groups']) => void;
+  setBearerToken: (token?: string, expiresAt?: string) => void;
   setNonce: (nonce: string, expiry: number) => void;
   clearNonce: () => void;
   setError: (error?: string) => void;
@@ -65,8 +70,8 @@ export interface PureWeb3AuthActions {
 export interface SignedRequestHeaders {
   'X-Wallet-Address': string;
   'X-Chain-Id': string;
-  'X-Signature': string;
-  'X-Message': string;
+  'X-Web3-Signature': string;  // Standardized header name
+  'X-Signed-Message': string;   // Standardized header name
   'X-Timestamp': string;
   'X-Nonce': string;
 }
@@ -96,6 +101,8 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
       chainId: 1,
       permissions: [],
       groups: [],
+      bearerToken: undefined,
+      tokenExpiresAt: undefined,
 
       // State setters
       setConnected: (connected, address, chainId) => set({ 
@@ -108,6 +115,7 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
       setInitialized: (initialized) => set({ hasInitialized: initialized }),
       setPermissions: (permissions) => set({ permissions }),
       setGroups: (groups) => set({ groups }),
+      setBearerToken: (token, expiresAt) => set({ bearerToken: token, tokenExpiresAt: expiresAt }),
       setNonce: (nonce, expiry) => set({ currentNonce: nonce, nonceExpiry: expiry }),
       clearNonce: () => set({ currentNonce: undefined, nonceExpiry: undefined }),
       setError: (error) => set({ error }),
@@ -121,7 +129,7 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
         }
 
         try {
-          const response = await fetch(`${getBackendUrl()}/auth/challenge`, {
+          const response = await fetch(`${getBackendUrl()}/api/auth/web3/challenge`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -170,24 +178,33 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
           set({ isAuthenticating: true, error: undefined });
           
           // Generate challenge
-          const challenge = await get().generateChallenge('/auth/verify');
+          const challenge = await get().generateChallenge('/api/auth/web3/verify');
           
-          // Sign the message
-          const signature = await window.__pureWeb3_signMessage(challenge.message);
+          if (!challenge.message) {
+            throw new Error('Invalid challenge received from backend');
+          }
           
-          // Verify with backend
-          const headers: SignedRequestHeaders = {
-            'X-Wallet-Address': state.walletAddress,
-            'X-Chain-Id': state.chainId.toString(),
-            'X-Signature': signature,
-            'X-Message': challenge.message,
-            'X-Timestamp': Math.floor(Date.now() / 1000).toString(),
-            'X-Nonce': challenge.nonce
-          };
-
-          const response = await fetch(`${getBackendUrl()}/auth/verify`, {
-            method: 'GET',
-            headers: headers as any,
+          // Sign the message (ensure it's a string)
+          const messageToSign = typeof challenge.message === 'string' ? challenge.message : JSON.stringify(challenge.message);
+          
+          if (!messageToSign.trim()) {
+            throw new Error('Empty message cannot be signed');
+          }
+          
+          const signature = await window.__pureWeb3_signMessage(messageToSign);
+          
+          // Verify with backend using POST request with JSON body
+          const response = await fetch(`${getBackendUrl()}/api/auth/web3/verify`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              wallet_address: state.walletAddress,
+              message: challenge.message,
+              signature: signature,
+              nonce: challenge.nonce,
+            }),
           });
 
           if (response.ok) {
@@ -195,7 +212,9 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
             set({
               isAuthenticating: false,
               permissions: verifyData.permissions || [],
-              groups: verifyData.groups || []
+              groups: verifyData.groups || [],
+              bearerToken: verifyData.bearer_token,
+              tokenExpiresAt: verifyData.token_expires_at
             });
             return true;
           } else {
@@ -219,9 +238,9 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
 
         try {
           // Sign request for permissions endpoint
-          const signedHeaders = await get().signRequest('/auth/permissions', 'GET');
+          const signedHeaders = await get().signRequest('/api/v1/users/permissions', 'GET');
           
-          const response = await fetch(`${getBackendUrl()}/auth/permissions`, {
+          const response = await fetch(`${getBackendUrl()}/api/v1/users/permissions`, {
             method: 'GET',
             headers: signedHeaders as any,
           });
@@ -249,10 +268,10 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
         try {
           if (state.walletAddress && state.currentNonce) {
             // Clear nonces on backend
-            const signedHeaders = await get().signRequest('/auth/logout', 'POST');
+            const signedHeaders = await get().signRequest('/api/auth/web3/logout', 'DELETE');
             
-            await fetch(`${getBackendUrl()}/auth/logout`, {
-              method: 'POST',
+            await fetch(`${getBackendUrl()}/api/auth/web3/logout`, {
+              method: 'DELETE',
               headers: signedHeaders as any,
               body: JSON.stringify({ clear_all_sessions: true }),
             });
@@ -307,14 +326,15 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
             `Body: ${bodyHash}`
           ].join('\n');
 
-          // Sign the message
-          const signature = await window.__pureWeb3_signMessage(message);
+          // Sign the message (ensure it's a string)
+          const messageToSign = typeof message === 'string' ? message : JSON.stringify(message);
+          const signature = await window.__pureWeb3_signMessage(messageToSign);
 
           return {
             'X-Wallet-Address': state.walletAddress,
             'X-Chain-Id': state.chainId.toString(),
-            'X-Signature': signature,
-            'X-Message': message,
+            'X-Web3-Signature': signature,
+            'X-Signed-Message': message,
             'X-Timestamp': timestamp.toString(),
             'X-Nonce': nonce
           };
@@ -335,6 +355,8 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
         chainId: 1,
         permissions: [],
         groups: [],
+        bearerToken: undefined,
+        tokenExpiresAt: undefined,
         currentNonce: undefined,
         nonceExpiry: undefined,
         error: undefined,

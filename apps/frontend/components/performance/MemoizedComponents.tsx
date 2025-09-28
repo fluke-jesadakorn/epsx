@@ -136,6 +136,7 @@ interface StockCardData {
   change: number;
   changePercent: number;
   rank: number;
+  currency?: string;
 }
 
 interface MemoizedStockCardProps {
@@ -178,11 +179,23 @@ export const MemoizedStockCard = memo<MemoizedStockCardProps>(
         
         <div className="flex justify-between items-end">
           <div>
-            <p className="text-xl font-bold">${data.price.toFixed(2)}</p>
+            <p className="text-xl font-bold">
+              {new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: data.currency || 'USD',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }).format(data.price)}
+            </p>
           </div>
           <div className={`text-right ${changeColor}`}>
             <p className="text-sm font-medium">
-              {data.change >= 0 ? '+' : ''}${data.change.toFixed(2)}
+              {data.change >= 0 ? '+' : ''}{new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: data.currency || 'USD',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }).format(Math.abs(data.change))}
             </p>
             <p className="text-xs">
               ({data.changePercent >= 0 ? '+' : ''}{data.changePercent.toFixed(2)}%)

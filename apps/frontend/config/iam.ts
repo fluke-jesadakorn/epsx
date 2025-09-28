@@ -46,7 +46,6 @@ export const IAM_CONFIG = {
       
       // Frontend-specific routes
       '/portfolio': ['epsx:analytics:view'],
-      '/my-data': ['epsx:profile:view'],
       '/payment/enterprise': ['epsx:payment:create'],
       '/permissions': ['epsx:profile:manage'],
       

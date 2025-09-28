@@ -1,14 +1,14 @@
-// Web layer middleware implementations - Optimized and minimal
-// Phase 10: Reduced from 13 middleware files to 3 essential ones
+// Web layer middleware implementations - Web3-first and minimal
+// Phase 7.2: Pure Web3 authentication only, OIDC/JWT removed
 
 // Essential security middleware (core functionality)
 pub mod security_headers;
 
-// Authentication middleware (actively used)
-pub mod stateless_auth;
-
-// Web3 wallet authentication middleware (replaces OIDC/JWT)
+// Web3 wallet authentication middleware (pure SIWE)
 pub mod web3_auth_middleware;
+
+// OpenID Connect Bearer token authentication middleware
+pub mod openid_bearer_auth_middleware;
 
 // Rate limiting for API protection
 pub mod rate_limiter;
@@ -24,13 +24,7 @@ pub use security_headers::{
   request_id_middleware,
 };
 
-// Stateless auth exports (legacy - will be removed)
-pub use stateless_auth::{
-  stateless_auth_middleware,
-  AuthenticationError,
-};
-
-// Web3 auth exports (new wallet-first authentication)
+// Web3 auth exports (pure wallet-first authentication)
 pub use web3_auth_middleware::{
   web3_auth_middleware,
   Web3AuthContext,
@@ -39,7 +33,20 @@ pub use web3_auth_middleware::{
   require_web3_auth,
   require_permission,
   require_admin,
-  require_group,
+  require_tier,
+};
+
+// OpenID Bearer auth exports (standard OpenID Connect)
+pub use openid_bearer_auth_middleware::{
+  openid_bearer_auth_middleware,
+  optional_openid_bearer_auth_middleware,
+  OpenIDUserContext,
+  UnifiedErrorResponse,
+  ErrorDetails,
+  extract_user_context,
+  require_user_context,
+  check_user_permission,
+  create_permission_denied_error,
 };
 
 // Rate limiter exports (used in validation)

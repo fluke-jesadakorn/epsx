@@ -79,8 +79,8 @@ impl QueryMetadata {
         }
     }
     
-    pub fn with_user(mut self, user_id: impl Into<String>) -> Self {
-        self.requested_by = Some(user_id.into());
+    pub fn with_user(mut self, wallet_address: impl Into<String>) -> Self {
+        self.requested_by = Some(wallet_address.into());
         self
     }
     

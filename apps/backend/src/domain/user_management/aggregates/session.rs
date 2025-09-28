@@ -1,14 +1,14 @@
-use crate::domain::shared_kernel::value_objects::{UserId, SessionId};
+use crate::domain::shared_kernel::value_objects::SessionId;
+use crate::domain::user_management::value_objects::WalletAddress;
 use chrono::{DateTime, Utc, Duration};
 use serde::{Deserialize, Serialize};
 
 use crate::domain::shared_kernel::{
     AggregateRoot, 
     DomainEvent, 
-    DomainError, 
-    DomainResult,
     aggregate_root::AggregateBase
 };
+use crate::core::errors::{AppError, AppResult};
 
 
 use crate::domain::user_management::events::{
@@ -24,7 +24,7 @@ use crate::domain::user_management::events::{
 pub struct Session {
     // Identity
     id: SessionId,
-    user_id: UserId,
+    wallet_address: WalletAddress,
     
     // Session data
     access_token: String,
@@ -50,24 +50,23 @@ impl Session {
     /// Create a new session
     pub fn create(
         id: SessionId,
-        user_id: UserId,
+        wallet_address: WalletAddress,
         access_token: String,
         expires_at: DateTime<Utc>,
         ip_address: Option<String>,
         user_agent: Option<String>,
-    ) -> DomainResult<Self> {
+    ) -> AppResult<Self> {
         // Business rule: Session must expire in the future
         if expires_at <= Utc::now() {
-            return Err(DomainError::business_rule_violation(
+            return Err(AppError::business_rule_violation(
                 "Session expiration must be in the future"
             ));
         }
         
         // Business rule: Access token cannot be empty
         if access_token.trim().is_empty() {
-            return Err(DomainError::validation_error(
-                "access_token", 
-                "Access token cannot be empty"
+            return Err(AppError::validation_error(
+                "Access token cannot be empty".to_string()
             ));
         }
         
@@ -76,7 +75,7 @@ impl Session {
         
         let mut session = Self {
             id: id.clone(),
-            user_id: user_id.clone(),
+            wallet_address: wallet_address.clone(),
             access_token,
             refresh_token: None,
             created_at: now,
@@ -92,7 +91,7 @@ impl Session {
         // Raise domain event
         session.base.add_event(Box::new(SessionCreatedEvent::new(
             id,
-            user_id,
+            wallet_address,
             expires_at,
             ip_address,
             user_agent,
@@ -105,7 +104,7 @@ impl Session {
     /// Load existing session (for repository reconstruction)
     pub fn load(
         id: SessionId,
-        user_id: UserId,
+        wallet_address: WalletAddress,
         access_token: String,
         refresh_token: Option<String>,
         created_at: DateTime<Utc>,
@@ -124,7 +123,7 @@ impl Session {
         
         Self {
             id,
-            user_id,
+            wallet_address,
             access_token,
             refresh_token,
             created_at,
@@ -143,8 +142,8 @@ impl Session {
         &self.id
     }
     
-    pub fn user_id(&self) -> &UserId {
-        &self.user_id
+    pub fn user_id(&self) -> &WalletAddress {
+        &self.wallet_address
     }
     
     pub fn access_token(&self) -> &str {
@@ -193,24 +192,24 @@ impl Session {
     }
     
     /// Extend the session expiration
-    pub fn extend(&mut self, new_expires_at: DateTime<Utc>) -> DomainResult<()> {
+    pub fn extend(&mut self, new_expires_at: DateTime<Utc>) -> AppResult<()> {
         // Business rule: Cannot extend revoked session
         if self.is_revoked {
-            return Err(DomainError::business_rule_violation(
+            return Err(AppError::business_rule_violation(
                 "Cannot extend revoked session"
             ));
         }
         
         // Business rule: New expiration must be in the future
         if new_expires_at <= Utc::now() {
-            return Err(DomainError::business_rule_violation(
+            return Err(AppError::business_rule_violation(
                 "New expiration must be in the future"
             ));
         }
         
         // Business rule: Cannot extend to earlier time than current expiration
         if new_expires_at < self.expires_at {
-            return Err(DomainError::business_rule_violation(
+            return Err(AppError::business_rule_violation(
                 "Cannot extend session to earlier expiration time"
             ));
         }
@@ -222,7 +221,7 @@ impl Session {
         // Raise domain event
         self.base.add_event(Box::new(SessionExtendedEvent::new(
             self.id.clone(),
-            self.user_id.clone(),
+            self.wallet_address.clone(),
             old_expires_at,
             new_expires_at,
             self.base.version
@@ -232,10 +231,10 @@ impl Session {
     }
     
     /// Invalidate the session
-    pub fn invalidate(&mut self, reason: SessionInvalidationReason) -> DomainResult<()> {
+    pub fn invalidate(&mut self, reason: SessionInvalidationReason) -> AppResult<()> {
         // Business rule: Cannot invalidate already revoked session
         if self.is_revoked {
-            return Err(DomainError::business_rule_violation(
+            return Err(AppError::business_rule_violation(
                 "Session is already revoked"
             ));
         }
@@ -246,7 +245,7 @@ impl Session {
         // Raise domain event
         self.base.add_event(Box::new(SessionInvalidatedEvent::new(
             self.id.clone(),
-            self.user_id.clone(),
+            self.wallet_address.clone(),
             reason,
             self.base.version
         )));
@@ -265,17 +264,17 @@ impl Session {
     }
     
     /// Update last accessed timestamp
-    pub fn update_last_accessed(&mut self) -> DomainResult<()> {
+    pub fn update_last_accessed(&mut self) -> AppResult<()> {
         // Business rule: Cannot update revoked session
         if self.is_revoked {
-            return Err(DomainError::business_rule_violation(
+            return Err(AppError::business_rule_violation(
                 "Cannot update revoked session"
             ));
         }
         
         // Business rule: Cannot update expired session
         if self.is_expired() {
-            return Err(DomainError::business_rule_violation(
+            return Err(AppError::business_rule_violation(
                 "Cannot update expired session"
             ));
         }
@@ -287,19 +286,18 @@ impl Session {
     }
     
     /// Set refresh token
-    pub fn setrefresh_token(&mut self, refresh_token: String) -> DomainResult<()> {
+    pub fn setrefresh_token(&mut self, refresh_token: String) -> AppResult<()> {
         // Business rule: Cannot set refresh token on revoked session
         if self.is_revoked {
-            return Err(DomainError::business_rule_violation(
+            return Err(AppError::business_rule_violation(
                 "Cannot set refresh token on revoked session"
             ));
         }
         
         // Business rule: Refresh token cannot be empty
         if refresh_token.trim().is_empty() {
-            return Err(DomainError::validation_error(
-                "refresh_token",
-                "Refresh token cannot be empty"
+            return Err(AppError::validation_error(
+                "Refresh token cannot be empty".to_string()
             ));
         }
         
@@ -348,7 +346,7 @@ impl Session {
     }
     
     /// Update session metadata (user agent, IP, etc.)
-    pub fn update_metadata(&mut self, metadata: String) -> DomainResult<()> {
+    pub fn update_metadata(&mut self, metadata: String) -> AppResult<()> {
         // Parse metadata format "key:value"
         if let Some((key, value)) = metadata.split_once(':') {
             match key {
@@ -413,8 +411,8 @@ mod tests {
     
     fn create_test_session() -> Session {
         Session::create(
-            SessionId::from_uuid(uuid::Uuid::new_v4()),
-            UserId::new(),
+            SessionId::generate(),
+            WalletAddress::new("0x742d35Cc67C9c24d4D3A6A5c9B1c4D6F8F8c8B8d").unwrap(),
             "test_access_token".to_string(),
             Utc::now() + Duration::hours(1),
             Some("127.0.0.1".to_string()),
@@ -434,8 +432,8 @@ mod tests {
     #[test]
     fn create_session_with_past_expiration_should_fail() {
         let result = Session::create(
-            SessionId::from_uuid(uuid::Uuid::new_v4()),
-            UserId::new(),
+            SessionId::generate(),
+            WalletAddress::new("0x742d35Cc67C9c24d4D3A6A5c9B1c4D6F8F8c8B8d").unwrap(),
             "test_token".to_string(),
             Utc::now() - Duration::hours(1), // Past expiration
             None,
@@ -446,7 +444,7 @@ mod tests {
     
     #[test]
     fn extend_session_should_succeed() {
-        let session = create_test_session();
+        let mut session = create_test_session();
         let new_expiration = Utc::now() + Duration::hours(2);
         
         let result = session.extend(new_expiration);
@@ -456,7 +454,7 @@ mod tests {
     
     #[test]
     fn invalidate_session_should_succeed() {
-        let session = create_test_session();
+        let mut session = create_test_session();
         
         let result = session.invalidate(SessionInvalidationReason::UserLogout);
         assert!(result.is_ok());
@@ -466,7 +464,7 @@ mod tests {
     
     #[test]
     fn extend_revoked_session_should_fail() {
-        let session = create_test_session();
+        let mut session = create_test_session();
         session.invalidate(SessionInvalidationReason::UserLogout).unwrap();
         
         let result = session.extend(Utc::now() + Duration::hours(2));
@@ -475,7 +473,7 @@ mod tests {
     
     #[test]
     fn needs_renewal_logic() {
-        let session = create_test_session();
+        let mut session = create_test_session();
         
         // Should not need renewal initially
         assert!(!session.needs_renewal(Duration::minutes(30)));
@@ -490,8 +488,8 @@ mod tests {
     #[test]
     fn session_matching() {
         let session = Session::create(
-            SessionId::from_uuid(uuid::Uuid::new_v4()),
-            UserId::new(),
+            SessionId::generate(),
+            WalletAddress::new("0x742d35Cc67C9c24d4D3A6A5c9B1c4D6F8F8c8B8d").unwrap(),
             "test_token".to_string(),
             Utc::now() + Duration::hours(1),
             Some("192.168.1.1".to_string()),

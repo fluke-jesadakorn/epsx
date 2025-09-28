@@ -42,6 +42,10 @@ impl DomainEvent for EventCreated {
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Event was successfully delivered
@@ -77,6 +81,10 @@ impl DomainEvent for EventDelivered {
     
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -115,6 +123,10 @@ impl DomainEvent for EventFailed {
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Event retry was scheduled
@@ -152,13 +164,17 @@ impl DomainEvent for EventRetryScheduled {
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Connection was established
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConnectionEstablished {
     pub connection_id: super::value_objects::ConnectionId,
-    pub user_id: super::value_objects::UserId,
+    pub wallet_address: super::value_objects::UserId,
     pub established_at: DateTime<Utc>,
     pub domain_event_id: Uuid,
     pub aggregate_version: u64,
@@ -187,6 +203,10 @@ impl DomainEvent for ConnectionEstablished {
     
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -223,13 +243,17 @@ impl DomainEvent for ConnectionClosed {
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Subscription was created
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubscriptionCreated {
     pub subscription_id: Uuid,
-    pub user_id: super::value_objects::UserId,
+    pub wallet_address: super::value_objects::UserId,
     pub topic: String,
     pub created_at: DateTime<Utc>,
     pub domain_event_id: Uuid,
@@ -259,6 +283,10 @@ impl DomainEvent for SubscriptionCreated {
     
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 

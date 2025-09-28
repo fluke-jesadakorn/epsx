@@ -5,6 +5,7 @@ use axum::{ extract::{ Query, State }, http::StatusCode, response::Json };
 use serde::{ Deserialize, Serialize };
 use tracing::{ error, info, warn };
 use crate::web::auth::routes::AppState;
+use crate::application::shared::CommandHandler;
 
 // Using structs from crate::auth module - no local duplicates needed
 
@@ -135,7 +136,7 @@ pub async fn get_user_permissions(
 
 // Handler: Grant manual permission to wallet
 pub async fn grant_manual_permission(
-  State(_app_state): State<AppState>,
+  State(app_state): State<AppState>,
   Json(request): Json<GrantPermissionRequest>
 ) -> Result<Json<serde_json::Value>, StatusCode> {
   info!(
@@ -144,7 +145,7 @@ pub async fn grant_manual_permission(
   );
 
   // Parse expiration date if provided
-  let _expires_at = if let Some(expires_str) = &request.expires_at {
+  let expires_at = if let Some(expires_str) = &request.expires_at {
     match chrono::DateTime::parse_from_rfc3339(expires_str) {
       Ok(dt) => Some(dt.with_timezone(&chrono::Utc)),
       Err(e) => {
@@ -156,14 +157,70 @@ pub async fn grant_manual_permission(
     None
   };
 
-  // TODO: Fix grant_manual_permission API after consolidation
-  // Temporary response during consolidation
-  warn!("⚠️ Admin: Manual permission granting temporarily disabled during auth consolidation");
+  // Get wallet repository from domain container
+  let wallet_repository = match &app_state.domain_container.wallet_user_repository {
+    Some(repo) => repo.clone(),
+    None => {
+      error!("❌ Admin: Wallet repository not available");
+      return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+  };
+
+  // Create a simple event bus for domain events
+  let event_bus = std::sync::Arc::new(crate::domain::shared_kernel::domain_event::InMemoryEventBus::new());
+
+  // Create the grant permission handler
+  let handler = crate::application::user_management::commands::handlers::GrantPermissionCommandHandler::new(
+    wallet_repository,
+    event_bus,
+  );
+
+  // Process each permission
+  let mut granted_permissions = Vec::new();
+  let mut failed_permissions = Vec::new();
+
+  for permission_str in &request.permissions {
+    // Create the grant permission command
+    let command = crate::application::user_management::commands::models::GrantPermissionCommand::new(
+      request.wallet_address.clone(),
+      permission_str.clone(),
+    )
+    .with_expiration(expires_at.unwrap_or_else(|| chrono::Utc::now() + chrono::Duration::days(365)))
+    .granted_by("admin".to_string())
+    .with_reason(request.grant_reason.clone().unwrap_or_else(|| "Manual admin grant".to_string()));
+
+    // Execute the command
+    match handler.handle(command).await {
+      Ok(response) => {
+        info!("✅ Admin: Successfully granted permission {} to wallet {}", permission_str, request.wallet_address);
+        granted_permissions.push(serde_json::json!({
+          "permission": permission_str,
+          "granted_at": response.granted_at,
+          "expires_at": response.expires_at
+        }));
+      }
+      Err(e) => {
+        error!("❌ Admin: Failed to grant permission {} to wallet {}: {}", permission_str, request.wallet_address, e);
+        failed_permissions.push(serde_json::json!({
+          "permission": permission_str,
+          "error": e.to_string()
+        }));
+      }
+    }
+  }
+
+  let success = !granted_permissions.is_empty();
   let response = serde_json::json!({
-    "success": false,
-    "message": "Permission granting temporarily disabled during system consolidation",
-    "wallet_address": request.wallet_address
+    "success": success,
+    "message": if success { "Permissions granted successfully" } else { "Failed to grant permissions" },
+    "wallet_address": request.wallet_address,
+    "granted_permissions": granted_permissions,
+    "failed_permissions": failed_permissions,
+    "total_requested": request.permissions.len(),
+    "total_granted": granted_permissions.len(),
+    "total_failed": failed_permissions.len()
   });
+
   Ok(Json(response))
 }
 

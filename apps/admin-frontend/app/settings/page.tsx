@@ -1,12 +1,6 @@
 import { SettingsDashboard } from '@/components/admin/SettingsDashboard';
 
 // TODO: Replace with direct API calls
-// import {
-//   getSystemConfig,
-//   getSettingsByCategory,
-//   getFeatureFlags,
-//   getEnvironmentConfig
-// } from '@epsx/server-actions';
 
 // Temporary placeholder functions for migration
 const getSystemConfig = async () => ({ config: {} });

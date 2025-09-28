@@ -82,27 +82,46 @@ export async function GET(request: NextRequest) {
       headers['Authorization'] = `Bearer ${accessToken}`;
     }
 
-    const response = await fetch(url, {
+    let response = await fetch(url, {
       method: 'GET',
       headers,
       next: { revalidate: 60 }, // Cache for 1 minute
     });
+
+    // If authenticated request fails with 401, try public endpoint
+    if (!response.ok && response.status === 401) {
+      console.log('Authenticated request failed, trying public endpoint...');
+      const publicUrl = `${BACKEND_URL}/api/v1/public/analytics/rankings?${params.toString()}`;
+      const publicHeaders = {
+        'Accept': 'application/json',
+        'Cache-Control': 'no-cache',
+      };
+      
+      response = await fetch(publicUrl, {
+        method: 'GET',
+        headers: publicHeaders,
+        next: { revalidate: 60 },
+      });
+    }
 
     if (!response.ok) {
       console.error(`Failed to fetch EPS rankings: ${response.status} ${response.statusText}`);
       return NextResponse.json({ error: 'Failed to fetch rankings' }, { status: response.status });
     }
 
-    const apiResponse: CardDashboardResponse = await response.json();
+    const apiResponse = await response.json();
+    
+    // Handle both authenticated (CardDashboardResponse with .data) and public (with .rankings) responses
+    const rankingsData = apiResponse.rankings || apiResponse.data;
     
     // Validate response structure
-    if (!apiResponse.success || !apiResponse.data || !Array.isArray(apiResponse.data)) {
+    if (!rankingsData || !Array.isArray(rankingsData)) {
       console.error('Invalid API response structure:', apiResponse);
       return NextResponse.json({ error: 'Invalid API response' }, { status: 500 });
     }
 
-    // Transform CardDashboardResponse to EPSRankingsResponse format
-    const epsRankings: EPSRanking[] = apiResponse.data.map((card, index) => {
+    // Transform to EPSRankingsResponse format
+    const epsRankings: EPSRanking[] = rankingsData.map((card: any, index: number) => {
       const latestQuarterly = card.quarterly_performance[0] || {};
       
       return {
@@ -118,6 +137,7 @@ export async function GET(request: NextRequest) {
         volume: null,
         ranking_position: card.rank || index + 1,
         active_status: card.active_status,
+        currency: card.currency || 'USD',
         quarterly_data: card.quarterly_performance.map(q => ({
           quarter: q.quarter,
           date: q.date,
@@ -133,12 +153,12 @@ export async function GET(request: NextRequest) {
     const epsResponse: EPSRankingsResponse = {
       data: epsRankings,
       pagination: {
-        page: apiResponse.pagination.page,
-        limit: apiResponse.pagination.limit,
-        total: apiResponse.pagination.total,
-        totalPages: apiResponse.pagination.totalPages,
-        hasNext: apiResponse.pagination.hasNext,
-        hasPrev: apiResponse.pagination.hasPrev,
+        page: apiResponse.pagination?.page || 1,
+        limit: apiResponse.pagination?.limit || rankingsData.length,
+        total: apiResponse.pagination?.total || rankingsData.length,
+        totalPages: apiResponse.pagination?.totalPages || 1,
+        hasNext: apiResponse.pagination?.hasNext || false,
+        hasPrev: apiResponse.pagination?.hasPrev || false,
       },
     };
 

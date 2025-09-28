@@ -6,7 +6,7 @@
 
 import { useMemo } from 'react';
 import { useAccount } from 'wagmi';
-import { usePureWeb3AuthContext } from '@/providers/PureWeb3AuthProvider';
+import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
 import { AuthLevel, type AuthLevelType, type AuthState } from '@/types/progressive-auth';
 
 export function useAdminProgressiveAuth(): AuthState & {
@@ -17,7 +17,9 @@ export function useAdminProgressiveAuth(): AuthState & {
   hasAnyPermission: (permissions: string[]) => boolean;
 } {
   const { isConnected } = useAccount();
-  const { isAuthenticated, walletAddress, permissions } = usePureWeb3AuthContext();
+  const { isAuthenticated, getWalletAddress, getUserPermissions } = useSharedAuth();
+  const walletAddress = getWalletAddress();
+  const permissions = getUserPermissions();
 
   // Determine current authentication level
   const currentLevel = useMemo(() => {

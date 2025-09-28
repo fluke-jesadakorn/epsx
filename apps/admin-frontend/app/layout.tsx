@@ -6,8 +6,7 @@
 
 import './globals.css';
 import { ErrorBoundary } from '@/components/providers/ErrorBoundary';
-import { Web3Provider } from '@/providers/Web3Provider';
-import { PureWeb3AuthProvider } from '@/providers/PureWeb3AuthProvider';
+import { ClientProviders } from '@/components/providers/ClientProviders';
 import { ServerConditionalLayout } from '@/components/layout/ServerConditionalLayout';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { Toaster } from 'react-hot-toast';
@@ -15,8 +14,8 @@ import { Metadata, Viewport } from 'next';
 
 export const metadata: Metadata = {
   title: 'EPSX Admin',
-  description: 'Administrative interface for EPSX trading platform - User management, analytics, and system monitoring',
-  keywords: 'EPSX, admin, analytics, trading, user management, dashboard',
+  description: 'Administrative interface for EPSX trading platform - User management and system monitoring',
+  keywords: 'EPSX, admin, trading, user management, dashboard',
   authors: [{ name: 'EPSX Team' }],
   creator: 'EPSX',
   publisher: 'EPSX',
@@ -63,15 +62,13 @@ export default function RootLayout({
         <div className="flex min-h-screen flex-col">
           <ErrorBoundary>
             <ThemeProvider>
-              <Web3Provider>
-                <PureWeb3AuthProvider>
-                  <main className="flex-1 relative">
-                    <ServerConditionalLayout>
-                      {children}
-                    </ServerConditionalLayout>
-                  </main>
-                </PureWeb3AuthProvider>
-              </Web3Provider>
+              <ClientProviders>
+                <main className="flex-1 relative">
+                  <ServerConditionalLayout>
+                    {children}
+                  </ServerConditionalLayout>
+                </main>
+              </ClientProviders>
             </ThemeProvider>
           </ErrorBoundary>
         </div>

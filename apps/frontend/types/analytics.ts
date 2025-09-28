@@ -17,6 +17,7 @@ export interface EPSRanking {
   relative_volume?: number | null;
   ranking_position: number | null;
   active_status: string;
+  currency?: string;
   quarterly_data?: QuarterlyEPSData[];
 }
 
@@ -145,6 +146,7 @@ export interface SymbolCardData {
   latest_date: string;
   value: number; // Current price
   active_status: string; // "Active" or "Non Active"
+  currency?: string; // Currency for price formatting
   quarterly_performance: QuarterlyPerformanceData[];
   next_quarter_estimate?: NextQuarterEstimate; // NEW: Next quarter EPS estimate
 }
@@ -207,6 +209,7 @@ export interface PortfolioPosition {
   quarters: PositionQuarterlyData[];
   nextAnnouncement: string;
   gradientClass: string; // CSS class for card gradient
+  currency?: string; // Currency for price formatting
 }
 
 export interface PositionQuarterlyData {

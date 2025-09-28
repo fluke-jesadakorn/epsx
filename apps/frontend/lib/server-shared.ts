@@ -3,22 +3,12 @@
  * Server functions that use next/headers - only for API routes and Server Components
  */
 
-// Server-only auth utilities  
-export {
-  processOAuthCallback as handleOAuthCallback
-} from '../../../shared/auth/oauth-callback';
+// Server-only auth utilities (OAuth callback removed - Web3 migration)
 
-export {
-  createOAuthInitiation,
-  createFrontendOAuthConfig
-} from '../../../shared/auth/oauth-initiate';
+// OAuth initiation removed - migrated to Web3 wallet connection flow
 
-export {
-  getSession,
-  storeSession,
-  clearSession,
-  refreshSession
-} from '../../../shared/auth/session';
+// Session functions removed - migrated to Web3-based session management
+// Use /api/v1/auth/session endpoints instead for Web3 authentication
 
 // URL utilities (server-safe)
 export {

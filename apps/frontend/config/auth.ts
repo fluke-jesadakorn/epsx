@@ -5,100 +5,86 @@
  */
 
 import {
-  // Auth configuration types
+  // Web3 Auth configuration types (OIDC removed)
   AuthConfig,
-  OIDCConfig,
   Web3Config,
   SessionConfig,
   AuthFeatures,
-  AuthEndpoints,
   ProgressiveAuthState,
   
-  // Configuration getters
+  // Configuration getters (Web3 only)
   getFrontendAuthConfig,
-  getFrontendOIDCConfig,
   getSessionConfig,
   getWeb3Config,
   
-  // URL builders
-  buildAuthorizationUrl,
-  buildLogoutUrl,
+  // Web3 URL builders
   buildWeb3ChallengeUrl,
   
-  // Validation functions
-  validateOIDCCallback,
+  // Web3 Validation functions
   validateWeb3Signature,
   
   // Progressive auth helpers
   getRequiredAuthLevel,
   meetsAuthRequirements,
   
-  // Utility functions
-  createPKCEChallenge,
+  // Utility functions (JWT for Web3 sessions)
   parseJWTPayload,
   isJWTExpired,
   getJWTExpiry,
   
   // Legacy compatibility
   authConfig,
-  oidcConfig,
   web3Config,
   sessionConfig
 } from '../../../shared/config/auth';
+import { env } from './env';
 
-// Re-export types
+// Re-export types (Web3-focused)
 export type {
   AuthConfig,
-  OIDCConfig,
   Web3Config,
   SessionConfig,
   AuthFeatures,
-  AuthEndpoints,
   ProgressiveAuthState,
 };
 
-// Re-export all shared auth utilities for frontend use
+// Re-export Web3 auth utilities for frontend use
 export {
   
-  // Configuration getters
+  // Configuration getters (Web3 only)
   getFrontendAuthConfig,
-  getFrontendOIDCConfig,
   getSessionConfig,
   getWeb3Config,
   
-  // URL builders
-  buildAuthorizationUrl,
-  buildLogoutUrl,
+  // Web3 URL builders
   buildWeb3ChallengeUrl,
   
-  // Validation functions
-  validateOIDCCallback,
+  // Web3 Validation functions
   validateWeb3Signature,
   
   // Progressive auth helpers
   getRequiredAuthLevel,
   meetsAuthRequirements,
   
-  // Utility functions
-  createPKCEChallenge,
+  // Utility functions (JWT for Web3 sessions)
   parseJWTPayload,
   isJWTExpired,
   getJWTExpiry
 };
 
 /**
- * Frontend-specific auth configuration
+ * Frontend Web3 auth configuration
  * Uses shared configuration with user context
  */
 export const FRONTEND_AUTH_CONFIG = getFrontendAuthConfig();
 
 /**
- * Frontend OIDC configuration
+ * Frontend Web3 configuration
  */
-export const FRONTEND_OIDC_CONFIG = getFrontendOIDCConfig();
+export const FRONTEND_WEB3_CONFIG = getWeb3Config();
 
 /**
- * Frontend session configuration
+ * Frontend session configuration (Web3)
  */
 export const FRONTEND_SESSION_CONFIG = getSessionConfig('user');
 
@@ -124,43 +110,37 @@ export function getUserRequiredAuthLevel(route: string) {
 }
 
 /**
- * Build user authorization URL
- */
-export function buildUserAuthorizationUrl(options: {
-  state?: string;
-  nonce?: string;
-  codeChallenge?: string;
-  codeChallengeMethod?: string;
-} = {}): string {
-  return buildAuthorizationUrl(FRONTEND_OIDC_CONFIG, options);
-}
-
-/**
- * Build user logout URL
- */
-export function buildUserLogoutUrl(options: {
-  postLogoutRedirectUri?: string;
-  idTokenHint?: string;
-} = {}): string {
-  const defaultRedirectUri = `${FRONTEND_OIDC_CONFIG.redirectUri.split('/api')[0]}`;
-  return buildLogoutUrl(FRONTEND_OIDC_CONFIG, {
-    postLogoutRedirectUri: defaultRedirectUri,
-    ...options
-  });
-}
-
-/**
  * Build Web3 challenge URL for frontend
  */
 export function buildFrontendWeb3ChallengeUrl(walletAddress: string): string {
-  return buildWeb3ChallengeUrl(FRONTEND_OIDC_CONFIG, walletAddress);
+  // Create an OIDC-compatible config for Web3 challenge URL
+  const backendUrl = env.BACKEND_URL || 'http://localhost:8080';
+  const oidcLikeConfig = {
+    clientId: 'epsx-frontend',
+    issuer: backendUrl,
+    scope: ['web3'],
+    responseType: 'code',
+    grantType: 'authorization_code',
+    redirectUri: `${env.APP_URL}/api/auth/callback`,
+    endpoints: {
+      authorize: `${backendUrl}/oauth/authorize`,
+      token: `${backendUrl}/oauth/token`,
+      userinfo: `${backendUrl}/oauth/userinfo`,
+      logout: `${backendUrl}/oauth/logout`,
+      challenge: `${backendUrl}/api/v1/auth/web3/challenge`,
+      verify: `${backendUrl}/api/v1/auth/web3/verify`,
+      refresh: `${backendUrl}/oauth/token`,
+      permissions: `${backendUrl}/api/v1/auth/permissions`
+    }
+  };
+  return buildWeb3ChallengeUrl(oidcLikeConfig, walletAddress);
 }
 
 /**
- * Validate frontend auth callback
+ * Validate Web3 signature for frontend
  */
-export function validateFrontendCallback(params: Record<string, string>) {
-  return validateOIDCCallback(params);
+export function validateFrontendWeb3Signature(signature: string, message: string, address: string) {
+  return validateWeb3Signature(signature, message, address);
 }
 
 /**
@@ -285,6 +265,9 @@ export function createSIWEMessage(walletAddress: string, nonce: string): string 
   const { domain, uri, version, statement } = config.siweConfig;
   
   const message = [
+    `${domain} wants you to sign in with your Ethereum account:`,
+    walletAddress,
+    '',
     statement || 'Sign in to EPSX with your Ethereum wallet',
     '',
     `URI: ${uri}`,
@@ -297,9 +280,8 @@ export function createSIWEMessage(walletAddress: string, nonce: string): string 
   return message;
 }
 
-// Legacy compatibility exports
+// Legacy compatibility exports (Web3-focused)
 export { authConfig };
-export { oidcConfig };
 export { sessionConfig };
 export { web3Config };
 

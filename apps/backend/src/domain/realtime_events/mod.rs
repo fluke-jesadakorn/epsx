@@ -28,8 +28,7 @@ pub use events::{
 
 // Public exports from repository ports
 pub use repository_ports::{
-    EventRepositoryPort, ConnectionRepositoryPort, SubscriptionRepositoryPort,
-    EventHistoryRepositoryPort
+    EventRepositoryPort, ConnectionRepositoryPort
 };
 
 /// Real-time Events bounded context business rules and invariants

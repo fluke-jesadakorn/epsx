@@ -34,7 +34,7 @@ pub fn create_modules_router(app_state: AppState) -> Router<AppState> {
         // Apply simple auth middleware (replaces complex casbin/module permissions)
         .route_layer(from_fn_with_state(
             app_state,
-            crate::web::middleware::stateless_auth_middleware,
+            crate::web::middleware::web3_auth_middleware,
         ))
 }
 

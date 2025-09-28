@@ -70,7 +70,7 @@ export function CreateUserForm({
       displayName: '',
       role: 'user',
       packageTier: 'basic',
-      permissions: [],
+      permissions: [] as string[],
       isActive: true
     }
   });

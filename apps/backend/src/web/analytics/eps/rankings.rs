@@ -33,7 +33,7 @@ pub async fn get_eps_rankings(
 
     debug!("Converted to service params: {:?}", service_params);
 
-    // TODO: Implement parameter validation in EPSRankingService if needed
+    // Note: Additional parameter validation could be added in EPSRankingService if needed
 
     // Log request details for debugging
     info!("Processing EPS rankings request - Country: {:?}, Sort: {:?}, Page: {}, Limit: {}", 

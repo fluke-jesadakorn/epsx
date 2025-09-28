@@ -1,23 +1,21 @@
 use serde::{Serialize, Deserialize};
 use std::collections::HashSet;
 use crate::application::shared::{Command, ApplicationResult};
-use crate::domain::user_management::value_objects::{Email, Permission};
-use crate::domain::shared_kernel::value_objects::UserId;
-
+use crate::domain::user_management::value_objects::Permission;
 /// Command to update user information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateUserCommand {
-    pub user_id: UserId,
-    pub email: Option<Email>,
+    pub wallet_address: String,
+    pub email: Option<String>,
     pub permissions: Option<Vec<String>>,
     pub is_active: Option<bool>,
     pub email_verified: Option<bool>,
 }
 
 impl UpdateUserCommand {
-    pub fn new(user_id: UserId) -> Self {
+    pub fn new(wallet_address: String) -> Self {
         Self {
-            user_id,
+            wallet_address,
             email: None,
             permissions: None,
             is_active: None,
@@ -25,7 +23,7 @@ impl UpdateUserCommand {
         }
     }
     
-    pub fn with_email(mut self, email: Email) -> Self {
+    pub fn with_email(mut self, email: String) -> Self {
         self.email = Some(email);
         self
     }
@@ -49,8 +47,8 @@ impl UpdateUserCommand {
 /// Response after successful user update
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateUserResponse {
-    pub user_id: UserId,
-    pub email: Email,
+    pub wallet_address: String,
+    pub email: String,
     pub email_verified: bool,
     pub is_active: bool,
     pub permissions: HashSet<Permission>,

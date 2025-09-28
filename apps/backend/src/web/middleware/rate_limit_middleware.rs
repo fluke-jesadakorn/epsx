@@ -10,7 +10,7 @@ use tokio::sync::RwLock;
 use chrono::{ DateTime, Utc, Duration };
 use tracing::{ debug, warn };
 use crate::infrastructure::container::DomainContainer;
-use crate::auth::Web3PermissionService;
+use crate::infrastructure::adapters::services::web3_permission_service_adapter::Web3PermissionServiceAdapter;
 
 /// Rate limit tier based on token holdings
 #[derive(Debug, Clone, PartialEq)]
@@ -160,11 +160,11 @@ pub struct Web3RateLimitService {
   holdings_cache: Arc<RwLock<HashMap<String, TokenHoldingsCache>>>,
   config: TokenRateLimitConfig,
   #[allow(dead_code)]
-  web3_service: Arc<Web3PermissionService>,
+  web3_service: Arc<Web3PermissionServiceAdapter>,
 }
 
 impl Web3RateLimitService {
-  pub fn new(web3_service: Arc<Web3PermissionService>) -> Self {
+  pub fn new(web3_service: Arc<Web3PermissionServiceAdapter>) -> Self {
     Self {
       buckets: Arc::new(RwLock::new(HashMap::new())),
       holdings_cache: Arc::new(RwLock::new(HashMap::new())),
@@ -340,10 +340,8 @@ impl Web3RateLimitService {
     // Simplified NFT valuation
     // In production, integrate with OpenSea API, floor price feeds, etc.
 
-    let _nft_collections = vec![
-      ("0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d", "BAYC", 30000.0), // Bored Ape floor
-      ("0x60e4d786628fea6478f785a6d7e704777c86a7c6", "MAYC", 5000.0) // Mutant Ape floor
-    ];
+    let _nft_collections = [("0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d", "BAYC", 30000.0), // Bored Ape floor
+      ("0x60e4d786628fea6478f785a6d7e704777c86a7c6", "MAYC", 5000.0)];
 
     // For demo, return 0 for now
     Ok(0.0)
@@ -420,26 +418,15 @@ pub async fn web3_rate_limit_middleware(
 
 /// Extract wallet address from request headers
 fn extract_wallet_address(headers: &HeaderMap) -> Option<String> {
-  // Try X-Wallet-Address header first
-  if let Some(wallet) = headers.get("x-wallet-address") {
+  // Try X-Wallet-Address header first (standardized header name)
+  if let Some(wallet) = headers.get("X-Wallet-Address") {
     if let Ok(wallet_str) = wallet.to_str() {
       return Some(wallet_str.to_string());
     }
   }
 
-  // Try Authorization header with Bearer token
-  if let Some(auth) = headers.get("authorization") {
-    if let Ok(auth_str) = auth.to_str() {
-      if auth_str.starts_with("Bearer ") {
-        // In a real implementation, you'd decode the JWT and extract wallet address
-        // For demo, we'll look for wallet-like patterns
-        let token = &auth_str[7..];
-        if token.len() == 42 && token.starts_with("0x") {
-          return Some(token.to_string());
-        }
-      }
-    }
-  }
+  // Pure Web3 authentication - no Bearer token support
+  // Rate limiting based on wallet address only
 
   None
 }

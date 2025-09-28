@@ -3,14 +3,15 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::domain::shared_kernel::{DomainEvent, domain_event::EventMetadata};
-use crate::domain::shared_kernel::value_objects::{UserId, SessionId};
+use crate::domain::shared_kernel::value_objects::SessionId;
+use crate::domain::user_management::value_objects::WalletAddress;
 
 /// Event raised when a new session is created
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionCreatedEvent {
     pub metadata: EventMetadata,
     pub session_id: SessionId,
-    pub user_id: UserId,
+    pub wallet_address: WalletAddress,
     pub expires_at: DateTime<Utc>,
     pub ip_address: Option<String>,
     pub user_agent: Option<String>,
@@ -19,7 +20,7 @@ pub struct SessionCreatedEvent {
 impl SessionCreatedEvent {
     pub fn new(
         session_id: SessionId,
-        user_id: UserId,
+        wallet_address: WalletAddress,
         expires_at: DateTime<Utc>,
         ip_address: Option<String>,
         user_agent: Option<String>,
@@ -28,7 +29,7 @@ impl SessionCreatedEvent {
         Self {
             metadata: EventMetadata::new(session_id.to_string(), aggregate_version),
             session_id,
-            user_id,
+            wallet_address,
             expires_at,
             ip_address,
             user_agent,
@@ -60,6 +61,10 @@ impl DomainEvent for SessionCreatedEvent {
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
+    
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Event raised when a session is invalidated
@@ -67,7 +72,7 @@ impl DomainEvent for SessionCreatedEvent {
 pub struct SessionInvalidatedEvent {
     pub metadata: EventMetadata,
     pub session_id: SessionId,
-    pub user_id: UserId,
+    pub wallet_address: WalletAddress,
     pub reason: SessionInvalidationReason,
 }
 
@@ -83,14 +88,14 @@ pub enum SessionInvalidationReason {
 impl SessionInvalidatedEvent {
     pub fn new(
         session_id: SessionId,
-        user_id: UserId,
+        wallet_address: WalletAddress,
         reason: SessionInvalidationReason,
         aggregate_version: u64
     ) -> Self {
         Self {
             metadata: EventMetadata::new(session_id.to_string(), aggregate_version),
             session_id,
-            user_id,
+            wallet_address,
             reason,
         }
     }
@@ -120,6 +125,10 @@ impl DomainEvent for SessionInvalidatedEvent {
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
+    
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Event raised when a session is extended
@@ -127,7 +136,7 @@ impl DomainEvent for SessionInvalidatedEvent {
 pub struct SessionExtendedEvent {
     pub metadata: EventMetadata,
     pub session_id: SessionId,
-    pub user_id: UserId,
+    pub wallet_address: WalletAddress,
     pub old_expires_at: DateTime<Utc>,
     pub new_expires_at: DateTime<Utc>,
 }
@@ -135,7 +144,7 @@ pub struct SessionExtendedEvent {
 impl SessionExtendedEvent {
     pub fn new(
         session_id: SessionId,
-        user_id: UserId,
+        wallet_address: WalletAddress,
         old_expires_at: DateTime<Utc>,
         new_expires_at: DateTime<Utc>,
         aggregate_version: u64
@@ -143,7 +152,7 @@ impl SessionExtendedEvent {
         Self {
             metadata: EventMetadata::new(session_id.to_string(), aggregate_version),
             session_id,
-            user_id,
+            wallet_address,
             old_expires_at,
             new_expires_at,
         }
@@ -173,5 +182,9 @@ impl DomainEvent for SessionExtendedEvent {
     
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
+    }
+    
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }

@@ -131,6 +131,38 @@ export function getWeb3Config(): Web3Config {
   const isMainnet = env.BLOCKCHAIN_NETWORK === 'mainnet';
   const chainId = isMainnet ? 56 : 97; // BSC Mainnet : BSC Testnet
   
+  // Determine the correct domain for SIWE
+  const getSIWEDomain = () => {
+    // If we're in browser, check the current hostname
+    if (typeof window !== 'undefined') {
+      const currentDomain = window.location.hostname;
+      // If accessing via production domain, use it
+      if (currentDomain === 'epsx.io') {
+        return 'epsx.io';
+      }
+      // If accessing via localhost or other, use the configured APP_URL domain
+      return getDomainFromUrl(env.APP_URL);
+    }
+    
+    // Server-side: use production domain if configured URLs suggest production
+    const appUrl = env.APP_URL;
+    if (appUrl && appUrl.includes('epsx.io')) {
+      return 'epsx.io';
+    }
+    
+    // Default to extracting domain from APP_URL
+    return getDomainFromUrl(appUrl);
+  };
+
+  const siweUri = () => {
+    // If we're in browser and on epsx.io, use https://epsx.io
+    if (typeof window !== 'undefined' && window.location.hostname === 'epsx.io') {
+      return 'https://epsx.io';
+    }
+    // Otherwise use the configured APP_URL
+    return env.APP_URL;
+  };
+  
   return {
     networkId: env.BLOCKCHAIN_NETWORK,
     chainId,
@@ -143,8 +175,8 @@ export function getWeb3Config(): Web3Config {
       'binanceWallet'
     ],
     siweConfig: {
-      domain: getDomainFromUrl(env.APP_URL),
-      uri: env.APP_URL,
+      domain: getSIWEDomain(),
+      uri: siweUri(),
       version: '1',
       chainId,
       statement: 'Sign in to EPSX with your Ethereum wallet',

@@ -1,9 +1,10 @@
-use crate::domain::shared_kernel::value_objects::{UserId, SessionId};
+use crate::domain::shared_kernel::value_objects::SessionId;
+use crate::domain::user_management::value_objects::WalletAddress;
 use uuid::Uuid;
 use std::str::FromStr;
 use sha2::{Sha256, Digest};
 
-use crate::domain::shared_kernel::DomainResult;
+use crate::core::errors::AppResult;
 use crate::domain::user_management::{
     Session
 };
@@ -38,14 +39,14 @@ impl SessionMapper {
     }
     
     /// Convert database model to domain aggregate
-    pub fn to_domain(db_session: DbSession) -> DomainResult<Session> {
+    pub fn to_domain(db_session: DbSession) -> AppResult<Session> {
         let session_id = SessionId::from_string(db_session.id.to_string());
-        let user_id = UserId::from_string(db_session.user_id.to_string())?;
+        let wallet_address = WalletAddress::new(db_session.wallet_address.to_string())?;
         
         // Create session from existing data using new schema fields
         let session = Session::load(
             session_id,
-            user_id,
+            wallet_address,
             db_session.access_token,
             db_session.session_token, // This can be refresh_token
             db_session.created_at,
@@ -62,7 +63,7 @@ impl SessionMapper {
     }
     
     /// Convert domain aggregate to new database model
-    pub fn to_new_db(session: &Session) -> DomainResult<NewDbSession> {
+    pub fn to_new_db(session: &Session) -> AppResult<NewDbSession> {
         let session_uuid = Self::session_id_to_uuid(&session.id().to_string());
         let user_uuid = Self::session_id_to_uuid(&session.user_id().to_string());
         
@@ -70,8 +71,8 @@ impl SessionMapper {
         let ip_address = match session.ip_address() {
             Some(ip_str) if !ip_str.is_empty() => {
                 // Validate the IP address format, but store as String
-                let _: std::net::IpAddr = ip_str.parse().map_err(|e| crate::domain::shared_kernel::DomainError::validation_error(
-                        "ip_address", &format!("Invalid IP address: {}", e)
+                let _: std::net::IpAddr = ip_str.parse().map_err(|e| crate::core::errors::AppError::validation_error(
+                        format!("Invalid IP address for ip_address: {}", e)
                     ))?;
                 Some(DbIpAddr(ip_str.to_string()))
             }
@@ -80,7 +81,7 @@ impl SessionMapper {
         
         Ok(NewDbSession {
             id: session_uuid,
-            user_id: user_uuid,
+            wallet_address: user_uuid,
             access_token: session.access_token().to_string(),
             expires_at: session.expires_at(),
             provider: Some("oauth".to_string()),

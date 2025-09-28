@@ -1,6 +1,7 @@
 /**
- * Shared JWT Utilities
- * Provides JWT handling, verification, and payload processing
+ * Shared JWT Utilities - WEB3-FIRST ARCHITECTURE
+ * Provides JWT handling, verification, and payload processing for Web3 sessions
+ * Phase 4.2: Updated to use Web3 app secrets instead of NEXTAUTH_SECRET
  */
 
 import { JWTPayload, jwtVerify, SignJWT } from 'jose';
@@ -33,7 +34,6 @@ export interface EPSXJWTPayload extends JWTPayload {
   id?: string;
   role?: string;
   package_tier?: string;
-  firebase_uid?: string;
   platforms?: string[];
   primary_platform?: string;
   platform_context?: string;
@@ -183,11 +183,14 @@ export function createJWTClaims(
 }
 
 /**
- * Sign JWT token with secret
+ * Sign JWT token with Web3 app secret
+ * Web3-first authentication system
  */
 export async function signJWT(payload: EPSXJWTPayload): Promise<string> {
   const secret =
-    process.env.NEXTAUTH_SECRET || 'your-secret-key-change-in-production';
+    process.env.WEB3_APP_SECRET || 
+    'web3-default-secret-for-development-only-change-in-production';
+  
   const encoder = new TextEncoder();
   const key = encoder.encode(secret);
 
@@ -199,12 +202,15 @@ export async function signJWT(payload: EPSXJWTPayload): Promise<string> {
 }
 
 /**
- * Verify and decode JWT token
+ * Verify and decode JWT token with Web3 app secret
+ * Web3-first authentication system
  */
 export async function verifyJWT(token: string): Promise<EPSXJWTPayload | null> {
   try {
     const secret =
-      process.env.NEXTAUTH_SECRET || 'your-secret-key-change-in-production';
+      process.env.WEB3_APP_SECRET || 
+      'web3-default-secret-for-development-only-change-in-production';
+    
     const encoder = new TextEncoder();
     const key = encoder.encode(secret);
 

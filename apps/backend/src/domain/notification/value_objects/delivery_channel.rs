@@ -5,8 +5,8 @@ use std::collections::HashSet;
 /// Delivery Channel Types - pure domain enums
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum DeliveryChannelType {
-  #[serde(rename = "fcm_push")]
-  FcmPush,
+  #[serde(rename = "web_push")]
+  WebPush,
   #[serde(rename = "push")]
   Push,
   #[serde(rename = "in_app")]
@@ -22,7 +22,7 @@ pub enum DeliveryChannelType {
 impl Display for DeliveryChannelType {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     let s = match self {
-      DeliveryChannelType::FcmPush => "FCM Push",
+      DeliveryChannelType::WebPush => "Web Push",
       DeliveryChannelType::Push => "Push",
       DeliveryChannelType::InApp => "In-App",
       DeliveryChannelType::Email => "Email",
@@ -103,7 +103,7 @@ impl DeliveryChannel {
   /// Check if this channel supports rich content (images, buttons, etc.)
   pub fn supports_rich_content(&self) -> bool {
     match self.channel_type {
-      DeliveryChannelType::FcmPush => true,
+      DeliveryChannelType::WebPush => true,
       DeliveryChannelType::Push => true,
       DeliveryChannelType::InApp => true,
       DeliveryChannelType::Email => true,
@@ -115,7 +115,7 @@ impl DeliveryChannel {
   /// Check if this channel supports real-time delivery
   pub fn is_realtime(&self) -> bool {
     match self.channel_type {
-      DeliveryChannelType::FcmPush => true,
+      DeliveryChannelType::WebPush => true,
       DeliveryChannelType::Push => true,
       DeliveryChannelType::InApp => true,
       DeliveryChannelType::Email => false,
@@ -127,7 +127,7 @@ impl DeliveryChannel {
   /// Get typical delivery time in seconds
   pub fn typical_delivery_time_seconds(&self) -> u32 {
     match self.channel_type {
-      DeliveryChannelType::FcmPush => 5, // Near instant
+      DeliveryChannelType::WebPush => 5, // Near instant
       DeliveryChannelType::Push => 5, // Near instant
       DeliveryChannelType::InApp => 1, // Instant
       DeliveryChannelType::Email => 60, // 1 minute
@@ -139,11 +139,11 @@ impl DeliveryChannel {
   /// Get maximum content length for this channel
   pub fn max_content_length(&self) -> Option<ContentLimits> {
     match self.channel_type {
-      DeliveryChannelType::FcmPush =>
+      DeliveryChannelType::WebPush =>
         Some(ContentLimits {
           title_max: 50,
           body_max: 150,
-          total_max: 4000, // FCM payload limit
+          total_max: 4000, // Web Push payload limit
         }),
       DeliveryChannelType::Push =>
         Some(ContentLimits {
@@ -176,7 +176,7 @@ impl DeliveryChannel {
   /// Get cost tier for this delivery channel
   pub fn cost_tier(&self) -> DeliveryCost {
     match self.channel_type {
-      DeliveryChannelType::FcmPush => DeliveryCost::Free,
+      DeliveryChannelType::WebPush => DeliveryCost::Free,
       DeliveryChannelType::Push => DeliveryCost::Free,
       DeliveryChannelType::InApp => DeliveryCost::Free,
       DeliveryChannelType::Email => DeliveryCost::Low,
@@ -188,7 +188,7 @@ impl DeliveryChannel {
   /// Check if channel requires user opt-in
   pub fn requires_opt_in(&self) -> bool {
     match self.channel_type {
-      DeliveryChannelType::FcmPush => true,
+      DeliveryChannelType::WebPush => true,
       DeliveryChannelType::Push => true,
       DeliveryChannelType::InApp => false,
       DeliveryChannelType::Email => true,
@@ -200,7 +200,7 @@ impl DeliveryChannel {
   /// Get privacy level for this channel
   pub fn privacy_level(&self) -> PrivacyLevel {
     match self.channel_type {
-      DeliveryChannelType::FcmPush => PrivacyLevel::Medium,
+      DeliveryChannelType::WebPush => PrivacyLevel::Medium,
       DeliveryChannelType::Push => PrivacyLevel::Medium,
       DeliveryChannelType::InApp => PrivacyLevel::Low,
       DeliveryChannelType::Email => PrivacyLevel::High,
@@ -235,7 +235,7 @@ impl RetryConfiguration {
   /// Default retry configuration for a channel
   pub fn default_for_channel(channel: &DeliveryChannelType) -> Self {
     match channel {
-      DeliveryChannelType::FcmPush =>
+      DeliveryChannelType::WebPush =>
         Self {
           max_attempts: 3,
           initial_delay_seconds: 30,
@@ -474,18 +474,18 @@ mod tests {
 
   #[test]
   fn test_delivery_channel_creation() {
-    let channel = DeliveryChannel::new(DeliveryChannelType::FcmPush);
+    let channel = DeliveryChannel::new(DeliveryChannelType::WebPush);
     assert!(channel.is_enabled());
-    assert_eq!(channel.channel_type(), &DeliveryChannelType::FcmPush);
+    assert_eq!(channel.channel_type(), &DeliveryChannelType::WebPush);
   }
 
   #[test]
   fn test_channel_properties() {
-    let fcm = DeliveryChannel::new(DeliveryChannelType::FcmPush);
-    assert!(fcm.supports_rich_content());
-    assert!(fcm.is_realtime());
-    assert_eq!(fcm.cost_tier(), DeliveryCost::Free);
-    assert!(fcm.requires_opt_in());
+    let web_push = DeliveryChannel::new(DeliveryChannelType::WebPush);
+    assert!(web_push.supports_rich_content());
+    assert!(web_push.is_realtime());
+    assert_eq!(web_push.cost_tier(), DeliveryCost::Free);
+    assert!(web_push.requires_opt_in());
 
     let sms = DeliveryChannel::new(DeliveryChannelType::Sms);
     assert!(!sms.supports_rich_content());
@@ -495,8 +495,8 @@ mod tests {
 
   #[test]
   fn test_content_limits() {
-    let fcm = DeliveryChannel::new(DeliveryChannelType::FcmPush);
-    let limits = fcm.max_content_length().unwrap();
+    let web_push = DeliveryChannel::new(DeliveryChannelType::WebPush);
+    let limits = web_push.max_content_length().unwrap();
     assert_eq!(limits.title_max, 50);
     assert_eq!(limits.body_max, 150);
 
@@ -522,7 +522,7 @@ mod tests {
   #[test]
   fn test_multi_channel_config() {
     let channels = vec![
-      DeliveryChannel::new(DeliveryChannelType::FcmPush),
+      DeliveryChannel::new(DeliveryChannelType::WebPush),
       DeliveryChannel::new(DeliveryChannelType::Email),
       DeliveryChannel::disabled(DeliveryChannelType::Sms)
     ];

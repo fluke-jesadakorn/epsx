@@ -1,5 +1,5 @@
-// Permission Template Plan Management Handlers
-// Manages plans using permission templates instead of tier-based logic
+// Permission Group Plan Management Handlers
+// Manages plans using permission groups instead of tier-based logic
 
 use axum::{
     extract::{Path, Query, State},
@@ -13,71 +13,70 @@ use rust_decimal::Decimal;
 use std::collections::HashMap;
 
 use crate::web::auth::AppState;
-use crate::auth::permissions::derive_tier_from_ranking_limit;
 
-/// Helper function to derive display tier from permissions for UI compatibility
-fn derive_display_tier_from_permissions(permissions: &[String]) -> String {
+/// Helper function to derive permission group name from permissions
+fn derive_group_from_permissions(permissions: &[String]) -> String {
     // Extract ranking limit from permissions
     for perm in permissions {
         if let Some(limit_str) = perm.strip_prefix("epsx:rankings:view:") {
             if limit_str == "unlimited" {
-                return "ENTERPRISE".to_string();
+                return "Enterprise Access Group".to_string();
             }
             if let Ok(limit) = limit_str.parse::<i32>() {
-                return derive_tier_from_ranking_limit(limit);
+                return match limit {
+                    0..=3 => "Basic Access Group".to_string(),
+                    4..=25 => "Standard Access Group".to_string(),
+                    26..=50 => "Premium Access Group".to_string(),
+                    51..=100 => "Professional Access Group".to_string(),
+                    _ => "Enterprise Access Group".to_string(),
+                };
             }
         }
     }
     
     // Check for wildcard permissions
     if permissions.iter().any(|p| p == "epsx:*:*" || p == "admin:*:*") {
-        return "ENTERPRISE".to_string();
+        return "Enterprise Access Group".to_string();
     }
     
-    "FREE".to_string() // Default fallback
+    "Basic Access Group".to_string() // Default fallback
 }
 
-/// Get permissions from template name (mock implementation)
-fn get_permissions_from_template(template_name: &str) -> Vec<String> {
-    match template_name {
-        "Free Template" => vec![
+/// Get permissions from group template name (mock implementation)
+fn get_permissions_from_group_template(group_name: &str) -> Vec<String> {
+    match group_name {
+        "Basic Access Group" => vec![
             "epsx:rankings:view:3".to_string(),
             "epsx:trading:basic".to_string(),
             "epsx:portfolio:view".to_string(),
         ],
-        "Bronze Template" => vec![
-            "epsx:rankings:view:5".to_string(),
-            "epsx:trading:basic".to_string(),
-            "epsx:portfolio:view".to_string(),
-            "epsx:portfolio:history".to_string(),
-        ],
-        "Silver Template" => vec![
+        "Standard Access Group" => vec![
             "epsx:rankings:view:25".to_string(),
             "epsx:trading:basic".to_string(),
             "epsx:trading:advanced".to_string(),
             "epsx:portfolio:view".to_string(),
             "epsx:analytics:basic".to_string(),
         ],
-        "Gold Template" => vec![
+        "Premium Access Group" => vec![
             "epsx:rankings:view:50".to_string(),
             "epsx:trading:premium".to_string(),
             "epsx:portfolio:tools".to_string(),
             "epsx:analytics:advanced".to_string(),
         ],
-        "Platinum Template" => vec![
+        "Professional Access Group" => vec![
             "epsx:rankings:view:100".to_string(),
             "epsx:trading:premium".to_string(),
             "epsx:analytics:premium".to_string(),
             "epsx:research:reports".to_string(),
             "epsx:dashboards:custom".to_string(),
         ],
-        "Enterprise Template" => vec![
+        "Enterprise Access Group" => vec![
             "epsx:rankings:view:unlimited".to_string(),
             "epsx:*:*".to_string(),
             "epsx-pay:*:*".to_string(),
             "epsx-token:*:*".to_string(),
         ],
-        _ => vec!["epsx:rankings:view:3".to_string()], // Default to free
+        _ => vec!["epsx:rankings:view:3".to_string()], // Default to basic access
     }
 }
 
@@ -127,7 +126,7 @@ fn generate_quota_from_permissions(permissions: &[String]) -> serde_json::Value 
 pub struct CreatePlanRequest {
     pub name: String,
     pub description: Option<String>,
-    pub permission_template_name: String, // e.g., "Bronze Template", "Enterprise Template"
+    pub permission_group_name: String, // e.g., "Standard Access Group", "Enterprise Access Group"
     pub current_price: Decimal,
     pub currency: String,
     pub target_audience: String,
@@ -137,11 +136,11 @@ pub struct CreatePlanRequest {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct PermissionTemplateRequest {
+pub struct PermissionGroupRequest {
     pub name: String,
     pub description: Option<String>,
     pub permissions: Vec<String>,
-    pub display_tier: String, // For UI compatibility: "BRONZE", "SILVER", etc.
+    pub group_type: String, // Group type: "basic", "standard", "premium", etc.
 }
 
 #[derive(Debug, Serialize)]
@@ -149,12 +148,12 @@ pub struct PlanResponse {
     pub id: i32,
     pub name: String,
     pub description: Option<String>,
-    pub permission_template_name: String,
+    pub permission_group_name: String,
     pub current_price: Decimal,
     pub currency: String,
     pub target_audience: String,
     pub billing_model: String,
-    pub display_tier: String, // Derived from permissions for UI
+    pub group_type: String, // Group type derived from permissions
     pub is_active: bool,
     pub permissions: Vec<String>,
     pub metadata: Option<serde_json::Value>,
@@ -165,12 +164,12 @@ pub struct PlanResponse {
 }
 
 #[derive(Debug, Serialize)]
-pub struct PermissionTemplateResponse {
+pub struct PermissionGroupResponse {
     pub id: String,
     pub name: String,
     pub description: Option<String>,
     pub permissions: Vec<String>,
-    pub display_tier: String,
+    pub group_type: String,
     pub is_active: bool,
     pub created_at: DateTime<Utc>,
 }
@@ -182,19 +181,19 @@ pub async fn create_plan_handler(
 ) -> Result<JsonResponse<PlanResponse>, StatusCode> {
     let plan_id = rand::random::<i32>().abs();
     
-    // Derive display tier from permissions for UI compatibility
-    let display_tier = derive_display_tier_from_permissions(&request.permissions);
+    // Derive group type from permissions
+    let group_type = derive_group_from_permissions(&request.permissions);
     
     let plan_response = PlanResponse {
         id: plan_id,
         name: request.name,
         description: request.description,
-        permission_template_name: request.permission_template_name,
+        permission_group_name: request.permission_group_name,
         current_price: request.current_price,
         currency: request.currency,
         target_audience: request.target_audience,
         billing_model: request.billing_model,
-        display_tier,
+        group_type,
         is_active: true,
         permissions: request.permissions,
         metadata: request.metadata,
@@ -207,9 +206,9 @@ pub async fn create_plan_handler(
     tracing::info!(
         plan_id = plan_id,
         plan_name = %plan_response.name,
-        permission_template = %plan_response.permission_template_name,
-        display_tier = %plan_response.display_tier,
-        "Permission template plan created"
+        permission_group = %plan_response.permission_group_name,
+        group_type = %plan_response.group_type,
+        "Permission group plan created"
     );
 
     Ok(JsonResponse(plan_response))
@@ -223,29 +222,29 @@ pub async fn list_plans_handler(
     let plans = vec![
         serde_json::json!({
             "id": 1,
-            "name": "Bronze Plan",
-            "description": "Enhanced access with basic features",
-            "permission_template_name": "Bronze Template",
+            "name": "Standard Plan",
+            "description": "Enhanced access with standard features",
+            "permission_group_name": "Standard Access Group",
             "current_price": "9.99",
             "currency": "USD",
             "target_audience": "web_users",
             "billing_model": "subscription",
-            "display_tier": "BRONZE",
-            "permissions": ["epsx:rankings:view:5", "epsx:trading:basic", "epsx:portfolio:view"],
+            "group_type": "Standard Access Group",
+            "permissions": ["epsx:rankings:view:25", "epsx:trading:basic", "epsx:portfolio:view"],
             "is_active": true,
             "subscriber_count": 150,
             "revenue_last_30_days": "1499.85"
         }),
         serde_json::json!({
             "id": 2,
-            "name": "Gold Plan", 
+            "name": "Premium Plan", 
             "description": "VIP access with premium features",
-            "permission_template_name": "Gold Template",
+            "permission_group_name": "Premium Access Group",
             "current_price": "49.99",
             "currency": "USD",
             "target_audience": "power_users",
             "billing_model": "subscription", 
-            "display_tier": "GOLD",
+            "group_type": "Premium Access Group",
             "permissions": ["epsx:rankings:view:50", "epsx:trading:premium", "epsx:analytics:advanced"],
             "is_active": true,
             "subscriber_count": 75,
@@ -255,12 +254,12 @@ pub async fn list_plans_handler(
             "id": 3,
             "name": "Enterprise Plan", 
             "description": "Unlimited access for enterprise customers",
-            "permission_template_name": "Enterprise Template",
+            "permission_group_name": "Enterprise Access Group",
             "current_price": "199.99",
             "currency": "USD",
             "target_audience": "enterprise",
             "billing_model": "subscription", 
-            "display_tier": "ENTERPRISE",
+            "group_type": "Enterprise Access Group",
             "permissions": ["epsx:*:*", "epsx-pay:*:*", "epsx-token:*:*"],
             "is_active": true,
             "subscriber_count": 25,
@@ -275,7 +274,7 @@ pub async fn list_plans_handler(
             "total_count": 3,
             "has_more": false
         },
-        "message": "Permission template plans retrieved successfully"
+        "message": "Permission group plans retrieved successfully"
     })))
 }
 
@@ -285,43 +284,43 @@ pub async fn get_plan_handler(
     Path(plan_id): Path<i32>,
 ) -> Result<JsonResponse<PlanResponse>, StatusCode> {
     // Mock plan based on ID
-    let (name, template_name, permissions, price, tier) = match plan_id {
+    let (name, group_name, permissions, price, group_type) = match plan_id {
         1 => (
-            "Bronze Plan".to_string(),
-            "Bronze Template".to_string(),
-            vec!["epsx:rankings:view:5".to_string(), "epsx:trading:basic".to_string()],
+            "Standard Plan".to_string(),
+            "Standard Access Group".to_string(),
+            vec!["epsx:rankings:view:25".to_string(), "epsx:trading:basic".to_string()],
             Decimal::new(999, 2), // 9.99
-            "BRONZE".to_string()
+            "Standard Access Group".to_string()
         ),
         2 => (
-            "Gold Plan".to_string(),
-            "Gold Template".to_string(),
+            "Premium Plan".to_string(),
+            "Premium Access Group".to_string(),
             vec!["epsx:rankings:view:50".to_string(), "epsx:trading:premium".to_string()],
             Decimal::new(4999, 2), // 49.99
-            "GOLD".to_string()
+            "Premium Access Group".to_string()
         ),
         _ => (
             "Enterprise Plan".to_string(),
-            "Enterprise Template".to_string(),
+            "Enterprise Access Group".to_string(),
             vec!["epsx:*:*".to_string(), "epsx-pay:*:*".to_string()],
             Decimal::new(19999, 2), // 199.99
-            "ENTERPRISE".to_string()
+            "Enterprise Access Group".to_string()
         )
     };
     
     let plan_response = PlanResponse {
         id: plan_id,
         name,
-        description: Some("Permission template-based plan".to_string()),
-        permission_template_name: template_name,
+        description: Some("Permission group-based plan".to_string()),
+        permission_group_name: group_name,
         current_price: price,
         currency: "USD".to_string(),
         target_audience: "web_users".to_string(),
         billing_model: "subscription".to_string(),
-        display_tier: tier,
+        group_type,
         is_active: true,
         permissions,
-        metadata: Some(serde_json::json!({"permission_based": true})),
+        metadata: Some(serde_json::json!({"group_based": true})),
         created_at: Utc::now(),
         updated_at: Some(Utc::now()),
         subscriber_count: 25,
@@ -348,9 +347,9 @@ fn generate_api_key() -> String {
 /// Mock subscription creation
 #[derive(Debug, Deserialize)]
 pub struct CreateSubscriptionRequest {
-    pub user_id: String,
+    pub wallet_address: String,
     pub plan_id: i32,
-    pub permission_template_name: String, // e.g., "Gold Template"
+    pub permission_group_name: String, // e.g., "Premium Access Group"
     pub access_context: String,
     pub api_key_name: Option<String>,
     pub expires_at: Option<DateTime<Utc>>,
@@ -361,11 +360,11 @@ pub struct CreateSubscriptionRequest {
 #[derive(Debug, Serialize)]
 pub struct SubscriptionResponse {
     pub id: String,
-    pub user_id: String,
+    pub wallet_address: String,
     pub plan_id: i32,
-    pub permission_template_name: String,
+    pub permission_group_name: String,
     pub permissions_granted: Vec<String>,
-    pub display_tier: String,
+    pub group_type: String,
     pub access_context: String,
     pub api_key: Option<String>,
     pub api_key_name: Option<String>,
@@ -392,20 +391,20 @@ pub async fn create_subscription_handler(
         None
     };
     
-    // Get permissions from template (mock implementation)
-    let permissions_granted = get_permissions_from_template(&request.permission_template_name);
-    let display_tier = derive_display_tier_from_permissions(&permissions_granted);
+    // Get permissions from group template (mock implementation)
+    let permissions_granted = get_permissions_from_group_template(&request.permission_group_name);
+    let group_type = derive_group_from_permissions(&permissions_granted);
     
     // Generate quota limits from permissions
     let quota_limits = generate_quota_from_permissions(&permissions_granted);
     
     let response = SubscriptionResponse {
         id: subscription_id,
-        user_id: request.user_id,
+        wallet_address: request.wallet_address,
         plan_id: request.plan_id,
-        permission_template_name: request.permission_template_name,
+        permission_group_name: request.permission_group_name,
         permissions_granted,
-        display_tier,
+        group_type,
         access_context: request.access_context,
         api_key,
         api_key_name: request.api_key_name,
@@ -421,10 +420,10 @@ pub async fn create_subscription_handler(
     
     tracing::info!(
         subscription_id = %response.id,
-        user_id = %response.user_id,
-        template = %response.permission_template_name,
-        tier = %response.display_tier,
-        "Permission template subscription created"
+        wallet_address = %response.wallet_address,
+        group = %response.permission_group_name,
+        group_type = %response.group_type,
+        "Permission group subscription created"
     );
     
     Ok(JsonResponse(response))

@@ -4,7 +4,9 @@ use sqlx::PgPool;
 use std::env;
 use uuid::Uuid;
 
-use crate::auth::web3_auth_service::{Web3AuthService, VerifyRequest};
+use crate::auth::unified_web3_auth_service::{
+    UnifiedWeb3AuthService, Web3VerificationRequest, Web3AuthChallenge, Web3AuthError,
+};
 
 #[cfg(test)]
 mod tests {
@@ -23,16 +25,12 @@ mod tests {
     }
 
     async fn cleanup_test_data(pool: &PgPool) -> Result<()> {
-        // Clean up test data
+        // Clean up test data for Web3-first system
         sqlx::query!("DELETE FROM web3_auth_nonces WHERE nonce LIKE 'test_%'")
             .execute(pool)
             .await?;
         
-        sqlx::query!("DELETE FROM wallet_migrations WHERE wallet_address LIKE '0xtest%'")
-            .execute(pool)
-            .await?;
-        
-        sqlx::query!("DELETE FROM users WHERE email LIKE '%@wallet.epsx.io' AND email LIKE '0xtest%'")
+        sqlx::query!("DELETE FROM wallet_users WHERE wallet_address LIKE '0xtest%'")
             .execute(pool)
             .await?;
         
@@ -42,12 +40,19 @@ mod tests {
     #[tokio::test]
     async fn test_generate_challenge_success() {
         let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
+        let service = UnifiedWeb3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
         
         let wallet = "0x742d35Cc6634C0532925a3b8D369D7763F3c45c6";
         let challenge = service.generate_challenge(wallet).await.unwrap();
         
         // Verify challenge properties
+        assert!(!challenge.nonce.is_empty());
+        assert!(challenge.message.contains(wallet));
+        assert!(challenge.wallet_address == wallet);
+        
+        // Clean up
+        cleanup_test_data(&pool).await.unwrap();
+    }
         assert!(!challenge.nonce.is_empty());
         assert!(challenge.message.contains("epsx.io"));
         assert!(challenge.message.contains("Sign in to EPSX trading platform"));

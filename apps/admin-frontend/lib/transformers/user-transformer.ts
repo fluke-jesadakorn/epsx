@@ -10,7 +10,6 @@ export interface BackendUserSummary {
   // Identity fields
   id: string;
   wallet_address: string; // Primary identifier for wallet authentication
-  firebase_uid?: string;
   email?: string; // Optional for wallet authentication
   display_name?: string;
   
@@ -66,7 +65,6 @@ export function transformBackendUser(backendUser: BackendUserSummary): User {
     
     // Authentication context
     sub: backendUser.id, // Use ID as sub
-    firebaseUid: backendUser.firebase_uid,
     
     // Permissions and tier  
     permissions: backendUser.permissions || [],
@@ -157,7 +155,6 @@ export function createMockUser(overrides: Partial<BackendUserSummary> = {}): Use
   const mockBackendUser: BackendUserSummary = {
     id: 'mock-user-id',
     wallet_address: '0x1234567890123456789012345678901234567890',
-    firebase_uid: 'mock-firebase-uid',
     email: 'user@example.com',
     display_name: 'Mock User',
     role: 'user',
@@ -198,7 +195,6 @@ export function validateBackendUser(data: any): data is BackendUserSummary {
   // Allow optional fields to be missing or have correct types
   const optionalFieldsValid = (
     (data.email === undefined || typeof data.email === 'string') &&
-    (data.firebase_uid === undefined || typeof data.firebase_uid === 'string') &&
     (data.display_name === undefined || typeof data.display_name === 'string') &&
     (data.role === undefined || typeof data.role === 'string') &&
     (data.status === undefined || typeof data.status === 'string') &&

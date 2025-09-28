@@ -17,9 +17,9 @@ impl UserId {
         if id.is_empty() {
             return Err(ValueObjectError::Required("User ID cannot be empty".to_string()));
         }
-        let user_id = Self(id);
-        user_id.validate()?;
-        Ok(user_id)
+        let wallet_address = Self(id);
+        wallet_address.validate()?;
+        Ok(wallet_address)
     }
 
     pub fn from_string_unchecked(id: String) -> Self {

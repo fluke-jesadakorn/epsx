@@ -8,7 +8,7 @@ use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BillingSummary {
-    pub user_id: String,
+    pub wallet_address: String,
     pub plan_id: Option<i32>,
     pub billing_period_start: DateTime<Utc>,
     pub billing_period_end: DateTime<Utc>,
@@ -50,7 +50,7 @@ impl BillingCalculationService {
         }
 
         BillingSummary {
-            user_id: usage.user_id.clone(),
+            wallet_address: usage.wallet_address.clone(),
             plan_id: usage.plan_id,
             billing_period_start: usage.billing_period_start,
             billing_period_end: usage.billing_period_end,

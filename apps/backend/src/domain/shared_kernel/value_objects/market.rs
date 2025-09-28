@@ -1,5 +1,6 @@
 use serde::{ Deserialize, Serialize };
-use crate::domain::shared_kernel::{ ValueObject, DomainError, DomainResult };
+use crate::core::errors::{AppError, AppResult};
+use crate::domain::shared_kernel::ValueObject;
 
 /// Market/Exchange enumeration
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -20,7 +21,7 @@ pub enum Market {
 }
 
 impl Market {
-  pub fn new(market: impl Into<String>) -> DomainResult<Self> {
+  pub fn new(market: impl Into<String>) -> AppResult<Self> {
     let market_str = market.into().trim().to_uppercase();
 
     match market_str.as_str() {
@@ -39,10 +40,7 @@ impl Market {
       _ => {
         if market_str.is_empty() {
           Err(
-            DomainError::validation_error(
-              "Market cannot be empty".to_string(),
-              "Market"
-            )
+            AppError::validation_error("Market cannot be empty".to_string())
           )
         } else {
           Ok(Market::Other(market_str))
@@ -89,16 +87,13 @@ impl Market {
 }
 
 impl ValueObject for Market {
-  type Error = crate::domain::shared_kernel::DomainError;
+  type Error = AppError;
 
   fn validate(&self) -> Result<(), Self::Error> {
     match self {
       Market::Other(name) if name.is_empty() => {
         Err(
-          crate::domain::shared_kernel::DomainError::validation_error(
-            "Market name cannot be empty".to_string(),
-            "Market"
-          )
+          AppError::validation_error("Market name cannot be empty".to_string())
         )
       }
       _ => Ok(()),

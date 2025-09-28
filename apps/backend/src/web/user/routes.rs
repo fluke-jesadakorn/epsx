@@ -6,28 +6,24 @@ use super::handlers::{ get_profile_handler, update_profile_handler };
 // Legacy permissions module removed for Web3-first migration
 // use super::permissions::{ get_user_permissions, check_user_permission };
 
-/// Create v1 API routes for user operations with RESTful patterns
-pub fn user_routes_v1() -> Router<AppState> {
-  // RESTful user routes (available to all authenticated users)
-  let user_routes = Router::new()
-    .route("/api/v1/users/me", get(get_profile_handler))
-    .route("/api/v1/users/me", put(update_profile_handler))
-    // .route("/api/v1/users/me/expiration", get(get_expiration_status_handler)) // Handler missing
-    // .route("/api/v1/users/me/notifications", get(get_notifications_handler)) // Handler missing
-    // .route("/api/v1/users/me/notifications/mark-read", post(mark_notifications_read_handler)) // Handler missing
-    // .route("/api/v1/users/me/permissions", get(get_user_permissions))
-    // .route("/api/v1/users/me/permissions/check", get(check_user_permission))
+/// Create v1 API routes for wallet operations with Web3-first RESTful patterns
+pub fn wallet_routes_v1() -> Router<AppState> {
+  // Web3 wallet routes (available to authenticated wallets)
+  let wallet_routes = Router::new()
+    .route("/api/v1/wallet/profile", get(get_profile_handler))
+    .route("/api/v1/wallet/profile", put(update_profile_handler))
+    // Legacy email-based routes removed
+    // .route("/api/v1/wallet/permissions", get(get_wallet_permissions)) // Use tier-based permissions
     ;
 
-  // Premium features (user role and above - simple role system)
+  // Premium wallet features (Silver tier and above)
   let premium_routes = Router::new()
-    // .route("/api/v1/users/me/expiration/checks", post(request_expiration_check_handler)) // Handler missing
     .route(
       "/api/v1/health",
       get(|| async { "OK" })
     );
 
-  // Admin features (require admin role - simple role system)
+  // Admin features (require admin wallet permissions)
   let admin_routes = Router::new()
     // .route("/api/v1/admin/users", get(list_users_handler)) // Handler missing
     // .route("/api/v1/admin/users/:id", delete(delete_user_handler)) // Handler missing
@@ -48,16 +44,17 @@ pub fn user_routes_v1() -> Router<AppState> {
   // .route("/users/:id", delete(delete_user_handler)) // Handler missing
 
   Router::new()
-    .merge(user_routes)
+    .merge(wallet_routes)
     .merge(premium_routes)
     .merge(admin_routes)
     .merge(legacy_routes)
 }
 
-/// Create legacy user routes (backward compatibility)
+/// Create legacy user routes (backward compatibility) - DEPRECATED
+/// Use wallet_routes_v1() for Web3-first operations
 pub fn user_routes() -> Router<AppState> {
   Router::new()
-    // Current user profile operations
+    // Legacy wallet profile operations (mapped to /wallet/profile internally)
     .route("/me", get(get_profile_handler))
     .route("/me", put(update_profile_handler))
 

@@ -26,7 +26,7 @@ const ADMIN_CONFIG: SessionValidatorConfig = {
 
 export class AdminSessionValidator {
   private static instance: AdminSessionValidator
-  private baseValidator: BaseSessionValidator
+  public baseValidator: BaseSessionValidator
 
   private constructor() {
     this.baseValidator = BaseSessionValidator.getInstance(ADMIN_CONFIG)

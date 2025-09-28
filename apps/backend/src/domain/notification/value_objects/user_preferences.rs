@@ -51,7 +51,7 @@ impl Display for NotificationType {
 /// Encapsulates user's notification preferences, quiet hours, and channel settings
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UserNotificationPreferences {
-    user_id: uuid::Uuid,
+    wallet_address: uuid::Uuid,
     channel_settings: ChannelSettings,
     content_preferences: ContentPreferences,
     quiet_hours: Option<QuietHours>,
@@ -63,9 +63,9 @@ pub struct UserNotificationPreferences {
 
 impl UserNotificationPreferences {
     /// Create new user preferences with defaults
-    pub fn new(user_id: uuid::Uuid) -> Self {
+    pub fn new(wallet_address: uuid::Uuid) -> Self {
         Self {
-            user_id,
+            wallet_address,
             channel_settings: ChannelSettings::default(),
             content_preferences: ContentPreferences::default(),
             quiet_hours: None,
@@ -77,20 +77,20 @@ impl UserNotificationPreferences {
     }
 
     /// Create preferences with timezone
-    pub fn with_timezone(user_id: uuid::Uuid, timezone: String) -> Result<Self, String> {
+    pub fn with_timezone(wallet_address: uuid::Uuid, timezone: String) -> Result<Self, String> {
         // Basic timezone validation
         if timezone.is_empty() {
             return Err("Timezone cannot be empty".to_string());
         }
 
-        let mut prefs = Self::new(user_id);
+        let mut prefs = Self::new(wallet_address);
         prefs.timezone = timezone;
         Ok(prefs)
     }
 
-    /// Get user ID
-    pub fn user_id(&self) -> uuid::Uuid {
-        self.user_id
+    /// Get wallet address
+    pub fn wallet_address(&self) -> uuid::Uuid {
+        self.wallet_address
     }
 
     /// Get channel settings
@@ -258,7 +258,7 @@ impl UserNotificationPreferences {
 /// Channel-specific settings
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ChannelSettings {
-    fcm_push_enabled: bool,
+    web_push_enabled: bool,
     in_app_enabled: bool,
     email_enabled: bool,
     sms_enabled: bool,
@@ -268,8 +268,8 @@ impl ChannelSettings {
     /// Check if a specific channel is enabled
     pub fn is_channel_enabled(&self, channel: &DeliveryChannelType) -> bool {
         match channel {
-            DeliveryChannelType::FcmPush => self.fcm_push_enabled,
-            DeliveryChannelType::Push => self.fcm_push_enabled, // Map to FCM push
+            DeliveryChannelType::WebPush => self.web_push_enabled,
+            DeliveryChannelType::Push => self.web_push_enabled, // Map to Web Push
             DeliveryChannelType::InApp => self.in_app_enabled,
             DeliveryChannelType::Email => self.email_enabled,
             DeliveryChannelType::Sms => self.sms_enabled,
@@ -280,8 +280,8 @@ impl ChannelSettings {
     /// Enable a channel
     pub fn enable_channel(&mut self, channel: &DeliveryChannelType) {
         match channel {
-            DeliveryChannelType::FcmPush => self.fcm_push_enabled = true,
-            DeliveryChannelType::Push => self.fcm_push_enabled = true, // Map to FCM push
+            DeliveryChannelType::WebPush => self.web_push_enabled = true,
+            DeliveryChannelType::Push => self.web_push_enabled = true, // Map to Web Push
             DeliveryChannelType::InApp => self.in_app_enabled = true,
             DeliveryChannelType::Email => self.email_enabled = true,
             DeliveryChannelType::Sms => self.sms_enabled = true,
@@ -292,8 +292,8 @@ impl ChannelSettings {
     /// Disable a channel
     pub fn disable_channel(&mut self, channel: &DeliveryChannelType) {
         match channel {
-            DeliveryChannelType::FcmPush => self.fcm_push_enabled = false,
-            DeliveryChannelType::Push => self.fcm_push_enabled = false, // Map to FCM push
+            DeliveryChannelType::WebPush => self.web_push_enabled = false,
+            DeliveryChannelType::Push => self.web_push_enabled = false, // Map to Web Push
             DeliveryChannelType::InApp => self.in_app_enabled = false,
             DeliveryChannelType::Email => self.email_enabled = false,
             DeliveryChannelType::Sms => self.sms_enabled = false,
@@ -304,7 +304,7 @@ impl ChannelSettings {
     /// Get count of enabled channels
     pub fn enabled_channel_count(&self) -> u8 {
         let mut count = 0;
-        if self.fcm_push_enabled { count += 1; }
+        if self.web_push_enabled { count += 1; }
         if self.in_app_enabled { count += 1; }
         if self.email_enabled { count += 1; }
         if self.sms_enabled { count += 1; }
@@ -313,14 +313,14 @@ impl ChannelSettings {
 
     /// Check if any channels are enabled
     pub fn has_any_enabled(&self) -> bool {
-        self.fcm_push_enabled || self.in_app_enabled || self.email_enabled || self.sms_enabled
+        self.web_push_enabled || self.in_app_enabled || self.email_enabled || self.sms_enabled
     }
 }
 
 impl Default for ChannelSettings {
     fn default() -> Self {
         Self {
-            fcm_push_enabled: true,  // Default enabled
+            web_push_enabled: true,  // Default enabled
             in_app_enabled: true,    // Default enabled
             email_enabled: false,    // Default disabled (requires explicit opt-in)
             sms_enabled: false,      // Default disabled (requires explicit opt-in)
@@ -518,7 +518,7 @@ impl FrequencyLimits {
         window_hours: u32,
     ) -> bool {
         let limit = match (channel, window_hours) {
-            (DeliveryChannelType::FcmPush, 1) => self.max_push_per_hour,
+            (DeliveryChannelType::WebPush, 1) => self.max_push_per_hour,
             (DeliveryChannelType::Email, 24) => self.max_email_per_day,
             (DeliveryChannelType::Sms, 24) => self.max_sms_per_day,
             (_, 1) => self.max_per_hour,
@@ -556,7 +556,7 @@ impl Display for UserNotificationPreferences {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let summary = self.summary();
         write!(f, "User {} preferences: {} channels, {} types, {} blocked topics",
-               self.user_id,
+               self.wallet_address,
                summary.enabled_channels,
                summary.allowed_types,
                summary.blocked_topic_count)
@@ -571,30 +571,30 @@ mod tests {
 
     #[test]
     fn test_new_preferences() {
-        let user_id = Uuid::new_v4();
-        let prefs = UserNotificationPreferences::new(user_id);
+        let wallet_address = Uuid::new_v4();
+        let prefs = UserNotificationPreferences::new(wallet_address);
         
-        assert_eq!(prefs.user_id(), user_id);
+        assert_eq!(prefs.wallet_address(), wallet_address);
         assert_eq!(prefs.timezone(), "UTC");
         assert!(prefs.channel_settings().has_any_enabled());
     }
 
     #[test]
     fn test_channel_settings() {
-        let user_id = Uuid::new_v4();
-        let prefs = UserNotificationPreferences::new(user_id);
+        let wallet_address = Uuid::new_v4();
+        let mut prefs = UserNotificationPreferences::new(wallet_address);
         
-        assert!(prefs.channel_settings().is_channel_enabled(&DeliveryChannelType::FcmPush));
+        assert!(prefs.channel_settings().is_channel_enabled(&DeliveryChannelType::WebPush));
         assert!(prefs.channel_settings().is_channel_enabled(&DeliveryChannelType::InApp));
         
-        prefs.channel_settings_mut().disable_channel(&DeliveryChannelType::FcmPush);
-        assert!(!prefs.channel_settings().is_channel_enabled(&DeliveryChannelType::FcmPush));
+        prefs.channel_settings_mut().disable_channel(&DeliveryChannelType::WebPush);
+        assert!(!prefs.channel_settings().is_channel_enabled(&DeliveryChannelType::WebPush));
     }
 
     #[test]
     fn test_content_preferences() {
-        let user_id = Uuid::new_v4();
-        let prefs = UserNotificationPreferences::new(user_id);
+        let wallet_address = Uuid::new_v4();
+        let mut prefs = UserNotificationPreferences::new(wallet_address);
         
         assert!(prefs.content_preferences().allows_notification_type(&NotificationType::System));
         assert!(!prefs.content_preferences().allows_notification_type(&NotificationType::Marketing));
@@ -621,8 +621,8 @@ mod tests {
 
     #[test]
     fn test_topic_blocking() {
-        let user_id = Uuid::new_v4();
-        let prefs = UserNotificationPreferences::new(user_id);
+        let wallet_address = Uuid::new_v4();
+        let mut prefs = UserNotificationPreferences::new(wallet_address);
         
         assert!(!prefs.is_topic_blocked("marketing"));
         
@@ -635,8 +635,8 @@ mod tests {
 
     #[test]
     fn test_should_receive_notification() {
-        let user_id = Uuid::new_v4();
-        let prefs = UserNotificationPreferences::new(user_id);
+        let wallet_address = Uuid::new_v4();
+        let mut prefs = UserNotificationPreferences::new(wallet_address);
         
         // Block marketing notifications
         prefs.content_preferences_mut().disable_type(&NotificationType::Marketing);
@@ -646,7 +646,7 @@ mod tests {
         // Should not receive marketing notifications
         assert!(!prefs.should_receive_notification(
             &NotificationType::Marketing,
-            &DeliveryChannelType::FcmPush,
+            &DeliveryChannelType::WebPush,
             None,
             current_time
         ));
@@ -654,7 +654,7 @@ mod tests {
         // Should receive system notifications
         assert!(prefs.should_receive_notification(
             &NotificationType::System,
-            &DeliveryChannelType::FcmPush,
+            &DeliveryChannelType::WebPush,
             None,
             current_time
         ));
@@ -665,10 +665,10 @@ mod tests {
         let limits = FrequencyLimits::default();
         
         // Should allow under limit
-        assert!(limits.allows_notification(&DeliveryChannelType::FcmPush, 3, 1));
+        assert!(limits.allows_notification(&DeliveryChannelType::WebPush, 3, 1));
         
         // Should block over limit
-        assert!(!limits.allows_notification(&DeliveryChannelType::FcmPush, 10, 1));
+        assert!(!limits.allows_notification(&DeliveryChannelType::WebPush, 10, 1));
     }
 
     #[test]

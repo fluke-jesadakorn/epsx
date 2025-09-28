@@ -4,24 +4,14 @@
  * Provides admin-specific auth configuration and backward compatibility
  */
 
-// Stub types for compatibility
+// Web3-focused types for admin authentication
 export interface AuthConfig {
   name: string;
   version: string;
   features: AuthFeatures;
-  oidc: OIDCConfig;
   web3: Web3Config;
   session: SessionConfig;
   endpoints: AuthEndpoints;
-}
-
-export interface OIDCConfig {
-  clientId: string;
-  clientSecret: string;
-  issuer: string;
-  redirectUri: string;
-  scope: string[];
-  pkce: boolean;
 }
 
 export interface Web3Config {
@@ -38,9 +28,9 @@ export interface SessionConfig {
 }
 
 export interface AuthFeatures {
-  oidc: boolean;
   web3: boolean;
   progressive: boolean;
+  walletAuth: boolean;
 }
 
 export interface AuthEndpoints {
@@ -58,32 +48,20 @@ export interface ProgressiveAuthState {
   expiresAt?: number;
 }
 
-// Stub implementations for compatibility
+// Web3 Admin Authentication Configuration
 export function getAdminAuthConfig(): AuthConfig {
   return {
-    name: 'EPSX Admin',
-    version: '1.0.0',
-    features: { oidc: true, web3: true, progressive: true },
-    oidc: getAdminOIDCConfig(),
+    name: 'EPSX Admin Web3',
+    version: '2.0.0',
+    features: { web3: true, progressive: true, walletAuth: true },
     web3: getWeb3Config(),
     session: getSessionConfig('admin'),
     endpoints: {
-      authorize: '/api/auth/authorize',
-      token: '/api/auth/token', 
-      userinfo: '/api/auth/userinfo',
-      logout: '/api/auth/logout'
+      authorize: '/api/v1/auth/web3/challenge',
+      token: '/api/v1/auth/web3/verify', 
+      userinfo: '/api/v1/auth/web3/permissions',
+      logout: '/api/v1/auth/web3/logout'
     }
-  };
-}
-
-export function getAdminOIDCConfig(): OIDCConfig {
-  return {
-    clientId: process.env.OIDC_ADMIN_CLIENT_ID || 'epsx-admin',
-    clientSecret: process.env.OIDC_ADMIN_CLIENT_SECRET || 'dev-admin-secret',
-    issuer: process.env.BACKEND_URL || 'http://localhost:8080',
-    redirectUri: '/api/auth/callback',
-    scope: ['openid', 'profile', 'email', 'admin'],
-    pkce: true
   };
 }
 
@@ -104,39 +82,26 @@ export function getSessionConfig(context?: string): SessionConfig {
   };
 }
 
-// URL builders (stub implementations)
-export function buildAuthorizationUrl(config: OIDCConfig, options: any = {}): string {
-  const params = new URLSearchParams({
-    client_id: config.clientId,
-    redirect_uri: config.redirectUri,
-    scope: config.scope.join(' '),
-    response_type: 'code',
-    state: options.state || 'default',
-    ...options
-  });
-  return `${config.issuer}/oauth/authorize?${params.toString()}`;
-}
-
-export function buildLogoutUrl(config: OIDCConfig, options: any = {}): string {
-  const params = new URLSearchParams({
-    client_id: config.clientId,
-    post_logout_redirect_uri: options.postLogoutRedirectUri || '/',
-    ...options
-  });
-  return `${config.issuer}/oauth/logout?${params.toString()}`;
-}
-
+// Web3 URL builders
 export function buildWeb3ChallengeUrl(address: string): string {
-  return `/api/auth/web3/challenge?address=${address}`;
+  return `/api/v1/auth/web3/challenge?address=${address}`;
 }
 
-// Validation functions (stub implementations)
-export function validateOIDCCallback(params: Record<string, string>): boolean {
-  return !!(params.code && params.state);
+export function buildWeb3VerifyUrl(): string {
+  return `/api/v1/auth/web3/verify`;
 }
 
+export function buildWeb3LogoutUrl(): string {
+  return `/api/v1/auth/web3/logout`;
+}
+
+// Web3 validation functions
 export function validateWeb3Signature(signature: string, message: string, address: string): boolean {
   return signature.length > 0 && message.length > 0 && address.length > 0;
+}
+
+export function validateWalletAddress(address: string): boolean {
+  return /^0x[a-fA-F0-9]{40}$/.test(address);
 }
 
 // Progressive auth helpers (stub implementations)
@@ -189,18 +154,18 @@ export function getJWTExpiry(token: string): number | null {
 }
 
 /**
- * Admin-specific auth configuration
+ * Admin Web3 auth configuration
  * Uses shared configuration with admin context
  */
 export const ADMIN_AUTH_CONFIG = getAdminAuthConfig();
 
 /**
- * Admin OIDC configuration
+ * Admin Web3 configuration
  */
-export const ADMIN_OIDC_CONFIG = getAdminOIDCConfig();
+export const ADMIN_WEB3_CONFIG = getWeb3Config();
 
 /**
- * Admin session configuration
+ * Admin session configuration (Web3)
  */
 export const ADMIN_SESSION_CONFIG = getSessionConfig('admin');
 
@@ -226,36 +191,24 @@ export function getAdminRequiredAuthLevel(route: string) {
 }
 
 /**
- * Build admin authorization URL
+ * Build admin Web3 challenge URL
  */
-export function buildAdminAuthorizationUrl(options: {
-  state?: string;
-  nonce?: string;
-  codeChallenge?: string;
-  codeChallengeMethod?: string;
-} = {}): string {
-  return buildAuthorizationUrl(ADMIN_OIDC_CONFIG, options);
+export function buildAdminWeb3ChallengeUrl(walletAddress: string): string {
+  return buildWeb3ChallengeUrl(walletAddress);
 }
 
 /**
- * Build admin logout URL
+ * Build admin Web3 logout URL
  */
-export function buildAdminLogoutUrl(options: {
-  postLogoutRedirectUri?: string;
-  idTokenHint?: string;
-} = {}): string {
-  const defaultRedirectUri = `${ADMIN_OIDC_CONFIG.redirectUri.split('/api')[0]}/login`;
-  return buildLogoutUrl(ADMIN_OIDC_CONFIG, {
-    postLogoutRedirectUri: defaultRedirectUri,
-    ...options
-  });
+export function buildAdminWeb3LogoutUrl(): string {
+  return buildWeb3LogoutUrl();
 }
 
 /**
- * Validate admin auth callback
+ * Validate admin Web3 signature
  */
-export function validateAdminCallback(params: Record<string, string>) {
-  return validateOIDCCallback(params);
+export function validateAdminWeb3Signature(signature: string, message: string, address: string) {
+  return validateWeb3Signature(signature, message, address);
 }
 
 /**
@@ -311,14 +264,13 @@ export function getAdminAuthContext(): 'admin' {
   return 'admin';
 }
 
-// Legacy compatibility exports
+// Legacy compatibility exports (Web3-focused)
 export const adminAuthConfig = ADMIN_AUTH_CONFIG;
-export const adminOidcConfig = ADMIN_OIDC_CONFIG;
+export const adminWeb3Config = ADMIN_WEB3_CONFIG;
 export const adminSessionConfig = ADMIN_SESSION_CONFIG;
 export const web3Config = getWeb3Config();
 
 export const authConfig = adminAuthConfig;
-export const oidcConfig = adminOidcConfig;
 export const sessionConfig = adminSessionConfig;
 
 // Default export for backward compatibility

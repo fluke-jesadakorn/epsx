@@ -35,9 +35,7 @@ RUN echo "NODE_ENV=production" > .env && \
     echo "NEXT_PUBLIC_BACKEND_URL=https://api.epsx.io" >> .env && \
     echo "NEXT_PUBLIC_APP_URL=https://admin.epsx.io" >> .env && \
     echo "NEXT_PUBLIC_ADMIN_URL=https://admin.epsx.io" >> .env && \
-    echo "NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-admin" >> .env && \
-    echo "NEXT_PUBLIC_FIREBASE_API_KEY=placeholder" >> .env && \
-    echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID=placeholder" >> .env
+    echo "NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-admin" >> .env
 
 # Build Next.js app (generates .next/standalone with optimized server.js)
 RUN pnpm build

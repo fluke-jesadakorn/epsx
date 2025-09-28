@@ -3,13 +3,13 @@ use serde::{Serialize, Deserialize};
 
 use crate::application::shared::{Query, ApplicationResult, ValidationUtils};
 use crate::domain::shared_kernel::value_objects::UserId;
-use crate::domain::user_management::value_objects::Email;
+// use crate::domain::user_management::value_objects::Email; // REMOVED - Web3-first uses wallet addresses
 
 /// Query to get a user by ID
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetUserQuery {
     /// User ID to retrieve
-    pub user_id: String,
+    pub wallet_address: String,
     
     /// Whether to include permissions in the response
     pub include_permissions: bool,
@@ -26,10 +26,10 @@ pub struct GetUserQuery {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetUserResponse {
     /// User ID
-    pub user_id: UserId,
+    pub wallet_address: UserId,
     
-    /// User email
-    pub email: Email,
+    /// User email  
+    pub email: String,
     
     /// Whether the user is active
     pub is_active: bool,
@@ -76,8 +76,8 @@ impl Query for GetUserQuery {
     type Response = GetUserResponse;
     
     fn validate(&self) -> ApplicationResult<()> {
-        // Validate user ID is not empty
-        if let Some(error) = ValidationUtils::required("user_id", &self.user_id) {
+        // Validate wallet address is not empty
+        if let Some(error) = ValidationUtils::required("wallet_address", &self.wallet_address) {
             return Err(crate::application::ApplicationError::validation(
                 &error.field,
                 &error.message
@@ -90,9 +90,9 @@ impl Query for GetUserQuery {
 
 impl GetUserQuery {
     /// Create a new GetUserQuery
-    pub fn new(user_id: String) -> Self {
+    pub fn new(wallet_address: String) -> Self {
         Self {
-            user_id,
+            wallet_address,
             include_permissions: false,
             include_sessions: false,
             requested_by: None,
@@ -113,8 +113,8 @@ impl GetUserQuery {
     }
     
     /// Set who requested this query (for audit)
-    pub fn requested_by(mut self, user_id: String) -> Self {
-        self.requested_by = Some(user_id);
+    pub fn requested_by(mut self, wallet_address: String) -> Self {
+        self.requested_by = Some(wallet_address);
         self
     }
     

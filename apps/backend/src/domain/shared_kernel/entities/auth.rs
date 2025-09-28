@@ -10,7 +10,7 @@ pub use crate::domain::user_management::aggregates::session::Session;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthSession {
     pub session_id: String,
-    pub user_id: String,
+    pub wallet_address: String,
     pub device_info: Option<String>,
     pub ip_address: Option<String>,
     pub user_agent: Option<String>,
@@ -23,13 +23,13 @@ pub struct AuthSession {
 impl AuthSession {
     pub fn new(
         session_id: String,
-        user_id: String,
+        wallet_address: String,
         expires_at: DateTime<Utc>,
     ) -> Self {
         let now = Utc::now();
         Self {
             session_id,
-            user_id,
+            wallet_address,
             device_info: None,
             ip_address: None,
             user_agent: None,

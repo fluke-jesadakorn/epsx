@@ -58,9 +58,8 @@ export default async function DashboardPage() {
   }
   
   try {
-    const [usersResult, analyticsResult] = await Promise.allSettled([
-      client.getUsers({ limit: 100 }),
-      Promise.resolve({})
+    const [usersResult] = await Promise.allSettled([
+      client.getUsers({ limit: 100 })
     ])
     
     if (usersResult.status === 'fulfilled' && Array.isArray(usersResult.value)) {
@@ -73,12 +72,7 @@ export default async function DashboardPage() {
       ).length
     }
     
-    if (analyticsResult.status === 'fulfilled') {
-      const analytics = analyticsResult.value as any
-      dashboardStats.totalPermissions = analytics?.totalPermissions || 0
-      dashboardStats.pendingNotifications = analytics?.pendingNotifications || 0
-      dashboardStats.systemHealth = analytics?.systemHealth || 99.8
-    }
+    // Analytics functionality removed - moved to frontend-only implementation
   } catch (error) {
     console.error('Failed to load dashboard stats:', error)
   }
@@ -104,7 +98,7 @@ export default async function DashboardPage() {
               <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full "></div>
             </div>
             <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-              Welcome back, {session.user.email}
+              Welcome back, {session.user.walletAddress || session.user.displayName}
             </p>
             <div className="text-sm text-gray-500 dark:text-gray-500 mt-2">
               {new Date().toLocaleDateString()} • System Status: Operational 🟢
@@ -200,14 +194,6 @@ export default async function DashboardPage() {
                 gradient: "from-purple-400 to-pink-500",
                 bgGradient: "from-purple-400/20 via-pink-400/20 to-purple-400/20",
                 stats: `${dashboardStats.pendingNotifications} pending`
-              },
-              {
-                href: "/analytics",
-                title: "📊 Analytics",
-                description: "View system analytics and EPS data",
-                gradient: "from-orange-400 to-yellow-500",
-                bgGradient: "from-orange-400/20 via-yellow-400/20 to-orange-400/20",
-                stats: "Real-time data"
               },
               {
                 href: "/settings",

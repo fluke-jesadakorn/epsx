@@ -83,7 +83,7 @@ export default function MyDataClientWrapper() {
             <p className="mx-auto max-w-2xl text-lg text-gray-600 dark:text-gray-300">
               Track and analyze your assets with professional-grade analytics
             </p>
-            <AnalyticsNavigation currentPage="my-data" />
+            <AnalyticsNavigation currentPage="portfolio" />
             {/* Decorative elements */}
             <div className="mt-6 flex items-center justify-center gap-4">
               <div className="h-2 w-2 animate-pulse rounded-full bg-orange-400" />

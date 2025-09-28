@@ -2,16 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { useAccount, useDisconnect } from 'wagmi';
-import { Wallet, ExternalLink, Copy, Check } from 'lucide-react';
+import { Wallet, ExternalLink, Copy, Check, Settings } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
+import Link from 'next/link';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Button } from '@/components/ui/button';
+  Button,
+  UnifiedThemeToggle,
+} from '@/components/ui';
 import { formatAddress } from '@/lib/auth/web3-store';
 import { useWeb3Context } from '@/components/providers/MinimalWeb3Provider';
 
@@ -104,23 +106,23 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
     return (
       <ConnectButton.Custom>
         {({ openConnectModal, connectModalOpen, mounted }) => {
+          // Build className safely to avoid Promise issues
+          const baseClasses = 'flex items-center gap-2 rounded-2xl font-medium transition-colors';
+          const sizeClasses = compact ? 'h-8 px-3 text-xs' : 'h-10 px-4 text-sm';
+          const colorClasses = 'bg-gradient-to-r from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 text-white shadow-lg hover:shadow-xl border-0';
+          const extraClasses = typeof className === 'string' ? className : '';
+          
+          const finalClassName = [baseClasses, sizeClasses, colorClasses, extraClasses].filter(Boolean).join(' ');
+          
           return (
-            <Button
+            <button
               onClick={openConnectModal}
-              variant="default"
-              size={compact ? "sm" : "default"}
-              className={`
-                ${compact ? 'h-8 px-3 text-xs' : 'h-10 px-4 text-sm'} 
-                rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 
-                hover:from-yellow-500 hover:to-orange-600 
-                text-white font-semibold shadow-lg hover:shadow-xl
-                border-0 transition-all duration-200
-                ${className}
-              `}
+              type="button"
+              className={finalClassName}
             >
-              <Wallet className={`${compact ? 'h-3 w-3' : 'h-4 w-4'} mr-2 text-white`} />
-              Connect
-            </Button>
+              <Wallet className={compact ? 'h-3 w-3 text-white' : 'h-4 w-4 text-white'} />
+              <span>Connect</span>
+            </button>
           );
         }}
       </ConnectButton.Custom>
@@ -156,18 +158,11 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          size={compact ? "sm" : "default"}
-          className={`
-            ${compact ? 'h-8 px-3 text-xs' : 'h-10 px-4 text-sm'} 
-            rounded-full border-slate-200 bg-white hover:bg-slate-50
-            dark:border-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700
-            ${className}
-          `}
+        <button
+          className="flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200 bg-transparent border-0 transition-colors"
         >
           {getTriggerContent()}
-        </Button>
+        </button>
       </DropdownMenuTrigger>
       
       <DropdownMenuContent 
@@ -230,6 +225,31 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
             </div>
           </div>
         </DropdownMenuItem>
+
+        <DropdownMenuSeparator className="bg-orange-100/50 dark:bg-slate-700/50" />
+
+        {/* Settings */}
+        <DropdownMenuItem asChild className="px-3 py-2 rounded-lg cursor-pointer hover:bg-orange-50/80 dark:hover:bg-slate-800/40">
+          <Link href="/settings" className="flex items-center gap-3">
+            <Settings className="h-4 w-4 text-orange-500" />
+            <div>
+              <div className="text-sm font-medium">Settings</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                App preferences and configuration
+              </div>
+            </div>
+          </Link>
+        </DropdownMenuItem>
+
+        {/* Theme Toggle */}
+        <div className="px-3 py-2">
+          <UnifiedThemeToggle 
+            variant="minimal" 
+            showLabel={true}
+            showTooltip={false}
+            className="w-full justify-start gap-3 rounded-lg px-0 py-1 text-sm font-medium text-slate-600 hover:bg-orange-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200"
+          />
+        </div>
 
         <DropdownMenuSeparator className="bg-orange-100/50 dark:bg-slate-700/50" />
 

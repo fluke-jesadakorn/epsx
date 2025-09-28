@@ -105,12 +105,11 @@ pub async fn get_unified_analytics_rankings_cached(
     .map(|(ranking, _)| ranking.clone())
     .collect();
 
-  // TEMPORARILY DISABLED: WebSocket enhancement causes 50+ second response times
-  // The TradingView data is already real (not hardcoded), so WebSocket enhancement is optional
-  // TODO: Re-enable WebSocket enhancement with performance improvements
-  if false && rankings_data.len() <= 20 && !rankings_data.is_empty() {
+  // ENABLED: WebSocket enhancement with performance optimizations
+  // Limit to small batches and add timeout protection
+  if rankings_data.len() <= 10 && !rankings_data.is_empty() {
     debug!(
-      "Direct endpoint: Enhancing {} rankings with WebSocket EPS data",
+      "Direct endpoint: Enhancing {} rankings with WebSocket EPS data (performance optimized)",
       rankings_data.len()
     );
 
@@ -119,17 +118,29 @@ pub async fn get_unified_analytics_rankings_cached(
       .map(|r| r.symbol.clone())
       .collect();
 
-    match enhance_with_websocket_data(&symbols, &mut rankings_data).await {
-      Ok(enhanced_count) => {
-        info!("Direct endpoint: Enhanced {} rankings with WebSocket data", enhanced_count);
+    // Add timeout protection for WebSocket enhancement
+    let enhancement_timeout = tokio::time::Duration::from_secs(5);
+    let enhancement_result = tokio::time::timeout(
+      enhancement_timeout,
+      enhance_with_websocket_data(&symbols, &mut rankings_data)
+    ).await;
+
+    match enhancement_result {
+      Ok(Ok(enhanced_count)) => {
+        info!("Direct endpoint: Enhanced {} rankings with WebSocket data in <5s", enhanced_count);
       }
-      Err(e) => {
-        warn!("Direct endpoint: Failed to enhance with WebSocket data: {}, using DDD data", e);
+      Ok(Err(e)) => {
+        warn!("Direct endpoint: WebSocket enhancement failed: {}, using Scanner API data", e);
+      }
+      Err(_) => {
+        warn!("Direct endpoint: WebSocket enhancement timed out after 5s, using Scanner API data");
       }
     }
+  } else if rankings_data.len() > 10 {
+    debug!("Direct endpoint: Skipping WebSocket enhancement for {} items (performance limit)", rankings_data.len());
   }
   
-  info!("Using fast TradingView API data (WebSocket enhancement disabled for performance)");
+  info!("Using TradingView Scanner API data with optional WebSocket real-time enhancement");
 
   // Transform EPS rankings to unified format first, then to card format with quarterly data
   let unified_rankings: Vec<super::dto::UnifiedRankingItem> = rankings_data

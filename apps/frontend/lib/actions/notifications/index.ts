@@ -52,7 +52,7 @@ export async function getUserNotifications(params?: {
     const result = await client.getNotifications(params);
     
     // Transform the response to match expected NotificationData interface
-    const notifications = result.data.map(notification => ({
+    const notifications = result.data.map((notification: any) => ({
       id: notification.id,
       title: notification.title,
       body: notification.message,
@@ -63,7 +63,7 @@ export async function getUserNotifications(params?: {
       actionUrl: notification.actionUrl,
     }));
 
-    const unreadCount = notifications.filter(n => !n.readAt).length;
+    const unreadCount = notifications.filter((n: any) => !n.readAt).length;
     
     return {
       notifications,

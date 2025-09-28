@@ -27,6 +27,9 @@ pub trait DomainEvent: Send + Sync + Debug {
     
     /// Event metadata
     fn metadata(&self) -> &HashMap<String, String>;
+    
+    /// Downcast to Any for type introspection
+    fn as_any(&self) -> &dyn std::any::Any;
 }
 
 /// Event envelope for transport

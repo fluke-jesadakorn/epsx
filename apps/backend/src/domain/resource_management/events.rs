@@ -17,7 +17,7 @@ pub trait DomainEvent {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceUsageExceeded {
     pub event_id: String,
-    pub user_id: String,
+    pub wallet_address: String,
     pub plan_id: Option<i32>,
     pub resource_type: String,
     pub current_usage: i64,
@@ -30,7 +30,7 @@ pub struct ResourceUsageExceeded {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResourceUsageWarning {
     pub event_id: String,
-    pub user_id: String,
+    pub wallet_address: String,
     pub plan_id: Option<i32>,
     pub resource_type: String,
     pub current_usage: i64,
@@ -43,7 +43,7 @@ pub struct ResourceUsageWarning {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlanUpgradeRecommended {
     pub event_id: String,
-    pub user_id: String,
+    pub wallet_address: String,
     pub current_plan_id: Option<i32>,
     pub recommended_plan_id: i32,
     pub reason: String,
@@ -54,7 +54,7 @@ pub struct PlanUpgradeRecommended {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BillingCalculated {
     pub event_id: String,
-    pub user_id: String,
+    pub wallet_address: String,
     pub plan_id: Option<i32>,
     pub billing_period_start: DateTime<Utc>,
     pub billing_period_end: DateTime<Utc>,
@@ -68,7 +68,7 @@ pub struct BillingCalculated {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UsagePatternDetected {
     pub event_id: String,
-    pub user_id: String,
+    pub wallet_address: String,
     pub pattern_type: UsagePattern,
     pub resource_types: Vec<String>,
     pub confidence_score: f64,
@@ -96,7 +96,7 @@ impl DomainEvent for ResourceUsageExceeded {
     }
 
     fn user_id(&self) -> String {
-        self.user_id.clone()
+        self.wallet_address.clone()
     }
 
     fn timestamp(&self) -> DateTime<Utc> {
@@ -114,7 +114,7 @@ impl DomainEvent for ResourceUsageWarning {
     }
 
     fn user_id(&self) -> String {
-        self.user_id.clone()
+        self.wallet_address.clone()
     }
 
     fn timestamp(&self) -> DateTime<Utc> {
@@ -132,7 +132,7 @@ impl DomainEvent for PlanUpgradeRecommended {
     }
 
     fn user_id(&self) -> String {
-        self.user_id.clone()
+        self.wallet_address.clone()
     }
 
     fn timestamp(&self) -> DateTime<Utc> {
@@ -150,7 +150,7 @@ impl DomainEvent for BillingCalculated {
     }
 
     fn user_id(&self) -> String {
-        self.user_id.clone()
+        self.wallet_address.clone()
     }
 
     fn timestamp(&self) -> DateTime<Utc> {
@@ -168,7 +168,7 @@ impl DomainEvent for UsagePatternDetected {
     }
 
     fn user_id(&self) -> String {
-        self.user_id.clone()
+        self.wallet_address.clone()
     }
 
     fn timestamp(&self) -> DateTime<Utc> {
@@ -179,7 +179,7 @@ impl DomainEvent for UsagePatternDetected {
 // Factory methods for creating events
 impl ResourceUsageExceeded {
     pub fn new(
-        user_id: String,
+        wallet_address: String,
         plan_id: Option<i32>,
         resource_type: String,
         current_usage: i64,
@@ -188,7 +188,7 @@ impl ResourceUsageExceeded {
     ) -> Self {
         Self {
             event_id: uuid::Uuid::new_v4().to_string(),
-            user_id,
+            wallet_address,
             plan_id,
             resource_type,
             current_usage,
@@ -202,7 +202,7 @@ impl ResourceUsageExceeded {
 
 impl ResourceUsageWarning {
     pub fn new(
-        user_id: String,
+        wallet_address: String,
         plan_id: Option<i32>,
         resource_type: String,
         current_usage: i64,
@@ -217,7 +217,7 @@ impl ResourceUsageWarning {
 
         Self {
             event_id: uuid::Uuid::new_v4().to_string(),
-            user_id,
+            wallet_address,
             plan_id,
             resource_type,
             current_usage,
@@ -231,7 +231,7 @@ impl ResourceUsageWarning {
 
 impl BillingCalculated {
     pub fn new(
-        user_id: String,
+        wallet_address: String,
         plan_id: Option<i32>,
         billing_period_start: DateTime<Utc>,
         billing_period_end: DateTime<Utc>,
@@ -241,7 +241,7 @@ impl BillingCalculated {
     ) -> Self {
         Self {
             event_id: uuid::Uuid::new_v4().to_string(),
-            user_id,
+            wallet_address,
             plan_id,
             billing_period_start,
             billing_period_end,

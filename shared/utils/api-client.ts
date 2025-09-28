@@ -96,22 +96,30 @@ export class UnifiedApiClient {
       return headers;
     }
 
-    // Server-side: attempt to get token from cookies
+    // Server-side: attempt to get token from cookies (Next.js only)
     if (this.isServerSide) {
       try {
-        const { cookies } = await import('next/headers');
-        const cookieStore = await cookies();
-        
-        // Admin uses admin_jwt, frontend uses access_token
-        const tokenCookie = this.platform === 'admin' 
-          ? cookieStore.get('admin_jwt') || cookieStore.get('access_token')
-          : cookieStore.get('access_token');
-        
-        if (tokenCookie?.value) {
-          headers['Authorization'] = `Bearer ${tokenCookie.value}`;
+        // Check if we're in a Next.js environment and headers module is available
+        if (typeof process !== 'undefined' && process.env.NEXT_RUNTIME) {
+          try {
+            const { cookies } = await import('next/headers');
+            const cookieStore = await cookies();
+          
+            // Admin uses admin_jwt, frontend uses access_token
+            const tokenCookie = this.platform === 'admin' 
+              ? cookieStore.get('admin_jwt') || cookieStore.get('access_token')
+              : cookieStore.get('access_token');
+            
+            if (tokenCookie?.value) {
+              headers['Authorization'] = `Bearer ${tokenCookie.value}`;
+            }
+          } catch (nextError) {
+            // Next.js headers module might not be available in non-Next.js environments
+            console.warn(`Next.js headers not available in ${this.platform} context:`, nextError);
+          }
         }
       } catch (error) {
-        // Cookie access might fail in some server contexts
+        // Cookie access might fail in some server contexts or non-Next.js environments
         console.warn(`Failed to get server-side ${this.platform} auth token:`, error);
       }
     }
@@ -482,10 +490,5 @@ export function isPaginatedResponse<T>(response: any): response is PaginatedResp
 // EXPORTS
 // ============================================================================
 
-export type {
-  ApiResponse,
-  ApiError,
-  RequestConfig,
-  PaginatedResponse,
-  Platform
-};
+// Types are already exported as interfaces above
+// Removing duplicate type exports to prevent TypeScript conflicts

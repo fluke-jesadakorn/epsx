@@ -1,11 +1,12 @@
-use crate::domain::shared_kernel::DomainError;
+use crate::core::errors::AppError;
+use crate::domain::user_management::value_objects::wallet_address::WalletAddressError;
 
 /// Application layer error types
 /// These wrap domain errors and add application-specific concerns
 #[derive(Debug, thiserror::Error)]
 pub enum ApplicationError {
     #[error("Domain error: {0}")]
-    Domain(#[from] DomainError),
+    Domain(#[from] AppError),
     
     #[error("Validation failed: {field} - {message}")]
     Validation { field: String, message: String },
@@ -39,6 +40,9 @@ pub enum ApplicationError {
     
     #[error("Security error: {message}")]
     Security { message: String },
+    
+    #[error("Wallet address error: {0}")]
+    WalletAddress(#[from] WalletAddressError),
 }
 
 impl ApplicationError {
@@ -144,9 +148,7 @@ impl ApplicationError {
     
     #[allow(non_snake_case)]
     pub fn DomainError(message: impl Into<String>) -> Self {
-        Self::Domain(crate::domain::shared_kernel::DomainError::BusinessRuleViolation {
-            rule: message.into()
-        })
+        Self::Domain(crate::core::errors::AppError::business_rule_violation(message.into()))
     }
 }
 

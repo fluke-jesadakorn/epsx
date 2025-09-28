@@ -23,25 +23,14 @@ pub trait EventRepositoryPort: Send + Sync {
 /// Repository port for managing real-time connections
 #[async_trait]
 pub trait ConnectionRepositoryPort: Send + Sync {
-    async fn store_connection(&self, connection_id: &ConnectionId, user_id: &RealtimeUserId, connection_info: ConnectionInfo) -> Result<(), String>;
+    async fn store_connection(&self, connection_id: &ConnectionId, wallet_address: &RealtimeUserId, connection_info: ConnectionInfo) -> Result<(), String>;
     async fn remove_connection(&self, connection_id: &ConnectionId) -> Result<(), String>;
     async fn find_connection(&self, connection_id: &ConnectionId) -> Result<Option<ConnectionInfo>, String>;
-    async fn find_user_connections(&self, user_id: &RealtimeUserId) -> Result<Vec<ConnectionId>, String>;
+    async fn find_user_connections(&self, wallet_address: &RealtimeUserId) -> Result<Vec<ConnectionId>, String>;
     async fn find_connections_by_type(&self, connection_type: ConnectionType) -> Result<Vec<ConnectionId>, String>;
     async fn update_heartbeat(&self, connection_id: &ConnectionId) -> Result<(), String>;
     async fn find_stale_connections(&self, stale_after: DateTime<Utc>) -> Result<Vec<ConnectionId>, String>;
     async fn count_active_connections(&self) -> Result<u64, String>;
-    async fn count_user_connections(&self, user_id: &RealtimeUserId) -> Result<u32, String>;
+    async fn count_user_connections(&self, wallet_address: &RealtimeUserId) -> Result<u32, String>;
 }
 
-/// Repository port for managing event subscriptions
-#[async_trait]
-pub trait SubscriptionRepositoryPort: Send + Sync {
-    // TODO: Define subscription management methods
-}
-
-/// Repository port for managing event history and analytics
-#[async_trait]
-pub trait EventHistoryRepositoryPort: Send + Sync {
-    // TODO: Define event history and analytics methods
-}

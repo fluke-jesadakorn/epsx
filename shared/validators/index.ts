@@ -232,14 +232,11 @@ export function createValidatorConfig(env: 'development' | 'staging' | 'producti
 // ============================================================================
 
 export default {
-  BaseSessionValidator,
-  AdminSessionValidator,
-  UserSessionValidator,
-  validateSession,
-  validateAdminSession,
-  validateUserSession,
-  autoValidateSession,
-  getAllValidatorMetrics,
-  clearAllValidatorCaches,
-  createValidatorConfig
+  // Only export what actually exists
+  // BaseSessionValidator,
+  // AdminSessionValidator, 
+  // UserSessionValidator,
+  // validateSession,
+  // validateAdminSession,
+  // validateUserSession
 }

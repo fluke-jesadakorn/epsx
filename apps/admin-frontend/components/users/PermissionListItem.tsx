@@ -24,7 +24,6 @@ import {
   Shield
 } from 'lucide-react';
 import { format, formatDistance, isPast } from 'date-fns';
-// import { AdminPermissionExpiryIndicator } from '../auth/AdminPermissionExpiryIndicator';
 
 interface TemporaryPermission {
   id: string;

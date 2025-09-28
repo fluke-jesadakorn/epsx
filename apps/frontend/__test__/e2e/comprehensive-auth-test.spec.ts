@@ -58,11 +58,11 @@ test.describe('Comprehensive Authentication Tests', () => {
       await expect(page.getByRole('link', { name: 'Settings' })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Sign Out' })).toBeVisible();
       
-      // Check analytics and my-data links
+      // Check analytics and portfolio links
       const analyticsLink = page.locator('a[href="/analytics"]').first();
-      const myDataLink = page.locator('a[href="/my-data"]').first();
+      const portfolioLink = page.locator('a[href="/portfolio"]').first();
       await expect(analyticsLink).toBeVisible();
-      await expect(myDataLink).toBeVisible();
+      await expect(portfolioLink).toBeVisible();
     });
     
   });

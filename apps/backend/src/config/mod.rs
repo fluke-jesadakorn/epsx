@@ -12,7 +12,6 @@ pub use env::{
     is_development,
     get_log_level,
     get_database_url,
-    get_jwt_secret,
     get_fallback_config,
     ValidationError,
 };

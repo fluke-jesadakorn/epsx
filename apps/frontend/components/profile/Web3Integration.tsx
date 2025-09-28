@@ -3,20 +3,20 @@
 import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import { Wallet, Link, CheckCircle, AlertCircle, Shield, Eye, EyeOff, Key, Crown, Zap, Users, Settings } from 'lucide-react';
-import { type User } from '../../../../shared/types/auth';
+import { type User } from '@/shared/types/auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WalletConnectAuth } from '@/components/auth/WalletConnectAuth';
-// import { EmailLinking } from '@/components/auth/EmailLinking'; // Removed - not needed for wallet-first auth
 import { Web3PermissionsDisplay } from '@/components/auth/Web3PermissionsDisplay';
 import { ApiKeyManager } from '@/components/auth/ApiKeyManager';
-import { useWeb3AuthContext } from '@/providers/Web3AuthProvider';
+import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
+import { UserWalletDisplay, UserTierBadge, UserAuthStatus, UserPermissionsDisplay } from '@/shared/components/display/UserDisplay';
 
 interface Web3IntegrationProps {
-  user: User;
+  // No props needed - uses shared authentication
 }
 
 interface WalletInfo {
@@ -26,16 +26,9 @@ interface WalletInfo {
   permissions: string[];
 }
 
-export function Web3Integration({ user }: Web3IntegrationProps) {
+export function Web3Integration({}: Web3IntegrationProps) {
   const { address, isConnected } = useAccount();
-  const {
-    isAuthenticated,
-    walletAddress,
-    permissions,
-    userTier,
-    hasApiAccess,
-    refreshPermissions
-  } = useWeb3AuthContext();
+  const { isAuthenticated, user, refreshUser } = useSharedAuth();
   const [activeTab, setActiveTab] = useState('overview');
   const [showAddress, setShowAddress] = useState(false);
 
@@ -46,47 +39,7 @@ export function Web3Integration({ user }: Web3IntegrationProps) {
       : `${addr.slice(0, 6)}...${addr.slice(-4)}`;
   };
 
-  const getTierInfo = () => {
-    switch (userTier) {
-      case 'nft':
-        return {
-          icon: <Crown className="h-5 w-5 text-purple-500" />,
-          title: 'NFT Tier',
-          description: 'Enhanced access through NFT ownership',
-          color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300'
-        };
-      case 'token':
-        return {
-          icon: <Zap className="h-5 w-5 text-orange-500" />,
-          title: 'Token Tier',
-          description: 'Token-gated premium features',
-          color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300'
-        };
-      case 'dao':
-        return {
-          icon: <Users className="h-5 w-5 text-blue-500" />,
-          title: 'DAO Tier',
-          description: 'Governance access and voting rights',
-          color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300'
-        };
-      case 'enterprise':
-        return {
-          icon: <Shield className="h-5 w-5 text-green-500" />,
-          title: 'Enterprise Tier',
-          description: 'Full API access and team management',
-          color: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300'
-        };
-      default:
-        return {
-          icon: <Shield className="h-5 w-5 text-slate-500" />,
-          title: 'Basic Tier',
-          description: 'Standard platform access',
-          color: 'bg-slate-100 text-slate-800 dark:bg-slate-900/20 dark:text-slate-300'
-        };
-    }
-  };
-
-  const tierInfo = getTierInfo();
+  // Tier display is now handled by shared components
 
   return (
     <div className="space-y-6">
@@ -128,32 +81,12 @@ export function Web3Integration({ user }: Web3IntegrationProps) {
                     <h3 className="font-bold text-green-900 dark:text-green-100">
                       Wallet Connected & Authenticated
                     </h3>
-                    <div className="flex items-center gap-2 text-sm text-green-700 dark:text-green-300">
-                      <code className="font-mono bg-green-100 dark:bg-green-900/30 px-2 py-1 rounded">
-                        {formatAddress(walletAddress || address || '')}
-                      </code>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowAddress(!showAddress)}
-                        className="h-6 w-6 p-0"
-                      >
-                        {showAddress ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
-                      </Button>
-                    </div>
+                    <UserWalletDisplay showFullAddress={showAddress} className="text-sm" />
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <Badge className={tierInfo.color}>
-                    {tierInfo.icon}
-                    <span className="ml-2">{tierInfo.title}</span>
-                  </Badge>
-                  {hasApiAccess && (
-                    <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300">
-                      <Key className="h-3 w-3 mr-1" />
-                      API Access
-                    </Badge>
-                  )}
+                  <UserTierBadge />
+                  <UserAuthStatus />
                 </div>
               </div>
 
@@ -184,7 +117,7 @@ export function Web3Integration({ user }: Web3IntegrationProps) {
                     <Card>
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                          {tierInfo.icon}
+                          <Shield className="h-5 w-5 text-orange-500" />
                           Your Web3 Access Level
                         </CardTitle>
                       </CardHeader>
@@ -192,57 +125,14 @@ export function Web3Integration({ user }: Web3IntegrationProps) {
                         <div className="space-y-4">
                           <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-lg">
                             <div className="flex items-center justify-between mb-2">
-                              <h4 className="font-semibold text-slate-900 dark:text-slate-100">
-                                {tierInfo.title}
-                              </h4>
-                              <Badge className={tierInfo.color}>
-                                Active
-                              </Badge>
+                              <UserWalletDisplay showFullAddress={false} />
+                              <UserTierBadge />
                             </div>
-                            <p className="text-sm text-slate-600 dark:text-slate-400">
-                              {tierInfo.description}
-                            </p>
+                            <UserAuthStatus />
                           </div>
 
-                          {/* Quick Stats */}
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <div className="text-center p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
-                              <Crown className="h-6 w-6 text-purple-500 mx-auto mb-1" />
-                              <div className="text-sm font-medium text-purple-900 dark:text-purple-100">
-                                {permissions.filter(p => p.source === 'nft').length}
-                              </div>
-                              <div className="text-xs text-purple-600 dark:text-purple-400">
-                                NFT Perms
-                              </div>
-                            </div>
-                            <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-                              <Zap className="h-6 w-6 text-orange-500 mx-auto mb-1" />
-                              <div className="text-sm font-medium text-orange-900 dark:text-orange-100">
-                                {permissions.filter(p => p.source === 'token').length}
-                              </div>
-                              <div className="text-xs text-orange-600 dark:text-orange-400">
-                                Token Perms
-                              </div>
-                            </div>
-                            <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                              <Users className="h-6 w-6 text-blue-500 mx-auto mb-1" />
-                              <div className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                                {permissions.filter(p => p.source === 'dao').length}
-                              </div>
-                              <div className="text-xs text-blue-600 dark:text-blue-400">
-                                DAO Perms
-                              </div>
-                            </div>
-                            <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                              <Shield className="h-6 w-6 text-green-500 mx-auto mb-1" />
-                              <div className="text-sm font-medium text-green-900 dark:text-green-100">
-                                {permissions.length}
-                              </div>
-                              <div className="text-xs text-green-600 dark:text-green-400">
-                                Total Perms
-                              </div>
-                            </div>
-                          </div>
+                          {/* User Permissions Summary */}
+                          <UserPermissionsDisplay maxDisplay={5} />
                         </div>
                       </CardContent>
                     </Card>
@@ -256,7 +146,7 @@ export function Web3Integration({ user }: Web3IntegrationProps) {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <Button
                             variant="outline"
-                            onClick={refreshPermissions}
+                            onClick={refreshUser}
                             className="flex items-center gap-2"
                           >
                             <Shield className="h-4 w-4" />
@@ -270,16 +160,14 @@ export function Web3Integration({ user }: Web3IntegrationProps) {
                             <Users className="h-4 w-4" />
                             View All Permissions
                           </Button>
-                          {hasApiAccess && (
-                            <Button
-                              variant="outline"
-                              onClick={() => setActiveTab('api')}
-                              className="flex items-center gap-2"
-                            >
-                              <Key className="h-4 w-4" />
-                              Manage API Keys
-                            </Button>
-                          )}
+                          <Button
+                            variant="outline"
+                            onClick={() => setActiveTab('api')}
+                            className="flex items-center gap-2"
+                          >
+                            <Key className="h-4 w-4" />
+                            Manage API Keys
+                          </Button>
                           <Button
                             variant="outline"
                             onClick={() => setActiveTab('settings')}

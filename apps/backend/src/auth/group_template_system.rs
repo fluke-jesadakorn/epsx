@@ -372,6 +372,12 @@ pub enum IssueType {
 // TEMPLATE SYSTEM IMPLEMENTATION
 // ============================================================================
 
+impl Default for GroupTemplateSystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GroupTemplateSystem {
     pub fn new() -> Self {
         let mut system = Self {

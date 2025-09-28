@@ -18,11 +18,7 @@ export {
   type EPSXJWTPayload 
 } from '../../../shared/auth/jwt';
 
-export {
-  generateCodeVerifier,
-  generateCodeChallenge, 
-  generateRandomString
-} from '../../../shared/auth/pkce';
+// PKCE functions removed - migrated to Web3 authentication (no OIDC PKCE needed)
 
 // Note: Server-only utilities moved to @/lib/server-shared
 

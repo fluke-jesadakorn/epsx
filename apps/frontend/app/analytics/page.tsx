@@ -1,8 +1,7 @@
 import ServerCardDashboard from '@/components/analytics/ServerCardDashboard';
-import { RequireAnalyticsAccess } from '@/lib/permissions/guards';
 
 interface AnalyticsPageProps {
-  searchParams: {
+  searchParams: Promise<{
     page?: string;
     limit?: string;
     country?: string;
@@ -12,31 +11,13 @@ interface AnalyticsPageProps {
     min_growth?: string;
     showFilters?: string;
     search?: string;
-  };
+  }>;
 }
 
-export default function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
+export default async function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
+  const resolvedSearchParams = await searchParams;
   return (
-    <RequireAnalyticsAccess
-      fallback={
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-          <div className="max-w-md mx-auto text-center p-8 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-orange-200/50">
-            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-orange-400 to-yellow-400 rounded-full flex items-center justify-center">
-              <span className="text-2xl">📊</span>
-            </div>
-            <h1 className="text-xl font-semibold text-gray-900 mb-2">Analytics Access Required</h1>
-            <p className="text-gray-600 mb-6">You need analytics permissions to access this feature.</p>
-            <button 
-              className="px-6 py-2 bg-gradient-to-r from-orange-500 to-yellow-500 text-white rounded-xl font-medium hover:shadow-lg transition-all"
-              onClick={() => window.location.href = '/billing'}
-            >
-              Upgrade Plan
-            </button>
-          </div>
-        </div>
-      }
-      showUpgradePrompt={true}
-    >
+    <>
       <div className="relative min-h-screen overflow-hidden">
         {/* PancakeSwap-style vibrant background */}
         <div className="fixed inset-0 z-0">
@@ -67,15 +48,16 @@ export default function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
                 <div className="relative">
                   {/* Background decorative elements */}
                   <div className="absolute -top-8 -left-8 h-16 w-16 rounded-full bg-gradient-to-br from-blue-400/20 to-indigo-400/20 blur-xl" />
-                  <div className="absolute -right-8 -top-4 h-20 w-20 rounded-full bg-gradient-to-br from-purple-400/20 to-pink-400/20 blur-xl" />
-                  
-                  <h1 className="mb-4 text-4xl font-bold tracking-wide sm:text-5xl insight-gradient-text">
+                  <div className="absolute -top-4 -right-8 h-20 w-20 rounded-full bg-gradient-to-br from-purple-400/20 to-pink-400/20 blur-xl" />
+
+                  <h1 className="insight-gradient-text mb-4 text-4xl font-bold tracking-wide sm:text-5xl">
                     Analytics Hub
                   </h1>
-                  <p className="text-lg font-medium mx-auto max-w-2xl insight-gradient-secondary-text">
-                    Sweet DeFi analytics with delicious insights and powerful data
+                  <p className="insight-gradient-secondary-text mx-auto max-w-2xl text-lg font-medium">
+                    Sweet DeFi analytics with delicious insights and powerful
+                    data
                   </p>
-                  
+
                   {/* Decorative dots */}
                   <div className="mt-6 flex items-center justify-center gap-4">
                     <div className="h-2 w-2 rounded-full bg-blue-400" />
@@ -90,12 +72,30 @@ export default function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
               {/* Dashboard background decorations */}
               <div className="absolute -top-12 left-1/4 h-24 w-24 rotate-12 rounded-2xl bg-gradient-to-br from-blue-300/10 to-indigo-300/10" />
               <div className="absolute right-1/4 -bottom-12 h-20 w-20 rounded-full bg-gradient-to-br from-purple-300/10 to-pink-300/10" />
-              
-              <ServerCardDashboard searchParams={searchParams} />
+
+              {/* Simple Top 5 Overview - No full dashboard */}
+              <div className="space-y-6">
+                <div className="text-center">
+                  <h2 className="mb-4 text-2xl font-bold text-slate-800 dark:text-slate-200">
+                    Top 5 Market Leaders
+                  </h2>
+                  <p className="mb-8 text-slate-600 dark:text-slate-400">
+                    Quick overview of top performing stocks
+                  </p>
+                </div>
+
+                <ServerCardDashboard
+                  searchParams={{
+                    ...resolvedSearchParams,
+                    limit: '5', // Force limit to 5
+                    showFilters: 'false', // Hide filters
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </RequireAnalyticsAccess>
+    </>
   );
 }

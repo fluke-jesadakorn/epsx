@@ -2,14 +2,13 @@ use chrono::{DateTime, Utc};
 use serde::{Serialize, Deserialize};
 
 use crate::application::shared::{Command, ApplicationResult, ValidationUtils};
-use crate::domain::shared_kernel::value_objects::UserId;
 use crate::domain::user_management::value_objects::Permission;
 
 /// Command to grant a permission to a user
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GrantPermissionCommand {
     /// ID of the user to grant permission to
-    pub user_id: String,
+    pub wallet_address: String,
     
     /// Permission string to grant (e.g., "admin:users:manage")
     pub permission: String,
@@ -30,14 +29,14 @@ pub struct GrantPermissionCommand {
 /// Response after successful permission grant
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GrantPermissionResponse {
-    /// The user ID who received the permission
-    pub user_id: UserId,
+    /// The wallet address who received the permission
+    pub wallet_address: String,
     
     /// The permission that was granted
     pub permission: Permission,
     
     /// Who granted the permission
-    pub granted_by: Option<UserId>,
+    pub granted_by: Option<String>,
     
     /// When the permission was granted
     pub granted_at: DateTime<Utc>,
@@ -51,7 +50,7 @@ impl Command for GrantPermissionCommand {
     
     fn validate(&self) -> ApplicationResult<()> {
         // Validate user ID
-        if let Some(error) = ValidationUtils::required("user_id", &self.user_id) {
+        if let Some(error) = ValidationUtils::required("wallet_address", &self.wallet_address) {
             return Err(crate::application::ApplicationError::validation(
                 &error.field,
                 &error.message
@@ -90,9 +89,9 @@ impl Command for GrantPermissionCommand {
 
 impl GrantPermissionCommand {
     /// Create a new GrantPermissionCommand
-    pub fn new(user_id: String, permission: String) -> Self {
+    pub fn new(wallet_address: String, permission: String) -> Self {
         Self {
-            user_id,
+            wallet_address,
             permission,
             expires_at: None,
             granted_by: None,
@@ -108,8 +107,8 @@ impl GrantPermissionCommand {
     }
     
     /// Set who is granting the permission
-    pub fn granted_by(mut self, user_id: String) -> Self {
-        self.granted_by = Some(user_id);
+    pub fn granted_by(mut self, wallet_address: String) -> Self {
+        self.granted_by = Some(wallet_address);
         self
     }
     

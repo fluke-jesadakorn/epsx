@@ -71,7 +71,7 @@ interface OAuthUserInfo {
   platform_context?: string;
   primary_platform?: string;
   package_tier?: string;
-  firebase_uid?: string;
+  wallet_address?: string;
 }
 
 /**
@@ -95,7 +95,7 @@ export function createUserSession(
     platform_context: userinfo.platform_context || 'epsx',
     primary_platform: userinfo.primary_platform || 'epsx',
     package_tier: userinfo.package_tier || 'FREE',
-    firebase_uid: userinfo.firebase_uid || userinfo.sub,
+    wallet_address: userinfo.wallet_address || userinfo.sub,
   };
 
   return {

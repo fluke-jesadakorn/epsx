@@ -3,11 +3,7 @@
 // Standardized handling for all backend permission authority responses
 // ============================================================================
 
-import { 
-  BackendPermissionResponse,
-  BackendPermissionError,
-  BackendUserPermissions
-} from '@/types/permissions'
+// Basic permission types for API responses
 
 // ============================================================================
 // STANDARDIZED API RESPONSE TYPES

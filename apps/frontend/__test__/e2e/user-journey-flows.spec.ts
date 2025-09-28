@@ -167,7 +167,7 @@ test.describe('🎯 Complete Trading Workflow Journey', () => {
     }
 
     // Step 5: Check account/portfolio data
-    await page.goto('/my-data');
+    await page.goto('/portfolio');
     await page.waitForLoadState('networkidle');
     console.log('✅ Step 5: Checked account and portfolio data');
 
@@ -183,7 +183,7 @@ test.describe('🎯 Complete Trading Workflow Journey', () => {
     console.log('🧪 Testing data export and portfolio workflow');
 
     // Step 1: Access portfolio data
-    await page.goto('/my-data');
+    await page.goto('/portfolio');
     await page.waitForLoadState('networkidle');
     console.log('✅ Step 1: Accessed portfolio data');
 
@@ -530,7 +530,7 @@ test.describe('🔐 Role-Based Feature Access', () => {
     console.log('🧪 Testing subscription-based feature limitations');
 
     // Test export functionality (often premium-gated)
-    const exportTestPages = ['/analytics/eps', '/my-data'];
+    const exportTestPages = ['/analytics/eps', '/portfolio'];
     
     for (const testPage of exportTestPages) {
       await page.goto(testPage);
@@ -579,7 +579,7 @@ test.describe('🔐 Role-Based Feature Access', () => {
       '/analytics/eps',
       '/analytics/pattern-recognition', 
       '/dashboard',
-      '/my-data',
+      '/portfolio',
     ];
 
     for (const navPath of rapidNavigation) {
@@ -638,7 +638,7 @@ test.describe('🔄 Cross-Feature Integration Journey', () => {
     }
 
     // Step 3: Check portfolio integration
-    await page.goto('/my-data');
+    await page.goto('/portfolio');
     await page.waitForLoadState('networkidle');
     
     // Look for watchlist or research history

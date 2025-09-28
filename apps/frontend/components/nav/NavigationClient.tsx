@@ -7,6 +7,7 @@ import {
   ChevronDown,
   Code,
   Database,
+  TrendingUp,
   File,
   Info,
   LineChart,
@@ -27,7 +28,6 @@ import { useState } from 'react';
 import { useChainId, useSwitchChain, useAccount } from 'wagmi';
 import { bsc, bscTestnet } from 'wagmi/chains';
 
-import { UnifiedThemeToggle } from '@/components/ui';
 import { NavbarSkeleton } from '@/components/nav/NavbarSkeleton';
 import { NotificationBellSimple } from '@/components/notifications/NotificationBellSimple';
 import { ChainSelector } from '@/components/nav/ChainSelector';
@@ -43,16 +43,15 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from '@/components/ui/sheet';
+} from '@/components/ui';
 import { navigationService } from '@/services/navigation.service';
-import { usePureWeb3AuthContext } from '@/providers/PureWeb3AuthProvider';
+import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
+import { UserAuthStatus } from '@/shared/components/display/UserDisplay';
 
 // Pure Web3 Navigation - no props needed
 interface NavigationClientProps {}
@@ -61,8 +60,7 @@ const iconMap = {
   docs: <File className="h-5 w-5 text-orange-500" />,
   ranking: <LineChart className="h-5 w-5 text-orange-500" />,
   analytics: <BarChart3 className="h-5 w-5 text-orange-500" />,
-  settings: <Settings className="h-5 w-5 text-orange-500" />,
-  'my-data': <Database className="h-5 w-5 text-orange-500" />,
+  'portfolio': <TrendingUp className="h-5 w-5 text-orange-500" />,
   developer: <Code className="h-5 w-5 text-orange-500" />,
   about: <Info className="h-5 w-5 text-orange-500" />,
   user: <User className="h-5 w-5 text-orange-500" />,
@@ -97,11 +95,11 @@ function NavigationContent() {
   const { switchChain, isPending: isSwitching } = useSwitchChain();
   const { isConnected } = useAccount();
 
-  // Get pure Web3 authentication state
-  const { isAuthenticated, permissions } = usePureWeb3AuthContext();
+  // Get shared authentication state
+  const { isAuthenticated, user } = useSharedAuth();
   
-  // Use permission-aware nav items to prevent hydration issues
-  const navItems = navigationService.getNavItems(isAuthenticated, permissions);
+  // Get all nav items - no permission filtering
+  const navItems = navigationService.getNavItems();
 
   // Get current chain name
   const getCurrentChainName = () => {
@@ -151,7 +149,7 @@ function NavigationContent() {
 
           {/* Navigation Skeleton - matches hydrated version exactly */}
           <nav className="hidden items-center gap-2 lg:flex mr-8">
-            {navigationService.getNavItems(false, []).map(item => {
+            {navigationService.getNavItems().filter(item => item.key !== 'about').map(item => {
               const IconComponent = iconMap[item.key as keyof typeof iconMap];
               return (
                 <div
@@ -189,13 +187,12 @@ function NavigationContent() {
               </div>
             )}
             
-            
-            
-            {/* Theme Toggle Skeleton (No dropdown arrow) */}
+            {/* About Us Skeleton */}
             <div className="flex items-center gap-2 rounded-2xl px-3 py-2">
-              <div className="h-5 w-5 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
-              <div className="h-4 w-8 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+              <Info className="h-5 w-5 text-orange-500" />
+              <span className="text-sm font-medium text-slate-600 dark:text-slate-300">About Us</span>
             </div>
+            
             
             {/* Chain Selector Skeleton */}
             <div className="flex items-center gap-2 rounded-2xl px-3 py-2">
@@ -234,7 +231,7 @@ function NavigationContent() {
 
         {/* Main Navigation */}
         <nav className="hidden items-center gap-2 lg:flex mr-8">
-          {navItems.map(item => {
+          {navItems.filter(item => item.key !== 'about').map(item => {
             const IconComponent = iconMap[item.key as keyof typeof iconMap];
             const isActive = pathname === item.href || item.children?.some(child => pathname === child.href);
             
@@ -307,7 +304,7 @@ function NavigationContent() {
 
         {/* Right Actions - Hidden on mobile */}
         <div className="hidden items-center gap-2 lg:flex">
-          {/* Notifications Dropdown */}
+          {/* Notifications Dropdown - Display only if authenticated */}
           {isAuthenticated && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -341,15 +338,26 @@ function NavigationContent() {
             </DropdownMenu>
           )}
 
+          {/* Authentication Status Display */}
+          {isAuthenticated && user && (
+            <div className="flex items-center gap-2 px-3 py-2">
+              <UserAuthStatus className="text-xs" />
+            </div>
+          )}
 
+          {/* About Us Link */}
+          <Link
+            href="/about"
+            className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium ${
+              pathname === '/about'
+                ? 'bg-orange-50/80 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300'
+                : 'text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200'
+            }`}
+          >
+            <Info className="h-5 w-5 text-orange-500" />
+            <span>About Us</span>
+          </Link>
 
-          {/* Theme Toggle (Simple Toggle) */}
-          <UnifiedThemeToggle 
-            variant="minimal" 
-            showLabel={true}
-            showTooltip={false}
-            className="flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200"
-          />
 
           {/* Chain Selection Dropdown */}
           <DropdownMenu>
@@ -486,17 +494,6 @@ function NavigationContent() {
               })}
 
               <div className="my-4 border-t border-orange-100 dark:border-slate-700" />
-
-              {/* Theme Toggle */}
-              <div className="w-full">
-                <UnifiedThemeToggle 
-                  variant="minimal" 
-                  showLabel={true} 
-                  showTooltip={false}
-                  className="w-full justify-start gap-4 rounded-2xl px-4 py-3 h-auto text-sm font-medium text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200"
-                />
-              </div>
-              <div className="my-2 border-t border-orange-100 dark:border-slate-700" />
 
               {/* Web3 & User Controls in Mobile */}
               <div className="space-y-3">

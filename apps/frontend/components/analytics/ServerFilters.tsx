@@ -12,58 +12,25 @@ export default async function ServerFilters({ currentParams }: ServerFiltersProp
   try {
     filterOptions = await getServerFilterOptions();
     
-    // If we get empty arrays, fall back to static options
+    // Minimal fallback if TradingView API returns empty data
     if (!filterOptions.countries.length && !filterOptions.sectors.length) {
+      console.warn('⚠️ TradingView API returned empty filter options, using minimal fallback');
       filterOptions = {
-        countries: [
-          'United States',
-          'Canada', 
-          'United Kingdom',
-          'Germany',
-          'France',
-          'Japan',
-          'Australia'
-        ],
-        sectors: [
-          'Technology',
-          'Healthcare', 
-          'Financial Services',
-          'Consumer Discretionary',
-          'Industrials',
-          'Energy',
-          'Telecommunications',
-          'Real Estate',
-        ],
-        exchanges: ['NASDAQ', 'NYSE', 'LSE', 'TSX', 'ASX', 'HKEX', 'TSE', 'EURONEXT'],
-        stock_types: ['common', 'preferred', 'reit', 'etf'],
+        countries: ['United States'],
+        sectors: ['Technology', 'Financial'],
+        exchanges: ['NASDAQ', 'NYSE'],
+        stock_types: ['common'],
       };
     }
   } catch (error) {
-    console.error('Failed to get filter options, using fallback:', error);
+    console.error('❌ TradingView filter API completely failed, using minimal fallback:', error);
     
-    // Fallback to static options
+    // Minimal emergency fallback
     filterOptions = {
-      countries: [
-        'United States',
-        'Canada', 
-        'United Kingdom',
-        'Germany',
-        'France',
-        'Japan',
-        'Australia'
-      ],
-      sectors: [
-        'Technology',
-        'Healthcare', 
-        'Financial Services',
-        'Consumer Discretionary',
-        'Industrials',
-        'Energy',
-        'Telecommunications',
-        'Real Estate',
-      ],
-      exchanges: ['NASDAQ', 'NYSE', 'LSE', 'TSX', 'ASX', 'HKEX', 'TSE', 'EURONEXT'],
-      stock_types: ['common', 'preferred', 'reit', 'etf'],
+      countries: ['United States'],
+      sectors: ['Technology', 'Financial'],
+      exchanges: ['NASDAQ', 'NYSE'],
+      stock_types: ['common'],
     };
   }
 

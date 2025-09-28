@@ -191,11 +191,11 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
             hasNext: response.pagination.page < response.pagination.total_pages,
             hasPrev: response.pagination.page > 1
           },
-          metadata: {
-            available_countries: ['United States', 'Canada', 'United Kingdom'],
-            available_sectors: ['Technology', 'Healthcare', 'Financial Services'],
-            request_timestamp: new Date().toISOString(),
-            data_source: 'analytics-api'
+          metadata: response.metadata || {
+            available_countries: response.metadata?.available_countries || [],
+            available_sectors: response.metadata?.available_sectors || [],
+            request_timestamp: response.metadata?.request_timestamp || new Date().toISOString(),
+            data_source: response.metadata?.data_source || 'analytics-api'
           },
           processing_time_ms: response.metadata.query_time
         };

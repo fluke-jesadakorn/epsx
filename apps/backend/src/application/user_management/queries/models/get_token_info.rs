@@ -9,7 +9,7 @@ pub struct GetTokenInfoQuery {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TokenInfo {
-    pub user_id: String,
+    pub wallet_address: String,
     pub session_id: Option<String>,
     pub expires_at: String,
     pub is_valid: bool,

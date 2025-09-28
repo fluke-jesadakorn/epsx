@@ -4,7 +4,7 @@ import { ClientProviders } from '@/components/providers/ClientProviders';
 import { MinimalWeb3Provider } from '@/components/providers/MinimalWeb3Provider';
 import { GlobalErrorBoundary } from '@/components/error-boundaries/GlobalErrorBoundary';
 import '@/lib/browser-polyfills';
-import { PureWeb3AuthProvider } from '@/providers/PureWeb3AuthProvider';
+import { SharedOpenIDWeb3Provider } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
 import { Kanit } from 'next/font/google';
 import { Toaster } from 'sonner';
 import { initializeRuntimeEnvironment } from '../../../shared/utils/runtime-env-validator';
@@ -64,8 +64,6 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Pure Web3 - authentication handled entirely client-side
-
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -95,25 +93,28 @@ export default function RootLayout({
         <GlobalErrorBoundary level="global">
           <ClientProviders>
             <MinimalWeb3Provider>
-              <PureWeb3AuthProvider>
+              <SharedOpenIDWeb3Provider 
+                clientId="epsx-frontend"
+                backendUrl={process.env.NEXT_PUBLIC_BACKEND_URL}
+              >
                 {/* Mobile navigation optimized for touch */}
                 <NavigationClient />
 
                 {/* Main content with mobile scroll optimization */}
                 <main className="relative min-h-screen">{children}</main>
 
-              {/* Toast notifications */}
-              <Toaster
-                position="top-right"
-                toastOptions={{
-                  style: {
-                    background: 'hsl(var(--background))',
-                    color: 'hsl(var(--foreground))',
-                    border: '1px solid hsl(var(--border))',
-                  },
-                }}
-              />
-              </PureWeb3AuthProvider>
+                {/* Toast notifications */}
+                <Toaster
+                  position="top-right"
+                  toastOptions={{
+                    style: {
+                      background: 'hsl(var(--background))',
+                      color: 'hsl(var(--foreground))',
+                      border: '1px solid hsl(var(--border))',
+                    },
+                  }}
+                />
+              </SharedOpenIDWeb3Provider>
             </MinimalWeb3Provider>
           </ClientProviders>
         </GlobalErrorBoundary>

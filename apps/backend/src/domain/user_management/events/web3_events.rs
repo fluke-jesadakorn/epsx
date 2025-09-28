@@ -4,13 +4,11 @@ use uuid::Uuid;
 
 use crate::domain::shared_kernel::DomainEvent;
 use crate::domain::shared_kernel::domain_event::EventMetadata;
-use crate::domain::shared_kernel::value_objects::UserId;
 use crate::domain::user_management::value_objects::{WalletAddress, Email};
 
 /// Event raised when a wallet is successfully authenticated via Web3
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WalletAuthenticatedEvent {
-    pub user_id: UserId,
     pub wallet_address: WalletAddress,
     pub nonce_used: String,
     pub signature: String,
@@ -20,19 +18,17 @@ pub struct WalletAuthenticatedEvent {
 
 impl WalletAuthenticatedEvent {
     pub fn new(
-        user_id: UserId,
         wallet_address: WalletAddress,
         nonce_used: String,
         signature: String,
         version: u64,
     ) -> Self {
         Self {
-            user_id: user_id.clone(),
-            wallet_address,
+            wallet_address: wallet_address.clone(),
             nonce_used,
             signature,
             authentication_method: "siwe".to_string(),
-            metadata: EventMetadata::new(user_id.to_string(), version),
+            metadata: EventMetadata::new(wallet_address.to_string(), version),
         }
     }
 }
@@ -43,7 +39,7 @@ impl DomainEvent for WalletAuthenticatedEvent {
     }
 
     fn aggregate_id(&self) -> String {
-        self.user_id.to_string()
+        self.wallet_address.to_string()
     }
 
     fn event_id(&self) -> Uuid {
@@ -66,7 +62,6 @@ impl DomainEvent for WalletAuthenticatedEvent {
 /// Event raised when a wallet is linked to an existing user account
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WalletLinkedToUserEvent {
-    pub user_id: UserId,
     pub wallet_address: WalletAddress,
     pub previous_email: Option<Email>,
     pub linked_via: String, // "migration", "manual_link", etc.
@@ -75,18 +70,16 @@ pub struct WalletLinkedToUserEvent {
 
 impl WalletLinkedToUserEvent {
     pub fn new(
-        user_id: UserId,
         wallet_address: WalletAddress,
         previous_email: Option<Email>,
         linked_via: String,
         version: u64,
     ) -> Self {
         Self {
-            user_id: user_id.clone(),
-            wallet_address,
+            wallet_address: wallet_address.clone(),
             previous_email,
             linked_via,
-            metadata: EventMetadata::new(user_id.to_string(), version),
+            metadata: EventMetadata::new(wallet_address.to_string(), version),
         }
     }
 }
@@ -97,7 +90,7 @@ impl DomainEvent for WalletLinkedToUserEvent {
     }
 
     fn aggregate_id(&self) -> String {
-        self.user_id.to_string()
+        self.wallet_address.to_string()
     }
 
     fn event_id(&self) -> Uuid {
@@ -120,7 +113,6 @@ impl DomainEvent for WalletLinkedToUserEvent {
 /// Event raised when a user is created via wallet authentication
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserCreatedViaWalletEvent {
-    pub user_id: UserId,
     pub wallet_address: WalletAddress,
     pub temporary_email: Email,
     pub authentication_method: String,
@@ -129,17 +121,15 @@ pub struct UserCreatedViaWalletEvent {
 
 impl UserCreatedViaWalletEvent {
     pub fn new(
-        user_id: UserId,
         wallet_address: WalletAddress,
         temporary_email: Email,
         version: u64,
     ) -> Self {
         Self {
-            user_id: user_id.clone(),
-            wallet_address,
+            wallet_address: wallet_address.clone(),
             temporary_email,
             authentication_method: "web3_wallet".to_string(),
-            metadata: EventMetadata::new(user_id.to_string(), version),
+            metadata: EventMetadata::new(wallet_address.to_string(), version),
         }
     }
 }
@@ -150,7 +140,7 @@ impl DomainEvent for UserCreatedViaWalletEvent {
     }
 
     fn aggregate_id(&self) -> String {
-        self.user_id.to_string()
+        self.wallet_address.to_string()
     }
 
     fn event_id(&self) -> Uuid {
@@ -173,7 +163,6 @@ impl DomainEvent for UserCreatedViaWalletEvent {
 /// Event raised when Web3 permission is automatically granted
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Web3PermissionGrantedEvent {
-    pub user_id: Option<UserId>,
     pub wallet_address: WalletAddress,
     pub permission: String,
     pub permission_type: String, // nft_gated, token_gated, dao_granted
@@ -185,7 +174,6 @@ pub struct Web3PermissionGrantedEvent {
 
 impl Web3PermissionGrantedEvent {
     pub fn new(
-        user_id: Option<UserId>,
         wallet_address: WalletAddress,
         permission: String,
         permission_type: String,
@@ -195,7 +183,6 @@ impl Web3PermissionGrantedEvent {
         version: u64,
     ) -> Self {
         Self {
-            user_id,
             wallet_address: wallet_address.clone(),
             permission,
             permission_type,

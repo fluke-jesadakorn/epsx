@@ -39,7 +39,7 @@ pub struct UserPermissionInfo {
 /// User's complete permission status
 #[derive(Debug, Serialize)]
 pub struct UserPermissionStatus {
-  pub user_id: String,
+  pub wallet_address: String,
   pub permissions: Vec<UserPermissionInfo>,
   pub permission_version: u32,
   pub last_updated: DateTime<Utc>,
@@ -54,7 +54,7 @@ pub struct UserPermissionStatus {
 /// Simple permission check result
 #[derive(Debug, Serialize)]
 pub struct SimplePermissionCheck {
-  pub user_id: String,
+  pub wallet_address: String,
   pub permission: String,
   pub has_permission: bool,
   pub expires_at: Option<DateTime<Utc>>,
@@ -227,7 +227,7 @@ pub async fn get_user_permissions(
     .any(|p| (p.starts_with("admin:") || p == "admin:*:*"));
 
   let status = UserPermissionStatus {
-    user_id: user.id.clone(),
+    wallet_address: user.id.clone(),
     permissions: permission_infos,
     permission_version,
     last_updated: now,
@@ -282,7 +282,7 @@ pub async fn check_user_permission(
   // For now, expiry info will remain None
 
   let check_result = SimplePermissionCheck {
-    user_id: user.id.clone(),
+    wallet_address: user.id.clone(),
     permission,
     has_permission,
     expires_at,

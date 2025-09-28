@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc, Duration};
 
-use crate::domain::shared_kernel::DomainError;
+use crate::core::errors::AppError;
 use crate::domain::shared_kernel::value_objects::{UserId, SessionId};
 use crate::domain::user_management::aggregates::Session;
 
@@ -10,34 +10,34 @@ use crate::domain::user_management::aggregates::Session;
 #[async_trait]
 pub trait SessionRepositoryPort: Send + Sync {
     /// Find a session by its unique identifier
-    async fn find_by_id(&self, id: &SessionId) -> Result<Option<Session>, DomainError>;
+    async fn find_by_id(&self, id: &SessionId) -> Result<Option<Session>, AppError>;
     
     /// Find sessions by user ID
-    async fn find_byuser_id(&self, user_id: &UserId) -> Result<Vec<Session>, DomainError>;
+    async fn find_byuser_id(&self, wallet_address: &UserId) -> Result<Vec<Session>, AppError>;
     
     /// Find active sessions for a user (not expired, not revoked)
-    async fn find_active_byuser_id(&self, user_id: &UserId) -> Result<Vec<Session>, DomainError>;
+    async fn find_active_byuser_id(&self, wallet_address: &UserId) -> Result<Vec<Session>, AppError>;
     
     /// Find sessions by access token
-    async fn find_by_access_token(&self, access_token: &str) -> Result<Option<Session>, DomainError>;
+    async fn find_by_access_token(&self, access_token: &str) -> Result<Option<Session>, AppError>;
     
     /// Find sessions by refresh token
-    async fn find_byrefresh_token(&self, refresh_token: &str) -> Result<Option<Session>, DomainError>;
+    async fn find_byrefresh_token(&self, refresh_token: &str) -> Result<Option<Session>, AppError>;
     
     /// Save a session (create or update)
-    async fn save(&self, session: &Session) -> Result<(), DomainError>;
+    async fn save(&self, session: &Session) -> Result<(), AppError>;
     
     /// Delete a session
-    async fn delete(&self, id: &SessionId) -> Result<(), DomainError>;
+    async fn delete(&self, id: &SessionId) -> Result<(), AppError>;
     
     /// Invalidate all sessions for a user
-    async fn invalidate_all_for_user(&self, user_id: &UserId) -> Result<u32, DomainError>;
+    async fn invalidate_all_for_user(&self, wallet_address: &UserId) -> Result<u32, AppError>;
     
     /// Find sessions that need cleanup (expired or revoked)
-    async fn find_expired_sessions(&self, before: DateTime<Utc>) -> Result<Vec<Session>, DomainError>;
+    async fn find_expired_sessions(&self, before: DateTime<Utc>) -> Result<Vec<Session>, AppError>;
     
     /// Clean up expired and revoked sessions
-    async fn cleanup_expired(&self, before: DateTime<Utc>) -> Result<u32, DomainError>;
+    async fn cleanup_expired(&self, before: DateTime<Utc>) -> Result<u32, AppError>;
     
     /// Find sessions by criteria with pagination
     async fn find_by_criteria(
@@ -45,35 +45,35 @@ pub trait SessionRepositoryPort: Send + Sync {
         criteria: &SessionSearchCriteria,
         limit: u32,
         offset: u32
-    ) -> Result<SessionSearchResult, DomainError>;
+    ) -> Result<SessionSearchResult, AppError>;
     
     /// Count sessions matching criteria
-    async fn count_by_criteria(&self, criteria: &SessionSearchCriteria) -> Result<u64, DomainError>;
+    async fn count_by_criteria(&self, criteria: &SessionSearchCriteria) -> Result<u64, AppError>;
     
     /// Get the next available identity
-    async fn next_identity(&self) -> Result<SessionId, DomainError>;
+    async fn next_identity(&self) -> Result<SessionId, AppError>;
     
     /// Health check for the repository
-    async fn health_check(&self) -> Result<(), DomainError>;
+    async fn health_check(&self) -> Result<(), AppError>;
     
     /// Batch operations for efficiency
-    async fn save_batch(&self, sessions: &[Session]) -> Result<(), DomainError>;
+    async fn save_batch(&self, sessions: &[Session]) -> Result<(), AppError>;
     
     /// Find sessions that need renewal (expire within threshold)
     async fn find_sessions_needing_renewal(
         &self, 
         threshold: Duration
-    ) -> Result<Vec<Session>, DomainError>;
+    ) -> Result<Vec<Session>, AppError>;
     
     /// Get session statistics
-    async fn get_session_statistics(&self) -> Result<SessionStatistics, DomainError>;
+    async fn get_session_statistics(&self) -> Result<SessionStatistics, AppError>;
 }
 
 /// Search criteria for finding sessions
 #[derive(Debug, Clone, Default)]
 pub struct SessionSearchCriteria {
     /// Filter by user ID
-    pub user_id: Option<UserId>,
+    pub wallet_address: Option<UserId>,
     
     /// Filter by active status (not expired and not revoked)
     pub is_active: Option<bool>,
@@ -156,22 +156,22 @@ pub struct SessionStatistics {
 #[async_trait]
 pub trait SessionAnalyticsPort: Send + Sync {
     /// Get detailed session statistics
-    async fn get_detailed_statistics(&self) -> Result<SessionStatistics, DomainError>;
+    async fn get_detailed_statistics(&self) -> Result<(), AppError>;
     
     /// Get session activity patterns over time
     async fn get_activity_patterns(
         &self, 
         days: u32
-    ) -> Result<Vec<(chrono::NaiveDate, u64)>, DomainError>;
+    ) -> Result<(), AppError>;
     
     /// Find suspicious session patterns (multiple IPs, unusual user agents, etc.)
-    async fn find_suspicious_sessions(&self) -> Result<Vec<Session>, DomainError>;
+    async fn find_suspicious_sessions(&self) -> Result<(), AppError>;
     
     /// Get sessions grouped by IP address
-    async fn get_sessions_by_ip(&self) -> Result<std::collections::HashMap<String, u64>, DomainError>;
+    async fn get_sessions_by_ip(&self) -> Result<(), AppError>;
     
     /// Get session duration distribution
-    async fn get_duration_distribution(&self) -> Result<Vec<(String, u64)>, DomainError>;
+    async fn get_duration_distribution(&self) -> Result<(), AppError>;
 }
 
 #[cfg(test)]
@@ -194,7 +194,7 @@ mod tests {
     #[test]
     fn session_search_criteria_default() {
         let criteria = SessionSearchCriteria::default();
-        assert!(criteria.user_id.is_none());
+        assert!(criteria.wallet_address.is_none());
         assert!(criteria.is_active.is_none());
         assert!(criteria.created_after.is_none());
     }

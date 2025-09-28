@@ -21,11 +21,56 @@ impl TradingViewWebSocketHandler {
     pub async fn connect_realtime_feed(&self) -> Result<(), MarketDataError> {
         info!("Connecting to TradingView WebSocket real-time feed");
         
-        // This would implement the actual WebSocket connection
-        // For now, we'll use a placeholder that indicates successful connection
-        info!("Connected to TradingView real-time feed at: {}", self.config.websocket_url);
+        use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
+        use futures_util::{SinkExt, StreamExt};
         
-        Ok(())
+        let url = &self.config.websocket_url;
+        
+        match connect_async(url).await {
+            Ok((ws_stream, _)) => {
+                info!("✅ Connected to TradingView WebSocket at: {}", url);
+                
+                let (mut write, mut read) = ws_stream.split();
+                
+                // Send initial session setup
+                let session_setup = r#"{"m":"set_auth_token","p":["unauthorized_user_token"]}"#;
+                write.send(Message::Text(session_setup.to_string())).await
+                    .map_err(|e| MarketDataError::ConnectionError(format!("Failed to send auth: {}", e)))?;
+                
+                // Start message processing loop
+                tokio::spawn(async move {
+                    while let Some(message) = read.next().await {
+                        match message {
+                            Ok(Message::Text(text)) => {
+                                debug!("📨 WebSocket message received: {}", text);
+                                // Process real TradingView message
+                                if let Ok(json_msg) = serde_json::from_str::<serde_json::Value>(&text) {
+                                    RealTimeDataProcessor::process_message(json_msg);
+                                }
+                            }
+                            Ok(Message::Ping(_data)) => {
+                                debug!("🏓 WebSocket ping received");
+                            }
+                            Ok(Message::Close(_)) => {
+                                info!("🔌 WebSocket connection closed");
+                                break;
+                            }
+                            Err(e) => {
+                                error!("❌ WebSocket error: {}", e);
+                                break;
+                            }
+                            _ => {}
+                        }
+                    }
+                });
+                
+                Ok(())
+            }
+            Err(e) => {
+                error!("❌ Failed to connect to TradingView WebSocket: {}", e);
+                Err(MarketDataError::ConnectionError(format!("WebSocket connection failed: {}", e)))
+            }
+        }
     }
 
     /// Fetch enhanced EPS data with WebSocket details
@@ -56,6 +101,7 @@ impl TradingViewWebSocketHandler {
                 country: "america".to_string(),
                 sector: "Technology".to_string(),
                 ranking_score: 0.0,
+                currency: "USD".to_string(), // Would come from WebSocket
             };
             
             results.push(eps_data);
@@ -167,12 +213,106 @@ impl TradingViewWebSocketHandler {
 
     /// Extract EPS data from WebSocket message
     fn extract_eps_data_from_message(message: &serde_json::Value, symbol: &str) -> Option<FrontendEPSData> {
-        // Parse WebSocket message and create FrontendEPSData
-        // This would be implemented based on actual TradingView WebSocket message format
-        let _ = (message, symbol); // Suppress unused variable warnings
+        // Parse TradingView WebSocket message format: {"m": "quote_data", "p": ["session", "symbol", data]}
+        let data = message.get("p")
+            .and_then(|p| p.as_array())
+            .and_then(|arr| arr.get(2))
+            .and_then(|d| d.as_object())?;
+            
+        // Extract real-time price data
+        let price_current = data.get("lp")  // Last price
+            .or_else(|| data.get("price"))
+            .and_then(|p| p.as_f64())
+            .unwrap_or(0.0);
+            
+        // Extract volume
+        let volume = data.get("volume")
+            .or_else(|| data.get("vol"))
+            .and_then(|v| v.as_i64())
+            .unwrap_or(0);
+            
+        // Extract EPS data if available
+        let current_eps = data.get("eps")
+            .or_else(|| data.get("earnings_per_share"))
+            .and_then(|eps| eps.as_f64())
+            .unwrap_or_else(|| {
+                // Calculate EPS from P/E ratio if available
+                if let (Some(price), Some(pe)) = (
+                    data.get("lp").and_then(|p| p.as_f64()),
+                    data.get("pe").and_then(|pe| pe.as_f64())
+                ) {
+                    if pe > 0.0 { price / pe } else { 0.0 }
+                } else { 0.0 }
+            });
+            
+        // Extract quarter-over-quarter growth
+        let qoq_growth = data.get("eps_growth_qoq")
+            .or_else(|| data.get("change_percent"))
+            .and_then(|g| g.as_f64())
+            .unwrap_or(0.0);
+            
+        // Extract market cap
+        let market_cap = data.get("market_cap")
+            .and_then(|mc| mc.as_i64())
+            .unwrap_or_else(|| {
+                // Calculate market cap from price and shares if available
+                if let (Some(price), Some(shares)) = (
+                    data.get("lp").and_then(|p| p.as_f64()),
+                    data.get("shares_outstanding").and_then(|s| s.as_i64())
+                ) {
+                    (price * shares as f64) as i64
+                } else { 0 }
+            });
+            
+        // Parse symbol to extract exchange and clean symbol
+        let (clean_symbol, _exchange) = if symbol.contains(':') {
+            let parts: Vec<&str> = symbol.split(':').collect();
+            (parts.get(1).unwrap_or(&symbol).to_string(), parts.get(0).unwrap_or(&"NASDAQ").to_string())
+        } else {
+            (symbol.to_string(), "NASDAQ".to_string())
+        };
         
-        // Placeholder implementation - would parse actual message structure
-        None
+        // Extract or derive company name
+        let company_name = data.get("description")
+            .or_else(|| data.get("name"))
+            .and_then(|n| n.as_str())
+            .unwrap_or(&clean_symbol)
+            .to_string();
+            
+        // Extract sector information
+        let sector = data.get("sector")
+            .and_then(|s| s.as_str())
+            .unwrap_or("Technology")
+            .to_string();
+            
+        // Extract currency information from TradingView WebSocket data
+        let currency = data.get("currency")
+            .or_else(|| data.get("fundamental_currency_code"))
+            .and_then(|c| c.as_str())
+            .unwrap_or("USD")
+            .to_string();
+            
+        // Calculate ranking score based on EPS growth and other factors
+        let ranking_score = if qoq_growth > 0.0 && current_eps > 0.0 {
+            qoq_growth * 0.7 + (current_eps * 10.0) * 0.3
+        } else {
+            0.0
+        };
+        
+        Some(FrontendEPSData {
+            id: format!("ws_{}", uuid::Uuid::new_v4().to_string()),
+            symbol: clean_symbol,
+            company_name,
+            current_eps,
+            qoq_growth,
+            market_cap,
+            price_current,
+            volume,
+            country: "US".to_string(), // Default for TradingView data
+            sector,
+            ranking_score,
+            currency,
+        })
     }
 
     /// Get WebSocket configuration
@@ -242,10 +382,11 @@ impl RealTimeDataProcessor {
 
     /// Process quote data message
     fn process_quote_data(message: serde_json::Value) -> Option<FrontendEPSData> {
-        // Parse quote data and convert to FrontendEPSData
-        // Implementation would depend on actual TradingView WebSocket format
-        let _ = message; // Suppress unused warning
-        None // Placeholder
+        // Extract symbol from quote data message
+        let symbol = TradingViewWebSocketHandler::extract_symbol_from_message(&message)?;
+        
+        // Extract EPS data using the implemented parser
+        TradingViewWebSocketHandler::extract_eps_data_from_message(&message, &symbol)
     }
 
     /// Process batch of messages

@@ -1,8 +1,8 @@
 /**
- * Server-side JWT Cookie Utilities for Admin Frontend
- * Uses jose library for JWT verification and cookie management
+ * Server-side JWT Cookie Utilities for Admin Frontend - WEB3-FIRST
+ * Uses jose library for JWT verification and cookie management with Web3 secrets
+ * Phase 4.2: Updated to use Web3 app secrets, legacy JWT marked for Web3 migration
  */
-// Legacy JWT support - consider migrating to OIDC
 import { jwtVerify } from 'jose';
 import { env } from '@/config/env';
 
@@ -17,11 +17,19 @@ export interface EPSXJWTPayload {
 }
 
 /**
- * Minimal JWT verification function for legacy support
+ * JWT verification function with Web3 app secret
+ * Phase 4.2: Updated to use WEB3_APP_SECRET instead of NEXTAUTH_SECRET
  */
 async function verifyJWT(token: string): Promise<EPSXJWTPayload | null> {
   try {
-    const jwtSecret = env.NEXTAUTH_SECRET;
+    // Use Web3 app secret with legacy fallback
+    const jwtSecret = env.WEB3_APP_SECRET || env.JWT_SECRET;
+    
+    if (!jwtSecret) {
+      console.error('No WEB3_APP_SECRET or JWT_SECRET configured for JWT verification');
+      return null;
+    }
+    
     const { payload } = await jwtVerify(
       token,
       new TextEncoder().encode(jwtSecret),

@@ -65,7 +65,7 @@ pub struct BulkOperationResponse {
 
 #[derive(Debug, Serialize)]
 pub struct BulkUserResult {
-    pub user_id: String,
+    pub wallet_address: String,
     pub email: Option<String>,
     pub permissions_added: Vec<String>,
     pub permissions_removed: Vec<String>,
@@ -75,7 +75,7 @@ pub struct BulkUserResult {
 
 #[derive(Debug, Serialize)]
 pub struct BulkUserError {
-    pub user_id: String,
+    pub wallet_address: String,
     pub error: String,
     pub error_code: String,
 }
@@ -97,7 +97,7 @@ pub struct BulkValidationResponse {
 
 #[derive(Debug, Serialize)]
 pub struct UserPermissionValidation {
-    pub user_id: String,
+    pub wallet_address: String,
     pub email: Option<String>,
     pub valid_permissions: Vec<String>,
     pub expired_permissions: Vec<ExpiredPermissionInfo>,
@@ -224,7 +224,7 @@ pub async fn bulk_grant_permissions(
             Ok(id) => id,
             Err(_) => {
                 failed.push(BulkUserError {
-                    user_id: user_id.clone(),
+                    wallet_address: user_id.clone(),
                     error: "Invalid user ID format".to_string(),
                     error_code: "INVALID_USER_ID".to_string(),
                 });
@@ -238,7 +238,7 @@ pub async fn bulk_grant_permissions(
             Ok(None) => {
                 tracing::warn!("User not found: {}", user_id);
                 failed.push(BulkUserError {
-                    user_id: user_id.clone(),
+                    wallet_address: user_id.clone(),
                     error: "User not found".to_string(),
                     error_code: "USER_NOT_FOUND".to_string(),
                 });
@@ -247,7 +247,7 @@ pub async fn bulk_grant_permissions(
             Err(e) => {
                 tracing::error!("Failed to get user {}: {:?}", user_id, e);
                 failed.push(BulkUserError {
-                    user_id: user_id.clone(),
+                    wallet_address: user_id.clone(),
                     error: format!("Failed to get user: {}", e),
                     error_code: "DATABASE_ERROR".to_string(),
                 });
@@ -299,7 +299,7 @@ pub async fn bulk_grant_permissions(
                         let email = Some(updated_user.email().to_string());
                 
                 successful.push(BulkUserResult {
-                    user_id: user_id.clone(),
+                    wallet_address: user_id.clone(),
                     email,
                     permissions_added: added_permissions,
                     permissions_removed: vec![],
@@ -309,7 +309,7 @@ pub async fn bulk_grant_permissions(
                     },
                     Err(e) => {
                         failed.push(BulkUserError {
-                            user_id: user_id.clone(),
+                            wallet_address: user_id.clone(),
                             error: format!("Failed to save user: {}", e),
                             error_code: "SAVE_FAILED".to_string(),
                         });
@@ -318,7 +318,7 @@ pub async fn bulk_grant_permissions(
             },
             Err(e) => {
                 failed.push(BulkUserError {
-                    user_id: user_id.clone(),
+                    wallet_address: user_id.clone(),
                     error: format!("Failed to update permissions: {}", e),
                     error_code: "UPDATE_FAILED".to_string(),
                 });
@@ -371,7 +371,7 @@ pub async fn bulk_revoke_permissions(
             Ok(id) => id,
             Err(_) => {
                 failed.push(BulkUserError {
-                    user_id: user_id.clone(),
+                    wallet_address: user_id.clone(),
                     error: "Invalid user ID format".to_string(),
                     error_code: "INVALID_USER_ID".to_string(),
                 });
@@ -385,7 +385,7 @@ pub async fn bulk_revoke_permissions(
             Ok(None) => {
                 tracing::warn!("User not found: {}", user_id);
                 failed.push(BulkUserError {
-                    user_id: user_id.clone(),
+                    wallet_address: user_id.clone(),
                     error: "User not found".to_string(),
                     error_code: "USER_NOT_FOUND".to_string(),
                 });
@@ -394,7 +394,7 @@ pub async fn bulk_revoke_permissions(
             Err(e) => {
                 tracing::error!("Failed to get user {}: {:?}", user_id, e);
                 failed.push(BulkUserError {
-                    user_id: user_id.clone(),
+                    wallet_address: user_id.clone(),
                     error: format!("Failed to get user: {}", e),
                     error_code: "DATABASE_ERROR".to_string(),
                 });
@@ -448,7 +448,7 @@ pub async fn bulk_revoke_permissions(
                         let email = Some(updated_user.email().to_string());
                 
                 successful.push(BulkUserResult {
-                    user_id: user_id.clone(),
+                    wallet_address: user_id.clone(),
                     email,
                     permissions_added: vec![],
                     permissions_removed: removed_permissions,
@@ -458,7 +458,7 @@ pub async fn bulk_revoke_permissions(
                     },
                     Err(e) => {
                         failed.push(BulkUserError {
-                            user_id: user_id.clone(),
+                            wallet_address: user_id.clone(),
                             error: format!("Failed to save user: {}", e),
                             error_code: "SAVE_FAILED".to_string(),
                         });
@@ -467,7 +467,7 @@ pub async fn bulk_revoke_permissions(
             },
             Err(e) => {
                 failed.push(BulkUserError {
-                    user_id: user_id.clone(),
+                    wallet_address: user_id.clone(),
                     error: format!("Failed to update permissions: {}", e),
                     error_code: "UPDATE_FAILED".to_string(),
                 });
@@ -607,7 +607,7 @@ pub async fn bulk_validate_permissions(
         };
         
         user_validations.push(UserPermissionValidation {
-            user_id: user_id.clone(),
+            wallet_address: user_id.clone(),
             email,
             valid_permissions,
             expired_permissions,

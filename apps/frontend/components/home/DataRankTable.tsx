@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/table';
 
 import type { PermissionTemplateName } from '@/app/constants/packages';
-import { extractRankingLimitFromPermissions, deriveTierFromPermissions, canViewRankingPosition } from '@/lib/permission-utils';
 import { LockedRankingCard, UpgradePrompt } from '@/components/ui/prompt';
 import { Button } from '../ui/button';
 
@@ -292,11 +291,11 @@ function DataRankTable({
     return Math.min(nextLimit - currentLimit, 10); // Cap at 10 locked rankings
   };
 
-  // Permission-based ranking access control
-  const maxRankings = extractRankingLimitFromPermissions(userPermissions);
-  const userLevel = deriveTierFromPermissions(userPermissions) as PermissionTemplateName;
-  const upgradeRequired = maxRankings < 100 && maxRankings !== -1; // Show upgrade if not unlimited and less than 100
-  const canViewRanking = (index: number) => canViewRankingPosition(index + 1, userPermissions);
+  // Simplified access control - backend will handle permissions
+  const maxRankings = -1; // Unlimited access - backend will handle actual restrictions
+  const userLevel = 'basic' as PermissionTemplateName;
+  const upgradeRequired = false; // No frontend upgrade prompts
+  const canViewRanking = (index: number) => true; // Backend will handle actual access control
 
   // Ensure data is always an array to prevent runtime errors
   let safeData = Array.isArray(data) ? data : [];

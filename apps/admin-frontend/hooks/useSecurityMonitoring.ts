@@ -505,3 +505,38 @@ export const useSecurityNotifications = () => {
     clearNotifications,
   }
 }
+
+// Utility hooks for specific security monitoring use cases
+export const useCriticalAlerts = () => {
+  const { alerts, loading, error } = useSecurityAlerts({
+    priorityFilter: 'high',  // Using 'high' as closest to 'critical'
+    unresolvedOnly: true
+  });
+  return { alerts, loading, error };
+};
+
+export const useSecurityTrendSummary = (timeRange: string = '24h') => {
+  const { state, statistics } = useSecurityMonitoring({
+    autoRefresh: true,
+    refreshInterval: 60000
+  });
+  
+  const trends = statistics?.threatTrends || [];
+  return { trends, loading: state.loading, error: state.error };
+};
+
+export const useSystemAlertStatus = () => {
+  const { state, statistics } = useSecurityMonitoring({
+    autoRefresh: true,
+    refreshInterval: 30000
+  });
+  
+  const systemStatus = {
+    totalAlerts: statistics?.unresolvedAlerts || 0,
+    criticalAlerts: statistics?.criticalEvents || 0,
+    riskScore: statistics?.riskScore || 0,
+    complianceScore: statistics?.complianceScore || 100
+  };
+  
+  return { systemStatus, loading: state.loading, error: state.error };
+};

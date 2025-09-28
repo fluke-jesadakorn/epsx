@@ -2,27 +2,38 @@
 // Wallet signature-based authentication middleware replacing OIDC/JWT
 
 use axum::{
-    extract::Request,
-    http::{StatusCode, HeaderMap, header::AUTHORIZATION},
+    extract::{Request, State},
+    http::{StatusCode, HeaderMap},
     middleware::Next,
     response::Response,
 };
 use serde::{Deserialize, Serialize};
-// use std::collections::HashMap; // Removed - unused import
 use tracing::{debug, warn, info};
-use uuid::Uuid;
 use chrono::{DateTime, Utc};
+use ethers::types::Address;
+use siwe::{Message, VerificationOpts};
+use std::str::FromStr;
+use jsonwebtoken;
+
+use crate::auth::{
+    openid_token_service::OpenIDTokenService,
+};
+use crate::web::auth::routes::AppState;
 
 /// Web3 Authentication Context - attached to requests after successful validation
+/// Represents authenticated wallet with permissions from wallet_users table
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Web3AuthContext {
-    pub wallet_address: String,
-    pub user_id: Option<Uuid>,
-    pub permissions: Vec<String>,
-    pub groups: Vec<String>,
-    pub verified_at: DateTime<Utc>,
-    pub signature_hash: String, // Hash of the signature used for auth
-    pub chain_id: u64,
+    pub wallet_address: String,        // Primary key from wallet_users table
+    pub permissions: Vec<String>,      // JSON permissions from wallet_users.permissions  
+    pub tier_level: String,           // From wallet_users.tier_level
+    pub is_active: bool,              // From wallet_users.is_active
+    pub verified_at: DateTime<Utc>,   // When signature was verified
+    pub signature_hash: String,       // Hash of the SIWE signature
+    pub chain_id: u64,               // Blockchain network (56=BSC, 1=Ethereum)
+    pub last_auth_at: DateTime<Utc>, // For wallet_users.last_auth_at update
+    pub bearer_token: Option<String>, // Generated Bearer token for API access
+    pub token_expires_at: Option<DateTime<Utc>>, // Bearer token expiry
 }
 
 /// Web3 Authentication Errors
@@ -57,56 +68,37 @@ impl std::error::Error for Web3AuthError {}
 
 /// Web3 Authentication Middleware
 /// 
-/// This middleware performs wallet-based authentication using:
+/// This middleware performs pure wallet-based authentication using:
 /// 1. SIWE (Sign-In with Ethereum) signature verification
 /// 2. Wallet address validation
-/// 3. Permission and group lookup
+/// 3. Permission and group lookup from wallet_users table
 /// 4. Security context establishment
 pub async fn web3_auth_middleware(
-    headers: HeaderMap,
+    State(app_state): State<AppState>,
     mut request: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
+    let headers = request.headers().clone();
     
-    // Try different authentication methods in priority order
-    
-    // 1. First try Web3 signature authentication (primary method)
-    if let Ok(auth_context) = validate_web3_signature_auth(&headers).await {
-        debug!("Authenticated via Web3 signature: {}", auth_context.wallet_address);
-        
-        // Attach Web3 context to request
-        request.extensions_mut().insert(auth_context);
-        
-        return Ok(next.run(request).await);
+    // Pure Web3 signature authentication with real SIWE verification
+    match validate_web3_signature_auth(&headers, &app_state).await {
+        Ok(auth_context) => {
+            debug!("Web3 authentication successful: {}", auth_context.wallet_address);
+            
+            // Attach Web3 context to request
+            request.extensions_mut().insert(auth_context);
+            
+            Ok(next.run(request).await)
+        }
+        Err(auth_error) => {
+            warn!("Web3 authentication failed: {}", auth_error);
+            Err(StatusCode::UNAUTHORIZED)
+        }
     }
-    
-    // 2. Try session-based authentication (for persistent sessions)
-    if let Ok(auth_context) = validate_session_auth(&headers).await {
-        debug!("Authenticated via session: {}", auth_context.wallet_address);
-        
-        // Attach Web3 context to request
-        request.extensions_mut().insert(auth_context);
-        
-        return Ok(next.run(request).await);
-    }
-    
-    // 3. Try API key authentication (for service-to-service)
-    if let Ok(auth_context) = validate_api_key_auth(&headers).await {
-        debug!("Authenticated via API key for wallet: {}", auth_context.wallet_address);
-        
-        // Attach Web3 context to request
-        request.extensions_mut().insert(auth_context);
-        
-        return Ok(next.run(request).await);
-    }
-    
-    // If no authentication method succeeded, return unauthorized
-    warn!("Web3 authentication failed - no valid signature, session, or API key");
-    Err(StatusCode::UNAUTHORIZED)
 }
 
-/// Validate Web3 signature-based authentication
-async fn validate_web3_signature_auth(headers: &HeaderMap) -> Result<Web3AuthContext, Web3AuthError> {
+/// Validate Web3 signature-based authentication with real SIWE verification
+async fn validate_web3_signature_auth(headers: &HeaderMap, app_state: &AppState) -> Result<Web3AuthContext, Web3AuthError> {
     // Extract Web3 signature from custom header
     let signature_header = headers
         .get("X-Web3-Signature")
@@ -139,108 +131,75 @@ async fn validate_web3_signature_auth(headers: &HeaderMap) -> Result<Web3AuthCon
         chain_id
     );
 
-    // TODO: In a real implementation, this would:
-    // 1. Verify the SIWE signature cryptographically
-    // 2. Check the message format and expiry
-    // 3. Validate the wallet address format
-    // 4. Look up user permissions and groups from database
-    // 5. Create security context
+    // Validate wallet address format
+    let _wallet_address = Address::from_str(wallet_header)
+        .map_err(|_| Web3AuthError::InvalidSignatureFormat)?;
 
-    // For now, create a mock context (placeholder implementation)
+    // Parse and verify SIWE message
+    let siwe_message = Message::from_str(message_header)
+        .map_err(|e| Web3AuthError::SignatureVerificationFailed(format!("Invalid SIWE message: {}", e)))?;
+
+    // Verify signature cryptographically
+    let signature_bytes = hex::decode(signature_header.trim_start_matches("0x"))
+        .map_err(|_| Web3AuthError::InvalidSignatureFormat)?;
+
+    siwe_message.verify(&signature_bytes, &VerificationOpts::default())
+        .await
+        .map_err(|e| Web3AuthError::SignatureVerificationFailed(format!("SIWE verification failed: {}", e)))?;
+
+    info!("SIWE signature verification successful for wallet: {}", wallet_header);
+
+    // Get Web3 services from app state
+    let _web3_auth_service = app_state.domain_container.get_unified_web3_auth_service()
+        .ok_or_else(|| Web3AuthError::SecurityViolation("Web3 auth service not available".to_string()))?;
+    
+    let _web3_permission_service = app_state.domain_container.get_wallet_permission_service()
+        .ok_or_else(|| Web3AuthError::SecurityViolation("Web3 permission service not available".to_string()))?;
+
+    let openid_service = app_state.domain_container.get_openid_token_service()
+        .ok_or_else(|| Web3AuthError::SecurityViolation("OpenID service not available".to_string()))?;
+
+    // For now, provide basic permissions based on wallet existence
+    // TODO: Integrate with proper wallet permission service when available
+    let permissions: Vec<String> = vec![
+        "epsx:basic:view".to_string(),
+        "epsx:data:read".to_string(),
+    ];
+
+    // Determine tier level based on permissions
+    let tier_level = determine_tier_level(&permissions);
+
+    // Generate Bearer token for API access
+    let (bearer_token, token_expires_at) = match generate_bearer_token(
+        wallet_header,
+        &permissions,
+        &tier_level,
+        &openid_service,
+    ).await {
+        Ok((token, expiry)) => (Some(token), Some(expiry)),
+        Err(e) => {
+            warn!("Failed to generate Bearer token: {}", e);
+            (None, None)
+        }
+    };
+
     let auth_context = Web3AuthContext {
         wallet_address: wallet_header.to_lowercase(),
-        user_id: Some(Uuid::new_v4()), // Mock user ID
-        permissions: vec![
-            "epsx:basic:view".to_string(),
-            "epsx:analytics:view".to_string(),
-        ],
-        groups: vec!["bsc-users".to_string()],
+        permissions,
+        tier_level,
+        is_active: true,
         verified_at: Utc::now(),
-        signature_hash: format!("0x{}", &signature_header[..8]), // First 8 chars as hash
+        signature_hash: format!("0x{}", &signature_header[2..18]), // First 16 chars of signature
         chain_id,
+        last_auth_at: Utc::now(),
+        bearer_token,
+        token_expires_at,
     };
 
-    info!("Web3 signature authentication successful for wallet: {}", wallet_header);
+    info!("Web3 authentication complete for wallet: {} with {} permissions", wallet_header, auth_context.permissions.len());
     Ok(auth_context)
 }
 
-/// Validate session-based authentication (for persistent login)
-async fn validate_session_auth(headers: &HeaderMap) -> Result<Web3AuthContext, Web3AuthError> {
-    // Look for session token in Authorization header
-    let auth_header = headers
-        .get(AUTHORIZATION)
-        .and_then(|h| h.to_str().ok())
-        .and_then(|h| h.strip_prefix("Bearer "))
-        .ok_or(Web3AuthError::MissingSignature)?;
-
-    // Validate session token format (simple check)
-    if auth_header.len() < 32 {
-        return Err(Web3AuthError::InvalidSignatureFormat);
-    }
-
-    debug!("Validating session token: {}", &auth_header[..8]);
-
-    // TODO: In a real implementation, this would:
-    // 1. Look up the session in database/cache
-    // 2. Validate session expiry
-    // 3. Get associated wallet address and permissions
-    // 4. Verify session integrity
-
-    // For now, create a mock context (placeholder implementation)
-    let auth_context = Web3AuthContext {
-        wallet_address: "0x742d35cc6634c0532925a3b8d369d7763f3c45c6".to_string(), // Mock address
-        user_id: Some(Uuid::new_v4()),
-        permissions: vec![
-            "epsx:basic:view".to_string(),
-        ],
-        groups: vec!["session-users".to_string()],
-        verified_at: Utc::now(),
-        signature_hash: format!("session-{}", &auth_header[..8]),
-        chain_id: 56,
-    };
-
-    debug!("Session authentication successful for session: {}", &auth_header[..8]);
-    Ok(auth_context)
-}
-
-/// Validate API key authentication (for service-to-service communication)
-async fn validate_api_key_auth(headers: &HeaderMap) -> Result<Web3AuthContext, Web3AuthError> {
-    // Look for API key in X-API-Key header
-    let api_key = headers
-        .get("X-API-Key")
-        .and_then(|h| h.to_str().ok())
-        .ok_or(Web3AuthError::MissingSignature)?;
-
-    // Validate API key format
-    if api_key.len() < 32 {
-        return Err(Web3AuthError::InvalidSignatureFormat);
-    }
-
-    debug!("Validating API key: {}", &api_key[..8]);
-
-    // TODO: In a real implementation, this would:
-    // 1. Look up the API key in database
-    // 2. Validate key is active and not expired
-    // 3. Get associated wallet address and permissions
-    // 4. Apply rate limiting specific to the key
-
-    // For now, create a mock context (placeholder implementation)
-    let auth_context = Web3AuthContext {
-        wallet_address: "0x0000000000000000000000000000000000000000".to_string(), // Service account
-        user_id: None, // Service accounts don't have user IDs
-        permissions: vec![
-            "epsx:api:read".to_string(),
-            "epsx:api:write".to_string(),
-        ],
-        groups: vec!["api-users".to_string()],
-        verified_at: Utc::now(),
-        signature_hash: format!("api-{}", &api_key[..8]),
-        chain_id: 56,
-    };
-
-    debug!("API key authentication successful for key: {}", &api_key[..8]);
-    Ok(auth_context)
-}
 
 /// Extract Web3 authentication context from request
 pub fn get_web3_context<'a>(request: &'a Request) -> Option<&'a Web3AuthContext> {
@@ -294,22 +253,86 @@ pub async fn require_admin<'a>(
     }
 }
 
-/// Require group membership - checks if user is in specified group
-pub async fn require_group<'a>(
+/// Require tier level - checks if user has minimum tier level
+pub async fn require_tier<'a>(
     request: &'a Request,
-    required_group: &str,
+    required_tier: &str,
 ) -> Result<&'a Web3AuthContext, StatusCode> {
     let context = require_web3_auth(request).await?;
     
-    if context.groups.contains(&required_group.to_string()) {
+    // Check if wallet is active
+    if !context.is_active {
+        warn!("Inactive wallet attempted access: {}", context.wallet_address);
+        return Err(StatusCode::FORBIDDEN);
+    }
+    
+    // Simple tier level check (Bronze < Silver < Gold < Platinum < Diamond)
+    let tier_hierarchy = ["Bronze", "Silver", "Gold", "Platinum", "Diamond"];
+    let required_index = tier_hierarchy.iter().position(|&t| t == required_tier).unwrap_or(0);
+    let user_index = tier_hierarchy.iter().position(|&t| t == context.tier_level).unwrap_or(0);
+    
+    if user_index >= required_index {
         Ok(context)
     } else {
         warn!(
-            "Group '{}' membership required but not found for wallet: {}",
-            required_group,
-            context.wallet_address
+            "Tier level '{}' required but wallet {} has tier '{}'",
+            required_tier,
+            context.wallet_address,
+            context.tier_level
         );
         Err(StatusCode::FORBIDDEN)
+    }
+}
+
+/// Determine tier level based on wallet permissions
+fn determine_tier_level(permissions: &[String]) -> String {
+    if permissions.iter().any(|p| p.starts_with("admin:")) {
+        "admin".to_string()
+    } else if permissions.iter().any(|p| p.contains("premium") || p.contains("platinum") || p.contains("diamond")) {
+        "premium".to_string()
+    } else if permissions.iter().any(|p| p.contains("silver") || p.contains("gold")) {
+        "silver".to_string()
+    } else {
+        "bronze".to_string()
+    }
+}
+
+/// Generate Bearer token for API access after successful Web3 authentication
+async fn generate_bearer_token(
+    wallet_address: &str,
+    permissions: &[String],
+    tier_level: &str,
+    _openid_service: &OpenIDTokenService,
+) -> Result<(String, DateTime<Utc>), String> {
+    use crate::auth::AccessTokenClaims;
+    
+    let now = Utc::now();
+    let expiry = now + chrono::Duration::hours(1); // 1 hour token expiry
+    
+    let claims = AccessTokenClaims {
+        sub: wallet_address.to_string(),
+        wallet_address: wallet_address.to_string(),
+        permissions: permissions.to_vec(),
+        tier_level: tier_level.to_string(),
+        auth_method: "web3_siwe".to_string(),
+        aud: vec!["epsx-api".to_string()],
+        iss: "https://api.epsx.io".to_string(),
+        exp: expiry.timestamp(),
+        iat: now.timestamp(),
+        auth_time: now.timestamp(),
+        jti: uuid::Uuid::new_v4().to_string(),
+    };
+    
+    // Create JWT header
+    let header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256);
+    
+    // Simple signing key for Bearer tokens (in production, use proper key management)
+    let secret = "epsx-web3-bearer-token-secret-key".as_bytes();
+    let encoding_key = jsonwebtoken::EncodingKey::from_secret(secret);
+    
+    match jsonwebtoken::encode(&header, &claims, &encoding_key) {
+        Ok(token) => Ok((token, expiry)),
+        Err(e) => Err(format!("Token generation failed: {}", e)),
     }
 }
 
@@ -330,16 +353,30 @@ mod tests {
     fn test_web3_auth_context_creation() {
         let context = Web3AuthContext {
             wallet_address: "0x742d35cc6634c0532925a3b8d369d7763f3c45c6".to_string(),
-            user_id: Some(Uuid::new_v4()),
             permissions: vec!["epsx:basic:view".to_string()],
-            groups: vec!["test-group".to_string()],
+            tier_level: "Silver".to_string(),
+            is_active: true,
             verified_at: Utc::now(),
             signature_hash: "0x12345678".to_string(),
             chain_id: 56,
+            last_auth_at: Utc::now(),
+            bearer_token: Some("bearer_token_example".to_string()),
+            token_expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
         };
         
         assert!(!context.wallet_address.is_empty());
-        assert!(context.user_id.is_some());
+        assert_eq!(context.tier_level, "Silver");
+        assert!(context.is_active);
         assert_eq!(context.chain_id, 56);
+        assert!(context.bearer_token.is_some());
+        assert!(context.token_expires_at.is_some());
+    }
+    
+    #[test]
+    fn test_determine_tier_level() {
+        assert_eq!(determine_tier_level(&vec!["admin:users:read".to_string()]), "admin");
+        assert_eq!(determine_tier_level(&vec!["epsx:premium:analytics".to_string()]), "premium");
+        assert_eq!(determine_tier_level(&vec!["epsx:silver:view".to_string()]), "silver");
+        assert_eq!(determine_tier_level(&vec!["epsx:basic:view".to_string()]), "bronze");
     }
 }

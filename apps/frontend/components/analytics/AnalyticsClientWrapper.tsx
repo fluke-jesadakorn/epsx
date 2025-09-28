@@ -58,7 +58,7 @@ async function fetchEPSRankings(filters: AnalyticsFilters): Promise<UnifiedAnaly
     };
 
     const response = await analyticsClient.getRankings(queryParams);
-    return response;
+    return response || null;
   } catch (error) {
     console.error('Error fetching EPS rankings:', error);
     return null;

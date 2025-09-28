@@ -6,10 +6,8 @@ pub mod shared_kernel;
 pub mod user_management;
 pub mod trading_analytics;
 pub mod notification;
-pub mod payment;
-pub mod authentication;
+// pub mod payment; // Temporarily disabled due to aggregate implementation issues
 pub mod authorization;
-pub mod session_management;
 pub mod realtime_events;
 pub mod resource_management; // New domain for resource tracking and billing
 
@@ -19,7 +17,5 @@ pub use shared_kernel::{
     DomainEvent, 
     DomainEventBus, 
     Specification, 
-    ValueObject, 
-    DomainError,
-    DomainResult
+    ValueObject
 };

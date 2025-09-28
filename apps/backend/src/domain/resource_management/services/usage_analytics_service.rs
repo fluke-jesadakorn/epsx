@@ -8,7 +8,7 @@ use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UsageAnalytics {
-    pub user_id: String,
+    pub wallet_address: String,
     pub plan_id: Option<i32>,
     pub period_start: DateTime<Utc>,
     pub period_end: DateTime<Utc>,
@@ -140,7 +140,7 @@ impl UsageAnalyticsService {
         let predicted_overage = self.predict_overage(usage, historical_data);
 
         UsageAnalytics {
-            user_id: usage.user_id.clone(),
+            wallet_address: usage.wallet_address.clone(),
             plan_id: usage.plan_id,
             period_start: usage.billing_period_start,
             period_end: usage.billing_period_end,

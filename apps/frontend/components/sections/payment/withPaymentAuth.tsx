@@ -13,7 +13,7 @@ export function withPaymentAuth<P extends object>(
 ) {
   const PaymentAuthComponent = (props: P) => {
     const router = useRouter()
-    const { user, loading: isLoading } = useAuth()
+    const { user, isLoading } = useAuth()
     const isAuthenticated = !!user
     
     // Payment access means user has basic permissions

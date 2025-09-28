@@ -1,20 +1,16 @@
 import { StreamingWrapper } from '@/components/common/StreamingWrapper';
-import ClientEpsCardSection from '@/components/home/ClientEpsCardSection';
+import ServerTopPerformers from '@/components/home/ServerTopPerformers';
 import DynamicPricingSection from '@/components/home/DynamicPricingSection';
 import { PublicRankingPreview } from '@/components/home/PublicRankingPreview';
 
 // DISABLE ISR caching to show real TradingView data immediately
 export const revalidate = 0;
 
-// Use proper types for financial data
-
 import type { StockFinancialData } from '@/types/financialChartData';
-import type { TableDataMetrics } from '@/types/stockFetchData';
 
 export default function HomePage() {
-  // Use empty data for immediate page render - analytics will load client-side
+  // Use empty data for PublicRankingPreview component
   const initialData: StockFinancialData[] = [];
-  const epsCardData: TableDataMetrics[] = [];
   return (
     <div>
       {/* Promotional Banner */}
@@ -62,13 +58,7 @@ export default function HomePage() {
 
           {/* EPS Cards Section - Top Performing Companies */}
           <StreamingWrapper priority="medium" identifier="eps-cards">
-            <div className="container mx-auto px-4 py-12">
-              <div className="relative">
-                <div className="absolute -top-8 -left-8 h-16 w-16 rounded-full bg-gradient-to-br from-orange-400/20 to-yellow-400/20 blur-xl" />
-                <div className="absolute -right-8 -bottom-8 h-20 w-20 rounded-full bg-gradient-to-br from-blue-400/20 to-cyan-400/20 blur-xl" />
-                <ClientEpsCardSection initialData={epsCardData} />
-              </div>
-            </div>
+            <ServerTopPerformers />
           </StreamingWrapper>
 
           {/* Dynamic Pricing Section with affiliate tracking */}
@@ -91,38 +81,80 @@ export default function HomePage() {
                 <div className="absolute bottom-0 left-0 h-40 w-40 rounded-full bg-gradient-to-br from-blue-400/10 to-cyan-400/10 blur-2xl" />
 
                 <div className="relative z-10">
-                  <div className="mb-10 text-center">
-                    {/* Updated title for public rankings */}
-                    <h2 className="mb-6 bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 bg-clip-text text-4xl font-bold text-transparent sm:text-5xl dark:from-orange-400 dark:via-yellow-400 dark:to-orange-500">
-                      Track{' '}
-                      <span className="bg-gradient-to-r from-purple-500 to-purple-600 bg-clip-text text-transparent">
-                        Performance
-                      </span>{' '}
-                      <span className="bg-gradient-to-r from-pink-500 to-pink-600 bg-clip-text text-transparent">
-                        Growth
-                      </span>{' '}
-                      Rankings
-                    </h2>
-                    <p className="mx-auto max-w-3xl text-lg leading-relaxed text-gray-600 dark:text-gray-300">
-                      Unlock deeper insights and optimize data center
-                      performance with real-time analytics and advanced data
-                      tracking systems for smarter operational decisions
-                    </p>
-                    <p className="mt-2 text-sm text-blue-600 dark:text-blue-400">
-                      🔒 Upgrade to access Top 100 rankings with advanced
-                      insights
-                    </p>
-                    {/* Decorative elements */}
-                    <div className="mt-6 flex items-center justify-center gap-4">
-                      <div className="h-2 w-2 rounded-full bg-blue-400" />
-                      <div className="h-3 w-3 rounded-full bg-purple-400" />
-                      <div className="h-2 w-2 rounded-full bg-blue-400" />
+                  <div className="text-center space-y-8">
+                    {/* Premium Unlock Section */}
+                    <div className="space-y-6">
+                      <div className="inline-flex items-center gap-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-6 py-3 rounded-full font-bold text-lg shadow-xl">
+                        <span className="text-2xl">👑</span>
+                        <span>UNLOCK PREMIUM ACCESS</span>
+                        <span className="text-2xl">🚀</span>
+                      </div>
+                      
+                      <h2 className="bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 bg-clip-text text-5xl font-bold text-transparent sm:text-6xl dark:from-orange-400 dark:via-yellow-400 dark:to-orange-500">
+                        Get Full Analytics Power
+                      </h2>
+                      
+                      <p className="mx-auto max-w-4xl text-xl leading-relaxed text-gray-600 dark:text-gray-300">
+                        <strong>Stop missing out!</strong> Join thousands of investors who are already making data-driven decisions with our premium analytics platform.
+                      </p>
+                    </div>
+
+                    {/* Benefits Grid */}
+                    <div className="grid md:grid-cols-3 gap-6 mt-12">
+                      <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 p-6 rounded-2xl border border-green-200 dark:border-green-700">
+                        <div className="text-4xl mb-4">📊</div>
+                        <h3 className="text-xl font-bold text-green-800 dark:text-green-300 mb-2">Top 100 Rankings</h3>
+                        <p className="text-green-700 dark:text-green-400">Access complete rankings with detailed analytics and growth predictions</p>
+                      </div>
+                      
+                      <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-6 rounded-2xl border border-blue-200 dark:border-blue-700">
+                        <div className="text-4xl mb-4">⚡</div>
+                        <h3 className="text-xl font-bold text-blue-800 dark:text-blue-300 mb-2">Real-time Data</h3>
+                        <p className="text-blue-700 dark:text-blue-400">Live market updates and instant alerts on performance changes</p>
+                      </div>
+                      
+                      <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-6 rounded-2xl border border-purple-200 dark:border-purple-700">
+                        <div className="text-4xl mb-4">🎯</div>
+                        <h3 className="text-xl font-bold text-purple-800 dark:text-purple-300 mb-2">Advanced Insights</h3>
+                        <p className="text-purple-700 dark:text-purple-400">AI-powered recommendations and trend analysis</p>
+                      </div>
+                    </div>
+
+                    {/* Call to Action */}
+                    <div className="mt-12 space-y-6">
+                      <div className="bg-gradient-to-r from-orange-500 to-pink-500 text-white p-8 rounded-3xl shadow-2xl">
+                        <div className="space-y-4">
+                          <h3 className="text-3xl font-bold">🔥 Limited Time Offer!</h3>
+                          <p className="text-xl">Start from just <span className="text-4xl font-bold">$1/month</span></p>
+                          <p className="text-lg opacity-90">30-day money-back guarantee • Cancel anytime</p>
+                          
+                          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mt-6">
+                            <button className="bg-white text-orange-600 font-bold py-4 px-8 rounded-2xl text-lg hover:bg-orange-50 shadow-xl">
+                              🚀 Start Free Trial
+                            </button>
+                            <button className="bg-yellow-400 text-orange-900 font-bold py-4 px-8 rounded-2xl text-lg hover:bg-yellow-300 shadow-xl">
+                              💎 View Plans
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-center gap-6 text-sm text-gray-600 dark:text-gray-400">
+                        <div className="flex items-center gap-2">
+                          <span className="text-green-500">✓</span>
+                          <span>No Credit Card Required</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-green-500">✓</span>
+                          <span>Instant Access</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-green-500">✓</span>
+                          <span>Cancel Anytime</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-
-                  <StreamingWrapper priority="low" identifier="rankings">
-                    <PublicRankingPreview initialData={initialData} />
-                  </StreamingWrapper>
                 </div>
               </div>
             </div>

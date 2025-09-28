@@ -21,7 +21,7 @@ export async function createPayment(planId: string, promoCode?: string): Promise
     const result = await client.serverCreatePayment({ planId, promoCode });
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to create payment');
+      throw new Error(result.message || 'Failed to create payment');
     }
     
     return result.data!;
@@ -42,7 +42,7 @@ export async function getPaymentStatus(paymentId: string): Promise<any> {
     const result = await client.serverGetPaymentStatus(paymentId);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to get payment status');
+      throw new Error(result.message || 'Failed to get payment status');
     }
     
     return result.data!;
@@ -63,7 +63,7 @@ export async function validatePayment(paymentId: string): Promise<any> {
     const result = await client.serverValidatePayment(paymentId);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to validate payment');
+      throw new Error(result.message || 'Failed to validate payment');
     }
     
     return result.data!;
@@ -82,7 +82,7 @@ export async function getPaymentPlans(): Promise<any[]> {
     const result = await client.serverGetPaymentPlans();
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to get payment plans');
+      throw new Error(result.message || 'Failed to get payment plans');
     }
     
     return result.data!;
@@ -101,7 +101,7 @@ export async function getPaymentPlan(planId: string): Promise<any> {
     const result = await client.serverGetPaymentPlan(planId);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to get payment plan');
+      throw new Error(result.message || 'Failed to get payment plan');
     }
     
     return result.data!;
@@ -122,7 +122,7 @@ export async function getUserSubscription(): Promise<any> {
     const result = await client.serverGetUserSubscription();
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to get user subscription');
+      throw new Error(result.message || 'Failed to get user subscription');
     }
     
     return result.data!;
@@ -143,7 +143,7 @@ export async function cancelSubscription(subscriptionId: string): Promise<void> 
     const result = await client.serverCancelSubscription(subscriptionId);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to cancel subscription');
+      throw new Error(result.message || 'Failed to cancel subscription');
     }
   } catch (error) {
     console.error('Cancel subscription error:', error);
@@ -162,7 +162,7 @@ export async function updateSubscription(subscriptionId: string, planId: string)
     const result = await client.serverUpdateSubscription(subscriptionId, planId);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to update subscription');
+      throw new Error(result.message || 'Failed to update subscription');
     }
     
     return result.data!;
@@ -183,7 +183,7 @@ export async function getPaymentHistory(): Promise<any[]> {
     const result = await client.serverGetPaymentHistory();
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to get payment history');
+      throw new Error(result.message || 'Failed to get payment history');
     }
     
     return result.data!;
@@ -204,7 +204,7 @@ export async function downloadInvoice(invoiceId: string): Promise<Blob> {
     const result = await client.serverDownloadInvoice(invoiceId);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to download invoice');
+      throw new Error(result.message || 'Failed to download invoice');
     }
     
     return result.data!;
@@ -225,7 +225,7 @@ export async function applyPromoCode(promoCode: string): Promise<any> {
     const result = await client.serverApplyPromoCode(promoCode);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to apply promo code');
+      throw new Error(result.message || 'Failed to apply promo code');
     }
     
     return result.data!;
@@ -246,7 +246,7 @@ export async function createLegacyPayment(paymentData: any): Promise<any> {
     const result = await client.serverCreateLegacyPayment(paymentData);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to create legacy payment');
+      throw new Error(result.message || 'Failed to create legacy payment');
     }
     
     return result.data!;
@@ -267,7 +267,7 @@ export async function initQRPayment(planId: string): Promise<any> {
     const result = await client.serverInitQRPayment(planId);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to initialize QR payment');
+      throw new Error(result.message || 'Failed to initialize QR payment');
     }
     
     return result.data!;

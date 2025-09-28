@@ -53,13 +53,11 @@ class ServerPermissionCache {
       const client = await pool.connect();
       try {
         const result = await client.query(`
-          SELECT permission, permission_type, is_active, expires_at, granted_at
-          FROM wallet_permissions 
-          WHERE wallet_address = $1 
-            AND is_active = true 
-            AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
-          ORDER BY granted_at DESC
-        `, [key]);
+          SELECT permissions, permission_groups
+          FROM wallet_users 
+          WHERE LOWER(wallet_address) = LOWER($1) 
+            AND is_active = true
+        `, [walletAddress]);
         
         walletPermissions = result.rows;
       } finally {
@@ -70,8 +68,31 @@ class ServerPermissionCache {
       walletPermissions = [];
     }
     
-    // Process permissions
-    const allPermissions = walletPermissions.map((p: any) => p.permission);
+    // Process permissions from JSONB format
+    let allPermissions: string[] = [];
+    if (walletPermissions.length > 0) {
+      const userData = walletPermissions[0];
+      // Extract permissions from JSONB columns - permissions are objects with 'name' field
+      const permissions = userData.permissions || [];
+      const permissionGroups = userData.permission_groups || [];
+      
+      // Extract permission names from JSONB objects
+      const permissionNames = permissions
+        .filter((p: any) => p && p.name && p.is_active !== false)
+        .map((p: any) => p.name);
+      
+      // Extract group permissions 
+      const groupPermissionNames = permissionGroups
+        .flatMap((group: any) => group.permissions || [])
+        .filter((p: any) => p && typeof p === 'string');
+      
+      // Combine individual permissions and group-based permissions
+      allPermissions = [
+        ...permissionNames,
+        ...groupPermissionNames
+      ];
+    }
+    
     const adminPermissions = allPermissions.filter((permission: string) => 
       permission === 'admin:*:*' || 
       permission.startsWith('admin:') ||

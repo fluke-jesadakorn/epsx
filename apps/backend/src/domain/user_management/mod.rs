@@ -10,24 +10,24 @@ pub mod repository_ports;
 pub mod domain_services;
 
 // Re-export key types for easy access
-pub use aggregates::{User, Session};
+// Web3 wallet user types (primary)
+pub use aggregates::{WalletUser, WalletMetadata, Session};
 
 pub use value_objects::{
-    Email, 
-    Permission
+    WalletAddress, // Primary Web3 wallet identity
+    Permission,    // Enhanced for Web3 permission system
 };
 
 // Re-export shared kernel value objects
 pub use crate::domain::shared_kernel::value_objects::{UserId, SessionId};
 
 pub use events::{
-    UserCreatedEvent,
-    UserEmailUpdatedEvent,
-    UserActivatedEvent,
-    UserDeactivatedEvent,
-    PermissionGrantedEvent,
-    PermissionRevokedEvent,
-    UserPermissionsUpdatedEvent,
+    // Web3 wallet user events
+    WalletUserCreatedEvent,
+    WalletUserActivatedEvent,
+    WalletUserDeactivatedEvent,
+    WalletPermissionsUpdatedEvent,
+    // Session events
     SessionCreatedEvent,
     SessionInvalidatedEvent,
     SessionExtendedEvent,
@@ -35,11 +35,30 @@ pub use events::{
 };
 
 pub use repository_ports::{
-    UserRepositoryPort,
+    // Web3 wallet user repository ports
+    WalletUserRepositoryPort,
+    WalletUserAnalyticsPort,
+    WalletUserSearchCriteria,
+    WalletUserSearchResult,
+    WalletUserStatistics,
+    Web3Analytics,
+    // Session repository ports
     SessionRepositoryPort,
-    user_repository_port::{UserSearchCriteria, UserSearchResult, UserStatistics, UserAnalyticsPort},
-    session_repository_port::{SessionSearchCriteria, SessionSearchResult, SessionStatistics, SessionAnalyticsPort}
+    SessionSearchCriteria,
+    SessionSearchResult,
+    SessionStatistics,
+    SessionAnalyticsPort
 };
 
-// Domain services will be added here
-// pub use domain_services::{UserPermissionService, SessionSecurityService};
+// Web3 wallet permission services
+pub use domain_services::{
+    WalletPermissionService,
+    Web3PermissionContext,
+    Web3ValidationResult,
+    Web3ValidationType,
+    PermissionSyncResult,
+    IsWalletAdminSpecification,
+    HasWalletPlatformAccessSpecification,
+    HasChainAccessSpecification,
+    SessionSecurityService,
+};

@@ -86,7 +86,7 @@ impl Display for ErrorKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ErrorContext {
     /// User ID if available
-    pub user_id: Option<String>,
+    pub wallet_address: Option<String>,
     /// Request ID for tracing
     pub request_id: Option<String>,
     /// Operation being performed
@@ -169,6 +169,18 @@ impl AppError {
     pub fn conflict(message: impl Into<String>) -> Self {
         Self::new(ErrorKind::ConcurrencyConflict, message)
     }
+
+    pub fn entity_not_found(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::AggregateNotFound, message)
+    }
+
+    pub fn invalid_operation(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::BusinessRuleViolation, message)
+    }
+
+    pub fn blockchain_rpc_error(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::ExternalServiceError, message)
+    }
     
     pub fn with_context(mut self, context: ErrorContext) -> Self {
         self.context = context;
@@ -182,6 +194,16 @@ impl AppError {
     
     pub fn with_stack_trace(mut self, stack_trace: String) -> Self {
         self.stack_trace = Some(stack_trace);
+        self
+    }
+    
+    pub fn with_component(mut self, component: impl Into<String>) -> Self {
+        self.context.service = component.into();
+        self
+    }
+    
+    pub fn with_operation(mut self, operation: impl Into<String>) -> Self {
+        self.context.operation = operation.into();
         self
     }
     
@@ -264,6 +286,8 @@ impl From<crate::application::shared::error::ApplicationError> for AppError {
                 AppError::business_rule_violation(format!("Business logic error: {}", message)),
             ApplicationError::Security { message } => 
                 AppError::unauthorized(format!("Security error: {}", message)),
+            ApplicationError::WalletAddress(wallet_err) => 
+                AppError::validation_error(format!("Invalid wallet address: {}", wallet_err)),
         }
     }
 }
@@ -295,11 +319,7 @@ impl From<sqlx::Error> for AppError {
 }
 
 // Additional domain-specific error conversions
-impl From<crate::domain::user_management::value_objects::wallet_address::WalletAddressError> for AppError {
-    fn from(err: crate::domain::user_management::value_objects::wallet_address::WalletAddressError) -> Self {
-        AppError::validation_error(format!("Wallet address error: {}", err))
-    }
-}
+// Note: WalletAddressError -> AppError conversion is implemented in wallet_address.rs to avoid conflicts
 
 // Note: EPSError -> AppError conversion already exists in web::analytics::eps::errors
 // Removed duplicate implementation to avoid conflicts
@@ -339,13 +359,13 @@ impl AppError {
     pub fn with_full_context(
         kind: ErrorKind,
         message: impl Into<String>,
-        user_id: Option<String>,
+        wallet_address: Option<String>,
         request_id: Option<String>,
         operation: impl Into<String>,
         service: impl Into<String>,
     ) -> Self {
         let context = ErrorContext {
-            user_id,
+            wallet_address,
             request_id,
             operation: operation.into(),
             service: service.into(),
@@ -359,7 +379,7 @@ impl AppError {
 impl Default for ErrorContext {
     fn default() -> Self {
         Self {
-            user_id: None,
+            wallet_address: None,
             request_id: None,
             operation: "unknown".to_string(),
             service: "epsx".to_string(),
@@ -381,9 +401,6 @@ pub type AsyncResult<T> = std::result::Result<T, AppError>;
 
 /// Result type for web/API handlers - all handlers should return this
 pub type ApiResult<T> = std::result::Result<T, AppError>;
-
-/// Result type for domain operations
-pub type DomainResult<T> = std::result::Result<T, AppError>;
 
 /// Result type for application layer operations
 pub type ApplicationResult<T> = std::result::Result<T, AppError>;
@@ -416,8 +433,8 @@ impl ErrorContextBuilder {
         }
     }
     
-    pub fn user_id(mut self, user_id: impl Into<String>) -> Self {
-        self.context.user_id = Some(user_id.into());
+    pub fn user_id(mut self, wallet_address: impl Into<String>) -> Self {
+        self.context.wallet_address = Some(wallet_address.into());
         self
     }
     
@@ -441,6 +458,12 @@ impl ErrorContextBuilder {
 pub struct ErrorCollection {
     pub errors: Vec<AppError>,
     pub summary: String,
+}
+
+impl Default for ErrorCollection {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ErrorCollection {
@@ -494,7 +517,7 @@ impl ErrorLogger {
             correlation_id = %error.correlation_id,
             error_kind = %error.kind,
             timestamp = %error.timestamp,
-            user_id = ?error.context.user_id,
+            wallet_address = ?error.context.wallet_address,
             request_id = ?error.context.request_id,
             operation = %error.context.operation,
             service = %error.context.service,
@@ -508,7 +531,7 @@ impl ErrorLogger {
         tracing::warn!(
             correlation_id = %error.correlation_id,
             error_kind = %error.kind,
-            user_id = ?error.context.user_id,
+            wallet_address = ?error.context.wallet_address,
             operation = %error.context.operation,
             service = %error.context.service,
             "Warning: {}", error.message
@@ -652,9 +675,9 @@ macro_rules! error_context {
     ($operation:expr, $service:expr) => {
         ErrorContextBuilder::new($operation, $service).build()
     };
-    ($operation:expr, $service:expr, user_id = $user_id:expr) => {
+    ($operation:expr, $service:expr, user_id = $wallet_address:expr) => {
         ErrorContextBuilder::new($operation, $service)
-            .user_id($user_id)
+            .wallet_address($user_id)
             .build()
     };
     ($operation:expr, $service:expr, request_id = $request_id:expr) => {
@@ -662,10 +685,35 @@ macro_rules! error_context {
             .request_id($request_id)
             .build()  
     };
-    ($operation:expr, $service:expr, user_id = $user_id:expr, request_id = $request_id:expr) => {
+    ($operation:expr, $service:expr, user_id = $wallet_address:expr, request_id = $request_id:expr) => {
         ErrorContextBuilder::new($operation, $service)
-            .user_id($user_id)
+            .wallet_address($user_id)
             .request_id($request_id)
             .build()
     };
+}
+
+// ============================================================================
+// WEB3 TYPES - Wallet validation and permission types for Web3-first architecture
+// ============================================================================
+
+/// Wallet validation types for Web3 authentication
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum WalletValidationType {
+    AddressFormat,
+    SignatureVerification, 
+    NonceValidation,
+    ChainMismatch,
+    InsufficientBalance,
+    ContractInteraction,
+}
+
+/// Web3 permission types for blockchain-based access control
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum Web3PermissionType {
+    Manual,
+    NftGated,
+    TokenGated,
+    DaoGovernance,
+    CrossChain,
 }

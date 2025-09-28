@@ -22,7 +22,7 @@ pub struct CreateHierarchyRequest {
 /// Request to resolve user permissions
 #[derive(Debug, Deserialize)]
 pub struct ResolvePermissionsRequest {
-    pub user_id: Uuid,
+    pub wallet_address: Uuid,
     pub direct_permissions: Vec<String>,
 }
 

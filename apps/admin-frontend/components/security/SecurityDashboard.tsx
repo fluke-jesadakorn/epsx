@@ -172,11 +172,11 @@ export default function SecurityDashboard() {
   const [showAlertBanner, setShowAlertBanner] = useState(true);
 
   // Security monitoring hooks
-  const { events, isLoading: eventsLoading } = useSecurityEvents({ limit: 20 });
-  const { metrics, alerts = [], isLoading: metricsLoading } = useSecurityMetrics();
+  const { events, loading: eventsLoading } = useSecurityEvents({ maxEvents: 20 });
+  const { metrics, statistics, loading: metricsLoading } = useSecurityMetrics();
   const { alerts: criticalAlerts = [] } = useCriticalAlerts();
-  const { summary, isLoading: summaryLoading } = useSecurityTrendSummary();
-  const { isUnderAlert, lastChecked } = useSystemAlertStatus();
+  const { trends, loading: summaryLoading } = useSecurityTrendSummary();
+  const { systemStatus } = useSystemAlertStatus();
 
   // Check permissions
   if (!can('admin:security:read') && !isAdmin()) {
@@ -208,21 +208,16 @@ export default function SecurityDashboard() {
               <h1 className="text-2xl font-bold text-gray-900">Security Monitoring</h1>
               <p className="mt-1 text-sm text-gray-600">
                 Real-time security monitoring and threat detection
-                {lastChecked && (
-                  <span className="ml-2 text-gray-500">
-                    • Last checked: {lastChecked.toLocaleTimeString()}
-                  </span>
-                )}
               </p>
             </div>
             <div className="flex items-center space-x-2">
-              {isUnderAlert && (
+              {(systemStatus?.criticalAlerts || 0) > 0 && (
                 <div className="flex items-center space-x-1 text-red-600">
-                  <span className="animate-pulse text-red-500">🚨</span>
+                  <span className="text-red-500">🚨</span>
                   <span className="text-sm font-medium">System Alert</span>
                 </div>
               )}
-              <div className={`w-3 h-3 rounded-full ${isUnderAlert ? 'bg-red-500' : 'bg-green-500'}`}></div>
+              <div className={`w-3 h-3 rounded-full ${(systemStatus?.criticalAlerts || 0) > 0 ? 'bg-red-500' : 'bg-green-500'}`}></div>
             </div>
           </div>
         </div>
@@ -230,7 +225,11 @@ export default function SecurityDashboard() {
         <AlertBanner
           isVisible={showAlertBanner && criticalAlerts.length > 0}
           onDismiss={() => setShowAlertBanner(false)}
-          alerts={criticalAlerts}
+          alerts={criticalAlerts.map((alert, index) => ({
+            id: alert.id || `alert-${index}`,
+            message: 'Critical security alert detected',
+            severity: 'high'
+          }))}
         />
 
         <div className="mb-8">
@@ -257,27 +256,27 @@ export default function SecurityDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <SecurityOverviewCard
                 title="Total Security Events"
-                value={summary?.totalEvents || metrics?.total_events || 0}
+                value={statistics?.totalEvents || 0}
                 subtitle={summaryLoading ? 'Loading...' : 'Last 24 hours'}
                 icon="📈"
               />
               <SecurityOverviewCard
                 title="Active Threats"
-                value={summary?.activeThreats || metrics?.active_threats || 0}
-                subtitle={summary?.trendingUp ? '↗ Trending up' : '→ Stable'}
-                severity={summary?.activeThreats && summary.activeThreats > 5 ? 'high' : 'low'}
-                trend={summary?.trendingUp ? 'up' : 'stable'}
+                value={statistics?.criticalEvents || 0}
+                subtitle="→ Stable"
+                severity={(statistics?.criticalEvents || 0) > 5 ? 'high' : 'low'}
+                trend="stable"
                 icon="🛡️"
               />
               <SecurityOverviewCard
                 title="Avg Threat Score"
-                value={summary?.avgThreatScore ? formatThreatScore(summary.avgThreatScore) : 'N/A'}
+                value={statistics?.riskScore ? formatThreatScore(statistics?.riskScore || 0) : 'N/A'}
                 subtitle="System-wide average"
                 icon="⚡"
               />
               <SecurityOverviewCard
                 title="Critical Alerts"
-                value={summary?.criticalAlerts || criticalAlerts.length || 0}
+                value={statistics?.criticalEvents || criticalAlerts.length || 0}
                 subtitle="Requiring attention"
                 severity={criticalAlerts.length > 0 ? 'critical' : 'low'}
                 icon="🚨"
@@ -287,20 +286,31 @@ export default function SecurityDashboard() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Security Events</h3>
-                <SecurityEventList events={events} isLoading={eventsLoading} />
+                <SecurityEventList 
+                  events={events.map(event => ({
+                    id: event.id,
+                    event_type: event.eventType,
+                    severity: event.severity || 'medium',
+                    description: event.description || 'Security event',
+                    user_id: event.userId || 'unknown',
+                    timestamp: event.timestamp,
+                    resolved: false
+                  }))} 
+                  isLoading={eventsLoading} 
+                />
               </div>
 
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">Event Distribution</h3>
-                {metrics && !metricsLoading ? (
+                {trends && !summaryLoading ? (
                   <div className="space-y-3">
-                    {Object.entries(metrics.events_by_type).map(([type, count]) => (
-                      <div key={type} className="flex items-center justify-between">
+                    {trends.slice(0, 5).map((trend, index) => (
+                      <div key={index} className="flex items-center justify-between">
                         <div className="flex items-center space-x-2">
-                          <span>{getEventTypeIcon(type)}</span>
-                          <span className="text-sm text-gray-700">{type}</span>
+                          <span>{getEventTypeIcon(trend.severity)}</span>
+                          <span className="text-sm text-gray-700">{trend.period}</span>
                         </div>
-                        <span className="text-sm font-medium text-gray-900">{count}</span>
+                        <span className="text-sm font-medium text-gray-900">{trend.count}</span>
                       </div>
                     ))}
                   </div>
@@ -325,24 +335,19 @@ export default function SecurityDashboard() {
                   <div className="flex items-start justify-between">
                     <div className="flex items-start space-x-3">
                       <div className="text-2xl">
-                        {getEventTypeIcon(event.event_type)}
+                        {getEventTypeIcon(event.eventType)}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-2">
-                          <h4 className="text-sm font-medium text-gray-900">{event.event_type}</h4>
+                          <h4 className="text-sm font-medium text-gray-900">{event.eventType}</h4>
                           <span className={`px-2 py-1 text-xs rounded-full border ${getSeverityBadgeColor(event.severity)}`}>
                             {event.severity}
                           </span>
-                          {event.resolved && (
-                            <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 border border-green-200">
-                              Resolved
-                            </span>
-                          )}
                         </div>
                         <p className="text-sm text-gray-700">{event.description}</p>
                         <div className="mt-2 text-xs text-gray-500 space-x-4">
-                          <span>User: {event.user_id}</span>
-                          <span>IP: {event.ip_address}</span>
+                          <span>User: {event.userId}</span>
+                          <span>IP: {event.ipAddress}</span>
                           <span>Time: {new Date(event.timestamp).toLocaleString()}</span>
                         </div>
                       </div>

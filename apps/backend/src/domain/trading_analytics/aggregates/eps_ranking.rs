@@ -461,6 +461,10 @@ impl DomainEvent for EPSRankingCreated {
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
+    
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -512,6 +516,10 @@ impl DomainEvent for StockAddedToRanking {
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
+    
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -559,5 +567,9 @@ impl DomainEvent for StockRemovedFromRanking {
 
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
+    }
+    
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }

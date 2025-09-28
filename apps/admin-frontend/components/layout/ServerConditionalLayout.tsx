@@ -10,9 +10,9 @@ export async function ServerConditionalLayout({ children }: ServerConditionalLay
   // Get user session for layout
   const session = await UnifiedAuth.getSession()
   const layoutUser = session?.user ? {
-    id: session.user.sub,
-    email: session.user.email,
-    name: session.user.name,
+    id: session.user.walletAddress,
+    email: '',
+    name: session.user.displayName || session.user.walletAddress,
     role: session.hasAdminAccess ? 'admin' : 'user'
   } : undefined
 

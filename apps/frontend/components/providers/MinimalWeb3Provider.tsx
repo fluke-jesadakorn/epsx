@@ -12,8 +12,8 @@ import { type ReactNode, useState, useEffect, createContext, useContext } from '
 import { WagmiProvider } from 'wagmi';
 import { bsc, bscTestnet } from 'wagmi/chains';
 
-// Create query client with error handling
-const queryClient = new QueryClient({
+// Query client factory function
+const createQueryClient = () => new QueryClient({
   defaultOptions: {
     queries: {
       retry: 1,
@@ -40,13 +40,26 @@ const queryClient = new QueryClient({
 const isMainnet = process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === 'mainnet';
 const chains = isMainnet ? [bsc] as const : [bscTestnet, bsc] as const;
 
-// Create wagmi config using RainbowKit's recommended approach
-const wagmiConfig = getDefaultConfig({
-  appName: 'EPSX',
-  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'epsx-web3-frontend',
-  chains,
-  ssr: true, // Enable SSR support
-});
+// Singleton wagmi config to prevent multiple WalletConnect initializations
+let wagmiConfig: ReturnType<typeof getDefaultConfig> | null = null;
+let isInitializing = false;
+
+function getWagmiConfig() {
+  if (!wagmiConfig && !isInitializing) {
+    isInitializing = true;
+    try {
+      wagmiConfig = getDefaultConfig({
+        appName: 'EPSX',
+        projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'epsx-web3-frontend',
+        chains,
+        ssr: true, // Enable SSR support
+      });
+    } finally {
+      isInitializing = false;
+    }
+  }
+  return wagmiConfig;
+}
 
 
 // Web3 Context for compatibility with existing components
@@ -76,6 +89,7 @@ interface MinimalWeb3ProviderProps {
 
 export function MinimalWeb3Provider({ children }: MinimalWeb3ProviderProps) {
   const [isHydrated, setIsHydrated] = useState(false);
+  const [queryClient] = useState(() => createQueryClient());
 
   // Simple fallback implementations for compatibility
   const forceReset = () => {
@@ -143,15 +157,24 @@ export function MinimalWeb3Provider({ children }: MinimalWeb3ProviderProps) {
     overlayBlur: 'small',
   });
 
+  // Get wagmi config safely
+  const config = getWagmiConfig();
+  
   // During hydration, provide minimal wagmi context without RainbowKit to prevent SSR issues
-  if (!isHydrated) {
+  if (!isHydrated || !config) {
     return (
       <Web3Context.Provider value={{ isInitialized: false, forceReset, forceRecreateConnectors }}>
-        <WagmiProvider config={wagmiConfig}>
+        {config ? (
+          <WagmiProvider config={config}>
+            <QueryClientProvider client={queryClient}>
+              {children}
+            </QueryClientProvider>
+          </WagmiProvider>
+        ) : (
           <QueryClientProvider client={queryClient}>
             {children}
           </QueryClientProvider>
-        </WagmiProvider>
+        )}
       </Web3Context.Provider>
     );
   }
@@ -159,7 +182,7 @@ export function MinimalWeb3Provider({ children }: MinimalWeb3ProviderProps) {
   // Full RainbowKit setup after hydration (official pattern)
   return (
     <Web3Context.Provider value={{ isInitialized: true, forceReset, forceRecreateConnectors }}>
-      <WagmiProvider config={wagmiConfig}>
+      <WagmiProvider config={config}>
         <QueryClientProvider client={queryClient}>
           <RainbowKitProvider
             theme={epsxTheme}

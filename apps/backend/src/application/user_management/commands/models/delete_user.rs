@@ -7,12 +7,12 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeleteUserCommand {
-    pub user_id: UserId,
+    pub wallet_address: UserId,
 }
 
 impl DeleteUserCommand {
-    pub fn new(user_id: UserId) -> Self {
-        Self { user_id }
+    pub fn new(wallet_address: UserId) -> Self {
+        Self { wallet_address }
     }
 }
 
@@ -31,11 +31,11 @@ impl Command for DeleteUserCommand {
     type Response = DeleteUserResponse;
     
     fn validate(&self) -> ApplicationResult<()> {
-        // Basic validation - User ID should not be empty
-        if self.user_id.to_string().is_empty() {
+        // Basic validation - Wallet address should not be empty
+        if self.wallet_address.to_string().is_empty() {
             return Err(crate::application::shared::ApplicationError::validation(
-                "user_id", 
-                "User ID cannot be empty".to_string()
+                "wallet_address", 
+                "Wallet address cannot be empty".to_string()
             ));
         }
         Ok(())

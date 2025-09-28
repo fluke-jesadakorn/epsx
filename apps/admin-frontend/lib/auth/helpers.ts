@@ -12,7 +12,7 @@ export interface SessionData {
     email: string;
     name: string;
     role: string;
-    firebase_uid?: string;
+    wallet_address?: string;
     permissions: string[];
     platform_context?: string;
     primary_platform?: string;

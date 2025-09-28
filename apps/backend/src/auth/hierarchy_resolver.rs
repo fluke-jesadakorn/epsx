@@ -58,7 +58,7 @@ pub struct InheritanceChain {
 /// Permission inheritance cache entry
 #[derive(Debug, Clone)]
 pub struct PermissionCache {
-    pub user_id: String,
+    pub wallet_address: String,
     pub permissions: Vec<String>,
     pub cached_at: DateTime<Utc>,
     pub ttl_seconds: u32,
@@ -93,7 +93,7 @@ impl HierarchyResolver {
     /// DISABLED: Resolve user permissions with hierarchy inheritance
     pub async fn resolve_user_permissions(
         &self,
-        _user_id: &str,
+        _wallet_address: &str,
         direct_permissions: &[String],
     ) -> Result<HierarchyResolution, PermissionError> {
         warn!("Hierarchy resolver is disabled during legacy cleanup");

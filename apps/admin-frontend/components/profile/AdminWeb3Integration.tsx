@@ -20,6 +20,8 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { AdminWalletAuth } from '@/components/auth/AdminWalletAuth';
+import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
+import { UserWalletDisplay, UserTierBadge, UserAuthStatus, UserPermissionsDisplay } from '@/shared/components/display/UserDisplay';
 import { toast } from 'react-hot-toast';
 
 interface WalletPermission {
@@ -42,59 +44,22 @@ export function AdminWeb3Integration({
 }: AdminWeb3IntegrationProps) {
   const { address, isConnected } = useAccount();
   const { disconnect } = useDisconnect();
+  const { user, isAuthenticated, logout } = useSharedAuth();
   
-  const [walletAddress, setWalletAddress] = useState(initialWalletAddress);
-  const [email, setEmail] = useState(initialEmail);
-  const [permissions, setPermissions] = useState<WalletPermission[]>([]);
+  const [email, setEmail] = useState(initialEmail || user?.email);
   const [isLoading, setIsLoading] = useState(false);
   const [emailLinkStatus, setEmailLinkStatus] = useState<'linked' | 'unlinked' | 'pending'>('unlinked');
 
-  useEffect(() => {
-    if (address && isConnected) {
-      setWalletAddress(address);
-      fetchWalletPermissions(address);
-      checkEmailLinkStatus(address);
-    }
-  }, [address, isConnected]);
+  // Use wallet address from shared auth if available
+  const walletAddress = user?.wallet_address || address || initialWalletAddress;
 
   useEffect(() => {
-    if (initialPermissions) {
-      const walletPerms = initialPermissions.map(permission => ({
-        permission,
-        source: 'manual' as const,
-        expires_at: undefined,
-        metadata: {}
-      }));
-      setPermissions(walletPerms);
+    if (walletAddress) {
+      checkEmailLinkStatus(walletAddress);
     }
-  }, [initialPermissions]);
+  }, [walletAddress, isConnected]);
 
-  const fetchWalletPermissions = async (address: string) => {
-    try {
-      setIsLoading(true);
-      const response = await fetch('/api/auth/web3/permissions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet_address: address }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const walletPerms = data.permissions?.map((permission: string) => ({
-          permission,
-          source: 'manual' as const,
-          expires_at: undefined,
-          metadata: {}
-        })) || [];
-        setPermissions(walletPerms);
-      }
-    } catch (error) {
-      console.error('Failed to fetch wallet permissions:', error);
-      toast.error('Failed to fetch wallet permissions');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Permission fetching is now handled by shared authentication system
 
   const checkEmailLinkStatus = async (address: string) => {
     try {
@@ -180,28 +145,7 @@ export function AdminWeb3Integration({
     }
   };
 
-  const formatAddress = (addr: string) => {
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-  };
-
-  const getAdminLevel = () => {
-    if (permissions.some(p => p.permission === 'admin:*:*')) return 'Super Admin';
-    if (permissions.some(p => p.permission.includes('admin:web3:manage'))) return 'Web3 Manager';
-    if (permissions.some(p => p.permission.startsWith('admin:'))) return 'Admin';
-    return 'No Admin Access';
-  };
-
-  const getAdminLevelColor = () => {
-    const level = getAdminLevel();
-    switch (level) {
-      case 'Super Admin': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      case 'Web3 Manager': return 'bg-blue-100 text-blue-800 border-blue-300';
-      case 'Admin': return 'bg-green-100 text-green-800 border-green-300';
-      default: return 'bg-red-100 text-red-800 border-red-300';
-    }
-  };
-
-  const adminPermissions = permissions.filter(p => p.permission.startsWith('admin:'));
+  // All display logic is now handled by shared components
 
   return (
     <div className="space-y-6">
@@ -214,12 +158,11 @@ export function AdminWeb3Integration({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {!isConnected ? (
+          {!isAuthenticated ? (
             <div className="text-center py-6">
               <AdminWalletAuth 
                 className="w-full"
                 onAuthSuccess={(address) => {
-                  setWalletAddress(address);
                   toast.success('Wallet connected successfully');
                 }}
                 onAuthError={(error) => {
@@ -232,23 +175,11 @@ export function AdminWeb3Integration({
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
                   <p className="text-sm font-medium">Connected Wallet</p>
-                  <div className="flex items-center gap-2">
-                    <code className="text-sm bg-gray-100 px-2 py-1 rounded">
-                      {formatAddress(walletAddress || '')}
-                    </code>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={copyWalletAddress}
-                      className="h-6 w-6 p-0"
-                    >
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
+                  <UserWalletDisplay showFullAddress={false} />
                 </div>
                 <Button
                   variant="outline"
-                  onClick={() => disconnect()}
+                  onClick={() => logout()}
                   className="text-red-600 hover:text-red-700"
                 >
                   Disconnect
@@ -257,15 +188,16 @@ export function AdminWeb3Integration({
 
               <Separator />
 
-              {/* Admin Level Badge */}
+              {/* Admin Level and Status */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Crown className="h-4 w-4 text-yellow-500" />
                   <span className="text-sm font-medium">Admin Level</span>
                 </div>
-                <Badge className={getAdminLevelColor()}>
-                  {getAdminLevel()}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <UserTierBadge />
+                  <UserAuthStatus />
+                </div>
               </div>
             </div>
           )}
@@ -273,7 +205,7 @@ export function AdminWeb3Integration({
       </Card>
 
       {/* Email Integration */}
-      {isConnected && (
+      {isAuthenticated && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -346,57 +278,22 @@ export function AdminWeb3Integration({
       )}
 
       {/* Admin Permissions */}
-      {isConnected && adminPermissions.length > 0 && (
+      {isAuthenticated && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Shield className="h-5 w-5" />
               Admin Permissions
-              <Badge variant="outline" className="ml-auto">
-                {adminPermissions.length}
-              </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {adminPermissions.map((permission, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                >
-                  <div className="flex items-center gap-3">
-                    <Shield className="h-4 w-4 text-blue-500" />
-                    <div>
-                      <code className="text-sm font-mono">
-                        {permission.permission}
-                      </code>
-                      {permission.expires_at && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          Expires: {new Date(permission.expires_at).toLocaleDateString()}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <Badge variant="outline" className="text-xs">
-                    {permission.source}
-                  </Badge>
-                </div>
-              ))}
-            </div>
-
-            {adminPermissions.length === 0 && (
-              <div className="text-center py-6 text-gray-500">
-                <Shield className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>No admin permissions found</p>
-                <p className="text-sm">Contact your system administrator</p>
-              </div>
-            )}
+            <UserPermissionsDisplay maxDisplay={20} showSource={true} />
           </CardContent>
         </Card>
       )}
 
       {/* Wallet Security Info */}
-      {isConnected && (
+      {isAuthenticated && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

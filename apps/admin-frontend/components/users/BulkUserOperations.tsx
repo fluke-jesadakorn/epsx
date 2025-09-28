@@ -198,7 +198,7 @@ export function BulkUserOperations({
               <Label htmlFor="bulkRole">New Role</Label>
               <Select
                 value={form.watch('role') || ''}
-                onValueChange={(value) => form.setValue('role', value)}
+                onValueChange={(value) => form.setValue('role', value as "admin" | "user" | "premium_user")}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select role" />

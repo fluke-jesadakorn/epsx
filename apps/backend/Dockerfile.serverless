@@ -1,0 +1,139 @@
+# Generic Serverless-Optimized Dockerfile
+# Multi-stage build optimized for stateless architecture and fast cold starts
+# Works with any containerized serverless platform
+
+# =============================================================================
+# BUILD STAGE - Compile Rust application with serverless optimizations
+# =============================================================================
+FROM rust:1.75-slim-bookworm as builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    pkg-config \
+    libssl-dev \
+    libpq-dev \
+    ca-certificates \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Set optimal build environment
+ENV CARGO_TARGET_DIR=/app/target
+ENV RUSTFLAGS="-C target-cpu=native -C opt-level=3"
+
+# Create app directory
+WORKDIR /app
+
+# Copy dependency files for better layer caching
+COPY Cargo.toml Cargo.lock ./
+
+# Create placeholder src for dependency pre-compilation
+RUN mkdir src && echo "fn main() {}" > src/main.rs
+
+# Pre-compile dependencies with serverless features
+RUN cargo build --release --features serverless --bin serverless_handler \
+    && rm -rf src target/release/deps/epsx* target/release/epsx* target/release/serverless_handler*
+
+# Copy actual source code
+COPY src src
+
+# Build serverless handler with full optimization
+RUN cargo build --release --features serverless --bin serverless_handler
+
+# Verify binary exists and is executable
+RUN ls -la target/release/serverless_handler && \
+    file target/release/serverless_handler
+
+# =============================================================================
+# RUNTIME STAGE - Minimal runtime with security optimizations
+# =============================================================================
+FROM debian:bookworm-slim
+
+# Install minimal runtime dependencies
+RUN apt-get update && apt-get install -y \
+    ca-certificates \
+    libssl3 \
+    libpq5 \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Create non-root user for security
+RUN groupadd -r epsx && useradd -r -g epsx epsx
+
+# Create app directory with proper permissions
+WORKDIR /app
+RUN chown epsx:epsx /app
+
+# Copy binary from builder stage
+COPY --from=builder /app/target/release/serverless_handler /app/serverless_handler
+RUN chmod +x /app/serverless_handler && chown epsx:epsx /app/serverless_handler
+
+# Switch to non-root user
+USER epsx
+
+# =============================================================================
+# RUNTIME CONFIGURATION
+# =============================================================================
+
+# Expose standard serverless port
+EXPOSE 8080
+
+# Set environment variables for optimal serverless performance
+ENV RUST_LOG=info
+ENV RUST_BACKTRACE=0
+ENV PORT=8080
+ENV NODE_ENV=production
+
+# Disable unnecessary Rust features for faster startup
+ENV RUST_LIB_BACKTRACE=0
+ENV MALLOC_ARENA_MAX=2
+
+# =============================================================================
+# HEALTH CHECK & MONITORING
+# =============================================================================
+
+# Health check for serverless platform startup probes
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+# =============================================================================
+# LABELS & METADATA
+# =============================================================================
+
+LABEL \
+    org.epsx.service="backend" \
+    org.epsx.component="serverless-handler" \
+    org.epsx.architecture="stateless" \
+    org.epsx.platform="generic-serverless" \
+    org.epsx.features="web3-auth,analytics,stateless" \
+    org.epsx.optimization="cold-start,per-request-services" \
+    maintainer="EPSX Team"
+
+# =============================================================================
+# ENTRYPOINT - Start serverless handler
+# =============================================================================
+
+# Use exec form for proper signal handling
+ENTRYPOINT ["/app/serverless_handler"]
+
+# =============================================================================
+# DOCKER BUILD INSTRUCTIONS
+# =============================================================================
+
+# Build command:
+# docker build -f Dockerfile.serverless -t epsx-backend-serverless .
+
+# Run locally for testing:
+# docker run -p 8080:8080 \
+#   -e DATABASE_URL="postgresql://..." \
+#   -e REDIS_URL="redis://..." \
+#   -e FRONTEND_URL="http://localhost:3000" \
+#   -e BACKEND_URL="http://localhost:8080" \
+#   epsx-backend-serverless
+
+# Deploy to your serverless platform:
+# 1. Tag and push to your container registry
+# 2. Deploy using your platform's deployment method
+# 3. Configure environment variables on your platform
+# 4. Set up auto-scaling and health checks

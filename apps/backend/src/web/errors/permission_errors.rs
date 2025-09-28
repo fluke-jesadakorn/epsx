@@ -24,7 +24,7 @@ pub enum PermissionError {
         permission: String,
         reason: String,
         suggested_actions: Vec<String>,
-        upgrade_tier: Option<String>,
+        upgrade_group: Option<String>,
     },
     
     #[error("Permission expired: {permission} expired at {expired_at}")]
@@ -40,13 +40,13 @@ pub enum PermissionError {
         current_usage: u32,
         limit: u32,
         reset_at: Option<chrono::DateTime<chrono::Utc>>,
-        upgrade_tier: Option<String>,
+        upgrade_group: Option<String>,
     },
     
-    #[error("Invalid tier: {current_tier} insufficient for {required_tier}")]
-    InsufficientTier {
-        current_tier: String,
-        required_tier: String,
+    #[error("Insufficient permission group: {current_group} insufficient for {required_group}")]
+    InsufficientGroup {
+        current_group: String,
+        required_group: String,
         upgrade_url: Option<String>,
         benefits: Vec<String>,
     },
@@ -133,7 +133,7 @@ pub struct PermissionErrorDetails {
     pub permission: Option<String>,
     
     /// The user ID that attempted the action
-    pub user_id: Option<String>,
+    pub wallet_address: Option<String>,
     
     /// The resource path that was accessed
     pub resource_path: Option<String>,
@@ -141,11 +141,11 @@ pub struct PermissionErrorDetails {
     /// HTTP method used
     pub http_method: Option<String>,
     
-    /// Current user tier/level
-    pub current_tier: Option<String>,
+    /// Current user permission group
+    pub current_group: Option<String>,
     
-    /// Required tier/level for this action
-    pub required_tier: Option<String>,
+    /// Required permission group for this action
+    pub required_group: Option<String>,
     
     /// Permission expiry information
     pub expiry_info: Option<PermissionExpiryInfo>,
@@ -189,11 +189,11 @@ pub struct SecurityInfo {
     pub contact_support_url: Option<String>,
 }
 
-/// Tier upgrade information
+/// Group upgrade information
 #[derive(Debug, Serialize, Deserialize)]
 pub struct UpgradeInfo {
-    pub current_tier: String,
-    pub required_tier: String,
+    pub current_group: String,
+    pub required_group: String,
     pub upgrade_url: Option<String>,
     pub pricing_url: Option<String>,
     pub benefits: Vec<String>,
@@ -215,11 +215,11 @@ impl PermissionError {
                     message: format!("Authentication required: {}", message),
                     details: PermissionErrorDetails {
                         permission: None,
-                        user_id: None,
+                        wallet_address: None,
                         resource_path: None,
                         http_method: None,
-                        current_tier: None,
-                        required_tier: None,
+                        current_group: None,
+                        required_group: None,
                         expiry_info: None,
                         usage_info: None,
                         security_info: None,
@@ -239,10 +239,10 @@ impl PermissionError {
                 }
             }
             
-            PermissionError::PermissionDenied { permission, reason, suggested_actions, upgrade_tier } => {
+            PermissionError::PermissionDenied { permission, reason, suggested_actions, upgrade_group } => {
                 let mut context = HashMap::new();
-                if let Some(tier) = upgrade_tier {
-                    context.insert("upgrade_tier".to_string(), serde_json::Value::String(tier.clone()));
+                if let Some(tier) = upgrade_group {
+                    context.insert("upgrade_group".to_string(), serde_json::Value::String(tier.clone()));
                 }
                 
                 PermissionErrorResponse {
@@ -251,17 +251,17 @@ impl PermissionError {
                     message: format!("Permission denied: {} - {}", permission, reason),
                     details: PermissionErrorDetails {
                         permission: Some(permission.clone()),
-                        user_id: None,
+                        wallet_address: None,
                         resource_path: None,
                         http_method: None,
-                        current_tier: None,
-                        required_tier: upgrade_tier.clone(),
+                        current_group: None,
+                        required_group: upgrade_group.clone(),
                         expiry_info: None,
                         usage_info: None,
                         security_info: None,
-                        upgrade_info: upgrade_tier.as_ref().map(|tier| UpgradeInfo {
-                            current_tier: "basic".to_string(), // TODO: Get from user context
-                            required_tier: tier.clone(),
+                        upgrade_info: upgrade_group.as_ref().map(|tier| UpgradeInfo {
+                            current_group: "basic".to_string(), // TODO: Get from user context
+                            required_group: tier.clone(),
                             upgrade_url: Some("/payment".to_string()),
                             pricing_url: Some("/payment".to_string()),
                             benefits: vec![
@@ -273,7 +273,7 @@ impl PermissionError {
                     },
                     suggested_actions: suggested_actions.clone(),
                     user_message: format!("You don't have permission to access this feature. {}", 
-                        if upgrade_tier.is_some() { "Consider upgrading your plan." } else { "" }),
+                        if upgrade_group.is_some() { "Consider upgrading your plan." } else { "" }),
                     timestamp,
                     error_id,
                     context,
@@ -287,11 +287,11 @@ impl PermissionError {
                     message: format!("Permission expired: {} expired at {}", permission, expired_at),
                     details: PermissionErrorDetails {
                         permission: Some(permission.clone()),
-                        user_id: None,
+                        wallet_address: None,
                         resource_path: None,
                         http_method: None,
-                        current_tier: None,
-                        required_tier: None,
+                        current_group: None,
+                        required_group: None,
                         expiry_info: Some(PermissionExpiryInfo {
                             expired_at: *expired_at,
                             grace_period_until: None,
@@ -305,7 +305,7 @@ impl PermissionError {
                     suggested_actions: vec![
                         "Renew your subscription".to_string(),
                         "Contact support for extension".to_string(),
-                        "Upgrade to a higher tier".to_string(),
+                        "Upgrade to a higher permission group".to_string(),
                     ],
                     user_message: "Your permission has expired. Please renew your subscription to continue.".to_string(),
                     timestamp,
@@ -314,7 +314,7 @@ impl PermissionError {
                 }
             }
             
-            PermissionError::UsageLimitExceeded { permission, current_usage, limit, reset_at, upgrade_tier } => {
+            PermissionError::UsageLimitExceeded { permission, current_usage, limit, reset_at, upgrade_group } => {
                 let usage_percentage = (*current_usage as f32 / *limit as f32) * 100.0;
                 
                 PermissionErrorResponse {
@@ -323,11 +323,11 @@ impl PermissionError {
                     message: format!("Usage limit exceeded: {}/{} for {}", current_usage, limit, permission),
                     details: PermissionErrorDetails {
                         permission: Some(permission.clone()),
-                        user_id: None,
+                        wallet_address: None,
                         resource_path: None,
                         http_method: None,
-                        current_tier: None,
-                        required_tier: upgrade_tier.clone(),
+                        current_group: None,
+                        required_group: upgrade_group.clone(),
                         expiry_info: None,
                         usage_info: Some(UsageInfo {
                             current_usage: *current_usage,
@@ -337,9 +337,9 @@ impl PermissionError {
                             usage_percentage,
                         }),
                         security_info: None,
-                        upgrade_info: upgrade_tier.as_ref().map(|tier| UpgradeInfo {
-                            current_tier: "basic".to_string(), // TODO: Get from user context
-                            required_tier: tier.clone(),
+                        upgrade_info: upgrade_group.as_ref().map(|tier| UpgradeInfo {
+                            current_group: "basic".to_string(), // TODO: Get from user context
+                            required_group: tier.clone(),
                             upgrade_url: Some("/payment".to_string()),
                             pricing_url: Some("/payment".to_string()),
                             benefits: vec![
@@ -364,24 +364,24 @@ impl PermissionError {
                 }
             }
             
-            PermissionError::InsufficientTier { current_tier, required_tier, upgrade_url, benefits } => {
+            PermissionError::InsufficientGroup { current_group, required_group, upgrade_url, benefits } => {
                 PermissionErrorResponse {
-                    error_type: "insufficient_tier".to_string(),
+                    error_type: "insufficient_group".to_string(),
                     status_code: 403,
-                    message: format!("Insufficient tier: {} required, you have {}", required_tier, current_tier),
+                    message: format!("Insufficient permission group: {} required, you have {}", required_group, current_group),
                     details: PermissionErrorDetails {
                         permission: None,
-                        user_id: None,
+                        wallet_address: None,
                         resource_path: None,
                         http_method: None,
-                        current_tier: Some(current_tier.clone()),
-                        required_tier: Some(required_tier.clone()),
+                        current_group: Some(current_group.clone()),
+                        required_group: Some(required_group.clone()),
                         expiry_info: None,
                         usage_info: None,
                         security_info: None,
                         upgrade_info: Some(UpgradeInfo {
-                            current_tier: current_tier.clone(),
-                            required_tier: required_tier.clone(),
+                            current_group: current_group.clone(),
+                            required_group: required_group.clone(),
                             upgrade_url: upgrade_url.clone(),
                             pricing_url: Some("/payment".to_string()),
                             benefits: benefits.clone(),
@@ -389,11 +389,11 @@ impl PermissionError {
                         }),
                     },
                     suggested_actions: vec![
-                        format!("Upgrade to {} tier", required_tier),
+                        format!("Upgrade to {} permission group", required_group),
                         "View pricing options".to_string(),
                         "Start a free trial".to_string(),
                     ],
-                    user_message: format!("This feature requires {} tier. Upgrade your plan to access it.", required_tier),
+                    user_message: format!("This feature requires {} permission group. Upgrade your plan to access it.", required_group),
                     timestamp,
                     error_id,
                     context: HashMap::new(),
@@ -407,11 +407,11 @@ impl PermissionError {
                     message: format!("Security restriction: {}", reason),
                     details: PermissionErrorDetails {
                         permission: None,
-                        user_id: None,
+                        wallet_address: None,
                         resource_path: None,
                         http_method: None,
-                        current_tier: None,
-                        required_tier: None,
+                        current_group: None,
+                        required_group: None,
                         expiry_info: None,
                         usage_info: None,
                         security_info: Some(SecurityInfo {
@@ -451,11 +451,11 @@ impl PermissionError {
                     message: "Permission validation temporarily unavailable".to_string(),
                     details: PermissionErrorDetails {
                         permission: None,
-                        user_id: None,
+                        wallet_address: None,
                         resource_path: None,
                         http_method: None,
-                        current_tier: None,
-                        required_tier: None,
+                        current_group: None,
+                        required_group: None,
                         expiry_info: None,
                         usage_info: None,
                         security_info: None,
@@ -483,11 +483,11 @@ impl PermissionError {
                     message: self.to_string(),
                     details: PermissionErrorDetails {
                         permission: None,
-                        user_id: None,
+                        wallet_address: None,
                         resource_path: None,
                         http_method: None,
-                        current_tier: None,
-                        required_tier: None,
+                        current_group: None,
+                        required_group: None,
                         expiry_info: None,
                         usage_info: None,
                         security_info: None,
@@ -531,17 +531,17 @@ impl PermissionError {
     pub fn permission_denied_with_upgrade(
         permission: impl Into<String>,
         reason: impl Into<String>,
-        upgrade_tier: impl Into<String>,
+        upgrade_group: impl Into<String>,
     ) -> Self {
-        let tier = upgrade_tier.into();
+        let group = upgrade_group.into();
         Self::PermissionDenied {
             permission: permission.into(),
             reason: reason.into(),
             suggested_actions: vec![
-                format!("Upgrade to {} tier", tier),
+                format!("Upgrade to {} group", group),
                 "View pricing options".to_string(),
             ],
-            upgrade_tier: Some(tier),
+            upgrade_group: Some(group),
         }
     }
     
@@ -557,7 +557,7 @@ impl PermissionError {
             current_usage: current,
             limit,
             reset_at,
-            upgrade_tier: Some("premium".to_string()),
+            upgrade_group: Some("premium".to_string()),
         }
     }
     
@@ -580,7 +580,7 @@ mod tests {
     fn test_permission_denied_error_response() {
         let error = PermissionError::permission_denied_with_upgrade(
             "admin:users:create",
-            "Insufficient tier level",
+            "Insufficient permission group level",
             "professional"
         );
         

@@ -20,7 +20,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { JustInTimeAuth } from '@/components/auth/JustInTimeAuth'
-import { AuthLevel } from '@/types/progressive-auth'
 import MetaMaskPayment from './MetaMaskPayment'
 
 interface OneClickPaymentProps {
@@ -740,10 +739,7 @@ export default function OneClickPayment({
                   </div>
 
                   <JustInTimeAuth
-                    requiredLevel={AuthLevel.AUTHENTICATED}
-                    actionName={`process payment of $${selectedPkg.current_price}`}
                     onAuthenticated={handlePayment}
-                    authMessage="Sign in with your wallet to complete your payment securely"
                   >
                     <Button 
                       disabled={isProcessing}

@@ -23,6 +23,9 @@ pub trait DomainEvent: Send + Sync + Debug {
     
     /// Serialize event to JSON for storage/transport
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>>;
+    
+    /// Downcast to Any for type introspection
+    fn as_any(&self) -> &dyn std::any::Any;
 }
 
 /// Base event data that all events should include

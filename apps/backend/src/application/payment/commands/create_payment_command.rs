@@ -8,14 +8,14 @@ use tracing::{info, error};
 use crate::domain::payment::{
     Payment, PaymentId, PaymentAmount, PaymentMethod, PaymentRepositoryPort
 };
-use crate::domain::shared_kernel::value_objects::UserId;
+use crate::domain::user_management::value_objects::WalletAddress;
 use crate::domain::shared_kernel::{DomainEventBus, AggregateRoot};
 use crate::application::shared::{Command, CommandHandler, ApplicationResult, ApplicationError};
 
 /// Command to create a new payment
 #[derive(Debug, Clone)]
 pub struct CreatePaymentCommand {
-    pub user_id: UserId,
+    pub wallet_address: WalletAddress,
     pub amount: PaymentAmount,
     pub method: PaymentMethod,
     pub reference: Option<String>,
@@ -24,12 +24,12 @@ pub struct CreatePaymentCommand {
 
 impl CreatePaymentCommand {
     pub fn new(
-        user_id: UserId,
+        wallet_address: WalletAddress,
         amount: PaymentAmount,
         method: PaymentMethod,
     ) -> Self {
         Self {
-            user_id,
+            wallet_address,
             amount,
             method,
             reference: None,
@@ -113,7 +113,7 @@ impl CreatePaymentCommandHandler {
 impl CommandHandler<CreatePaymentCommand> for CreatePaymentCommandHandler {
     async fn handle(&self, command: CreatePaymentCommand) -> ApplicationResult<CreatePaymentResponse> {
         info!(
-            user_id = %command.user_id,
+            wallet_address = %command.wallet_address,
             amount = %command.amount.amount(),
             currency = %command.amount.currency(),
             method = ?command.method.method_type(),
@@ -122,7 +122,7 @@ impl CommandHandler<CreatePaymentCommand> for CreatePaymentCommandHandler {
         
         // Create the payment aggregate
         let payment = Payment::create(
-            command.user_id,
+            command.wallet_address,
             command.amount,
             command.method,
         ).map_err(|e| {
@@ -202,7 +202,7 @@ mod tests {
             Ok(None)
         }
         
-        async fn find_by_user(&self, user_id: &UserId) -> Result<Vec<Payment>, String> {
+        async fn find_by_user(&self, wallet_address: &UserId) -> Result<Vec<Payment>, String> {
             Ok(vec![])
         }
         
@@ -230,7 +230,7 @@ mod tests {
             Ok(())
         }
         
-        async fn get_user_payment_stats(&self, user_id: &UserId) -> Result<crate::domain::payment::PaymentStats, String> {
+        async fn get_user_payment_stats(&self, wallet_address: &UserId) -> Result<crate::domain::payment::PaymentStats, String> {
             Ok(crate::domain::payment::PaymentStats {
                 total_payments: 0,
                 completed_payments: 0,
@@ -258,7 +258,7 @@ mod tests {
         let event_bus = Arc::new(MockEventBus);
         let handler = CreatePaymentCommandHandler::new(payment_repo, event_bus);
         
-        let user_id = UserId::new(1);
+        let wallet_address = UserId::new(1);
         let amount = PaymentAmount::new(rust_decimal::Decimal::from(100), crate::domain::payment::Currency::USD).unwrap();
         let method = PaymentMethod::new(
             crate::domain::payment::PaymentMethodType::CreditCard,

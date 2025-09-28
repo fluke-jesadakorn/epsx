@@ -9,7 +9,7 @@ use crate::application::shared::{
     ValidationUtils
 };
 use crate::domain::shared_kernel::value_objects::UserId;
-use crate::domain::user_management::value_objects::Email;
+// use crate::domain::user_management::value_objects::Email; // REMOVED - Web3-first uses wallet addresses
 
 /// Query to search for users with various criteria
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -68,8 +68,8 @@ pub struct SearchUsersResponse {
 /// Summary information about a user in search results
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserSummary {
-    pub user_id: UserId,
-    pub email: Email,
+    pub wallet_address: UserId,
+    pub email: String,
     pub is_active: bool,
     pub email_verified: bool,
     pub created_at: DateTime<Utc>,
@@ -213,8 +213,8 @@ impl SearchUsersQuery {
     }
     
     /// Set who requested this query (for audit)
-    pub fn requested_by(mut self, user_id: String) -> Self {
-        self.requested_by = Some(user_id);
+    pub fn requested_by(mut self, wallet_address: String) -> Self {
+        self.requested_by = Some(wallet_address);
         self
     }
     
@@ -251,7 +251,6 @@ impl PaginationResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::application::SortDirection;
     
     #[test]
     fn search_users_query_validation_success() {

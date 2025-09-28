@@ -28,7 +28,7 @@ pub enum ThreatLevel {
 
 #[derive(Debug, Clone)]
 pub struct SecurityContext {
-    pub user_id: String,
+    pub wallet_address: String,
     pub ip_address: Option<String>,
     pub user_agent: Option<String>,
     pub device_fingerprint: Option<String>,
@@ -85,7 +85,7 @@ impl ThreatDetectionService {
         context: SecurityContext,
     ) -> Result<ThreatLevel, SecurityError> {
         // Check if user is currently blocked
-        self.check_user_blocked(&context.user_id)?;
+        self.check_user_blocked(&context.wallet_address)?;
         
         // Log security event
         self.log_security_event(&event, &context).await?;
@@ -100,13 +100,13 @@ impl ThreatDetectionService {
     }
     
     /// Check if user is currently blocked
-    pub fn check_user_blocked(&self, user_id: &str) -> Result<(), SecurityError> {
+    pub fn check_user_blocked(&self, wallet_address: &str) -> Result<(), SecurityError> {
         let blocked_users = self.blocked_users.read().unwrap();
         
-        if let Some(blocked_until) = blocked_users.get(user_id) {
+        if let Some(blocked_until) = blocked_users.get(wallet_address) {
             if Utc::now() < *blocked_until {
                 return Err(SecurityError::BlockedUser(format!(
-                    "User {} blocked until {}", user_id, blocked_until
+                    "User {} blocked until {}", wallet_address, blocked_until
                 )));
             }
         }
@@ -122,7 +122,7 @@ impl ThreatDetectionService {
     ) -> Result<(), SecurityError> {
         // Update security metrics
         let mut metrics = self.security_metrics.write().unwrap();
-        let user_metrics = metrics.entry(context.user_id.clone())
+        let user_metrics = metrics.entry(context.wallet_address.clone())
             .or_insert_with(|| SecurityMetrics {
                 failed_attempts: 0,
                 last_failure: Utc::now(),
@@ -144,21 +144,21 @@ impl ThreatDetectionService {
         match event {
             SecurityEvent::InvalidJwtAttempt => {
                 warn!(
-                    user_id = %context.user_id,
+                    wallet_address = %context.wallet_address,
                     ip = ?context.ip_address,
                     "Invalid JWT token attempt detected"
                 );
             },
             SecurityEvent::PermissionIntegrityViolation => {
                 error!(
-                    user_id = %context.user_id,
+                    wallet_address = %context.wallet_address,
                     ip = ?context.ip_address,
                     "Permission integrity violation - possible token tampering"
                 );
             },
             SecurityEvent::DeviceBindingViolation => {
                 warn!(
-                    user_id = %context.user_id,
+                    wallet_address = %context.wallet_address,
                     ip = ?context.ip_address,
                     device_fingerprint = ?context.device_fingerprint,
                     "Device binding violation - token used from different device"
@@ -166,7 +166,7 @@ impl ThreatDetectionService {
             },
             SecurityEvent::UnauthorizedPermissionAccess => {
                 warn!(
-                    user_id = %context.user_id,
+                    wallet_address = %context.wallet_address,
                     path = ?context.request_path,
                     "Unauthorized permission access attempt"
                 );
@@ -174,7 +174,7 @@ impl ThreatDetectionService {
             _ => {
                 info!(
                     event = ?event,
-                    user_id = %context.user_id,
+                    wallet_address = %context.wallet_address,
                     "Security event recorded"
                 );
             }
@@ -190,7 +190,7 @@ impl ThreatDetectionService {
         context: &SecurityContext,
     ) -> Result<ThreatLevel, SecurityError> {
         let metrics = self.security_metrics.read().unwrap();
-        let user_metrics = metrics.get(&context.user_id);
+        let user_metrics = metrics.get(&context.wallet_address);
         
         let base_threat_level = match event {
             SecurityEvent::InvalidJwtAttempt => ThreatLevel::Low,
@@ -228,30 +228,30 @@ impl ThreatDetectionService {
             ThreatLevel::Low => {
                 // Just log, no action needed
                 info!(
-                    user_id = %context.user_id,
+                    wallet_address = %context.wallet_address,
                     "Low threat level - monitoring"
                 );
             },
             ThreatLevel::Medium => {
                 warn!(
-                    user_id = %context.user_id,
+                    wallet_address = %context.wallet_address,
                     "Medium threat level - increased monitoring"
                 );
                 // Could implement rate limiting here
             },
             ThreatLevel::High => {
                 error!(
-                    user_id = %context.user_id,
+                    wallet_address = %context.wallet_address,
                     "High threat level - temporary restrictions applied"
                 );
-                self.apply_temporary_restrictions(&context.user_id, Duration::minutes(15)).await?;
+                self.apply_temporary_restrictions(&context.wallet_address, Duration::minutes(15)).await?;
             },
             ThreatLevel::Critical => {
                 error!(
-                    user_id = %context.user_id,
+                    wallet_address = %context.wallet_address,
                     "Critical threat level - user blocked"
                 );
-                self.block_user(&context.user_id, Duration::hours(1)).await?;
+                self.block_user(&context.wallet_address, Duration::hours(1)).await?;
                 // In production: notify security team, trigger incident response
             },
         }
@@ -262,15 +262,15 @@ impl ThreatDetectionService {
     /// Apply temporary restrictions to user
     async fn apply_temporary_restrictions(
         &self,
-        user_id: &str,
+        wallet_address: &str,
         duration: Duration,
     ) -> Result<(), SecurityError> {
         let blocked_until = Utc::now() + duration;
         let mut blocked_users = self.blocked_users.write().unwrap();
-        blocked_users.insert(user_id.to_string(), blocked_until);
+        blocked_users.insert(wallet_address.to_string(), blocked_until);
         
         warn!(
-            user_id = %user_id,
+            wallet_address = %wallet_address,
             blocked_until = %blocked_until,
             "User temporarily restricted due to security concerns"
         );
@@ -279,33 +279,33 @@ impl ThreatDetectionService {
     }
     
     /// Block user for security violation
-    async fn block_user(&self, user_id: &str, duration: Duration) -> Result<(), SecurityError> {
+    async fn block_user(&self, wallet_address: &str, duration: Duration) -> Result<(), SecurityError> {
         let blocked_until = Utc::now() + duration;
         let mut blocked_users = self.blocked_users.write().unwrap();
-        blocked_users.insert(user_id.to_string(), blocked_until);
+        blocked_users.insert(wallet_address.to_string(), blocked_until);
         
         error!(
-            user_id = %user_id,
+            wallet_address = %wallet_address,
             blocked_until = %blocked_until,
             "User blocked due to critical security violation"
         );
         
         // In production: send alert to security team
-        // self.send_security_alert(user_id, "User blocked due to critical security violation").await?;
+        // self.send_security_alert(wallet_address, "User blocked due to critical security violation").await?;
         
         Ok(())
     }
     
     /// Get security summary for user
-    pub fn get_security_summary(&self, user_id: &str) -> Option<SecuritySummary> {
+    pub fn get_security_summary(&self, wallet_address: &str) -> Option<SecuritySummary> {
         let metrics = self.security_metrics.read().unwrap();
         let blocked_users = self.blocked_users.read().unwrap();
         
-        let user_metrics = metrics.get(user_id)?;
-        let blocked_until = blocked_users.get(user_id).copied();
+        let user_metrics = metrics.get(wallet_address)?;
+        let blocked_until = blocked_users.get(wallet_address).copied();
         
         Some(SecuritySummary {
-            user_id: user_id.to_string(),
+            wallet_address: wallet_address.to_string(),
             failed_attempts: user_metrics.failed_attempts,
             last_failure: user_metrics.last_failure,
             threat_level: match user_metrics.threat_level {
@@ -321,15 +321,15 @@ impl ThreatDetectionService {
     }
     
     /// Reset security metrics for user (admin function)
-    pub fn reset_user_security(&self, user_id: &str) {
+    pub fn reset_user_security(&self, wallet_address: &str) {
         let mut metrics = self.security_metrics.write().unwrap();
         let mut blocked_users = self.blocked_users.write().unwrap();
         
-        metrics.remove(user_id);
-        blocked_users.remove(user_id);
+        metrics.remove(wallet_address);
+        blocked_users.remove(wallet_address);
         
         info!(
-            user_id = %user_id,
+            wallet_address = %wallet_address,
             "Security metrics reset for user"
         );
     }
@@ -354,7 +354,7 @@ impl ThreatDetectionService {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SecuritySummary {
-    pub user_id: String,
+    pub wallet_address: String,
     pub failed_attempts: u32,
     pub last_failure: DateTime<Utc>,
     pub threat_level: ThreatLevel,
@@ -379,7 +379,7 @@ mod tests {
     async fn test_threat_escalation() {
         let service = ThreatDetectionService::new();
         let context = SecurityContext {
-            user_id: "test_user".to_string(),
+            wallet_address: "test_user".to_string(),
             ip_address: Some("192.168.1.1".to_string()),
             user_agent: None,
             device_fingerprint: None,
@@ -414,7 +414,7 @@ mod tests {
     async fn test_user_blocking() {
         let service = ThreatDetectionService::new();
         let context = SecurityContext {
-            user_id: "blocked_user".to_string(),
+            wallet_address: "blocked_user".to_string(),
             ip_address: Some("192.168.1.1".to_string()),
             user_agent: None,
             device_fingerprint: None,

@@ -36,8 +36,8 @@ export async function GET(request: NextRequest) {
           authOverheadPercentage: `${authOverheadPercentage.toFixed(1)}%`
         },
         user: {
-          email: session.user.email || 'unknown',
-          userId: session.user.sub,
+          walletAddress: session.user.walletAddress || 'unknown',
+          userId: session.user.walletAddress,
           authenticated: true
         },
         performance: {

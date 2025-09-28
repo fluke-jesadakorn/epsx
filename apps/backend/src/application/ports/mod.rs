@@ -9,7 +9,7 @@ pub use outbound::*;
 
 // Convenience re-exports for specific modules
 pub mod repositories {
-    pub use super::outbound::{UserRepository, SessionRepository, AuditRepository, UserPermissionRepository, UserSearchFilters};
+    pub use super::outbound::{WalletUserRepository, SessionRepository, AuditRepository, WalletUserPermissionRepository, WalletUserSearchFilters};
 }
 
 pub mod services {
