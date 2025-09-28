@@ -1,7 +1,7 @@
 // List Users Query
 // Query to retrieve multiple users with filtering and pagination
 
-use crate::domain::user_management::value_objects::{Email, Permission};
+use crate::domain::user_management::value_objects::Permission;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use chrono::{DateTime, Utc};
@@ -11,7 +11,7 @@ pub struct ListUsersQuery {
     pub limit: usize,
     pub offset: usize,
     pub permission_filter: Option<Vec<String>>,
-    pub email_domain_filter: Option<String>,
+    pub wallet_pattern_filter: Option<String>,
 }
 
 impl ListUsersQuery {
@@ -20,7 +20,7 @@ impl ListUsersQuery {
             limit: 50,
             offset: 0,
             permission_filter: None,
-            email_domain_filter: None,
+            wallet_pattern_filter: None,
         }
     }
     
@@ -39,8 +39,8 @@ impl ListUsersQuery {
         self
     }
     
-    pub fn with_email_domain_filter(mut self, domain: String) -> Self {
-        self.email_domain_filter = Some(domain);
+    pub fn with_wallet_pattern_filter(mut self, pattern: String) -> Self {
+        self.wallet_pattern_filter = Some(pattern);
         self
     }
 }
@@ -55,7 +55,7 @@ pub struct ListUsersResponse {
 pub struct UserSummary {
     // Identity fields
     pub id: String,                        // User ID for frontend
-    pub email: Email,
+    pub email: String,
     pub display_name: Option<String>,       // Display name from database
     
     // Status and role fields

@@ -8,13 +8,8 @@ pub mod cache;
 // Re-export with explicit imports to avoid conflicts
 // Repository adapters use SQLx for database operations
 pub use services::{
-    SecurityMonitoringServiceAdapter, // TokenValidationServiceAdapter, // Removed - legacy OIDC 
-    UserIdentityServiceAdapter, FcmService, FcmTopicService, FcmNotification,
+    SecurityMonitoringServiceAdapter,
     SendGridEmailService, TradingViewRestClient, TradingViewWebSocketService, 
     TradingViewCache, tradingview_types,
     TradingViewWebSocketClient, WebSocketFrontendEPSData,
-    // OIDCService, OidcTokenValidationResult // Removed - legacy OIDC
 };
-// pub use cache::{
-//     RealTimeCacheAdapter
-// }; // Removed - adapter deleted

@@ -21,35 +21,47 @@ export default function ServerPagination({
 }: ServerPaginationProps) {
   const { page, totalPages, hasNext, hasPrev, total, limit } = pagination;
 
-  // Calculate visible page numbers
+  // Calculate visible page numbers with cleaner logic
   const getVisiblePages = () => {
+    if (totalPages <= 1) return [1];
+    
     const delta = 2; // Show 2 pages on each side of current page
-    const range = [];
-    const rangeWithDots = [];
-
-    for (
-      let i = Math.max(2, page - delta);
-      i <= Math.min(totalPages - 1, page + delta);
-      i++
-    ) {
-      range.push(i);
+    const result: (number | string)[] = [];
+    
+    // For small page counts, show all pages
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) {
+        result.push(i);
+      }
+      return result;
     }
-
-    if (page - delta > 2) {
-      rangeWithDots.push(1, '...');
-    } else {
-      rangeWithDots.push(1);
+    
+    // Always show first page
+    result.push(1);
+    
+    // Calculate the range around current page
+    const startPage = Math.max(2, page - delta);
+    const endPage = Math.min(totalPages - 1, page + delta);
+    
+    // Add dots if there's a gap after page 1
+    if (startPage > 2) {
+      result.push('...');
     }
-
-    rangeWithDots.push(...range);
-
-    if (page + delta < totalPages - 1) {
-      rangeWithDots.push('...', totalPages);
-    } else if (totalPages > 1) {
-      rangeWithDots.push(totalPages);
+    
+    // Add pages around current page
+    for (let i = startPage; i <= endPage; i++) {
+      result.push(i);
     }
-
-    return rangeWithDots;
+    
+    // Add dots if there's a gap before last page
+    if (endPage < totalPages - 1) {
+      result.push('...');
+    }
+    
+    // Always show last page
+    result.push(totalPages);
+    
+    return result;
   };
 
   const visiblePages = getVisiblePages();
@@ -77,7 +89,7 @@ export default function ServerPagination({
           page={page - 1}
           currentParams={currentParams}
           disabled={!hasPrev}
-          className="flex items-center px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-orange-200 dark:border-orange-400/30 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/30 hover:text-orange-700 dark:hover:text-orange-300 hover:border-orange-300 dark:hover:border-orange-400 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] min-w-[44px] transition-all duration-200"
+          className="flex items-center px-3 py-2 text-sm font-medium h-10 bg-white dark:bg-gray-800 text-slate-700 dark:text-slate-300 border border-orange-200 dark:border-orange-400/30 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/30 hover:text-orange-700 dark:hover:text-orange-300 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="m15 19-7-7 7-7" />
@@ -86,11 +98,14 @@ export default function ServerPagination({
         </PaginationButton>
 
         {/* Page numbers */}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 mx-2">
           {visiblePages.map((pageNum, index) => {
             if (pageNum === '...') {
               return (
-                <span key={`dots-${index}`} className="px-2 py-2 text-gray-400">
+                <span 
+                  key={`dots-${index}`} 
+                  className="flex items-center justify-center w-10 h-10 text-gray-400 dark:text-gray-500 text-sm font-medium"
+                >
                   ...
                 </span>
               );
@@ -104,11 +119,10 @@ export default function ServerPagination({
                 page={pageNum as number}
                 currentParams={currentParams}
                 disabled={isCurrentPage}
-                variant={isCurrentPage ? 'default' : 'outline'}
-                className={`min-w-[44px] min-h-[44px] px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                className={`w-10 h-10 text-sm font-medium flex items-center justify-center rounded-lg border ${
                   isCurrentPage
-                    ? 'bg-gradient-to-r from-orange-500 to-pink-500 text-white shadow-lg hover:from-orange-600 hover:to-pink-600'
-                    : 'text-slate-700 dark:text-slate-300 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-orange-200 dark:border-orange-400/30 hover:bg-orange-50 dark:hover:bg-orange-900/30 hover:text-orange-700 dark:hover:text-orange-300 hover:border-orange-300 dark:hover:border-orange-400'
+                    ? 'bg-orange-500 text-white border-orange-500'
+                    : 'bg-white dark:bg-gray-800 text-slate-700 dark:text-slate-300 border-orange-200 dark:border-orange-400/30 hover:bg-orange-50 dark:hover:bg-orange-900/30 hover:text-orange-700 dark:hover:text-orange-300'
                 }`}
               >
                 {pageNum}
@@ -122,7 +136,7 @@ export default function ServerPagination({
           page={page + 1}
           currentParams={currentParams}
           disabled={!hasNext}
-          className="flex items-center px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm border border-orange-200 dark:border-orange-400/30 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/30 hover:text-orange-700 dark:hover:text-orange-300 hover:border-orange-300 dark:hover:border-orange-400 disabled:opacity-50 disabled:cursor-not-allowed min-h-[44px] min-w-[44px] transition-all duration-200"
+          className="flex items-center px-3 py-2 text-sm font-medium h-10 bg-white dark:bg-gray-800 text-slate-700 dark:text-slate-300 border border-orange-200 dark:border-orange-400/30 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/30 hover:text-orange-700 dark:hover:text-orange-300 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span className="hidden sm:block mr-1">Next</span>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

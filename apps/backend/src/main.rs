@@ -1,15 +1,14 @@
-use std::{net::SocketAddr, sync::Arc};
-use tracing::{info, error};
+use std::net::SocketAddr;
+use tracing::{info, error, warn};
 
 // Import from our library
 use epsx::{
-    DomainContainer,
-    create_router,
     config::env::init_config,
-    infrastructure::cache,
+    infrastructure::container::{StatelessServiceFactory, StatelessConfig},
+    create_stateless_router,
 };
 
-/// Main server entry point
+/// Main server entry point - Serverless Stateless Architecture
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Initialize configuration (loads .env and validates)
@@ -18,26 +17,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Initialize basic tracing
     tracing_subscriber::fmt::init();
     
-    info!("🥞 Starting EPSX Backend Server with unified environment configuration...");
+    info!("🚀 Starting EPSX Backend Server with STATELESS SERVERLESS architecture...");
     
-    // Create database connection pool
-    let database_url = std::env::var("DATABASE_URL")
-        .map_err(|_| "DATABASE_URL environment variable is required")?;
-    let db_pool = sqlx::PgPool::connect(&database_url).await
-        .map_err(|e| format!("Failed to create database connection pool: {}", e))?;
-    let db_pool = Arc::new(db_pool);
+    // Create stateless configuration from environment
+    let stateless_config = StatelessConfig::from_env()
+        .map_err(|e| format!("Failed to create stateless config: {}", e))?;
     
-    // Create cache
-    let cache_impl = cache::CacheFactory::with_fallback().await;
-    let cache: Arc<dyn cache::Cache> = Arc::from(cache_impl);
+    // Create stateless service factory (no shared state)
+    let service_factory = StatelessServiceFactory::new(stateless_config);
+    info!("✅ Stateless service factory initialized");
     
-    // Create unified domain container
-    let container = Arc::new(DomainContainer::with_cache(db_pool, cache));
-    info!("✅ Unified domain container initialized");
+    // Test service creation (health check)
+    match service_factory.create_health_services().await {
+        Ok(health_services) => {
+            if health_services.health_check().await {
+                info!("✅ Database connectivity verified");
+            } else {
+                warn!("⚠️ Database health check failed");
+            }
+        }
+        Err(e) => {
+            error!("❌ Failed to create health services: {}", e);
+            return Err(e.into());
+        }
+    }
     
-    // Create router with all routes
-    let app = create_router(container.clone());
-    info!("✅ Router created successfully");
+    // Create router with stateless service factory
+    let app = create_stateless_router(service_factory).await;
+    info!("✅ Stateless router created successfully");
     
     // Server configuration using unified config
     let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
@@ -54,13 +61,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     info!("🚀 Server starting on {}:{}", host, port);
     info!("🌐 Health check available at: http://{}:{}/health", host, port);
     info!("🔐 Web3 auth endpoints available at: http://{}:{}/api/auth/web3/*", host, port);
-    info!("🏢 Enterprise API available at: http://{}:{}/api/v1/enterprise/*", host, port);
     info!("📊 Analytics endpoints available at: http://{}:{}/api/v1/analytics/*", host, port);
+    info!("⚡ SERVERLESS MODE: Services created per request (no shared state)");
     
     // Start the server
     let listener = tokio::net::TcpListener::bind(addr).await?;
     
-    info!("✨ EPSX Backend Server is ready and listening!");
+    info!("✨ EPSX Backend Server is ready and listening in STATELESS mode!");
     
     match axum::serve(listener, app).await {
         Ok(_) => {

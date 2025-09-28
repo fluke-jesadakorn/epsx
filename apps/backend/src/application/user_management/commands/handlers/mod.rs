@@ -1,13 +1,11 @@
 // User Management Command Handlers
 // These handle write operations and orchestrate domain logic
 
-pub mod create_user_handler;
 pub mod update_user_handler;
 pub mod delete_user_handler;
 pub mod grant_permission_handler;
 pub mod create_session_handler;
 
-pub use create_user_handler::CreateUserCommandHandler;
 pub use update_user_handler::UpdateUserCommandHandler;
 pub use delete_user_handler::DeleteUserCommandHandler;
 pub use grant_permission_handler::GrantPermissionCommandHandler;

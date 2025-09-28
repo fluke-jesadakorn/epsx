@@ -27,16 +27,27 @@ export function PublicRankingPreview({
   className,
   initialData,
 }: PublicRankingPreviewProps) {
-  const [data] = useState<StockFinancialData[]>(initialData || []);
-  const [isLoading, setIsLoading] = useState(!initialData);
+  const [data, setData] = useState<StockFinancialData[]>(initialData || []);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    // If no initial data provided, show empty state
-    if (!initialData) {
-      setIsLoading(false);
+    async function fetchData() {
+      try {
+        const response = await fetch('/api/public/rankings?type=preview&limit=6');
+        if (response.ok) {
+          const result = await response.json();
+          setData(result);
+        }
+      } catch (error) {
+        console.error('Failed to fetch public rankings:', error);
+      } finally {
+        setIsLoading(false);
+      }
     }
-  }, [initialData]);
+
+    fetchData();
+  }, []);
 
   const handleUpgrade = () => {
     router.push('/payment');

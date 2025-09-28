@@ -40,7 +40,7 @@ impl std::fmt::Display for NotificationPriority {
 #[derive(Debug, Clone)]
 pub struct Notification {
     id: NotificationId,
-    recipientuser_id: Option<Uuid>,
+    recipientwallet_address: Option<Uuid>,
     topic: Option<NotificationTopic>,
     content: NotificationContent,
     notification_type: NotificationType,
@@ -56,7 +56,7 @@ pub struct Notification {
 impl Notification {
     /// Create new notification for specific user
     pub fn create_for_user(
-        recipientuser_id: Uuid,
+        recipientwallet_address: Uuid,
         content: NotificationContent,
         notification_type: NotificationType,
         priority: NotificationPriority,
@@ -69,7 +69,7 @@ impl Notification {
         
         let mut notification = Self {
             id: id.clone(),
-            recipientuser_id: Some(recipientuser_id),
+            recipientwallet_address: Some(recipientwallet_address),
             topic: None,
             content,
             notification_type: notification_type.clone(),
@@ -86,7 +86,7 @@ impl Notification {
         notification.base.add_event(Box::new(NotificationCreated::new(
             id.as_str(),
             notification.base.version,
-            recipientuser_id,
+            recipientwallet_address,
             None,
             notification_type,
             priority,
@@ -122,7 +122,7 @@ impl Notification {
 
         let mut notification = Self {
             id: id.clone(),
-            recipientuser_id: None,
+            recipientwallet_address: None,
             topic: Some(topic.clone()),
             content,
             notification_type: notification_type.clone(),
@@ -376,7 +376,7 @@ impl Notification {
 
     // Getters
     pub fn id(&self) -> &NotificationId { &self.id }
-    pub fn recipientuser_id(&self) -> Option<Uuid> { self.recipientuser_id }
+    pub fn recipientwallet_address(&self) -> Option<Uuid> { self.recipientwallet_address }
     pub fn topic(&self) -> Option<&NotificationTopic> { self.topic.as_ref() }
     pub fn content(&self) -> &NotificationContent { &self.content }
     pub fn notification_type(&self) -> &NotificationType { &self.notification_type }
@@ -636,7 +636,7 @@ mod placeholder {
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct NotificationCreated {
         pub metadata: EventMetadata,
-        pub recipientuser_id: Uuid,
+        pub recipientwallet_address: Uuid,
         pub topic_name: Option<String>,
         pub notification_type: NotificationType,
         pub priority: NotificationPriority,
@@ -647,7 +647,7 @@ mod placeholder {
         pub fn new(
             aggregate_id: String,
             aggregate_version: u64,
-            recipientuser_id: Uuid,
+            recipientwallet_address: Uuid,
             topic_name: Option<String>,
             notification_type: NotificationType,
             priority: NotificationPriority,
@@ -655,7 +655,7 @@ mod placeholder {
         ) -> Self {
             Self {
                 metadata: EventMetadata::new(aggregate_id, aggregate_version),
-                recipientuser_id,
+                recipientwallet_address,
                 topic_name,
                 notification_type,
                 priority,
@@ -673,6 +673,7 @@ mod placeholder {
         fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
             Ok(serde_json::to_string(self)?)
         }
+        fn as_any(&self) -> &dyn std::any::Any { self }
     }
 }
 
@@ -710,6 +711,7 @@ impl DomainEvent for NotificationScheduled {
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
+    fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -736,6 +738,7 @@ impl DomainEvent for NotificationSending {
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
+    fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -772,6 +775,7 @@ impl DomainEvent for NotificationDeliveryCompleted {
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
+    fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -802,6 +806,7 @@ impl DomainEvent for NotificationExpired {
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
+    fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -835,6 +840,7 @@ impl DomainEvent for NotificationPriorityUpdated {
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
+    fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -861,4 +867,5 @@ impl DomainEvent for NotificationCancelled {
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
+    fn as_any(&self) -> &dyn std::any::Any { self }
 }

@@ -115,7 +115,7 @@ pub fn transform_unified_to_card_format(
           eps_growth: q.eps_growth,
           price_growth: q.price_growth,
           announcement_date,
-          announcement_timestamp: None, // TODO: Extract from WebSocket data in future enhancement
+          announcement_timestamp: None, // Note: WebSocket timestamp extraction not yet implemented
           is_estimated,
         }
       })

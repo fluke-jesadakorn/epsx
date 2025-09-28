@@ -12,6 +12,7 @@ import {
 } from '@/types/api';
 import { apiLogger, safeError } from '@/lib/utils/logging';
 import { getBackendUrl } from '../../../../shared/utils/url-resolver';
+import { usePureWeb3AuthStore } from '@/lib/auth/pure-web3-service';
 
 // ============================================================================
 // Core Types and Interfaces
@@ -186,10 +187,10 @@ class ApiClient {
   private baseUrl: string;
 
   constructor() {
-    this.baseUrl = env.NEXT_PUBLIC_BACKEND_URL || getBackendUrl('client');
+    this.baseUrl = env.BACKEND_URL || getBackendUrl('client');
   }
 
-  private async getAuthHeaders(): Promise<HeadersInit> {
+  private async getAuthHeaders(endpoint: string, method: string = 'GET', body?: any): Promise<HeadersInit> {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
     };
@@ -220,7 +221,28 @@ class ApiClient {
         apiLogger.warn('Failed to get server-side auth token', errorDetails);
       }
     } else {
-      // Client-side: credentials will be included automatically
+      // Client-side: check Web3 auth store first for Bearer token
+      try {
+        const authStore = usePureWeb3AuthStore.getState();
+        
+        // Use Bearer token from Web3 auth if available and not expired
+        if (authStore.isConnected && authStore.walletAddress && authStore.bearerToken) {
+          if (authStore.tokenExpiresAt && new Date(authStore.tokenExpiresAt) > new Date()) {
+            headers['Authorization'] = `Bearer ${authStore.bearerToken}`;
+            return headers;
+          }
+        }
+        
+        // Fallback to Web3 signature-based authentication
+        if (authStore.isConnected && authStore.walletAddress) {
+          const signedHeaders = await authStore.signRequest(endpoint, method, body);
+          // Merge signed headers with base headers
+          Object.assign(headers, signedHeaders);
+        }
+      } catch (error) {
+        // Log Web3 auth errors but don't fail the request
+        apiLogger.warn('Failed to get Web3 authentication headers', error);
+      }
     }
 
     return headers;
@@ -232,7 +254,9 @@ class ApiClient {
   ): Promise<ApiResponse<T>> {
     try {
       const url = `${this.baseUrl}${endpoint}`;
-      const headers = await this.getAuthHeaders();
+      const method = options.method || 'GET';
+      const body = options.body;
+      const headers = await this.getAuthHeaders(endpoint, method, body);
 
       const config: RequestInit = {
         ...options,
@@ -263,6 +287,7 @@ class ApiClient {
       return {
         data,
         success: true,
+        status: response.status,
         timestamp: new Date().toISOString()
       };
 
@@ -310,7 +335,7 @@ class ApiClient {
     min_market_cap?: number;
     sort_by?: string;
     sort_order?: 'asc' | 'desc';
-  } = {}): Promise<UnifiedAnalyticsRankingsResponse> {
+  } = {}): Promise<UnifiedAnalyticsRankingsResponse | undefined> {
     const searchParams = new URLSearchParams();
     
     Object.entries(params).forEach(([key, value]) => {
@@ -323,19 +348,19 @@ class ApiClient {
     const endpoint = queryString ? `/api/v1/analytics/rankings?${queryString}` : '/api/v1/analytics/rankings';
 
     const response = await this.request<UnifiedAnalyticsRankingsResponse>(endpoint);
-    return response.data;
+    return response?.data;
   }
 
-  async getAnalyticsHealth(): Promise<{ status: string; timestamp: string }> {
+  async getAnalyticsHealth(): Promise<{ status: string; timestamp: string } | undefined> {
     const response = await this.request<{ status: string; timestamp: string }>('/api/v1/analytics/health');
-    return response.data;
+    return response?.data;
   }
 
   // ============================================================================
   // Notification API Methods
   // ============================================================================
 
-  async getNotifications(params: NotificationListParams = {}): Promise<PaginatedResponse<NotificationResponse>> {
+  async getNotifications(params: NotificationListParams = {}): Promise<PaginatedResponse<NotificationResponse> | undefined> {
     const searchParams = new URLSearchParams();
     
     Object.entries(params).forEach(([key, value]) => {
@@ -348,7 +373,7 @@ class ApiClient {
     const endpoint = queryString ? `/api/v1/notifications?${queryString}` : '/api/v1/notifications';
 
     const response = await this.request<PaginatedResponse<NotificationResponse>>(endpoint);
-    return response.data;
+    return response?.data;
   }
 
   async markNotificationRead(notificationId: string): Promise<void> {
@@ -363,9 +388,9 @@ class ApiClient {
     });
   }
 
-  async getNotificationStats(): Promise<NotificationStats> {
+  async getNotificationStats(): Promise<NotificationStats | undefined> {
     const response = await this.request<NotificationStats>('/api/v1/notifications/stats');
-    return response.data;
+    return response?.data;
   }
 
   async deleteNotification(notificationId: string): Promise<void> {
@@ -375,9 +400,9 @@ class ApiClient {
   }
 
   // Server-side notifications API
-  async getNotificationsServer(userId: string): Promise<Notification[]> {
+  async getNotificationsServer(userId: string): Promise<Notification[] | undefined> {
     const response = await this.request<Notification[]>(`/api/notifications/${userId}`);
-    return response.data;
+    return response?.data;
   }
 
   async markNotificationReadServer(userId: string, notificationId: string): Promise<void> {
@@ -386,35 +411,35 @@ class ApiClient {
     });
   }
 
-  async getUnreadNotificationCount(userId: string): Promise<{ count: number }> {
+  async getUnreadNotificationCount(userId: string): Promise<{ count: number } | undefined> {
     const response = await this.request<{ count: number }>(`/api/notifications/${userId}/unread/count`);
-    return response.data;
+    return response?.data;
   }
 
   // ============================================================================
   // User Management API Methods
   // ============================================================================
 
-  async getUserProfile(): Promise<any> {
+  async getUserProfile(): Promise<any | undefined> {
     const response = await this.request('/api/v1/user/profile');
-    return response.data;
+    return response?.data;
   }
 
-  async updateUserProfile(data: any): Promise<any> {
+  async updateUserProfile(data: any): Promise<any | undefined> {
     const response = await this.request('/api/v1/user/profile', {
       method: 'PUT',
       body: JSON.stringify(data)
     });
-    return response.data;
+    return response?.data;
   }
 
   // ============================================================================
   // Watchlist API Methods
   // ============================================================================
 
-  async getWatchlist(): Promise<any[]> {
+  async getWatchlist(): Promise<any[] | undefined> {
     const response = await this.request<any[]>('/api/v1/user/watchlist');
-    return response.data;
+    return response?.data;
   }
 
   async addToWatchlist(request: WatchlistAddRequest): Promise<void> {
@@ -434,9 +459,9 @@ class ApiClient {
   // Price Alerts API Methods
   // ============================================================================
 
-  async getPriceAlerts(): Promise<any[]> {
+  async getPriceAlerts(): Promise<any[] | undefined> {
     const response = await this.request<any[]>('/api/v1/user/alerts');
-    return response.data;
+    return response?.data;
   }
 
   async createPriceAlert(request: PriceAlertCreateRequest): Promise<void> {
@@ -513,11 +538,11 @@ export class AnalyticsClient {
     min_market_cap?: number;
     sort_by?: string;
     sort_order?: 'asc' | 'desc';
-  }): Promise<UnifiedAnalyticsRankingsResponse> {
+  }): Promise<UnifiedAnalyticsRankingsResponse | undefined> {
     return this.apiClient.getUnifiedAnalyticsRankings(params);
   }
 
-  async getHealth(): Promise<{ status: string; timestamp: string }> {
+  async getHealth(): Promise<{ status: string; timestamp: string } | undefined> {
     return this.apiClient.getAnalyticsHealth();
   }
 }
@@ -530,15 +555,4 @@ export class AnalyticsClient {
 export const apiClient = new ApiClient();
 export const analyticsClient = new AnalyticsClient(apiClient);
 
-// Export types
-export type {
-  UnifiedRankingItem,
-  UnifiedAnalyticsRankingsResponse,
-  PaginatedResponse,
-  CountResponse,
-  StockFinancialData,
-  Notification,
-  NotificationStats,
-  NotificationResponse,
-  NotificationListParams
-};
+// Types are imported from their respective modules as needed

@@ -8,7 +8,7 @@ use crate::domain::payment::value_objects::{PaymentId, TransactionHash};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivateSubscriptionCommand {
     pub payment_id: PaymentId,
-    pub user_id: UserId,
+    pub wallet_address: UserId,
     pub plan_id: i32,
     pub transaction_hash: TransactionHash,
     pub confirmed_at: DateTime<Utc>,
@@ -17,13 +17,13 @@ pub struct ActivateSubscriptionCommand {
 impl ActivateSubscriptionCommand {
     pub fn new(
         payment_id: PaymentId,
-        user_id: UserId,
+        wallet_address: UserId,
         plan_id: i32,
         transaction_hash: TransactionHash,
     ) -> Self {
         Self {
             payment_id,
-            user_id,
+            wallet_address,
             plan_id,
             transaction_hash,
             confirmed_at: Utc::now(),
@@ -35,7 +35,7 @@ impl ActivateSubscriptionCommand {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubscriptionActivationResult {
     pub success: bool,
-    pub user_id: UserId,
+    pub wallet_address: UserId,
     pub plan_id: i32,
     pub plan_name: String,
     pub activated_at: DateTime<Utc>,
@@ -46,7 +46,7 @@ pub struct SubscriptionActivationResult {
 
 impl SubscriptionActivationResult {
     pub fn success(
-        user_id: UserId,
+        wallet_address: UserId,
         plan_id: i32,
         plan_name: String,
         transaction_hash: String,
@@ -54,7 +54,7 @@ impl SubscriptionActivationResult {
     ) -> Self {
         Self {
             success: true,
-            user_id,
+            wallet_address,
             plan_id,
             plan_name,
             activated_at: Utc::now(),
@@ -65,14 +65,14 @@ impl SubscriptionActivationResult {
     }
 
     pub fn failure(
-        user_id: UserId,
+        wallet_address: UserId,
         plan_id: i32,
         transaction_hash: String,
         error: String,
     ) -> Self {
         Self {
             success: false,
-            user_id,
+            wallet_address,
             plan_id,
             plan_name: "Unknown".to_string(),
             activated_at: Utc::now(),

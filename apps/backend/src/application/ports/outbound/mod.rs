@@ -18,11 +18,10 @@ pub use service_ports::*;
 // The repository ports are already defined in the domain layer
 // Additional outbound ports for external services:
 
-// TODO: Define additional driven port interfaces
-// Examples:
-// - Email service port
-// - Payment service port  
-// - Notification service port
-// - File storage port
-// - Cache port
-// - Message queue port
+// Additional driven port interfaces would be defined here
+// Currently implemented services that could be abstracted as ports:
+// - Email service (infrastructure/adapters/services/email_service.rs)
+// - Payment service (infrastructure/adapters/services/payment_security_service.rs)  
+// - Notification service (infrastructure/adapters/services/notification_service_adapter.rs)
+// - Cache service (infrastructure/cache/mod.rs)
+// Future ports to consider: File storage, Message queue

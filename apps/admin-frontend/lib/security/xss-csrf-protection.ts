@@ -682,7 +682,7 @@ export class AdvancedXSSCSRFProtection {
     timestamp: number
   ): string {
     const data = `${token}:${userId}:${component}:${timestamp}`
-    const secret = process.env.NEXTAUTH_SECRET || 'default-secret-key'
+    const secret = process.env.WEB3_APP_SECRET || 'web3-default-secret-key'
     
     // Simple HMAC implementation (in production, use crypto.subtle)
     return btoa(`${data}:${secret}`).slice(0, 32)

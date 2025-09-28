@@ -13,9 +13,17 @@ pub mod health;
 pub mod analytics;
 pub mod settings;
 pub mod admin_assignment;
+pub mod notifications;
 // ⚡ CRITICAL: Comprehensive Error System (Phase 1.3)
 pub mod errors;
+pub mod responses; // Unified API response format
 pub mod public;
+
+// API documentation (always available)
+pub mod docs;
+
+// Stateless router for serverless architecture
+pub mod stateless_router;
 
 use axum::{ routing::get, Router, http::Method };
 use serde_json::json;
@@ -71,10 +79,10 @@ fn configure_cors_for_frontend() -> CorsLayer {
       HeaderName::from_static("x-middleware-prefetch"),
       HeaderName::from_static("x-nextjs-data"),
       // Pure Web3 authentication headers (CRITICAL FOR WALLET AUTH)
-      HeaderName::from_static("x-wallet-address"),
-      HeaderName::from_static("x-chain-id"),
-      HeaderName::from_static("x-signature"),
-      HeaderName::from_static("x-message"),
+      HeaderName::from_static("x-wallet-address"),   // Keep lowercase for CORS compatibility
+      HeaderName::from_static("x-chain-id"),         // Keep lowercase for CORS compatibility
+      HeaderName::from_static("x-web3-signature"),   // Standardized naming
+      HeaderName::from_static("x-signed-message"),   // Standardized naming  
       HeaderName::from_static("x-timestamp"),
       HeaderName::from_static("x-nonce"),
     ])
@@ -121,9 +129,9 @@ pub async fn create_demo_router() -> Router {
   use serde_json::json;
 
   Router::new()
-    // Use unified health endpoints from health module
+    // Use unified health endpoints from health module (stateless versions)
     .route("/health", get(health::health_check_handler))
-    .route("/readiness", get(health::readiness_check_handler))
+    .route("/readiness", get(health::health_check_handler)) // Use stateless version for demo
     .route("/liveness", get(health::liveness_check_handler))
     .route(
       "/",
@@ -139,4 +147,8 @@ pub async fn create_demo_router() -> Router {
         )
       })
     )
+    .layer(configure_cors_for_frontend())
 }
+
+// Export stateless router function
+pub use stateless_router::create_stateless_router;

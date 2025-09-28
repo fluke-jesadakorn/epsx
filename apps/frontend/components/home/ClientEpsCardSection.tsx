@@ -1,6 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader } from '@/components/ui';
+import { useEffect, useState } from 'react';
 
 import type { TableDataMetrics } from '@/types/stockFetchData';
 import type { CSSProperties } from 'react';
@@ -16,8 +17,29 @@ export default function ClientEpsCardSection({
   className,
   initialData,
 }: Props) {
-  // Ensure initialData is always an array to prevent runtime errors
-  const safeData = Array.isArray(initialData) ? initialData : [];
+  const [data, setData] = useState<TableDataMetrics[]>(initialData);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const response = await fetch('/api/public/rankings?type=cards&limit=3');
+        if (response.ok) {
+          const result = await response.json();
+          setData(result);
+        }
+      } catch (error) {
+        console.error('Failed to fetch top performing companies:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchData();
+  }, []);
+
+  // Ensure data is always an array to prevent runtime errors
+  const safeData = Array.isArray(data) ? data : [];
   const getMarketColor = (marketCode: string | undefined) => {
     switch (marketCode) {
       case 'TYO':
@@ -50,12 +72,34 @@ export default function ClientEpsCardSection({
 
       {/* Analytics-style card grid */}
       <div className="flex flex-wrap items-stretch justify-center gap-3 px-2 sm:gap-6 sm:px-0">
-        {safeData
-          .filter(
-            item => item && typeof item === 'object' && item.symbol && item.name
-          )
-          .slice(0, 3)
-          .map((item, index) => {
+        {isLoading ? (
+          // Loading skeletons
+          Array.from({ length: 3 }).map((_, index) => (
+            <div
+              key={index}
+              className="relative w-full max-w-[350px] min-w-[240px] flex-shrink-0 overflow-visible rounded-3xl sm:min-w-[300px] bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 dark:from-gray-800 dark:via-gray-700 dark:to-gray-900 animate-pulse"
+            >
+              <div className="p-8 pt-16">
+                <div className="mb-6 text-center">
+                  <div className="mb-3">
+                    <div className="mb-1 h-3 w-32 bg-gray-300 dark:bg-gray-600 rounded mx-auto"></div>
+                    <div className="mb-2 h-8 w-24 bg-gray-300 dark:bg-gray-600 rounded mx-auto"></div>
+                    <div className="mx-auto h-px w-16 bg-gray-300 dark:bg-gray-600"></div>
+                  </div>
+                  <div className="flex justify-center">
+                    <div className="h-12 w-32 bg-gray-300 dark:bg-gray-600 rounded-2xl"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          safeData
+            .filter(
+              item => item && typeof item === 'object' && item.symbol && item.name
+            )
+            .slice(0, 3)
+            .map((item, index) => {
             const getRankBadge = (rank: number) => {
               if (rank === 1) return { badge: '👑', color: 'from-yellow-400 to-orange-500' };
               if (rank === 2) return { badge: '🥈', color: 'from-slate-400 to-slate-500' };
@@ -156,7 +200,8 @@ export default function ClientEpsCardSection({
                 </div>
               </div>
             );
-          })}
+          })
+        )}
       </div>
     </div>
   );

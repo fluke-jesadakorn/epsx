@@ -69,7 +69,6 @@ export interface UserProfile extends BaseUser {
   
   // Web3 integration
   walletAddress?: string
-  firebaseUid?: string
   
   // Context tracking
   platformContext?: string

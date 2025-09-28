@@ -4,7 +4,8 @@ use std::fmt;
 use std::str::FromStr;
 use thiserror::Error;
 
-use crate::domain::shared_kernel::{ValueObject, DomainError};
+use crate::domain::shared_kernel::ValueObject;
+use crate::core::errors::AppError;
 
 /// Wallet Address value object
 /// Represents a blockchain wallet address (Ethereum-compatible)
@@ -72,6 +73,12 @@ impl WalletAddress {
     pub fn is_valid(&self) -> bool {
         Self::validate_address(&self.value).is_ok()
     }
+    
+    /// Convert to UserId for compatibility with legacy session system
+    /// In Web3-first architecture, wallet address IS the user ID
+    pub fn to_user_id(&self) -> crate::domain::shared_kernel::value_objects::UserId {
+        crate::domain::shared_kernel::value_objects::UserId::from_string(self.value.clone()).unwrap()
+    }
 
     fn validate_address(value: &str) -> Result<(), WalletAddressError> {
         if value.is_empty() {
@@ -132,9 +139,10 @@ impl TryFrom<String> for WalletAddress {
     }
 }
 
-impl From<WalletAddressError> for DomainError {
+impl From<WalletAddressError> for AppError {
     fn from(error: WalletAddressError) -> Self {
-        DomainError::validation_error("wallet_address", error.to_string())
+        AppError::validation_error(format!("Invalid wallet address: {}", error))
+            .with_component("wallet_address_value_object")
     }
 }
 

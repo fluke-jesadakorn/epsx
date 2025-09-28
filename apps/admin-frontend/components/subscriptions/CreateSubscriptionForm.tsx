@@ -146,7 +146,7 @@ export function CreateSubscriptionForm({ onClose, onSuccess }: CreateSubscriptio
                   required
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  The Firebase UID or email of the user
+                  The wallet address or email of the user
                 </p>
               </div>
 

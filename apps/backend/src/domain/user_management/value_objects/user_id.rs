@@ -69,13 +69,13 @@ impl From<Uuid> for UserId {
 }
 
 impl From<UserId> for Uuid {
-    fn from(user_id: UserId) -> Self {
-        user_id.0
+    fn from(wallet_address: UserId) -> Self {
+        wallet_address.0
     }
 }
 
 impl From<UserId> for String {
-    fn from(user_id: UserId) -> Self {
-        user_id.0.to_string()
+    fn from(wallet_address: UserId) -> Self {
+        wallet_address.0.to_string()
     }
 }

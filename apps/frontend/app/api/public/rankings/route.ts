@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { URL, URLContext, Service } from '../../../../../../shared/utils/url-resolver';
+import { URL, URLContext, Service } from '@/shared/utils/url-resolver';
 
 interface StockRanking {
   rank: number;
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json([]);
     }
     
-    if (!apiData.success || !Array.isArray(apiData.data)) {
+    if (!apiData.success || !Array.isArray(apiData.rankings)) {
       console.error('Invalid API response format:', apiData);
       return NextResponse.json({ error: 'Invalid API response' }, { status: 500 });
     }
@@ -80,9 +80,9 @@ export async function GET(request: NextRequest) {
     // Transform based on type requested
     if (type === 'cards') {
       // Transform for ClientEpsCardSection (TableDataMetrics format)
-      const transformedData = apiData.data.map(stock => {
+      const transformedData = apiData.rankings.map(stock => {
         const latestQuarter = stock.quarterly_performance[0];
-        const epsGrowth = latestQuarter?.eps_growth || 0;
+        const epsGrowth = stock.eps_growth || 0;
         const priceGrowth = latestQuarter?.price_growth || 0;
         
         return {
@@ -133,8 +133,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(transformedData);
     } else {
       // Transform for PublicRankingPreview (StockFinancialData format)
-      const transformedData = apiData.data.map(stock => {
-        const latestGrowth = stock.quarterly_performance[0]?.eps_growth || 0;
+      const transformedData = apiData.rankings.map(stock => {
+        const latestGrowth = stock.eps_growth || 0;
         
         return {
           symbol: stock.symbol,

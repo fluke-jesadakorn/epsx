@@ -238,7 +238,7 @@ function PermissionStats({ permissions }: { permissions: TimestampedPermission[]
 }
 
 export default function PermissionsPage() {
-  const { user, loading } = useAuth();
+  const { user, isLoading } = useAuth();
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'expiring' | 'expired'>('active');
   const [timestampedPermissions, setTimestampedPermissions] = useState<TimestampedPermission[]>([]);
 
@@ -288,7 +288,7 @@ export default function PermissionsPage() {
     }
   });
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="container mx-auto p-6">
         <div className="flex items-center justify-center h-64">
@@ -352,13 +352,13 @@ export default function PermissionsPage() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <p className="text-sm font-medium text-gray-500">Email</p>
-              <p className="text-sm text-gray-900">{user.email}</p>
+              <p className="text-sm font-medium text-gray-500">Wallet Address</p>
+              <p className="text-sm text-gray-900">{user.wallet_address || 'Not connected'}</p>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-500">Role</p>
+              <p className="text-sm font-medium text-gray-500">Tier</p>
               <Badge variant="outline" className="mt-1">
-                {user.packageTier || 'User'}
+                {user.tier_level || 'basic'}
               </Badge>
             </div>
             <div>

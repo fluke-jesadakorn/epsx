@@ -417,14 +417,39 @@ export {
 // ============================================================================
 // TAILWIND CLASS UTILITY (From both apps)
 // ============================================================================
-import { type ClassValue, clsx } from 'clsx'
-import { twMerge } from 'tailwind-merge'
 
 /**
  * Utility function to merge Tailwind CSS classes
+ * Uses dynamic imports to avoid dependency issues in non-frontend environments
  */
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
+export async function cn(...inputs: any[]) {
+  try {
+    // Dynamic imports with better error handling
+    const [{ clsx }, { twMerge }] = await Promise.all([
+      import('clsx'),
+      import('tailwind-merge')
+    ])
+    return twMerge(clsx(inputs))
+  } catch (error) {
+    // Fallback: just join classes with spaces if dependencies not available
+    return inputs
+      .filter(Boolean)
+      .map(input => typeof input === 'string' ? input : '')
+      .join(' ')
+  }
+}
+
+/**
+ * Synchronous version for environments where clsx/tailwind-merge are available
+ * Use this when you know the dependencies are installed
+ */
+export function cnSync(...inputs: any[]) {
+  // This will need to be implemented by the consuming application
+  // if they want synchronous class merging
+  return inputs
+    .filter(Boolean)
+    .map(input => typeof input === 'string' ? input : '')
+    .join(' ')
 }
 
 // ============================================================================

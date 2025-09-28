@@ -113,7 +113,7 @@ pub enum LogicalOperator {
 /// Policy evaluation context
 #[derive(Debug, Clone)]
 pub struct PolicyEvaluationContext {
-    pub user_id: String,
+    pub wallet_address: String,
     pub user_email: String,
     pub action: String,
     pub resource: Option<HashMap<String, serde_json::Value>>,

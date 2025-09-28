@@ -24,7 +24,7 @@ impl UnifiedAdminClientAdapter {
 
     pub async fn get_admin_user(
         &self,
-        _user_id: &str,
+        _wallet_address: &str,
     ) -> Result<Option<AdminUser>, Box<dyn std::error::Error + Send + Sync>> {
         // Placeholder implementation
         Ok(None)
@@ -41,7 +41,7 @@ impl UnifiedAdminClientAdapter {
 
     pub async fn update_admin_permissions(
         &self,
-        _user_id: &str,
+        _wallet_address: &str,
         _permissions: Vec<String>,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         // Placeholder implementation
@@ -63,9 +63,9 @@ pub enum UnifiedAdminClientError {
 impl AdminClientPort for UnifiedAdminClientAdapter {
     type Error = UnifiedAdminClientError;
     
-    async fn get_admin_user(&self, user_id: &str) -> Result<Option<ServiceAdminUser>, Self::Error> {
+    async fn get_admin_user(&self, wallet_address: &str) -> Result<Option<ServiceAdminUser>, Self::Error> {
         // Placeholder implementation
-        tracing::debug!("Getting admin user: {}", user_id);
+        tracing::debug!("Getting admin user: {}", wallet_address);
         Ok(None)
     }
     

@@ -84,41 +84,11 @@ export const serverEnvSchema = z.object({
     })
     .describe('Admin frontend URL for CORS and admin-specific redirects'),
 
-  // Authentication (5 variables) - Critical for security
+  // Web3 Authentication (1 variable) - Critical for Web3 security  
   NEXTAUTH_SECRET: z.string()
     .min(32, 'JWT secret must be at least 32 characters for security')
-    .describe('JWT token signing secret shared across all applications'),
-    
-  OIDC_CLIENT_ID: z.string()
-    .default(getDefaultFrontendClientId())
-    .describe('OIDC client identifier for frontend application authentication'),
-    
-  OIDC_CLIENT_SECRET: z.string()
-    .min(1)
-    .describe('OIDC client secret for secure frontend authentication'),
-    
-  OIDC_ADMIN_CLIENT_ID: z.string()
-    .default(getDefaultAdminClientId())
-    .describe('OIDC client identifier for admin application authentication'),
-    
-  OIDC_ADMIN_CLIENT_SECRET: z.string()
-    .min(1)
-    .describe('OIDC client secret for secure admin authentication'),
+    .describe('JWT token signing secret for Web3 session management'),
 
-  // Firebase (3 variables) - Reduced from 15+ variables
-  FIREBASE_PROJECT_ID: z.string()
-    .min(1)
-    .describe('Firebase project identifier for authentication services'),
-    
-  FIREBASE_PRIVATE_KEY: z.string()
-    .refine(key => key.includes('-----BEGIN PRIVATE KEY-----'), {
-      message: 'FIREBASE_PRIVATE_KEY must be a valid private key in PEM format'
-    })
-    .describe('Firebase service account private key for server-side operations'),
-    
-  FIREBASE_CLIENT_EMAIL: z.string()
-    .email()
-    .describe('Firebase service account email for authentication'),
 
   // Payment (2 variables) - Optional for payment processing
   MUSEPAY_PARTNER_ID: z.string().optional()
@@ -185,32 +155,15 @@ export const clientEnvSchema = z.object({
     })
     .describe('Admin frontend URL for client navigation'),
 
-  // Authentication (1 variable)
-  NEXT_PUBLIC_OAUTH_CLIENT_ID: z.string()
-    .default(getDefaultFrontendClientId())
-    .describe('OIDC client identifier exposed to browser'),
+  // Web3 Configuration
+  NEXT_PUBLIC_BLOCKCHAIN_NETWORK: z.enum(['mainnet', 'testnet'])
+    .default('testnet')
+    .describe('Web3 blockchain network configuration'),
+  
+  NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: z.string()
+    .default('epsx-web3-frontend')
+    .describe('WalletConnect project ID for wallet connections'),
 
-  // Firebase Client Configuration (7 variables)
-  NEXT_PUBLIC_FIREBASE_API_KEY: z.string().optional()
-    .describe('Firebase API key for client-side Firebase SDK'),
-    
-  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: z.string().optional()
-    .describe('Firebase auth domain for client-side authentication'),
-    
-  NEXT_PUBLIC_FIREBASE_PROJECT_ID: z.string().optional()
-    .describe('Firebase project ID for client-side Firebase SDK'),
-    
-  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: z.string().optional()
-    .describe('Firebase storage bucket for client-side file operations'),
-    
-  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: z.string().optional()
-    .describe('Firebase messaging sender ID for push notifications'),
-    
-  NEXT_PUBLIC_FIREBASE_APP_ID: z.string().optional()
-    .describe('Firebase app ID for client-side app identification'),
-    
-  NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: z.string().optional()
-    .describe('Firebase measurement ID for analytics tracking')
 });
 
 /**
@@ -257,7 +210,8 @@ export const clientEnv = new Proxy({} as ClientEnv, {
             NEXT_PUBLIC_BACKEND_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BACKEND_URL) || 'https://api.epsx.io',
             NEXT_PUBLIC_APP_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_APP_URL) || 'https://epsx.io',
             NEXT_PUBLIC_ADMIN_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_ADMIN_URL) || 'https://admin.epsx.io',
-            NEXT_PUBLIC_OAUTH_CLIENT_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_OAUTH_CLIENT_ID) || 'epsx-frontend'
+            NEXT_PUBLIC_BLOCKCHAIN_NETWORK: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BLOCKCHAIN_NETWORK) || 'testnet',
+            NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID) || 'epsx-web3-frontend'
           } as ClientEnv;
         } else {
           throw error;
@@ -282,31 +236,12 @@ export const env = {
   get ADMIN_URL() {
     return clientEnv.NEXT_PUBLIC_ADMIN_URL;
   },
-  get CLIENT_ID() {
-    return clientEnv.NEXT_PUBLIC_OAUTH_CLIENT_ID;
+  get BLOCKCHAIN_NETWORK() {
+    return clientEnv.NEXT_PUBLIC_BLOCKCHAIN_NETWORK;
   },
   
-  // Firebase Configuration
-  get FIREBASE_API_KEY() {
-    return clientEnv.NEXT_PUBLIC_FIREBASE_API_KEY;
-  },
-  get FIREBASE_AUTH_DOMAIN() {
-    return clientEnv.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
-  },
-  get FIREBASE_PROJECT_ID() {
-    return clientEnv.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  },
-  get FIREBASE_STORAGE_BUCKET() {
-    return clientEnv.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
-  },
-  get FIREBASE_MESSAGING_SENDER_ID() {
-    return clientEnv.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID;
-  },
-  get FIREBASE_APP_ID() {
-    return clientEnv.NEXT_PUBLIC_FIREBASE_APP_ID;
-  },
-  get FIREBASE_MEASUREMENT_ID() {
-    return clientEnv.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID;
+  get WALLETCONNECT_PROJECT_ID() {
+    return clientEnv.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
   },
   
   // Server-only (throws error if accessed on client)
@@ -320,25 +255,7 @@ export const env = {
     return serverEnv.NEXTAUTH_SECRET;
   },
   
-  get OIDC_CLIENT_SECRET() {
-    if (!isServer) throw new Error('OIDC_CLIENT_SECRET is server-only');
-    return serverEnv.OIDC_CLIENT_SECRET;
-  },
-  
-  get OIDC_ADMIN_CLIENT_SECRET() {
-    if (!isServer) throw new Error('OIDC_ADMIN_CLIENT_SECRET is server-only');
-    return serverEnv.OIDC_ADMIN_CLIENT_SECRET;
-  },
-  
-  get FIREBASE_PRIVATE_KEY() {
-    if (!isServer) throw new Error('FIREBASE_PRIVATE_KEY is server-only');
-    return serverEnv.FIREBASE_PRIVATE_KEY;
-  },
-  
-  get FIREBASE_CLIENT_EMAIL() {
-    if (!isServer) throw new Error('FIREBASE_CLIENT_EMAIL is server-only');
-    return serverEnv.FIREBASE_CLIENT_EMAIL;
-  },
+  // Firebase removed - Web3 wallet-first authentication migration completed
   
   get REDIS_URL() {
     if (!isServer) throw new Error('REDIS_URL is server-only');
@@ -393,12 +310,13 @@ export const urls = {
  */
 export function logEnvironmentDebugInfo() {
   if (typeof window !== 'undefined' && isDev) {
-    console.log('✅ EPSX Environment Schema Loaded');
+    console.log('✅ EPSX Web3 Environment Schema Loaded');
     console.log('🔧 Client Environment Variables:', {
       BACKEND_URL: env.BACKEND_URL,
       APP_URL: env.APP_URL,
       ADMIN_URL: env.ADMIN_URL,
-      CLIENT_ID: env.CLIENT_ID
+      BLOCKCHAIN_NETWORK: env.BLOCKCHAIN_NETWORK,
+      WALLETCONNECT_PROJECT_ID: env.WALLETCONNECT_PROJECT_ID
     });
   }
 }

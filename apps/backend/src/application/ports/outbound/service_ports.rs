@@ -38,7 +38,7 @@ pub trait SecurityMonitoringServicePort: Send + Sync {
 pub trait AdminClientPort: Send + Sync {
     type Error: std::error::Error + Send + Sync + 'static;
     
-    async fn get_admin_user(&self, user_id: &str) -> Result<Option<AdminUser>, Self::Error>;
+    async fn get_admin_user(&self, wallet_address: &str) -> Result<Option<AdminUser>, Self::Error>;
     async fn list_admin_users(&self) -> Result<Vec<AdminUser>, Self::Error>;
 }
 
@@ -47,8 +47,8 @@ pub trait AdminClientPort: Send + Sync {
 pub trait GranularPermissionsClientPort: Send + Sync {
     type Error: std::error::Error + Send + Sync + 'static;
     
-    async fn get_user_permissions(&self, user_id: &str) -> Result<Vec<String>, Self::Error>;
-    async fn grant_permission(&self, user_id: &str, permission: &str) -> Result<(), Self::Error>;
+    async fn get_user_permissions(&self, wallet_address: &str) -> Result<Vec<String>, Self::Error>;
+    async fn grant_permission(&self, wallet_address: &str, permission: &str) -> Result<(), Self::Error>;
 }
 
 // Convenience re-exports for errors
@@ -79,17 +79,28 @@ pub struct MarketData {
 pub struct SecurityEvent {
     pub event_type: String,
     pub source_ip: String,
-    pub user_id: Option<String>,
+    pub wallet_address: Option<String>,
     pub timestamp: chrono::DateTime<chrono::Utc>,
     pub details: serde_json::Value,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum ThreatLevel {
     Low,
     Medium,
     High,
     Critical,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SecuritySummary {
+    pub wallet_address: String,
+    pub recent_login_attempts: u32,
+    pub failed_attempts: u32,
+    pub suspicious_activities: u32,
+    pub last_login: Option<chrono::DateTime<chrono::Utc>>,
+    pub risk_score: ThreatLevel,
+    pub is_locked: bool,
 }
 
 #[derive(Debug, Clone)]

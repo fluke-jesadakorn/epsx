@@ -26,8 +26,7 @@ pub struct Config {
     pub frontend_url: String,
     pub admin_frontend_url: String,
 
-    // Web3 Authentication (1 variable) - OIDC completely removed
-    pub jwt_secret: String, // For Web3 session tokens only
+    // Web3 Authentication (0 variables) - Pure signature-based auth, no JWT tokens needed
 
     // Blockchain Infrastructure (6 variables)
     pub ethereum_rpc_url: String,
@@ -118,45 +117,7 @@ impl Config {
             }
         }
 
-        // Web3 Authentication - Required
-        let jwt_secret = match get_required("WEB3_JWT_SECRET") {
-            Ok(secret) => {
-                if secret.len() < 32 {
-                    errors.push(ValidationError {
-                        variable: "WEB3_JWT_SECRET".to_string(),
-                        reason: "Web3 JWT secret must be at least 32 characters for security".to_string(),
-                    });
-                    String::new()
-                } else {
-                    secret
-                }
-            },
-            Err(_) => {
-                // Fallback to NEXTAUTH_SECRET for backward compatibility during migration
-                match get_required("NEXTAUTH_SECRET") {
-                    Ok(secret) => {
-                        if secret.len() < 32 {
-                            errors.push(ValidationError {
-                                variable: "WEB3_JWT_SECRET or NEXTAUTH_SECRET".to_string(),
-                                reason: "JWT secret must be at least 32 characters for security".to_string(),
-                            });
-                            String::new()
-                        } else {
-                            secret
-                        }
-                    },
-                    Err(_e) => {
-                        errors.push(ValidationError {
-                            variable: "WEB3_JWT_SECRET".to_string(),
-                            reason: "Required for Web3 session management".to_string(),
-                        });
-                        String::new()
-                    }
-                }
-            }
-        };
-
-        // Firebase validation removed for Web3-first architecture
+        // Web3 Authentication - Pure signature-based, no JWT tokens needed
 
         // Blockchain Infrastructure - with fallbacks to free RPC endpoints
         let ethereum_rpc_url = get_with_default("ETHEREUM_RPC_URL", "https://eth.llamarpc.com");
@@ -184,7 +145,6 @@ impl Config {
             backend_url,
             frontend_url,
             admin_frontend_url,
-            jwt_secret,
             ethereum_rpc_url,
             polygon_rpc_url,
             arbitrum_rpc_url,
@@ -266,7 +226,6 @@ pub fn get_fallback_config() -> Config {
         backend_url: "http://localhost:8080".to_string(),
         frontend_url: "http://localhost:3000".to_string(),
         admin_frontend_url: "http://localhost:3001".to_string(),
-        jwt_secret: "default-web3-jwt-secret-for-development-only".to_string(),
         ethereum_rpc_url: "https://eth.llamarpc.com".to_string(),
         polygon_rpc_url: "https://polygon.llamarpc.com".to_string(),
         arbitrum_rpc_url: "https://arbitrum.llamarpc.com".to_string(),
@@ -286,16 +245,7 @@ pub fn get_database_url() -> String {
     env::var("DATABASE_URL").expect("DATABASE_URL must be set")
 }
 
-pub fn get_web3_jwt_secret() -> String {
-    env::var("WEB3_JWT_SECRET")
-        .or_else(|_| env::var("NEXTAUTH_SECRET")) // Fallback during migration
-        .expect("WEB3_JWT_SECRET or NEXTAUTH_SECRET must be set")
-}
-
-// Deprecated: Use get_web3_jwt_secret() instead
-pub fn get_jwt_secret() -> String {
-    get_web3_jwt_secret()
-}
+// JWT functions removed - pure Web3 signature authentication only
 
 pub fn get_log_level() -> String {
     env::var("LOG_LEVEL").unwrap_or_else(|_| "info".to_string())

@@ -441,8 +441,5 @@ export interface AuthUpgradePromptProps {
 // COMPATIBILITY EXPORTS
 // ============================================================================
 
-// Re-export specific context types for backward compatibility
-export type { UserProgressiveAuthProps as ProgressiveAuthProps };
-export type { AdminProgressiveAuthProps as AdminProgressiveAuthProps };
-export type { UserAuthState as AuthState };
-export type { AdminAuthState as AdminAuthState };
+// Note: Main types are already exported above
+// Legacy aliases removed to prevent TypeScript conflicts

@@ -146,9 +146,9 @@ export function AnalyticsLegend({ onComplete, className = '' }: AnalyticsLegendP
               Each card shows the most recent 2 quarters of data for easy comparison:
             </p>
             <div className="space-y-2 text-sm font-mono bg-white dark:bg-gray-800 p-3 rounded border">
-              <div className="text-green-600">Jul 30 | $3.65 | ✅ UP | Growth: +5.49% | Price: +4.94%</div>
+              <div className="text-green-600">Jul 30 | ₩3,650 | ✅ UP | Growth: +5.49% | Price: +4.94%</div>
               <div className="text-blue-600">Status: POSITIVE | Both numbers UP! ⬆️ | Mode: ACTIVE</div>
-              <div className="border-t pt-2 text-purple-600">Apr 30 | $3.46 | ✅ UP | Growth: +7.12% | Price: -0.34%</div>
+              <div className="border-t pt-2 text-purple-600">Apr 30 | €346.00 | ✅ UP | Growth: +7.12% | Price: -0.34%</div>
               <div className="text-blue-600">Status: MIXED | Growth UP, Price DOWN ↕️ | Mode: ACTIVE</div>
             </div>
           </div>

@@ -60,14 +60,13 @@ export function PermissionAuditDashboard() {
   const { can, isAdmin } = useAuth();
 
   // Use new security monitoring hooks
-  const { events, totalCount, isLoading: eventsLoading, refresh: refreshEvents } = useSecurityEvents({
-    limit: 50,
-    resolved: false
-  }, 30000);
+  const { events, loading: eventsLoading, refreshEvents } = useSecurityEvents({
+    maxEvents: 50
+  });
 
-  const { metrics, alerts, isLoading: metricsLoading, refresh: refreshMetrics } = useSecurityMetrics(30000);
+  const { metrics, statistics, loading: metricsLoading, refreshMetrics } = useSecurityMetrics();
   
-  const { alerts: criticalAlerts, isLoading: alertsLoading, refresh: refreshAlerts } = useCriticalAlerts(10000);
+  const { alerts: criticalAlerts, loading: alertsLoading } = useCriticalAlerts();
 
   const isLoading = eventsLoading || metricsLoading || alertsLoading;
 
@@ -75,7 +74,7 @@ export function PermissionAuditDashboard() {
   const refreshAll = () => {
     refreshEvents();
     refreshMetrics();
-    refreshAlerts();
+    // Critical alerts will refresh automatically
   };
 
   const handleResolveAlert = async (alertId: string) => {
@@ -168,16 +167,16 @@ export function PermissionAuditDashboard() {
           <div className="bg-white p-6 rounded-lg shadow border">
             <h3 className="text-sm font-medium text-gray-500">Total Permissions</h3>
             <div className="mt-2 flex items-baseline">
-              <p className="text-2xl font-semibold text-gray-900">{(metrics.total_events || 0).toLocaleString()}</p>
+              <p className="text-2xl font-semibold text-gray-900">{(statistics?.totalEvents || 0).toLocaleString()}</p>
             </div>
           </div>
           
           <div className="bg-white p-6 rounded-lg shadow border">
             <h3 className="text-sm font-medium text-gray-500">Active Threats</h3>
             <div className="mt-2 flex items-baseline">
-              <p className="text-2xl font-semibold text-green-600">{(metrics.active_threats || 0).toLocaleString()}</p>
+              <p className="text-2xl font-semibold text-green-600">{(statistics?.criticalEvents || 0).toLocaleString()}</p>
               <p className="ml-2 text-sm text-gray-500">
-                {metrics.total_events > 0 ? Math.round((metrics.active_threats / metrics.total_events) * 100) : 0}%
+                {statistics?.totalEvents ? Math.round(((statistics?.criticalEvents || 0) / statistics.totalEvents) * 100) : 0}%
               </p>
             </div>
           </div>
@@ -185,14 +184,14 @@ export function PermissionAuditDashboard() {
           <div className="bg-white p-6 rounded-lg shadow border">
             <h3 className="text-sm font-medium text-gray-500">Resolved Threats</h3>
             <div className="mt-2 flex items-baseline">
-              <p className="text-2xl font-semibold text-orange-600">{(metrics.resolved_threats || 0).toLocaleString()}</p>
+              <p className="text-2xl font-semibold text-orange-600">{((statistics?.totalEvents || 0) - (statistics?.criticalEvents || 0)).toLocaleString()}</p>
             </div>
           </div>
 
           <div className="bg-white p-6 rounded-lg shadow border">
             <h3 className="text-sm font-medium text-gray-500">Avg Threat Score</h3>
             <div className="mt-2 flex items-baseline">
-              <p className="text-2xl font-semibold text-red-600">{(metrics.avg_threat_score || 0).toFixed(1)}</p>
+              <p className="text-2xl font-semibold text-red-600">{(statistics?.riskScore || 0).toFixed(1)}</p>
             </div>
           </div>
         </div>
@@ -298,18 +297,18 @@ export function PermissionAuditDashboard() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
-                      <div className="text-sm font-medium text-gray-900">{event.user_id}</div>
-                      <div className="text-xs text-gray-500">User ID: {event.user_id}</div>
+                      <div className="text-sm font-medium text-gray-900">{event.userId}</div>
+                      <div className="text-xs text-gray-500">User ID: {event.userId}</div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <code className="text-sm bg-gray-100 px-2 py-1 rounded">
-                      {event.event_type}
+                      {event.eventType}
                     </code>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`text-sm font-medium ${getActionColor(event.event_type)}`}>
-                      {event.event_type.toUpperCase()}
+                    <span className={`text-sm font-medium ${getActionColor(event.eventType)}`}>
+                      {event.eventType.toUpperCase()}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -322,11 +321,11 @@ export function PermissionAuditDashboard() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     <div className="space-y-1">
-                      <div>Score: {event.risk_score}</div>
-                      {event.ip_address && (
-                        <div>IP: {event.ip_address}</div>
+                      <div>Score: {event.riskScore}</div>
+                      {event.ipAddress && (
+                        <div>IP: {event.ipAddress}</div>
                       )}
-                      <div>Resolved: {event.resolved ? 'Yes' : 'No'}</div>
+                      <div>Status: Active</div>
                     </div>
                   </td>
                 </tr>
@@ -351,25 +350,25 @@ export function PermissionAuditDashboard() {
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Total Events</span>
                 <span className="text-sm font-medium">
-                  {(metrics.total_events || 0).toLocaleString()}
+                  {(statistics?.totalEvents || 0).toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Active Threats</span>
                 <span className="text-sm font-medium text-orange-600">
-                  {(metrics.active_threats || 0).toLocaleString()}
+                  {(statistics?.criticalEvents || 0).toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Resolved Threats</span>
                 <span className="text-sm font-medium text-blue-600">
-                  {(metrics.resolved_threats || 0).toLocaleString()}
+                  {(((statistics?.totalEvents || 0) - (statistics?.criticalEvents || 0)) || 0).toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Avg Threat Score</span>
                 <span className="text-sm font-medium text-purple-600">
-                  {(metrics.avg_threat_score || 0).toFixed(1)}
+                  {(statistics?.riskScore || 0).toFixed(1)}
                 </span>
               </div>
             </div>
@@ -381,19 +380,19 @@ export function PermissionAuditDashboard() {
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Average Threat Score</span>
                 <span className="text-sm font-medium">
-                  {(metrics.avg_threat_score || 0).toFixed(1)}
+                  {(statistics?.riskScore || 0).toFixed(1)}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Active Threats</span>
                 <span className="text-sm font-medium text-red-600">
-                  {(metrics.active_threats || 0).toLocaleString()}
+                  {(statistics?.criticalEvents || 0).toLocaleString()}
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Security Health</span>
                 <span className="text-sm font-medium text-green-600">
-                  {Math.max(0, 100 - (metrics.active_threats || 0) * 5)}/100
+                  {Math.max(0, 100 - (statistics?.criticalEvents || 0) * 5)}/100
                 </span>
               </div>
             </div>

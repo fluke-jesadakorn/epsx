@@ -2,24 +2,21 @@
 
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
 import { toast } from 'sonner';
+import { createWeb3FrontendClient } from '@/shared/utils/web3-api-client';
+import type {
+  WalletAuthState,
+  PermissionInfo,
+  GroupMembership,
+  PermissionStats,
+  Web3Permission,
+  Web3PermissionType,
+  Web3AuthError,
+  BatchPermissionResult
+} from '@/shared/types/wallet-auth';
 
-// Types
-export interface Web3Permission {
-  permission: string;
-  source: 'manual' | 'nft' | 'token' | 'dao';
-  expires_at?: string;
-  metadata?: {
-    nft_collection?: string;
-    token_contract?: string;
-    dao_name?: string;
-    required_amount?: string;
-    [key: string]: any;
-  };
-}
-
-export interface Web3AuthState {
+// Enhanced Web3 Auth State using comprehensive backend types
+export interface EnhancedWeb3AuthState {
   // Connection state
   isConnected: boolean;
   isAuthenticated: boolean;
@@ -29,16 +26,33 @@ export interface Web3AuthState {
   
   // User data
   walletAddress?: string;
-  permissions: Web3Permission[];
+  permissions: string[]; // Simple permission strings
+  permissionInfo: PermissionInfo[]; // Detailed permission info
+  groupMemberships: GroupMembership[]; // Permission group memberships
+  permissionStats?: PermissionStats; // Permission statistics
+  web3Permissions: Web3Permission[]; // Web3-specific permissions
+  
+  // Tier/Plan info
+  tier?: string;
+  userTier?: string;
+  
+  // Legacy enterprise fields (for backward compatibility)
   enterpriseTier: 'Starter' | 'Business' | 'Enterprise' | 'Whale';
   hasApiAccess: boolean;
   verifiedTokensUsd: number;
   nftCollections: string[];
   daoMemberships: string[];
-  error?: string;
+  
+  // Error handling
+  error?: string | Web3AuthError;
+  
+  // Session management
+  expiresAt?: number;
+  accessToken?: string;
+  isNewUser?: boolean;
 }
 
-export interface Web3AuthActions {
+export interface EnhancedWeb3AuthActions {
   // State management
   setConnected: (connected: boolean) => void;
   setAuthenticated: (authenticated: boolean) => void;
@@ -46,30 +60,53 @@ export interface Web3AuthActions {
   setLoading: (loading: boolean) => void;
   setInitialized: (initialized: boolean) => void;
   setWalletAddress: (address?: string) => void;
-  setPermissions: (permissions: Web3Permission[]) => void;
-  setEnterpriseTier: (tier: Web3AuthState['enterpriseTier']) => void;
+  setPermissions: (permissions: string[]) => void;
+  setPermissionInfo: (permissionInfo: PermissionInfo[]) => void;
+  setGroupMemberships: (memberships: GroupMembership[]) => void;
+  setPermissionStats: (stats?: PermissionStats) => void;
+  setWeb3Permissions: (permissions: Web3Permission[]) => void;
+  setTier: (tier?: string) => void;
+  setEnterpriseTier: (tier: EnhancedWeb3AuthState['enterpriseTier']) => void;
   setApiAccess: (hasAccess: boolean) => void;
   setVerifiedTokensUsd: (amount: number) => void;
   setNftCollections: (collections: string[]) => void;
   setDaoMemberships: (memberships: string[]) => void;
-  setError: (error?: string) => void;
+  setError: (error?: string | Web3AuthError) => void;
+  setAccessToken: (token?: string) => void;
+  setExpiresAt: (expiresAt?: number) => void;
+  setIsNewUser: (isNewUser?: boolean) => void;
   
-  // Enterprise auth actions
+  // Core authentication actions
   authenticate: () => Promise<void>;
   disconnect: () => Promise<void>;
-  checkAuthStatus: () => Promise<boolean | undefined>;
+  logout: () => Promise<void>;
+  checkAuthStatus: () => Promise<boolean>;
+  
+  // Permission management actions
+  refreshPermissions: () => Promise<void>;
+  getPermissionStats: () => Promise<PermissionStats>;
+  getGroupMemberships: () => Promise<GroupMembership[]>;
+  checkPermissions: (permissions: string[]) => Promise<BatchPermissionResult>;
+  hasPermission: (permission: string) => boolean;
+  hasAnyPermission: (permissions: string[]) => boolean;
+  hasAllPermissions: (permissions: string[]) => boolean;
+  
+  // Legacy enterprise actions (for backward compatibility)
   refreshEnterpriseData: () => Promise<boolean>;
   generateApiKey: (name: string) => Promise<string>;
-  resetAuthState: () => void;
   
   // Internal state management
   initializeAuth: () => Promise<void>;
+  resetAuthState: () => void;
 }
 
-export type Web3AuthStore = Web3AuthState & Web3AuthActions;
+export type EnhancedWeb3AuthStore = EnhancedWeb3AuthState & EnhancedWeb3AuthActions;
 
-// Store
-export const useWeb3AuthStore = create<Web3AuthStore>()(
+// Initialize Web3 API client
+const web3ApiClient = createWeb3FrontendClient();
+
+// Enhanced Store
+export const useWeb3AuthStore = create<EnhancedWeb3AuthStore>()(
   persist(
     (set, get) => ({
       // Initial state
@@ -78,14 +115,33 @@ export const useWeb3AuthStore = create<Web3AuthStore>()(
       isAuthenticating: false,
       isLoading: true,
       hasInitialized: false,
+      
+      // User data
+      walletAddress: undefined,
       permissions: [],
+      permissionInfo: [],
+      groupMemberships: [],
+      permissionStats: undefined,
+      web3Permissions: [],
+      
+      // Tier/Plan info
+      tier: undefined,
+      userTier: undefined,
+      
+      // Legacy enterprise fields
       enterpriseTier: 'Starter',
       hasApiAccess: false,
       verifiedTokensUsd: 0,
       nftCollections: [],
       daoMemberships: [],
+      
+      // Error and session
+      error: undefined,
+      expiresAt: undefined,
+      accessToken: undefined,
+      isNewUser: undefined,
 
-      // State setters
+      // Enhanced state setters
       setConnected: (connected) => set({ isConnected: connected }),
       setAuthenticated: (authenticated) => set({ isAuthenticated: authenticated }),
       setAuthenticating: (authenticating) => set({ isAuthenticating: authenticating }),
@@ -93,12 +149,20 @@ export const useWeb3AuthStore = create<Web3AuthStore>()(
       setInitialized: (initialized) => set({ hasInitialized: initialized }),
       setWalletAddress: (address) => set({ walletAddress: address }),
       setPermissions: (permissions) => set({ permissions }),
+      setPermissionInfo: (permissionInfo) => set({ permissionInfo }),
+      setGroupMemberships: (memberships) => set({ groupMemberships: memberships }),
+      setPermissionStats: (stats) => set({ permissionStats: stats }),
+      setWeb3Permissions: (permissions) => set({ web3Permissions: permissions }),
+      setTier: (tier) => set({ tier }),
       setEnterpriseTier: (tier) => set({ enterpriseTier: tier }),
       setApiAccess: (hasAccess) => set({ hasApiAccess: hasAccess }),
       setVerifiedTokensUsd: (amount) => set({ verifiedTokensUsd: amount }),
       setNftCollections: (collections) => set({ nftCollections: collections }),
       setDaoMemberships: (memberships) => set({ daoMemberships: memberships }),
       setError: (error) => set({ error }),
+      setAccessToken: (token) => set({ accessToken: token }),
+      setExpiresAt: (expiresAt) => set({ expiresAt }),
+      setIsNewUser: (isNewUser) => set({ isNewUser }),
 
       // Initialize authentication state
       initializeAuth: async () => {
@@ -226,9 +290,9 @@ export const useWeb3AuthStore = create<Web3AuthStore>()(
         set({ isAuthenticating: true, error: undefined });
 
         try {
-          // Get challenge from enterprise API
+          // Get challenge from Web3 auth API
           const challengeResponse = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/enterprise/auth/challenge`,
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/web3/challenge`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -254,9 +318,9 @@ export const useWeb3AuthStore = create<Web3AuthStore>()(
             throw new Error('Wallet signing function not available');
           }
 
-          // Verify signature with enterprise API
+          // Verify signature with Web3 auth API
           const authResponse = await fetch(
-            `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/enterprise/auth/verify`,
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/web3/verify`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },

@@ -248,6 +248,7 @@ impl TradingViewMapper {
       country: country.to_lowercase(),
       sector,
       ranking_score,
+      currency: "USD".to_string(), // Default to USD for TradingView data
     }
   }
 
@@ -314,6 +315,11 @@ impl TradingViewMapper {
           },
           country: scanner_item.country, // Keep scanner country
           sector: scanner_item.sector, // Keep scanner sector
+          currency: if !websocket_item.currency.is_empty() && websocket_item.currency != "USD" {
+            websocket_item.currency.clone()
+          } else {
+            scanner_item.currency
+          },
           ranking_score: Self::calculate_ranking_score(
             if websocket_item.current_eps > 0.0 {
               websocket_item.current_eps
@@ -384,7 +390,6 @@ impl TradingViewMapper {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use super::types::StockDataField;
 
   #[test]
   fn test_eps_value_validation() {
@@ -435,7 +440,7 @@ mod tests {
 
   #[test]
   fn test_frontend_data_validation() {
-    let data = vec![
+    let mut data = vec![
       FrontendEPSData {
         id: "1".to_string(),
         symbol: "AAPL".to_string(),
@@ -448,6 +453,7 @@ mod tests {
         country: "america".to_string(),
         sector: "Technology".to_string(),
         ranking_score: 85.5,
+        currency: "USD".to_string(),
       },
       FrontendEPSData {
         id: "2".to_string(),
@@ -461,6 +467,7 @@ mod tests {
         country: "america".to_string(),
         sector: "Technology".to_string(),
         ranking_score: 50.0,
+        currency: "USD".to_string(),
       }
     ];
 
@@ -484,6 +491,7 @@ mod tests {
       country: "america".to_string(),
       sector: "Technology".to_string(),
       ranking_score: 85.5,
+      currency: "USD".to_string(),
     }];
 
     let websocket_data = vec![FrontendEPSData {
@@ -498,6 +506,7 @@ mod tests {
       country: "america".to_string(),
       sector: "Technology".to_string(),
       ranking_score: 0.0,
+      currency: "USD".to_string(),
     }];
 
     let merged = TradingViewMapper::merge_scanner_and_websocket_data(

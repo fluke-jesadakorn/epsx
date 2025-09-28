@@ -1,26 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from '@/lib/auth/server-auth';
+import { cookies } from 'next/headers';
 import { env } from '@/config/env';
-
-// Get bearer token from custom JWT session
-const getBearerToken = async () => {
-  const session = await getServerSession();
-  return (session as any)?.accessToken || null;
-};
 
 const BACKEND_URL = env.BACKEND_URL;
 
 export async function GET() {
   try {
-    const token = await getBearerToken();
+    // Get Bearer token from admin session cookies
+    const cookieStore = await cookies();
+    const accessToken = cookieStore.get('access_token')?.value;
+    const adminSession = cookieStore.get('admin_session')?.value;
+
+    if (!accessToken || !adminSession) {
+      return NextResponse.json(
+        { error: 'Admin authentication required' },
+        { status: 401 }
+      );
+    }
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+      'X-Admin-Context': 'true',
     };
-    
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
 
     const response = await fetch(`${BACKEND_URL}/api/v1/admin/users`, {
       method: 'GET',

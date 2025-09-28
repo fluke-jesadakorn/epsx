@@ -114,10 +114,6 @@ async function UsersDataWrapper({ searchParams }: { searchParams?: UsersPageProp
     notFound()
   }
   
-  if (!UnifiedAuth.hasPermission(session.user, 'admin:users:view')) {
-    notFound()
-  }
-  
   // Parse search parameters - await in Next.js 15
   const resolvedSearchParams = await searchParams
   const page = parseInt(resolvedSearchParams?.page || '1', 10)

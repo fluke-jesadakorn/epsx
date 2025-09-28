@@ -12,7 +12,7 @@ use super::resource_type::{ResourceType, ResourceCategory};
 /// Usage metrics for a specific time period
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UsageMetrics {
-    pub user_id: Option<String>,
+    pub wallet_address: Option<String>,
     pub api_key: Option<String>,
     pub session_id: Option<String>,
     pub time_period: TimePeriod,
@@ -172,14 +172,14 @@ pub enum PredictionBasis {
 
 impl UsageMetrics {
     pub fn new(
-        user_id: Option<String>,
+        wallet_address: Option<String>,
         api_key: Option<String>,
         session_id: Option<String>,
         time_period: TimePeriod,
     ) -> Self {
         let now = Utc::now();
         Self {
-            user_id,
+            wallet_address,
             api_key,
             session_id,
             time_period,

@@ -41,6 +41,7 @@ pub struct StockScreeningResult {
     pub trend_direction: Option<String>,   // "UP", "DOWN", "FLAT"
     pub avg_growth_rate: Option<f64>,      // Average growth rate across available quarters
     pub consistency_score: Option<String>, // "HIGH", "MEDIUM", "LOW" - earnings consistency
+    pub currency: Option<String>,          // Stock currency ("USD", "EUR", etc.)
 }
 
 impl StockScreeningResult {
@@ -77,6 +78,7 @@ impl StockScreeningResult {
             trend_direction: None,
             avg_growth_rate: None,
             consistency_score: None,
+            currency: None,
         }
     }
 

@@ -19,7 +19,7 @@ import {
   CheckCircle,
   ExternalLink
 } from 'lucide-react';
-import { useWeb3AuthContext } from '@/providers/Web3AuthProvider';
+import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -39,7 +39,23 @@ interface ApiKeyManagerProps {
 }
 
 export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
-  const { isAuthenticated, hasApiAccess, userTier, generateApiKey } = useWeb3AuthContext();
+  const { isAuthenticated, getUserTier, hasPermissionForDisplay, makeApiRequest } = useSharedAuth();
+  const userTier = getUserTier();
+  const hasApiAccess = hasPermissionForDisplay('epsx:api:manage');
+
+  // Generate API key function
+  const generateApiKey = async (name: string) => {
+    const response = await makeApiRequest('/api/v1/user/api-keys', {
+      method: 'POST',
+      body: JSON.stringify({ name })
+    });
+    
+    if (!response.success) {
+      throw new Error(response.error?.message || 'Failed to generate API key');
+    }
+    
+    return response.data;
+  };
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);

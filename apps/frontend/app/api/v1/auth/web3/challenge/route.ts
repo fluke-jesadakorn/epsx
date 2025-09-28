@@ -1,12 +1,9 @@
 /**
  * Web3 Challenge API Route
- * Generates SIWE challenges for wallet authentication
- * Aligns with backend /api/v1/auth/web3/challenge
+ * Generates SIWE challenges for wallet authentication using unified client
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { env } from '@/config/env';
-
-const BACKEND_URL = env.BACKEND_URL;
+import { createWeb3FrontendClient } from '@/shared/utils/web3-api-client';
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,31 +17,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Forward to backend's standard Web3 challenge endpoint
-    const response = await fetch(`${BACKEND_URL}/api/v1/auth/web3/challenge`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ wallet_address }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ 
-        error: 'Challenge generation failed' 
-      }));
-      return NextResponse.json(errorData, { status: response.status });
-    }
-
-    const data = await response.json();
-    console.log('✅ Challenge generated for wallet:', wallet_address.slice(0, 8) + '...');
+    // Create Web3 client for server-side challenge generation
+    const web3Client = createWeb3FrontendClient({ serverSide: true });
     
-    return NextResponse.json(data);
+    // Get challenge using typed client
+    const challengeData = await web3Client.getChallenge(wallet_address);
+    
+    console.log('✅ Frontend: Challenge generated for wallet:', wallet_address.slice(0, 8) + '...');
+    
+    return NextResponse.json(challengeData);
 
   } catch (error) {
-    console.error('❌ Web3 challenge API error:', error);
+    console.error('❌ Frontend: Web3 challenge error:', error);
     return NextResponse.json(
-      { error: 'Authentication service unavailable' },
+      { error: 'Challenge generation failed' },
       { status: 500 }
     );
   }

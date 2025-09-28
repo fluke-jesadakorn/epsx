@@ -34,7 +34,7 @@ pub struct CreatePolicyRequest {
 /// Request to evaluate a policy
 #[derive(Debug, Deserialize)]
 pub struct PolicyEvaluationRequest {
-    pub user_id: String,
+    pub wallet_address: String,
     pub user_email: String,
     pub action: String,
     pub resource: Option<HashMap<String, serde_json::Value>>,

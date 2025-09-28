@@ -9,7 +9,7 @@ use crate::application::shared::{Command, ApplicationResult, ValidationUtils};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreateSessionCommand {
     /// ID of the user creating the session
-    pub user_id: String,
+    pub wallet_address: String,
     
     /// Access token for the session
     pub access_token: String,
@@ -37,7 +37,7 @@ pub struct CreateSessionResponse {
     pub session_id: SessionId,
     
     /// The user ID who owns the session
-    pub user_id: UserId,
+    pub wallet_address: UserId,
     
     /// When the session was created
     pub created_at: DateTime<Utc>,
@@ -53,8 +53,8 @@ impl Command for CreateSessionCommand {
     type Response = CreateSessionResponse;
     
     fn validate(&self) -> ApplicationResult<()> {
-        // Validate user ID
-        if let Some(error) = ValidationUtils::required("user_id", &self.user_id) {
+        // Validate wallet address
+        if let Some(error) = ValidationUtils::required("wallet_address", &self.wallet_address) {
             return Err(crate::application::ApplicationError::validation(
                 &error.field,
                 &error.message
@@ -84,12 +84,12 @@ impl Command for CreateSessionCommand {
 impl CreateSessionCommand {
     /// Create a new CreateSessionCommand
     pub fn new(
-        user_id: String, 
+        wallet_address: String, 
         access_token: String, 
         expires_at: DateTime<Utc>
     ) -> Self {
         Self {
-            user_id,
+            wallet_address,
             access_token,
             refresh_token: None,
             expires_at,

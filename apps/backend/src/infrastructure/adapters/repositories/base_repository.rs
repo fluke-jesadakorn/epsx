@@ -1,25 +1,25 @@
 use async_trait::async_trait;
 use sqlx::PgPool;
 use std::sync::Arc;
-use crate::domain::shared_kernel::{DomainResult, DomainError};
+use crate::core::errors::{AppResult, AppError};
 
 /// Base repository trait providing common database operations
 #[async_trait]
 pub trait BaseRepository<T, ID> {
     /// Find entity by ID
-    async fn find_by_id(&self, id: &ID) -> DomainResult<Option<T>>;
+    async fn find_by_id(&self, id: &ID) -> AppResult<Option<T>>;
     
     /// Save entity (insert or update)
-    async fn save(&self, entity: &T) -> DomainResult<()>;
+    async fn save(&self, entity: &T) -> AppResult<()>;
     
     /// Delete entity by ID
-    async fn delete(&self, id: &ID) -> DomainResult<()>;
+    async fn delete(&self, id: &ID) -> AppResult<()>;
     
     /// Generate next identity
-    async fn next_identity(&self) -> DomainResult<ID>;
+    async fn next_identity(&self) -> AppResult<ID>;
     
     /// Health check for repository
-    async fn health_check(&self) -> DomainResult<()>;
+    async fn health_check(&self) -> AppResult<()>;
 }
 
 /// Base repository implementation with SQLx integration
@@ -39,13 +39,12 @@ impl SqlxBaseRepository {
     }
     
     /// Standard health check implementation
-    pub async fn health_check_impl(&self) -> DomainResult<()> {
+    pub async fn health_check_impl(&self) -> AppResult<()> {
         let _ = sqlx::query("SELECT 1")
             .fetch_one(self.get_pool())
             .await
-            .map_err(|e| DomainError::invalid_operation(
-                format!("Database health check failed: {}", e), 
-                "BaseRepository"
+            .map_err(|e| AppError::invalid_operation(
+                format!("Database health check failed: {}", e)
             ))?;
         Ok(())
     }

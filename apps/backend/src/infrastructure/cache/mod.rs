@@ -4,20 +4,14 @@ use std::sync::Arc;
 
 pub mod memory_cache;
 pub mod redis_cache;
-pub mod unified_cache;
 pub mod permission_cache;
-// pub mod plan_cache; // Removed - deprecated marketing system
-// pub mod promotion_cache; // Removed - deprecated marketing system
-// pub mod affiliate_cache; // Removed - deprecated marketing system
+pub mod serverless_cache_factory;
 
 // Re-export cache types
 pub use memory_cache::*;
 pub use redis_cache::*;
-pub use unified_cache::*;
 pub use permission_cache::*;
-// pub use plan_cache::*; // Removed - deprecated marketing system
-// pub use promotion_cache::*; // Removed - deprecated marketing system
-// pub use affiliate_cache::*; // Removed - deprecated marketing system
+pub use serverless_cache_factory::*;
 
 // Legacy alias
 pub use memory_cache::MemoryCache as InMemoryCache;
@@ -44,32 +38,33 @@ pub trait Cache: Send + Sync {
     fn set(&self, key: &str, value: String, ttl: Option<u64>);
     fn delete(&self, key: &str);
     fn clear(&self);
+    
+    /// Health check for cache connectivity
+    fn health_check(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        // Default implementation - try a simple get operation
+        let _ = self.get("__health_check__");
+        Ok(())
+    }
 }
 
 // Cache factory
 pub struct CacheFactory;
 
 impl CacheFactory {
-    pub async fn with_fallback() -> Box<dyn Cache> {
-        // Try Redis first, fallback to memory cache
-        if let Ok(redis_cache) = Self::try_redis().await {
-            tracing::info!("✅ Using Redis cache with memory fallback");
-            Box::new(redis_cache)
-        } else {
-            tracing::warn!("⚠️ Redis unavailable, using pure memory cache");
-            Box::new(MemoryCache::new())
-        }
+
+    /// Serverless-compatible factory - FAILS FAST without Redis
+    /// Use this for serverless deployments where Redis is required
+    pub async fn redis_required() -> Result<Arc<dyn Cache>, Box<dyn std::error::Error + Send + Sync>> {
+        let redis_cache = Self::try_redis().await?;
+        tracing::info!("✅ Redis cache created (serverless mode - no fallback)");
+        Ok(Arc::new(redis_cache))
     }
-    
-    pub async fn with_fallback_arc() -> Arc<dyn Cache> {
-        // Try Redis first, fallback to memory cache
-        if let Ok(redis_cache) = Self::try_redis().await {
-            tracing::info!("✅ Using Redis cache with memory fallback");
-            Arc::new(redis_cache)
-        } else {
-            tracing::warn!("⚠️ Redis unavailable, using pure memory cache");
-            Arc::new(MemoryCache::new())
-        }
+
+    /// Serverless-compatible factory returning Box - FAILS FAST without Redis
+    pub async fn redis_required_box() -> Result<Box<dyn Cache>, Box<dyn std::error::Error + Send + Sync>> {
+        let redis_cache = Self::try_redis().await?;
+        tracing::info!("✅ Redis cache created (serverless mode - no fallback)");
+        Ok(Box::new(redis_cache))
     }
     
     async fn try_redis() -> Result<RedisCache, Box<dyn std::error::Error + Send + Sync>> {

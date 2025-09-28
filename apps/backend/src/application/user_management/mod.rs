@@ -8,8 +8,6 @@ pub mod services;
 
 // Re-export command and query models for easy access
 pub use commands::{
-    CreateUserCommand,
-    CreateUserResponse,
     UpdateUserCommand,
     UpdateUserResponse,
     DeleteUserCommand,
@@ -32,15 +30,14 @@ pub use queries::{
 
 // Re-export services
 pub use services::{
-    UserReferenceResolver,
-    UserResolutionCapable,
-    // UserApplicationService, // Removed - service deleted
-    UserQueryService,
+    // UserReferenceResolver,     // REMOVED - legacy user reference system
+    // UserResolutionCapable,     // REMOVED - legacy user reference system
+    // UserApplicationService,    // Removed - service deleted
+    WalletQueryService,
 };
 
 // Re-export handlers
 pub use commands::{
-    CreateUserCommandHandler,
     UpdateUserCommandHandler,
     DeleteUserCommandHandler,
     GrantPermissionCommandHandler,

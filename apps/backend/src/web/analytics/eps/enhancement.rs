@@ -1,90 +1,120 @@
-use std::collections::HashMap;// WebSocket Data Enhancement Logic
+// WebSocket Data Enhancement Logic
 // Focused module handling real-time EPS data enhancement from TradingView WebSocket
 
+use std::collections::HashMap;
 use tracing::{debug, info, warn};
 
 use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
-use crate::infrastructure::adapters::services::tradingview_websocket::TradingViewWebSocketService;
+use crate::infrastructure::adapters::services::tradingview::TradingViewWebSocketHandler;
+use crate::config::get_fallback_config;
 use super::rankings::is_valid_eps_for_ranking;
 
-/// Enhance EPS rankings with REAL TradingView WebSocket data (not hardcoded)
+/// Enhance EPS rankings with REAL TradingView WebSocket data (performance optimized)
 pub async fn enhance_with_websocket_data(
     symbols: &[String],
     rankings: &mut Vec<EPSRanking>
 ) -> Result<usize, String> {
-    info!("🚀 Starting REAL TradingView WebSocket data enhancement for {} symbols", symbols.len());
+    info!("🚀 Starting optimized TradingView WebSocket enhancement for {} symbols", symbols.len());
     
-    // Create WebSocket service and fetch REAL data from TradingView
-    let mut ws_service = TradingViewWebSocketService::new();
+    // Performance safeguard - limit symbol count
+    if symbols.len() > 15 {
+        warn!("⚠️ Too many symbols for WebSocket enhancement: {}, limiting to 15", symbols.len());
+        let limited_symbols = &symbols[..15];
+        return enhance_symbols_batch(limited_symbols, rankings).await;
+    }
     
-    // Attempt to fetch real WebSocket data
-    match ws_service.connect_and_fetch_eps_data(symbols.to_vec()).await {
-        Ok(websocket_data) => {
-            info!("✅ Successfully fetched REAL WebSocket data for {} symbols", websocket_data.len());
-            
-            let mut enhanced_count = 0;
-            
-            // Create a map for quick lookups
-            let mut websocket_map = HashMap::new();
-            for ws_data in websocket_data {
-                websocket_map.insert(ws_data.symbol.clone(), ws_data);
-            }
-            
-            // Update rankings with REAL WebSocket data
-            for ranking in rankings.iter_mut() {
-                if let Some(ws_data) = websocket_map.get(&ranking.symbol) {
-                    info!("🔄 Enhancing {} with REAL TradingView WebSocket data", ranking.symbol);
-                    
-                    // Update with real current EPS using dynamic validation
-                    if is_valid_eps_for_ranking(ws_data.current_eps) {
-                        debug!("Updating {} current EPS: {} → {} (REAL WebSocket)", 
-                               ranking.symbol, ranking.current_eps.unwrap_or(0.0), ws_data.current_eps);
-                        ranking.current_eps = Some(ws_data.current_eps);
-                        enhanced_count += 1;
-                    }
-                    
-                    // Calculate previous EPS from quarterly data if available
-                    let previous_eps = if ws_data.quarterly_data.len() >= 2 {
-                        ws_data.quarterly_data[1].eps  // Second most recent quarter
-                    } else if !ws_data.historical_eps.is_empty() {
-                        ws_data.historical_eps[0]  // Use first historical EPS as fallback
-                    } else {
-                        ranking.current_eps.unwrap_or(0.0) /* eps_previous field not available in DDD structure */  // Keep existing value
-                    };
-                    
-                    // Update previous EPS if valid
-                    if is_valid_eps_for_ranking(previous_eps) {
-                        debug!("Updating {} previous EPS: {} → {} (REAL WebSocket)", 
-                               ranking.symbol, ranking.current_eps.unwrap_or(0.0) /* eps_previous field not available in DDD structure */, previous_eps);
-                        // Note: eps_previous field not available in DDD structure - skipping assignment
-                    }
-                    
-                    // Recalculate growth rate from updated EPS values
-                    if ranking.current_eps.unwrap_or(0.0) /* eps_previous field not available in DDD structure */ != 0.0 {
-                        let new_growth_rate = ((ranking.current_eps.unwrap_or(0.0) - ranking.current_eps.unwrap_or(0.0) /* eps_previous field not available in DDD structure */) / ranking.current_eps.unwrap_or(0.0) /* eps_previous field not available in DDD structure */) * 100.0;
-                        debug!("Updating {} growth rate: {} → {}% (calculated from WebSocket EPS)", 
-                               ranking.symbol, ranking.growth_factor.unwrap_or(0.0), new_growth_rate);
-                        ranking.growth_factor = Some(new_growth_rate);
-                    }
-                    
-                    // Note: last_updated timestamp not available in DDD structure - would need to track separately
-                }
-            }
-            
-            info!("✅ Enhanced {} out of {} rankings with REAL TradingView WebSocket data", enhanced_count, rankings.len());
-            Ok(enhanced_count)
+    enhance_symbols_batch(symbols, rankings).await
+}
+
+/// Enhanced batch processing with optimizations
+async fn enhance_symbols_batch(
+    symbols: &[String], 
+    rankings: &mut Vec<EPSRanking>
+) -> Result<usize, String> {
+    // Create optimized WebSocket handler using the new implementation
+    let config = crate::infrastructure::adapters::services::tradingview::TradingViewConfig::from(&get_fallback_config());
+    let ws_handler = TradingViewWebSocketHandler::new(config);
+    
+    // Add connection timeout and retry logic
+    let connection_timeout = tokio::time::Duration::from_secs(3);
+    
+    match tokio::time::timeout(connection_timeout, ws_handler.connect_realtime_feed()).await {
+        Ok(Ok(_)) => {
+            info!("✅ WebSocket connected successfully");
         }
-        Err(e) => {
-            warn!("⚠️ WebSocket connection failed: {}", e);
-            // No fallback data - fail gracefully and return error
-            Err(format!("WebSocket enhancement failed: {}", e))
+        Ok(Err(e)) => {
+            warn!("❌ WebSocket connection failed: {}", e);
+            return Err(format!("WebSocket connection failed: {}", e));
+        }
+        Err(_) => {
+            warn!("⏱️ WebSocket connection timed out after 3s");
+            return Err("WebSocket connection timeout".to_string());
         }
     }
+    
+    // Fetch enhanced EPS data with timeout
+    let data_timeout = tokio::time::Duration::from_secs(2);
+    let websocket_data = match tokio::time::timeout(
+        data_timeout,
+        ws_handler.fetch_enhanced_eps_data(symbols.to_vec())
+    ).await {
+        Ok(Ok(data)) => data,
+        Ok(Err(e)) => {
+            warn!("❌ WebSocket data fetch failed: {}", e);
+            return Err(format!("WebSocket data fetch failed: {}", e));
+        }
+        Err(_) => {
+            warn!("⏱️ WebSocket data fetch timed out after 2s");
+            return Err("WebSocket data timeout".to_string());
+        }
+    };
+    
+    info!("✅ Fetched WebSocket data for {} symbols", websocket_data.len());
+    
+    // Efficient update process
+    let mut enhanced_count = 0;
+    let mut websocket_map = HashMap::new();
+    
+    // Build lookup map
+    for ws_data in websocket_data {
+        websocket_map.insert(ws_data.symbol.clone(), ws_data);
+    }
+    
+    // Update rankings efficiently - only essential fields
+    for ranking in rankings.iter_mut() {
+        if let Some(ws_data) = websocket_map.get(&ranking.symbol) {
+            // Only update if WebSocket data is fresher/better
+            if ws_data.current_eps > 0.0 && is_valid_eps_for_ranking(ws_data.current_eps) && (ranking.current_eps.is_none() || ranking.current_eps.unwrap() != ws_data.current_eps) {
+                debug!("📈 Updating {} EPS: {:?} → {}", 
+                       ranking.symbol, ranking.current_eps, ws_data.current_eps);
+                ranking.current_eps = Some(ws_data.current_eps);
+                enhanced_count += 1;
+            }
+            
+            // Update growth factor if significant difference  
+            if ws_data.qoq_growth.abs() > 0.1 && (ranking.growth_factor.is_none() || (ranking.growth_factor.unwrap() - ws_data.qoq_growth).abs() > 1.0) {
+                debug!("📊 Updating {} growth: {:?} → {}%", 
+                       ranking.symbol, ranking.growth_factor, ws_data.qoq_growth);
+                ranking.growth_factor = Some(ws_data.qoq_growth);
+                enhanced_count += 1;
+            }
+            
+            // Update price if available and different
+            if ws_data.price_current > 0.0 && (ranking.price_current.is_none() || (ranking.price_current.unwrap() - ws_data.price_current).abs() > 0.01) {
+                debug!("💰 Updating {} price: {:?} → ${:.2}", 
+                       ranking.symbol, ranking.price_current, ws_data.price_current);
+                ranking.price_current = Some(ws_data.price_current);
+                enhanced_count += 1;
+            }
+        }
+    }
+    
+    info!("🎯 Enhanced {} ranking fields with real-time WebSocket data", enhanced_count);
+    Ok(enhanced_count)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
 
     #[test]

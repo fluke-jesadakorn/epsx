@@ -8,7 +8,7 @@ use chrono::{DateTime, Utc};
 /// Represents a user's resource consumption aggregate
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserResourceUsage {
-    pub user_id: String,
+    pub wallet_address: String,
     pub plan_id: Option<i32>,
     pub access_context: String,
     pub current_usage: HashMap<String, i64>,
@@ -20,14 +20,14 @@ pub struct UserResourceUsage {
 
 impl UserResourceUsage {
     pub fn new(
-        user_id: String,
+        wallet_address: String,
         plan_id: Option<i32>,
         access_context: String,
         quota_limits: HashMap<String, i64>,
     ) -> Self {
         let now = Utc::now();
         Self {
-            user_id,
+            wallet_address,
             plan_id,
             access_context,
             current_usage: HashMap::new(),

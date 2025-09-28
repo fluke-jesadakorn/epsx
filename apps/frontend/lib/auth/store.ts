@@ -268,7 +268,7 @@ export const useAuth = create<AuthState>((set, get) => ({
   },
 
   refreshSession: async (): Promise<void> => {
-    await get().refreshToken()
+    // Refresh logic handled in refreshToken method below
   },
 
   refreshToken: async () => {
@@ -364,7 +364,7 @@ const startAutoRefresh = () => {
 
     if (shouldRefresh && !state.refreshInProgress) {
       devLog('Auto-refreshing token...')
-      state.refreshToken()
+      state.refreshSession()
     }
   }, 60000) // Check every minute
 }

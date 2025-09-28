@@ -57,6 +57,13 @@ impl SendGridEmailService {
         tracing::info!("Sending role upgrade notification to {} for role: {}", email, new_role);
         Ok(())
     }
+    
+    /// Send generic notification email
+    pub async fn send_notification_email(&self, email: &str, subject: &str, _body: &str) -> Result<(), EmailServiceError> {
+        tracing::info!("Sending notification email to {} with subject: {}", email, subject);
+        // In a real implementation, this would send via SendGrid API
+        Ok(())
+    }
 }
 
 #[async_trait]

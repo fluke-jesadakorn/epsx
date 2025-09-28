@@ -128,7 +128,7 @@ export function SettingsClient() {
         <UserPlanDisplay userId={userId} />
       </TabsContent>
 
-      {/* FCM Notification Preferences */}
+      {/* Web Push Notification Preferences */}
       <TabsContent value="notifications" className="space-y-6">
         <Card>
           <CardHeader>

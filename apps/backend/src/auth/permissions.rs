@@ -1,5 +1,6 @@
 use chrono::{DateTime, Utc};// ============================================================================
 use uuid::Uuid;
+use crate::core::constants::*;
 // UNIFIED PERMISSION SYSTEM - REPLACES ALL ROLE-BASED ACCESS CONTROL
 // ============================================================================
 // This module implements a single permission-based access control system
@@ -8,7 +9,8 @@ use uuid::Uuid;
 // No role concept - only permission-based access control
 
 use serde::{Deserialize, Serialize};
-use crate::infrastructure::adapters::repositories::database_types::ResolvedUserLimits;
+use std::fmt;
+use crate::domain::shared_kernel::value_objects::{ResolvedUserLimits, UserDynamicLimit};
 
 
 
@@ -44,15 +46,18 @@ impl Permission {
         Ok(Permission::new(parts[0], parts[1], parts[2]))
     }
     
-    pub fn to_string(&self) -> String {
-        format!("{}:{}:{}", self.platform, self.resource, self.action)
-    }
     
     pub fn matches(&self, other: &Permission) -> bool {
         // Support wildcards in permission matching
         (self.platform == "*" || other.platform == "*" || self.platform == other.platform) &&
         (self.resource == "*" || other.resource == "*" || self.resource == other.resource) &&
         (self.action == "*" || other.action == "*" || self.action == other.action)
+    }
+}
+
+impl fmt::Display for Permission {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{}:{}", self.platform, self.resource, self.action)
     }
 }
 
@@ -107,7 +112,7 @@ pub fn is_permission_valid_with_time_check(permission: &str) -> bool {
             let now = Utc::now().timestamp();
             // SECURITY: Additional validation - ensure timestamp is reasonable
             // Reject timestamps that are too far in the future (> 10 years)
-            let max_future = now + (10 * 365 * 24 * 3600); // 10 years
+            let max_future = now + (10 * YEAR); // 10 years
             if exp_time > max_future {
                 tracing::warn!("Permission timestamp too far in future: {} > {}", exp_time, max_future);
                 return false;
@@ -270,19 +275,6 @@ pub fn extract_ranking_limit(user_permissions: &[String]) -> i32 {
 }
 
 
-/// Derive tier display name from ranking limit (for UI compatibility)
-/// Note: This is a simplified helper for UI display. Use database function get_user_display_tier() for production.
-pub fn derive_tier_from_ranking_limit(limit: i32) -> String {
-    match limit {
-        -1 => "ENTERPRISE".to_string(), // Unlimited
-        0..=5 => "FREE".to_string(),
-        6..=25 => "BRONZE".to_string(), 
-        26..=50 => "SILVER".to_string(),
-        51..=100 => "GOLD".to_string(),
-        101..=150 => "PLATINUM".to_string(),
-        _ => "ENTERPRISE".to_string(),
-    }
-}
 
 /// Check if user can view specific ranking position
 pub fn can_view_ranking_position(user_permissions: &[String], position: i32) -> bool {
@@ -404,12 +396,7 @@ pub fn require_permission_pure(
 // combining database-stored admin assignments with permission-based fallbacks
 
 // DISABLED: Dynamic limits functionality - to be implemented
-/*
-use crate::infrastructure::adapters::repositories::diesel::models::{
-
-    crate::infrastructure::adapters::repositories::database_types::UserDynamicLimit, ResolvedUserLimits
-};
-*/
+// (Now available through domain layer imports)
 
 /// Default limits for different permission levels (fallback when no dynamic limits)
 pub const DEFAULT_FREE_RANKING_LIMIT: i32 = 3;
@@ -418,23 +405,23 @@ pub const DEFAULT_FREE_API_HOUR_LIMIT: i32 = 100;
 
 /// Resolve final user limits by combining dynamic assignments with permission-based defaults
 pub fn resolve_user_limits(
-    user_id: Uuid,
+    wallet_address: Uuid,
     user_permissions: &[String],
-    dynamic_limits: Option<crate::infrastructure::adapters::repositories::database_types::UserDynamicLimit>,
+    dynamic_limits: Option<UserDynamicLimit>,
 ) -> ResolvedUserLimits {
     match dynamic_limits {
-        Some(limits) => resolve_from_dynamic_assignment(user_id, limits),
-        None => resolve_from_permissions(user_id, user_permissions),
+        Some(limits) => resolve_from_dynamic_assignment(wallet_address, limits),
+        None => resolve_from_permissions(wallet_address, user_permissions),
     }
 }
 
 /// Create resolved limits from a dynamic database assignment
 fn resolve_from_dynamic_assignment(
-    user_id: Uuid,
-    dynamic_limit: crate::infrastructure::adapters::repositories::database_types::UserDynamicLimit,
+    wallet_address: Uuid,
+    dynamic_limit: UserDynamicLimit,
 ) -> ResolvedUserLimits {
     ResolvedUserLimits {
-        user_id: Some(user_id),
+        wallet_address: Some(wallet_address),
         ranking_limit: 10,
         api_minute_limit: dynamic_limit.limit_value,
         daily_limit: dynamic_limit.limit_value * 24,
@@ -448,7 +435,7 @@ fn resolve_from_dynamic_assignment(
 
 /// Create resolved limits from user permissions (fallback when no dynamic limits)
 fn resolve_from_permissions(
-    user_id: Uuid,
+    wallet_address: Uuid,
     user_permissions: &[String],
 ) -> ResolvedUserLimits {
     let ranking_limit = extract_ranking_limit(user_permissions);
@@ -456,28 +443,27 @@ fn resolve_from_permissions(
     let _api_endpoints = derive_api_endpoints_from_permissions(user_permissions);
 
     ResolvedUserLimits {
-        user_id: Some(user_id),
+        wallet_address: Some(wallet_address),
         ranking_limit,
         api_minute_limit: api_per_hour / 60,
-        daily_limit: api_per_hour * 24,
-        weekly_limit: api_per_hour * 24 * 7,
-        monthly_limit: api_per_hour * 24 * 30,
-        total_limit: api_per_hour * 24 * 365,
+        daily_limit: api_per_hour * HOURS_PER_DAY,
+        weekly_limit: api_per_hour * HOURS_PER_DAY * DAYS_PER_WEEK,
+        monthly_limit: api_per_hour * HOURS_PER_DAY * DAYS_PER_MONTH,
+        total_limit: api_per_hour * HOURS_PER_DAY * DAYS_PER_YEAR,
         has_premium_features: user_permissions.iter().any(|p| p.contains("premium")),
         is_admin: user_permissions.iter().any(|p| p.starts_with("admin:")),
     }
 }
 
-/// Derive API rate limits from ranking limits (maintains tier relationship)
+/// Derive API rate limits from ranking limits
 fn derive_api_limits_from_ranking(ranking_limit: i32) -> (i32, i32) {
     match ranking_limit {
         -1 => (-1, -1),                    // Unlimited
-        0..=3 => (10, 100),               // Free tier
-        4..=10 => (30, 500),              // Bronze tier  
-        11..=30 => (60, 1500),            // Silver tier
-        31..=75 => (120, 5000),           // Gold tier
-        76..=150 => (300, 15000),         // Platinum tier
-        _ => (1000, 50000),               // Enterprise tier (151+)
+        0..=3 => (10, 100),               // Basic access
+        4..=25 => (30, 1500),             // Standard access  
+        26..=50 => (60, 5000),            // Premium access
+        51..=100 => (120, 15000),         // Professional access
+        _ => (1000, 50000),               // Enterprise access (101+)
     }
 }
 
@@ -498,19 +484,12 @@ fn derive_api_endpoints_from_permissions(user_permissions: &[String]) -> Vec<Str
         endpoints.push("analytics/premium/*".to_string());
     }
     
-    if check_any_permission(user_permissions, &[
-        "epsx:enterprise:*".to_string(),
-        "admin:*:*".to_string()
-    ]) {
-        endpoints.push("enterprise/*".to_string());
-        endpoints.push("institutional/*".to_string());
-    }
     
     endpoints
 }
 
-/// Check if user is above free tier (helper for simple tier comparisons)
-pub fn is_above_free_tier(user_permissions: &[String]) -> bool {
+/// Check if user has enhanced access beyond basic level
+pub fn has_enhanced_access(user_permissions: &[String]) -> bool {
     extract_ranking_limit(user_permissions) > DEFAULT_FREE_RANKING_LIMIT
 }
 
@@ -522,13 +501,13 @@ pub fn has_unlimited_access(user_permissions: &[String]) -> bool {
 /// Get user's effective ranking limit (handles both dynamic and permission-based)
 pub fn get_effective_ranking_limit(
     user_permissions: &[String],
-    dynamic_limit: Option<&crate::infrastructure::adapters::repositories::database_types::UserDynamicLimit>,
+    dynamic_limit: Option<&UserDynamicLimit>,
 ) -> i32 {
     match dynamic_limit {
         Some(limit) => {
             // Use limit_value if it's a ranking limit type
             if limit.limit_type == "ranking" {
-                limit.limit_value as i32
+                limit.limit_value
             } else {
                 DEFAULT_FREE_RANKING_LIMIT
             }
@@ -540,14 +519,14 @@ pub fn get_effective_ranking_limit(
 /// Get user's effective API rate limits (handles both dynamic and permission-based)
 pub fn get_effective_api_limits(
     user_permissions: &[String],
-    dynamic_limit: Option<&crate::infrastructure::adapters::repositories::database_types::UserDynamicLimit>,
+    dynamic_limit: Option<&UserDynamicLimit>,
 ) -> (i32, i32) {
     match dynamic_limit {
         Some(limit) => {
             // Use limit_value for API limits based on limit_type
             match limit.limit_type.as_str() {
-                "api_minute" => (limit.limit_value as i32, DEFAULT_FREE_API_HOUR_LIMIT),
-                "api_hour" => (DEFAULT_FREE_API_MINUTE_LIMIT, limit.limit_value as i32),
+                "api_minute" => (limit.limit_value, DEFAULT_FREE_API_HOUR_LIMIT),
+                "api_hour" => (DEFAULT_FREE_API_MINUTE_LIMIT, limit.limit_value),
                 _ => (DEFAULT_FREE_API_MINUTE_LIMIT, DEFAULT_FREE_API_HOUR_LIMIT),
             }
         },
@@ -561,7 +540,7 @@ pub fn get_effective_api_limits(
 /// Validate if user can access a specific endpoint (dynamic-aware)
 pub fn can_access_endpoint(
     user_permissions: &[String], 
-    _dynamic_limit: Option<&crate::infrastructure::adapters::repositories::database_types::UserDynamicLimit>,
+    _dynamic_limit: Option<&UserDynamicLimit>,
     endpoint: &str
 ) -> bool {
     // Dynamic limits don't contain endpoint restrictions in the current schema
@@ -576,8 +555,7 @@ fn endpoint_matches_pattern(endpoint: &str, pattern: &str) -> bool {
         return true;
     }
     
-    if pattern.ends_with("/*") {
-        let prefix = &pattern[..pattern.len() - 2];
+    if let Some(prefix) = pattern.strip_suffix("/*") {
         return endpoint.starts_with(prefix);
     }
     
@@ -585,12 +563,12 @@ fn endpoint_matches_pattern(endpoint: &str, pattern: &str) -> bool {
 }
 
 /// Create a default resolved limits for a user (used as final fallback)
-pub fn create_default_limits(user_id: Uuid) -> ResolvedUserLimits {
+pub fn create_default_limits(wallet_address: Uuid) -> ResolvedUserLimits {
     ResolvedUserLimits {
-        user_id: Some(user_id),
+        wallet_address: Some(wallet_address),
         ranking_limit: DEFAULT_FREE_RANKING_LIMIT,
         api_minute_limit: DEFAULT_FREE_API_MINUTE_LIMIT,
-        daily_limit: DEFAULT_FREE_API_MINUTE_LIMIT * 1440, // 24 hours worth of minute limits
+        daily_limit: DEFAULT_FREE_API_MINUTE_LIMIT * MINUTES_PER_DAY, // 24 hours worth of minute limits
         weekly_limit: DEFAULT_FREE_API_MINUTE_LIMIT * 1440 * 7,
         monthly_limit: DEFAULT_FREE_API_MINUTE_LIMIT * 1440 * 30,
         total_limit: DEFAULT_FREE_API_MINUTE_LIMIT * 1440 * 365,
@@ -623,7 +601,7 @@ pub fn add_timestamp_to_permission(base_permission: &str, hours_from_now: i64) -
         return Err("Hours from now must be positive".to_string());
     }
     
-    if hours_from_now > (10 * 365 * 24) { // Max 10 years
+    if hours_from_now > (10 * 365 * 24) as i64 { // Max 10 years (87600 hours)
         return Err("Permission duration cannot exceed 10 years".to_string());
     }
     
@@ -632,7 +610,7 @@ pub fn add_timestamp_to_permission(base_permission: &str, hours_from_now: i64) -
     }
     
     // SECURITY: Server-side timestamp generation only
-    let expires_at = Utc::now().timestamp() + (hours_from_now * 3600);
+    let expires_at = Utc::now().timestamp() + (hours_from_now * HOUR);
     Ok(format!("{}:{}", base_permission, expires_at))
 }
 
@@ -662,8 +640,8 @@ pub fn extend_permission_expiry(permission: &str, additional_hours: i64) -> Resu
     let (base_perm, current_timestamp) = parse_permission_with_timestamp(permission);
     
     let new_expiry = match current_timestamp {
-        Some(current) => current + (additional_hours * 3600),
-        None => Utc::now().timestamp() + (additional_hours * 3600),
+        Some(current) => current + (additional_hours * HOUR),
+        None => Utc::now().timestamp() + (additional_hours * HOUR),
     };
     
     Ok(format!("{}:{}", base_perm, new_expiry))
@@ -676,7 +654,7 @@ pub fn hours_until_expiry(permission: &str) -> Option<i64> {
     timestamp.map(|exp_time| {
         let now = Utc::now().timestamp();
         let diff = exp_time - now;
-        diff / 3600 // Convert seconds to hours
+        diff / HOUR // Convert seconds to hours
     })
 }
 
@@ -777,12 +755,12 @@ mod tests {
         assert!(is_permission_valid_with_time_check("admin:users:modify"));
         
         // Test future timestamp (valid)
-        let future_time = Utc::now().timestamp() + 3600; // 1 hour from now
+        let future_time = Utc::now().timestamp() + HOUR; // 1 hour from now
         let future_perm = format!("admin:users:modify:{}", future_time);
         assert!(is_permission_valid_with_time_check(&future_perm));
         
         // Test past timestamp (expired)
-        let past_time = Utc::now().timestamp() - 3600; // 1 hour ago
+        let past_time = Utc::now().timestamp() - HOUR; // 1 hour ago
         let expired_perm = format!("admin:users:modify:{}", past_time);
         assert!(!is_permission_valid_with_time_check(&expired_perm));
     }
@@ -866,8 +844,8 @@ mod tests {
         assert_eq!(extract_ranking_limit(&gold_perms), 50);
         
         // Test unlimited access
-        let enterprise_perms = vec!["epsx:rankings:view:unlimited".to_string(), "epsx:*:*".to_string()];
-        assert_eq!(extract_ranking_limit(&enterprise_perms), -1);
+        let unlimited_perms = vec!["epsx:rankings:view:unlimited".to_string(), "epsx:*:*".to_string()];
+        assert_eq!(extract_ranking_limit(&unlimited_perms), -1);
         
         // Test default fallback when no ranking permission found
         let no_ranking_perms = vec!["epsx:trading:basic".to_string()];
@@ -875,19 +853,16 @@ mod tests {
     }
 
     #[test]
-    fn test_tier_derivation() {
-        // Test updated tier derivation logic
-        assert_eq!(derive_tier_from_ranking_limit(3), "FREE");
-        assert_eq!(derive_tier_from_ranking_limit(5), "FREE");
-        assert_eq!(derive_tier_from_ranking_limit(10), "BRONZE");
-        assert_eq!(derive_tier_from_ranking_limit(25), "BRONZE");
-        assert_eq!(derive_tier_from_ranking_limit(30), "SILVER");
-        assert_eq!(derive_tier_from_ranking_limit(50), "SILVER");
-        assert_eq!(derive_tier_from_ranking_limit(75), "GOLD");
-        assert_eq!(derive_tier_from_ranking_limit(100), "GOLD");
-        assert_eq!(derive_tier_from_ranking_limit(120), "PLATINUM");
-        assert_eq!(derive_tier_from_ranking_limit(-1), "ENTERPRISE");
-        assert_eq!(derive_tier_from_ranking_limit(1000), "ENTERPRISE");
+    fn test_enhanced_access() {
+        // Test enhanced access logic
+        let basic_perms = vec!["epsx:rankings:view:3".to_string()];
+        assert!(!has_enhanced_access(&basic_perms));
+        
+        let standard_perms = vec!["epsx:rankings:view:25".to_string()];
+        assert!(has_enhanced_access(&standard_perms));
+        
+        let unlimited_perms = vec!["epsx:rankings:view:unlimited".to_string()];
+        assert!(has_enhanced_access(&unlimited_perms));
     }
 
     #[test]

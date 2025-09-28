@@ -12,7 +12,7 @@ pub struct GetSessionQuery {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetSessionResponse {
     pub session_id: String,
-    pub user_id: String,
+    pub wallet_address: String,
     pub is_valid: bool,
     pub created_at: chrono::DateTime<chrono::Utc>,
     pub expires_at: chrono::DateTime<chrono::Utc>,

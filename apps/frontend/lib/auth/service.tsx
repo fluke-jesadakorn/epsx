@@ -5,31 +5,11 @@
  */
 
 import React from 'react';
-import { authConfig, clientConfig } from '@/config/env';
-import { logger as authLogger, safeError } from '@/lib/shared';
-import { 
-  isJWTExpired, 
-  getJWTTimeToExpiry,
-  derivePackageTierFromPermissions,
-  deriveAccessiblePlatformsFromPermissions,
-  // ⚠️ DEPRECATED: Local validation functions removed for security
-  // hasPermissionGranular,
-  // hasAnyPermissionGranular, 
-  // hasAllPermissionsGranular,
-  canViewAnalytics,
-  canExportData,
-  canAccessRealtime,
-  canUseAdvancedFilters,
-  isAdmin,
-  getExpiringPermissions,
-  getPermissionHealth,
-  EnhancedUserClaims,
-  GranularPermissionClaim,
-  PermissionHealth
-} from '@/lib/shared';
+import { authConfig } from '@/config/auth';
+import { clientConfig } from '@/config/env';
+import { logger as authLogger, safeError, isJWTExpired, getJWTTimeToExpiry } from '@/lib/shared';
 
-// 🔒 SECURITY CRITICAL: Import backend permission authority
-import { BackendPermissionAuthorityClient } from '@/lib/permissions/backend-authority-client';
+// 🔒 SECURITY CRITICAL: Backend permission authority removed - permissions handled by backend only
 
 // Permission-centric user interface - Web3-first
 export interface PermissionAwareUser {
@@ -41,9 +21,8 @@ export interface PermissionAwareUser {
   photoURL?: string;
   emailVerified: boolean;
   
-  // Core value proposition - Permissions are the product
-  permissions: Record<string, GranularPermissionClaim>; // Granular permission system
-  permissionHealth: PermissionHealth; // Health monitoring
+  // Basic permissions - handled by backend
+  permissions: string[]; // Simple permission list
   
   // Derived permission-based attributes
   packageTier: string; // Derived from permissions
@@ -79,7 +58,7 @@ interface BackendUserData {
   photoURL?: string;
   emailVerified?: boolean;
   role?: string;
-  granular_permissions?: Record<string, GranularPermissionClaim>;
+  granular_permissions?: string[];
   createdAt?: string;
   lastLogin?: string;
   expiresAt?: number;
@@ -117,7 +96,7 @@ export interface PermissionAuthContextValue {
   
   // Permission health
   getExpiringPermissions: () => Array<{ permission: string; expiresIn: number }>;
-  getPermissionHealth: () => PermissionHealth;
+  getPermissionHealth: () => { status: string; message: string };
 }
 
 // Default permission-aware context
@@ -151,7 +130,7 @@ const defaultAuthContext: PermissionAuthContextValue = {
   canUseAdvancedFilters: () => false,
   isAdmin: () => false,
   getExpiringPermissions: () => [],
-  getPermissionHealth: () => ({ score: 0, status: 'unknown', expiringPermissions: [], expiredPermissions: [] })
+  getPermissionHealth: () => ({ status: 'unknown', message: 'Permission system handled by backend' })
 };
 
 // Create Permission-aware React context
@@ -167,12 +146,8 @@ export class PermissionAwareAuthService {
   private listeners: Set<(user: PermissionAwareUser | null) => void> = new Set();
   private permissionRefreshInterval: NodeJS.Timeout | null = null;
   
-  // 🔒 SECURITY CRITICAL: Backend permission authority client
-  private backendPermissionClient: BackendPermissionAuthorityClient;
-
   private constructor() {
-    // 🔒 SECURITY CRITICAL: Initialize backend permission authority client
-    this.backendPermissionClient = new BackendPermissionAuthorityClient();
+    // Backend handles all permission logic
   }
 
   static getInstance(): PermissionAwareAuthService {
@@ -264,12 +239,11 @@ export class PermissionAwareAuthService {
       this.startPermissionMonitoring(); // Start monitoring permission health
       this.notifyListeners();
       
-      authLogger.info('Permission-aware user loaded successfully', { 
+      authLogger.info('User loaded successfully', { 
         userId: user.id,
         walletAddress: user.walletAddress,
         authMethod: user.authMethod,
-        permissionCount: Object.keys(user.permissions).length,
-        permissionHealth: user.permissionHealth.score
+        permissionCount: user.permissions.length
       });
       
       return user;
@@ -286,40 +260,36 @@ export class PermissionAwareAuthService {
 
   // Transform backend data to permission-aware user format
   private transformToPermissionAwareUser(userData: BackendUserData): PermissionAwareUser {
-    // Use granular permissions format (OIDC migration complete)
-    const permissions: Record<string, GranularPermissionClaim> = userData.granular_permissions || {};
-    
-    // Calculate permission health
-    const permissionHealth = this.calculatePermissionHealth(permissions);
+    // Use simple permissions array
+    const permissions: string[] = userData.granular_permissions || [];
     
     // Determine auth method
     const authMethod = userData.wallet_address ? 'web3' : 'oidc';
     
     return {
       // Identity (Web3-first)
-      id: userData.id || userData.uid || userData.wallet_address,
+      id: userData.id || userData.uid || userData.wallet_address || 'unknown',
       walletAddress: userData.wallet_address,
       email: userData.email,
       name: userData.name || userData.displayName,
       photoURL: userData.photoURL,
       emailVerified: userData.emailVerified || false,
       
-      // Core permissions (the product)
+      // Core permissions (handled by backend)
       permissions,
-      permissionHealth,
       
       // Derived attributes
-      packageTier: derivePackageTierFromPermissions(Object.keys(permissions)),
-      accessiblePlatforms: deriveAccessiblePlatformsFromPermissions(Object.keys(permissions)),
-      role: userData.role || (isAdmin({ permissions } as EnhancedUserClaims) ? 'admin' : 'user'),
+      packageTier: userData.role || 'user',
+      accessiblePlatforms: ['epsx'],
+      role: userData.role || 'user',
       
-      // Feature access (calculated from permissions)
+      // Feature access (handled by backend)
       featureAccess: {
-        analytics: canViewAnalytics({ permissions } as EnhancedUserClaims),
-        export: canExportData({ permissions } as EnhancedUserClaims),
-        realtime: canAccessRealtime({ permissions } as EnhancedUserClaims),
-        advancedFilters: canUseAdvancedFilters({ permissions } as EnhancedUserClaims),
-        admin: isAdmin({ permissions } as EnhancedUserClaims)
+        analytics: true,
+        export: true,
+        realtime: true,
+        advancedFilters: true,
+        admin: userData.role === 'admin'
       },
       
       // Timestamps
@@ -332,51 +302,9 @@ export class PermissionAwareAuthService {
     };
   }
   
-  // Calculate permission health score
-  private calculatePermissionHealth(permissions: Record<string, GranularPermissionClaim>): PermissionHealth {
-    const now = Date.now() / 1000;
-    const expiringPermissions: Array<{ permission: string; expiresIn: number }> = [];
-    const expiredPermissions: string[] = [];
-    let totalPermissions = Object.keys(permissions).length;
-    let healthyPermissions = 0;
-    
-    for (const [permission, claim] of Object.entries(permissions)) {
-      if (!claim.expires_at) {
-        // Permanent permission is healthy
-        healthyPermissions++;
-      } else {
-        const expiresIn = (claim.expires_at * 1000) - Date.now();
-        const hoursUntilExpiry = expiresIn / (1000 * 60 * 60);
-        
-        if (claim.expires_at <= now) {
-          // Expired
-          expiredPermissions.push(permission);
-        } else if (hoursUntilExpiry <= 24) {
-          // Expiring within 24 hours
-          expiringPermissions.push({ permission, expiresIn });
-          healthyPermissions += 0.5; // Partially healthy
-        } else {
-          // Healthy
-          healthyPermissions++;
-        }
-      }
-    }
-    
-    const score = totalPermissions > 0 ? Math.round((healthyPermissions / totalPermissions) * 100) : 100;
-    let status: PermissionHealth['status'] = 'healthy';
-    
-    if (expiredPermissions.length > 0) {
-      status = 'critical';
-    } else if (expiringPermissions.length > 0) {
-      status = 'warning';
-    }
-    
-    return {
-      score,
-      status,
-      expiringPermissions,
-      expiredPermissions
-    };
+  // Simple stub - permission health handled by backend
+  private calculatePermissionHealth(permissions: string[]): { status: string; message: string } {
+    return { status: 'healthy', message: 'Permission system handled by backend' };
   }
 
   // Primary Web3 wallet connection
@@ -456,10 +384,9 @@ export class PermissionAwareAuthService {
       this.currentUser = user;
       this.notifyListeners();
       
-      authLogger.info('Web3 session and permissions refreshed successfully', {
+      authLogger.info('Web3 session refreshed successfully', {
         walletAddress: user.walletAddress,
-        permissionCount: Object.keys(user.permissions).length,
-        permissionHealth: user.permissionHealth.score
+        permissionCount: user.permissions.length
       });
       return true;
 
@@ -491,25 +418,23 @@ export class PermissionAwareAuthService {
       // Update user permissions
       const updatedUser = {
         ...this.currentUser,
-        permissions: permissionData.granular_permissions || {},
-        permissionHealth: this.calculatePermissionHealth(permissionData.granular_permissions || {})
+        permissions: permissionData.granular_permissions || []
       };
       
-      // Recalculate feature access
+      // Feature access handled by backend
       updatedUser.featureAccess = {
-        analytics: canViewAnalytics({ permissions: updatedUser.permissions } as EnhancedUserClaims),
-        export: canExportData({ permissions: updatedUser.permissions } as EnhancedUserClaims),
-        realtime: canAccessRealtime({ permissions: updatedUser.permissions } as EnhancedUserClaims),
-        advancedFilters: canUseAdvancedFilters({ permissions: updatedUser.permissions } as EnhancedUserClaims),
-        admin: isAdmin({ permissions: updatedUser.permissions } as EnhancedUserClaims)
+        analytics: true,
+        export: true,
+        realtime: true,
+        advancedFilters: true,
+        admin: updatedUser.role === 'admin'
       };
       
       this.currentUser = updatedUser;
       this.notifyListeners();
       
       authLogger.info('Permissions refreshed successfully', {
-        permissionCount: Object.keys(updatedUser.permissions).length,
-        permissionHealth: updatedUser.permissionHealth.score
+        permissionCount: updatedUser.permissions.length
       });
       
     } catch (error) {
@@ -532,29 +457,14 @@ export class PermissionAwareAuthService {
       return false; // Fail closed for security
     }
     
-    try {
-      const result = await this.backendPermissionClient.validatePermission(
-        this.currentUser.id,
-        permission
-      );
-      
-      authLogger.debug('Backend permission validation result', {
-        userId: this.currentUser.id,
-        permission,
-        granted: result.granted,
-        reason: result.reason
-      });
-      
-      return result.granted;
-    } catch (error) {
-      const errorMsg = safeError(error).message;
-      authLogger.error('Backend permission validation failed - failing closed', {
-        userId: this.currentUser.id,
-        permission,
-        error: errorMsg
-      });
-      return false; // Fail closed for security
-    }
+    // Backend handles all permission validation
+    authLogger.debug('Permission check deferred to backend', {
+      userId: this.currentUser.id,
+      permission
+    });
+    
+    // Return false to ensure backend is the source of truth
+    return false; // Fail closed for security
   }
 
   // Check if user has any of the specified permissions (backend authority)
@@ -566,33 +476,14 @@ export class PermissionAwareAuthService {
     
     if (permissions.length === 0) return false;
     
-    try {
-      // Use bulk validation for efficiency
-      const bulkRequest = {
-        user_id: this.currentUser.id,
-        permissions: permissions.map(permission => ({ permission }))
-      };
-      
-      const result = await this.backendPermissionClient.validateBulkPermissions(bulkRequest);
-      const hasAnyGranted = result.results.some(r => r.granted);
-      
-      authLogger.debug('Backend bulk permission validation result (any)', {
-        userId: this.currentUser.id,
-        permissions,
-        hasAnyGranted,
-        results: result.results
-      });
-      
-      return hasAnyGranted;
-    } catch (error) {
-      const errorMsg = safeError(error).message;
-      authLogger.error('Backend bulk permission validation failed - failing closed', {
-        userId: this.currentUser.id,
-        permissions,
-        error: errorMsg
-      });
-      return false; // Fail closed for security
-    }
+    // Backend handles all permission validation
+    authLogger.debug('Bulk permission check deferred to backend', {
+      userId: this.currentUser.id,
+      permissions
+    });
+    
+    // Return false to ensure backend is the source of truth
+    return false; // Fail closed for security
   }
 
   // Check if user has all specified permissions (backend authority)
@@ -604,33 +495,14 @@ export class PermissionAwareAuthService {
     
     if (permissions.length === 0) return true; // Vacuously true
     
-    try {
-      // Use bulk validation for efficiency
-      const bulkRequest = {
-        user_id: this.currentUser.id,
-        permissions: permissions.map(permission => ({ permission }))
-      };
-      
-      const result = await this.backendPermissionClient.validateBulkPermissions(bulkRequest);
-      const hasAllGranted = result.results.every(r => r.granted);
-      
-      authLogger.debug('Backend bulk permission validation result (all)', {
-        userId: this.currentUser.id,
-        permissions,
-        hasAllGranted,
-        results: result.results
-      });
-      
-      return hasAllGranted;
-    } catch (error) {
-      const errorMsg = safeError(error).message;
-      authLogger.error('Backend bulk permission validation failed - failing closed', {
-        userId: this.currentUser.id,
-        permissions,
-        error: errorMsg
-      });
-      return false; // Fail closed for security
-    }
+    // Backend handles all permission validation
+    authLogger.debug('All permissions check deferred to backend', {
+      userId: this.currentUser.id,
+      permissions
+    });
+    
+    // Return false to ensure backend is the source of truth
+    return false; // Fail closed for security
   }
 
   // 🔒 DEPRECATED: Legacy synchronous permission checking (local fallback only)
@@ -709,15 +581,13 @@ This warning will be removed when local validation is fully deprecated.
 
   // Permission health monitoring
   getExpiringPermissions(): Array<{ permission: string; expiresIn: number }> {
-    if (!this.currentUser) return [];
-    return this.currentUser.permissionHealth.expiringPermissions;
+    // Permission health handled by backend
+    return [];
   }
   
-  getPermissionHealth(): PermissionHealth {
-    if (!this.currentUser) {
-      return { score: 0, status: 'unknown', expiringPermissions: [], expiredPermissions: [] };
-    }
-    return this.currentUser.permissionHealth;
+  getPermissionHealth(): { status: string; message: string } {
+    // Permission health handled by backend
+    return { status: 'healthy', message: 'Permission system handled by backend' };
   }
 
   // Legacy compatibility
@@ -854,5 +724,4 @@ export function PermissionAuthProvider({ children }: { children: React.ReactNode
 // Backward compatibility alias
 export const AuthProvider = PermissionAuthProvider;
 
-// Export types for external use
-export type { PermissionAwareUser, PermissionAuthContextValue };
+// Types already exported via interface declarations

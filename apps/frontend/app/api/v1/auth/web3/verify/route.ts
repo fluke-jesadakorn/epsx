@@ -1,13 +1,10 @@
 /**
  * Web3 Verification API Route
- * Verifies SIWE signatures and establishes Web3 session
- * Aligns with backend /api/v1/auth/web3/verify
+ * Verifies SIWE signatures and establishes Web3 session using unified client
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { env } from '@/config/env';
-
-const BACKEND_URL = env.BACKEND_URL;
+import { createWeb3FrontendClient } from '@/shared/utils/web3-api-client';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,65 +18,49 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Forward to backend's standard Web3 verify endpoint
-    const response = await fetch(`${BACKEND_URL}/api/v1/auth/web3/verify`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ 
-        wallet_address, 
-        signature, 
-        nonce, 
-        message 
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ 
-        error: 'Verification failed' 
-      }));
-      console.warn('❌ Verification failed for wallet:', wallet_address.slice(0, 8) + '...');
-      return NextResponse.json(errorData, { status: response.status });
-    }
-
-    const authData = await response.json();
+    // Create Web3 client for server-side verification
+    const web3Client = createWeb3FrontendClient({ serverSide: true });
     
-    // Set Bearer token as httpOnly cookie
+    // Verify signature using typed client
+    const authData = await web3Client.verifySignature({
+      wallet_address,
+      signature,
+      nonce,
+      message
+    });
+    // Set authentication cookies
     if (authData.access_token) {
       const cookieStore = await cookies();
       
-      // Set access token (Bearer token for backend API)
-      cookieStore.set('access_token', authData.access_token, {
+      const cookieOptions = {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24, // 24 hours
+        sameSite: 'lax' as const,
         path: '/',
+      };
+      
+      // Set access token (Bearer token for backend API)
+      cookieStore.set('access_token', authData.access_token, {
+        ...cookieOptions,
+        maxAge: 60 * 60 * 24, // 24 hours
       });
 
       // Set refresh token if provided
       if (authData.refresh_token) {
         cookieStore.set('refresh_token', authData.refresh_token, {
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          sameSite: 'lax',
+          ...cookieOptions,
           maxAge: 60 * 60 * 24 * 7, // 7 days
-          path: '/',
         });
       }
 
       // Set Web3 session marker
       cookieStore.set('web3_session', '1', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
+        ...cookieOptions,
         maxAge: 60 * 60 * 24, // 24 hours
-        path: '/',
       });
     }
 
-    console.log('✅ Verification successful for wallet:', wallet_address.slice(0, 8) + '...');
+    console.log('✅ Frontend: Verification successful for wallet:', wallet_address.slice(0, 8) + '...');
 
     // Return user data
     return NextResponse.json({
@@ -92,9 +73,9 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌ Web3 verify API error:', error);
+    console.error('❌ Frontend: Web3 verify error:', error);
     return NextResponse.json(
-      { error: 'Authentication service unavailable' },
+      { error: 'Authentication verification failed' },
       { status: 500 }
     );
   }

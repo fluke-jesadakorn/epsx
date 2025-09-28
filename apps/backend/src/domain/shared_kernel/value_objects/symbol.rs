@@ -1,5 +1,6 @@
 use serde::{ Deserialize, Serialize };
-use crate::domain::shared_kernel::{ ValueObject, DomainError, DomainResult };
+use crate::core::errors::{AppError, AppResult};
+use crate::domain::shared_kernel::ValueObject;
 
 /// Stock symbol value object
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -8,24 +9,18 @@ pub struct Symbol {
 }
 
 impl Symbol {
-  pub fn new(value: impl Into<String>) -> DomainResult<Self> {
+  pub fn new(value: impl Into<String>) -> AppResult<Self> {
     let value = value.into().trim().to_uppercase();
 
     if value.is_empty() {
       return Err(
-        DomainError::validation_error(
-          "Symbol cannot be empty".to_string(),
-          "Symbol"
-        )
+        AppError::validation_error("Symbol cannot be empty".to_string())
       );
     }
 
     if value.len() > 10 {
       return Err(
-        DomainError::validation_error(
-          "Symbol cannot be longer than 10 characters".to_string(),
-          "Symbol"
-        )
+        AppError::validation_error("Symbol cannot be longer than 10 characters".to_string())
       );
     }
 
@@ -36,10 +31,7 @@ impl Symbol {
         .all(|c| (c.is_ascii_alphanumeric() || c == '.' || c == '-'))
     {
       return Err(
-        DomainError::validation_error(
-          "Symbol contains invalid characters".to_string(),
-          "Symbol"
-        )
+        AppError::validation_error("Symbol contains invalid characters".to_string())
       );
     }
 
@@ -56,15 +48,12 @@ impl Symbol {
 }
 
 impl ValueObject for Symbol {
-  type Error = crate::domain::shared_kernel::DomainError;
+  type Error = AppError;
 
   fn validate(&self) -> Result<(), Self::Error> {
     if self.value.is_empty() {
       return Err(
-        crate::domain::shared_kernel::DomainError::validation_error(
-          "Symbol cannot be empty".to_string(),
-          "Symbol"
-        )
+        AppError::validation_error("Symbol cannot be empty".to_string())
       );
     }
     Ok(())

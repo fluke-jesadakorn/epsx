@@ -5,7 +5,7 @@ use crate::domain::shared_kernel::value_objects::UserId;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListUserSessionsQuery {
-    pub user_id: UserId,
+    pub wallet_address: UserId,
     pub include_expired: bool,
 }
 

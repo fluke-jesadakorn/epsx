@@ -12,33 +12,35 @@ EPSX is a production analytics platform with modern architecture:
 
 ## Major Completed Migrations
 
-### ✅ Complete OIDC Migration (100% Complete)
+### ✅ Complete Web3-First Authentication Migration (100% Complete)
 
-The EPSX platform has successfully completed comprehensive OIDC migration:
+The EPSX platform has successfully completed comprehensive Web3-first authentication migration:
 
-**Authentication System:**
-- **OIDC Compliant**: OpenID Connect standard with Bearer token authentication  
-- **RS256 JWT**: RSA public key validation for production security
-- **Firebase Integration**: Hybrid Firebase + OIDC token exchange
-- **HttpOnly Cookies**: Secure OIDC token storage (access_token, id_token, refresh_token)
-- **PKCE Flow**: Proof Key for Code Exchange for OAuth security
+**Web3 Authentication System:**
+- **SIWE Compliant**: Sign-In with Ethereum standard for wallet authentication
+- **Wallet-First**: No email/password authentication - wallets only
+- **Multi-Chain Support**: BSC mainnet (56) and testnet (97) compatibility  
+- **Session Management**: Secure Web3 session tokens with proper expiry
+- **Challenge/Verify Flow**: Cryptographic signature-based authentication
 
 **Backend (Rust):**
-- **Bearer Token API**: Pure Bearer token validation with no cookie dependencies
-- **RS256 Validation**: RSA public key JWT verification
-- **OIDC Endpoints**: `/oauth/authorize`, `/oauth/token`, `/oauth/userinfo`
-- **SQLx**: Complete PostgreSQL integration with async support and type safety
+- **Unified Web3 Services**: UnifiedWeb3AuthService and UnifiedWeb3PermissionService
+- **Bearer Token API**: Web3 session tokens for API authentication
+- **Permission Groups**: Backend-driven permission validation and group management
+- **Multi-Chain Permission Service**: Cross-chain wallet permission handling
+- **SQLx**: Complete PostgreSQL integration with wallet-based user management
 
 **Frontend Applications:**
-- **Hybrid Data Strategy**: Client-side initial load + Server Actions post-hydration
-- **OIDC Cookie Management**: Standard access_token/id_token/refresh_token cookies
-- **Server Component Auth**: Proper SSR with OIDC token validation
+- **Web3AuthProvider**: Complete wallet-first authentication for users
+- **WAGMI Integration**: Modern Web3 wallet connectivity with RainbowKit
+- **Error-Only Permissions**: Backend handles validation, frontend shows errors only
+- **Challenge/Verify Flow**: Secure SIWE signature authentication
 
 **Admin Frontend:**
-- **OIDC Authentication**: Complete migration from legacy JWT to OIDC tokens
-- **Admin Permissions**: Structured admin:*:* permission validation
-- **Session Management**: OIDC token refresh and validation
-- **Zero Animation Policy**: Complete adherence to no animation/transition rules
+- **AdminWeb3AuthProvider**: Admin-specific wallet authentication with permission verification
+- **Wallet Management UI**: Complete interface for managing wallet users and permissions
+- **Group Assignment**: Permission group management through admin interface
+- **Admin Session Security**: Enhanced security for administrative wallet access
 
 ### ✅ Structured Permissions System (100% Complete)
 
@@ -737,7 +739,7 @@ gcloud logging read "resource.type=cloud_run_revision" --limit=20
 
 ---
 
-**🎉 EPSX has successfully completed all major migrations and is production-ready with OIDC compliance, structured permissions, SQLx database layer, embedded timestamp permissions, CORS "allow any origin" configuration, and optimized local Docker builds with deployment testing for Google Cloud Run!**
+**🎉 EPSX has successfully completed all major migrations and is production-ready with Web3-first authentication, structured permissions, SQLx database layer, embedded timestamp permissions, admin wallet management UI, and optimized local Docker builds with deployment testing for Google Cloud Run!**
 
 ## Latest Backend Deployment
 

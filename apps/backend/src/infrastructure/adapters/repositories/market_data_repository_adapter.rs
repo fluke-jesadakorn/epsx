@@ -130,7 +130,6 @@ mod tests {
         crate::config::get_fallback_config()
     }
     use crate::domain::shared_kernel::entities::market_data::StockScreeningResult;
-    use crate::domain::shared_kernel::value_objects::{Symbol, Market};
     use rust_decimal_macros::dec;
 
     #[test]

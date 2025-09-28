@@ -13,6 +13,8 @@ use crate::domain::shared_kernel::entities::eps_growth::EPSGrowthData;
 pub enum MarketDataError {
     #[error("Network error: {0}")]
     NetworkError(String),
+    #[error("Connection error: {0}")]
+    ConnectionError(String),
     #[error("Parsing error: {0}")]
     ParsingError(String),
     #[error("External API error: {0}")]
@@ -89,6 +91,7 @@ pub struct FrontendEPSData {
     pub country: String,
     pub sector: String,
     pub ranking_score: f64,
+    pub currency: String,
 }
 
 /// Frontend pagination structure

@@ -122,7 +122,12 @@ export default function PositionCard({ position, onActionChange }: PositionCardP
             <div className="text-cyan-400 text-sm font-medium mb-2">{quarter.date}</div>
             <div className="text-xs space-y-1 text-gray-300">
               <div>Growth: {quarter.growth > 0 ? '+' : ''}{quarter.growth.toFixed(2)}% | EPS: {quarter.eps.toFixed(2)}</div>
-              <div>Price: {quarter.price > 0 ? '+' : ''}{quarter.price.toFixed(2)}% | ${(Math.random() * 400 + 200).toFixed(2)}</div>
+              <div>Price: {quarter.price > 0 ? '+' : ''}{quarter.price.toFixed(2)}% | {new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: position.currency || 'USD',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }).format(Math.random() * 400 + 200)}</div>
             </div>
           </div>
         ))}

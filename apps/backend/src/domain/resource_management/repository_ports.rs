@@ -11,7 +11,7 @@ pub trait UserResourceUsageRepository {
     type Error;
 
     /// Get user's current resource usage
-    async fn get_user_usage(&self, user_id: &str, access_context: &str) -> Result<Option<UserResourceUsage>, Self::Error>;
+    async fn get_user_usage(&self, wallet_address: &str, access_context: &str) -> Result<Option<UserResourceUsage>, Self::Error>;
 
     /// Save user resource usage
     async fn save_user_usage(&self, usage: &UserResourceUsage) -> Result<(), Self::Error>;
@@ -20,7 +20,7 @@ pub trait UserResourceUsageRepository {
     async fn update_user_usage(&self, usage: &UserResourceUsage) -> Result<(), Self::Error>;
 
     /// Get historical usage data
-    async fn get_usage_history(&self, user_id: &str, days: u32) -> Result<Vec<UserResourceUsage>, Self::Error>;
+    async fn get_usage_history(&self, wallet_address: &str, days: u32) -> Result<Vec<UserResourceUsage>, Self::Error>;
 
     /// Get all users with active usage
     async fn get_active_users(&self) -> Result<Vec<String>, Self::Error>;
@@ -58,7 +58,7 @@ pub trait ResourceMetricsRepository {
     /// Record resource usage event
     async fn record_usage_event(
         &self,
-        user_id: &str,
+        wallet_address: &str,
         resource_type: &str,
         amount: i64,
         timestamp: chrono::DateTime<chrono::Utc>,
@@ -67,7 +67,7 @@ pub trait ResourceMetricsRepository {
     /// Get usage metrics for a time period
     async fn get_usage_metrics(
         &self,
-        user_id: &str,
+        wallet_address: &str,
         start_time: chrono::DateTime<chrono::Utc>,
         end_time: chrono::DateTime<chrono::Utc>,
     ) -> Result<HashMap<String, i64>, Self::Error>;
@@ -75,7 +75,7 @@ pub trait ResourceMetricsRepository {
     /// Get peak usage times
     async fn get_peak_usage_times(
         &self,
-        user_id: &str,
+        wallet_address: &str,
         days: u32,
     ) -> Result<Vec<(chrono::DateTime<chrono::Utc>, i64)>, Self::Error>;
 

@@ -8,10 +8,10 @@ pub enum NotificationError {
   #[error("Service unavailable: {0}")] ServiceError(String),
 }
 
-/// Notification service adapter for handling push notifications
+/// Stateless notification service adapter for serverless deployment
 #[derive(Clone)]
 pub struct NotificationServiceAdapter {
-  // In a real implementation, this would contain FCM service, etc.
+  // Stateless service - no persistent connections or state
 }
 
 impl NotificationServiceAdapter {

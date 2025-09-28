@@ -46,7 +46,7 @@ export function useBatchStockData(symbols: string[]): BatchFetchState {
       const result = await getBatchStocks(symbolsList);
       
       if (!result.success) {
-        const errorMessage = result.errors?.length > 0 ? result.errors.join(', ') : 'Failed to fetch batch data';
+        const errorMessage = result.errors && result.errors.length > 0 ? result.errors.join(', ') : 'Failed to fetch batch data';
         throw new Error(errorMessage);
       }
 

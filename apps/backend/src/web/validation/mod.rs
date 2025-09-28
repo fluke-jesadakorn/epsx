@@ -234,20 +234,20 @@ pub fn validate_json_depth(json_str: &str, max_depth: usize) -> ValidationResult
 
 /// Rate limiting validation
 pub fn validate_rate_limit(
-    user_id: &str,
+    wallet_address: &str,
     endpoint: &str,
     max_requests: u32,
     window_seconds: u64,
 ) -> ValidationResult<()> {
     // This would integrate with Redis or in-memory rate limiting
     // For now, we'll implement a basic check
-    let _cache_key = format!("rate_limit:{}:{}", user_id, endpoint);
+    let _cache_key = format!("rate_limit:{}:{}", wallet_address, endpoint);
     
     // TODO: Implement actual rate limiting with Redis
     // For now, just log the rate limit check
     tracing::debug!(
         "Rate limit check for user {} on endpoint {}: max {} requests per {} seconds",
-        user_id, endpoint, max_requests, window_seconds
+        wallet_address, endpoint, max_requests, window_seconds
     );
     
     Ok(())
@@ -470,7 +470,7 @@ mod tests {
 
     #[test]
     fn test_validation_error_response() {
-        let fields = HashMap::new();
+        let mut fields = HashMap::new();
         fields.insert("email".to_string(), vec!["Invalid email format".to_string()]);
         
         let error = ValidationErrorResponse::new("Validation failed".to_string(), fields);

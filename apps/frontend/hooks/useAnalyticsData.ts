@@ -43,7 +43,7 @@ export function useAnalyticsData(filters: AnalyticsFilters) {
       };
 
       const response = await analyticsClient.getRankings(queryParams);
-      return response;
+      return response || null;
     } catch (error) {
       analyticsLogger.error('Failed to fetch EPS rankings', error);
       return null;

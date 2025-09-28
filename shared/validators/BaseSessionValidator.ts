@@ -1,23 +1,42 @@
 /**
- * BASE SESSION VALIDATOR
- * Unified session validation system consolidating AdminSessionValidator and UserSessionValidator
- * Supports both wallet-based (admin) and JWT-based (user) authentication methods
+ * BASE SESSION VALIDATOR - WEB3-FIRST ARCHITECTURE
+ * Unified session validation system with Web3 wallet signatures as primary method
+ * Legacy JWT/OIDC support maintained for backward compatibility but deprecated
+ * 
+ * ✅ Web3 wallet signatures (primary)
+ * ⚠️  Legacy JWT support (deprecated - Phase 3.3)
+ * ⚠️  Legacy OIDC support (deprecated - Phase 3.3)
  */
 
-import { cookies } from 'next/headers'
-import { SiweMessage } from 'siwe'
+// Conditional imports for Next.js and Web3 dependencies
+// These will be dynamically imported only when needed
 
 // ============================================================================
 // SHARED TYPES (from consolidated domain types)
 // ============================================================================
 
 import type {
-  UserProfile,
   SessionValidationResponse,
-  SessionData,
-  AdminJWTPayload,
-  UserJWTPayload
+  SessionData
 } from '../types/domain/Session'
+import type { UserProfile, AdminUserProfile } from '../types/domain/User'
+
+// JWT payload types for backward compatibility
+interface AdminJWTPayload {
+  user_id: string;
+  email: string;
+  permissions: string[];
+  exp: number;
+  iat: number;
+}
+
+interface UserJWTPayload {
+  user_id: string;
+  email?: string;
+  wallet_address?: string;
+  exp: number;
+  iat: number;
+}
 
 // ============================================================================
 // VALIDATOR CONFIGURATION
@@ -96,6 +115,8 @@ export class BaseSessionValidator {
     const startTime = performance.now()
 
     try {
+      // Dynamic import for Next.js cookies
+      const { cookies } = await import('next/headers')
       const cookieStore = await cookies()
       
       // Detect authentication method
@@ -119,7 +140,8 @@ export class BaseSessionValidator {
             error: 'No valid authentication method found',
             performance: {
               validationTimeMs: performance.now() - startTime,
-              cacheHit: false
+              cacheHit: false,
+              source: 'database' as const
             }
           }
       }
@@ -145,7 +167,8 @@ export class BaseSessionValidator {
         error: error instanceof Error ? error.message : 'Unknown validation error',
         performance: {
           validationTimeMs: performance.now() - startTime,
-          cacheHit: false
+          cacheHit: false,
+          source: 'database' as const
         }
       }
     }
@@ -156,23 +179,25 @@ export class BaseSessionValidator {
   // ============================================================================
 
   private detectAuthMethod(cookieStore: any): 'wallet' | 'jwt' | 'oidc' | 'none' {
-    // Check for wallet authentication cookies
+    // ✅ PRIORITY 1: Web3 wallet authentication (preferred)
     const walletAddress = cookieStore.get('wallet_address')?.value
     const walletSignature = cookieStore.get('wallet_signature')?.value
     if (walletAddress && walletSignature) {
       return 'wallet'
     }
 
-    // Check for OIDC tokens
+    // ⚠️  DEPRECATED: OIDC tokens (Phase 3.3 - use Web3 instead)
     const accessToken = cookieStore.get('access_token')?.value
     const idToken = cookieStore.get('id_token')?.value
     if (accessToken || idToken) {
+      console.warn('⚠️  DEPRECATED: OIDC authentication detected - migrate to Web3 wallet signatures (Phase 3.3)')
       return 'oidc'
     }
 
-    // Check for legacy JWT token
+    // ⚠️  DEPRECATED: Legacy JWT token (Phase 3.3 - use Web3 instead)
     const jwtToken = cookieStore.get('epsx_jwt')?.value
     if (jwtToken) {
+      console.warn('⚠️  DEPRECATED: JWT authentication detected - migrate to Web3 wallet signatures (Phase 3.3)')
       return 'jwt'
     }
 
@@ -180,7 +205,7 @@ export class BaseSessionValidator {
   }
 
   // ============================================================================
-  // WALLET-BASED VALIDATION (ADMIN)
+  // WALLET-BASED VALIDATION (WEB3-FIRST) - PREFERRED METHOD
   // ============================================================================
 
   private async validateWalletSession(
@@ -201,7 +226,8 @@ export class BaseSessionValidator {
         error: 'Incomplete wallet session data',
         performance: {
           validationTimeMs: performance.now() - startTime,
-          cacheHit: false
+          cacheHit: false,
+          source: 'database' as const
         }
       }
     }
@@ -214,13 +240,16 @@ export class BaseSessionValidator {
         error: 'Wallet session expired',
         performance: {
           validationTimeMs: performance.now() - startTime,
-          cacheHit: false
+          cacheHit: false,
+          source: 'database' as const
         }
       }
     }
 
     // Validate SIWE message
     try {
+      // Dynamic import for SIWE - only available in browser/Node.js environment
+      const { SiweMessage } = await import('siwe')
       const siweMessage = new SiweMessage(walletMessage)
       if (siweMessage.address.toLowerCase() !== walletAddress.toLowerCase()) {
         return {
@@ -228,7 +257,8 @@ export class BaseSessionValidator {
           error: 'Wallet address mismatch in SIWE message',
           performance: {
             validationTimeMs: performance.now() - startTime,
-            cacheHit: false
+            cacheHit: false,
+            source: 'database' as const
           }
         }
       }
@@ -238,7 +268,8 @@ export class BaseSessionValidator {
         error: 'Invalid SIWE message format',
         performance: {
           validationTimeMs: performance.now() - startTime,
-          cacheHit: false
+          cacheHit: false,
+          source: 'database' as const
         }
       }
     }
@@ -251,15 +282,23 @@ export class BaseSessionValidator {
         return {
           valid: true,
           session: {
+            sessionId: `wallet_cached_${Date.now()}`,
+            userId: cached.user.id,
             user: cached.user,
-            permissions: cached.permissions,
-            packageTier: cached.package_tier,
+            appType: 'admin' as const,
             expiresAt: cached.expires_at,
-            platforms: cached.platforms
+            issuedAt: cached.cached_at,
+            lastAccessedAt: Date.now(),
+            adminContext: {
+              permissions: cached.permissions as any[],
+              accessLevel: cached.permissions.some((p: string) => p.includes('super_admin')) ? 'super_admin' as const : 'admin' as const,
+              managedPlatforms: cached.platforms || ['admin']
+            }
           },
           performance: {
             validationTimeMs: performance.now() - startTime,
-            cacheHit: true
+            cacheHit: true,
+            source: 'cache' as const
           }
         }
       }
@@ -268,16 +307,39 @@ export class BaseSessionValidator {
     // Validate wallet permissions via database
     const permissions = await this.validateWalletPermissions(walletAddress)
     
-    const user: UserProfile = {
+    const user: AdminUserProfile = {
       id: walletAddress,
       walletAddress: walletAddress,
-      email: null,
+      email: `${walletAddress.substring(0, 8)}@wallet.admin`,
       name: walletAddress.substring(0, 8) + '...',
       role: permissions.some(p => p.startsWith('admin:')) ? 'admin' : 'user',
       permissions: permissions,
       packageTier: 'ENTERPRISE',
       platforms: ['admin', 'epsx'],
-      primaryPlatform: 'admin'
+      primaryPlatform: 'admin',
+      status: 'active',
+      emailVerified: true,
+      twoFactorEnabled: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      billing: {
+        tier: 'ENTERPRISE',
+        isActive: true,
+        paymentStatus: 'current'
+      },
+      moduleAccess: [],
+      moduleQuotas: [],
+      stockRankingPackages: [],
+      apiKeys: [],
+      recentActivity: [],
+      loginHistory: [],
+      usageMetrics: {
+        apiCallsThisMonth: 0,
+        storageUsed: 0,
+        lastActiveDate: new Date(),
+        sessionsThisMonth: 0,
+        averageSessionDuration: 0
+      }
     }
 
     // Validate admin access
@@ -287,7 +349,8 @@ export class BaseSessionValidator {
         error: 'User lacks admin access permissions',
         performance: {
           validationTimeMs: performance.now() - startTime,
-          cacheHit: false
+          cacheHit: false,
+          source: 'database' as const
         }
       }
     }
@@ -307,27 +370,40 @@ export class BaseSessionValidator {
     return {
       valid: true,
       session: {
+        sessionId: walletAddress,
+        userId: user.id,
         user,
-        permissions: user.permissions,
-        packageTier: user.packageTier,
+        appType: 'admin' as const,
         expiresAt: expiresAt,
-        platforms: user.platforms
+        issuedAt: Date.now(),
+        lastAccessedAt: Date.now(),
+        adminContext: {
+          permissions: user.permissions as any[],
+          accessLevel: user.permissions.some(p => p.includes('super_admin')) ? 'super_admin' as const : 'admin' as const,
+          managedPlatforms: user.platforms || ['admin']
+        }
       },
       performance: {
         validationTimeMs: performance.now() - startTime,
-        cacheHit: false
+        cacheHit: false,
+        source: 'database' as const
       }
     }
   }
 
   // ============================================================================
-  // JWT-BASED VALIDATION (USER)
+  // JWT-BASED VALIDATION (USER) - DEPRECATED
   // ============================================================================
 
+  /**
+   * @deprecated Phase 3.3: JWT authentication is deprecated. Use Web3 wallet signatures instead.
+   * This method will be removed in Phase 5.0. Migrate to validateWalletSession().
+   */
   private async validateJWTSession(
     request: ValidationRequest,
     cookieStore: any
   ): Promise<SessionValidationResponse> {
+    console.warn('⚠️  DEPRECATED: validateJWTSession is deprecated (Phase 3.3) - use Web3 wallet signatures instead')
     const startTime = performance.now()
 
     const jwtCookie = cookieStore.get('epsx_jwt')
@@ -337,7 +413,8 @@ export class BaseSessionValidator {
         error: 'No JWT token found',
         performance: {
           validationTimeMs: performance.now() - startTime,
-          cacheHit: false
+          cacheHit: false,
+          source: 'database' as const
         }
       }
     }
@@ -352,20 +429,29 @@ export class BaseSessionValidator {
         return {
           valid: true,
           session: {
+            sessionId: `jwt_cached_${Date.now()}`,
+            userId: cached.user.id,
             user: cached.user,
-            permissions: cached.permissions,
-            packageTier: cached.package_tier,
-            expiresAt: cached.expires_at
+            appType: 'user' as const,
+            expiresAt: cached.expires_at,
+            issuedAt: cached.cached_at,
+            lastAccessedAt: Date.now(),
+            platformContext: {
+              currentPlatform: 'epsx',
+              availablePlatforms: ['epsx']
+            },
+            permissions: cached.permissions
           },
           performance: {
             validationTimeMs: performance.now() - startTime,
-            cacheHit: true
+            cacheHit: true,
+            source: 'cache' as const
           }
         }
       }
     }
 
-    // Validate with backend API
+    // Validate with backend API (deprecated JWT endpoint)
     try {
       const response = await fetch(`${this.config.backendUrl}/api/auth/validate-session`, {
         method: 'POST',
@@ -391,7 +477,8 @@ export class BaseSessionValidator {
           error: `Backend validation failed: ${response.status} - ${errorText}`,
           performance: {
             validationTimeMs: performance.now() - startTime,
-            cacheHit: false
+            cacheHit: false,
+            source: 'database' as const
           }
         }
       }
@@ -404,12 +491,13 @@ export class BaseSessionValidator {
           error: result.error || 'Session validation failed',
           performance: {
             validationTimeMs: performance.now() - startTime,
-            cacheHit: false
+            cacheHit: false,
+            source: 'database' as const
           }
         }
       }
 
-      const user = result.user as UserProfile
+      const user = result.user as AdminUserProfile
 
       // Cache result
       if (this.config.cacheEnabled) {
@@ -425,15 +513,23 @@ export class BaseSessionValidator {
       return {
         valid: true,
         session: {
+          sessionId: result.session_id || `jwt_${Date.now()}`,
+          userId: user.id,
           user,
-          permissions: result.permissions || user.permissions || [],
-          packageTier: result.package_tier || user.packageTier || 'FREE',
-          expiresAt: result.expires_at,
-          sessionId: result.session_id
+          appType: 'user' as const,
+          expiresAt: result.expires_at || Date.now() + 2 * 60 * 60 * 1000,
+          issuedAt: Date.now(),
+          lastAccessedAt: Date.now(),
+          platformContext: {
+            currentPlatform: 'epsx',
+            availablePlatforms: ['epsx']
+          },
+          permissions: result.permissions || user.permissions || []
         },
         performance: {
           validationTimeMs: performance.now() - startTime,
-          cacheHit: false
+          cacheHit: false,
+          source: 'database' as const
         }
       }
 
@@ -443,20 +539,26 @@ export class BaseSessionValidator {
         error: error instanceof Error ? error.message : 'Backend validation failed',
         performance: {
           validationTimeMs: performance.now() - startTime,
-          cacheHit: false
+          cacheHit: false,
+          source: 'database' as const
         }
       }
     }
   }
 
   // ============================================================================
-  // OIDC-BASED VALIDATION (MODERN)
+  // OIDC-BASED VALIDATION (MODERN) - DEPRECATED
   // ============================================================================
 
+  /**
+   * @deprecated Phase 3.3: OIDC authentication is deprecated. Use Web3 wallet signatures instead.
+   * This method will be removed in Phase 5.0. Migrate to validateWalletSession().
+   */
   private async validateOIDCSession(
     request: ValidationRequest,
     cookieStore: any
   ): Promise<SessionValidationResponse> {
+    console.warn('⚠️  DEPRECATED: validateOIDCSession is deprecated (Phase 3.3) - use Web3 wallet signatures instead')
     const startTime = performance.now()
 
     const accessToken = cookieStore.get('access_token')?.value
@@ -468,7 +570,8 @@ export class BaseSessionValidator {
         error: 'No OIDC tokens found',
         performance: {
           validationTimeMs: performance.now() - startTime,
-          cacheHit: false
+          cacheHit: false,
+          source: 'database' as const
         }
       }
     }
@@ -483,15 +586,33 @@ export class BaseSessionValidator {
         return {
           valid: true,
           session: {
+            sessionId: `oidc_cached_${Date.now()}`,
+            userId: cached.user.id,
             user: cached.user,
-            permissions: cached.permissions,
-            packageTier: cached.package_tier,
+            appType: (request.appType === 'admin' || 
+                      (cached.user as any).role === 'admin' || 
+                      (cached.user as any).role === 'super_admin') ? 'admin' as const : 'user' as const,
             expiresAt: cached.expires_at,
-            platforms: cached.platforms
+            issuedAt: cached.cached_at,
+            lastAccessedAt: Date.now(),
+            ...(request.appType === 'admin' ? {
+              adminContext: {
+                permissions: cached.permissions as any[],
+                accessLevel: cached.permissions.some((p: string) => p.includes('super_admin')) ? 'super_admin' as const : 'admin' as const,
+                managedPlatforms: cached.platforms || ['admin']
+              }
+            } : {
+              platformContext: {
+                currentPlatform: 'epsx',
+                availablePlatforms: cached.platforms || ['epsx']
+              }
+            }),
+            permissions: cached.permissions
           },
           performance: {
             validationTimeMs: performance.now() - startTime,
-            cacheHit: true
+            cacheHit: true,
+            source: 'cache' as const
           }
         }
       }
@@ -523,7 +644,8 @@ export class BaseSessionValidator {
           error: `OIDC validation failed: ${response.status} - ${errorText}`,
           performance: {
             validationTimeMs: performance.now() - startTime,
-            cacheHit: false
+            cacheHit: false,
+            source: 'database' as const
           }
         }
       }
@@ -536,12 +658,13 @@ export class BaseSessionValidator {
           error: result.error || 'OIDC session validation failed',
           performance: {
             validationTimeMs: performance.now() - startTime,
-            cacheHit: false
+            cacheHit: false,
+            source: 'database' as const
           }
         }
       }
 
-      const user = result.user as UserProfile
+      const user = result.user as AdminUserProfile
 
       // Cache result
       if (this.config.cacheEnabled) {
@@ -558,16 +681,33 @@ export class BaseSessionValidator {
       return {
         valid: true,
         session: {
+          sessionId: result.session_id || `oidc_${Date.now()}`,
+          userId: user.id,
           user,
-          permissions: result.permissions || user.permissions || [],
-          packageTier: result.package_tier || user.packageTier || 'FREE',
-          expiresAt: result.expires_at,
-          sessionId: result.session_id,
-          platforms: result.platforms || user.platforms
+          appType: (request.appType === 'admin' || 
+                    user.role === 'admin' || 
+                    user.role === 'super_admin') ? 'admin' as const : 'user' as const,
+          expiresAt: result.expires_at || Date.now() + 2 * 60 * 60 * 1000,
+          issuedAt: Date.now(),
+          lastAccessedAt: Date.now(),
+          ...(request.appType === 'admin' ? {
+            adminContext: {
+              permissions: (result.permissions || user.permissions || []) as any[],
+              accessLevel: (result.permissions || user.permissions || []).some((p: string) => p.includes('super_admin')) ? 'super_admin' as const : 'admin' as const,
+              managedPlatforms: result.platforms || user.platforms || ['admin']
+            }
+          } : {
+            platformContext: {
+              currentPlatform: 'epsx',
+              availablePlatforms: result.platforms || user.platforms || ['epsx']
+            }
+          }),
+          permissions: result.permissions || user.permissions || []
         },
         performance: {
           validationTimeMs: performance.now() - startTime,
-          cacheHit: false
+          cacheHit: false,
+          source: 'database' as const
         }
       }
 
@@ -577,7 +717,8 @@ export class BaseSessionValidator {
         error: error instanceof Error ? error.message : 'OIDC validation failed',
         performance: {
           validationTimeMs: performance.now() - startTime,
-          cacheHit: false
+          cacheHit: false,
+          source: 'database' as const
         }
       }
     }
@@ -629,7 +770,7 @@ export class BaseSessionValidator {
   // PERMISSION CHECKING UTILITIES
   // ============================================================================
 
-  private hasAdminAccess(user: UserProfile): boolean {
+  private hasAdminAccess(user: UserProfile | AdminUserProfile): boolean {
     const permissions = Array.isArray(user.permissions) ? user.permissions : []
     
     // Check for admin wildcard permission
@@ -644,7 +785,7 @@ export class BaseSessionValidator {
   /**
    * Check if user has specific permission
    */
-  hasPermission(user: UserProfile, permission: string): boolean {
+  hasPermission(user: UserProfile | AdminUserProfile, permission: string): boolean {
     const permissions = Array.isArray(user.permissions) ? user.permissions : []
     
     // Check exact match
@@ -665,7 +806,7 @@ export class BaseSessionValidator {
   /**
    * Check if user has package tier access
    */
-  hasPackageTier(user: UserProfile, tier: string): boolean {
+  hasPackageTier(user: UserProfile | AdminUserProfile, tier: string): boolean {
     const tierHierarchy: Record<string, number> = {
       FREE: 1,
       BRONZE: 2,
@@ -773,21 +914,81 @@ export function createSessionValidator(config?: SessionValidatorConfig): BaseSes
 }
 
 /**
+ * Web3-first session validation (PREFERRED METHOD)
+ * Validates Web3 wallet signatures only, no legacy authentication
+ */
+export async function validateWeb3Session(
+  walletAddress: string,
+  walletSignature: string,
+  request: ValidationRequest
+): Promise<SessionValidationResponse> {
+  if (!walletAddress || !walletSignature) {
+    return {
+      valid: false,
+      error: 'Missing wallet address or signature',
+      performance: {
+        validationTimeMs: 0,
+        cacheHit: false,
+        source: 'validation' as const
+      }
+    }
+  }
+
+  // Mock cookie store with Web3 data for validation
+  const mockCookieStore = {
+    get: (name: string) => {
+      const values: Record<string, string> = {
+        wallet_address: walletAddress,
+        wallet_signature: walletSignature,
+        wallet_expires_at: (Date.now() + 24 * 60 * 60 * 1000).toString(), // 24 hours
+        wallet_message: `Sign in to EPSX with wallet ${walletAddress}`, // Basic SIWE message
+        wallet_nonce: Date.now().toString()
+      }
+      return values[name] ? { value: values[name] } : undefined
+    }
+  }
+
+  const validator = BaseSessionValidator.getInstance()
+  return validator['validateWalletSession'](request, mockCookieStore)
+}
+
+/**
  * Quick session validation
+ * @deprecated Phase 3.3: Use validateWeb3Session for Web3-first validation
  */
 export async function validateSession(request: ValidationRequest): Promise<SessionValidationResponse> {
+  console.warn('⚠️  DEPRECATED: validateSession supports legacy auth - use validateWeb3Session for Web3-only (Phase 3.3)')
   const validator = BaseSessionValidator.getInstance()
   return validator.validateSession(request)
 }
 
 /**
  * Require valid session (throws if invalid)
+ * @deprecated Phase 3.3: Use requireWeb3Session for Web3-first validation
  */
-export async function requireSession(request: ValidationRequest): Promise<UserProfile> {
+export async function requireSession(request: ValidationRequest): Promise<UserProfile | AdminUserProfile> {
+  console.warn('⚠️  DEPRECATED: requireSession supports legacy auth - use requireWeb3Session for Web3-only (Phase 3.3)')
   const result = await validateSession(request)
   
   if (!result.valid || !result.session?.user) {
     throw new Error(result.error || 'Session validation failed')
+  }
+  
+  return result.session.user
+}
+
+/**
+ * Require valid Web3 session (throws if invalid) - PREFERRED METHOD
+ */
+export async function requireWeb3Session(
+  walletAddress: string,
+  walletSignature: string,
+  request: ValidationRequest
+): Promise<UserProfile | AdminUserProfile> {
+  const result = await validateWeb3Session(walletAddress, walletSignature, request)
+  
+  if (!result.valid || !result.session?.user) {
+    throw new Error(result.error || 'Web3 session validation failed')
   }
   
   return result.session.user

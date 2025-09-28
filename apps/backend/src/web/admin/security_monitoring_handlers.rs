@@ -18,7 +18,7 @@ pub struct SecurityEventsQuery {
     pub severity: Option<String>,
     pub event_type: Option<String>,
     pub resolved: Option<bool>,
-    pub user_id: Option<String>,
+    pub wallet_address: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -32,7 +32,7 @@ pub struct SecurityEventsResponse {
 #[derive(Debug, Serialize)]
 pub struct SecurityEventDto {
     pub id: String,
-    pub user_id: String,
+    pub wallet_address: String,
     pub event_type: String,
     pub severity: String,
     pub description: String,
@@ -114,12 +114,12 @@ pub struct SecurityAlert {
 
 #[derive(Debug, Deserialize)]
 pub struct UserThreatQuery {
-    pub user_id: String,
+    pub wallet_address: String,
 }
 
 #[derive(Debug, Serialize)]
 pub struct UserThreatResponse {
-    pub user_id: String,
+    pub wallet_address: String,
     pub current_threat_score: f64,
     pub threat_level: String,
     pub is_under_threat: bool,
@@ -172,11 +172,11 @@ impl SecurityMonitoringHandlers {
         Query(query): Query<UserThreatQuery>,
     ) -> Result<Json<UserThreatResponse>, StatusCode> {
         let response = UserThreatResponse {
-            user_id: query.user_id.clone(),
+            wallet_address: query.wallet_address.clone(),
             current_threat_score: 23.5,
             threat_level: "Low".to_string(),
             is_under_threat: false,
-            recent_events: Self::mock_user_events(&query.user_id),
+            recent_events: Self::mock_user_events(&query.wallet_address),
             risk_factors: vec![
                 "Multiple device logins".to_string(),
                 "Unusual time patterns".to_string(),
@@ -196,7 +196,7 @@ impl SecurityMonitoringHandlers {
         vec![
             SecurityEventDto {
                 id: "evt_001".to_string(),
-                user_id: "user_123".to_string(),
+                wallet_address: "user_123".to_string(),
                 event_type: "SuspiciousLogin".to_string(),
                 severity: "Medium".to_string(),
                 description: "Login from unusual location".to_string(),
@@ -214,7 +214,7 @@ impl SecurityMonitoringHandlers {
             },
             SecurityEventDto {
                 id: "evt_002".to_string(),
-                user_id: "user_456".to_string(),
+                wallet_address: "user_456".to_string(),
                 event_type: "TokenReuse".to_string(),
                 severity: "High".to_string(),
                 description: "Refresh token reuse detected".to_string(),
@@ -330,11 +330,11 @@ impl SecurityMonitoringHandlers {
         ]
     }
 
-    fn mock_user_events(user_id: &str) -> Vec<SecurityEventDto> {
+    fn mock_user_events(wallet_address: &str) -> Vec<SecurityEventDto> {
         vec![
             SecurityEventDto {
                 id: "evt_user_001".to_string(),
-                user_id: user_id.to_string(),
+                wallet_address: wallet_address.to_string(),
                 event_type: "SuspiciousLogin".to_string(),
                 severity: "Medium".to_string(),
                 description: "Login from new device".to_string(),

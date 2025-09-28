@@ -396,7 +396,7 @@ mod tests {
     
     #[test]
     fn test_permission_set_operations() {
-        let perm_set = GranularPermissionSet::new();
+        let mut perm_set = GranularPermissionSet::new();
         
         let claim1 = GranularPermissionClaim::permanent(
             PermissionSource::Subscription, 
@@ -423,7 +423,7 @@ mod tests {
     
     #[test]
     fn test_permission_validation() {
-        let perm_set = GranularPermissionSet::new();
+        let mut perm_set = GranularPermissionSet::new();
         
         let claim = GranularPermissionClaim::permanent(
             PermissionSource::Subscription, 
@@ -457,7 +457,7 @@ mod tests {
     
     #[test]
     fn test_expired_permission_cleanup() {
-        let perm_set = GranularPermissionSet::new();
+        let mut perm_set = GranularPermissionSet::new();
         
         // Add expired permission
         let expired_claim = GranularPermissionClaim::temporary(

@@ -1,24 +1,23 @@
 use async_trait::async_trait;
-use crate::domain::shared_kernel::value_objects::UserId;
 use std::sync::Arc;
 
 use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
 use crate::application::user_management::commands::models::{CreateSessionCommand, CreateSessionResponse};
 
 use crate::domain::shared_kernel::{DomainEventBus, AggregateRoot};
-use crate::domain::user_management::{UserRepositoryPort, SessionRepositoryPort};
+use crate::domain::user_management::{WalletUserRepositoryPort, SessionRepositoryPort, WalletAddress};
 use crate::domain::user_management::aggregates::Session;
 
 /// Command handler for creating user sessions
 pub struct CreateSessionCommandHandler {
-    user_repository: Arc<dyn UserRepositoryPort>,
+    user_repository: Arc<dyn WalletUserRepositoryPort>,
     session_repository: Arc<dyn SessionRepositoryPort>,
     event_bus: Arc<dyn DomainEventBus>,
 }
 
 impl CreateSessionCommandHandler {
     pub fn new(
-        user_repository: Arc<dyn UserRepositoryPort>,
+        user_repository: Arc<dyn WalletUserRepositoryPort>,
         session_repository: Arc<dyn SessionRepositoryPort>,
         event_bus: Arc<dyn DomainEventBus>,
     ) -> Self {
@@ -37,12 +36,11 @@ impl CommandHandler<CreateSessionCommand> for CreateSessionCommandHandler {
         // This is a stub implementation for now
         
         // 1. Validate user exists and is active
-        let user_id = UserId::from_string(command.user_id.clone())
-            .map_err(|e| ApplicationError::validation("user_id", e.to_string()))?;
+        let wallet_addr = WalletAddress::new(command.wallet_address.clone())?;
         
-        let user = self.user_repository.find_by_id(&user_id).await
+        let user = self.user_repository.find_by_wallet(&wallet_addr).await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
-            .ok_or_else(|| ApplicationError::not_found("User", command.user_id.clone()))?;
+            .ok_or_else(|| ApplicationError::not_found("User", wallet_addr.to_string()))?;
         
         if !user.is_active() {
             return Err(ApplicationError::authorization("Cannot create session for inactive user"));
@@ -55,7 +53,7 @@ impl CommandHandler<CreateSessionCommand> for CreateSessionCommandHandler {
         // 3. Create session using domain logic
         let session = Session::create(
             session_id,
-            user_id,
+            wallet_addr.clone(),
             command.access_token,
             command.expires_at,
             command.ip_address,
@@ -74,7 +72,7 @@ impl CommandHandler<CreateSessionCommand> for CreateSessionCommandHandler {
         // 6. Return response
         Ok(CreateSessionResponse {
             session_id: session.id().clone(),
-            user_id: session.user_id().clone(),
+            wallet_address: wallet_addr.to_user_id(),
             created_at: session.created_at(),
             expires_at: session.expires_at(),
             is_valid: session.is_valid(),

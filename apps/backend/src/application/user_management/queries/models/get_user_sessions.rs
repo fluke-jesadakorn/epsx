@@ -4,14 +4,14 @@ use serde::{Deserialize, Serialize};
 /// Query to get all sessions for a user
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetUserSessionsQuery {
-    pub user_id: String,
+    pub wallet_address: String,
     pub include_expired: bool,
 }
 
 /// User sessions response
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetUserSessionsResponse {
-    pub user_id: String,
+    pub wallet_address: String,
     pub active_sessions: Vec<SessionSummary>,
     pub expired_sessions: Vec<SessionSummary>,
 }

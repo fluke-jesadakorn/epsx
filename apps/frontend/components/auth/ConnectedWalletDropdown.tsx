@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useAccount } from 'wagmi';
-import { useWeb3AuthContext } from '@/providers/Web3AuthProvider';
+import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Wallet, Copy, ExternalLink, LogOut, Check } from 'lucide-react';
@@ -14,8 +14,10 @@ interface ConnectedWalletDropdownProps {
 
 export function ConnectedWalletDropdown({ className }: ConnectedWalletDropdownProps) {
   const { address, connector } = useAccount();
-  const { disconnect } = useWeb3AuthContext();
+  const { user, logout } = useSharedAuth();
   const [copied, setCopied] = useState(false);
+
+  const displayAddress = user?.wallet_address || address;
 
   const formatAddress = (addr: string) => {
     return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -32,12 +34,12 @@ export function ConnectedWalletDropdown({ className }: ConnectedWalletDropdownPr
   };
 
   const openBSCScan = () => {
-    if (address) {
-      window.open(`https://bscscan.com/address/${address}`, '_blank');
+    if (displayAddress) {
+      window.open(`https://bscscan.com/address/${displayAddress}`, '_blank');
     }
   };
 
-  if (!address) return null;
+  if (!displayAddress) return null;
 
   return (
     <DropdownMenu>
@@ -52,7 +54,7 @@ export function ConnectedWalletDropdown({ className }: ConnectedWalletDropdownPr
           )}
         >
           <Wallet className="h-4 w-4 text-orange-500" />
-          <span className="font-medium">{formatAddress(address)}</span>
+          <span className="font-medium">{formatAddress(displayAddress)}</span>
         </Button>
       </DropdownMenuTrigger>
 
@@ -84,7 +86,7 @@ export function ConnectedWalletDropdown({ className }: ConnectedWalletDropdownPr
             "hover:bg-slate-700 focus:bg-slate-700",
             "border-b border-slate-700"
           )}
-          onClick={() => copyToClipboard(address)}
+          onClick={() => copyToClipboard(displayAddress)}
         >
           <div className="p-2 rounded-lg bg-orange-500/10">
             {copied ? (
@@ -95,7 +97,7 @@ export function ConnectedWalletDropdown({ className }: ConnectedWalletDropdownPr
           </div>
           <div className="flex-1">
             <div className="text-white font-medium">Copy Address</div>
-            <div className="text-slate-400 text-sm font-mono">{formatAddress(address)}</div>
+            <div className="text-slate-400 text-sm font-mono">{formatAddress(displayAddress)}</div>
           </div>
         </DropdownMenuItem>
 
@@ -125,9 +127,9 @@ export function ConnectedWalletDropdown({ className }: ConnectedWalletDropdownPr
           )}
           onClick={async () => {
             try {
-              await disconnect();
+              await logout();
             } catch (error) {
-              console.error('Disconnect error:', error);
+              console.error('Logout error:', error);
             }
           }}
         >

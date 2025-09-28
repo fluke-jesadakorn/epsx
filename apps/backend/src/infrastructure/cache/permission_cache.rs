@@ -19,22 +19,22 @@ impl PermissionCache {
         Self { cache }
     }
 
-    pub fn get_user_permissions(&self, user_id: &UserId) -> Option<Vec<String>> {
-        let key = format!("permissions:{}", user_id.as_str());
+    pub fn get_user_permissions(&self, wallet_address: &UserId) -> Option<Vec<String>> {
+        let key = format!("permissions:{}", wallet_address.as_str());
         self.cache.get(&key).and_then(|data| {
             serde_json::from_str(&data).ok()
         })
     }
 
-    pub fn set_user_permissions(&self, user_id: &UserId, permissions: &[String]) {
-        let key = format!("permissions:{}", user_id.as_str());
+    pub fn set_user_permissions(&self, wallet_address: &UserId, permissions: &[String]) {
+        let key = format!("permissions:{}", wallet_address.as_str());
         if let Ok(data) = serde_json::to_string(permissions) {
             self.cache.set(&key, data, Some(300)); // 5 minutes
         }
     }
 
-    pub fn clear_user_permissions(&self, user_id: &UserId) {
-        let key = format!("permissions:{}", user_id.as_str());
+    pub fn clear_user_permissions(&self, wallet_address: &UserId) {
+        let key = format!("permissions:{}", wallet_address.as_str());
         self.cache.delete(&key);
     }
 }
@@ -51,12 +51,12 @@ impl PermissionCacheService {
         }
     }
 
-    pub fn get_user_permissions(&self, user_id: &UserId) -> Option<Vec<String>> {
-        self.cache.get_user_permissions(user_id)
+    pub fn get_user_permissions(&self, wallet_address: &UserId) -> Option<Vec<String>> {
+        self.cache.get_user_permissions(wallet_address)
     }
 
-    pub fn set_user_permissions(&self, user_id: &UserId, permissions: &[String]) {
-        self.cache.set_user_permissions(user_id, permissions);
+    pub fn set_user_permissions(&self, wallet_address: &UserId, permissions: &[String]) {
+        self.cache.set_user_permissions(wallet_address, permissions);
     }
 
     pub fn validate_hash(&self, _key: &str, expected_hash: &str) -> HashValidationResult {

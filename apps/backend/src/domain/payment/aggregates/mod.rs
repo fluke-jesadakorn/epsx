@@ -1,12 +1,23 @@
 pub mod payment;
+pub mod payment_status;
+pub mod payment_metadata;
+pub mod payment_details;
+
+#[cfg(test)]
+pub mod payment_tests;
+
+// Re-export types from separate modules
+pub use payment_status::PaymentStatus;
+pub use payment_metadata::PaymentMetadata;
+pub use payment_details::{CryptoPaymentDetails, FiatPaymentDetails, BlockchainVerificationStatus};
 
 // Re-export the main aggregate and its types
 pub use payment::{
-    Payment, PaymentStatus, PaymentMetadata, PaymentError,
-    CryptoPaymentDetails, FiatPaymentDetails,
+    Payment, PaymentError,
     
     // Domain Events
     PaymentCreated, PaymentAddressAssigned, PaymentConfirmed,
     PaymentCompleted, PaymentFailed, PaymentCancelled,
-    PaymentRefundInitiated, PaymentRefundCompleted
+    PaymentRefundInitiated, PaymentRefundCompleted,
+    PaymentVerificationStarted, PaymentBlockchainVerified, PaymentVerificationFailed
 };

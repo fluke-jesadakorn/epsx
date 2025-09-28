@@ -380,7 +380,6 @@ impl Display for ScheduleInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
 
     #[test]
     fn test_immediate_schedule() {
@@ -454,7 +453,7 @@ mod tests {
     #[test]
     fn test_expired_notification() {
         let past_expiry = Utc::now() - Duration::minutes(1);
-        let schedule = ScheduleInfo::immediate();
+        let mut schedule = ScheduleInfo::immediate();
         
         // Set expiry in the past (bypassing validation for testing)
         schedule.expires_at = Some(past_expiry);

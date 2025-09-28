@@ -24,7 +24,6 @@ export function useWeb3Auth() {
     hasInitialized,
     walletAddress,
     permissions,
-    userTier,
     hasApiAccess,
     error,
   } = useWeb3AuthStore();
@@ -37,8 +36,6 @@ export function useWeb3Auth() {
     authenticate,
     disconnect,
     checkAuthStatus,
-    refreshPermissions,
-    linkEmail,
     generateApiKey,
     resetAuthState,
     initializeAuth,
@@ -389,7 +386,6 @@ export function useWeb3Auth() {
     hasInitialized,
     walletAddress: address,
     permissions,
-    userTier,
     hasApiAccess,
     error,
 
@@ -397,8 +393,6 @@ export function useWeb3Auth() {
     authenticate: authenticateWithWallet,
     disconnect: disconnectWallet,
     checkAuthStatus,
-    refreshPermissions,
-    linkEmail,
     generateApiKey,
     resetAuthState,
   };
@@ -414,26 +408,15 @@ export function useWeb3Permission(permission: string): boolean {
   if (!isAuthenticated) return false;
   
   return permissions.some(p => 
-    p.permission === permission || 
-    p.permission.includes('*') ||
-    permission.startsWith(p.permission.replace('*', ''))
+    p === permission || 
+    p.includes('*') ||
+    permission.startsWith(p.replace('*', ''))
   );
 }
 
 export function useWeb3Tier(requiredTier: 'nft' | 'token' | 'dao' | 'enterprise'): boolean {
-  const { userTier, isAuthenticated } = useWeb3AuthStore();
+  const { isAuthenticated } = useWeb3AuthStore();
   
-  if (!isAuthenticated) return false;
-  
-  const tierHierarchy = {
-    nft: 1,
-    token: 2,
-    dao: 3,
-    enterprise: 4,
-  };
-
-  const userLevel = tierHierarchy[userTier as keyof typeof tierHierarchy] || 0;
-  const requiredLevel = tierHierarchy[requiredTier];
-
-  return userLevel >= requiredLevel;
+  // Tier logic handled by backend - always return false to force backend validation
+  return false;
 }

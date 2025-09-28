@@ -4,6 +4,7 @@ use tower_http::cors::{CorsLayer, Any};
 use std::time::Duration;
 
 use crate::config::env::{get_env_var, is_production};
+use crate::core::constants::*;
 
 /// Create production-ready CORS layer with any origin allowed
 pub fn production_cors_layer() -> CorsLayer {
@@ -45,7 +46,7 @@ pub fn production_cors_layer() -> CorsLayer {
             HeaderValue::from_static("x-rate-limit-reset"),
         ])
         .allow_credentials(false) // Must be false when using Any origin
-        .max_age(Duration::from_secs(86400)) // 24 hours
+        .max_age(ONE_DAY) // 24 hours
 }
 
 /// Production CORS configuration with explicit origin validation
@@ -89,7 +90,7 @@ fn production_cors_with_origins(allowed_origins: Vec<String>) -> CorsLayer {
                     HeaderValue::from_static("x-rate-limit-reset"),
                 ])
                 .allow_credentials(true)
-                .max_age(Duration::from_secs(86400)) // 24 hours
+                .max_age(ONE_DAY) // 24 hours
         }
         Err(e) => {
             tracing::error!("Failed to parse CORS origins: {:?}", e);
@@ -158,7 +159,7 @@ fn development_cors() -> CorsLayer {
             HeaderValue::from_static("x-rate-limit-reset"),
         ])
         .allow_credentials(false) // Must be false when using Any origin
-        .max_age(Duration::from_secs(3600)) // 1 hour
+        .max_age(ONE_HOUR) // 1 hour
 }
 
 /// CORS configuration for OIDC endpoints - Allow any origin
@@ -189,7 +190,7 @@ pub fn oidc_cors_layer() -> CorsLayer {
             HeaderValue::from_static("x-request-id"),
         ])
         .allow_credentials(false) // Must be false when using Any origin
-        .max_age(Duration::from_secs(86400)) // 24 hours
+        .max_age(ONE_DAY) // 24 hours
 }
 
 /// CORS configuration for admin endpoints - Allow any origin
@@ -226,7 +227,7 @@ pub fn admin_cors_layer() -> CorsLayer {
             HeaderValue::from_static("x-rate-limit-remaining"),
         ])
         .allow_credentials(false) // Must be false when using Any origin
-        .max_age(Duration::from_secs(3600)) // 1 hour
+        .max_age(ONE_HOUR) // 1 hour
 }
 
 /// Get allowed origins specifically for admin endpoints
@@ -296,7 +297,7 @@ pub fn get_cors_config_summary() -> CorsConfigSummary {
         admin_origins: admin_origins.len(),
         production_mode: is_production(),
         credentials_allowed: true,
-        max_age_seconds: if is_production() { 86400 } else { 3600 },
+        max_age_seconds: if is_production() { CORS_MAX_AGE_PRODUCTION } else { CORS_MAX_AGE_DEVELOPMENT },
     }
 }
 

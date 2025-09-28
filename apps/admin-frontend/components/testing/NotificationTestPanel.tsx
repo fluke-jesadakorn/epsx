@@ -26,7 +26,7 @@ export function NotificationTestPanel() {
     type: 'user' as 'user' | 'broadcast',
     userEmail: 'info@epsx.io',
     title: 'Test Notification from Admin',
-    body: 'This is a test notification sent from the admin interface to verify FCM integration is working properly.',
+    body: 'This is a test notification sent from the admin interface to verify email notification system is working properly.',
     priority: 'normal' as 'normal' | 'high'
   })
 

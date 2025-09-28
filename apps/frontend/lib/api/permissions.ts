@@ -62,11 +62,11 @@ function handleApiError(error: any, context: string): never {
   const errorMessage = safeError(error).message;
   apiLogger.error(`Permissions API error in ${context}`, { error: errorMessage });
   
-  const permissionError: PermissionError = {
-    code: 'API_ERROR',
+  const permissionError = {
+    code: 'NETWORK_ERROR',
     message: errorMessage,
-    context,
-    timestamp: new Date().toISOString()
+    details: context,
+    timestamp: Date.now()
   };
 
   throw permissionError;
@@ -296,7 +296,7 @@ export async function hasPermission(permission: string, userId?: string): Promis
   try {
     const client = new PermissionsApiClient();
     const result = await client.validatePermission(permission, userId);
-    return result.isValid;
+    return result.valid_permissions.includes(permission);
   } catch (error) {
     apiLogger.error('Permission check failed', { permission, error: safeError(error).message });
     return false;
@@ -310,7 +310,7 @@ export async function hasAnyPermission(permissions: string[], userId?: string): 
   try {
     const client = new PermissionsApiClient();
     const results = await client.validatePermissions(permissions, userId);
-    return results.some(result => result.isValid);
+    return results.some(result => result.valid_permissions.length > 0);
   } catch (error) {
     apiLogger.error('Batch permission check failed', { permissions, error: safeError(error).message });
     return false;
@@ -324,7 +324,7 @@ export async function hasAllPermissions(permissions: string[], userId?: string):
   try {
     const client = new PermissionsApiClient();
     const results = await client.validatePermissions(permissions, userId);
-    return results.every(result => result.isValid);
+    return results.every(result => result.valid_permissions.length > 0);
   } catch (error) {
     apiLogger.error('Batch permission check failed', { permissions, error: safeError(error).message });
     return false;

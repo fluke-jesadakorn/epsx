@@ -6,9 +6,8 @@ pub mod telemetry;
 pub mod events;
 pub mod db;
 pub mod types;
-pub mod client_credential_service;
-// pub mod plugins;
-// pub mod plugin_examples;
+pub mod constants;
+// OIDC client credential service removed - using pure Web3 authentication
 
 // Using types::* for AppError (simplified version)
 pub use types::*;
@@ -22,5 +21,5 @@ pub use error_recovery::{
 pub use telemetry::{LogContext, PerformanceStats, Alert, AlertSeverity, TelemetryConfig};
 pub use events::{DomainEvent, EventEnvelope, StoredEvent, EventStream, Snapshot, EventHandler, Subscription, CircuitBreaker};
 pub use db::{DatabaseConnection, DatabaseTransaction, QueryBuilder, QueryFilter, QuerySort, DatabaseHealth, ConnectionInfo};
-pub use client_credential_service::{ClientCredentialService, ClientCredentials, ClientType};
-// pub use plugins::{Plugin, PluginManager, PluginRegistry, PluginMetadata, PluginConfig, PluginState, PluginFactory, TradingPlugin, DataProviderPlugin, NotificationPlugin};
+pub use constants::*;
+// OIDC client credential service exports removed - pure Web3 authentication

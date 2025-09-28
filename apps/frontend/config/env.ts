@@ -29,19 +29,9 @@ export const config = {
     walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'epsx-web3-frontend',
   },
   
-  // Client ID for OIDC (if needed)
-  clientId: env.CLIENT_ID,
-  
-  // Firebase for supplementary services (not auth)
-  firebase: {
-    apiKey: env.FIREBASE_API_KEY,
-    projectId: env.FIREBASE_PROJECT_ID,
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: env.FIREBASE_APP_ID,
-    measurementId: env.FIREBASE_MEASUREMENT_ID,
-  },
+  // Web3 blockchain configuration
+  blockchainNetwork: env.BLOCKCHAIN_NETWORK,
+  walletConnectProjectId: env.WALLETCONNECT_PROJECT_ID,
   
   // Environment flags
   isDev,

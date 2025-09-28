@@ -425,12 +425,4 @@ export const marketApiClient = new MarketApiClient();
 // Legacy export for backward compatibility
 export const StockApiClient = MarketApiClient;
 
-// Export types
-export type {
-  StockApiParams,
-  MarketSummary,
-  StockPrice,
-  StockChart,
-  StockFinancialData,
-  LocalStockFinancialData
-};
+// Types are available from their respective modules

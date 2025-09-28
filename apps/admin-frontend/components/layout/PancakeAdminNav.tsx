@@ -25,6 +25,20 @@ const navigationItems: NavItem[] = [
     label: 'Users',
     href: '/users',
     icon: '👥',
+    children: [
+      {
+        id: 'users-list',
+        label: 'User List',
+        href: '/users',
+        icon: '📋',
+      },
+      {
+        id: 'wallet-management',
+        label: 'Wallet Management',
+        href: '/wallet-management',
+        icon: '👛',
+      },
+    ]
   },
   {
     id: 'permissions',
@@ -68,7 +82,7 @@ const navigationItems: NavItem[] = [
 
 export function PancakeAdminNav() {
   const pathname = usePathname();
-  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set(['permissions']));
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set(['permissions', 'users']));
 
   const toggleExpanded = (itemId: string) => {
     const newExpanded = new Set(expandedItems);

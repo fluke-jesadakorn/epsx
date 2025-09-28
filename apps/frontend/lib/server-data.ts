@@ -53,6 +53,7 @@ export interface SymbolCardData {
   active_status: string
   quarterly_performance: QuarterlyPerformanceData[]
   next_quarter_estimate?: NextQuarterEstimate
+  currency?: string
 }
 
 export interface ServerAnalyticsResponse {
@@ -98,8 +99,6 @@ async function serverFetcher(url: string, options: RequestInit = {}) {
     const backendUrl = getBackendUrl('server')
     const fullUrl = url.startsWith('http') ? url : `${backendUrl}${url}`
     
-    
-    
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'User-Agent': 'EPSX-Frontend-Server/1.0',
@@ -118,7 +117,6 @@ async function serverFetcher(url: string, options: RequestInit = {}) {
       cache: 'no-store', // Ensure fresh data for serverless
     }
     
-    
     const response = await fetch(fullUrl, fetchConfig)
     
     if (!response.ok) {
@@ -129,7 +127,6 @@ async function serverFetcher(url: string, options: RequestInit = {}) {
       } catch (e) {
         console.warn('Could not parse error response as JSON:', e)
       }
-      
       
       // For 401 Unauthorized, return null instead of throwing for graceful handling
       if (response.status === 401) {
@@ -230,7 +227,6 @@ export async function getServerBatchStocks(symbols: string[]) {
  */
 export async function getServerAnalytics(filters: EPSQueryParams): Promise<ServerAnalyticsResponse> {
   try {
-    
     const params = new URLSearchParams()
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
@@ -238,122 +234,38 @@ export async function getServerAnalytics(filters: EPSQueryParams): Promise<Serve
       }
     })
     
-    const endpoint = `/api/v1/public/analytics/rankings?${params.toString()}`
+    // Try authenticated endpoint first
+    const authenticatedEndpoint = `/api/v1/analytics/rankings?${params.toString()}`
+    let result = await serverFetcher(authenticatedEndpoint)
     
-    const result = await serverFetcher(endpoint)
-    
-    // Handle unauthenticated users gracefully with mock data for development
+    // If authentication failed, try public endpoint with pagination
     if (result === null) {
-      
-      // Generate mock data for development
-      const mockRankings: SymbolCardData[] = [
-        {
-          rank: 1,
-          symbol: 'AAPL',
-          latest_date: '2024-Q3',
-          value: 150.25,
-          active_status: 'TRACK',
-          quarterly_performance: [
-            {
-              quarter: 'Q3 2024',
-              date: 'Oct 31, 2024',
-              price: 150.25,
-              eps: 1.46,
-              eps_growth: 12.5,
-              price_growth: 8.3,
-              is_estimated: false
-            },
-            {
-              quarter: 'Q2 2024',
-              date: 'Jul 31, 2024',
-              price: 142.80,
-              eps: 1.30,
-              eps_growth: 8.2,
-              price_growth: 5.1,
-              is_estimated: false
-            }
-          ],
-          next_quarter_estimate: {
-            quarter: '2025-Q1',
-            estimated_eps: 1.55,
-            announcement_date: 'Est. Jan 30, 2025',
-            announcement_timestamp: Date.now() + (45 * 24 * 60 * 60 * 1000),
-            days_until_announcement: 45,
-            confidence: 'High'
-          }
-        },
-        {
-          rank: 2,
-          symbol: 'MSFT',
-          latest_date: '2024-Q3',
-          value: 342.75,
-          active_status: 'TRACK',
-          quarterly_performance: [
-            {
-              quarter: 'Q3 2024',
-              date: 'Oct 24, 2024',
-              price: 342.75,
-              eps: 2.95,
-              eps_growth: 15.7,
-              price_growth: 12.4,
-              is_estimated: false
-            }
-          ],
-          next_quarter_estimate: {
-            quarter: '2025-Q1',
-            estimated_eps: 3.10,
-            announcement_date: 'Est. Jan 24, 2025',
-            announcement_timestamp: Date.now() + (38 * 24 * 60 * 60 * 1000),
-            days_until_announcement: 38,
-            confidence: 'High'
-          }
-        },
-        {
-          rank: 3,
-          symbol: 'GOOGL',
-          latest_date: '2024-Q3',
-          value: 138.45,
-          active_status: 'TRACK',
-          quarterly_performance: [
-            {
-              quarter: 'Q3 2024',
-              date: 'Oct 29, 2024',
-              price: 138.45,
-              eps: 1.55,
-              eps_growth: 9.8,
-              price_growth: 6.2,
-              is_estimated: false
-            }
-          ],
-          next_quarter_estimate: {
-            quarter: '2025-Q1',
-            estimated_eps: 1.68,
-            announcement_date: 'Est. Feb 4, 2025',
-            announcement_timestamp: Date.now() + (50 * 24 * 60 * 60 * 1000),
-            days_until_announcement: 50,
-            confidence: 'Medium'
-          }
-        }
-      ]
+      const publicEndpoint = `/api/v1/public/analytics/rankings?${params.toString()}`
+      result = await serverFetcher(publicEndpoint)
+    }
+    
+    // Handle case where both endpoints failed - should be rare now with real TradingView API
+    if (result === null) {
+      console.error('❌ Both authenticated and public TradingView endpoints failed')
       
       return {
-        success: true,
-        rankings: mockRankings,
+        success: false,
+        rankings: [],
         pagination: {
           page: filters.page || 1,
           limit: filters.limit || 10,
-          total: mockRankings.length,
-          totalPages: 1,
+          total: 0,
+          totalPages: 0,
           hasNext: false,
           hasPrev: false
         },
         metadata: {
-          available_countries: ['United States', 'Canada', 'United Kingdom'],
-          available_sectors: ['Technology', 'Healthcare', 'Financial Services'],
+          available_countries: [],
+          available_sectors: [],
           request_timestamp: new Date().toISOString(),
-          data_source: 'mock-development-data'
+          data_source: 'tradingview-api-unavailable'
         },
-        message: 'Showing mock data for development (authentication required for live data)'
+        message: 'TradingView API temporarily unavailable. Please try again later.'
       }
     }
     
@@ -369,7 +281,6 @@ export async function getServerAnalytics(filters: EPSQueryParams): Promise<Serve
           message: result.message,
           processing_time_ms: result.processing_time_ms
         }
-        
         
         return transformedResult
       }
@@ -440,7 +351,7 @@ export async function getServerAnalytics(filters: EPSQueryParams): Promise<Serve
 export async function getServerFilterOptions(): Promise<FilterOptions> {
   try {
     
-    const result = await serverFetcher('/api/v1/public/analytics/filters')
+    const result = await serverFetcher('/api/v1/analytics/filters')
     
     if (result === null) {
       return {
@@ -500,6 +411,127 @@ export async function getServerFilterOptions(): Promise<FilterOptions> {
 }
 
 /**
- * Create an alias for the main analytics function for easier imports
+ * Server-side portfolio data fetching for initial page load (positive growth only)
+ * Use only in Server Components, never in Server Actions
+ * Supports both authenticated and unauthenticated requests
+ */
+export async function getServerPortfolio(filters: EPSQueryParams): Promise<ServerAnalyticsResponse> {
+  try {
+    const params = new URLSearchParams()
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        params.append(key, String(value))
+      }
+    })
+    
+    // Try portfolio endpoint (positive growth only)
+    const portfolioEndpoint = `/api/v1/portfolio/rankings?${params.toString()}`
+    let result = await serverFetcher(portfolioEndpoint)
+    
+    // If portfolio endpoint failed, try public portfolio endpoint
+    if (result === null) {
+      const publicPortfolioEndpoint = `/api/v1/public/portfolio/rankings?${params.toString()}`
+      result = await serverFetcher(publicPortfolioEndpoint)
+    }
+    
+    // Handle case where both endpoints failed
+    if (result === null) {
+      console.error('❌ Both portfolio endpoints failed')
+      
+      return {
+        success: false,
+        rankings: [],
+        pagination: {
+          page: filters.page || 1,
+          limit: filters.limit || 10,
+          total: 0,
+          totalPages: 0,
+          hasNext: false,
+          hasPrev: false
+        },
+        metadata: {
+          available_countries: [],
+          available_sectors: [],
+          request_timestamp: new Date().toISOString(),
+          data_source: 'portfolio-api-unavailable'
+        },
+        message: 'Portfolio API temporarily unavailable. Please try again later.'
+      }
+    }
+    
+    // Transform the response to match our expected format
+    if (result && typeof result === 'object') {
+      // If the result has the expected structure, return it
+      if (result.rankings || result.data) {
+        const transformedResult: ServerAnalyticsResponse = {
+          success: true,
+          rankings: result.rankings || result.data || [],
+          pagination: result.pagination,
+          metadata: result.metadata,
+          message: result.message,
+          processing_time_ms: result.processing_time_ms
+        }
+        
+        return transformedResult
+      }
+      
+      // If it's an array, wrap it in our expected structure
+      if (Array.isArray(result)) {
+        return {
+          success: true,
+          rankings: result,
+          pagination: {
+            page: filters.page || 1,
+            limit: filters.limit || 10,
+            total: result.length,
+            totalPages: 1,
+            hasNext: false,
+            hasPrev: false
+          }
+        }
+      }
+    }
+    
+    console.warn('⚠️ Unexpected portfolio result format:', result)
+    return {
+      success: false,
+      rankings: [],
+      message: 'Unexpected response format from portfolio API'
+    }
+    
+  } catch (error) {
+    const errorDetails = {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      type: error instanceof Error ? error.constructor.name : typeof error,
+      status: error && typeof error === 'object' && 'status' in error ? error.status : undefined,
+      code: error && typeof error === 'object' && 'code' in error ? error.code : undefined,
+      cause: error instanceof Error && error.cause ? error.cause : undefined,
+      filters,
+      endpoint: `/api/v1/portfolio/rankings`,
+      timestamp: new Date().toISOString()
+    }
+    
+    console.error('💥 Failed to fetch server portfolio:', errorDetails)
+    
+    return {
+      success: false,
+      rankings: [],
+      message: `Failed to fetch portfolio data: ${errorDetails.message}`,
+      pagination: {
+        page: filters.page || 1,
+        limit: filters.limit || 10,
+        total: 0,
+        totalPages: 0,
+        hasNext: false,
+        hasPrev: false
+      }
+    }
+  }
+}
+
+/**
+ * Create aliases for the main functions for easier imports
  */
 export const getAnalyticsData = getServerAnalytics
+export const getPortfolioData = getServerPortfolio

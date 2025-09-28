@@ -1,8 +1,25 @@
 // Repository Ports for User Management
 // These define the interfaces for data persistence in the User Management bounded context
 
-pub mod user_repository_port;
+// Web3 wallet-based repository
+pub mod wallet_user_repository_port;
 pub mod session_repository_port;
 
-pub use user_repository_port::UserRepositoryPort;
-pub use session_repository_port::SessionRepositoryPort;
+// NEW - Web3 wallet user repository exports (primary)
+pub use wallet_user_repository_port::{
+    WalletUserRepositoryPort,
+    WalletUserAnalyticsPort,
+    WalletUserSearchCriteria,
+    WalletUserSearchResult,
+    WalletUserStatistics,
+    Web3Analytics,
+};
+
+
+pub use session_repository_port::{
+    SessionRepositoryPort,
+    SessionSearchCriteria,
+    SessionSearchResult,
+    SessionStatistics,
+    SessionAnalyticsPort
+};

@@ -267,7 +267,7 @@ mod tests {
 
     #[test]
     fn test_ranking_score_calculation() {
-        let eps_data = EPSGrowthData::new(
+        let mut eps_data = EPSGrowthData::new(
             "AAPL".to_string(),
             "Apple Inc.".to_string(),
             "america".to_string(),

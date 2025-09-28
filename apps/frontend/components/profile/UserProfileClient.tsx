@@ -135,7 +135,7 @@ export function UserProfileClient({ user }: UserProfileClientProps) {
 
           <div className="mt-6">
             <TabsContent value="web3">
-              <Web3Integration user={user} />
+              <Web3Integration />
             </TabsContent>
 
             <TabsContent value="account" className="space-y-6">

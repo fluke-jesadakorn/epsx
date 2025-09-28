@@ -1,9 +1,12 @@
 /**
  * Frontend Session API Route
- * Web3 Enterprise Authentication: Handles session management via wallet-based authentication
+ * Handles Web3 wallet session management via backend
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { env } from '@/config/env';
+
+const BACKEND_URL = env.BACKEND_URL;
 
 export async function GET() {
   try {
@@ -17,9 +20,8 @@ export async function GET() {
       }, { status: 401 });
     }
 
-    // Verify session with backend - use proper Web3 auth endpoint
-    const backendUrl = process.env.BACKEND_URL || 'http://localhost:8080';
-    const response = await fetch(`${backendUrl}/api/auth/web3/verify-session`, {
+    // Use the correct backend Web3 session endpoint
+    const response = await fetch(`${BACKEND_URL}/api/v1/auth/web3/session`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${accessToken}`,
@@ -28,76 +30,29 @@ export async function GET() {
     });
 
     if (!response.ok) {
-      console.error('❌ Backend API error:', {
-        status: response.status,
-        statusText: response.statusText,
-        url: `${backendUrl}/api/v1/enterprise/auth/permissions`
-      });
+      console.error('❌ Frontend: Backend session verification failed:', response.status);
       return NextResponse.json({
         isAuthenticated: false,
         error: 'Invalid session'
       }, { status: 401 });
     }
 
-    // Validate response has content and is JSON
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      console.error('❌ Backend response is not JSON:', {
-        contentType,
-        status: response.status,
-        url: `${backendUrl}/api/v1/enterprise/auth/permissions`
-      });
-      return NextResponse.json({
-        isAuthenticated: false,
-        error: 'Invalid backend response format'
-      }, { status: 502 });
-    }
-
-    // Check if response has content
-    const responseText = await response.text();
-    if (!responseText || responseText.trim() === '') {
-      console.error('❌ Backend response is empty:', {
-        status: response.status,
-        url: `${backendUrl}/api/v1/enterprise/auth/permissions`
-      });
-      return NextResponse.json({
-        isAuthenticated: false,
-        error: 'Empty backend response'
-      }, { status: 502 });
-    }
-
-    // Parse JSON with error handling
-    let enterpriseData;
-    try {
-      enterpriseData = JSON.parse(responseText);
-    } catch (jsonError) {
-      console.error('❌ JSON parsing error:', {
-        error: jsonError,
-        responseText: responseText.substring(0, 200), // First 200 chars for debugging
-        url: `${backendUrl}/api/v1/enterprise/auth/permissions`
-      });
-      return NextResponse.json({
-        isAuthenticated: false,
-        error: 'Invalid JSON response from backend'
-      }, { status: 502 });
-    }
+    const sessionData = await response.json();
     
-    // Return session data in expected format for compatibility
+    // Return session data in frontend-compatible format
     return NextResponse.json({
       isAuthenticated: true,
       user: {
-        wallet_address: enterpriseData.wallet_address,
-        enterprise_tier: enterpriseData.enterprise_tier,
-        permissions: enterpriseData.permissions || [],
-        has_api_access: enterpriseData.has_api_access || false,
-        verified_tokens_usd: enterpriseData.verified_tokens_usd || 0,
-        nft_collections: enterpriseData.nft_collections || [],
-        dao_memberships: enterpriseData.dao_memberships || [],
+        wallet_address: sessionData.wallet_address,
+        user_id: sessionData.user_id || sessionData.wallet_address,
+        permissions: sessionData.permissions || [],
+        tier: sessionData.tier || 'basic',
+        has_access: true,
       },
-      expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours from now
+      expiresAt: sessionData.expires_at,
     });
   } catch (error) {
-    console.error('Enterprise session verification error:', error);
+    console.error('❌ Frontend: Session verification error:', error);
     return NextResponse.json({
       isAuthenticated: false,
       error: 'Session verification failed'
@@ -108,22 +63,31 @@ export async function GET() {
 export async function DELETE() {
   try {
     const cookieStore = await cookies();
+    const accessToken = cookieStore.get('access_token')?.value;
     
-    // Clear Web3 enterprise authentication cookies
+    // Notify backend about logout if we have a token
+    if (accessToken) {
+      try {
+        await fetch(`${BACKEND_URL}/api/v1/auth/web3/logout`, {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        });
+      } catch (error) {
+        console.warn('❌ Frontend: Failed to notify backend about logout:', error);
+        // Continue with local logout even if backend fails
+      }
+    }
+    
+    // Clear authentication cookies
     const response = NextResponse.json({ 
       success: true, 
-      message: 'Enterprise session cleared successfully' 
+      message: 'Session cleared successfully' 
     });
     
     response.cookies.set('access_token', '', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 0,
-      path: '/',
-    });
-    
-    response.cookies.set('id_token', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -147,12 +111,12 @@ export async function DELETE() {
       path: '/',
     });
 
-    console.log('✅ Enterprise session cookies cleared successfully');
+    console.log('✅ Frontend: Session cookies cleared successfully');
     return response;
   } catch (error) {
-    console.error('❌ Enterprise session clearing error:', error);
+    console.error('❌ Frontend: Session clearing error:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to clear enterprise session' },
+      { success: false, error: 'Failed to clear session' },
       { status: 500 }
     );
   }

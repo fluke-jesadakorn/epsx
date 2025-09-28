@@ -481,7 +481,7 @@ export interface ThirdPartyIntegration {
   id: string;
   name: string;
   type: 'oauth2' | 'api_key' | 'webhook' | 'custom';
-  provider: string; // e.g., 'stripe', 'firebase', 'sendgrid'
+  provider: string; // e.g., 'stripe', 'sendgrid', 'web3'
   configuration: Record<string, any>;
   credentials: Record<string, string>; // Encrypted in storage
   permissions: string[];

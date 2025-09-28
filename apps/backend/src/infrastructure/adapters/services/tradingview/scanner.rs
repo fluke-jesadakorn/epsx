@@ -624,6 +624,10 @@ impl TradingViewScanner {
             trend_direction: None,
             avg_growth_rate: None,
             consistency_score: None,
+            currency: {
+                let currency = get_string(&stock.d, 11, "USD"); // currency field from TradingView
+                if !currency.is_empty() { Some(currency) } else { Some("USD".to_string()) }
+            },
         }
     }
 

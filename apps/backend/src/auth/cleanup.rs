@@ -249,23 +249,12 @@ lazy_static::lazy_static! {
 }
 
 /// Cleanup statistics
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CleanupStats {
     pub total_refresh_tokens_cleaned: u64,
     pub total_revoked_tokens_cleaned: u64,
     pub total_cleanup_runs: u64,
     pub last_cleanup: Option<chrono::DateTime<Utc>>,
-}
-
-impl Default for CleanupStats {
-    fn default() -> Self {
-        Self {
-            total_refresh_tokens_cleaned: 0,
-            total_revoked_tokens_cleaned: 0,
-            total_cleanup_runs: 0,
-            last_cleanup: None,
-        }
-    }
 }
 
 /// Result of a cleanup operation
@@ -358,7 +347,7 @@ mod tests {
             ..CleanupConfig::default()
         };
         
-        let service = TokenCleanupService::new(config);
+        let mut service = TokenCleanupService::new(config);
         let result = service.start().await;
         
         assert!(result.is_ok());

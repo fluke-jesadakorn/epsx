@@ -144,7 +144,7 @@ test.describe('🔒 Complete Protected Pages Coverage', () => {
     const mainPages = [
       { path: '/dashboard', name: 'Dashboard' },
       { path: '/trading', name: 'Trading Interface' },
-      { path: '/my-data', name: 'My Data' },
+      { path: '/portfolio', name: 'Portfolio' },
       { path: '/settings', name: 'Settings' },
     ];
 
@@ -262,7 +262,7 @@ test.describe('🔧 Complete Form Interaction Coverage', () => {
       { path: '/settings', formType: 'user settings' },
       { path: '/analytics/eps', formType: 'analytics search' },
       { path: '/analytics/pattern-recognition', formType: 'pattern search' },
-      { path: '/my-data', formType: 'data filters' },
+      { path: '/portfolio', formType: 'data filters' },
     ];
 
     for (const formPage of pagesWithForms) {
@@ -425,7 +425,7 @@ test.describe('⚡ Complete Performance and Error Coverage', () => {
 
     const allPages = [
       '/', '/dashboard', '/trading', '/analytics', '/analytics/eps',
-      '/analytics/pattern-recognition', '/settings', '/my-data',
+      '/analytics/pattern-recognition', '/settings', '/portfolio',
       '/payment', '/payment/quick', '/payment/enterprise'
     ];
 
@@ -470,7 +470,7 @@ test.describe('⚡ Complete Performance and Error Coverage', () => {
     const apiDependentPages = [
       '/dashboard',
       '/analytics/eps',
-      '/my-data',
+      '/portfolio',
       '/settings',
       '/trading',
     ];
@@ -579,7 +579,7 @@ test.describe('🔄 Complete User Journey Coverage', () => {
       '/trading',
       '/payment/quick',
       '/dashboard',
-      '/my-data',
+      '/portfolio',
     ];
 
     for (const step of navigationPattern) {

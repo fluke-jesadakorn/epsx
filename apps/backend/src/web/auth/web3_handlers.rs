@@ -11,39 +11,62 @@ use serde_json::{json, Value};
 // use std::sync::Arc; // Removed - unused import
 use tracing::{info, error, warn};
 
+use utoipa::{ToSchema, IntoParams};
+
 use crate::{
-    // auth::web3_permission_service::Web3PermissionService, // Used via container methods
-    domain::authentication::services::web3_auth_service::{
-        // Web3AuthService, // Used via container methods
+    auth::unified_web3_auth_service::{
         Web3VerificationRequest, Web3AuthError,
     },
     web::auth::routes::AppState,
 };
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct ChallengeRequest {
+    /// Ethereum wallet address
+    #[schema(example = "0x1234567890123456789012345678901234567890")]
     pub wallet_address: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct SignatureVerificationRequest {
+    /// SIWE message that was signed
     pub message: String,
+    /// Cryptographic signature from wallet
     pub signature: String,
+    /// Ethereum wallet address
+    #[schema(example = "0x1234567890123456789012345678901234567890")]
     pub wallet_address: String,
+    /// Challenge nonce
+    #[schema(example = "abc123def456")]
     pub nonce: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct LogoutRequest {
+    /// Ethereum wallet address to logout
+    #[schema(example = "0x1234567890123456789012345678901234567890")]
     pub wallet_address: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema, IntoParams)]
 pub struct PermissionCheckQuery {
+    /// Permission to check (format: platform:resource:action)
+    #[schema(example = "epsx:analytics:read")]
     pub permission: String,
 }
 
-/// POST /api/v1/auth/web3/challenge - Generate SIWE challenge
+/// Generate SIWE challenge for Web3 authentication
+#[utoipa::path(
+    post,
+    path = "/api/auth/web3/challenge",
+    request_body = ChallengeRequest,
+    responses(
+        (status = 200, description = "Challenge generated successfully", body = Value),
+        (status = 400, description = "Invalid wallet address", body = Value),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "auth"
+)]
 pub async fn generate_challenge_handler(
     State(app_state): State<AppState>,
     Json(request): Json<ChallengeRequest>,
@@ -51,7 +74,7 @@ pub async fn generate_challenge_handler(
     info!("Generating Web3 challenge for wallet: {}", request.wallet_address);
 
     // Get Web3 auth service from domain container
-    let web3_auth_service = match app_state.domain_container.get_web3_auth_service() {
+    let web3_auth_service = match app_state.domain_container.get_unified_web3_auth_service() {
         Some(service) => service,
         None => {
             error!("Web3 auth service not available");
@@ -70,7 +93,7 @@ pub async fn generate_challenge_handler(
                 "wallet_address": challenge.wallet_address
             })))
         }
-        Err(Web3AuthError::InvalidWalletAddress { address }) => {
+        Err(Web3AuthError::InvalidWalletAddress(address)) => {
             warn!("Invalid wallet address format: {}", address);
             Ok(Json(json!({
                 "success": false,
@@ -85,7 +108,19 @@ pub async fn generate_challenge_handler(
     }
 }
 
-/// POST /api/v1/auth/web3/verify - Verify SIWE signature and authenticate
+/// Verify SIWE signature and authenticate wallet
+#[utoipa::path(
+    post,
+    path = "/api/auth/web3/verify",
+    request_body = SignatureVerificationRequest,
+    responses(
+        (status = 200, description = "Signature verified successfully", body = Value),
+        (status = 400, description = "Invalid signature or expired challenge", body = Value),
+        (status = 401, description = "Authentication failed", body = Value),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "auth"
+)]
 pub async fn verify_signature_handler(
     State(app_state): State<AppState>,
     Json(request): Json<SignatureVerificationRequest>,
@@ -93,7 +128,7 @@ pub async fn verify_signature_handler(
     info!("Verifying Web3 signature for wallet: {}", request.wallet_address);
 
     // Get services from domain container
-    let web3_auth_service = match app_state.domain_container.get_web3_auth_service() {
+    let web3_auth_service = match app_state.domain_container.get_unified_web3_auth_service() {
         Some(service) => service,
         None => {
             error!("Web3 auth service not available");
@@ -101,7 +136,7 @@ pub async fn verify_signature_handler(
         }
     };
 
-    let web3_permission_service = match app_state.domain_container.get_web3_permission_service() {
+    let web3_permission_service = match app_state.domain_container.get_web3_permission_adapter() {
         Some(service) => service,
         None => {
             error!("Web3 permission service not available");
@@ -109,7 +144,7 @@ pub async fn verify_signature_handler(
         }
     };
 
-    let web3_group_bridge = app_state.domain_container.get_web3_group_bridge();
+    // Web3 group bridge functionality integrated into permission service
 
     // Verify signature using Web3AuthService
     let verification_request = Web3VerificationRequest {
@@ -119,37 +154,13 @@ pub async fn verify_signature_handler(
         nonce: request.nonce,
     };
 
-    match web3_auth_service.verify_signature(verification_request).await {
+    match web3_auth_service.verify_and_authenticate(verification_request).await {
         Ok(auth_result) => {
-            if !auth_result.is_valid {
-                warn!("Invalid signature for wallet: {}", request.wallet_address);
-                return Ok(Json(json!({
-                    "success": false,
-                    "authenticated": false,
-                    "error": "invalid_signature",
-                    "message": "Signature verification failed"
-                })));
-            }
+            // Signature verification successful - auth_result contains validated data
+            info!("Signature verification successful for wallet: {}", auth_result.wallet_address);
 
-            // Authentication successful - process automatic group assignments
-            let group_assignment_result = if let Some(bridge) = web3_group_bridge {
-                match bridge.process_wallet_group_assignments(&auth_result.wallet_address).await {
-                    Ok(result) => {
-                        info!(
-                            "Processed group assignments for {}: {} groups assigned",
-                            auth_result.wallet_address,
-                            result.groups_assigned.len()
-                        );
-                        Some(result)
-                    }
-                    Err(e) => {
-                        error!("Failed to process group assignments: {}", e);
-                        None
-                    }
-                }
-            } else {
-                None
-            };
+            // Authentication successful - permissions handled by Web3PermissionService
+            info!("Authentication successful for wallet: {}", auth_result.wallet_address);
 
             // Also process legacy automatic permissions for backward compatibility
             let permissions_granted = match web3_permission_service
@@ -175,31 +186,24 @@ pub async fn verify_signature_handler(
                 }
             };
 
-            let groups_assigned_count = group_assignment_result
-                .as_ref()
-                .map(|r| r.groups_assigned.len())
-                .unwrap_or(0);
-
             info!(
-                "Successful Web3 authentication for wallet: {}, granted {} permissions, assigned to {} groups",
-                request.wallet_address,
-                permissions_granted.len(),
-                groups_assigned_count
+                "Successful Web3 authentication for wallet: {}, granted {} permissions",
+                auth_result.wallet_address,
+                permissions_granted.len()
             );
 
             Ok(Json(json!({
                 "success": true,
                 "authenticated": true,
-                "user_id": auth_result.user_id,
+                "is_new_user": auth_result.is_new_user,
                 "wallet_address": auth_result.wallet_address,
                 "permissions": user_permissions,
                 "permissions_granted": permissions_granted,
-                "groups_assigned": group_assignment_result.as_ref().map(|r| &r.groups_assigned).unwrap_or(&Vec::new()),
-                "group_assignment_errors": group_assignment_result.as_ref().map(|r| &r.verification_errors).unwrap_or(&Vec::new()),
-                "security_context": auth_result.security_context
+                "access_token": auth_result.access_token,
+                "tier_level": auth_result.tier_level
             })))
         }
-        Err(Web3AuthError::ChallengeNotFound) => {
+        Err(Web3AuthError::ExpiredNonce(_)) => {
             warn!("Challenge not found or expired for wallet: {}", request.wallet_address);
             Ok(Json(json!({
                 "success": false,
@@ -208,7 +212,7 @@ pub async fn verify_signature_handler(
                 "message": "Challenge not found or expired. Please request a new challenge."
             })))
         }
-        Err(Web3AuthError::InvalidSignature) => {
+        Err(Web3AuthError::InvalidSignature(_)) => {
             warn!("Invalid signature for wallet: {}", request.wallet_address);
             Ok(Json(json!({
                 "success": false,
@@ -217,7 +221,7 @@ pub async fn verify_signature_handler(
                 "message": "Invalid signature provided"
             })))
         }
-        Err(Web3AuthError::ChallengeAlreadyUsed) => {
+        Err(Web3AuthError::ChallengeAlreadyUsed(_)) => {
             warn!("Challenge already used for wallet: {}", request.wallet_address);
             Ok(Json(json!({
                 "success": false,
@@ -233,7 +237,17 @@ pub async fn verify_signature_handler(
     }
 }
 
-/// DELETE /api/v1/auth/web3/logout - Logout (invalidate session)
+/// Logout and invalidate Web3 session
+#[utoipa::path(
+    delete,
+    path = "/api/auth/web3/logout",
+    request_body = LogoutRequest,
+    responses(
+        (status = 200, description = "Logout successful", body = Value),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "auth"
+)]
 pub async fn logout_handler(
     State(_app_state): State<AppState>,
     Json(request): Json<LogoutRequest>,
@@ -251,7 +265,17 @@ pub async fn logout_handler(
     })))
 }
 
-/// GET /api/v1/auth/web3/session - Get current session status
+/// Get current Web3 session status
+#[utoipa::path(
+    get,
+    path = "/api/auth/web3/session",
+    responses(
+        (status = 200, description = "Session status retrieved", body = Value),
+        (status = 401, description = "Not authenticated", body = Value),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "auth"
+)]
 pub async fn get_session_handler(
     State(app_state): State<AppState>,
     // TODO: Extract wallet address from auth middleware context
@@ -262,7 +286,7 @@ pub async fn get_session_handler(
 
     info!("Getting session for wallet: {}", wallet_address);
 
-    let web3_permission_service = match app_state.domain_container.get_web3_permission_service() {
+    let web3_permission_service = match app_state.domain_container.get_web3_permission_adapter() {
         Some(service) => service,
         None => {
             error!("Web3 permission service not available");
@@ -290,7 +314,20 @@ pub async fn get_session_handler(
     })))
 }
 
-/// POST /api/v1/auth/web3/permissions/check - Check specific permission
+/// Check if wallet has specific permission
+#[utoipa::path(
+    post,
+    path = "/api/auth/web3/permissions/check",
+    params(
+        PermissionCheckQuery
+    ),
+    responses(
+        (status = 200, description = "Permission check result", body = Value),
+        (status = 401, description = "Not authenticated", body = Value),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "auth"
+)]
 pub async fn check_permission_handler(
     State(app_state): State<AppState>,
     Query(query): Query<PermissionCheckQuery>,
@@ -305,7 +342,7 @@ pub async fn check_permission_handler(
         query.permission, wallet_address
     );
 
-    let web3_permission_service = match app_state.domain_container.get_web3_permission_service() {
+    let web3_permission_service = match app_state.domain_container.get_web3_permission_adapter() {
         Some(service) => service,
         None => {
             error!("Web3 permission service not available");
@@ -357,7 +394,7 @@ pub async fn grant_permission_handler(
         permission, wallet_address, expires_at
     );
 
-    let web3_permission_service = match app_state.domain_container.get_web3_permission_service() {
+    let web3_permission_service = match app_state.domain_container.get_web3_permission_adapter() {
         Some(service) => service,
         None => {
             error!("Web3 permission service not available");
@@ -369,14 +406,14 @@ pub async fn grant_permission_handler(
         .grant_manual_permission(wallet_address, permission, None, expires_at)
         .await
     {
-        Ok(permission_id) => {
+        Ok(()) => {
             info!(
-                "Granted permission '{}' to wallet: {} with ID: {}",
-                permission, wallet_address, permission_id
+                "Granted permission '{}' to wallet: {}",
+                permission, wallet_address
             );
             Ok(Json(json!({
                 "success": true,
-                "permission_id": permission_id,
+                "operation": "grant_permission",
                 "wallet_address": wallet_address,
                 "permission": permission,
                 "expires_at": expires_at,
@@ -410,7 +447,7 @@ pub async fn revoke_permission_handler(
         permission, wallet_address
     );
 
-    let web3_permission_service = match app_state.domain_container.get_web3_permission_service() {
+    let web3_permission_service = match app_state.domain_container.get_web3_permission_adapter() {
         Some(service) => service,
         None => {
             error!("Web3 permission service not available");
@@ -422,22 +459,13 @@ pub async fn revoke_permission_handler(
         .revoke_permission(wallet_address, permission)
         .await
     {
-        Ok(was_revoked) => {
-            if was_revoked {
-                info!(
-                    "Successfully revoked permission '{}' from wallet: {}",
-                    permission, wallet_address
-                );
-            } else {
-                warn!(
-                    "Permission '{}' was not found for wallet: {}",
-                    permission, wallet_address
-                );
-            }
-
+        Ok(()) => {
+            info!(
+                "Successfully revoked permission '{}' from wallet: {}",
+                permission, wallet_address
+            );
             Ok(Json(json!({
                 "success": true,
-                "revoked": was_revoked,
                 "wallet_address": wallet_address,
                 "permission": permission,
                 "revoked_at": chrono::Utc::now()

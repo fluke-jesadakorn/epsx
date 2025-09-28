@@ -1,7 +1,6 @@
 import { getCurrentUser } from '@/lib/server-actions';
 import { PaymentPageClient } from './PaymentPageClient';
 import { PaymentStatusServer } from '@/components/sections/payment/PaymentStatusServer';
-import { RequireBillingAccess } from '@/lib/permissions/guards';
 import { Suspense } from 'react';
 
 export const dynamic = 'force-dynamic';
@@ -47,41 +46,23 @@ export default async function PaymentPage({ searchParams }: PaymentPageProps) {
         {/* Always show pricing plans - no auth required */}
         <PaymentPageClient selectedPackageId={selectedPackageId} />
 
-        {/* Payment status requires billing permissions */}
+        {/* Payment status - backend will handle permissions */}
         <div className="mb-12">
-          <RequireBillingAccess
+          <Suspense
             fallback={
-              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-pink-200/50 dark:border-pink-700/50 text-center">
-                <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-pink-400 to-purple-400 rounded-full flex items-center justify-center">
-                  <span className="text-2xl">💳</span>
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-pink-200/50 dark:border-pink-700/50">
+                <div>
+                  <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
+                  <div className="space-y-3">
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
+                  </div>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Billing Access Required</h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-4">Sign in to view your payment status and transaction history.</p>
-                <button 
-                  className="px-6 py-2 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-xl font-medium hover:shadow-lg transition-all"
-                  onClick={() => window.location.href = '/api/auth/web3/authenticate'}
-                >
-                  Connect Wallet
-                </button>
               </div>
             }
           >
-            <Suspense
-              fallback={
-                <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-pink-200/50 dark:border-pink-700/50">
-                  <div>
-                    <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
-                    <div className="space-y-3">
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
-                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
-                    </div>
-                  </div>
-                </div>
-              }
-            >
-              <PaymentStatusServer className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-pink-200/50 dark:border-pink-700/50" />
-            </Suspense>
-          </RequireBillingAccess>
+            <PaymentStatusServer className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-pink-200/50 dark:border-pink-700/50" />
+          </Suspense>
         </div>
       </div>
     </main>

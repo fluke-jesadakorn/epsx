@@ -69,7 +69,7 @@ impl RevokedTokenRepository {
 pub struct RefreshToken {
     pub id: Uuid,
     pub token: String,
-    pub user_id: Uuid,
+    pub wallet_address: Uuid,
     pub expires_at: DateTime<Utc>,
     pub created_at: DateTime<Utc>,
 }
@@ -77,62 +77,12 @@ pub struct RefreshToken {
 #[derive(Debug, Clone)]
 pub struct NewRefreshToken {
     pub token: String,
-    pub user_id: Uuid,
+    pub wallet_address: Uuid,
     pub expires_at: DateTime<Utc>,
 }
 
-// User Dynamic Limits
-#[derive(Debug, Clone)]
-pub struct UserDynamicLimit {
-    pub id: Uuid,
-    pub user_id: Uuid,
-    pub resource: String,
-    pub limit_type: String,
-    pub limit_value: i32,
-    pub window_seconds: i32,
-    pub created_at: DateTime<Utc>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ResolvedUserLimits {
-    pub user_id: Option<Uuid>,
-    pub ranking_limit: i32,
-    pub api_minute_limit: i32,
-    pub daily_limit: i32,
-    pub weekly_limit: i32,
-    pub monthly_limit: i32,
-    pub total_limit: i32,
-    pub has_premium_features: bool,
-    pub is_admin: bool,
-}
-
-impl ResolvedUserLimits {
-    pub fn new(ranking_limit: i32, api_minute_limit: i32, has_premium_features: bool, is_admin: bool) -> Self {
-        Self {
-            user_id: None,
-            ranking_limit,
-            api_minute_limit,
-            daily_limit: api_minute_limit * 24,
-            weekly_limit: api_minute_limit * 24 * 7,
-            monthly_limit: api_minute_limit * 24 * 30,
-            total_limit: api_minute_limit * 24 * 365,
-            has_premium_features,
-            is_admin,
-        }
-    }
-    
-    pub fn default_free() -> Self {
-        Self::new(3, 10, false, false)
-    }
-    
-    pub fn default_premium() -> Self {
-        Self::new(100, 100, true, false)
-    }
-    
-    pub fn default_admin() -> Self {
-        Self::new(1000, 1000, true, true)
-    }
-}
+// User limits types have been moved to domain/shared_kernel/value_objects/user_limits.rs
+// for proper clean architecture separation
 
 // Notification Types
 #[derive(Debug, Clone)]
@@ -162,7 +112,7 @@ impl NotificationRepositoryAdapter {
     pub async fn deliver_notification_to_user(
         &self,
         _notification: &crate::domain::notification::aggregates::notification::Notification,
-        _user_id: uuid::Uuid,
+        _wallet_address: uuid::Uuid,
         _fcm_token: Option<String>,
         _email: Option<String>,
     ) -> Result<Vec<crate::domain::notification::aggregates::notification::DeliveryResult>, crate::application::ApplicationError> {
@@ -191,7 +141,7 @@ impl NotificationMapper {
     }
     
     pub fn create_ddd_notification_from_legacy(
-        _recipient_user_id: Option<Uuid>,
+        _recipient_wallet_address: Option<Uuid>,
         _fcm_topic_id: Option<String>,
         _title: String,
         _body: String,
@@ -213,7 +163,7 @@ impl NotificationMapper {
 // User response types for API compatibility
 #[derive(Debug, Clone)]
 pub struct UserUpdateResponse {
-    pub user_id: String,
+    pub wallet_address: String,
     pub email: String,
     pub email_verified: bool,
     pub is_active: bool,
@@ -221,9 +171,9 @@ pub struct UserUpdateResponse {
 }
 
 impl UserUpdateResponse {
-    pub fn placeholder(user_id: String, email: String) -> Self {
+    pub fn placeholder(wallet_address: String, email: String) -> Self {
         Self {
-            user_id,
+            wallet_address,
             email,
             email_verified: true,
             is_active: true,
@@ -234,12 +184,12 @@ impl UserUpdateResponse {
 
 #[derive(Debug, Clone)]
 pub struct UserCreateResponse {
-    pub user_id: String,
+    pub wallet_address: String,
 }
 
 impl UserCreateResponse {
-    pub fn new(user_id: String) -> Self {
-        Self { user_id }
+    pub fn new(wallet_address: String) -> Self {
+        Self { wallet_address }
     }
 }
 
@@ -278,7 +228,7 @@ pub struct UpdateUser {
 #[derive(Debug, Clone)]
 pub struct Session {
     pub id: uuid::Uuid,
-    pub user_id: uuid::Uuid,
+    pub wallet_address: uuid::Uuid,
     pub access_token: String,
     pub expires_at: chrono::DateTime<chrono::Utc>,
     pub created_at: chrono::DateTime<chrono::Utc>,
@@ -291,7 +241,7 @@ pub struct Session {
 #[derive(Debug, Clone)]
 pub struct NewSession {
     pub id: uuid::Uuid,
-    pub user_id: uuid::Uuid,
+    pub wallet_address: uuid::Uuid,
     pub access_token: String,
     pub expires_at: chrono::DateTime<chrono::Utc>,
     pub provider: Option<String>,

@@ -79,7 +79,7 @@ pub struct PermissionInfo {
 /// User permissions summary
 #[derive(Debug, Serialize)]
 pub struct UserPermissionsSummary {
-    pub user_id: String,
+    pub wallet_address: String,
     pub permissions: Vec<PermissionInfo>,
     pub permission_version: u32,
     pub last_updated: DateTime<Utc>,
@@ -231,7 +231,7 @@ pub async fn grant_permission(
     // Fire notification event
     // Removed: notification events - will be re-implemented
     /*let event = NotificationTriggerEvent::PermissionGranted {
-        user_id: crate::domain::shared_kernel::value_objects::UserId::new(user_id.clone()),
+        wallet_address: crate::domain::shared_kernel::value_objects::UserId::new(user_id.clone()),
         permission: request.permission.clone(),
         granted_by: crate::domain::shared_kernel::value_objects::UserId::new(admin.user_id.clone()),
         granted_at: Utc::now(),
@@ -339,7 +339,7 @@ pub async fn revoke_permission(
     // Fire notification event
     // Removed: notification events - will be re-implemented
     /*let event = NotificationTriggerEvent::PermissionRevoked {
-        user_id: crate::domain::shared_kernel::value_objects::UserId::new(user_id.clone()),
+        wallet_address: crate::domain::shared_kernel::value_objects::UserId::new(user_id.clone()),
         permission: request.permission.clone(),
         revoked_by: crate::domain::shared_kernel::value_objects::UserId::new(admin.user_id.clone()),
         revoked_at: Utc::now(),
@@ -465,7 +465,7 @@ pub async fn list_user_permissions(
     ];
 
     let summary = UserPermissionsSummary {
-        user_id: actual_user_id.clone(),
+        wallet_address: actual_user_id.clone(),
         permissions: mock_permissions.clone(),
         permission_version: 1,
         last_updated: now,

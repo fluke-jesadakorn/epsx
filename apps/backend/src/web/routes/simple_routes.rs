@@ -48,13 +48,20 @@ impl SimpleRouteBuilder {
         // Analytics routes
         let analytics_routes = self.create_analytics_routes();
 
+        // Create documentation routes (always available, public access)
+        let docs_routes = crate::web::docs::create_docs_routes();
+        
         // Combine all routes with clean structure - all are Router<()> now
-        Router::new()
-            // Core routes
+        let mut router = Router::new()
+            // Core routes (public)
             .merge(health_routes)
-            
+            // ⚡ CRITICAL: Add documentation routes FIRST as public routes (no auth required)
+            .merge(docs_routes);
+        
+        router = router
             // ⚡ CRITICAL: Permission Authority API - THE SINGLE SOURCE OF TRUTH
-            // Permission authority routes are now properly integrated via admin routes
+            // Permission authority routes must be accessible at root level for frontend/admin
+            .merge(self.create_permission_authority_routes())
             .route("/api/permissions/health", get(|| async { Json(json!({"permission_authority": "ready", "integrated": true})) }))
             
             // Authentication (Web3-first)
@@ -67,13 +74,19 @@ impl SimpleRouteBuilder {
             .nest("/api/v1/public", self.create_public_routes())
             
             // Admin interface  
-            .nest("/admin", admin_routes)
+            .nest("/admin", admin_routes.clone())
+            
+            // ⚡ CRITICAL: Admin API routes for frontend compatibility
+            // Admin frontend expects /api/admin/* routes, so we proxy to existing handlers
+            .nest("/api/admin", admin_routes)
             
             // User interface (pure Web3)
             .nest("/user", self.create_user_routes())
             
             // Analytics endpoints
-            .nest("/analytics", analytics_routes)
+            .nest("/analytics", analytics_routes);
+        
+        router
             
             // TODO: Add unified middleware once signature is fixed
             // .layer(middleware::from_fn_with_state(
@@ -84,18 +97,38 @@ impl SimpleRouteBuilder {
 
     /// Create Pure Web3 authentication routes (no sessions)
     fn create_auth_routes(&self) -> Router {
-        // Pure Web3 auth routes - signature validation only, no sessions
-        // let pure_web3_auth_routes = crate::web::auth::pure_web3_auth_routes::create_pure_web3_auth_routes()
-        //     .with_state(self.container.as_ref().clone());
-            
-        // Legacy OIDC routes for backward compatibility (if needed)  
-        // let oidc_routes = crate::web::auth::oidc_compat_routes::create_routes()
-        //     .with_state(self.container.as_ref().clone()); // Removed - routes no longer exist
-            
-        // Return empty router for now since routes were removed
+        use crate::web::auth::web3_handlers::{
+            generate_challenge_handler,
+            verify_signature_handler,
+            logout_handler,
+            get_session_handler,
+            check_permission_handler,
+            grant_permission_handler,
+            revoke_permission_handler,
+        };
+        use crate::web::auth::routes::AppState;
+        use axum::routing::{get, post, delete};
+        
+        // Create AppState for the auth routes
+        let app_state = AppState::new(
+            self.container.db_pool(),
+            self.container.cache.as_ref().unwrap().clone(),
+            self.container.clone(),
+        );
+        
+        // Create Web3 authentication routes directly with correct paths
         Router::new()
-            // TODO: Re-add auth routes when services are restored
-            .route("/health", get(|| async { Json(json!({"auth": "placeholder"})) }))
+            // Web3 auth endpoints (no /api/v1 prefix since we're nesting under /api/auth)
+            .route("/web3/challenge", post(generate_challenge_handler))
+            .route("/web3/verify", post(verify_signature_handler))
+            .route("/web3/logout", delete(logout_handler))
+            .route("/web3/session", get(get_session_handler))
+            .route("/web3/permissions/check", post(check_permission_handler))
+            .route("/web3/permissions/grant", post(grant_permission_handler))
+            .route("/web3/permissions/revoke", delete(revoke_permission_handler))
+            // Health check
+            .route("/health", get(|| async { Json(json!({"auth": "healthy"})) }))
+            .with_state(app_state)
     }
 
     /// Create API v1 routes (payments, plans, analytics, etc.)
@@ -112,7 +145,7 @@ impl SimpleRouteBuilder {
             // .nest("/plans", plans_routes) // Removed - legacy plan system deprecated
             .nest("/progressive", progressive_routes)
             .nest("/analytics", analytics_routes)
-            .nest("/enterprise", self.create_enterprise_routes())
+            .nest("/notifications", self.create_notification_routes())
     }
     
     /// Create API v1 analytics routes to match frontend expectations
@@ -156,12 +189,6 @@ impl SimpleRouteBuilder {
             .route("/plans", get(crate::web::public::plans_handler::get_public_plans))
     }
     
-    /// Create enterprise API routes to match frontend expectations
-    fn create_enterprise_routes(&self) -> Router {
-        Router::new()
-            // Removed enterprise routes due to missing web3_routes
-            .route("/health", get(|| async { Json(json!({"enterprise": "placeholder"})) }))
-    }
 }
 
 impl SimpleRouteBuilder {
@@ -223,5 +250,60 @@ impl SimpleRouteBuilder {
             .merge(rankings_route)
             .route("/status", get(|| async { "analytics_ok" }))
             // .with_state(self.container.infra()) // Removed - lifetime issues
+    }
+
+    /// Create SSE notification routes for real-time updates
+    fn create_notification_routes(&self) -> Router {
+        use axum::routing::{get, post};
+        
+        // Create AppState with proper cache fallback
+        let cache = self.container.cache.clone()
+            .unwrap_or_else(|| {
+                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
+                    as Arc<dyn crate::infrastructure::cache::Cache>
+            });
+            
+        let app_state = crate::web::auth::AppState::new(
+            self.container.db_pool(),
+            cache,
+            Arc::new((*self.container).clone()),
+        );
+
+        Router::new()
+            // SSE stream endpoint for real-time notifications
+            .route("/stream", get(crate::web::notifications::sse_notifications_handler))
+            
+            // Admin endpoints for sending notifications
+            .route("/send", post(crate::web::notifications::send_sse_notification_handler))
+            .route("/broadcast", post(crate::web::notifications::broadcast_sse_notification_handler))
+            
+            // Health check for SSE system
+            .route("/health", get(crate::web::notifications::sse_health_handler))
+            
+            .with_state(app_state)
+    }
+
+    /// Create permission authority routes accessible at root level
+    fn create_permission_authority_routes(&self) -> Router {
+        // Create AppState with proper cache fallback
+        let cache = self.container.cache.clone()
+            .unwrap_or_else(|| {
+                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
+                    as Arc<dyn crate::infrastructure::cache::Cache>
+            });
+            
+        let app_state = crate::web::auth::AppState::new(
+            self.container.db_pool(),
+            cache,
+            Arc::new((*self.container).clone()),
+        );
+        
+        // Create permission authority routes with proper state and middleware
+        crate::web::admin::routes::create_permission_authority_routes()
+            .with_state(app_state.clone())
+            .layer(axum::middleware::from_fn_with_state(
+                app_state.clone(),
+                crate::web::middleware::permission_validation_middleware
+            ))
     }
 }

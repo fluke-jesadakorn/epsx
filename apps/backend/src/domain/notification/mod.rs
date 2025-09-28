@@ -1,22 +1,22 @@
-/// Notification Bounded Context
+/// Stateless Notification Bounded Context
 /// 
 /// This bounded context handles all aspects of notification delivery, user preferences,
-/// scheduling, and multi-channel communication for the EPSX platform.
+/// scheduling, and multi-channel communication for the EPSX platform using serverless architecture.
 /// 
 /// ## Core Concepts
 /// 
 /// - **Notification**: Main aggregate managing notification lifecycle from creation to delivery
-/// - **NotificationTopic**: FCM topics for broadcasting notifications to user groups
+/// - **NotificationTopic**: Email-based topics for broadcasting notifications to user groups
 /// - **UserNotificationPreferences**: User preferences, quiet hours, and channel settings
 /// - **DeliveryChannel**: Multi-channel delivery with retry logic and content adaptation
 /// - **ScheduleInfo**: Scheduling, expiry, and timing management for notifications
 /// 
-/// ## Supported Channels
+/// ## Supported Channels (Serverless)
 /// 
-/// - **FCM Push**: Real-time push notifications with rich content support
-/// - **In-App**: Instant in-app notifications with no content limits
-/// - **Email**: Rich HTML emails with attachment support
-/// - **SMS**: Text messages with character limits and high delivery cost
+/// - **Email**: Primary notification channel via SendGrid API
+/// - **Web Push**: Browser-native push notifications via Web Push API
+/// - **In-App**: Database-stored notifications for app display
+/// - **SMS**: Text messages via external API (optional)
 /// 
 /// ## Domain Events
 /// 
@@ -28,7 +28,7 @@
 /// This bounded context integrates with:
 /// - User Management (for user identification and permissions)
 /// - Trading Analytics (for market alert notifications)
-/// - External services (FCM, email providers, SMS gateways)
+/// - External services (SendGrid, Web Push, SMS gateways)
 
 pub mod value_objects;
 pub mod aggregates;

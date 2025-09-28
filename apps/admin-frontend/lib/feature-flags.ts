@@ -100,14 +100,6 @@ export function useFeatureFlag(
   return isFeatureEnabled(flag, userId, userPermissions);
 }
 
-/**
- * Legacy feature flag hook (for backward compatibility)
- * Usage: const isEnabled = useLegacyFeatureFlag('DEV_MODE')
- * @deprecated Use useFeatureFlag with consolidated feature flags instead
- */
-export function useLegacyFeatureFlag(flag: keyof typeof LEGACY_FEATURE_FLAGS) {
-  return LEGACY_FEATURE_FLAGS[flag];
-}
 
 // Export all consolidated feature flag utilities for admin use
 export {

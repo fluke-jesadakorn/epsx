@@ -1,7 +1,5 @@
 import { getSessionFromWeb3 } from '@/lib/server/jwt';
 import { DashboardClient } from '@/components/dashboard/DashboardClient';
-import { ProgressiveAuthGate } from '@/components/auth/ProgressiveAuthGate';
-import { AuthLevel } from '@/types/progressive-auth';
 
 // Force dynamic rendering for pages that use authentication
 export const dynamic = 'force-dynamic';
@@ -57,25 +55,19 @@ export default async function DashboardPage() {
           </p>
         </div>
 
-        <ProgressiveAuthGate
-          requiredLevel={AuthLevel.AUTHENTICATED}
-          actionName="access your personal dashboard"
-          authMessage="Sign in with your wallet to view your personalized dashboard with portfolio data, settings, and premium features"
-        >
-          {user && permissions ? (
-            <DashboardClient 
-              user={user}
-              permissions={permissions}
-              dashboardData={dashboardData}
-            />
-          ) : (
-            <div className="text-center p-8">
-              <p className="text-slate-600 dark:text-slate-400">
-                Loading your dashboard...
-              </p>
-            </div>
-          )}
-        </ProgressiveAuthGate>
+        {user && permissions ? (
+          <DashboardClient 
+            user={user}
+            permissions={permissions}
+            dashboardData={dashboardData}
+          />
+        ) : (
+          <div className="text-center p-8">
+            <p className="text-slate-600 dark:text-slate-400">
+              Please sign in to access your dashboard...
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

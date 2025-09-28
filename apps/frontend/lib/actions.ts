@@ -5,3 +5,4 @@ export * from './actions/payments';
 export * from './actions/notifications';
 export * from './actions/permissions';
 export * from './actions/system';
+export * from './actions/stocks';

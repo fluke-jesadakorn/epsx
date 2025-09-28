@@ -5,7 +5,8 @@
  */
 
 import { BaseSessionValidator, type ValidationRequest, type SessionValidatorConfig } from './BaseSessionValidator'
-import type { UserProfile, SessionValidationResponse } from '../types/domain/Session'
+import type { SessionValidationResponse } from '../types/domain/Session'
+import type { UserProfile } from '../types/domain/User'
 
 // ============================================================================
 // USER-SPECIFIC CONFIGURATION
@@ -26,7 +27,7 @@ const USER_CONFIG: SessionValidatorConfig = {
 
 export class UserSessionValidator {
   private static instance: UserSessionValidator
-  private baseValidator: BaseSessionValidator
+  public baseValidator: BaseSessionValidator
 
   private constructor() {
     this.baseValidator = BaseSessionValidator.getInstance(USER_CONFIG)

@@ -3,7 +3,7 @@ use std::fmt::{self, Display};
 use std::collections::HashSet;
 
 /// Notification Topic Value Object
-/// Represents FCM topics for broadcasting notifications to groups of users
+/// Represents email topics for broadcasting notifications to groups of users
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct NotificationTopic {
     name: String,
@@ -89,7 +89,7 @@ impl NotificationTopic {
         Self::new(name, display_name, Some(description), TopicCategory::General)
     }
 
-    /// Get topic name (used for FCM topic name)
+    /// Get topic name (used for email topic name)
     pub fn name(&self) -> &str {
         &self.name
     }
@@ -194,23 +194,23 @@ impl NotificationTopic {
         }
     }
 
-    /// Get FCM-compliant topic name
-    pub fn fcm_topic_name(&self) -> String {
-        // FCM topic names must match [a-zA-Z0-9-_.~%]+
-        let mut fcm_name = self.name.clone();
+    /// Get email-compliant topic name
+    pub fn email_topic_name(&self) -> String {
+        // Email topic names must be safe for email headers
+        let mut email_name = self.name.clone();
         
         // Replace invalid characters
-        fcm_name = fcm_name.replace(' ', "_");
-        fcm_name = fcm_name.chars()
+        email_name = email_name.replace(' ', "_");
+        email_name = email_name.chars()
             .map(|c| if c.is_alphanumeric() || "-.~_%".contains(c) { c } else { '_' })
             .collect();
             
         // Ensure it doesn't start with a number or special character
-        if fcm_name.chars().next().map_or(true, |c| !c.is_ascii_alphabetic()) {
-            fcm_name = format!("topic_{}", fcm_name);
+        if email_name.chars().next().map_or(true, |c| !c.is_ascii_alphabetic()) {
+            email_name = format!("topic_{}", email_name);
         }
         
-        fcm_name
+        email_name
     }
 
     /// Validate topic name format
@@ -427,7 +427,7 @@ mod tests {
     }
 
     #[test]
-    fn test_fcm_topic_name() {
+    fn test_email_topic_name() {
         let topic = NotificationTopic::new(
             "test_topic-123".to_string(),
             "Test Topic".to_string(),
@@ -435,14 +435,14 @@ mod tests {
             TopicCategory::General,
         ).unwrap();
 
-        let fcm_name = topic.fcm_topic_name();
-        assert!(fcm_name.chars().all(|c| c.is_alphanumeric() || "-.~_%".contains(c)));
-        assert!(fcm_name.chars().next().unwrap().is_ascii_alphabetic());
+        let email_name = topic.email_topic_name();
+        assert!(email_name.chars().all(|c| c.is_alphanumeric() || "-.~_%".contains(c)));
+        assert!(email_name.chars().next().unwrap().is_ascii_alphabetic());
     }
 
     #[test]
     fn test_permission_management() {
-        let topic = NotificationTopic::new(
+        let mut topic = NotificationTopic::new(
             "premium_features".to_string(),
             "Premium Features".to_string(),
             None,

@@ -1,12 +1,11 @@
 // ============================================================================
-// SIMPLE FEATURE GATE - REPLACES COMPLEX FEATURE GATES
+// SIMPLE FEATURE GATE - NO PERMISSION CHECKING
 // ============================================================================
-// Simple stub - use FeatureGuard instead
+// Simplified component that just renders children without permission checks
 
 'use client';
 
 import { ReactNode } from 'react';
-import { FeatureGuard } from '@/components/guards/FeatureGuard';
 
 interface FeatureGateProps {
   children: ReactNode;
@@ -14,12 +13,9 @@ interface FeatureGateProps {
   fallback?: ReactNode;
 }
 
-export function FeatureGate({ children, feature, fallback }: FeatureGateProps) {
-  return (
-    <FeatureGuard feature={feature} fallback={fallback}>
-      {children}
-    </FeatureGuard>
-  );
+export function FeatureGate({ children }: FeatureGateProps) {
+  // No permission checking - just render children
+  return <>{children}</>;
 }
 
 export default FeatureGate;

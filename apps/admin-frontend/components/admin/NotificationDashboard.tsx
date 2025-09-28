@@ -17,8 +17,6 @@ import {
   Edit,
   Eye
 } from 'lucide-react';
-// import { apiClient } from '@/lib/api-client';
-// Placeholder types
 type Notification = any;
 type NotificationListParams = any;
 type NotificationListResponse = any;
