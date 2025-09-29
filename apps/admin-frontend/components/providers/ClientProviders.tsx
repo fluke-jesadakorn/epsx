@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react';
 import { ThemeProvider } from 'next-themes';
-import { Web3Provider } from '@/providers/Web3Provider';
+import { Web3Provider } from '../../providers/Web3Provider';
 import { SharedOpenIDWeb3Provider } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
 
 interface ClientProvidersProps {

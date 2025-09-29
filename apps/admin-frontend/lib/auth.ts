@@ -223,10 +223,13 @@ export const useAuth = create<Web3AdminAuthState & {
     try {
       // Notify backend of logout
       if (get().isAuthenticated) {
-        await fetch('/api/auth/web3/logout', {
+        await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/auth/token/revoke`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ wallet_address: get().walletAddress }),
+          body: JSON.stringify({ 
+            refresh_token: '', // Will be handled by cookie
+            client_id: 'epsx-admin'
+          }),
           credentials: 'include',
         });
       }

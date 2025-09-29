@@ -19,10 +19,9 @@ export interface BackendUserSummary {
   is_active: boolean;
   email_verified?: boolean;
   
-  // Permission and tier fields
+  // Permission fields (tier derived from permissions)
   permissions: string[];
-  package_tier?: string;
-  subscription_tier?: string; // Alternative field name from API
+  subscription_tier?: string; // Legacy field name from API (deprecated)
   
   // Timestamp fields
   created_at: string;
@@ -53,8 +52,8 @@ export function transformBackendUser(backendUser: BackendUserSummary): User {
     firstName: backendUser.display_name?.split(' ')[0] || undefined,
     lastName: backendUser.display_name?.split(' ').slice(1).join(' ') || undefined,
     
-    // Role and status mapping
-    role: mapBackendRole(backendUser.role || backendUser.subscription_tier || 'user'),
+    // Role and status mapping (permission-based role derivation)
+    role: mapBackendRole(backendUser.role || deriveRoleFromPermissions(backendUser.permissions || [])),
     status: mapBackendStatus(backendUser.status, backendUser.is_active),
     isActive: backendUser.is_active,
     
@@ -66,9 +65,9 @@ export function transformBackendUser(backendUser: BackendUserSummary): User {
     // Authentication context
     sub: backendUser.id, // Use ID as sub
     
-    // Permissions and tier  
+    // Permissions and tier (permission-based derivation)
     permissions: backendUser.permissions || [],
-    packageTier: backendUser.package_tier || backendUser.subscription_tier || 'free',
+    packageTier: derivePackageTierFromPermissions(backendUser.permissions || []),
     
     // Platform context
     platforms,
@@ -129,6 +128,60 @@ function mapBackendStatus(backendStatus?: string, isActive?: boolean): 'active' 
 }
 
 /**
+ * Derive package tier from user permissions
+ * Replaces hardcoded tier logic with permission-based derivation
+ */
+function derivePackageTierFromPermissions(permissions: string[]): string {
+  // Admin tier - highest priority
+  if (permissions.some(p => p === "admin:*:*" || p.startsWith("admin:"))) {
+    return "admin";
+  }
+  
+  // Premium tiers based on analytics permissions
+  if (permissions.some(p => p === "epsx:analytics:premium")) {
+    return "premium";
+  }
+  
+  if (permissions.some(p => p === "epsx:analytics:professional")) {
+    return "professional";
+  }
+  
+  // Basic tier
+  if (permissions.some(p => 
+    p === "epsx:analytics:basic" || 
+    p === "epsx:analytics:view" || 
+    p.startsWith("epsx:")
+  )) {
+    return "basic";
+  }
+  
+  // Default free tier
+  return "free";
+}
+
+/**
+ * Derive role from user permissions  
+ * Replaces hardcoded role logic with permission-based derivation
+ */
+function deriveRoleFromPermissions(permissions: string[]): string {
+  // Admin role - highest priority
+  if (permissions.some(p => p === "admin:*:*" || p.startsWith("admin:"))) {
+    return "admin";
+  }
+  
+  // Premium user role
+  if (permissions.some(p => 
+    p === "epsx:analytics:premium" || 
+    p === "epsx:analytics:professional"
+  )) {
+    return "premium";
+  }
+  
+  // Default user role
+  return "user";
+}
+
+/**
  * Derive platforms from user permissions
  */
 function derivePlatforms(permissions: string[]): string[] {
@@ -162,7 +215,6 @@ export function createMockUser(overrides: Partial<BackendUserSummary> = {}): Use
     is_active: true,
     email_verified: true,
     permissions: ['epsx:analytics:view'],
-    package_tier: 'free',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     last_login_at: new Date().toISOString(),
@@ -199,8 +251,6 @@ export function validateBackendUser(data: any): data is BackendUserSummary {
     (data.role === undefined || typeof data.role === 'string') &&
     (data.status === undefined || typeof data.status === 'string') &&
     (data.email_verified === undefined || typeof data.email_verified === 'boolean') &&
-    (data.package_tier === undefined || typeof data.package_tier === 'string') &&
-    (data.subscription_tier === undefined || typeof data.subscription_tier === 'string') &&
     (data.last_login_at === undefined || typeof data.last_login_at === 'string')
   );
   

@@ -278,10 +278,10 @@ export class PermissionAwareAuthService {
       // Core permissions (handled by backend)
       permissions,
       
-      // Derived attributes
-      packageTier: userData.role || 'user',
-      accessiblePlatforms: ['epsx'],
-      role: userData.role || 'user',
+      // Derived attributes (permission-based derivation)
+      packageTier: derivePackageTierFromPermissions(permissions),
+      accessiblePlatforms: derivePlatformsFromPermissions(permissions),
+      role: deriveRoleFromPermissions(permissions),
       
       // Feature access (handled by backend)
       featureAccess: {
@@ -613,6 +613,70 @@ export function usePermissionAuth(): PermissionAuthContextValue {
     throw new Error('usePermissionAuth must be used within PermissionAuthProvider');
   }
   return context;
+}
+
+// Permission-based derivation helpers
+function derivePackageTierFromPermissions(permissions: string[]): string {
+  // Admin tier - highest priority
+  if (permissions.some(p => p === "admin:*:*" || p.startsWith("admin:"))) {
+    return "admin";
+  }
+  
+  // Premium tiers based on analytics permissions
+  if (permissions.some(p => p === "epsx:analytics:premium")) {
+    return "premium";
+  }
+  
+  if (permissions.some(p => p === "epsx:analytics:professional")) {
+    return "professional";
+  }
+  
+  // Basic tier
+  if (permissions.some(p => 
+    p === "epsx:analytics:basic" || 
+    p === "epsx:analytics:view" || 
+    p.startsWith("epsx:")
+  )) {
+    return "basic";
+  }
+  
+  // Default free tier
+  return "free";
+}
+
+function deriveRoleFromPermissions(permissions: string[]): string {
+  // Admin role - highest priority
+  if (permissions.some(p => p === "admin:*:*" || p.startsWith("admin:"))) {
+    return "admin";
+  }
+  
+  // Premium user role
+  if (permissions.some(p => 
+    p === "epsx:analytics:premium" || 
+    p === "epsx:analytics:professional"
+  )) {
+    return "premium_user";
+  }
+  
+  // Default user role
+  return "user";
+}
+
+function derivePlatformsFromPermissions(permissions: string[]): string[] {
+  const platformSet = new Set<string>();
+  
+  permissions.forEach(permission => {
+    const parts = permission.split(':');
+    if (parts.length >= 1) {
+      const platform = parts[0];
+      if (platform && platform !== 'admin') {
+        platformSet.add(platform);
+      }
+    }
+  });
+  
+  // If no specific platforms found, default to epsx
+  return Array.from(platformSet).length > 0 ? Array.from(platformSet) : ['epsx'];
 }
 
 // Backward compatibility aliases

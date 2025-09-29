@@ -117,7 +117,7 @@ export function AdminWalletAuth({
       <UserAuthStatus />
 
       {/* Permissions Summary */}
-      <UserPermissionsDisplay maxDisplay={0} showCount={true} />
+      <UserPermissionsDisplay maxDisplay={0} />
 
       {/* Logout Button */}
       <Button

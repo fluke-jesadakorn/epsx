@@ -1,7 +1,6 @@
 import { Suspense } from 'react'
 import { UnifiedAdminClient } from '@/lib/api/unified-admin-client'
 import { UnifiedAuth } from '@/lib/auth/unified-auth'
-import { UserManagement } from '@/components/users/UserManagement'
 import { PermissionManagement } from '@/components/permissions/PermissionManagement'
 import { PancakeCard } from '@/components/ui/PancakeCard'
 
@@ -164,12 +163,12 @@ export default async function DashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {[
               {
-                href: "/users",
-                title: "👥 User Management",
-                description: "Manage users, roles, and permissions",
+                href: "/wallet-management",
+                title: "👛 Wallet Management",
+                description: "Manage Web3 wallets and permissions",
                 gradient: "from-blue-400 to-cyan-500",
                 bgGradient: "from-blue-400/20 via-cyan-400/20 to-blue-400/20",
-                stats: `${dashboardStats.totalUsers} users`
+                stats: `${dashboardStats.totalUsers} wallets`
               },
               {
                 href: "/permissions",

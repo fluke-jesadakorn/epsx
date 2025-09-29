@@ -1,6 +1,5 @@
 // Admin module for user management endpoints
 
-pub mod handlers;
 pub mod routes;
 pub mod setup_handlers;
 pub mod security_monitoring_handlers;

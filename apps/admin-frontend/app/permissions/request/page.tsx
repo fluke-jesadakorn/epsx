@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { PermissionForms } from '@/components/permissions/PermissionForms'
+import { PermissionRequestForm } from '@/components/permissions/PermissionForms'
 import { UnifiedAuth } from '@/lib/auth/unified-auth'
 import { notFound } from 'next/navigation'
 
@@ -77,7 +77,12 @@ async function PermissionRequestDataWrapper({ searchParams }: { searchParams?: P
           </p>
         </div>
         
-        <PermissionForms />
+        <PermissionRequestForm 
+          onSubmit={async (request) => {
+            console.log('Permission request submitted:', request)
+            // TODO: Implement actual permission request submission
+          }}
+        />
       </div>
     </div>
   )
