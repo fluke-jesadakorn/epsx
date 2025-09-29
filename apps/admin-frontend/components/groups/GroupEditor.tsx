@@ -252,7 +252,7 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
   }
 
   return (
-    <div className={cn('space-y-6', className)}>
+    <div className={`space-y-6 ${className || ''}`}>
       {/* System Group Warning */}
       {group?.is_system_group && (
         <Alert>

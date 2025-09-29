@@ -15,6 +15,36 @@ use std::sync::Arc;
 
 use crate::infrastructure::container::{StatelessServiceFactory, RequestServices};
 
+/// Derive package tier from user permissions
+/// Replaces hardcoded tier logic with permission-based derivation
+fn derive_package_tier_from_permissions(permissions: &[String]) -> String {
+    // Admin tier - highest priority
+    if permissions.iter().any(|p| p == "admin:*:*" || p.starts_with("admin:")) {
+        return "admin".to_string();
+    }
+    
+    // Premium tiers based on analytics permissions
+    if permissions.iter().any(|p| p == "epsx:analytics:premium") {
+        return "premium".to_string();
+    }
+    
+    if permissions.iter().any(|p| p == "epsx:analytics:professional") {
+        return "professional".to_string();
+    }
+    
+    // Basic tier
+    if permissions.iter().any(|p| 
+        p == "epsx:analytics:basic" || 
+        p == "epsx:analytics:view" || 
+        p.starts_with("epsx:")
+    ) {
+        return "basic".to_string();
+    }
+    
+    // Default free tier
+    "free".to_string()
+}
+
 /// Stateless Router Builder - Creates services per request instead of sharing state
 #[derive(Clone)]
 pub struct StatelessRouterBuilder {
@@ -254,46 +284,139 @@ impl StatelessRouterBuilder {
                     }
                 }
             ))
-            // User info endpoint
+            // User info endpoint with real database lookup
             .route("/auth/userinfo", axum::routing::get(
-                |headers: axum::http::HeaderMap| async move {
-                    // Extract Bearer token from Authorization header
-                    let auth_header = headers.get("authorization")
-                        .and_then(|h| h.to_str().ok())
-                        .unwrap_or("");
-                    
-                    if !auth_header.starts_with("Bearer ") {
-                        return Json(json!({
-                            "error": "unauthorized",
-                            "error_description": "Bearer token required"
-                        }));
-                    }
-                    
-                    let token = &auth_header[7..]; // Remove "Bearer " prefix
-                    
-                    // Extract wallet address from token (simple parsing for mock implementation)
-                    if let Some(wallet_start) = token.find("epsx_access_0x") {
-                        let wallet_part = &token[wallet_start + 12..]; // Skip "epsx_access_"
-                        if let Some(wallet_end) = wallet_part.find('_') {
-                            let wallet_address = &wallet_part[..wallet_end];
-                            
-                            // Return user info
+                move |headers: axum::http::HeaderMap| {
+                    let factory_clone = _factory_userinfo.clone();
+                    async move {
+                        // Extract Bearer token from Authorization header
+                        let auth_header = headers.get("authorization")
+                            .and_then(|h| h.to_str().ok())
+                            .unwrap_or("");
+                        
+                        if !auth_header.starts_with("Bearer ") {
                             return Json(json!({
-                                "sub": wallet_address,
-                                "wallet_address": wallet_address,
-                                "tier_level": "admin",
-                                "auth_method": "web3_siwe",
-                                "permissions": ["admin:*:*", "epsx:admin:*"],
-                                "email": format!("{}@wallet.epsx.io", wallet_address),
-                                "packageTier": "admin"
+                                "success": false,
+                                "error": {
+                                    "code": 401,
+                                    "message": "Unauthorized",
+                                    "reason": "Bearer token required"
+                                }
                             }));
                         }
+                        
+                        let token = &auth_header[7..]; // Remove "Bearer " prefix
+                        
+                        // Extract wallet address from token
+                        if let Some(wallet_start) = token.find("epsx_access_0x") {
+                            let wallet_part = &token[wallet_start + 12..]; // Skip "epsx_access_"
+                            if let Some(wallet_end) = wallet_part.find('_') {
+                                let wallet_address = &wallet_part[..wallet_end];
+                                
+                                // Create database services for this request
+                                match factory_clone.create_request_services().await {
+                                    Ok(services) => {
+                                        // Query wallet_users table for real permissions
+                                        match sqlx::query!(
+                                            "SELECT wallet_address, permissions, permission_groups, is_active FROM wallet_users WHERE wallet_address = $1 AND is_active = true",
+                                            wallet_address
+                                        )
+                                        .fetch_optional(&*services.db_pool)
+                                        .await {
+                                            Ok(Some(user_record)) => {
+                                                // Parse permissions from JSONB  
+                                                let permissions: Vec<serde_json::Value> = user_record.permissions
+                                                    .as_array()
+                                                    .unwrap_or(&vec![])
+                                                    .clone();
+                                                let permission_names: Vec<String> = permissions.iter()
+                                                    .filter_map(|p| {
+                                                        if let Some(obj) = p.as_object() {
+                                                            if let (Some(name), Some(is_active)) = (obj.get("name").and_then(|n| n.as_str()), obj.get("is_active").and_then(|a| a.as_bool())) {
+                                                                if is_active {
+                                                                    return Some(name.to_string());
+                                                                }
+                                                            }
+                                                        }
+                                                        None
+                                                    })
+                                                    .collect();
+                                                
+                                                // Derive package tier from permissions (permission-based logic)
+                                                let package_tier = derive_package_tier_from_permissions(&permission_names);
+                                                
+                                                // Check if user has admin permissions for metadata
+                                                let has_admin = permission_names.iter().any(|p| 
+                                                    p == "admin:*:*" || p.starts_with("admin:") || p == "epsx:admin:*"
+                                                );
+                                                
+                                                return Json(json!({
+                                                    "success": true,
+                                                    "data": {
+                                                        "sub": wallet_address,
+                                                        "wallet_address": wallet_address,
+                                                        "auth_method": "web3_siwe",
+                                                        "permissions": permission_names,
+                                                        "email": format!("{}@wallet.epsx.io", wallet_address),
+                                                        "packageTier": package_tier
+                                                    },
+                                                    "meta": {
+                                                        "timestamp": chrono::Utc::now().to_rfc3339(),
+                                                        "permissions": {
+                                                            "derived_tier": package_tier,
+                                                            "available_actions": permission_names,
+                                                            "has_admin_access": has_admin
+                                                        }
+                                                    }
+                                                }));
+                                            },
+                                            Ok(None) => {
+                                                return Json(json!({
+                                                    "success": false,
+                                                    "error": {
+                                                        "code": 404,
+                                                        "message": "User not found",
+                                                        "reason": "Wallet address not found in database"
+                                                    }
+                                                }));
+                                            },
+                                            Err(e) => {
+                                                tracing::error!("Database query error: {}", e);
+                                                return Json(json!({
+                                                    "success": false,
+                                                    "error": {
+                                                        "code": 500,
+                                                        "message": "Internal server error",
+                                                        "reason": "Database query failed"
+                                                    }
+                                                }));
+                                            }
+                                        }
+                                    },
+                                    Err(e) => {
+                                        tracing::error!("Failed to create services: {}", e);
+                                        return Json(json!({
+                                            "success": false,
+                                            "error": {
+                                                "code": 500,
+                                                "message": "Internal server error",
+                                                "reason": "Service initialization failed"
+                                            }
+                                        }));
+                                    }
+                                }
+                            }
+                        }
+                        
+                        Json(json!({
+                            "success": false,
+                            "error": {
+                                "code": 401,
+                                "message": "Invalid token",
+                                "reason": "Token format invalid"
+                            }
+                        }))
                     }
-                    
-                    Json(json!({
-                        "error": "invalid_token",
-                        "error_description": "Token format invalid"
-                    }))
                 }
             ))
             // Public plans endpoint in V1 (for frontend compatibility)
@@ -413,6 +536,26 @@ impl StatelessRouterBuilder {
                     "mode": "stateless_public_plans"
                 }))
             }))
+            // Token revoke endpoint for logout
+            .route("/auth/token/revoke", axum::routing::post(
+                |Json(payload): Json<serde_json::Value>| async move {
+                    // Parse request
+                    let refresh_token = payload.get("refresh_token").and_then(|v| v.as_str()).unwrap_or("");
+                    let client_id = payload.get("client_id").and_then(|v| v.as_str()).unwrap_or("");
+                    
+                    // Log the revoke attempt
+                    tracing::info!("Token revoke request from client: {}", client_id);
+                    
+                    // In stateless mode, we don't maintain server-side sessions
+                    // Token revocation is primarily handled client-side by clearing tokens
+                    // But we acknowledge the revoke request for compatibility
+                    
+                    Json(json!({
+                        "success": true,
+                        "message": "Token revoked successfully"
+                    }))
+                }
+            ))
             .with_state(factory)
     }
 

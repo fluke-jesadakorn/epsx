@@ -9,6 +9,11 @@ import { createContext, useContext, type ReactNode } from 'react';
 import { useTheme } from 'next-themes';
 import { useEffect, useState } from 'react';
 
+// Polyfill for SSR to prevent indexedDB errors
+if (typeof window === 'undefined') {
+  (global as any).indexedDB = undefined;
+}
+
 // Query client factory for admin-optimized settings
 const createQueryClient = () => new QueryClient({
   defaultOptions: {
@@ -20,13 +25,18 @@ const createQueryClient = () => new QueryClient({
   },
 });
 
-// Configure Wagmi for Admin with BSC testnet
-const config = getDefaultConfig({
-  appName: 'EPSX Admin - Web3 Management',
-  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'epsx-admin-web3',
-  chains: [bscTestnet],
-  ssr: false, // Disable SSR to prevent indexedDB issues
-});
+// Configure Wagmi for Admin with BSC testnet - Client-only
+let config: any = null;
+
+// Only create config on client side to prevent SSR issues
+if (typeof window !== 'undefined') {
+  config = getDefaultConfig({
+    appName: 'EPSX Admin - Web3 Management',
+    projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'epsx-admin-web3',
+    chains: [bscTestnet],
+    ssr: true,
+  });
+}
 
 // Admin Web3 Context for additional admin-specific state
 interface AdminWeb3ContextType {
@@ -117,24 +127,21 @@ export function AdminWeb3Provider({ children }: AdminWeb3ProviderProps) {
     setMounted(true);
   }, []);
 
-  // Prevent hydration mismatch by only rendering Web3 on client
-  if (!mounted) {
-    return (
-      <AdminWeb3Context.Provider value={{ isInitialized: false, isAdminMode: true }}>
-        {children}
-      </AdminWeb3Context.Provider>
-    );
-  }
-  
+  // Always provide the context but conditionally render Web3 providers
   return (
-    <AdminWeb3Context.Provider value={{ isInitialized: true, isAdminMode: true }}>
-      <WagmiProvider config={config}>
-        <QueryClientProvider client={queryClient}>
-          <ThemedRainbowKitProvider>
-            {children}
-          </ThemedRainbowKitProvider>
-        </QueryClientProvider>
-      </WagmiProvider>
+    <AdminWeb3Context.Provider value={{ isInitialized: mounted && !!config, isAdminMode: true }}>
+      {mounted && config ? (
+        <WagmiProvider config={config}>
+          <QueryClientProvider client={queryClient}>
+            <ThemedRainbowKitProvider>
+              {children}
+            </ThemedRainbowKitProvider>
+          </QueryClientProvider>
+        </WagmiProvider>
+      ) : (
+        // SSR fallback - render children without Web3 providers
+        children
+      )}
     </AdminWeb3Context.Provider>
   );
 }

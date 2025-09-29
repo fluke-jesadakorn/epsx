@@ -2,8 +2,9 @@
 
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount, useDisconnect } from 'wagmi';
+import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
 
 interface User {
   id: string;
@@ -17,21 +18,43 @@ interface PancakeAdminHeaderProps {
 }
 
 export function PancakeAdminHeader({ user }: PancakeAdminHeaderProps) {
-  const { address, isConnected } = useAccount();
-  const { disconnect } = useDisconnect();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const { logout } = useSharedAuth();
+  
+  // Only use WAGMI hooks after component mounts to avoid SSR issues
+  let address: string | undefined;
+  let isConnected: boolean = false;
+  let disconnect: (() => void) | undefined;
+  
+  try {
+    const account = useAccount();
+    const disconnectHook = useDisconnect();
+    
+    if (mounted) {
+      address = account.address;
+      isConnected = account.isConnected;
+      disconnect = disconnectHook.disconnect;
+    }
+  } catch (error) {
+    // WAGMI hooks not available, continue with defaults
+    console.warn('WAGMI hooks not available:', error);
+  }
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handleWalletDisconnect = async () => {
     try {
-      // Logout from backend
-      await fetch('/api/auth/web3/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
+      // Logout from backend using SharedOpenIDWeb3Provider
+      await logout();
 
-      // Disconnect wallet
-      disconnect();
+      // Disconnect wallet if available
+      if (disconnect) {
+        disconnect();
+      }
 
       setShowUserMenu(false);
     } catch (error) {
@@ -161,7 +184,15 @@ export function PancakeAdminHeader({ user }: PancakeAdminHeaderProps) {
 
           {/* User Menu / Connect Wallet */}
           <div className="relative">
-            {isConnected ? (
+            {!mounted ? (
+              // Loading state during hydration
+              <div className="flex h-12 items-center gap-3 rounded-2xl bg-gradient-to-r from-gray-400 to-gray-500 pr-5 pl-4 font-semibold text-white shadow-lg">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20">
+                  <span className="text-lg">⏳</span>
+                </div>
+                <span className="hidden md:block">Loading...</span>
+              </div>
+            ) : isConnected ? (
               // Show Admin User Menu when connected
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
@@ -192,7 +223,7 @@ export function PancakeAdminHeader({ user }: PancakeAdminHeaderProps) {
               </ConnectButton.Custom>
             )}
 
-            {showUserMenu && isConnected && (
+            {showUserMenu && mounted && isConnected && (
               <div className="absolute top-14 right-0 z-50 w-64 rounded-3xl border border-yellow-200 bg-white p-4 shadow-2xl dark:border-slate-700/50 dark:bg-slate-800">
                 <div className="space-y-3">
                   <div className="rounded-2xl bg-gradient-to-r from-yellow-50 to-orange-50 p-4 dark:from-yellow-900/20 dark:to-orange-900/20">
@@ -205,7 +236,7 @@ export function PancakeAdminHeader({ user }: PancakeAdminHeaderProps) {
                           Wallet Connected
                         </div>
                         <div className="text-sm text-gray-600 dark:text-gray-400">
-                          {formatAddress(address!)}
+                          {address ? formatAddress(address) : 'No address'}
                         </div>
                         <div className="bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-xs font-semibold text-transparent">
                           Admin Access

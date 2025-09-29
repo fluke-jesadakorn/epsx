@@ -24,12 +24,7 @@ export default function TestErrorsPage() {
         message: 'Permission denied',
         user_message: 'You don\'t have permission to access this resource.',
         details: {},
-        suggested_actions: ['Contact your administrator to request access'],
-        permission: 'admin:users:manage',
-        required_permissions: ['admin:users:manage'],
-        user_permissions: ['admin:analytics:view'],
-        access_level_required: 'admin',
-        current_access_level: 'viewer'
+        suggested_actions: ['Contact your administrator to request access']
       }
     },
     insufficient_tier: {
@@ -39,11 +34,12 @@ export default function TestErrorsPage() {
         code: 'INSUFFICIENT_TIER',
         message: 'Insufficient tier level',
         user_message: 'This feature requires a higher tier subscription.',
-        details: {},
+        details: {
+          current_tier: 'basic',
+          required_tier: 'premium',
+          missing_permissions: ['admin:advanced:*']
+        },
         suggested_actions: ['Upgrade your subscription'],
-        current_tier: 'basic',
-        required_tier: 'premium',
-        missing_permissions: ['admin:advanced:*'],
         upgrade_info: {
           current_tier: 'basic',
           required_tier: 'premium',
@@ -59,15 +55,16 @@ export default function TestErrorsPage() {
         code: 'PERMISSION_EXPIRED',
         message: 'Permission has expired',
         user_message: 'Your access to this feature has expired.',
-        details: {},
-        suggested_actions: ['Renew your subscription'],
-        expired_permissions: [
-          {
-            permission: 'admin:users:manage',
-            expired_at: new Date(Date.now() - 86400000).toISOString() // 1 day ago
-          }
-        ],
-        renewal_url: '/renew'
+        details: {
+          expired_permissions: [
+            {
+              permission: 'admin:users:manage',
+              expired_at: new Date(Date.now() - 86400000).toISOString() // 1 day ago
+            }
+          ],
+          renewal_url: '/renew'
+        },
+        suggested_actions: ['Renew your subscription']
       }
     },
     rate_limit: {
@@ -77,18 +74,15 @@ export default function TestErrorsPage() {
         code: 'RATE_LIMIT_EXCEEDED',
         message: 'Usage limit exceeded',
         user_message: 'You have exceeded your usage limits.',
-        details: {},
-        suggested_actions: ['Wait for limits to reset', 'Upgrade for higher limits'],
-        rate_limit: {
-          limit: 100,
-          remaining: 0,
-          reset_at: new Date(Date.now() + 3600000).toISOString(), // 1 hour from now
-          window_size: 'hour'
+        details: {
+          rate_limit: {
+            limit: 100,
+            remaining: 0,
+            reset_at: new Date(Date.now() + 3600000).toISOString(), // 1 hour from now
+            window_size: 'hour'
+          }
         },
-        upgrade_for_higher_limits: {
-          tier: 'premium',
-          new_limit: 1000
-        }
+        suggested_actions: ['Wait for limits to reset', 'Upgrade for higher limits']
       }
     }
   };

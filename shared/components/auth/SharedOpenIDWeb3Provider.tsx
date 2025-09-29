@@ -86,10 +86,22 @@ export function SharedOpenIDWeb3Provider({
   const [isLoading, setIsLoading] = useState(true);
   const [isSigningChallenge, setIsSigningChallenge] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [client] = useState(() => new SharedOpenIDWeb3Client(
-    clientId,
-    backendUrl || (typeof window !== 'undefined' ? window.location.origin.replace(':3000', ':8080') : 'http://localhost:8080')
-  ));
+  const [client] = useState(() => {
+    // Debug log the backend URL configuration
+    const resolvedBackendUrl = backendUrl || 
+      (typeof window !== 'undefined' ? 
+        window.location.origin.replace(/:300[0-9]/, ':8080') : // Handle both :3000 and :3001
+        'http://localhost:8080'
+      );
+    
+    console.log('🔧 SharedOpenIDWeb3Provider: Backend URL configuration', {
+      provided: backendUrl,
+      resolved: resolvedBackendUrl,
+      clientId
+    });
+    
+    return new SharedOpenIDWeb3Client(clientId, resolvedBackendUrl);
+  });
 
   // Initialize authentication state
   useEffect(() => {

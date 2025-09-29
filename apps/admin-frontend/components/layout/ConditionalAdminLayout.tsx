@@ -1,8 +1,9 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { PancakeAdminLayout } from './PancakeAdminLayout'
-import { ReactNode } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
+import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider'
 
 interface ConditionalAdminLayoutProps {
   children: ReactNode
@@ -14,26 +15,100 @@ interface ConditionalAdminLayoutProps {
   }
 }
 
-// Pages that should NOT have the admin layout
+// Pages that should NEVER have the admin layout
 const NO_LAYOUT_PATHS = [
-  '/login',
   '/unauthorized', 
   '/access-denied',
   '/request-access'
 ]
 
-export function ConditionalAdminLayout({ children, user }: ConditionalAdminLayoutProps) {
+// Pages that don't require authentication
+const PUBLIC_PATHS = [
+  '/login',
+  '/auth',
+  '/unauthorized',
+  '/access-denied',
+  '/request-access'
+]
+
+export function ConditionalAdminLayout({ children, user: serverUser }: ConditionalAdminLayoutProps) {
   const pathname = usePathname()
+  const router = useRouter()
+  const [mounted, setMounted] = useState(false)
+  const [authChecked, setAuthChecked] = useState(false)
+  const { user: authUser, isAuthenticated, hasPermissionForDisplay, isLoading } = useSharedAuth()
   
-  // Check if current path should have admin layout
-  const shouldHaveLayout = !NO_LAYOUT_PATHS.some(path => pathname === path)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
   
-  if (!shouldHaveLayout) {
+  // Handle authentication redirects
+  useEffect(() => {
+    if (!mounted || isLoading) return
+    
+    const isPublicPath = PUBLIC_PATHS.some(path => pathname === path || pathname.startsWith(path))
+    
+    // Skip auth check for public paths
+    if (isPublicPath) {
+      setAuthChecked(true)
+      return
+    }
+    
+    // Auth check for protected routes
+    const checkAuth = async () => {
+      // If not authenticated, redirect to auth page
+      if (!isAuthenticated) {
+        const authUrl = new URL('/auth', window.location.origin)
+        authUrl.searchParams.set('return_url', pathname)
+        authUrl.searchParams.set('reason', 'no-session')
+        router.push(authUrl.toString())
+        return
+      }
+      
+      // If authenticated but no admin permissions, redirect to auth with different reason
+      if (isAuthenticated && !hasPermissionForDisplay('admin:*:*')) {
+        const authUrl = new URL('/auth', window.location.origin)
+        authUrl.searchParams.set('return_url', pathname)
+        authUrl.searchParams.set('reason', 'no-admin-permissions')
+        router.push(authUrl.toString())
+        return
+      }
+      
+      setAuthChecked(true)
+    }
+    
+    checkAuth()
+  }, [mounted, isLoading, isAuthenticated, hasPermissionForDisplay, pathname, router])
+  
+  // Wait for client-side hydration and auth check
+  if (!mounted || (!authChecked && !PUBLIC_PATHS.some(path => pathname === path || pathname.startsWith(path)))) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-gray-600 dark:text-gray-400">
+          {!mounted ? "Loading..." : "Checking authentication..."}
+        </div>
+      </div>
+    )
+  }
+  
+  // Special pages that never get layout
+  const isNoLayoutPage = NO_LAYOUT_PATHS.some(path => pathname === path)
+  if (isNoLayoutPage) {
     return <>{children}</>
   }
   
+  // Use client-side auth user if available, otherwise use server user
+  const layoutUser = authUser ? {
+    id: authUser.wallet_address || authUser.sub,
+    email: authUser.email || `${authUser.wallet_address}@web3.epsx.io`,
+    name: authUser.wallet_address ? `Admin (${authUser.wallet_address.slice(0, 6)}...${authUser.wallet_address.slice(-4)})` : 'Admin',
+    role: 'admin'
+  } : serverUser
+  
+  // Always show layout for all pages except the excluded ones
+  // This ensures consistent navigation and branding regardless of auth status
   return (
-    <PancakeAdminLayout user={user}>
+    <PancakeAdminLayout user={layoutUser}>
       {children}
     </PancakeAdminLayout>
   )

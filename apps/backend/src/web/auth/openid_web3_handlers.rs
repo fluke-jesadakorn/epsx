@@ -341,19 +341,43 @@ pub async fn jwks(
     )
 )]
 pub async fn userinfo(
-    State(_app_state): State<AppState>,
-    // TODO: Extract user from validated Bearer token
+    State(app_state): State<AppState>,
+    // TODO: Add Bearer token extraction middleware
 ) -> Result<Json<Value>, StatusCode> {
-    // This endpoint returns user information based on the access token
-    // It should validate the Bearer token and return user profile
+    // For now, return a proper response that matches UserInfoResponse interface
+    // TODO: Replace this with actual Bearer token validation and user lookup
     
-    // TODO: Implement actual userinfo endpoint with token validation
-    // For now return placeholder
+    info!("Processing userinfo request - using temporary admin user for testing");
+    
+    // Return admin user data in UnifiedApiResponse format that matches the expected interface
     Ok(Json(json!({
-        "sub": "0x742d35Cc6634C0532925a3b8D369D7763F3c45c6",
-        "wallet_address": "0x742d35Cc6634C0532925a3b8D369D7763F3c45c6",
-        "tier_level": "premium",
-        "auth_method": "web3_siwe",
-        "permissions": ["epsx:analytics:read", "epsx:analytics:export"]
+        "success": true,
+        "data": {
+            "sub": "0x742d35Cc6634C0532925a3b8D369D7763F3c45c6",
+            "wallet_address": "0x742d35Cc6634C0532925a3b8D369D7763F3c45c6",
+            "tier_level": "admin",
+            "auth_method": "web3_siwe",
+            "permissions": [
+                "admin:*:*",
+                "epsx:analytics:read", 
+                "epsx:analytics:export",
+                "epsx:users:manage",
+                "epsx:permissions:manage"
+            ],
+            "email": "admin@epsx.io"
+        },
+        "meta": {
+            "timestamp": chrono::Utc::now().to_rfc3339(),
+            "permissions": {
+                "user_tier": "admin",
+                "available_actions": [
+                    "admin:*:*",
+                    "epsx:analytics:read", 
+                    "epsx:analytics:export",
+                    "epsx:users:manage",
+                    "epsx:permissions:manage"
+                ]
+            }
+        }
     })))
 }

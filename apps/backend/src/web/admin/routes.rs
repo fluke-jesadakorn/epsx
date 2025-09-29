@@ -2,13 +2,6 @@
 
 use axum::{ routing::{ get, post, put, delete }, Router };
 
-use super::handlers::{
-  create_user_handler,
-  get_user_handler,
-  list_users_handler,
-  update_user_handler,
-  delete_user_handler,
-};
 // Removed missing user handlers - they don't exist in the Web3 migration
 // use super::unified_user_handlers::{
 //   get_unified_user_data_handler,
@@ -126,18 +119,8 @@ use super::web3_admin_handlers::{
 use crate::web::auth::AppState;
 
 pub fn create_admin_routes() -> Router<AppState> {
-  // Basic admin routes (require user-management module)
-  let user_mgmt_routes = Router::new()
-    // .route("/analytics/user-statistics", get(get_admin_stats_handler))
-    .route("/users", get(list_users_handler))
-    .route("/users", post(create_user_handler))
-    .route("/users/:user_id", get(get_user_handler))
-    .route("/users/:user_id", put(update_user_handler))
-    .route("/users/:user_id", delete(delete_user_handler))
-    // .route("/users/search", get(search_users_handler)) // Removed - handler deleted
-    // TODO: Temporarily disabled due to Axum trait bound issues
-    // .layer(axum::middleware::from_fn(crate::web::middleware::web3_auth_middleware))
-    ;
+  // User management routes removed - only wallet management available
+  let user_mgmt_routes = Router::new();
 
   // System administration routes (require system-configuration module)
   let system_config_routes = Router::new()
