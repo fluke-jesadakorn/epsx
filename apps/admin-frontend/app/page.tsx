@@ -1,11 +1,10 @@
-import { Suspense } from 'react'
+'use client';
+
+import { useEffect, useState } from 'react'
+import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider'
 import { UnifiedAdminClient } from '@/lib/api/unified-admin-client'
-import { UnifiedAuth } from '@/lib/auth/unified-auth'
 import { PermissionManagement } from '@/components/permissions/PermissionManagement'
 import { PancakeCard } from '@/components/ui/PancakeCard'
-
-// This page uses real backend data and should be dynamic
-export const dynamic = 'force-dynamic'
 
 function DashboardSkeleton() {
   return (
@@ -24,28 +23,9 @@ function DashboardSkeleton() {
   )
 }
 
-export default async function DashboardPage() {
-  // Server-side authentication and data fetching
-  const session = await UnifiedAuth.getSession()
-  
-  if (!session?.user) {
-    // Handle unauthorized access
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-6">
-        <div className="text-center max-w-md mx-auto mt-32">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">Authentication Required</h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-8">Please log in to access the admin dashboard.</p>
-          <a href="/login" className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 rounded-2xl text-white font-semibold hover:shadow-lg transition-all duration-300">
-            Go to Login
-          </a>
-        </div>
-      </div>
-    )
-  }
-
-  // Fetch real dashboard data
-  const client = new UnifiedAdminClient()
-  let dashboardStats = {
+export default function DashboardPage() {
+  const { user, isAuthenticated, isLoading, hasPermissionForDisplay } = useSharedAuth()
+  const [dashboardStats, setDashboardStats] = useState({
     totalUsers: 0,
     activeUsers: 0,
     totalPermissions: 0,
@@ -54,55 +34,93 @@ export default async function DashboardPage() {
     pendingNotifications: 0,
     systemUptime: '99.9%',
     avgResponseTime: '120ms'
-  }
-  
-  try {
-    const [usersResult] = await Promise.allSettled([
-      client.getUsers({ limit: 100 })
-    ])
-    
-    if (usersResult.status === 'fulfilled' && Array.isArray(usersResult.value)) {
-      dashboardStats.totalUsers = usersResult.value.length
-      dashboardStats.activeUsers = usersResult.value.filter((user: any) => user.lastLoginAt && 
-        new Date(user.lastLoginAt) > new Date(Date.now() - 24 * 60 * 60 * 1000)
-      ).length
-      dashboardStats.todayLogins = usersResult.value.filter((user: any) => user.lastLoginAt && 
-        new Date(user.lastLoginAt) > new Date(Date.now() - 24 * 60 * 60 * 1000)
-      ).length
+  })
+
+  // Check if user has admin permissions
+  const isAdmin = hasPermissionForDisplay('admin:*:*') || hasPermissionForDisplay('admin:users:view')
+
+  // Load dashboard data
+  useEffect(() => {
+    if (isAuthenticated && isAdmin) {
+      const loadDashboardData = async () => {
+        try {
+          const client = new UnifiedAdminClient()
+          const usersResult = await client.getUsers({ limit: 100 }).catch(() => [])
+          
+          if (Array.isArray(usersResult)) {
+            setDashboardStats(prev => ({
+              ...prev,
+              totalUsers: usersResult.length,
+              activeUsers: usersResult.filter((user: any) => user.lastLoginAt && 
+                new Date(user.lastLoginAt) > new Date(Date.now() - 24 * 60 * 60 * 1000)
+              ).length,
+              todayLogins: usersResult.filter((user: any) => user.lastLoginAt && 
+                new Date(user.lastLoginAt) > new Date(Date.now() - 24 * 60 * 60 * 1000)
+              ).length
+            }))
+          }
+        } catch (error) {
+          console.error('Failed to load dashboard stats:', error)
+        }
+      }
+      
+      loadDashboardData()
     }
-    
-    // Analytics functionality removed - moved to frontend-only implementation
-  } catch (error) {
-    console.error('Failed to load dashboard stats:', error)
+  }, [isAuthenticated, isAdmin])
+
+  // Show loading state
+  if (isLoading) {
+    return <DashboardSkeleton />
+  }
+
+  // Show authentication required if not authenticated or not admin
+  if (!isAuthenticated || !isAdmin) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-6">
+        <div className="text-center max-w-md mx-auto mt-32">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+            {!isAuthenticated ? 'Authentication Required' : 'Admin Access Required'}
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-8">
+            {!isAuthenticated 
+              ? 'Please log in to access the admin dashboard.' 
+              : 'You need admin permissions to access this dashboard.'
+            }
+          </p>
+          <a href="/login" className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 rounded-2xl text-white font-semibold hover:shadow-lg transition-all duration-300">
+            {!isAuthenticated ? 'Connect Wallet' : 'Request Access'}
+          </a>
+        </div>
+      </div>
+    )
   }
 
 
   return (
-    <Suspense fallback={<DashboardSkeleton />}>
-      <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-3 sm:p-6">
-        {/* Background Decorations */}
-        <div className="fixed inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-full blur-xl "></div>
-          <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-purple-500/20 rounded-full blur-lg  animation-delay-1000"></div>
-          <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-orange-400/15 to-yellow-500/15 rounded-full blur-xl  animation-delay-2000"></div>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-3 sm:p-6">
+      {/* Background Decorations */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-full blur-xl "></div>
+        <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-purple-500/20 rounded-full blur-lg  animation-delay-1000"></div>
+        <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-orange-400/15 to-yellow-500/15 rounded-full blur-xl  animation-delay-2000"></div>
+      </div>
 
-        <div className="relative space-y-6 sm:space-y-8">
-          {/* Page Header */}
-          <div className="text-center mb-8 sm:mb-12">
-            <div className="relative inline-block">
-              <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-yellow-600 via-orange-600 via-pink-600 to-purple-600 bg-clip-text text-transparent mb-4">
-                🏠 EPSX Admin Center
-              </h1>
-              <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full "></div>
-            </div>
-            <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-              Welcome back, {session.user.walletAddress || session.user.displayName}
-            </p>
-            <div className="text-sm text-gray-500 dark:text-gray-500 mt-2">
-              {new Date().toLocaleDateString()} • System Status: Operational 🟢
-            </div>
+      <div className="relative space-y-6 sm:space-y-8">
+        {/* Page Header */}
+        <div className="text-center mb-8 sm:mb-12">
+          <div className="relative inline-block">
+            <h1 className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-yellow-600 via-orange-600 via-pink-600 to-purple-600 bg-clip-text text-transparent mb-4">
+              🏠 EPSX Admin Center
+            </h1>
+            <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full "></div>
           </div>
+          <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+            Welcome back, {user?.wallet_address || user?.name || 'Admin'}
+          </p>
+          <div className="text-sm text-gray-500 dark:text-gray-500 mt-2">
+            {new Date().toLocaleDateString()} • System Status: Operational 🟢
+          </div>
+        </div>
 
           {/* Stats Dashboard */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
@@ -244,6 +262,5 @@ export default async function DashboardPage() {
           </div>
         </div>
       </div>
-    </Suspense>
-  )
+    )
 }

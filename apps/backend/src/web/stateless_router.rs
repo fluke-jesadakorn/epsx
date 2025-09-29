@@ -224,6 +224,7 @@ impl StatelessRouterBuilder {
         let factory = self.service_factory.clone();
         let factory_token = self.service_factory.clone();
         let _factory_userinfo = self.service_factory.clone();
+        let factory_session = self.service_factory.clone();
         
         Router::new()
             .route("/users/health", get(|| async {
@@ -232,6 +233,162 @@ impl StatelessRouterBuilder {
                     "mode": "stateless"
                 }))
             }))
+            // Session verification endpoint using custom token validation
+            .route("/auth/session/verify", axum::routing::post(
+                move |headers: axum::http::HeaderMap, Json(payload): Json<serde_json::Value>| {
+                    let factory_clone = factory_session.clone();
+                    async move {
+                        use serde_json::json;
+                        
+                        // Extract admin_context from payload
+                        let admin_context = payload.get("admin_context").and_then(|v| v.as_bool()).unwrap_or(false);
+                        
+                        // Extract Bearer token from Authorization header
+                        let auth_header = headers
+                            .get("authorization")
+                            .and_then(|value| value.to_str().ok());
+                        
+                        let auth_header = match auth_header {
+                            Some(header) if header.starts_with("Bearer ") => header,
+                            _ => {
+                                return (
+                                    axum::http::StatusCode::OK,
+                                    Json(json!({
+                                        "success": false,
+                                        "authenticated": false,
+                                        "error": "No active session"
+                                    }))
+                                );
+                            }
+                        };
+                        
+                        let token = &auth_header[7..]; // Remove "Bearer " prefix
+                        
+                        // Extract wallet address from custom token format: epsx_access_0x...
+                        if let Some(wallet_start) = token.find("epsx_access_0x") {
+                            let wallet_part = &token[wallet_start + 12..]; // Skip "epsx_access_"
+                            if let Some(wallet_end) = wallet_part.find('_') {
+                                let wallet_address = &wallet_part[..wallet_end];
+                                
+                                // Create database services for this request
+                                match factory_clone.create_request_services().await {
+                                    Ok(services) => {
+                                        // Query wallet_users table for real permissions
+                                        match sqlx::query!(
+                                            "SELECT wallet_address, permissions, permission_groups, is_active FROM wallet_users WHERE wallet_address = $1 AND is_active = true",
+                                            wallet_address
+                                        )
+                                        .fetch_optional(&*services.db_pool)
+                                        .await {
+                                            Ok(Some(user_record)) => {
+                                                // Parse permissions from JSONB  
+                                                let permissions: Vec<serde_json::Value> = user_record.permissions
+                                                    .as_array()
+                                                    .unwrap_or(&vec![])
+                                                    .clone();
+                                                let permission_names: Vec<String> = permissions.iter()
+                                                    .filter_map(|p| {
+                                                        if let Some(obj) = p.as_object() {
+                                                            if let (Some(name), Some(is_active)) = (obj.get("name").and_then(|n| n.as_str()), obj.get("is_active").and_then(|a| a.as_bool())) {
+                                                                if is_active {
+                                                                    return Some(name.to_string());
+                                                                }
+                                                            }
+                                                        }
+                                                        None
+                                                    })
+                                                    .collect();
+                                                
+                                                // Check if user has admin permissions
+                                                let is_admin = permission_names.iter().any(|p| 
+                                                    p == "admin:*:*" || 
+                                                    p.starts_with("admin:") ||
+                                                    p.contains(":admin:") || 
+                                                    p.contains(":manage")
+                                                );
+                                                
+                                                // Check admin context requirements
+                                                if admin_context && !is_admin {
+                                                    return (
+                                                        axum::http::StatusCode::FORBIDDEN,
+                                                        Json(json!({
+                                                            "success": false,
+                                                            "error": "Admin permissions required"
+                                                        }))
+                                                    );
+                                                }
+                                                
+                                                (
+                                                    axum::http::StatusCode::OK,
+                                                    Json(json!({
+                                                        "success": true,
+                                                        "authenticated": true,
+                                                        "wallet_address": wallet_address,
+                                                        "user_id": wallet_address,
+                                                        "permissions": permission_names,
+                                                        "is_admin": is_admin,
+                                                        "tier_level": "admin",
+                                                    }))
+                                                )
+                                            },
+                                            Ok(None) => {
+                                                (
+                                                    axum::http::StatusCode::OK,
+                                                    Json(json!({
+                                                        "success": false,
+                                                        "authenticated": false,
+                                                        "error": "User not found"
+                                                    }))
+                                                )
+                                            },
+                                            Err(e) => {
+                                                tracing::error!("Database query error: {}", e);
+                                                (
+                                                    axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                                                    Json(json!({
+                                                        "success": false,
+                                                        "authenticated": false,
+                                                        "error": "Database error"
+                                                    }))
+                                                )
+                                            }
+                                        }
+                                    },
+                                    Err(e) => {
+                                        tracing::error!("Service creation error: {}", e);
+                                        (
+                                            axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                                            Json(json!({
+                                                "success": false,
+                                                "authenticated": false,
+                                                "error": "Service error"
+                                            }))
+                                        )
+                                    }
+                                }
+                            } else {
+                                (
+                                    axum::http::StatusCode::OK,
+                                    Json(json!({
+                                        "success": false,
+                                        "authenticated": false,
+                                        "error": "Invalid token format"
+                                    }))
+                                )
+                            }
+                        } else {
+                            (
+                                axum::http::StatusCode::OK,
+                                Json(json!({
+                                    "success": false,
+                                    "authenticated": false,
+                                    "error": "Invalid token format"
+                                }))
+                            )
+                        }
+                    }
+                }
+            ))
             // OpenID + Web3 token endpoint
             .route("/auth/web3/token", axum::routing::post(
                 |Json(payload): Json<serde_json::Value>| async move {

@@ -41,21 +41,37 @@ function AuthWrapper({ children }: { children: React.ReactNode }) {
       try {
         console.log('🔍 Checking authentication status...')
         
-        const response = await fetch('/api/auth/web3/verify', {
+        // Get access token from localStorage (matches SharedOpenIDWeb3Client storage)
+        const accessToken = localStorage.getItem('epsx-admin_access_token');
+        
+        if (!accessToken) {
+          console.log('❌ No access token found in localStorage')
+          setAuthError('No authentication token found')
+          setAuthState('unauthenticated')
+          return
+        }
+        
+        console.log('🔍 Found access token, verifying with backend...')
+        
+        // Call backend session verification endpoint
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'}/api/v1/auth/session/verify`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          },
           body: JSON.stringify({ admin_context: true }),
-          credentials: 'include',
         })
 
         const data = await response.json()
-        console.log('🔍 Auth response:', data)
+        console.log('🔍 Backend auth response:', data)
 
-        if (response.ok && data.success) {
+        if (response.ok && data.success && data.authenticated) {
           setWalletAddress(data.wallet_address)
           setAuthState('authenticated')
           console.log('✅ Authentication successful:', data.wallet_address)
-        } else if (response.status === 403) {
+        } else if (response.status === 403 || (data.success === false && data.error?.includes('Admin'))) {
+          setWalletAddress(data.wallet_address)
           setAuthError('Your wallet does not have admin permissions')
           setAuthState('no-admin')
         } else {

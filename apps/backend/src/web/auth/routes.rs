@@ -10,6 +10,7 @@ use sqlx::PgPool as DbPool;
 use crate::infrastructure::cache::Cache;
 use crate::infrastructure::container::DomainContainer;
 use crate::web::notifications::NotificationBroadcaster;
+use crate::infrastructure::adapters::repositories::database_types::PermissionGroupRepository;
 
 // Import Web3 authentication handlers
 use crate::web::auth::web3_handlers::{
@@ -30,6 +31,12 @@ use crate::web::auth::openid_web3_handlers::{
     openid_discovery,
     jwks,
     userinfo,
+};
+
+// Import session verification handlers
+use crate::web::auth::session_verification_handlers::{
+    verify_session_handler,
+    get_session_status_handler,
 };
 
 use crate::web::user::handlers::{
@@ -61,6 +68,7 @@ pub struct AppState {
     pub cache: Arc<dyn Cache>,
     pub domain_container: Arc<DomainContainer>,
     pub notification_broadcaster: NotificationBroadcaster,
+    pub permission_group_repo: PermissionGroupRepository,
     // Add back user_repo as stub to fix admin handlers
     pub user_repo: Option<String>, // Placeholder
 }
@@ -71,11 +79,13 @@ impl AppState {
         cache: Arc<dyn Cache>,
         domain_container: Arc<DomainContainer>,
     ) -> Self {
+        let permission_group_repo = PermissionGroupRepository::new(db_pool.clone());
         Self {
             db_pool,
             cache,
             domain_container,
             notification_broadcaster: NotificationBroadcaster::new(),
+            permission_group_repo,
             user_repo: None,
         }
     }
@@ -117,7 +127,9 @@ pub fn create_auth_routes(app_state: AppState) -> Router {
 
     // OpenID Connect protected routes (Bearer token required)
     let openid_protected_routes = Router::new()
-        .route("/api/v1/auth/userinfo", get(userinfo));
+        .route("/api/v1/auth/userinfo", get(userinfo))
+        .route("/api/v1/auth/session/verify", post(verify_session_handler))
+        .route("/api/v1/auth/session/status", get(get_session_status_handler));
         // TODO: Temporarily disabled due to Axum trait bound issues
         // .layer(middleware::from_fn(
         //     crate::web::middleware::web3_auth_middleware // TODO: Replace with OpenID Bearer middleware

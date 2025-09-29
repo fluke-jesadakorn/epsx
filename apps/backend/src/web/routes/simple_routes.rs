@@ -159,6 +159,19 @@ impl SimpleRouteBuilder {
     
     /// Create public API routes (no authentication required)
     fn create_public_routes(&self) -> Router {
+        // Create AppState for public routes that need database access
+        let cache = self.container.cache.clone()
+            .unwrap_or_else(|| {
+                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
+                    as Arc<dyn crate::infrastructure::cache::Cache>
+            });
+            
+        let app_state = crate::web::auth::AppState::new(
+            self.container.db_pool(),
+            cache,
+            Arc::new((*self.container).clone()),
+        );
+
         Router::new()
             .nest("/analytics", Router::new()
                 .route("/rankings", get(|| async { 
@@ -187,6 +200,7 @@ impl SimpleRouteBuilder {
                 .route("/countries", get(crate::web::analytics::eps_handlers::get_all_valid_countries))
             )
             .route("/plans", get(crate::web::public::plans_handler::get_public_plans))
+            .with_state(app_state)
     }
     
 }

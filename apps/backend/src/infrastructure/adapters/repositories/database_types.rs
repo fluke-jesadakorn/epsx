@@ -259,3 +259,110 @@ pub struct UpdateSession {
 
 #[derive(Debug, Clone)]
 pub struct IpAddr(pub String);
+
+// Permission Group Types - Updated to match database schema exactly
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct PermissionGroup {
+    pub id: Uuid,
+    pub name: String,
+    pub slug: String,
+    pub description: String,
+    pub group_type: String,
+    pub permissions: serde_json::Value,
+    pub group_metadata: serde_json::Value,
+    pub price: Option<sqlx::types::BigDecimal>, // Handle nullable decimal
+    pub currency: Option<String>,
+    pub billing_cycle: Option<String>,
+    pub is_active: Option<bool>,
+    pub is_promoted: Option<bool>,
+    pub display_order: Option<i32>,
+    pub max_members: Option<i32>,
+    pub auto_assign_enabled: Option<bool>,
+    pub assignment_rules: serde_json::Value,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub created_by: Option<String>,
+    pub last_modified_by: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct NewPermissionGroup {
+    pub name: String,
+    pub slug: String,
+    pub description: String,
+    pub group_type: String,
+    pub permissions: serde_json::Value,
+    pub group_metadata: serde_json::Value,
+    pub price: Option<sqlx::types::BigDecimal>,
+    pub currency: Option<String>,
+    pub billing_cycle: Option<String>,
+    pub is_active: Option<bool>,
+    pub display_order: Option<i32>,
+    pub created_by: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct UpdatePermissionGroup {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub permissions: Option<serde_json::Value>,
+    pub price: Option<sqlx::types::BigDecimal>,
+    pub currency: Option<String>,
+    pub billing_cycle: Option<String>,
+    pub is_active: Option<bool>,
+    pub last_modified_by: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PermissionGroupRepository {
+    pool: Arc<PgPool>,
+}
+
+impl PermissionGroupRepository {
+    pub fn new(pool: Arc<PgPool>) -> Self {
+        Self { pool }
+    }
+
+    /// Get all active subscription plans
+    pub async fn get_subscription_plans(&self) -> Result<Vec<PermissionGroup>, sqlx::Error> {
+        let plans = sqlx::query_as::<_, PermissionGroup>(
+            r#"
+            SELECT 
+                id, name, slug, description, group_type, permissions, group_metadata,
+                price, currency, billing_cycle, is_active, is_promoted, display_order,
+                max_members, auto_assign_enabled, assignment_rules, created_at, updated_at,
+                created_by, last_modified_by
+            FROM permission_groups 
+            WHERE group_type = 'subscription' AND COALESCE(is_active, true) = true 
+            ORDER BY COALESCE(display_order, 0), COALESCE(price, 0)
+            "#
+        )
+        .fetch_all(&*self.pool)
+        .await?;
+        
+        Ok(plans)
+    }
+
+    /// Get plan by ID
+    pub async fn get_plan_by_id(&self, plan_id: Uuid) -> Result<Option<PermissionGroup>, sqlx::Error> {
+        let plan = sqlx::query_as::<_, PermissionGroup>(
+            r#"
+            SELECT 
+                id, name, slug, description, group_type, permissions, group_metadata,
+                price, currency, billing_cycle, is_active, is_promoted, display_order,
+                max_members, auto_assign_enabled, assignment_rules, created_at, updated_at,
+                created_by, last_modified_by
+            FROM permission_groups 
+            WHERE id = $1 AND group_type = 'subscription'
+            "#
+        )
+        .bind(plan_id)
+        .fetch_optional(&*self.pool)
+        .await?;
+        
+        Ok(plan)
+    }
+
+    // Note: Create and update methods can be added later if needed
+    // For now, we only need read operations to replace hardcoded plans
+}

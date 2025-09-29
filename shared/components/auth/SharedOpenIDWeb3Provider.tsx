@@ -190,6 +190,31 @@ export function SharedOpenIDWeb3Provider({
       
       if (result.success) {
         console.log('Web3 authentication successful');
+        
+        // Store Web3 session data in cookies for server-side access
+        try {
+          const storeResponse = await fetch('/api/auth/web3/store-session', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              walletAddress,
+              signature,
+              message,
+              nonce,
+              chainId: 56
+            }),
+          });
+
+          if (storeResponse.ok) {
+            console.log('✅ Web3 session stored in cookies for server-side access');
+          } else {
+            console.warn('⚠️ Failed to store Web3 session in cookies');
+          }
+        } catch (sessionError) {
+          console.warn('⚠️ Error storing Web3 session:', sessionError);
+        }
       } else {
         console.error('Web3 authentication failed', { error: result.error });
         setError(result.error || 'Authentication failed');
