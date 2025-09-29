@@ -11,6 +11,8 @@ use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use std::collections::HashMap;
+use std::str::FromStr;
+use uuid::Uuid;
 
 use crate::web::auth::AppState;
 
@@ -216,56 +218,61 @@ pub async fn create_plan_handler(
 
 /// List permission template-based plans
 pub async fn list_plans_handler(
-    State(_state): State<AppState>,
+    State(app_state): State<AppState>,
     Query(_query): Query<HashMap<String, String>>,
 ) -> Result<JsonResponse<serde_json::Value>, StatusCode> {
-    let plans = vec![
+    // Get plans from database instead of hardcoded data
+    let db_plans = match app_state.permission_group_repo.get_subscription_plans().await {
+        Ok(plans) => plans,
+        Err(err) => {
+            tracing::error!(error = %err, "Failed to fetch subscription plans from database");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    // Convert database plans to admin format (with additional fields for admin UI)
+    let plans: Vec<serde_json::Value> = db_plans.into_iter().map(|plan| {
+        // Extract permissions array from JSONB
+        let permissions = plan.permissions.as_array()
+            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
+            .unwrap_or_else(Vec::new);
+        
+        // Generate group type from permissions (for backward compatibility)
+        let group_type = derive_group_from_permissions(&permissions);
+        
+        // Extract metadata values
+        let target_audience = plan.group_metadata.get("target_audience")
+            .and_then(|v| v.as_str())
+            .unwrap_or("web_users")
+            .to_string();
+        
+        // Mock subscriber data (could be calculated from database in the future)
+        let price_str = plan.price.as_ref()
+            .map(|p| p.to_string())
+            .unwrap_or_else(|| "0.00".to_string());
+        let (subscriber_count, revenue_last_30_days) = match price_str.as_str() {
+            "0.00" => (500, "0.00"),
+            price if price.parse::<f64>().unwrap_or(0.0) < 20.0 => (150, "1499.85"),
+            price if price.parse::<f64>().unwrap_or(0.0) < 60.0 => (75, "3749.25"),
+            _ => (25, "4999.75"),
+        };
+
         serde_json::json!({
-            "id": 1,
-            "name": "Standard Plan",
-            "description": "Enhanced access with standard features",
-            "permission_group_name": "Standard Access Group",
-            "current_price": "9.99",
-            "currency": "USD",
-            "target_audience": "web_users",
-            "billing_model": "subscription",
-            "group_type": "Standard Access Group",
-            "permissions": ["epsx:rankings:view:25", "epsx:trading:basic", "epsx:portfolio:view"],
-            "is_active": true,
-            "subscriber_count": 150,
-            "revenue_last_30_days": "1499.85"
-        }),
-        serde_json::json!({
-            "id": 2,
-            "name": "Premium Plan", 
-            "description": "VIP access with premium features",
-            "permission_group_name": "Premium Access Group",
-            "current_price": "49.99",
-            "currency": "USD",
-            "target_audience": "power_users",
-            "billing_model": "subscription", 
-            "group_type": "Premium Access Group",
-            "permissions": ["epsx:rankings:view:50", "epsx:trading:premium", "epsx:analytics:advanced"],
-            "is_active": true,
-            "subscriber_count": 75,
-            "revenue_last_30_days": "3749.25"
-        }),
-        serde_json::json!({
-            "id": 3,
-            "name": "Enterprise Plan", 
-            "description": "Unlimited access for enterprise customers",
-            "permission_group_name": "Enterprise Access Group",
-            "current_price": "199.99",
-            "currency": "USD",
-            "target_audience": "enterprise",
-            "billing_model": "subscription", 
-            "group_type": "Enterprise Access Group",
-            "permissions": ["epsx:*:*", "epsx-pay:*:*", "epsx-token:*:*"],
-            "is_active": true,
-            "subscriber_count": 25,
-            "revenue_last_30_days": "4999.75"
+            "id": plan.id,
+            "name": plan.name.clone(),
+            "description": plan.description,
+            "permission_group_name": plan.name, // Use plan name as group name
+            "current_price": price_str,
+            "currency": plan.currency.unwrap_or_else(|| "USD".to_string()),
+            "target_audience": target_audience,
+            "billing_model": plan.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
+            "group_type": group_type,
+            "permissions": permissions,
+            "is_active": plan.is_active.unwrap_or(true),
+            "subscriber_count": subscriber_count,
+            "revenue_last_30_days": revenue_last_30_days
         })
-    ];
+    }).collect();
 
     Ok(JsonResponse(serde_json::json!({
         "success": true,
@@ -280,51 +287,84 @@ pub async fn list_plans_handler(
 
 /// Get permission template-based plan details
 pub async fn get_plan_handler(
-    State(_state): State<AppState>,
-    Path(plan_id): Path<i32>,
+    State(app_state): State<AppState>,
+    Path(plan_id_str): Path<String>,
 ) -> Result<JsonResponse<PlanResponse>, StatusCode> {
-    // Mock plan based on ID
-    let (name, group_name, permissions, price, group_type) = match plan_id {
-        1 => (
-            "Standard Plan".to_string(),
-            "Standard Access Group".to_string(),
-            vec!["epsx:rankings:view:25".to_string(), "epsx:trading:basic".to_string()],
-            Decimal::new(999, 2), // 9.99
-            "Standard Access Group".to_string()
-        ),
-        2 => (
-            "Premium Plan".to_string(),
-            "Premium Access Group".to_string(),
-            vec!["epsx:rankings:view:50".to_string(), "epsx:trading:premium".to_string()],
-            Decimal::new(4999, 2), // 49.99
-            "Premium Access Group".to_string()
-        ),
-        _ => (
-            "Enterprise Plan".to_string(),
-            "Enterprise Access Group".to_string(),
-            vec!["epsx:*:*".to_string(), "epsx-pay:*:*".to_string()],
-            Decimal::new(19999, 2), // 199.99
-            "Enterprise Access Group".to_string()
-        )
+    // Parse plan ID as UUID (new format) or handle legacy integer IDs
+    let plan_uuid = match Uuid::parse_str(&plan_id_str) {
+        Ok(uuid) => uuid,
+        Err(_) => {
+            // Handle legacy integer IDs by finding the first plan (for backward compatibility)
+            // In production, you might want to maintain a mapping table or return an error
+            let db_plans = match app_state.permission_group_repo.get_subscription_plans().await {
+                Ok(plans) => plans,
+                Err(err) => {
+                    tracing::error!(error = %err, "Failed to fetch subscription plans from database");
+                    return Err(StatusCode::INTERNAL_SERVER_ERROR);
+                }
+            };
+            
+            if let Some(plan) = db_plans.first() {
+                plan.id
+            } else {
+                return Err(StatusCode::NOT_FOUND);
+            }
+        }
+    };
+    
+    // Get plan from database
+    let plan = match app_state.permission_group_repo.get_plan_by_id(plan_uuid).await {
+        Ok(Some(plan)) => plan,
+        Ok(None) => return Err(StatusCode::NOT_FOUND),
+        Err(err) => {
+            tracing::error!(error = %err, plan_id = %plan_uuid, "Failed to fetch plan from database");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+    
+    // Extract permissions array from JSONB
+    let permissions = plan.permissions.as_array()
+        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
+        .unwrap_or_else(Vec::new);
+    
+    // Generate group type from permissions
+    let group_type = derive_group_from_permissions(&permissions);
+    
+    // Extract metadata values
+    let target_audience = plan.group_metadata.get("target_audience")
+        .and_then(|v| v.as_str())
+        .unwrap_or("web_users")
+        .to_string();
+    
+    // Mock subscriber data (could be calculated from database in the future)
+    let price_decimal = plan.price.as_ref()
+        .map(|p| rust_decimal::Decimal::from_str(&p.to_string()).unwrap_or_else(|_| rust_decimal::Decimal::ZERO))
+        .unwrap_or_else(|| rust_decimal::Decimal::ZERO);
+    
+    let (subscriber_count, revenue_last_30_days) = match price_decimal.to_string().as_str() {
+        "0" | "0.00" => (500, Decimal::ZERO),
+        price if price.parse::<f64>().unwrap_or(0.0) < 20.0 => (150, Decimal::new(149985, 2)), // 1499.85
+        price if price.parse::<f64>().unwrap_or(0.0) < 60.0 => (75, Decimal::new(374925, 2)),  // 3749.25
+        _ => (25, Decimal::new(499975, 2)), // 4999.75
     };
     
     let plan_response = PlanResponse {
-        id: plan_id,
-        name,
-        description: Some("Permission group-based plan".to_string()),
-        permission_group_name: group_name,
-        current_price: price,
-        currency: "USD".to_string(),
-        target_audience: "web_users".to_string(),
-        billing_model: "subscription".to_string(),
+        id: 0, // Legacy field - could be removed or mapped differently
+        name: plan.name.clone(),
+        description: Some(plan.description),
+        permission_group_name: plan.name, // Use plan name as group name
+        current_price: price_decimal,
+        currency: plan.currency.unwrap_or_else(|| "USD".to_string()),
+        target_audience,
+        billing_model: plan.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
         group_type,
-        is_active: true,
+        is_active: plan.is_active.unwrap_or(true),
         permissions,
-        metadata: Some(serde_json::json!({"group_based": true})),
-        created_at: Utc::now(),
-        updated_at: Some(Utc::now()),
-        subscriber_count: 25,
-        revenue_last_30_days: Decimal::new(74975, 2), // 749.75
+        metadata: Some(plan.group_metadata),
+        created_at: plan.created_at,
+        updated_at: Some(plan.updated_at),
+        subscriber_count,
+        revenue_last_30_days,
     };
 
     Ok(JsonResponse(plan_response))

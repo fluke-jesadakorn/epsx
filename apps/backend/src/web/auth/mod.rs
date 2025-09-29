@@ -4,6 +4,7 @@
 pub mod routes;
 pub mod web3_handlers;
 pub mod openid_web3_handlers;
+pub mod session_verification_handlers;
 pub mod modern_routes;
 
 // Main exports

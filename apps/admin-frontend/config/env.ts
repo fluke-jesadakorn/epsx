@@ -6,7 +6,7 @@ import {
   serverEnv, 
   clientEnv, 
   env, 
-  legacyUrls as urls,
+  urls,
   isServer,
   isDev,
   isProd,
