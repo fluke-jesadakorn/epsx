@@ -199,7 +199,7 @@ impl SimpleRouteBuilder {
                 .route("/filters", get(crate::web::analytics::eps_handlers::get_all_valid_countries))
                 .route("/countries", get(crate::web::analytics::eps_handlers::get_all_valid_countries))
             )
-            .route("/plans", get(crate::web::public::plans_handler::get_public_plans))
+            .route("/plans", get(crate::web::public::plans_handlers::get_public_plans))
             .with_state(app_state)
     }
     

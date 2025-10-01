@@ -49,8 +49,8 @@ where
         // Security headers
         .layer(headers::security_headers_layer())
         
-        // CORS configuration
-        .layer(cors::production_cors_layer())
+        // CORS configuration - environment aware
+        .layer(cors::get_cors_layer())
         
         // Request timeout
         .layer(TimeoutLayer::new(Duration::from_secs(30)))

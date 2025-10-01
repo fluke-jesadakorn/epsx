@@ -4,9 +4,6 @@
  * This file now re-exports shared types for backward compatibility
  */
 
-// Re-export everything from shared API types
-export * from '../../../shared/types/api';
-
 // Import for local re-export with legacy names (maintaining compatibility)
 import type {
   ApiResponse as SharedApiResponse,
@@ -24,12 +21,12 @@ import type {
   UserSubscription as SharedUserSubscription,
   LoginRequest as SharedLoginRequest,
   RegisterRequest as SharedRegisterRequest,
-  AuthResponse as SharedAuthResponse,
+  LoginResponse as SharedAuthResponse,
   AuthTokens as SharedAuthTokens,
   PaymentRequest as SharedPaymentRequest,
   PaymentResponse as SharedPaymentResponse,
   PaymentStatus as SharedPaymentStatus,
-  NotificationMessage as SharedNotificationMessage,
+  NotificationWSMessage as SharedNotificationMessage,
   WebSocketMessage as SharedWebSocketMessage,
   SearchRequest as SharedSearchRequest,
   SearchResponse as SharedSearchResponse

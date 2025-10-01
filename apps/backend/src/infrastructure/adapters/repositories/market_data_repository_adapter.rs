@@ -137,16 +137,33 @@ mod tests {
         let screening_result = StockScreeningResult {
             symbol: "AAPL".to_string(),
             name: "Apple Inc.".to_string(),
-            country: "america".to_string(),
-            sector: "Technology".to_string(),
-            exchange: "NASDAQ".to_string(),
-            current_metric: "1.52".to_string(),
-            growth_rate: "15.2".to_string(),
-            value_index: "150.25".to_string(),
-            activity_score: "45678900".to_string(),
-            market_size: "2500000000000".to_string(),
-            next_analysis_date: "2024-01-15".to_string(),
-            last_analysis_date: "2023-10-15".to_string(),
+            price: 150.0,
+            change_percent: 0.0,
+            volume: 50000000,
+            market_cap: Some(2500000000.0),
+            pe_ratio: None,
+            sector: Some("Technology".to_string()),
+            meets_criteria: true,
+            score: 85.5,
+            screened_at: Utc::now(),
+            current_eps: Some(1.52),
+            eps_growth_yoy: Some(15.2),
+            earnings_forecast_fq: Some(1.60),
+            earnings_forecast_next_fq: Some(1.65),
+            eps_q_minus_2: Some(1.40),
+            eps_q_minus_1: Some(1.48),
+            eps_q_current: Some(1.52),
+            eps_q_next_estimate: Some(1.60),
+            eps_q_minus_2_date: Some("2023-07-15".to_string()),
+            eps_q_minus_1_date: Some("2023-10-15".to_string()),
+            eps_q_current_date: Some("2024-01-15".to_string()),
+            eps_q_next_estimate_date: Some("2024-04-15".to_string()),
+            qoq_growth_current: Some(2.7),
+            yoy_growth_current: Some(15.2),
+            trend_direction: Some("UP".to_string()),
+            avg_growth_rate: Some(12.5),
+            consistency_score: Some("HIGH".to_string()),
+            currency: Some("USD".to_string()),
         };
 
         let config = get_test_config();
@@ -157,11 +174,8 @@ mod tests {
             Ok(stock_analysis) => {
                 assert_eq!(stock_analysis.symbol().as_str(), "AAPL");
                 assert_eq!(stock_analysis.company_name(), "Apple Inc.");
-                assert!(stock_analysis.analytics_metrics().is_some());
-                
-                let metrics = stock_analysis.analytics_metrics().unwrap();
-                assert_eq!(metrics.eps_value.value(), 1.52);
-                assert_eq!(metrics.growth_factor.percentage(), 15.2);
+                assert_eq!(stock_analysis.current_eps().value(), 1.52);
+                assert_eq!(stock_analysis.eps_growth().percentage(), 15.2);
             }
             Err(e) => panic!("Conversion failed: {}", e),
         }
@@ -173,7 +187,7 @@ mod tests {
         use rust_decimal_macros::dec;
 
         let symbol = Symbol::new("AAPL").unwrap();
-        let legacy_stock = LegacyStock::new(symbol, dec!(150.50), 1000000, Market::NASDAQ);
+        let legacy_stock = LegacyStock::new(symbol.to_string(), "Apple Inc.".to_string());
 
         let config = get_test_config();
         let tradingview_service = Arc::new(TradingViewApiService::new(Arc::new(config)));

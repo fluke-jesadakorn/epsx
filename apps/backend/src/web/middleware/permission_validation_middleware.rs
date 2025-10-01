@@ -1,6 +1,7 @@
 // ============================================================================
-// BULLETPROOF PERMISSION VALIDATION MIDDLEWARE (Phase 1.2)
+// CENTRALIZED PERMISSION VALIDATION MIDDLEWARE (v2.0)
 // THE SINGLE SOURCE OF TRUTH for all permission enforcement
+// Now powered by CentralizedPermissionAuthority and DatabasePermissionRegistry
 // ============================================================================
 
 use axum::{
@@ -10,126 +11,130 @@ use axum::{
     response::{Response, IntoResponse},
 };
 use serde_json::json;
-use std::collections::HashMap;
-use tracing::{info, warn, error};
+use std::sync::Arc;
+use tracing::{info, warn, error, debug};
 
+use crate::auth::{
+    PermissionGuard,
+    ValidationContext,
+};
 use crate::web::auth::AppState;
 use crate::web::errors::{PermissionError, RiskLevel};
 
-/// Permission validation middleware - THE AUTHORITY for all permission checks
-/// This middleware enforces permission validation on ALL protected routes
+/// CENTRALIZED Permission validation middleware - THE AUTHORITY for all permission checks
+/// This middleware enforces permission validation on ALL protected routes using
+/// the new CentralizedPermissionAuthority and DatabasePermissionRegistry
 /// Frontend/admin applications should NEVER do local permission validation
 pub async fn permission_validation_middleware(
     State(app_state): State<AppState>,
-    headers: HeaderMap,
     request: Request,
     next: Next,
-) -> Result<Response, Response> {
+) -> Response {
+    let headers = request.headers().clone();
+    let (parts, body) = request.into_parts();
+    let request = Request::from_parts(parts, body);
     let method = request.method().clone();
     let path = request.uri().path();
     
-    // Skip permission validation for public endpoints
-    if is_public_endpoint(path) {
-        return Ok(next.run(request).await);
+    debug!("Processing permission validation for: {} {}", method, path);
+    
+    // Create centralized permission services (TODO: Inject these from app_state)
+    let authority = Arc::new(crate::auth::create_permission_authority(app_state.db_pool.as_ref().clone()));
+    let registry = Arc::new(crate::auth::create_permission_registry(app_state.db_pool.as_ref().clone()));
+    
+    // Initialize registry if needed (this should be done at startup)
+    if let Err(e) = registry.initialize().await {
+        error!("Failed to initialize permission registry: {}", e);
+        return create_system_error_response();
     }
     
-    // Skip permission validation for health checks
-    if is_health_endpoint(path) {
-        return Ok(next.run(request).await);
-    }
+    // Create permission guard for validation
+    let guard = PermissionGuard::new(authority, registry);
     
     // Extract Web3 authentication information
-    let auth_info = match extract_web3_auth_info(&headers) {
-        Some(info) => info,
+    let wallet_address = match extract_wallet_address(&headers) {
+        Some(addr) => addr,
         None => {
+            // Check if this is a public route first
+            if is_legacy_public_endpoint(path) {
+                debug!("Allowing legacy public path: {} {}", method, path);
+                return next.run(request).await;
+            }
+            
             warn!("Permission middleware: Missing Web3 authentication for protected route: {} {}", method, path);
             let error = PermissionError::authentication_required(
                 "Valid Web3 wallet signature required to access this resource"
             );
-            return Err(error.into_response());
+            return error.into_response();
         }
     };
     
-    // Determine required permission for this route
-    let required_permission = match determine_required_permission(&method.to_string(), path) {
-        Some(permission) => permission,
-        None => {
-            info!("Permission middleware: No permission required for route: {} {}", method, path);
-            return Ok(next.run(request).await);
-        }
-    };
-    
-    // ⚡ CRITICAL: THE SINGLE SOURCE OF TRUTH permission validation
-    let validation_result = validate_wallet_permission(
-        &app_state,
-        &auth_info.wallet_address,
-        &required_permission,
-        path,
-        &method.to_string(),
-    ).await;
-    
-    match validation_result {
-        Ok(permission_granted) => {
-            if permission_granted.granted {
+    // Use new centralized route validation
+    match guard.validate_route(&wallet_address, &method.to_string(), path, &headers).await {
+        Ok(validation) => {
+            if validation.granted || validation.is_public_route {
                 info!(
-                    "Permission granted: user={}, permission={}, path={}",
-                    auth_info.wallet_address, required_permission, path
+                    "✅ Permission granted: wallet={}, route={} {}, required_permission={:?}, public={}",
+                    wallet_address, method, path, validation.required_permission, validation.is_public_route
                 );
                 
                 // Log successful permission validation for audit
-                log_permission_audit(
-                    &auth_info.wallet_address,
-                    &required_permission,
+                log_permission_audit_v2(
+                    &wallet_address,
+                    validation.required_permission.as_deref(),
                     path,
                     &method.to_string(),
                     true,
-                    permission_granted.reason.as_deref(),
+                    Some("Permission granted via centralized authority"),
+                    &validation.context,
                 ).await;
                 
-                Ok(next.run(request).await)
+                next.run(request).await
             } else {
                 warn!(
-                    "Permission denied: wallet={}, permission={}, path={}, reason={}",
-                    auth_info.wallet_address, required_permission, path, 
-                    permission_granted.reason.as_deref().unwrap_or_default()
+                    "❌ Permission denied: wallet={}, route={} {}, required_permission={:?}",
+                    wallet_address, method, path, validation.required_permission
                 );
                 
                 // Log failed permission validation for security monitoring
-                log_permission_audit(
-                    &auth_info.wallet_address,
-                    &required_permission,
+                log_permission_audit_v2(
+                    &wallet_address,
+                    validation.required_permission.as_deref(),
                     path,
                     &method.to_string(),
                     false,
-                    permission_granted.reason.as_deref(),
+                    Some("Permission denied by centralized authority"),
+                    &validation.context,
                 ).await;
                 
-                // Create structured permission error based on failure reason
-                let permission_error = create_structured_permission_error(
-                    &auth_info.wallet_address,
-                    &required_permission,
+                // Create structured permission error
+                let permission_error = create_centralized_permission_error(
+                    &wallet_address,
+                    validation.required_permission.as_deref().unwrap_or("unknown"),
                     path,
                     &method.to_string(),
-                    &permission_granted
+                    &validation,
                 );
                 
-                Err(permission_error.into_response())
+                permission_error.into_response()
             }
         }
         Err(validation_error) => {
             error!(
-                "Permission validation error: wallet={}, permission={}, path={}, error={}",
-                auth_info.wallet_address, required_permission, path, validation_error
+                "🚨 Permission validation system error: wallet={}, route={} {}, error={}",
+                wallet_address, method, path, validation_error
             );
             
             // Log validation error for system monitoring
-            log_permission_audit(
-                &auth_info.wallet_address,
-                &required_permission,
+            let context = create_validation_context(&method.to_string(), path, &headers);
+            log_permission_audit_v2(
+                &wallet_address,
+                None,
                 path,
                 &method.to_string(),
                 false,
-                Some(&format!("Validation error: {}", validation_error)),
+                Some(&format!("System validation error: {}", validation_error)),
+                &context,
             ).await;
             
             // Create system error for validation failures
@@ -138,55 +143,42 @@ pub async fn permission_validation_middleware(
                 retry_after: Some(30),
             };
             
-            Err(error.into_response())
+            error.into_response()
         }
     }
 }
 
-/// Web3 authentication information extracted from request headers
-#[derive(Debug, Clone)]
-struct Web3AuthInfo {
-    wallet_address: String,
-    #[allow(dead_code)] // TODO: Implement chain ID validation
-    chain_id: Option<String>,
-    #[allow(dead_code)] // TODO: Implement signature verification
-    signature: String,
-    #[allow(dead_code)] // TODO: Implement message validation
-    message: String,
+// ============================================================================
+// UTILITY FUNCTIONS FOR CENTRALIZED PERMISSION SYSTEM
+// ============================================================================
+
+/// Extract wallet address from request headers (simplified)
+fn extract_wallet_address(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get("X-Wallet-Address")
+        .or_else(|| headers.get("x-wallet-address"))
+        .and_then(|h| h.to_str().ok())
+        .map(|addr| addr.to_lowercase())
+        .filter(|addr| is_valid_wallet_address(addr))
 }
 
-/// Permission validation result from THE AUTHORITY
-#[derive(Debug)]
-struct PermissionValidationResult {
-    granted: bool,
-    reason: Option<String>,
-    expires_at: Option<chrono::DateTime<chrono::Utc>>,
-    usage_count: Option<u32>,
-    usage_limit: Option<u32>,
-}
-
-/// Extract Web3 authentication information from request headers
-/// Pure wallet-first authentication - only Web3 signatures accepted
-fn extract_web3_auth_info(headers: &HeaderMap) -> Option<Web3AuthInfo> {
-    // Extract Web3 signature components - all are required for wallet-first auth
-    // Use standardized header names matching web3_auth_middleware.rs
-    let wallet_addr = headers.get("X-Wallet-Address").and_then(|h| h.to_str().ok())?;
-    let signature = headers.get("X-Web3-Signature").and_then(|h| h.to_str().ok())?;  
-    let message = headers.get("X-Signed-Message").and_then(|h| h.to_str().ok())?;
-    let chain_id = headers.get("X-Chain-Id").and_then(|h| h.to_str().ok()).map(String::from);
-    
-    // Validate wallet address format
-    if !is_valid_wallet_address(wallet_addr) {
-        warn!("Invalid wallet address format: {}", wallet_addr);
-        return None;
+/// Create validation context from request information
+fn create_validation_context(method: &str, path: &str, headers: &HeaderMap) -> ValidationContext {
+    ValidationContext {
+        request_id: uuid::Uuid::new_v4().to_string(),
+        user_agent: headers
+            .get("user-agent")
+            .and_then(|h| h.to_str().ok())
+            .map(|s| s.to_string()),
+        ip_address: headers
+            .get("x-forwarded-for")
+            .or_else(|| headers.get("x-real-ip"))
+            .and_then(|h| h.to_str().ok())
+            .map(|s| s.to_string()),
+        timestamp: chrono::Utc::now(),
+        route_path: path.to_string(),
+        http_method: method.to_string(),
     }
-    
-    Some(Web3AuthInfo {
-        wallet_address: wallet_addr.to_lowercase(), // Normalize to lowercase
-        chain_id,
-        signature: signature.to_string(),
-        message: message.to_string(),
-    })
 }
 
 /// Validate wallet address format (0x + 40 hex characters)
@@ -203,9 +195,9 @@ fn is_valid_wallet_address(address: &str) -> bool {
     address[2..].chars().all(|c| c.is_ascii_hexdigit())
 }
 
-/// Check if the endpoint is public (no permission required)
-fn is_public_endpoint(path: &str) -> bool {
-    const PUBLIC_PATHS: &[&str] = &[
+/// Legacy public endpoint check (fallback for backward compatibility)
+fn is_legacy_public_endpoint(path: &str) -> bool {
+    const LEGACY_PUBLIC_PATHS: &[&str] = &[
         "/",
         "/health",
         "/readiness", 
@@ -214,206 +206,42 @@ fn is_public_endpoint(path: &str) -> bool {
         "/api/auth/web3/challenge",
         "/api/v1/auth/web3/challenge",
         "/api/permissions/health",
-        "/docs",                    // API documentation UI (ReDoc)
-        "/api-docs/",               // OpenAPI specification endpoint
+        "/docs",
+        "/api-docs/",
     ];
     
-    PUBLIC_PATHS.iter().any(|public_path| {
+    LEGACY_PUBLIC_PATHS.iter().any(|public_path| {
         path.starts_with(public_path)
     })
 }
 
-/// Check if the endpoint is a health check
-fn is_health_endpoint(path: &str) -> bool {
-    path.contains("/health") || path.contains("/readiness") || path.contains("/liveness")
+/// Create system error response for validation failures
+fn create_system_error_response() -> Response {
+    let error = PermissionError::SystemError {
+        error_id: uuid::Uuid::new_v4().to_string(),
+        retry_after: Some(30),
+    };
+    error.into_response()
 }
 
-/// Determine the required permission for a given route and method
-/// This is THE AUTHORITY for mapping routes to permissions
-fn determine_required_permission(method: &str, path: &str) -> Option<String> {
-    // Permission mapping rules - THE SINGLE SOURCE OF TRUTH
-    let permission_map = create_permission_mapping();
-    
-    // Try exact match first
-    let route_key = format!("{} {}", method, path);
-    if let Some(permission) = permission_map.get(&route_key) {
-        return Some(permission.clone());
-    }
-    
-    // Try pattern matching for dynamic routes
-    for (pattern, permission) in &permission_map {
-        if matches_route_pattern(pattern, &route_key) {
-            return Some(permission.clone());
-        }
-    }
-    
-    // Fallback: determine permission from path structure
-    determine_permission_from_path(path)
-}
-
-/// Create the comprehensive permission mapping - THE AUTHORITY
-fn create_permission_mapping() -> HashMap<String, String> {
-    let mut map = HashMap::new();
-    
-    // Admin routes (require admin:*:* permissions) - Both /admin/* and /api/admin/*
-    map.insert("GET /admin/users".to_string(), "admin:users:read".to_string());
-    map.insert("POST /admin/users".to_string(), "admin:users:create".to_string());
-    map.insert("PUT /admin/users/*".to_string(), "admin:users:update".to_string());
-    map.insert("DELETE /admin/users/*".to_string(), "admin:users:delete".to_string());
-    
-    // API Admin routes (frontend compatibility)
-    map.insert("GET /api/admin/users".to_string(), "admin:users:read".to_string());
-    map.insert("POST /api/admin/users".to_string(), "admin:users:create".to_string());
-    map.insert("PUT /api/admin/users/*".to_string(), "admin:users:update".to_string());
-    map.insert("DELETE /api/admin/users/*".to_string(), "admin:users:delete".to_string());
-    
-    // Permission authority routes (require admin:permissions:* permissions)
-    map.insert("POST /api/permissions/validate".to_string(), "admin:permissions:validate".to_string());
-    map.insert("POST /api/permissions/validate-bulk".to_string(), "admin:permissions:validate".to_string());
-    map.insert("GET /api/permissions/user/*".to_string(), "admin:permissions:read".to_string());
-    
-    // Permission group management (require admin:permission-groups:* permissions)
-    map.insert("GET /admin/permission-groups".to_string(), "admin:permission-groups:read".to_string());
-    map.insert("POST /admin/permission-groups".to_string(), "admin:permission-groups:create".to_string());
-    map.insert("PUT /admin/permission-groups/*".to_string(), "admin:permission-groups:update".to_string());
-    map.insert("DELETE /admin/permission-groups/*".to_string(), "admin:permission-groups:delete".to_string());
-    map.insert("GET /api/admin/permission-groups".to_string(), "admin:permission-groups:read".to_string());
-    map.insert("POST /api/admin/permission-groups".to_string(), "admin:permission-groups:create".to_string());
-    map.insert("PUT /api/admin/permission-groups/*".to_string(), "admin:permission-groups:update".to_string());
-    map.insert("DELETE /api/admin/permission-groups/*".to_string(), "admin:permission-groups:delete".to_string());
-    
-    // Web3 admin routes (require admin:web3:* permissions)
-    map.insert("GET /admin/web3/permissions".to_string(), "admin:web3:read".to_string());
-    map.insert("POST /admin/web3/permissions/grant".to_string(), "admin:web3:grant".to_string());
-    map.insert("POST /admin/web3/nft-gates".to_string(), "admin:web3:create".to_string());
-    map.insert("POST /admin/web3/token-gates".to_string(), "admin:web3:create".to_string());
-    map.insert("POST /admin/web3/dao-proposals".to_string(), "admin:web3:create".to_string());
-    map.insert("GET /api/admin/web3/permissions".to_string(), "admin:web3:read".to_string());
-    map.insert("POST /api/admin/web3/permissions/grant".to_string(), "admin:web3:grant".to_string());
-    map.insert("POST /api/admin/web3/nft-gates".to_string(), "admin:web3:create".to_string());
-    map.insert("POST /api/admin/web3/token-gates".to_string(), "admin:web3:create".to_string());
-    map.insert("POST /api/admin/web3/dao-proposals".to_string(), "admin:web3:create".to_string());
-    
-    // Security monitoring (require admin:security:* permissions)
-    map.insert("GET /admin/security/events".to_string(), "admin:security:read".to_string());
-    map.insert("GET /admin/security/metrics".to_string(), "admin:security:read".to_string());
-    map.insert("GET /admin/security/user-threat".to_string(), "admin:security:read".to_string());
-    map.insert("GET /api/admin/security/events".to_string(), "admin:security:read".to_string());
-    map.insert("GET /api/admin/security/metrics".to_string(), "admin:security:read".to_string());
-    map.insert("GET /api/admin/security/user-threat".to_string(), "admin:security:read".to_string());
-    
-    // Performance monitoring (require admin:performance:* permissions)
-    map.insert("GET /admin/performance/auth-cache".to_string(), "admin:performance:read".to_string());
-    map.insert("GET /admin/performance/cache-summary".to_string(), "admin:performance:read".to_string());
-    map.insert("POST /admin/performance/clear-cache".to_string(), "admin:performance:manage".to_string());
-    map.insert("GET /api/admin/performance/auth-cache".to_string(), "admin:performance:read".to_string());
-    map.insert("GET /api/admin/performance/cache-summary".to_string(), "admin:performance:read".to_string());
-    map.insert("POST /api/admin/performance/clear-cache".to_string(), "admin:performance:manage".to_string());
-    
-    // User data access (require epsx:data:* permissions)
-    map.insert("GET /api/v1/users/permissions".to_string(), "epsx:data:read".to_string());
-    map.insert("GET /api/v1/users/holdings".to_string(), "epsx:data:read".to_string());
-    map.insert("POST /api/v1/users/verify".to_string(), "epsx:data:verify".to_string());
-    
-    // Analytics access (require epsx:analytics:* permissions)
-    map.insert("GET /api/v1/analytics/rankings".to_string(), "epsx:analytics:read".to_string());
-    map.insert("GET /analytics/rankings".to_string(), "epsx:analytics:read".to_string());
-    
-    map
-}
-
-/// Check if a route pattern matches the current route
-fn matches_route_pattern(pattern: &str, route: &str) -> bool {
-    // Simple wildcard matching for dynamic routes
-    if pattern.contains("*") {
-        let pattern_prefix = pattern.split('*').next().unwrap_or("");
-        return route.starts_with(pattern_prefix);
-    }
-    
-    pattern == route
-}
-
-/// Determine permission from path structure when no specific mapping exists
-fn determine_permission_from_path(path: &str) -> Option<String> {
-    // Fallback permission determination based on path structure
-    if path.starts_with("/admin/") || path.starts_with("/api/admin/") {
-        return Some("admin:general:access".to_string());
-    }
-    
-    if path.starts_with("/api/permissions/") {
-        return Some("admin:permissions:validate".to_string());
-    }
-    
-    if path.starts_with("/api/v1/analytics/") {
-        return Some("epsx:analytics:read".to_string());
-    }
-    
-    if path.starts_with("/api/v1/users/") {
-        return Some("epsx:data:read".to_string());
-    }
-    
-    // No permission required for unmatched paths
-    None
-}
-
-/// THE SINGLE SOURCE OF TRUTH wallet permission validation function
-/// Real wallet-first validation using unified Web3 permission service
-async fn validate_wallet_permission(
-    app_state: &AppState,
+/// Create centralized permission error based on validation failure
+fn create_centralized_permission_error(
     wallet_address: &str,
-    required_permission: &str,
+    permission: &str,
     path: &str,
     method: &str,
-) -> Result<PermissionValidationResult, String> {
-    info!(
-        "Validating wallet permission: wallet={}, permission={}, path={}, method={}",
-        wallet_address, required_permission, path, method
-    );
-    
-    // Get the unified Web3 permission service from app state
-    let _web3_permission_service = app_state
-        .domain_container
-        .get_wallet_permission_service()
-        .ok_or_else(|| "Web3 permission service not available".to_string())?;
-    
-    // For now, allow basic permissions for authenticated wallets
-    // TODO: Integrate with proper wallet permission service when available
-    let basic_permissions = vec!["epsx:basic:view", "epsx:data:read"];
-    let has_permission = basic_permissions.contains(&required_permission);
-    
-    if has_permission {
-        info!("Permission '{}' granted for wallet: {}", required_permission, wallet_address);
-        
-        Ok(PermissionValidationResult {
-            granted: true,
-            reason: Some(format!("Basic permission granted for authenticated wallet {}", wallet_address)),
-            expires_at: None,
-            usage_count: Some(1),
-            usage_limit: Some(1000),
-        })
-    } else {
-        
-        let reason = format!("Wallet {} lacks required permission: '{}'", wallet_address, required_permission);
-        
-        Ok(PermissionValidationResult {
-            granted: false,
-            reason: Some(reason),
-            expires_at: None,
-            usage_count: Some(0),
-            usage_limit: Some(1000),
-        })
-    }
-}
-
-/// Create structured permission error based on validation failure
-fn create_structured_permission_error(
-    _wallet_address: &str,
-    permission: &str,
-    _path: &str,
-    _method: &str,
-    validation_result: &PermissionValidationResult,
+    validation: &crate::auth::RouteValidationResult,
 ) -> PermissionError {
-    let reason = validation_result.reason.as_deref().unwrap_or("Permission denied");
+    let reason = if let Some(validation_result) = &validation.validation_result {
+        validation_result.reason.as_deref().unwrap_or("Permission denied")
+    } else {
+        "Permission required for this resource"
+    };
+    
+    debug!(
+        "Creating permission error for wallet={}, permission={}, path={}, method={}",
+        wallet_address, permission, path, method
+    );
     
     // Analyze the failure reason to create appropriate error type
     if reason.contains("insufficient access") || reason.contains("upgrade required") {
@@ -425,14 +253,14 @@ fn create_structured_permission_error(
     } else if reason.contains("usage limit") || reason.contains("quota exceeded") {
         PermissionError::usage_limit_exceeded(
             permission,
-            validation_result.usage_count.unwrap_or(0),
-            validation_result.usage_limit.unwrap_or(100),
+            0, // TODO: Get actual usage count
+            100, // TODO: Get actual usage limit
             None, // TODO: Get actual reset time
         )
     } else if reason.contains("expired") {
         PermissionError::PermissionExpired {
             permission: permission.to_string(),
-            expired_at: validation_result.expires_at.unwrap_or(chrono::Utc::now()),
+            expired_at: chrono::Utc::now(),
             renewal_url: Some("/payment".to_string()),
         }
     } else if reason.contains("security") || reason.contains("suspicious") {
@@ -457,14 +285,15 @@ fn create_structured_permission_error(
     }
 }
 
-/// Log permission audit for compliance and security monitoring
-async fn log_permission_audit(
+/// Enhanced audit logging for centralized permission system (v2)
+async fn log_permission_audit_v2(
     wallet_address: &str,
-    permission: &str,
+    permission: Option<&str>,
     path: &str,
     method: &str,
     granted: bool,
     reason: Option<&str>,
+    context: &ValidationContext,
 ) {
     let audit_entry = json!({
         "timestamp": chrono::Utc::now(),
@@ -474,48 +303,58 @@ async fn log_permission_audit(
         "method": method,
         "granted": granted,
         "reason": reason.unwrap_or_default(),
-        "audit_type": "permission_validation"
+        "audit_type": "centralized_permission_validation",
+        "request_id": context.request_id,
+        "user_agent": context.user_agent,
+        "ip_address": context.ip_address,
+        "system_version": "v2.0"
     });
     
     // TODO: Implement proper audit logging to database
-    info!("Permission audit: {}", audit_entry);
+    if granted {
+        info!("Permission audit: {}", audit_entry);
+    } else {
+        warn!("Permission audit (DENIED): {}", audit_entry);
+    }
 }
+
+// ============================================================================
+// CENTRALIZED PERMISSION VALIDATION SYSTEM v2.0
+// Legacy functions have been replaced with database-driven, cached validation
+// All permission logic now flows through CentralizedPermissionAuthority
+// ============================================================================
 
 #[cfg(test)]
 mod tests {
     use super::*;
     
     #[test]
-    fn test_is_public_endpoint() {
-        assert!(is_public_endpoint("/health"));
-        assert!(is_public_endpoint("/api/v1/public/analytics"));
-        assert!(is_public_endpoint("/api/permissions/health"));
-        assert!(!is_public_endpoint("/admin/users"));
-        assert!(!is_public_endpoint("/api/v1/users"));
+    fn test_is_valid_wallet_address() {
+        assert!(is_valid_wallet_address("0x742d35Cc6AbAAC8b14A3780B5b0E11B2Ce65d695"));
+        assert!(is_valid_wallet_address("0x742d35cc6abaac8b14a3780b5b0e11b2ce65d695"));
+        assert!(!is_valid_wallet_address("742d35Cc6AbAAC8b14A3780B5b0E11B2Ce65d695"));
+        assert!(!is_valid_wallet_address("0x742d35Cc"));
+        assert!(!is_valid_wallet_address(""));
     }
     
     #[test]
-    fn test_determine_required_permission() {
-        assert_eq!(
-            determine_required_permission("GET", "/admin/users"),
-            Some("admin:users:read".to_string())
-        );
-        
-        assert_eq!(
-            determine_required_permission("POST", "/admin/permission-groups"),
-            Some("admin:permission-groups:create".to_string())
-        );
-        
-        assert_eq!(
-            determine_required_permission("GET", "/health"),
-            None
-        );
+    fn test_is_legacy_public_endpoint() {
+        assert!(is_legacy_public_endpoint("/health"));
+        assert!(is_legacy_public_endpoint("/api/v1/public/analytics"));
+        assert!(is_legacy_public_endpoint("/api/permissions/health"));
+        assert!(!is_legacy_public_endpoint("/admin/users"));
+        assert!(!is_legacy_public_endpoint("/api/v1/users"));
     }
     
     #[test]
-    fn test_matches_route_pattern() {
-        assert!(matches_route_pattern("PUT /admin/users/*", "PUT /admin/users/123"));
-        assert!(matches_route_pattern("GET /admin/permission-groups/*", "GET /admin/permission-groups/456"));
-        assert!(!matches_route_pattern("GET /admin/users", "POST /admin/users"));
+    fn test_create_validation_context() {
+        use axum::http::HeaderMap;
+        
+        let headers = HeaderMap::new();
+        let context = create_validation_context("GET", "/test", &headers);
+        
+        assert_eq!(context.http_method, "GET");
+        assert_eq!(context.route_path, "/test");
+        assert!(!context.request_id.is_empty());
     }
 }

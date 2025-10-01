@@ -25,6 +25,9 @@ pub mod docs;
 // Stateless router for serverless architecture
 pub mod stateless_router;
 
+// Standardized API router with organized naming convention
+pub mod standardized_router;
+
 use axum::{ routing::get, Router, http::Method };
 use serde_json::json;
 use std::sync::Arc;
@@ -152,3 +155,6 @@ pub async fn create_demo_router() -> Router {
 
 // Export stateless router function
 pub use stateless_router::create_stateless_router;
+
+// Export standardized router function
+pub use standardized_router::create_standardized_router;

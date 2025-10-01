@@ -1,14 +1,13 @@
-/// Notification Mappers for SSE Integration
+/// Web3-first Notification Mappers for SSE Integration
 /// Convert between domain notification structures and SSE notification types
 
 use chrono::Utc;
-use uuid::Uuid;
 
 use crate::domain::notification::aggregates::notification::Notification;
 use crate::domain::notification::value_objects::user_preferences::NotificationType;
 use crate::domain::notification::aggregates::notification::NotificationPriority;
 use crate::web::notifications::{SSENotification, NotificationType as SSENotificationType, NotificationPriority as SSENotificationPriority};
-use crate::infrastructure::adapters::services::email_service::SentEmail;
+// Email service import removed - Web3-first system uses direct wallet notifications
 
 /// Mapper for converting between domain and SSE notification structures
 pub struct NotificationMapper;
@@ -56,16 +55,7 @@ impl NotificationMapper {
         }
     }
 
-    /// Create email notification from domain notification
-    pub fn create_email_from_domain(notification: &Notification, recipient: &str) -> SentEmail {
-        SentEmail {
-            message_id: Uuid::new_v4().to_string(),
-            to: recipient.to_string(),
-            subject: notification.content().title().to_string(),
-            sent_at: Utc::now(),
-            status: crate::infrastructure::adapters::services::email_service::EmailStatus::Sent,
-        }
-    }
+    // Email notification creation method removed - Web3-first system uses direct wallet notifications
 
     /// Create domain notification from legacy database record (stub implementation)
     pub fn create_ddd_notification_from_legacy(
@@ -101,7 +91,7 @@ mod tests {
     fn test_sse_notification_validation() {
         let notification = SSENotification {
             id: "test-id".to_string(),
-            user_id: "user-123".to_string(),
+            wallet_address: "user-123".to_string(),
             notification_type: SSENotificationType::General,
             title: "Test Notification".to_string(),
             message: "Test message".to_string(),
@@ -118,7 +108,7 @@ mod tests {
     fn test_sse_notification_validation_empty_title() {
         let notification = SSENotification {
             id: "test-id".to_string(),
-            user_id: "user-123".to_string(),
+            wallet_address: "user-123".to_string(),
             notification_type: SSENotificationType::General,
             title: "".to_string(),
             message: "Test message".to_string(),

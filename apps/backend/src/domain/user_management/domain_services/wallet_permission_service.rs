@@ -601,7 +601,7 @@ mod tests {
         
         // Grant admin permission
         let admin_perm = Permission::new("admin:*:*").unwrap();
-        user.grant_permission(admin_perm, None).unwrap();
+        user.grant_permission(admin_perm).unwrap();
         
         // Now should be admin
         assert!(admin_spec.is_satisfied_by(&user));
@@ -622,7 +622,7 @@ mod tests {
             vec![1, 2, 3],
             1, // Ethereum
         ).unwrap();
-        user.grant_permission(nft_perm, None).unwrap();
+        user.grant_permission(nft_perm).unwrap();
         
         // Now should have Ethereum access
         assert!(ethereum_spec.is_satisfied_by(&user));

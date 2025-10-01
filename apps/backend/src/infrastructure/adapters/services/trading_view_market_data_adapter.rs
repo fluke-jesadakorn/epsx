@@ -88,7 +88,7 @@ mod tests {
     
     #[test]
     fn test_adapter_creation() {
-        let config = Config::default();
+        let config = Config::from_env().unwrap();
         let tradingview_service = Arc::new(TradingViewApiService::new(Arc::new(config)));
         let adapter = TradingViewMarketDataAdapter::new(tradingview_service);
         
@@ -98,7 +98,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_countries_list() {
-        let config = Config::default();
+        let config = Config::from_env().unwrap();
         let tradingview_service = Arc::new(TradingViewApiService::new(Arc::new(config)));
         let adapter = TradingViewMarketDataAdapter::new(tradingview_service);
         
@@ -110,7 +110,7 @@ mod tests {
     
     #[tokio::test]
     async fn test_sectors_list() {
-        let config = Config::default();
+        let config = Config::from_env().unwrap();
         let tradingview_service = Arc::new(TradingViewApiService::new(Arc::new(config)));
         let adapter = TradingViewMarketDataAdapter::new(tradingview_service);
         

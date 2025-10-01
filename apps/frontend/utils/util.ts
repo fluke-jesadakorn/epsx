@@ -250,7 +250,7 @@ export const array = {
    * Flatten nested arrays
    */
   flatten<T>(arr: (T | T[])[]): T[] {
-    return arr.reduce((acc, val) => {
+    return arr.reduce((acc: T[], val: T | T[]) => {
       if (Array.isArray(val)) {
         return acc.concat(array.flatten(val));
       } else {

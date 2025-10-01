@@ -20,6 +20,7 @@ export interface PermissionGroup {
   description?: string;
   created_at: string;
   updated_at: string;
+  member_count?: number; // Added member count from backend
 }
 
 export interface UserGroupMembership {
@@ -36,7 +37,13 @@ export interface UserGroupMembership {
 export interface Web3AssignmentRule {
   id: string;
   group_id: string;
-  blockchain_network: 'bsc_mainnet' | 'bsc_testnet' | 'ethereum_mainnet' | 'polygon_mainnet' | 'arbitrum_mainnet' | 'optimism_mainnet';
+  blockchain_network:
+    | 'bsc_mainnet'
+    | 'bsc_testnet'
+    | 'ethereum_mainnet'
+    | 'polygon_mainnet'
+    | 'arbitrum_mainnet'
+    | 'optimism_mainnet';
   verification_type: 'nft_ownership' | 'token_balance' | 'dao_membership';
   contract_address?: string;
   token_id?: string;
@@ -56,7 +63,11 @@ export interface GroupAssignmentHistory {
   group_id: string;
   group_name?: string;
   operation_type: 'assign' | 'remove' | 'expire' | 'cleanup';
-  operation_source: 'manual' | 'web3_automatic' | 'system_cleanup' | 'bulk_operation';
+  operation_source:
+    | 'manual'
+    | 'web3_automatic'
+    | 'system_cleanup'
+    | 'bulk_operation';
   performed_by?: string;
   performed_by_name?: string;
   reason?: string;
@@ -128,35 +139,129 @@ export class GroupManagementClient extends UnifiedAdminClient {
   // ============================================================================
 
   async getPermissionGroups(): Promise<PermissionGroup[]> {
-    const response = await this.get<PermissionGroup[]>('/admin/permission-groups');
+    console.log('🔍 ULTRA DEBUG: Starting getPermissionGroups');
+    console.log(
+      '🔍 ULTRA DEBUG: About to call /api/v1/admin/permission-groups'
+    );
+
+    // FIX: Use consistent API pattern to avoid Next.js route interception
+    // Changed from '/admin/permission-groups' to '/api/v1/admin/permission-groups'
+    // to match other admin API calls and avoid conflicts with local Next.js routes
+    const response = await this.get<{
+      permission_groups: PermissionGroup[];
+      pagination: any;
+      total: number;
+    }>('/api/v1/admin/permission-groups');
+
+    console.log(
+      '🔍 ULTRA DEBUG: Raw response:',
+      JSON.stringify(response, null, 2)
+    );
+    console.log('🔍 ULTRA DEBUG: Response type:', typeof response);
+    console.log('🔍 ULTRA DEBUG: Response success:', response?.success);
+    console.log('🔍 ULTRA DEBUG: Response data type:', typeof response?.data);
+    console.log(
+      '🔍 ULTRA DEBUG: Response data keys:',
+      response?.data ? Object.keys(response.data) : 'no data'
+    );
     
+    // DEEP DEBUG: Check response.data directly
+    console.log('🔍 DEEP DEBUG: response.data direct access:', response.data);
+    console.log('🔍 DEEP DEBUG: response.data.permission_groups direct:', response.data?.permission_groups);
+    console.log('🔍 DEEP DEBUG: response["data"] bracket access:', response["data"]);
+    console.log('🔍 DEEP DEBUG: response["data"]["permission_groups"] bracket:', response["data"]?.["permission_groups"]);
+
     if (!response.success || !response.data) {
+      console.log(
+        '❌ ULTRA DEBUG: Response failed - success:',
+        response?.success,
+        'data:',
+        !!response?.data
+      );
       throw new Error(response.error || 'Failed to fetch permission groups');
     }
-    return response.data;
+
+    console.log(
+      '🔍 ULTRA DEBUG: permission_groups exists:',
+      !!response.data.permission_groups
+    );
+    console.log(
+      '🔍 ULTRA DEBUG: permission_groups type:',
+      typeof response.data.permission_groups
+    );
+    console.log(
+      '🔍 ULTRA DEBUG: permission_groups isArray:',
+      Array.isArray(response.data.permission_groups)
+    );
+
+    console.log('Debug Data: ' + JSON.stringify(response.data));
+    
+    // ULTRA ROOT CAUSE DEBUG: Check if data is nested differently
+    console.log('🔍 STRUCTURE DEBUG: response keys:', Object.keys(response));
+    console.log('🔍 STRUCTURE DEBUG: response.data keys:', response.data ? Object.keys(response.data) : 'no data keys');
+    console.log('🔍 STRUCTURE DEBUG: response.data.data exists?:', !!response.data?.data);
+    console.log('🔍 STRUCTURE DEBUG: response.data.data keys:', response.data?.data ? Object.keys(response.data.data) : 'no nested data');
+    
+    // Check if permission_groups is nested under response.data.data
+    const actualData = response.data?.data || response.data;
+    console.log('🔍 ACTUAL DATA:', actualData);
+    console.log('🔍 ACTUAL DATA permission_groups:', actualData?.permission_groups);
+
+    // ROOT CAUSE FIX: Use the correct data path
+    if (!actualData?.permission_groups || !Array.isArray(actualData.permission_groups)) {
+      console.log(
+        '❌ ULTRA DEBUG: Invalid structure - permission_groups:',
+        response.data.permission_groups,
+        'exists:', !!response.data.permission_groups,
+        'isArray:', Array.isArray(response.data.permission_groups)
+      );
+      throw new Error(
+        'Invalid response structure: permission_groups is not an array'
+      );
+    }
+
+    console.log(
+      '✅ ULTRA DEBUG: Success! Returning',
+      actualData.permission_groups.length,
+      'permission groups'
+    );
+    return actualData.permission_groups;
   }
 
   async getPermissionGroup(groupId: string): Promise<PermissionGroup> {
-    const response = await this.get<PermissionGroup>(`/admin/permission-groups/${groupId}`);
-    
+    const response = await this.get<PermissionGroup>(
+      `/api/v1/admin/permission-groups/${groupId}`
+    );
+
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to fetch permission group');
     }
     return response.data;
   }
 
-  async createPermissionGroup(request: CreateGroupRequest): Promise<PermissionGroup> {
-    const response = await this.post<PermissionGroup>('/admin/permission-groups', request);
-    
+  async createPermissionGroup(
+    request: CreateGroupRequest
+  ): Promise<PermissionGroup> {
+    const response = await this.post<PermissionGroup>(
+      '/api/v1/admin/permission-groups',
+      request
+    );
+
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to create permission group');
     }
     return response.data;
   }
 
-  async updatePermissionGroup(groupId: string, request: UpdateGroupRequest): Promise<PermissionGroup> {
-    const response = await this.put<PermissionGroup>(`/admin/permission-groups/${groupId}`, request);
-    
+  async updatePermissionGroup(
+    groupId: string,
+    request: UpdateGroupRequest
+  ): Promise<PermissionGroup> {
+    const response = await this.put<PermissionGroup>(
+      `/api/v1/admin/permission-groups/${groupId}`,
+      request
+    );
+
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to update permission group');
     }
@@ -164,8 +269,10 @@ export class GroupManagementClient extends UnifiedAdminClient {
   }
 
   async deletePermissionGroup(groupId: string): Promise<void> {
-    const response = await this.delete(`/admin/permission-groups/${groupId}`);
-    
+    const response = await this.delete(
+      `/api/v1/admin/permission-groups/${groupId}`
+    );
+
     if (!response.success) {
       throw new Error(response.error || 'Failed to delete permission group');
     }
@@ -176,8 +283,10 @@ export class GroupManagementClient extends UnifiedAdminClient {
   // ============================================================================
 
   async getUserGroups(userId: string): Promise<UserGroupMembership[]> {
-    const response = await this.get<UserGroupMembership[]>(`/admin/users/${userId}/groups`);
-    
+    const response = await this.get<UserGroupMembership[]>(
+      `/admin/wallets/${userId}/assignments`
+    );
+
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to fetch user groups');
     }
@@ -185,8 +294,10 @@ export class GroupManagementClient extends UnifiedAdminClient {
   }
 
   async getUserPermissions(userId: string): Promise<string[]> {
-    const response = await this.get<string[]>(`/api/auth/web3/groups/permissions/${userId}`);
-    
+    const response = await this.get<string[]>(
+      `/api/auth/web3/groups/permissions/${userId}`
+    );
+
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to fetch user permissions');
     }
@@ -194,24 +305,38 @@ export class GroupManagementClient extends UnifiedAdminClient {
   }
 
   async assignUserToGroup(request: AssignUserToGroupRequest): Promise<void> {
-    const response = await this.post('/admin/groups/assign', request);
-    
+    const response = await this.post('/admin/wallet-assignments', {
+      wallet_address: request.user_id,
+      group_id: request.group_id,
+      expires_at: request.expires_at,
+      assignment_reason: request.reason,
+      assignment_source: 'manual',
+    });
+
     if (!response.success) {
       throw new Error(response.error || 'Failed to assign user to group');
     }
   }
 
   async removeUserFromGroup(userId: string, groupId: string): Promise<void> {
-    const response = await this.delete(`/admin/groups/${groupId}/users/${userId}`);
-    
+    // This endpoint might not exist yet in backend
+    // TODO: Implement when backend supports removing assignments
+    const response = await this.delete(
+      `/admin/wallet-assignments/${userId}/${groupId}`
+    );
+
     if (!response.success) {
       throw new Error(response.error || 'Failed to remove user from group');
     }
   }
 
   async getGroupMemberships(groupId: string): Promise<UserGroupMembership[]> {
-    const response = await this.get<UserGroupMembership[]>(`/admin/groups/${groupId}/memberships`);
-    
+    // This endpoint might not exist yet in backend
+    // TODO: Implement when backend supports querying by group
+    const response = await this.get<UserGroupMembership[]>(
+      `/admin/group-memberships/${groupId}`
+    );
+
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to fetch group memberships');
     }
@@ -223,34 +348,54 @@ export class GroupManagementClient extends UnifiedAdminClient {
   // ============================================================================
 
   async getWeb3AssignmentRules(): Promise<Web3AssignmentRule[]> {
-    const response = await this.get<Web3AssignmentRule[]>('/api/auth/web3/assignment/rules');
-    
+    const response = await this.get<Web3AssignmentRule[]>(
+      '/api/auth/web3/assignment/rules'
+    );
+
     if (!response.success || !response.data) {
-      throw new Error(response.error || 'Failed to fetch Web3 assignment rules');
+      throw new Error(
+        response.error || 'Failed to fetch Web3 assignment rules'
+      );
     }
     return response.data;
   }
 
-  async createWeb3AssignmentRule(request: CreateWeb3RuleRequest): Promise<Web3AssignmentRule> {
-    const response = await this.post<Web3AssignmentRule>('/api/auth/web3/assignment/rules', request);
-    
+  async createWeb3AssignmentRule(
+    request: CreateWeb3RuleRequest
+  ): Promise<Web3AssignmentRule> {
+    const response = await this.post<Web3AssignmentRule>(
+      '/api/auth/web3/assignment/rules',
+      request
+    );
+
     if (!response.success || !response.data) {
-      throw new Error(response.error || 'Failed to create Web3 assignment rule');
+      throw new Error(
+        response.error || 'Failed to create Web3 assignment rule'
+      );
     }
     return response.data;
   }
 
   async deleteWeb3AssignmentRule(ruleId: string): Promise<void> {
-    const response = await this.delete(`/api/auth/web3/assignment/rules/${ruleId}`);
-    
+    const response = await this.delete(
+      `/api/auth/web3/assignment/rules/${ruleId}`
+    );
+
     if (!response.success) {
-      throw new Error(response.error || 'Failed to delete Web3 assignment rule');
+      throw new Error(
+        response.error || 'Failed to delete Web3 assignment rule'
+      );
     }
   }
 
-  async processWalletAssignment(request: ProcessWalletRequest): Promise<string[]> {
-    const response = await this.post<string[]>('/api/auth/web3/assignment/process-wallet', request);
-    
+  async processWalletAssignment(
+    request: ProcessWalletRequest
+  ): Promise<string[]> {
+    const response = await this.post<string[]>(
+      '/api/auth/web3/assignment/process-wallet',
+      request
+    );
+
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to process wallet assignment');
     }
@@ -258,10 +403,13 @@ export class GroupManagementClient extends UnifiedAdminClient {
   }
 
   async verifyWalletAssets(walletAddress: string): Promise<any> {
-    const response = await this.post<any>('/api/auth/web3/assignment/verify-assets', { 
-      wallet_address: walletAddress 
-    });
-    
+    const response = await this.post<any>(
+      '/api/auth/web3/assignment/verify-assets',
+      {
+        wallet_address: walletAddress,
+      }
+    );
+
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to verify wallet assets');
     }
@@ -269,8 +417,11 @@ export class GroupManagementClient extends UnifiedAdminClient {
   }
 
   async bulkProcessWallets(request: BulkProcessRequest): Promise<any> {
-    const response = await this.post<any>('/api/auth/web3/assignment/bulk-process', request);
-    
+    const response = await this.post<any>(
+      '/api/auth/web3/assignment/bulk-process',
+      request
+    );
+
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to bulk process wallets');
     }
@@ -300,8 +451,10 @@ export class GroupManagementClient extends UnifiedAdminClient {
   }> {
     const params: Record<string, string> = {};
     if (filters) {
-      if (filters.operation_type) params.operation_type = filters.operation_type;
-      if (filters.operation_source) params.operation_source = filters.operation_source;
+      if (filters.operation_type)
+        params.operation_type = filters.operation_type;
+      if (filters.operation_source)
+        params.operation_source = filters.operation_source;
       if (filters.group_id) params.group_id = filters.group_id;
       if (filters.user_search) params.user_search = filters.user_search;
       if (filters.date_from) params.date_from = filters.date_from;
@@ -309,35 +462,185 @@ export class GroupManagementClient extends UnifiedAdminClient {
       if (filters.limit) params.limit = filters.limit.toString();
       if (filters.offset) params.offset = filters.offset.toString();
     }
-    
+
     const response = await this.get<{
       history: GroupAssignmentHistory[];
       total: number;
     }>('/admin/groups/history', params);
-    
+
     return response;
   }
 
   async cleanupExpiredMemberships(): Promise<{ removed_count: number }> {
-    const response = await this.post<{ removed_count: number }>('/admin/groups/cleanup-expired', {});
-    
+    const response = await this.post<{ removed_count: number }>(
+      '/admin/groups/cleanup-expired',
+      {}
+    );
+
     if (!response.success || !response.data) {
-      throw new Error(response.error || 'Failed to cleanup expired memberships');
+      throw new Error(
+        response.error || 'Failed to cleanup expired memberships'
+      );
     }
     return response.data;
   }
 
   // ============================================================================
-  // ANALYTICS AND INSIGHTS
+  // CONSOLIDATED USER MANAGEMENT
+  // Backend-centric user operations with comprehensive data
+  // ============================================================================
+
+  async listUsers(params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    tier?: string;
+    status?: string;
+    sort_by?: string;
+    sort_order?: string;
+  }): Promise<any> {
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.set('page', params.page.toString());
+    if (params?.limit) queryParams.set('limit', params.limit.toString());
+    if (params?.search) queryParams.set('search', params.search);
+    if (params?.tier) queryParams.set('tier', params.tier);
+    if (params?.status) queryParams.set('status', params.status);
+    if (params?.sort_by) queryParams.set('sort_by', params.sort_by);
+    if (params?.sort_order) queryParams.set('sort_order', params.sort_order);
+
+    const url = `/admin/users${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    const response = await this.get<any>(url);
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch users');
+    }
+
+    return response.data;
+  }
+
+  async getUser(walletAddress: string): Promise<any> {
+    const response = await this.get<any>(`/admin/users/${walletAddress}`);
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch user details');
+    }
+
+    return response.data;
+  }
+
+  async updateUser(
+    walletAddress: string,
+    updates: {
+      tier_level?: string;
+      is_active?: boolean;
+      metadata?: any;
+    }
+  ): Promise<any> {
+    const response = await this.put<any>(
+      `/admin/users/${walletAddress}`,
+      updates
+    );
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to update user');
+    }
+
+    return response.data;
+  }
+
+  async getUserStats(): Promise<any> {
+    const response = await this.get<any>('/admin/users/stats');
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch user statistics');
+    }
+
+    return response.data;
+  }
+
+  // ============================================================================
+  // ANALYTICS AND BUSINESS INTELLIGENCE
+  // Comprehensive data aggregation for administrative insights
+  // ============================================================================
+
+  async getPlatformOverview(period?: string): Promise<any> {
+    const queryParams = period ? `?period=${period}` : '';
+    const response = await this.get<any>(
+      `/admin/analytics/overview${queryParams}`
+    );
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch platform overview');
+    }
+
+    return response.data;
+  }
+
+  async getUserAnalytics(period?: string): Promise<any> {
+    const queryParams = period ? `?period=${period}` : '';
+    const response = await this.get<any>(
+      `/admin/analytics/users${queryParams}`
+    );
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch user analytics');
+    }
+
+    return response.data;
+  }
+
+  async getPermissionAnalytics(): Promise<any> {
+    const response = await this.get<any>('/admin/analytics/permissions');
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch permission analytics');
+    }
+
+    return response.data;
+  }
+
+  async getRevenueAnalytics(period?: string): Promise<any> {
+    const queryParams = period ? `?period=${period}` : '';
+    const response = await this.get<any>(
+      `/admin/analytics/revenue${queryParams}`
+    );
+
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Failed to fetch revenue analytics');
+    }
+
+    return response.data;
+  }
+
+  // ============================================================================
+  // LEGACY ANALYTICS (DEPRECATED - Use getPermissionAnalytics instead)
   // ============================================================================
 
   async getGroupAnalytics(): Promise<GroupAnalytics> {
-    const response = await this.get<GroupAnalytics>('/admin/groups/analytics');
-    
+    // Use the new consolidated permission analytics endpoint (consistent API pattern)
+    const response = await this.get<any>('/api/v1/admin/analytics/permissions');
+
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to fetch group analytics');
     }
-    return response.data;
+
+    // Map the new backend response to the expected frontend format
+    const data = response.data;
+    return {
+      total_groups: data.permission_usage?.length || 0,
+      total_active_memberships: data.total_permissions || 0,
+      expiring_soon_count: data.expiring_permissions?.length || 0,
+      most_popular_groups:
+        data.group_membership?.slice(0, 3).map((group: any) => ({
+          group_name: group.group_name,
+          member_count: group.member_count,
+        })) || [],
+      permission_distribution:
+        data.permission_usage?.reduce((acc: any, perm: any) => {
+          acc[perm.permission] = perm.users_count;
+          return acc;
+        }, {}) || {},
+    };
   }
 
   async getExpiringMemberships(days = 7): Promise<UserGroupMembership[]> {
@@ -345,7 +648,7 @@ export class GroupManagementClient extends UnifiedAdminClient {
       '/admin/groups/expiring-memberships',
       { days: days.toString() }
     );
-    
+
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to fetch expiring memberships');
     }
@@ -356,12 +659,15 @@ export class GroupManagementClient extends UnifiedAdminClient {
   // PERMISSION UTILITIES
   // ============================================================================
 
-  async checkUserPermission(userId: string, permission: string): Promise<boolean> {
+  async checkUserPermission(
+    userId: string,
+    permission: string
+  ): Promise<boolean> {
     const response = await this.get<{ has_permission: boolean }>(
       `/admin/users/${userId}/check-permission`,
       { permission }
     );
-    
+
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to check user permission');
     }
@@ -370,9 +676,11 @@ export class GroupManagementClient extends UnifiedAdminClient {
 
   async getAvailablePermissions(): Promise<string[]> {
     const response = await this.get<string[]>('/admin/permissions/available');
-    
+
     if (!response.success || !response.data) {
-      throw new Error(response.error || 'Failed to fetch available permissions');
+      throw new Error(
+        response.error || 'Failed to fetch available permissions'
+      );
     }
     return response.data;
   }

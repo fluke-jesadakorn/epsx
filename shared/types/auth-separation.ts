@@ -2,9 +2,11 @@
  * CONSOLIDATED AUTHENTICATION TYPES
  * Unified authentication and authorization types shared across applications
  * Supports both admin and user contexts with proper separation and security
+ * Uses permission groups instead of legacy tier system
  */
 
 import { JWTPayload } from 'jose';
+import { PermissionGroup } from './domain/User';
 
 // ============================================================================
 // BASE AUTHENTICATION TYPES
@@ -86,8 +88,8 @@ export interface AdminUserProfile {
   platforms: string[];
   primaryPlatform: 'admin';
   
-  // Package tier (derived from permissions)
-  packageTier: 'ENTERPRISE';
+  // Permission group (derived from permissions)
+  permission_group: PermissionGroup;
 }
 
 export interface AdminSessionData {
@@ -114,13 +116,13 @@ export interface UserJWTPayload extends BaseJWTPayload {
   // Lightweight permissions structure
   permissions: {
     permissions: string[]; // Structured permissions: "epsx:resource:action"
-    package_tier: string;
+    permission_group: PermissionGroup;
     expires_at?: number; // For time-limited permissions
   };
   
   // User context (minimal for performance)
   user_context: {
-    package_tier: string;
+    permission_group: PermissionGroup;
     wallet_address?: string; // Web3 integration
     firebase_uid?: string;
     platform_preferences: string[];
@@ -139,7 +141,7 @@ export interface UserProfile {
   
   // User-specific permissions (structured)
   permissions: string[];
-  packageTier: string;
+  permission_group: PermissionGroup;
   
   // User metadata (lightweight)
   walletAddress?: string; // Web3 integration
@@ -169,7 +171,7 @@ export interface UserSessionData {
 
 export type SessionData = AdminSessionData | UserSessionData;
 export type AuthenticatedUserProfile = AdminUserProfile | UserProfile;
-export type JWTPayload = AdminJWTPayload | UserJWTPayload;
+export type AuthJWTPayload = AdminJWTPayload | UserJWTPayload;
 
 export interface SessionValidationResult {
   valid: boolean;
@@ -197,8 +199,8 @@ export interface UserPermissionCheck {
 
 export interface PermissionValidation {
   hasPermission: boolean;
-  reason?: 'valid' | 'no_permission' | 'tier_insufficient' | 'expired';
-  requiredTier?: string;
+  reason?: 'valid' | 'no_permission' | 'permission_group_insufficient' | 'expired';
+  requiredPermissionGroup?: PermissionGroup;
   upgradeUrl?: string;
 }
 
@@ -255,7 +257,7 @@ export interface LegacyJWTPayload {
   email: string;
   permissions: string[];
   admin_modules?: string[];
-  package_tier?: string;
+  permission_group?: PermissionGroup;
   firebase_uid?: string;
 }
 
@@ -292,11 +294,11 @@ export function isAdminUser(user: AuthenticatedUserProfile): user is AdminUserPr
 }
 
 export function isRegularUser(user: AuthenticatedUserProfile): user is UserProfile {
-  return !('securityLevel' in user) && 'packageTier' in user;
+  return !('securityLevel' in user) && 'permission_group' in user;
 }
 
 export function hasValidSubscription(user: UserProfile): boolean {
-  return user.packageTier !== 'FREE';
+  return user.permission_group !== 'Basic Access Group';
 }
 
 export function canAccessFeature(user: UserProfile, feature: string): boolean {

@@ -104,7 +104,7 @@ export type {
   PaginatedResponse,
   LoginRequest,
   AuthTokens,
-  NotificationMessage,
+  NotificationWSMessage,
   AnalyticsRankingItem,
 } from './api';
 

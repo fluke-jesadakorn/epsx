@@ -65,7 +65,7 @@ const initialUserState: UserState = {
     },
     subscription: null,
     permissions: [],
-    packageTier: 'FREE',
+    permissionGroup: 'Basic Access Group',
   },
   optimisticUpdates: [],
 };
@@ -141,7 +141,6 @@ interface AppStateContextType {
       ) => void;
       setSubscription: (subscription: UserSubscription | null) => void;
       updatePermissions: (permissions: string[]) => void;
-      setPackageTier: (tier: string) => void;
     };
     analytics: {
       setRankings: (rankings: StockRanking[]) => void;
@@ -583,12 +582,6 @@ export function AppStateProvider({
             meta: { timestamp: Date.now(), source: 'user' },
           }),
 
-      setPackageTier: (tier: string) =>
-        dispatch({
-            type: 'SET_USER_PACKAGE_TIER',
-            payload: tier,
-            meta: { timestamp: Date.now(), source: 'user' },
-          }),
     }),
     [dispatch]
   );

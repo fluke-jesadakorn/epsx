@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { Badge } from '@/components/ui/badge';
-import type { User } from '@/lib/server-actions';
+import type { AuthUser } from '@/lib/server-actions';
 
 interface UsageMonitorProps {
-  currentUser: User;
+  currentUser: AuthUser;
 }
 
 interface UsageStats {

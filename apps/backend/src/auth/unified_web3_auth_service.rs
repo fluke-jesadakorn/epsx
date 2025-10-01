@@ -4,15 +4,23 @@
 
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
-use ethers::types::Address;
+use std::sync::Arc;
+use ethers::{
+    types::{Address, U256},
+    providers::{Http, Provider, Middleware},
+    contract::Contract,
+    abi::Abi,
+};
 use serde::{Deserialize, Serialize};
 use siwe::{Message, VerificationOpts};
 use sqlx::PgPool;
 use std::str::FromStr;
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use jsonwebtoken;
+use serde_json;
 
 use super::openid_token_service::OpenIDTokenService;
+use crate::config::env::get_bsc_chain_id;
 
 /// Unified Web3 Authentication Service
 /// Handles all Web3 wallet authentication, SIWE verification, and permission management
@@ -333,28 +341,104 @@ impl UnifiedWeb3AuthService {
     /// Get or create user for wallet
     async fn get_or_create_user(&self, wallet_address: &str) -> Result<(String, bool), Web3AuthError> {
         // Check if user exists in wallet_users table
-        if let Some(_user) = sqlx::query!("SELECT wallet_address FROM wallet_users WHERE wallet_address = $1", wallet_address)
+        if let Some(_existing_user) = sqlx::query!("SELECT wallet_address, last_auth_at FROM wallet_users WHERE wallet_address = $1", wallet_address)
             .fetch_optional(&self.db_pool)
             .await
             .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?
         {
+            // Update last_auth_at for existing user
+            sqlx::query!(
+                "UPDATE wallet_users SET last_auth_at = NOW(), updated_at = NOW() WHERE wallet_address = $1",
+                wallet_address
+            )
+            .execute(&self.db_pool)
+            .await
+            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
+
+            debug!("Updated existing wallet user activity: {}", wallet_address);
             return Ok((wallet_address.to_string(), false));
         }
 
-        // Create new user in wallet_users table
+        // Get the correct BSC chain ID based on environment configuration
+        let blockchain_network = std::env::var("NEXT_PUBLIC_BLOCKCHAIN_NETWORK")
+            .unwrap_or_else(|_| "testnet".to_string());
+        let chain_id = get_bsc_chain_id(&blockchain_network);
+        
+        // Create wallet metadata with connection info
+        let connection_metadata = serde_json::json!({
+            "first_connection_at": Utc::now().to_rfc3339(),
+            "connection_source": "web3_siwe",
+            "domain": self.domain,
+            "initial_tier": "Bronze",
+            "auto_created": true,
+            "chain_id": chain_id,
+            "blockchain_network": blockchain_network
+        });
+
+        // Create new user in wallet_users table with enhanced metadata
         sqlx::query!(
             r#"
-            INSERT INTO wallet_users (wallet_address, permissions, tier_level, created_at, updated_at)
-            VALUES ($1, '[]', 'Bronze', NOW(), NOW())
+            INSERT INTO wallet_users (
+                wallet_address, 
+                permissions, 
+                tier_level, 
+                wallet_metadata,
+                created_at, 
+                updated_at,
+                last_auth_at
+            )
+            VALUES ($1, '[]', 'Bronze', $2, NOW(), NOW(), NOW())
             "#,
-            wallet_address
+            wallet_address,
+            connection_metadata
         )
         .execute(&self.db_pool)
         .await
         .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
-        info!("Created new wallet user: {}", wallet_address);
+        // Structured logging for new wallet creation with rich metadata
+        info!(
+            wallet_address = %wallet_address,
+            domain = %self.domain,
+            connection_type = "new_wallet_creation",
+            metadata = %connection_metadata,
+            "🎉 New wallet user created successfully"
+        );
+
+        // Emit new wallet creation event for admin notifications
+        self.emit_new_wallet_event(wallet_address, &connection_metadata).await;
+
         Ok((wallet_address.to_string(), true))
+    }
+
+    /// Emit new wallet creation event for admin notifications
+    async fn emit_new_wallet_event(&self, wallet_address: &str, metadata: &serde_json::Value) {
+        // Create event payload for real-time admin notifications
+        let event_payload = serde_json::json!({
+            "event_type": "new_wallet_connected",
+            "timestamp": Utc::now().to_rfc3339(),
+            "wallet_address": wallet_address,
+            "metadata": metadata,
+            "notification": {
+                "title": "New Wallet Connected",
+                "message": format!("Wallet {} just connected to the platform", wallet_address),
+                "severity": "info",
+                "category": "user_activity"
+            }
+        });
+
+        // Log the event for potential webhook delivery or SSE broadcasting
+        info!(
+            event_type = "new_wallet_connected",
+            wallet_address = %wallet_address,
+            payload = %event_payload,
+            "New wallet event emitted for admin notification"
+        );
+
+        // TODO: In future phases, integrate with:
+        // - SSE broadcasting to admin dashboard
+        // - Webhook delivery to external systems
+        // - Real-time notification queue
     }
 
     /// Get manual permissions
@@ -384,25 +468,252 @@ impl UnifiedWeb3AuthService {
         Ok(permissions)
     }
 
-    /// Get NFT-based permissions (placeholder - would integrate with blockchain)
-    async fn get_nft_permissions(&self, _wallet_address: &str) -> Result<Vec<String>, Web3AuthError> {
-        // TODO: Implement NFT ownership verification
-        // This would check NFT ownership on-chain and return associated permissions
-        Ok(vec![])
+    /// Get NFT-based permissions for premium access based on NFT ownership
+    async fn get_nft_permissions(&self, wallet_address: &str) -> Result<Vec<String>, Web3AuthError> {
+        let mut permissions = Vec::new();
+        
+        // Get NFT contract address from environment (if configured)
+        let nft_contract = match std::env::var("ENTERPRISE_NFT_CONTRACT") {
+            Ok(contract) if !contract.is_empty() => contract,
+            _ => {
+                debug!("No enterprise NFT contract configured, skipping NFT permissions");
+                return Ok(permissions);
+            }
+        };
+        
+        // Get blockchain network and RPC URL
+        let blockchain_network = std::env::var("NEXT_PUBLIC_BLOCKCHAIN_NETWORK")
+            .unwrap_or_else(|_| "testnet".to_string());
+        let rpc_url = std::env::var("BSC_RPC_URL")
+            .unwrap_or_else(|_| {
+                match blockchain_network.as_str() {
+                    "mainnet" => "https://bsc-dataseed.binance.org".to_string(),
+                    _ => "https://data-seed-prebsc-1-s1.binance.org:8545".to_string(),
+                }
+            });
+        
+        // Create provider for BSC network
+        let provider = match Provider::<Http>::try_from(&rpc_url) {
+            Ok(p) => p,
+            Err(e) => {
+                warn!("Failed to create BSC provider for NFT check: {}", e);
+                return Ok(permissions);
+            }
+        };
+        
+        // Parse wallet and contract addresses
+        let wallet_addr = match Address::from_str(wallet_address) {
+            Ok(addr) => addr,
+            Err(e) => {
+                warn!("Invalid wallet address {}: {}", wallet_address, e);
+                return Ok(permissions);
+            }
+        };
+        
+        let contract_addr = match Address::from_str(&nft_contract) {
+            Ok(addr) => addr,
+            Err(e) => {
+                warn!("Invalid NFT contract address {}: {}", nft_contract, e);
+                return Ok(permissions);
+            }
+        };
+        
+        // Simple ERC721 balanceOf check (basic NFT ownership verification)
+        // This uses a minimal ABI for balanceOf function
+        let balance_of_abi = r#"[{"inputs":[{"name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"type":"function"}]"#;
+        
+        if let Ok(abi) = serde_json::from_str::<Abi>(balance_of_abi) {
+            let contract = Contract::new(contract_addr, abi, Arc::new(provider));
+            
+            // Call balanceOf function
+            match contract.method::<_, U256>("balanceOf", wallet_addr) {
+                Ok(call) => {
+                    match call.call().await {
+                        Ok(balance) => {
+                            if balance > U256::zero() {
+                                permissions.push("epsx:premium:nft_holder".to_string());
+                                permissions.push("epsx:analytics:exclusive".to_string());
+                                permissions.push("admin:dashboard:nft_access".to_string());
+                                
+                                info!("Wallet {} owns {} NFTs, granted premium NFT permissions", 
+                                    wallet_address, balance);
+                            } else {
+                                debug!("Wallet {} owns no NFTs from contract {}", wallet_address, nft_contract);
+                            }
+                        }
+                        Err(e) => {
+                            warn!("Failed to check NFT balance for {}: {}", wallet_address, e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to create NFT contract call: {}", e);
+                }
+            }
+        } else {
+            warn!("Failed to parse NFT contract ABI");
+        }
+        
+        Ok(permissions)
     }
 
-    /// Get token-based permissions (placeholder - would integrate with blockchain)
-    async fn get_token_permissions(&self, _wallet_address: &str) -> Result<Vec<String>, Web3AuthError> {
-        // TODO: Implement token balance verification
-        // This would check token balances on-chain and return associated permissions
-        Ok(vec![])
+    /// Get token-based permissions based on BNB and token balances for payments
+    async fn get_token_permissions(&self, wallet_address: &str) -> Result<Vec<String>, Web3AuthError> {
+        let mut permissions = Vec::new();
+        
+        // Get blockchain network and RPC URL
+        let blockchain_network = std::env::var("NEXT_PUBLIC_BLOCKCHAIN_NETWORK")
+            .unwrap_or_else(|_| "testnet".to_string());
+        let rpc_url = std::env::var("BSC_RPC_URL")
+            .unwrap_or_else(|_| {
+                match blockchain_network.as_str() {
+                    "mainnet" => "https://bsc-dataseed.binance.org".to_string(),
+                    _ => "https://data-seed-prebsc-1-s1.binance.org:8545".to_string(),
+                }
+            });
+        
+        // Create provider for BSC network
+        let provider = match Provider::<Http>::try_from(&rpc_url) {
+            Ok(p) => p,
+            Err(e) => {
+                warn!("Failed to create BSC provider: {}", e);
+                return Ok(permissions);
+            }
+        };
+        
+        // Parse wallet address
+        let address = match Address::from_str(wallet_address) {
+            Ok(addr) => addr,
+            Err(e) => {
+                warn!("Invalid wallet address {}: {}", wallet_address, e);
+                return Ok(permissions);
+            }
+        };
+        
+        // Check BNB balance for payment tiers
+        match provider.get_balance(address, None).await {
+            Ok(balance) => {
+                let bnb_balance = balance.as_u128() as f64 / 1e18; // Convert from wei to BNB
+                
+                // Payment tier permissions based on BNB holdings
+                if bnb_balance >= 10.0 {
+                    permissions.push("epsx:premium:lifetime".to_string());
+                    permissions.push("epsx:analytics:unlimited".to_string());
+                } else if bnb_balance >= 1.0 {
+                    permissions.push("epsx:premium:annual".to_string());
+                    permissions.push("epsx:analytics:premium".to_string());
+                } else if bnb_balance >= 0.1 {
+                    permissions.push("epsx:premium:monthly".to_string());
+                    permissions.push("epsx:analytics:standard".to_string());
+                }
+                
+                debug!("Wallet {} has {} BNB, granted {} token permissions", 
+                    wallet_address, bnb_balance, permissions.len());
+            }
+            Err(e) => {
+                warn!("Failed to get BNB balance for {}: {}", wallet_address, e);
+            }
+        }
+        
+        Ok(permissions)
     }
 
-    /// Get DAO governance permissions (placeholder - would integrate with governance contracts)
-    async fn get_dao_permissions(&self, _wallet_address: &str) -> Result<Vec<String>, Web3AuthError> {
-        // TODO: Implement DAO membership verification
-        // This would check DAO membership and voting power on-chain
-        Ok(vec![])
+    /// Get DAO governance permissions based on token holdings and governance participation
+    async fn get_dao_permissions(&self, wallet_address: &str) -> Result<Vec<String>, Web3AuthError> {
+        let mut permissions = Vec::new();
+        
+        // Get governance token contract from environment (if configured)
+        let governance_token = match std::env::var("ENTERPRISE_GOVERNANCE_TOKEN") {
+            Ok(contract) if !contract.is_empty() => contract,
+            _ => {
+                debug!("No enterprise governance token configured, skipping DAO permissions");
+                return Ok(permissions);
+            }
+        };
+        
+        // Get blockchain network and RPC URL
+        let blockchain_network = std::env::var("NEXT_PUBLIC_BLOCKCHAIN_NETWORK")
+            .unwrap_or_else(|_| "testnet".to_string());
+        let rpc_url = std::env::var("BSC_RPC_URL")
+            .unwrap_or_else(|_| {
+                match blockchain_network.as_str() {
+                    "mainnet" => "https://bsc-dataseed.binance.org".to_string(),
+                    _ => "https://data-seed-prebsc-1-s1.binance.org:8545".to_string(),
+                }
+            });
+        
+        // Create provider for BSC network
+        let provider = match Provider::<Http>::try_from(&rpc_url) {
+            Ok(p) => p,
+            Err(e) => {
+                warn!("Failed to create BSC provider for DAO check: {}", e);
+                return Ok(permissions);
+            }
+        };
+        
+        // Parse wallet and contract addresses
+        let wallet_addr = match Address::from_str(wallet_address) {
+            Ok(addr) => addr,
+            Err(e) => {
+                warn!("Invalid wallet address {}: {}", wallet_address, e);
+                return Ok(permissions);
+            }
+        };
+        
+        let token_addr = match Address::from_str(&governance_token) {
+            Ok(addr) => addr,
+            Err(e) => {
+                warn!("Invalid governance token address {}: {}", governance_token, e);
+                return Ok(permissions);
+            }
+        };
+        
+        // ERC20 balanceOf ABI for checking governance token holdings
+        let balance_of_abi = r#"[{"inputs":[{"name":"account","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"type":"function"}]"#;
+        
+        if let Ok(abi) = serde_json::from_str::<Abi>(balance_of_abi) {
+            let contract = Contract::new(token_addr, abi, Arc::new(provider));
+            
+            // Call balanceOf function
+            match contract.method::<_, U256>("balanceOf", wallet_addr) {
+                Ok(call) => {
+                    match call.call().await {
+                        Ok(balance) => {
+                            if balance > U256::zero() {
+                                let token_balance = balance.as_u128() as f64 / 1e18; // Assuming 18 decimals
+                                
+                                // Grant permissions based on governance token holdings
+                                if token_balance >= 1000.0 {
+                                    permissions.push("admin:governance:vote".to_string());
+                                    permissions.push("admin:proposals:create".to_string());
+                                    permissions.push("epsx:dao:executive".to_string());
+                                } else if token_balance >= 100.0 {
+                                    permissions.push("admin:governance:vote".to_string());
+                                    permissions.push("epsx:dao:member".to_string());
+                                } else if token_balance >= 10.0 {
+                                    permissions.push("epsx:dao:participant".to_string());
+                                }
+                                
+                                info!("Wallet {} holds {} governance tokens, granted {} DAO permissions", 
+                                    wallet_address, token_balance, permissions.len());
+                            } else {
+                                debug!("Wallet {} holds no governance tokens", wallet_address);
+                            }
+                        }
+                        Err(e) => {
+                            warn!("Failed to check governance token balance for {}: {}", wallet_address, e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!("Failed to create governance token contract call: {}", e);
+                }
+            }
+        } else {
+            warn!("Failed to parse governance token contract ABI");
+        }
+        
+        Ok(permissions)
     }
 
     /// Determine tier level based on permissions

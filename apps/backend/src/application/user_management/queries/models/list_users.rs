@@ -66,7 +66,7 @@ pub struct UserSummary {
     
     // Permission and tier fields
     pub permissions: HashSet<Permission>,
-    pub package_tier: String,               // Package tier from database
+    pub permission_group: String,           // Permission group from permissions
     
     // Timestamp fields
     pub created_at: DateTime<Utc>,

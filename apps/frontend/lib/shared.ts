@@ -78,7 +78,7 @@ For more information, see Phase 2.4 for remaining frontend cleanup tasks.
 export type {
   EnhancedUserClaims,
   GranularPermissionClaim,
-  PermissionHealth
+  PermissionHealthInfo
 } from '../../../shared/permissions/types/core';
 
 // Client-safe URL utilities

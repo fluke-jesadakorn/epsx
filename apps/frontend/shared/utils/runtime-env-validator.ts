@@ -5,7 +5,7 @@
  * Modernized with centralized URL resolver for fallbacks
  */
 
-import { URL, URLContext, Service } from '../../../../shared/utils/url-resolver';
+import { URLContext, Service, getBackendUrl, getFrontendUrl, getAdminUrl } from '../../../../shared/utils/url-resolver';
 
 export interface ValidationResult {
   isValid: boolean;
@@ -98,9 +98,9 @@ export function getRuntimeEnvironment(isDevelopment = false): RequiredEnvVars & 
 
   return {
     // Required variables with centralized URL resolver fallbacks
-    NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL || (isDevelopment ? URL.get(Service.BACKEND, URLContext.CLIENT) : ''),
-    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || (isDevelopment ? URL.get(Service.FRONTEND, URLContext.CLIENT) : ''),
-    NEXT_PUBLIC_ADMIN_URL: process.env.NEXT_PUBLIC_ADMIN_URL || (isDevelopment ? URL.get(Service.ADMIN, URLContext.CLIENT) : ''),
+    NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL || (isDevelopment ? getBackendUrl(URLContext.CLIENT) : ''),
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || (isDevelopment ? getFrontendUrl(URLContext.CLIENT) : ''),
+    NEXT_PUBLIC_ADMIN_URL: process.env.NEXT_PUBLIC_ADMIN_URL || (isDevelopment ? getAdminUrl(URLContext.CLIENT) : ''),
     NEXT_PUBLIC_OAUTH_CLIENT_ID: process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || (isDevelopment ? 'epsx-frontend' : ''),
     
     // Optional Web3 variables

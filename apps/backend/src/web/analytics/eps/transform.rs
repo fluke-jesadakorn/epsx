@@ -1,4 +1,4 @@
- // Data Transformation and Formatting Utilities
+// Data Transformation and Formatting Utilities
 // Focused module handling data conversion and transformation between formats
 
 use tracing::{ debug, info, warn };
@@ -7,7 +7,7 @@ use chrono::Datelike;
 use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
 use crate::infrastructure::adapters::services::tradingview::FrontendEPSData;
 use crate::domain::shared_kernel::entities::market_data::StockScreeningResult;
-use super::dto::*;
+use super::types::*;
 
 /// Transform EPS ranking to unified format with quarterly data
 pub fn transform_ranking_to_unified_format(
@@ -17,7 +17,10 @@ pub fn transform_ranking_to_unified_format(
   let current_date = chrono::Utc::now();
   // Use actual price from TradingView data without hardcoded fallback
   let current_price = ranking.price_current.unwrap_or_else(|| {
-    warn!("No price data available for {}, calculation may be incomplete", ranking.symbol);
+    warn!(
+      "No price data available for {}, calculation may be incomplete",
+      ranking.symbol
+    );
     0.0 // Return 0.0 to indicate missing data rather than fake price
   });
   let growth_factor_pct = ranking.growth_factor.unwrap_or(0.0);
@@ -45,9 +48,25 @@ pub fn transform_ranking_to_unified_format(
       trend: determine_trend(growth_factor_pct),
       volatility: calculate_simple_volatility(growth_factor_pct),
     },
-    // Pass through real earnings dates from TradingView
-    next_earnings_date: None,  // Earnings date field not available
-    last_earnings_date: None,  // Earnings date field not available
+    // Convert string earnings dates to Unix timestamps
+    next_earnings_date: ranking.next_earnings_date
+      .as_ref()
+      .and_then(|date_str| {
+        chrono::NaiveDate
+          ::parse_from_str(date_str, "%Y-%m-%d")
+          .ok()
+          .and_then(|date| date.and_hms_opt(0, 0, 0))
+          .and_then(|dt| Some(dt.and_utc().timestamp()))
+      }),
+    last_earnings_date: ranking.last_earnings_date
+      .as_ref()
+      .and_then(|date_str| {
+        chrono::NaiveDate
+          ::parse_from_str(date_str, "%Y-%m-%d")
+          .ok()
+          .and_then(|date| date.and_hms_opt(0, 0, 0))
+          .and_then(|dt| Some(dt.and_utc().timestamp()))
+      }),
   }
 }
 
@@ -56,9 +75,11 @@ pub fn transform_stock_screening_to_quarterly_data(
   screening_result: &StockScreeningResult
 ) -> Option<EPSQuarterlyData> {
   // Check if we have quarterly EPS data from the StockScreeningResult
-  if screening_result.eps_q_current.is_none() && 
-     screening_result.eps_q_minus_1.is_none() && 
-     screening_result.eps_q_minus_2.is_none() {
+  if
+    screening_result.eps_q_current.is_none() &&
+    screening_result.eps_q_minus_1.is_none() &&
+    screening_result.eps_q_minus_2.is_none()
+  {
     return None;
   }
 
@@ -67,12 +88,12 @@ pub fn transform_stock_screening_to_quarterly_data(
     eps_q_minus_1: screening_result.eps_q_minus_1,
     eps_q_current: screening_result.eps_q_current,
     eps_q_next_estimate: screening_result.eps_q_next_estimate,
-    
+
     eps_q_minus_2_date: screening_result.eps_q_minus_2_date.clone(),
     eps_q_minus_1_date: screening_result.eps_q_minus_1_date.clone(),
     eps_q_current_date: screening_result.eps_q_current_date.clone(),
     eps_q_next_estimate_date: screening_result.eps_q_next_estimate_date.clone(),
-    
+
     qoq_growth_current: screening_result.qoq_growth_current,
     yoy_growth_current: screening_result.yoy_growth_current,
     trend_direction: screening_result.trend_direction.clone(),
@@ -130,6 +151,72 @@ pub fn transform_unified_to_card_format(
     &quarterly_performance
   );
 
+  // Calculate all display values for frontend (NO calculations on frontend)
+  let (
+    next_earnings_date_formatted,
+    days_until_next_earnings,
+    progress_percentage,
+  ) = if let Some(next_ts) = unified_item.next_earnings_date {
+    let now = chrono::Utc::now();
+
+    info!(
+      "🔍🔍🔍 [{}] ===== DEBUGGING Next Earnings Date =====",
+      unified_item.symbol
+    );
+    info!("  📅 Raw timestamp: {}", next_ts);
+    info!(
+      "  🕐 Current time: {} ({})",
+      now.timestamp(),
+      now.format("%Y-%m-%d %H:%M:%S UTC")
+    );
+
+    let formatted = chrono::DateTime::from_timestamp(next_ts, 0).map(|dt| {
+      info!(
+        "  🎯 Next earnings: {} ({})",
+        dt.timestamp(),
+        dt.format("%Y-%m-%d %H:%M:%S UTC")
+      );
+      let formatted_str = dt.format("%b %-d, %Y").to_string();
+      info!("  📝 Formatted: {}", formatted_str);
+      formatted_str
+    });
+
+    let days = chrono::DateTime::from_timestamp(next_ts, 0).map(|dt| {
+      let duration = dt.signed_duration_since(now);
+      let days_calc = duration.num_days().max(0) as i32;
+      let hours = duration.num_hours() % 24;
+      info!("  ⏰ Duration: {} days, {} hours", days_calc, hours);
+      info!("  ✅ FINAL DAYS: {} days", days_calc);
+      days_calc
+    });
+
+    // Calculate progress percentage (last earnings -> now -> next earnings)
+    let progress = if let Some(last_ts) = unified_item.last_earnings_date {
+      chrono::DateTime::from_timestamp(last_ts, 0).and_then(|last_dt| {
+        chrono::DateTime::from_timestamp(next_ts, 0).map(|next_dt| {
+          let total_duration = next_dt
+            .signed_duration_since(last_dt)
+            .num_days() as f64;
+          let passed_duration = now
+            .signed_duration_since(last_dt)
+            .num_days() as f64;
+
+          if total_duration > 0.0 {
+            ((passed_duration / total_duration) * 100.0).max(0.0).min(100.0)
+          } else {
+            0.0
+          }
+        })
+      })
+    } else {
+      None
+    };
+
+    (formatted, days, progress)
+  } else {
+    (None, None, None)
+  };
+
   SymbolCardData {
     rank: unified_item.ranking_position,
     symbol: unified_item.symbol.clone(),
@@ -141,6 +228,11 @@ pub fn transform_unified_to_card_format(
     quarterly_performance,
     next_quarter_estimate,
     eps_quarterly: None, // This will be populated by fetch_ranking_data_with_quarterly_analysis
+    next_earnings_date: unified_item.next_earnings_date,
+    last_earnings_date: unified_item.last_earnings_date,
+    next_earnings_date_formatted,
+    days_until_next_earnings,
+    progress_percentage,
   }
 }
 
@@ -149,61 +241,80 @@ fn generate_quarterly_data_from_websocket_or_fallback(
   ranking: &EPSRanking,
   current_date: chrono::DateTime<chrono::Utc>
 ) -> Vec<QuarterlyData> {
-  use tracing::{info, debug};
-  
+  use tracing::{ info, debug };
+
   // Check if we have real TradingView scanner data for this symbol
-  debug!("🔍 [DEBUG] Generating quarterly data from real TradingView scanner data for: {}", ranking.symbol);
-  
+  debug!(
+    "🔍 [DEBUG] Generating quarterly data from real TradingView scanner data for: {}",
+    ranking.symbol
+  );
+
   // Use actual TradingView scanner data that we already have working
   let current_eps = ranking.current_eps.unwrap_or(0.0);
   let growth_factor_pct = ranking.growth_factor.unwrap_or(0.0);
   let current_price = ranking.price_current.unwrap_or(0.0);
-  
-  info!("✅ [DEBUG] Using real TradingView scanner data for {}: EPS={:.2}, Price=${:.2}, Growth={:.1}%", 
-        ranking.symbol, current_eps, current_price, growth_factor_pct);
-  
+
+  info!(
+    "✅ [DEBUG] Using real TradingView scanner data for {}: EPS={:.2}, Price=${:.2}, Growth={:.1}%",
+    ranking.symbol,
+    current_eps,
+    current_price,
+    growth_factor_pct
+  );
+
   // Always use real scanner data path now instead of broken WebSocket
   generate_quarterly_data_from_real_scanner_data(ranking, current_date)
 }
 
-/// Generate quarterly data from real TradingView scanner data  
+/// Generate quarterly data from real TradingView scanner data
 fn generate_quarterly_data_from_real_scanner_data(
   ranking: &EPSRanking,
   current_date: chrono::DateTime<chrono::Utc>
 ) -> Vec<QuarterlyData> {
-  use tracing::{info, debug};
-  
+  use tracing::{ info, debug };
+
   let current_eps = ranking.current_eps.unwrap_or(0.0);
   let growth_factor_pct = ranking.growth_factor.unwrap_or(0.0);
   let current_price = ranking.price_current.unwrap_or(0.0);
-  
-  info!("🎯 [DEBUG] Generating quarterly data from real TradingView scanner data for {}", ranking.symbol);
-  
+
+  info!(
+    "🎯 [DEBUG] Generating quarterly data from real TradingView scanner data for {}",
+    ranking.symbol
+  );
+
   let mut result = Vec::new();
-  
+
   // Generate 2 quarters of data using the real scanner data as current quarter
   // Current quarter (most recent)
   let current_quarter_date = current_date;
   let current_year = current_date.year();
   let current_month = current_date.month();
   let current_quarter_num = (current_month - 1) / 3 + 1;
-  
+
   // Current quarter with real TradingView scanner data
   result.push(QuarterlyData {
-    quarter: format!("Q{} '{}" , current_quarter_num, current_year % 100),
+    quarter: format!("Q{} '{}", current_quarter_num, current_year % 100),
     date: current_quarter_date,
-    price: current_price,         // Real price from TradingView scanner
-    eps: current_eps,             // Real EPS from TradingView scanner
-    eps_growth: growth_factor_pct, // Real growth from TradingView scanner  
+    price: current_price, // Real price from TradingView scanner
+    eps: current_eps, // Real EPS from TradingView scanner
+    eps_growth: growth_factor_pct, // Real growth from TradingView scanner
     price_growth: growth_factor_pct * 0.9, // Estimate price growth from EPS growth
     volume: ranking.volume.map(|v| v as i64),
   });
-  
+
   // Previous quarter (estimated based on current real data)
-  let prev_quarter_num = if current_quarter_num == 1 { 4 } else { current_quarter_num - 1 };
-  let prev_year = if current_quarter_num == 1 { current_year - 1 } else { current_year };
+  let prev_quarter_num = if current_quarter_num == 1 {
+    4
+  } else {
+    current_quarter_num - 1
+  };
+  let prev_year = if current_quarter_num == 1 {
+    current_year - 1
+  } else {
+    current_year
+  };
   let prev_quarter_date = current_date - chrono::Duration::days(90);
-  
+
   // Calculate previous quarter data based on current real growth
   let growth_factor = growth_factor_pct / 100.0;
   let prev_eps = if growth_factor != 0.0 && current_eps > 0.0 {
@@ -213,15 +324,15 @@ fn generate_quarterly_data_from_real_scanner_data(
   } else {
     0.0 // Keep zero if current EPS is zero
   };
-  
+
   let prev_price = if current_price > 0.0 {
     current_price * 0.92 // Estimate previous price based on real current price
   } else {
     0.0 // Keep zero if current price is zero
   };
-  
+
   result.push(QuarterlyData {
-    quarter: format!("Q{} '{}" , prev_quarter_num, prev_year % 100),
+    quarter: format!("Q{} '{}", prev_quarter_num, prev_year % 100),
     date: prev_quarter_date,
     price: prev_price,
     eps: prev_eps,
@@ -229,11 +340,21 @@ fn generate_quarterly_data_from_real_scanner_data(
     price_growth: -3.5, // Estimated previous price growth
     volume: ranking.volume.map(|v| ((v as f64) * 1.1) as i64),
   });
-  
-  debug!("📊 [DEBUG] Generated quarterly data from scanner: Current Q{}/{}: EPS={:.2}, Price=${:.2}, Growth={:.1}%",
-         current_quarter_num, current_year, current_eps, current_price, growth_factor_pct);
-  
-  info!("✅ [DEBUG] Generated {} real scanner-based quarterly data points for {}", result.len(), ranking.symbol);
+
+  debug!(
+    "📊 [DEBUG] Generated quarterly data from scanner: Current Q{}/{}: EPS={:.2}, Price=${:.2}, Growth={:.1}%",
+    current_quarter_num,
+    current_year,
+    current_eps,
+    current_price,
+    growth_factor_pct
+  );
+
+  info!(
+    "✅ [DEBUG] Generated {} real scanner-based quarterly data points for {}",
+    result.len(),
+    ranking.symbol
+  );
   result
 }
 
@@ -243,22 +364,25 @@ fn generate_quarterly_data_from_frontend_eps(
   enhanced_data: &FrontendEPSData,
   current_date: chrono::DateTime<chrono::Utc>
 ) -> Vec<QuarterlyData> {
-  use tracing::{info, debug};
-  
-  info!("🎯 [DEBUG] Generating quarterly data from real-time TradingView data for {}", enhanced_data.symbol);
-  
+  use tracing::{ info, debug };
+
+  info!(
+    "🎯 [DEBUG] Generating quarterly data from real-time TradingView data for {}",
+    enhanced_data.symbol
+  );
+
   let mut result = Vec::new();
-  
+
   // Generate 2 quarters of data using the real-time data as current quarter
   // Current quarter (most recent)
   let current_quarter_date = current_date;
   let current_year = current_date.year();
   let current_month = current_date.month();
   let current_quarter_num = (current_month - 1) / 3 + 1;
-  
+
   // Current quarter with real TradingView data
   result.push(QuarterlyData {
-    quarter: format!("Q{} '{}" , current_quarter_num, current_year % 100),
+    quarter: format!("Q{} '{}", current_quarter_num, current_year % 100),
     date: current_quarter_date,
     price: enhanced_data.price_current,
     eps: enhanced_data.current_eps,
@@ -266,12 +390,20 @@ fn generate_quarterly_data_from_frontend_eps(
     price_growth: enhanced_data.qoq_growth * 0.8, // Estimate price growth from EPS growth
     volume: Some(enhanced_data.volume),
   });
-  
+
   // Previous quarter (estimated based on current data)
-  let prev_quarter_num = if current_quarter_num == 1 { 4 } else { current_quarter_num - 1 };
-  let prev_year = if current_quarter_num == 1 { current_year - 1 } else { current_year };
+  let prev_quarter_num = if current_quarter_num == 1 {
+    4
+  } else {
+    current_quarter_num - 1
+  };
+  let prev_year = if current_quarter_num == 1 {
+    current_year - 1
+  } else {
+    current_year
+  };
   let prev_quarter_date = current_date - chrono::Duration::days(90);
-  
+
   // Calculate previous quarter data based on current growth
   let growth_factor = enhanced_data.qoq_growth / 100.0;
   let prev_eps = if growth_factor != 0.0 {
@@ -279,23 +411,33 @@ fn generate_quarterly_data_from_frontend_eps(
   } else {
     enhanced_data.current_eps * 0.95 // Assume 5% growth if no growth data
   };
-  
+
   let prev_price = enhanced_data.price_current * 0.92; // Estimate previous price
-  
+
   result.push(QuarterlyData {
-    quarter: format!("Q{} '{}" , prev_quarter_num, prev_year % 100),
+    quarter: format!("Q{} '{}", prev_quarter_num, prev_year % 100),
     date: prev_quarter_date,
     price: prev_price,
     eps: prev_eps,
     eps_growth: 0.0, // Previous quarter as reference
     price_growth: -3.5, // Estimated previous price growth
-    volume: Some((enhanced_data.volume as f64 * 1.1) as i64),
+    volume: Some(((enhanced_data.volume as f64) * 1.1) as i64),
   });
-  
-  debug!("📊 [DEBUG] Generated quarterly data: Current Q{}/{}: EPS={:.2}, Price=${:.2}, Growth={:.1}%",
-         current_quarter_num, current_year, enhanced_data.current_eps, enhanced_data.price_current, enhanced_data.qoq_growth);
-  
-  info!("✅ [DEBUG] Generated {} real-time quarterly data points for {}", result.len(), enhanced_data.symbol);
+
+  debug!(
+    "📊 [DEBUG] Generated quarterly data: Current Q{}/{}: EPS={:.2}, Price=${:.2}, Growth={:.1}%",
+    current_quarter_num,
+    current_year,
+    enhanced_data.current_eps,
+    enhanced_data.price_current,
+    enhanced_data.qoq_growth
+  );
+
+  info!(
+    "✅ [DEBUG] Generated {} real-time quarterly data points for {}",
+    result.len(),
+    enhanced_data.symbol
+  );
   result
 }
 
@@ -321,7 +463,10 @@ fn generate_quarterly_data_from_real_websocket_data(
     if calculated_price > 0.0 {
       calculated_price
     } else {
-      warn!("Unable to calculate price for {} in WebSocket data - no EPS data available", ranking.symbol);
+      warn!(
+        "Unable to calculate price for {} in WebSocket data - no EPS data available",
+        ranking.symbol
+      );
       0.0
     }
   });
@@ -356,7 +501,8 @@ fn generate_quarterly_data_from_real_websocket_data(
       i + 1 < sorted_data.len() &&
       sorted_data[i + 1].actual_eps > 0.0
     {
-      ((quarterly_eps - sorted_data[i + 1].actual_eps) / sorted_data[i + 1].actual_eps) *
+      ((quarterly_eps - sorted_data[i + 1].actual_eps) /
+        sorted_data[i + 1].actual_eps) *
         100.0
     } else {
       ranking.growth_factor.unwrap_or(0.0) // Use current QoQ growth for most recent
@@ -367,7 +513,10 @@ fn generate_quarterly_data_from_real_websocket_data(
       ranking,
       quarterly_eps,
       i,
-      chrono::DateTime::from_timestamp(quarter_data.timestamp, 0).unwrap_or_else(|| chrono::Utc::now()).timestamp()
+      chrono::DateTime
+        ::from_timestamp(quarter_data.timestamp, 0)
+        .unwrap_or_else(|| chrono::Utc::now())
+        .timestamp()
     );
 
     // Enhanced debug logging for price growth calculation steps
@@ -378,27 +527,13 @@ fn generate_quarterly_data_from_real_websocket_data(
       i,
       ranking.growth_factor.unwrap_or(0.0),
       price_growth,
-      chrono::DateTime::from_timestamp(quarter_data.timestamp, 0).unwrap_or_else(|| chrono::Utc::now()).timestamp(),
+      chrono::DateTime
+        ::from_timestamp(quarter_data.timestamp, 0)
+        .unwrap_or_else(|| chrono::Utc::now())
+        .timestamp(),
       quarterly_eps,
       ranking.growth_factor.unwrap_or(0.0).abs() < 0.01
     );
-
-    if
-      let Err(e) = std::fs::write(
-        "/Users/fluke/Desktop/Work/Outsource/epsx/.devtools/price_growth_debug.log",
-        format!(
-          "{}{}",
-          std::fs
-            ::read_to_string(
-              "/Users/fluke/Desktop/Work/Outsource/epsx/.devtools/price_growth_debug.log"
-            )
-            .unwrap_or_default(),
-          debug_info
-        )
-      )
-    {
-      eprintln!("Failed to write debug log: {}", e);
-    }
 
     info!(
       "🎯 WEBSOCKET PRICE GROWTH: Symbol={} Quarter={} Index={} BaseGrowth={:.2}% → CalculatedGrowth={:.2}% (ZeroHandled: {})",
@@ -412,9 +547,15 @@ fn generate_quarterly_data_from_real_websocket_data(
 
     // DEBUG: Track announcement date data loss
     let announcement_debug = if
-      let Some(announcement_timestamp) = Some(chrono::DateTime::from_timestamp(quarter_data.timestamp, 0).unwrap_or_else(|| chrono::Utc::now()))
+      let Some(announcement_timestamp) = Some(
+        chrono::DateTime
+          ::from_timestamp(quarter_data.timestamp, 0)
+          .unwrap_or_else(|| chrono::Utc::now())
+      )
     {
-      let formatted_date = announcement_timestamp.format("%Y-%m-%d %H:%M:%S UTC").to_string();
+      let formatted_date = announcement_timestamp
+        .format("%Y-%m-%d %H:%M:%S UTC")
+        .to_string();
       format!(
         "HasAnnouncementDate: YES, Timestamp: {}, Formatted: {}",
         announcement_timestamp,
@@ -431,13 +572,19 @@ fn generate_quarterly_data_from_real_websocket_data(
       i,
       announcement_debug,
       quarter_data.period.clone(),
-      chrono::DateTime::from_timestamp(quarter_data.timestamp, 0).unwrap_or_else(|| chrono::Utc::now())
+      chrono::DateTime
+        ::from_timestamp(quarter_data.timestamp, 0)
+        .unwrap_or_else(|| chrono::Utc::now())
         .format("%Y-%m-%d %H:%M:%S UTC")
     );
 
     // Format announcement date for display (this is the key fix!)
     let formatted_quarter = if
-      let Some(announcement_timestamp) = Some(chrono::DateTime::from_timestamp(quarter_data.timestamp, 0).unwrap_or_else(|| chrono::Utc::now()))
+      let Some(announcement_timestamp) = Some(
+        chrono::DateTime
+          ::from_timestamp(quarter_data.timestamp, 0)
+          .unwrap_or_else(|| chrono::Utc::now())
+      )
     {
       let announcement_dt = announcement_timestamp;
       let now = chrono::Utc::now();
@@ -454,7 +601,9 @@ fn generate_quarterly_data_from_real_websocket_data(
 
     result.push(QuarterlyData {
       quarter: formatted_quarter, // Use announcement date instead of generic quarter
-      date: chrono::DateTime::from_timestamp(quarter_data.timestamp, 0).unwrap_or_else(|| chrono::Utc::now()),
+      date: chrono::DateTime
+        ::from_timestamp(quarter_data.timestamp, 0)
+        .unwrap_or_else(|| chrono::Utc::now()),
       price: adjusted_price,
       eps: quarterly_eps, // Use raw quarterly EPS from WebSocket
       eps_growth,
@@ -480,7 +629,10 @@ fn generate_consecutive_quarterly_data(
   let current_eps = ranking.current_eps.unwrap_or(0.0);
   let growth_factor_pct = ranking.growth_factor.unwrap_or(0.0);
   let current_price = ranking.price_current.unwrap_or_else(|| {
-    warn!("No price data available for {} in fallback generation", ranking.symbol);
+    warn!(
+      "No price data available for {} in fallback generation",
+      ranking.symbol
+    );
     0.0 // Return 0.0 to indicate missing data
   });
 
@@ -602,7 +754,8 @@ fn calculate_unique_price_growth(
 
       if base_growth.abs() < 0.01 {
         // Handle zero/near-zero base_growth by generating realistic market-based values
-        let market_factor = if 100.0 > 100.0 {  // Price field not available
+        let market_factor = if 100.0 > 100.0 {
+          // Price field not available
           8.5
         } else {
           12.3
@@ -619,7 +772,8 @@ fn calculate_unique_price_growth(
     }
     1 => {
       // Previous quarter - significantly different calculation
-      let price_factor = if 100.0 > 500.0 {  // Price field not available
+      let price_factor = if 100.0 > 500.0 {
+        // Price field not available
         -3.5
       } else {
         2.8
@@ -649,7 +803,8 @@ fn calculate_unique_price_growth(
     }
     4 => {
       // Fifth quarter - volume-based calculation
-      let volume_factor = if 0 > 1000000 { // Volume field not available
+      let volume_factor = if 0 > 1000000 {
+        // Volume field not available
         3.8
       } else {
         -1.5
@@ -673,7 +828,8 @@ fn calculate_unique_price_growth(
     }
     6 => {
       // Seventh quarter - price range based calculation
-      let price_range_factor = if 100.0 > 500.0 {  // Price field not available
+      let price_range_factor = if 100.0 > 500.0 {
+        // Price field not available
         -4.1
       } else {
         2.9
@@ -718,7 +874,8 @@ fn calculate_fallback_price_growth(
     }
     1 => {
       // Previous quarter
-      let price_variation = if 100.0 > 100.0 {  // Price field not available
+      let price_variation = if 100.0 > 100.0 {
+        // Price field not available
         -1.5
       } else {
         2.0
@@ -796,7 +953,9 @@ fn format_announcement_date_from_quarter_data(
     Some(quarter_data.quarter.clone())
   } else {
     // Fallback: If still using quarter format, convert based on year
-    let is_future = quarter_data.quarter.starts_with("2025") || quarter_data.quarter.starts_with("2026");
+    let is_future =
+      quarter_data.quarter.starts_with("2025") ||
+      quarter_data.quarter.starts_with("2026");
     let formatted_date = if is_future {
       Some(format!("{}", quarter_data.date.format("%b %-d, %Y")))
     } else {
@@ -807,13 +966,13 @@ fn format_announcement_date_from_quarter_data(
   (announcement_date, is_estimated)
 }
 
-/// Generate next quarter EPS estimate from enhanced TradingView data and trend analysis  
-fn generate_next_quarter_estimate(
+/// Generate next quarter EPS estimate from enhanced TradingView data and trend analysis
+pub fn generate_next_quarter_estimate(
   unified_item: &UnifiedRankingItem,
   quarterly_performance: &[QuarterlyPerformanceData]
-) -> Option<super::dto::NextQuarterEstimate> {
-  use super::dto::NextQuarterEstimate;
-  use tracing::{info, debug};
+) -> Option<super::types::NextQuarterEstimate> {
+  use super::types::NextQuarterEstimate;
+  use tracing::{ info, debug };
 
   if quarterly_performance.is_empty() {
     return None;
@@ -822,58 +981,189 @@ fn generate_next_quarter_estimate(
   let latest_quarter = &quarterly_performance[0];
   let current_date = chrono::Utc::now();
 
-  debug!("🔮 [DEBUG] Generating next quarter estimate for {}", unified_item.symbol);
+  debug!(
+    "🔮 [DEBUG] Generating next quarter estimate for {}",
+    unified_item.symbol
+  );
 
-  // Try to use real-time TradingView data for more accurate forecasts
+  // PRIORITY 1: Use real TradingView earnings timestamp if available
+  if let Some(next_timestamp) = unified_item.next_earnings_date {
+    info!(
+      "🎯 [{}] Has next_earnings_date timestamp: {}",
+      unified_item.symbol,
+      next_timestamp
+    );
+    if next_timestamp > 0 {
+      info!(
+        "📅 [{}] Using next_earnings_date timestamp: {}",
+        unified_item.symbol,
+        next_timestamp
+      );
+      // Convert Unix timestamp to DateTime
+      if
+        let Some(announcement_datetime) = chrono::DateTime::from_timestamp(
+          next_timestamp,
+          0
+        )
+      {
+        let days_until = (announcement_datetime - current_date)
+          .num_days()
+          .max(0) as i32;
+
+        // Estimate next quarter EPS based on recent trend
+        let estimated_eps = if quarterly_performance.len() >= 2 {
+          let latest_eps = latest_quarter.eps;
+          let previous_eps = quarterly_performance[1].eps;
+          let growth_rate = if previous_eps != 0.0 {
+            ((latest_eps - previous_eps) / previous_eps).max(-0.3).min(0.3)
+          } else {
+            0.1
+          };
+          latest_eps * (1.0 + growth_rate)
+        } else {
+          latest_quarter.eps * 1.05
+        };
+
+        // Calculate quarter name
+        let announcement_month = announcement_datetime.month();
+        let announcement_year = announcement_datetime.year();
+        let quarter_num = match announcement_month {
+          1..=3 => 1,
+          4..=6 => 2,
+          7..=9 => 3,
+          _ => 4,
+        };
+        let quarter_name = format!("{}-Q{}", announcement_year, quarter_num);
+
+        // Estimate price target
+        let estimated_price_target = if
+          estimated_eps > 0.0 &&
+          unified_item.current_price > 0.0
+        {
+          let current_pe =
+            unified_item.current_price / latest_quarter.eps.max(0.01);
+          Some((estimated_eps * current_pe * 0.95).max(0.0))
+        } else {
+          None
+        };
+
+        info!(
+          "✅✅✅ [{}] Using REAL TradingView timestamp: {} ({} days) - PRIORITY 1",
+          unified_item.symbol,
+          next_timestamp,
+          days_until
+        );
+
+        return Some(NextQuarterEstimate {
+          quarter: quarter_name,
+          estimated_eps: (estimated_eps * 100.0).round() / 100.0,
+          announcement_date: announcement_datetime
+            .format("%b %-d, %Y")
+            .to_string(),
+          announcement_timestamp: announcement_datetime.timestamp(),
+          days_until_announcement: days_until,
+          estimated_price_target,
+          confidence: "TradingView Real Data".to_string(),
+        });
+      } else {
+        info!(
+          "❌ [{}] Failed to parse timestamp: {}",
+          unified_item.symbol,
+          next_timestamp
+        );
+      }
+    } else {
+      info!(
+        "⚠️ [{}] next_earnings_date is zero or negative",
+        unified_item.symbol
+      );
+    }
+  } else {
+    info!(
+      "❌ [{}] No next_earnings_date field - will use fallback",
+      unified_item.symbol
+    );
+  }
+
+  // PRIORITY 2: Try to use real-time TradingView WebSocket data
   let enhanced_estimate = tokio::task::block_in_place(|| {
     tokio::runtime::Handle::current().block_on(async {
       let fallback_config = get_simple_fallback_config();
-      let tradingview_config = crate::infrastructure::adapters::services::tradingview::TradingViewConfig::from(&fallback_config);
-      let websocket_handler = crate::infrastructure::adapters::services::tradingview::websocket::TradingViewWebSocketHandler::new(tradingview_config);
-      match websocket_handler.fetch_enhanced_eps_data(vec![unified_item.symbol.clone()]).await {
+      let tradingview_config =
+        crate::infrastructure::adapters::services::tradingview::TradingViewConfig::from(
+          &fallback_config
+        );
+      let websocket_handler =
+        crate::infrastructure::adapters::services::tradingview::websocket::TradingViewWebSocketHandler::new(
+          tradingview_config
+        );
+      match
+        websocket_handler.fetch_enhanced_eps_data(
+          vec![unified_item.symbol.clone()]
+        ).await
+      {
         Ok(enhanced_data_list) => {
           if let Some(enhanced_data) = enhanced_data_list.first() {
-            info!("✅ [DEBUG] Using real-time TradingView data for forecast: {}", unified_item.symbol);
-            
+            info!(
+              "✅ [DEBUG] Using real-time TradingView data for forecast: {}",
+              unified_item.symbol
+            );
+
             // Use real TradingView data to estimate next quarter
             let estimated_eps = if enhanced_data.qoq_growth > 0.0 {
               // Project growth forward
-              enhanced_data.current_eps * (1.0 + (enhanced_data.qoq_growth / 100.0) * 0.8)
+              enhanced_data.current_eps *
+                (1.0 + (enhanced_data.qoq_growth / 100.0) * 0.8)
             } else {
               // Conservative growth if current growth is negative
               enhanced_data.current_eps * 1.03
             };
-            
+
             let growth_percentage = if enhanced_data.current_eps > 0.0 {
-              ((estimated_eps - enhanced_data.current_eps) / enhanced_data.current_eps) * 100.0
+              ((estimated_eps - enhanced_data.current_eps) /
+                enhanced_data.current_eps) *
+                100.0
             } else {
               3.0
             };
-            
-            debug!("🎯 [DEBUG] Real-time forecast: Current EPS={:.2}, Next EPS={:.2}, Growth={:.1}%", 
-                   enhanced_data.current_eps, estimated_eps, growth_percentage);
-            
+
+            debug!(
+              "🎯 [DEBUG] Real-time forecast: Current EPS={:.2}, Next EPS={:.2}, Growth={:.1}%",
+              enhanced_data.current_eps,
+              estimated_eps,
+              growth_percentage
+            );
+
             // Calculate next quarter info
             let current_date = chrono::Utc::now();
             let current_year = current_date.year();
             let current_month = current_date.month();
             let current_quarter = (current_month - 1) / 3 + 1;
-            let (next_quarter, next_year) = if current_quarter == 4 { (1, current_year + 1) } else { (current_quarter + 1, current_year) };
+            let (next_quarter, next_year) = if current_quarter == 4 {
+              (1, current_year + 1)
+            } else {
+              (current_quarter + 1, current_year)
+            };
             let next_quarter_name = format!("{}-Q{}", next_year, next_quarter);
-            
+
             // Estimate announcement timing (45-75 days after quarter end)
-            let symbol_hash = unified_item.symbol.chars().map(|c| c as u32).sum::<u32>();
+            let symbol_hash = unified_item.symbol
+              .chars()
+              .map(|c| c as u32)
+              .sum::<u32>();
             let days_until = 45 + ((symbol_hash % 30) as i32);
-            let announcement_date = current_date + chrono::Duration::days(days_until as i64);
-            
+            let announcement_date =
+              current_date + chrono::Duration::days(days_until as i64);
+
             // Estimate price target
             let price_target = if enhanced_data.current_eps > 0.0 {
-              let current_pe = enhanced_data.price_current / enhanced_data.current_eps;
+              let current_pe =
+                enhanced_data.price_current / enhanced_data.current_eps;
               Some(estimated_eps * current_pe * 0.98)
             } else {
               None
             };
-            
+
             return Some((
               next_quarter_name,
               estimated_eps,
@@ -881,12 +1171,16 @@ fn generate_next_quarter_estimate(
               announcement_date.timestamp(),
               days_until,
               price_target,
-              "TradingView Real-time".to_string()
+              "TradingView Real-time".to_string(),
             ));
           }
-        },
+        }
         Err(e) => {
-          debug!("🔴 [DEBUG] Failed to get real-time TradingView data for {}: {}", unified_item.symbol, e);
+          debug!(
+            "🔴 [DEBUG] Failed to get real-time TradingView data for {}: {}",
+            unified_item.symbol,
+            e
+          );
         }
       }
       None::<(String, f64, String, i64, i32, Option<f64>, String)>
@@ -894,12 +1188,23 @@ fn generate_next_quarter_estimate(
   });
 
   // Use enhanced data if available, otherwise fall back to traditional calculation
-  let (next_quarter_name, estimated_eps, announcement_date_str, announcement_timestamp, days_until_announcement, estimated_price_target, confidence) = if let Some((quarter, eps, date, timestamp, days, price_target, conf)) = enhanced_estimate {
+  let (
+    next_quarter_name,
+    estimated_eps,
+    announcement_date_str,
+    announcement_timestamp,
+    days_until_announcement,
+    estimated_price_target,
+    confidence,
+  ) = if
+    let Some((quarter, eps, date, timestamp, days, price_target, conf)) =
+      enhanced_estimate
+  {
     (quarter, eps, date, timestamp, days, price_target, conf)
   } else {
     debug!("📊 [DEBUG] Using fallback calculation for {}", unified_item.symbol);
-    
-    // Traditional calculation logic  
+
+    // Traditional calculation logic
     let current_year = current_date.year();
     let current_month = current_date.month();
     let current_quarter = (current_month - 1) / 3 + 1;
@@ -940,18 +1245,23 @@ fn generate_next_quarter_estimate(
       4 => 12,
       _ => 12,
     };
-    let quarter_end_date = chrono::Utc::now()
+    let quarter_end_date = chrono::Utc
+      ::now()
       .with_year(next_year)
       .and_then(|d| d.with_month(quarter_end_month))
       .and_then(|d| d.with_day(30))
       .unwrap_or(current_date);
-    
+
     // Add variation based on symbol to avoid all stocks showing same days
-    let symbol_hash = unified_item.symbol.chars().map(|c| c as u32).sum::<u32>();
+    let symbol_hash = unified_item.symbol
+      .chars()
+      .map(|c| c as u32)
+      .sum::<u32>();
     let variation_days = 45 + ((symbol_hash % 30) as i64); // 45-74 days variation
-    let estimated_announcement = quarter_end_date + chrono::Duration::days(variation_days);
+    let estimated_announcement =
+      quarter_end_date + chrono::Duration::days(variation_days);
     let days = (estimated_announcement - current_date).num_days() as i32;
-    
+
     // Estimate price target based on P/E ratio
     let estimated_price_target = if estimated_eps > 0.0 {
       let current_eps = latest_quarter.eps;
@@ -964,7 +1274,7 @@ fn generate_next_quarter_estimate(
     } else {
       None
     };
-    
+
     let confidence = if quarterly_performance.len() >= 4 {
       "High (Estimated)".to_string()
     } else if quarterly_performance.len() >= 2 {
@@ -973,14 +1283,22 @@ fn generate_next_quarter_estimate(
       "Low (Estimated)".to_string()
     };
 
-    (next_quarter_name, estimated_eps, estimated_announcement.format("%b %-d, %Y").to_string(), estimated_announcement.timestamp(), days, estimated_price_target, confidence)
+    (
+      next_quarter_name,
+      estimated_eps,
+      estimated_announcement.format("%b %-d, %Y").to_string(),
+      estimated_announcement.timestamp(),
+      days,
+      estimated_price_target,
+      confidence,
+    )
   };
 
   Some(NextQuarterEstimate {
     quarter: next_quarter_name,
     estimated_eps: (estimated_eps * 100.0).round() / 100.0, // Round to 2 decimal places
     announcement_date: announcement_date_str, // Using real TradingView date when available
-    announcement_timestamp, // Using real or estimated timestamp  
+    announcement_timestamp, // Using real or estimated timestamp
     days_until_announcement, // Calculated from real or estimated date
     estimated_price_target,
     confidence, // Indicates whether real or estimated

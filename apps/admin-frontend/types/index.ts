@@ -3,13 +3,17 @@
  * Replaces @epsx/types dependency with self-contained types
  */
 
+// Import permission group types
+import { PermissionGroup } from '../../../shared/types/domain/User';
+
 // Re-export existing types
 export * from './permission-templates';
 
 // Export separated authentication types
 export * from './auth-separation';
 
-// Payment and Subscription Types
+// Payment and Subscription Types (deprecated - use PermissionGroup)
+/** @deprecated Use PermissionGroup instead */
 export enum PaymentTier {
   BRONZE = 'bronze',
   SILVER = 'silver',
@@ -60,7 +64,8 @@ export interface StockRankingType {
   updatedAt: string;
 }
 
-// Package Tier Enum (for assignments and pricing)
+// Package Tier Enum (deprecated - use PermissionGroup)
+/** @deprecated Use PermissionGroup instead */
 export enum PackageTier {
   FREE = 'free',
   BRONZE = 'bronze',
@@ -69,6 +74,18 @@ export enum PackageTier {
   PLATINUM = 'platinum',
 }
 
+// Permission Group Config (replaces PackageTierConfig)
+export interface PermissionGroupConfig {
+  id: string;
+  name: PermissionGroup;
+  description: string;
+  level: number;
+  maxStocks: number;
+  refreshRate: 'realtime' | 'hourly' | 'daily';
+  features: string[];
+}
+
+/** @deprecated Use PermissionGroupConfig instead */
 export interface PackageTierConfig {
   id: string;
   name: string;
@@ -81,6 +98,21 @@ export interface PackageTierConfig {
   isActive: boolean;
 }
 
+export interface StockRankingPermissionAssignment {
+  id: string;
+  userId: string;
+  permissionGroupId: string;
+  stockRankingTypeId: string;
+  permissionGroup: PermissionGroupConfig;
+  stockRankingType: StockRankingType;
+  assignedAt: string;
+  expiresAt?: string;
+  status: 'active' | 'expired' | 'revoked';
+  assignedBy: string;
+  metadata?: Record<string, any>;
+}
+
+/** @deprecated Use StockRankingPermissionAssignment instead */
 export interface StockRankingPackageAssignment {
   id: string;
   userId: string;
@@ -95,6 +127,15 @@ export interface StockRankingPackageAssignment {
   metadata?: Record<string, any>;
 }
 
+export interface BulkStockRankingPermissionAssignment {
+  targetUsers: string[];
+  permissionGroupId: string;
+  stockRankingTypeId: string;
+  expiresAt?: string;
+  metadata?: Record<string, any>;
+}
+
+/** @deprecated Use BulkStockRankingPermissionAssignment instead */
 export interface BulkStockRankingAssignment {
   targetUsers: string[];
   packageTierId: string;

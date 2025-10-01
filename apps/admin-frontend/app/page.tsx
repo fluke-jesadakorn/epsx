@@ -5,6 +5,7 @@ import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider
 import { UnifiedAdminClient } from '@/lib/api/unified-admin-client'
 import { PermissionManagement } from '@/components/permissions/PermissionManagement'
 import { PancakeCard } from '@/components/ui/PancakeCard'
+import { RecentWalletsPanel } from '@/components/admin/RecentWalletsPanel'
 
 function DashboardSkeleton() {
   return (
@@ -173,6 +174,33 @@ export default function DashboardPage() {
                 <div className="text-xl sm:text-3xl font-bold text-orange-600">{dashboardStats.avgResponseTime}</div>
                 <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Avg Response</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">{dashboardStats.pendingNotifications} pending</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Wallets Panel */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6 sm:mb-8">
+            <div className="lg:col-span-2">
+              <RecentWalletsPanel />
+            </div>
+            <div className="space-y-4">
+              {/* Additional metrics or quick stats can go here */}
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-6 shadow-xl border-2 border-indigo-300/50 dark:border-indigo-700/50">
+                <h3 className="text-lg font-bold text-indigo-600 mb-4">📊 Quick Stats</h3>
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Active Wallets</span>
+                    <span className="font-semibold">{dashboardStats.activeUsers}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">System Health</span>
+                    <span className="font-semibold text-green-600">{dashboardStats.systemHealth}%</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Response Time</span>
+                    <span className="font-semibold text-orange-600">{dashboardStats.avgResponseTime}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

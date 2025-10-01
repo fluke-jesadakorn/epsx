@@ -7,9 +7,10 @@ import { env } from '../../../../shared/env/schema';
 import { 
   ApiResponse, 
   ApiError, 
+  PaginatedResponse,
   JsonRequestBody,
   isApiError
-} from '@/types/api';
+} from '../../../../shared/types/api';
 import { apiLogger, safeError } from '@/lib/utils/logging';
 import { getBackendUrl } from '../../../../shared/utils/url-resolver';
 import { usePureWeb3AuthStore } from '@/lib/auth/pure-web3-service';
@@ -146,20 +147,7 @@ export interface UnifiedAnalyticsRankingsResponse {
   };
 }
 
-export interface PaginatedResponse<T> {
-  data: T[];
-  pagination: {
-    page: number;
-    per_page: number;
-    total_pages: number;
-    total_items: number;
-  };
-  metadata?: {
-    query_time: number;
-    cached: boolean;
-    last_updated: string;
-  };
-}
+// PaginatedResponse is imported from shared types
 
 export interface CountResponse {
   count: number;

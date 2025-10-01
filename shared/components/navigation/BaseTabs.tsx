@@ -124,8 +124,8 @@ const TabsList = React.forwardRef<HTMLDivElement, TabsListProps>(
     const baseClasses = [
       'tabs-list',
       'text-gray-500 dark:text-gray-400',
-      orientationClasses[orientation],
-      ...variantClasses[variant]
+      orientationClasses[orientation || 'horizontal'],
+      ...variantClasses[variant || 'default']
     ].filter(Boolean).flat()
 
     return (
@@ -202,7 +202,7 @@ const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>(
       vertical: 'w-full justify-start'
     }
 
-    const currentVariant = variantClasses[variant]
+    const currentVariant = variantClasses[variant || 'default']
 
     const baseClasses = [
       'tabs-trigger',
@@ -212,10 +212,10 @@ const TabsTrigger = React.forwardRef<HTMLButtonElement, TabsTriggerProps>(
       'disabled:opacity-50 disabled:pointer-events-none',
       
       // Size
-      sizeClasses[size],
+      sizeClasses[size || 'md'],
       
       // Orientation
-      orientationClasses[orientation],
+      orientationClasses[orientation || 'horizontal'],
       
       // Variant base
       currentVariant.base,

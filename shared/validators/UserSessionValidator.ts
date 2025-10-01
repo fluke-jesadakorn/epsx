@@ -6,7 +6,8 @@
 
 import { BaseSessionValidator, type ValidationRequest, type SessionValidatorConfig } from './BaseSessionValidator'
 import type { SessionValidationResponse } from '../types/domain/Session'
-import type { UserProfile } from '../types/domain/User'
+import type { UserProfile, PermissionGroup } from '../types/domain/User'
+import { getPermissionGroupLevel } from '../types/domain/User'
 
 // ============================================================================
 // USER-SPECIFIC CONFIGURATION
@@ -74,15 +75,15 @@ export class UserSessionValidator {
         case 'view_eps':
           return user.permissions?.some(p => p.startsWith('epsx:rankings:')) || true
         case 'export_data':
-          return user.permissions?.some(p => p.includes('export') || p.includes('advanced')) || user.packageTier !== 'FREE'
+          return user.permissions?.some(p => p.includes('export') || p.includes('advanced')) || user.permissionGroup !== 'Basic Access Group'
         case 'realtime':
-          return user.permissions?.some(p => p.includes('realtime')) || user.packageTier !== 'FREE'
+          return user.permissions?.some(p => p.includes('realtime')) || user.permissionGroup !== 'Basic Access Group'
         case 'profile':
         case 'notifications':
         case 'billing':
           return true // Basic features available to all users
         case 'advanced_filters':
-          return user.permissions?.some(p => p.includes('advanced')) || ['SILVER', 'GOLD', 'PLATINUM', 'ENTERPRISE'].includes(user.packageTier)
+          return user.permissions?.some(p => p.includes('advanced')) || ['Standard Access Group', 'Premium Access Group', 'Professional Access Group', 'Enterprise Access Group'].includes(user.permissionGroup)
         default:
           return user.permissions?.includes(feature) || false
       }
@@ -139,27 +140,27 @@ export class UserSessionValidator {
     
     // Premium features require at least BRONZE tier
     if (path.includes('/premium') || path.includes('/advanced-analytics')) {
-      return this.baseValidator.hasPackageTier(user, 'BRONZE')
+      return getPermissionGroupLevel(user.permissionGroup) >= getPermissionGroupLevel('Standard Access Group')
     }
     
     // Professional features require SILVER tier
     if (path.includes('/professional') || path.includes('/alerts')) {
-      return this.baseValidator.hasPackageTier(user, 'SILVER')
+      return getPermissionGroupLevel(user.permissionGroup) >= getPermissionGroupLevel('Standard Access Group')
     }
     
     // VIP features require GOLD tier
     if (path.includes('/vip') || path.includes('/priority-support')) {
-      return this.baseValidator.hasPackageTier(user, 'GOLD')
+      return getPermissionGroupLevel(user.permissionGroup) >= getPermissionGroupLevel('Premium Access Group')
     }
     
     // Elite features require PLATINUM tier
     if (path.includes('/elite') || path.includes('/custom-dashboards')) {
-      return this.baseValidator.hasPackageTier(user, 'PLATINUM')
+      return getPermissionGroupLevel(user.permissionGroup) >= getPermissionGroupLevel('Professional Access Group')
     }
     
     // Enterprise features require ENTERPRISE tier
     if (path.includes('/enterprise') || path.includes('/api-access')) {
-      return this.baseValidator.hasPackageTier(user, 'ENTERPRISE')
+      return getPermissionGroupLevel(user.permissionGroup) >= getPermissionGroupLevel('Enterprise Access Group')
     }
     
     // Default: allow access for authenticated users
@@ -167,19 +168,18 @@ export class UserSessionValidator {
   }
 
   /**
-   * Get user rate limits based on package tier
+   * Get user rate limits based on permission group
    */
   getUserRateLimit(user: UserProfile): { perMinute: number; perHour: number } {
-    const rateLimits: Record<string, { perMinute: number; perHour: number }> = {
-      FREE: { perMinute: 10, perHour: 100 },
-      BRONZE: { perMinute: 30, perHour: 500 },
-      SILVER: { perMinute: 60, perHour: 1500 },
-      GOLD: { perMinute: 120, perHour: 5000 },
-      PLATINUM: { perMinute: 300, perHour: 15000 },
-      ENTERPRISE: { perMinute: 1000, perHour: 50000 }
+    const rateLimits: Record<PermissionGroup, { perMinute: number; perHour: number }> = {
+      'Basic Access Group': { perMinute: 10, perHour: 100 },
+      'Standard Access Group': { perMinute: 30, perHour: 500 },
+      'Premium Access Group': { perMinute: 120, perHour: 5000 },
+      'Professional Access Group': { perMinute: 300, perHour: 15000 },
+      'Enterprise Access Group': { perMinute: 1000, perHour: 50000 }
     }
     
-    return rateLimits[user.packageTier] || rateLimits.FREE
+    return rateLimits[user.permissionGroup] || rateLimits['Basic Access Group']
   }
 
   /**

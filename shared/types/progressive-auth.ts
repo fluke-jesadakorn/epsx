@@ -419,7 +419,7 @@ export function getRequiredAuthLevel(permissions: string[]): AuthLevelType {
 
 export interface ProgressiveAuthContextValue {
   authState: AuthState;
-  updateAuthLevel: (level: AuthLevel) => void;
+  updateAuthLevel: (level: AuthLevelType) => void;
   connectWallet: () => Promise<void>;
   authenticateUser: () => Promise<void>;
   disconnect: () => void;

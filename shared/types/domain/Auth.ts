@@ -10,14 +10,9 @@ import type { EPSXPermission } from './Permission'
 import type { SessionData } from './Session'
 
 // Re-export core auth types from shared system
-export {
+export type {
   User,
-  AuthState,
-  AuthConfig,
-  AuthError,
-  AuthResponse,
-  OIDCConfig,
-  FirebaseConfig
+  AuthResponse
 } from '../../types/auth'
 
 // ============================================================================

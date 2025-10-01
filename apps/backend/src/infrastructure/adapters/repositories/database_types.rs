@@ -363,6 +363,225 @@ impl PermissionGroupRepository {
         Ok(plan)
     }
 
-    // Note: Create and update methods can be added later if needed
-    // For now, we only need read operations to replace hardcoded plans
+    /// Get all permission groups
+    pub async fn get_all_groups(&self) -> Result<Vec<PermissionGroup>, sqlx::Error> {
+        let groups = sqlx::query_as::<_, PermissionGroup>(
+            r#"
+            SELECT 
+                id, name, slug, description, group_type, permissions, group_metadata,
+                price, currency, billing_cycle, is_active, is_promoted, display_order,
+                max_members, auto_assign_enabled, assignment_rules, created_at, updated_at,
+                created_by, last_modified_by
+            FROM permission_groups 
+            WHERE COALESCE(is_active, true) = true 
+            ORDER BY COALESCE(display_order, 0), name
+            "#
+        )
+        .fetch_all(&*self.pool)
+        .await?;
+        
+        Ok(groups)
+    }
+
+    /// Get permission group by ID
+    pub async fn get_group_by_id(&self, group_id: Uuid) -> Result<Option<PermissionGroup>, sqlx::Error> {
+        let group = sqlx::query_as::<_, PermissionGroup>(
+            r#"
+            SELECT 
+                id, name, slug, description, group_type, permissions, group_metadata,
+                price, currency, billing_cycle, is_active, is_promoted, display_order,
+                max_members, auto_assign_enabled, assignment_rules, created_at, updated_at,
+                created_by, last_modified_by
+            FROM permission_groups 
+            WHERE id = $1
+            "#
+        )
+        .bind(group_id)
+        .fetch_optional(&*self.pool)
+        .await?;
+        
+        Ok(group)
+    }
+
+    /// Create a new permission group
+    pub async fn create_group(&self, new_group: NewPermissionGroup) -> Result<PermissionGroup, sqlx::Error> {
+        let group = sqlx::query_as::<_, PermissionGroup>(
+            r#"
+            INSERT INTO permission_groups (
+                name, slug, description, group_type, permissions, group_metadata,
+                price, currency, billing_cycle, is_active, display_order, created_by
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            RETURNING 
+                id, name, slug, description, group_type, permissions, group_metadata,
+                price, currency, billing_cycle, is_active, is_promoted, display_order,
+                max_members, auto_assign_enabled, assignment_rules, created_at, updated_at,
+                created_by, last_modified_by
+            "#
+        )
+        .bind(&new_group.name)
+        .bind(&new_group.slug)
+        .bind(&new_group.description)
+        .bind(&new_group.group_type)
+        .bind(&new_group.permissions)
+        .bind(&new_group.group_metadata)
+        .bind(new_group.price)
+        .bind(new_group.currency)
+        .bind(new_group.billing_cycle)
+        .bind(new_group.is_active.unwrap_or(true))
+        .bind(new_group.display_order.unwrap_or(0))
+        .bind(new_group.created_by)
+        .fetch_one(&*self.pool)
+        .await?;
+        
+        Ok(group)
+    }
+
+    /// Update an existing permission group
+    pub async fn update_group(&self, group_id: Uuid, update_group: UpdatePermissionGroup) -> Result<Option<PermissionGroup>, sqlx::Error> {
+        let group = sqlx::query_as::<_, PermissionGroup>(
+            r#"
+            UPDATE permission_groups SET
+                name = COALESCE($2, name),
+                description = COALESCE($3, description),
+                permissions = COALESCE($4, permissions),
+                price = COALESCE($5, price),
+                currency = COALESCE($6, currency),
+                billing_cycle = COALESCE($7, billing_cycle),
+                is_active = COALESCE($8, is_active),
+                last_modified_by = COALESCE($9, last_modified_by),
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1
+            RETURNING 
+                id, name, slug, description, group_type, permissions, group_metadata,
+                price, currency, billing_cycle, is_active, is_promoted, display_order,
+                max_members, auto_assign_enabled, assignment_rules, created_at, updated_at,
+                created_by, last_modified_by
+            "#
+        )
+        .bind(group_id)
+        .bind(update_group.name)
+        .bind(update_group.description)
+        .bind(update_group.permissions)
+        .bind(update_group.price)
+        .bind(update_group.currency)
+        .bind(update_group.billing_cycle)
+        .bind(update_group.is_active)
+        .bind(update_group.last_modified_by)
+        .fetch_optional(&*self.pool)
+        .await?;
+        
+        Ok(group)
+    }
+
+    /// Delete a permission group (soft delete by setting is_active = false)
+    pub async fn delete_group(&self, group_id: Uuid) -> Result<bool, sqlx::Error> {
+        let rows_affected = sqlx::query(
+            r#"
+            UPDATE permission_groups 
+            SET is_active = false, updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1 AND is_active = true
+            "#
+        )
+        .bind(group_id)
+        .execute(&*self.pool)
+        .await?
+        .rows_affected();
+        
+        Ok(rows_affected > 0)
+    }
+
+    /// Assign wallet to group using database function
+    pub async fn assign_wallet_to_group(
+        &self,
+        wallet_address: &str,
+        group_id: Uuid,
+        assigned_by: Option<&str>,
+        assignment_reason: Option<&str>,
+        expires_at: Option<chrono::DateTime<Utc>>
+    ) -> Result<Uuid, sqlx::Error> {
+        let membership_id = sqlx::query_scalar::<_, Uuid>(
+            r#"
+            SELECT assign_wallet_to_group($1, $2, $3, 'manual', $4, $5)
+            "#
+        )
+        .bind(wallet_address)
+        .bind(group_id)
+        .bind(assigned_by)
+        .bind(assignment_reason)
+        .bind(expires_at)
+        .fetch_one(&*self.pool)
+        .await?;
+        
+        Ok(membership_id)
+    }
+
+    /// Get wallet assignments using database query
+    pub async fn get_wallet_assignments(&self, wallet_address: &str) -> Result<Vec<WalletAssignment>, sqlx::Error> {
+        let assignments = sqlx::query_as::<_, WalletAssignment>(
+            r#"
+            SELECT 
+                wgm.id, wgm.wallet_address, wgm.group_id, 
+                pg.name as group_name, pg.group_type,
+                wgm.assignment_source, wgm.assignment_reason,
+                wgm.assigned_by, wgm.assigned_at, wgm.expires_at,
+                wgm.is_active
+            FROM wallet_group_memberships wgm
+            JOIN permission_groups pg ON wgm.group_id = pg.id
+            WHERE wgm.wallet_address = $1 
+                AND wgm.is_active = true
+                AND (wgm.expires_at IS NULL OR wgm.expires_at > CURRENT_TIMESTAMP)
+            ORDER BY wgm.assigned_at DESC
+            "#
+        )
+        .bind(wallet_address)
+        .fetch_all(&*self.pool)
+        .await?;
+        
+        Ok(assignments)
+    }
+
+    /// Check if wallet has permission using database function
+    pub async fn wallet_has_permission(&self, wallet_address: &str, permission: &str) -> Result<bool, sqlx::Error> {
+        let has_permission = sqlx::query_scalar::<_, bool>(
+            "SELECT wallet_has_permission($1, $2)"
+        )
+        .bind(wallet_address)
+        .bind(permission)
+        .fetch_one(&*self.pool)
+        .await?;
+        
+        Ok(has_permission)
+    }
+
+    /// Get wallet effective permissions using database function
+    pub async fn get_wallet_effective_permissions(&self, wallet_address: &str) -> Result<Vec<String>, sqlx::Error> {
+        let permissions_json = sqlx::query_scalar::<_, serde_json::Value>(
+            "SELECT get_wallet_effective_permissions($1)"
+        )
+        .bind(wallet_address)
+        .fetch_one(&*self.pool)
+        .await?;
+        
+        // Convert JSONB array to Vec<String>
+        let permissions: Vec<String> = serde_json::from_value(permissions_json)
+            .unwrap_or_default();
+        
+        Ok(permissions)
+    }
+}
+
+/// Wallet Assignment structure for database queries
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct WalletAssignment {
+    pub id: Uuid,
+    pub wallet_address: String,
+    pub group_id: Uuid,
+    pub group_name: String,
+    pub group_type: String,
+    pub assignment_source: String,
+    pub assignment_reason: Option<String>,
+    pub assigned_by: Option<String>,
+    pub assigned_at: DateTime<Utc>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub is_active: bool,
 }

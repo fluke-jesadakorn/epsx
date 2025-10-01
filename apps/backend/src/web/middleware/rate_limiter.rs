@@ -574,8 +574,8 @@ mod tests {
     async fn test_rate_limiting_per_minute_with_cache() {
         let cache = ServerlessCacheFactory::redis_only().await
             .unwrap_or_else(|_| Box::new(MemoryCache::new()));
-        let limiter = UnifiedRateLimiter::new(cache);
-        let wallet_address = UserId::new("test_user".to_string());
+        let limiter = UnifiedRateLimiter::new(cache.into());
+        let wallet_address = UserId::new();
         let config = RateLimitConfig {
             requests_per_minute: Some(2),
             requests_per_hour: Some(10),
@@ -603,7 +603,7 @@ mod tests {
     async fn test_ip_based_rate_limiting_with_cache() {
         let cache = ServerlessCacheFactory::redis_only().await
             .unwrap_or_else(|_| Box::new(MemoryCache::new()));
-        let limiter = UnifiedRateLimiter::new(cache);
+        let limiter = UnifiedRateLimiter::new(cache.into());
         let client_id = ClientId::IpAddress("192.168.1.100".to_string());
         let config = RateLimitConfig {
             requests_per_minute: Some(3),
@@ -628,8 +628,8 @@ mod tests {
     async fn test_different_endpoints_have_separate_limits() {
         let cache = ServerlessCacheFactory::redis_only().await
             .unwrap_or_else(|_| Box::new(MemoryCache::new()));
-        let limiter = UnifiedRateLimiter::new(cache);
-        let wallet_address = UserId::new("test_user".to_string());
+        let limiter = UnifiedRateLimiter::new(cache.into());
+        let wallet_address = UserId::new();
         let config = RateLimitConfig {
             requests_per_minute: Some(1),
             requests_per_hour: None,
@@ -657,8 +657,8 @@ mod tests {
     async fn test_rate_limit_reset() {
         let cache = ServerlessCacheFactory::redis_only().await
             .unwrap_or_else(|_| Box::new(MemoryCache::new()));
-        let limiter = UnifiedRateLimiter::new(cache);
-        let wallet_address = UserId::new("test_user".to_string());
+        let limiter = UnifiedRateLimiter::new(cache.into());
+        let wallet_address = UserId::new();
         let config = RateLimitConfig {
             requests_per_minute: Some(1),
             requests_per_hour: None,
@@ -685,8 +685,8 @@ mod tests {
     async fn test_different_client_types() {
         let cache = ServerlessCacheFactory::redis_only().await
             .unwrap_or_else(|_| Box::new(MemoryCache::new()));
-        let limiter = UnifiedRateLimiter::new(cache);
-        let wallet_address = ClientId::User(UserId::new("test_user".to_string()));
+        let limiter = UnifiedRateLimiter::new(cache.into());
+        let wallet_address = ClientId::User(UserId::new());
         let ip_id = ClientId::IpAddress("192.168.1.100".to_string());
         let api_key_id = ClientId::ApiKey("ak_test123".to_string());
         
@@ -721,8 +721,8 @@ mod tests {
     async fn test_cache_fallback_behavior() {
         let cache = ServerlessCacheFactory::redis_only().await
             .unwrap_or_else(|_| Box::new(MemoryCache::new()));
-        let limiter = UnifiedRateLimiter::new(cache);
-        let wallet_address = UserId::new("fallback_test_user".to_string());
+        let limiter = UnifiedRateLimiter::new(cache.into());
+        let wallet_address = UserId::new();
         let config = RateLimitConfig {
             requests_per_minute: Some(2),
             requests_per_hour: Some(10),

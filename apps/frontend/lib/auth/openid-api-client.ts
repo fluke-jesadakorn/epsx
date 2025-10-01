@@ -13,6 +13,7 @@
  */
 
 import { logger } from '@/lib/shared';
+import type { ApiResponse } from '../../../../shared/types/api';
 
 // OpenID Connect Token Response (from backend)
 export interface OpenIDTokenResponse {
@@ -55,16 +56,7 @@ export interface UserInfoResponse {
   permissions: string[];         // Backend-determined permissions
 }
 
-// API Response Structure (unified from backend)
-export interface ApiResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: number;
-    message: string;
-    details?: any;
-  };
-}
+// Using shared ApiResponse type from shared/types/api
 
 /**
  * OpenID Connect API Client
@@ -323,10 +315,8 @@ export class OpenIDApiClient {
         // No valid tokens, require re-authentication
         return {
           success: false,
-          error: {
-            code: 401,
-            message: 'Authentication required'
-          }
+          error: 'Authentication required',
+          status: 401
         };
       }
     }
@@ -368,10 +358,8 @@ export class OpenIDApiClient {
         this.clearTokens();
         return {
           success: false,
-          error: {
-            code: 401,
-            message: 'Authentication expired'
-          }
+          error: 'Authentication expired',
+          status: 401
         };
       }
     }
@@ -386,25 +374,21 @@ export class OpenIDApiClient {
       if (response.ok) {
         return {
           success: true,
-          data
+          data,
+          status: response.status
         };
       } else {
         return {
           success: false,
-          error: {
-            code: response.status,
-            message: data.error_description || data.message || 'Request failed',
-            details: data
-          }
+          error: data.error_description || data.message || 'Request failed',
+          status: response.status
         };
       }
     } catch (error) {
       return {
         success: false,
-        error: {
-          code: response.status,
-          message: `Request failed: ${error}`
-        }
+        error: `Request failed: ${error}`,
+        status: response.status
       };
     }
   }

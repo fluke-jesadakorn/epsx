@@ -11,7 +11,7 @@ pub use health::{eps_health_check, debug_eps_correction, debug_ranking_data, deb
 pub use cache::{get_unified_analytics_rankings_cached, get_cache_stats, force_cache_refresh, cache_health_check};
 
 // Re-export key DTOs that are used in routes
-pub use dto::{
+pub use types::{
     EPSRankingQueryParams, EPSRankingsApiResponse, EPSPaginationResponse,
     CountriesResponse, SectorsResponse, EPSHealthResponse, FiltersResponse,
     CardDashboardResponse, CacheStatsResponse, CacheRefreshResponse, CacheHealthResponse
@@ -47,22 +47,21 @@ mod tests {
     #[test]
     fn test_focused_modules_integration() {
         // Test that focused modules work together correctly
-        use crate::domain::trading_analytics::EPSRanking;
+        use crate::domain::shared_kernel::entities::eps_growth::{EPSRanking, EPSGrowthData};
 
-        let ranking = EPSRanking {
-            symbol: "AAPL".to_string(),
-            name: "Apple Inc".to_string(),
-            country: "america".to_string(),
-            sector: "Technology".to_string(),
-            exchange: "NASDAQ".to_string(),
-            current_eps: Some(1.5),
-            growth_factor: Some(10.0),
-            price_current: Some(150.0),
-            market_cap: Some(2500000000),
-            volume: Some(50000000),
-            ranking_position: Some(1),
-            quarterly_data: None,
-        };
+        // Create proper EPSRanking using the correct constructor
+        let mut ranking = EPSRanking::default();
+        ranking.symbol = "AAPL".to_string();
+        ranking.name = "Apple Inc".to_string();
+        ranking.country = "america".to_string();
+        ranking.sector = "Technology".to_string();
+        ranking.exchange = "NASDAQ".to_string();
+        ranking.current_eps = Some(1.5);
+        ranking.growth_factor = Some(10.0);
+        ranking.price_current = Some(150.0);
+        ranking.market_cap = Some(2500000000);
+        ranking.volume = Some(50000000);
+        ranking.ranking_position = Some(1);
 
         // Test data transformation pipeline
         let unified = crate::web::analytics::eps::transform::transform_ranking_to_unified_format(ranking, 1);

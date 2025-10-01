@@ -144,7 +144,7 @@ export interface CleanupResponse {
   details: CleanupDetail[];
 }
 
-export interface ApiErrorResponse {
+export interface PermissionApiErrorResponse {
   error: string;
   message: string;
   details?: string;

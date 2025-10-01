@@ -13,13 +13,13 @@ export interface Row {
   }>
 }
 
-export interface ApiResponse {
+export interface TableApiResponse {
   columns: Column[]
   rows: Row[]
 }
 
 // Create table columns from API response
-export const cols = (res: ApiResponse) => 
+export const cols = (res: TableApiResponse) => 
   res.columns.map((col, idx) => ({
     title: col.label,
     dataIndex: col.metric,
@@ -39,7 +39,7 @@ export const mask = (val: string | number, lvl: number): string | number => {
 }
 
 // Create table data with access control
-export const rows = (res: ApiResponse, lvl = 1) => 
+export const rows = (res: TableApiResponse, lvl = 1) => 
   res.rows.map((row, idx) => {
     const data: any = { key: idx, ticker: row.asset.ticker }
     row.data.forEach((item, i) => {

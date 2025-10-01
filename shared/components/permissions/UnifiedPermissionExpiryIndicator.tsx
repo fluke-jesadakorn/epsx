@@ -32,20 +32,59 @@ import {
   AlertCircle
 } from 'lucide-react';
 
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Card, CardContent } from '@/components/ui/card';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
-} from '@/components/ui/dialog';
-import { Separator } from '@/components/ui/separator';
+import { BaseCard as Card } from '../cards/BaseCard';
+import { BaseButton as Button } from '../buttons/BaseButton';
+import { BaseModal } from '../modals/BaseModal';
 import { formatDistanceToNow, format } from 'date-fns';
+
+// Simple inline components to replace missing UI components
+const Badge = ({ className, variant, children, ...props }: any) => (
+  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${className}`} {...props}>
+    {children}
+  </span>
+);
+
+const Alert = ({ className, variant, children, ...props }: any) => (
+  <div className={`rounded-lg border p-4 ${className}`} {...props}>
+    {children}
+  </div>
+);
+
+const AlertDescription = ({ children, ...props }: any) => (
+  <div className="text-sm" {...props}>{children}</div>
+);
+
+const CardContent = ({ className, children, ...props }: any) => (
+  <div className={`p-6 ${className}`} {...props}>{children}</div>
+);
+
+const Dialog = ({ children, ...props }: any) => (
+  <BaseModal {...props}>{children}</BaseModal>
+);
+
+const DialogTrigger = ({ children, asChild, ...props }: any) => (
+  <div {...props}>{children}</div>
+);
+
+const DialogContent = ({ children, ...props }: any) => (
+  <div {...props}>{children}</div>
+);
+
+const DialogHeader = ({ children, ...props }: any) => (
+  <div className="space-y-2" {...props}>{children}</div>
+);
+
+const DialogTitle = ({ children, className, ...props }: any) => (
+  <h2 className={`text-lg font-semibold ${className}`} {...props}>{children}</h2>
+);
+
+const DialogDescription = ({ children, ...props }: any) => (
+  <p className="text-sm text-gray-600" {...props}>{children}</p>
+);
+
+const Separator = ({ className, ...props }: any) => (
+  <hr className={`border-t border-gray-200 ${className}`} {...props} />
+);
 
 // Platform types
 export type Platform = 'admin' | 'frontend';
@@ -400,7 +439,7 @@ function FullVariant({
             {showDetails && (
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button variant="outline" size="sm">
+                  <Button variant="ghost" size="sm">
                     <Eye className="h-3 w-3" />
                     Details
                   </Button>
@@ -424,7 +463,7 @@ function FullVariant({
             
             {onRefresh && (
               <Button 
-                variant="outline" 
+                variant="ghost" 
                 size="sm"
                 onClick={onRefresh}
                 disabled={isRefreshing}
@@ -622,6 +661,7 @@ function BannerVariant({
 }
 
 function CardVariant({ 
+  platform,
   data, 
   showActions,
   showDetails, 
@@ -649,7 +689,7 @@ function CardVariant({
               </p>
             </div>
           </div>
-          <BadgeVariant data={data} size="md" className="" isDialogOpen={false} setIsDialogOpen={() => {}} />
+          <BadgeVariant platform={platform} data={data} size="md" className="" isDialogOpen={false} setIsDialogOpen={() => {}} />
         </div>
 
         {showHealth && (

@@ -30,8 +30,8 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.indexedDB === 'undefi
       };
 
       const mockRequest = {
-        onsuccess: null,
-        onerror: null,
+        onsuccess: null as ((event: any) => void) | null,
+        onerror: null as ((event: any) => void) | null,
         result: mockDB,
         error: null,
         readyState: 'done',

@@ -10,7 +10,7 @@ import { logger, safeError } from '@/lib/shared';
 // Types
 // ============================================================================
 
-export interface User extends JWTUser {
+export interface AuthUser extends JWTUser {
   id: string;
   name?: string;
   image?: string;
@@ -44,7 +44,7 @@ export async function handleSignOut() {
 /**
  * Get current authenticated user from OIDC session
  */
-export async function getCurrentUser(): Promise<User | null> {
+export async function getCurrentUser(): Promise<AuthUser | null> {
   try {
     const cookieStore = await cookies();
     const accessToken = cookieStore.get('access_token')?.value;
@@ -117,7 +117,7 @@ export async function hasAllPermissions(requiredPermissions: string[]): Promise<
 /**
  * Require authentication - redirect to login if not authenticated
  */
-export async function requireAuth(): Promise<User> {
+export async function requireAuth(): Promise<AuthUser> {
   const user = await getCurrentUser();
   
   if (!user) {
@@ -130,7 +130,7 @@ export async function requireAuth(): Promise<User> {
 /**
  * Require specific permission - redirect if not authorized
  */
-export async function requirePermission(permission: string, redirectPath: string = '/unauthorized'): Promise<User> {
+export async function requirePermission(permission: string, redirectPath: string = '/unauthorized'): Promise<AuthUser> {
   const user = await requireAuth();
   const hasPerms = await hasPermission(permission);
   

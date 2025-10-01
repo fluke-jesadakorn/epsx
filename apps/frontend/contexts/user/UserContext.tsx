@@ -35,7 +35,7 @@ const initialUserState: UserState = {
     },
     subscription: null,
     permissions: [],
-    packageTier: 'FREE',
+    permissionGroup: 'Basic Access Group',
   },
   optimisticUpdates: [],
 };
@@ -48,7 +48,7 @@ interface UserContextType {
     updatePreferences: (preferences: Record<string, any>) => void;
     setSubscription: (subscription: UserSubscription | null) => void;
     updatePermissions: (permissions: string[]) => void;
-    setPackageTier: (tier: string) => void;
+    setPermissionGroup: (group: string) => void;
     setLoading: (loading: boolean) => void;
     setError: (error: string | null) => void;
     addOptimisticUpdate: (update: OptimisticUpdate) => void;
@@ -110,13 +110,14 @@ function userReducer(state: UserState, action: StateAction): UserState {
           : (state as any).data,
       } as UserState;
 
-    case 'SET_USER_PACKAGE_TIER':
+
+    case 'SET_USER_PERMISSION_GROUP':
       return {
         ...state,
         data: (state as any).data
           ? {
               ...(state as any).data,
-              packageTier: action.payload,
+              permissionGroup: action.payload,
             }
           : (state as any).data,
       };
@@ -124,13 +125,13 @@ function userReducer(state: UserState, action: StateAction): UserState {
     case 'SET_USER_LOADING':
       return {
         ...state,
-        loading: action.payload,
+        loading: action.payload as boolean,
       };
 
     case 'SET_USER_ERROR':
       return {
         ...state,
-        error: action.payload,
+        error: action.payload as string | null,
       };
 
     case 'ADD_OPTIMISTIC_UPDATE':
@@ -217,10 +218,11 @@ export function UserProvider({ children, initialState }: UserProviderProps) {
             meta: { timestamp: Date.now(), source: 'user' },
           }),
 
-      setPackageTier: (tier: string) =>
+
+      setPermissionGroup: (group: string) =>
         dispatch({
-            type: 'SET_USER_PACKAGE_TIER',
-            payload: tier,
+            type: 'SET_USER_PERMISSION_GROUP',
+            payload: group,
             meta: { timestamp: Date.now(), source: 'user' },
           }),
 
@@ -309,8 +311,8 @@ export function useUserSubscription() {
   return {
     subscription: (state as any).data?.subscription,
     setSubscription: actions.setSubscription,
-    packageTier: (state as any).data?.packageTier,
-    setPackageTier: actions.setPackageTier,
+    permissionGroup: (state as any).data?.permissionGroup,
+    setPermissionGroup: actions.setPermissionGroup,
   };
 }
 

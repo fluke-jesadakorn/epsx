@@ -86,12 +86,12 @@ export type {
  */
 
 // For admin-frontend migration
-export const AdminPermissionGuard = UnifiedPermissionGuard;
-export const RequireAdminAccess = RequireAdminPermission;
+// export const AdminPermissionGuard = UnifiedPermissionGuard;
+// export const RequireAdminAccess = RequireAdminPermission;
 
 // For frontend migration  
-export const PlatformPermissionGuard = UnifiedPermissionGuard;
-export const RequirePlatformAccess = RequirePermission;
+// export const PlatformPermissionGuard = UnifiedPermissionGuard;
+// export const RequirePlatformAccess = RequirePermission;
 
 // ============================================================================
 // USAGE EXAMPLES AND DOCUMENTATION

@@ -31,7 +31,13 @@ export type UserRole = 'user' | 'premium_user' | 'admin' | 'super_admin'
 export type UserStatus = 'active' | 'disabled' | 'pending' | 'suspended' | 'trial'
 
 /**
+ * Permission groups for access control (NEW)
+ */
+export type PermissionGroup = 'Basic Access Group' | 'Standard Access Group' | 'Premium Access Group' | 'Professional Access Group' | 'Enterprise Access Group'
+
+/**
  * Package/subscription tiers
+ * @deprecated Use PermissionGroup instead
  */
 export type PackageTier = 'FREE' | 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'ENTERPRISE'
 
@@ -62,7 +68,7 @@ export interface UserProfile extends BaseUser {
   twoFactorEnabled: boolean
   
   // Platform context
-  packageTier: PackageTier
+  permissionGroup: PermissionGroup
   permissions: string[]
   platforms: string[]
   primaryPlatform: string
@@ -77,7 +83,7 @@ export interface UserProfile extends BaseUser {
 /**
  * Minimal user info for session/auth contexts
  */
-export interface UserSession extends Pick<UserProfile, 'id' | 'email' | 'name' | 'role' | 'permissions' | 'packageTier' | 'walletAddress'> {
+export interface UserSession extends Pick<UserProfile, 'id' | 'email' | 'name' | 'role' | 'permissions' | 'permissionGroup' | 'walletAddress'> {
   expiresAt: number
   sessionId?: string
   isLoggedIn: true
@@ -105,7 +111,7 @@ export interface AdminUserProfile extends UserProfile {
 // ============================================================================
 
 export interface BillingStatus {
-  tier: PackageTier
+  permissionGroup: PermissionGroup
   isActive: boolean
   nextBillingDate?: Date
   lastPaymentDate?: Date
@@ -116,7 +122,7 @@ export interface BillingStatus {
 export interface StockRankingPackage {
   id: string
   name: string
-  tier: PackageTier
+  permissionGroup: PermissionGroup
   features: string[]
   assignedAt: Date
   expiresAt?: Date
@@ -221,7 +227,7 @@ export interface UserListFilters {
   search?: string
   roles?: UserRole[]
   status?: UserStatus[]
-  tier?: PackageTier[]
+  permissionGroups?: PermissionGroup[]
   modules?: string[]
   emailVerified?: boolean
   lastLoginAfter?: Date
@@ -267,7 +273,7 @@ export interface UserRoleUpdateData {
 }
 
 export interface BillingUpdateData {
-  tier?: PackageTier
+  permissionGroup?: PermissionGroup
   stockRankingPackages?: string[]
 }
 
@@ -297,7 +303,7 @@ export function isAdminUser(user: UserProfile): user is AdminUserProfile {
 }
 
 export function isPremiumUser(user: UserProfile): boolean {
-  return user.packageTier !== 'FREE'
+  return user.permissionGroup !== 'Basic Access Group'
 }
 
 export function hasValidSubscription(user: UserProfile): boolean {
@@ -313,6 +319,24 @@ export function canAccessFeature(user: UserProfile, feature: string): boolean {
   )
 }
 
+export function getPermissionGroupLevel(group: PermissionGroup): number {
+  const levels: Record<PermissionGroup, number> = {
+    'Basic Access Group': 1,
+    'Standard Access Group': 2,
+    'Premium Access Group': 3,
+    'Professional Access Group': 4,
+    'Enterprise Access Group': 5
+  }
+  return levels[group] || 0
+}
+
+export function hasMinimumPermissionGroup(user: UserProfile, requiredGroup: PermissionGroup): boolean {
+  return getPermissionGroupLevel(user.permissionGroup) >= getPermissionGroupLevel(requiredGroup)
+}
+
+/**
+ * @deprecated Use getPermissionGroupLevel instead
+ */
 export function getUserTierLevel(tier: PackageTier): number {
   const levels: Record<PackageTier, number> = {
     FREE: 0,
@@ -325,8 +349,11 @@ export function getUserTierLevel(tier: PackageTier): number {
   return levels[tier] || 0
 }
 
-export function hasMinimumTier(user: UserProfile, requiredTier: PackageTier): boolean {
-  return getUserTierLevel(user.packageTier) >= getUserTierLevel(requiredTier)
+/**
+ * @deprecated Use hasMinimumPermissionGroup instead
+ */
+export function hasMinimumPermissionGroup(user: UserProfile, requiredGroup: PermissionGroup): boolean {
+  return getPermissionGroupLevel(user.permissionGroup) >= getPermissionGroupLevel(requiredGroup)
 }
 
 // ============================================================================

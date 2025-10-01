@@ -46,11 +46,18 @@ interface SymbolCardData {
   next_quarter_estimate?: {
     quarter: string;
     announcement_date: string;
+    announcement_timestamp: number;
     days_until_announcement: number;
     estimated_eps: number;
     estimated_price_target?: number;
     confidence: string;
   };
+  next_earnings_date?: number; // Unix timestamp from TradingView (raw)
+  last_earnings_date?: number; // Unix timestamp from TradingView (raw)
+  // Pre-calculated by backend (NO frontend calculations)
+  next_earnings_date_formatted?: string; // "Nov 18, 2025"
+  days_until_next_earnings?: number;     // 185
+  progress_percentage?: number;          // 0-100
 }
 
 interface CardDashboardResponse {
@@ -191,13 +198,13 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
             hasNext: response.pagination.page < response.pagination.total_pages,
             hasPrev: response.pagination.page > 1
           },
-          metadata: response.metadata || {
-            available_countries: response.metadata?.available_countries || [],
-            available_sectors: response.metadata?.available_sectors || [],
-            request_timestamp: response.metadata?.request_timestamp || new Date().toISOString(),
-            data_source: response.metadata?.data_source || 'analytics-api'
+          metadata: {
+            available_countries: (response.metadata as any)?.available_countries || [],
+            available_sectors: (response.metadata as any)?.available_sectors || [],
+            request_timestamp: (response.metadata as any)?.request_timestamp || new Date().toISOString(),
+            data_source: (response.metadata as any)?.data_source || 'analytics-api'
           },
-          processing_time_ms: response.metadata.query_time
+          processing_time_ms: (response.metadata as any)?.query_time || 0
         };
         setData(transformedData);
       }
@@ -334,23 +341,11 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
     };
 
     const actionInfo = getActionInfo(cardData.active_status);
-    const daysUntil =
-      cardData.next_quarter_estimate?.days_until_announcement || 185;
-    const nextDate =
-      cardData.next_quarter_estimate?.announcement_date || 'Feb 28, 2026';
 
-    // Progress bar calculation using exact dates
-    // Start: Latest EPS date, End: Next EPS announcement date
-    const currentEPSDate = new Date(latestQuarter?.date || 'Jul 30, 2025');
-    const nextEPSDate = new Date(nextDate);
-    const totalDays = Math.ceil(
-      (nextEPSDate.getTime() - currentEPSDate.getTime()) / (1000 * 60 * 60 * 24)
-    );
-    const daysPassed = Math.max(0, totalDays - daysUntil);
-    const progressPercentage =
-      totalDays > 0
-        ? Math.max(0, Math.min(100, (daysPassed / totalDays) * 100))
-        : 0;
+    // Use backend-calculated values (NO frontend calculations)
+    const nextDate = cardData.next_earnings_date_formatted || 'TBD';
+    const daysUntil = cardData.days_until_next_earnings || 0;
+    const progressPercentage = cardData.progress_percentage || 0;
 
     return (
       <div className="mx-auto w-full max-w-sm touch-manipulation overflow-hidden rounded-3xl border-2 border-transparent bg-white shadow-2xl shadow-pink-500/20 transition-all duration-300 hover:border-pink-200 dark:bg-slate-900 dark:shadow-cyan-500/20 dark:hover:border-cyan-400/50">
@@ -386,38 +381,28 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
           </div>
         </div>
 
-        {/* Progress Bar - PancakeSwap style */}
-        <div className="bg-gradient-to-br from-pink-50 to-purple-50 px-6 pb-6 dark:from-slate-800 dark:to-slate-700">
-          {/* Phase Label */}
-          <div className="mb-3 text-center">
-            <span className="text-sm font-semibold text-purple-700 dark:text-cyan-300">
-              Action Phase
+        {/* Next Action - Clean Design */}
+        <div className="bg-gradient-to-br from-pink-50 to-purple-50 px-6 py-6 dark:from-slate-800 dark:to-slate-700">
+          {/* Next Action Label */}
+          <div className="mb-2 text-center">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              NEXT ACTION
             </span>
           </div>
 
-          {/* Date Labels */}
-          <div className="mb-2 flex justify-between text-xs font-medium text-purple-600 dark:text-cyan-400">
-            <span>{latestQuarter?.date || 'Jul 30, 2025'}</span>
-            <span>
-              {nextDate.includes(',') ? nextDate.split(',')[0] : nextDate}
+          {/* Days Count - Prominent */}
+          <div className="mb-4 text-center">
+            <span className="text-5xl font-bold text-green-500 dark:text-green-400">
+              {daysUntil}d
             </span>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="h-6 flex-1 rounded-full bg-pink-100 shadow-inner dark:bg-slate-600">
-              <div
-                className="h-6 rounded-full bg-gradient-to-r from-pink-400 via-purple-500 to-indigo-500 shadow-sm transition-all duration-700"
-                style={{ width: `${progressPercentage}%` }}
-              />
-            </div>
-            <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600 dark:text-cyan-400">
-                {daysUntil}
-              </div>
-              <div className="text-xs font-medium text-purple-500 dark:text-cyan-300">
-                days
-              </div>
-            </div>
+          {/* Progress Bar - Simplified */}
+          <div className="h-3 w-full rounded-full bg-slate-200 dark:bg-slate-600">
+            <div
+              className="h-3 rounded-full bg-gradient-to-r from-green-400 to-green-500"
+              style={{ width: `${progressPercentage}%` }}
+            />
           </div>
         </div>
 
@@ -490,7 +475,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
           {/* Next Checkpoint */}
           <div className="rounded-2xl border border-amber-200/50 bg-gradient-to-r from-amber-50 to-orange-50 p-4 dark:border-cyan-400/20 dark:from-slate-800 dark:to-slate-700">
             <div className="text-sm font-semibold text-amber-600 dark:text-cyan-400">
-              Next: {nextDate.includes(',') ? nextDate.split(',')[0] : nextDate}
+              Next: {nextDate} {daysUntil > 0 && `(${daysUntil} days)`}
             </div>
           </div>
         </div>

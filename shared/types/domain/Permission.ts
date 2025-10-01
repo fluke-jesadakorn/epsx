@@ -5,7 +5,7 @@
  */
 
 // Re-export core permission types from shared system
-export {
+export type {
   Permission,
   ParsedPermission,
   PermissionSource,
@@ -24,7 +24,7 @@ export {
   MigrationStatus
 } from '../../permissions/types/core'
 
-export {
+export type {
   EnhancedUserClaims,
   PermissionClaims,
   AdminPermissionClaims,

@@ -5,7 +5,7 @@ use axum::{
     Router,
 };
 
-use super::handlers::{
+use super::settings_handlers::{
     get_system_config_handler,
     update_system_config_handler,
     get_environment_config_handler,

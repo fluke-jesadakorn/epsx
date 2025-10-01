@@ -1,12 +1,6 @@
 use async_trait::async_trait;
 
-#[async_trait]
-pub trait EmailServicePort: Send + Sync {
-    type Error: std::error::Error + Send + Sync + 'static;
-    
-    async fn send_email(&self, to: &str, subject: &str, body: &str) -> Result<(), Self::Error>;
-    async fn send_template_email(&self, to: &str, template: &str, data: &serde_json::Value) -> Result<(), Self::Error>;
-}
+// Email service removed - Web3-first system uses direct wallet notifications
 
 /// Push Notification Service Port
 #[async_trait]
@@ -51,21 +45,7 @@ pub trait GranularPermissionsClientPort: Send + Sync {
     async fn grant_permission(&self, wallet_address: &str, permission: &str) -> Result<(), Self::Error>;
 }
 
-// Convenience re-exports for errors
-#[derive(Debug, thiserror::Error)]
-pub enum EmailServiceError {
-    #[error("Failed to send email: {0}")]
-    SendFailed(String),
-    #[error("Invalid email address: {0}")]
-    InvalidAddress(String),
-    #[error("Service unavailable")]
-    ServiceUnavailable,
-    #[error("Delivery failed: {0}")]
-    DeliveryFailed(String),
-}
-
-// Type alias for common service
-pub type EmailSvc = Box<dyn EmailServicePort<Error = EmailServiceError>>;
+// Email service errors and type aliases removed - Web3-first system uses direct wallet notifications
 
 // Placeholder types
 #[derive(Debug, Clone)]

@@ -2,7 +2,7 @@
 // Breaks down 1,865-line God Object into 7 focused modules with clear domain boundaries
 
 // Public modules - each handles a specific domain
-pub mod dto;           // Data Transfer Objects and API structures
+pub mod types;         // Data Transfer Objects and API structures
 pub mod rankings;      // Core EPS rankings business logic
 pub mod metadata;      // Country and sector data management  
 pub mod health;        // Health checks and debug endpoints
@@ -12,7 +12,7 @@ pub mod transform;     // Data transformation and formatting
 pub mod errors;        // EPS-specific error handling
 
 // Re-export key types for easy access
-pub use dto::*;
+pub use types::*;
 pub use rankings::{get_eps_rankings, convert_screening_result_to_eps_ranking, is_valid_eps_for_ranking};
 pub use metadata::{get_available_countries, get_all_valid_countries, get_sectors_by_country};
 pub use health::{eps_health_check, debug_eps_correction, debug_ranking_data, debug_websocket_eps, trigger_eps_sync};
@@ -52,22 +52,21 @@ mod tests {
 
     #[test]
     fn test_transformation_functions() {
-        use crate::domain::trading_analytics::EPSRanking;
+        use crate::domain::shared_kernel::entities::eps_growth::{EPSRanking, EPSGrowthData};
 
-        let ranking = EPSRanking {
-            symbol: "AAPL".to_string(),
-            name: "Apple Inc".to_string(),
-            country: "america".to_string(),
-            sector: "Technology".to_string(),
-            exchange: "NASDAQ".to_string(),
-            current_eps: Some(1.5),
-            growth_factor: Some(10.0),
-            price_current: Some(150.0),
-            market_cap: Some(2500000000),
-            volume: Some(50000000),
-            ranking_position: Some(1),
-            quarterly_data: None,
-        };
+        // Create proper EPSRanking using the correct constructor
+        let mut ranking = EPSRanking::default();
+        ranking.symbol = "AAPL".to_string();
+        ranking.name = "Apple Inc".to_string();
+        ranking.country = "america".to_string();
+        ranking.sector = "Technology".to_string();
+        ranking.exchange = "NASDAQ".to_string();
+        ranking.current_eps = Some(1.5);
+        ranking.growth_factor = Some(10.0);
+        ranking.price_current = Some(150.0);
+        ranking.market_cap = Some(2500000000);
+        ranking.volume = Some(50000000);
+        ranking.ranking_position = Some(1);
 
         let unified = transform::transform_ranking_to_unified_format(ranking, 1);
         assert_eq!(unified.symbol, "AAPL");

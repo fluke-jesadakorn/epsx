@@ -1,27 +1,23 @@
 //! Documentation Routes
-//! 
+//!
 //! Provides endpoints for serving OpenAPI documentation and ReDoc UI.
 
-use axum::{
-    routing::get,
-    response::{Html, Json},
-    Router,
-};
+use axum::{ routing::get, response::{ Html, Json }, Router };
 use utoipa::OpenApi;
 
 use crate::web::docs::openapi::ApiDoc;
 
 /// Create documentation routes
 pub fn create_docs_routes() -> Router {
-    Router::new()
-        .route("/docs", get(docs_handler))
-        .route("/api-docs/openapi.json", get(openapi_json_handler))
+  Router::new()
+    .route("/docs", get(docs_handler))
+    .route("/api-docs/openapi.json", get(openapi_json_handler))
 }
 
 /// Serve Scalar Interactive API Documentation at /docs
 pub async fn docs_handler() -> Html<String> {
-    let html = format!(
-        r#"
+  let html =
+    r#"
 <!DOCTYPE html>
 <html>
 <head>
@@ -173,13 +169,12 @@ pub async fn docs_handler() -> Html<String> {
     </script>
 </body>
 </html>
-"#
-    );
-    
-    Html(html)
+"#.to_string();
+
+  Html(html)
 }
 
 /// Serve OpenAPI JSON specification at /api-docs/openapi.json
 pub async fn openapi_json_handler() -> Json<utoipa::openapi::OpenApi> {
-    Json(ApiDoc::openapi())
+  Json(ApiDoc::openapi())
 }

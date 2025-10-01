@@ -149,6 +149,12 @@ export interface SymbolCardData {
   currency?: string; // Currency for price formatting
   quarterly_performance: QuarterlyPerformanceData[];
   next_quarter_estimate?: NextQuarterEstimate; // NEW: Next quarter EPS estimate
+  next_earnings_date?: number; // Unix timestamp from TradingView (raw)
+  last_earnings_date?: number; // Unix timestamp from TradingView (raw)
+  // Pre-calculated by backend (NO frontend calculations)
+  next_earnings_date_formatted?: string; // "Nov 18, 2025"
+  days_until_next_earnings?: number;     // 185
+  progress_percentage?: number;          // 0-100
 }
 
 export interface QuarterlyPerformanceData {

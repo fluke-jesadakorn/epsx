@@ -249,6 +249,8 @@ impl TradingViewMapper {
       sector,
       ranking_score,
       currency: "USD".to_string(), // Default to USD for TradingView data
+      next_earnings_date: None,
+      last_earnings_date: None,
     }
   }
 
@@ -342,6 +344,8 @@ impl TradingViewMapper {
               scanner_item.price_current
             }
           ),
+          next_earnings_date: websocket_item.next_earnings_date.clone().or(scanner_item.next_earnings_date.clone()),
+          last_earnings_date: websocket_item.last_earnings_date.clone().or(scanner_item.last_earnings_date.clone())
         };
         merged_data.push(merged_item);
       } else {

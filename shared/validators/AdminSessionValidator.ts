@@ -217,10 +217,18 @@ export function hasAdminPermission(user: UserProfile, permission: string): boole
 }
 
 /**
+ * @deprecated Use hasMinimumPermissionGroup instead
  * Check if user has package tier
  */
 export function hasPackageTier(user: UserProfile, tier: string): boolean {
   return adminSessionValidator.baseValidator.hasPackageTier(user, tier)
+}
+
+/**
+ * Check if user has minimum permission group
+ */
+export function hasMinimumPermissionGroup(user: UserProfile, requiredGroup: string): boolean {
+  return adminSessionValidator.baseValidator.hasMinimumPermissionGroup(user, requiredGroup)
 }
 
 /**

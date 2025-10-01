@@ -4,7 +4,7 @@ import React from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Wallet, LogOut, Shield, Crown, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
+import { useAuth } from '@/lib/auth';
 import { SharedWeb3SignIn } from '@/shared/components/auth/SharedWeb3SignIn';
 import { UserWalletDisplay, UserTierBadge, UserAuthStatus, UserPermissionsDisplay } from '@/shared/components/display/UserDisplay';
 
@@ -19,17 +19,25 @@ export function AdminWalletAuth({
   onAuthError, 
   className = '' 
 }: AdminWalletAuthProps) {
-  const { user, isAuthenticated, isLoading, error, hasPermissionForDisplay, logout } = useSharedAuth();
+  const { 
+    wallet, 
+    user, // For backward compatibility
+    isAuthenticated, 
+    isLoading, 
+    error, 
+    isAdmin,
+    disconnectWallet
+  } = useAuth();
   
-  const isAdmin = hasPermissionForDisplay('admin:*:*');
-  const walletAddress = user?.wallet_address;
+  const currentWallet = wallet || user; // Support both new and legacy
+  const walletAddress = currentWallet?.wallet_address;
 
   // Call success callback when authenticated with enhanced handling
   React.useEffect(() => {
-    if (isAuthenticated && walletAddress && isAdmin) {
+    if (isAuthenticated && walletAddress && isAdmin()) {
       console.log('✅ Admin wallet auth: Admin user authenticated', { wallet_address: walletAddress });
       onAuthSuccess?.(walletAddress);
-    } else if (isAuthenticated && walletAddress && !isAdmin) {
+    } else if (isAuthenticated && walletAddress && !isAdmin()) {
       console.log('⚠️ Admin wallet auth: User authenticated but lacks admin permissions');
     }
   }, [isAuthenticated, walletAddress, isAdmin, onAuthSuccess]);
@@ -43,7 +51,7 @@ export function AdminWalletAuth({
 
   const handleDisconnect = async () => {
     try {
-      await logout();
+      await disconnectWallet();
     } catch (error) {
       console.error('Disconnect error:', error);
     }
@@ -67,25 +75,56 @@ export function AdminWalletAuth({
   if (!isAuthenticated) {
     return (
       <div className={`flex items-center gap-2 ${className}`}>
-        <SharedWeb3SignIn 
-          redirectTo="/dashboard"
-          title="Admin Authentication"
-          subtitle="Secure admin access with Web3 wallet"
-          className="max-w-sm"
-          onSuccess={() => {
-            console.log('Admin authentication completed, triggering page reload');
-            // Force page reload to ensure middleware re-runs with new auth state
-            setTimeout(() => {
-              window.location.href = '/dashboard';
-            }, 500);
-          }}
-        />
+        <div className="flex flex-col gap-4 p-6 border rounded-lg">
+          <div className="flex items-center gap-2 text-lg font-semibold">
+            <Shield className="h-5 w-5" />
+            Admin Authentication
+          </div>
+          <p className="text-sm text-gray-600">Secure admin access with Web3 wallet</p>
+          
+          <ConnectButton.Custom>
+            {({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted }) => {
+              if (!mounted) return null;
+              
+              if (!account) {
+                return (
+                  <Button onClick={openConnectModal} className="w-full">
+                    <Wallet className="h-4 w-4 mr-2" />
+                    Connect Admin Wallet
+                  </Button>
+                );
+              }
+              
+              return (
+                <div className="flex flex-col gap-2">
+                  <div className="text-sm text-gray-600">
+                    Connected: {account.address}
+                  </div>
+                  <Button 
+                    onClick={async () => {
+                      try {
+                        await useAuth.getState().authenticateAdmin();
+                      } catch (error) {
+                        console.error('Admin authentication failed:', error);
+                        onAuthError?.(error instanceof Error ? error.message : 'Authentication failed');
+                      }
+                    }}
+                    className="w-full"
+                  >
+                    <Crown className="h-4 w-4 mr-2" />
+                    Authenticate as Admin
+                  </Button>
+                </div>
+              );
+            }}
+          </ConnectButton.Custom>
+        </div>
       </div>
     );
   }
 
   // Authenticated but not admin - show error
-  if (isAuthenticated && !isAdmin) {
+  if (isAuthenticated && !isAdmin()) {
     return (
       <div className={`flex flex-col gap-2 ${className}`}>
         <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">

@@ -8,7 +8,7 @@ import {
   isInsufficientTierError,
   isPermissionExpiredError,
   isRateLimitExceededError
-} from '@/lib/api/response-handler';
+} from '@/shared/utils/response-handler';
 
 interface Props {
   children: ReactNode;

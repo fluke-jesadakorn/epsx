@@ -16,7 +16,7 @@ import {
   isInsufficientTierError,
   isPermissionExpiredError,
   isRateLimitExceededError
-} from './response-handler';
+} from '@/shared/utils/response-handler';
 
 // ============================================================================
 // SIMPLIFIED PERMISSION API CLIENT (Backend-Only)
@@ -102,7 +102,7 @@ export {
   isInsufficientTierError,
   isPermissionExpiredError,
   isRateLimitExceededError
-} from './response-handler';
+} from '@/shared/utils/response-handler';
 
 // ============================================================================
 // SIMPLIFIED PERMISSION CLIENT COMPLETE

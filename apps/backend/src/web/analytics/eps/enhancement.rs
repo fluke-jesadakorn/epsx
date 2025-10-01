@@ -36,7 +36,7 @@ async fn enhance_symbols_batch(
     let ws_handler = TradingViewWebSocketHandler::new(config);
     
     // Add connection timeout and retry logic
-    let connection_timeout = tokio::time::Duration::from_secs(3);
+    let connection_timeout = tokio::time::Duration::from_secs(15);
     
     match tokio::time::timeout(connection_timeout, ws_handler.connect_realtime_feed()).await {
         Ok(Ok(_)) => {
@@ -47,13 +47,13 @@ async fn enhance_symbols_batch(
             return Err(format!("WebSocket connection failed: {}", e));
         }
         Err(_) => {
-            warn!("⏱️ WebSocket connection timed out after 3s");
+            warn!("⏱️ WebSocket connection timed out after 15s");
             return Err("WebSocket connection timeout".to_string());
         }
     }
     
     // Fetch enhanced EPS data with timeout
-    let data_timeout = tokio::time::Duration::from_secs(2);
+    let data_timeout = tokio::time::Duration::from_secs(10);
     let websocket_data = match tokio::time::timeout(
         data_timeout,
         ws_handler.fetch_enhanced_eps_data(symbols.to_vec())
@@ -64,7 +64,7 @@ async fn enhance_symbols_batch(
             return Err(format!("WebSocket data fetch failed: {}", e));
         }
         Err(_) => {
-            warn!("⏱️ WebSocket data fetch timed out after 2s");
+            warn!("⏱️ WebSocket data fetch timed out after 10s");
             return Err("WebSocket data timeout".to_string());
         }
     };
@@ -101,9 +101,24 @@ async fn enhance_symbols_batch(
             
             // Update price if available and different
             if ws_data.price_current > 0.0 && (ranking.price_current.is_none() || (ranking.price_current.unwrap() - ws_data.price_current).abs() > 0.01) {
-                debug!("💰 Updating {} price: {:?} → ${:.2}", 
+                debug!("💰 Updating {} price: {:?} → ${:.2}",
                        ranking.symbol, ranking.price_current, ws_data.price_current);
                 ranking.price_current = Some(ws_data.price_current);
+                enhanced_count += 1;
+            }
+
+            // Update earnings dates from WebSocket data
+            if ws_data.next_earnings_date.is_some() && ws_data.next_earnings_date != ranking.next_earnings_date {
+                info!("📅 Updating {} next_earnings_date: {:?} → {:?}",
+                      ranking.symbol, ranking.next_earnings_date, ws_data.next_earnings_date);
+                ranking.next_earnings_date = ws_data.next_earnings_date.clone();
+                enhanced_count += 1;
+            }
+
+            if ws_data.last_earnings_date.is_some() && ws_data.last_earnings_date != ranking.last_earnings_date {
+                info!("📅 Updating {} last_earnings_date: {:?} → {:?}",
+                      ranking.symbol, ranking.last_earnings_date, ws_data.last_earnings_date);
+                ranking.last_earnings_date = ws_data.last_earnings_date.clone();
                 enhanced_count += 1;
             }
         }
@@ -120,7 +135,7 @@ mod tests {
     #[test]
     fn test_empty_rankings_enhancement() {
         let symbols = vec!["AAPL".to_string()];
-        let rankings = Vec::new();
+        let rankings: Vec<EPSRanking> = Vec::new();
         
         // Test with empty rankings - should not panic
         // Note: This is a unit test so we can't actually test the async WebSocket functionality
@@ -129,16 +144,29 @@ mod tests {
 
     #[test]
     fn test_ranking_has_required_fields() {
-        let ranking = EPSRanking::new(
-            "AAPL".to_string(),
-            "Apple Inc".to_string(),
-            1.5,
-            1.2,
-            "Technology".to_string(),
+        let ranking = EPSRanking::from_eps_data(
+            EPSGrowthData {
+                symbol: "AAPL".to_string(),
+                name: "Apple Inc".to_string(),
+                country: "america".to_string(),
+                sector: "Technology".to_string(),
+                exchange: "NASDAQ".to_string(),
+                current_eps: Some(1.5),
+                growth_factor: Some(10.0),
+                price_current: Some(150.0),
+                market_cap: Some(2500000000),
+                volume: Some(50000000),
+                ranking_position: Some(1),
+                quarterly_data: None,
+                created_at: None,
+                updated_at: None,
+                next_earnings_date: None,
+                last_earnings_date: None,
+            },
+            Some(1)
         );
 
         assert_eq!(ranking.symbol, "AAPL");
         assert_eq!(ranking.current_eps.unwrap_or(0.0), 1.5);
-        assert_eq!(ranking.current_eps.unwrap_or(0.0) /* eps_previous field not available in DDD structure */, 1.2);
     }
 }

@@ -21,6 +21,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Wallet, CheckCircle, AlertCircle } from 'lucide-react';
 import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
 import { logger } from '@/lib/shared';
+import { requestWalletChallenge, verifyWalletSignature } from '@/lib/auth/direct-web3-api';
 
 // Authentication step states
 type AuthStep = 'connect' | 'challenge' | 'signing' | 'authenticating' | 'success' | 'error';
@@ -37,7 +38,7 @@ export function Web3OpenIDSignIn({
   className = '' 
 }: Web3OpenIDSignInProps) {
   const router = useRouter();
-  const { authenticateWithWallet, isLoading } = useSharedAuth();
+  const { authenticateWithDirectApi, isLoading } = useSharedAuth();
   
   const [currentStep, setCurrentStep] = useState<AuthStep>('connect');
   const [walletAddress, setWalletAddress] = useState<string>('');
@@ -69,13 +70,22 @@ export function Web3OpenIDSignIn({
       const address = accounts[0];
       setWalletAddress(address);
       
-      logger.info('Wallet connected', { wallet_address: address });
+      logger.info('Wallet connected, requesting challenge', { wallet_address: address });
       
-      // TODO: Implement with shared auth system
-      // Challenge/sign flow needs to be rewritten for SharedOpenIDWeb3Provider
+      // Request SIWE challenge from backend
       setCurrentStep('challenge');
-      logger.info('Challenge flow needs implementation for shared auth system');
-      setError('Authentication component needs update for shared auth system');
+      const challengeResponse = await requestWalletChallenge(address);
+      
+      setChallenge({
+        nonce: challengeResponse.nonce,
+        message: challengeResponse.message,
+        wallet_address: challengeResponse.wallet_address
+      });
+      
+      logger.info('Challenge received, ready for signing');
+      
+      // Automatically proceed to signing
+      await handleSignMessage(challengeResponse, address);
       
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to connect wallet';
@@ -83,7 +93,7 @@ export function Web3OpenIDSignIn({
       setError(errorMessage);
       setCurrentStep('error');
     }
-  }, []); // TODO: Add proper dependencies when implementing with shared auth
+  }, []);
 
   // Sign the challenge message
   const handleSignMessage = useCallback(async (
@@ -103,17 +113,31 @@ export function Web3OpenIDSignIn({
 
       logger.info('Signature received, authenticating with backend');
       
-      // Authenticate with backend
+      // Authenticate with backend using direct API
       setCurrentStep('authenticating');
-      const result = await authenticateWithWallet(
-        address,
+      const result = await verifyWalletSignature({
+        wallet_address: address,
         signature,
-        challengeData.message,
-        challengeData.nonce
-      );
+        message: challengeData.message,
+        nonce: challengeData.nonce
+      });
 
       if (result.success) {
-        logger.info('Authentication successful');
+        logger.info('🎉 Authentication successful!', {
+          wallet: result.wallet_address,
+          tier: result.tier_level,
+          permissions: result.permissions?.length || 0,
+          isNewUser: result.is_new_user
+        });
+        
+        // Update SharedOpenIDWeb3Provider with authenticated user
+        await authenticateWithDirectApi({
+          wallet_address: result.wallet_address,
+          permissions: result.permissions,
+          tier_level: result.tier_level,
+          is_new_user: result.is_new_user
+        });
+
         setCurrentStep('success');
         
         // Call onSuccess callback if provided
@@ -135,7 +159,7 @@ export function Web3OpenIDSignIn({
       setError(errorMessage);
       setCurrentStep('error');
     }
-  }, [authenticateWithWallet, router, redirectTo, onSuccess]);
+  }, [authenticateWithDirectApi, router, redirectTo, onSuccess]);
 
   // Retry authentication
   const handleRetry = useCallback(() => {

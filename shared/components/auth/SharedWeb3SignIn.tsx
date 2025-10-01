@@ -16,6 +16,7 @@
 import React, { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSharedAuth } from './SharedOpenIDWeb3Provider';
+import { requestWalletChallenge, verifyWalletSignature } from '../../auth/direct-web3-api';
 
 // Authentication step states
 type AuthStep = 'connect' | 'challenge' | 'signing' | 'authenticating' | 'success' | 'error';
@@ -36,7 +37,7 @@ export function SharedWeb3SignIn({
   subtitle = 'Secure Web3 authentication powered by OpenID Connect'
 }: SharedWeb3SignInProps) {
   const router = useRouter();
-  const { authenticateWithWallet, requestChallenge, isLoading } = useSharedAuth();
+  const { authenticateWithDirectApi, isLoading } = useSharedAuth();
   
   const [currentStep, setCurrentStep] = useState<AuthStep>('connect');
   const [walletAddress, setWalletAddress] = useState<string>('');
@@ -70,9 +71,9 @@ export function SharedWeb3SignIn({
       
       console.log('Wallet connected', { wallet_address: address });
       
-      // Request challenge from backend
+      // Request challenge from backend using direct API
       setCurrentStep('challenge');
-      const challengeData = await requestChallenge(address);
+      const challengeData = await requestWalletChallenge(address);
       setChallenge(challengeData);
       
       console.log('Challenge received, prompting for signature');
@@ -86,7 +87,7 @@ export function SharedWeb3SignIn({
       setError(errorMessage);
       setCurrentStep('error');
     }
-  }, [requestChallenge]);
+  }, []);
 
   // Sign the challenge message
   const handleSignMessage = useCallback(async (
@@ -106,17 +107,32 @@ export function SharedWeb3SignIn({
 
       console.log('Signature received, authenticating with backend');
       
-      // Authenticate with backend
+      // Authenticate with backend using direct API
       setCurrentStep('authenticating');
-      const result = await authenticateWithWallet(
-        address,
+      const result = await verifyWalletSignature({
+        wallet_address: address,
         signature,
-        challengeData.message,
-        challengeData.nonce
-      );
+        message: challengeData.message,
+        nonce: challengeData.nonce
+      });
 
       if (result.success) {
-        console.log('Authentication successful');
+        console.log('🎉 Authentication successful!', {
+          wallet: result.wallet_address,
+          tier: result.tier_level,
+          permissions: result.permissions?.length || 0,
+          isNewUser: result.is_new_user
+        });
+        
+        // Update SharedOpenIDWeb3Provider with authenticated user
+        await authenticateWithDirectApi({
+          wallet_address: result.wallet_address,
+          permissions: result.permissions,
+          tier_level: result.tier_level,
+          is_new_user: result.is_new_user,
+          access_token: result.access_token
+        });
+
         setCurrentStep('success');
         
         // Call onSuccess callback if provided
@@ -138,7 +154,7 @@ export function SharedWeb3SignIn({
       setError(errorMessage);
       setCurrentStep('error');
     }
-  }, [authenticateWithWallet, router, redirectTo, onSuccess]);
+  }, [authenticateWithDirectApi, router, redirectTo, onSuccess]);
 
   // Retry authentication
   const handleRetry = useCallback(() => {

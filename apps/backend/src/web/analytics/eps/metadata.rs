@@ -10,7 +10,7 @@ use tracing::{debug, info};
 
 use crate::core::errors::AppError;
 use crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService;
-use super::dto::*;
+use super::types::*;
 
 /// GET /api/analytics/eps-rankings/countries
 /// Returns list of available countries for TradingView API

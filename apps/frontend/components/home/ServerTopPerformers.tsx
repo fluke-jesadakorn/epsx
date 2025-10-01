@@ -1,4 +1,4 @@
-import { getAnalyticsData, type SymbolCardData } from '@/lib/server-data';
+import { getAnalyticsData, type SymbolCardData } from '@/lib/unified-server-data';
 
 interface ServerTopPerformersProps {
   className?: string;

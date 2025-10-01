@@ -39,7 +39,7 @@ use crate::web::auth::session_verification_handlers::{
     get_session_status_handler,
 };
 
-use crate::web::user::handlers::{
+use crate::web::user::user_handlers::{
     // Available handlers
     get_permissions_handler,
     verify_ownership_handler,

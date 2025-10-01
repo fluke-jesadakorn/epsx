@@ -28,7 +28,7 @@ import {
   EyeOff,
   ChevronDown
 } from 'lucide-react';
-import type { FilterOptions, EPSQueryParams } from '@/lib/server-data';
+import type { FilterOptions, EPSQueryParams } from '@/lib/unified-server-data';
 
 interface FilterFormProps {
   filterOptions: FilterOptions;

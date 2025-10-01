@@ -1,19 +1,29 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useAccount } from 'wagmi';
+import {
+  requestWalletChallenge,
+  verifyWalletSignature,
+} from '@/shared/auth/direct-web3-api';
+import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
-import { useAdminWeb3Context } from '../../providers/Web3Provider';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
+import { useAccount } from 'wagmi';
+import { useAdminWeb3Context } from '../../providers/Web3Provider';
 
 export default function AuthPage() {
   const { isInitialized } = useAdminWeb3Context();
-  const { requestChallenge, authenticateWithWallet, isLoading, hasPermissionForDisplay } = useSharedAuth();
+  const {
+    authenticateWithDirectApi,
+    isLoading,
+    hasPermissionForDisplay,
+    isAuthenticated,
+    user,
+  } = useSharedAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  
+
   // Always call useAccount but handle when Web3 isn't ready
   let accountData;
   try {
@@ -21,98 +31,190 @@ export default function AuthPage() {
   } catch (error) {
     accountData = { isConnected: false, address: undefined };
   }
-  
+
   const { isConnected, address } = accountData;
-  const isWeb3Ready = isInitialized && isConnected;
-  
+
   // 3-step authentication state
-  const [authStep, setAuthStep] = useState<'connect' | 'sign' | 'authenticating' | 'success'>('connect');
-  const [challenge, setChallenge] = useState<{nonce: string, message: string, wallet_address: string} | null>(null);
+  const [authStep, setAuthStep] = useState<
+    'connect' | 'sign' | 'authenticating' | 'success'
+  >('connect');
+
+  // Track if authentication has been completed to prevent re-triggering
+  const authCompletedRef = useRef(false);
+
+  // Guarded setAuthStep to prevent unwanted state changes once success is reached
+  const setAuthStepGuarded = (
+    newStep: 'connect' | 'sign' | 'authenticating' | 'success'
+  ) => {
+    // If authentication has been completed, don't allow going backwards
+    if (authCompletedRef.current && newStep !== 'success') {
+      return;
+    }
+    // If we've already reached success, don't allow going backwards
+    if (authStep === 'success' && newStep !== 'success') {
+      return;
+    }
+    setAuthStep(newStep);
+
+    // Mark authentication as completed when we reach success
+    if (newStep === 'success') {
+      authCompletedRef.current = true;
+    }
+  };
+  const [challenge, setChallenge] = useState<{
+    nonce: string;
+    message: string;
+    wallet_address: string;
+  } | null>(null);
   const [error, setError] = useState<string>('');
   const [mounted, setMounted] = useState(false);
 
-  const returnUrl = searchParams.get('return_url') || '/dashboard';
+  const returnUrl = searchParams.get('return_url') || '/';
+  
+  // Decode the return URL if it's URL encoded
+  const decodedReturnUrl = decodeURIComponent(returnUrl);
+  
+  // Final return URL - ensure we don't redirect to auth pages
+  const finalReturnUrl = (decodedReturnUrl === '/' || decodedReturnUrl === '/auth' || decodedReturnUrl === '/login') 
+    ? '/' 
+    : decodedReturnUrl;
   const reason = searchParams.get('reason');
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // Check if user already has admin permissions and redirect
+  // Check if user is already authenticated with admin permissions and redirect
   useEffect(() => {
-    if (mounted && isInitialized && isConnected && hasPermissionForDisplay('admin:*:*')) {
-      router.push('/dashboard');
+    if (
+      mounted &&
+      isAuthenticated &&
+      user &&
+      hasPermissionForDisplay('admin:*:*')
+    ) {
+      setAuthStepGuarded('success');
+      
+      setTimeout(() => {
+        window.location.href = finalReturnUrl;
+      }, 1000);
     }
-  }, [mounted, isInitialized, isConnected, hasPermissionForDisplay, router]);
+  }, [
+    mounted,
+    isAuthenticated,
+    user,
+    hasPermissionForDisplay,
+    router,
+    finalReturnUrl,
+  ]);
 
-  // Step 1: When wallet connects, move to sign step
+  // Step 1: When wallet connects, move to sign step (only if currently on connect step and not authenticated)
   useEffect(() => {
-    if (isConnected && address && authStep === 'connect') {
-      console.log('🔗 Step 1 Complete: Wallet connected:', address);
-      setAuthStep('sign');
+    // Only transition to sign step if we're currently on connect step and wallet is connected but not authenticated
+    // Guard: Only proceed if we haven't already completed authentication successfully
+    if (
+      isConnected &&
+      address &&
+      authStep === 'connect' &&
+      !isAuthenticated &&
+      !authCompletedRef.current
+    ) {
+      setAuthStepGuarded('sign');
       setError('');
     }
-  }, [isConnected, address, authStep]);
+  }, [isConnected, address, authStep, isAuthenticated]); // Include all dependencies
+
+  // Separate effect to handle authenticated state changes
+  useEffect(() => {
+    if (
+      isAuthenticated &&
+      authStep !== 'success' &&
+      !authCompletedRef.current
+    ) {
+      setAuthStepGuarded('success');
+    }
+  }, [isAuthenticated, authStep]);
 
   // Step 2: Request challenge and sign message
   const handleSignMessage = async () => {
     if (!address) return;
-    
+
     try {
       setError('');
-      console.log('🔑 Step 2: Requesting challenge for:', address);
-      
-      // Request challenge from backend
-      const challengeData = await requestChallenge(address);
+
+      const challengeData = await requestWalletChallenge(address);
       setChallenge(challengeData);
-      
-      console.log('📝 Step 2: Challenge received, requesting signature');
-      
-      // Request signature from wallet
+
       if (typeof window === 'undefined' || !window.ethereum) {
-        throw new Error('MetaMask is not available. Please install MetaMask to continue.');
+        throw new Error(
+          'MetaMask is not available. Please install MetaMask to continue.'
+        );
       }
-      
+
       const signature = await window.ethereum.request({
         method: 'personal_sign',
         params: [challengeData.message, address],
       });
 
-      console.log('✍️ Step 2: Signature received, authenticating...');
-      setAuthStep('authenticating');
-      
-      // Step 3: Authenticate with backend
-      const result = await authenticateWithWallet(
-        address,
+      setAuthStepGuarded('authenticating');
+
+      // Step 3: Authenticate with backend using direct API
+      const result = await verifyWalletSignature({
+        wallet_address: address,
         signature,
-        challengeData.message,
-        challengeData.nonce
-      );
+        message: challengeData.message,
+        nonce: challengeData.nonce,
+      });
 
       if (result.success) {
-        console.log('✅ Step 3 Complete: Authentication successful');
-        setAuthStep('success');
+        // Store access token in localStorage for session validation
+        if (result.access_token) {
+          try {
+            localStorage.setItem(
+              'epsx-admin_access_token',
+              result.access_token
+            );
+          } catch (error) {
+            // Ignore storage errors
+          }
+        }
+
+        setAuthStepGuarded('success');
         toast.success('Admin authentication successful!');
-        
-        setTimeout(() => {
-          router.push(returnUrl);
-        }, 1000);
+
+        try {
+          // Update SharedOpenIDWeb3Provider with authenticated user
+          await authenticateWithDirectApi({
+            wallet_address: result.wallet_address,
+            permissions: result.permissions,
+            tier_level: result.tier_level,
+            is_new_user: result.is_new_user,
+            access_token: result.access_token,
+          });
+
+          setTimeout(() => {
+            window.location.href = finalReturnUrl;
+          }, 1000);
+        } catch (authProviderError) {
+          setTimeout(() => {
+            window.location.href = finalReturnUrl;
+          }, 1000);
+        }
       } else {
         throw new Error(result.error || 'Authentication failed');
       }
-      
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
-      console.error('❌ Authentication error:', errorMessage);
+      const errorMessage =
+        err instanceof Error ? err.message : 'Authentication failed';
       setError(errorMessage);
-      setAuthStep('sign');
+      setAuthStepGuarded('sign');
       toast.error(errorMessage);
     }
   };
 
   // Reset authentication flow
   const resetAuthFlow = () => {
-    setAuthStep('connect');
+    authCompletedRef.current = false;
+    setAuthStepGuarded('connect');
     setChallenge(null);
     setError('');
   };
@@ -130,57 +232,91 @@ export default function AuthPage() {
 
   if (!mounted || !isInitialized) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex min-h-screen items-center justify-center">
         <div className="text-gray-600 dark:text-gray-400">
-          {!mounted ? "Loading..." : "Initializing Web3..."}
+          {!mounted ? 'Loading...' : 'Initializing Web3...'}
+        </div>
+      </div>
+    );
+  }
+
+  // If user is already authenticated with admin permissions, show redirecting message
+  if (isAuthenticated && user && hasPermissionForDisplay('admin:*:*')) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <h2 className="mb-2 text-xl font-semibold text-green-700">
+            ✅ Admin Access Granted!
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400">
+            Redirecting to admin dashboard...
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen p-6">
-      <div className="max-w-md w-full">
+    <div className="flex min-h-screen items-center justify-center p-6">
+      <div className="w-full max-w-md">
         {/* Hero Section */}
-        <div className="text-center mb-8">
+        <div className="mb-8 text-center">
           <div className="relative mb-6">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 bg-clip-text text-transparent mb-2">
+            <h1 className="mb-2 bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 bg-clip-text text-4xl font-bold text-transparent">
               🔐 Admin Access
             </h1>
             <div className="absolute -top-1 -right-1 text-lg">⚡</div>
           </div>
-          <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed">
+          <p className="text-sm leading-relaxed text-gray-600 dark:text-gray-300">
             {getReasonMessage()}
           </p>
         </div>
 
         {/* Authentication Card */}
-        <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-white/30">
+        <div className="rounded-3xl border border-white/30 bg-white/90 p-8 shadow-2xl backdrop-blur-sm dark:bg-gray-800/90">
           <div className="space-y-6">
             {/* 3-Step Status Display */}
             <div className="space-y-4">
               {/* Step Progress */}
-              <div className="flex justify-center space-x-4 mb-6">
-                <div className={`flex items-center space-x-2 ${authStep !== 'connect' ? 'text-green-600' : 'text-gray-500'}`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${authStep !== 'connect' ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'}`}>1</div>
+              <div className="mb-6 flex justify-center space-x-4">
+                <div
+                  className={`flex items-center space-x-2 ${authStep !== 'connect' ? 'text-green-600' : 'text-gray-500'}`}
+                >
+                  <div
+                    className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${authStep !== 'connect' ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'}`}
+                  >
+                    1
+                  </div>
                   <span className="text-sm font-medium">Connect</span>
                 </div>
-                <div className={`flex items-center space-x-2 ${authStep === 'sign' || authStep === 'authenticating' || authStep === 'success' ? 'text-blue-600' : 'text-gray-500'}`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${authStep === 'sign' || authStep === 'authenticating' || authStep === 'success' ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-600'}`}>2</div>
+                <div
+                  className={`flex items-center space-x-2 ${authStep === 'sign' || authStep === 'authenticating' || authStep === 'success' ? 'text-blue-600' : 'text-gray-500'}`}
+                >
+                  <div
+                    className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${authStep === 'sign' || authStep === 'authenticating' || authStep === 'success' ? 'bg-blue-500 text-white' : 'bg-gray-300 text-gray-600'}`}
+                  >
+                    2
+                  </div>
                   <span className="text-sm font-medium">Sign</span>
                 </div>
-                <div className={`flex items-center space-x-2 ${authStep === 'success' ? 'text-green-600' : 'text-gray-500'}`}>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${authStep === 'success' ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'}`}>3</div>
+                <div
+                  className={`flex items-center space-x-2 ${authStep === 'success' ? 'text-green-600' : 'text-gray-500'}`}
+                >
+                  <div
+                    className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold ${authStep === 'success' ? 'bg-green-500 text-white' : 'bg-gray-300 text-gray-600'}`}
+                  >
+                    3
+                  </div>
                   <span className="text-sm font-medium">Access</span>
                 </div>
               </div>
 
               {/* Current Step Status */}
-              <div className="text-center py-4">
+              <div className="py-4 text-center">
                 {authStep === 'connect' && (
                   <>
-                    <div className="flex items-center justify-center mb-2">
-                      <div className="w-3 h-3 bg-gray-400 rounded-full mr-2"></div>
+                    <div className="mb-2 flex items-center justify-center">
+                      <div className="mr-2 h-3 w-3 rounded-full bg-gray-400"></div>
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         Step 1: Connect Your Admin Wallet
                       </span>
@@ -193,13 +329,13 @@ export default function AuthPage() {
 
                 {authStep === 'sign' && address && (
                   <>
-                    <div className="flex items-center justify-center mb-2">
-                      <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                    <div className="mb-2 flex items-center justify-center">
+                      <div className="mr-2 h-3 w-3 rounded-full bg-green-500"></div>
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         Step 2: Sign Admin Authentication
                       </span>
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 font-mono mb-2">
+                    <p className="mb-2 font-mono text-xs text-gray-500 dark:text-gray-400">
                       Connected: {address.slice(0, 6)}...{address.slice(-4)}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -210,8 +346,8 @@ export default function AuthPage() {
 
                 {authStep === 'authenticating' && (
                   <>
-                    <div className="flex items-center justify-center mb-2">
-                      <div className="w-3 h-3 bg-blue-500 rounded-full mr-2 animate-pulse"></div>
+                    <div className="mb-2 flex items-center justify-center">
+                      <div className="mr-2 h-3 w-3 animate-pulse rounded-full bg-blue-500"></div>
                       <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         Step 3: Verifying Admin Access...
                       </span>
@@ -224,8 +360,8 @@ export default function AuthPage() {
 
                 {authStep === 'success' && (
                   <>
-                    <div className="flex items-center justify-center mb-2">
-                      <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+                    <div className="mb-2 flex items-center justify-center">
+                      <div className="mr-2 h-3 w-3 rounded-full bg-green-500"></div>
                       <span className="text-sm font-medium text-green-700 dark:text-green-300">
                         ✅ Admin Access Granted!
                       </span>
@@ -239,12 +375,12 @@ export default function AuthPage() {
 
               {/* Error Display */}
               {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-center space-y-3">
+                <div className="space-y-3 rounded-lg border border-red-200 bg-red-50 p-4 text-center">
                   <p className="text-sm text-red-800">{error}</p>
                   <button
                     onClick={resetAuthFlow}
                     type="button"
-                    className="px-4 py-2 bg-red-500 text-white text-sm font-medium rounded-lg hover:bg-red-600"
+                    className="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600"
                   >
                     Try Again
                   </button>
@@ -271,7 +407,7 @@ export default function AuthPage() {
                       <div
                         {...(!ready && {
                           'aria-hidden': true,
-                          'style': {
+                          style: {
                             opacity: 0,
                             pointerEvents: 'none',
                             userSelect: 'none',
@@ -282,7 +418,7 @@ export default function AuthPage() {
                         <button
                           onClick={openConnectModal}
                           type="button"
-                          className="w-full px-6 py-4 bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 text-white font-semibold rounded-2xl hover:from-yellow-500 hover:via-orange-600 hover:to-pink-600 shadow-lg hover:shadow-xl"
+                          className="w-full rounded-2xl bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 px-6 py-4 font-semibold text-white shadow-lg hover:from-yellow-500 hover:via-orange-600 hover:to-pink-600 hover:shadow-xl"
                         >
                           🔗 Connect Admin Wallet
                         </button>
@@ -296,7 +432,7 @@ export default function AuthPage() {
                 <button
                   onClick={handleSignMessage}
                   type="button"
-                  className="w-full px-6 py-4 bg-gradient-to-r from-blue-400 to-blue-600 text-white font-semibold rounded-2xl hover:from-blue-500 hover:to-blue-700 shadow-lg hover:shadow-xl"
+                  className="w-full rounded-2xl bg-gradient-to-r from-blue-400 to-blue-600 px-6 py-4 font-semibold text-white shadow-lg hover:from-blue-500 hover:to-blue-700 hover:shadow-xl"
                 >
                   ✍️ Sign Admin Message
                 </button>
@@ -306,10 +442,10 @@ export default function AuthPage() {
                 <button
                   type="button"
                   disabled
-                  className="w-full px-6 py-4 bg-gradient-to-r from-blue-400 to-blue-600 opacity-50 text-white font-semibold rounded-2xl shadow-lg cursor-not-allowed"
+                  className="w-full cursor-not-allowed rounded-2xl bg-gradient-to-r from-blue-400 to-blue-600 px-6 py-4 font-semibold text-white opacity-50 shadow-lg"
                 >
                   <span className="flex items-center justify-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-white"></div>
                     Verifying Admin Access...
                   </span>
                 </button>
@@ -319,7 +455,7 @@ export default function AuthPage() {
                 <button
                   type="button"
                   disabled
-                  className="w-full px-6 py-4 bg-gradient-to-r from-green-400 to-green-600 text-white font-semibold rounded-2xl shadow-lg cursor-not-allowed"
+                  className="w-full cursor-not-allowed rounded-2xl bg-gradient-to-r from-green-400 to-green-600 px-6 py-4 font-semibold text-white shadow-lg"
                 >
                   ✅ Admin Access Granted!
                 </button>
@@ -328,14 +464,18 @@ export default function AuthPage() {
 
             {/* Help Text */}
             <div className="text-center">
-              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-                {authStep === 'connect' && 'Only wallets with admin permissions can access the dashboard.'}
-                {authStep === 'sign' && 'This signature verifies your admin permissions. No gas fees required.'}
-                {authStep === 'authenticating' && 'Please wait while we verify your admin access rights.'}
-                {authStep === 'success' && 'Admin authentication complete! Welcome to the dashboard.'}
+              <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
+                {authStep === 'connect' &&
+                  'Only wallets with admin permissions can access the dashboard.'}
+                {authStep === 'sign' &&
+                  'This signature verifies your admin permissions. No gas fees required.'}
+                {authStep === 'authenticating' &&
+                  'Please wait while we verify your admin access rights.'}
+                {authStep === 'success' &&
+                  'Admin authentication complete! Welcome to the dashboard.'}
               </p>
               {(authStep === 'connect' || authStep === 'sign') && (
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">
+                <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">
                   Need admin access? Contact your system administrator.
                 </p>
               )}
@@ -344,10 +484,10 @@ export default function AuthPage() {
         </div>
 
         {/* Return URL Display */}
-        {returnUrl !== '/dashboard' && (
+        {finalReturnUrl !== '/' && (
           <div className="mt-4 text-center">
             <p className="text-xs text-gray-400 dark:text-gray-500">
-              You will be redirected to: {returnUrl}
+              You will be redirected to: {finalReturnUrl}
             </p>
           </div>
         )}

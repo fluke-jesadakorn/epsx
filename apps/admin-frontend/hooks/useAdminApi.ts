@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { adminApiClient } from '@/lib/api/simple-api-client';
-import { ApiResponse, ApiError } from '@/lib/api/response-handler';
+import { ApiResponse, ApiError } from '@/shared/utils/response-handler';
 
 /**
  * Hook for making admin API calls with error handling

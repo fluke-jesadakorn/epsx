@@ -1,22 +1,22 @@
-/// Stateless Notification Bounded Context
+/// Web3-first Notification Bounded Context
 /// 
 /// This bounded context handles all aspects of notification delivery, user preferences,
-/// scheduling, and multi-channel communication for the EPSX platform using serverless architecture.
+/// scheduling, and wallet-based communication for the EPSX platform using serverless architecture.
 /// 
 /// ## Core Concepts
 /// 
 /// - **Notification**: Main aggregate managing notification lifecycle from creation to delivery
-/// - **NotificationTopic**: Email-based topics for broadcasting notifications to user groups
+/// - **NotificationTopic**: Wallet-based topics for broadcasting notifications to user groups
 /// - **UserNotificationPreferences**: User preferences, quiet hours, and channel settings
 /// - **DeliveryChannel**: Multi-channel delivery with retry logic and content adaptation
 /// - **ScheduleInfo**: Scheduling, expiry, and timing management for notifications
 /// 
-/// ## Supported Channels (Serverless)
+/// ## Supported Channels (Web3-first)
 /// 
-/// - **Email**: Primary notification channel via SendGrid API
+/// - **Wallet Notifications**: Primary notification channel for connected wallets
 /// - **Web Push**: Browser-native push notifications via Web Push API
-/// - **In-App**: Database-stored notifications for app display
-/// - **SMS**: Text messages via external API (optional)
+/// - **In-App**: Database-stored notifications for wallet-based app display
+/// - **WebSocket**: Real-time notifications for active wallet connections
 /// 
 /// ## Domain Events
 /// 
@@ -26,9 +26,9 @@
 /// ## Integration
 /// 
 /// This bounded context integrates with:
-/// - User Management (for user identification and permissions)
+/// - User Management (for wallet identification and permissions)
 /// - Trading Analytics (for market alert notifications)
-/// - External services (SendGrid, Web Push, SMS gateways)
+/// - Web3 Services (for wallet-based delivery and blockchain events)
 
 pub mod value_objects;
 pub mod aggregates;

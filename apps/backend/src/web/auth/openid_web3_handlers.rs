@@ -341,7 +341,7 @@ pub async fn jwks(
     )
 )]
 pub async fn userinfo(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     // TODO: Add Bearer token extraction middleware
 ) -> Result<Json<Value>, StatusCode> {
     // For now, return a proper response that matches UserInfoResponse interface

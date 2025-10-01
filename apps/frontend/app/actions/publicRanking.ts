@@ -1,6 +1,7 @@
 'use server';
 
 import { URL, URLContext, Service } from '../../../../shared/utils/url-resolver';
+import type { PaginatedResponse } from '../../../../shared/types/api';
 
 interface StockRanking {
   rank: number;
@@ -17,18 +18,7 @@ interface StockRanking {
   }>;
 }
 
-interface ApiResponse {
-  success: boolean;
-  data: StockRanking[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-    hasNext: boolean;
-    hasPrev: boolean;
-  };
-}
+// Using shared PaginatedResponse type instead of local ApiResponse
 
 // Fetch data for PublicRankingPreview (StockFinancialData format) - Public ranks 101-105
 export async function fetchPublicRankingData(page = 1, limit = 5) {
@@ -51,9 +41,9 @@ export async function fetchPublicRankingData(page = 1, limit = 5) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const apiData: ApiResponse = await response.json();
+    const apiData: PaginatedResponse<StockRanking> = await response.json();
     
-    if (!apiData.success || !Array.isArray(apiData.data)) {
+    if (!Array.isArray(apiData.data)) {
       throw new Error('Invalid API response format');
     }
 
@@ -107,9 +97,9 @@ export async function fetchEpsCardData(page = 1, limit = 3) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    const apiData: ApiResponse = await response.json();
+    const apiData: PaginatedResponse<StockRanking> = await response.json();
     
-    if (!apiData.success || !Array.isArray(apiData.data)) {
+    if (!Array.isArray(apiData.data)) {
       throw new Error('Invalid API response format');
     }
 

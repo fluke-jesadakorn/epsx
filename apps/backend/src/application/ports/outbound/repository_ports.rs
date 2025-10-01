@@ -51,7 +51,7 @@ pub trait WalletUserPermissionRepository: Send + Sync {
 pub struct WalletUserSearchFilters {
     pub email_contains: Option<String>,
     pub is_active: Option<bool>,
-    pub package_tier: Option<String>,
+    pub permission_group: Option<String>,
     pub created_after: Option<chrono::DateTime<chrono::Utc>>,
     pub last_login_after: Option<chrono::DateTime<chrono::Utc>>,
 }

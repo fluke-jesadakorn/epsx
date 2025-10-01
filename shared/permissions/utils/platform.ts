@@ -41,30 +41,47 @@ export function derivePrimaryPlatformFromPermissions(permissions: string[]): str
 }
 
 // ============================================================================
-// TIER DERIVATION UTILITIES
+// PERMISSION GROUP DERIVATION UTILITIES
 // ============================================================================
 
 /**
- * Derive package tier from permissions (matches backend logic)
+ * Derive permission group from permissions (matches backend logic)
+ */
+export function derivePermissionGroupFromPermissions(permissions: string[]): string {
+  if (hasEnterprisePermissions(permissions)) {
+    return 'Enterprise Access Group'
+  } else if (hasPlatinumPermissions(permissions)) {
+    return 'Professional Access Group'
+  } else if (hasGoldPermissions(permissions)) {
+    return 'Premium Access Group'
+  } else if (hasSilverPermissions(permissions)) {
+    return 'Standard Access Group'
+  } else if (hasBronzePermissions(permissions)) {
+    return 'Basic Access Group'
+  } else {
+    return 'Basic Access Group'
+  }
+}
+
+/**
+ * @deprecated Use derivePermissionGroupFromPermissions instead
+ * Legacy function for backward compatibility during migration
  */
 export function derivePackageTierFromPermissions(permissions: string[]): string {
-  if (hasEnterprisePermissions(permissions)) {
-    return 'ENTERPRISE'
-  } else if (hasPlatinumPermissions(permissions)) {
-    return 'PLATINUM'
-  } else if (hasGoldPermissions(permissions)) {
-    return 'GOLD'
-  } else if (hasSilverPermissions(permissions)) {
-    return 'SILVER'
-  } else if (hasBronzePermissions(permissions)) {
-    return 'BRONZE'
-  } else {
-    return 'FREE'
+  // Map permission groups back to legacy tier names for compatibility
+  const group = derivePermissionGroupFromPermissions(permissions)
+  switch (group) {
+    case 'Enterprise Access Group': return 'ENTERPRISE'
+    case 'Professional Access Group': return 'PLATINUM'
+    case 'Premium Access Group': return 'GOLD'
+    case 'Standard Access Group': return 'SILVER'
+    case 'Basic Access Group': return 'BRONZE'
+    default: return 'FREE'
   }
 }
 
 // ============================================================================
-// TIER DETECTION HELPERS
+// PERMISSION LEVEL DETECTION HELPERS (Private)
 // ============================================================================
 
 /**
@@ -128,7 +145,23 @@ function hasBronzePermissions(permissions: string[]): boolean {
 // ============================================================================
 
 /**
+ * Get permission group information from permissions (NEW)
+ */
+export function getPermissionGroupFromPermissions(permissions: string[]): {
+  permissionGroup: string
+  platforms: string[]
+  primaryPlatform: string
+} {
+  return {
+    permissionGroup: derivePermissionGroupFromPermissions(permissions),
+    platforms: deriveAccessiblePlatformsFromPermissions(permissions),
+    primaryPlatform: derivePrimaryPlatformFromPermissions(permissions)
+  }
+}
+
+/**
  * Get package information from permissions
+ * @deprecated Use getPermissionGroupFromPermissions instead
  */
 export function getPackageFromPermissions(permissions: string[]): {
   tier: string
@@ -154,4 +187,57 @@ export function hasAdminAccess(permissions: string[]): boolean {
  */
 export function hasEnterpriseAccess(permissions: string[]): boolean {
   return hasEnterprisePermissions(permissions)
+}
+
+// ============================================================================
+// PERMISSION GROUP UTILITIES (NEW)
+// ============================================================================
+
+/**
+ * Check if user has a specific permission group level or higher
+ */
+export function hasMinimumPermissionGroup(permissions: string[], requiredGroup: string): boolean {
+  const userGroup = derivePermissionGroupFromPermissions(permissions)
+  const groupHierarchy: Record<string, number> = {
+    'Basic Access Group': 1,
+    'Standard Access Group': 2,
+    'Premium Access Group': 3,
+    'Professional Access Group': 4,
+    'Enterprise Access Group': 5,
+  }
+  
+  const userLevel = groupHierarchy[userGroup] || 0
+  const requiredLevel = groupHierarchy[requiredGroup] || 1
+  
+  return userLevel >= requiredLevel
+}
+
+/**
+ * Get permission group display name with icon
+ */
+export function getPermissionGroupDisplayName(group: string): string {
+  const displayNames: Record<string, string> = {
+    'Basic Access Group': '🥉 Basic',
+    'Standard Access Group': '⚪ Standard', 
+    'Premium Access Group': '🥇 Premium',
+    'Professional Access Group': '💎 Professional',
+    'Enterprise Access Group': '🏢 Enterprise',
+  }
+  
+  return displayNames[group] || group
+}
+
+/**
+ * Get the permission group level (1-5)
+ */
+export function getPermissionGroupLevel(group: string): number {
+  const levels: Record<string, number> = {
+    'Basic Access Group': 1,
+    'Standard Access Group': 2,
+    'Premium Access Group': 3,
+    'Professional Access Group': 4,
+    'Enterprise Access Group': 5,
+  }
+  
+  return levels[group] || 0
 }

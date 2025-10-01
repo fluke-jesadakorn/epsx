@@ -5,6 +5,11 @@
 pub mod unified_web3_auth_service;
 pub mod unified_web3_permission_service;
 
+// CENTRALIZED PERMISSION AUTHORITY (NEW - HIGH PERFORMANCE)
+pub mod permission_authority;
+pub mod permission_registry;
+pub mod route_protection;
+
 // OPENID CONNECT INTEGRATION WITH WEB3 (NEW)
 pub mod openid_token_service;
 
@@ -38,6 +43,27 @@ pub use unified_web3_permission_service::{
     UnifiedWeb3PermissionService, PermissionStats, GroupMembership
 };
 
+// CENTRALIZED PERMISSION AUTHORITY (NEW - HIGH PERFORMANCE)
+pub use permission_authority::{
+    CentralizedPermissionAuthority, PermissionValidator, RoutePermissionResolver,
+    PermissionResult, BulkPermissionResult, Permission, PermissionSource,
+    ValidationContext, CacheConfig, create_permission_authority, create_high_performance_authority
+};
+
+// DATABASE-DRIVEN PERMISSION REGISTRY (NEW - DYNAMIC ROUTE MAPPING)
+pub use permission_registry::{
+    DatabasePermissionRegistry, RoutePermissionMapping, RegisterRoutePermissionRequest,
+    RouteResolution, create_permission_registry, create_high_performance_registry,
+    get_default_route_permissions
+};
+
+// ROUTE PROTECTION SYSTEM (NEW - DECORATORS AND GUARDS)
+pub use route_protection::{
+    RequirePermission, PermissionGuard, PermissionMiddlewareBuilder, PermissionState,
+    RouteValidationResult, HandlerPermissionExt, require_permission, require_admin,
+    require_admin_permission
+};
+
 // OPENID CONNECT TOKEN SERVICE (NEW - WEB3 + OPENID HYBRID)
 pub use openid_token_service::{
     OpenIDTokenService, OpenIDTokenResponse, AccessTokenClaims, IdTokenClaims,
@@ -57,7 +83,7 @@ pub use key_manager::KeyManager;
 pub use permissions::{Permission as LegacyPermission, UserClaims, check_permission_access, PermissionError, require_permission_pure, PermissionSets};
 pub use granular_permissions::{
     GranularPermissionClaim, PermissionSource as GranularPermissionSource, GranularPermissionSet, 
-    PermissionValidationResult, ValidationContext, GranularPermissionError
+    PermissionValidationResult, ValidationContext as GranularValidationContext, GranularPermissionError
 };
 pub use hierarchy_resolver::{
     HierarchyResolver, PermissionHierarchy, InheritanceType, HierarchyResolution, 
@@ -80,3 +106,10 @@ pub use group_template_system::{
     GroupTemplateSystem, GroupTemplate, TemplateCategory, EvaluationFrequency,
     TemplateParameters, ParameterDefinition, ParameterType, ValidationRule
 };
+
+// ============================================================================
+// TEST MODULES (only included in test builds)
+// ============================================================================
+
+#[cfg(test)]
+pub mod tests;

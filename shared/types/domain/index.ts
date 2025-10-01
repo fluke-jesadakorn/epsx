@@ -6,10 +6,39 @@
  * with a single source of truth for all business domain concepts.
  */
 
+// Import types for local use in union types
+import type { 
+  UserProfile, 
+  AdminUserProfile, 
+  BaseUser
+} from './User'
+import type {
+  UserSessionData,
+  AdminSessionData,
+  WalletSessionData
+} from './Session'
+import type {
+  UserJWTPayload,
+  AdminJWTPayload,
+  RefreshTokenPayload,
+  APIKeyPayload,
+  LoginResponse,
+  Web3AuthResponse,
+  RegistrationResponse
+} from './Auth'
+import type {
+  EPSXPermission,
+  PermissionTemplate,
+  PermissionRole
+} from './Permission'
+import type {
+  Permission
+} from '../../permissions/types/core'
+
 // ============================================================================
 // USER DOMAIN TYPES
 // ============================================================================
-export {
+export type {
   // Core user types
   BaseUser,
   UserRole,
@@ -55,7 +84,7 @@ export {
   hasValidSubscription,
   canAccessFeature,
   getUserTierLevel,
-  hasMinimumTier,
+  hasMinimumPermissionGroup,
   
   // Legacy compatibility
   User,
@@ -67,7 +96,7 @@ export {
 // ============================================================================
 // PERMISSION DOMAIN TYPES
 // ============================================================================
-export {
+export type {
   // Core permission types (re-exported from shared system)
   Permission,
   ParsedPermission,
@@ -176,7 +205,7 @@ export {
 // ============================================================================
 // SESSION DOMAIN TYPES
 // ============================================================================
-export {
+export type {
   // Core session types
   SessionAppType,
   SessionValidationRequest,
@@ -236,15 +265,11 @@ export {
 // ============================================================================
 // AUTHENTICATION DOMAIN TYPES
 // ============================================================================
-export {
+export type {
   // Core auth types (re-exported from shared system)
   User as AuthUser,
   AuthState as SharedAuthState,
-  AuthConfig,
-  AuthError,
   AuthResponse,
-  OIDCConfig,
-  FirebaseConfig,
   
   // JWT token types
   BaseJWTPayload,
