@@ -7,6 +7,7 @@
 "use client"
 
 import React, { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { cn } from '../../utils'
 import { BaseButton } from '../buttons/BaseButton'
 
@@ -108,7 +109,7 @@ const Portal: React.FC<PortalProps> = ({ children }) => {
 
   if (!mounted) return null
 
-  return React.createPortal(
+  return createPortal(
     children,
     document.body
   )
@@ -118,7 +119,7 @@ const Portal: React.FC<PortalProps> = ({ children }) => {
 // BASE MODAL COMPONENT
 // ============================================================================
 
-export const BaseModal: React.FC<BaseModalProps> = ({
+export const BaseModal = React.forwardRef<HTMLDivElement, BaseModalProps>(({
   isOpen,
   onClose,
   title,
@@ -139,8 +140,9 @@ export const BaseModal: React.FC<BaseModalProps> = ({
   'aria-describedby': ariaDescribedBy,
   onAfterOpen,
   onAfterClose
-}) => {
-  const modalRef = useRef<HTMLDivElement>(null)
+}, ref) => {
+  const internalRef = useRef<HTMLDivElement>(null)
+  const modalRef = (ref && 'current' in ref) ? ref : internalRef
   const [isAnimating, setIsAnimating] = React.useState(false)
   const [primaryActionLoading, setPrimaryActionLoading] = React.useState(false)
 
@@ -228,7 +230,16 @@ export const BaseModal: React.FC<BaseModalProps> = ({
         aria-describedby={ariaDescribedBy}
       >
         <div
-          ref={modalRef}
+          ref={node => {
+            (modalRef as any).current = node
+            if (ref) {
+              if (typeof ref === 'function') {
+                ref(node)
+              } else {
+                ref.current = node
+              }
+            }
+          }}
           className={cn(
             // Base modal styling
             'relative bg-white dark:bg-gray-800',
@@ -326,7 +337,7 @@ export const BaseModal: React.FC<BaseModalProps> = ({
       </div>
     </Portal>
   )
-}
+})
 
 // ============================================================================
 // SPECIALIZED MODAL COMPONENTS

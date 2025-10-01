@@ -56,7 +56,7 @@ export interface SessionConfig {
 }
 
 export interface AuthConfig {
-  oidc: OIDCConfig;
+  oidc?: OIDCConfig | null; // Optional for Web3-first architecture
   web3: Web3Config;
   session: SessionConfig;
   features: AuthFeatures;
@@ -78,7 +78,9 @@ export interface AuthFeatures {
 
 /**
  * Get OIDC configuration for frontend application
+ * NOTE: Disabled in Web3-first architecture - OIDC variables removed from schema
  */
+/*
 export function getFrontendOIDCConfig(): OIDCConfig {
   return {
     clientId: env.OIDC_CLIENT_ID,
@@ -99,10 +101,13 @@ export function getFrontendOIDCConfig(): OIDCConfig {
     },
   };
 }
+*/
 
 /**
  * Get OIDC configuration for admin frontend
+ * NOTE: Disabled in Web3-first architecture - OIDC variables removed from schema
  */
+/*
 export function getAdminOIDCConfig(): OIDCConfig {
   return {
     clientId: env.ADMIN_CLIENT_ID,
@@ -123,6 +128,7 @@ export function getAdminOIDCConfig(): OIDCConfig {
     },
   };
 }
+*/
 
 /**
  * Get Web3 configuration
@@ -209,11 +215,11 @@ export function getSessionConfig(context: 'admin' | 'user' = 'user'): SessionCon
  */
 export function getFrontendAuthConfig(): AuthConfig {
   return {
-    oidc: getFrontendOIDCConfig(),
+    oidc: null, // Disabled in Web3-first architecture
     web3: getWeb3Config(),
     session: getSessionConfig('user'),
     features: {
-      enableOIDC: true,
+      enableOIDC: false, // Disabled in Web3-first architecture
       enableWeb3: true,
       enableProgressiveAuth: true,
       enableMFA: false, // Disabled for users by default
@@ -229,11 +235,11 @@ export function getFrontendAuthConfig(): AuthConfig {
  */
 export function getAdminAuthConfig(): AuthConfig {
   return {
-    oidc: getAdminOIDCConfig(),
+    oidc: null, // Disabled in Web3-first architecture
     web3: getWeb3Config(),
     session: getSessionConfig('admin'),
     features: {
-      enableOIDC: true,
+      enableOIDC: false, // Disabled in Web3-first architecture
       enableWeb3: true,
       enableProgressiveAuth: true,
       enableMFA: true, // Enabled for admins
@@ -579,8 +585,9 @@ export const authConfig = getFrontendAuthConfig();
 export const adminAuthConfig = getAdminAuthConfig();
 
 // Export specific configurations
-export const oidcConfig = getFrontendOIDCConfig();
-export const adminOidcConfig = getAdminOIDCConfig();
+// NOTE: OIDC configs disabled in Web3-first architecture
+// export const oidcConfig = getFrontendOIDCConfig();
+// export const adminOidcConfig = getAdminOIDCConfig();
 export const web3Config = getWeb3Config();
 export const sessionConfig = getSessionConfig();
 export const adminSessionConfig = getSessionConfig('admin');

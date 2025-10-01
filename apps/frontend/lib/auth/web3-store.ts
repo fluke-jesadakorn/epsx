@@ -10,10 +10,10 @@ import type {
   GroupMembership,
   PermissionStats,
   Web3Permission,
-  Web3PermissionType,
   Web3AuthError,
   BatchPermissionResult
 } from '@/shared/types/wallet-auth';
+import { Web3PermissionType } from '@/shared/types/wallet-auth';
 
 // Enhanced Web3 Auth State using comprehensive backend types
 export interface EnhancedWeb3AuthState {
@@ -529,6 +529,78 @@ export const useWeb3AuthStore = create<EnhancedWeb3AuthStore>()(
         return api_key;
       },
 
+      // Core authentication actions (already implemented above)
+
+      logout: async () => {
+        try {
+          await fetch('/api/auth/logout', {
+            method: 'POST',
+            credentials: 'include',
+          });
+        } catch (error) {
+          console.error('Logout failed:', error);
+        } finally {
+          get().resetAuthState();
+        }
+      },
+
+      // Permission management actions
+      refreshPermissions: async () => {
+        const state = get();
+        if (!state.walletAddress) return;
+        
+        try {
+          const response = await web3ApiClient.getPermissions();
+          const permissions = response.permissions?.map(p => p.permission) || [];
+          set({ permissions });
+        } catch (error) {
+          console.error('Failed to refresh permissions:', error);
+        }
+      },
+
+      getPermissionStats: async () => {
+        const state = get();
+        return state.permissionStats || {
+          total_permissions: 0,
+          permanent_permissions: 0,
+          temporary_permissions: 0,
+          expired_permissions: 0
+        };
+      },
+
+      getGroupMemberships: async () => {
+        const state = get();
+        return state.groupMemberships;
+      },
+
+      checkPermissions: async (permissions: string[]) => {
+        const state = get();
+        const result: BatchPermissionResult = {};
+        
+        permissions.forEach(permission => {
+          result[permission] = state.permissions.includes(permission);
+        });
+        
+        return result;
+      },
+
+      hasPermission: (permission: string) => {
+        const state = get();
+        return state.permissions.includes(permission);
+      },
+
+      hasAnyPermission: (permissions: string[]) => {
+        const state = get();
+        return permissions.some(p => state.permissions.includes(p));
+      },
+
+      hasAllPermissions: (permissions: string[]) => {
+        const state = get();
+        return permissions.every(p => state.permissions.includes(p));
+      },
+
+      // Legacy enterprise actions (already implemented above)
+
       // Reset authentication state to enterprise defaults
       resetAuthState: () => {
         set({
@@ -581,27 +653,27 @@ export const useWeb3LoadingState = () => useWeb3AuthStore(state => ({
 }));
 
 // Utility functions
-export function getPermissionIcon(source: Web3Permission['source']): string {
-  switch (source) {
-    case 'nft': return '🎨';
-    case 'token': return '🪙';
-    case 'dao': return '🗳️';
-    case 'manual': return '👤';
+export function getPermissionIcon(permissionType: Web3PermissionType): string {
+  switch (permissionType) {
+    case Web3PermissionType.NFT: return '🎨';
+    case Web3PermissionType.Token: return '🪙';
+    case Web3PermissionType.DAO: return '🗳️';
+    case Web3PermissionType.Manual: return '👤';
     default: return '🔑';
   }
 }
 
-export function getPermissionBadgeColor(source: Web3Permission['source']): string {
-  switch (source) {
-    case 'nft': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300';
-    case 'token': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300';
-    case 'dao': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300';
-    case 'manual': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300';
+export function getPermissionBadgeColor(permissionType: Web3PermissionType): string {
+  switch (permissionType) {
+    case Web3PermissionType.NFT: return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300';
+    case Web3PermissionType.Token: return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300';
+    case Web3PermissionType.DAO: return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300';
+    case Web3PermissionType.Manual: return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300';
     default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300';
   }
 }
 
-export function getEnterpriseTierDescription(tier: Web3AuthState['enterpriseTier']): string {
+export function getEnterpriseTierDescription(tier: EnhancedWeb3AuthState['enterpriseTier']): string {
   switch (tier) {
     case 'Starter': return 'Basic enterprise features - $1,000+ in verified tokens';
     case 'Business': return 'Advanced features - $10,000+ in tokens OR enterprise NFT';
@@ -611,7 +683,7 @@ export function getEnterpriseTierDescription(tier: Web3AuthState['enterpriseTier
   }
 }
 
-export function getEnterpriseTierColor(tier: Web3AuthState['enterpriseTier']): string {
+export function getEnterpriseTierColor(tier: EnhancedWeb3AuthState['enterpriseTier']): string {
   switch (tier) {
     case 'Starter': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300';
     case 'Business': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300';
@@ -621,7 +693,7 @@ export function getEnterpriseTierColor(tier: Web3AuthState['enterpriseTier']): s
   }
 }
 
-export function getEnterpriseTierIcon(tier: Web3AuthState['enterpriseTier']): string {
+export function getEnterpriseTierIcon(tier: EnhancedWeb3AuthState['enterpriseTier']): string {
   switch (tier) {
     case 'Starter': return '🚀';
     case 'Business': return '💼';

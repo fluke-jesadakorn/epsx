@@ -4,7 +4,8 @@
  */
 
 import { apiClient } from './client';
-import type { PaginatedResponse, CountResponse, StockFinancialData } from './client';
+import type { CountResponse, StockFinancialData } from './client';
+import type { PaginatedResponse } from '../../../../shared/types/api';
 import type { StockFinancialData as LocalStockFinancialData } from '@/types/financialChartData';
 import { apiLogger, safeError } from '@/lib/utils/logging';
 

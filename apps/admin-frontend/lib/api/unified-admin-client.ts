@@ -6,21 +6,9 @@
 
 import { env } from '@/config/env';
 import { getBackendUrl } from '../../../../shared/utils/url-resolver';
+import type { ApiResponse, ApiError } from '../../../../shared/types/api';
 
-// Core API Types
-export interface ApiResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
-  status: number;
-}
-
-export interface ApiError {
-  message: string;
-  status: number;
-  code?: string;
-}
+// Using shared API types from shared/types/api
 
 // Request Configuration
 export interface RequestConfig extends RequestInit {
@@ -279,7 +267,6 @@ export class UnifiedAdminClient {
     };
 
     const requestConfig: RequestInit = {
-      timeout,
       cache: serverSide ? 'no-store' : 'default',
       credentials: serverSide ? undefined : 'include',
       ...options,
@@ -287,7 +274,15 @@ export class UnifiedAdminClient {
     };
 
     try {
+      console.log('🔍 Making request:', { url: fullUrl, config: requestConfig });
       const response = await fetch(fullUrl, requestConfig);
+      
+      console.log('📡 Response received:', { 
+        status: response.status, 
+        statusText: response.statusText, 
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
       
       // Handle authentication errors
       if (response.status === 401) {
@@ -301,10 +296,44 @@ export class UnifiedAdminClient {
         };
       }
       
-      const data = response.ok ? await response.json() : null;
+      let data = null;
+      try {
+        if (response.ok) {
+          const text = await response.text();
+          console.log('📄 Response text length:', text.length, 'first 200 chars:', text.substring(0, 200));
+          
+          if (!text || text.trim() === '') {
+            console.error('❌ Empty response body');
+            return {
+              success: false,
+              error: 'Server returned empty response',
+              status: response.status
+            };
+          }
+          
+          data = JSON.parse(text);
+        } else {
+          // Handle non-OK responses
+          const text = await response.text();
+          console.log('❌ Error response text:', text);
+          try {
+            data = text ? JSON.parse(text) : null;
+          } catch {
+            data = null;
+          }
+        }
+      } catch (parseError) {
+        console.error('❌ JSON parse error:', parseError);
+        return {
+          success: false,
+          error: 'Failed to parse response JSON',
+          status: response.status
+        };
+      }
       
       if (!response.ok) {
         const errorMessage = data?.message || `HTTP error: ${response.status} ${response.statusText}`;
+        console.error('❌ HTTP error:', { status: response.status, message: errorMessage, data });
         return {
           success: false,
           error: errorMessage,
@@ -312,6 +341,7 @@ export class UnifiedAdminClient {
         };
       }
 
+      console.log('✅ Successful response:', { data: data });
       return {
         success: true,
         data,

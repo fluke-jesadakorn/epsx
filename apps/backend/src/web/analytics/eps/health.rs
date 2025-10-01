@@ -11,7 +11,7 @@ use tracing::{debug, info, error};
 use crate::core::errors::{AppError, ErrorKind};
 use crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService;
 use crate::infrastructure::adapters::services::tradingview_websocket::TradingViewWebSocketService;
-use super::dto::EPSHealthResponse;
+use super::types::EPSHealthResponse;
 
 /// GET /api/analytics/eps-rankings/health
 /// Health check endpoint for EPS analytics service

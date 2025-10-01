@@ -6,6 +6,15 @@ use std::time::Duration;
 use crate::config::env::{get_env_var, is_production};
 use crate::core::constants::*;
 
+/// Get the appropriate CORS layer based on environment
+pub fn get_cors_layer() -> CorsLayer {
+    if is_production() {
+        production_cors_layer()
+    } else {
+        development_cors()
+    }
+}
+
 /// Create production-ready CORS layer with any origin allowed
 pub fn production_cors_layer() -> CorsLayer {
     // Allow any origin for all environments (per user request)
@@ -124,8 +133,16 @@ fn production_cors_fallback() -> CorsLayer {
 
 /// Development CORS configuration - more permissive for local development
 fn development_cors() -> CorsLayer {
+    // For development, use specific origins to allow credentials
+    let origins: Vec<HeaderValue> = vec![
+        "http://localhost:3000".parse().unwrap(),
+        "http://localhost:3001".parse().unwrap(),
+        "http://127.0.0.1:3000".parse().unwrap(),
+        "http://127.0.0.1:3001".parse().unwrap(),
+    ];
+    
     CorsLayer::new()
-        .allow_origin(Any)
+        .allow_origin(origins)
         .allow_methods([
             Method::GET,
             Method::POST,
@@ -158,7 +175,7 @@ fn development_cors() -> CorsLayer {
             HeaderValue::from_static("x-rate-limit-remaining"),
             HeaderValue::from_static("x-rate-limit-reset"),
         ])
-        .allow_credentials(false) // Must be false when using Any origin
+        .allow_credentials(true) // Now we can allow credentials with specific origins
         .max_age(ONE_HOUR) // 1 hour
 }
 

@@ -469,6 +469,9 @@ impl TradingViewScanner {
 
     /// Convert TradingView stock data to stock screening result
     fn convert_to_stock_screening_result(&self, stock: TradingViewStock) -> StockScreeningResult {
+        // Extract symbol early for logging
+        let symbol_str = stock.s.split(':').nth(1).unwrap_or(&stock.s).to_string();
+
         let get_number = |data: &[StockDataField], idx: usize| -> f64 {
             match data.get(idx) {
                 Some(StockDataField::Number(n)) => *n,
@@ -494,18 +497,17 @@ impl TradingViewScanner {
         // Extract earnings release dates (correct indices based on TradingView API with new fields)
         let last = get_number(&stock.d, 32); // earnings_release_date (index 32 after adding new forecast fields)
         let next = get_number(&stock.d, 33); // earnings_release_next_date (index 33 after adding new forecast fields)
-        
-        // DEBUG: Enhanced logging to verify we're getting real timestamps  
+
+        // DEBUG: Enhanced logging to verify we're getting real timestamps
         if !stock.s.is_empty() {
-            let symbol = stock.s.split(':').nth(1).unwrap_or(&stock.s);
             
             // Check if values look like Unix timestamps (> 1,000,000,000 = after year 2001)
             let last_is_timestamp = last > 1_000_000_000.0;
             let next_is_timestamp = next > 1_000_000_000.0;
             
-            debug!("[DEBUG] Earnings dates for {}: last={} ({}), next={} ({})", 
-                symbol, 
-                last, 
+            debug!("[DEBUG] Earnings dates for {}: last={} ({}), next={} ({})",
+                symbol_str,
+                last,
                 if last_is_timestamp { "VALID timestamp" } else { "NOT a timestamp" },
                 next,
                 if next_is_timestamp { "VALID timestamp" } else { "NOT a timestamp" }
@@ -531,7 +533,7 @@ impl TradingViewScanner {
         };
 
         StockScreeningResult {
-            symbol: stock.s.split(':').nth(1).unwrap_or(&stock.s).to_string(),
+            symbol: symbol_str.clone(),
             name: get_string(&stock.d, 0, ""),
             price: get_number(&stock.d, 6), // close price
             change_percent: get_number(&stock.d, 12), // change percentage
@@ -628,6 +630,34 @@ impl TradingViewScanner {
                 let currency = get_string(&stock.d, 11, "USD"); // currency field from TradingView
                 if !currency.is_empty() { Some(currency) } else { Some("USD".to_string()) }
             },
+            
+            // Extract real TradingView earnings announcement dates
+            last_earnings_date: {
+                let last = get_number(&stock.d, 32); // earnings_release_date (index 32)
+                tracing::debug!("📅 [{}] last_earnings_date raw value at index 32: {:?}", symbol_str, last);
+                if last > 1_000_000_000.0 {
+                    tracing::info!("✅ [{}] last_earnings_date valid: {}", symbol_str, last);
+                    Some(last)
+                } else {
+                    tracing::warn!("⚠️ [{}] last_earnings_date invalid or missing: {:?}", symbol_str, last);
+                    None
+                }
+            },
+            next_earnings_date: {
+                let next = get_number(&stock.d, 33); // earnings_release_next_date (index 33)
+                tracing::debug!("📅 [{}] next_earnings_date raw value at index 33: {:?}", symbol_str, next);
+                if next > 1_000_000_000.0 {
+                    tracing::info!("✅ [{}] next_earnings_date valid: {} ({})", symbol_str, next,
+                        chrono::DateTime::from_timestamp(next as i64, 0)
+                            .map(|dt| dt.format("%Y-%m-%d").to_string())
+                            .unwrap_or_else(|| "invalid".to_string())
+                    );
+                    Some(next)
+                } else {
+                    tracing::warn!("⚠️ [{}] next_earnings_date invalid or missing: {:?}", symbol_str, next);
+                    None
+                }
+            },
         }
     }
 
@@ -709,7 +739,7 @@ mod tests {
 
     #[test]
     fn test_scanner_creation() {
-        let config = Config::default();
+        let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         let scanner = TradingViewScanner::new(tv_config);
         
@@ -719,7 +749,7 @@ mod tests {
 
     #[test]
     fn test_markets_filter() {
-        let config = Config::default();
+        let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         let scanner = TradingViewScanner::new(tv_config);
         
@@ -735,7 +765,7 @@ mod tests {
 
     #[test]
     fn test_sort_parameters() {
-        let config = Config::default();
+        let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         let scanner = TradingViewScanner::new(tv_config);
         
@@ -750,7 +780,7 @@ mod tests {
 
     #[test]
     fn test_dynamic_filters() {
-        let config = Config::default();
+        let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         let scanner = TradingViewScanner::new(tv_config);
         
@@ -765,7 +795,7 @@ mod tests {
 
     #[test]
     fn test_request_with_params() {
-        let config = Config::default();
+        let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         let scanner = TradingViewScanner::new(tv_config);
         

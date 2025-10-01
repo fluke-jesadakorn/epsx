@@ -86,10 +86,16 @@ const PancakeCardModal = React.forwardRef<HTMLDivElement, PancakeCardModalProps>
   children,
   ...props
 }, ref) => {
+  // Map PancakeSwap variants to base card variants
+  const baseCardVariant = cardVariant === 'pancake' ? 'default' 
+    : cardVariant === 'pancakeElevated' ? 'elevated'
+    : cardVariant === 'pancakeOutlined' ? 'outlined'
+    : 'elevated' // default fallback
+
   return (
     <PancakeModal ref={ref} {...props}>
       <PancakeCard 
-        variant={cardVariant}
+        variant={baseCardVariant}
         className={cn('border-0 shadow-none bg-transparent', cardClassName)}
       >
         {children}
@@ -146,20 +152,21 @@ const PancakeConfirmModal: React.FC<PancakeConfirmModalProps> = ({
         variant === 'destructive' && 'bg-gradient-to-br from-red-50/50 to-pink-50/50 dark:from-red-950/30 dark:to-pink-950/30 border-red-200 dark:border-red-800',
         variant === 'default' && 'bg-gradient-to-br from-orange-50/50 to-yellow-50/50 dark:from-orange-950/30 dark:to-yellow-950/30 border-orange-200 dark:border-orange-800'
       )}
-    >
-      <div className="text-center space-y-4">
-        <div className="text-4xl">{getVariantIcon(variant)}</div>
-        <div className={cn(
-          'text-lg font-semibold bg-gradient-to-r bg-clip-text text-transparent',
-          getVariantColor(variant)
-        )}>
-          {typeof props.title === 'string' ? props.title : 'Confirm Action'}
+      message={
+        <div className="text-center space-y-4">
+          <div className="text-4xl">{getVariantIcon(variant)}</div>
+          <div className={cn(
+            'text-lg font-semibold bg-gradient-to-r bg-clip-text text-transparent',
+            getVariantColor(variant)
+          )}>
+            {typeof props.title === 'string' ? props.title : 'Confirm Action'}
+          </div>
+          <div className="text-gray-700 dark:text-gray-300 text-sm">
+            {message}
+          </div>
         </div>
-        <div className="text-gray-700 dark:text-gray-300 text-sm">
-          {message}
-        </div>
-      </div>
-    </BaseConfirmModal>
+      }
+    />
   )
 }
 
@@ -285,7 +292,7 @@ const PancakeSubscriptionModal: React.FC<PancakeSubscriptionModalProps> = ({
     >
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <PancakeCard variant="pancakeOutlined" className="p-4">
+          <PancakeCard variant="outlined" className="p-4">
             <h3 className="font-bold text-gray-900 dark:text-white mb-3">Basic Information</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
@@ -299,7 +306,7 @@ const PancakeSubscriptionModal: React.FC<PancakeSubscriptionModalProps> = ({
             </div>
           </PancakeCard>
 
-          <PancakeCard variant="pancakeOutlined" className="p-4">
+          <PancakeCard variant="outlined" className="p-4">
             <h3 className="font-bold text-gray-900 dark:text-white mb-3">Status</h3>
             <div className="text-center">
               <div className={cn(

@@ -505,7 +505,7 @@ mod tests {
         assert_eq!(result1, result2);
         
         // Different users should get different assignments (statistically)
-        let stateless_count = 0;
+        let mut stateless_count = 0;
         for i in 0..100 {
             if flags.should_use_stateless_auth(&format!("user{}", i), false, false) {
                 stateless_count += 1;

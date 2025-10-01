@@ -5,14 +5,16 @@
 
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
-use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
+use jsonwebtoken::{encode, Algorithm, Header};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
+use std::sync::Arc;
 use tracing::{error, info};
 use uuid::Uuid;
 use utoipa::ToSchema;
 
 use crate::auth::unified_web3_auth_service::Web3VerificationRequest;
+use crate::auth::key_manager::KeyManager;
 
 /// OpenID Connect Token Service
 /// Issues standard OAuth2/OpenID tokens after successful Web3 wallet authentication
@@ -21,7 +23,7 @@ pub struct OpenIDTokenService {
     db_pool: PgPool,
     issuer: String,                    // "https://api.epsx.io"
     audiences: Vec<String>,            // ["epsx-frontend", "epsx-admin"]
-    signing_key: EncodingKey,          // RSA private key for JWT signing
+    key_manager: Arc<KeyManager>,       // RSA key manager for JWT signing/validation
     access_token_expiry_hours: i64,    // Default: 1 hour
     refresh_token_expiry_days: i64,    // Default: 30 days
     id_token_expiry_hours: i64,        // Default: 1 hour
@@ -128,17 +130,22 @@ impl OpenIDTokenService {
         db_pool: PgPool,
         issuer: String,
         audiences: Vec<String>,
-        signing_key: EncodingKey,
+        key_manager: Arc<KeyManager>,
     ) -> Self {
         Self {
             db_pool,
             issuer,
             audiences,
-            signing_key,
+            key_manager,
             access_token_expiry_hours: 1,    // 1 hour
             refresh_token_expiry_days: 30,   // 30 days
             id_token_expiry_hours: 1,        // 1 hour
         }
+    }
+
+    /// Get the key manager for JWT validation
+    pub fn get_key_manager(&self) -> &KeyManager {
+        &self.key_manager
     }
 
     /// Authenticate Web3 wallet and issue OpenID Connect tokens
@@ -351,8 +358,9 @@ impl OpenIDTokenService {
             auth_time,
         };
 
-        let header = Header::new(Algorithm::RS256);
-        encode(&header, &claims, &self.signing_key)
+        let mut header = Header::new(Algorithm::RS256);
+        header.kid = Some(self.key_manager.current_key().kid.clone());
+        encode(&header, &claims, &self.key_manager.current_key().encoding_key)
             .map_err(|e| OpenIDTokenError::TokenGenerationFailed(e.to_string()))
     }
 
@@ -382,8 +390,9 @@ impl OpenIDTokenService {
             acr: "1".to_string(), // Authentication Context Class Reference
         };
 
-        let header = Header::new(Algorithm::RS256);
-        encode(&header, &claims, &self.signing_key)
+        let mut header = Header::new(Algorithm::RS256);
+        header.kid = Some(self.key_manager.current_key().kid.clone());
+        encode(&header, &claims, &self.key_manager.current_key().encoding_key)
             .map_err(|e| OpenIDTokenError::TokenGenerationFailed(e.to_string()))
     }
 
@@ -472,12 +481,13 @@ mod tests {
     async fn create_test_service() -> OpenIDTokenService {
         // This would need actual test setup with database and keys
         // Placeholder for test structure
+        let key_manager = KeyManager::new().expect("Failed to create test key manager");
         OpenIDTokenService::new(
             // Mock pool would be created here
             PgPool::connect("postgresql://test").await.unwrap(),
             "https://test.epsx.io".to_string(),
             vec!["epsx-frontend".to_string(), "epsx-admin".to_string()],
-            EncodingKey::from_rsa_pem(b"test-key").unwrap(),
+            Arc::new(key_manager),
         )
     }
 }

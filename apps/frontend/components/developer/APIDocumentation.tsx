@@ -3,10 +3,10 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@/components/ui';
 import { Badge } from '@/components/ui/badge';
-import type { User } from '@/lib/server-actions';
+import type { AuthUser } from '@/lib/server-actions';
 
 interface APIDocumentationProps {
-  currentUser: User;
+  currentUser: AuthUser;
 }
 
 interface APIEndpoint {

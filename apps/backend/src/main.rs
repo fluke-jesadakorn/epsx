@@ -6,6 +6,7 @@ use epsx::{
     config::env::init_config,
     infrastructure::container::{StatelessServiceFactory, StatelessConfig},
     create_stateless_router,
+    create_standardized_router,
 };
 
 /// Main server entry point - Serverless Stateless Architecture
@@ -43,8 +44,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
     
     // Create router with stateless service factory
-    let app = create_stateless_router(service_factory).await;
-    info!("✅ Stateless router created successfully");
+    // Support both legacy and standardized routers during migration
+    let use_standardized_api = std::env::var("USE_STANDARDIZED_API")
+        .unwrap_or_else(|_| "false".to_string())
+        .parse::<bool>()
+        .unwrap_or(false);
+    
+    let app = if use_standardized_api {
+        info!("🆕 Using STANDARDIZED API router with organized naming convention");
+        create_standardized_router(service_factory).await
+    } else {
+        info!("⚡ Using legacy stateless router (default)");
+        create_stateless_router(service_factory).await
+    };
+    info!("✅ Router created successfully");
     
     // Server configuration using unified config
     let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
@@ -60,8 +73,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     
     info!("🚀 Server starting on {}:{}", host, port);
     info!("🌐 Health check available at: http://{}:{}/health", host, port);
-    info!("🔐 Web3 auth endpoints available at: http://{}:{}/api/auth/web3/*", host, port);
-    info!("📊 Analytics endpoints available at: http://{}:{}/api/v1/analytics/*", host, port);
+    
+    if use_standardized_api {
+        info!("🆕 STANDARDIZED API ENDPOINTS:");
+        info!("   🔐 Auth: http://{}:{}/api/v1/auth/web3/*", host, port);
+        info!("   📊 Analytics: http://{}:{}/api/v1/public/analytics/* | http://{}:{}/api/v1/auth/analytics/*", host, port, host, port);
+        info!("   👤 Admin: http://{}:{}/api/v1/admin/*", host, port);
+        info!("   📖 API Documentation: Organized by access level (public, auth, admin)");
+    } else {
+        info!("⚡ LEGACY API ENDPOINTS:");
+        info!("   🔐 Web3 auth endpoints: http://{}:{}/api/auth/web3/*", host, port);
+        info!("   📊 Analytics endpoints: http://{}:{}/api/v1/analytics/*", host, port);
+        info!("   ⚠️  Mixed routing patterns (for backward compatibility)");
+    }
+    
     info!("⚡ SERVERLESS MODE: Services created per request (no shared state)");
     
     // Start the server

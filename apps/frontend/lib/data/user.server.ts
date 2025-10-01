@@ -1,15 +1,14 @@
 import { createApiClient, isApiError } from '@/lib/api-client';
 import { getBackendUrl } from '../../../../shared/utils/url-resolver';
 
-const BACKEND_URL = getBackendUrl('server');
-const apiClient = createApiClient(BACKEND_URL);
+const apiClient = createApiClient();
 
 export async function getCurrentUser() {
   try {
     const response = await apiClient.serverGetCurrentUser();
 
     if (isApiError(response)) {
-      throw new Error(response.error || 'Failed to fetch current user');
+      throw new Error(response.message || 'Failed to fetch current user');
     }
 
     return response.data;
@@ -24,7 +23,7 @@ export async function getUserProfile() {
     const response = await apiClient.getCurrentUser();
 
     if (isApiError(response)) {
-      throw new Error(response.error || 'Failed to fetch user profile');
+      throw new Error(response.message || 'Failed to fetch user profile');
     }
 
     return response.data;
@@ -40,7 +39,7 @@ export async function getPremiumRankings() {
     const response = await apiClient.serverGetPremiumRankings();
 
     if (isApiError(response)) {
-      throw new Error(response.error || 'Failed to fetch premium rankings');
+      throw new Error(response.message || 'Failed to fetch premium rankings');
     }
 
     return response.data;

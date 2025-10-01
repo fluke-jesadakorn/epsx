@@ -19,7 +19,7 @@ use axum::{
     response::Response,
     Json,
 };
-use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
+use jsonwebtoken::{decode, Algorithm, Validation};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
@@ -133,24 +133,23 @@ async fn validate_bearer_token(
     app_state: &AppState,
 ) -> Result<OpenIDUserContext, OpenIDTokenError> {
     // Get OpenID token service for validation
-    let _openid_service = app_state
+    let openid_service = app_state
         .domain_container
         .get_openid_token_service()
         .ok_or_else(|| {
             OpenIDTokenError::TokenGenerationFailed("OpenID service not available".to_string())
         })?;
 
-    // TODO: Get actual public key from OpenID service
-    // For now, use the same key used for signing (development only)
-    let decoding_key = DecodingKey::from_secret(b"dev-secret-key");
+    // Get RSA public key from key manager for JWT validation
+    let key_manager = openid_service.get_key_manager();
+    let current_key = key_manager.current_key();
+    let decoding_key = &current_key.decoding_key;
 
-    // Set up JWT validation
+    // Set up JWT validation with RSA
     let mut validation = Validation::new(Algorithm::RS256);
     validation.set_audience(&["epsx-frontend", "epsx-admin"]);
     validation.set_issuer(&["https://api.epsx.io"]);
-
-    // For development with HMAC, use HS256
-    validation.algorithms = vec![Algorithm::HS256]; // TODO: Change to RS256 in production
+    validation.algorithms = vec![Algorithm::RS256];
 
     // Decode and validate JWT
     let token_data = decode::<AccessTokenClaims>(token, &decoding_key, &validation)

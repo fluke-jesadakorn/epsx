@@ -2,7 +2,7 @@
 
 use axum::{ routing::{ get, put }, Router };
 use crate::web::auth::routes::AppState;
-use super::handlers::{ get_profile_handler, update_profile_handler };
+use super::user_handlers::{ get_profile_handler, update_profile_handler };
 // Legacy permissions module removed for Web3-first migration
 // use super::permissions::{ get_user_permissions, check_user_permission };
 

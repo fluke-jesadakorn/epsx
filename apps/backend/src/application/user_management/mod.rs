@@ -28,13 +28,9 @@ pub use queries::{
     UserSummary,
 };
 
-// Re-export services
-pub use services::{
-    // UserReferenceResolver,     // REMOVED - legacy user reference system
-    // UserResolutionCapable,     // REMOVED - legacy user reference system
-    // UserApplicationService,    // Removed - service deleted
-    WalletQueryService,
-};
+// Re-export services  
+// Note: WalletQueryService removed - migrated to direct wallet-based repository access
+// as part of Web3-first user management migration
 
 // Re-export handlers
 pub use commands::{

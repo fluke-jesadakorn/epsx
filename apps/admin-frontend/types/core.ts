@@ -4,6 +4,9 @@
  * Replaces: auth-separation.ts, admin-types.ts, iam.ts, unified-user.ts
  */
 
+import { PermissionGroup } from '../../../shared/types/domain/User';
+import type { PaginatedResponse } from '../../../shared/types/api';
+
 // ============================================================================
 // Authentication & User Types
 // ============================================================================
@@ -28,7 +31,9 @@ export interface User {
   
   // Permission system
   permissions?: string[];
-  packageTier: string;
+  permissionGroup: PermissionGroup;
+  // @deprecated Use permissionGroup instead
+  packageTier?: string;
   
   // Platform context
   platforms?: string[];
@@ -249,10 +254,7 @@ export interface PaginationInfo {
   hasPrevPage: boolean;
 }
 
-export interface PaginatedResponse<T> {
-  data: T[];
-  pagination: PaginationInfo;
-}
+// Using shared PaginatedResponse type instead of local definition
 
 // ============================================================================
 // System Configuration Types

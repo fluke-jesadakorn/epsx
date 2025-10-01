@@ -9,25 +9,25 @@
 import React from 'react';
 
 // Main unified permission expiry indicator component
-import UnifiedPermissionExpiryIndicatorComponentComponent from './UnifiedPermissionExpiryIndicatorComponent';
-export { UnifiedPermissionExpiryIndicatorComponentComponent as UnifiedPermissionExpiryIndicatorComponent };
+import UnifiedPermissionExpiryIndicator from './UnifiedPermissionExpiryIndicator';
+export { UnifiedPermissionExpiryIndicator };
 
 // Types and interfaces
 export type { 
   Platform, 
   PermissionInfo,
   PermissionExpiryData,
-  UnifiedPermissionExpiryIndicatorComponentProps
-} from './UnifiedPermissionExpiryIndicatorComponent';
+  UnifiedPermissionExpiryIndicatorProps
+} from './UnifiedPermissionExpiryIndicator';
 
 // Import types for use in components
-import type { Platform } from './UnifiedPermissionExpiryIndicatorComponent';
+import type { Platform } from './UnifiedPermissionExpiryIndicator';
 
 // Registration utilities for platform integration
 export {
   registerPermissionHook,
   registerUIComponents
-} from './UnifiedPermissionExpiryIndicatorComponent';
+} from './UnifiedPermissionExpiryIndicator';
 
 // ============================================================================
 // MIGRATION HELPERS
@@ -39,13 +39,13 @@ export {
  */
 
 // For admin-frontend migration
-export const AdminPermissionExpiryIndicator = UnifiedPermissionExpiryIndicatorComponentComponent;
+export const AdminPermissionExpiryIndicator = UnifiedPermissionExpiryIndicator;
 export const UserPermissionHealthCard = ({ permissions, userId, className }: { 
   permissions: string[]; 
   userId: string; 
   className?: string; 
 }) => (
-  <UnifiedPermissionExpiryIndicatorComponentComponent 
+  <UnifiedPermissionExpiryIndicator 
     platform="admin" 
     permissions={permissions}
     variant="card"
@@ -60,7 +60,7 @@ export const AdminPermissionBanner = ({ permissions, className }: {
   permissions: string[]; 
   className?: string; 
 }) => (
-  <UnifiedPermissionExpiryIndicatorComponent 
+  <UnifiedPermissionExpiryIndicator 
     platform="admin" 
     permissions={permissions}
     variant="banner"
@@ -73,7 +73,7 @@ export const AdminPermissionDashboard = ({ permissions, className }: {
   permissions: string[]; 
   className?: string; 
 }) => (
-  <UnifiedPermissionExpiryIndicatorComponent 
+  <UnifiedPermissionExpiryIndicator 
     platform="admin" 
     permissions={permissions}
     variant="dashboard"
@@ -83,7 +83,7 @@ export const AdminPermissionDashboard = ({ permissions, className }: {
 );
 
 // For frontend migration  
-export const PermissionExpiryIndicator = UnifiedPermissionExpiryIndicatorComponent;
+export const PermissionExpiryIndicator = UnifiedPermissionExpiryIndicator;
 
 // ============================================================================
 // CONVENIENCE COMPONENTS FOR SPECIFIC USE CASES
@@ -98,7 +98,7 @@ export const PermissionBadge = ({
   permissions: string | string[]; 
   className?: string; 
 }) => (
-  <UnifiedPermissionExpiryIndicatorComponent 
+  <UnifiedPermissionExpiryIndicator 
     platform={platform} 
     permissions={permissions}
     variant="badge"
@@ -117,7 +117,7 @@ export const PermissionStatusCard = ({
   showActions?: boolean;
   className?: string; 
 }) => (
-  <UnifiedPermissionExpiryIndicatorComponent 
+  <UnifiedPermissionExpiryIndicator 
     platform={platform} 
     permissions={permissions}
     variant="card"
@@ -139,7 +139,7 @@ export const PermissionAlert = ({
   showRefresh?: boolean;
   className?: string; 
 }) => (
-  <UnifiedPermissionExpiryIndicatorComponent 
+  <UnifiedPermissionExpiryIndicator 
     platform={platform} 
     permissions={permissions}
     variant="full"
@@ -157,10 +157,10 @@ export const PermissionAlert = ({
  * 
  * ## Admin Frontend
  * ```tsx
- * import { UnifiedPermissionExpiryIndicatorComponent, AdminPermissionBanner } from '@shared/components/permissions';
+ * import { UnifiedPermissionExpiryIndicator, AdminPermissionBanner } from '@shared/components/permissions';
  * 
  * // Basic usage
- * <UnifiedPermissionExpiryIndicatorComponent 
+ * <UnifiedPermissionExpiryIndicator 
  *   platform="admin" 
  *   permissions={userPermissions}
  *   variant="card"
@@ -175,10 +175,10 @@ export const PermissionAlert = ({
  * 
  * ## Frontend
  * ```tsx
- * import { UnifiedPermissionExpiryIndicatorComponent, PermissionAlert } from '@shared/components/permissions';
+ * import { UnifiedPermissionExpiryIndicator, PermissionAlert } from '@shared/components/permissions';
  * 
  * // Single permission check
- * <UnifiedPermissionExpiryIndicatorComponent 
+ * <UnifiedPermissionExpiryIndicator 
  *   platform="frontend" 
  *   permissions="epsx:analytics:premium"
  *   variant="badge"

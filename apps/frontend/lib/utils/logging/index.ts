@@ -155,9 +155,9 @@ export class Logger {
 
     try {
       if (data) {
-        logFunction(prefix, message, data);
+        (logFunction as Function)(prefix, message, data);
       } else {
-        logFunction(prefix, message);
+        (logFunction as Function)(prefix, message);
       }
     } catch (error) {
       // Fallback to console.log if specific method fails

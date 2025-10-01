@@ -7,16 +7,14 @@ use serde::{Deserialize, Serialize};
 pub struct WalletUserInfo {
     pub wallet_address: String,
     pub display_name: Option<String>,
-    pub tier_level: String,
     pub is_active: bool,
 }
 
 impl WalletUserInfo {
-    pub fn new(wallet_address: String, tier_level: String) -> Self {
+    pub fn new(wallet_address: String) -> Self {
         Self {
             wallet_address,
             display_name: None,
-            tier_level,
             is_active: true,
         }
     }

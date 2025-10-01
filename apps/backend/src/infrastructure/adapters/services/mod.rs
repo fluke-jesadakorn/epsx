@@ -7,7 +7,7 @@ pub mod web3_permission_service_adapter;
 // Core service adapters
 pub mod security_monitoring_service_adapter;
 
-pub mod email_service;
+// email_service removed - Web3-first system doesn't require traditional email functionality
 pub mod tradingview;
 pub mod tradingview_websocket;
 pub mod comprehensive_rate_limiting_service;
@@ -33,7 +33,7 @@ pub use web3_permission_service_adapter::{
 pub use security_monitoring_service_adapter::{
   SecurityMonitoringServiceAdapter,
 };
-pub use email_service::{ SendGridEmailService, SmtpEmailService };
+// Email service exports removed - Web3-first system uses direct wallet notifications
 pub use tradingview::{
   TradingViewRestClient,
   TradingViewWebSocketHandler as TradingViewWebSocketClient,

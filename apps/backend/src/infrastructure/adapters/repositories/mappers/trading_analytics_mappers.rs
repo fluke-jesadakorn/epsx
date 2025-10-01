@@ -294,7 +294,7 @@ mod tests {
 
     #[test]
     fn test_ddd_entry_to_legacy_conversion() {
-        let symbol = StockSymbol::new("AAPL").unwrap();
+        let symbol = StockSymbol::new("AAPL".to_string()).unwrap();
         let eps_value = EPSValue::new(1.52).unwrap();
         let growth_factor = GrowthFactor::new(15.2).unwrap();
         let sector = MarketSector::new("Technology".to_string()).unwrap();

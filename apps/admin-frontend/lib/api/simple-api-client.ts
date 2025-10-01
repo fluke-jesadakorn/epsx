@@ -8,7 +8,7 @@ import {
   ApiResponse, 
   ApiError,
   handleApiResponse
-} from '@/lib/api/response-handler';
+} from '@/shared/utils/response-handler';
 
 // ============================================================================
 // Core Types and Interfaces  

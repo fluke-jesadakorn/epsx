@@ -259,13 +259,19 @@ mod tests {
     use chrono::Utc;
     
     fn create_test_session_with_ip(ip: &str) -> Session {
+        use crate::domain::user_management::value_objects::{wallet_address::WalletAddress, user_id::UserId};
+        use uuid::Uuid;
+        
+        let wallet_address = WalletAddress::new("0x742d35Cc6634C0532925a3b8F39dBC0A31Da1234").unwrap();
+        let expires_at = Utc::now() + chrono::Duration::hours(1);
+        
         Session::create(
-            SessionId::from_uuid(uuid::Uuid::new_v4()),
-            UserId::new(),
-            "test_token".to_string(),
-            Utc::now() + Duration::hours(1),
+            crate::domain::user_management::value_objects::session_id::SessionId::from_uuid(Uuid::new_v4()),
+            wallet_address,
+            "access_token".to_string(),
+            expires_at,
             Some(ip.to_string()),
-            Some("Mozilla/5.0".to_string()),
+            Some("user_agent".to_string()),
         ).unwrap()
     }
     

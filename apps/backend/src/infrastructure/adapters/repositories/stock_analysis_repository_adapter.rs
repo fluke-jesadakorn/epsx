@@ -5,7 +5,47 @@ use chrono::Utc;
 use crate::domain::trading_analytics::aggregates::eps_ranking::{EPSRanking as DDDEPSRanking, RankingEntry, RankingType, RankingPeriod};
 use crate::domain::trading_analytics::value_objects::*;
 use crate::domain::shared_kernel::entities::eps_growth::{EPSRanking as LegacyEPSRanking};
-use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRankingService, EPSRankingParams};
+use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRankingService, EPSRankingParams, EPSRepository};
+use crate::core::errors::AppError;
+use crate::domain::shared_kernel::entities::eps_growth::{EPSGrowthData, EPSRanking};
+
+// Mock implementation of EPSRepository for testing
+#[allow(dead_code)]
+struct MockEPSRepository;
+
+#[async_trait::async_trait]
+impl EPSRepository for MockEPSRepository {
+    async fn store_eps_data(&self, _eps_data: EPSGrowthData) -> Result<(), AppError> {
+        Ok(())
+    }
+
+    async fn get_rankings_filtered(
+        &self,
+        _country: Option<String>,
+        _sector: Option<String>,
+        _sort_by: Option<String>,
+        _page: i32,
+        _limit: i32,
+    ) -> Result<Vec<EPSRanking>, AppError> {
+        Ok(Vec::new())
+    }
+
+    async fn get_total_count(&self, _country: Option<String>, _sector: Option<String>) -> Result<i64, AppError> {
+        Ok(0)
+    }
+
+    async fn batch_store_eps_data(&self, _eps_data_list: Vec<EPSGrowthData>) -> Result<usize, AppError> {
+        Ok(0)
+    }
+
+    async fn get_countries(&self) -> Result<Vec<String>, AppError> {
+        Ok(Vec::new())
+    }
+
+    async fn get_sectors_by_country(&self, _country: Option<String>) -> Result<Vec<String>, AppError> {
+        Ok(Vec::new())
+    }
+}
 
 /// Repository adapter that bridges legacy EPS ranking system with DDD Trading Analytics
 #[derive(Clone)]
@@ -163,21 +203,22 @@ mod tests {
         let legacy_ranking = LegacyEPSRanking {
             symbol: "AAPL".to_string(),
             name: "Apple Inc.".to_string(),
+            current_eps: Some(1.52),
+            growth_factor: Some(15.2),
+            price_current: Some(150.0),
+            market_cap: Some(2500000000),
+            volume: Some(50000000),
             country: "america".to_string(),
             sector: "Technology".to_string(),
             exchange: "NASDAQ".to_string(),
-            current_eps: Some(1.52),
-            growth_factor: Some(15.2),
-            price_current: Some(150.25),
-            market_cap: Some(2500000000000),
-            volume: Some(45678900),
-            ranking_position: Some(1),
-            quarterly_data: None,
             next_earnings_date: None,
             last_earnings_date: None,
+            ranking_position: None,
+            quarterly_data: None,
         };
 
-        let eps_service = Arc::new(EPSRankingService::new());
+        let eps_repo = Arc::new(MockEPSRepository {});
+        let eps_service = Arc::new(EPSRankingService::new(eps_repo));
         let adapter = StockAnalysisRepositoryAdapter::new(eps_service);
         
         match adapter.convert_legacy_to_ddd_entry(&legacy_ranking) {
@@ -193,11 +234,11 @@ mod tests {
 
     #[test]
     fn test_ddd_to_legacy_conversion() {
-        let symbol = StockSymbol::new("AAPL").unwrap();
+        let symbol = StockSymbol::new("AAPL".to_string()).unwrap();
         let eps_value = EPSValue::new(1.52).unwrap();
         let growth_factor = GrowthFactor::new(15.2).unwrap();
-        let sector = MarketSector::from_string("Technology").unwrap();
-        let country = Country::from_name("america").unwrap();
+        let sector = MarketSector::new("Technology".to_string()).unwrap();
+        let country = Country::new("america".to_string()).unwrap();
 
         let ddd_entry = RankingEntry {
             symbol,
@@ -210,7 +251,8 @@ mod tests {
             added_at: Utc::now(),
         };
 
-        let eps_service = Arc::new(EPSRankingService::new());
+        let eps_repo = Arc::new(MockEPSRepository {});
+        let eps_service = Arc::new(EPSRankingService::new(eps_repo));
         let adapter = StockAnalysisRepositoryAdapter::new(eps_service);
         
         let legacy_ranking = adapter.convert_ddd_to_legacy_ranking(&ddd_entry, 1);

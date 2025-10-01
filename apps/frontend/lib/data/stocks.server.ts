@@ -2,8 +2,7 @@ import { createApiClient, isApiError } from '@/lib/api-client';
 import { MarketCountry } from '../../types/market';
 import { getBackendUrl } from '../../../../shared/utils/url-resolver';
 
-const BACKEND_URL = getBackendUrl('server');
-const apiClient = createApiClient(BACKEND_URL);
+const apiClient = createApiClient();
 
 export async function getStockFinancialData(
   page: number = 1,
@@ -20,7 +19,7 @@ export async function getStockFinancialData(
     });
 
     if (isApiError(response)) {
-      throw new Error(response.error || 'Failed to fetch stock financial data');
+      throw new Error(response.message || 'Failed to fetch stock financial data');
     }
 
     return response.data;
@@ -45,7 +44,7 @@ export async function getStockFinancialDataPaginated(
     });
 
     if (isApiError(response)) {
-      throw new Error(response.error || 'Failed to fetch paginated stock data');
+      throw new Error(response.message || 'Failed to fetch paginated stock data');
     }
 
     return response.data;
@@ -61,7 +60,7 @@ export async function getIndividualStockData(symbol: string) {
     const response = await apiClient.serverGetIndividualStock(symbol);
 
     if (isApiError(response)) {
-      throw new Error(response.error || 'Failed to fetch individual stock data');
+      throw new Error(response.message || 'Failed to fetch individual stock data');
     }
 
     return response.data;
@@ -76,7 +75,7 @@ export async function getBatchStockData(symbols: string[]) {
     const response = await apiClient.serverBatchStocks(symbols);
 
     if (isApiError(response)) {
-      throw new Error(response.error || 'Failed to fetch batch stock data');
+      throw new Error(response.message || 'Failed to fetch batch stock data');
     }
 
     return response.data;
@@ -94,7 +93,7 @@ export async function getStocksCount(country?: string, quarters?: number) {
     });
 
     if (isApiError(response)) {
-      throw new Error(response.error || 'Failed to fetch stocks count');
+      throw new Error(response.message || 'Failed to fetch stocks count');
     }
 
     return response.data;
@@ -109,7 +108,7 @@ export async function getPremiumRankings() {
     const response = await apiClient.serverGetPremiumRankings();
 
     if (isApiError(response)) {
-      throw new Error(response.error || 'Failed to fetch premium rankings');
+      throw new Error(response.message || 'Failed to fetch premium rankings');
     }
 
     return response.data;

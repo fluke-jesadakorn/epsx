@@ -78,14 +78,14 @@ export interface BaseFormProps<TFieldValues extends FieldValues = FieldValues>
 /**
  * Main form wrapper with React Hook Form integration
  */
-export const BaseForm = <TFieldValues extends FieldValues>({
+export const BaseForm = React.forwardRef<HTMLFormElement, BaseFormProps<any>>(({
   children,
   onSubmit,
   className,
   noValidate = true,
   ...formMethods
-}: BaseFormProps<TFieldValues>) => {
-  const handleSubmit = async (data: TFieldValues) => {
+}, ref) => {
+  const handleSubmit = async (data: any) => {
     try {
       await onSubmit?.(data)
     } catch (error) {
@@ -96,6 +96,7 @@ export const BaseForm = <TFieldValues extends FieldValues>({
   return (
     <FormProvider {...formMethods}>
       <form
+        ref={ref}
         onSubmit={onSubmit ? formMethods.handleSubmit(handleSubmit) : (e) => e.preventDefault()}
         className={cn('space-y-6', className)}
         noValidate={noValidate}
@@ -104,7 +105,7 @@ export const BaseForm = <TFieldValues extends FieldValues>({
       </form>
     </FormProvider>
   )
-}
+})
 
 // ============================================================================
 // FORM FIELD COMPONENTS

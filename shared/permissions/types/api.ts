@@ -10,6 +10,7 @@ import {
   TokenValidationResult,
   HashValidationResult
 } from './core'
+import { PermissionAuditEntry, PermissionTemplate } from './audit'
 
 // ============================================================================
 // API REQUEST TYPES
@@ -221,16 +222,7 @@ export interface PermissionNotificationEvent {
 }
 
 // Forward declarations from other files
-export interface PermissionTemplate {
-  id: string
-  name: string
-  description: string
-  permissions: string[]
-  default_expiry_hours?: number
-  source: PermissionSource
-  created_by: string
-  created_at: number
-}
+// PermissionTemplate imported from './audit' - removed duplicate definition
 
 export interface AdminPermissionDashboard {
   total_users_with_permissions: number
@@ -242,14 +234,4 @@ export interface AdminPermissionDashboard {
   system_health_score: number
 }
 
-export interface PermissionAuditEntry {
-  id: string
-  user_id: string
-  permission: string
-  action: 'grant' | 'revoke' | 'extend' | 'cleanup'
-  performed_by: string
-  performed_at: number
-  expires_at?: number
-  reason?: string
-  metadata?: Record<string, any>
-}
+// PermissionAuditEntry imported from './audit' - removed duplicate definition

@@ -17,9 +17,11 @@ export type {
   OpenIDTokenResponse,
   Web3AuthRequest,
   UserInfoResponse,
-  UserInfoResponse as User, // Alias for compatibility
-  ApiResponse
+  // UserInfoResponse as User - Removed alias to avoid conflict with shared User type
 } from './openid-api-client';
+
+// ApiResponse export temporarily removed to fix build conflict
+// Components needing ApiResponse should import directly from shared types
 
 // Legacy compatibility exports (deprecated)
 export * from './store';

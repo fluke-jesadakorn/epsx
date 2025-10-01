@@ -210,10 +210,15 @@ export function useStateManager<T>(initialState: T, config: StateConfig = {}) {
 function stateReducer<T>(state: T, action: StateAction): T {
   switch (action.type) {
     case 'SET_STATE':
-      return { ...state, ...action.payload };
+      // Ensure both state and payload are objects before spreading
+      if (typeof state === 'object' && state !== null && 
+          typeof action.payload === 'object' && action.payload !== null) {
+        return { ...state, ...action.payload } as T;
+      }
+      return action.payload as T;
     
     case 'RESET_STATE':
-      return action.payload;
+      return action.payload as T;
 
     case 'UPDATE_NESTED':
       if (typeof action.payload === 'object' && action.payload && 'path' in action.payload && 'value' in action.payload) {

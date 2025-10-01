@@ -101,7 +101,7 @@ mod tests {
     
     #[test]
     fn test_invalid_symbols() {
-        let invalid_symbols = ["", "A" * 25, "AAPL@", "TEST!", " "];
+        let invalid_symbols = ["", &"A".repeat(25), "AAPL@", "TEST!", " "];
         
         for symbol in &invalid_symbols {
             let stock_symbol = StockSymbol::new(symbol.to_string());

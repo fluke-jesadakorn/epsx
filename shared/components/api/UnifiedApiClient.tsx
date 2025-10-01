@@ -45,7 +45,7 @@ export function useUnifiedApiRequest<T>(
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
-      const response = await makeApiRequest<T>(endpoint, options);
+      const response = await makeApiRequest(endpoint, options);
       
       if (response.success) {
         setState({
@@ -109,7 +109,7 @@ export function useUnifiedApiMutation<TRequest, TResponse>() {
         body: request ? JSON.stringify(request) : options?.body,
       };
 
-      const response = await makeApiRequest<TResponse>(endpoint, requestOptions);
+      const response = await makeApiRequest(endpoint, requestOptions);
       
       if (response.success) {
         setState({

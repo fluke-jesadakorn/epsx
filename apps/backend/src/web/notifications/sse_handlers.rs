@@ -89,6 +89,12 @@ impl NotificationBroadcaster {
     }
 }
 
+impl Default for NotificationBroadcaster {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 // ============================================================================
 // SSE HANDLERS
 // ============================================================================

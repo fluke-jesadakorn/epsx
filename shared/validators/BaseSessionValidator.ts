@@ -19,7 +19,8 @@ import type {
   SessionValidationResponse,
   SessionData
 } from '../types/domain/Session'
-import type { UserProfile, AdminUserProfile } from '../types/domain/User'
+import type { UserProfile, AdminUserProfile, PermissionGroup } from '../types/domain/User'
+import { getPermissionGroupLevel } from '../types/domain/User'
 
 // JWT payload types for backward compatibility
 interface AdminJWTPayload {
@@ -804,6 +805,7 @@ export class BaseSessionValidator {
   }
 
   /**
+   * @deprecated Use hasMinimumPermissionGroup instead
    * Check if user has package tier access
    */
   hasPackageTier(user: UserProfile | AdminUserProfile, tier: string): boolean {
@@ -816,8 +818,18 @@ export class BaseSessionValidator {
       ENTERPRISE: 6
     }
     
-    const userLevel = tierHierarchy[user.packageTier] || 0
+    const userLevel = tierHierarchy[(user as any).packageTier] || 0
     const requiredLevel = tierHierarchy[tier] || 1
+    
+    return userLevel >= requiredLevel
+  }
+
+  /**
+   * Check if user has minimum permission group access
+   */
+  hasMinimumPermissionGroup(user: UserProfile | AdminUserProfile, requiredGroup: PermissionGroup): boolean {
+    const userLevel = getPermissionGroupLevel(user.permissionGroup)
+    const requiredLevel = getPermissionGroupLevel(requiredGroup)
     
     return userLevel >= requiredLevel
   }

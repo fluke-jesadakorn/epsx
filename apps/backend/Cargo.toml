@@ -29,6 +29,18 @@ name = "test_docs"
 path = "src/bin/test_docs.rs"
 
 [[bin]]
+name = "deep_websocket_debug"
+path = ".debug/deep_websocket_debug.rs"
+
+[[bin]]
+name = "test_smart_progression"
+path = ".debug/test_smart_progression.rs"
+
+[[bin]]
+name = "inspect_st4_fields"
+path = ".debug/inspect_st4_fields.rs"
+
+[[bin]]
 name = "serverless_handler"
 path = "src/bin/serverless_handler.rs"
 required-features = ["serverless"]
@@ -214,3 +226,10 @@ panic = "abort"
 codegen-units = 1
 
 
+[[bin]]
+name = "test_ko_earnings"
+path = ".debug/test_ko_earnings.rs"
+
+[[bin]]
+name = "raw_websocket_inspector"
+path = ".debug/raw_websocket_inspector.rs"

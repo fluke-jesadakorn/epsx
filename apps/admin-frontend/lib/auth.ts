@@ -1,17 +1,20 @@
 'use client'
 
 /**
- * Web3 Enterprise Admin Authentication
+ * Web3 Admin Wallet Authentication
  * Pure Web3 wallet-based authentication for admin dashboard
  */
 
 import { create } from 'zustand'
 import { config } from '@/config/env'
+import { derivePermissionGroupFromPermissions, getPermissionGroupLevel } from '../../../../shared/permissions/utils/platform'
+import { createAdminClient, SharedWeb3AuthClient, UserInfoResponse } from '../../../../shared/auth/openid-web3-client'
 
-// Web3 Enterprise Admin User interface
-export interface EnterpriseAdminUser {
+// Web3 Admin Wallet interface (migrated from EnterpriseAdminUser)
+export interface AdminWallet {
   wallet_address: string;
-  enterprise_tier: 'Starter' | 'Business' | 'Enterprise' | 'Whale';
+  permission_group: 'Basic Access Group' | 'Standard Access Group' | 'Premium Access Group' | 'Professional Access Group' | 'Enterprise Access Group';
+  enterprise_tier?: 'Starter' | 'Business' | 'Enterprise' | 'Whale'; // @deprecated Use permission_group instead
   permissions: string[];
   has_api_access: boolean;
   verified_tokens_usd: number;
@@ -21,8 +24,15 @@ export interface EnterpriseAdminUser {
   admin_permissions: string[];
 }
 
+// Web3 admin client instance
+const adminWeb3Client = createAdminClient();
+
+// Backward compatibility alias
+export type EnterpriseAdminUser = AdminWallet;
+
 export interface Web3AdminAuthState {
-  user: EnterpriseAdminUser | null;
+  wallet: AdminWallet | null;
+  user: EnterpriseAdminUser | null; // @deprecated Use wallet instead
   isLoading: boolean;
   isAuthenticated: boolean;
   error: string | null;
@@ -76,25 +86,48 @@ function parsePermission(permissionString: string): { platform: string; resource
   };
 }
 
-// Create Web3 enterprise admin auth store
+// Transform Web3 user to admin wallet format
+function transformWeb3UserToAdminWallet(web3User: UserInfoResponse): AdminWallet {
+  const permissions = web3User.permissions || [];
+  const isAdmin = permissions.some(p => p.startsWith('admin:'));
+  
+  return {
+    wallet_address: web3User.wallet_address,
+    permission_group: derivePermissionGroupFromPermissions(permissions) as any,
+    enterprise_tier: 'Starter', // Default tier, could be derived from permissions
+    permissions,
+    has_api_access: true, // Admin users have API access
+    verified_tokens_usd: 0, // Could be derived from permissions or separate API
+    nft_collections: [],
+    dao_memberships: [],
+    is_admin: isAdmin,
+    admin_permissions: permissions.filter(p => p.startsWith('admin:')),
+  };
+}
+
+// Create Web3 admin wallet auth store
 export const useAuth = create<Web3AdminAuthState & {
   // Web3 Admin Actions
   connectWallet: () => Promise<void>;
-  authenticateAdmin: () => Promise<void>;
+  authenticateAdmin: (walletAddress?: string, signature?: string, message?: string, nonce?: string) => Promise<void>;
+  requestAdminChallenge: (walletAddress: string) => Promise<{ nonce: string; message: string; wallet_address: string }>;
   disconnectWallet: () => Promise<void>;
-  getAdminUser: () => Promise<EnterpriseAdminUser | null>;
+  getAdminWallet: () => Promise<AdminWallet | null>;
+  getAdminUser: () => Promise<EnterpriseAdminUser | null>; // @deprecated Use getAdminWallet instead
   refreshSession: () => Promise<void>;
   clearError: () => void;
   // Permission helpers
   can: (permission: string) => boolean;
   hasAnyPermission: (permissions: string[]) => boolean;
   hasAllPermissions: (permissions: string[]) => boolean;
+  hasMinimumPermissionGroup: (requiredGroup: string) => boolean;
   isAdmin: () => boolean;
   canManageUsers: () => boolean;
   canManageSystem: () => boolean;
   canViewAnalytics: () => boolean;
 }>((set, get) => ({
-  user: null,
+  wallet: null,
+  user: null, // @deprecated Use wallet instead
   isLoading: false,
   isAuthenticated: false,
   error: null,
@@ -108,20 +141,39 @@ export const useAuth = create<Web3AdminAuthState & {
     set({ isConnecting: true, error: null });
     
     try {
-      // This would integrate with wallet connection logic
-      // For now, we'll simulate the wallet connection
       console.log('🔄 Admin: Connecting Web3 wallet...');
       
-      // Note: This should integrate with actual wallet connection library
-      // such as wagmi/rainbowkit for the admin frontend
-      const walletAddress = await (window as any).__admin_wallet_connect?.();
-      
-      if (walletAddress) {
-        set({ walletAddress, isConnecting: false });
-        console.log('✅ Admin: Wallet connected:', walletAddress.slice(0, 8) + '...');
-      } else {
-        throw new Error('Wallet connection cancelled');
+      // Check if already authenticated
+      if (adminWeb3Client.isAuthenticated()) {
+        const web3User = await adminWeb3Client.loadCurrentUser();
+        if (web3User) {
+          const adminWallet = transformWeb3UserToAdminWallet(web3User);
+          
+          // Check admin permissions
+          if (!adminWallet.is_admin) {
+            throw new Error('Insufficient admin permissions');
+          }
+          
+          set({ 
+            wallet: adminWallet,
+            user: adminWallet, // For backward compatibility
+            walletAddress: adminWallet.wallet_address,
+            isAuthenticated: true,
+            isConnecting: false,
+            expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
+          });
+          
+          console.log('✅ Admin: Already authenticated with wallet:', adminWallet.wallet_address.slice(0, 8) + '...');
+          return;
+        }
       }
+      
+      // Trigger wallet connection event for Web3 components
+      const walletConnectEvent = new CustomEvent('epsx:admin-connect-wallet');
+      window.dispatchEvent(walletConnectEvent);
+      
+      set({ isConnecting: false });
+      
     } catch (error) {
       console.error('❌ Admin: Wallet connection failed:', error);
       set({ 
@@ -131,81 +183,61 @@ export const useAuth = create<Web3AdminAuthState & {
     }
   },
 
-  // Authenticate admin with Web3 signature
-  authenticateAdmin: async () => {
-    const { walletAddress } = get();
-    if (!walletAddress) {
-      set({ error: 'Please connect wallet first' });
-      return;
-    }
-
+  // Authenticate admin with Web3 signature (called by Web3 components)
+  authenticateAdmin: async (walletAddress?: string, signature?: string, message?: string, nonce?: string) => {
     set({ isAuthenticating: true, error: null });
 
     try {
       console.log('🔄 Admin: Starting Web3 enterprise authentication...');
       
-      // Get challenge from enterprise API
-      const challengeResponse = await fetch('/api/auth/web3/challenge', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ wallet_address: walletAddress }),
-      });
-
-      if (!challengeResponse.ok) {
-        throw new Error('Failed to get authentication challenge');
-      }
-
-      const challenge = await challengeResponse.json();
-      
-      // Sign message with wallet
-      const signature = await (window as any).__admin_wallet_sign?.(challenge.message);
-      if (!signature) {
-        throw new Error('Signature cancelled');
-      }
-
-      // Verify signature with enterprise API
-      const verifyResponse = await fetch('/api/auth/web3/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      // If signature provided, use it directly
+      if (walletAddress && signature && message && nonce) {
+        const result = await adminWeb3Client.authenticateWithSignature({
           wallet_address: walletAddress,
           signature,
-          message: challenge.message,
-          nonce: challenge.nonce,
-        }),
-      });
-
-      if (!verifyResponse.ok) {
-        throw new Error('Authentication verification failed');
+          message,
+          nonce
+        });
+        
+        if (!result.success || !result.user) {
+          throw new Error(result.error || 'Authentication failed');
+        }
+        
+        const adminWallet = transformWeb3UserToAdminWallet(result.user);
+        
+        // Check admin permissions
+        if (!adminWallet.is_admin) {
+          throw new Error('Insufficient admin permissions for admin dashboard');
+        }
+        
+        set({
+          wallet: adminWallet,
+          user: adminWallet, // For backward compatibility
+          walletAddress: adminWallet.wallet_address,
+          isAuthenticated: true,
+          isAuthenticating: false,
+          expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
+        });
+        
+        console.log('✅ Admin: Web3 enterprise authentication successful');
+        return;
       }
-
-      const adminData = await verifyResponse.json();
       
-      // Check if user has admin permissions
-      if (!adminData.admin_permissions?.length && !adminData.permissions?.some((p: string) => p.startsWith('admin:'))) {
-        throw new Error('Insufficient admin permissions');
+      // Otherwise, trigger auth flow
+      const { walletAddress: currentWalletAddress } = get();
+      if (!currentWalletAddress) {
+        set({ error: 'Please connect wallet first', isAuthenticating: false });
+        return;
       }
-
-      const adminUser: EnterpriseAdminUser = {
-        wallet_address: adminData.wallet_address,
-        enterprise_tier: adminData.enterprise_tier || 'Starter',
-        permissions: adminData.permissions || [],
-        has_api_access: adminData.has_api_access || false,
-        verified_tokens_usd: adminData.verified_tokens_usd || 0,
-        nft_collections: adminData.nft_collections || [],
-        dao_memberships: adminData.dao_memberships || [],
-        is_admin: true,
-        admin_permissions: adminData.admin_permissions || [],
-      };
-
-      set({
-        user: adminUser,
-        isAuthenticated: true,
-        isAuthenticating: false,
-        expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
+      
+      // Trigger authentication event for Web3 components to handle
+      const authEvent = new CustomEvent('epsx:admin-authenticate', {
+        detail: { walletAddress: currentWalletAddress }
       });
-
-      console.log('✅ Admin: Web3 enterprise authentication successful');
+      window.dispatchEvent(authEvent);
+      
+      set({ isAuthenticating: false });
+      
     } catch (error) {
       console.error('❌ Admin: Authentication failed:', error);
       set({
@@ -215,29 +247,33 @@ export const useAuth = create<Web3AdminAuthState & {
       });
     }
   },
+  
+  // Request Web3 challenge for admin authentication
+  requestAdminChallenge: async (walletAddress: string) => {
+    try {
+      console.log('🔄 Admin: Requesting Web3 challenge...', { walletAddress: walletAddress.slice(0, 8) + '...' });
+      
+      const challenge = await adminWeb3Client.requestChallenge(walletAddress);
+      
+      console.log('✅ Admin: Challenge received for admin authentication');
+      return challenge;
+      
+    } catch (error) {
+      console.error('❌ Admin: Challenge request failed:', error);
+      throw error;
+    }
+  },
 
   // Disconnect wallet and clear session
   disconnectWallet: async () => {
     set({ isLoading: true });
     
     try {
-      // Notify backend of logout
-      if (get().isAuthenticated) {
-        await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/auth/token/revoke`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            refresh_token: '', // Will be handled by cookie
-            client_id: 'epsx-admin'
-          }),
-          credentials: 'include',
-        });
-      }
-
-      // Clear wallet connection
-      await (window as any).__admin_wallet_disconnect?.();
+      // Use Web3 client logout
+      await adminWeb3Client.logout();
 
       set({
+        wallet: null,
         user: null,
         isAuthenticated: false,
         expiresAt: null,
@@ -247,7 +283,7 @@ export const useAuth = create<Web3AdminAuthState & {
       });
 
       console.log('✅ Admin: Wallet disconnected and session cleared');
-      window.location.href = '/login';
+      window.location.href = '/auth';
     } catch (error) {
       console.error('❌ Admin: Disconnect failed:', error);
       set({ 
@@ -257,98 +293,65 @@ export const useAuth = create<Web3AdminAuthState & {
     }
   },
 
-  // Get current admin user
-  getAdminUser: async () => {
-    const { user, expiresAt } = get();
-    if (user && expiresAt && Date.now() < expiresAt) {
-      return user;
+  // Get current admin wallet (NEW)
+  getAdminWallet: async () => {
+    const { wallet, expiresAt } = get();
+    if (wallet && expiresAt && Date.now() < expiresAt) {
+      return wallet;
     }
 
-    set({ isLoading: true, error: null });
-
+    // Try to load from Web3 client
     try {
-      const response = await fetch('/api/auth/session', {
-        credentials: 'include'
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
+      const web3User = await adminWeb3Client.loadCurrentUser();
+      if (web3User) {
+        const adminWallet = transformWeb3UserToAdminWallet(web3User);
+        
+        // Verify admin permissions
+        if (!adminWallet.is_admin) {
           set({ 
+            wallet: null,
             user: null,
             isAuthenticated: false,
-            expiresAt: null,
-            isLoading: false
+            error: 'Insufficient admin permissions'
           });
           return null;
         }
-        throw new Error(`Admin session fetch failed: ${response.status}`);
-      }
-
-      const data = await response.json();
-      
-      if (!data.isAuthenticated || !data.user) {
+        
         set({ 
-          user: null,
-          isAuthenticated: false,
-          expiresAt: null,
-          isLoading: false
+          wallet: adminWallet,
+          user: adminWallet,
+          isAuthenticated: true,
+          expiresAt: Date.now() + (24 * 60 * 60 * 1000)
         });
-        return null;
+        
+        return adminWallet;
       }
-
-      // Validate admin permissions
-      const hasAdminAccess = data.user.admin_permissions?.length > 0 || 
-        data.user.permissions?.some((p: string) => p.startsWith('admin:'));
-
-      if (!hasAdminAccess) {
-        set({ 
-          user: null,
-          isAuthenticated: false,
-          expiresAt: null,
-          isLoading: false,
-          error: 'Insufficient admin permissions'
-        });
-        return null;
-      }
-
-      const adminUser: EnterpriseAdminUser = {
-        wallet_address: data.user.wallet_address,
-        enterprise_tier: data.user.enterprise_tier || 'Starter',
-        permissions: data.user.permissions || [],
-        has_api_access: data.user.has_api_access || false,
-        verified_tokens_usd: data.user.verified_tokens_usd || 0,
-        nft_collections: data.user.nft_collections || [],
-        dao_memberships: data.user.dao_memberships || [],
-        is_admin: true,
-        admin_permissions: data.user.admin_permissions || [],
-      };
-
-      set({ 
-        user: adminUser,
-        isAuthenticated: true,
-        expiresAt: data.expiresAt,
-        isLoading: false
-      });
-
-      return adminUser;
-
     } catch (error) {
-      console.error('❌ Get admin user failed:', error);
-      set({ 
-        user: null,
-        isAuthenticated: false,
-        expiresAt: null,
-        error: 'Failed to load admin session. Please authenticate again.',
-        isLoading: false
-      });
-      return null;
+      console.error('❌ Failed to load admin wallet:', error);
     }
+    
+    // Clear session if unable to load
+    set({ 
+      wallet: null,
+      user: null,
+      isAuthenticated: false,
+      expiresAt: null
+    });
+    
+    return null;
+  },
+
+  // Get current admin user (@deprecated - use getAdminWallet)
+  getAdminUser: async () => {
+    // Delegate to getAdminWallet for Web3-first approach
+    const wallet = await get().getAdminWallet();
+    return wallet; // AdminWallet and EnterpriseAdminUser are type-compatible
   },
 
   // Refresh admin session
   refreshSession: async () => {
     try {
-      await get().getAdminUser();
+      await get().getAdminWallet();
     } catch (error) {
       console.error('❌ Admin session refresh failed:', error);
       get().disconnectWallet();
@@ -384,16 +387,36 @@ export const useAuth = create<Web3AdminAuthState & {
     return permissions.every(permission => get().can(permission));
   },
 
-  // Web3 enterprise tier checking
+  // Permission group checking (NEW)
+  hasMinimumPermissionGroup: (requiredGroup: string) => {
+    const { wallet, user } = get();
+    const currentWallet = wallet || user; // Support both new and legacy
+    if (!currentWallet) return false;
+    
+    const currentGroup = currentWallet.permission_group || 
+                        derivePermissionGroupFromPermissions(currentWallet.permissions || []);
+    
+    const currentLevel = getPermissionGroupLevel(currentGroup);
+    const requiredLevel = getPermissionGroupLevel(requiredGroup);
+    
+    return currentLevel >= requiredLevel;
+  },
+
+  // @deprecated Use hasMinimumPermissionGroup instead
   hasEnterpriseTier: (tier: 'Starter' | 'Business' | 'Enterprise' | 'Whale') => {
     const { user } = get();
     if (!user) return false;
     
-    const tierHierarchy = { 'Starter': 1, 'Business': 2, 'Enterprise': 3, 'Whale': 4 };
-    const userLevel = tierHierarchy[user.enterprise_tier] || 0;
-    const requiredLevel = tierHierarchy[tier] || 1;
+    // Map legacy tiers to permission groups for backward compatibility
+    const tierToGroupMap = {
+      'Starter': 'Basic Access Group',
+      'Business': 'Standard Access Group', 
+      'Enterprise': 'Professional Access Group',
+      'Whale': 'Enterprise Access Group'
+    };
     
-    return userLevel >= requiredLevel;
+    const requiredGroup = tierToGroupMap[tier] || 'Basic Access Group';
+    return get().hasMinimumPermissionGroup(requiredGroup);
   },
 
   // Admin-specific permission checks for Web3 enterprise
@@ -470,10 +493,51 @@ export const useAuth = create<Web3AdminAuthState & {
   },
 }));
 
-// Initialize Web3 admin auth on client mount
+// Subscribe to Web3 client changes
 if (typeof window !== 'undefined') {
+  // Subscribe to Web3 client user changes
+  adminWeb3Client.subscribe((web3User) => {
+    const state = useAuth.getState();
+    
+    if (web3User) {
+      const adminWallet = transformWeb3UserToAdminWallet(web3User);
+      
+      // Only update if user has admin permissions
+      if (adminWallet.is_admin) {
+        useAuth.setState({
+          wallet: adminWallet,
+          user: adminWallet,
+          walletAddress: adminWallet.wallet_address,
+          isAuthenticated: true,
+          expiresAt: Date.now() + (24 * 60 * 60 * 1000),
+          error: null
+        });
+      } else {
+        // Clear session if no admin permissions
+        useAuth.setState({
+          wallet: null,
+          user: null,
+          walletAddress: undefined,
+          isAuthenticated: false,
+          expiresAt: null,
+          error: 'Insufficient admin permissions'
+        });
+      }
+    } else {
+      // Clear session if Web3 user is null
+      useAuth.setState({
+        wallet: null,
+        user: null,
+        walletAddress: undefined,
+        isAuthenticated: false,
+        expiresAt: null,
+        error: null
+      });
+    }
+  });
+  
   // Auto-fetch admin user on app start
-  useAuth.getState().getAdminUser();
+  useAuth.getState().getAdminWallet();
 }
 
 // Helper functions for Web3 enterprise admin components

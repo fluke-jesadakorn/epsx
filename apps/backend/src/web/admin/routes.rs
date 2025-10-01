@@ -78,7 +78,7 @@ use super::security_monitoring_handlers::{ SecurityMonitoringHandlers };
 //   toggle_policy_handler as toggle_policy_status,
 // };
 // Dynamic plan management handlers (simplified)
-use super::plan_management_handlers_simple::{
+use super::plan_handlers::{
   create_plan_handler,
   get_plan_handler,
   list_plans_handler,
@@ -114,6 +114,22 @@ use super::web3_admin_handlers::{
   get_nft_gates,
   get_token_gates,
   get_dao_proposals,
+  get_recent_wallets,
+  search_wallets,
+};
+// Consolidated user management handlers
+use super::user_management_handlers::{
+  list_users_handler,
+  get_user_handler,
+  update_user_handler,
+  get_user_stats_handler,
+};
+// Analytics and business intelligence handlers
+use super::analytics_handlers::{
+  get_platform_overview_handler,
+  get_user_analytics_handler,
+  get_permission_analytics_handler,
+  get_revenue_analytics_handler,
 };
 // Removed admin module management handlers - using simple roles
 use crate::web::auth::AppState;
@@ -280,6 +296,8 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/web3/token-gates", post(create_token_gate))
     .route("/web3/dao-proposals", get(get_dao_proposals))
     .route("/web3/dao-proposals", post(create_dao_proposal))
+    .route("/web3/recent-wallets", get(get_recent_wallets))
+    .route("/wallets/search", get(search_wallets))
 
     // ============================================================================
     // BACKEND-CENTRIC PERMISSION AUTHORITY SYSTEM (THE SINGLE SOURCE OF TRUTH)
@@ -297,6 +315,28 @@ pub fn create_admin_routes() -> Router<AppState> {
     // Wallet Assignment Management (wallet-first system)
     .route("/wallet-assignments", post(create_wallet_assignment_handler))
     .route("/wallets/:wallet_address/assignments", get(get_wallet_assignments_handler))
+
+    // ============================================================================
+    // CONSOLIDATED USER MANAGEMENT SYSTEM
+    // Backend-centric user operations with comprehensive data and analytics
+    // ============================================================================
+    
+    // User Management routes (require admin:users:* permissions)
+    .route("/users", get(list_users_handler))
+    .route("/users/stats", get(get_user_stats_handler))
+    .route("/users/:wallet_address", get(get_user_handler))
+    .route("/users/:wallet_address", put(update_user_handler))
+
+    // ============================================================================
+    // ANALYTICS AND BUSINESS INTELLIGENCE SYSTEM
+    // Data aggregation and insights for administrative decision making
+    // ============================================================================
+    
+    // Analytics routes (require admin:analytics:* permissions)
+    .route("/analytics/overview", get(get_platform_overview_handler))
+    .route("/analytics/users", get(get_user_analytics_handler))
+    .route("/analytics/permissions", get(get_permission_analytics_handler))
+    .route("/analytics/revenue", get(get_revenue_analytics_handler))
 
     // TODO: Temporarily disabled due to Axum trait bound issues
     // .layer(axum::middleware::from_fn(crate::web::middleware::web3_auth_middleware))

@@ -29,7 +29,8 @@ export {
   requireAdminSession,
   hasPermission as hasAdminPermission,
   hasAdminPermission as hasAdminPermissionStrict,
-  hasPackageTier as hasAdminPackageTier,
+  hasPackageTier as hasAdminPackageTier, // @deprecated
+  hasMinimumPermissionGroup as hasAdminPermissionGroup,
   canAccessAdminPath
 } from './AdminSessionValidator'
 
@@ -42,7 +43,7 @@ export {
   hasFeatureAccess,
   hasRole,
   hasPermission as hasUserPermission,
-  hasPackageTier as hasUserPackageTier,
+  hasPackageTier as hasUserPackageTier, // @deprecated
   canAccessUserPath,
   getUserRateLimit,
   getAvailableFeatures,

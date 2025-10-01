@@ -17,6 +17,7 @@ use crate::domain::user_management::{
 };
 use crate::auth::unified_web3_auth_service::UnifiedWeb3AuthService;
 use crate::auth::openid_token_service::OpenIDTokenService;
+use crate::auth::key_manager::KeyManager;
 
 /// Enhanced container with Web3-first services
 #[derive(Clone)]
@@ -112,13 +113,14 @@ impl SimpleContainer {
             domain,
         ));
         
-        // Create OpenID token service
+        // Create OpenID token service with RSA key manager
+        let key_manager = KeyManager::from_env_or_generate()
+            .expect("Failed to initialize RSA key manager");
         let openid_token_service = Arc::new(OpenIDTokenService::new(
             (*db_pool).clone(),
             "https://api.epsx.io".to_string(), // issuer
             vec!["epsx-frontend".to_string(), "epsx-admin".to_string()], // audiences
-            // TODO: Load actual RSA private key from environment
-            jsonwebtoken::EncodingKey::from_secret(b"dev-secret-key"), // placeholder for development
+            Arc::new(key_manager),
         ));
         
         Self {

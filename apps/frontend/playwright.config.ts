@@ -25,7 +25,7 @@ export default defineConfig({
   use: {
     baseURL: getFrontendUrl('client'),
     trace: 'on-first-retry',
-    screenshot: 'on-failure',
+    screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     actionTimeout: 15000,
     navigationTimeout: 30000,

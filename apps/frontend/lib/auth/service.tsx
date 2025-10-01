@@ -8,6 +8,8 @@ import React from 'react';
 import { authConfig } from '@/config/auth';
 import { clientConfig } from '@/config/env';
 import { logger as authLogger, safeError, isJWTExpired, getJWTTimeToExpiry } from '@/lib/shared';
+import { derivePermissionGroupFromPermissions } from '../../../../shared/permissions/utils/platform';
+import { createFrontendClient, SharedWeb3AuthClient, UserInfoResponse, Web3TokenResponse } from '../../../../shared/auth/openid-web3-client';
 
 // 🔒 SECURITY CRITICAL: Backend permission authority removed - permissions handled by backend only
 
@@ -25,7 +27,7 @@ export interface PermissionAwareUser {
   permissions: string[]; // Simple permission list
   
   // Derived permission-based attributes
-  packageTier: string; // Derived from permissions
+  permissionGroup: string; // Derived from permissions
   accessiblePlatforms: string[]; // Derived from permissions
   role: string; // Derived from permissions
   
@@ -145,9 +147,22 @@ export class PermissionAwareAuthService {
   private currentUser: PermissionAwareUser | null = null;
   private listeners: Set<(user: PermissionAwareUser | null) => void> = new Set();
   private permissionRefreshInterval: NodeJS.Timeout | null = null;
+  private web3Client: SharedWeb3AuthClient;
   
   private constructor() {
-    // Backend handles all permission logic
+    // Initialize Web3 client for frontend
+    this.web3Client = createFrontendClient();
+    
+    // Subscribe to Web3 client user changes
+    this.web3Client.subscribe((web3User) => {
+      if (web3User) {
+        this.currentUser = this.transformWeb3UserToPermissionAware(web3User);
+      } else {
+        this.currentUser = null;
+        this.stopPermissionMonitoring();
+      }
+      this.notifyListeners();
+    });
   }
 
   static getInstance(): PermissionAwareAuthService {
@@ -204,36 +219,20 @@ export class PermissionAwareAuthService {
   // Load user with Web3-first approach and permission focus
   async loadUser(): Promise<PermissionAwareUser | null> {
     try {
-      // Try Web3 authentication first
-      let response = await fetch('/api/auth/current-user', {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      // Fallback to traditional user endpoint if needed
-      if (!response.ok && response.status === 404) {
-        response = await fetch('/api/auth/user', {
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
+      authLogger.info('Loading user with Web3-first authentication');
+      
+      // Use Web3 client to load current user
+      const web3User = await this.web3Client.loadCurrentUser();
+      
+      if (!web3User) {
+        this.currentUser = null;
+        this.stopPermissionMonitoring();
+        this.notifyListeners();
+        return null;
       }
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          this.currentUser = null;
-          this.stopPermissionMonitoring();
-          this.notifyListeners();
-          return null;
-        }
-        throw new Error('Failed to load user data');
-      }
-
-      const userData = await response.json();
-      const user = this.transformToPermissionAwareUser(userData);
+      // Transform Web3 user to permission-aware format
+      const user = this.transformWeb3UserToPermissionAware(web3User);
       
       this.currentUser = user;
       this.startPermissionMonitoring(); // Start monitoring permission health
@@ -258,7 +257,47 @@ export class PermissionAwareAuthService {
     }
   }
 
-  // Transform backend data to permission-aware user format
+  // Transform Web3 user to permission-aware user format
+  private transformWeb3UserToPermissionAware(web3User: UserInfoResponse): PermissionAwareUser {
+    const permissions: string[] = web3User.permissions || [];
+    
+    return {
+      // Identity (Web3-first)
+      id: web3User.sub,
+      walletAddress: web3User.wallet_address,
+      email: web3User.email,
+      name: web3User.wallet_address, // Use wallet address as display name
+      photoURL: undefined,
+      emailVerified: !!web3User.email,
+      
+      // Core permissions (from Web3 backend)
+      permissions,
+      
+      // Derived attributes (permission-based derivation)
+      permissionGroup: derivePermissionGroupFromPermissions(permissions),
+      accessiblePlatforms: derivePlatformsFromPermissions(permissions),
+      role: deriveRoleFromPermissions(permissions),
+      
+      // Feature access (derived from permissions)
+      featureAccess: {
+        analytics: permissions.some(p => p.includes('analytics') || p.includes('epsx:')),
+        export: permissions.some(p => p.includes('export') || p.includes('epsx:')),
+        realtime: permissions.some(p => p.includes('realtime') || p.includes('epsx:')),
+        advancedFilters: permissions.some(p => p.includes('advanced') || p.includes('epsx:')),
+        admin: permissions.some(p => p.startsWith('admin:'))
+      },
+      
+      // Timestamps
+      createdAt: new Date().toISOString(),
+      lastLogin: new Date().toISOString(),
+      expiresAt: undefined,
+      
+      // Web3 specific
+      authMethod: 'web3'
+    };
+  }
+  
+  // Transform backend data to permission-aware user format (legacy support)
   private transformToPermissionAwareUser(userData: BackendUserData): PermissionAwareUser {
     // Use simple permissions array
     const permissions: string[] = userData.granular_permissions || [];
@@ -279,7 +318,7 @@ export class PermissionAwareAuthService {
       permissions,
       
       // Derived attributes (permission-based derivation)
-      packageTier: derivePackageTierFromPermissions(permissions),
+      permissionGroup: derivePermissionGroupFromPermissions(permissions),
       accessiblePlatforms: derivePlatformsFromPermissions(permissions),
       role: deriveRoleFromPermissions(permissions),
       
@@ -312,6 +351,13 @@ export class PermissionAwareAuthService {
     try {
       authLogger.info('Initiating Web3 wallet connection');
       
+      // Check if user is already authenticated
+      if (this.web3Client.isAuthenticated()) {
+        authLogger.info('User already authenticated with Web3');
+        await this.loadUser();
+        return;
+      }
+      
       // Trigger Web3 modal/connection flow
       // This will be handled by the Web3 components
       const walletConnectEvent = new CustomEvent('epsx:connect-wallet');
@@ -324,29 +370,73 @@ export class PermissionAwareAuthService {
     }
   }
   
+  // Handle Web3 authentication with signature (called by Web3 components)
+  async authenticateWithWallet(walletAddress: string, signature: string, message: string, nonce: string): Promise<boolean> {
+    try {
+      authLogger.info('Authenticating with wallet signature', { walletAddress });
+      
+      const result = await this.web3Client.authenticateWithSignature({
+        wallet_address: walletAddress,
+        signature,
+        message,
+        nonce
+      });
+      
+      if (result.success && result.user) {
+        this.currentUser = this.transformWeb3UserToPermissionAware(result.user);
+        this.startPermissionMonitoring();
+        this.notifyListeners();
+        
+        authLogger.info('Web3 authentication successful', {
+          walletAddress: result.user.wallet_address,
+          permissions: result.user.permissions?.length || 0
+        });
+        
+        return true;
+      } else {
+        authLogger.error('Web3 authentication failed', { error: result.error });
+        throw new Error(result.error || 'Authentication failed');
+      }
+    } catch (error) {
+      const errorMsg = safeError(error).message;
+      authLogger.error('Web3 authentication error', { error: errorMsg });
+      throw new Error(errorMsg);
+    }
+  }
+  
+  // Request Web3 challenge for signature
+  async requestWeb3Challenge(walletAddress: string): Promise<{ nonce: string; message: string }> {
+    try {
+      authLogger.info('Requesting Web3 challenge', { walletAddress });
+      
+      const challenge = await this.web3Client.requestChallenge(walletAddress);
+      
+      authLogger.info('Web3 challenge received', { nonce: challenge.nonce.substring(0, 8) + '...' });
+      
+      return {
+        nonce: challenge.nonce,
+        message: challenge.message
+      };
+    } catch (error) {
+      const errorMsg = safeError(error).message;
+      authLogger.error('Web3 challenge request failed', { error: errorMsg });
+      throw new Error(errorMsg);
+    }
+  }
+  
   // Web3 authentication is the primary method - no fallback needed
 
   // Logout user (clears Web3 sessions and wallet connections)
   async logout(): Promise<void> {
     try {
-      // Clear Web3 session
-      await fetch('/api/auth/web3/logout', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      // Use Web3 client logout
+      await this.web3Client.logout();
 
       this.currentUser = null;
       this.stopPermissionMonitoring();
       this.notifyListeners();
       
       authLogger.info('User logged out successfully (Web3 session and permissions cleared)');
-      
-      // Trigger wallet disconnect event
-      const walletDisconnectEvent = new CustomEvent('epsx:disconnect-wallet');
-      window.dispatchEvent(walletDisconnectEvent);
       
       // Redirect to home
       window.location.href = '/';
@@ -361,30 +451,27 @@ export class PermissionAwareAuthService {
   // Refresh Web3 session and permissions
   async refreshToken(): Promise<boolean> {
     try {
-      const response = await fetch('/api/auth/web3/refresh', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          // Web3 session expired, logout user
-          await this.logout();
-          return false;
-        }
-        throw new Error('Web3 session refresh failed');
+      // Web3-first system: no refresh tokens, check current authentication status
+      if (!this.web3Client.isAuthenticated()) {
+        authLogger.info('Web3 session expired, user needs to re-authenticate');
+        await this.logout();
+        return false;
       }
-
-      const userData = await response.json();
-      const user = this.transformToPermissionAwareUser(userData);
       
+      // Reload user from current session
+      const web3User = await this.web3Client.loadCurrentUser();
+      
+      if (!web3User) {
+        authLogger.info('Web3 session no longer valid, logging out');
+        await this.logout();
+        return false;
+      }
+      
+      const user = this.transformWeb3UserToPermissionAware(web3User);
       this.currentUser = user;
       this.notifyListeners();
       
-      authLogger.info('Web3 session refreshed successfully', {
+      authLogger.info('Web3 session validated successfully', {
         walletAddress: user.walletAddress,
         permissionCount: user.permissions.length
       });
@@ -392,7 +479,7 @@ export class PermissionAwareAuthService {
 
     } catch (error) {
       const errorMsg = safeError(error).message;
-      authLogger.error('Web3 session refresh failed', { error: errorMsg });
+      authLogger.error('Web3 session validation failed', { error: errorMsg });
       return false;
     }
   }
@@ -402,34 +489,15 @@ export class PermissionAwareAuthService {
     if (!this.currentUser) return;
     
     try {
-      const response = await fetch('/api/auth/web3/permissions', {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      // Use Web3 client to reload current user and permissions
+      const web3User = await this.web3Client.loadCurrentUser();
       
-      if (!response.ok) {
-        throw new Error('Failed to refresh permissions');
+      if (!web3User) {
+        throw new Error('Failed to reload user data');
       }
       
-      const permissionData = await response.json();
-      
-      // Update user permissions
-      const updatedUser = {
-        ...this.currentUser,
-        permissions: permissionData.granular_permissions || []
-      };
-      
-      // Feature access handled by backend
-      updatedUser.featureAccess = {
-        analytics: true,
-        export: true,
-        realtime: true,
-        advancedFilters: true,
-        admin: updatedUser.role === 'admin'
-      };
-      
+      // Update user with new permissions
+      const updatedUser = this.transformWeb3UserToPermissionAware(web3User);
       this.currentUser = updatedUser;
       this.notifyListeners();
       
@@ -591,8 +659,8 @@ This warning will be removed when local validation is fully deprecated.
   }
 
   // Legacy compatibility
-  getPackageTier(): string {
-    return this.currentUser?.packageTier || 'free';
+  getPermissionGroup(): string {
+    return this.currentUser?.permissionGroup || 'Basic Access Group';
   }
 
   getAccessiblePlatforms(): string[] {
@@ -615,34 +683,8 @@ export function usePermissionAuth(): PermissionAuthContextValue {
   return context;
 }
 
-// Permission-based derivation helpers
-function derivePackageTierFromPermissions(permissions: string[]): string {
-  // Admin tier - highest priority
-  if (permissions.some(p => p === "admin:*:*" || p.startsWith("admin:"))) {
-    return "admin";
-  }
-  
-  // Premium tiers based on analytics permissions
-  if (permissions.some(p => p === "epsx:analytics:premium")) {
-    return "premium";
-  }
-  
-  if (permissions.some(p => p === "epsx:analytics:professional")) {
-    return "professional";
-  }
-  
-  // Basic tier
-  if (permissions.some(p => 
-    p === "epsx:analytics:basic" || 
-    p === "epsx:analytics:view" || 
-    p.startsWith("epsx:")
-  )) {
-    return "basic";
-  }
-  
-  // Default free tier
-  return "free";
-}
+// Permission-based derivation helpers - using shared utility
+// Removed local implementation in favor of shared derivePermissionGroupFromPermissions
 
 function deriveRoleFromPermissions(permissions: string[]): string {
   // Admin role - highest priority

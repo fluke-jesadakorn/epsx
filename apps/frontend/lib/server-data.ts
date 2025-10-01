@@ -6,7 +6,7 @@
 import { redirect } from 'next/navigation'
 import { getOIDCAccessTokenFromCookies } from '@/lib/server/jwt'
 import { getBackendUrl } from '../../../shared/utils/url-resolver'
-import { isServerComponentContext } from '@/lib/utils'
+import { isServerComponentContext } from '@/lib/utils/index'
 
 // ============================================================================
 // Server-Side Data Types
@@ -102,7 +102,19 @@ async function serverFetcher(url: string, options: RequestInit = {}) {
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       'User-Agent': 'EPSX-Frontend-Server/1.0',
-      ...options.headers,
+    }
+    
+    // Handle headers properly whether they're a Headers object or plain object
+    if (options.headers) {
+      if (options.headers instanceof Headers) {
+        // Convert Headers to plain object
+        options.headers.forEach((value, key) => {
+          headers[key] = value
+        })
+      } else {
+        // Spread plain object
+        Object.assign(headers, options.headers)
+      }
     }
     
     // Add Authorization header only if we have a valid access token

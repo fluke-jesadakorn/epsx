@@ -16,7 +16,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { 
-  SharedOpenIDWeb3Client, 
+  SharedWeb3AuthClient, 
   UserInfoResponse, 
   UnifiedApiResponse 
 } from '../../auth/openid-web3-client';
@@ -33,6 +33,7 @@ export interface SharedAuthContextValue {
   // Authentication actions
   requestChallenge: (walletAddress: string) => Promise<{ nonce: string; message: string; wallet_address: string }>;
   authenticateWithWallet: (walletAddress: string, signature: string, message: string, nonce: string) => Promise<{ success: boolean; user?: UserInfoResponse; error?: string }>;
+  authenticateWithDirectApi: (result: { wallet_address: string; permissions: string[]; tier_level: string; is_new_user: boolean; access_token?: string }) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
 
@@ -55,6 +56,7 @@ const defaultContextValue: SharedAuthContextValue = {
   error: null,
   requestChallenge: async () => { throw new Error('Not initialized'); },
   authenticateWithWallet: async () => ({ success: false, error: 'Not initialized' }),
+  authenticateWithDirectApi: async () => { throw new Error('Not initialized'); },
   logout: async () => { throw new Error('Not initialized'); },
   refreshUser: async () => { throw new Error('Not initialized'); },
   getWalletAddress: () => null,
@@ -87,20 +89,23 @@ export function SharedOpenIDWeb3Provider({
   const [isSigningChallenge, setIsSigningChallenge] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [client] = useState(() => {
-    // Debug log the backend URL configuration
+    // Enhanced backend URL resolution with environment variable support
     const resolvedBackendUrl = backendUrl || 
       (typeof window !== 'undefined' ? 
-        window.location.origin.replace(/:300[0-9]/, ':8080') : // Handle both :3000 and :3001
-        'http://localhost:8080'
+        // Try environment variables first, then dynamic port replacement
+        (process.env.NEXT_PUBLIC_BACKEND_URL || window.location.origin.replace(/:300[0-9]/, ':8080')) :
+        (process.env.BACKEND_URL || 'http://localhost:8080')
       );
     
-    console.log('🔧 SharedOpenIDWeb3Provider: Backend URL configuration', {
+    console.log('🔧 SharedOpenIDWeb3Provider: Enhanced backend URL configuration', {
       provided: backendUrl,
       resolved: resolvedBackendUrl,
+      envPublic: process.env.NEXT_PUBLIC_BACKEND_URL,
+      envServer: process.env.BACKEND_URL,
       clientId
     });
     
-    return new SharedOpenIDWeb3Client(clientId, resolvedBackendUrl);
+    return new SharedWeb3AuthClient(clientId, resolvedBackendUrl);
   });
 
   // Initialize authentication state
@@ -110,10 +115,54 @@ export function SharedOpenIDWeb3Provider({
         setIsLoading(true);
         setError(null);
         
-        console.log('Initializing shared OpenID + Web3 authentication');
+        // First try to restore Web3 authentication from localStorage
+        let hasStoredAuth = false;
+        if (typeof window !== 'undefined') {
+          try {
+            const storedUser = localStorage.getItem('epsx_web3_user');
+            const storedTimestamp = localStorage.getItem('epsx_web3_auth_timestamp');
+            const accessToken = localStorage.getItem(`${clientId}_access_token`);
+            const tokenExpiry = localStorage.getItem(`${clientId}_token_expiry`);
+            
+            if (storedUser && storedTimestamp) {
+              const authAge = Date.now() - parseInt(storedTimestamp);
+              const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+              const isTokenValid = tokenExpiry ? parseInt(tokenExpiry) > Date.now() : false;
+              
+              if (authAge < maxAge && accessToken && isTokenValid) {
+                const user: UserInfoResponse = JSON.parse(storedUser);
+                setUser(user);
+                hasStoredAuth = true;
+                return; // Skip OpenID client loading
+              } else {
+                // Clear expired or invalid authentication
+                localStorage.removeItem('epsx_web3_user');
+                localStorage.removeItem('epsx_web3_auth_timestamp');
+                localStorage.removeItem('epsx-admin_access_token');
+                localStorage.removeItem(`${clientId}_access_token`);
+                localStorage.removeItem(`${clientId}_refresh_token`);
+                localStorage.removeItem(`${clientId}_token_expiry`);
+              }
+            }
+          } catch (error) {
+            console.warn('Failed to restore authentication from storage');
+          }
+        }
         
-        // Try to load existing user from tokens
-        await client.loadCurrentUser();
+        // If no stored auth, user needs to authenticate
+        if (!hasStoredAuth) {
+          return;
+        }
+        
+        // Fallback: Try to load existing user from OpenID tokens (with timeout)
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('OpenID client timeout')), 3000)
+        );
+        
+        await Promise.race([
+          client.loadCurrentUser(),
+          timeoutPromise
+        ]);
         
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Failed to initialize authentication';
@@ -237,11 +286,104 @@ export function SharedOpenIDWeb3Provider({
     }
   }, [client, onAuthError]);
 
+  // Authenticate with direct API result (bypass OpenID flow)
+  const authenticateWithDirectApi = useCallback(async (result: {
+    wallet_address: string;
+    permissions: string[];
+    tier_level: string;
+    is_new_user: boolean;
+    access_token?: string;
+  }) => {
+    try {
+      setError(null);
+      setIsLoading(true);
+      
+      console.log('🔄 Processing direct API authentication result', {
+        wallet: result.wallet_address,
+        tier: result.tier_level,
+        permissions: result.permissions.length,
+        isNew: result.is_new_user
+      });
+      
+      // Create user info compatible with UserInfoResponse
+      const user: UserInfoResponse = {
+        sub: result.wallet_address,
+        wallet_address: result.wallet_address,
+        tier_level: result.tier_level,
+        auth_method: 'web3_siwe',
+        permissions: result.permissions,
+        packageTier: result.tier_level, // For compatibility
+      };
+      
+      // Persist user data to localStorage for page refresh survival
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem('epsx_web3_user', JSON.stringify(user));
+          localStorage.setItem('epsx_web3_auth_timestamp', Date.now().toString());
+          
+          // Store access token for admin session validation (if provided)
+          if (result.access_token) {
+            localStorage.setItem('epsx-admin_access_token', result.access_token);
+            
+            // Store access token in format expected by SharedWeb3AuthClient
+            localStorage.setItem(`${clientId}_access_token`, result.access_token);
+            
+            // Set token expiry (default to 24 hours if not provided)
+            const expiryTime = Date.now() + (24 * 60 * 60 * 1000);
+            localStorage.setItem(`${clientId}_token_expiry`, expiryTime.toString());
+            
+            console.log('💾 Stored access token for OpenID client compatibility', {
+              clientId,
+              tokenKey: `${clientId}_access_token`,
+              expiryKey: `${clientId}_token_expiry`
+            });
+          }
+          
+          console.log('💾 Persisted Web3 authentication to localStorage');
+        } catch (error) {
+          console.warn('⚠️ Failed to persist authentication data:', error);
+        }
+      }
+      
+      // Update user state directly
+      setUser(user);
+      
+      console.log('✅ Direct API authentication processed successfully');
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to process authentication result';
+      console.error('❌ Direct API authentication processing failed:', errorMessage);
+      setError(errorMessage);
+      onAuthError?.(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [onAuthError]);
+
   // Logout user
   const logout = useCallback(async () => {
     try {
       setError(null);
       console.log('Logging out user');
+      
+      // Clear localStorage Web3 authentication data
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.removeItem('epsx_web3_user');
+          localStorage.removeItem('epsx_web3_auth_timestamp');
+          localStorage.removeItem('epsx-admin_access_token');
+          
+          // Clear OpenID client tokens
+          localStorage.removeItem(`${clientId}_access_token`);
+          localStorage.removeItem(`${clientId}_refresh_token`);
+          localStorage.removeItem(`${clientId}_token_expiry`);
+          
+          console.log('🗑️ Cleared Web3 authentication and OpenID tokens from localStorage', { clientId });
+        } catch (error) {
+          console.warn('⚠️ Failed to clear authentication data:', error);
+        }
+      }
       
       await client.logout();
       
@@ -314,12 +456,15 @@ export function SharedOpenIDWeb3Provider({
   // Context value
   const contextValue: SharedAuthContextValue = {
     user,
-    isAuthenticated: !!user && client.isAuthenticated(),
+    isAuthenticated: !!user && (typeof window !== 'undefined' && 
+      !!localStorage.getItem(`${clientId}_access_token`) && 
+      parseInt(localStorage.getItem(`${clientId}_token_expiry`) || '0') > Date.now()),
     isLoading,
     isSigningChallenge,
     error,
     requestChallenge,
     authenticateWithWallet,
+    authenticateWithDirectApi,
     logout,
     refreshUser,
     getWalletAddress,

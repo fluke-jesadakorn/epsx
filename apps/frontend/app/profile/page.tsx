@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 import { redirect } from 'next/navigation';
 import { getServerSession } from '@/lib/session';
-import { UserProfileClient } from '@/components/profile/UserProfileClient';
+import { WalletProfileClient } from '@/components/profile/WalletProfileClient';
 import { Loader2 } from 'lucide-react';
 
 export const metadata = {
@@ -42,7 +42,7 @@ export default async function ProfilePage() {
               </div>
             }
           >
-            <UserProfileClient user={session.user} />
+            <WalletProfileClient wallet={session.user} />
           </Suspense>
         </div>
       </div>

@@ -287,7 +287,8 @@ export const CACHE_CONFIG = {
  * Get required permissions for a specific route
  */
 export function getRoutePermissions(route: string): string[] | null {
-  return IAM_CONFIG.routes.protected[route as keyof typeof IAM_CONFIG.routes.protected] || null;
+  const permissions = IAM_CONFIG.routes.protected[route as keyof typeof IAM_CONFIG.routes.protected];
+  return permissions ? [...permissions] : null; // Convert readonly array to mutable array
 }
 
 /**
@@ -303,7 +304,7 @@ export function isPublicRoute(route: string): boolean {
  * Check if a route requires authentication only (no specific permissions)
  */
 export function isAuthenticatedRoute(route: string): boolean {
-  return IAM_CONFIG.routes.authenticated.includes(route);
+  return (IAM_CONFIG.routes.authenticated as readonly string[]).includes(route);
 }
 
 /**

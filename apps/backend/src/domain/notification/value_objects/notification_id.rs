@@ -87,7 +87,7 @@ mod tests {
         let id2 = NotificationId::new();
         
         assert_ne!(id1, id2);
-        assert_eq!(id1.value().version(), Some(uuid::Version::Random));
+        assert_eq!(id1.value().get_version(), Some(uuid::Version::Random));
     }
 
     #[test]

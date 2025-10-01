@@ -36,28 +36,44 @@ export function ConditionalAdminLayout({ children, user: serverUser }: Condition
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
   const [authChecked, setAuthChecked] = useState(false)
+  const [redirecting, setRedirecting] = useState(false) // Prevent redirect loops
+  const [authTimeout, setAuthTimeout] = useState(false) // Handle auth timeout
   const { user: authUser, isAuthenticated, hasPermissionForDisplay, isLoading } = useSharedAuth()
   
   useEffect(() => {
     setMounted(true)
+    
+    // Set a timeout to prevent infinite loading state
+    const timeoutId = setTimeout(() => {
+      if (isLoading && !isAuthenticated && !authChecked) {
+        console.warn('🔄 ConditionalAdminLayout: Auth timeout - forcing redirect to auth page');
+        setAuthTimeout(true);
+        setAuthChecked(true);
+      }
+    }, 5000); // 5 second timeout
+    
+    return () => clearTimeout(timeoutId);
   }, [])
   
   // Handle authentication redirects
   useEffect(() => {
-    if (!mounted || isLoading) return
+    if (!mounted || (isLoading && !authTimeout) || redirecting) return
     
     const isPublicPath = PUBLIC_PATHS.some(path => pathname === path || pathname.startsWith(path))
     
     // Skip auth check for public paths
     if (isPublicPath) {
       setAuthChecked(true)
+      setRedirecting(false) // Reset redirecting flag for public paths
       return
     }
     
     // Auth check for protected routes
     const checkAuth = async () => {
-      // If not authenticated, redirect to auth page
-      if (!isAuthenticated) {
+      // Handle timeout case or clear non-authenticated state
+      if ((!isAuthenticated && mounted && (!isLoading || authTimeout) && authChecked === false)) {
+        console.log('🔄 ConditionalAdminLayout: Redirecting to auth - no session' + (authTimeout ? ' (timeout)' : ''));
+        setRedirecting(true);
         const authUrl = new URL('/auth', window.location.origin)
         authUrl.searchParams.set('return_url', pathname)
         authUrl.searchParams.set('reason', 'no-session')
@@ -67,6 +83,8 @@ export function ConditionalAdminLayout({ children, user: serverUser }: Condition
       
       // If authenticated but no admin permissions, redirect to auth with different reason
       if (isAuthenticated && !hasPermissionForDisplay('admin:*:*')) {
+        console.log('🔄 ConditionalAdminLayout: Redirecting to auth - no admin permissions');
+        setRedirecting(true);
         const authUrl = new URL('/auth', window.location.origin)
         authUrl.searchParams.set('return_url', pathname)
         authUrl.searchParams.set('reason', 'no-admin-permissions')
@@ -74,11 +92,15 @@ export function ConditionalAdminLayout({ children, user: serverUser }: Condition
         return
       }
       
+      // If we reach here, auth is valid
       setAuthChecked(true)
+      setRedirecting(false)
     }
     
-    checkAuth()
-  }, [mounted, isLoading, isAuthenticated, hasPermissionForDisplay, pathname, router])
+    // Add a small delay to prevent race conditions with authentication state
+    const timeoutId = setTimeout(checkAuth, 100)
+    return () => clearTimeout(timeoutId)
+  }, [mounted, isLoading, isAuthenticated, hasPermissionForDisplay, pathname, router, redirecting, authChecked, authTimeout])
   
   // Wait for client-side hydration and auth check
   if (!mounted || (!authChecked && !PUBLIC_PATHS.some(path => pathname === path || pathname.startsWith(path)))) {

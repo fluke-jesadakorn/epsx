@@ -10,7 +10,7 @@ use tracing::{debug, info, warn};
 
 use crate::core::errors::AppError;
 use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRankingService, EPSRankingParams};
-use super::{dto::*, enhancement::enhance_with_websocket_data};
+use super::{types::*, enhancement::enhance_with_websocket_data};
 
 /// GET /api/analytics/eps-rankings
 /// Returns top EPS growth stocks with filtering and pagination
@@ -53,7 +53,7 @@ pub async fn get_eps_rankings(
     
     // TEMPORARILY DISABLED: WebSocket enhancement causes 50+ second response times
     // The TradingView data is already real (not hardcoded), so WebSocket enhancement is optional
-    if false && result.rankings.len() <= 20 && result.rankings.len() > 0 {
+    if false && result.rankings.len() <= 20 && !result.rankings.is_empty() {
         debug!("Enhancing {} rankings with WebSocket EPS data", result.rankings.len());
         
         // Extract symbols for WebSocket enhancement
@@ -127,22 +127,26 @@ pub fn convert_screening_result_to_eps_ranking(
     // Calculate price from available metrics (if available)
     let price_current = Some(result.price); // Use actual price field
     
-    EPSRanking {
-        symbol: result.symbol,
-        name: result.name,
-        country: "US".to_string(), // Default country - not available in StockScreeningResult
-        sector: result.sector.unwrap_or("Unknown".to_string()),
-        exchange: "NASDAQ".to_string(), // Default exchange
-        current_eps,
-        growth_factor,
-        price_current,
-        market_cap: market_cap.map(|mc| mc as i64),
-        volume: Some(result.volume as i64),
-        ranking_position,
-        quarterly_data: None,
-        next_earnings_date: None,
-        last_earnings_date: None,
-    }
+    EPSRanking::from_eps_data(
+        crate::domain::shared_kernel::entities::eps_growth::EPSGrowthData {
+            symbol: result.symbol,
+            name: result.name,
+            country: "US".to_string(), // Default country - not available in StockScreeningResult
+            sector: result.sector.unwrap_or("Unknown".to_string()),
+            exchange: "NASDAQ".to_string(), // Default exchange
+            current_eps,
+            growth_factor,
+            price_current,
+            market_cap: market_cap.map(|mc| mc as i64),
+            volume: Some(result.volume as i64),
+            ranking_score: ranking_position.map(|rp| rp as f64),
+            created_at: None,
+            updated_at: None,
+            next_earnings_date: None,
+            last_earnings_date: None,
+        },
+        ranking_position
+    )
 }
 
 

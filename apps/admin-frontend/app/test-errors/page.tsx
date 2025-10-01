@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { PermissionErrorUI } from '@/components/errors/PermissionErrorUI';
 import { AdminErrorBoundary } from '@/components/errors/AdminErrorBoundary';
 import useAdminApi from '@/hooks/useAdminApi';
-import { ApiError } from '@/lib/api/response-handler';
+import { ApiError } from '@/shared/utils/response-handler';
 
 /**
  * Test page for demonstrating backend-only permission error handling

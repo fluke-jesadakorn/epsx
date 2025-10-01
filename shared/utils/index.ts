@@ -420,23 +420,13 @@ export {
 
 /**
  * Utility function to merge Tailwind CSS classes
- * Uses dynamic imports to avoid dependency issues in non-frontend environments
+ * Direct imports since dependencies are now available
  */
-export async function cn(...inputs: any[]) {
-  try {
-    // Dynamic imports with better error handling
-    const [{ clsx }, { twMerge }] = await Promise.all([
-      import('clsx'),
-      import('tailwind-merge')
-    ])
-    return twMerge(clsx(inputs))
-  } catch (error) {
-    // Fallback: just join classes with spaces if dependencies not available
-    return inputs
-      .filter(Boolean)
-      .map(input => typeof input === 'string' ? input : '')
-      .join(' ')
-  }
+import clsx from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+export function cn(...inputs: any[]) {
+  return twMerge(clsx(inputs));
 }
 
 /**

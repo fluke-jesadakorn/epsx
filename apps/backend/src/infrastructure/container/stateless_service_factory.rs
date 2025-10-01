@@ -18,6 +18,11 @@ use crate::domain::user_management::{
 };
 use crate::auth::unified_web3_auth_service::UnifiedWeb3AuthService;
 use crate::auth::openid_token_service::OpenIDTokenService;
+use crate::auth::key_manager::KeyManager;
+use crate::auth::{
+    CentralizedPermissionAuthority, DatabasePermissionRegistry, PermissionState,
+    create_permission_authority, create_permission_registry
+};
 
 /// Stateless configuration for service factory
 #[derive(Clone)]
@@ -124,13 +129,29 @@ impl StatelessServiceFactory {
             self.config.domain.clone(),
         );
 
-        // Create OpenID token service using global pool
+        // Create OpenID token service using global pool and RSA key manager
+        let key_manager = KeyManager::from_env_or_generate()
+            .expect("Failed to initialize RSA key manager");
         let openid_token_service = OpenIDTokenService::new(
             db_pool.clone(),
             self.config.issuer_url.clone(),
             self.config.oidc_audiences.clone(),
-            // TODO: Load actual RSA private key from environment
-            jsonwebtoken::EncodingKey::from_secret(b"dev-secret-key"), // placeholder
+            Arc::new(key_manager),
+        );
+
+        // Create centralized permission services
+        let permission_authority = Arc::new(create_permission_authority(db_pool.clone()));
+        let permission_registry = Arc::new(create_permission_registry(db_pool.clone()));
+        
+        // Initialize permission registry with default routes
+        if let Err(e) = permission_registry.initialize().await {
+            tracing::warn!("Failed to initialize permission registry: {}", e);
+        }
+
+        // Create permission state for dependency injection
+        let permission_state = PermissionState::new(
+            permission_authority.clone(),
+            permission_registry.clone(),
         );
 
         Ok(RequestServices {
@@ -141,6 +162,11 @@ impl StatelessServiceFactory {
             web3_permission_adapter: Arc::new(web3_permission_adapter),
             unified_web3_auth_service: Arc::new(unified_web3_auth_service),
             openid_token_service: Arc::new(openid_token_service),
+            
+            // New centralized permission services
+            permission_authority,
+            permission_registry,
+            permission_state: Arc::new(permission_state),
         })
     }
 
@@ -169,6 +195,11 @@ pub struct RequestServices {
     pub web3_permission_adapter: Arc<Web3PermissionServiceAdapter>,
     pub unified_web3_auth_service: Arc<UnifiedWeb3AuthService>,
     pub openid_token_service: Arc<OpenIDTokenService>,
+    
+    // Centralized permission services (v2.0)
+    pub permission_authority: Arc<CentralizedPermissionAuthority>,
+    pub permission_registry: Arc<DatabasePermissionRegistry>,
+    pub permission_state: Arc<PermissionState>,
 }
 
 impl RequestServices {

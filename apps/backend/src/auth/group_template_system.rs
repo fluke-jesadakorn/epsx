@@ -403,8 +403,8 @@ impl GroupTemplateSystem {
     fn register_default_resolvers(&mut self) {
         // Register built-in parameter resolvers
         self.parameter_resolvers.insert(
-            "subscription_tier".to_string(),
-            Box::new(SubscriptionTierResolver::new())
+            "permission_group".to_string(),
+            Box::new(PermissionGroupResolver::new())
         );
         self.parameter_resolvers.insert(
             "behavioral_threshold".to_string(),
@@ -1027,31 +1027,31 @@ impl GroupTemplateSystem {
 // BUILT-IN PARAMETER RESOLVERS
 // ============================================================================
 
-struct SubscriptionTierResolver;
+struct PermissionGroupResolver;
 
-impl SubscriptionTierResolver {
+impl PermissionGroupResolver {
     fn new() -> Self {
         Self
     }
 }
 
-impl ParameterResolver for SubscriptionTierResolver {
+impl ParameterResolver for PermissionGroupResolver {
     fn resolve_parameter(
         &self,
         _parameter: &ParameterDefinition,
         context: &InstantiationContext,
         _existing_parameters: &serde_json::Value,
     ) -> Result<serde_json::Value> {
-        // Smart resolution based on context
-        let default_tier = match context.target_user_count.unwrap_or(10) {
-            0..=10 => "free",
-            11..=100 => "bronze", 
-            101..=1000 => "silver",
-            1001..=10000 => "gold",
-            _ => "enterprise",
+        // Smart resolution based on context - return appropriate permission group
+        let default_group = match context.target_user_count.unwrap_or(10) {
+            0..=10 => "Basic Access Group",
+            11..=100 => "Standard Access Group", 
+            101..=1000 => "Premium Access Group",
+            1001..=10000 => "Professional Access Group",
+            _ => "Enterprise Access Group",
         };
         
-        Ok(serde_json::Value::String(default_tier.to_string()))
+        Ok(serde_json::Value::String(default_group.to_string()))
     }
     
     fn get_supported_types(&self) -> Vec<ParameterType> {
@@ -1241,15 +1241,15 @@ mod tests {
 
     fn create_test_template() -> GroupTemplate {
         let mut parameters = BTreeMap::new();
-        parameters.insert("tier".to_string(), ParameterDefinition {
-            name: "tier".to_string(),
+        parameters.insert("permission_group".to_string(), ParameterDefinition {
+            name: "permission_group".to_string(),
             parameter_type: ParameterType::Enum,
-            description: Some("Subscription tier".to_string()),
-            default_value: Some(serde_json::Value::String("free".to_string())),
+            description: Some("Permission group".to_string()),
+            default_value: Some(serde_json::Value::String("Basic Access Group".to_string())),
             required: true,
             options: Some(vec![
-                serde_json::Value::String("free".to_string()),
-                serde_json::Value::String("premium".to_string()),
+                serde_json::Value::String("Basic Access Group".to_string()),
+                serde_json::Value::String("Standard Access Group".to_string()),
             ]),
             min_value: None,
             max_value: None,
@@ -1269,12 +1269,12 @@ mod tests {
             category: TemplateCategory::Custom,
             parameters: TemplateParameters {
                 parameters,
-                required_parameters: vec!["tier".to_string()],
+                required_parameters: vec!["permission_group".to_string()],
                 parameter_groups: Vec::new(),
                 validation_rules: Vec::new(),
             },
-            default_parameters: serde_json::json!({"tier": "free"}),
-            permission_patterns: vec!["epsx:analytics:{tier}".to_string()],
+            default_parameters: serde_json::json!({"permission_group": "Basic Access Group"}),
+            permission_patterns: vec!["epsx:analytics:{permission_group}".to_string()],
             auto_assignment_enabled: true,
             evaluation_conditions: serde_json::json!({"conditions": []}),
             evaluation_frequency: EvaluationFrequency::Daily,

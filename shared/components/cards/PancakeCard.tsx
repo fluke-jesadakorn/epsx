@@ -203,4 +203,3 @@ export const AnalyticsCard = React.forwardRef<HTMLDivElement, AnalyticsCardProps
 AnalyticsCard.displayName = "AnalyticsCard"
 
 export { Card as PancakeCard }
-export type { PancakeCardProps }

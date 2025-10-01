@@ -445,7 +445,7 @@ export function hasUserPermission(
     
     return {
       hasPermission: false,
-      reason: isPremiumFeature ? 'tier_insufficient' : 'no_permission'
+      reason: isPremiumFeature ? 'permission_group_insufficient' : 'no_permission'
     };
   }
 

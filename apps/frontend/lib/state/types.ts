@@ -3,6 +3,14 @@
  * Exported types for state management system
  */
 
+// Import types from store for local usage
+import type {
+  StateConfig,
+  StateMiddleware,
+  StateAction,
+  AsyncState
+} from './store';
+
 // Re-export types from store
 export type {
   StateConfig,
@@ -106,6 +114,9 @@ export interface UIState {
 export interface UserData {
   profile: UserProfile | null;
   preferences: Record<string, any>;
+  subscription: UserSubscription | null;
+  permissions: string[];
+  permissionGroup: string;
 }
 
 export interface UserState extends AsyncState<UserData> {}
@@ -114,7 +125,7 @@ export interface AnalyticsData {
   rankings: StockRanking[];
   filters: Record<string, any>;
   recentSearches: string[];
-  watchlist: StockItem[];
+  bookmarks: StockItem[];
 }
 
 export interface AnalyticsState extends AsyncState<AnalyticsData> {
@@ -129,7 +140,12 @@ export interface NotificationState extends AsyncState<{
   unreadCount: number;
   notifications: Notification[];
   preferences: Record<string, any>;
-}> {}
+}> {
+  realtime?: {
+    connected: boolean;
+    lastSync?: number | null;
+  };
+}
 
 export interface CacheState {
   [key: string]: {

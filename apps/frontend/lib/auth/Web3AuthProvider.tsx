@@ -12,7 +12,7 @@ const frontendClient = createFrontendClient();
 export function Web3AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <SharedOpenIDWeb3Provider 
-      client={frontendClient}
+      clientId="epsx-frontend"
       onAuthError={(error) => {
         console.error('Frontend auth error:', error);
       }}

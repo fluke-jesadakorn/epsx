@@ -13,7 +13,7 @@ import {
   passwordResetSchema,
   passwordChangeSchema,
   contactFormSchema
-} from '../../../../shared/validators/schemas';
+} from '../../../shared/validators/schemas';
 
 // Legacy compatibility schemas (will be migrated to shared)
 export const commonSchemas = {
@@ -44,7 +44,14 @@ export async function validateFormData<T>(
     const result = schema.safeParse(data);
     
     if (!result.success) {
-      const fieldErrors = result.error.flatten().fieldErrors;
+      const flattenedErrors = result.error.flatten().fieldErrors;
+      // Filter out undefined values to match Record<string, string[]> type
+      const fieldErrors: Record<string, string[]> = {};
+      for (const [key, value] of Object.entries(flattenedErrors)) {
+        if (value !== undefined && value !== null && Array.isArray(value)) {
+          fieldErrors[key] = value;
+        }
+      }
       return {
         success: false,
         fieldErrors,

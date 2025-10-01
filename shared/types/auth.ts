@@ -112,10 +112,17 @@ export interface PlatformInfo {
   primaryPlatform: string
 }
 
-/** @deprecated Use simple tier string instead */
+/** @deprecated Use PermissionGroupInfo instead */
 export interface PackageTierInfo {
   currentTier: string
   hasRequiredTier: boolean
+  isPremium: boolean
+  isEnterprise: boolean
+}
+
+export interface PermissionGroupInfo {
+  currentGroup: string
+  hasRequiredGroup: boolean
   isPremium: boolean
   isEnterprise: boolean
 }

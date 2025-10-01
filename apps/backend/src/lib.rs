@@ -12,4 +12,4 @@ pub mod auth; // Web3 wallet-first authentication system
 // Selective re-exports for clean namespace
 pub use core::{ errors, types, telemetry };
 pub use infrastructure::container::DomainContainer;
-pub use web::{create_router, create_stateless_router};
+pub use web::{create_router, create_stateless_router, create_standardized_router};

@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
 import { ConnectedWalletDropdown } from './ConnectedWalletDropdown';
 import { WalletConnectionModal } from './WalletConnectionModal';
 import { Wallet, Loader2, AlertCircle, Shield, RefreshCw } from 'lucide-react';
-import { useAccount } from 'wagmi';
+import { useAccount, useSignMessage } from 'wagmi';
+import { usePermissionAuth } from '@/lib/auth/service';
 
 interface WalletConnectAuthProps {
   onAuthSuccess?: (walletAddress: string) => void;
@@ -76,15 +76,20 @@ export function WalletConnectAuth({
   const [isHydrated, setIsHydrated] = useState(false);
   
   const { address, isConnected: wagmiConnected } = useAccount();
+  const { signMessageAsync } = useSignMessage();
   const {
-    isAuthenticated,
-    isLoading,
     user,
+    loading: isLoading,
     error,
-    authenticateWithWallet,
-    logout,
-    isSigningChallenge
-  } = useSharedAuth();
+    connectWallet,
+    refreshUser
+  } = usePermissionAuth();
+  
+  const isAuthenticated = !!user;
+  
+  // Local state for authentication flow
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [isSigningChallenge, setIsSigningChallenge] = useState(false);
 
   // Handle hydration to prevent SSR/client mismatch
   useEffect(() => {
@@ -93,10 +98,10 @@ export function WalletConnectAuth({
 
   // Handle callbacks
   useEffect(() => {
-    if (isAuthenticated && user?.wallet_address && onAuthSuccess) {
-      onAuthSuccess(user.wallet_address);
+    if (isAuthenticated && user?.walletAddress && onAuthSuccess) {
+      onAuthSuccess(user.walletAddress);
     }
-  }, [isAuthenticated, user?.wallet_address, onAuthSuccess]);
+  }, [isAuthenticated, user?.walletAddress, onAuthSuccess]);
 
   useEffect(() => {
     if (error && onAuthError) {
@@ -110,29 +115,68 @@ export function WalletConnectAuth({
   }
 
   // Show connected wallet dropdown if authenticated
-  if (isAuthenticated && user?.wallet_address) {
+  if (isAuthenticated && user?.walletAddress) {
     return <ConnectedWalletDropdown className={className} />;
   }
 
   // Show connect/sign in button
   return (
     <div className="flex items-center gap-2">
-      {isSigningChallenge ? (
-        <LoadingButton message={wagmiConnected ? "Signing..." : "Connecting..."} className={className} />
+      {(isSigningChallenge || isAuthenticating) ? (
+        <LoadingButton 
+          message={isAuthenticating ? "Authenticating..." : wagmiConnected ? "Signing..." : "Connecting..."} 
+          className={className} 
+        />
       ) : wagmiConnected && address ? (
         <button
           onClick={async () => {
             try {
-              // TODO: Implement full Web3 challenge/sign flow
-              // await authenticateWithWallet(address, signature, message, nonce);
-              console.log('Authentication triggered for:', address);
+              setIsAuthenticating(true);
+              setIsSigningChallenge(true);
+              
+              console.log('🚀 Starting Web3 authentication flow...', { address });
+              
+              // Use the authentication service which now integrates with SharedWeb3AuthClient
+              const authService = (await import('@/lib/auth/service')).permissionAuthService;
+              
+              // Request challenge
+              const challenge = await authService.requestWeb3Challenge(address);
+              
+              console.log('✍️ Requesting wallet signature...');
+              const signature = await signMessageAsync({ message: challenge.message, account: address });
+              
+              console.log('🔍 Verifying signature with backend...');
+              const success = await authService.authenticateWithWallet(
+                address,
+                signature,
+                challenge.message,
+                challenge.nonce
+              );
+              
+              if (success) {
+                console.log('🎉 Authentication successful!');
+                
+                // Reload user data
+                await refreshUser();
+                
+                // Trigger success callback
+                if (onAuthSuccess) {
+                  onAuthSuccess(address);
+                }
+              } else {
+                throw new Error('Authentication verification failed');
+              }
+              
             } catch (error: unknown) {
-              console.error('Authentication failed:', error);
+              console.error('❌ Authentication failed:', error);
               const errorMessage = error instanceof Error ? error.message : 'Authentication failed';
               onAuthError?.(errorMessage);
+            } finally {
+              setIsAuthenticating(false);
+              setIsSigningChallenge(false);
             }
           }}
-          disabled={isSigningChallenge}
+          disabled={isSigningChallenge || isAuthenticating}
           className={`flex items-center gap-2 bg-gradient-to-r from-orange-500 to-purple-600 hover:from-orange-600 hover:to-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 ${className}`}
         >
           <Shield className="h-4 w-4" />
@@ -147,16 +191,12 @@ export function WalletConnectAuth({
           error={error} 
           onReset={() => {
             // Reset error state by refreshing user
-            if (typeof window !== 'undefined') {
-              window.location.reload();
-            }
+            refreshUser();
           }}
-          onFullReset={() => {
+          onFullReset={async () => {
             // Full reset - logout and reload
-            logout();
-            if (typeof window !== 'undefined') {
-              window.location.reload();
-            }
+            const authService = (await import('@/lib/auth/service')).permissionAuthService;
+            await authService.logout();
           }}
         />
       )}

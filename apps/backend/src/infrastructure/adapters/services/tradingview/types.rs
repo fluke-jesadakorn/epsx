@@ -92,6 +92,10 @@ pub struct FrontendEPSData {
     pub sector: String,
     pub ranking_score: f64,
     pub currency: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_earnings_date: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_earnings_date: Option<String>,
 }
 
 /// Frontend pagination structure
@@ -220,6 +224,7 @@ mod tests {
             country: "america".to_string(),
             sector: "Technology".to_string(),
             ranking_score: 85.5,
+            currency: "USD".to_string(),
         };
 
         assert_eq!(data.symbol, "AAPL");
@@ -248,7 +253,7 @@ mod tests {
     fn test_tradingview_config_defaults() {
         use crate::config::*;
         
-        let config = Config::default();
+        let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         
         assert!(tv_config.scanner_api_url.contains("scanner.tradingview.com"));

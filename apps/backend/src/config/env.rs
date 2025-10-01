@@ -40,6 +40,9 @@ pub struct Config {
     pub enterprise_nft_contract: Option<String>,
     pub enterprise_dao_contract: Option<String>,
     pub enterprise_governance_token: Option<String>,
+    
+    // Blockchain Network Configuration
+    pub blockchain_network: String,
 
     // Infrastructure (1 variable)
     pub redis_url: Option<String>,
@@ -131,6 +134,9 @@ impl Config {
         let enterprise_nft_contract = get_optional("ENTERPRISE_NFT_CONTRACT");
         let enterprise_dao_contract = get_optional("ENTERPRISE_DAO_CONTRACT");
         let enterprise_governance_token = get_optional("ENTERPRISE_GOVERNANCE_TOKEN");
+        
+        // Blockchain Network Configuration
+        let blockchain_network = get_with_default("NEXT_PUBLIC_BLOCKCHAIN_NETWORK", "testnet");
 
         // Infrastructure - Optional
         let redis_url = get_optional("REDIS_URL");
@@ -154,6 +160,7 @@ impl Config {
             enterprise_nft_contract,
             enterprise_dao_contract,
             enterprise_governance_token,
+            blockchain_network,
             redis_url,
             log_level,
         })
@@ -235,12 +242,22 @@ pub fn get_fallback_config() -> Config {
         enterprise_nft_contract: None,
         enterprise_dao_contract: None,
         enterprise_governance_token: None,
+        blockchain_network: "testnet".to_string(),
         redis_url: None,
         log_level: "info".to_string(),
     }
 }
 
 // Convenience functions for Web3 configuration
+
+/// Get BSC chain ID based on the blockchain network environment
+pub fn get_bsc_chain_id(blockchain_network: &str) -> u64 {
+    match blockchain_network {
+        "mainnet" => 56,  // BSC Mainnet
+        "testnet" => 97,  // BSC Testnet
+        _ => 97, // Default to testnet for safety
+    }
+}
 pub fn get_database_url() -> String {
     env::var("DATABASE_URL").expect("DATABASE_URL must be set")
 }

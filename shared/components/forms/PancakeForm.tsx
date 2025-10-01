@@ -323,13 +323,3 @@ export {
   Textarea as PancakeTextarea,
   FormField as PancakeFormField
 }
-
-export type {
-  PancakeFormProps,
-  PancakeInputProps,
-  PancakeLabelProps,
-  PancakeBadgeProps,
-  PancakeSelectProps,
-  PancakeTextareaProps,
-  PancakeFormFieldProps
-}

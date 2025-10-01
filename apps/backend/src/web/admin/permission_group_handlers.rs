@@ -22,6 +22,11 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
+
+// TODO: Re-enable when session verification is implemented
+// use crate::web::middleware::openid_bearer_auth_middleware::{
+//     require_user_context, check_user_permission, create_permission_denied_error
+// };
 use std::collections::HashMap;
 
 use crate::web::auth::AppState;
@@ -233,13 +238,21 @@ pub struct ApiResponse<T> {
  */
 pub async fn create_permission_group_handler(
     State(_app_state): State<AppState>,
-    Json(request): Json<CreatePermissionGroupRequest>,
+    Json(create_request): Json<CreatePermissionGroupRequest>,
 ) -> Result<JsonResponse<ApiResponse<PermissionGroupResponse>>, StatusCode> {
-    // TODO: Implement admin permission check using new unified system
-    // Ensure wallet has admin:permission-groups:create permission
+    // TODO: Extract and validate admin user context from Bearer token
+    // let user_context = require_user_context(&request).map_err(|(status, response)| {
+    //     // Convert the tuple error to StatusCode for return
+    //     status
+    // })?;
+    
+    // TODO: Check if user has admin permission to create permission groups
+    // if !check_user_permission(user_context, "admin:permission-groups:create") {
+    //     return Err(StatusCode::FORBIDDEN);
+    // }
     
     // Validate request
-    if request.name.is_empty() || request.slug.is_empty() {
+    if create_request.name.is_empty() || create_request.slug.is_empty() {
         return Ok(JsonResponse(ApiResponse {
             success: false,
             data: None,
@@ -251,7 +264,7 @@ pub async fn create_permission_group_handler(
 
     // Validate group type
     let valid_types = ["manual", "subscription", "web3_asset", "dao_membership", "admin"];
-    if !valid_types.contains(&request.group_type.as_str()) {
+    if !valid_types.contains(&create_request.group_type.as_str()) {
         return Ok(JsonResponse(ApiResponse {
             success: false,
             data: None,
@@ -262,8 +275,8 @@ pub async fn create_permission_group_handler(
     }
 
     // Validate price for subscription groups
-    if request.group_type == "subscription" {
-        if let Some(price) = request.price {
+    if create_request.group_type == "subscription" {
+        if let Some(price) = create_request.price {
             if price < 0.0 {
                 return Ok(JsonResponse(ApiResponse {
                     success: false,
@@ -280,20 +293,20 @@ pub async fn create_permission_group_handler(
     // For now, return mock response
     let permission_group = PermissionGroupResponse {
         id: Uuid::new_v4().to_string(),
-        name: request.name.clone(),
-        slug: request.slug.clone(),
-        description: request.description.clone(),
-        group_type: request.group_type.clone(),
-        permissions: request.permissions.clone(),
-        price: request.price.unwrap_or(0.0),
-        currency: request.currency.unwrap_or("USD".to_string()),
-        billing_cycle: request.billing_cycle.unwrap_or("monthly".to_string()),
-        is_active: request.is_active.unwrap_or(true),
-        is_promoted: request.is_promoted.unwrap_or(false),
-        display_order: request.display_order.unwrap_or(0),
-        max_members: request.max_members,
-        auto_assign_enabled: request.auto_assign_enabled.unwrap_or(false),
-        group_metadata: request.group_metadata.unwrap_or(serde_json::json!({})),
+        name: create_request.name.clone(),
+        slug: create_request.slug.clone(),
+        description: create_request.description.clone(),
+        group_type: create_request.group_type.clone(),
+        permissions: create_request.permissions.clone(),
+        price: create_request.price.unwrap_or(0.0),
+        currency: create_request.currency.unwrap_or("USD".to_string()),
+        billing_cycle: create_request.billing_cycle.unwrap_or("monthly".to_string()),
+        is_active: create_request.is_active.unwrap_or(true),
+        is_promoted: create_request.is_promoted.unwrap_or(false),
+        display_order: create_request.display_order.unwrap_or(0),
+        max_members: create_request.max_members,
+        auto_assign_enabled: create_request.auto_assign_enabled.unwrap_or(false),
+        group_metadata: create_request.group_metadata.unwrap_or(serde_json::json!({})),
         created_at: Utc::now(),
         updated_at: Utc::now(),
         created_by: Some("0xadmin...".to_string()), // TODO: Get from Web3 auth context
@@ -319,8 +332,13 @@ pub async fn get_permission_group_handler(
     State(_app_state): State<AppState>,
     Path(group_id): Path<String>,
 ) -> Result<JsonResponse<ApiResponse<PermissionGroupResponse>>, StatusCode> {
-    // TODO: Implement admin permission check
-    // Ensure wallet has admin:permission-groups:read permission
+    // TODO: Extract and validate admin user context from Bearer token
+    // let user_context = require_user_context(&request).map_err(|(status, _)| status)?;
+    
+    // TODO: Check if user has admin permission to read permission groups
+    // if !check_user_permission(user_context, "admin:permission-groups:read") {
+    //     return Err(StatusCode::FORBIDDEN);
+    // }
     
     // TODO: Implement database query using unified permission_groups table
     // For now, return mock response based on the default groups from migration
@@ -474,8 +492,13 @@ pub async fn list_permission_groups_handler(
     State(_app_state): State<AppState>,
     Query(query): Query<PermissionGroupListQuery>,
 ) -> Result<JsonResponse<ApiResponse<PermissionGroupListResponse>>, StatusCode> {
-    // TODO: Implement admin permission check
-    // Ensure wallet has admin:permission-groups:read permission
+    // TODO: Extract and validate admin user context from Bearer token
+    // let user_context = require_user_context(&request).map_err(|(status, _)| status)?;
+    
+    // TODO: Check if user has admin permission to read permission groups
+    // if !check_user_permission(user_context, "admin:permission-groups:read") {
+    //     return Err(StatusCode::FORBIDDEN);
+    // }
     
     let page = query.page.unwrap_or(1);
     let limit = query.limit.unwrap_or(50);

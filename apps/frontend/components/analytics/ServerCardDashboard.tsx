@@ -3,7 +3,7 @@ import {
   getPortfolioData,
   type EPSQueryParams,
   type SymbolCardData,
-} from '@/lib/server-data';
+} from '@/lib/unified-server-data';
 import { Suspense } from 'react';
 import ServerFilters from './ServerFilters';
 import ServerPagination from './ServerPagination';

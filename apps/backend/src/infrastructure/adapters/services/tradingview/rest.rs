@@ -220,7 +220,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_rest_client_creation() {
-        let config = Config::default();
+        let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         let client = TradingViewRestClient::new(tv_config);
         
@@ -229,7 +229,7 @@ mod tests {
 
     #[test]
     fn test_request_headers() {
-        let config = Config::default();
+        let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         let client = TradingViewRestClient::new(tv_config);
         
@@ -242,7 +242,7 @@ mod tests {
     #[tokio::test]
     #[ignore] // Ignore in CI/CD to avoid external API calls
     async fn test_connection_integration() {
-        let config = Config::default();
+        let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         let client = TradingViewRestClient::new(tv_config);
         

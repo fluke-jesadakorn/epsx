@@ -36,7 +36,7 @@ export type ButtonShape = 'rectangle' | 'rounded' | 'pill' | 'square' | 'circle'
 
 export interface BaseButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   // Content
-  children: React.ReactNode
+  children?: React.ReactNode
   
   // Visual
   variant?: ButtonVariant

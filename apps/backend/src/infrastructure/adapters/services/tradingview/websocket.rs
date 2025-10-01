@@ -102,7 +102,8 @@ impl TradingViewWebSocketHandler {
                 sector: "Technology".to_string(),
                 ranking_score: 0.0,
                 currency: "USD".to_string(), // Would come from WebSocket
-            };
+                next_earnings_date: None,
+                last_earnings_date: None,            };
             
             results.push(eps_data);
         }
@@ -312,6 +313,8 @@ impl TradingViewWebSocketHandler {
             sector,
             ranking_score,
             currency,
+            next_earnings_date: None,
+            last_earnings_date: None,
         })
     }
 
@@ -404,7 +407,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_websocket_handler_creation() {
-        let config = Config::default();
+        let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         let handler = TradingViewWebSocketHandler::new(tv_config);
         
@@ -436,7 +439,7 @@ mod tests {
     #[tokio::test]
     #[ignore] // Ignore in CI/CD to avoid external WebSocket connections
     async fn test_websocket_connection() {
-        let config = Config::default();
+        let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         let handler = TradingViewWebSocketHandler::new(tv_config);
         

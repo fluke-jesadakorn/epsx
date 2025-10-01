@@ -6,10 +6,10 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { APIKeyManager } from './APIKeyManager';
 import { APIDocumentation } from './APIDocumentation';
 import { UsageMonitor } from './UsageMonitor';
-import type { User } from '@/lib/server-actions';
+import type { AuthUser } from '@/lib/server-actions';
 
 interface DeveloperAPIClientProps {
-  currentUser: User;
+  currentUser: AuthUser;
 }
 
 export function DeveloperAPIClient({ currentUser }: DeveloperAPIClientProps) {
