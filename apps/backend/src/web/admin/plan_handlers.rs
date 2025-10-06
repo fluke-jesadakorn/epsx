@@ -8,6 +8,7 @@ use axum::{
     Json,
 };
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use std::collections::HashMap;
@@ -124,11 +125,12 @@ fn generate_quota_from_permissions(permissions: &[String]) -> serde_json::Value 
 
 // Request/Response DTOs (reusing existing ones)
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct CreatePlanRequest {
     pub name: String,
     pub description: Option<String>,
     pub permission_group_name: String, // e.g., "Standard Access Group", "Enterprise Access Group"
+    #[schema(value_type = String, example = "29.99")]
     pub current_price: Decimal,
     pub currency: String,
     pub target_audience: String,
@@ -137,7 +139,7 @@ pub struct CreatePlanRequest {
     pub metadata: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct PermissionGroupRequest {
     pub name: String,
     pub description: Option<String>,
@@ -145,12 +147,13 @@ pub struct PermissionGroupRequest {
     pub group_type: String, // Group type: "basic", "standard", "premium", etc.
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, ToSchema)]
 pub struct PlanResponse {
     pub id: i32,
     pub name: String,
     pub description: Option<String>,
     pub permission_group_name: String,
+    #[schema(value_type = String, example = "29.99")]
     pub current_price: Decimal,
     pub currency: String,
     pub target_audience: String,
@@ -162,6 +165,7 @@ pub struct PlanResponse {
     pub created_at: DateTime<Utc>,
     pub updated_at: Option<DateTime<Utc>>,
     pub subscriber_count: u64,
+    #[schema(value_type = String, example = "1499.85")]
     pub revenue_last_30_days: Decimal,
 }
 
@@ -177,6 +181,18 @@ pub struct PermissionGroupResponse {
 }
 
 /// Create permission template-based plan
+#[utoipa::path(
+    post,
+    path = "/admin/plans",
+    request_body = CreatePlanRequest,
+    responses(
+        (status = 200, description = "Plan created successfully", body = PlanResponse),
+        (status = 400, description = "Invalid request data"),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "admin-plans",
+    security(("bearerAuth" = []))
+)]
 pub async fn create_plan_handler(
     State(_state): State<AppState>,
     Json(request): Json<CreatePlanRequest>,
@@ -216,7 +232,17 @@ pub async fn create_plan_handler(
     Ok(JsonResponse(plan_response))
 }
 
-/// List permission template-based plans
+/// List all permission template-based plans
+#[utoipa::path(
+    get,
+    path = "/admin/plans",
+    responses(
+        (status = 200, description = "Plans retrieved successfully"),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "admin-plans",
+    security(("bearerAuth" = []))
+)]
 pub async fn list_plans_handler(
     State(app_state): State<AppState>,
     Query(_query): Query<HashMap<String, String>>,
@@ -235,7 +261,7 @@ pub async fn list_plans_handler(
         // Extract permissions array from JSONB
         let permissions = plan.permissions.as_array()
             .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
-            .unwrap_or_else(Vec::new);
+            .unwrap_or_default();
         
         // Generate group type from permissions (for backward compatibility)
         let group_type = derive_group_from_permissions(&permissions);
@@ -338,7 +364,7 @@ pub async fn get_plan_handler(
     
     // Mock subscriber data (could be calculated from database in the future)
     let price_decimal = plan.price.as_ref()
-        .map(|p| rust_decimal::Decimal::from_str(&p.to_string()).unwrap_or_else(|_| rust_decimal::Decimal::ZERO))
+        .map(|p| rust_decimal::Decimal::from_str(&p.to_string()).unwrap_or(rust_decimal::Decimal::ZERO))
         .unwrap_or_else(|| rust_decimal::Decimal::ZERO);
     
     let (subscriber_count, revenue_last_30_days) = match price_decimal.to_string().as_str() {
@@ -416,6 +442,143 @@ pub struct SubscriptionResponse {
     pub metadata: Option<serde_json::Value>,
     pub current_usage: serde_json::Value,
     pub quota_limits: serde_json::Value,
+}
+
+/// Update plan request
+#[derive(Debug, Deserialize)]
+pub struct UpdatePlanRequest {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub current_price: Option<Decimal>,
+    pub is_active: Option<bool>,
+    pub permissions: Option<Vec<String>>,
+    pub metadata: Option<serde_json::Value>,
+}
+
+/// Update permission template-based plan
+pub async fn update_plan_handler(
+    State(app_state): State<AppState>,
+    Path(plan_id_str): Path<String>,
+    Json(request): Json<UpdatePlanRequest>,
+) -> Result<JsonResponse<PlanResponse>, StatusCode> {
+    // Parse plan ID as UUID
+    let plan_uuid = match Uuid::parse_str(&plan_id_str) {
+        Ok(uuid) => uuid,
+        Err(_) => {
+            tracing::error!(plan_id = %plan_id_str, "Invalid plan ID format");
+            return Err(StatusCode::BAD_REQUEST);
+        }
+    };
+
+    // Get existing plan from database
+    let mut plan = match app_state.permission_group_repo.get_plan_by_id(plan_uuid).await {
+        Ok(Some(plan)) => plan,
+        Ok(None) => {
+            tracing::error!(plan_id = %plan_uuid, "Plan not found");
+            return Err(StatusCode::NOT_FOUND);
+        }
+        Err(err) => {
+            tracing::error!(error = %err, plan_id = %plan_uuid, "Failed to fetch plan from database");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    // Update fields if provided
+    if let Some(name) = request.name {
+        plan.name = name;
+    }
+
+    if let Some(description) = request.description {
+        plan.description = description;
+    }
+
+    if let Some(current_price) = request.current_price {
+        plan.price = Some(sqlx::types::BigDecimal::from_str(&current_price.to_string())
+            .unwrap_or_else(|_| sqlx::types::BigDecimal::from(0)));
+    }
+
+    if let Some(is_active) = request.is_active {
+        plan.is_active = Some(is_active);
+    }
+
+    if let Some(permissions) = request.permissions {
+        plan.permissions = serde_json::json!(permissions);
+    }
+
+    if let Some(metadata) = request.metadata {
+        // Merge with existing metadata
+        if let Some(existing_metadata) = plan.group_metadata.as_object_mut() {
+            if let Some(new_metadata) = metadata.as_object() {
+                for (key, value) in new_metadata {
+                    existing_metadata.insert(key.clone(), value.clone());
+                }
+            }
+        } else {
+            plan.group_metadata = metadata;
+        }
+    }
+
+    // Update plan in database
+    match app_state.permission_group_repo.update_plan(plan.clone()).await {
+        Ok(_) => {
+            // Extract permissions array from JSONB
+            let permissions = plan.permissions.as_array()
+                .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
+                .unwrap_or_else(Vec::new);
+
+            // Generate group type from permissions
+            let group_type = derive_group_from_permissions(&permissions);
+
+            // Extract metadata values
+            let target_audience = plan.group_metadata.get("target_audience")
+                .and_then(|v| v.as_str())
+                .unwrap_or("web_users")
+                .to_string();
+
+            // Mock subscriber data
+            let price_decimal = plan.price.as_ref()
+                .map(|p| rust_decimal::Decimal::from_str(&p.to_string()).unwrap_or(rust_decimal::Decimal::ZERO))
+                .unwrap_or_else(|| rust_decimal::Decimal::ZERO);
+
+            let (subscriber_count, revenue_last_30_days) = match price_decimal.to_string().as_str() {
+                "0" | "0.00" => (500, Decimal::ZERO),
+                price if price.parse::<f64>().unwrap_or(0.0) < 20.0 => (150, Decimal::new(149985, 2)),
+                price if price.parse::<f64>().unwrap_or(0.0) < 60.0 => (75, Decimal::new(374925, 2)),
+                _ => (25, Decimal::new(499975, 2)),
+            };
+
+            let plan_response = PlanResponse {
+                id: 0, // Legacy field
+                name: plan.name.clone(),
+                description: Some(plan.description),
+                permission_group_name: plan.name,
+                current_price: price_decimal,
+                currency: plan.currency.unwrap_or_else(|| "USD".to_string()),
+                target_audience,
+                billing_model: plan.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
+                group_type,
+                is_active: plan.is_active.unwrap_or(true),
+                permissions,
+                metadata: Some(plan.group_metadata),
+                created_at: plan.created_at,
+                updated_at: Some(plan.updated_at),
+                subscriber_count,
+                revenue_last_30_days,
+            };
+
+            tracing::info!(
+                plan_id = %plan_uuid,
+                plan_name = %plan_response.name,
+                "Plan updated successfully"
+            );
+
+            Ok(JsonResponse(plan_response))
+        }
+        Err(err) => {
+            tracing::error!(error = %err, plan_id = %plan_uuid, "Failed to update plan in database");
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
+    }
 }
 
 /// Create permission template-based subscription

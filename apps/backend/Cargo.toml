@@ -29,18 +29,6 @@ name = "test_docs"
 path = "src/bin/test_docs.rs"
 
 [[bin]]
-name = "deep_websocket_debug"
-path = ".debug/deep_websocket_debug.rs"
-
-[[bin]]
-name = "test_smart_progression"
-path = ".debug/test_smart_progression.rs"
-
-[[bin]]
-name = "inspect_st4_fields"
-path = ".debug/inspect_st4_fields.rs"
-
-[[bin]]
 name = "serverless_handler"
 path = "src/bin/serverless_handler.rs"
 required-features = ["serverless"]
@@ -58,26 +46,24 @@ default = ["production"]
 websockets = ["dep:tokio-tungstenite", "dep:futures-util"]
 database = []
 postgres = ["database"]
-cache = ["dep:redis"]
-auth = ["jwt", "crypto", "dep:sha2"]
-jwt = ["dep:jsonwebtoken", "dep:hmac", "dep:sha2"]
-crypto = ["dep:argon2", "dep:aes-gcm", "dep:ring"]
+auth = ["jwt", "dep:sha2"]
+jwt = ["dep:jsonwebtoken", "dep:sha2"]
 http-client = ["dep:reqwest", "tls-rustls"]
-templates = ["dep:askama", "dep:askama_axum"]
-serverless = ["cache", "auth", "postgres"]
+cache = ["dep:redis"]  # CQRS event bus via Redis Streams
+serverless = ["auth", "postgres"]
 
 # TLS implementation (rustls only for production)
 tls-rustls = ["reqwest?/rustls-tls"]
 
 # Build configurations
-production = ["postgres", "cache", "auth", "websockets", "templates", "http-client"]
+production = ["postgres", "cache", "auth", "websockets", "http-client"]
 cli-tools = ["dep:clap", "database"]
 
 [dependencies]
 # Core server dependencies (always required)
 anyhow = "1.0"
 axum = { version = "0.7", features = ["ws", "macros"] }
-axum-extra = "0.9"
+# axum-extra removed - not used
 async-trait = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
 dotenv = "0.15"
@@ -91,7 +77,6 @@ rust_decimal = { version = "1.33", features = ["serde-with-str"] }
 rust_decimal_macros = "1.33"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-serde_urlencoded = "0.7"
 thiserror = "1.0"
 tokio = { version = "1.0", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
@@ -102,27 +87,21 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tokio-retry = "0.3"
 url = "2.5"
-urlencoding = "2.1"
 uuid = { version = "1.7", features = ["v4", "v5", "serde"] }
 regex = "1.10"
-ipnetwork = "0.20"
 once_cell = "1.19"
 rand = "0.8"
-num_cpus = "1.16"
 dashmap = "6.0"
-md5 = "0.7"
+md5 = "0.7"  # Used in key_management for fingerprinting
 
 # Optional WebSocket support
 futures-util = { version = "0.3", optional = true }
 tokio-tungstenite = { version = "0.21", features = ["rustls-tls-native-roots"], optional = true }
 
 # Optional authentication and security
-hmac = { version = "0.12", optional = true }
 jsonwebtoken = { version = "9.2", optional = true }
-ring = { version = "0.17", optional = true }
 sha2 = { version = "0.10", optional = true }
-argon2 = { version = "0.5", optional = true }
-aes-gcm = { version = "0.10", optional = true }
+# Removed unused crypto: hmac, ring, argon2, aes-gcm
 
 # RSA dependencies - needed for key management and JWT operations
 rsa = "0.9"
@@ -130,35 +109,30 @@ rsa = "0.9"
 # Web3 and Ethereum dependencies
 ethers = "2.0"
 siwe = "0.6"
-alloy = { version = "0.3", features = ["provider-http", "signers", "rpc-types"] }
-time = { version = "0.3", features = ["serde", "macros"] }
+# Removed alloy (using ethers) and time (using chrono)
 
 # Optional HTTP client with TLS choice
 reqwest = { version = "0.11", features = ["json"], optional = true, default-features = false }
 
-# TLS support for PostgreSQL connections - use native-tls for better compatibility  
-native-tls = "0.2"
-tokio-postgres = { version = "0.7", features = ["with-uuid-1", "with-chrono-0_4"] }
-postgres-native-tls = "0.5"
+# Optional Redis for CQRS event bus (EventDispatcher and ProjectionManager)
+redis = { version = "0.24", features = ["tokio-comp", "connection-manager"], optional = true }
+
+# PostgreSQL TLS removed - SQLx handles TLS internally with rustls
 
 # Optional CLI tools
 clap = { version = "4.4", features = ["derive"], optional = true }
 
 # API documentation (always available)
 utoipa = { version = "5.1", features = ["axum_extras", "chrono", "uuid"] }
-utoipa-redoc = { version = "4.0", features = ["axum"] }
+utoipa-redoc = { version = "5.0", features = ["axum"] }
 
 # Input validation
 validator = { version = "0.18", features = ["derive"] }
 
 # System monitoring - removed unused dependency
 
-# Optional template engine
-askama = { version = "0.12", optional = true }
-askama_axum = { version = "0.4", optional = true }
-
-# Optional Redis cache
-redis = { version = "0.23", features = ["tokio-comp", "connection-manager"], optional = true }
+# Template engine removed - not used
+# Redis cache removed - not implemented
 
 # Database access with SQLx - Cloud Run native async database driver
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json", "migrate", "bigdecimal"] }
@@ -170,13 +144,10 @@ bigdecimal = { version = "0.4", features = ["serde"] }
 
 
 [dev-dependencies]
-mockall = "0.12"
+# mockall, criterion, tempfile removed - not used
 uuid = { version = "1.7", features = ["v4", "serde"] }
 axum-test = "15.0"
-criterion = { version = "0.5", features = ["html_reports"] }
 tokio-test = "0.4"
-tempfile = "3.8"
-# tokio-postgres moved to main dependencies for TLS support
 
 # Clean Architecture Test Configuration removed - using default tests/ directory
 
@@ -225,11 +196,3 @@ lto = "thin"
 panic = "abort"
 codegen-units = 1
 
-
-[[bin]]
-name = "test_ko_earnings"
-path = ".debug/test_ko_earnings.rs"
-
-[[bin]]
-name = "raw_websocket_inspector"
-path = ".debug/raw_websocket_inspector.rs"
