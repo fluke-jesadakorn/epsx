@@ -12,7 +12,7 @@ use super::rankings::is_valid_eps_for_ranking;
 /// Enhance EPS rankings with REAL TradingView WebSocket data (performance optimized)
 pub async fn enhance_with_websocket_data(
     symbols: &[String],
-    rankings: &mut Vec<EPSRanking>
+    rankings: &mut [EPSRanking]
 ) -> Result<usize, String> {
     info!("🚀 Starting optimized TradingView WebSocket enhancement for {} symbols", symbols.len());
     
@@ -28,8 +28,8 @@ pub async fn enhance_with_websocket_data(
 
 /// Enhanced batch processing with optimizations
 async fn enhance_symbols_batch(
-    symbols: &[String], 
-    rankings: &mut Vec<EPSRanking>
+    symbols: &[String],
+    rankings: &mut [EPSRanking]
 ) -> Result<usize, String> {
     // Create optimized WebSocket handler using the new implementation
     let config = crate::infrastructure::adapters::services::tradingview::TradingViewConfig::from(&get_fallback_config());
@@ -134,7 +134,7 @@ mod tests {
 
     #[test]
     fn test_empty_rankings_enhancement() {
-        let symbols = vec!["AAPL".to_string()];
+        let _symbols = vec!["AAPL".to_string()];
         let rankings: Vec<EPSRanking> = Vec::new();
         
         // Test with empty rankings - should not panic
@@ -144,27 +144,22 @@ mod tests {
 
     #[test]
     fn test_ranking_has_required_fields() {
-        let ranking = EPSRanking::from_eps_data(
-            EPSGrowthData {
-                symbol: "AAPL".to_string(),
-                name: "Apple Inc".to_string(),
-                country: "america".to_string(),
-                sector: "Technology".to_string(),
-                exchange: "NASDAQ".to_string(),
-                current_eps: Some(1.5),
-                growth_factor: Some(10.0),
-                price_current: Some(150.0),
-                market_cap: Some(2500000000),
-                volume: Some(50000000),
-                ranking_position: Some(1),
-                quarterly_data: None,
-                created_at: None,
-                updated_at: None,
-                next_earnings_date: None,
-                last_earnings_date: None,
-            },
-            Some(1)
-        );
+        let ranking = EPSRanking {
+            symbol: "AAPL".to_string(),
+            name: "Apple Inc".to_string(),
+            country: "america".to_string(),
+            sector: "Technology".to_string(),
+            exchange: "NASDAQ".to_string(),
+            current_eps: Some(1.5),
+            growth_factor: Some(10.0),
+            price_current: Some(150.0),
+            market_cap: Some(2500000000),
+            volume: Some(50000000),
+            ranking_position: Some(1),
+            quarterly_data: None,
+            next_earnings_date: None,
+            last_earnings_date: None,
+        };
 
         assert_eq!(ranking.symbol, "AAPL");
         assert_eq!(ranking.current_eps.unwrap_or(0.0), 1.5);

@@ -13,7 +13,7 @@ export interface Web3Permission {
     token_contract?: string;
     dao_name?: string;
     required_amount?: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -72,17 +72,11 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
 
       const handleSessionMessage = (event: MessageEvent) => {
         try {
-          console.log('📡 Received cross-tab session message:', event.data);
-
           // Only process explicit disconnect messages, ignore auto-disconnects
           if (
             event.data?.type === 'SESSION_INVALIDATED' &&
             event.data?.source === 'web3_disconnect'
           ) {
-            console.log(
-              '🔄 Processing explicit session invalidation from another tab...'
-            );
-
             // Only invalidate if the wallet address matches
             if (
               !event.data.walletAddress ||
@@ -104,11 +98,10 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
               try {
                 window.localStorage.removeItem('oidc_session');
                 window.sessionStorage.removeItem('oidc_session');
-              } catch {}
+              } catch (_error) {
+                // Intentionally empty - storage cleanup is best effort
+              }
 
-              console.log(
-                '✅ Session invalidated in response to cross-tab disconnect'
-              );
               toast.info('Session was ended in another tab');
             }
           }
@@ -141,16 +134,8 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
   useEffect(() => {
     if (!isHydrated) return; // Wait for hydration
 
-    console.log('🔍 Web3Auth State Check (post-hydration):');
-    console.log('  Wagmi address:', address);
-    console.log('  Wagmi isConnected:', isConnected);
-    console.log('  Internal state.isConnected:', state.isConnected);
-    console.log('  Internal state.walletAddress:', state.walletAddress);
-    console.log('  isHydrated:', isHydrated);
-
     if (address && isConnected) {
       // IMPORTANT: Always sync internal state with Wagmi state first
-      console.log('✅ Wagmi shows wallet connected - syncing internal state');
       setState(prev => ({
         ...prev,
         isConnected: true, // Force sync with Wagmi
@@ -173,7 +158,6 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
               session.isAuthenticated &&
               session.user?.wallet_address === address
             ) {
-              console.log('✅ Found existing authenticated session');
               setState(prev => ({
                 ...prev,
                 isConnected: true,
@@ -207,25 +191,11 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
             }
           } else if (response.status === 401) {
             // 401 is expected in progressive auth when no session exists yet
-            console.log(
-              '🔗 Wallet connected but no authenticated session (expected in progressive auth)'
-            );
           } else if (response.status === 500) {
             // 500 indicates backend/API issues - don't treat as auth failure
-            console.warn(
-              'Session API returned 500 - backend may be unavailable (non-critical in Web3-first mode)'
-            );
-          } else {
-            console.warn(
-              'Session check returned unexpected status:',
-              response.status
-            );
           }
 
           // Not authenticated but connected (normal state in progressive auth)
-          console.log(
-            '🔗 Wallet connected but not authenticated - ready for sign-in'
-          );
           setState(prev => ({
             ...prev,
             isConnected: true, // CRITICAL: Keep this true when Wagmi shows connected
@@ -250,9 +220,6 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       })();
     } else if (!address || !isConnected) {
       // Only clear state when Wagmi actually shows disconnected
-      console.log(
-        '🔄 Wagmi shows wallet disconnected - clearing internal state'
-      );
       setState(prev => ({
         ...prev,
         isConnected: false,
@@ -328,9 +295,6 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
         }));
         return true;
       } else if (response.status === 405) {
-        console.log(
-          'Permissions endpoint not available (405) - using default values'
-        );
         // Set default values when permissions endpoint is not available
         setState(prev => ({
           ...prev,
@@ -377,14 +341,9 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       if (provider && typeof provider === 'object' && 'request' in provider && typeof (provider as any).request === 'function') {
         // First, request account access to ensure proper authorization
         try {
-          console.log('🔑 Requesting wallet account access...');
           const accounts = await (provider as any).request({
             method: 'eth_requestAccounts',
           });
-          console.log(
-            '✅ Wallet access granted, accounts:',
-            accounts?.length || 0
-          );
 
           // Verify the current address is in the authorized accounts
           if (accounts && accounts.length > 0) {
@@ -398,36 +357,36 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
                 'Connected wallet address not found in authorized accounts'
               );
             }
-
-            console.log('✅ Wallet authorization verified');
           } else {
             throw new Error('No accounts returned from wallet');
           }
-        } catch (authError: any) {
+        } catch (authError: unknown) {
           // Handle specific authorization errors
-          if (authError.code === 4001) {
+          const err = authError as { code?: number; message?: string };
+          if (err.code === 4001) {
             throw new Error('Wallet access denied by user');
-          } else if (authError.code === 4100) {
+          } else if (err.code === 4100) {
             throw new Error(
               'Wallet not authorized - please connect your wallet first'
             );
-          } else if (authError.message?.includes('User rejected')) {
+          } else if (err.message?.includes('User rejected')) {
             throw new Error('Wallet access was rejected');
           } else {
             throw new Error(
-              `Wallet authorization failed: ${authError.message || 'Unknown error'}`
+              `Wallet authorization failed: ${err.message || 'Unknown error'}`
             );
           }
         }
       }
-    } catch (error: any) {
-      console.error('❌ Wallet authorization failed:', error.message);
+    } catch (error: unknown) {
+      const err = error as { message?: string };
+      console.error('❌ Wallet authorization failed:', err.message);
       setState(prev => ({
         ...prev,
         isAuthenticating: false,
-        error: error.message,
+        error: err.message,
       }));
-      toast.error(error.message);
+      toast.error(err.message || 'Wallet authorization failed');
       return;
     }
 
@@ -471,21 +430,22 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       let signature: string;
       try {
         signature = await signMessageAsync({ message: messageString });
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Handle user rejection gracefully
+        const err = error as { code?: number; message?: string };
         if (
-          error.code === 4001 ||
-          error.message?.includes('User rejected') ||
-          error.message?.includes('User denied')
+          err.code === 4001 ||
+          err.message?.includes('User rejected') ||
+          err.message?.includes('User denied')
         ) {
           throw new Error('Signature was cancelled by user');
-        } else if (error.message?.includes('Method not found')) {
+        } else if (err.message?.includes('Method not found')) {
           throw new Error('Wallet does not support message signing');
-        } else if (error.message?.includes('Connection lost')) {
+        } else if (err.message?.includes('Connection lost')) {
           throw new Error('Wallet connection lost - please reconnect');
         } else {
           throw new Error(
-            `Wallet signing failed: ${error.message || 'Unknown wallet error'}`
+            `Wallet signing failed: ${err.message || 'Unknown wallet error'}`
           );
         }
       }
@@ -533,26 +493,29 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
         try {
           window.localStorage.setItem('oidc_session', '1');
           document.cookie = 'oidc_session=1; path=/; SameSite=Lax';
-        } catch {}
+        } catch (_error) {
+          // Intentionally empty - session markers are optional
+        }
       }
 
       // Refresh permissions after successful authentication
       await refreshPermissions();
       toast.success('Successfully authenticated with Web3 wallet');
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Handle common error types
+      const err = error as { message?: string };
       let errorMessage = 'Authentication failed';
       if (
-        error.message?.includes('User rejected') ||
-        error.message?.includes('cancelled')
+        err.message?.includes('User rejected') ||
+        err.message?.includes('cancelled')
       ) {
         errorMessage = 'Wallet signature was cancelled';
-      } else if (error.message?.includes('timeout')) {
+      } else if (err.message?.includes('timeout')) {
         errorMessage = 'Request timeout. Please try again.';
-      } else if (error.message?.includes('expired')) {
+      } else if (err.message?.includes('expired')) {
         errorMessage = 'Authentication expired - please try again';
-      } else if (error.message) {
-        errorMessage = error.message;
+      } else if (err.message) {
+        errorMessage = err.message;
       }
 
       setState(prev => ({
@@ -567,63 +530,12 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
   }, [address, signMessageAsync, refreshPermissions, chain]);
 
   const disconnect = useCallback(async () => {
-    console.log('🔄 Starting comprehensive wallet disconnect...');
-    console.log('🔍 Disconnect function called with:', {
-      wagmiDisconnectExists: !!wagmiDisconnect,
-      currentAddress: address,
-      wagmiIsConnected: isConnected,
-      internalIsConnected: state.isConnected,
-      isAuthenticated: state.isAuthenticated,
-      currentConnector: connector?.name || 'none',
-    });
-
-    // Debug: Log current localStorage state
-    if (typeof window !== 'undefined') {
-      console.log('📋 Current localStorage before disconnect:');
-      const allKeys = [];
-      for (let i = 0; i < window.localStorage.length; i++) {
-        const key = window.localStorage.key(i);
-        if (key) allKeys.push(key);
-      }
-      console.log('📋 Total localStorage keys:', allKeys.length);
-
-      const relevantKeys = allKeys.filter(
-        key =>
-          key.includes('wagmi') ||
-          key.includes('wallet') ||
-          key.includes('auth')
-      );
-      console.log('📋 Wallet/auth related keys:', relevantKeys.length);
-
-      relevantKeys.forEach(key => {
-        const value = window.localStorage.getItem(key);
-        console.log(`  - ${key}: ${value?.substring(0, 100)}...`);
-      });
-    }
-
     try {
       // Step 1: Disconnect individual connector FIRST (if available)
       if (connector && typeof connector.disconnect === 'function') {
         try {
-          console.log(
-            `🔌 Disconnecting individual connector: ${connector.name}`
-          );
-          console.log('🔍 Connector state before disconnect:', {
-            connected: connector.connected,
-            ready: connector.ready,
-            id: connector.id,
-          });
-
           // Call individual connector disconnect
           await connector.disconnect();
-          console.log('✅ Individual connector disconnect completed');
-
-          // Verify connector state was reset
-          console.log('🔍 Connector state after disconnect:', {
-            connected: connector.connected,
-            ready: connector.ready,
-            id: connector.id,
-          });
 
           // Wait a moment for connector cleanup
           await new Promise(resolve => setTimeout(resolve, 150));
@@ -637,12 +549,10 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       }
 
       // Step 2: THEN disconnect from Wagmi globally
-      console.log('🔌 Disconnecting from Wagmi globally...');
       if (wagmiDisconnect && typeof wagmiDisconnect === 'function') {
         try {
           // Call wagmi disconnect
           wagmiDisconnect();
-          console.log('📞 Wagmi disconnect called');
 
           // Wait for Wagmi to actually disconnect by polling its state
           let attempts = 0;
@@ -655,30 +565,15 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
             // The useEffect will handle state sync once Wagmi updates
             if (attempts >= 5) break; // Give reasonable time for disconnect
           }
-          console.log(
-            '✅ Wagmi global disconnect completed (or timed out after reasonable wait)'
-          );
         } catch (wagmiError) {
           console.error('❌ Wagmi disconnect failed:', wagmiError);
           // Continue with cleanup even if wagmi disconnect fails
         }
       }
 
-      // Step 3: Validate all disconnect operations completed
-      console.log('🔍 Post-disconnect validation:');
-      if (connector) {
-        console.log(
-          `  - Connector ${connector.name} connected state:`,
-          connector.connected
-        );
-      }
-      console.log('  - Wagmi state will be validated by useEffect');
-
       // Step 2: Clear storage to ensure clean state - ENHANCED VERSION
       try {
         if (typeof window !== 'undefined') {
-          console.log('🧹 Starting localStorage cleanup...');
-
           // Get all localStorage keys that match our patterns
           const allKeys = [];
           for (let i = 0; i < window.localStorage.length; i++) {
@@ -698,20 +593,10 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
               key === 'web3_auth_state'
           );
 
-          console.log(
-            `🗑️ Found ${keysToRemove.length} keys to remove:`,
-            keysToRemove
-          );
-
-          // Remove each key and log result
+          // Remove each key
           keysToRemove.forEach(key => {
             try {
-              const hadValue = window.localStorage.getItem(key) !== null;
               window.localStorage.removeItem(key);
-              const nowRemoved = window.localStorage.getItem(key) === null;
-              console.log(
-                `  - ${key}: ${hadValue ? 'had value' : 'empty'} → ${nowRemoved ? 'REMOVED ✅' : 'FAILED ❌'}`
-              );
             } catch (e) {
               console.error(`❌ Failed to remove ${key}:`, e);
             }
@@ -724,18 +609,15 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
             'id_token',
             'refresh_token',
           ];
-          console.log('🍪 Clearing cookies:', cookiesToClear);
           cookiesToClear.forEach(cookieName => {
             try {
               document.cookie = `${cookieName}=; Max-Age=0; path=/; SameSite=Lax`;
               document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
-              console.log(`  - Cookie ${cookieName} cleared`);
             } catch (e) {
               console.warn(`Could not clear cookie ${cookieName}:`, e);
             }
           });
         }
-        console.log('✅ Storage cleanup completed');
       } catch (storageError) {
         console.error('❌ Storage cleanup error:', storageError);
       }
@@ -755,7 +637,6 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
               logout_reason: 'user_initiated_disconnect',
             }),
           });
-          console.log('✅ Server-side session invalidated');
         } catch (error) {
           console.warn('⚠️ Server-side session invalidation failed:', error);
           // Continue with cleanup
@@ -774,42 +655,8 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
         walletAddress: undefined,
         error: undefined,
       });
-      console.log(
-        '✅ Application state reset (useEffect will handle final sync)'
-      );
-
-      // Debug: Log localStorage state after cleanup
-      if (typeof window !== 'undefined') {
-        console.log('📋 Final localStorage state after disconnect:');
-        const remainingKeys = [];
-        for (let i = 0; i < window.localStorage.length; i++) {
-          const key = window.localStorage.key(i);
-          if (
-            key &&
-            (key.includes('wagmi') ||
-              key.includes('wallet') ||
-              key.includes('auth'))
-          ) {
-            remainingKeys.push(key);
-            console.log(
-              `  - REMAINING: ${key}: ${window.localStorage.getItem(key)?.substring(0, 50)}...`
-            );
-          }
-        }
-        if (remainingKeys.length === 0) {
-          console.log(
-            '  ✅ No wallet/auth related keys remaining in localStorage'
-          );
-        } else {
-          console.warn(
-            `  ⚠️ ${remainingKeys.length} keys still present:`,
-            remainingKeys
-          );
-        }
-      }
 
       toast.success('Wallet disconnected successfully');
-      console.log('✅ Complete wallet disconnect finished');
 
       // Refresh the page to ensure complete state reset
       window.location.reload();
@@ -834,7 +681,9 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
           window.localStorage.removeItem('wagmi.cache');
           window.localStorage.removeItem('wagmi.store');
           window.localStorage.removeItem('wagmi.recentConnector');
-        } catch {}
+        } catch (_error) {
+          // Intentionally empty - storage cleanup is best effort
+        }
       }
 
       toast.error('Wallet disconnected with some errors - refreshing page...');
@@ -901,8 +750,6 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
   );
 
   const resetAuthState = useCallback(() => {
-    console.log('🔄 Manually resetting authentication state...');
-
     // Clear any pending timers or promises by forcing a state reset
     setState({
       isConnected: !!address,
@@ -914,8 +761,6 @@ export function useWeb3Auth(): Web3AuthState & Web3AuthActions {
       walletAddress: address,
       error: undefined,
     });
-
-    console.log('✅ Authentication state reset complete');
   }, [address]);
 
   return {

@@ -1,15 +1,18 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+
 import { 
   PancakeModal, 
   PancakeCard, 
   PancakeButton,
   type PancakeModalProps 
 } from '../../../../shared/components'
-import { adminClient, SubscriptionResponse, UpdateSubscriptionRequest, isApiSuccess } from '@/lib/api/unified-admin-client'
+
 import { toast } from '@/hooks/use-toast'
 import { logger } from '@/lib/logger'
+import { createPlansClient, type SubscriptionResponse, type UpdateSubscriptionRequest, isApiSuccess } from '@/shared/api/plans'
+import { createAdminApiClient } from '@/shared/utils/api-client'
 
 interface SubscriptionDetailsModalProps {
   subscription: SubscriptionResponse
@@ -18,6 +21,14 @@ interface SubscriptionDetailsModalProps {
   isOpen: boolean
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.subscription
+ * @param root0.onClose
+ * @param root0.onUpdate
+ * @param root0.isOpen
+ */
 export function SubscriptionDetailsModal({ subscription, onClose, onUpdate, isOpen }: SubscriptionDetailsModalProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -34,17 +45,19 @@ export function SubscriptionDetailsModal({ subscription, onClose, onUpdate, isOp
   }, [])
 
   const loadPlans = async () => {
+    const adminClient = createPlansClient(createAdminApiClient())
     try {
       const response = await adminClient.getPlans({ is_active: true })
       if (isApiSuccess(response)) {
         setPlans((response.data as any)?.plans || response.data as any || [])
       }
-    } catch (error) {
-      logger.error('Failed to load plans', { error })
+    } catch (_error) {
+      logger.error('Failed to load plans', { _error })
     }
   }
 
   const handleUpdate = async () => {
+    const adminClient = createPlansClient(createAdminApiClient())
     try {
       setLoading(true)
       const updatePayload: UpdateSubscriptionRequest = {
@@ -68,7 +81,7 @@ export function SubscriptionDetailsModal({ subscription, onClose, onUpdate, isOp
           variant: "destructive"
         })
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "Error",
         description: "Failed to update subscription",
@@ -84,6 +97,7 @@ export function SubscriptionDetailsModal({ subscription, onClose, onUpdate, isOp
       return
     }
 
+    const adminClient = createPlansClient(createAdminApiClient())
     try {
       setLoading(true)
       const response = await adminClient.cancelSubscription(subscription.id)
@@ -102,7 +116,7 @@ export function SubscriptionDetailsModal({ subscription, onClose, onUpdate, isOp
           variant: "destructive"
         })
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "Error",
         description: "Failed to cancel subscription",
@@ -127,12 +141,12 @@ export function SubscriptionDetailsModal({ subscription, onClose, onUpdate, isOp
   }
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Never'
+    if (!dateString) {return 'Never'}
     return new Date(dateString).toLocaleString()
   }
 
   const formatUsage = (usage: Record<string, any>) => {
-    if (!usage || Object.keys(usage).length === 0) return 'No usage data'
+    if (!usage || Object.keys(usage).length === 0) {return 'No usage data'}
     return Object.entries(usage)
       .map(([key, value]) => `${key}: ${value}`)
       .join(', ')

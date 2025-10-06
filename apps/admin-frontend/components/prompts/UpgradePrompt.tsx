@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import { 
   Shield, 
   Lock, 
@@ -11,8 +10,10 @@ import {
   AlertTriangle,
   MessageSquare
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useState } from 'react';
+
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 
 interface AdminUpgradePromptProps {
@@ -66,6 +67,22 @@ const ROLE_INFO = {
   }
 };
 
+/**
+ *
+ * @param root0
+ * @param root0.requiredPermission
+ * @param root0.requiredRole
+ * @param root0.featureName
+ * @param root0.description
+ * @param root0.variant
+ * @param root0.size
+ * @param root0.dismissible
+ * @param root0.className
+ * @param root0.onRequestAccess
+ * @param root0.onContactSuperAdmin
+ * @param root0.onDismiss
+ * @param root0.onLearnMore
+ */
 export function AdminUpgradePrompt({
   requiredPermission,
   requiredRole,
@@ -82,7 +99,7 @@ export function AdminUpgradePrompt({
 }: AdminUpgradePromptProps) {
   const [isDismissed, setIsDismissed] = useState(false);
 
-  if (isDismissed) return null;
+  if (isDismissed) {return null;}
 
   // Determine which info to use
   const roleInfo = requiredRole ? ROLE_INFO[requiredRole] : ROLE_INFO.admin;
@@ -94,16 +111,16 @@ export function AdminUpgradePrompt({
   };
 
   const getTitle = () => {
-    if (featureName) return `${featureName} Access Required`;
-    if (requiredPermission) return `Permission Required: ${requiredPermission}`;
-    if (requiredRole) return `${requiredRole.replace('_', ' ').toUpperCase()} Role Required`;
+    if (featureName) {return `${featureName} Access Required`;}
+    if (requiredPermission) {return `Permission Required: ${requiredPermission}`;}
+    if (requiredRole) {return `${requiredRole.replace('_', ' ').toUpperCase()} Role Required`;}
     return 'Administrative Access Required';
   };
 
   const getDescription = () => {
-    if (description) return description;
-    if (requiredPermission) return `This feature requires the "${requiredPermission}" permission.`;
-    if (requiredRole) return roleInfo.description;
+    if (description) {return description;}
+    if (requiredPermission) {return `This feature requires the "${requiredPermission}" permission.`;}
+    if (requiredRole) {return roleInfo.description;}
     return 'You need additional administrative permissions to access this feature.';
   };
 
@@ -288,18 +305,34 @@ export function AdminUpgradePrompt({
 }
 
 // Convenience components for common admin scenarios
+/**
+ *
+ * @param props
+ */
 export const AdminAccessPrompt = (props: Omit<AdminUpgradePromptProps, 'requiredRole'>) => (
   <AdminUpgradePrompt requiredRole="admin" {...props} />
 );
 
+/**
+ *
+ * @param props
+ */
 export const SuperAdminAccessPrompt = (props: Omit<AdminUpgradePromptProps, 'requiredRole'>) => (
   <AdminUpgradePrompt requiredRole="super_admin" {...props} />
 );
 
+/**
+ *
+ * @param props
+ */
 export const SystemAdminAccessPrompt = (props: Omit<AdminUpgradePromptProps, 'requiredRole'>) => (
   <AdminUpgradePrompt requiredRole="system_admin" {...props} />
 );
 
+/**
+ *
+ * @param props
+ */
 export const PermissionPrompt = (props: AdminUpgradePromptProps) => (
   <AdminUpgradePrompt {...props} />
 );

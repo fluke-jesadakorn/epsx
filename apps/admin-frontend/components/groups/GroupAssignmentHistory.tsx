@@ -6,12 +6,18 @@
 'use client'
 
 import React from 'react'
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface GroupAssignmentHistoryProps {
   className?: string
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.className
+ */
 export function GroupAssignmentHistory({ className }: GroupAssignmentHistoryProps) {
   return (
     <div className={`space-y-6 ${className || ''}`}>

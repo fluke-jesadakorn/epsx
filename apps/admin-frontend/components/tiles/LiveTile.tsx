@@ -1,13 +1,5 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import Link from 'next/link';
-import { 
-  TileData, 
-  TILE_SIZE_CLASSES, 
-  TILE_COLOR_CLASSES,
-  TileActionData 
-} from './types';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -18,9 +10,19 @@ import {
   WifiOff,
   RotateCcw
 } from 'lucide-react';
+import Link from 'next/link';
+import { useState, useEffect, useRef } from 'react';
+
+import { 
+  TileData, 
+  TILE_SIZE_CLASSES, 
+  TILE_COLOR_CLASSES,
+  TileActionData 
+} from './types';
+
 import { useSmartPolling } from '@/hooks/useSmartPolling';
-import { cn } from '@/lib/utils';
 import { logger } from '@/lib/logger';
+import { cn } from '@/lib/utils';
 
 interface LiveTileProps {
   tile: TileData;
@@ -29,6 +31,14 @@ interface LiveTileProps {
   className?: string;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.tile
+ * @param root0.fetcher
+ * @param root0.onClick
+ * @param root0.className
+ */
 export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
   const [isFlipping, setIsFlipping] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
@@ -104,7 +114,7 @@ export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
   };
 
   const renderTrend = () => {
-    if (!tile.trend) return null;
+    if (!tile.trend) {return null;}
     
     const { direction, value, percentage, period } = tile.trend;
     const TrendIcon = direction === 'up' ? TrendingUp : direction === 'down' ? TrendingDown : Minus;
@@ -119,7 +129,7 @@ export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
   };
 
   const renderProgressBar = () => {
-    if (!tile.showProgress || !tile.metadata?.progress) return null;
+    if (!tile.showProgress || !tile.metadata?.progress) {return null;}
     
     const progress = Math.min(Math.max(tile.metadata.progress, 0), 100);
     
@@ -268,6 +278,10 @@ export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
 
 // Specialized tile variants for common use cases
 
+/**
+ *
+ * @param props
+ */
 export function UserStatsTile(props: Omit<LiveTileProps, 'tile'> & { 
   userCount: number; 
   activeCount: number; 
@@ -291,6 +305,10 @@ export function UserStatsTile(props: Omit<LiveTileProps, 'tile'> & {
   return <LiveTile {...props} tile={tile} />;
 }
 
+/**
+ *
+ * @param props
+ */
 export function SecurityAlertsTile(props: Omit<LiveTileProps, 'tile'> & { 
   alertCount: number; 
   severity: 'low' | 'medium' | 'high' | 'critical' 
@@ -319,6 +337,10 @@ export function SecurityAlertsTile(props: Omit<LiveTileProps, 'tile'> & {
   return <LiveTile {...props} tile={tile} />;
 }
 
+/**
+ *
+ * @param props
+ */
 export function AnalyticsTile(props: Omit<LiveTileProps, 'tile'> & { 
   metric: string;
   value: string | number;

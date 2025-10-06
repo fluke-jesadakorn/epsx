@@ -15,11 +15,12 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { 
-  SharedWeb3AuthClient, 
-  UserInfoResponse, 
-  UnifiedApiResponse 
+import {
+  SharedWeb3AuthClient,
+  UserInfoResponse,
+  UnifiedApiResponse
 } from '../../auth/openid-web3-client';
+import { OIDC_KEYS } from '../../auth/storage-keys';
 
 // Shared authentication context value
 export interface SharedAuthContextValue {
@@ -115,33 +116,44 @@ export function SharedOpenIDWeb3Provider({
         setIsLoading(true);
         setError(null);
         
-        // First try to restore Web3 authentication from localStorage
+        // First try to restore Web3 authentication from unified OpenID localStorage
         let hasStoredAuth = false;
         if (typeof window !== 'undefined') {
           try {
-            const storedUser = localStorage.getItem('epsx_web3_user');
-            const storedTimestamp = localStorage.getItem('epsx_web3_auth_timestamp');
-            const accessToken = localStorage.getItem(`${clientId}_access_token`);
-            const tokenExpiry = localStorage.getItem(`${clientId}_token_expiry`);
-            
-            if (storedUser && storedTimestamp) {
-              const authAge = Date.now() - parseInt(storedTimestamp);
+            const storedUser = localStorage.getItem(OIDC_KEYS.USER);
+            const authTime = localStorage.getItem(OIDC_KEYS.AUTH_TIME);
+            const accessToken = localStorage.getItem(OIDC_KEYS.ACCESS_TOKEN);
+            const tokenExpiry = localStorage.getItem(OIDC_KEYS.EXPIRES_AT);
+
+            if (storedUser && authTime) {
+              const authAge = Date.now() - parseInt(authTime);
               const maxAge = 24 * 60 * 60 * 1000; // 24 hours
               const isTokenValid = tokenExpiry ? parseInt(tokenExpiry) > Date.now() : false;
-              
+
               if (authAge < maxAge && accessToken && isTokenValid) {
                 const user: UserInfoResponse = JSON.parse(storedUser);
+                console.log('✅ Restoring auth from unified OpenID localStorage', {
+                  clientId,
+                  wallet: user.wallet_address?.slice(0, 8) + '...',
+                  permissions: user.permissions?.length || 0,
+                  hasPermissions: Array.isArray(user.permissions),
+                  tier: user.tier_level
+                });
                 setUser(user);
                 hasStoredAuth = true;
                 return; // Skip OpenID client loading
               } else {
+                console.log('🗑️ Clearing expired auth from unified OpenID localStorage', {
+                  clientId,
+                  authAge: Math.round(authAge / 1000 / 60) + 'min',
+                  tokenValid: isTokenValid
+                });
                 // Clear expired or invalid authentication
-                localStorage.removeItem('epsx_web3_user');
-                localStorage.removeItem('epsx_web3_auth_timestamp');
-                localStorage.removeItem('epsx-admin_access_token');
-                localStorage.removeItem(`${clientId}_access_token`);
-                localStorage.removeItem(`${clientId}_refresh_token`);
-                localStorage.removeItem(`${clientId}_token_expiry`);
+                localStorage.removeItem(OIDC_KEYS.USER);
+                localStorage.removeItem(OIDC_KEYS.AUTH_TIME);
+                localStorage.removeItem(OIDC_KEYS.ACCESS_TOKEN);
+                localStorage.removeItem(OIDC_KEYS.REFRESH_TOKEN);
+                localStorage.removeItem(OIDC_KEYS.EXPIRES_AT);
               }
             }
           } catch (error) {
@@ -315,31 +327,31 @@ export function SharedOpenIDWeb3Provider({
         packageTier: result.tier_level, // For compatibility
       };
       
-      // Persist user data to localStorage for page refresh survival
+      // Persist user data to unified OpenID localStorage for page refresh survival
       if (typeof window !== 'undefined') {
         try {
-          localStorage.setItem('epsx_web3_user', JSON.stringify(user));
-          localStorage.setItem('epsx_web3_auth_timestamp', Date.now().toString());
-          
+          localStorage.setItem(OIDC_KEYS.USER, JSON.stringify(user));
+          localStorage.setItem(OIDC_KEYS.AUTH_TIME, Date.now().toString());
+
           // Store access token for admin session validation (if provided)
           if (result.access_token) {
-            localStorage.setItem('epsx-admin_access_token', result.access_token);
-            
-            // Store access token in format expected by SharedWeb3AuthClient
-            localStorage.setItem(`${clientId}_access_token`, result.access_token);
-            
+            localStorage.setItem(OIDC_KEYS.ACCESS_TOKEN, result.access_token);
+
             // Set token expiry (default to 24 hours if not provided)
             const expiryTime = Date.now() + (24 * 60 * 60 * 1000);
-            localStorage.setItem(`${clientId}_token_expiry`, expiryTime.toString());
-            
-            console.log('💾 Stored access token for OpenID client compatibility', {
+            localStorage.setItem(OIDC_KEYS.EXPIRES_AT, expiryTime.toString());
+
+            console.log('💾 Stored access token to unified OpenID localStorage', {
               clientId,
-              tokenKey: `${clientId}_access_token`,
-              expiryKey: `${clientId}_token_expiry`
+              keys: {
+                user: OIDC_KEYS.USER,
+                accessToken: OIDC_KEYS.ACCESS_TOKEN,
+                expiresAt: OIDC_KEYS.EXPIRES_AT
+              }
             });
           }
-          
-          console.log('💾 Persisted Web3 authentication to localStorage');
+
+          console.log('💾 Persisted Web3 authentication to unified OpenID localStorage');
         } catch (error) {
           console.warn('⚠️ Failed to persist authentication data:', error);
         }
@@ -367,19 +379,16 @@ export function SharedOpenIDWeb3Provider({
       setError(null);
       console.log('Logging out user');
       
-      // Clear localStorage Web3 authentication data
+      // Clear unified OpenID localStorage authentication data
       if (typeof window !== 'undefined') {
         try {
-          localStorage.removeItem('epsx_web3_user');
-          localStorage.removeItem('epsx_web3_auth_timestamp');
-          localStorage.removeItem('epsx-admin_access_token');
-          
-          // Clear OpenID client tokens
-          localStorage.removeItem(`${clientId}_access_token`);
-          localStorage.removeItem(`${clientId}_refresh_token`);
-          localStorage.removeItem(`${clientId}_token_expiry`);
-          
-          console.log('🗑️ Cleared Web3 authentication and OpenID tokens from localStorage', { clientId });
+          localStorage.removeItem(OIDC_KEYS.USER);
+          localStorage.removeItem(OIDC_KEYS.AUTH_TIME);
+          localStorage.removeItem(OIDC_KEYS.ACCESS_TOKEN);
+          localStorage.removeItem(OIDC_KEYS.REFRESH_TOKEN);
+          localStorage.removeItem(OIDC_KEYS.EXPIRES_AT);
+
+          console.log('🗑️ Cleared unified OpenID authentication from localStorage', { clientId });
         } catch (error) {
           console.warn('⚠️ Failed to clear authentication data:', error);
         }
@@ -456,9 +465,14 @@ export function SharedOpenIDWeb3Provider({
   // Context value
   const contextValue: SharedAuthContextValue = {
     user,
-    isAuthenticated: !!user && (typeof window !== 'undefined' && 
-      !!localStorage.getItem(`${clientId}_access_token`) && 
-      parseInt(localStorage.getItem(`${clientId}_token_expiry`) || '0') > Date.now()),
+    // ✅ FIX: Only mark as authenticated when user AND permissions are loaded
+    // This prevents race conditions where isAuthenticated=true but permissions=[]
+    isAuthenticated: !!user &&
+      Array.isArray(user?.permissions) && // Ensure permissions array exists
+      (typeof window !== 'undefined' &&
+      !!localStorage.getItem(OIDC_KEYS.ACCESS_TOKEN) &&
+      !!localStorage.getItem(OIDC_KEYS.EXPIRES_AT) &&
+      parseInt(localStorage.getItem(OIDC_KEYS.EXPIRES_AT) || '0') > Date.now()),
     isLoading,
     isSigningChallenge,
     error,

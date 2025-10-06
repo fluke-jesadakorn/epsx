@@ -1,19 +1,18 @@
 // Wallet User Repository Adapter (Infrastructure Layer)
 // Implements WalletUserRepositoryPort using SQLx and PostgreSQL for Web3-first authentication
 
-use std::sync::Arc;
+use crate::prelude::*;
+
 use std::collections::{HashMap, HashSet};
-use async_trait::async_trait;
-use chrono::{DateTime, Utc, NaiveDate};
+use chrono::NaiveDate;
 use sqlx::{PgPool, Row};
 use tracing::{error, info, warn};
 
-use crate::core::errors::{AppError, AppResult};
-use crate::domain::user_management::{
+use crate::domain::wallet_management::{
     aggregates::{WalletUser, WalletMetadata},
     value_objects::{WalletAddress, Permission, PermissionType},
     repository_ports::{
-        WalletUserRepositoryPort, 
+        WalletUserRepositoryPort,
         WalletUserAnalyticsPort,
         WalletUserSearchCriteria,
         WalletUserSearchResult,
@@ -39,10 +38,10 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
     async fn find_by_wallet(&self, wallet_address: &WalletAddress) -> AppResult<Option<WalletUser>> {
         let row = sqlx::query!(
             r#"
-            SELECT 
-                wallet_address, is_active, permissions, permission_groups, wallet_metadata,
+            SELECT
+                wallet_address, is_active, wallet_metadata,
                 created_at, updated_at, last_auth_at
-            FROM wallet_users 
+            FROM wallet_users
             WHERE LOWER(wallet_address) = LOWER($1)
             "#,
             wallet_address.as_str()
@@ -59,24 +58,13 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
             let wallet_addr = WalletAddress::new(row.wallet_address)
                 .map_err(|e| AppError::validation_error(format!("Invalid wallet address: {}", e))
                     .with_component("wallet_user_repository"))?;
-            
-            // Parse permissions from JSON
-            let permissions: Vec<String> = serde_json::from_value(row.permissions)
-                .map_err(|e| AppError::validation_error(format!("Invalid permissions JSON: {}", e))
-                    .with_component("wallet_user_repository"))?;
-            
-            let permission_set: HashSet<Permission> = permissions
-                .into_iter()
-                .filter_map(|p| Permission::new(p).ok())
-                .collect();
 
-            // Parse permission groups
-            let permission_groups: Vec<String> = row.permission_groups
-                .map(|groups_json| serde_json::from_value(groups_json)
-                    .unwrap_or_else(|_| vec!["basic".to_string()]))
-                .unwrap_or_else(|| vec!["basic".to_string()]); // Default group
-            
-            let permission_group_set: HashSet<String> = permission_groups.into_iter().collect();
+            // NOTE: Permissions now stored in normalized tables
+            // Use Web3PermissionService or query normalized tables directly:
+            // - wallet_group_assignments + permission_group_memberships (group permissions)
+            // - wallet_direct_permissions (direct permissions)
+            let permission_set: HashSet<Permission> = HashSet::new();
+            let permission_group_set: HashSet<String> = HashSet::new();
 
             // Parse wallet metadata
             let metadata_json = row.wallet_metadata;
@@ -84,19 +72,19 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 .map_err(|e| AppError::validation_error(format!("Invalid wallet metadata: {}", e))
                     .with_component("wallet_user_repository"))?;
 
-            let user = WalletUser::load(
-                wallet_addr,
-                row.is_active,
-                permission_set,
-                permission_group_set,
-                metadata,
-                row.created_at,
-                row.updated_at,
-                row.last_auth_at,
-                1, // Version - TODO: implement proper versioning
-            );
+            let wallet = WalletUser::load(crate::domain::wallet_management::aggregates::wallet_user::WalletUserLoadParams {
+                wallet_address: wallet_addr,
+                is_active: row.is_active,
+                permissions: permission_set,
+                permission_groups: permission_group_set,
+                wallet_metadata: metadata,
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+                last_auth_at: row.last_auth_at,
+                version: 1, // Version - TODO: implement proper versioning
+            });
 
-            Ok(Some(user))
+            Ok(Some(wallet))
         } else {
             Ok(None)
         }
@@ -111,10 +99,10 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
         
         let rows = sqlx::query!(
             r#"
-            SELECT 
-                wallet_address, is_active, permissions, permission_groups, wallet_metadata,
+            SELECT
+                wallet_address, is_active, wallet_metadata,
                 created_at, updated_at, last_auth_at
-            FROM wallet_users 
+            FROM wallet_users
             WHERE LOWER(wallet_address) = ANY(SELECT LOWER(unnest($1::text[])))
             ORDER BY created_at DESC
             "#,
@@ -131,38 +119,24 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
         let mut users = Vec::new();
         for row in rows {
             if let Ok(wallet_addr) = WalletAddress::new(row.wallet_address) {
-                let permissions_json = if row.permissions.is_null() { 
-                    serde_json::json!([]) 
-                } else { 
-                    row.permissions 
-                };
-                if let Ok(permissions) = serde_json::from_value::<Vec<String>>(permissions_json) {
-                    let permission_set: HashSet<Permission> = permissions
-                        .into_iter()
-                        .filter_map(|p| Permission::new(p).ok())
-                        .collect();
+                // NOTE: Permissions now in normalized tables
+                let permission_set: HashSet<Permission> = HashSet::new();
+                let permission_group_set: HashSet<String> = HashSet::new();
 
-                    let permission_groups: Vec<String> = row.permission_groups
-                        .map(|groups_json| serde_json::from_value(groups_json)
-                            .unwrap_or_else(|_| vec!["basic".to_string()]))
-                        .unwrap_or_else(|| vec!["basic".to_string()]);
-                    let permission_group_set: HashSet<String> = permission_groups.into_iter().collect();
-
-                    let metadata_json = row.wallet_metadata;
-                    if let Ok(metadata) = WalletMetadata::from_json(metadata_json) {
-                        let user = WalletUser::load(
-                            wallet_addr,
-                            row.is_active,
-                            permission_set,
-                            permission_group_set,
-                            metadata,
-                            row.created_at,
-                            row.updated_at,
-                            row.last_auth_at,
-                            1,
-                        );
-                        users.push(user);
-                    }
+                let metadata_json = row.wallet_metadata;
+                if let Ok(metadata) = WalletMetadata::from_json(metadata_json) {
+                    let wallet = WalletUser::load(crate::domain::wallet_management::aggregates::wallet_user::WalletUserLoadParams {
+                        wallet_address: wallet_addr,
+                        is_active: row.is_active,
+                        permissions: permission_set,
+                        permission_groups: permission_group_set,
+                        wallet_metadata: metadata,
+                        created_at: row.created_at,
+                        updated_at: row.updated_at,
+                        last_auth_at: row.last_auth_at,
+                        version: 1,
+                    });
+                    users.push(wallet);
                 }
             }
         }
@@ -171,20 +145,10 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
     }
 
     async fn save(&self, user: &WalletUser) -> AppResult<()> {
-        // Serialize permissions to JSON
-        let permission_strings: Vec<String> = user.permissions()
-            .iter()
-            .map(|p| p.as_str().to_string())
-            .collect();
-        let permissions_json = serde_json::to_value(permission_strings)
-            .map_err(|e| AppError::validation_error(format!("Failed to serialize permissions: {}", e))
-                .with_component("wallet_user_repository"))?;
-
-        // Serialize permission groups to JSON
-        let permission_groups: Vec<String> = user.permission_groups().iter().cloned().collect();
-        let permission_groups_json = serde_json::to_value(permission_groups)
-            .map_err(|e| AppError::validation_error(format!("Failed to serialize permission groups: {}", e))
-                .with_component("wallet_user_repository"))?;
+        // NOTE: Permissions now stored in normalized tables
+        // Use separate APIs to manage permissions:
+        // - wallet_group_assignments (assign wallet to groups)
+        // - wallet_direct_permissions (grant direct permissions)
 
         // Serialize wallet metadata to JSON
         let metadata_json = user.wallet_metadata().to_json()
@@ -194,22 +158,18 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
         sqlx::query!(
             r#"
             INSERT INTO wallet_users (
-                wallet_address, is_active, permissions, permission_groups, wallet_metadata,
+                wallet_address, is_active, wallet_metadata,
                 created_at, updated_at, last_auth_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-            ON CONFLICT (wallet_address) 
+            ) VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (wallet_address)
             DO UPDATE SET
                 is_active = EXCLUDED.is_active,
-                permissions = EXCLUDED.permissions,
-                permission_groups = EXCLUDED.permission_groups,
                 wallet_metadata = EXCLUDED.wallet_metadata,
                 updated_at = EXCLUDED.updated_at,
                 last_auth_at = EXCLUDED.last_auth_at
             "#,
             user.wallet_address().as_str().to_lowercase(),
             user.is_active(),
-            permissions_json,
-            permission_groups_json,
             metadata_json,
             user.created_at(),
             user.updated_at(),
@@ -251,14 +211,25 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
 
     async fn find_by_permission(&self, permission: &Permission) -> AppResult<Vec<WalletUser>> {
         let permission_str = permission.as_str();
-        
+
+        // Query users with this permission from normalized tables
         let rows = sqlx::query!(
             r#"
-            SELECT 
-                wallet_address, is_active, permissions, permission_groups, wallet_metadata,
-                created_at, updated_at, last_auth_at
-            FROM wallet_users 
-            WHERE permissions::jsonb ? $1 AND is_active = true
+            SELECT DISTINCT
+                wu.wallet_address, wu.is_active, wu.wallet_metadata,
+                wu.created_at, wu.updated_at, wu.last_auth_at
+            FROM wallet_users wu
+            LEFT JOIN wallet_group_assignments wga ON wu.wallet_address = wga.wallet_address
+            LEFT JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
+            LEFT JOIN permissions p1 ON pgm.permission_id = p1.id
+            LEFT JOIN wallet_direct_permissions wdp ON wu.wallet_address = wdp.wallet_address
+            LEFT JOIN permissions p2 ON wdp.permission_id = p2.id
+            WHERE wu.is_active = true
+              AND (
+                (p1.permission_string = $1 AND p1.is_active = true AND wga.is_active = true)
+                OR
+                (p2.permission_string = $1 AND p2.is_active = true AND wdp.is_active = true)
+              )
             "#,
             permission_str
         )
@@ -272,30 +243,26 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
 
         let mut users = Vec::new();
         for row in rows {
-            let wallet_address = WalletAddress::new(row.wallet_address).map_err(|e| 
+            let wallet_address = WalletAddress::new(row.wallet_address).map_err(|e|
                 AppError::validation_error(format!("Invalid wallet address: {}", e)))?;
-            
-            let permissions: HashSet<Permission> = HashSet::new(); // Simplified for now
-            // Parse permission groups from database
-            let permission_groups: Vec<String> = row.permission_groups
-                .map(|groups_json| serde_json::from_value(groups_json)
-                    .unwrap_or_else(|_| vec!["Basic Access Group".to_string()]))
-                .unwrap_or_else(|| vec!["Basic Access Group".to_string()]);
-            let permission_group_set: HashSet<String> = permission_groups.into_iter().collect();
-            let wallet_metadata = WalletMetadata::default(); // Simplified for now
-            
-            let user = WalletUser::load(
+
+            let permissions: HashSet<Permission> = HashSet::new();
+            let permission_group_set: HashSet<String> = HashSet::new();
+            let wallet_metadata = WalletMetadata::from_json(row.wallet_metadata)
+                .unwrap_or_default();
+
+            let wallet = WalletUser::load(crate::domain::wallet_management::aggregates::wallet_user::WalletUserLoadParams {
                 wallet_address,
-                row.is_active,
+                is_active: row.is_active,
                 permissions,
-                permission_group_set,
+                permission_groups: permission_group_set,
                 wallet_metadata,
-                row.created_at,
-                row.updated_at,
-                row.last_auth_at,
-                1,
-            );
-            users.push(user);
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+                last_auth_at: row.last_auth_at,
+                version: 1,
+            });
+            users.push(wallet);
         }
         Ok(users)
     }
@@ -308,53 +275,54 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
     }
 
     async fn find_by_permission_group(&self, permission_group: &str) -> AppResult<Vec<WalletUser>> {
-        let group_str = permission_group;
-
+        // Query users assigned to this group from normalized tables
+        // Note: permission_group can be group name or group slug
         let rows = sqlx::query!(
             r#"
-            SELECT 
-                wallet_address, is_active, permissions, permission_groups, wallet_metadata,
-                created_at, updated_at, last_auth_at
-            FROM wallet_users 
-            WHERE permission_groups @> $1 AND is_active = true
-            ORDER BY created_at DESC
+            SELECT DISTINCT
+                wu.wallet_address, wu.is_active, wu.wallet_metadata,
+                wu.created_at, wu.updated_at, wu.last_auth_at
+            FROM wallet_users wu
+            INNER JOIN wallet_group_assignments wga ON wu.wallet_address = wga.wallet_address
+            INNER JOIN permission_groups pg ON wga.group_id = pg.id
+            WHERE wu.is_active = true
+              AND wga.is_active = true
+              AND pg.is_active = true
+              AND (pg.name = $1 OR pg.slug = $1)
+            ORDER BY wu.created_at DESC
             "#,
-            serde_json::json!([group_str])
+            permission_group
         )
         .fetch_all(self.db_pool.as_ref())
         .await
         .map_err(|e| {
-            error!("Failed to find users by permission group {}: {}", group_str, e);
+            error!("Failed to find users by permission group {}: {}", permission_group, e);
             AppError::database_error(e.to_string())
                 .with_component("wallet_user_repository")
         })?;
 
         let mut users = Vec::new();
         for row in rows {
-            let wallet_address = WalletAddress::new(row.wallet_address).map_err(|e| 
+            let wallet_address = WalletAddress::new(row.wallet_address).map_err(|e|
                 AppError::validation_error(format!("Invalid wallet address: {}", e)))?;
-            
-            let permissions: HashSet<Permission> = HashSet::new(); // Simplified for now
-            // Parse permission groups from database
-            let permission_groups: Vec<String> = row.permission_groups
-                .map(|groups_json| serde_json::from_value(groups_json)
-                    .unwrap_or_else(|_| vec!["Basic Access Group".to_string()]))
-                .unwrap_or_else(|| vec!["Basic Access Group".to_string()]);
-            let permission_group_set: HashSet<String> = permission_groups.into_iter().collect();
-            let wallet_metadata = WalletMetadata::default(); // Simplified for now
-            
-            let user = WalletUser::load(
+
+            let permissions: HashSet<Permission> = HashSet::new();
+            let permission_group_set: HashSet<String> = HashSet::new();
+            let wallet_metadata = WalletMetadata::from_json(row.wallet_metadata)
+                .unwrap_or_default();
+
+            let wallet = WalletUser::load(crate::domain::wallet_management::aggregates::wallet_user::WalletUserLoadParams {
                 wallet_address,
-                row.is_active,
+                is_active: row.is_active,
                 permissions,
-                permission_group_set,
+                permission_groups: permission_group_set,
                 wallet_metadata,
-                row.created_at,
-                row.updated_at,
-                row.last_auth_at,
-                1,
-            );
-            users.push(user);
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+                last_auth_at: row.last_auth_at,
+                version: 1,
+            });
+            users.push(wallet);
         }
         Ok(users)
     }
@@ -367,10 +335,10 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
     ) -> AppResult<WalletUserSearchResult> {
         let mut query_builder = sqlx::QueryBuilder::new(
             r#"
-            SELECT 
-                wallet_address, is_active, permissions, tier_level, wallet_metadata,
+            SELECT
+                wallet_address, is_active, permissions, wallet_metadata,
                 created_at, updated_at, last_auth_at
-            FROM wallet_users 
+            FROM wallet_users
             WHERE 1=1
             "#
         );
@@ -455,10 +423,10 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
         // Find active users who don't have Web3 permissions for this chain yet
         let rows = sqlx::query(
             r#"
-            SELECT 
-                wallet_address, is_active, permissions, tier_level, wallet_metadata,
+            SELECT
+                wallet_address, is_active, permissions, wallet_metadata,
                 created_at, updated_at, last_auth_at
-            FROM wallet_users 
+            FROM wallet_users
             WHERE is_active = true
             AND (wallet_metadata->>'primary_chain_id')::bigint = $1
             "#,
@@ -485,19 +453,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 .with_component("wallet_user_repository"))?;
 
         for user in users {
-            let permission_strings: Vec<String> = user.permissions()
-                .iter()
-                .map(|p| p.as_str().to_string())
-                .collect();
-            let permissions_json = serde_json::to_value(permission_strings)
-                .map_err(|e| AppError::validation_error(format!("Failed to serialize permissions: {}", e))
-                .with_component("wallet_user_repository"))?;
-
-            let permission_groups: Vec<String> = user.permission_groups().iter().cloned().collect();
-            let permission_groups_json = serde_json::to_value(permission_groups)
-                .map_err(|e| AppError::validation_error(format!("Failed to serialize permission groups: {}", e))
-                .with_component("wallet_user_repository"))?;
-
+            // NOTE: Permissions now in normalized tables, managed separately
             let metadata_json = user.wallet_metadata().to_json()
                 .map_err(|e| AppError::validation_error(format!("Failed to serialize wallet metadata: {}", e))
                 .with_component("wallet_user_repository"))?;
@@ -505,22 +461,18 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
             sqlx::query!(
                 r#"
                 INSERT INTO wallet_users (
-                    wallet_address, is_active, permissions, permission_groups, wallet_metadata,
+                    wallet_address, is_active, wallet_metadata,
                     created_at, updated_at, last_auth_at
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                ON CONFLICT (wallet_address) 
+                ) VALUES ($1, $2, $3, $4, $5, $6)
+                ON CONFLICT (wallet_address)
                 DO UPDATE SET
                     is_active = EXCLUDED.is_active,
-                    permissions = EXCLUDED.permissions,
-                    permission_groups = EXCLUDED.permission_groups,
                     wallet_metadata = EXCLUDED.wallet_metadata,
                     updated_at = EXCLUDED.updated_at,
                     last_auth_at = EXCLUDED.last_auth_at
                 "#,
                 user.wallet_address().as_str().to_lowercase(),
                 user.is_active(),
-                permissions_json,
-                permission_groups_json,
                 metadata_json,
                 user.created_at(),
                 user.updated_at(),
@@ -638,7 +590,6 @@ impl WalletUserRepositoryAdapter {
             let wallet_address: String = row.get("wallet_address");
             let is_active: bool = row.get("is_active");
             let permissions_json: serde_json::Value = row.get("permissions");
-            let tier_level: String = row.get("tier_level");
             let wallet_metadata: serde_json::Value = row.get("wallet_metadata");
             let created_at: DateTime<Utc> = row.get("created_at");
             let updated_at: DateTime<Utc> = row.get("updated_at");
@@ -651,29 +602,23 @@ impl WalletUserRepositoryAdapter {
                         .filter_map(|p| Permission::new(p).ok())
                         .collect();
 
-                    // Map tier level to permission groups for backwards compatibility
-                    let permission_groups = match tier_level.as_str() {
-                        "bronze" => HashSet::from(["Basic Access Group".to_string()]),
-                        "silver" => HashSet::from(["Silver Access Group".to_string()]),
-                        "gold" => HashSet::from(["Gold Access Group".to_string()]),
-                        "platinum" => HashSet::from(["Platinum Access Group".to_string()]),
-                        "diamond" => HashSet::from(["Diamond Access Group".to_string()]),
-                        _ => HashSet::from(["Basic Access Group".to_string()]),
-                    };
+                    // Permission groups are now loaded from wallet_user_groups relationship table
+                    // Default to empty set - groups loaded separately if needed
+                    let permission_groups = HashSet::new();
 
                     if let Ok(metadata) = WalletMetadata::from_json(wallet_metadata) {
-                        let user = WalletUser::load(
-                            wallet_addr,
+                        let wallet = WalletUser::load(crate::domain::wallet_management::aggregates::wallet_user::WalletUserLoadParams {
+                            wallet_address: wallet_addr,
                             is_active,
-                            permission_set,
+                            permissions: permission_set,
                             permission_groups,
-                            metadata,
+                            wallet_metadata: metadata,
                             created_at,
                             updated_at,
                             last_auth_at,
-                            1,
-                        );
-                        users.push(user);
+                            version: 1,
+                        });
+                        users.push(wallet);
                     }
                 }
             }
@@ -700,18 +645,18 @@ impl WalletUserRepositoryAdapter {
                     let updated_at = row.try_get("updated_at").unwrap_or_else(|_| Utc::now());
                     let last_auth_at = row.try_get("last_auth_at").ok();
 
-                    let user = WalletUser::load(
-                        wallet_addr,
+                    let wallet = WalletUser::load(crate::domain::wallet_management::aggregates::wallet_user::WalletUserLoadParams {
+                        wallet_address: wallet_addr,
                         is_active,
                         permissions,
                         permission_groups,
-                        metadata,
+                        wallet_metadata: metadata,
                         created_at,
                         updated_at,
                         last_auth_at,
-                        1,
-                    );
-                    users.push(user);
+                        version: 1,
+                    });
+                    users.push(wallet);
                 }
             }
         }
@@ -725,14 +670,9 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
     async fn get_statistics(&self) -> AppResult<WalletUserStatistics> {
         let stats = sqlx::query!(
             r#"
-            SELECT 
+            SELECT
                 COUNT(*) as total_users,
                 COUNT(*) FILTER (WHERE is_active = true) as active_users,
-                COUNT(*) FILTER (WHERE tier_level = 'bronze') as bronze_users,
-                COUNT(*) FILTER (WHERE tier_level = 'silver') as silver_users,
-                COUNT(*) FILTER (WHERE tier_level = 'gold') as gold_users,
-                COUNT(*) FILTER (WHERE tier_level = 'platinum') as platinum_users,
-                COUNT(*) FILTER (WHERE tier_level = 'diamond') as diamond_users,
                 COUNT(*) FILTER (WHERE last_auth_at > NOW() - INTERVAL '24 hours') as recent_auth_24h,
                 COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours') as new_wallets_24h
             FROM wallet_users
@@ -746,12 +686,8 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
                 .with_component("wallet_user_repository")
         })?;
 
-        let mut users_by_permission_group = HashMap::new();
-        users_by_permission_group.insert("Basic Access Group".to_string(), stats.bronze_users.unwrap_or(0) as u64);
-        users_by_permission_group.insert("Silver Access Group".to_string(), stats.silver_users.unwrap_or(0) as u64);
-        users_by_permission_group.insert("Gold Access Group".to_string(), stats.gold_users.unwrap_or(0) as u64);
-        users_by_permission_group.insert("Platinum Access Group".to_string(), stats.platinum_users.unwrap_or(0) as u64);
-        users_by_permission_group.insert("Diamond Access Group".to_string(), stats.diamond_users.unwrap_or(0) as u64);
+        // Tier system removed - permission groups tracked via wallet_user_groups table
+        let users_by_permission_group = HashMap::new();
 
         Ok(WalletUserStatistics {
             total_users: stats.total_users.unwrap_or(0) as u64,
@@ -794,14 +730,14 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
 
     async fn find_inactive_users(&self, days: u32) -> AppResult<Vec<WalletUser>> {
         let cutoff_date = Utc::now() - chrono::Duration::days(days as i64);
-        
+
         let rows = sqlx::query(
             r#"
-            SELECT 
-                wallet_address, is_active, permissions, tier_level, wallet_metadata,
+            SELECT
+                wallet_address, is_active, permissions, wallet_metadata,
                 created_at, updated_at, last_auth_at
-            FROM wallet_users 
-            WHERE is_active = true 
+            FROM wallet_users
+            WHERE is_active = true
             AND (last_auth_at IS NULL OR last_auth_at < $1)
             ORDER BY last_auth_at ASC NULLS FIRST
             "#,

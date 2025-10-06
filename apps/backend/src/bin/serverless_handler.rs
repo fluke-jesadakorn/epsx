@@ -1,15 +1,16 @@
 // Generic Serverless Handler
 // Platform-agnostic entry point for any serverless deployment
-// Uses stateless architecture with per-request service instantiation
+// Uses unified router with optimized DomainContainer
 
 use anyhow::Result;
-use epsx::infrastructure::container::StatelessServiceFactory;
-use epsx::web::stateless_router::create_stateless_router;
+use epsx::infrastructure::container::DomainContainer;
+use epsx::create_router;
 use std::env;
+use std::sync::Arc;
 use tracing::{error, info};
 
 /// Generic serverless entry point
-/// Works with any containerized serverless platform with stateless architecture
+/// Works with any containerized serverless platform
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize generic logging
@@ -23,14 +24,56 @@ async fn main() -> Result<()> {
     // Pre-warm services for faster cold starts
     warm_up_services().await?;
 
-    // Create stateless service factory from environment
-    let stateless_config = epsx::infrastructure::container::StatelessConfig::from_env()
-        .map_err(|e| anyhow::anyhow!("Failed to create stateless config: {}", e))?;
+    // Create database pool for serverless deployment
+    let database_url = env::var("DATABASE_URL")
+        .map_err(|_| anyhow::anyhow!("DATABASE_URL must be set"))?;
 
-    let service_factory = StatelessServiceFactory::new(stateless_config);
+    let db_pool = Arc::new(
+        sqlx::postgres::PgPoolOptions::new()
+            .max_connections(5) // Reduced for serverless
+            .acquire_timeout(std::time::Duration::from_secs(10))
+            .connect(&database_url)
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to connect to database: {}", e))?
+    );
+    info!("✅ Database pool created");
 
-    // Create stateless router
-    let app = create_stateless_router(service_factory).await;
+    // Create cache (optional for serverless)
+    let cache = match env::var("REDIS_URL").ok() {
+        Some(redis_url) => {
+            match epsx::infrastructure::cache::redis_cache::RedisCache::new(
+                redis_url,
+                5, // Reduced pool for serverless
+                epsx::infrastructure::cache::CacheConfig::default()
+            ).await {
+                Ok(cache) => {
+                    info!("✅ Redis cache initialized");
+                    Some(Arc::new(cache) as Arc<dyn epsx::infrastructure::cache::Cache>)
+                }
+                Err(e) => {
+                    info!("⚠️ Redis unavailable, using memory cache: {}", e);
+                    Some(Arc::new(epsx::infrastructure::cache::memory_cache::MemoryCache::new())
+                        as Arc<dyn epsx::infrastructure::cache::Cache>)
+                }
+            }
+        }
+        None => {
+            info!("ℹ️ Using memory cache for serverless");
+            Some(Arc::new(epsx::infrastructure::cache::memory_cache::MemoryCache::new())
+                as Arc<dyn epsx::infrastructure::cache::Cache>)
+        }
+    };
+
+    // Create domain container optimized for serverless
+    let container = Arc::new(DomainContainer::new_with_web3_services(
+        db_pool,
+        cache,
+        None, // Use default blockchain config
+    ));
+    info!("✅ Domain container initialized");
+
+    // Create unified router
+    let app = create_router(container);
 
     // Use PORT environment variable (standard for most platforms)
     let port = env::var("PORT")
@@ -46,8 +89,9 @@ async fn main() -> Result<()> {
     info!("📊 Health check: http://0.0.0.0:{}/health", port);
     info!("🔐 Web3 auth: http://0.0.0.0:{}/api/auth/web3/*", port);
     info!("📈 Analytics: http://0.0.0.0:{}/api/v1/analytics/*", port);
-    info!("⚡ SERVERLESS MODE: Per-request service instantiation");
-    info!("🔄 STATELESS: No shared state between requests");
+    info!("👤 Admin: http://0.0.0.0:{}/admin/*", port);
+    info!("⚡ UNIFIED ROUTER: Single source of truth for all routes");
+    info!("🔄 SERVERLESS OPTIMIZED: Reduced connection pools for faster cold starts");
 
     // Start the server
     axum::serve(listener, app)

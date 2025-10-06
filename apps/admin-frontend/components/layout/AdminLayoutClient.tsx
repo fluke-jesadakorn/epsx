@@ -1,6 +1,5 @@
 'use client';
 
-import { useAuth } from '@/lib/auth';
 import {
   BarChart3,
   Bell,
@@ -24,7 +23,10 @@ import {
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+
 import { ServerBreadcrumb } from './ServerBreadcrumb';
+
+import { useAuth } from '@/lib/auth';
 
 interface Session {
   user?: {
@@ -43,6 +45,12 @@ interface AdminLayoutClientProps {
   session: Session | null;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.children
+ * @param root0.session
+ */
 export function AdminLayoutClient({
   children,
   session,
@@ -346,7 +354,7 @@ export function AdminLayoutClient({
     if (!sidebarCollapsed) {
       const activeMenus = menuGroups
         .filter(group => {
-          if (group.type === 'single') return false;
+          if (group.type === 'single') {return false;}
           return group.items && group.items.some(item => isActive(item.href));
         })
         .map(group => group.id);
@@ -359,22 +367,22 @@ export function AdminLayoutClient({
 
   // Filter menu items based on structured permissions
   const hasUserPermission = (permission: string | null) => {
-    if (!permission) return true; // No permission required
+    if (!permission) {return true;} // No permission required
     
     // Ensure permissions is always treated as an array
-    if (!session?.user?.permissions) return false;
+    if (!session?.user?.permissions) {return false;}
     const permissions = Array.isArray(session.user.permissions) 
       ? session.user.permissions 
       : [];
 
     // Additional safety check
-    if (permissions.length === 0) return false;
+    if (permissions.length === 0) {return false;}
 
     // Check for admin wildcard permission
-    if (permissions.includes('admin:*:*')) return true;
+    if (permissions.includes('admin:*:*')) {return true;}
 
     // Check for exact permission match
-    if (permissions.includes(permission)) return true;
+    if (permissions.includes(permission)) {return true;}
 
     // Check for broader permissions (e.g., admin:users:* covers admin:users:view)
     if (permission.includes(':')) {
@@ -414,7 +422,7 @@ export function AdminLayoutClient({
 
   const toggleMenu = (menuId: string) => {
     // Don't allow menu expansion when sidebar is collapsed
-    if (sidebarCollapsed) return;
+    if (sidebarCollapsed) {return;}
 
     setExpandedMenus(prev => {
       const isCurrentlyExpanded = prev.includes(menuId);
@@ -444,7 +452,7 @@ export function AdminLayoutClient({
   const hasActiveChild = (
     items: { href: string; label: string }[] | undefined
   ) => {
-    if (!items) return false;
+    if (!items) {return false;}
     return items.some(item => isActive(item.href));
   };
 
@@ -452,8 +460,9 @@ export function AdminLayoutClient({
     try {
       // Use Zustand auth disconnectWallet
       await disconnectWallet();
-    } catch (error) {
-      console.error('Logout failed:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Logout failed:', _error);
       // Fallback to manual redirect
       router.replace('/login');
     }
@@ -591,12 +600,12 @@ export function AdminLayoutClient({
             const Icon = group.icon;
 
             if (group.type === 'single') {
-              const isActiveItem = isActive(group.href!);
+              const isActiveItem = isActive(group.href);
 
               return (
                 <Link
                   key={group.id}
-                  href={group.href!}
+                  href={group.href}
                   onClick={() => setSidebarOpen(false)}
                   className={`group relative flex w-full items-center gap-3 overflow-hidden px-4 py-4 text-left  ${
                     sidebarCollapsed ? 'justify-center px-2' : ''

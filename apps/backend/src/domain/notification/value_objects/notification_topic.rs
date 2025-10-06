@@ -206,7 +206,7 @@ impl NotificationTopic {
             .collect();
             
         // Ensure it doesn't start with a number or special character
-        if email_name.chars().next().map_or(true, |c| !c.is_ascii_alphabetic()) {
+        if email_name.chars().next().is_none_or(|c| !c.is_ascii_alphabetic()) {
             email_name = format!("topic_{}", email_name);
         }
         
@@ -220,7 +220,7 @@ impl NotificationTopic {
         }
 
         // Must start with letter
-        if !name.chars().next().map_or(false, |c| c.is_ascii_lowercase()) {
+        if !name.chars().next().is_some_and(|c| c.is_ascii_lowercase()) {
             return false;
         }
 

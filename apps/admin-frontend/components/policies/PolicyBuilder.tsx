@@ -1,11 +1,5 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
 import { 
   ShieldIcon, 
   PlusIcon, 
@@ -23,6 +17,13 @@ import {
   AlertTriangleIcon,
   CheckCircleIcon,
 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
 
 type PolicyType = 'time_based' | 'location_based' | 'risk_based' | 'device_based' | 'behavioral' | 'compliance' | 'custom';
 type ConditionOperator = 'AND' | 'OR' | 'NOT';
@@ -117,6 +118,9 @@ const COMPARISON_OPERATORS: { value: ComparisonOperator; label: string; types: s
   { value: 'not_in', label: 'Not In List', types: ['string', 'number'] },
 ];
 
+/**
+ *
+ */
 export default function PolicyBuilder() {
   const [formData, setFormData] = useState<PolicyFormData>({
     name: '',
@@ -151,8 +155,9 @@ export default function PolicyBuilder() {
         const data = await response.json();
         setTemplates(data.templates || []);
       }
-    } catch (error) {
-      console.error('Error loading templates:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Error loading templates:', _error);
     }
   };
 
@@ -244,8 +249,9 @@ export default function PolicyBuilder() {
           description: `Policy decision: ${data.evaluation.decision}`,
         });
       }
-    } catch (error) {
-      console.error('Error testing policy:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Error testing policy:', _error);
       toast({
         title: "Test Failed",
         description: "Failed to test policy evaluation",
@@ -302,11 +308,12 @@ export default function PolicyBuilder() {
         const error = await response.json();
         throw new Error(error.error || 'Failed to create policy');
       }
-    } catch (error) {
-      console.error('Error saving policy:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Error saving policy:', _error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to save policy",
+        description: _error instanceof Error ? _error.message : "Failed to save policy",
         variant: "destructive",
       });
     } finally {

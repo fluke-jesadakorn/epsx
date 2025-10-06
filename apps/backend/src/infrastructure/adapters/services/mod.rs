@@ -10,9 +10,10 @@ pub mod security_monitoring_service_adapter;
 // email_service removed - Web3-first system doesn't require traditional email functionality
 pub mod tradingview;
 pub mod tradingview_websocket;
+pub mod websocket_earnings_service; // WebSocket earnings data enhancement
 pub mod comprehensive_rate_limiting_service;
-pub mod unified_admin_client_adapter;
-pub mod granular_permissions_admin_client_adapter;
+// pub mod unified_admin_client_adapter; // Removed - unused placeholder implementation
+// pub mod granular_permissions_admin_client_adapter; // Removed - unused placeholder implementation
 pub mod notification_service_adapter;
 // pub mod payment_security_service; // Temporarily disabled
 pub mod resilience_patterns;
@@ -44,6 +45,7 @@ pub use tradingview_websocket::{
   TradingViewWebSocketService,
   FrontendEPSData as WebSocketFrontendEPSData,
 };
+pub use websocket_earnings_service::WebSocketEarningsService;
 pub use comprehensive_rate_limiting_service::{
   ComprehensiveRateLimitingService,
   RateLimitTier,
@@ -51,11 +53,7 @@ pub use comprehensive_rate_limiting_service::{
   RateLimitViolation,
   RateLimitResult,
 };
-pub use unified_admin_client_adapter::{ UnifiedAdminClientAdapter, AdminUser };
-pub use granular_permissions_admin_client_adapter::{
-  GranularPermissionsAdminClientAdapter,
-  GranularPermission,
-};
+// Admin client adapters removed - unused placeholder implementations
 pub use notification_service_adapter::{ NotificationServiceAdapter };
 // Payment security service exports temporarily disabled
 // pub use payment_security_service::{

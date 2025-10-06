@@ -1,11 +1,11 @@
 use crate::domain::shared_kernel::value_objects::SessionId;
-use crate::domain::user_management::value_objects::WalletAddress;
+use crate::domain::wallet_management::value_objects::WalletAddress;
 use uuid::Uuid;
 use std::str::FromStr;
 use sha2::{Sha256, Digest};
 
 use crate::core::errors::AppResult;
-use crate::domain::user_management::{
+use crate::domain::wallet_management::{
     Session
 };
 use crate::infrastructure::adapters::repositories::database_types::{Session as DbSession, NewSession as NewDbSession, UpdateSession as UpdateDbSession, IpAddr as DbIpAddr};
@@ -42,23 +42,23 @@ impl SessionMapper {
     pub fn to_domain(db_session: DbSession) -> AppResult<Session> {
         let session_id = SessionId::from_string(db_session.id.to_string());
         let wallet_address = WalletAddress::new(db_session.wallet_address.to_string())?;
-        
+
         // Create session from existing data using new schema fields
-        let session = Session::load(
-            session_id,
+        let session = Session::load(crate::domain::wallet_management::aggregates::session::SessionLoadParams {
+            id: session_id,
             wallet_address,
-            db_session.access_token,
-            db_session.session_token, // This can be refresh_token
-            db_session.created_at,
-            db_session.created_at, // updated_at (using created_at as proxy)
-            db_session.expires_at,
-            db_session.created_at, // last_accessed_at (using created_at as proxy)
-            db_session.ip_address.map(|ip| ip.0.to_string()),
-            db_session.user_agent,
-            !db_session.is_active, // is_revoked is opposite of is_active
-            1, // version
-        );
-        
+            access_token: db_session.access_token,
+            refresh_token: db_session.session_token, // This can be refresh_token
+            created_at: db_session.created_at,
+            updated_at: db_session.created_at, // updated_at (using created_at as proxy)
+            expires_at: db_session.expires_at,
+            last_accessed_at: db_session.created_at, // last_accessed_at (using created_at as proxy)
+            ip_address: db_session.ip_address.map(|ip| ip.0.to_string()),
+            user_agent: db_session.user_agent,
+            is_revoked: !db_session.is_active, // is_revoked is opposite of is_active
+            version: 1, // version
+        });
+
         Ok(session)
     }
     

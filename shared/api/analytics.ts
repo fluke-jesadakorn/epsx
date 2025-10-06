@@ -164,6 +164,7 @@ export class AnalyticsAPIClient {
       '/api/v1/public/analytics/rankings',
       publicFilters,
       {
+        timeout: 60000, // 60 second timeout for analytics queries
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'public',
@@ -187,6 +188,7 @@ export class AnalyticsAPIClient {
       '/api/v1/public/analytics/filters',
       undefined,
       {
+        timeout: 30000, // 30 second timeout for filter queries
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'public',
@@ -214,6 +216,7 @@ export class AnalyticsAPIClient {
       '/api/v1/analytics/rankings',
       filters,
       {
+        timeout: 60000, // 60 second timeout for analytics queries
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'auth',
@@ -237,6 +240,7 @@ export class AnalyticsAPIClient {
       '/api/v1/analytics/filters',
       undefined,
       {
+        timeout: 30000, // 30 second timeout for filter queries
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'auth',
@@ -260,6 +264,7 @@ export class AnalyticsAPIClient {
       '/api/v1/auth/analytics/export',
       exportRequest,
       {
+        timeout: 90000, // 90 second timeout for export operations
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'auth',
@@ -283,6 +288,7 @@ export class AnalyticsAPIClient {
       `/api/v1/auth/analytics/exports/${exportId}`,
       undefined,
       {
+        timeout: 15000, // 15 second timeout for status checks
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'auth',
@@ -315,6 +321,7 @@ export class AnalyticsAPIClient {
       '/api/v1/admin/analytics/overview',
       undefined,
       {
+        timeout: 30000, // 30 second timeout for admin queries
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'admin',
@@ -344,6 +351,7 @@ export class AnalyticsAPIClient {
       '/api/v1/admin/analytics/users',
       undefined,
       {
+        timeout: 30000, // 30 second timeout for admin queries
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'admin',
@@ -370,6 +378,7 @@ export class AnalyticsAPIClient {
       '/api/v1/admin/analytics/permissions',
       undefined,
       {
+        timeout: 30000, // 30 second timeout for admin queries
         headers: {
           'X-API-Version': 'v1',
           'X-Access-Level': 'admin',

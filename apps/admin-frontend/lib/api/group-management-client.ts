@@ -1,10 +1,10 @@
 /**
  * Group Management API Client
  * Interfaces with the new Web3 group-based permission system
- * Extends UnifiedAdminClient for consistency with existing admin clients
+ * Uses shared UnifiedApiClient for consistency
  */
 
-import { UnifiedAdminClient } from './unified-admin-client';
+import { UnifiedApiClient, createAdminApiClient } from '@/shared/utils/api-client';
 
 // ============================================================================
 // GROUP MANAGEMENT TYPES
@@ -129,152 +129,115 @@ export interface GroupAnalytics {
 // GROUP MANAGEMENT API CLIENT
 // ============================================================================
 
-export class GroupManagementClient extends UnifiedAdminClient {
-  constructor(baseURL?: string, token?: string, serverSide = false) {
-    super(baseURL, token, serverSide);
-  }
+/**
+ *
+ */
+export class GroupManagementClient {
+  /**
+   *
+   * @param client
+   */
+  constructor(private client: UnifiedApiClient) {}
 
   // ============================================================================
   // PERMISSION GROUP OPERATIONS
   // ============================================================================
 
+  /**
+   *
+   */
   async getPermissionGroups(): Promise<PermissionGroup[]> {
-    console.log('🔍 ULTRA DEBUG: Starting getPermissionGroups');
-    console.log(
-      '🔍 ULTRA DEBUG: About to call /api/v1/admin/permission-groups'
-    );
-
-    // FIX: Use consistent API pattern to avoid Next.js route interception
-    // Changed from '/admin/permission-groups' to '/api/v1/admin/permission-groups'
-    // to match other admin API calls and avoid conflicts with local Next.js routes
-    const response = await this.get<{
+    // Use consolidated permission routes: /api/admin/permissions/groups
+    const response = await this.client.get<{
       permission_groups: PermissionGroup[];
       pagination: any;
       total: number;
-    }>('/api/v1/admin/permission-groups');
-
-    console.log(
-      '🔍 ULTRA DEBUG: Raw response:',
-      JSON.stringify(response, null, 2)
-    );
-    console.log('🔍 ULTRA DEBUG: Response type:', typeof response);
-    console.log('🔍 ULTRA DEBUG: Response success:', response?.success);
-    console.log('🔍 ULTRA DEBUG: Response data type:', typeof response?.data);
-    console.log(
-      '🔍 ULTRA DEBUG: Response data keys:',
-      response?.data ? Object.keys(response.data) : 'no data'
-    );
-    
-    // DEEP DEBUG: Check response.data directly
-    console.log('🔍 DEEP DEBUG: response.data direct access:', response.data);
-    console.log('🔍 DEEP DEBUG: response.data.permission_groups direct:', response.data?.permission_groups);
-    console.log('🔍 DEEP DEBUG: response["data"] bracket access:', response["data"]);
-    console.log('🔍 DEEP DEBUG: response["data"]["permission_groups"] bracket:', response["data"]?.["permission_groups"]);
+      data?: any; // Allow for nested data structure
+    }>('/api/admin/permissions/groups');
 
     if (!response.success || !response.data) {
-      console.log(
-        '❌ ULTRA DEBUG: Response failed - success:',
-        response?.success,
-        'data:',
-        !!response?.data
-      );
-      throw new Error(response.error || 'Failed to fetch permission groups');
+      throw new Error(response.error ?? 'Failed to fetch permission groups');
     }
 
-    console.log(
-      '🔍 ULTRA DEBUG: permission_groups exists:',
-      !!response.data.permission_groups
-    );
-    console.log(
-      '🔍 ULTRA DEBUG: permission_groups type:',
-      typeof response.data.permission_groups
-    );
-    console.log(
-      '🔍 ULTRA DEBUG: permission_groups isArray:',
-      Array.isArray(response.data.permission_groups)
-    );
-
-    console.log('Debug Data: ' + JSON.stringify(response.data));
-    
     // ULTRA ROOT CAUSE DEBUG: Check if data is nested differently
-    console.log('🔍 STRUCTURE DEBUG: response keys:', Object.keys(response));
-    console.log('🔍 STRUCTURE DEBUG: response.data keys:', response.data ? Object.keys(response.data) : 'no data keys');
-    console.log('🔍 STRUCTURE DEBUG: response.data.data exists?:', !!response.data?.data);
-    console.log('🔍 STRUCTURE DEBUG: response.data.data keys:', response.data?.data ? Object.keys(response.data.data) : 'no nested data');
     
     // Check if permission_groups is nested under response.data.data
-    const actualData = response.data?.data || response.data;
-    console.log('🔍 ACTUAL DATA:', actualData);
-    console.log('🔍 ACTUAL DATA permission_groups:', actualData?.permission_groups);
+    const actualData = response.data?.data ?? response.data;
 
     // ROOT CAUSE FIX: Use the correct data path
     if (!actualData?.permission_groups || !Array.isArray(actualData.permission_groups)) {
-      console.log(
-        '❌ ULTRA DEBUG: Invalid structure - permission_groups:',
-        response.data.permission_groups,
-        'exists:', !!response.data.permission_groups,
-        'isArray:', Array.isArray(response.data.permission_groups)
-      );
       throw new Error(
         'Invalid response structure: permission_groups is not an array'
       );
     }
 
-    console.log(
-      '✅ ULTRA DEBUG: Success! Returning',
-      actualData.permission_groups.length,
-      'permission groups'
-    );
     return actualData.permission_groups;
   }
 
+  /**
+   *
+   * @param groupId
+   */
   async getPermissionGroup(groupId: string): Promise<PermissionGroup> {
-    const response = await this.get<PermissionGroup>(
-      `/api/v1/admin/permission-groups/${groupId}`
+    const response = await this.client.get<PermissionGroup>(
+      `/api/admin/permissions/groups/${groupId}`
     );
 
     if (!response.success || !response.data) {
-      throw new Error(response.error || 'Failed to fetch permission group');
+      throw new Error(response.error ?? 'Failed to fetch permission group');
     }
     return response.data;
   }
 
+  /**
+   *
+   * @param request
+   */
   async createPermissionGroup(
     request: CreateGroupRequest
   ): Promise<PermissionGroup> {
-    const response = await this.post<PermissionGroup>(
-      '/api/v1/admin/permission-groups',
+    const response = await this.client.post<PermissionGroup>(
+      '/api/admin/permissions/groups',
       request
     );
 
     if (!response.success || !response.data) {
-      throw new Error(response.error || 'Failed to create permission group');
+      throw new Error(response.error ?? 'Failed to create permission group');
     }
     return response.data;
   }
 
+  /**
+   *
+   * @param groupId
+   * @param request
+   */
   async updatePermissionGroup(
     groupId: string,
     request: UpdateGroupRequest
   ): Promise<PermissionGroup> {
-    const response = await this.put<PermissionGroup>(
-      `/api/v1/admin/permission-groups/${groupId}`,
+    const response = await this.client.put<PermissionGroup>(
+      `/api/admin/permissions/groups/${groupId}`,
       request
     );
 
     if (!response.success || !response.data) {
-      throw new Error(response.error || 'Failed to update permission group');
+      throw new Error(response.error ?? 'Failed to update permission group');
     }
     return response.data;
   }
 
+  /**
+   *
+   * @param groupId
+   */
   async deletePermissionGroup(groupId: string): Promise<void> {
-    const response = await this.delete(
-      `/api/v1/admin/permission-groups/${groupId}`
+    const response = await this.client.delete(
+      `/api/admin/permissions/groups/${groupId}`
     );
 
     if (!response.success) {
-      throw new Error(response.error || 'Failed to delete permission group');
+      throw new Error(response.error ?? 'Failed to delete permission group');
     }
   }
 
@@ -282,30 +245,42 @@ export class GroupManagementClient extends UnifiedAdminClient {
   // USER GROUP MEMBERSHIP OPERATIONS
   // ============================================================================
 
+  /**
+   *
+   * @param userId
+   */
   async getUserGroups(userId: string): Promise<UserGroupMembership[]> {
-    const response = await this.get<UserGroupMembership[]>(
+    const response = await this.client.get<UserGroupMembership[]>(
       `/admin/wallets/${userId}/assignments`
     );
 
     if (!response.success || !response.data) {
-      throw new Error(response.error || 'Failed to fetch user groups');
+      throw new Error(response.error ?? 'Failed to fetch user groups');
     }
     return response.data;
   }
 
+  /**
+   *
+   * @param userId
+   */
   async getUserPermissions(userId: string): Promise<string[]> {
-    const response = await this.get<string[]>(
+    const response = await this.client.get<string[]>(
       `/api/auth/web3/groups/permissions/${userId}`
     );
 
     if (!response.success || !response.data) {
-      throw new Error(response.error || 'Failed to fetch user permissions');
+      throw new Error(response.error ?? 'Failed to fetch user permissions');
     }
     return response.data;
   }
 
+  /**
+   *
+   * @param request
+   */
   async assignUserToGroup(request: AssignUserToGroupRequest): Promise<void> {
-    const response = await this.post('/admin/wallet-assignments', {
+    const response = await this.client.post('/admin/wallet-assignments', {
       wallet_address: request.user_id,
       group_id: request.group_id,
       expires_at: request.expires_at,
@@ -314,31 +289,40 @@ export class GroupManagementClient extends UnifiedAdminClient {
     });
 
     if (!response.success) {
-      throw new Error(response.error || 'Failed to assign user to group');
+      throw new Error(response.error ?? 'Failed to assign user to group');
     }
   }
 
+  /**
+   *
+   * @param userId
+   * @param groupId
+   */
   async removeUserFromGroup(userId: string, groupId: string): Promise<void> {
     // This endpoint might not exist yet in backend
     // TODO: Implement when backend supports removing assignments
-    const response = await this.delete(
+    const response = await this.client.delete(
       `/admin/wallet-assignments/${userId}/${groupId}`
     );
 
     if (!response.success) {
-      throw new Error(response.error || 'Failed to remove user from group');
+      throw new Error(response.error ?? 'Failed to remove user from group');
     }
   }
 
+  /**
+   *
+   * @param groupId
+   */
   async getGroupMemberships(groupId: string): Promise<UserGroupMembership[]> {
     // This endpoint might not exist yet in backend
     // TODO: Implement when backend supports querying by group
-    const response = await this.get<UserGroupMembership[]>(
+    const response = await this.client.get<UserGroupMembership[]>(
       `/admin/group-memberships/${groupId}`
     );
 
     if (!response.success || !response.data) {
-      throw new Error(response.error || 'Failed to fetch group memberships');
+      throw new Error(response.error ?? 'Failed to fetch group memberships');
     }
     return response.data;
   }
@@ -347,8 +331,11 @@ export class GroupManagementClient extends UnifiedAdminClient {
   // WEB3 AUTO-ASSIGNMENT OPERATIONS
   // ============================================================================
 
+  /**
+   *
+   */
   async getWeb3AssignmentRules(): Promise<Web3AssignmentRule[]> {
-    const response = await this.get<Web3AssignmentRule[]>(
+    const response = await this.client.get<Web3AssignmentRule[]>(
       '/api/auth/web3/assignment/rules'
     );
 
@@ -360,10 +347,14 @@ export class GroupManagementClient extends UnifiedAdminClient {
     return response.data;
   }
 
+  /**
+   *
+   * @param request
+   */
   async createWeb3AssignmentRule(
     request: CreateWeb3RuleRequest
   ): Promise<Web3AssignmentRule> {
-    const response = await this.post<Web3AssignmentRule>(
+    const response = await this.client.post<Web3AssignmentRule>(
       '/api/auth/web3/assignment/rules',
       request
     );
@@ -376,8 +367,12 @@ export class GroupManagementClient extends UnifiedAdminClient {
     return response.data;
   }
 
+  /**
+   *
+   * @param ruleId
+   */
   async deleteWeb3AssignmentRule(ruleId: string): Promise<void> {
-    const response = await this.delete(
+    const response = await this.client.delete(
       `/api/auth/web3/assignment/rules/${ruleId}`
     );
 
@@ -388,10 +383,14 @@ export class GroupManagementClient extends UnifiedAdminClient {
     }
   }
 
+  /**
+   *
+   * @param request
+   */
   async processWalletAssignment(
     request: ProcessWalletRequest
   ): Promise<string[]> {
-    const response = await this.post<string[]>(
+    const response = await this.client.post<string[]>(
       '/api/auth/web3/assignment/process-wallet',
       request
     );
@@ -402,8 +401,12 @@ export class GroupManagementClient extends UnifiedAdminClient {
     return response.data;
   }
 
+  /**
+   *
+   * @param walletAddress
+   */
   async verifyWalletAssets(walletAddress: string): Promise<any> {
-    const response = await this.post<any>(
+    const response = await this.client.post<any>(
       '/api/auth/web3/assignment/verify-assets',
       {
         wallet_address: walletAddress,
@@ -416,8 +419,12 @@ export class GroupManagementClient extends UnifiedAdminClient {
     return response.data;
   }
 
+  /**
+   *
+   * @param request
+   */
   async bulkProcessWallets(request: BulkProcessRequest): Promise<any> {
-    const response = await this.post<any>(
+    const response = await this.client.post<any>(
       '/api/auth/web3/assignment/bulk-process',
       request
     );
@@ -432,6 +439,18 @@ export class GroupManagementClient extends UnifiedAdminClient {
   // AUDIT AND HISTORY OPERATIONS
   // ============================================================================
 
+  /**
+   *
+   * @param filters
+   * @param filters.operation_type
+   * @param filters.operation_source
+   * @param filters.group_id
+   * @param filters.user_search
+   * @param filters.date_from
+   * @param filters.date_to
+   * @param filters.limit
+   * @param filters.offset
+   */
   async getGroupAssignmentHistory(filters?: {
     operation_type?: string;
     operation_source?: string;
@@ -452,27 +471,28 @@ export class GroupManagementClient extends UnifiedAdminClient {
     const params: Record<string, string> = {};
     if (filters) {
       if (filters.operation_type)
-        params.operation_type = filters.operation_type;
+        {params.operation_type = filters.operation_type;}
       if (filters.operation_source)
-        params.operation_source = filters.operation_source;
-      if (filters.group_id) params.group_id = filters.group_id;
-      if (filters.user_search) params.user_search = filters.user_search;
-      if (filters.date_from) params.date_from = filters.date_from;
-      if (filters.date_to) params.date_to = filters.date_to;
-      if (filters.limit) params.limit = filters.limit.toString();
-      if (filters.offset) params.offset = filters.offset.toString();
+        {params.operation_source = filters.operation_source;}
+      if (filters.group_id) {params.group_id = filters.group_id;}
+      if (filters.user_search) {params.user_search = filters.user_search;}
+      if (filters.date_from) {params.date_from = filters.date_from;}
+      if (filters.date_to) {params.date_to = filters.date_to;}
+      if (filters.limit) {params.limit = filters.limit.toString();}
+      if (filters.offset) {params.offset = filters.offset.toString();}
     }
 
-    const response = await this.get<{
+    return await this.client.get<{
       history: GroupAssignmentHistory[];
       total: number;
     }>('/admin/groups/history', params);
-
-    return response;
   }
 
+  /**
+   *
+   */
   async cleanupExpiredMemberships(): Promise<{ removed_count: number }> {
-    const response = await this.post<{ removed_count: number }>(
+    const response = await this.client.post<{ removed_count: number }>(
       '/admin/groups/cleanup-expired',
       {}
     );
@@ -490,6 +510,17 @@ export class GroupManagementClient extends UnifiedAdminClient {
   // Backend-centric user operations with comprehensive data
   // ============================================================================
 
+  /**
+   *
+   * @param params
+   * @param params.page
+   * @param params.limit
+   * @param params.search
+   * @param params.tier
+   * @param params.status
+   * @param params.sort_by
+   * @param params.sort_order
+   */
   async listUsers(params?: {
     page?: number;
     limit?: number;
@@ -500,16 +531,16 @@ export class GroupManagementClient extends UnifiedAdminClient {
     sort_order?: string;
   }): Promise<any> {
     const queryParams = new URLSearchParams();
-    if (params?.page) queryParams.set('page', params.page.toString());
-    if (params?.limit) queryParams.set('limit', params.limit.toString());
-    if (params?.search) queryParams.set('search', params.search);
-    if (params?.tier) queryParams.set('tier', params.tier);
-    if (params?.status) queryParams.set('status', params.status);
-    if (params?.sort_by) queryParams.set('sort_by', params.sort_by);
-    if (params?.sort_order) queryParams.set('sort_order', params.sort_order);
+    if (params?.page) {queryParams.set('page', params.page.toString());}
+    if (params?.limit) {queryParams.set('limit', params.limit.toString());}
+    if (params?.search) {queryParams.set('search', params.search);}
+    if (params?.tier) {queryParams.set('tier', params.tier);}
+    if (params?.status) {queryParams.set('status', params.status);}
+    if (params?.sort_by) {queryParams.set('sort_by', params.sort_by);}
+    if (params?.sort_order) {queryParams.set('sort_order', params.sort_order);}
 
     const url = `/admin/users${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-    const response = await this.get<any>(url);
+    const response = await this.client.get<any>(url);
 
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to fetch users');
@@ -518,8 +549,12 @@ export class GroupManagementClient extends UnifiedAdminClient {
     return response.data;
   }
 
+  /**
+   *
+   * @param walletAddress
+   */
   async getUser(walletAddress: string): Promise<any> {
-    const response = await this.get<any>(`/admin/users/${walletAddress}`);
+    const response = await this.client.get<any>(`/admin/users/${walletAddress}`);
 
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to fetch user details');
@@ -528,6 +563,14 @@ export class GroupManagementClient extends UnifiedAdminClient {
     return response.data;
   }
 
+  /**
+   *
+   * @param walletAddress
+   * @param updates
+   * @param updates.tier_level
+   * @param updates.is_active
+   * @param updates.metadata
+   */
   async updateUser(
     walletAddress: string,
     updates: {
@@ -536,7 +579,7 @@ export class GroupManagementClient extends UnifiedAdminClient {
       metadata?: any;
     }
   ): Promise<any> {
-    const response = await this.put<any>(
+    const response = await this.client.put<any>(
       `/admin/users/${walletAddress}`,
       updates
     );
@@ -548,8 +591,11 @@ export class GroupManagementClient extends UnifiedAdminClient {
     return response.data;
   }
 
+  /**
+   *
+   */
   async getUserStats(): Promise<any> {
-    const response = await this.get<any>('/admin/users/stats');
+    const response = await this.client.get<any>('/admin/users/stats');
 
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to fetch user statistics');
@@ -563,9 +609,13 @@ export class GroupManagementClient extends UnifiedAdminClient {
   // Comprehensive data aggregation for administrative insights
   // ============================================================================
 
+  /**
+   *
+   * @param period
+   */
   async getPlatformOverview(period?: string): Promise<any> {
     const queryParams = period ? `?period=${period}` : '';
-    const response = await this.get<any>(
+    const response = await this.client.get<any>(
       `/admin/analytics/overview${queryParams}`
     );
 
@@ -576,9 +626,13 @@ export class GroupManagementClient extends UnifiedAdminClient {
     return response.data;
   }
 
+  /**
+   *
+   * @param period
+   */
   async getUserAnalytics(period?: string): Promise<any> {
     const queryParams = period ? `?period=${period}` : '';
-    const response = await this.get<any>(
+    const response = await this.client.get<any>(
       `/admin/analytics/users${queryParams}`
     );
 
@@ -589,8 +643,11 @@ export class GroupManagementClient extends UnifiedAdminClient {
     return response.data;
   }
 
+  /**
+   *
+   */
   async getPermissionAnalytics(): Promise<any> {
-    const response = await this.get<any>('/admin/analytics/permissions');
+    const response = await this.client.get<any>('/admin/analytics/permissions');
 
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to fetch permission analytics');
@@ -599,9 +656,13 @@ export class GroupManagementClient extends UnifiedAdminClient {
     return response.data;
   }
 
+  /**
+   *
+   * @param period
+   */
   async getRevenueAnalytics(period?: string): Promise<any> {
     const queryParams = period ? `?period=${period}` : '';
-    const response = await this.get<any>(
+    const response = await this.client.get<any>(
       `/admin/analytics/revenue${queryParams}`
     );
 
@@ -616,9 +677,12 @@ export class GroupManagementClient extends UnifiedAdminClient {
   // LEGACY ANALYTICS (DEPRECATED - Use getPermissionAnalytics instead)
   // ============================================================================
 
+  /**
+   *
+   */
   async getGroupAnalytics(): Promise<GroupAnalytics> {
-    // Use the new consolidated permission analytics endpoint (consistent API pattern)
-    const response = await this.get<any>('/api/v1/admin/analytics/permissions');
+    // Use the new consolidated permission analytics endpoint
+    const response = await this.client.get<any>('/api/admin/analytics/permissions');
 
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Failed to fetch group analytics');
@@ -643,8 +707,12 @@ export class GroupManagementClient extends UnifiedAdminClient {
     };
   }
 
+  /**
+   *
+   * @param days
+   */
   async getExpiringMemberships(days = 7): Promise<UserGroupMembership[]> {
-    const response = await this.get<UserGroupMembership[]>(
+    const response = await this.client.get<UserGroupMembership[]>(
       '/admin/groups/expiring-memberships',
       { days: days.toString() }
     );
@@ -659,11 +727,16 @@ export class GroupManagementClient extends UnifiedAdminClient {
   // PERMISSION UTILITIES
   // ============================================================================
 
+  /**
+   *
+   * @param userId
+   * @param permission
+   */
   async checkUserPermission(
     userId: string,
     permission: string
   ): Promise<boolean> {
-    const response = await this.get<{ has_permission: boolean }>(
+    const response = await this.client.get<{ has_permission: boolean }>(
       `/admin/users/${userId}/check-permission`,
       { permission }
     );
@@ -674,8 +747,11 @@ export class GroupManagementClient extends UnifiedAdminClient {
     return response.data.has_permission;
   }
 
+  /**
+   *
+   */
   async getAvailablePermissions(): Promise<string[]> {
-    const response = await this.get<string[]>('/admin/permissions/available');
+    const response = await this.client.get<string[]>('/admin/permissions/available');
 
     if (!response.success || !response.data) {
       throw new Error(
@@ -690,4 +766,4 @@ export class GroupManagementClient extends UnifiedAdminClient {
 // SINGLETON INSTANCE
 // ============================================================================
 
-export const groupManagementClient = new GroupManagementClient();
+export const groupManagementClient = new GroupManagementClient(createAdminApiClient());

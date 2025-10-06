@@ -165,8 +165,9 @@ export function useSmartPolling<T = any>(
       
       onSuccess?.(data);
       return data;
-    } catch (error) {
-      console.error(`Polling error for ${key}:`, error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error(`Polling error for ${key}:`, _error);
       
       setPollingState(prev => {
         const newRetryCount = prev.retryCount + 1;
@@ -184,7 +185,7 @@ export function useSmartPolling<T = any>(
       
       // Don't retry immediately if we've hit the limit
       if (pollingState.retryCount >= retryLimit) {
-        throw error;
+        throw _error;
       }
       
       // Exponential backoff retry
@@ -197,7 +198,7 @@ export function useSmartPolling<T = any>(
         return enhancedFetcher();
       }
       
-      throw error;
+      throw _error;
     } finally {
       globalPollingState.activeConnections = Math.max(0, globalPollingState.activeConnections - 1);
     }
@@ -330,12 +331,12 @@ export function useOptimisticUpdate<T>(
       mutate(updatedData, false);
       
       return updatedData;
-    } catch (error) {
+    } catch (_error) {
       // Rollback on error
       const rollback = () => mutate(currentData, false);
       options.onError?.(error, rollback);
       rollback();
-      throw error;
+      throw _error;
     }
   }, [key, mutate, updateFn, options]);
 }

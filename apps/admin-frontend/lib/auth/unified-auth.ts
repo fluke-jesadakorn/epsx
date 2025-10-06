@@ -6,6 +6,7 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+
 import { getWeb3AdminSession, Web3AdminSessionData } from '@/lib/web3-admin-session';
 
 // ============================================================================
@@ -67,7 +68,6 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
     const expiresAt = cookieStore.get('wallet_expires_at')?.value;
     
     if (!walletAddress || !signature || !message || !nonce || !chainId || !expiresAt) {
-      console.log('📝 Web3 Session: Missing required session data');
       return null;
     }
     
@@ -82,26 +82,25 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
     
     // Check if session has expired
     if (Date.now() > sessionData.expiresAt) {
-      console.log('📝 Web3 Session: Session has expired');
       await clearWeb3Session();
       return null;
     }
     
-    console.log('🔍 Web3 Session: Retrieved valid session for:', walletAddress);
     return sessionData;
     
-  } catch (error) {
-    console.error('❌ Failed to get Web3 session from cookies:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Failed to get Web3 session from cookies:', _error);
     return null;
   }
 }
 
 /**
  * Validate Web3 authentication with backend
+ * @param sessionData
  */
 export async function validateWeb3Session(sessionData: Web3SessionData): Promise<Web3AdminUser | null> {
   try {
-    console.log('🔍 Web3 Auth: Validating session with backend...');
     
     const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/web3/verify`, {
       method: 'POST',
@@ -118,6 +117,7 @@ export async function validateWeb3Session(sessionData: Web3SessionData): Promise
     });
     
     if (!response.ok) {
+      // eslint-disable-next-line no-console
       console.error('❌ Web3 validation failed:', response.status, await response.text().catch(() => 'No response text'));
       return null;
     }
@@ -125,7 +125,6 @@ export async function validateWeb3Session(sessionData: Web3SessionData): Promise
     const validationResult = await response.json();
     
     if (!validationResult.valid || !validationResult.hasAdminAccess) {
-      console.log('📝 Web3 Auth: Wallet validation failed or lacks admin access');
       return null;
     }
     
@@ -141,17 +140,18 @@ export async function validateWeb3Session(sessionData: Web3SessionData): Promise
       lastVerified: Date.now()
     };
     
-    console.log('✅ Web3 Auth: Successfully validated Web3 session for:', sessionData.walletAddress);
     return web3User;
     
-  } catch (error) {
-    console.error('❌ Web3 validation error:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Web3 validation error:', _error);
     return null;
   }
 }
 
 /**
  * Set Web3 session data in secure cookies
+ * @param sessionData
  */
 export async function setWeb3Session(sessionData: Web3SessionData): Promise<void> {
   const cookieStore = await cookies();
@@ -200,6 +200,7 @@ export async function clearWeb3Session(): Promise<void> {
 
 /**
  * Check if Web3 user has admin access
+ * @param user
  */
 export function hasAdminAccess(user: Web3AdminUser | undefined): boolean {
   if (!user) {
@@ -235,6 +236,7 @@ export function hasAdminAccess(user: Web3AdminUser | undefined): boolean {
 
 /**
  * Check if permissions array has admin access (legacy function)
+ * @param permissions
  */
 export function checkAdminPermissions(permissions: string[]): boolean {
   if (!permissions || !Array.isArray(permissions)) {
@@ -250,6 +252,8 @@ export function checkAdminPermissions(permissions: string[]): boolean {
 
 /**
  * Check specific permission for Web3 user
+ * @param user
+ * @param requiredPermission
  */
 export function hasPermission(user: Web3AdminUser | undefined, requiredPermission: string): boolean {
   if (!user) {
@@ -293,6 +297,8 @@ export function hasPermission(user: Web3AdminUser | undefined, requiredPermissio
 
 /**
  * Check specific permission (legacy function with permissions array)
+ * @param userPermissions
+ * @param requiredPermission
  */
 export function checkPermission(userPermissions: string[], requiredPermission: string): boolean {
   if (!userPermissions || !Array.isArray(userPermissions)) {
@@ -327,6 +333,8 @@ export function checkPermission(userPermissions: string[], requiredPermission: s
 
 /**
  * Filter permissions by platform
+ * @param permissions
+ * @param platform
  */
 export function getPermissionsByPlatform(permissions: string[], platform: string): string[] {
   return permissions.filter(permission => 
@@ -337,6 +345,8 @@ export function getPermissionsByPlatform(permissions: string[], platform: string
 
 /**
  * Check if permissions are expiring soon (for embedded timestamps)
+ * @param permissions
+ * @param withinDays
  */
 export function getExpiringPermissions(permissions: string[], withinDays = 7): string[] {
   const now = Date.now() / 1000;
@@ -362,13 +372,11 @@ export function getExpiringPermissions(permissions: string[], withinDays = 7): s
  */
 export async function getAdminSession(): Promise<AdminSession> {
   try {
-    console.log('🔍 Web3 Auth: Attempting Web3 authentication...');
     
     // Get Web3 session data from cookies
     const sessionData = await getWeb3SessionFromCookies();
     
     if (!sessionData) {
-      console.log('📝 Web3 Auth: No Web3 session data found');
       return {
         isAuthenticated: false,
         isLoggedIn: false,
@@ -382,7 +390,6 @@ export async function getAdminSession(): Promise<AdminSession> {
     const web3User = await validateWeb3Session(sessionData);
     
     if (!web3User) {
-      console.log('📝 Web3 Auth: Session validation failed');
       await clearWeb3Session(); // Clear invalid session
       return {
         isAuthenticated: false,
@@ -397,7 +404,6 @@ export async function getAdminSession(): Promise<AdminSession> {
     const adminAccess = hasAdminAccess(web3User);
     
     if (!adminAccess) {
-      console.log('📝 Web3 Auth: Wallet lacks admin permissions');
       return {
         isAuthenticated: true,
         isLoggedIn: true,
@@ -407,7 +413,6 @@ export async function getAdminSession(): Promise<AdminSession> {
       };
     }
     
-    console.log('✅ Web3 Auth: Valid admin session established for:', web3User.walletAddress);
     return {
       isAuthenticated: true,
       isLoggedIn: true,
@@ -416,14 +421,15 @@ export async function getAdminSession(): Promise<AdminSession> {
       expiresAt: sessionData.expiresAt
     };
     
-  } catch (error) {
-    console.error('❌ Session validation error:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Session validation error:', _error);
     return {
       isAuthenticated: false,
       isLoggedIn: false,
       user: null,
       hasAdminAccess: false,
-      error: error instanceof Error ? error.message : 'Session validation failed'
+      error: _error instanceof Error ? _error.message : 'Session validation failed'
     };
   }
 }
@@ -457,9 +463,7 @@ export async function isValidSession(): Promise<boolean> {
  * Logout user
  */
 export async function logout(): Promise<void> {
-  console.log('🔐 Logout: Clearing Web3 session...');
   await clearWeb3Session();
-  console.log('✅ Logout: Web3 session cleared successfully');
 }
 
 // ============================================================================

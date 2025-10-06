@@ -29,9 +29,9 @@
 /// - User Management (for wallet identification and permissions)
 /// - Trading Analytics (for market alert notifications)
 /// - Web3 Services (for wallet-based delivery and blockchain events)
-
 pub mod value_objects;
 pub mod aggregates;
+pub mod repository_ports;
 
 // Public exports from value objects
 pub use value_objects::{
@@ -41,14 +41,17 @@ pub use value_objects::{
     NotificationTopic, TopicCategory, AccessLevel, SubscriberScale,
     ScheduleInfo, ScheduleType, ScheduleStatus, DeliveryWindow,
     UserNotificationPreferences, ChannelSettings, ContentPreferences,
-    QuietHours, FrequencyLimits, PreferenceSummary
+    QuietHours, FrequencyLimits, PreferenceSummary, NotificationType
 };
 
 // Public exports from aggregates
 pub use aggregates::{
     Notification, NotificationMetadata, DeliveryTracking, ChannelDeliveryStatus,
-    DeliveryError, DeliveryResult, NotificationStatus,
+    DeliveryError, DeliveryResult, NotificationStatus, NotificationPriority,
     NotificationCreated, NotificationScheduled, NotificationSending,
     NotificationDeliveryCompleted, NotificationExpired, NotificationPriorityUpdated,
     NotificationCancelled
 };
+
+// Public exports from repository ports
+pub use repository_ports::{NotificationRepositoryPort, NotificationSearchCriteria};

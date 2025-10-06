@@ -1,98 +1,124 @@
 use std::net::SocketAddr;
-use tracing::{info, error, warn};
+use std::sync::Arc;
+use tracing::{info, error};
 
 // Import from our library
 use epsx::{
     config::env::init_config,
-    infrastructure::container::{StatelessServiceFactory, StatelessConfig},
-    create_stateless_router,
-    create_standardized_router,
+    infrastructure::container::DomainContainer,
+    create_router,
 };
 
-/// Main server entry point - Serverless Stateless Architecture
+/// Main server entry point - Unified Router Architecture
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Initialize configuration (loads .env and validates)
     let config = init_config();
-    
+
     // Initialize basic tracing
     tracing_subscriber::fmt::init();
-    
-    info!("🚀 Starting EPSX Backend Server with STATELESS SERVERLESS architecture...");
-    
-    // Create stateless configuration from environment
-    let stateless_config = StatelessConfig::from_env()
-        .map_err(|e| format!("Failed to create stateless config: {}", e))?;
-    
-    // Create stateless service factory (no shared state)
-    let service_factory = StatelessServiceFactory::new(stateless_config);
-    info!("✅ Stateless service factory initialized");
-    
-    // Test service creation (health check)
-    match service_factory.create_health_services().await {
-        Ok(health_services) => {
-            if health_services.health_check().await {
-                info!("✅ Database connectivity verified");
-            } else {
-                warn!("⚠️ Database health check failed");
+
+    info!("🚀 Starting EPSX Backend Server with UNIFIED ROUTER architecture...");
+
+    // Create database pool
+    let database_url = std::env::var("DATABASE_URL")
+        .map_err(|_| "DATABASE_URL must be set")?;
+
+    let db_pool = Arc::new(
+        sqlx::postgres::PgPoolOptions::new()
+            .max_connections(10)
+            .acquire_timeout(std::time::Duration::from_secs(30))
+            .connect(&database_url)
+            .await
+            .map_err(|e| format!("Failed to connect to database: {}", e))?
+    );
+    info!("✅ Database pool created successfully");
+
+    // Create cache (optional)
+    let cache = match std::env::var("REDIS_URL").ok() {
+        Some(redis_url) => {
+            match epsx::infrastructure::cache::redis_cache::RedisCache::new(
+                redis_url,
+                10, // pool_size
+                epsx::infrastructure::cache::CacheConfig::default()
+            ).await {
+                Ok(cache) => {
+                    info!("✅ Redis cache initialized");
+                    Some(Arc::new(cache) as Arc<dyn epsx::infrastructure::cache::Cache>)
+                }
+                Err(e) => {
+                    info!("⚠️ Redis cache unavailable, using memory cache: {}", e);
+                    Some(Arc::new(epsx::infrastructure::cache::memory_cache::MemoryCache::new())
+                        as Arc<dyn epsx::infrastructure::cache::Cache>)
+                }
             }
         }
-        Err(e) => {
-            error!("❌ Failed to create health services: {}", e);
-            return Err(e.into());
+        None => {
+            info!("ℹ️ No Redis URL configured, using memory cache");
+            Some(Arc::new(epsx::infrastructure::cache::memory_cache::MemoryCache::new())
+                as Arc<dyn epsx::infrastructure::cache::Cache>)
         }
-    }
-    
-    // Create router with stateless service factory
-    // Support both legacy and standardized routers during migration
-    let use_standardized_api = std::env::var("USE_STANDARDIZED_API")
-        .unwrap_or_else(|_| "false".to_string())
-        .parse::<bool>()
-        .unwrap_or(false);
-    
-    let app = if use_standardized_api {
-        info!("🆕 Using STANDARDIZED API router with organized naming convention");
-        create_standardized_router(service_factory).await
-    } else {
-        info!("⚡ Using legacy stateless router (default)");
-        create_stateless_router(service_factory).await
     };
-    info!("✅ Router created successfully");
-    
+
+    // Create domain container with Web3 services
+    let container = Arc::new(DomainContainer::new_with_web3_services(
+        db_pool,
+        cache,
+        None, // blockchain_config - will use defaults
+    ));
+    info!("✅ Domain container initialized with Web3 services");
+
+    // Start EventDispatcher (background worker for publishing events to Redis)
+    if let Some(dispatcher) = &container.event_dispatcher {
+        match dispatcher.clone().start().await {
+            Ok(_) => info!("✅ EventDispatcher started - events will be published to Redis Streams"),
+            Err(e) => info!("⚠️ EventDispatcher failed to start: {} (continuing without event publishing)", e),
+        }
+    } else {
+        info!("ℹ️ EventDispatcher not configured (Redis URL not set)");
+    }
+
+    // Start ProjectionManager (background worker for updating read models)
+    if let Some(projection_manager) = &container.projection_manager {
+        match projection_manager.clone().start().await {
+            Ok(_) => info!("✅ ProjectionManager started - read models will be updated from events"),
+            Err(e) => info!("⚠️ ProjectionManager failed to start: {} (continuing without projections)", e),
+        }
+    } else {
+        info!("ℹ️ ProjectionManager not configured");
+    }
+
+    // Create unified router
+    let app = create_router(container);
+    info!("✅ Unified router created successfully");
+
     // Server configuration using unified config
     let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
     let port: u16 = std::env::var("PORT")
         .unwrap_or_else(|_| "8080".to_string())
         .parse()
         .unwrap_or(8080);
-    
+
     info!("🔗 Backend URL: {}", config.backend_url);
     info!("🌐 Frontend URL: {}", config.frontend_url);
     info!("⚙️  Admin URL: {}", config.admin_frontend_url);
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
-    
+
     info!("🚀 Server starting on {}:{}", host, port);
-    info!("🌐 Health check available at: http://{}:{}/health", host, port);
-    
-    if use_standardized_api {
-        info!("🆕 STANDARDIZED API ENDPOINTS:");
-        info!("   🔐 Auth: http://{}:{}/api/v1/auth/web3/*", host, port);
-        info!("   📊 Analytics: http://{}:{}/api/v1/public/analytics/* | http://{}:{}/api/v1/auth/analytics/*", host, port, host, port);
-        info!("   👤 Admin: http://{}:{}/api/v1/admin/*", host, port);
-        info!("   📖 API Documentation: Organized by access level (public, auth, admin)");
-    } else {
-        info!("⚡ LEGACY API ENDPOINTS:");
-        info!("   🔐 Web3 auth endpoints: http://{}:{}/api/auth/web3/*", host, port);
-        info!("   📊 Analytics endpoints: http://{}:{}/api/v1/analytics/*", host, port);
-        info!("   ⚠️  Mixed routing patterns (for backward compatibility)");
-    }
-    
-    info!("⚡ SERVERLESS MODE: Services created per request (no shared state)");
-    
+    info!("🌐 Health check: http://{}:{}/health", host, port);
+    info!("");
+    info!("📡 UNIFIED API ENDPOINTS:");
+    info!("   🔐 Auth:      http://{}:{}/api/auth/web3/*", host, port);
+    info!("   📊 Analytics: http://{}:{}/api/v1/analytics/*", host, port);
+    info!("   📊 Public:    http://{}:{}/api/v1/public/*", host, port);
+    info!("   👤 Admin:     http://{}:{}/admin/* | http://{}:{}/api/admin/*", host, port, host, port);
+    info!("   📖 Docs:      http://{}:{}/docs", host, port);
+    info!("");
+
     // Start the server
     let listener = tokio::net::TcpListener::bind(addr).await?;
-    
-    info!("✨ EPSX Backend Server is ready and listening in STATELESS mode!");
+
+    info!("✨ EPSX Backend Server is ready and listening!");
     
     match axum::serve(listener, app).await {
         Ok(_) => {

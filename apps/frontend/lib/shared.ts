@@ -29,21 +29,7 @@ export {
 // 🔒 Use backend permission authority system instead for security
 // 📊 These functions will be removed in future versions
 
-export {
-  hasPermissionGranular,
-  hasAnyPermissionGranular,
-  hasAllPermissionsGranular,
-  canViewAnalytics,
-  canExportData,
-  canAccessRealtime,
-  canUseAdvancedFilters,
-  isAdmin
-} from '../../../shared/permissions/utils/checking';
-
-export {
-  derivePackageTierFromPermissions,
-  deriveAccessiblePlatformsFromPermissions
-} from '../../../shared/permissions/utils/platform';
+// Removed legacy permission utilities - use backend validation instead
 
 // ============================================================================
 // MIGRATION WARNING (Runtime Alert)
@@ -74,12 +60,7 @@ For more information, see Phase 2.4 for remaining frontend cleanup tasks.
 `);
 }
 
-// Permission types
-export type {
-  EnhancedUserClaims,
-  GranularPermissionClaim,
-  PermissionHealthInfo
-} from '../../../shared/permissions/types/core';
+// Removed legacy permission types - use backend response types instead
 
 // Client-safe URL utilities
 export {

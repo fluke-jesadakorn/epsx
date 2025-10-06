@@ -12,20 +12,40 @@ interface ErrorBoundaryProps {
   fallback?: ReactNode;
 }
 
+/**
+ *
+ */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  /**
+   *
+   * @param props
+   */
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false };
   }
 
+  /**
+   *
+   * @param error
+   */
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
+  /**
+   *
+   * @param error
+   * @param errorInfo
+   */
   componentDidCatch(error: Error, errorInfo: any) {
+    // eslint-disable-next-line no-console
     console.error('ErrorBoundary caught an error:', error, errorInfo);
   }
 
+  /**
+   *
+   */
   render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
@@ -46,7 +66,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                   Error Details (Development)
                 </summary>
                 <pre className="whitespace-pre-wrap text-red-300">
-                  {this.state.error.message}
+                  {this.state._error.message}
                   {'\n'}
                   {this.state.error.stack}
                 </pre>

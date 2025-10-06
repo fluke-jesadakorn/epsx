@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
+
 import { DynamicBreadcrumb } from './DynamicBreadcrumb';
 import { PancakeAdminHeader } from './PancakeAdminHeader';
 import { PancakeAdminNav } from './PancakeAdminNav';
@@ -17,6 +18,12 @@ interface PancakeAdminLayoutProps {
   user?: User;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.children
+ * @param root0.user
+ */
 export function PancakeAdminLayout({
   children,
   user,

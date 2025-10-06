@@ -88,7 +88,7 @@ pub async fn get_user_permissions_debug_handler(
     
     // Test specific permissions
     let test_permissions = vec![
-        "/api/v1/admin/users",
+        "/api/v1/admin/wallets",
         "/api/v1/admin/analytics", 
         "/api/v1/admin/settings",
         "/api/v1/admin/modules",

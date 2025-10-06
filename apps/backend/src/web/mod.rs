@@ -1,17 +1,17 @@
 // Web layer implementation
 
-pub mod api;
+// pub mod api; // Removed - unused progressive_auth routes
 pub mod auth;
 pub mod admin;
 pub mod routes; // New contextual route architecture
 // Removed: permission_profile, permissions - replaced by auth/roles.rs
 pub mod user;
 pub mod middleware;
-pub mod modules;
+// pub mod modules; // Removed - empty placeholder routers, all stub implementations
 pub mod validation;
 pub mod health;
 pub mod analytics;
-pub mod settings;
+// pub mod settings; // Removed - unused settings management routes
 pub mod admin_assignment;
 pub mod notifications;
 // ⚡ CRITICAL: Comprehensive Error System (Phase 1.3)
@@ -22,17 +22,10 @@ pub mod public;
 // API documentation (always available)
 pub mod docs;
 
-// Stateless router for serverless architecture
-pub mod stateless_router;
-
-// Standardized API router with organized naming convention
-pub mod standardized_router;
-
 use axum::{ routing::get, Router, http::Method };
 use serde_json::json;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
-use axum::middleware as axum_middleware;
 
 use crate::infrastructure::container::DomainContainer;
 
@@ -101,29 +94,12 @@ fn configure_cors_for_frontend() -> CorsLayer {
 // create_standalone_analytics_routes function removed
 // Analytics routes are now handled by UnifiedRouteBuilder
 
-/// Create the main application router with simplified, clean architecture
-/// Eliminates all route duplication and over-engineering with single source of truth
+/// Create the main application router with unified architecture
+/// Single source of truth - eliminates all route duplication and competing router systems
 pub fn create_router(container: Arc<DomainContainer>) -> Router {
-  // Use simple route builder - single source of truth
-  // This returns Router<()> with unified middleware built in
-  let simple_router = routes::SimpleRouteBuilder::new(container.clone())
-    .build();
-
-  // Configure CORS for all routes
-  let cors = configure_cors_for_frontend();
-
-  // Apply minimal, essential middleware stack only
-  simple_router
-    // Essential security headers
-    .layer(axum_middleware::from_fn(
-      crate::web::middleware::security_headers_middleware
-    ))
-    // Request ID for tracing
-    .layer(axum_middleware::from_fn(
-      crate::web::middleware::request_id_middleware
-    ))
-    // CORS (must be last)
-    .layer(cors)
+  // Use unified route builder - consolidates all 3 previous router systems
+  routes::UnifiedRouteBuilder::new(container.clone())
+    .build()
 }
 
 /// Create a demo router for Cloud Run demonstration without database dependencies
@@ -152,9 +128,3 @@ pub async fn create_demo_router() -> Router {
     )
     .layer(configure_cors_for_frontend())
 }
-
-// Export stateless router function
-pub use stateless_router::create_stateless_router;
-
-// Export standardized router function
-pub use standardized_router::create_standardized_router;

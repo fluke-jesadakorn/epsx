@@ -205,7 +205,7 @@ impl UsageAnalyticsService {
             .map(|analytics| {
                 // Efficiency is high when usage is between 60-80% of quota
                 let usage_pct = analytics.usage_percentage;
-                if usage_pct >= 60.0 && usage_pct <= 80.0 {
+                if (60.0..=80.0).contains(&usage_pct) {
                     100.0
                 } else if usage_pct < 60.0 {
                     usage_pct / 60.0 * 100.0

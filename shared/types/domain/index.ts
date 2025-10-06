@@ -29,11 +29,9 @@ import type {
 import type {
   EPSXPermission,
   PermissionTemplate,
-  PermissionRole
-} from './Permission'
-import type {
+  PermissionRole,
   Permission
-} from '../../permissions/types/core'
+} from './Permission'
 
 // ============================================================================
 // USER DOMAIN TYPES
@@ -97,50 +95,24 @@ export type {
 // PERMISSION DOMAIN TYPES
 // ============================================================================
 export type {
-  // Core permission types (re-exported from shared system)
+  // Core permission types
   Permission,
   ParsedPermission,
   PermissionSource,
   Platform,
-  GranularPermissionClaim,
-  GranularPermissionSet,
   TimestampedPermission,
   PermissionExpiryDetails,
   PermissionExpiryInfo,
-  PermissionHealthInfo,
-  UserPermissionSummary,
-  PermissionCacheEntry,
-  HashValidationResult,
-  TokenValidationResult,
-  LegacyPermissionMapping,
-  MigrationStatus,
+
+  // Claims types (removed legacy types)
   
-  // Claims types
-  EnhancedUserClaims,
-  PermissionClaims,
-  AdminPermissionClaims,
-  CrossPlatformClaims,
-  EmbeddedPermissionClaims,
-  
-  // API types
-  PermissionAPIRequest,
-  PermissionAPIResponse,
+  // API types (only available ones)
+  GrantPermissionRequest,
+  RevokePermissionRequest,
+  BulkPermissionRequest,
+  ExtendPermissionRequest,
   PermissionValidationRequest,
   PermissionValidationResponse,
-  PermissionUpdateRequest,
-  PermissionUpdateResponse,
-  PermissionListRequest,
-  PermissionListResponse,
-  PermissionSyncRequest,
-  PermissionSyncResponse,
-  PermissionRevokeRequest,
-  PermissionRevokeResponse,
-  BulkPermissionRequest,
-  BulkPermissionResponse,
-  PermissionImportRequest,
-  PermissionImportResponse,
-  PermissionExportRequest,
-  PermissionExportResponse,
   
   // Error types
   PermissionError,

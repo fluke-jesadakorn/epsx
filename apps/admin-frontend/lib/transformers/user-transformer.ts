@@ -37,6 +37,7 @@ export interface BackendUsersResponse {
 
 /**
  * Transform backend user data to frontend User interface
+ * @param backendUser
  */
 export function transformBackendUser(backendUser: BackendUserSummary): User {
   // Derive platforms from permissions
@@ -67,8 +68,9 @@ export function transformBackendUser(backendUser: BackendUserSummary): User {
     
     // Permissions and tier (permission-based derivation)
     permissions: backendUser.permissions || [],
+    permissionGroup: derivePermissionGroup(backendUser.permissions || []),
     packageTier: derivePackageTierFromPermissions(backendUser.permissions || []),
-    
+
     // Platform context
     platforms,
     primaryPlatform: platforms[0] || 'epsx',
@@ -78,6 +80,7 @@ export function transformBackendUser(backendUser: BackendUserSummary): User {
 
 /**
  * Transform backend users response to frontend format
+ * @param backendResponse
  */
 export function transformBackendUsersResponse(
   backendResponse: BackendUsersResponse
@@ -90,6 +93,7 @@ export function transformBackendUsersResponse(
 
 /**
  * Map backend role to frontend role enum
+ * @param backendRole
  */
 function mapBackendRole(backendRole: string): 'admin' | 'user' | 'premium_user' {
   switch (backendRole.toLowerCase()) {
@@ -105,6 +109,8 @@ function mapBackendRole(backendRole: string): 'admin' | 'user' | 'premium_user' 
 
 /**
  * Map backend status to frontend status enum
+ * @param backendStatus
+ * @param isActive
  */
 function mapBackendStatus(backendStatus?: string, isActive?: boolean): 'active' | 'inactive' | 'suspended' | 'deleted' {
   // If we have explicit status, use it
@@ -130,6 +136,7 @@ function mapBackendStatus(backendStatus?: string, isActive?: boolean): 'active' 
 /**
  * Derive package tier from user permissions
  * Replaces hardcoded tier logic with permission-based derivation
+ * @param permissions
  */
 function derivePackageTierFromPermissions(permissions: string[]): string {
   // Admin tier - highest priority
@@ -162,6 +169,7 @@ function derivePackageTierFromPermissions(permissions: string[]): string {
 /**
  * Derive role from user permissions  
  * Replaces hardcoded role logic with permission-based derivation
+ * @param permissions
  */
 function deriveRoleFromPermissions(permissions: string[]): string {
   // Admin role - highest priority
@@ -182,7 +190,37 @@ function deriveRoleFromPermissions(permissions: string[]): string {
 }
 
 /**
+ * Derive permission group from user permissions
+ * @param permissions
+ */
+function derivePermissionGroup(permissions: string[]): 'Basic Access Group' | 'Standard Access Group' | 'Premium Access Group' | 'Professional Access Group' | 'Enterprise Access Group' {
+  // Admin/Enterprise - highest priority
+  if (permissions.some(p => p === "admin:*:*" || p.startsWith("admin:") || p === "epsx:*:*")) {
+    return "Enterprise Access Group";
+  }
+
+  // Professional tier
+  if (permissions.some(p => p === "epsx:analytics:professional")) {
+    return "Professional Access Group";
+  }
+
+  // Premium tier
+  if (permissions.some(p => p === "epsx:analytics:premium")) {
+    return "Premium Access Group";
+  }
+
+  // Standard tier
+  if (permissions.some(p => p === "epsx:analytics:basic" || p === "epsx:analytics:view")) {
+    return "Standard Access Group";
+  }
+
+  // Default basic tier
+  return "Basic Access Group";
+}
+
+/**
  * Derive platforms from user permissions
+ * @param permissions
  */
 function derivePlatforms(permissions: string[]): string[] {
   const platformSet = new Set<string>();
@@ -203,6 +241,7 @@ function derivePlatforms(permissions: string[]): string[] {
 
 /**
  * Create mock user data for development/testing
+ * @param overrides
  */
 export function createMockUser(overrides: Partial<BackendUserSummary> = {}): User {
   const mockBackendUser: BackendUserSummary = {
@@ -226,6 +265,7 @@ export function createMockUser(overrides: Partial<BackendUserSummary> = {}): Use
 
 /**
  * Validate backend user data
+ * @param data
  */
 export function validateBackendUser(data: any): data is BackendUserSummary {
   // Basic required fields

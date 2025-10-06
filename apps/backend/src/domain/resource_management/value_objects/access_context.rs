@@ -62,7 +62,7 @@ impl AccessContext {
     }
 
     /// Parse from string representation
-    pub fn from_str(s: &str) -> Result<Self, String> {
+    pub fn parse(s: &str) -> Result<Self, String> {
         match s.to_lowercase().as_str() {
             "internal" => Ok(AccessContext::Internal),
             "external" => Ok(AccessContext::External),

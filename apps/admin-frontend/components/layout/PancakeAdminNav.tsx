@@ -60,6 +60,13 @@ const navigationItems: NavItem[] = [
     ]
   },
   {
+    id: 'plans',
+    label: 'Plans & Promotions',
+    href: '/plans',
+    icon: '💳',
+    requiresAuth: true,
+  },
+  {
     id: 'analytics',
     label: 'Analytics',
     href: '/analytics',
@@ -82,6 +89,9 @@ const navigationItems: NavItem[] = [
   },
 ];
 
+/**
+ *
+ */
 export function PancakeAdminNav() {
   const pathname = usePathname();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set(['permissions']));
@@ -109,7 +119,7 @@ export function PancakeAdminNav() {
         {navigationItems
           .filter(item => {
             // Hide auth item if already connected
-            if (item.id === 'auth' && isConnected) return false;
+            if (item.id === 'auth' && isConnected) {return false;}
             return true;
           })
           .map(item => {

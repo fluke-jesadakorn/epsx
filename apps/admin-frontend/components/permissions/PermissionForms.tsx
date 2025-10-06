@@ -5,23 +5,22 @@
 
 'use client'
 
-import React, { useState, useCallback, useMemo } from 'react'
 import { 
   Shield, User, Clock, AlertTriangle, CheckCircle, Plus, Minus,
   Search, Filter, Save, X, Info, Calendar
 } from 'lucide-react'
+import React, { useState, useCallback, useMemo } from 'react'
 
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/form-components'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Checkbox } from '@/components/ui/form-components'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/components/ui/use-toast'
-
 import { adminCardVariants, adminButtonVariants } from '@/design-system'
 import { cn } from '@/lib/shared'
 
@@ -48,6 +47,14 @@ interface PermissionFormProps {
   className?: string;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.userId
+ * @param root0.currentPermissions
+ * @param root0.onSubmit
+ * @param root0.className
+ */
 export function PermissionAssignmentForm({ 
   userId, 
   currentPermissions = [], 
@@ -89,7 +96,7 @@ export function PermissionAssignmentForm({
 
   // Filter permissions based on search
   const filteredPermissions = useMemo(() => {
-    if (!searchTerm) return availablePermissions
+    if (!searchTerm) {return availablePermissions}
     return availablePermissions.filter(p => 
       p.toLowerCase().includes(searchTerm.toLowerCase())
     )
@@ -133,10 +140,10 @@ export function PermissionAssignmentForm({
         title: 'Permissions Assigned',
         description: `Successfully assigned ${selectedPermissions.length} permissions`
       })
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: 'Assignment Failed',
-        description: error instanceof Error ? error.message : 'Failed to assign permissions',
+        description: _error instanceof Error ? _error.message : 'Failed to assign permissions',
         variant: 'destructive'
       })
     } finally {
@@ -286,6 +293,13 @@ interface BulkPermissionFormProps {
   className?: string;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.userIds
+ * @param root0.onSubmit
+ * @param root0.className
+ */
 export function BulkPermissionForm({ 
   userIds, 
   onSubmit, 
@@ -330,10 +344,10 @@ export function BulkPermissionForm({
         title: 'Bulk Operation Complete',
         description: `Successfully ${operation === 'grant' ? 'granted' : 'revoked'} permissions for ${userIds.length} users`
       })
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: 'Bulk Operation Failed',
-        description: error instanceof Error ? error.message : 'Failed to process bulk operation',
+        description: _error instanceof Error ? _error.message : 'Failed to process bulk operation',
         variant: 'destructive'
       })
     } finally {
@@ -438,6 +452,12 @@ interface PermissionRequestFormProps {
   className?: string;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.onSubmit
+ * @param root0.className
+ */
 export function PermissionRequestForm({ onSubmit, className }: PermissionRequestFormProps) {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
@@ -475,10 +495,10 @@ export function PermissionRequestForm({ onSubmit, className }: PermissionRequest
         title: 'Request Submitted',
         description: 'Your permission request has been submitted for review'
       })
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: 'Request Failed',
-        description: error instanceof Error ? error.message : 'Failed to submit request',
+        description: _error instanceof Error ? _error.message : 'Failed to submit request',
         variant: 'destructive'
       })
     } finally {

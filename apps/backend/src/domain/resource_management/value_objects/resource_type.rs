@@ -34,7 +34,7 @@ pub enum ResourceType {
     },
     
     // Admin operations (audit-level tracking)
-    AdminUserManagement { operation: String },
+    AdminWalletManagement { operation: String },
     AdminPlanManagement { operation: String },
     AdminSystemOperation { operation: String },
     AdminDataExport { 
@@ -112,7 +112,7 @@ impl ResourceType {
             ResourceType::ApiBulkOperation { .. } => true,
             
             // Admin operations are not billable but require audit
-            ResourceType::AdminUserManagement { .. } |
+            ResourceType::AdminWalletManagement { .. } |
             ResourceType::AdminPlanManagement { .. } |
             ResourceType::AdminSystemOperation { .. } |
             ResourceType::AdminDataExport { .. } => false,
@@ -139,7 +139,7 @@ impl ResourceType {
             ResourceType::ApiWebhookDelivery { .. } |
             ResourceType::ApiBulkOperation { .. } => ResourceCategory::ExternalApi,
             
-            ResourceType::AdminUserManagement { .. } |
+            ResourceType::AdminWalletManagement { .. } |
             ResourceType::AdminPlanManagement { .. } |
             ResourceType::AdminSystemOperation { .. } |
             ResourceType::AdminDataExport { .. } => ResourceCategory::Admin,
@@ -168,7 +168,7 @@ impl ResourceType {
             ResourceType::ApiBulkOperation { records_processed, .. } => (*records_processed as f64) * 0.001,
             
             // Admin operations - operational cost tracking
-            ResourceType::AdminUserManagement { .. } => 0.0,
+            ResourceType::AdminWalletManagement { .. } => 0.0,
             ResourceType::AdminPlanManagement { .. } => 0.0,
             ResourceType::AdminSystemOperation { .. } => 0.0,
             ResourceType::AdminDataExport { .. } => 0.0,
@@ -191,7 +191,7 @@ impl ResourceType {
             ResourceType::ApiDataTransfer { .. } |
             ResourceType::ApiWebhookDelivery { .. } |
             ResourceType::ApiBulkOperation { .. } |
-            ResourceType::AdminUserManagement { .. } |
+            ResourceType::AdminWalletManagement { .. } |
             ResourceType::AdminPlanManagement { .. } |
             ResourceType::AdminSystemOperation { .. } |
             ResourceType::AdminDataExport { .. } => TrackingPriority::High,
@@ -246,7 +246,7 @@ impl fmt::Display for ResourceType {
                 write!(f, "ApiBulkOperation({} {})", operation_type, records_processed)
             },
             
-            ResourceType::AdminUserManagement { operation } => write!(f, "AdminUserManagement({})", operation),
+            ResourceType::AdminWalletManagement { operation } => write!(f, "AdminWalletManagement({})", operation),
             ResourceType::AdminPlanManagement { operation } => write!(f, "AdminPlanManagement({})", operation),
             ResourceType::AdminSystemOperation { operation } => write!(f, "AdminSystemOperation({})", operation),
             ResourceType::AdminDataExport { export_type, .. } => write!(f, "AdminDataExport({})", export_type),

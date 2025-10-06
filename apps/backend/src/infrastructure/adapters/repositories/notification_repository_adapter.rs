@@ -18,6 +18,12 @@ pub struct NotificationRepositoryAdapter {
   // Email service removed - Web3-first system uses direct wallet notifications
 }
 
+impl Default for NotificationRepositoryAdapter {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl NotificationRepositoryAdapter {
   pub fn new() -> Self {
     debug!("Creating Web3-first NotificationRepositoryAdapter");
@@ -26,13 +32,13 @@ impl NotificationRepositoryAdapter {
     }
   }
 
-  /// Send notification using Web3-first approach  
+  /// Send notification using Web3-first approach
   pub async fn send_notification(
     &self,
     notification: &Notification,
     wallet_address: &str,
   ) -> ApplicationResult<DeliveryResult> {
-    let notification_id = notification.id().value().clone();
+    let notification_id = notification.id().value();
     
     info!(
       "Sending Web3 notification {} to wallet {}",

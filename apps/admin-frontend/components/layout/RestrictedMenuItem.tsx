@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { ChevronDown } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ChevronDown } from 'lucide-react';
+import { useState } from 'react';
 
 interface MenuItem {
   id: string;
@@ -26,6 +26,15 @@ interface RestrictedMenuItemProps {
   onRequestAccess?: (data: any) => Promise<void>;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.item
+ * @param root0.isExpanded
+ * @param root0.onToggle
+ * @param root0.depth
+ * @param root0.sidebarCollapsed
+ */
 export function RestrictedMenuItem({
   item,
   isExpanded = false,

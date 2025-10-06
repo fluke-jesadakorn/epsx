@@ -1,7 +1,6 @@
 import { StreamingWrapper } from '@/components/common/StreamingWrapper';
 import ServerTopPerformers from '@/components/home/ServerTopPerformers';
 import DynamicPricingSection from '@/components/home/DynamicPricingSection';
-import { PublicRankingPreview } from '@/components/home/PublicRankingPreview';
 
 // DISABLE ISR caching to show real TradingView data immediately
 export const revalidate = 0;

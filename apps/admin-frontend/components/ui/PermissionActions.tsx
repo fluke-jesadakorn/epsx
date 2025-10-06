@@ -8,6 +8,15 @@ interface PermissionActionsProps {
   onRevoke: (userEmail: string, permission: string) => void
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.userEmail
+ * @param root0.permission
+ * @param root0.status
+ * @param root0.onExtend
+ * @param root0.onRevoke
+ */
 export default function PermissionActions({ 
   userEmail, 
   permission, 

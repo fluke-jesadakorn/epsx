@@ -1,6 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { NextRequest, NextResponse } from 'next/server';
 
+/**
+ *
+ * @param request
+ */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -34,16 +38,15 @@ export async function POST(request: NextRequest) {
     cookieStore.set('wallet_chain_id', chainId.toString(), cookieOptions);
     cookieStore.set('wallet_expires_at', expiresAt.toString(), cookieOptions);
 
-    console.log('✅ Web3 session stored in cookies for wallet:', walletAddress);
-
     return NextResponse.json({ 
       success: true, 
       message: 'Session stored successfully',
       expiresAt 
     });
 
-  } catch (error) {
-    console.error('❌ Failed to store Web3 session:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Failed to store Web3 session:', _error);
     return NextResponse.json(
       { success: false, error: 'Failed to store session data' },
       { status: 500 }

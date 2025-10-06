@@ -297,6 +297,14 @@ pub struct RecoveryOrchestrator<T> {
   strategies: Vec<Box<dyn RecoveryStrategy<T>>>,
 }
 
+impl<T> Default for RecoveryOrchestrator<T>
+where T: Send + 'static
+ {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T> RecoveryOrchestrator<T> where T: Send + 'static {
   pub fn new() -> Self {
     Self {
@@ -379,7 +387,7 @@ fn calculate_backoff_delay(config: &RecoveryConfig, attempt: u32) -> Duration {
     let jitter_range = (delay.as_millis() as f64) * 0.1; // 10% jitter
     let jitter = (rand::random::<f64>() - 0.5) * 2.0 * jitter_range;
     let jittered_delay = ((delay.as_millis() as f64) + jitter) as u64;
-    delay = Duration::from_millis(jittered_delay.max(0));
+    delay = Duration::from_millis(jittered_delay);
   }
 
   delay

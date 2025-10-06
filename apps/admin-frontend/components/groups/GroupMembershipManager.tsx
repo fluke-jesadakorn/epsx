@@ -12,21 +12,18 @@
 
 'use client'
 
-import React, { useState, useCallback, useMemo } from 'react'
+import { format, formatDistanceToNow } from 'date-fns'
 import { 
   Users, Plus, Trash2, Calendar, Clock, AlertCircle,
   Search, Filter, MoreHorizontal, UserPlus, UserMinus,
   Badge as BadgeIcon, CheckCircle, XCircle, Eye, ExternalLink, Info
 } from 'lucide-react'
+import React, { useState, useCallback, useMemo } from 'react'
 
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter 
 } from '@/components/ui/dialog'
@@ -34,8 +31,12 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu'
 import { Checkbox } from '@/components/ui/form-components'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/components/ui/use-toast'
-
+import { adminCardVariants, adminButtonVariants } from '@/design-system'
 import { 
   usePermissionGroups,
   useUserGroupMemberships,
@@ -46,9 +47,7 @@ import {
   UserGroupMembership, 
   AssignUserToGroupRequest 
 } from '@/lib/api/group-management-client'
-import { adminCardVariants, adminButtonVariants } from '@/design-system'
 import { cn } from '@/lib/shared'
-import { format, formatDistanceToNow } from 'date-fns'
 
 interface GroupMembershipManagerProps {
   userId?: string
@@ -56,6 +55,13 @@ interface GroupMembershipManagerProps {
   className?: string
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.userId
+ * @param root0.groupId
+ * @param root0.className
+ */
 export function GroupMembershipManager({ 
   userId, 
   groupId, 
@@ -120,10 +126,10 @@ export function GroupMembershipManager({
         title: 'User Assigned',
         description: 'User has been successfully assigned to the group.'
       })
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: 'Assignment Failed',
-        description: error instanceof Error ? error.message : 'Failed to assign user to group',
+        description: _error instanceof Error ? _error.message : 'Failed to assign user to group',
         variant: 'destructive'
       })
     }
@@ -136,17 +142,17 @@ export function GroupMembershipManager({
         title: 'User Removed',
         description: 'User has been removed from the group.'
       })
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: 'Removal Failed',
-        description: error instanceof Error ? error.message : 'Failed to remove user from group',
+        description: _error instanceof Error ? _error.message : 'Failed to remove user from group',
         variant: 'destructive'
       })
     }
   }, [removeUserFromGroup, toast])
 
   const handleBulkRemove = useCallback(async () => {
-    if (selectedMemberships.length === 0) return
+    if (selectedMemberships.length === 0) {return}
 
     const promises = selectedMemberships.map(membershipId => {
       const membership = memberships.find(m => m.id === membershipId)
@@ -160,7 +166,7 @@ export function GroupMembershipManager({
         title: 'Bulk Removal Complete',
         description: `Removed ${selectedMemberships.length} group memberships.`
       })
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: 'Bulk Removal Failed',
         description: 'Some memberships could not be removed.',
@@ -464,7 +470,7 @@ function AssignGroupForm({ userId, availableGroups, onAssign, onCancel }: Assign
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedGroupId) return
+    if (!selectedGroupId) {return}
 
     const expiresAt = expiryDays 
       ? new Date(Date.now() + parseInt(expiryDays) * 24 * 60 * 60 * 1000).toISOString()

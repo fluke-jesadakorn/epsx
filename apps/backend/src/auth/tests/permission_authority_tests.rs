@@ -2,8 +2,7 @@
 // Tests all validation, caching, and performance aspects
 
 use crate::auth::{
-    CentralizedPermissionAuthority, PermissionValidator, PermissionResult, BulkPermissionResult,
-    Permission, PermissionSource, ValidationContext, CacheConfig, create_permission_authority,
+    CentralizedPermissionAuthority, PermissionValidator, ValidationContext, CacheConfig,
 };
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -53,32 +52,67 @@ fn create_test_context() -> ValidationContext {
 }
 
 async fn setup_test_permissions(db_pool: &PgPool, wallet_address: &str, permissions: &[&str]) {
-    // Setup test permissions in database
-    // This would typically insert into permission_groups and wallet_group_memberships tables
-    
-    // Create a test permission group
+    // Create test permission group
     let group_id = Uuid::new_v4();
-    let permissions_array: Vec<String> = permissions.iter().map(|p| p.to_string()).collect();
-    
+
     let _ = sqlx::query!(
         r#"
-        INSERT INTO permission_groups (id, name, slug, description, permissions, is_active)
-        VALUES ($1, $2, $3, $4, $5, true)
-        ON CONFLICT (id) DO NOTHING
+        INSERT INTO permission_groups (id, name, slug, description, is_active)
+        VALUES ($1, $2, $3, $4, true)
+        ON CONFLICT (name) DO NOTHING
         "#,
         group_id,
         "Test Group",
         "test-group",
-        "Test permissions group",
-        &permissions_array
+        "Test permissions group"
     )
     .execute(db_pool)
     .await;
 
-    // Assign wallet to the group
+    // Create permissions and link to group
+    for perm in permissions {
+        let parts: Vec<&str> = perm.split(':').collect();
+        if parts.len() == 3 {
+            let (platform, resource, action) = (parts[0], parts[1], parts[2]);
+
+            // Create permission
+            let perm_id = sqlx::query_scalar!(
+                r#"
+                INSERT INTO permissions (permission_string, platform, resource, action, is_active)
+                VALUES ($1, $2, $3, $4, true)
+                ON CONFLICT (permission_string) DO UPDATE SET is_active = true
+                RETURNING id
+                "#,
+                perm,
+                platform,
+                resource,
+                action
+            )
+            .fetch_one(db_pool)
+            .await
+            .ok();
+
+            // Link permission to group
+            if let Some(pid) = perm_id {
+                let _ = sqlx::query!(
+                    r#"
+                    INSERT INTO permission_group_memberships (group_id, permission_id)
+                    VALUES ($1, $2)
+                    ON CONFLICT (group_id, permission_id) DO NOTHING
+                    "#,
+                    group_id,
+                    pid
+                )
+                .execute(db_pool)
+                .await;
+            }
+        }
+    }
+
+    // Assign wallet to group
     let _ = sqlx::query!(
         r#"
-        INSERT INTO wallet_group_memberships (wallet_address, group_id, is_active)
+        INSERT INTO wallet_group_assignments (wallet_address, group_id, is_active)
         VALUES ($1, $2, true)
         ON CONFLICT (wallet_address, group_id) DO NOTHING
         "#,
@@ -116,7 +150,7 @@ async fn test_single_permission_validation_granted() {
     let permission = "epsx:analytics:read";
     
     // Setup test permissions
-    setup_test_permissions(&authority.db_pool, wallet, &[permission]).await;
+    setup_test_permissions(&authority.db_pool(), wallet, &[permission]).await;
     
     let context = create_test_context();
     let result = authority.validate_permission(wallet, permission, &context).await;
@@ -128,7 +162,7 @@ async fn test_single_permission_validation_granted() {
     assert!(validation_result.validation_time_ms > 0);
     
     // Cleanup
-    cleanup_test_data(&authority.db_pool, wallet).await;
+    cleanup_test_data(&authority.db_pool(), wallet).await;
 }
 
 #[tokio::test]
@@ -139,7 +173,7 @@ async fn test_single_permission_validation_denied() {
     let requested_permission = "admin:users:manage";
     
     // Setup permissions (grant different permission than requested)
-    setup_test_permissions(&authority.db_pool, wallet, &[granted_permission]).await;
+    setup_test_permissions(&authority.db_pool(), wallet, &[granted_permission]).await;
     
     let context = create_test_context();
     let result = authority.validate_permission(wallet, requested_permission, &context).await;
@@ -151,7 +185,7 @@ async fn test_single_permission_validation_denied() {
     assert!(validation_result.reason.is_some());
     
     // Cleanup
-    cleanup_test_data(&authority.db_pool, wallet).await;
+    cleanup_test_data(&authority.db_pool(), wallet).await;
 }
 
 #[tokio::test]
@@ -160,7 +194,7 @@ async fn test_wildcard_permission_validation() {
     let wallet = "0x742d35cc6abaac8b14a3780b5b0e11b2ce65d695";
     
     // Grant wildcard admin permission
-    setup_test_permissions(&authority.db_pool, wallet, &["admin:*:*"]).await;
+    setup_test_permissions(&authority.db_pool(), wallet, &["admin:*:*"]).await;
     
     let context = create_test_context();
     
@@ -186,7 +220,7 @@ async fn test_wildcard_permission_validation() {
     assert!(!validation_result.granted, "Non-admin permission should not be granted by admin:*:*");
     
     // Cleanup
-    cleanup_test_data(&authority.db_pool, wallet).await;
+    cleanup_test_data(&authority.db_pool(), wallet).await;
 }
 
 #[tokio::test]
@@ -196,7 +230,7 @@ async fn test_bulk_permission_validation() {
     
     // Setup mixed permissions
     let granted_perms = ["epsx:analytics:read", "epsx:data:access"];
-    setup_test_permissions(&authority.db_pool, wallet, &granted_perms).await;
+    setup_test_permissions(&authority.db_pool(), wallet, &granted_perms).await;
     
     let context = create_test_context();
     let test_permissions = vec![
@@ -223,7 +257,7 @@ async fn test_bulk_permission_validation() {
     assert!(!bulk_result.results.get("epsx:premium:features").unwrap().granted);
     
     // Cleanup
-    cleanup_test_data(&authority.db_pool, wallet).await;
+    cleanup_test_data(&authority.db_pool(), wallet).await;
 }
 
 // ============================================================================
@@ -236,7 +270,7 @@ async fn test_permission_caching_hit() {
     let wallet = "0x742d35cc6abaac8b14a3780b5b0e11b2ce65d695";
     let permission = "epsx:analytics:read";
     
-    setup_test_permissions(&authority.db_pool, wallet, &[permission]).await;
+    setup_test_permissions(&authority.db_pool(), wallet, &[permission]).await;
     
     let context = create_test_context();
     
@@ -263,7 +297,7 @@ async fn test_permission_caching_hit() {
     assert!(stats.permission_misses > 0);
     
     // Cleanup
-    cleanup_test_data(&authority.db_pool, wallet).await;
+    cleanup_test_data(&authority.db_pool(), wallet).await;
 }
 
 #[tokio::test]
@@ -272,7 +306,7 @@ async fn test_permission_cache_expiry() {
     let wallet = "0x742d35cc6abaac8b14a3780b5b0e11b2ce65d695";
     let permission = "epsx:analytics:read";
     
-    setup_test_permissions(&authority.db_pool, wallet, &[permission]).await;
+    setup_test_permissions(&authority.db_pool(), wallet, &[permission]).await;
     
     let context = create_test_context();
     
@@ -294,7 +328,7 @@ async fn test_permission_cache_expiry() {
     assert!(stats.permission_misses >= 2);
     
     // Cleanup
-    cleanup_test_data(&authority.db_pool, wallet).await;
+    cleanup_test_data(&authority.db_pool(), wallet).await;
 }
 
 #[tokio::test]
@@ -303,7 +337,7 @@ async fn test_cache_invalidation() {
     let wallet = "0x742d35cc6abaac8b14a3780b5b0e11b2ce65d695";
     let permission = "epsx:analytics:read";
     
-    setup_test_permissions(&authority.db_pool, wallet, &[permission]).await;
+    setup_test_permissions(&authority.db_pool(), wallet, &[permission]).await;
     
     let context = create_test_context();
     
@@ -323,7 +357,7 @@ async fn test_cache_invalidation() {
     assert!(stats_after.cache_invalidations > stats_before.cache_invalidations);
     
     // Cleanup
-    cleanup_test_data(&authority.db_pool, wallet).await;
+    cleanup_test_data(&authority.db_pool(), wallet).await;
 }
 
 #[tokio::test]
@@ -335,7 +369,7 @@ async fn test_cache_size_limits() {
     for i in 0..50 {
         let wallet = format!("0x{:040x}", i);
         test_wallets.push(wallet.clone());
-        setup_test_permissions(&authority.db_pool, &wallet, &["epsx:analytics:read"]).await;
+        setup_test_permissions(&authority.db_pool(), &wallet, &["epsx:analytics:read"]).await;
     }
     
     let context = create_test_context();
@@ -351,7 +385,7 @@ async fn test_cache_size_limits() {
     
     // Cleanup
     for wallet in &test_wallets {
-        cleanup_test_data(&authority.db_pool, wallet).await;
+        cleanup_test_data(&authority.db_pool(), wallet).await;
     }
 }
 
@@ -369,7 +403,7 @@ async fn test_validation_performance() {
         "epsx:analytics:read", "epsx:data:access", "admin:users:read",
         "admin:permission-groups:read", "epsx:premium:features"
     ];
-    setup_test_permissions(&authority.db_pool, wallet, &permissions).await;
+    setup_test_permissions(&authority.db_pool(), wallet, &permissions).await;
     
     let context = create_test_context();
     let test_permissions: Vec<String> = permissions.iter().map(|p| p.to_string()).collect();
@@ -391,7 +425,7 @@ async fn test_validation_performance() {
         test_permissions.len(), elapsed.as_millis());
     
     // Cleanup
-    cleanup_test_data(&authority.db_pool, wallet).await;
+    cleanup_test_data(&authority.db_pool(), wallet).await;
 }
 
 #[tokio::test] 
@@ -399,7 +433,7 @@ async fn test_concurrent_validation_performance() {
     let authority = Arc::new(create_test_authority().await);
     let wallet = "0x742d35cc6abaac8b14a3780b5b0e11b2ce65d695";
     
-    setup_test_permissions(&authority.db_pool, wallet, &["epsx:analytics:read"]).await;
+    setup_test_permissions(&authority.db_pool(), wallet, &["epsx:analytics:read"]).await;
     
     let context = create_test_context();
     let num_concurrent = 10;
@@ -446,7 +480,7 @@ async fn test_concurrent_validation_performance() {
         num_concurrent, elapsed.as_millis());
     
     // Cleanup
-    cleanup_test_data(&authority.db_pool, wallet).await;
+    cleanup_test_data(&authority.db_pool(), wallet).await;
 }
 
 // ============================================================================
@@ -501,7 +535,7 @@ async fn test_get_wallet_permissions() {
     let wallet = "0x742d35cc6abaac8b14a3780b5b0e11b2ce65d695";
     
     let granted_permissions = ["epsx:analytics:read", "epsx:data:access", "admin:users:read"];
-    setup_test_permissions(&authority.db_pool, wallet, &granted_permissions).await;
+    setup_test_permissions(&authority.db_pool(), wallet, &granted_permissions).await;
     
     let result = authority.get_wallet_permissions(wallet).await;
     
@@ -517,7 +551,7 @@ async fn test_get_wallet_permissions() {
     }
     
     // Cleanup
-    cleanup_test_data(&authority.db_pool, wallet).await;
+    cleanup_test_data(&authority.db_pool(), wallet).await;
 }
 
 #[tokio::test]
@@ -525,7 +559,7 @@ async fn test_has_permission_convenience_method() {
     let authority = create_test_authority().await;
     let wallet = "0x742d35cc6abaac8b14a3780b5b0e11b2ce65d695";
     
-    setup_test_permissions(&authority.db_pool, wallet, &["epsx:analytics:read"]).await;
+    setup_test_permissions(&authority.db_pool(), wallet, &["epsx:analytics:read"]).await;
     
     // Test granted permission
     let result = authority.has_permission(wallet, "epsx:analytics:read").await;
@@ -538,7 +572,7 @@ async fn test_has_permission_convenience_method() {
     assert!(!result.unwrap());
     
     // Cleanup
-    cleanup_test_data(&authority.db_pool, wallet).await;
+    cleanup_test_data(&authority.db_pool(), wallet).await;
 }
 
 // ============================================================================
@@ -557,7 +591,7 @@ async fn test_cache_warming() {
     
     // Setup permissions for test wallets
     for wallet in &test_wallets {
-        setup_test_permissions(&authority.db_pool, wallet, &["epsx:analytics:read"]).await;
+        setup_test_permissions(&authority.db_pool(), wallet, &["epsx:analytics:read"]).await;
     }
     
     // Warm cache
@@ -582,6 +616,6 @@ async fn test_cache_warming() {
     
     // Cleanup
     for wallet in &test_wallets {
-        cleanup_test_data(&authority.db_pool, wallet).await;
+        cleanup_test_data(&authority.db_pool(), wallet).await;
     }
 }

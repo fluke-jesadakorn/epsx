@@ -12,8 +12,8 @@ interface ProgressiveAuthGateProps {
 
 export function ProgressiveAuthGate({
   children,
-  fallback,
-  ...otherProps
+  fallback: _fallback,
+  ..._otherProps
 }: ProgressiveAuthGateProps) {
   // No authentication logic - just render children
   return <>{children}</>;

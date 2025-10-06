@@ -16,7 +16,7 @@ impl GrowthFactor {
         }
         
         // Allow reasonable range for growth (-1000% to +10000%)
-        if percentage < -1000.0 || percentage > 10000.0 {
+        if !(-1000.0..=10000.0).contains(&percentage) {
             return Err("Growth factor is outside reasonable range (-1000% to +10000%)".to_string());
         }
         

@@ -4,11 +4,12 @@
  * Replaces both /lib/actions/users.ts and /lib/api/admin-client.ts patterns
  */
 
-import { getSession } from '@/lib/auth/session'
+import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { revalidatePath } from 'next/cache'
+
 import { env } from '@/config/env'
+import { getSession } from '@/lib/auth/session'
 
 const BACKEND_URL = env.BACKEND_URL
 
@@ -122,11 +123,10 @@ export class AdminServerAPI {
       // Try session token first (for server actions)
       const session = await getSession()
       if (session?.accessToken) {
-        console.log('🔑 Using session token for auth')
         return session.accessToken
       }
-    } catch (error) {
-      console.log('⚠️ Session not available, trying cookies')
+    } catch (_error) {
+      // Silently continue to next fallback method
     }
 
     try {
@@ -134,11 +134,10 @@ export class AdminServerAPI {
       const cookieStore = await cookies()
       const token = cookieStore.get('access_token')?.value
       if (token) {
-        console.log('🔑 Using cookie token for auth')
         return token
       }
-    } catch (error) {
-      console.log('⚠️ Cookies not available')
+    } catch (_error) {
+      // Silently continue - no token available
     }
 
     return null
@@ -146,21 +145,17 @@ export class AdminServerAPI {
 
   /**
    * Unified fetch method with error handling and authentication
+   * @param endpoint
+   * @param options
    */
   private static async fetch(endpoint: string, options: RequestInit = {}): Promise<any> {
     const token = await this.getAuthToken()
     
     if (!token) {
+      // eslint-disable-next-line no-console
       console.warn('❌ No authentication token available')
       redirect('/unauthorized')
     }
-
-    console.log('🌐 API Request:', {
-      endpoint,
-      method: options.method || 'GET',
-      hasToken: !!token,
-      tokenPreview: token ? `${token.substring(0, 20)}...` : 'none'
-    })
 
     const response = await fetch(`${BACKEND_URL}${endpoint}`, {
       ...options,
@@ -174,6 +169,7 @@ export class AdminServerAPI {
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => 'Unknown error')
+      // eslint-disable-next-line no-console
       console.error(`❌ API Error: ${response.status} ${response.statusText}`, {
         endpoint,
         body: errorBody
@@ -190,22 +186,30 @@ export class AdminServerAPI {
       throw new Error(`API Error: ${response.status} ${response.statusText}`)
     }
 
-    const data = await response.json()
-    console.log('✅ API Success:', { endpoint, dataReceived: !!data })
-    return data
+    return await response.json()
   }
 
   // ===== USER MANAGEMENT METHODS =====
 
   /**
    * Get single user data by ID
+   * @param userId
+   * @param options
    */
   static async getUserData(userId: string, options: RequestInit = {}): Promise<User> {
-    return this.fetch(`/api/v1/admin/users/${userId}`, options)
+    return this.fetch(`/api/admin/users/${userId}`, options)
   }
 
   /**
    * Get paginated list of users with filtering
+   * @param params
+   * @param params.page
+   * @param params.limit
+   * @param params.search
+   * @param params.status
+   * @param params.permissions
+   * @param params.sortBy
+   * @param params.sortOrder
    */
   static async getUsersList(params: {
     page?: number
@@ -218,13 +222,13 @@ export class AdminServerAPI {
   } = {}): Promise<UserListResult> {
     const searchParams = new URLSearchParams()
     
-    if (params.page) searchParams.set('offset', ((params.page - 1) * (params.limit || 50)).toString())
-    if (params.limit) searchParams.set('limit', params.limit.toString())
-    if (params.permissions && params.permissions !== 'all') searchParams.set('permissions_filter', params.permissions)
-    if (params.search) searchParams.set('search', params.search)
-    if (params.status && params.status !== 'all') searchParams.set('status', params.status)
+    if (params.page) {searchParams.set('offset', ((params.page - 1) * (params.limit || 50)).toString())}
+    if (params.limit) {searchParams.set('limit', params.limit.toString())}
+    if (params.permissions && params.permissions !== 'all') {searchParams.set('permissions_filter', params.permissions)}
+    if (params.search) {searchParams.set('search', params.search)}
+    if (params.status && params.status !== 'all') {searchParams.set('status', params.status)}
 
-    const url = `/api/v1/admin/users${searchParams.toString() ? '?' + searchParams.toString() : ''}`
+    const url = `/api/admin/users${searchParams.toString() ? '?' + searchParams.toString() : ''}`
     const result = await this.fetch(url)
 
     return {
@@ -238,6 +242,12 @@ export class AdminServerAPI {
 
   /**
    * Search users with query
+   * @param params
+   * @param params.search
+   * @param params.page
+   * @param params.per_page
+   * @param params.status
+   * @param params.package_tier
    */
   static async searchUsers(params: {
     search?: string
@@ -248,13 +258,13 @@ export class AdminServerAPI {
   }): Promise<UserListResult> {
     const searchParams = new URLSearchParams()
     
-    if (params.search) searchParams.set('search', params.search)
-    if (params.page) searchParams.set('page', params.page.toString())
-    if (params.per_page) searchParams.set('per_page', params.per_page.toString())
-    if (params.status) searchParams.set('status', params.status)
-    if (params.package_tier) searchParams.set('package_tier', params.package_tier)
+    if (params.search) {searchParams.set('search', params.search)}
+    if (params.page) {searchParams.set('page', params.page.toString())}
+    if (params.per_page) {searchParams.set('per_page', params.per_page.toString())}
+    if (params.status) {searchParams.set('status', params.status)}
+    if (params.package_tier) {searchParams.set('package_tier', params.package_tier)}
 
-    const url = `/api/v1/admin/users/search?${searchParams.toString()}`
+    const url = `/api/admin/users/search?${searchParams.toString()}`
     const result = await this.fetch(url)
 
     return {
@@ -270,11 +280,18 @@ export class AdminServerAPI {
    * Get user statistics
    */
   static async getUserStats(): Promise<UserStats> {
-    return this.fetch('/api/v1/admin/analytics/user-statistics')
+    return this.fetch('/api/admin/analytics/user-statistics')
   }
 
   /**
    * Get user activity logs
+   * @param userId
+   * @param params
+   * @param params.limit
+   * @param params.offset
+   * @param params.action_filter
+   * @param params.start_date
+   * @param params.end_date
    */
   static async getUserActivity(
     userId: string, 
@@ -288,21 +305,22 @@ export class AdminServerAPI {
   ): Promise<ActivityLogResult> {
     const searchParams = new URLSearchParams()
     
-    if (params.limit) searchParams.set('limit', params.limit.toString())
-    if (params.offset) searchParams.set('offset', params.offset.toString())
-    if (params.action_filter) searchParams.set('action_filter', params.action_filter)
-    if (params.start_date) searchParams.set('start_date', params.start_date)
-    if (params.end_date) searchParams.set('end_date', params.end_date)
+    if (params.limit) {searchParams.set('limit', params.limit.toString())}
+    if (params.offset) {searchParams.set('offset', params.offset.toString())}
+    if (params.action_filter) {searchParams.set('action_filter', params.action_filter)}
+    if (params.start_date) {searchParams.set('start_date', params.start_date)}
+    if (params.end_date) {searchParams.set('end_date', params.end_date)}
 
-    const url = `/api/v1/admin/users/${userId}/activity${searchParams.toString() ? '?' + searchParams.toString() : ''}`
+    const url = `/api/admin/users/${userId}/activity${searchParams.toString() ? '?' + searchParams.toString() : ''}`
     return this.fetch(url)
   }
 
   /**
    * Get multiple users by IDs
+   * @param userIds
    */
   static async getUsersByIds(userIds: string[]): Promise<User[]> {
-    if (userIds.length === 0) return []
+    if (userIds.length === 0) {return []}
     
     const users = await Promise.all(
       userIds.map(id => this.getUserData(id))
@@ -315,6 +333,11 @@ export class AdminServerAPI {
 
   /**
    * Create new user with permissions
+   * @param userData
+   * @param userData.email
+   * @param userData.displayName
+   * @param userData.permissions
+   * @param userData.password
    */
   static async createUser(userData: {
     email: string
@@ -322,7 +345,7 @@ export class AdminServerAPI {
     permissions: string[]
     password: string
   }): Promise<User> {
-    const result = await this.fetch('/api/v1/admin/users', {
+    const result = await this.fetch('/api/admin/users', {
       method: 'POST',
       body: JSON.stringify({
         email: userData.email,
@@ -338,9 +361,11 @@ export class AdminServerAPI {
 
   /**
    * Update user data
+   * @param userId
+   * @param userData
    */
   static async updateUser(userId: string, userData: Partial<User>): Promise<User> {
-    const result = await this.fetch(`/api/v1/admin/users/${userId}`, {
+    const result = await this.fetch(`/api/admin/users/${userId}`, {
       method: 'PUT',
       body: JSON.stringify(userData)
     })
@@ -350,12 +375,12 @@ export class AdminServerAPI {
     return result
   }
 
-
   /**
    * Delete user (soft delete)
+   * @param userId
    */
   static async deleteUser(userId: string): Promise<void> {
-    await this.fetch(`/api/v1/admin/users/${userId}`, {
+    await this.fetch(`/api/admin/users/${userId}`, {
       method: 'DELETE'
     })
     
@@ -366,9 +391,11 @@ export class AdminServerAPI {
 
   /**
    * Bulk grant permissions
+   * @param userIds
+   * @param permissions
    */
   static async bulkGrantPermissions(userIds: string[], permissions: string[]): Promise<void> {
-    await this.fetch('/api/v1/admin/users/bulk/permissions/grant', {
+    await this.fetch('/api/admin/users/bulk/permissions/grant', {
       method: 'POST',
       body: JSON.stringify({
         user_ids: userIds,
@@ -382,9 +409,11 @@ export class AdminServerAPI {
 
   /**
    * Bulk revoke permissions
+   * @param userIds
+   * @param permissions
    */
   static async bulkRevokePermissions(userIds: string[], permissions: string[]): Promise<void> {
-    await this.fetch('/api/v1/admin/users/bulk/permissions/revoke', {
+    await this.fetch('/api/admin/users/bulk/permissions/revoke', {
       method: 'POST',
       body: JSON.stringify({
         user_ids: userIds,
@@ -398,9 +427,11 @@ export class AdminServerAPI {
 
   /**
    * Bulk assign roles
+   * @param userIds
+   * @param roles
    */
   static async bulkAssignRoles(userIds: string[], roles: string[]): Promise<void> {
-    await this.fetch('/api/v1/admin/users/bulk/roles/assign', {
+    await this.fetch('/api/admin/users/bulk/roles/assign', {
       method: 'POST',
       body: JSON.stringify({
         user_ids: userIds,
@@ -418,17 +449,18 @@ export class AdminServerAPI {
 /**
  * Wrapper function that returns OperationResult format
  * Used for backward compatibility with existing server actions
+ * @param userId
  */
 export async function getUnifiedUserData(userId: string): Promise<OperationResult<User>> {
   try {
     const user = await AdminServerAPI.getUserData(userId)
     return { success: true, data: user }
-  } catch (error) {
+  } catch (_error) {
     return { 
       success: false, 
       error: { 
         code: 'FETCH_ERROR', 
-        message: error instanceof Error ? error.message : 'Unknown error' 
+        message: _error instanceof Error ? _error.message : 'Unknown error' 
       } 
     }
   }
@@ -436,6 +468,8 @@ export async function getUnifiedUserData(userId: string): Promise<OperationResul
 
 /**
  * Wrapper function for user activity logs
+ * @param userId
+ * @param params
  */
 export async function getUserActivityLogs(
   userId: string, 
@@ -444,12 +478,12 @@ export async function getUserActivityLogs(
   try {
     const result = await AdminServerAPI.getUserActivity(userId, params)
     return { success: true, data: result }
-  } catch (error) {
+  } catch (_error) {
     return { 
       success: false, 
       error: { 
         code: 'FETCH_ERROR', 
-        message: error instanceof Error ? error.message : 'Unknown error' 
+        message: _error instanceof Error ? _error.message : 'Unknown error' 
       } 
     }
   }

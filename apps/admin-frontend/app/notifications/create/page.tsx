@@ -1,7 +1,8 @@
+import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
+
 import { NotificationSendForm } from '@/components/notifications/NotificationSendForm'
 import { UnifiedAuth } from '@/lib/auth/unified-auth'
-import { notFound } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
 
@@ -76,6 +77,9 @@ async function CreateNotificationDataWrapper() {
   )
 }
 
+/**
+ *
+ */
 export default function CreateNotificationPage() {
   return (
     <Suspense fallback={<CreateNotificationPageSkeleton />}>

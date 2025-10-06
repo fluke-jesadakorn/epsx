@@ -1,20 +1,21 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Shield, Users, Settings, Activity, Plus, Edit3, Trash2, Clock, Wallet, Search, UserPlus } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { toast } from 'react-hot-toast'
+
+import { Web3PermissionManager } from '@/components/admin/Web3PermissionManager'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Shield, Users, Settings, Activity, Plus, Edit3, Trash2, Clock, Wallet, Search, UserPlus } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { toast } from 'react-hot-toast'
+import { Textarea } from '@/components/ui/textarea'
 import { groupManagementClient, PermissionGroup, GroupAnalytics } from '@/lib/api/group-management-client'
-import { Web3PermissionManager } from '@/components/admin/Web3PermissionManager'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,7 +39,6 @@ function LoadingState() {
     </div>
   )
 }
-
 
 // Wallet Assignment Modal
 function WalletAssignmentModal({ isOpen, onClose, onSuccess }: {
@@ -380,7 +380,7 @@ function EditGroupModal({ isOpen, onClose, onSuccess, group }: {
   
   const updateGroupMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      if (!group) throw new Error('No group selected for update')
+      if (!group) {throw new Error('No group selected for update')}
       
       return groupManagementClient.updatePermissionGroup(group.id, {
         name: data.name,
@@ -540,7 +540,7 @@ function GroupMembersModal({ isOpen, onClose, group }: {
 
   const addMemberMutation = useMutation({
     mutationFn: async (walletAddress: string) => {
-      if (!group) throw new Error('No group selected')
+      if (!group) {throw new Error('No group selected')}
       
       return groupManagementClient.assignUserToGroup({
         user_id: walletAddress,
@@ -562,7 +562,7 @@ function GroupMembersModal({ isOpen, onClose, group }: {
 
   const removeMemberMutation = useMutation({
     mutationFn: async (walletAddress: string) => {
-      if (!group) throw new Error('No group selected')
+      if (!group) {throw new Error('No group selected')}
       
       // TODO: Implement removeUserFromGroup when backend supports it
       return groupManagementClient.removeUserFromGroup(walletAddress, group.id)
@@ -579,14 +579,14 @@ function GroupMembersModal({ isOpen, onClose, group }: {
 
   const handleAddMember = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newWalletAddress || !newWalletAddress.startsWith('0x')) {
+    if (!newWalletAddress?.startsWith('0x')) {
       toast.error('Please enter a valid wallet address')
       return
     }
     addMemberMutation.mutate(newWalletAddress)
   }
 
-  if (!group) return null
+  if (!group) {return null}
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -682,7 +682,7 @@ function GroupMembersModal({ isOpen, onClose, group }: {
                         onClick={() => {
                           if (confirm('Remove this member from the group?')) {
                             // removeMemberMutation.mutate(member.wallet_address)
-                            toast.info('Remove member functionality requires backend implementation')
+                            toast('Remove member functionality requires backend implementation')
                           }
                         }}
                       >
@@ -723,7 +723,7 @@ function ExpiringAssignmentsModal({ isOpen, onClose }: {
 
   // Load expiring assignments when modal opens
   useEffect(() => {
-    if (!isOpen) return
+    if (!isOpen) {return}
 
     const loadExpiringAssignments = async () => {
       setIsLoading(true)
@@ -731,8 +731,9 @@ function ExpiringAssignmentsModal({ isOpen, onClose }: {
         // Get assignments expiring in the next 7 days
         const response = await groupManagementClient.getExpiringMemberships(7)
         setExpiringAssignments(response)
-      } catch (error) {
-        console.error('Failed to load expiring assignments:', error)
+      } catch (_error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to load expiring assignments:', _error)
         toast.error('Failed to load expiring assignments')
         setExpiringAssignments([])
       } finally {
@@ -762,9 +763,10 @@ function ExpiringAssignmentsModal({ isOpen, onClose }: {
       queryClient.invalidateQueries({ queryKey: ['group-analytics'] })
       // Reload expiring assignments
       setIsLoading(true)
-      groupManagementClient.getExpiringMemberships(7)
+      void groupManagementClient.getExpiringMemberships(7)
         .then(setExpiringAssignments)
         .catch(error => {
+          // eslint-disable-next-line no-console
           console.error('Failed to reload expiring assignments:', error)
           setExpiringAssignments([])
         })
@@ -784,9 +786,10 @@ function ExpiringAssignmentsModal({ isOpen, onClose }: {
       queryClient.invalidateQueries({ queryKey: ['group-analytics'] })
       // Reload expiring assignments
       setIsLoading(true)
-      groupManagementClient.getExpiringMemberships(7)
+      void groupManagementClient.getExpiringMemberships(7)
         .then(setExpiringAssignments)
         .catch(error => {
+          // eslint-disable-next-line no-console
           console.error('Failed to reload expiring assignments:', error)
           setExpiringAssignments([])
         })
@@ -953,7 +956,7 @@ function Web3PermissionsPage() {
   // Load recent activity when assignments tab is active
   useEffect(() => {
     const loadRecentActivity = async () => {
-      if (activeTab !== 'assignments') return
+      if (activeTab !== 'assignments') {return}
 
       setIsLoadingActivity(true)
       try {
@@ -968,8 +971,9 @@ function Web3PermissionsPage() {
         } else {
           setRecentActivity([])
         }
-      } catch (error) {
-        console.error('Failed to load recent activity:', error)
+      } catch (_error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to load recent activity:', _error)
         setRecentActivity([])
       } finally {
         setIsLoadingActivity(false)
@@ -983,13 +987,12 @@ function Web3PermissionsPage() {
   const { data: permissionGroups = [], isLoading: groupsLoading, error: groupsError } = useQuery({
     queryKey: ['permission-groups'],
     queryFn: async () => {
-      console.log('🔍 Fetching permission groups...');
       try {
         const result = await groupManagementClient.getPermissionGroups();
-        console.log('✅ Permission groups fetched:', result?.length || 0, 'groups');
         return result || [];
-      } catch (error) {
-        console.error('❌ Query function error:', error);
+      } catch (_error) {
+        // eslint-disable-next-line no-console
+        console.error('❌ Query function error:', _error);
         // Return empty array instead of throwing to prevent undefined
         return [];
       }
@@ -1040,8 +1043,9 @@ function Web3PermissionsPage() {
         if (response.success && response.data) {
           setRecentActivity(response.data.history)
         }
-      } catch (error) {
-        console.error('Failed to reload recent activity:', error)
+      } catch (_error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to reload recent activity:', _error)
       } finally {
         setIsLoadingActivity(false)
       }
@@ -1102,6 +1106,7 @@ function Web3PermissionsPage() {
         }
       }
     } catch (error: any) {
+      // eslint-disable-next-line no-console
       console.error('Wallet search failed:', error)
       toast.error('Failed to search wallets: ' + error.message)
       setSearchResults([])
@@ -1625,6 +1630,9 @@ function Web3PermissionsPage() {
   )
 }
 
+/**
+ *
+ */
 export default function Web3AdminPermissionsPage() {
   return <Web3PermissionsPage />
 }

@@ -116,7 +116,7 @@ impl Country {
         if let Some(offset) = self.typical_utc_offset() {
             let local_hour = (hour + offset + 24) % 24;
             // Most markets are open roughly 9 AM to 4 PM local time
-            local_hour >= 9 && local_hour <= 16
+            (9..=16).contains(&local_hour)
         } else {
             false // Unknown timezone, assume closed
         }

@@ -4,15 +4,28 @@
  */
 'use client';
 
-import { useState } from 'react';
-import { useAdminProgressiveAuth } from '@/hooks/useAdminProgressiveAuth';
-import { AuthLevel, type AuthGateProps } from '@/types/progressive-auth';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Wallet, Shield, Lock, AlertTriangle, Crown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAdminProgressiveAuth } from '@/hooks/useAdminProgressiveAuth';
+import { AuthLevel, type AuthGateProps } from '@/types/progressive-auth';
+
+/**
+ *
+ * @param root0
+ * @param root0.requiredLevel
+ * @param root0.requiredPermissions
+ * @param root0.children
+ * @param root0.fallback
+ * @param root0.authMessage
+ * @param root0.showUpgradePrompts
+ * @param root0.actionName
+ * @param root0.loading
+ */
 export function AdminProgressiveAuthGate({
   requiredLevel,
   requiredPermissions = [],
@@ -89,8 +102,9 @@ export function AdminProgressiveAuthGate({
           router.push('/login');
         }
       }
-    } catch (error) {
-      console.error('Failed to upgrade auth:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to upgrade auth:', _error);
       setIsRedirecting(false);
     }
   };

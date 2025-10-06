@@ -24,7 +24,7 @@ impl SessionRepository {
         Ok(())
     }
     
-    pub async fn save(&self, _session: &crate::domain::user_management::aggregates::session::Session) -> Result<(), String> {
+    pub async fn save(&self, _session: &crate::domain::wallet_management::aggregates::session::Session) -> Result<(), String> {
         // TODO: Implement session storage
         Ok(())
     }
@@ -135,11 +135,18 @@ impl UserNotificationRepository {
 #[derive(Debug, Clone)]
 pub struct NotificationMapper;
 
+impl Default for NotificationMapper {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NotificationMapper {
     pub fn new() -> Self {
         Self
     }
-    
+
+    #[allow(clippy::too_many_arguments)]
     pub fn create_ddd_notification_from_legacy(
         _recipient_wallet_address: Option<Uuid>,
         _fcm_topic_id: Option<String>,
@@ -160,22 +167,18 @@ impl NotificationMapper {
     }
 }
 
-// User response types for API compatibility
+// User response types for API compatibility (Web3-first: wallet-based)
 #[derive(Debug, Clone)]
 pub struct UserUpdateResponse {
     pub wallet_address: String,
-    pub email: String,
-    pub email_verified: bool,
     pub is_active: bool,
     pub permissions: Vec<String>,
 }
 
 impl UserUpdateResponse {
-    pub fn placeholder(wallet_address: String, email: String) -> Self {
+    pub fn placeholder(wallet_address: String) -> Self {
         Self {
             wallet_address,
-            email,
-            email_verified: true,
             is_active: true,
             permissions: vec!["epsx:basic:access".to_string()],
         }
@@ -202,28 +205,7 @@ pub async fn create_pool() -> Result<Arc<PgPool>, Box<dyn std::error::Error + Se
 }
 
 // Database model types for mappers compatibility
-#[derive(Debug, Clone)]
-pub struct User {
-    pub id: uuid::Uuid,
-    pub email: String,
-    // firebase_uid removed for Web3-first architecture
-    pub created_at: chrono::DateTime<chrono::Utc>,
-    pub is_active: bool,
-    pub email_verified: bool,
-    pub updated_at: chrono::DateTime<chrono::Utc>,
-    pub last_login_at: Option<chrono::DateTime<chrono::Utc>>,
-}
-
-#[derive(Debug, Clone)]
-pub struct NewUser {
-    pub email: String,
-    // firebase_uid removed for Web3-first architecture
-}
-
-#[derive(Debug, Clone)]
-pub struct UpdateUser {
-    pub email: Option<String>,
-}
+// Legacy User/NewUser/UpdateUser structs removed - Web3-first uses WalletUser only
 
 #[derive(Debug, Clone)]
 pub struct Session {
@@ -451,7 +433,7 @@ impl PermissionGroupRepository {
                 last_modified_by = COALESCE($9, last_modified_by),
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = $1
-            RETURNING 
+            RETURNING
                 id, name, slug, description, group_type, permissions, group_metadata,
                 price, currency, billing_cycle, is_active, is_promoted, display_order,
                 max_members, auto_assign_enabled, assignment_rules, created_at, updated_at,
@@ -469,8 +451,45 @@ impl PermissionGroupRepository {
         .bind(update_group.last_modified_by)
         .fetch_optional(&*self.pool)
         .await?;
-        
+
         Ok(group)
+    }
+
+    /// Update plan (alias for update_group, used specifically for subscription plans)
+    pub async fn update_plan(&self, plan: PermissionGroup) -> Result<PermissionGroup, sqlx::Error> {
+        let updated_plan = sqlx::query_as::<_, PermissionGroup>(
+            r#"
+            UPDATE permission_groups SET
+                name = $2,
+                description = $3,
+                permissions = $4,
+                group_metadata = $5,
+                price = $6,
+                currency = $7,
+                billing_cycle = $8,
+                is_active = $9,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = $1 AND group_type = 'subscription'
+            RETURNING
+                id, name, slug, description, group_type, permissions, group_metadata,
+                price, currency, billing_cycle, is_active, is_promoted, display_order,
+                max_members, auto_assign_enabled, assignment_rules, created_at, updated_at,
+                created_by, last_modified_by
+            "#
+        )
+        .bind(plan.id)
+        .bind(plan.name)
+        .bind(plan.description)
+        .bind(plan.permissions)
+        .bind(plan.group_metadata)
+        .bind(plan.price)
+        .bind(plan.currency)
+        .bind(plan.billing_cycle)
+        .bind(plan.is_active)
+        .fetch_one(&*self.pool)
+        .await?;
+
+        Ok(updated_plan)
     }
 
     /// Delete a permission group (soft delete by setting is_active = false)

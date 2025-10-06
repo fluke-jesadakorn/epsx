@@ -1,13 +1,14 @@
 'use client';
 
-import { Suspense } from 'react';
 import { BarChart3, Users, Shield, Activity, AlertTriangle, RefreshCw } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { AnalyticsStatsCard, AnalyticsSummaryCard } from '@/components/ui/AnalyticsCard';
+import { Suspense } from 'react';
+
 import UsageAnalyticsTab from '@/components/admin/UsageAnalyticsTab';
 import { GroupAnalyticsDashboard } from '@/components/groups/GroupAnalyticsDashboard';
-import { useAnalyticsOverview, useApiKeys, useRealTimeMetrics } from '@/hooks/useAnalyticsData';
+import { AnalyticsStatsCard, AnalyticsSummaryCard } from '@/components/ui/AnalyticsCard';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useAnalyticsOverview, useApiKeys, useRealTimeMetrics } from '@/hooks/useAnalyticsData';
 
 function LoadingCard() {
   return (
@@ -49,6 +50,9 @@ function ErrorCard({ error, onRetry }: { error: any; onRetry?: () => void }) {
   );
 }
 
+/**
+ *
+ */
 export default function AnalyticsPage() {
   const { 
     userStats, 

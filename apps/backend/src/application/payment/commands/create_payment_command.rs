@@ -1,15 +1,14 @@
 // Create Payment Command and Handler
 // CQRS command for creating new payments in the Payment bounded context
 
-use async_trait::async_trait;
-use std::sync::Arc;
+use crate::prelude::*;
+
 use tracing::{info, error};
 
 use crate::domain::payment::{
     Payment, PaymentId, PaymentAmount, PaymentMethod, PaymentRepositoryPort
 };
-use crate::domain::user_management::value_objects::WalletAddress;
-use crate::domain::shared_kernel::{DomainEventBus, AggregateRoot};
+use crate::domain::wallet_management::value_objects::WalletAddress;
 use crate::application::shared::{Command, CommandHandler, ApplicationResult, ApplicationError};
 
 /// Command to create a new payment
@@ -160,7 +159,7 @@ impl CommandHandler<CreatePaymentCommand> for CreatePaymentCommandHandler {
         
         // Publish domain events
         for event in payment.uncommitted_events() {
-            self.event_bus.publish(event);
+            self.event_bus.publish(&**event);
         }
         
         // Generate payment instructions

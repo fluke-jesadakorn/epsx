@@ -105,6 +105,12 @@ pub struct AuditMetadata {
     pub timestamp: DateTime<Utc>,
 }
 
+impl Default for AuditMetadata {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AuditMetadata {
     pub fn new() -> Self {
         Self {

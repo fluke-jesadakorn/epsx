@@ -4,17 +4,18 @@
  */
 'use client';
 
+import { Search, Filter, SortAsc, SortDesc, Calendar, Users, Settings, RefreshCw } from 'lucide-react';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Filter, SortAsc, SortDesc, Calendar, Users, Settings, RefreshCw } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface WalletSearchResult {
   wallet_address: string;
@@ -86,6 +87,9 @@ const SORT_OPTIONS = [
   { value: 'permissions_count', label: 'Permissions Count' },
 ];
 
+/**
+ *
+ */
 export function EnhancedWalletSearch() {
   const [results, setResults] = useState<SearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -141,6 +145,7 @@ export function EnhancedWalletSearch() {
       setResults(data);
       setPage(newPage);
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error('Search error:', err);
       setError(err instanceof Error ? err.message : 'Search failed');
     } finally {
@@ -178,10 +183,10 @@ export function EnhancedWalletSearch() {
     const now = new Date();
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
     
-    if (diffInHours < 1) return 'Just now';
-    if (diffInHours < 24) return `${diffInHours}h ago`;
+    if (diffInHours < 1) {return 'Just now';}
+    if (diffInHours < 24) {return `${diffInHours}h ago`;}
     const diffInDays = Math.floor(diffInHours / 24);
-    if (diffInDays < 30) return `${diffInDays}d ago`;
+    if (diffInDays < 30) {return `${diffInDays}d ago`;}
     return date.toLocaleDateString();
   };
 

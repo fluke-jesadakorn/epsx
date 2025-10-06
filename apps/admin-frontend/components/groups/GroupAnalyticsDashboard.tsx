@@ -6,12 +6,18 @@
 'use client'
 
 import React from 'react'
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 interface GroupAnalyticsDashboardProps {
   className?: string
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.className
+ */
 export function GroupAnalyticsDashboard({ className }: GroupAnalyticsDashboardProps) {
   return (
     <div className={`space-y-6 ${className || ''}`}>
@@ -73,3 +79,5 @@ export function GroupAnalyticsDashboard({ className }: GroupAnalyticsDashboardPr
     </div>
   )
 }
+
+export default GroupAnalyticsDashboard

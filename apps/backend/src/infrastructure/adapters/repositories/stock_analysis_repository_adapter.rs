@@ -1,12 +1,11 @@
-use std::sync::Arc;
+use crate::prelude::*;
+
 use tracing::{debug, error, info};
-use chrono::Utc;
 
 use crate::domain::trading_analytics::aggregates::eps_ranking::{EPSRanking as DDDEPSRanking, RankingEntry, RankingType, RankingPeriod};
 use crate::domain::trading_analytics::value_objects::*;
 use crate::domain::shared_kernel::entities::eps_growth::{EPSRanking as LegacyEPSRanking};
 use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRankingService, EPSRankingParams, EPSRepository};
-use crate::core::errors::AppError;
 use crate::domain::shared_kernel::entities::eps_growth::{EPSGrowthData, EPSRanking};
 
 // Mock implementation of EPSRepository for testing
@@ -21,6 +20,7 @@ impl EPSRepository for MockEPSRepository {
 
     async fn get_rankings_filtered(
         &self,
+        _rank_offset: i32,
         _country: Option<String>,
         _sector: Option<String>,
         _sort_by: Option<String>,
@@ -30,7 +30,7 @@ impl EPSRepository for MockEPSRepository {
         Ok(Vec::new())
     }
 
-    async fn get_total_count(&self, _country: Option<String>, _sector: Option<String>) -> Result<i64, AppError> {
+    async fn get_total_count(&self, _rank_offset: i32, _country: Option<String>, _sector: Option<String>) -> Result<i64, AppError> {
         Ok(0)
     }
 
@@ -125,8 +125,8 @@ impl StockAnalysisRepositoryAdapter {
 
         let sector_filter = params.sector.as_ref()
             .and_then(|s| MarketSector::new(s.clone()).ok())
-            .map(|ms| ms.category().clone());
-        
+            .map(|ms| *ms.category());
+
         let country_filter = params.country.as_ref()
             .and_then(|c| Country::new(c.clone()).ok());
 
@@ -139,7 +139,7 @@ impl StockAnalysisRepositoryAdapter {
         );
 
         // Add entries from legacy data
-        for (_index, legacy_ranking) in legacy_result.rankings.iter().enumerate() {
+        for legacy_ranking in legacy_result.rankings.iter() {
             match self.convert_legacy_to_ddd_entry(legacy_ranking) {
                 Ok(entry) => {
                     match ddd_ranking.add_entry(

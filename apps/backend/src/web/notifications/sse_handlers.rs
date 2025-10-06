@@ -37,7 +37,7 @@ pub enum NotificationType {
     System,
     Security,
     Permission,
-    UserManagement,
+    WalletManagement,
     Wallet,
     Payment,
     General,
@@ -114,7 +114,7 @@ pub async fn sse_notifications_handler(
                 "system" => Some(NotificationType::System),
                 "security" => Some(NotificationType::Security),
                 "permission" => Some(NotificationType::Permission),
-                "user_management" => Some(NotificationType::UserManagement),
+                "user_management" => Some(NotificationType::WalletManagement),
                 "wallet" => Some(NotificationType::Wallet),
                 "payment" => Some(NotificationType::Payment),
                 "general" => Some(NotificationType::General),
@@ -156,7 +156,7 @@ pub async fn sse_notifications_handler(
                     // Convert to SSE event
                     match serde_json::to_string(&notification) {
                         Ok(data) => Some(Ok(Event::default()
-                            .event(&format!("notification_{}", notification.notification_type as u8))
+                            .event(format!("notification_{}", notification.notification_type as u8))
                             .id(notification.id.clone())
                             .data(data))),
                         Err(_) => None,

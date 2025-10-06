@@ -11,6 +11,8 @@ export interface ActionResult<T = any> {
 
 /**
  * Create successful action result
+ * @param data
+ * @param message
  */
 export function createSuccessResult<T>(data: T, message?: string): ActionResult<T> {
   return {
@@ -22,6 +24,7 @@ export function createSuccessResult<T>(data: T, message?: string): ActionResult<
 
 /**
  * Create error action result
+ * @param error
  */
 export function createErrorResult(error: string): ActionResult {
   return {

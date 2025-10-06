@@ -1,8 +1,10 @@
 'use client';
 
-import { ReactNode } from 'react';
 import { ThemeProvider } from 'next-themes';
+import { ReactNode } from 'react';
+
 import { Web3Provider } from '../../providers/Web3Provider';
+
 import { SharedOpenIDWeb3Provider } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
 
 interface ClientProvidersProps {
@@ -12,6 +14,8 @@ interface ClientProvidersProps {
 /**
  * Client providers with Web3 and auth support
  * Moved to client component to prevent server-side hydration issues
+ * @param root0
+ * @param root0.children
  */
 export function ClientProviders({ children }: ClientProvidersProps) {
   return (

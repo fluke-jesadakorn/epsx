@@ -1,5 +1,6 @@
 use crate::core::errors::AppError;
-use crate::domain::user_management::value_objects::wallet_address::WalletAddressError;
+use crate::domain::wallet_management::value_objects::wallet_address::WalletAddressError;
+use crate::domain::shared_kernel::value_object::ValueObjectError;
 
 /// Application layer error types
 /// These wrap domain errors and add application-specific concerns
@@ -43,6 +44,9 @@ pub enum ApplicationError {
     
     #[error("Wallet address error: {0}")]
     WalletAddress(#[from] WalletAddressError),
+
+    #[error("Value object error: {0}")]
+    ValueObject(#[from] ValueObjectError),
 }
 
 impl ApplicationError {

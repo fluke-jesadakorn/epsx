@@ -32,16 +32,14 @@ impl MarketDataRepositoryAdapter {
             .map_err(|e| format!("Invalid previous EPS: {}", e))?;
 
         // Create basic stock analysis from legacy stock data
-        let stock_analysis = StockAnalysis::new(
+        StockAnalysis::new(
             symbol,
             "Unknown Company".to_string(), // Legacy stock doesn't have company name
             current_eps,
             previous_eps,
             MarketSector::new("Unknown".to_string()).unwrap(),
             Country::new("unknown".to_string()).unwrap(),
-        );
-
-        stock_analysis
+        )
     }
 
     /// Convert StockScreeningResult to DDD StockAnalysis
@@ -75,16 +73,14 @@ impl MarketDataRepositoryAdapter {
             .map_err(|e| format!("Invalid default country: {}", e))?;
 
         // Create stock analysis
-        let stock_analysis = StockAnalysis::new(
+        StockAnalysis::new(
             symbol,
             screening_result.name.clone(),
             current_eps,
             previous_eps,
             sector,
             country,
-        );
-
-        stock_analysis
+        )
     }
 
 }
@@ -130,7 +126,6 @@ mod tests {
         crate::config::get_fallback_config()
     }
     use crate::domain::shared_kernel::entities::market_data::StockScreeningResult;
-    use rust_decimal_macros::dec;
 
     #[test]
     fn test_screening_result_to_ddd_conversion() {
@@ -163,6 +158,8 @@ mod tests {
             trend_direction: Some("UP".to_string()),
             avg_growth_rate: Some(12.5),
             consistency_score: Some("HIGH".to_string()),
+            next_earnings_date: None,
+            last_earnings_date: None,
             currency: Some("USD".to_string()),
         };
 
@@ -183,8 +180,7 @@ mod tests {
 
     #[test]
     fn test_legacy_stock_to_ddd_conversion() {
-        use crate::domain::shared_kernel::value_objects::{Symbol, Market};
-        use rust_decimal_macros::dec;
+        use crate::domain::shared_kernel::value_objects::Symbol;
 
         let symbol = Symbol::new("AAPL").unwrap();
         let legacy_stock = LegacyStock::new(symbol.to_string(), "Apple Inc.".to_string());

@@ -17,7 +17,7 @@ use crate::{
     auth::unified_web3_auth_service::{
         Web3VerificationRequest, Web3AuthError,
     },
-    web::auth::routes::AppState,
+    web::auth::AppState,
 };
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
@@ -199,8 +199,7 @@ pub async fn verify_signature_handler(
                 "wallet_address": auth_result.wallet_address,
                 "permissions": user_permissions,
                 "permissions_granted": permissions_granted,
-                "access_token": auth_result.access_token,
-                "tier_level": auth_result.tier_level
+                "access_token": auth_result.access_token
             })))
         }
         Err(Web3AuthError::ExpiredNonce(_)) => {

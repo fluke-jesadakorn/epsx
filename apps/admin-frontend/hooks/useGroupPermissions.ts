@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { GroupManagementClient, PermissionGroup, CreateGroupRequest, UpdateGroupRequest } from '@/lib/api/group-management-client';
+import { createAdminApiClient } from '@/shared/utils/api-client';
 
 // ============================================================================
 // PERMISSION GROUPS HOOK
@@ -25,7 +26,7 @@ export function usePermissionGroups(): UsePermissionGroupsReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const client = new GroupManagementClient();
+  const client = new GroupManagementClient(createAdminApiClient());
 
   const loadGroups = useCallback(async () => {
     try {
@@ -113,7 +114,7 @@ export function useAvailablePermissions(): UseAvailablePermissionsReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const client = new GroupManagementClient();
+  const client = new GroupManagementClient(createAdminApiClient());
 
   const loadPermissions = useCallback(async () => {
     try {
@@ -152,6 +153,7 @@ interface GroupAnalyticsStats {
   totalUsers: number;
   avgPermissionsPerGroup: number;
   recentActivity: number;
+  health_score: number;
 }
 
 interface UseGroupAnalyticsReturn {
@@ -169,11 +171,12 @@ export function useGroupAnalytics(): UseGroupAnalyticsReturn {
     totalUsers: 0,
     avgPermissionsPerGroup: 0,
     recentActivity: 0,
+    health_score: 0,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const client = new GroupManagementClient();
+  const client = new GroupManagementClient(createAdminApiClient());
 
   const loadStats = useCallback(async () => {
     try {
@@ -194,6 +197,7 @@ export function useGroupAnalytics(): UseGroupAnalyticsReturn {
         totalUsers: 0, // Would need separate API call
         avgPermissionsPerGroup: totalGroups > 0 ? Math.round(totalPermissions / totalGroups) : 0,
         recentActivity: 0, // Would need separate API call
+        health_score: totalGroups > 0 ? Math.round((activeGroups / totalGroups) * 100) : 100,
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load group analytics');
@@ -215,42 +219,10 @@ export function useGroupAnalytics(): UseGroupAnalyticsReturn {
 }
 
 // ============================================================================
-// ADMIN GROUP PERMISSIONS HOOK
+// ADMIN GROUP PERMISSIONS HOOK (REMOVED)
+// Backend handles all permission checking - no client-side validation
+// Admin UI components rely on backend errors for permission enforcement
 // ============================================================================
-
-interface UseAdminGroupPermissionsReturn {
-  canManageGroups: boolean;
-  canManageWeb3Rules: boolean;
-  canAssignUsers: boolean;
-  canViewAnalytics: boolean;
-  loading: boolean;
-  permissions: string[];
-}
-
-export function useAdminGroupPermissions(): UseAdminGroupPermissionsReturn {
-  const [permissions, setPermissions] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  // For now, return basic permissions - in full implementation this would check actual user permissions
-  const canManageGroups = permissions.includes('admin:groups:manage') || permissions.includes('admin:*:*');
-  const canManageWeb3Rules = permissions.includes('admin:web3:manage') || permissions.includes('admin:*:*');
-  const canAssignUsers = permissions.includes('admin:users:assign') || permissions.includes('admin:*:*');
-  const canViewAnalytics = permissions.includes('admin:analytics:view') || permissions.includes('admin:*:*');
-
-  useEffect(() => {
-    // For now, assume admin has all permissions - in full implementation this would fetch from backend
-    setPermissions(['admin:*:*']);
-  }, []);
-
-  return {
-    canManageGroups: true, // Simplified for now
-    canManageWeb3Rules: true, // Simplified for now
-    canAssignUsers: true, // Simplified for now
-    canViewAnalytics: true, // Simplified for now
-    loading,
-    permissions,
-  };
-}
 
 // ============================================================================
 // WEB3 ASSIGNMENT RULES HOOK
@@ -270,7 +242,7 @@ export function useWeb3AssignmentRules(): UseWeb3AssignmentRulesReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const client = new GroupManagementClient();
+  const client = new GroupManagementClient(createAdminApiClient());
 
   const loadRules = useCallback(async () => {
     try {
@@ -289,7 +261,6 @@ export function useWeb3AssignmentRules(): UseWeb3AssignmentRulesReturn {
     try {
       setError(null);
       // For now, just log - would need specific API endpoint
-      console.log('Processing wallet:', walletAddress);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to process wallet');
       throw err;
@@ -300,7 +271,6 @@ export function useWeb3AssignmentRules(): UseWeb3AssignmentRulesReturn {
     try {
       setError(null);
       // For now, return true - would need actual verification
-      console.log('Verifying wallet assets:', walletAddress);
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to verify wallet assets');
@@ -323,6 +293,46 @@ export function useWeb3AssignmentRules(): UseWeb3AssignmentRulesReturn {
 }
 
 // ============================================================================
+// USER GROUP MEMBERSHIPS HOOK (STUB)
+// ============================================================================
+
+import type { UserGroupMembership } from '@/lib/api/group-management-client';
+
+interface AssignmentHistoryItem {
+  id: string;
+  user_id: string;
+  group_id: string;
+  action: 'assigned' | 'removed';
+  performed_by: string;
+  performed_at: string;
+  reason?: string;
+}
+
+export function useUserGroupMemberships(userId: string | null) {
+  return {
+    memberships: [] as UserGroupMembership[],
+    activeMemberships: [] as UserGroupMembership[],
+    expiringMemberships: [] as UserGroupMembership[],
+    isLoading: false,
+    assignUserToGroup: async (request: any) => {},
+    removeUserFromGroup: async (membershipId: string) => {},
+    refreshMemberships: async () => {},
+  };
+}
+
+// ============================================================================
+// GROUP ASSIGNMENT HISTORY HOOK (STUB)
+// ============================================================================
+
+export function useGroupAssignmentHistory() {
+  return {
+    history: [] as AssignmentHistoryItem[],
+    isLoading: false,
+    refreshHistory: async () => {},
+  };
+}
+
+// ============================================================================
 // COMBINED HOOKS EXPORT (BACKWARD COMPATIBILITY)
 // ============================================================================
 
@@ -330,8 +340,10 @@ export const useGroupPermissions = {
   usePermissionGroups,
   useAvailablePermissions,
   useGroupAnalytics,
-  useAdminGroupPermissions,
+  // Removed: useAdminGroupPermissions - backend handles permission checking
   useWeb3AssignmentRules,
+  useUserGroupMemberships,
+  useGroupAssignmentHistory,
 };
 
 export default useGroupPermissions;

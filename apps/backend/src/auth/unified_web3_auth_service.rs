@@ -57,7 +57,6 @@ pub struct Web3VerificationRequest {
 pub struct Web3AuthResult {
     pub wallet_address: String,
     pub permissions: Vec<String>,
-    pub tier_level: String,
     pub access_token: String,
     pub bearer_token: Option<String>,
     pub token_expires_at: Option<DateTime<Utc>>,
@@ -88,24 +87,30 @@ pub struct Web3Permission {
 pub enum Web3AuthError {
     #[error("Invalid wallet address: {0}")]
     InvalidWalletAddress(String),
-    
+
     #[error("Invalid signature: {0}")]
     InvalidSignature(String),
-    
+
     #[error("Expired nonce: {0}")]
     ExpiredNonce(String),
-    
+
     #[error("Database error: {0}")]
     DatabaseError(String),
-    
+
     #[error("Blockchain error: {0}")]
     BlockchainError(String),
-    
+
     #[error("Permission denied: {0}")]
     PermissionDenied(String),
-    
+
     #[error("Challenge already used: {0}")]
     ChallengeAlreadyUsed(String),
+
+    #[error("Invalid domain: {0}")]
+    InvalidDomain(String),
+
+    #[error("Invalid timestamp: {0}")]
+    InvalidTimestamp(String),
 }
 
 impl UnifiedWeb3AuthService {
@@ -225,15 +230,12 @@ impl UnifiedWeb3AuthService {
         // Get user permissions
         let permissions = self.get_wallet_permissions(&request.wallet_address).await?;
 
-        // Determine tier level
-        let tier_level = self.determine_tier_level(&permissions);
-
         // Generate access token
         let access_token = self.generate_access_token(&request.wallet_address, &permissions)?;
 
         // Generate Bearer token if OpenID service is available
         let (bearer_token, token_expires_at) = if let Some(ref openid_service) = self.openid_service {
-            match self.generate_bearer_token(&request.wallet_address, &permissions, &tier_level, openid_service).await {
+            match self.generate_bearer_token(&request.wallet_address, &permissions, openid_service).await {
                 Ok((token, expiry)) => (Some(token), Some(expiry)),
                 Err(e) => {
                     error!("Failed to generate Bearer token: {}", e);
@@ -247,7 +249,6 @@ impl UnifiedWeb3AuthService {
         Ok(Web3AuthResult {
             wallet_address: request.wallet_address,
             permissions,
-            tier_level,
             access_token,
             bearer_token,
             token_expires_at,
@@ -304,22 +305,39 @@ impl UnifiedWeb3AuthService {
     /// Generate secure random nonce
     fn generate_secure_nonce(&self) -> String {
         use rand::Rng;
+        use std::fmt::Write;
         let mut rng = rand::thread_rng();
-        (0..32).map(|_| rng.gen_range(0..16)).map(|n| format!("{:x}", n)).collect()
+        (0..32).map(|_| rng.gen_range(0..16)).fold(String::new(), |mut acc, n| {
+            let _ = write!(acc, "{:x}", n);
+            acc
+        })
     }
 
     /// Create SIWE message
     fn create_siwe_message(&self, address: &Address, nonce: &str) -> Result<String, Web3AuthError> {
+        let domain = self.domain.parse()
+            .map_err(|e| Web3AuthError::InvalidDomain(format!("Invalid domain {}: {}", self.domain, e)))?;
+
+        let uri = format!("https://{}", self.domain).parse()
+            .map_err(|e| Web3AuthError::InvalidDomain(format!("Invalid URI {}: {}", self.domain, e)))?;
+
+        let issued_at = Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string().parse()
+            .map_err(|e| Web3AuthError::InvalidTimestamp(format!("Failed to parse issued_at: {}", e)))?;
+
+        let expiration_time = Some((Utc::now() + Duration::minutes(self.nonce_expiry_minutes))
+            .format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string().parse()
+            .map_err(|e| Web3AuthError::InvalidTimestamp(format!("Failed to parse expiration_time: {}", e)))?);
+
         let message = Message {
-            domain: self.domain.parse().unwrap(),
+            domain,
             address: (*address).into(),
             statement: Some("Sign in to EPSX with your wallet".to_string()),
-            uri: format!("https://{}", self.domain).parse().unwrap(),
+            uri,
             version: siwe::Version::V1,
             chain_id: 1, // Ethereum mainnet (could be configurable)
             nonce: nonce.to_string(),
-            issued_at: Utc::now().format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string().parse().unwrap(),
-            expiration_time: Some((Utc::now() + Duration::minutes(self.nonce_expiry_minutes)).format("%Y-%m-%dT%H:%M:%S%.3fZ").to_string().parse().unwrap()),
+            issued_at,
+            expiration_time,
             not_before: None,
             request_id: None,
             resources: vec![],
@@ -376,18 +394,17 @@ impl UnifiedWeb3AuthService {
         });
 
         // Create new user in wallet_users table with enhanced metadata
+        // NOTE: Permissions managed separately via wallet_group_assignments and wallet_direct_permissions
         sqlx::query!(
             r#"
             INSERT INTO wallet_users (
-                wallet_address, 
-                permissions, 
-                tier_level, 
+                wallet_address,
                 wallet_metadata,
-                created_at, 
+                created_at,
                 updated_at,
                 last_auth_at
             )
-            VALUES ($1, '[]', 'Bronze', $2, NOW(), NOW(), NOW())
+            VALUES ($1, $2, NOW(), NOW(), NOW())
             "#,
             wallet_address,
             connection_metadata
@@ -441,19 +458,34 @@ impl UnifiedWeb3AuthService {
         // - Real-time notification queue
     }
 
-    /// Get manual permissions
+    /// Get manual permissions from normalized tables
     async fn get_manual_permissions(&self, wallet_address: &str) -> Result<Vec<String>, Web3AuthError> {
         let permissions = sqlx::query!(
             r#"
-            SELECT 
-                perm->>'name' as permission
-            FROM wallet_users wu,
-            jsonb_array_elements(wu.permissions) AS perm
-            WHERE wu.wallet_address = $1
-            AND wu.is_active = TRUE
-            AND perm->>'is_active' = 'true'
-            AND perm->>'permission_type' = 'Manual'
-            AND (perm->>'expires_at' IS NULL OR (perm->>'expires_at')::timestamptz > $2)
+            -- Manual permissions from groups
+            SELECT DISTINCT p.permission_string as permission
+            FROM wallet_group_assignments wga
+            JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
+            JOIN permissions p ON pgm.permission_id = p.id
+            WHERE wga.wallet_address = $1
+              AND wga.is_active = true
+              AND p.is_active = true
+              AND p.permission_type = 'manual'
+              AND (wga.expires_at IS NULL OR wga.expires_at > $2)
+
+            UNION
+
+            -- Direct manual permissions
+            SELECT DISTINCT p.permission_string as permission
+            FROM wallet_direct_permissions wdp
+            JOIN permissions p ON wdp.permission_id = p.id
+            WHERE wdp.wallet_address = $1
+              AND wdp.is_active = true
+              AND p.is_active = true
+              AND p.permission_type = 'manual'
+              AND (wdp.expires_at IS NULL OR wdp.expires_at > $2)
+
+            ORDER BY permission
             "#,
             wallet_address,
             Utc::now()
@@ -716,17 +748,6 @@ impl UnifiedWeb3AuthService {
         Ok(permissions)
     }
 
-    /// Determine tier level based on permissions
-    fn determine_tier_level(&self, permissions: &[String]) -> String {
-        if permissions.iter().any(|p| p.starts_with("admin:")) {
-            "admin".to_string()
-        } else if permissions.iter().any(|p| p.contains("premium")) {
-            "premium".to_string()
-        } else {
-            "free".to_string()
-        }
-    }
-
     /// Generate JWT access token (legacy)
     fn generate_access_token(&self, wallet_address: &str, _permissions: &[String]) -> Result<String, Web3AuthError> {
         // Legacy access token for backwards compatibility
@@ -738,34 +759,38 @@ impl UnifiedWeb3AuthService {
         &self,
         wallet_address: &str,
         permissions: &[String],
-        tier_level: &str,
         _openid_service: &OpenIDTokenService,
     ) -> Result<(String, DateTime<Utc>), Web3AuthError> {
         use super::AccessTokenClaims;
-        
+
         let now = Utc::now();
         let expiry = now + Duration::hours(1); // 1 hour token expiry
-        
+
+        // Convert permissions to OIDC scope format
+        let scope = format!("openid profile {}", permissions.join(" "));
+
         let claims = AccessTokenClaims {
-            sub: wallet_address.to_string(),
-            wallet_address: wallet_address.to_string(),
-            permissions: permissions.to_vec(),
-            tier_level: tier_level.to_string(),
-            auth_method: "web3_siwe".to_string(),
-            aud: vec!["epsx-api".to_string()],
+            // Standard OIDC claims
             iss: "https://api.epsx.io".to_string(),
+            sub: wallet_address.to_string(),
+            aud: vec!["epsx-api".to_string()],
             exp: expiry.timestamp(),
             iat: now.timestamp(),
-            auth_time: now.timestamp(),
             jti: uuid::Uuid::new_v4().to_string(),
+            scope,
+
+            // EPSX custom claims
+            wallet_address: wallet_address.to_string(),
+            auth_method: "web3_siwe".to_string(),
+            auth_time: now.timestamp(),
         };
-        
+
         // For now, create a simple JWT token directly
         // TODO: Integrate with proper OpenID service when available
         let header = jsonwebtoken::Header::new(jsonwebtoken::Algorithm::HS256);
         let secret = "epsx-web3-bearer-token-secret-key".as_bytes();
         let encoding_key = jsonwebtoken::EncodingKey::from_secret(secret);
-        
+
         match jsonwebtoken::encode(&header, &claims, &encoding_key) {
             Ok(token) => Ok((token, expiry)),
             Err(e) => Err(Web3AuthError::InvalidSignature(format!("Bearer token generation failed: {}", e))),
@@ -782,6 +807,7 @@ mod tests {
         // Test nonce generation without requiring database connection
         let service = UnifiedWeb3AuthService {
             db_pool: unsafe { std::mem::zeroed() }, // Won't be used in this test
+            openid_service: None,
             domain: "epsx.io".to_string(),
             nonce_expiry_minutes: 15,
         };

@@ -1,20 +1,30 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { PancakeCard } from '@/components/ui/PancakeCard'
-import { adminClient, PlanResponse, PlanListResponse, isApiSuccess } from '@/lib/api/unified-admin-client'
+
 import { CreatePlanForm } from './CreatePlanForm'
+import { EditPlanModal } from './EditPlanModal'
 import { PlanAnalyticsModal } from './PlanAnalyticsModal'
+
+import { PancakeCard } from '@/components/ui/PancakeCard'
 import { toast } from '@/hooks/use-toast'
+import { createPlansClient, type PlanResponse, isApiSuccess } from '@/shared/api/plans'
+import { createAdminApiClient } from '@/shared/utils/api-client'
 
 interface PlanManagementProps {
   currentUser: any
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.currentUser
+ */
 export function PlanManagement({ currentUser }: PlanManagementProps) {
   const [plans, setPlans] = useState<PlanResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedPlan, setSelectedPlan] = useState<PlanResponse | null>(null)
+  const [editingPlan, setEditingPlan] = useState<PlanResponse | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [showAnalytics, setShowAnalytics] = useState<number | null>(null)
   const [filterCategory, setFilterCategory] = useState<'all' | 'standard' | 'api' | 'enterprise' | 'custom'>('all')
@@ -28,15 +38,18 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
   const loadPlans = async () => {
     try {
       setLoading(true)
-      const response = await adminClient.getPlans({
+      const apiClient = createAdminApiClient()
+      const plansClient = createPlansClient(apiClient)
+
+      const response = await plansClient.getPlans({
         limit: 100,
         plan_category: filterCategory === 'all' ? undefined : filterCategory,
         is_active: filterActive === null ? undefined : filterActive
       })
 
       if (isApiSuccess(response)) {
-        const data = response.data as PlanListResponse
-        setPlans(data.plans || [])
+        const plans = response.data?.plans || []
+        setPlans(plans)
       } else {
         toast({
           title: "Error",
@@ -44,7 +57,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
           variant: "destructive"
         })
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "Error",
         description: "Failed to load plans",
@@ -66,7 +79,10 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
 
   const handleTogglePlanStatus = async (planId: number, currentStatus: boolean) => {
     try {
-      const response = await adminClient.updatePlan(planId, {
+      const apiClient = createAdminApiClient()
+      const plansClient = createPlansClient(apiClient)
+
+      const response = await plansClient.updatePlan(planId, {
         is_active: !currentStatus
       })
 
@@ -83,7 +99,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
           variant: "destructive"
         })
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "Error",
         description: "Failed to update plan status",
@@ -103,7 +119,12 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
   const enterprisePlans = plans.filter(p => p.plan_category === 'enterprise')
   const activePlans = plans.filter(p => p.is_active)
 
-  const totalRevenue = plans.reduce((sum, plan) => sum + plan.revenue_last_30_days, 0)
+  const totalRevenue = plans.reduce((sum, plan) => {
+    const revenue = typeof plan.revenue_last_30_days === 'string'
+      ? parseFloat(plan.revenue_last_30_days)
+      : plan.revenue_last_30_days
+    return sum + (isNaN(revenue) ? 0 : revenue)
+  }, 0)
   const avgRevenue = plans.length > 0 ? totalRevenue / plans.length : 0
 
   if (loading) {
@@ -139,9 +160,21 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
 
       {/* Plan Analytics Modal */}
       {showAnalytics && (
-        <PlanAnalyticsModal 
+        <PlanAnalyticsModal
           planId={showAnalytics}
           onClose={() => setShowAnalytics(null)}
+        />
+      )}
+
+      {/* Edit Plan Modal */}
+      {editingPlan && (
+        <EditPlanModal
+          plan={editingPlan}
+          onClose={() => setEditingPlan(null)}
+          onSuccess={() => {
+            setEditingPlan(null)
+            loadPlans()
+          }}
         />
       )}
 
@@ -168,8 +201,8 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
           </div>
 
           {/* Action Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12">
-            <div 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-12">
+            <div
               className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-emerald-400/20 via-green-500/20 to-teal-500/20 p-0.5 cursor-pointer"
               onClick={() => setIsCreating(true)}
             >
@@ -187,7 +220,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
               </div>
             </div>
 
-            <div 
+            <div
               className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-blue-400/20 via-purple-500/20 to-pink-500/20 p-0.5 cursor-pointer"
               onClick={() => loadPlans()}
             >
@@ -200,21 +233,6 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                   <p className="text-white/80 mb-4 sm:mb-6 text-sm sm:text-base">Reload plan data and analytics from server</p>
                   <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
                     Refresh
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-orange-400/20 via-red-500/20 to-pink-500/20 p-0.5 sm:col-span-2 lg:col-span-1">
-              <div className="relative bg-gradient-to-br from-orange-400 via-red-500 to-pink-500 text-white rounded-2xl sm:rounded-3xl">
-                <div className="p-6 sm:p-8">
-                  <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-4 sm:mb-6">
-                    <span className="text-xl sm:text-2xl">📊</span>
-                  </div>
-                  <h3 className="text-xl sm:text-2xl font-bold mb-3 sm:mb-4">Global Analytics</h3>
-                  <p className="text-white/80 mb-4 sm:mb-6 text-sm sm:text-base">Overall plan performance and revenue metrics</p>
-                  <div className="bg-white/20 rounded-2xl px-4 sm:px-6 py-2 sm:py-3 text-center font-semibold text-sm sm:text-base min-h-[44px] flex items-center justify-center">
-                    Coming Soon
                   </div>
                 </div>
               </div>
@@ -379,28 +397,37 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                       </div>
                     </div>
                     
-                    <div className="flex gap-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEditingPlan(plan)
+                        }}
+                        className="px-3 py-2 rounded-xl font-semibold bg-gradient-to-r from-purple-400 to-purple-500 text-white min-h-[44px] text-sm"
+                      >
+                        ✏️ Edit
+                      </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
                           handleTogglePlanStatus(plan.id, plan.is_active)
                         }}
-                        className={`px-4 py-2 rounded-xl font-semibold flex-1 min-h-[44px] ${
+                        className={`px-3 py-2 rounded-xl font-semibold min-h-[44px] text-sm ${
                           plan.is_active
                             ? 'bg-gradient-to-r from-green-400 to-green-500 text-white'
                             : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
                         }`}
                       >
-                        {plan.is_active ? 'Active' : 'Activate'}
+                        {plan.is_active ? '✓ Active' : 'Activate'}
                       </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
                           setShowAnalytics(plan.id)
                         }}
-                        className="px-4 py-2 rounded-xl font-semibold bg-gradient-to-r from-blue-400 to-blue-500 text-white flex-1 min-h-[44px]"
+                        className="px-3 py-2 rounded-xl font-semibold bg-gradient-to-r from-blue-400 to-blue-500 text-white col-span-2 min-h-[44px] text-sm"
                       >
-                        Analytics
+                        📊 Analytics
                       </button>
                     </div>
                   </div>
@@ -448,7 +475,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                             ${plan.current_price} {plan.currency}
                           </span>
                           <span>•</span>
-                          <span>{plan.features.length} features</span>
+                          <span>{plan.permissions?.length || 0} permissions</span>
                           <span>•</span>
                           <span>{plan.target_audience.replace('_', ' ')}</span>
                           <span>•</span>
@@ -457,11 +484,21 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
                       <div className="text-xs bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-3 py-1 rounded-full">
                         {plan.subscriber_count} subscribers
                       </div>
-                      
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEditingPlan(plan)
+                        }}
+                        className="px-4 py-2 rounded-xl font-semibold bg-gradient-to-r from-purple-400 to-purple-500 text-white hover:from-purple-500 hover:to-purple-600 min-h-[44px]"
+                      >
+                        ✏️ Edit
+                      </button>
+
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
@@ -473,9 +510,9 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                             : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
                         }`}
                       >
-                        {plan.is_active ? 'Active' : 'Inactive'}
+                        {plan.is_active ? '✓ Active' : 'Inactive'}
                       </button>
-                      
+
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
@@ -483,7 +520,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                         }}
                         className="px-4 py-2 rounded-xl font-semibold bg-gradient-to-r from-blue-400 to-blue-500 text-white hover:from-blue-500 hover:to-blue-600 min-h-[44px]"
                       >
-                        Analytics
+                        📊 Analytics
                       </button>
                     </div>
                   </div>

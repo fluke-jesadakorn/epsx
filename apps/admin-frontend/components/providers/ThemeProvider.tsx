@@ -15,6 +15,11 @@ export interface GlobalThemeProviderProps extends ThemeProviderProps {
   children: React.ReactNode;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.children
+ */
 export function GlobalThemeProvider({ children, ...props }: GlobalThemeProviderProps) {
   return (
     <NextThemesProvider

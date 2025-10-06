@@ -11,7 +11,7 @@ interface PaymentPageProps {
 
 export default async function PaymentPage({ searchParams }: PaymentPageProps) {
   // Get user data but don't redirect on failure - allow viewing pricing plans
-  const user = await getCurrentUser();
+  const _user = await getCurrentUser();
   
   // Extract package parameter from search params
   const resolvedSearchParams = await searchParams;

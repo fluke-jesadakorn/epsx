@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
+import { useEffect } from 'react';
+
 import { Button } from '@/components/ui/button';
 
 interface AdminProfileErrorProps {
@@ -9,8 +10,15 @@ interface AdminProfileErrorProps {
   reset: () => void;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.error
+ * @param root0.reset
+ */
 export default function AdminProfileError({ error, reset }: AdminProfileErrorProps) {
   useEffect(() => {
+    // eslint-disable-next-line no-console
     console.error('Admin profile page error:', error);
   }, [error]);
 

@@ -273,6 +273,30 @@ impl SectorCategory {
             SectorCategory::Other,
         ]
     }
+
+    pub fn from_str(s: &str) -> Result<Self, String> {
+        match s.to_lowercase().replace(" ", "_").replace("-", "_").as_str() {
+            "technology" | "tech" => Ok(SectorCategory::Technology),
+            "healthcare" | "health" => Ok(SectorCategory::Healthcare),
+            "financials" | "finance" | "financial" => Ok(SectorCategory::Financials),
+            "consumer_discretionary" | "consumerdiscretionary" => Ok(SectorCategory::ConsumerDiscretionary),
+            "consumer_staples" | "consumerstaples" => Ok(SectorCategory::ConsumerStaples),
+            "industrials" | "industrial" => Ok(SectorCategory::Industrials),
+            "materials" | "material" => Ok(SectorCategory::Materials),
+            "energy" => Ok(SectorCategory::Energy),
+            "utilities" | "utility" => Ok(SectorCategory::Utilities),
+            "real_estate" | "realestate" => Ok(SectorCategory::RealEstate),
+            "communication" | "communications" => Ok(SectorCategory::Communication),
+            "other" => Ok(SectorCategory::Other),
+            _ => Err(format!("Invalid sector category: {}", s)),
+        }
+    }
+}
+
+impl std::fmt::Display for SectorCategory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
 }
 
 /// Growth potential classification

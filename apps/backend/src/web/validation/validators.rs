@@ -5,13 +5,22 @@ use once_cell::sync::Lazy;
 
 /// Custom validator for strong passwords
 pub fn validate_strong_password(password: &str) -> Result<(), ValidationError> {
-    static PASSWORD_REGEX: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r"^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$").unwrap()
-    });
-
-    if !PASSWORD_REGEX.is_match(password) {
+    // Check length
+    if password.len() < 8 {
         let mut error = ValidationError::new("invalid_password");
-        error.message = Some("Password must be at least 8 characters long and contain at least one lowercase letter, one uppercase letter, one digit, and one special character".into());
+        error.message = Some("Password must be at least 8 characters long".into());
+        return Err(error);
+    }
+
+    // Check for required character types
+    let has_lowercase = password.chars().any(|c| c.is_ascii_lowercase());
+    let has_uppercase = password.chars().any(|c| c.is_ascii_uppercase());
+    let has_digit = password.chars().any(|c| c.is_ascii_digit());
+    let has_special = password.chars().any(|c| "@$!%*?&".contains(c));
+
+    if !has_lowercase || !has_uppercase || !has_digit || !has_special {
+        let mut error = ValidationError::new("invalid_password");
+        error.message = Some("Password must contain at least one lowercase letter, one uppercase letter, one digit, and one special character (@$!%*?&)".into());
         return Err(error);
     }
 

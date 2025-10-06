@@ -3,18 +3,7 @@
  * JWT parsing, permission validation, token refresh, and user helpers
  */
 
-import { JWTPayload, jwtVerify, SignJWT } from 'jose';
-import {
-  UserSessionData,
-  UserProfile,
-  UserJWTPayload,
-  UserPermissionCheck,
-  PermissionValidation,
-  UserAnalyticsAccess,
-  UserTradingAccess,
-  hasValidSubscription,
-  canAccessFeature
-} from '@/types/auth-separation';
+import { JWTPayload } from 'jose';
 import { getDisplayTierFromPermissions, getRankingLimitFromPermissions } from '@/app/constants/packages';
 import { authLogger, safeError } from '@/lib/utils/logging';
 
@@ -75,14 +64,6 @@ interface RefreshConfig {
   monitoringEnabled: boolean;       // Enable security monitoring
 }
 
-interface TokenPayload {
-  sub: string;
-  exp: number;
-  iat: number;
-  permissions?: string[];
-  device_fingerprint?: string;
-  jti?: string;
-}
 
 interface RefreshResponse {
   access_token: string;
@@ -410,136 +391,6 @@ class SecureTokenRefreshManager {
 // Export singleton instance
 export const secureTokenRefreshManager = new SecureTokenRefreshManager();
 
-// ============================================================================
-// User Permission Helpers
-// ============================================================================
-
-/**
- * Check if user has specific permission with subscription validation
- */
-export function hasUserPermission(
-  user: UserSessionData | null,
-  permission: string,
-  options: Partial<UserPermissionCheck> = {}
-): PermissionValidation {
-  if (!user) {
-    return {
-      hasPermission: false,
-      reason: 'no_permission'
-    };
-  }
-
-  // Check subscription status first
-  // TODO: Fix type mismatch between UserSessionData and UserProfile
-  if (options.requiresSubscription) {
-    // For now, assume subscription is valid if user is authenticated
-    // This needs proper implementation when backend provides subscription data
-  }
-
-  // Check permission - TODO: Fix UserSessionData interface to include permissions
-  const hasPermission = false; // Temporary fix - needs proper implementation
-
-  if (!hasPermission) {
-    // Check if this is a premium feature
-    const isPremiumFeature = permission.includes('premium') || permission.includes('pro');
-    
-    return {
-      hasPermission: false,
-      reason: isPremiumFeature ? 'permission_group_insufficient' : 'no_permission'
-    };
-  }
-
-  return {
-    hasPermission: true,
-    reason: 'valid'
-  };
-}
-
-/**
- * Check if user can access analytics features
- */
-export function canAccessAnalytics(user: UserSessionData | null): UserAnalyticsAccess {
-  if (!user) {
-    return {
-      canViewRankings: false,
-      canExportData: false,
-      maxStocksTracked: 0,
-      realTimeAccess: false
-    };
-  }
-
-  // TODO: Fix UserSessionData interface - permissions property missing
-  const permissions: string[] = []; // Temporary fix
-  const features: string[] = [];
-  let level: 'none' | 'basic' | 'premium' | 'professional' = 'none';
-
-  // Basic analytics
-  if (permissions.includes('epsx:analytics:view')) {
-    level = 'basic';
-    features.push('view-rankings', 'basic-filters');
-  }
-
-  // Premium analytics
-  if (permissions.includes('epsx:analytics:premium')) {
-    level = 'premium';
-    features.push('advanced-filters', 'export-data', 'historical-data');
-  }
-
-  // Professional analytics
-  if (permissions.includes('epsx:analytics:professional')) {
-    level = 'professional';
-    features.push('real-time-data', 'api-access', 'custom-reports');
-  }
-
-  return {
-    canViewRankings: level !== 'none',
-    canExportData: level === 'premium' || level === 'professional',
-    maxStocksTracked: level === 'professional' ? 1000 : level === 'premium' ? 100 : level === 'basic' ? 10 : 0,
-    realTimeAccess: level === 'professional'
-  };
-}
-
-/**
- * Check if user can access trading features
- */
-export function canAccessTrading(user: UserSessionData | null): UserTradingAccess {
-  if (!user) {
-    return {
-      paperTrading: false,
-      liveTrading: false,
-      advancedOrders: false
-    };
-  }
-
-  // TODO: Fix UserSessionData interface - permissions property missing
-  const permissions: string[] = []; // Temporary fix
-  const features: string[] = [];
-  let level: 'none' | 'basic' | 'premium' | 'professional' = 'none';
-
-  // Basic trading
-  if (permissions.includes('epsx:trading:view')) {
-    level = 'basic';
-    features.push('view-prices', 'basic-charts');
-  }
-
-  // Premium trading
-  if (permissions.includes('epsx:trading:premium')) {
-    level = 'premium';
-    features.push('advanced-charts', 'indicators', 'alerts');
-  }
-
-  // Professional trading
-  if (permissions.includes('epsx:trading:professional')) {
-    level = 'professional';
-    features.push('real-time-trading', 'api-access', 'advanced-tools');
-  }
-
-  return {
-    paperTrading: level !== 'none',
-    liveTrading: level === 'premium' || level === 'professional',
-    advancedOrders: level === 'professional'
-  };
-}
 
 // Export functions that are used in other modules
 export { getRankingLimitFromPermissions } from '@/app/constants/packages';

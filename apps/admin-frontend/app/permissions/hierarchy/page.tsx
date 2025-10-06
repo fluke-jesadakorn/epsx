@@ -1,8 +1,9 @@
-import { Suspense } from 'react'
-import { UnifiedAuth } from '@/lib/auth/unified-auth'
-import { notFound } from 'next/navigation'
-import HierarchyBuilder from '@/components/permissions/HierarchyBuilder'
 import { RefreshCwIcon, TreePineIcon } from 'lucide-react'
+import { notFound } from 'next/navigation'
+import { Suspense } from 'react'
+
+import HierarchyBuilder from '@/components/permissions/HierarchyBuilder'
+import { UnifiedAuth } from '@/lib/auth/unified-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -77,6 +78,9 @@ async function HierarchyDataWrapper() {
   )
 }
 
+/**
+ *
+ */
 export default function PermissionHierarchyPage() {
   return (
     <Suspense fallback={<HierarchySkeleton />}>

@@ -22,13 +22,16 @@ import {
 
 /**
  * Check if admin user has specific permission with security context
+ * @param user
+ * @param permission
+ * @param securityContext
  */
 export function hasAdminPermission(
   user: AdminUserProfile | null | undefined,
   permission: string,
   securityContext?: SecurityContext
 ): boolean {
-  if (!user?.permissions) return false;
+  if (!user?.permissions) {return false;}
   
   const permissions = Array.isArray(user.permissions) ? user.permissions : [];
   
@@ -64,12 +67,14 @@ export function hasAdminPermission(
 
 /**
  * Check if admin has system-level access
+ * @param user
+ * @param requiredLevel
  */
 export function hasSystemAccess(
   user: AdminUserProfile | null | undefined,
   requiredLevel: 'standard' | 'elevated' | 'critical' = 'standard'
 ): boolean {
-  if (!user) return false;
+  if (!user) {return false;}
   
   // Check security level hierarchy
   const levelHierarchy = {
@@ -86,15 +91,17 @@ export function hasSystemAccess(
 
 /**
  * Check if admin can perform bulk operations
+ * @param user
+ * @param operation
  */
 export function canPerformBulkOperations(
   user: AdminUserProfile | null | undefined,
   operation: string
 ): boolean {
-  if (!user) return false;
+  if (!user) {return false;}
   
   // Bulk operations require elevated security level
-  if (user.securityLevel === 'standard') return false;
+  if (user.securityLevel === 'standard') {return false;}
   
   // Check specific bulk operation permissions
   const bulkPermissions = [
@@ -113,22 +120,25 @@ export function canPerformBulkOperations(
 
 /**
  * Validate elevated access based on security context
+ * @param user
+ * @param context
  */
 function validateElevatedAccess(
   user: AdminUserProfile,
   context: SecurityContext
 ): boolean {
   // MFA must be verified for elevated operations
-  if (!context.mfaVerified) return false;
+  if (!context.mfaVerified) {return false;}
   
   // Device must be trusted for critical operations
-  if (user.securityLevel === 'critical' && !context.deviceTrusted) return false;
+  if (user.securityLevel === 'critical' && !context.deviceTrusted) {return false;}
   
   return true;
 }
 
 /**
  * Check if permission requires elevated security
+ * @param permission
  */
 function isElevatedPermission(permission: string): boolean {
   const elevatedPatterns = [
@@ -148,34 +158,40 @@ function isElevatedPermission(permission: string): boolean {
 
 /**
  * Check if admin user has specific role
+ * @param user
+ * @param role
  */
 export function hasAdminRole(
   user: AdminUserProfile | null | undefined,
   role: string
 ): boolean {
-  if (!user) return false;
+  if (!user) {return false;}
   return user.role === role || user.role === 'super_admin';
 }
 
 /**
  * Check if admin user is in specific department
+ * @param user
+ * @param department
  */
 export function isInDepartment(
   user: AdminUserProfile | null | undefined,
   department: string
 ): boolean {
-  if (!user?.department) return false;
+  if (!user?.department) {return false;}
   return user.department === department;
 }
 
 /**
  * Check if admin has minimum clearance level
+ * @param user
+ * @param requiredLevel
  */
 export function hasClearanceLevel(
   user: AdminUserProfile | null | undefined,
   requiredLevel: number
 ): boolean {
-  if (!user) return false;
+  if (!user) {return false;}
   return user.clearanceLevel >= requiredLevel;
 }
 
@@ -185,27 +201,30 @@ export function hasClearanceLevel(
 
 /**
  * Validate admin session with security checks
+ * @param session
  */
 export function validateAdminSession(
   session: AdminSessionData | null | undefined
 ): boolean {
-  if (!session || !isAdminSession(session)) return false;
+  if (!session || !isAdminSession(session)) {return false;}
   
   // Check session expiry
-  if (Date.now() > session.expiresAt) return false;
+  if (Date.now() > session.expiresAt) {return false;}
   
   // Validate user profile
-  if (!isAdminUser(session.user)) return false;
+  if (!isAdminUser(session.user)) {return false;}
   
   // Check security context
   const context = session.securityContext;
-  if (!context.sessionId || !context.deviceTrusted) return false;
+  if (!context.sessionId || !context.deviceTrusted) {return false;}
   
   return true;
 }
 
 /**
  * Check if session requires security upgrade
+ * @param session
+ * @param targetOperation
  */
 export function requiresSecurityUpgrade(
   session: AdminSessionData,
@@ -232,6 +251,9 @@ export function requiresSecurityUpgrade(
 
 /**
  * Create audit context for admin operations
+ * @param user
+ * @param session
+ * @param operation
  */
 export function createAuditContext(
   user: AdminUserProfile,
@@ -254,6 +276,7 @@ export function createAuditContext(
 
 /**
  * Check if operation should be audited
+ * @param operation
  */
 export function shouldAuditOperation(operation: string): boolean {
   const auditableOperations = [
@@ -274,6 +297,7 @@ export function shouldAuditOperation(operation: string): boolean {
 
 /**
  * Get admin user display name with role indicator
+ * @param user
  */
 export function getAdminDisplayName(user: AdminUserProfile): string {
   const baseName = user.name || user.email.split('@')[0];
@@ -283,6 +307,7 @@ export function getAdminDisplayName(user: AdminUserProfile): string {
 
 /**
  * Get security level badge color
+ * @param level
  */
 export function getSecurityLevelColor(level: string): string {
   switch (level) {
@@ -295,11 +320,12 @@ export function getSecurityLevelColor(level: string): string {
 
 /**
  * Format admin permissions for display
+ * @param permissions
  */
 export function formatAdminPermissions(permissions: string[]): string[] {
   return permissions.map(permission => {
     // Handle admin wildcard
-    if (permission === 'admin:*:*') return 'Full Admin Access';
+    if (permission === 'admin:*:*') {return 'Full Admin Access';}
     
     // Format structured permissions
     const [platform, resource, action] = permission.split(':');

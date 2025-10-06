@@ -1,15 +1,15 @@
-use chrono::{DateTime, Utc};
+use crate::prelude::*;
+
 use rust_decimal::Decimal;
-use serde::{Deserialize, Serialize};
 use std::fmt;
 use uuid::Uuid;
 
-use crate::domain::shared_kernel::{AggregateRoot, DomainEvent, aggregate_root::AggregateBase};
+use crate::domain::shared_kernel::aggregate_root::AggregateBase;
 use crate::domain::payment::value_objects::{
     PaymentId, PaymentAmount, PaymentMethod, CryptoAddress, TransactionHash,
     PaymentReference, Currency
 };
-use crate::domain::user_management::value_objects::WalletAddress;
+use crate::domain::wallet_management::value_objects::WalletAddress;
 
 // Import types from separate modules
 use super::payment_status::PaymentStatus;

@@ -1,7 +1,8 @@
+import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
+
 import { SettingsDashboard } from '@/components/admin/SettingsDashboard'
 import { UnifiedAuth } from '@/lib/auth/unified-auth'
-import { notFound } from 'next/navigation'
 
 // This page uses real backend data and should be dynamic
 export const dynamic = 'force-dynamic'
@@ -95,6 +96,9 @@ async function SystemDataWrapper() {
   )
 }
 
+/**
+ *
+ */
 export default function SystemPage() {
   return (
     <Suspense fallback={<SystemHubSkeleton />}>

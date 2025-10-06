@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { SharedOpenIDWeb3Provider, useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
-import { SharedOpenIDWeb3Client, createFrontendClient } from '@/shared/auth/openid-web3-client';
+import { createFrontendClient } from '@/shared/auth/openid-web3-client';
 
 // Create frontend client instance
 const frontendClient = createFrontendClient();

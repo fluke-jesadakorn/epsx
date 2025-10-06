@@ -431,7 +431,6 @@ test.describe('Admin Permission Management - Comprehensive E2E Tests', () => {
           };
         });
         
-        console.log('🔐 Embedded Permission Creation Test:', results);
         (window as any).embeddedPermissionTest = {
           allPassed: results.every(r => r.passed),
           results
@@ -482,7 +481,6 @@ test.describe('Admin Permission Management - Comprehensive E2E Tests', () => {
           return { test, parsed, passed };
         });
         
-        console.log('📝 Permission Parsing Test:', results);
         (window as any).permissionParsingTest = {
           allPassed: results.every(r => r.passed),
           results

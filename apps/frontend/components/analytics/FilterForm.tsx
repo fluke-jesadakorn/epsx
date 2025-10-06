@@ -5,27 +5,20 @@ import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
 } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { 
+import {
   Filter,
   Globe,
-  TrendingUp,
-  DollarSign,
   Search,
   RotateCcw,
-  X,
   Sparkles,
-  Activity,
-  Eye,
-  EyeOff,
   ChevronDown
 } from 'lucide-react';
 import type { FilterOptions, EPSQueryParams } from '@/lib/unified-server-data';
@@ -226,7 +219,7 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
   });
 
   const [hasChanges, setHasChanges] = useState(false);
-  const [isCompact, setIsCompact] = useState(false);
+  const [_isCompact, _setIsCompact] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
 
@@ -287,7 +280,7 @@ export default function FilterForm({ filterOptions, currentParams }: FilterFormP
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
-  const clearFilter = (filterKey: string) => {
+  const _clearFilter = (filterKey: string) => {
     if (filterKey === 'country') {
       updateFilter(filterKey, 'all');
     } else {

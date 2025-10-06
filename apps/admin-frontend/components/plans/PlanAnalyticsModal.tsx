@@ -1,15 +1,23 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+
 import { PancakeCard } from '@/components/ui/PancakeCard'
-import { adminClient, PlanAnalyticsResponse, isApiSuccess } from '@/lib/api/unified-admin-client'
 import { toast } from '@/hooks/use-toast'
+import { createPlansClient, type PlanAnalyticsResponse, isApiSuccess } from '@/shared/api/plans'
+import { createAdminApiClient } from '@/shared/utils/api-client'
 
 interface PlanAnalyticsModalProps {
   planId: number
   onClose: () => void
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.planId
+ * @param root0.onClose
+ */
 export function PlanAnalyticsModal({ planId, onClose }: PlanAnalyticsModalProps) {
   const [analytics, setAnalytics] = useState<PlanAnalyticsResponse | null>(null)
   const [loading, setLoading] = useState(true)
@@ -20,12 +28,13 @@ export function PlanAnalyticsModal({ planId, onClose }: PlanAnalyticsModalProps)
   }, [planId, selectedPeriod])
 
   const loadAnalytics = async () => {
+    const adminClient = createPlansClient(createAdminApiClient())
     try {
       setLoading(true)
       const response = await adminClient.getPlanAnalytics(planId, selectedPeriod)
       
       if (isApiSuccess(response)) {
-        setAnalytics(response.data as PlanAnalyticsResponse)
+        setAnalytics(response.data)
       } else {
         toast({
           title: "Error",
@@ -33,7 +42,7 @@ export function PlanAnalyticsModal({ planId, onClose }: PlanAnalyticsModalProps)
           variant: "destructive"
         })
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "Error",
         description: "Failed to load analytics",

@@ -9,7 +9,8 @@ import {
   createFeatureContext,
   featureFlags,
   FEATURE_FLAGS as SHARED_FEATURE_FLAGS
-} from '../../../../shared/config/feature-flags';
+} from '../../../shared/config/feature-flags';
+
 import { featureFlags as legacyFeatureFlags } from '@/config/env';
 
 // Admin-specific feature flag context helper
@@ -52,7 +53,7 @@ export const FEATURE_FLAGS = SHARED_FEATURE_FLAGS;
 export function shouldShowFeatureToUser(userId: string, featureName: string): boolean {
   // Use consolidated feature flag system
   if (featureName in SHARED_FEATURE_FLAGS) {
-    return isFeatureEnabled(featureName as keyof typeof SHARED_FEATURE_FLAGS, userId);
+    return isFeatureEnabled(featureName, userId);
   }
   
   // Fallback to legacy system for unmigrated features
@@ -70,6 +71,7 @@ export function shouldShowFeatureToUser(userId: string, featureName: string): bo
 /**
  * Get the rollout percentage for a specific feature
  * Can be configured per feature for gradual rollout
+ * @param featureName
  */
 function getRolloutPercentage(featureName: string): number {
   return (LEGACY_FEATURE_FLAGS as any).rolloutPercentages?.[featureName] || 0;
@@ -77,6 +79,7 @@ function getRolloutPercentage(featureName: string): number {
 
 /**
  * Simple string hash function for deterministic user-based rollouts
+ * @param str
  */
 function hashString(str: string): number {
   let hash = 0;
@@ -91,6 +94,9 @@ function hashString(str: string): number {
 /**
  * Feature flag hook for React components (consolidated version)
  * Usage: const isEnabled = useFeatureFlag('UNIFIED_USER_MANAGEMENT', userId, userPermissions)
+ * @param flag
+ * @param userId
+ * @param userPermissions
  */
 export function useFeatureFlag(
   flag: keyof typeof SHARED_FEATURE_FLAGS,
@@ -100,7 +106,6 @@ export function useFeatureFlag(
   return isFeatureEnabled(flag, userId, userPermissions);
 }
 
-
 // Export all consolidated feature flag utilities for admin use
 export {
   featureFlags,
@@ -108,4 +113,4 @@ export {
   getAllFeatureFlags,
   getFeatureConfig,
   canToggleFeature
-} from '../../../../shared/config/feature-flags';
+} from '../../../shared/config/feature-flags';

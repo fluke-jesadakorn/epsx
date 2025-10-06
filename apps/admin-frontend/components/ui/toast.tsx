@@ -19,6 +19,9 @@ interface ToastContextType {
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
+/**
+ *
+ */
 export const useToast = () => {
   const context = useContext(ToastContext);
   if (!context) {
@@ -54,6 +57,11 @@ export const toast = {
   }
 };
 
+/**
+ *
+ * @param root0
+ * @param root0.children
+ */
 export const ToastProvider: React.FC<{ children: React.ReactNode }> =
   function ToastProvider({ children }) {
     const [toasts, setToasts] = useState<Toast[]>([]);
@@ -102,7 +110,7 @@ const ToastContainer: React.FC<{
   toasts: Toast[];
   removeToast: (id: string) => void;
 }> = ({ toasts, removeToast }) => {
-  if (toasts.length === 0) return null;
+  if (toasts.length === 0) {return null;}
 
   return (
     <div className="fixed bottom-4 right-4 z-80 flex flex-col gap-2 max-w-sm w-full" role="region" aria-label="Notifications">

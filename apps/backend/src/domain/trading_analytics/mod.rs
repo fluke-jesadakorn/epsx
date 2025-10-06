@@ -26,9 +26,9 @@
 /// - User Management (for permissions and access control)
 /// - Notification (for alerting on significant changes)
 /// - External data providers (for real-time stock data)
-
 pub mod value_objects;
 pub mod aggregates;
+pub mod repository_ports;
 
 // Public exports from value objects
 pub use value_objects::{
@@ -44,4 +44,10 @@ pub use aggregates::{
     StockAnalysisCreated, StockAnalysisUpdated, StockRankingUpdated,
     EPSRanking, RankingEntry, RankingType, RankingPeriod, RankingStatistics,
     EPSRankingCreated, StockAddedToRanking, StockRemovedFromRanking
+};
+
+// Public exports from repository ports
+pub use repository_ports::{
+    StockAnalysisRepositoryPort, StockAnalysisSearchCriteria, StockAnalysisStatistics,
+    EPSRankingRepositoryPort, EPSRankingSearchCriteria
 };

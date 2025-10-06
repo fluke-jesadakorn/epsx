@@ -23,7 +23,7 @@ pub async fn get_public_plans(State(app_state): State<AppState>) -> Result<Json<
         // Extract permissions array from JSONB
         let permissions = plan.permissions.as_array()
             .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
-            .unwrap_or_else(Vec::new);
+            .unwrap_or_default();
         
         // Extract features from metadata or generate from permissions
         let features = plan.group_metadata.get("features")

@@ -8,6 +8,12 @@ pub struct MemoryCache {
     config: CacheConfig,
 }
 
+impl Default for MemoryCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MemoryCache {
     pub fn new() -> Self {
         Self {

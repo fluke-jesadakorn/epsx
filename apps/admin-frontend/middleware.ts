@@ -53,7 +53,6 @@ export async function middleware(request: NextRequest) {
   
   // All authentication is now handled client-side by SharedOpenIDWeb3Provider
   // Server middleware only adds security headers and allows all requests through
-  console.log(`✅ Admin middleware: Allowing client-side auth check for ${pathname}`);
   
   // Performance tracking
   const elapsedTime = performance.now() - startTime;
@@ -73,7 +72,6 @@ function redirectToAuth(request: NextRequest): NextResponse {
   authUrl.searchParams.set('return_url', returnUrl);
   authUrl.searchParams.set('reason', 'no-session');
   
-  console.log(`🔄 Admin middleware: Redirecting to auth: ${authUrl.toString()}`);
   const redirect = NextResponse.redirect(authUrl.toString());
   
   // Clear authentication cookies

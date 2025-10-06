@@ -4,16 +4,17 @@
 pub mod adapters;
 pub mod event_bus;
 pub mod container;
-pub mod integration;
+// pub mod integration; // Removed - empty module with only commented-out payment service
 pub mod cache;
-pub mod models;
+// pub mod models; // Removed - was empty
 pub mod security;
 pub mod config;
 pub mod database;
+pub mod cqrs; // NEW: Event sourcing and CQRS infrastructure
 
 // Re-export infrastructure components with explicit imports to avoid conflicts
 pub use adapters::{
-    repositories, services, cache as adapter_cache
+    repositories, services
 };
 
 // Re-export commonly needed services for backward compatibility
@@ -27,4 +28,9 @@ pub use security::{
     key_management as KeyManagement, threat_detection as ThreatDetection
 };
 pub use config::{FeatureFlags};
+pub use cqrs::{
+    EventStore, PostgresEventStore, TransactionalOutbox,
+    EventDispatcher, EventDispatcherConfig,
+    ProjectionManager, WalletReadModelProjection
+};
 

@@ -1,12 +1,9 @@
 // Enhanced event system for microservices-ready patterns
 
-use std::collections::HashMap;
-use chrono::{DateTime, Utc};
-use serde::{Serialize, Deserialize};
-use std::fmt::Debug;
-use async_trait::async_trait;
+use crate::prelude::*;
 
-use crate::core::errors::*;
+use std::collections::HashMap;
+use crate::core::errors::ErrorKind;
 
 /// Enhanced domain event trait
 pub trait DomainEvent: Send + Sync + Debug {

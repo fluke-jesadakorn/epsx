@@ -47,6 +47,39 @@ impl Display for NotificationType {
     }
 }
 
+impl NotificationType {
+    pub fn from_str(s: &str) -> Result<Self, String> {
+        match s.to_lowercase().as_str() {
+            "system" => Ok(NotificationType::System),
+            "admin" => Ok(NotificationType::Admin),
+            "security" => Ok(NotificationType::Security),
+            "feature" => Ok(NotificationType::Feature),
+            "marketing" => Ok(NotificationType::Marketing),
+            "info" => Ok(NotificationType::Info),
+            "warning" => Ok(NotificationType::Warning),
+            "error" => Ok(NotificationType::Error),
+            "success" => Ok(NotificationType::Success),
+            "general" => Ok(NotificationType::General),
+            _ => Err(format!("Invalid notification type: {}", s)),
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            NotificationType::System => "system",
+            NotificationType::Admin => "admin",
+            NotificationType::Security => "security",
+            NotificationType::Feature => "feature",
+            NotificationType::Marketing => "marketing",
+            NotificationType::Info => "info",
+            NotificationType::Warning => "warning",
+            NotificationType::Error => "error",
+            NotificationType::Success => "success",
+            NotificationType::General => "general",
+        }
+    }
+}
+
 /// User Notification Preferences Value Object
 /// Encapsulates user's notification preferences, quiet hours, and channel settings
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -211,10 +244,7 @@ impl UserNotificationPreferences {
         if let Some(quiet_hours) = &self.quiet_hours {
             if quiet_hours.is_in_quiet_period(current_time, &self.timezone) {
                 // Allow urgent notifications during quiet hours
-                match notification_type {
-                    NotificationType::System | NotificationType::Security => true,
-                    _ => false,
-                }
+                matches!(notification_type, NotificationType::System | NotificationType::Security)
             } else {
                 true
             }

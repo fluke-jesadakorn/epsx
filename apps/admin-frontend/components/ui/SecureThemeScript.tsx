@@ -16,6 +16,9 @@ function isSafeTheme(theme: string): theme is SafeTheme {
   return SAFE_THEMES.includes(theme as SafeTheme);
 }
 
+/**
+ *
+ */
 export function SecureThemeScript() {
   useEffect(() => {
     // This runs after hydration, but we can also add a blocking script
@@ -41,7 +44,7 @@ export function SecureThemeScript() {
 function initializeTheme() {
   try {
     const config = document.getElementById('theme-config')?.textContent;
-    if (!config) return;
+    if (!config) {return;}
 
     const { defaultTheme, storageKey } = JSON.parse(config);
     
@@ -65,14 +68,18 @@ function initializeTheme() {
     // Store for future use
     localStorage.setItem(storageKey, theme);
     
-  } catch (error) {
-    console.error('Theme initialization error:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Theme initialization error:', _error);
     // Fallback to light theme
     document.documentElement.classList.add('light');
   }
 }
 
 // Server-side blocking script for better FOUC prevention
+/**
+ *
+ */
 export function getThemeBlockingScript(): string {
   return `
     (function() {

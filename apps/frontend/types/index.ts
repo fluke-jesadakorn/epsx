@@ -5,24 +5,8 @@ export type * from './market';
 export type * from './stockFetchData';
 
 // Export permission template types
-export type { 
+export type {
   PermissionTemplateName,
-  PermissionTemplate,
-  PaymentStatus, 
+  PaymentStatus,
   USDTDetails
 } from './userLevel';
-
-export {
-  getDisplayTierFromPermissions,
-  getPermissionTemplateByName,
-  PERMISSION_TEMPLATES
-} from './userLevel';
-
-// Export separated authentication types for user frontend (includes UserSubscription)
-export type * from './auth-separation';
-
-// Export progressive authentication types
-export type * from './progressive-auth';
-
-// Shared types are now exported from @epsx/types package
-// Auth types are now imported from @epsx/types or @epsx/auth-shared

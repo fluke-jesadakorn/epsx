@@ -5,9 +5,10 @@
 
 'use client'
 
-import React from 'react'
-import Link from 'next/link'
 import { ChevronRight, Home } from 'lucide-react'
+import Link from 'next/link'
+import React from 'react'
+
 import { cn } from '@/lib/utils'
 
 export interface BreadcrumbItem {
@@ -24,6 +25,14 @@ interface BreadcrumbProps {
   variant?: 'default' | 'pivot' | 'minimal'
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.items
+ * @param root0.className
+ * @param root0.showHome
+ * @param root0.variant
+ */
 export function Breadcrumb({ 
   items, 
   className, 

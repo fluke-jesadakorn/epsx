@@ -4,6 +4,7 @@
 // ============================================================================
 
 pub mod unified_response;
+pub mod wrappers;
 
 // Export unified response types
 pub use unified_response::{
@@ -13,6 +14,15 @@ pub use unified_response::{
     PaginationMeta,
     PermissionContext,
     RestrictedAction,
+};
+
+// Export domain-specific response wrappers
+pub use wrappers::{
+    AdminResponse,
+    AnalyticsResponse,
+    AuthResponse,
+    create_pagination,
+    ToUnifiedResponse,
 };
 
 // Re-export macros

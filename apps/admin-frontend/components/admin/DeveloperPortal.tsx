@@ -1,15 +1,5 @@
 'use client';
 
-import { useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import {
-  FormField,
-  Input,
-  Select,
-  Textarea,
-} from '@/components/ui/form-components';
-import { UnifiedAdminClient, adminClient, ApiKeyResponse as ApiKey, Module } from '@/lib/api/unified-admin-client';
 import {
   Activity,
   AlertTriangle,
@@ -28,9 +18,20 @@ import {
   Shield,
   Trash2,
 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import React, { useCallback , useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
+
+import { Button } from '@/components/ui/button';
+import {
+  FormField,
+  Input,
+  Select,
+  Textarea,
+} from '@/components/ui/form-components';
 import { logger } from '@/lib/logger';
+import { createPlansClient, type ApiKeyResponse as ApiKey, type Module } from '@/shared/api/plans';
+import { createAdminApiClient } from '@/shared/utils/api-client';
 
 // Access levels configuration
 interface AccessLevelConfig {
@@ -73,6 +74,9 @@ const ACCESS_LEVELS = [
   },
 ];
 
+/**
+ *
+ */
 export const DeveloperPortal: React.FC = () => {
   const router = useRouter();
   // SECURITY: Proper module auth check implementation
@@ -134,9 +138,12 @@ export const DeveloperPortal: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
+      const apiClient = createAdminApiClient();
+      const plansClient = createPlansClient(apiClient);
+
       const [keysRes, modulesRes] = await Promise.all([
-        adminClient.listApiKeys(),
-        adminClient.getModules({ status: 'active' }),
+        plansClient.listApiKeys(),
+        plansClient.getModules({ status: 'active' }),
       ]);
 
       if (keysRes.success) {
@@ -146,8 +153,8 @@ export const DeveloperPortal: React.FC = () => {
       if (modulesRes.success) {
         setModules((modulesRes.data as any)?.modules || []);
       }
-    } catch (error) {
-      logger.error('Failed to load developer portal data', { error });
+    } catch (_error) {
+      logger.error('Failed to load developer portal data', { _error });
       toast.error('Failed to load developer portal data');
     } finally {
       setLoading(false);
@@ -159,18 +166,20 @@ export const DeveloperPortal: React.FC = () => {
     const reason = prompt(
       `Are you sure you want to revoke the API key for "${keyName}"? Please provide a reason:`
     );
-    if (!reason) return;
+    if (!reason) {return;}
 
     try {
-      const response = await adminClient.revokeApiKey(keyId, reason);
+      const apiClient = createAdminApiClient();
+      const plansClient = createPlansClient(apiClient);
+      const response = await plansClient.revokeApiKey(keyId, reason);
       if (response.success) {
         toast.success('API key revoked successfully');
         loadData();
       } else {
         toast.error('Failed to revoke API key');
       }
-    } catch (error) {
-      logger.error('Failed to revoke API key', { keyId, error });
+    } catch (_error) {
+      logger.error('Failed to revoke API key', { keyId, _error });
       toast.error('Failed to revoke API key');
     }
   };
@@ -969,7 +978,6 @@ export const DeveloperPortal: React.FC = () => {
           </div>
         </div>
       )}
-
 
       {/* New API Key Display */}
       {newApiKey && (

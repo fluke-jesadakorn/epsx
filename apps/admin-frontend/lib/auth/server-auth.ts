@@ -23,6 +23,7 @@ export interface ServerSession {
 
 /**
  * Convert JWT payload to EnhancedAuthUser
+ * @param payload
  */
 export function createEnhancedAuthUser(payload: EPSXJWTPayload): EnhancedAuthUser {
   return {
@@ -43,10 +44,10 @@ export async function getServerSession(): Promise<ServerSession | null> {
     // OIDC Migration: Use only OIDC access token
     const jwt = cookieStore.get('access_token')?.value;
     
-    if (!jwt) return null;
+    if (!jwt) {return null;}
     
     const payload = await verifyJWT(jwt);
-    if (!payload) return null;
+    if (!payload) {return null;}
     
     // Convert to proper ServerSession type
     const user = createEnhancedAuthUser(payload);
@@ -55,8 +56,9 @@ export async function getServerSession(): Promise<ServerSession | null> {
       expires: new Date(payload.exp * 1000).toISOString(),
       accessToken: jwt,
     };
-  } catch (error) {
-    console.error('❌ Failed to get server session:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Failed to get server session:', _error);
     return null;
   }
 }
@@ -67,29 +69,34 @@ export async function getServerSession(): Promise<ServerSession | null> {
 export async function getCurrentUser(): Promise<EnhancedAuthUser | null> {
   try {
     const session = await getServerSession();
-    if (!session?.user) return null;
+    if (!session?.user) {return null;}
     
     return createEnhancedAuthUser(session.user as EPSXJWTPayload);
-  } catch (error) {
-    console.error('❌ Failed to get current user:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Failed to get current user:', _error);
     return null;
   }
 }
 
 /**
  * Check if user has required permissions
+ * @param user
+ * @param permission
  */
 export function hasPermission(user: EnhancedAuthUser | null, permission: string): boolean {
-  if (!user?.permissions) return false;
+  if (!user?.permissions) {return false;}
   const permissions = Array.isArray(user.permissions) ? user.permissions : [];
   return permissions.includes(permission) || permissions.includes('*');
 }
 
 /**
  * Check if user has required admin module (deprecated - use hasPermission instead)
+ * @param user
+ * @param module
  */
 export function hasAdminModule(user: EnhancedAuthUser | null, module: string): boolean {
-  if (!user) return false;
+  if (!user) {return false;}
   
   // Convert legacy module to structured permission
   const modulePermissionMap: Record<string, string> = {
@@ -106,9 +113,10 @@ export function hasAdminModule(user: EnhancedAuthUser | null, module: string): b
 
 /**
  * Check if user is admin (has any admin permissions)
+ * @param user
  */
 export function isAdmin(user: EnhancedAuthUser | null): boolean {
-  if (!user) return false;
+  if (!user) {return false;}
   
   // Check permissions system
   if (user.permissions?.length > 0) {
@@ -139,7 +147,7 @@ export async function requireAdminAuth(): Promise<EnhancedAuthUser> {
 export async function getUserContext() {
   try {
     const user = await getCurrentUser();
-    if (!user) return null;
+    if (!user) {return null;}
     
     const platform = user.platform_context || user.primary_platform || 'epsx';
     
@@ -149,14 +157,19 @@ export async function getUserContext() {
       permissions: user.permissions || [],
       platform,
     };
-  } catch (error) {
-    console.error('❌ Failed to get user context:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Failed to get user context:', _error);
     return null;
   }
 }
 
 /**
  * Check if user has platform-specific permission
+ * @param user
+ * @param resource
+ * @param action
+ * @param platform
  */
 export function hasPlatformPermission(
   user: EnhancedAuthUser | null, 
@@ -164,7 +177,7 @@ export function hasPlatformPermission(
   action: string,
   platform?: string
 ): boolean {
-  if (!user) return false;
+  if (!user) {return false;}
   
   const targetPlatform = platform || user.platform_context || user.primary_platform || 'epsx';
   const permission = `${targetPlatform}:${resource}:${action}`;

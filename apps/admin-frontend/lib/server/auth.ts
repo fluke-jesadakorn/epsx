@@ -3,9 +3,16 @@
  */
 
 import { redirect } from 'next/navigation';
-import { generateCodeVerifier, generateCodeChallenge, generateRandomString } from '../../../../../shared/auth/pkce';
+
+import { generateCodeVerifier, generateCodeChallenge, generateRandomString } from '../../../../shared/auth/pkce';
 
 // OAuth authorization URL generation now handled by shared utilities
+async function getAuthorizationUrl(): Promise<{ url: string; codeVerifier: string; state: string }> {
+  const codeVerifier = generateCodeVerifier();
+  const codeChallenge = await generateCodeChallenge(codeVerifier);
+  const state = generateRandomString(32);
+  return { url: '/auth', codeVerifier, state };
+}
 
 /**
  * Get server session with JWT verification
@@ -13,10 +20,10 @@ import { generateCodeVerifier, generateCodeChallenge, generateRandomString } fro
 export async function getServerSession() {
   try {
     const { getSessionFromJWT } = await import('./jwt');
-    const session = await getSessionFromJWT();
-    return session;
-  } catch (error) {
-    console.error('❌ Admin: Failed to get server session:', error);
+    return await getSessionFromJWT();
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Admin: Failed to get server session:', _error);
     return { isAuthenticated: false, user: null };
   }
 }
@@ -31,23 +38,27 @@ export async function getAuthUser() {
     
     // Validate admin permissions
     if (user && !user.permissions && user.role !== 'admin') {
+      // eslint-disable-next-line no-console
       console.warn('⚠️  Admin: User lacks admin permissions');
       return null;
     }
     
     return user;
-  } catch (error) {
-    console.error('❌ Admin: Failed to get auth user:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Admin: Failed to get auth user:', _error);
     return null;
   }
 }
 
 /**
  * Exchange authorization code for tokens (proper OAuth flow)
+ * @param code
+ * @param codeVerifier
+ * @param state
  */
 export async function exchangeCodeForTokens(code: string, codeVerifier: string, state: string) {
   try {
-    console.log('🔄 Admin: Exchanging authorization code for access token...')
     
     // Use consolidated auth config for consistency
     const { authConfig } = await import('../../config/env');
@@ -73,12 +84,12 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string, 
 
     if (!response.ok) {
       const errorText = await response.text()
+      // eslint-disable-next-line no-console
       console.error('❌ Admin: Token exchange failed:', response.status, response.statusText, errorText)
       throw new Error(`Token exchange failed: ${response.status} ${response.statusText} - ${errorText}`)
     }
 
     const tokens = await response.json()
-    console.log('✅ Admin: Successfully received tokens from backend')
     
     return {
       accessToken: tokens.access_token,
@@ -86,21 +97,22 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string, 
       refreshToken: tokens.refresh_token,
       expiresIn: tokens.expires_in || 3600, // Include expiry information
     }
-  } catch (error) {
-    console.error('❌ Admin: Token exchange error:', error)
-    throw new Error(`Failed to exchange authorization code for tokens: ${error instanceof Error ? error.message : 'Unknown error'}`)
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Admin: Token exchange error:', _error)
+    throw new Error(`Failed to exchange authorization code for tokens: ${_error instanceof Error ? _error.message : 'Unknown error'}`)
   }
 }
 
 /**
  * Fetch user info from OAuth userinfo endpoint
+ * @param accessToken
  */
 export async function getUserInfo(accessToken: string) {
   // Use consolidated auth config for consistency
   const { authConfig } = await import('../../config/env');
   const apiUrl = authConfig.apiUrl;
   
-  console.log('🔄 Admin: Fetching user info from backend userinfo endpoint:', apiUrl);
   const response = await fetch(`${apiUrl}/oauth/userinfo`, {
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -110,17 +122,17 @@ export async function getUserInfo(accessToken: string) {
 
   if (!response.ok) {
     const errorText = await response.text();
+    // eslint-disable-next-line no-console
     console.error('❌ Admin: UserInfo fetch failed:', response.status, response.statusText, errorText);
     throw new Error(`UserInfo fetch failed: ${response.status} ${response.statusText} - ${errorText}`);
   }
 
-  const userinfo = await response.json();
-  console.log('✅ Admin: Successfully received user info');
-  return userinfo;
+  return await response.json();
 }
 
 /**
  * Redirect to backend Chef Kitchen login with proper PKCE parameters
+ * @param callbackUrl
  */
 export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise<never> {
   try {
@@ -159,10 +171,10 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
       });
     }
     
-    console.log('✅ Admin: PKCE parameters stored in cookies, redirecting to OAuth');
     redirect(url);
-  } catch (error) {
-    console.error('❌ Admin: Failed to setup PKCE redirect:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Admin: Failed to setup PKCE redirect:', _error);
     // Fallback to simple redirect without PKCE using consolidated config
     const { authConfig } = await import('../../config/env');
     const backendAdminLoginUrl = new URL('/oauth/authorize', authConfig.apiUrl);
@@ -183,6 +195,7 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
 
 /**
  * Require authentication - redirect to login if not authenticated
+ * @param redirectPath
  */
 export async function requireAuth(redirectPath?: string) {
   const user = await getAuthUser();
@@ -209,53 +222,59 @@ export async function clearSession(): Promise<void> {
     cookieStore.delete('refresh_token');
     // Also clear legacy cookie for migration compatibility
     cookieStore.delete('epsx_admin_jwt');
-    console.log('✅ Admin: OIDC session cleared successfully');
-  } catch (error) {
-    console.error('❌ Admin: Failed to clear session:', error);
-    throw error;
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Admin: Failed to clear session:', _error);
+    throw _error;
   }
 }
 
 /**
  * Check if user has specific admin permission
+ * @param permission
  */
 export async function hasAdminPermission(permission: string): Promise<boolean> {
   try {
     const user = await getAuthUser();
-    if (!user) return false;
+    if (!user) {return false;}
     
     // Admin users have broader permissions
     const permissions = Array.isArray(user.permissions) ? user.permissions : [];
     return permissions.includes(permission) || 
            permissions.includes('admin:*') ||
            permissions.includes('*');
-  } catch (error) {
-    console.error('❌ Admin: Failed to check permission:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Admin: Failed to check permission:', _error);
     return false;
   }
 }
 
 /**
  * Check if user has specific permission
+ * @param permission
  */
 export async function hasPermission(permission: string): Promise<boolean> {
   try {
     const user = await getAuthUser();
-    if (!user) return false;
+    if (!user) {return false;}
     
     // Admin users have broader permissions
     const permissions = Array.isArray(user.permissions) ? user.permissions : [];
     return permissions.includes(permission) || 
            permissions.includes('admin:*:*') ||
            permissions.some(p => p.startsWith('admin:'));
-  } catch (error) {
-    console.error('❌ Admin: Failed to check permission:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Admin: Failed to check permission:', _error);
     return false;
   }
 }
 
 /**
  * Require specific structured permission
+ * @param permission
+ * @param redirectPath
  */
 export async function requirePermission(permission: string, redirectPath?: string) {
   const { redirect } = await import('next/navigation');

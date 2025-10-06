@@ -19,11 +19,8 @@ export async function getWeb3AdminSession(): Promise<Web3AdminSessionData | null
     const walletAddress = cookieStore.get('wallet_address')?.value;
     
     if (!walletAddress) {
-      console.log('🔍 Web3 Admin: No wallet address found in cookies');
       return { isAuthenticated: false };
     }
-
-    console.log('🔍 Web3 Admin: Checking session for wallet:', walletAddress);
 
     // Simple database permission check - no complex validation
     const { Pool } = require('pg');
@@ -51,11 +48,11 @@ export async function getWeb3AdminSession(): Promise<Web3AdminSessionData | null
         `, [walletAddress.toLowerCase()]);
         
         walletPermissions = result.rows;
-        console.log('✅ Web3 Admin: Found', walletPermissions.length, 'permissions for wallet:', walletAddress);
       } finally {
         client.release();
       }
     } catch (dbError) {
+      // eslint-disable-next-line no-console
       console.error('❌ Web3 Admin: Database query failed:', dbError);
       return { isAuthenticated: false };
     } finally {
@@ -74,6 +71,7 @@ export async function getWeb3AdminSession(): Promise<Web3AdminSessionData | null
     const hasAdminAccess = adminPermissions.length > 0;
     
     if (!hasAdminAccess) {
+      // eslint-disable-next-line no-console
       console.warn('❌ Web3 Admin: Wallet has no admin permissions:', walletAddress);
       return { isAuthenticated: false };
     }
@@ -88,8 +86,6 @@ export async function getWeb3AdminSession(): Promise<Web3AdminSessionData | null
       adminLevel = 'moderator';
     }
     
-    console.log('✅ Web3 Admin: Simple authentication successful for wallet:', walletAddress, 'Level:', adminLevel);
-    
     return {
       isAuthenticated: true,
       walletAddress,
@@ -99,14 +95,16 @@ export async function getWeb3AdminSession(): Promise<Web3AdminSessionData | null
       expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
     };
     
-  } catch (error) {
-    console.error('💥 Web3 Admin: Failed to get admin session:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('💥 Web3 Admin: Failed to get admin session:', _error);
     return { isAuthenticated: false };
   }
 }
 
 /**
  * Check if current session has specific admin permission
+ * @param permission
  */
 export async function hasWeb3AdminPermission(permission: string): Promise<boolean> {
   try {
@@ -124,14 +122,16 @@ export async function hasWeb3AdminPermission(permission: string): Promise<boolea
       (permission.includes(':') && p === permission.split(':').slice(0, 2).join(':') + ':*')
     );
     
-  } catch (error) {
-    console.error('💥 Web3 Admin: Permission check failed:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('💥 Web3 Admin: Permission check failed:', _error);
     return false;
   }
 }
 
 /**
  * Create Web3 admin user object compatible with existing components
+ * @param sessionData
  */
 export function createWeb3AdminUser(sessionData: Web3AdminSessionData) {
   if (!sessionData.isAuthenticated || !sessionData.walletAddress) {

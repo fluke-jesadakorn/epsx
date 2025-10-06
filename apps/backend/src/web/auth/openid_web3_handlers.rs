@@ -17,7 +17,7 @@ use crate::{
     auth::{
         OpenIDTokenResponse, Web3AuthTokenRequest, OpenIDTokenError
     },
-    web::auth::routes::AppState,
+    web::auth::AppState,
 };
 
 /// Standard OpenID Connect token refresh request
@@ -287,7 +287,7 @@ pub async fn openid_discovery(
         "token_endpoint_auth_methods_supported": ["none"],
         "claims_supported": [
             "iss", "sub", "aud", "exp", "iat", "auth_time", "nonce",
-            "wallet_address", "tier_level", "permissions"
+            "wallet_address", "permissions"
         ],
         "grant_types_supported": ["refresh_token", "web3_wallet"],
         "web3_auth_endpoint": "https://api.epsx.io/api/v1/auth/web3/token",
@@ -355,11 +355,10 @@ pub async fn userinfo(
         "data": {
             "sub": "0x742d35Cc6634C0532925a3b8D369D7763F3c45c6",
             "wallet_address": "0x742d35Cc6634C0532925a3b8D369D7763F3c45c6",
-            "tier_level": "admin",
             "auth_method": "web3_siwe",
             "permissions": [
                 "admin:*:*",
-                "epsx:analytics:read", 
+                "epsx:analytics:read",
                 "epsx:analytics:export",
                 "epsx:users:manage",
                 "epsx:permissions:manage"

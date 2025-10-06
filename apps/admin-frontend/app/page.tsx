@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react'
-import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider'
-import { UnifiedAdminClient } from '@/lib/api/unified-admin-client'
+
+import { RecentWalletsPanel } from '@/components/admin/RecentWalletsPanel'
 import { PermissionManagement } from '@/components/permissions/PermissionManagement'
 import { PancakeCard } from '@/components/ui/PancakeCard'
-import { RecentWalletsPanel } from '@/components/admin/RecentWalletsPanel'
+import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider'
+import { createAdminApiClient } from '@/shared/utils/api-client'
 
 function DashboardSkeleton() {
   return (
@@ -24,6 +25,9 @@ function DashboardSkeleton() {
   )
 }
 
+/**
+ *
+ */
 export default function DashboardPage() {
   const { user, isAuthenticated, isLoading, hasPermissionForDisplay } = useSharedAuth()
   const [dashboardStats, setDashboardStats] = useState({
@@ -45,26 +49,27 @@ export default function DashboardPage() {
     if (isAuthenticated && isAdmin) {
       const loadDashboardData = async () => {
         try {
-          const client = new UnifiedAdminClient()
-          const usersResult = await client.getUsers({ limit: 100 }).catch(() => [])
-          
-          if (Array.isArray(usersResult)) {
+          const client = createAdminApiClient()
+          const response = await client.get('/api/v1/admin/users', { limit: '100' })
+
+          if (response.success && response.data && Array.isArray(response.data)) {
             setDashboardStats(prev => ({
               ...prev,
-              totalUsers: usersResult.length,
-              activeUsers: usersResult.filter((user: any) => user.lastLoginAt && 
+              totalUsers: response.data.length,
+              activeUsers: response.data.filter((user: any) => user.lastLoginAt &&
                 new Date(user.lastLoginAt) > new Date(Date.now() - 24 * 60 * 60 * 1000)
               ).length,
-              todayLogins: usersResult.filter((user: any) => user.lastLoginAt && 
+              todayLogins: response.data.filter((user: any) => user.lastLoginAt &&
                 new Date(user.lastLoginAt) > new Date(Date.now() - 24 * 60 * 60 * 1000)
               ).length
             }))
           }
-        } catch (error) {
-          console.error('Failed to load dashboard stats:', error)
+        } catch (_error) {
+          // eslint-disable-next-line no-console
+          console.error('Failed to load dashboard stats:', _error)
         }
       }
-      
+
       loadDashboardData()
     }
   }, [isAuthenticated, isAdmin])
@@ -96,7 +101,6 @@ export default function DashboardPage() {
     )
   }
 
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-3 sm:p-6">
       {/* Background Decorations */}
@@ -116,7 +120,7 @@ export default function DashboardPage() {
             <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full "></div>
           </div>
           <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            Welcome back, {user?.wallet_address || user?.name || 'Admin'}
+            Welcome back, {user?.wallet_address || 'Admin'}
           </p>
           <div className="text-sm text-gray-500 dark:text-gray-500 mt-2">
             {new Date().toLocaleDateString()} • System Status: Operational 🟢

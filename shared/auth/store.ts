@@ -14,11 +14,22 @@ import {
   SmartRefreshRequest,
   SmartRefreshResponse 
 } from '../types/auth'
-import { 
-  derivePermissionGroupFromPermissions,
-  deriveAccessiblePlatformsFromPermissions, 
-  derivePrimaryPlatformFromPermissions 
-} from '../permissions/utils/platform'
+// Removed client-side permission derivation - backend provides this data
+// Simple helper functions that rely on backend data
+const derivePrimaryPlatformFromPermissions = (permissions: string[]): string => {
+  // Backend should provide platform_context - this is just a fallback
+  return 'epsx'
+}
+
+const deriveAccessiblePlatformsFromPermissions = (permissions: string[]): string[] => {
+  // Backend should provide accessible platforms - this is just a fallback
+  return ['epsx']
+}
+
+const derivePermissionGroupFromPermissions = (permissions: string[]): string => {
+  // Backend should provide permission_group - this is just a fallback
+  return 'user'
+}
 import { getBackendUrl, getFrontendUrl, oidcUrls, callbackUrls } from '../utils/url-resolver'
 
 // Core auth store factory

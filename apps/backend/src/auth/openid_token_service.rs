@@ -52,12 +52,11 @@ pub struct AccessTokenClaims {
     pub exp: i64,                  // Expiration timestamp
     pub iat: i64,                  // Issued at timestamp
     pub jti: String,               // JWT ID (unique identifier)
-    
+    pub scope: String,             // OIDC standard: "openid profile epsx:analytics:read admin:users:manage"
+
     // EPSX-specific claims for authorization
     pub wallet_address: String,    // Web3 wallet address (primary identifier)
-    pub permissions: Vec<String>,  // User's permissions from wallet_users table
-    pub tier_level: String,        // User's tier level
-    pub auth_method: String,       // "web3_siwe" 
+    pub auth_method: String,       // "web3_siwe"
     pub auth_time: i64,            // When Web3 authentication occurred
 }
 
@@ -72,11 +71,10 @@ pub struct IdTokenClaims {
     pub exp: i64,                  // Expiration timestamp
     pub iat: i64,                  // Issued at timestamp
     pub nonce: Option<String>,     // Optional nonce for CSRF protection
-    
+
     // Profile information
     pub wallet_address: String,    // Primary identifier
     pub auth_time: i64,            // Authentication timestamp
-    pub tier_level: String,        // User tier
     pub amr: Vec<String>,          // Authentication Methods Reference: ["web3"]
     pub acr: String,               // Authentication Context Class Reference
 }
@@ -184,7 +182,6 @@ impl OpenIDTokenService {
         let access_token = self.create_access_token(
             &request.wallet_address,
             &user_profile.permissions,
-            &user_profile.tier_level,
             auth_time,
             &jti,
         )?;
@@ -193,7 +190,6 @@ impl OpenIDTokenService {
         let id_token = self.create_id_token(
             &request.wallet_address,
             &request.client_id,
-            &user_profile.tier_level,
             auth_time,
             None, // nonce
         )?;
@@ -235,7 +231,6 @@ impl OpenIDTokenService {
         let access_token = self.create_access_token(
             &refresh_info.wallet_address,
             &user_profile.permissions,
-            &user_profile.tier_level,
             auth_time,
             &jti,
         )?;
@@ -243,7 +238,6 @@ impl OpenIDTokenService {
         let id_token = self.create_id_token(
             &refresh_info.wallet_address,
             client_id,
-            &user_profile.tier_level,
             auth_time,
             None,
         )?;
@@ -301,59 +295,113 @@ impl OpenIDTokenService {
     }
 
     /// Get wallet user profile from database
+    /// CRITICAL: This is the ONLY place we query database for permissions
+    /// All permissions from permission groups are expanded here and stored in JWT
     async fn get_wallet_user_profile(&self, wallet_address: &str) -> Result<WalletUserProfile, OpenIDTokenError> {
-        let user = sqlx::query!(
-            r#"
-            SELECT 
-                wallet_address,
-                permissions,
-                tier_level,
-                is_active
-            FROM wallet_users 
-            WHERE wallet_address = $1 AND is_active = TRUE
-            "#,
+        // Expand permission groups into individual permissions
+        let expanded_permissions = self.expand_permission_groups(wallet_address).await?;
+
+        Ok(WalletUserProfile {
+            wallet_address: wallet_address.to_string(),
+            permissions: expanded_permissions,  // All permissions (inherited from groups + direct)
+        })
+    }
+
+    /// Get permissions from normalized permission tables
+    /// Queries: wallet_group_assignments + permission_group_memberships + wallet_direct_permissions
+    async fn expand_permission_groups(
+        &self,
+        wallet_address: &str,
+    ) -> Result<Vec<String>, OpenIDTokenError> {
+        // First verify user exists and is active
+        let user_exists = sqlx::query!(
+            "SELECT is_active FROM wallet_users WHERE wallet_address = $1 AND is_active = TRUE",
             wallet_address
         )
         .fetch_optional(&self.db_pool)
         .await
         .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?
-        .ok_or_else(|| OpenIDTokenError::Web3AuthenticationFailed(
-            format!("User not found: {}", wallet_address)
-        ))?;
+        .is_some();
 
-        // Parse permissions JSON
-        let permissions: Vec<String> = serde_json::from_value(user.permissions)
-            .unwrap_or_default();
+        if !user_exists {
+            return Err(OpenIDTokenError::Web3AuthenticationFailed(
+                format!("User not found or inactive: {}", wallet_address)
+            ));
+        }
 
-        Ok(WalletUserProfile {
-            wallet_address: user.wallet_address,
-            permissions,
-            tier_level: user.tier_level,
-        })
+        // Query effective permissions from normalized tables (group permissions + direct permissions)
+        let permission_records = sqlx::query!(
+            r#"
+            -- Permissions from groups
+            SELECT DISTINCT p.permission_string
+            FROM wallet_group_assignments wga
+            JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
+            JOIN permissions p ON pgm.permission_id = p.id
+            WHERE wga.wallet_address = $1
+              AND wga.is_active = true
+              AND p.is_active = true
+              AND (wga.expires_at IS NULL OR wga.expires_at > NOW())
+
+            UNION
+
+            -- Direct permissions
+            SELECT DISTINCT p.permission_string
+            FROM wallet_direct_permissions wdp
+            JOIN permissions p ON wdp.permission_id = p.id
+            WHERE wdp.wallet_address = $1
+              AND wdp.is_active = true
+              AND p.is_active = true
+              AND (wdp.expires_at IS NULL OR wdp.expires_at > NOW())
+
+            ORDER BY permission_string
+            "#,
+            wallet_address
+        )
+        .fetch_all(&self.db_pool)
+        .await
+        .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
+
+        let permissions: Vec<String> = permission_records
+            .into_iter()
+            .filter_map(|r| r.permission_string)
+            .collect();
+
+        info!(
+            "Loaded {} permissions for wallet {} from normalized tables (groups + direct)",
+            permissions.len(),
+            wallet_address
+        );
+
+        Ok(permissions)
     }
 
-    /// Create JWT access token
+    /// Create JWT access token with OIDC-compliant scope claim
     fn create_access_token(
         &self,
         wallet_address: &str,
         permissions: &[String],
-        tier_level: &str,
         auth_time: i64,
         jti: &str,
     ) -> Result<String, OpenIDTokenError> {
         let now = Utc::now();
         let expiry = now + Duration::hours(self.access_token_expiry_hours);
 
+        // Convert permissions array to OIDC standard scope string
+        // Format: "openid profile permission1 permission2 permission3"
+        let scope = format!("openid profile {}", permissions.join(" "));
+
         let claims = AccessTokenClaims {
+            // Standard OIDC claims
             iss: self.issuer.clone(),
             sub: wallet_address.to_string(),
             aud: self.audiences.clone(),
             exp: expiry.timestamp(),
             iat: now.timestamp(),
             jti: jti.to_string(),
+            scope,  // OIDC standard scope claim
+
+            // EPSX custom claims
             wallet_address: wallet_address.to_string(),
-            permissions: permissions.to_vec(),
-            tier_level: tier_level.to_string(),
             auth_method: "web3_siwe".to_string(),
             auth_time,
         };
@@ -369,7 +417,6 @@ impl OpenIDTokenService {
         &self,
         wallet_address: &str,
         client_id: &str,
-        tier_level: &str,
         auth_time: i64,
         nonce: Option<&str>,
     ) -> Result<String, OpenIDTokenError> {
@@ -385,7 +432,6 @@ impl OpenIDTokenService {
             nonce: nonce.map(|s| s.to_string()),
             wallet_address: wallet_address.to_string(),
             auth_time,
-            tier_level: tier_level.to_string(),
             amr: vec!["web3".to_string()],
             acr: "1".to_string(), // Authentication Context Class Reference
         };
@@ -463,7 +509,6 @@ struct WalletUserProfile {
     #[allow(dead_code)]
     wallet_address: String,
     permissions: Vec<String>,
-    tier_level: String,
 }
 
 #[cfg(test)]

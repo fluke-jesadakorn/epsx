@@ -17,7 +17,9 @@
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+
 import { makeAuthenticatedRequest } from './shared-utils';
+
 import { createSuccessResult, createErrorResult, type ActionResult } from '@/lib/action-utils';
 import type { UnifiedUserData, UserOperationResult } from '@/lib/types/unified-user';
 
@@ -133,6 +135,7 @@ export interface ActivityLogParams {
 
 /**
  * Get paginated user list with filters
+ * @param filters
  */
 export async function getUserList(filters: UserListFilters): Promise<ActionResult<{
   users: UnifiedUserData[];
@@ -154,14 +157,17 @@ export async function getUserList(filters: UserListFilters): Promise<ActionResul
     const response = await makeAuthenticatedRequest(`/admin/users?${params.toString()}`);
     
     return createSuccessResult(response);
-  } catch (error) {
-    console.error('Failed to fetch user list:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to fetch users');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to fetch user list:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch users');
   }
 }
 
 /**
  * Search users with enhanced filtering
+ * @param query
+ * @param filters
  */
 export async function searchUsers(query: string, filters?: Partial<UserListFilters>): Promise<ActionResult<UnifiedUserData[]>> {
   try {
@@ -175,9 +181,10 @@ export async function searchUsers(query: string, filters?: Partial<UserListFilte
     const response = await makeAuthenticatedRequest(`/admin/users/search?${params.toString()}`);
     
     return createSuccessResult(response.users || []);
-  } catch (error) {
-    console.error('Failed to search users:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to search users');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to search users:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to search users');
   }
 }
 
@@ -193,9 +200,10 @@ export async function getUserStats(): Promise<ActionResult<{
   try {
     const response = await makeAuthenticatedRequest('/admin/users/stats');
     return createSuccessResult(response);
-  } catch (error) {
-    console.error('Failed to fetch user stats:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to fetch user statistics');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to fetch user stats:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch user statistics');
   }
 }
 
@@ -205,19 +213,22 @@ export async function getUserStats(): Promise<ActionResult<{
 
 /**
  * Get user profile by ID
+ * @param userId
  */
 export async function getUserProfile(userId: string): Promise<ActionResult<UnifiedUserData>> {
   try {
     const response = await makeAuthenticatedRequest(`/admin/users/${userId}`);
     return createSuccessResult(response);
-  } catch (error) {
-    console.error('Failed to fetch user profile:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to fetch user profile');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to fetch user profile:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch user profile');
   }
 }
 
 /**
  * Create new user
+ * @param userData
  */
 export async function createUser(userData: CreateUserRequest): Promise<ActionResult<UnifiedUserData>> {
   try {
@@ -228,14 +239,16 @@ export async function createUser(userData: CreateUserRequest): Promise<ActionRes
 
     revalidatePath('/users');
     return createSuccessResult(response, 'User created successfully');
-  } catch (error) {
-    console.error('Failed to create user:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to create user');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to create user:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to create user');
   }
 }
 
 /**
  * Update user profile
+ * @param userData
  */
 export async function updateUser(userData: UpdateUserRequest): Promise<ActionResult<UnifiedUserData>> {
   try {
@@ -249,14 +262,16 @@ export async function updateUser(userData: UpdateUserRequest): Promise<ActionRes
     revalidatePath('/users');
     revalidatePath(`/users/${id}`);
     return createSuccessResult(response, 'User updated successfully');
-  } catch (error) {
-    console.error('Failed to update user:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to update user');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to update user:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update user');
   }
 }
 
 /**
  * Delete user
+ * @param userId
  */
 export async function deleteUser(userId: string): Promise<ActionResult<void>> {
   try {
@@ -266,14 +281,16 @@ export async function deleteUser(userId: string): Promise<ActionResult<void>> {
 
     revalidatePath('/users');
     return createSuccessResult(undefined, 'User deleted successfully');
-  } catch (error) {
-    console.error('Failed to delete user:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to delete user');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to delete user:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to delete user');
   }
 }
 
 /**
  * Toggle user active status
+ * @param userId
  */
 export async function toggleUserStatus(userId: string): Promise<ActionResult<UnifiedUserData>> {
   try {
@@ -284,9 +301,10 @@ export async function toggleUserStatus(userId: string): Promise<ActionResult<Uni
     revalidatePath('/users');
     revalidatePath(`/users/${userId}`);
     return createSuccessResult(response, 'User status updated successfully');
-  } catch (error) {
-    console.error('Failed to toggle user status:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to update user status');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to toggle user status:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update user status');
   }
 }
 
@@ -296,6 +314,7 @@ export async function toggleUserStatus(userId: string): Promise<ActionResult<Uni
 
 /**
  * Get user permissions
+ * @param userId
  */
 export async function getUserPermissions(userId: string): Promise<ActionResult<{
   permissions: string[];
@@ -305,14 +324,16 @@ export async function getUserPermissions(userId: string): Promise<ActionResult<{
   try {
     const response = await makeAuthenticatedRequest(`/admin/users/${userId}/permissions`);
     return createSuccessResult(response);
-  } catch (error) {
-    console.error('Failed to fetch user permissions:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to fetch user permissions');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to fetch user permissions:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch user permissions');
   }
 }
 
 /**
  * Update user permissions
+ * @param change
  */
 export async function updateUserPermissions(change: UserPermissionChange): Promise<ActionResult<void>> {
   try {
@@ -329,14 +350,16 @@ export async function updateUserPermissions(change: UserPermissionChange): Promi
     revalidatePath('/users');
     revalidatePath(`/users/${change.userId}`);
     return createSuccessResult(undefined, 'User permissions updated successfully');
-  } catch (error) {
-    console.error('Failed to update user permissions:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to update user permissions');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to update user permissions:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update user permissions');
   }
 }
 
 /**
  * Bulk permission updates
+ * @param changes
  */
 export async function bulkUpdateUserPermissions(changes: UserPermissionChange[]): Promise<ActionResult<{
   successful: number;
@@ -351,9 +374,10 @@ export async function bulkUpdateUserPermissions(changes: UserPermissionChange[])
 
     revalidatePath('/users');
     return createSuccessResult(response, 'Bulk permission update completed');
-  } catch (error) {
-    console.error('Failed to perform bulk permission update:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to update permissions');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to perform bulk permission update:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update permissions');
   }
 }
 
@@ -363,6 +387,7 @@ export async function bulkUpdateUserPermissions(changes: UserPermissionChange[])
 
 /**
  * Bulk delete users
+ * @param userIds
  */
 export async function bulkDeleteUsers(userIds: string[]): Promise<ActionResult<{
   successful: number;
@@ -377,14 +402,16 @@ export async function bulkDeleteUsers(userIds: string[]): Promise<ActionResult<{
 
     revalidatePath('/users');
     return createSuccessResult(response, 'Bulk delete completed');
-  } catch (error) {
-    console.error('Failed to perform bulk delete:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to delete users');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to perform bulk delete:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to delete users');
   }
 }
 
 /**
  * Export users to CSV
+ * @param filters
  */
 export async function exportUsers(filters?: Partial<UserListFilters>): Promise<ActionResult<{
   downloadUrl: string;
@@ -399,9 +426,10 @@ export async function exportUsers(filters?: Partial<UserListFilters>): Promise<A
 
     const response = await makeAuthenticatedRequest(`/admin/users/export?${params}`);
     return createSuccessResult(response);
-  } catch (error) {
-    console.error('Failed to export users:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to export users');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to export users:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to export users');
   }
 }
 
@@ -411,6 +439,7 @@ export async function exportUsers(filters?: Partial<UserListFilters>): Promise<A
 
 /**
  * Get unified detailed user data by ID
+ * @param userId
  */
 export async function getUnifiedUserData(userId: string): Promise<ActionResult<UnifiedUserData>> {
   try {
@@ -478,14 +507,17 @@ export async function getUnifiedUserData(userId: string): Promise<ActionResult<U
     };
     
     return createSuccessResult(userData as any);
-  } catch (error) {
-    console.error('Failed to get unified user data:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to fetch user data');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to get unified user data:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch user data');
   }
 }
 
 /**
  * Update user profile information
+ * @param userId
+ * @param data
  */
 export async function updateUserProfile(userId: string, data: UserProfileUpdateData): Promise<ActionResult<void>> {
   try {
@@ -497,14 +529,17 @@ export async function updateUserProfile(userId: string, data: UserProfileUpdateD
     revalidatePath(`/users/${userId}`);
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Profile updated successfully');
-  } catch (error) {
-    console.error('Failed to update user profile:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to update profile');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to update user profile:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update profile');
   }
 }
 
 /**
  * Update user status
+ * @param userId
+ * @param data
  */
 export async function updateUserStatus(userId: string, data: UserStatusUpdateData): Promise<ActionResult<void>> {
   try {
@@ -516,14 +551,17 @@ export async function updateUserStatus(userId: string, data: UserStatusUpdateDat
     revalidatePath(`/users/${userId}`);
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Status updated successfully');
-  } catch (error) {
-    console.error('Failed to update user status:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to update status');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to update user status:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update status');
   }
 }
 
 /**
  * Update user roles
+ * @param userId
+ * @param data
  */
 export async function updateUserRoles(userId: string, data: UserRoleUpdateData): Promise<ActionResult<void>> {
   try {
@@ -535,14 +573,17 @@ export async function updateUserRoles(userId: string, data: UserRoleUpdateData):
     revalidatePath(`/users/${userId}`);
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Roles updated successfully');
-  } catch (error) {
-    console.error('Failed to update user roles:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to update roles');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to update user roles:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update roles');
   }
 }
 
 /**
  * Update module access
+ * @param userId
+ * @param data
  */
 export async function updateModuleAccess(userId: string, data: ModuleAccessUpdateData): Promise<ActionResult<void>> {
   try {
@@ -554,9 +595,10 @@ export async function updateModuleAccess(userId: string, data: ModuleAccessUpdat
     revalidatePath(`/users/${userId}`);
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Module access updated successfully');
-  } catch (error) {
-    console.error('Failed to update module access:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to update module access');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to update module access:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update module access');
   }
 }
 
@@ -566,6 +608,10 @@ export async function updateModuleAccess(userId: string, data: ModuleAccessUpdat
 
 /**
  * Assign role to user
+ * @param data
+ * @param data.userId
+ * @param data.role
+ * @param data.reason
  */
 export async function assignUserRole(data: { userId: string; role: string; reason?: string }): Promise<ActionResult<void>> {
   try {
@@ -580,14 +626,19 @@ export async function assignUserRole(data: { userId: string; role: string; reaso
     revalidatePath(`/users/${data.userId}`);
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Role assigned successfully');
-  } catch (error) {
-    console.error('Failed to assign user role:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to assign role');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to assign user role:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to assign role');
   }
 }
 
 /**
  * Remove role from user
+ * @param data
+ * @param data.userId
+ * @param data.role
+ * @param data.reason
  */
 export async function removeUserRole(data: { userId: string; role: string; reason?: string }): Promise<ActionResult<void>> {
   try {
@@ -602,9 +653,10 @@ export async function removeUserRole(data: { userId: string; role: string; reaso
     revalidatePath(`/users/${data.userId}`);
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Role removed successfully');
-  } catch (error) {
-    console.error('Failed to remove user role:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to remove role');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to remove user role:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to remove role');
   }
 }
 
@@ -614,6 +666,10 @@ export async function removeUserRole(data: { userId: string; role: string; reaso
 
 /**
  * Assign permission profile to user
+ * @param data
+ * @param data.userId
+ * @param data.profileId
+ * @param data.reason
  */
 export async function assignPermissionProfile(data: { userId: string; profileId: string; reason?: string }): Promise<ActionResult<void>> {
   try {
@@ -628,9 +684,10 @@ export async function assignPermissionProfile(data: { userId: string; profileId:
     revalidatePath(`/users/${data.userId}`);
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Permission profile assigned successfully');
-  } catch (error) {
-    console.error('Failed to assign permission profile:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to assign permission profile');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to assign permission profile:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to assign permission profile');
   }
 }
 
@@ -640,6 +697,11 @@ export async function assignPermissionProfile(data: { userId: string; profileId:
 
 /**
  * Add custom permission to user
+ * @param data
+ * @param data.userId
+ * @param data.resource
+ * @param data.action
+ * @param data.reason
  */
 export async function addCustomPermission(data: { userId: string; resource: string; action: string; reason?: string }): Promise<ActionResult<void>> {
   try {
@@ -655,14 +717,20 @@ export async function addCustomPermission(data: { userId: string; resource: stri
     revalidatePath(`/users/${data.userId}`);
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Permission added successfully');
-  } catch (error) {
-    console.error('Failed to add custom permission:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to add permission');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to add custom permission:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to add permission');
   }
 }
 
 /**
  * Remove custom permission from user
+ * @param data
+ * @param data.userId
+ * @param data.resource
+ * @param data.action
+ * @param data.reason
  */
 export async function removeCustomPermission(data: { userId: string; resource: string; action: string; reason?: string }): Promise<ActionResult<void>> {
   try {
@@ -678,9 +746,10 @@ export async function removeCustomPermission(data: { userId: string; resource: s
     revalidatePath(`/users/${data.userId}`);
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Permission removed successfully');
-  } catch (error) {
-    console.error('Failed to remove custom permission:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to remove permission');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to remove custom permission:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to remove permission');
   }
 }
 
@@ -690,6 +759,10 @@ export async function removeCustomPermission(data: { userId: string; resource: s
 
 /**
  * Bulk assign permissions to multiple users
+ * @param data
+ * @param data.userIds
+ * @param data.permissions
+ * @param data.reason
  */
 export async function bulkAssignPermissions(data: {
   userIds: string[];
@@ -715,14 +788,19 @@ export async function bulkAssignPermissions(data: {
     revalidatePath('/users');
 
     return createSuccessResult(response, 'Bulk permission assignment completed');
-  } catch (error) {
-    console.error('Failed to bulk assign permissions:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to assign permissions');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to bulk assign permissions:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to assign permissions');
   }
 }
 
 /**
  * Bulk remove permissions from multiple users
+ * @param data
+ * @param data.userIds
+ * @param data.permissions
+ * @param data.reason
  */
 export async function bulkRemovePermissions(data: {
   userIds: string[];
@@ -748,9 +826,10 @@ export async function bulkRemovePermissions(data: {
     revalidatePath('/users');
 
     return createSuccessResult(response, 'Bulk permission removal completed');
-  } catch (error) {
-    console.error('Failed to bulk remove permissions:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to remove permissions');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to bulk remove permissions:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to remove permissions');
   }
 }
 
@@ -760,6 +839,12 @@ export async function bulkRemovePermissions(data: {
 
 /**
  * Assign temporary permission with expiration
+ * @param data
+ * @param data.userId
+ * @param data.resource
+ * @param data.action
+ * @param data.expires
+ * @param data.reason
  */
 export async function assignTemporaryPermission(data: {
   userId: string;
@@ -783,22 +868,25 @@ export async function assignTemporaryPermission(data: {
     revalidatePath(`/users/${data.userId}`);
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Temporary permission assigned successfully');
-  } catch (error) {
-    console.error('Failed to assign temporary permission:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to assign temporary permission');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to assign temporary permission:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to assign temporary permission');
   }
 }
 
 /**
  * Get all permissions that are expiring soon
+ * @param days
  */
 export async function getExpiringPermissions(days = 7): Promise<ActionResult<any[]>> {
   try {
     const response = await makeAuthenticatedRequest(`/admin/casbin/expiring-permissions?days=${days}`);
     return createSuccessResult(response.permissions || []);
-  } catch (error) {
-    console.error('Failed to get expiring permissions:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to fetch expiring permissions');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to get expiring permissions:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch expiring permissions');
   }
 }
 
@@ -808,6 +896,10 @@ export async function getExpiringPermissions(days = 7): Promise<ActionResult<any
 
 /**
  * Validate permission assignment for conflicts
+ * @param data
+ * @param data.userId
+ * @param data.resource
+ * @param data.action
  */
 export async function validatePermissionAssignment(data: {
   userId: string;
@@ -825,22 +917,25 @@ export async function validatePermissionAssignment(data: {
     });
 
     return createSuccessResult({ conflicts: response.conflicts || [], warnings: response.warnings || [] });
-  } catch (error) {
-    console.error('Failed to validate permission assignment:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to validate permission');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to validate permission assignment:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to validate permission');
   }
 }
 
 /**
  * Get permission impact analysis for a user
+ * @param userId
  */
 export async function getPermissionImpact(userId: string): Promise<ActionResult<{ canAccess: string[]; cannotAccess: string[]; totalResources: number }>> {
   try {
     const response = await makeAuthenticatedRequest(`/admin/users/${userId}/permission-impact`);
     return createSuccessResult(response);
-  } catch (error) {
-    console.error('Failed to get permission impact:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to get permission impact');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to get permission impact:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to get permission impact');
   }
 }
 
@@ -850,6 +945,8 @@ export async function getPermissionImpact(userId: string): Promise<ActionResult<
 
 /**
  * Get permission history for a user
+ * @param userId
+ * @param limit
  */
 export async function getPermissionHistory(userId: string, limit = 50): Promise<ActionResult<PermissionHistoryEntry[]>> {
   try {
@@ -879,14 +976,17 @@ export async function getPermissionHistory(userId: string, limit = 50): Promise<
       }));
 
     return createSuccessResult(history);
-  } catch (error) {
-    console.error('Failed to get permission history:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to fetch permission history');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to get permission history:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch permission history');
   }
 }
 
 /**
  * Get comprehensive activity logs for a user
+ * @param userId
+ * @param params
  */
 export async function getUserActivityLogs(userId: string, params: ActivityLogParams = {}): Promise<ActionResult<{
   activities: ActivityLogEntry[];
@@ -905,11 +1005,11 @@ export async function getUserActivityLogs(userId: string, params: ActivityLogPar
 }>> {
   try {
     const queryParams = new URLSearchParams();
-    if (params.limit) queryParams.append('limit', params.limit.toString());
-    if (params.offset) queryParams.append('offset', params.offset.toString());
-    if (params.start_date) queryParams.append('start_date', params.start_date);
-    if (params.end_date) queryParams.append('end_date', params.end_date);
-    if (params.action_type) queryParams.append('action_type', params.action_type);
+    if (params.limit) {queryParams.append('limit', params.limit.toString());}
+    if (params.offset) {queryParams.append('offset', params.offset.toString());}
+    if (params.start_date) {queryParams.append('start_date', params.start_date);}
+    if (params.end_date) {queryParams.append('end_date', params.end_date);}
+    if (params.action_type) {queryParams.append('action_type', params.action_type);}
     
     const response = await makeAuthenticatedRequest(`/admin/users/${userId}/activity?${queryParams.toString()}`);
     
@@ -941,9 +1041,10 @@ export async function getUserActivityLogs(userId: string, params: ActivityLogPar
         total: response.statistics?.total_activities || activities.length
       }
     });
-  } catch (error) {
-    console.error('Failed to get user activity logs:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to fetch activity logs');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to get user activity logs:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch activity logs');
   }
 }
 
@@ -953,6 +1054,15 @@ export async function getUserActivityLogs(userId: string, params: ActivityLogPar
 
 /**
  * Search users with server-side authentication
+ * @param searchParams
+ * @param searchParams.search
+ * @param searchParams.email
+ * @param searchParams.package_tier
+ * @param searchParams.status
+ * @param searchParams.page
+ * @param searchParams.per_page
+ * @param searchParams.sort_by
+ * @param searchParams.sort_order
  */
 export async function searchUsersAction(searchParams: {
   search?: string;
@@ -980,8 +1090,9 @@ export async function searchUsersAction(searchParams: {
     
     const response = await makeAuthenticatedRequest(`/admin/users/search?${queryParams.toString()}`);
     return createSuccessResult(response);
-  } catch (error) {
-    console.error('Failed to search users:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to search users');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to search users:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to search users');
   }
 }

@@ -3,6 +3,7 @@
  * Comprehensive protection against Cross-Site Scripting attacks
  */
 
+// eslint-disable-next-line no-control-regex
 const DANGEROUS_CHARS = /[<>'"&`\x00-\x1f]/g;
 const HTML_ENTITIES: Record<string, string> = {
   '<': '&lt;',
@@ -46,8 +47,9 @@ export function sanitizeEmail(email: string): string {
  */
 export function sanitizeDisplayName(name: string): string {
   if (typeof name !== 'string') return '';
-  
+
   return name
+    // eslint-disable-next-line no-control-regex
     .replace(/[<>'"&`\x00-\x1f]/g, '') // Remove dangerous chars
     .replace(/\s+/g, ' ') // Normalize whitespace
     .trim()
@@ -193,7 +195,7 @@ export function validatePassword(password: string): { isValid: boolean; errors: 
     errors.push('Password must contain at least one number');
   }
   
-  if (!/[!@#$%^&*()_+\-=\[\]{}|;':",./<>?]/.test(password)) {
+  if (!/[!@#$%^&*()_+\-=[\]{}|;':",./<>?]/.test(password)) {
     errors.push('Password must contain at least one special character');
   }
   

@@ -181,6 +181,7 @@ pub trait DatabaseExecutor {
 
 /// Implementation for any type that needs database access
 impl<S> DatabaseExecutor for S {
+    #[allow(clippy::manual_async_fn)]
     fn execute_with_pool<F, T>(&self, operation: F) -> impl std::future::Future<Output = Result<T>> + Send
     where
         F: FnOnce(&PgPool) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<T>> + Send + '_>> + Send,

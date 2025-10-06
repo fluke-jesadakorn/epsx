@@ -3,9 +3,10 @@
  * Fetches session data and passes it to the client layout
  */
 
-import { ReactNode, Suspense } from 'react';
-import { getSessionFromJWT } from '@/lib/server/jwt';
 import dynamic from 'next/dynamic';
+import { ReactNode, Suspense } from 'react';
+
+import { getSessionFromJWT } from '@/lib/server/jwt';
 
 // Dynamically import AdminLayoutClient with error boundary
 const AdminLayoutClient = dynamic(
@@ -50,6 +51,8 @@ function AdminLayoutFallback() {
 
 /**
  * Error boundary fallback for critical layout errors
+ * @param root0
+ * @param root0.children
  */
 function AdminLayoutError({ children }: { children: ReactNode }) {
   return (
@@ -67,6 +70,8 @@ function AdminLayoutError({ children }: { children: ReactNode }) {
 
 /**
  * Server component that fetches session and passes it to the client layout
+ * @param root0
+ * @param root0.children
  */
 export async function AdminLayoutServer({ children }: AdminLayoutServerProps) {
   // Fetch session on the server with enhanced error handling
@@ -88,9 +93,10 @@ export async function AdminLayoutServer({ children }: AdminLayoutServerProps) {
         isLoggedIn: sessionData.isAuthenticated
       };
     }
-  } catch (error) {
-    console.error('Failed to get session data in layout:', error);
-    sessionError = error instanceof Error ? error.message : 'Unknown session error';
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to get session data in layout:', _error);
+    sessionError = _error instanceof Error ? _error.message : 'Unknown session error';
   }
 
   // If there's a critical session error, render error fallback
@@ -113,11 +119,12 @@ export async function AdminLayoutServer({ children }: AdminLayoutServerProps) {
         </AdminLayoutClient>
       </Suspense>
     );
-  } catch (error) {
-    console.error('Critical AdminLayoutClient error:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Critical AdminLayoutClient error:', _error);
     return (
       <AdminLayoutError>
-        <p>Layout Component Error: {error instanceof Error ? error.message : 'Unknown error'}</p>
+        <p>Layout Component Error: {_error instanceof Error ? _error.message : 'Unknown error'}</p>
         <div className="mt-4">
           {children}
         </div>

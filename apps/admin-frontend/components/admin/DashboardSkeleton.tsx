@@ -6,6 +6,9 @@
 import { adminCardVariants } from '@/design-system'
 import { cn } from '@/lib/utils'
 
+/**
+ *
+ */
 export function DashboardSkeleton() {
   return (
     <div className="space-y-8 p-6">

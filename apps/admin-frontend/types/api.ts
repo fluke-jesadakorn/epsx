@@ -70,5 +70,7 @@ export type PerformanceMetrics = SharedPerformanceMetrics;
 export type SystemRecommendation = SharedSystemRecommendation;
 
 // Legacy compatibility (admin-frontend was importing from core types)
-import type { User, Permission, UserStats, PermissionAnalytics, PaginatedResponse } from './core';
-export type { User, Permission, UserStats, PermissionAnalytics, PaginatedResponse } from './core';
+import type { User, Permission, UserStats, PermissionAnalytics } from './core';
+import type { PaginatedResponse } from '../../../shared/types/api';
+export type { User, Permission, UserStats, PermissionAnalytics } from './core';
+export type { PaginatedResponse };

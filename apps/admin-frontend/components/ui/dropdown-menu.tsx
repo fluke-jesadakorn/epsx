@@ -168,6 +168,11 @@ const DropdownMenuSeparator = React.forwardRef<
 ))
 DropdownMenuSeparator.displayName = DropdownMenuPrimitive.Separator.displayName
 
+/**
+ *
+ * @param root0
+ * @param root0.className
+ */
 const DropdownMenuShortcut = ({
   className,
   ...props

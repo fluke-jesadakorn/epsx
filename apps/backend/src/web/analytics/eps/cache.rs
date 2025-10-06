@@ -156,7 +156,7 @@ pub async fn get_unified_analytics_rankings_cached(
     .into_iter()
     .enumerate()
     .map(|(index, unified_ranking)| {
-      let mut card_data = transform_unified_to_card_format(unified_ranking);
+      let mut card_data = transform_unified_to_card_format(&unified_ranking);
       
       // Add quarterly EPS data from the original screening result if available
       if let Some((_, screening_result)) = rankings_with_quarterly.get(index) {

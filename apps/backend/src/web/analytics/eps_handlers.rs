@@ -47,7 +47,7 @@ mod tests {
     #[test]
     fn test_focused_modules_integration() {
         // Test that focused modules work together correctly
-        use crate::domain::shared_kernel::entities::eps_growth::{EPSRanking, EPSGrowthData};
+        use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
 
         // Create proper EPSRanking using the correct constructor
         let mut ranking = EPSRanking::default();
@@ -68,7 +68,7 @@ mod tests {
         assert_eq!(unified.symbol, "AAPL");
         assert_eq!(unified.ranking_position, 1);
 
-        let card = crate::web::analytics::eps::transform::transform_unified_to_card_format(unified);
+        let card = crate::web::analytics::eps::transform::transform_unified_to_card_format(&unified);
         assert_eq!(card.symbol, "AAPL");
         assert_eq!(card.rank, 1);
         assert_eq!(card.value, 150.0);

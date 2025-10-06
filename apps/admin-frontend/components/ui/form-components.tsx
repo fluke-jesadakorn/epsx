@@ -7,6 +7,7 @@
 'use client';
 
 import * as React from 'react';
+
 import {
   PancakeFormAlias as Form,
   PancakeInputAlias as Input,

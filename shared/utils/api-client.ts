@@ -104,12 +104,13 @@ export class UnifiedApiClient {
           try {
             const { cookies } = await import('next/headers');
             const cookieStore = await cookies();
-          
-            // Admin uses admin_jwt, frontend uses access_token
-            const tokenCookie = this.platform === 'admin' 
-              ? cookieStore.get('admin_jwt') || cookieStore.get('access_token')
-              : cookieStore.get('access_token');
-            
+
+            // Web3-First Migration: Use web3_session for both admin and frontend
+            // Fallback to legacy OIDC cookies for backward compatibility
+            const tokenCookie = this.platform === 'admin'
+              ? cookieStore.get('web3_session') || cookieStore.get('admin_jwt') || cookieStore.get('access_token')
+              : cookieStore.get('web3_session') || cookieStore.get('access_token');
+
             if (tokenCookie?.value) {
               headers['Authorization'] = `Bearer ${tokenCookie.value}`;
             }

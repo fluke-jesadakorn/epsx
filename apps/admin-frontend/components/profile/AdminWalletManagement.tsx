@@ -1,7 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAccount, useDisconnect, useBalance } from 'wagmi';
 import { 
   Wallet, 
   Power, 
@@ -13,13 +11,16 @@ import {
   Activity,
   Shield
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
-import { AdminWalletAuth } from '@/components/auth/AdminWalletAuth';
+import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import { useAccount, useDisconnect, useBalance } from 'wagmi';
+
+import { AdminWalletAuth } from '@/components/auth/AdminWalletAuth';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 
 interface WalletSession {
   wallet_address: string;
@@ -33,6 +34,11 @@ interface AdminWalletManagementProps {
   initialSession?: WalletSession;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.initialSession
+ */
 export function AdminWalletManagement({ initialSession }: AdminWalletManagementProps) {
   const { address, isConnected, connector } = useAccount();
   const { disconnect } = useDisconnect();
@@ -75,8 +81,9 @@ export function AdminWalletManagement({ initialSession }: AdminWalletManagementP
           });
         }
       }
-    } catch (error) {
-      console.error('Failed to fetch session info:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to fetch session info:', _error);
     } finally {
       setIsLoading(false);
     }
@@ -94,7 +101,7 @@ export function AdminWalletManagement({ initialSession }: AdminWalletManagementP
   };
 
   const updateSessionHealth = () => {
-    if (!session) return;
+    if (!session) {return;}
 
     const now = Date.now();
     const sessionDuration = now - session.connected_at;
@@ -107,7 +114,7 @@ export function AdminWalletManagement({ initialSession }: AdminWalletManagementP
   };
 
   const handleExtendSession = async () => {
-    if (!address || !session) return;
+    if (!address || !session) {return;}
 
     try {
       setIsLoading(true);
@@ -133,7 +140,7 @@ export function AdminWalletManagement({ initialSession }: AdminWalletManagementP
       } else {
         toast.error('Failed to extend session');
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to extend session');
     } finally {
       setIsLoading(false);
@@ -155,7 +162,7 @@ export function AdminWalletManagement({ initialSession }: AdminWalletManagementP
       setSession(null);
       
       toast.success('Wallet disconnected successfully');
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to disconnect wallet');
     } finally {
       setIsLoading(false);
@@ -174,7 +181,7 @@ export function AdminWalletManagement({ initialSession }: AdminWalletManagementP
   };
 
   const getSessionStatus = () => {
-    if (!session) return { status: 'disconnected', color: 'text-gray-500' };
+    if (!session) {return { status: 'disconnected', color: 'text-gray-500' };}
     
     const remainingTime = session.expires_at - Date.now();
     
@@ -188,8 +195,8 @@ export function AdminWalletManagement({ initialSession }: AdminWalletManagementP
   };
 
   const getHealthColor = () => {
-    if (sessionHealth >= 70) return 'bg-green-500';
-    if (sessionHealth >= 30) return 'bg-orange-500';
+    if (sessionHealth >= 70) {return 'bg-green-500';}
+    if (sessionHealth >= 30) {return 'bg-orange-500';}
     return 'bg-red-500';
   };
 

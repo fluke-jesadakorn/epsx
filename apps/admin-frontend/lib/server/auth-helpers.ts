@@ -20,8 +20,14 @@ export interface AdminSession {
   idToken?: string
 }
 
+/**
+ *
+ */
 export class ServerAuth {
   // Extract OIDC tokens from cookies
+  /**
+   *
+   */
   static async getTokens(): Promise<{
     accessToken?: string
     idToken?: string
@@ -37,6 +43,9 @@ export class ServerAuth {
   }
 
   // Get admin session from OIDC tokens
+  /**
+   *
+   */
   static async getAdminSession(): Promise<AdminSession> {
     try {
       const { accessToken, idToken } = await this.getTokens()
@@ -68,13 +77,17 @@ export class ServerAuth {
         accessToken,
         idToken
       }
-    } catch (error) {
-      console.error('Error getting admin session:', error)
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Error getting admin session:', _error)
       return { isLoggedIn: false }
     }
   }
 
   // Check if user has admin permissions
+  /**
+   *
+   */
   static async requireAdminAuth(): Promise<AdminSession> {
     const session = await this.getAdminSession()
     
@@ -95,6 +108,10 @@ export class ServerAuth {
   }
 
   // Check specific permissions
+  /**
+   *
+   * @param permission
+   */
   static async hasPermission(permission: string): Promise<boolean> {
     const session = await this.getAdminSession()
     
@@ -113,14 +130,18 @@ export class ServerAuth {
     const [platform, resource, action] = permission.split(':')
     
     return userPermissions.some(p => {
-      if (p === 'admin:*:*') return true // Super admin
-      if (p === `${platform}:*:*`) return true // Platform admin
-      if (p === `${platform}:${resource}:*`) return true // Resource admin
+      if (p === 'admin:*:*') {return true} // Super admin
+      if (p === `${platform}:*:*`) {return true} // Platform admin
+      if (p === `${platform}:${resource}:*`) {return true} // Resource admin
       return false
     })
   }
 
   // Require specific permission
+  /**
+   *
+   * @param permission
+   */
   static async requirePermission(permission: string): Promise<void> {
     const hasAccess = await this.hasPermission(permission)
     
@@ -143,24 +164,32 @@ export class ServerAuth {
       const decoded = Buffer.from(paddedPayload, 'base64').toString('utf8')
       
       return JSON.parse(decoded)
-    } catch (error) {
-      console.error('Error decoding JWT:', error)
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Error decoding JWT:', _error)
       return null
     }
   }
 
   // Check if token is expired
+  /**
+   *
+   * @param token
+   */
   static isTokenExpired(token?: string): boolean {
-    if (!token) return true
+    if (!token) {return true}
     
     const payload = this.decodeJWT(token)
-    if (!payload || !payload.exp) return true
+    if (!payload?.exp) {return true}
     
     const now = Math.floor(Date.now() / 1000)
     return payload.exp < now
   }
 
   // Get user info from ID token
+  /**
+   *
+   */
   static async getUserFromToken(): Promise<AdminSession['user'] | null> {
     const { idToken } = await this.getTokens()
     
@@ -169,7 +198,7 @@ export class ServerAuth {
     }
 
     const payload = this.decodeJWT(idToken)
-    if (!payload) return null
+    if (!payload) {return null}
 
     return {
       id: payload.sub || payload.user_id || '',
@@ -182,6 +211,9 @@ export class ServerAuth {
   }
 
   // Create authorization header for server requests
+  /**
+   *
+   */
   static async getAuthHeaders(): Promise<Record<string, string>> {
     const { accessToken } = await this.getTokens()
     
@@ -198,35 +230,59 @@ export class ServerAuth {
 }
 
 // Permission checking utilities
+/**
+ *
+ */
 export class PermissionUtils {
   // Check if permission is admin-level
+  /**
+   *
+   * @param permission
+   */
   static isAdminPermission(permission: string): boolean {
     return permission.startsWith('admin:') || permission === 'admin:*:*'
   }
 
   // Extract platform from permission
+  /**
+   *
+   * @param permission
+   */
   static getPlatform(permission: string): string {
     return permission.split(':')[0] || 'unknown'
   }
 
   // Extract resource from permission
+  /**
+   *
+   * @param permission
+   */
   static getResource(permission: string): string {
     return permission.split(':')[1] || 'unknown'
   }
 
   // Extract action from permission
+  /**
+   *
+   * @param permission
+   */
   static getAction(permission: string): string {
     return permission.split(':')[2] || 'unknown'
   }
 
   // Check if permission matches pattern
+  /**
+   *
+   * @param permission
+   * @param pattern
+   */
   static matchesPattern(permission: string, pattern: string): boolean {
-    if (pattern === '*' || pattern === permission) return true
+    if (pattern === '*' || pattern === permission) {return true}
     
     const permParts = permission.split(':')
     const patternParts = pattern.split(':')
     
-    if (patternParts.length !== permParts.length) return false
+    if (patternParts.length !== permParts.length) {return false}
     
     return patternParts.every((part, index) => 
       part === '*' || part === permParts[index]
@@ -234,11 +290,20 @@ export class PermissionUtils {
   }
 
   // Filter permissions by platform
+  /**
+   *
+   * @param permissions
+   * @param platform
+   */
   static filterByPlatform(permissions: string[], platform: string): string[] {
     return permissions.filter(p => p.startsWith(`${platform}:`))
   }
 
   // Get unique platforms from permissions
+  /**
+   *
+   * @param permissions
+   */
   static getUniquePlatforms(permissions: string[]): string[] {
     const platforms = permissions.map(p => this.getPlatform(p))
     return [...new Set(platforms)]

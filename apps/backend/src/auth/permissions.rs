@@ -1,6 +1,7 @@
-use chrono::{DateTime, Utc};// ============================================================================
+use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use crate::core::constants::*;
+// ============================================================================
 // UNIFIED PERMISSION SYSTEM - REPLACES ALL ROLE-BASED ACCESS CONTROL
 // ============================================================================
 // This module implements a single permission-based access control system
@@ -10,6 +11,9 @@ use crate::core::constants::*;
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::sync::Arc;
+use dashmap::DashMap;
+use once_cell::sync::Lazy;
 use crate::domain::shared_kernel::value_objects::{ResolvedUserLimits, UserDynamicLimit};
 
 
@@ -86,16 +90,19 @@ pub struct UserClaims {
 /// Returns: (base_permission, optional_timestamp)
 pub fn parse_permission_with_timestamp(permission: &str) -> (String, Option<i64>) {
     let parts: Vec<&str> = permission.split(':').collect();
-    
+
     if parts.len() >= 4 {
         // Check if last part is unix timestamp
-        if let Ok(timestamp) = parts.last().unwrap().parse::<i64>() {
-            // Valid timestamp - return base permission + timestamp
-            let base_permission = parts[..parts.len()-1].join(":");
-            return (base_permission, Some(timestamp));
+        // Safe: we know parts has at least 4 elements
+        if let Some(last_part) = parts.last() {
+            if let Ok(timestamp) = last_part.parse::<i64>() {
+                // Valid timestamp - return base permission + timestamp
+                let base_permission = parts[..parts.len()-1].join(":");
+                return (base_permission, Some(timestamp));
+            }
         }
     }
-    
+
     // No timestamp or invalid - return as-is
     (permission.to_string(), None)
 }
@@ -129,27 +136,36 @@ pub fn is_permission_valid_with_time_check(permission: &str) -> bool {
 // PERMISSION ACCESS LOGIC - WITH EMBEDDED TIMESTAMP SUPPORT
 // ============================================================================
 
-/// Optimized permission checking with caching and early termination
+// Global permission cache using DashMap for thread-safe concurrent access
+// Stores Arc<Permission> to avoid deep cloning on every access
+// This replaces the previous thread_local! cache which had poor cache hit rates
+static PERMISSION_CACHE: Lazy<DashMap<String, Arc<Permission>>> = Lazy::new(|| {
+    DashMap::with_capacity(256)
+});
+
+/// Optimized permission checking with global caching and early termination
+/// Uses Arc to avoid cloning permission strings on every check
 pub fn check_permission_access(user_permissions: &[String], required_permission: &str) -> bool {
-    // Cache parsed required permission to avoid repeated parsing
-    thread_local! {
-        static PERMISSION_CACHE: std::cell::RefCell<std::collections::HashMap<String, Option<Permission>>> = 
-            std::cell::RefCell::new(std::collections::HashMap::new());
-    }
-    
-    // Parse required permission with caching
+    // Parse required permission with global caching
     let (required_base, _) = parse_permission_with_timestamp(required_permission);
-    let required = PERMISSION_CACHE.with(|cache| {
-        let mut cache = cache.borrow_mut();
-        cache.entry(required_base.clone()).or_insert_with(|| {
-            Permission::from_string(&required_base).ok()
-        }).clone()
-    });
-    
-    let required = match required {
-        Some(perm) => perm,
-        None => return false,
-    };
+
+    // Get or insert into global cache (thread-safe)
+    // Arc::clone is cheap (just reference counting)
+    let required_arc = PERMISSION_CACHE
+        .entry(required_base.clone())
+        .or_insert_with(|| {
+            // Only parse and allocate if not in cache
+            match Permission::from_string(&required_base) {
+                Ok(perm) => Arc::new(perm),
+                Err(_) => return Arc::new(Permission::new("invalid", "invalid", "invalid")),
+            }
+        })
+        .clone();
+
+    // Quick validation check - if permission is invalid, bail early
+    if required_arc.platform == "invalid" {
+        return false;
+    }
     
     // Fast path: Check for exact matches first (most common case)
     if user_permissions.contains(&required_permission.to_string()) {
@@ -176,22 +192,25 @@ pub fn check_permission_access(user_permissions: &[String], required_permission:
     // Check permissions with optimized parsing
     for perm_str in valid_permissions {
         let (base_permission, _) = parse_permission_with_timestamp(perm_str);
-        
-        // Use cached parsing for base permissions
-        let user_perm = PERMISSION_CACHE.with(|cache| {
-            let mut cache = cache.borrow_mut();
-            cache.entry(base_permission.clone()).or_insert_with(|| {
-                Permission::from_string(&base_permission).ok()
-            }).clone()
-        });
-        
-        if let Some(user_perm) = user_perm {
-            if user_perm.matches(&required) {
-                return true;
-            }
+
+        // Use global cache for base permissions (thread-safe)
+        // Arc::clone is cheap (just reference counting)
+        let user_perm_arc = PERMISSION_CACHE
+            .entry(base_permission.clone())
+            .or_insert_with(|| {
+                match Permission::from_string(&base_permission) {
+                    Ok(perm) => Arc::new(perm),
+                    Err(_) => Arc::new(Permission::new("invalid", "invalid", "invalid")),
+                }
+            })
+            .clone();
+
+        // Skip invalid permissions
+        if user_perm_arc.platform != "invalid" && user_perm_arc.matches(&required_arc) {
+            return true;
         }
     }
-    
+
     false
 }
 
@@ -792,10 +811,10 @@ mod tests {
     #[test]
     fn test_permission_management_helpers() {
         // Test adding timestamp
-        let timed_perm = add_timestamp_to_permission("admin:users:modify", 24);
+        let timed_perm = add_timestamp_to_permission("admin:users:modify", 24).unwrap();
         assert!(timed_perm.starts_with("admin:users:modify:"));
         assert!(timed_perm.len() > "admin:users:modify:".len());
-        
+
         // Test removing timestamp
         let base_perm = remove_timestamp_from_permission(&timed_perm);
         assert_eq!(base_perm, "admin:users:modify");

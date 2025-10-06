@@ -462,7 +462,7 @@ static FEATURE_FLAGS: OnceLock<FeatureFlags> = OnceLock::new();
 
 /// Get global feature flags instance
 pub fn get_feature_flags() -> &'static FeatureFlags {
-    FEATURE_FLAGS.get_or_init(|| FeatureFlags::new())
+    FEATURE_FLAGS.get_or_init(FeatureFlags::new)
 }
 
 /// Update global feature flags (for admin interface)

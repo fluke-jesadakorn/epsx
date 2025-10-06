@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
 import { Menu, X, Home, User, Shield, Settings, BarChart3 } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useState } from 'react'
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: Home },
@@ -13,6 +13,9 @@ const navItems = [
   { href: '/settings', label: 'Settings', icon: Settings },
 ]
 
+/**
+ *
+ */
 export function MobileNav() {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()

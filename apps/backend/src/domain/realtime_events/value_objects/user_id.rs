@@ -42,12 +42,7 @@ impl UserId {
     pub fn as_str(&self) -> &str {
         &self.0
     }
-    
-    /// Get the user ID as string (owned)
-    pub fn to_string(&self) -> String {
-        self.0.clone()
-    }
-    
+
     /// Check if this is a numeric user ID
     pub fn is_numeric(&self) -> bool {
         self.0.parse::<i32>().is_ok()
@@ -80,8 +75,8 @@ impl Display for UserId {
     }
 }
 
-impl From<crate::domain::user_management::value_objects::UserId> for UserId {
-    fn from(wallet_address: crate::domain::user_management::value_objects::UserId) -> Self {
+impl From<crate::domain::wallet_management::value_objects::UserId> for UserId {
+    fn from(wallet_address: crate::domain::wallet_management::value_objects::UserId) -> Self {
         Self(wallet_address.to_string())
     }
 }

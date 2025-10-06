@@ -5,25 +5,24 @@
 
 'use client'
 
-import React, { useState, useCallback, useMemo } from 'react'
 import { 
   GitBranch, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronRight,
   Shield, Users, Key, AlertTriangle, CheckCircle, Info
 } from 'lucide-react'
+import React, { useState, useCallback, useMemo } from 'react'
 
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { useToast } from '@/components/ui/use-toast'
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter 
 } from '@/components/ui/dialog'
-
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import { useToast } from '@/components/ui/use-toast'
 import { adminCardVariants, adminButtonVariants } from '@/design-system'
 import { cn } from '@/lib/shared'
 
@@ -44,6 +43,13 @@ interface HierarchyBuilderProps {
   className?: string;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.initialHierarchy
+ * @param root0.onSave
+ * @param root0.className
+ */
 export function HierarchyBuilder({ 
   initialHierarchy = [], 
   onSave,
@@ -202,9 +208,9 @@ export function HierarchyBuilder({
 
   const findNodeInHierarchy = (nodes: PermissionNode[], nodeId: string): PermissionNode | null => {
     for (const node of nodes) {
-      if (node.id === nodeId) return node
+      if (node.id === nodeId) {return node}
       const found = findNodeInHierarchy(node.children, nodeId)
-      if (found) return found
+      if (found) {return found}
     }
     return null
   }
@@ -219,9 +225,9 @@ export function HierarchyBuilder({
 
   const getNodeDepth = useCallback((nodeId: string, nodes: PermissionNode[] = hierarchy, depth = 0): number => {
     for (const node of nodes) {
-      if (node.id === nodeId) return depth
+      if (node.id === nodeId) {return depth}
       const childDepth = getNodeDepth(nodeId, node.children, depth + 1)
-      if (childDepth !== -1) return childDepth
+      if (childDepth !== -1) {return childDepth}
     }
     return -1
   }, [hierarchy])
@@ -499,7 +505,7 @@ function NodeEditor({ node, availablePermissions, onSave, onCancel }: NodeEditor
   }, [])
 
   const handleSave = useCallback(() => {
-    if (!formData.name.trim()) return
+    if (!formData.name.trim()) {return}
     onSave(formData)
   }, [formData, onSave])
 

@@ -5,24 +5,23 @@
 
 'use client'
 
-import React, { useState, useCallback, useMemo } from 'react'
 import { 
   Shield, Users, Settings, Search, Filter, Plus, Edit, Trash2,
   AlertTriangle, CheckCircle, Clock, Star, Key, GitBranch, Activity
 } from 'lucide-react'
+import React, { useState, useCallback, useMemo } from 'react'
 
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { useToast } from '@/components/ui/use-toast'
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger 
 } from '@/components/ui/dialog'
-
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useToast } from '@/components/ui/use-toast'
 import { adminCardVariants, adminButtonVariants } from '@/design-system'
 import { cn } from '@/lib/shared'
 
@@ -70,6 +69,16 @@ interface PermissionManagementProps {
   className?: string;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.users
+ * @param root0.groups
+ * @param root0.auditLog
+ * @param root0.onUserPermissionChange
+ * @param root0.onGroupChange
+ * @param root0.className
+ */
 export function PermissionManagement({ 
   users = [], 
   groups = [], 
@@ -127,15 +136,15 @@ export function PermissionManagement({
   }, [])
 
   const getRiskBadgeVariant = (riskScore: number) => {
-    if (riskScore >= 80) return 'destructive'
-    if (riskScore >= 60) return 'secondary'
+    if (riskScore >= 80) {return 'destructive'}
+    if (riskScore >= 60) {return 'secondary'}
     return 'outline'
   }
 
   const getRiskLabel = (riskScore: number) => {
-    if (riskScore >= 80) return 'High Risk'
-    if (riskScore >= 60) return 'Medium Risk'
-    if (riskScore >= 40) return 'Low Risk'
+    if (riskScore >= 80) {return 'High Risk'}
+    if (riskScore >= 60) {return 'Medium Risk'}
+    if (riskScore >= 40) {return 'Low Risk'}
     return 'Minimal Risk'
   }
 

@@ -39,11 +39,8 @@ class ServerPermissionCache {
     // Check cache first
     const cached = this.cache.get(key);
     if (cached && cached.expires_at > now) {
-      console.log('🚀 Server Cache: Using cached permissions for', walletAddress.slice(0, 6));
       return cached;
     }
-
-    console.log('🔄 Server Cache: Fetching fresh permissions for', walletAddress.slice(0, 6));
 
     // Fetch from database
     const pool = this.getDbPool();
@@ -64,6 +61,7 @@ class ServerPermissionCache {
         client.release();
       }
     } catch (dbError) {
+      // eslint-disable-next-line no-console
       console.error('❌ Server Cache: Database query failed:', dbError);
       walletPermissions = [];
     }
@@ -78,7 +76,7 @@ class ServerPermissionCache {
       
       // Extract permission names from JSONB objects
       const permissionNames = permissions
-        .filter((p: any) => p && p.name && p.is_active !== false)
+        .filter((p: any) => p?.name && p.is_active !== false)
         .map((p: any) => p.name);
       
       // Extract group permissions 
@@ -127,8 +125,6 @@ class ServerPermissionCache {
     if (this.cache.size > 10) {
       this.cleanup();
     }
-
-    console.log('✅ Server Cache: Cached permissions for', walletAddress.slice(0, 6), 'Level:', adminLevel, 'Permissions:', allPermissions.length);
     
     return entry;
   }
@@ -137,14 +133,12 @@ class ServerPermissionCache {
     if (walletAddress) {
       const key = walletAddress.toLowerCase();
       this.cache.delete(key);
-      console.log('🧹 Server Cache: Cleared cache for', walletAddress.slice(0, 6));
     } else {
       this.cache.clear();
-      console.log('🧹 Server Cache: Cleared all cache');
     }
   }
 
-  private cleanup(): void {
+  public cleanup(): void {
     const now = Date.now();
     for (const [key, entry] of this.cache.entries()) {
       if (entry.expires_at <= now) {

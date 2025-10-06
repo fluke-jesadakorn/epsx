@@ -78,7 +78,7 @@ const iconMap = {
   contact: <Settings className="h-5 w-5 text-orange-500" />,
 };
 
-export function NavigationClient({}: NavigationClientProps = {}) {
+export function NavigationClient(_props: NavigationClientProps = {}) {
   // Pure Web3 authentication data will be accessed via context hooks
   return (
     <NavbarProvider>
@@ -178,14 +178,12 @@ function NavigationContent() {
 
           {/* Right Actions Skeleton */}
           <div className="hidden items-center gap-2 lg:flex">
-            {/* Notifications Skeleton */}
-            {false && (
-              <div className="flex items-center gap-2 rounded-2xl px-3 py-2">
+            {/* Notifications Skeleton - Commented out */}
+            {/* <div className="flex items-center gap-2 rounded-2xl px-3 py-2">
                 <div className="h-5 w-5 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
                 <div className="h-4 w-20 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
                 <div className="h-3 w-3 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
-              </div>
-            )}
+              </div> */}
             
             {/* About Us Skeleton */}
             <div className="flex items-center gap-2 rounded-2xl px-3 py-2">

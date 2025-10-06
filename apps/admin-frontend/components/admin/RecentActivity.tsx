@@ -4,6 +4,7 @@
  */
 
 import { Clock, User, Settings, AlertTriangle, CheckCircle } from 'lucide-react'
+
 import { adminCardVariants, adminBadgeVariants } from '@/design-system'
 import { cn } from '@/lib/utils'
 
@@ -16,6 +17,9 @@ interface ActivityItem {
   status: 'success' | 'warning' | 'error'
 }
 
+/**
+ *
+ */
 export function RecentActivity() {
   // Mock data - in real implementation, this would come from props or server data
   const activities: ActivityItem[] = [
@@ -62,8 +66,8 @@ export function RecentActivity() {
   ]
 
   const getIcon = (type: string, status: string) => {
-    if (status === 'error') return AlertTriangle
-    if (status === 'warning') return AlertTriangle
+    if (status === 'error') {return AlertTriangle}
+    if (status === 'warning') {return AlertTriangle}
     
     switch (type) {
       case 'user': return User

@@ -1,92 +1,71 @@
 /**
- * CANONICAL PERMISSION DOMAIN TYPES
- * Single source of truth for all permission-related interfaces across EPSX
- * Consolidates shared permission system with domain-specific business logic
+ * Permission Domain Types
+ * Business domain permission types (NOT validation logic)
+ * For backend permission error types, use shared/types/backend/permission-types.ts
  */
-
-// Re-export core permission types from shared system
-export type {
-  Permission,
-  ParsedPermission,
-  PermissionSource,
-  Platform,
-  GranularPermissionClaim,
-  GranularPermissionSet,
-  TimestampedPermission,
-  PermissionExpiryDetails,
-  PermissionExpiryInfo,
-  PermissionHealthInfo,
-  UserPermissionSummary,
-  PermissionCacheEntry,
-  HashValidationResult,
-  TokenValidationResult,
-  LegacyPermissionMapping,
-  MigrationStatus
-} from '../../permissions/types/core'
-
-export type {
-  EnhancedUserClaims,
-  PermissionClaims,
-  AdminPermissionClaims,
-  CrossPlatformClaims,
-  EmbeddedPermissionClaims
-} from '../../permissions/types/claims'
-
-export {
-  PermissionAPIRequest,
-  PermissionAPIResponse,
-  PermissionValidationRequest,
-  PermissionValidationResponse,
-  PermissionUpdateRequest,
-  PermissionUpdateResponse,
-  PermissionListRequest,
-  PermissionListResponse,
-  PermissionSyncRequest,
-  PermissionSyncResponse,
-  PermissionRevokeRequest,
-  PermissionRevokeResponse,
-  BulkPermissionRequest,
-  BulkPermissionResponse,
-  PermissionImportRequest,
-  PermissionImportResponse,
-  PermissionExportRequest,
-  PermissionExportResponse
-} from '../../permissions/types/api'
-
-export {
-  PermissionError,
-  ValidationError,
-  ExpiryError,
-  CacheError,
-  SyncError,
-  ImportError,
-  ExportError,
-  PermissionErrorContext
-} from '../../permissions/types/errors'
-
-export {
-  PermissionAuditLog,
-  PermissionChangeEvent,
-  PermissionRevocationEvent,
-  PermissionExpiryEvent,
-  PermissionBulkEvent,
-  PermissionImportEvent,
-  PermissionSystemEvent
-} from '../../permissions/types/audit'
 
 // ============================================================================
-// BUSINESS DOMAIN PERMISSION TYPES
+// BASIC PERMISSION TYPES
 // ============================================================================
 
-/**
- * Standard EPSX permission format: "platform:resource:action"
- * Examples: "epsx:rankings:view", "admin:users:manage", "epsx-pay:transactions:create"
- */
-export type EPSXPermission = string
+export type Permission = string // Format: "platform:resource:action"
+export type EPSXPermission = string // Alias for clarity
 
-/**
- * Permission templates for quick assignment
- */
+export interface ParsedPermission {
+  platform: string
+  resource: string
+  action: string
+  full: string
+}
+
+export type PermissionSource = 'direct' | 'role' | 'template' | 'system' | 'group'
+export type Platform = 'epsx' | 'admin' | 'epsx-pay' | 'epsx-token'
+export type PermissionScope = 'read' | 'write' | 'admin' | 'owner'
+
+// ============================================================================
+// TIMESTAMPED PERMISSIONS
+// ============================================================================
+
+export interface TimestampedPermission {
+  permission: string
+  expires_at: number
+  granted_at: number
+  granted_by?: string
+}
+
+export interface PermissionExpiryDetails {
+  permission: string
+  expires_at: number
+  is_expired: boolean
+  time_until_expiry_seconds: number
+}
+
+export interface PermissionExpiryInfo {
+  total_permissions: number
+  expired_count: number
+  expiring_soon_count: number
+  expired_permissions: string[]
+  expiring_permissions: PermissionExpiryDetails[]
+}
+
+// ============================================================================
+// PERMISSION CATEGORIES
+// ============================================================================
+
+export type PermissionCategory =
+  | 'analytics'
+  | 'trading'
+  | 'admin'
+  | 'billing'
+  | 'api'
+  | 'web3'
+  | 'notifications'
+  | 'developer'
+
+// ============================================================================
+// PERMISSION TEMPLATES
+// ============================================================================
+
 export interface PermissionTemplate {
   id: string
   name: string
@@ -98,68 +77,47 @@ export interface PermissionTemplate {
   updatedAt: Date
 }
 
-/**
- * Permission categories for organization
- */
-export type PermissionCategory = 
-  | 'analytics'
-  | 'trading'
-  | 'admin'
-  | 'billing'
-  | 'api'
-  | 'web3'
-  | 'notifications'
-  | 'developer'
+// ============================================================================
+// PERMISSION VALIDATION
+// ============================================================================
 
-/**
- * Permission scope levels
- */
-export type PermissionScope = 'read' | 'write' | 'admin' | 'owner'
-
-/**
- * Context-aware permission check
- */
 export interface PermissionCheck {
   permission: EPSXPermission
   platform?: string
   scope?: PermissionScope
   context?: Record<string, any>
   requiresSubscription?: boolean
-  minimumTier?: import('./User').PackageTier
 }
 
-/**
- * Permission validation result with business context
- */
 export interface PermissionValidation {
   hasPermission: boolean
   permission: EPSXPermission
   reason: 'granted' | 'denied' | 'expired' | 'insufficient_tier' | 'not_found'
   expiresAt?: number
-  requiredTier?: import('./User').PackageTier
-  upgradeUrl?: string
   grantedBy?: string
   grantedAt?: number
 }
 
-/**
- * Role-based permission set
- */
+// ============================================================================
+// PERMISSION ROLES
+// ============================================================================
+
 export interface PermissionRole {
   id: string
   name: string
   description: string
   permissions: EPSXPermission[]
-  inherits?: string[] // Other role IDs this role inherits from
+  inherits?: string[]
   isSystemRole: boolean
   platforms: string[]
   createdAt: Date
   updatedAt: Date
 }
 
-/**
- * User's effective permissions after role resolution
- */
+// ============================================================================
+// EFFECTIVE PERMISSIONS
+// ============================================================================
+
 export interface EffectivePermissions {
   userId: string
   permissions: EPSXPermission[]
@@ -172,15 +130,16 @@ export interface EffectivePermissions {
   expiresAt?: number
 }
 
-/**
- * Permission assignment with metadata
- */
+// ============================================================================
+// PERMISSION ASSIGNMENT
+// ============================================================================
+
 export interface PermissionAssignment {
   id: string
   userId: string
   permission: EPSXPermission
-  source: 'direct' | 'role' | 'template' | 'system'
-  sourceId?: string // Role ID, template ID, etc.
+  source: PermissionSource
+  sourceId?: string
   grantedBy: string
   grantedAt: number
   expiresAt?: number
@@ -188,9 +147,10 @@ export interface PermissionAssignment {
   metadata?: Record<string, any>
 }
 
-/**
- * Bulk permission operation
- */
+// ============================================================================
+// BULK OPERATIONS
+// ============================================================================
+
 export interface BulkPermissionOperation {
   operation: 'grant' | 'revoke' | 'update'
   userIds: string[]
@@ -203,9 +163,10 @@ export interface BulkPermissionOperation {
   performedAt: number
 }
 
-/**
- * Permission analytics and insights
- */
+// ============================================================================
+// ANALYTICS
+// ============================================================================
+
 export interface PermissionAnalytics {
   totalUsers: number
   totalPermissions: number
@@ -220,67 +181,9 @@ export interface PermissionAnalytics {
 }
 
 // ============================================================================
-// FEATURE-SPECIFIC PERMISSION TYPES
+// INHERITANCE & CONTEXT
 // ============================================================================
 
-/**
- * Analytics-specific permissions
- */
-export interface AnalyticsPermissions {
-  canViewRankings: boolean
-  canExportData: boolean
-  canViewHistoricalData: boolean
-  canAccessRealtime: boolean
-  maxStocksTracked: number
-  canCreateCustomDashboards: boolean
-}
-
-/**
- * Trading-specific permissions
- */
-export interface TradingPermissions {
-  paperTrading: boolean
-  liveTrading: boolean
-  advancedOrders: boolean
-  marginTrading: boolean
-  optionsTrading: boolean
-  cryptoTrading: boolean
-}
-
-/**
- * Admin-specific permissions
- */
-export interface AdminPermissions {
-  canManageUsers: boolean
-  canManageRoles: boolean
-  canManagePermissions: boolean
-  canViewAuditLogs: boolean
-  canManageBilling: boolean
-  canManageSystem: boolean
-  canAccessDeveloperTools: boolean
-}
-
-/**
- * API-specific permissions
- */
-export interface APIPermissions {
-  canCreateApiKeys: boolean
-  canManageApiKeys: boolean
-  canAccessWebhooks: boolean
-  rateLimit: {
-    requestsPerMinute: number
-    requestsPerHour: number
-    requestsPerDay: number
-  }
-}
-
-// ============================================================================
-// PERMISSION CONTEXT & INHERITANCE
-// ============================================================================
-
-/**
- * Permission inheritance chain
- */
 export interface PermissionInheritance {
   userId: string
   permission: EPSXPermission
@@ -295,9 +198,6 @@ export interface PermissionInheritance {
   finalValue: boolean
 }
 
-/**
- * Platform-specific permission context
- */
 export interface PlatformPermissionContext {
   platform: string
   permissions: EPSXPermission[]
@@ -307,27 +207,10 @@ export interface PlatformPermissionContext {
   restrictions?: Record<string, any>
 }
 
-/**
- * Time-based permission constraints
- */
-export interface PermissionConstraint {
-  id: string
-  permission: EPSXPermission
-  constraint: {
-    type: 'time_window' | 'usage_limit' | 'geographic' | 'conditional'
-    config: Record<string, any>
-  }
-  isActive: boolean
-  createdAt: number
-}
-
 // ============================================================================
-// PERMISSION MANAGEMENT TYPES
+// PERMISSION MANAGEMENT
 // ============================================================================
 
-/**
- * Permission request/approval workflow
- */
 export interface PermissionRequest {
   id: string
   requestedBy: string
@@ -342,9 +225,6 @@ export interface PermissionRequest {
   createdAt: number
 }
 
-/**
- * Permission policy definition
- */
 export interface PermissionPolicy {
   id: string
   name: string
@@ -366,12 +246,9 @@ export interface PermissionPolicy {
 }
 
 // ============================================================================
-// HELPER FUNCTIONS & TYPE GUARDS
+// HELPER FUNCTIONS
 // ============================================================================
 
-/**
- * Parse permission string into components
- */
 export function parsePermission(permission: EPSXPermission): ParsedPermission {
   const [platform, resource, action] = permission.split(':')
   return {
@@ -382,31 +259,22 @@ export function parsePermission(permission: EPSXPermission): ParsedPermission {
   }
 }
 
-/**
- * Check if permission is wildcard
- */
 export function isWildcardPermission(permission: EPSXPermission): boolean {
   return permission.includes('*')
 }
 
-/**
- * Check if permission matches pattern
- */
 export function matchesPermissionPattern(permission: EPSXPermission, pattern: EPSXPermission): boolean {
   if (pattern === permission) return true
   if (!pattern.includes('*')) return false
-  
+
   const permParts = permission.split(':')
   const patternParts = pattern.split(':')
-  
-  return patternParts.every((part, index) => 
+
+  return patternParts.every((part, index) =>
     part === '*' || part === permParts[index]
   )
 }
 
-/**
- * Get all permissions for a user including inheritance
- */
 export function resolveUserPermissions(
   directPermissions: EPSXPermission[],
   roles: PermissionRole[],
@@ -415,11 +283,9 @@ export function resolveUserPermissions(
   const allPermissions = new Set<EPSXPermission>()
   const inheritedPermissions: EPSXPermission[] = []
   const roleIds: string[] = []
-  
-  // Add direct permissions
+
   directPermissions.forEach(p => allPermissions.add(p))
-  
-  // Add role permissions with inheritance
+
   roles.forEach(role => {
     roleIds.push(role.id)
     role.permissions.forEach(p => {
@@ -427,17 +293,16 @@ export function resolveUserPermissions(
       inheritedPermissions.push(p)
     })
   })
-  
-  // Add template permissions
+
   templates.forEach(template => {
     template.permissions.forEach(p => {
       allPermissions.add(p)
       inheritedPermissions.push(p)
     })
   })
-  
+
   return {
-    userId: '', // Will be set by caller
+    userId: '',
     permissions: Array.from(allPermissions),
     roles: roleIds,
     directPermissions,
@@ -448,9 +313,6 @@ export function resolveUserPermissions(
   }
 }
 
-/**
- * Check if user has permission considering all sources
- */
 export function hasEffectivePermission(
   effective: EffectivePermissions,
   requiredPermission: EPSXPermission
@@ -460,16 +322,3 @@ export function hasEffectivePermission(
     matchesPermissionPattern(requiredPermission, permission)
   )
 }
-
-// ============================================================================
-// LEGACY COMPATIBILITY ALIASES
-// ============================================================================
-
-/** @deprecated Use PermissionTemplate instead */
-export type PermissionProfile = PermissionTemplate
-
-/** @deprecated Use PermissionValidation instead */
-export type PermissionResult = PermissionValidation
-
-/** @deprecated Use EPSXPermission instead */
-export type PermissionString = EPSXPermission

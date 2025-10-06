@@ -1,8 +1,10 @@
 'use client'
 
 import { usePathname, useRouter } from 'next/navigation'
-import { PancakeAdminLayout } from './PancakeAdminLayout'
 import { ReactNode, useEffect, useState } from 'react'
+
+import { PancakeAdminLayout } from './PancakeAdminLayout'
+
 import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider'
 
 interface ConditionalAdminLayoutProps {
@@ -31,6 +33,12 @@ const PUBLIC_PATHS = [
   '/request-access'
 ]
 
+/**
+ *
+ * @param root0
+ * @param root0.children
+ * @param root0.user
+ */
 export function ConditionalAdminLayout({ children, user: serverUser }: ConditionalAdminLayoutProps) {
   const pathname = usePathname()
   const router = useRouter()
@@ -46,6 +54,7 @@ export function ConditionalAdminLayout({ children, user: serverUser }: Condition
     // Set a timeout to prevent infinite loading state
     const timeoutId = setTimeout(() => {
       if (isLoading && !isAuthenticated && !authChecked) {
+        // eslint-disable-next-line no-console
         console.warn('🔄 ConditionalAdminLayout: Auth timeout - forcing redirect to auth page');
         setAuthTimeout(true);
         setAuthChecked(true);
@@ -57,7 +66,7 @@ export function ConditionalAdminLayout({ children, user: serverUser }: Condition
   
   // Handle authentication redirects
   useEffect(() => {
-    if (!mounted || (isLoading && !authTimeout) || redirecting) return
+    if (!mounted || (isLoading && !authTimeout) || redirecting) {return}
     
     const isPublicPath = PUBLIC_PATHS.some(path => pathname === path || pathname.startsWith(path))
     
@@ -72,7 +81,6 @@ export function ConditionalAdminLayout({ children, user: serverUser }: Condition
     const checkAuth = async () => {
       // Handle timeout case or clear non-authenticated state
       if ((!isAuthenticated && mounted && (!isLoading || authTimeout) && authChecked === false)) {
-        console.log('🔄 ConditionalAdminLayout: Redirecting to auth - no session' + (authTimeout ? ' (timeout)' : ''));
         setRedirecting(true);
         const authUrl = new URL('/auth', window.location.origin)
         authUrl.searchParams.set('return_url', pathname)
@@ -82,8 +90,8 @@ export function ConditionalAdminLayout({ children, user: serverUser }: Condition
       }
       
       // If authenticated but no admin permissions, redirect to auth with different reason
-      if (isAuthenticated && !hasPermissionForDisplay('admin:*:*')) {
-        console.log('🔄 ConditionalAdminLayout: Redirecting to auth - no admin permissions');
+      // Defense-in-depth: Explicitly check user and permissions array exist
+      if (isAuthenticated && authUser && Array.isArray(authUser.permissions) && !hasPermissionForDisplay('admin:*:*')) {
         setRedirecting(true);
         const authUrl = new URL('/auth', window.location.origin)
         authUrl.searchParams.set('return_url', pathname)
@@ -96,10 +104,10 @@ export function ConditionalAdminLayout({ children, user: serverUser }: Condition
       setAuthChecked(true)
       setRedirecting(false)
     }
-    
-    // Add a small delay to prevent race conditions with authentication state
-    const timeoutId = setTimeout(checkAuth, 100)
-    return () => clearTimeout(timeoutId)
+
+    // No delay needed - SharedOpenIDWeb3Provider now ensures permissions are loaded
+    // before setting isAuthenticated=true
+    checkAuth()
   }, [mounted, isLoading, isAuthenticated, hasPermissionForDisplay, pathname, router, redirecting, authChecked, authTimeout])
   
   // Wait for client-side hydration and auth check

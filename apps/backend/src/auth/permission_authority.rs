@@ -2,19 +2,16 @@
 // THE SINGLE SOURCE OF TRUTH for all permission validation in EPSX
 // Provides high-performance, cached, reusable permission validation
 
-use async_trait::async_trait;
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use crate::prelude::*;
+
 use sqlx::PgPool;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use crate::auth::unified_web3_permission_service::UnifiedWeb3PermissionService;
-use crate::core::errors::AppError;
 
 // ============================================================================
 // CORE TRAITS FOR REUSABLE PERMISSION VALIDATION
@@ -260,6 +257,12 @@ impl CentralizedPermissionAuthority {
             route_cache: Arc::new(RwLock::new(HashMap::new())),
             cache_stats: Arc::new(RwLock::new(CacheStats::default())),
         }
+    }
+
+    /// Test-only accessor for db_pool
+    #[cfg(test)]
+    pub fn db_pool(&self) -> &PgPool {
+        &self.db_pool
     }
 
     /// Create with default configuration

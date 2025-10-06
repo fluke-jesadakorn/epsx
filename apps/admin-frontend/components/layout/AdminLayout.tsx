@@ -24,15 +24,21 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { DynamicBreadcrumb } from './DynamicBreadcrumb';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
+
+import { DynamicBreadcrumb } from './DynamicBreadcrumb';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.children
+ */
 export function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -335,7 +341,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     const currentIndex = Array.from(menuItems).indexOf(currentElement);
 
     switch (e.key) {
-      case 'ArrowDown':
+      case 'ArrowDown': {
         e.preventDefault();
         const nextItem = menuItems[currentIndex + 1];
         if (nextItem) {
@@ -345,7 +351,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           (menuItems[0] as HTMLElement).focus();
         }
         break;
-      case 'ArrowUp':
+      }
+      case 'ArrowUp': {
         e.preventDefault();
         const prevItem = menuItems[currentIndex - 1];
         if (prevItem) {
@@ -355,6 +362,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           (menuItems[menuItems.length - 1] as HTMLElement).focus();
         }
         break;
+      }
       case 'Home':
         e.preventDefault();
         (menuItems[0] as HTMLElement).focus();
@@ -391,8 +399,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     try {
       // Redirect to server-side logout endpoint
       router.push('/auth/logout');
-    } catch (error) {
-      console.error('Logout failed:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Logout failed:', _error);
       // Fallback to login page
       router.replace('/login');
     }
@@ -400,7 +409,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   const getCurrentPageTitle = () => {
     for (const group of menuGroups) {
-      if (group.type === 'single' && isActive(group.href!)) {
+      if (group.type === 'single' && isActive(group.href)) {
         return group.label;
       }
       if (group.type === 'group') {
@@ -572,12 +581,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             const Icon = group.icon;
 
             if (group.type === 'single') {
-              const isActiveItem = isActive(group.href!);
+              const isActiveItem = isActive(group.href);
 
               return (
                 <Link
                   key={group.id}
-                  href={group.href!}
+                  href={group.href}
                   onClick={() => setSidebarOpen(false)}
                   onKeyDown={e => handleMenuKeyDown(e)}
                   className={`

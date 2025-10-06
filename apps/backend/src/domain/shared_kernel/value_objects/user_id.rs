@@ -8,6 +8,12 @@ use crate::domain::shared_kernel::aggregate_root::Identity;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct UserId(String);
 
+impl Default for UserId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl UserId {
     pub fn new() -> Self {
         Self(Uuid::new_v4().to_string())
@@ -26,16 +32,12 @@ impl UserId {
         Self(id)
     }
 
-    pub fn from_str(id: &str) -> Result<Self, ValueObjectError> {
+    pub fn parse(id: &str) -> Result<Self, ValueObjectError> {
         Self::from_string(id.to_string())
     }
 
     pub fn as_str(&self) -> &str {
         &self.0
-    }
-
-    pub fn to_string(&self) -> String {
-        self.0.clone()
     }
 }
 

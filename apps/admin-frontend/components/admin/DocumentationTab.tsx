@@ -1,10 +1,11 @@
 'use client';
 
-import { memo, useState, useCallback } from 'react';
 import { BookOpen, Code, Download, Globe, Copy } from 'lucide-react';
+import { memo, useState, useCallback } from 'react';
+
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 
 interface Module {
   id: string;

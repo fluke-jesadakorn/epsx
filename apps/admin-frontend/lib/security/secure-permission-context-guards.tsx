@@ -4,6 +4,7 @@
  */
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
+
 import { logPermissionDenied, logInvalidPermission } from '@/lib/analytics/permission-error-analytics';
 
 export interface SecurityContext {
@@ -26,6 +27,12 @@ export interface SecurityThreat {
 
 const SecurityContextState = createContext<SecurityContext | null>(null);
 
+/**
+ *
+ * @param root0
+ * @param root0.children
+ * @param root0.initialContext
+ */
 export function SecurityContextProvider({ 
   children, 
   initialContext 
@@ -57,6 +64,9 @@ export function SecurityContextProvider({
   );
 }
 
+/**
+ *
+ */
 export function useSecurityContext(): SecurityContext {
   const context = useContext(SecurityContextState);
   if (!context) {
@@ -65,6 +75,12 @@ export function useSecurityContext(): SecurityContext {
   return context;
 }
 
+/**
+ *
+ * @param requiredPermission
+ * @param userPermissions
+ * @param userId
+ */
 export function validatePermissionRequest(
   requiredPermission: string,
   userPermissions: string[],
@@ -96,6 +112,10 @@ export function validatePermissionRequest(
   return false;
 }
 
+/**
+ *
+ * @param context
+ */
 export function validateSecurityContext(context: SecurityContext): SecurityContext {
   const threats: SecurityThreat[] = [...context.threats];
   let securityScore = 100;
@@ -172,6 +192,10 @@ export function validateSecurityContext(context: SecurityContext): SecurityConte
   };
 }
 
+/**
+ *
+ * @param permission
+ */
 export function checkPermissionSafety(permission: string): {
   isSafe: boolean;
   risks: string[];
@@ -231,6 +255,10 @@ export function checkPermissionSafety(permission: string): {
   };
 }
 
+/**
+ *
+ * @param input
+ */
 export function sanitizePermissionInput(input: string): string {
   // Remove dangerous characters and normalize
   return input
@@ -239,6 +267,10 @@ export function sanitizePermissionInput(input: string): string {
     .trim();
 }
 
+/**
+ *
+ * @param permission
+ */
 export function validatePermissionFormat(permission: string): {
   isValid: boolean;
   errors: string[];
@@ -289,7 +321,12 @@ export function validatePermissionFormat(permission: string): {
 // Rate limiting for permission checks
 const permissionCheckLimiter = new Map<string, { count: number; resetTime: number }>();
 
-export function rateLimitPermissionCheck(userId: string, limit: number = 100): boolean {
+/**
+ *
+ * @param userId
+ * @param limit
+ */
+export function rateLimitPermissionCheck(userId: string, limit = 100): boolean {
   const now = Date.now();
   const windowSize = 60 * 1000; // 1 minute window
   

@@ -225,6 +225,8 @@ mod tests {
             sector: "Technology".to_string(),
             ranking_score: 85.5,
             currency: "USD".to_string(),
+            next_earnings_date: None,
+            last_earnings_date: None,
         };
 
         assert_eq!(data.symbol, "AAPL");

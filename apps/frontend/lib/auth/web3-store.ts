@@ -361,7 +361,9 @@ export const useWeb3AuthStore = create<EnhancedWeb3AuthStore>()(
             try {
               window.localStorage.setItem('web3_session', '1');
               document.cookie = 'web3_session=1; path=/; SameSite=Lax';
-            } catch {}
+            } catch (_error) {
+              // Intentionally empty - session markers are optional
+            }
           }
 
           // Refresh enterprise data after successful authentication

@@ -160,8 +160,8 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
             message: challenge.message,
             chainId: challenge.chain_id
           };
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : 'Admin challenge generation failed';
+        } catch (_error) {
+          const errorMsg = _error instanceof Error ? _error.message : 'Admin challenge generation failed';
           set({ error: errorMsg });
           throw new Error(errorMsg);
         }
@@ -227,8 +227,8 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
             set({ isAuthenticating: false, error: 'Admin signature verification failed' });
             return false;
           }
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : 'Admin connection verification failed';
+        } catch (_error) {
+          const errorMsg = _error instanceof Error ? _error.message : 'Admin connection verification failed';
           set({ isAuthenticating: false, error: errorMsg });
           return false;
         }
@@ -244,9 +244,9 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
 
         try {
           // Sign request for admin permissions endpoint
-          const signedHeaders = await get().signRequest('/api/v1/users/permissions', 'GET');
+          const signedHeaders = await get().signRequest('/user/permissions', 'GET');
           
-          const response = await fetch(`${getBackendUrl()}/api/v1/users/permissions`, {
+          const response = await fetch(`${getBackendUrl()}/user/permissions`, {
             method: 'GET',
             headers: signedHeaders as any,
           });
@@ -264,8 +264,9 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
               })) || []
             });
           }
-        } catch (error) {
-          console.warn('Failed to refresh admin permissions:', error);
+        } catch (_error) {
+          // eslint-disable-next-line no-console
+          console.warn('Failed to refresh admin permissions:', _error);
         }
       },
 
@@ -284,8 +285,9 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
               body: JSON.stringify({ clear_all_sessions: true }),
             });
           }
-        } catch (error) {
-          console.warn('Admin logout request failed:', error);
+        } catch (_error) {
+          // eslint-disable-next-line no-console
+          console.warn('Admin logout request failed:', _error);
         } finally {
           // Always clear local state
           get().resetState();
@@ -308,7 +310,7 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
           // Check if we need a new nonce
           const now = Date.now();
           let nonce = state.currentNonce;
-          let needNewNonce = !nonce || !state.nonceExpiry || state.nonceExpiry <= now;
+          const needNewNonce = !nonce || !state.nonceExpiry || state.nonceExpiry <= now;
           
           if (needNewNonce) {
             const challenge = await get().generateChallenge(endpoint);
@@ -345,8 +347,8 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
             'X-Timestamp': timestamp.toString(),
             'X-Nonce': nonce
           };
-        } catch (error) {
-          const errorMsg = error instanceof Error ? error.message : 'Admin request signing failed';
+        } catch (_error) {
+          const errorMsg = _error instanceof Error ? _error.message : 'Admin request signing failed';
           set({ error: errorMsg });
           throw new Error(errorMsg);
         }
@@ -381,16 +383,30 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
 );
 
 // API Client for Pure Web3 Admin Requests
+/**
+ *
+ */
 export class PureWeb3AdminApiClient {
   private baseUrl: string;
   private authStore: any;
 
+  /**
+   *
+   */
   constructor() {
     this.baseUrl = getBackendUrl();
     this.authStore = usePureWeb3AuthStore;
   }
 
   // Generic request method with automatic signing
+  /**
+   *
+   * @param endpoint
+   * @param options
+   * @param options.method
+   * @param options.body
+   * @param options.headers
+   */
   async request<T>(
     endpoint: string, 
     options: {
@@ -432,45 +448,86 @@ export class PureWeb3AdminApiClient {
       }
 
       return await response.json();
-    } catch (error) {
-      console.error(`Pure Web3 Admin API request failed [${method} ${endpoint}]:`, error);
-      throw error;
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error(`Pure Web3 Admin API request failed [${method} ${endpoint}]:`, _error);
+      throw _error;
     }
   }
 
   // Convenience methods
+  /**
+   *
+   * @param endpoint
+   * @param headers
+   */
   async get<T>(endpoint: string, headers?: Record<string, string>): Promise<T> {
     return this.request<T>(endpoint, { method: 'GET', headers });
   }
 
+  /**
+   *
+   * @param endpoint
+   * @param body
+   * @param headers
+   */
   async post<T>(endpoint: string, body?: any, headers?: Record<string, string>): Promise<T> {
     return this.request<T>(endpoint, { method: 'POST', body, headers });
   }
 
+  /**
+   *
+   * @param endpoint
+   * @param body
+   * @param headers
+   */
   async put<T>(endpoint: string, body?: any, headers?: Record<string, string>): Promise<T> {
     return this.request<T>(endpoint, { method: 'PUT', body, headers });
   }
 
+  /**
+   *
+   * @param endpoint
+   * @param headers
+   */
   async delete<T>(endpoint: string, headers?: Record<string, string>): Promise<T> {
     return this.request<T>(endpoint, { method: 'DELETE', headers });
   }
 
   // Admin-specific API methods
+  /**
+   *
+   */
   async getAdminStatus() {
     return this.get('/admin/status');
   }
 
+  /**
+   *
+   */
   async getSystemStats() {
     return this.get('/admin/system/stats');
   }
 
+  /**
+   *
+   * @param params
+   * @param params.limit
+   * @param params.offset
+   */
   async listWallets(params: { limit?: number; offset?: number } = {}) {
     const query = new URLSearchParams();
-    if (params.limit) query.set('limit', params.limit.toString());
-    if (params.offset) query.set('offset', params.offset.toString());
+    if (params.limit) {query.set('limit', params.limit.toString());}
+    if (params.offset) {query.set('offset', params.offset.toString());}
     return this.get(`/admin/wallets?${query}`);
   }
 
+  /**
+   *
+   * @param walletAddress
+   * @param permission
+   * @param expiresAt
+   */
   async grantWalletPermission(walletAddress: string, permission: string, expiresAt?: string) {
     return this.post(`/admin/wallets/${walletAddress}/permissions`, {
       permission,
@@ -478,10 +535,19 @@ export class PureWeb3AdminApiClient {
     });
   }
 
+  /**
+   *
+   * @param walletAddress
+   * @param permission
+   */
   async revokeWalletPermission(walletAddress: string, permission: string) {
     return this.delete(`/admin/wallets/${walletAddress}/permissions/${permission}`);
   }
 
+  /**
+   *
+   * @param walletAddress
+   */
   async getWalletDetails(walletAddress: string) {
     return this.get(`/admin/wallets/${walletAddress}`);
   }
@@ -491,6 +557,9 @@ export class PureWeb3AdminApiClient {
 export const pureWeb3AdminApiClient = new PureWeb3AdminApiClient();
 
 // Hook for using Pure Web3 admin auth
+/**
+ *
+ */
 export function usePureWeb3Auth() {
   const store = usePureWeb3AuthStore();
   
@@ -528,12 +597,18 @@ export function usePureWeb3Auth() {
 }
 
 // Selector hooks for performance
+/**
+ *
+ */
 export const usePureWeb3ConnectedState = () => usePureWeb3AuthStore(state => ({
   isConnected: state.isConnected,
   walletAddress: state.walletAddress,
   chainId: state.chainId,
 }));
 
+/**
+ *
+ */
 export const usePureWeb3AuthState = () => usePureWeb3AuthStore(state => ({
   isAuthenticated: state.isConnected && state.permissions.length > 0 && state.permissions.some(p => p.startsWith('admin:')),
   isAuthenticating: state.isAuthenticating,
@@ -541,6 +616,9 @@ export const usePureWeb3AuthState = () => usePureWeb3AuthStore(state => ({
   groups: state.groups,
 }));
 
+/**
+ *
+ */
 export const usePureWeb3LoadingState = () => usePureWeb3AuthStore(state => ({
   isLoading: state.isLoading,
   hasInitialized: state.hasInitialized,

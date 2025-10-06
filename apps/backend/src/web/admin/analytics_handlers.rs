@@ -233,73 +233,9 @@ pub async fn get_platform_overview_handler(
         }
     };
 
-    // Get tier distribution
-    let tier_distribution = match sqlx::query!(
-        "SELECT tier_level, COUNT(*) as count 
-         FROM wallet_users 
-         WHERE is_active = true
-         GROUP BY tier_level"
-    )
-    .fetch_all(db_pool)
-    .await
-    {
-        Ok(tiers) => {
-            let total = user_metrics.active_users.unwrap_or(0) as f64;
-            let mut tier_stats = Vec::new();
-            
-            for tier in tiers {
-                let tier_name = tier.tier_level;
-                let user_count = tier.count.unwrap_or(0) as i32;
-                let percentage = if total > 0.0 { 
-                    (tier.count.unwrap_or(0) as f64 / total) * 100.0 
-                } else { 
-                    0.0 
-                };
-                
-                // Calculate revenue from subscription-based permission groups for this tier
-                let revenue = match sqlx::query_scalar!(
-                    "SELECT COALESCE(SUM(pg.price), 0.0) FROM wallet_group_memberships wgm 
-                     INNER JOIN permission_groups pg ON wgm.group_id = pg.id 
-                     WHERE wgm.is_active = true AND pg.group_type = 'subscription' 
-                     AND wgm.wallet_address IN (
-                         SELECT wu.wallet_address FROM wallet_users wu WHERE wu.tier_level = $1
-                     )",
-                    &tier_name
-                ).fetch_one(db_pool).await {
-                    Ok(revenue) => revenue.map(|r| r.to_string().parse::<f64>().unwrap_or(0.0)).unwrap_or(0.0),
-                    Err(_) => 0.0
-                };
-                
-                // Calculate growth rate by comparing current vs previous period subscriber count
-                let current_count = tier.count.unwrap_or(0) as f64;
-                let previous_count = match sqlx::query_scalar!(
-                    "SELECT COUNT(*) FROM wallet_users 
-                     WHERE tier_level = $1 AND created_at < NOW() - INTERVAL '30 days'",
-                    &tier_name
-                ).fetch_one(db_pool).await {
-                    Ok(count) => count.unwrap_or(0) as f64,
-                    Err(_) => current_count
-                };
-                
-                let growth_rate = if previous_count > 0.0 {
-                    ((current_count - previous_count) / previous_count) * 100.0
-                } else {
-                    0.0
-                };
-                
-                tier_stats.push(TierStats {
-                    tier_name,
-                    user_count,
-                    percentage,
-                    revenue,
-                    growth_rate,
-                });
-            }
-            
-            tier_stats
-        }
-        Err(_) => Vec::new(),
-    };
+    // Tier distribution removed - tier_level column deleted in migration #023
+    // Returns empty vector for backwards compatibility
+    let tier_distribution: Vec<TierStats> = Vec::new();
 
     // Calculate retention rate (simplified)
     let retention_rate = if user_metrics.total_users.unwrap_or(0) > 0 {
@@ -423,35 +359,9 @@ pub async fn get_user_analytics_handler(
         }
     };
 
-    // Get tier distribution
-    let tier_distribution = match sqlx::query!(
-        "SELECT tier_level, COUNT(*) as count 
-         FROM wallet_users 
-         GROUP BY tier_level
-         ORDER BY count DESC"
-    )
-    .fetch_all(db_pool)
-    .await
-    {
-        Ok(tiers) => {
-            let total = user_counts.total_users.unwrap_or(0) as f64;
-            tiers
-                .into_iter()
-                .map(|tier| TierStats {
-                    tier_name: tier.tier_level,
-                    user_count: tier.count.unwrap_or(0) as i32,
-                    percentage: if total > 0.0 { 
-                        (tier.count.unwrap_or(0) as f64 / total) * 100.0 
-                    } else { 
-                        0.0 
-                    },
-                    revenue: 0.0, // TODO: Calculate from subscription data
-                    growth_rate: 0.0, // TODO: Calculate growth rate
-                })
-                .collect()
-        }
-        Err(_) => Vec::new(),
-    };
+    // Tier distribution removed - tier_level column deleted in migration #023
+    // Returns empty vector for backwards compatibility
+    let tier_distribution: Vec<TierStats> = Vec::new();
 
     // Generate time series data for registrations (mock data for now)
     let mut new_registrations = Vec::new();

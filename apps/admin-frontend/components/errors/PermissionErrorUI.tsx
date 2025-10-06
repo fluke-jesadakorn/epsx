@@ -5,12 +5,6 @@
 
 'use client'
 
-import React from 'react'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
 import { 
   AlertTriangle, 
   ShieldAlert, 
@@ -30,15 +24,18 @@ import {
   TrendingUp,
   Lock
 } from 'lucide-react'
+import React from 'react'
 
-// Import unified component from shared
-import { 
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
+import {
   UnifiedPermissionErrorUI,
   UIComponentProps,
   IconComponentProps
 } from '@/shared/components/errors/PermissionErrorUI'
-
-// Import ApiError from response handler
 import { ApiError } from '@/shared/utils/response-handler'
 
 // ============================================================================
@@ -94,6 +91,10 @@ interface PermissionErrorUIProps {
   className?: string
 }
 
+/**
+ *
+ * @param props
+ */
 export function PermissionErrorUI(props: PermissionErrorUIProps) {
   return (
     <UnifiedPermissionErrorUI

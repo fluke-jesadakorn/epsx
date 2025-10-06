@@ -1,5 +1,8 @@
 import { Loader2 } from 'lucide-react';
 
+/**
+ *
+ */
 export default function AdminProfileLoading() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">

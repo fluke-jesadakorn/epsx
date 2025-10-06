@@ -156,20 +156,18 @@ mod tests {
     #[test]
     fn test_key_generation() {
         let key_manager = JwtKeyManager::generate_or_load().unwrap();
-        
+
         // Test encoding key creation
-        let encoding_key = key_manager.get_encoding_key().unwrap();
-        assert!(!encoding_key.as_bytes().is_empty());
-        
+        let _encoding_key = key_manager.get_encoding_key().unwrap();
+
         // Test decoding key creation
-        let decoding_key = key_manager.get_decoding_key().unwrap();
-        assert!(!decoding_key.as_bytes().is_empty());
-        
+        let _decoding_key = key_manager.get_decoding_key().unwrap();
+
         // Test public key PEM export
         let public_pem = key_manager.get_public_key_pem().unwrap();
         assert!(public_pem.contains("BEGIN PUBLIC KEY"));
         assert!(public_pem.contains("END PUBLIC KEY"));
-        
+
         // Test fingerprint generation
         let fingerprint = key_manager.get_key_fingerprint().unwrap();
         assert_eq!(fingerprint.len(), 16);

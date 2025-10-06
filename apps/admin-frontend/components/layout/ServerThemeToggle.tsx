@@ -5,6 +5,9 @@
  */
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
+/**
+ *
+ */
 export function ServerThemeToggle() {
   return <ThemeToggle />
 }

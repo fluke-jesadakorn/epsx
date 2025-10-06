@@ -26,7 +26,7 @@ interface WalletInfo {
   permissions: string[];
 }
 
-export function Web3Integration({}: Web3IntegrationProps) {
+export function Web3Integration(_props: Web3IntegrationProps) {
   const { address, isConnected } = useAccount();
   const { isAuthenticated, user, refreshUser } = useSharedAuth();
   const [activeTab, setActiveTab] = useState('overview');

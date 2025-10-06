@@ -4,6 +4,10 @@ use crate::domain::shared_kernel::value_object::{ValueObject, ValueObjectError};
 use crate::core::errors::AppError;
 
 /// Email address value object with validation
+///
+/// **IMPORTANT**: This is used ONLY for notification delivery (email topics, sending emails).
+/// It is NOT used for user identity or authentication in the Web3-first system.
+/// User identity is based on wallet_address only.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Email(String);
 
@@ -22,10 +26,6 @@ impl Email {
 
     pub fn as_str(&self) -> &str {
         &self.0
-    }
-
-    pub fn to_string(&self) -> String {
-        self.0.clone()
     }
 
     fn is_valid(email: &str) -> bool {

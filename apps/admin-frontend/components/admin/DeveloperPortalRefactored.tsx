@@ -1,18 +1,19 @@
 'use client';
 
-import { useState, useEffect, useCallback, memo } from 'react';
-import { useRouter } from 'next/navigation';
 import { Shield, BarChart3, Key, BookOpen, Activity } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useState, useEffect, useCallback, memo } from 'react';
 import { toast } from 'react-hot-toast';
 
 // Extracted tab components
-import DeveloperOverviewTab from './DeveloperOverviewTab';
 import ApiKeyManagementTab from './ApiKeyManagementTab';
+import DeveloperOverviewTab from './DeveloperOverviewTab';
 import DocumentationTab from './DocumentationTab';
 import UsageAnalyticsTab from './UsageAnalyticsTab';
 
 // API Client
-import { UnifiedAdminClient, adminClient, ApiKeyResponse as ApiKey, Module } from '@/lib/api/unified-admin-client';
+import { createPlansClient, type ApiKeyResponse as ApiKey, type Module } from '@/shared/api/plans';
+import { createAdminApiClient } from '@/shared/utils/api-client';
 
 interface DeveloperPortalProps {
   // Optional props for customization
@@ -63,8 +64,9 @@ function DeveloperPortalRefactored({
       if (modulesRes.success && modulesRes.data) {
         setModules((modulesRes.data as any)?.modules || []);
       }
-    } catch (error) {
-      console.error('Error loading developer portal data:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Error loading developer portal data:', _error);
       toast.error('Failed to load developer portal data');
     } finally {
       setLoading(false);
@@ -79,19 +81,22 @@ function DeveloperPortalRefactored({
   // Handle API key revocation
   const handleRevokeApiKey = useCallback(async (keyId: string, keyName: string) => {
     const reason = prompt(`Please provide a reason for revoking the API key "${keyName}":`);
-    if (!reason) return;
+    if (!reason) {return;}
 
     try {
-      const result = await adminClient.revokeApiKey(keyId, reason);
+      const apiClient = createAdminApiClient();
+      const plansClient = createPlansClient(apiClient);
+      const result = await plansClient.revokeApiKey(keyId, reason);
       if (result.success) {
         toast.success('API key revoked successfully');
         loadData(); // Refresh the data
       } else {
         throw new Error((result.error as any)?.message || 'Failed to revoke API key');
       }
-    } catch (error) {
-      console.error('Error revoking API key:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to revoke API key');
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Error revoking API key:', _error);
+      toast.error(_error instanceof Error ? _error.message : 'Failed to revoke API key');
     }
   }, [loadData]);
 

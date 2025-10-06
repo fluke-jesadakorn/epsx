@@ -1,15 +1,19 @@
 'use client'
 
 import { RefreshCw } from 'lucide-react'
+
 import { cleanupExpiredPermissionsAction } from '@/lib/actions/consolidated-admin-actions'
 
+/**
+ *
+ */
 export function CleanupButton() {
   const handleCleanup = async () => {
     try {
       const result = await cleanupExpiredPermissionsAction()
-      console.log('Cleanup result:', result)
-    } catch (error) {
-      console.error('Cleanup failed:', error)
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Cleanup failed:', _error)
     }
   }
 

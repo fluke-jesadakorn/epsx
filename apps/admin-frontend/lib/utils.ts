@@ -5,14 +5,15 @@
  */
 
 // Re-export everything from shared utils
-export * from '../../../shared/utils'
-
 // Import specific utilities for local re-export  
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
+export * from '../../../shared/utils'
+
 /**
  * Local cn function for immediate compatibility (also available from shared utils)
+ * @param {...any} inputs
  */
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))

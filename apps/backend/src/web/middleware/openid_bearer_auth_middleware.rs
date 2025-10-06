@@ -25,7 +25,7 @@ use tracing::{debug, warn};
 
 use crate::{
     auth::{AccessTokenClaims, OpenIDTokenError},
-    web::auth::routes::AppState,
+    web::auth::AppState,
 };
 
 /// OpenID Bearer Token User Context
@@ -36,10 +36,8 @@ pub struct OpenIDUserContext {
     pub sub: String,
     /// Wallet address (primary identifier)
     pub wallet_address: String,
-    /// User permissions from token
+    /// User permissions from token scope claim
     pub permissions: Vec<String>,
-    /// User tier level
-    pub tier_level: String,
     /// Authentication method
     pub auth_method: String,
     /// JWT ID (unique token identifier)
@@ -152,7 +150,7 @@ async fn validate_bearer_token(
     validation.algorithms = vec![Algorithm::RS256];
 
     // Decode and validate JWT
-    let token_data = decode::<AccessTokenClaims>(token, &decoding_key, &validation)
+    let token_data = decode::<AccessTokenClaims>(token, decoding_key, &validation)
         .map_err(|e| {
             OpenIDTokenError::TokenGenerationFailed(format!("JWT validation failed: {}", e))
         })?;
@@ -167,12 +165,19 @@ async fn validate_bearer_token(
         ));
     }
 
+    // Parse permissions from OIDC standard scope claim
+    // OIDC standard: scope is space-separated string like "openid profile epsx:analytics:read admin:users:manage"
+    let permissions: Vec<String> = claims.scope
+        .split_whitespace()
+        .filter(|s| *s != "openid" && *s != "profile") // Remove standard OIDC scopes
+        .map(|s| s.to_string())
+        .collect();
+
     // Extract user context from claims
     let user_context = OpenIDUserContext {
         sub: claims.sub,
         wallet_address: claims.wallet_address,
-        permissions: claims.permissions,
-        tier_level: claims.tier_level,
+        permissions,  // Parsed from OIDC scope claim
         auth_method: claims.auth_method,
         jti: claims.jti,
         exp: claims.exp,
@@ -181,9 +186,8 @@ async fn validate_bearer_token(
     };
 
     debug!(
-        "JWT token validated for user: {} (tier: {}, permissions: {})",
+        "JWT token validated for user: {} (permissions: {})",
         user_context.wallet_address,
-        user_context.tier_level,
         user_context.permissions.len()
     );
 
@@ -312,7 +316,6 @@ mod tests {
                 "epsx:analytics:read".to_string(),
                 "epsx:export:csv".to_string(),
             ],
-            tier_level: "premium".to_string(),
             auth_method: "web3_siwe".to_string(),
             jti: "test".to_string(),
             exp: 0,
@@ -329,8 +332,7 @@ mod tests {
         let admin_context = OpenIDUserContext {
             sub: "0x456".to_string(),
             wallet_address: "0x456".to_string(),
-            permissions: vec!["admin:*".to_string()],
-            tier_level: "admin".to_string(),
+            permissions: vec!["admin:*:*".to_string()],
             auth_method: "web3_siwe".to_string(),
             jti: "test".to_string(),
             exp: 0,

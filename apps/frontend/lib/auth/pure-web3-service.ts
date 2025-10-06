@@ -137,7 +137,7 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
             body: JSON.stringify({
               wallet_address: state.walletAddress,
               chain_id: state.chainId,
-              endpoint: endpoint
+              endpoint
             }),
           });
 
@@ -202,7 +202,7 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
             body: JSON.stringify({
               wallet_address: state.walletAddress,
               message: challenge.message,
-              signature: signature,
+              signature,
               nonce: challenge.nonce,
             }),
           });

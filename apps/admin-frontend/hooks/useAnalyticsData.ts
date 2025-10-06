@@ -2,9 +2,15 @@
 
 import useSWR from 'swr';
 import { useCallback } from 'react';
-import type { AnalyticsDashboardData } from '@/app/api/v1/admin/analytics/dashboard/route';
 
 // Client-side interfaces for analytics data
+interface AnalyticsDashboardData {
+  user_stats?: any;
+  permission_analytics?: any;
+  system_metrics?: any;
+  [key: string]: any;
+}
+
 interface UserStats {
   total_users: number;
   active_users: number;

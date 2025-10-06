@@ -1,9 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+
 import { PancakeCard } from '@/components/ui/PancakeCard'
-import { adminClient, isApiSuccess } from '@/lib/api/unified-admin-client'
 import { toast } from '@/hooks/use-toast'
+import { createPlansClient, isApiSuccess } from '@/shared/api/plans'
+import { createAdminApiClient } from '@/shared/utils/api-client'
 import { PermissionTemplateName, PERMISSION_TEMPLATE_CONFIGS } from '@/types/permission-templates'
 
 interface CreatePermissionTemplateRequest {
@@ -24,6 +26,12 @@ interface CreatePlanFormProps {
   onSuccess: () => void
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.onClose
+ * @param root0.onSuccess
+ */
 export function CreatePlanForm({ onClose, onSuccess }: CreatePlanFormProps) {
   const [loading, setLoading] = useState(false)
   const [formData, setFormData] = useState<CreatePermissionTemplateRequest>({
@@ -42,7 +50,9 @@ export function CreatePlanForm({ onClose, onSuccess }: CreatePlanFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
+    const adminClient = createPlansClient(createAdminApiClient())
+
     if (!formData.name.trim()) {
       toast({
         title: "Error",
@@ -111,7 +121,7 @@ export function CreatePlanForm({ onClose, onSuccess }: CreatePlanFormProps) {
           variant: "destructive"
         })
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "Error",
         description: "Failed to create plan",
