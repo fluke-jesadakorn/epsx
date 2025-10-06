@@ -10,4 +10,10 @@ pub mod openapi;
 
 // Re-export main components
 pub use openapi::ApiDoc;
-pub use routes::{create_docs_routes, docs_handler, openapi_json_handler};
+pub use routes::{
+    create_docs_routes,
+    docs_landing_handler,
+    docs_scalar_handler,
+    docs_redoc_handler,
+    openapi_json_handler
+};
