@@ -252,9 +252,9 @@ impl PermissionMiddlewareBuilder {
                 
                 // Create permission guard
                 let guard = PermissionGuard::new(authority, registry);
-                
+
                 // Validate route permission
-                match guard.validate_route(&wallet_address, &method.to_string(), path, &headers).await {
+                match guard.validate_route(&wallet_address, method.as_ref(), path, &headers).await {
                     Ok(validation) => {
                         if validation.granted || validation.is_public_route {
                             info!(

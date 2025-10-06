@@ -33,6 +33,32 @@ impl Display for DeliveryChannelType {
   }
 }
 
+impl DeliveryChannelType {
+  pub fn from_str(s: &str) -> Result<Self, String> {
+    match s.to_lowercase().replace("_", "").replace("-", "").as_str() {
+      "webpush" | "web" => Ok(DeliveryChannelType::WebPush),
+      "push" => Ok(DeliveryChannelType::Push),
+      "inapp" | "app" => Ok(DeliveryChannelType::InApp),
+      "email" => Ok(DeliveryChannelType::Email),
+      "sms" => Ok(DeliveryChannelType::Sms),
+      "wallet" => Ok(DeliveryChannelType::Push), // Map wallet to push
+      "websocket" | "ws" => Ok(DeliveryChannelType::InApp), // Map websocket to in-app
+      _ => Err(format!("Invalid delivery channel type: {}", s)),
+    }
+  }
+
+  pub fn as_str(&self) -> &'static str {
+    match self {
+      DeliveryChannelType::WebPush => "web_push",
+      DeliveryChannelType::Push => "push",
+      DeliveryChannelType::InApp => "in_app",
+      DeliveryChannelType::Email => "email",
+      DeliveryChannelType::Sms => "sms",
+      DeliveryChannelType::SMS => "sms",
+    }
+  }
+}
+
 /// Delivery Channel Value Object
 /// Wraps the delivery channel type with additional behavior and validation
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

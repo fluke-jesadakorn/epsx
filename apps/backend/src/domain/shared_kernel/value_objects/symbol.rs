@@ -41,10 +41,6 @@ impl Symbol {
   pub fn as_str(&self) -> &str {
     &self.value
   }
-
-  pub fn to_string(&self) -> String {
-    self.value.clone()
-  }
 }
 
 impl ValueObject for Symbol {

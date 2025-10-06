@@ -4,7 +4,7 @@ pub mod errors;
 pub mod error_recovery;
 pub mod telemetry;
 pub mod events;
-pub mod db;
+// pub mod db; // Removed - unused database abstraction layer (codebase uses SQLx directly)
 pub mod types;
 pub mod constants;
 // OIDC client credential service removed - using pure Web3 authentication
@@ -20,6 +20,6 @@ pub use error_recovery::{
 // Re-export specific types to avoid conflicts
 pub use telemetry::{LogContext, PerformanceStats, Alert, AlertSeverity, TelemetryConfig};
 pub use events::{DomainEvent, EventEnvelope, StoredEvent, EventStream, Snapshot, EventHandler, Subscription, CircuitBreaker};
-pub use db::{DatabaseConnection, DatabaseTransaction, QueryBuilder, QueryFilter, QuerySort, DatabaseHealth, ConnectionInfo};
+// Database abstraction exports removed - unused layer (codebase uses SQLx directly)
 pub use constants::*;
 // OIDC client credential service exports removed - pure Web3 authentication

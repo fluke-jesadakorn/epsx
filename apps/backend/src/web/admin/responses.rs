@@ -227,13 +227,13 @@ where
             StatusCode::OK
         } else {
             // Determine status code based on error type
-            if self.error.as_ref().map_or(false, |e| e.contains("Authentication")) {
+            if self.error.as_ref().is_some_and(|e| e.contains("Authentication")) {
                 StatusCode::UNAUTHORIZED
-            } else if self.error.as_ref().map_or(false, |e| e.contains("Permission")) {
+            } else if self.error.as_ref().is_some_and(|e| e.contains("Permission")) {
                 StatusCode::FORBIDDEN
-            } else if self.error.as_ref().map_or(false, |e| e.contains("Validation")) {
+            } else if self.error.as_ref().is_some_and(|e| e.contains("Validation")) {
                 StatusCode::BAD_REQUEST
-            } else if self.error.as_ref().map_or(false, |e| e.contains("not found")) {
+            } else if self.error.as_ref().is_some_and(|e| e.contains("not found")) {
                 StatusCode::NOT_FOUND
             } else {
                 StatusCode::INTERNAL_SERVER_ERROR

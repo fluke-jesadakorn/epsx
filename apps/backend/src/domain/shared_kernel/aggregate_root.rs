@@ -85,6 +85,12 @@ impl AggregateBase {
     pub fn mark_events_as_committed(&mut self) {
         self.events.clear();
     }
+
+    /// Take ownership of uncommitted events (for CQRS TransactionalOutbox)
+    /// This moves events out of the aggregate, clearing the internal list
+    pub fn take_events(&mut self) -> Vec<Box<dyn DomainEvent>> {
+        std::mem::take(&mut self.events)
+    }
 }
 
 impl Clone for AggregateBase {

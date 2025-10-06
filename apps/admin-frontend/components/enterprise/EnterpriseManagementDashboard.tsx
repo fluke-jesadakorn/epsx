@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
+
 import { useAuth } from '@/lib/auth';
 
 interface EnterpriseUser {
@@ -54,6 +55,9 @@ interface PermissionTemplate {
   tier_requirement: string;
 }
 
+/**
+ *
+ */
 export default function EnterpriseManagementDashboard() {
   const { user, canManageUsers, canViewAnalytics } = useAuth();
   const canManageEnterprise = () => true; // Stubbed for build compatibility

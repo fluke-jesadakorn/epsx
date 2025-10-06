@@ -8,10 +8,18 @@ import React from 'react';
 import { authConfig } from '@/config/auth';
 import { clientConfig } from '@/config/env';
 import { logger as authLogger, safeError, isJWTExpired, getJWTTimeToExpiry } from '@/lib/shared';
-import { derivePermissionGroupFromPermissions } from '../../../../shared/permissions/utils/platform';
 import { createFrontendClient, SharedWeb3AuthClient, UserInfoResponse, Web3TokenResponse } from '../../../../shared/auth/openid-web3-client';
 
 // 🔒 SECURITY CRITICAL: Backend permission authority removed - permissions handled by backend only
+
+// Simple permission group derivation (for display only)
+function derivePermissionGroupFromPermissions(permissions: string[]): string {
+  if (permissions.some(p => p.includes('admin:'))) return 'Admin';
+  if (permissions.some(p => p.includes('premium') || p.includes('platinum'))) return 'Premium';
+  if (permissions.some(p => p.includes('gold'))) return 'Gold';
+  if (permissions.some(p => p.includes('silver'))) return 'Silver';
+  return 'Basic';
+}
 
 // Permission-centric user interface - Web3-first
 export interface PermissionAwareUser {

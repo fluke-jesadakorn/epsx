@@ -37,4 +37,5 @@ pub use user_preferences::{
   QuietHours,
   FrequencyLimits,
   PreferenceSummary,
+  NotificationType,
 };

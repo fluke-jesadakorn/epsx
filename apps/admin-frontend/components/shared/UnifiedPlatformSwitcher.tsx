@@ -6,8 +6,9 @@
 
 'use client';
 
-import { useState } from 'react';
 import { ChevronDown, Globe, Coins, Vote, Shield, Settings, Check } from 'lucide-react';
+import { useState } from 'react';
+
 import { useAuth } from '@/lib/auth';
 
 // ============================================================================
@@ -86,6 +87,16 @@ function getPlatformDescription(platformCode: string): string {
 // MAIN COMPONENT
 // ============================================================================
 
+/**
+ *
+ * @param root0
+ * @param root0.config
+ * @param root0.currentPlatform
+ * @param root0.availablePlatforms
+ * @param root0.userPlatformAccess
+ * @param root0.onPlatformSwitch
+ * @param root0.className
+ */
 export function UnifiedPlatformSwitcher({
   config = {},
   currentPlatform,
@@ -142,8 +153,9 @@ export function UnifiedPlatformSwitcher({
           window.location.reload(); // Stay on admin
         }
         setIsOpen(false);
-      } catch (error) {
-        console.error('Failed to switch admin platform:', error);
+      } catch (_error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to switch admin platform:', _error);
       } finally {
         setIsLoading(false);
       }
@@ -377,6 +389,15 @@ export function UnifiedPlatformSwitcher({
 // CONVENIENCE EXPORTS FOR BACKWARD COMPATIBILITY
 // ============================================================================
 
+/**
+ *
+ * @param props
+ * @param props.currentPlatform
+ * @param props.availablePlatforms
+ * @param props.userPlatformAccess
+ * @param props.onPlatformSwitch
+ * @param props.className
+ */
 export function PlatformSwitcher(props: {
   currentPlatform: Platform;
   availablePlatforms: Platform[];
@@ -392,6 +413,14 @@ export function PlatformSwitcher(props: {
   );
 }
 
+/**
+ *
+ * @param props
+ * @param props.className
+ * @param props.showIcon
+ * @param props.showLabel
+ * @param props.showAdminBadge
+ */
 export function AdminPlatformSwitcher(props: {
   className?: string;
   showIcon?: boolean;

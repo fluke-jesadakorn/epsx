@@ -7,25 +7,25 @@ import { logger, devLog, safeError } from '@/lib/utils/logging';
 /**
  * Debounce function to limit the rate of function calls
  */
-export function debounce<T extends (...args: any[]) => any>(
+export function debounce<T extends (...args: unknown[]) => unknown>(
   func: T,
   wait: number,
   immediate?: boolean
 ): (...args: Parameters<T>) => void {
   let timeout: NodeJS.Timeout | null = null;
-  
-  return function(this: any, ...args: Parameters<T>) {
+
+  return function(this: unknown, ...args: Parameters<T>) {
     const callNow = immediate && !timeout;
-    
+
     if (timeout) {
       clearTimeout(timeout);
     }
-    
+
     timeout = setTimeout(() => {
       timeout = null;
       if (!immediate) func.apply(this, args);
     }, wait);
-    
+
     if (callNow) func.apply(this, args);
   };
 }
@@ -33,13 +33,13 @@ export function debounce<T extends (...args: any[]) => any>(
 /**
  * Throttle function to limit the rate of function calls
  */
-export function throttle<T extends (...args: any[]) => any>(
+export function throttle<T extends (...args: unknown[]) => unknown>(
   func: T,
   limit: number
 ): (...args: Parameters<T>) => void {
   let inThrottle: boolean;
-  
-  return function(this: any, ...args: Parameters<T>) {
+
+  return function(this: unknown, ...args: Parameters<T>) {
     if (!inThrottle) {
       func.apply(this, args);
       inThrottle = true;
@@ -55,25 +55,25 @@ export function deepClone<T>(obj: T): T {
   if (obj === null || typeof obj !== 'object') {
     return obj;
   }
-  
+
   if (obj instanceof Date) {
-    return new Date(obj.getTime()) as any;
+    return new Date(obj.getTime()) as T;
   }
-  
+
   if (obj instanceof Array) {
-    return obj.map(item => deepClone(item)) as any;
+    return obj.map(item => deepClone(item)) as T;
   }
-  
+
   if (typeof obj === 'object') {
     const cloned = {} as T;
     for (const key in obj) {
-      if (obj.hasOwnProperty(key)) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
         cloned[key] = deepClone(obj[key]);
       }
     }
     return cloned;
   }
-  
+
   return obj;
 }
 
@@ -98,8 +98,8 @@ export function isValidEmail(email: string): boolean {
  * Validate phone number (basic validation)
  */
 export function isValidPhone(phone: string): boolean {
-  const phoneRegex = /^[\+]?[1-9][\d]{0,15}$/;
-  return phoneRegex.test(phone.replace(/[\s\-\(\)]/g, ''));
+  const phoneRegex = /^[+]?[1-9][\d]{0,15}$/;
+  return phoneRegex.test(phone.replace(/[\s\-()]/g, ''));
 }
 
 /**
@@ -119,7 +119,7 @@ export const storage = {
   /**
    * Set item in localStorage with error handling
    */
-  set(key: string, value: any): boolean {
+  set(key: string, value: unknown): boolean {
     try {
       localStorage.setItem(key, JSON.stringify(value));
       return true;
@@ -306,7 +306,7 @@ export const object = {
       for (const key in source) {
         if (this.isObject(source[key])) {
           if (!target[key]) Object.assign(target, { [key]: {} });
-          this.merge(target[key] as any, source[key] as any);
+          this.merge(target[key] as object, source[key] as object);
         } else {
           Object.assign(target, { [key]: source[key] });
         }
@@ -319,42 +319,42 @@ export const object = {
   /**
    * Check if value is an object
    */
-  isObject(item: any): item is object {
-    return item && typeof item === 'object' && !Array.isArray(item);
+  isObject(item: unknown): item is object {
+    return item !== null && typeof item === 'object' && !Array.isArray(item);
   },
 
   /**
    * Get nested property value safely
    */
-  get<T>(obj: any, path: string, defaultValue?: T): T {
+  get<T>(obj: unknown, path: string, defaultValue?: T): T {
     const keys = path.split('.');
-    let current = obj;
+    let current: unknown = obj;
 
     for (const key of keys) {
       if (current == null || typeof current !== 'object') {
         return defaultValue as T;
       }
-      current = current[key];
+      current = (current as Record<string, unknown>)[key];
     }
 
-    return current === undefined ? defaultValue as T : current;
+    return current === undefined ? defaultValue as T : current as T;
   },
 
   /**
    * Set nested property value
    */
-  set(obj: any, path: string, value: any): void {
+  set(obj: Record<string, unknown>, path: string, value: unknown): void {
     const keys = path.split('.');
     const lastKey = keys.pop();
-    
+
     if (!lastKey) return;
 
-    let current = obj;
+    let current: Record<string, unknown> = obj;
     for (const key of keys) {
       if (!(key in current) || typeof current[key] !== 'object') {
         current[key] = {};
       }
-      current = current[key];
+      current = current[key] as Record<string, unknown>;
     }
 
     current[lastKey] = value;

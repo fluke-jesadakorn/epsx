@@ -80,6 +80,12 @@ pub struct TradingViewCache {
     miss_count: u64,
 }
 
+impl Default for TradingViewCache {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl TradingViewCache {
     /// Create new cache with default settings
     pub fn new() -> Self {

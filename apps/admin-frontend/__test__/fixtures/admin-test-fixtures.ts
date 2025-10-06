@@ -495,53 +495,43 @@ export class TestDatabaseUtilities {
    * Seed database with test users
    */
   async seedTestUsers(): Promise<void> {
-    console.log('🌱 Seeding test users...');
     
     // This would interact with your actual database
     // Implementation depends on your database client
     for (const [key, user] of Object.entries(TEST_USERS)) {
-      console.log(`Creating test user: ${user.name} (${user.email})`);
       // await this.createUser(user);
     }
     
-    console.log('✅ Test users seeded successfully');
   }
   
   /**
    * Seed database with role profiles
    */
   async seedRoleProfiles(): Promise<void> {
-    console.log('🌱 Seeding role profiles...');
     
     for (const [key, profile] of Object.entries(ROLE_PROFILES)) {
-      console.log(`Creating role profile: ${profile.name}`);
       // await this.createRoleProfile(profile);
     }
     
-    console.log('✅ Role profiles seeded successfully');
   }
   
   /**
    * Create test sessions
    */
   async seedTestSessions(): Promise<void> {
-    console.log('🌱 Creating test sessions...');
     
     for (const [key, session] of Object.entries(TEST_SESSIONS)) {
       if (session.isActive) {
-        console.log(`Creating session for user: ${session.userId}`);
         // await this.createSession(session);
       }
     }
     
-    console.log('✅ Test sessions created successfully');
   }
   
   /**
    * Clean up all test data
    */
   async cleanupTestData(): Promise<void> {
-    console.log('🧹 Cleaning up test data...');
     
     // Clean up in reverse order to handle dependencies
     await this.cleanupSessions();
@@ -549,26 +539,21 @@ export class TestDatabaseUtilities {
     await this.cleanupUsers();
     await this.cleanupSecurityEvents();
     
-    console.log('✅ Test data cleanup completed');
   }
   
   private async cleanupUsers(): Promise<void> {
-    console.log('Cleaning up test users...');
     // Implementation: Delete test users from database
   }
   
   private async cleanupRoleProfiles(): Promise<void> {
-    console.log('Cleaning up role profiles...');
     // Implementation: Delete test role profiles
   }
   
   private async cleanupSessions(): Promise<void> {
-    console.log('Cleaning up test sessions...');
     // Implementation: Delete test sessions
   }
   
   private async cleanupSecurityEvents(): Promise<void> {
-    console.log('Cleaning up security events...');
     // Implementation: Delete test security events
   }
   
@@ -576,7 +561,6 @@ export class TestDatabaseUtilities {
    * Verify database integrity
    */
   async verifyDatabaseIntegrity(): Promise<boolean> {
-    console.log('🔍 Verifying database integrity...');
     
     try {
       // Check foreign key constraints
@@ -588,10 +572,10 @@ export class TestDatabaseUtilities {
       // Check indexes
       await this.checkIndexes();
       
-      console.log('✅ Database integrity verified');
       return true;
-    } catch (error) {
-      console.error('❌ Database integrity check failed:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('❌ Database integrity check failed:', _error);
       return false;
     }
   }
@@ -612,20 +596,16 @@ export class TestDatabaseUtilities {
    * Create performance test dataset
    */
   async seedPerformanceTestData(): Promise<void> {
-    console.log('🚀 Seeding performance test data...');
     
     // Seed large dataset for performance testing
-    console.log(`Creating ${PERFORMANCE_TEST_DATA.LARGE_USER_DATASET.length} performance test users`);
     // Implementation: Batch insert performance test users
     
-    console.log('✅ Performance test data seeded');
   }
   
   /**
    * Get database statistics
    */
   async getDatabaseStats(): Promise<any> {
-    console.log('📊 Gathering database statistics...');
     
     const stats = {
       totalUsers: 0,
@@ -635,7 +615,6 @@ export class TestDatabaseUtilities {
       // Implementation: Query actual counts from database
     };
     
-    console.log('Database statistics:', stats);
     return stats;
   }
 }
@@ -706,7 +685,6 @@ export class MockAPIClient {
    * Mock successful API responses
    */
   mockSuccessResponse(endpoint: string, response: any): void {
-    console.log(`🎭 Mocking successful response for ${endpoint}`);
     // Implementation: Set up mock response
   }
   
@@ -714,7 +692,6 @@ export class MockAPIClient {
    * Mock error API responses
    */
   mockErrorResponse(endpoint: string, status: number, error: any): void {
-    console.log(`🎭 Mocking error response for ${endpoint} (${status})`);
     // Implementation: Set up mock error response
   }
   
@@ -722,7 +699,6 @@ export class MockAPIClient {
    * Mock rate limited responses
    */
   mockRateLimitedResponse(endpoint: string, retryAfter: number = 60): void {
-    console.log(`🎭 Mocking rate limited response for ${endpoint}`);
     this.mockErrorResponse(endpoint, 429, API_RESPONSE_FIXTURES.ERROR.RATE_LIMITED);
   }
   
@@ -730,7 +706,6 @@ export class MockAPIClient {
    * Clear all mocks
    */
   clearMocks(): void {
-    console.log('🧹 Clearing all API mocks');
     // Implementation: Clear all mock responses
   }
 }

@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from 'react';
+
 import { useAuth } from '@/lib/auth';
 
 interface DAOMembership {
@@ -87,6 +88,9 @@ interface DelegationRecord {
   transaction_hash: string;
 }
 
+/**
+ *
+ */
 export default function DAOGovernanceInterface() {
   const { user, canViewAnalytics } = useAuth();
   const canManageDAO = () => true; // Stubbed for build compatibility

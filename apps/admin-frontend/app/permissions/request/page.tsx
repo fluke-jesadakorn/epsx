@@ -1,7 +1,8 @@
+import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
+
 import { PermissionRequestForm } from '@/components/permissions/PermissionForms'
 import { UnifiedAuth } from '@/lib/auth/unified-auth'
-import { notFound } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
 
@@ -79,7 +80,6 @@ async function PermissionRequestDataWrapper({ searchParams }: { searchParams?: P
         
         <PermissionRequestForm 
           onSubmit={async (request) => {
-            console.log('Permission request submitted:', request)
             // TODO: Implement actual permission request submission
           }}
         />
@@ -88,6 +88,10 @@ async function PermissionRequestDataWrapper({ searchParams }: { searchParams?: P
   )
 }
 
+/**
+ *
+ * @param props
+ */
 export default function PermissionRequestPage(props: PermissionRequestPageProps) {
   return (
     <Suspense fallback={<PermissionRequestPageSkeleton />}>

@@ -1,27 +1,27 @@
 'use client'
 
+import { Send, TestTube, Users, Mail } from 'lucide-react'
 import React, { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Send, TestTube, Users, Mail } from 'lucide-react'
+import { Textarea } from '@/components/ui/textarea'
 import { sendNotification as sendNotificationToUser, sendNotification as sendBroadcastNotification } from '@/lib/actions/consolidated-admin-actions'
 import { logger } from '@/lib/logger'
 
+/**
+ *
+ */
 export function NotificationTestPanel() {
-  // Only render in development/staging environments - NEVER in production
-  if (process.env.NODE_ENV === 'production') {
-    return null
-  }
-
+  // Hooks must be called before any early returns
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
-  
+
   const [testForm, setTestForm] = useState({
     type: 'user' as 'user' | 'broadcast',
     userEmail: 'info@epsx.io',
@@ -29,6 +29,11 @@ export function NotificationTestPanel() {
     body: 'This is a test notification sent from the admin interface to verify email notification system is working properly.',
     priority: 'normal' as 'normal' | 'high'
   })
+
+  // Only render in development/staging environments - NEVER in production
+  if (process.env.NODE_ENV === 'production') {
+    return null
+  }
 
   const handleSendTest = async () => {
     setLoading(true)
@@ -179,7 +184,7 @@ export function NotificationTestPanel() {
           </Alert>
         )}
 
-        {result && result.success && (
+        {result?.success && (
           <Alert>
             <AlertDescription>
               ✅ Notification sent successfully! 

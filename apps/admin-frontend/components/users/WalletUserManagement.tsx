@@ -6,23 +6,23 @@
 'use client';
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
-import { createWeb3AdminClient } from '@/shared/utils/web3-api-client';
-import type { 
-  WalletUser, 
-  Web3Permission, 
-  GroupMembership, 
-  PermissionInfo 
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import type {
+  Web3Permission,
+  GroupMembership,
+  PermissionInfo
 } from '@/shared/types/web3-auth';
+import { createWeb3AdminClient } from '@/shared/utils/web3-api-client';
 
 interface WalletUserData {
   wallet_address: string;
@@ -63,6 +63,9 @@ const PERMISSION_GROUPS = [
   { id: 'developer', name: 'Developer', description: 'API and development access' }
 ];
 
+/**
+ *
+ */
 export function WalletUserManagement() {
   const [walletAddress, setWalletAddress] = useState('');
   const [userData, setUserData] = useState<WalletUserData | null>(null);
@@ -74,6 +77,7 @@ export function WalletUserManagement() {
     notes: ''
   });
   const [selectedGroup, setSelectedGroup] = useState('');
+  const [activeTab, setActiveTab] = useState('overview');
 
   const apiClient = createWeb3AdminClient({ serverSide: false });
 
@@ -168,7 +172,7 @@ export function WalletUserManagement() {
   }, [userData, newPermission, clearMessages, lookupWallet]);
 
   const revokePermission = useCallback(async (permission: string) => {
-    if (!userData) return;
+    if (!userData) {return;}
 
     setLoading(true);
     clearMessages();
@@ -236,14 +240,14 @@ export function WalletUserManagement() {
   }, [userData, selectedGroup, clearMessages, lookupWallet]);
 
   const formatTimestamp = (timestamp?: string | number) => {
-    if (!timestamp) return 'Never';
+    if (!timestamp) {return 'Never';}
     const date = new Date(typeof timestamp === 'string' ? timestamp : timestamp * 1000);
     return date.toLocaleString();
   };
 
   const isPermissionExpired = (permission: Web3Permission) => {
-    if (!permission.expires_at) return false;
-    return Date.now() > permission.expires_at * 1000;
+    if (!permission.expires_at) {return false;}
+    return Date.now() > new Date(permission.expires_at).getTime();
   };
 
   return (
@@ -297,7 +301,7 @@ export function WalletUserManagement() {
 
       {/* User Data Display */}
       {userData && (
-        <Tabs defaultValue="overview" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="permissions">Permissions</TabsTrigger>
@@ -480,10 +484,10 @@ export function WalletUserManagement() {
                         <div key={index} className="flex items-center justify-between p-3 border rounded">
                           <div>
                             <p className="font-medium">{group.group_name}</p>
-                            <p className="text-sm text-gray-500">{group.description}</p>
+                            <p className="text-sm text-gray-500">Type: {group.group_type}</p>
                           </div>
                           <Badge variant="secondary">
-                            {group.role || 'Member'}
+                            {group.assignment_source || 'Manual'}
                           </Badge>
                         </div>
                       ))}

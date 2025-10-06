@@ -239,7 +239,7 @@ function appStateReducer(state: AppState, action: StateAction): AppState {
         },
       };
 
-    case 'ADD_TOAST':
+    case 'ADD_TOAST': {
       const newToast = {
         ...payload,
         id: Math.random().toString(36).substr(2, 9),
@@ -252,6 +252,7 @@ function appStateReducer(state: AppState, action: StateAction): AppState {
           toasts: [...state.ui.toasts, newToast],
         },
       };
+    }
 
     case 'REMOVE_TOAST':
       return {
@@ -431,7 +432,7 @@ function appStateReducer(state: AppState, action: StateAction): AppState {
         },
       };
 
-    case 'CLEAR_EXPIRED_CACHE':
+    case 'CLEAR_EXPIRED_CACHE': {
       const now = Date.now();
       const stockData = Object.fromEntries(
         Object.entries(state.cache.stockData).filter(
@@ -452,6 +453,7 @@ function appStateReducer(state: AppState, action: StateAction): AppState {
         ...state,
         cache: { stockData, rankings, analytics },
       };
+    }
 
     default:
       return state;

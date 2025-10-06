@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+
 enum PackageTier {
   FREE = 'free',
   BRONZE = 'bronze',
@@ -13,7 +14,7 @@ enum PackageTier {
 type StockRankingType = any;
 type BulkStockRankingAssignment = any;
 type BulkStockRankingAssignmentResult = any;
-type StockRankingPackageAssignment = any;
+type StockRankingPackageData = any;
 
 const StockRankingPackageConfigs = {
   getConfigForTier: (tier: PackageTier) => ({
@@ -44,6 +45,11 @@ interface StockRankingPackageAssignmentProps {
   onAssignmentComplete?: (result: BulkStockRankingAssignmentResult) => void;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.onAssignmentComplete
+ */
 export default function StockRankingPackageAssignment({ 
   onAssignmentComplete 
 }: StockRankingPackageAssignmentProps) {
@@ -57,7 +63,7 @@ export default function StockRankingPackageAssignment({
     users: false,
     assignment: false
   });
-  const [assignments, setAssignments] = useState<StockRankingPackageAssignment[]>([]);
+  const [assignments, setAssignments] = useState<StockRankingPackageData[]>([]);
   const _assignments = assignments;
   const _setAssignments = setAssignments;
   const [expirationDate, setExpirationDate] = useState<string>('');
@@ -91,6 +97,7 @@ export default function StockRankingPackageAssignment({
       const response = await fetch('/api/v1/admin/users');
       
       if (!response.ok) {
+        // eslint-disable-next-line no-console
         console.error('Users API error:', response.status, response.statusText);
         setUsers([]);
         return;
@@ -98,6 +105,7 @@ export default function StockRankingPackageAssignment({
       
       const contentType = response.headers.get('content-type');
       if (!contentType?.includes('application/json')) {
+        // eslint-disable-next-line no-console
         console.error('Invalid users response type:', contentType);
         setUsers([]);
         return;
@@ -105,8 +113,9 @@ export default function StockRankingPackageAssignment({
       
       const data = await response.json();
       setUsers(data.users || []);
-    } catch (error) {
-      console.error('Failed to load users:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to load users:', _error);
       setUsers([]);
     } finally {
       setIsLoading(prev => ({ ...prev, users: false }));
@@ -199,13 +208,15 @@ export default function StockRankingPackageAssignment({
         alert(`Successfully assigned ${result.summary.successful} users to ${selectedPackage} package`);
         
         if (result.failed && result.failed.length > 0) {
+          // eslint-disable-next-line no-console
           console.warn('Some assignments failed:', result.failed);
         }
       } else {
         throw new Error(result.message || 'Assignment failed');
       }
-    } catch (error) {
-      console.error('Assignment error:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Assignment error:', _error);
       alert('Failed to assign packages. Please try again.');
     } finally {
       setIsLoading(prev => ({ ...prev, assignment: false }));
@@ -219,7 +230,7 @@ export default function StockRankingPackageAssignment({
   };
 
   const formatMarkets = (markets: string[]): string => {
-    if (markets.includes('*')) return 'All Markets';
+    if (markets.includes('*')) {return 'All Markets';}
     return markets.join(', ');
   };
 

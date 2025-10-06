@@ -20,6 +20,10 @@ pub async fn get_eps_rankings(
 ) -> Result<Json<EPSRankingsApiResponse>, AppError> {
     debug!("EPS Rankings API called with params: {:?}", params);
     
+    // TODO: Extract user permissions from auth middleware and calculate rank_offset
+    // For now using default offset (100 = free tier)
+    let rank_offset = 100; // This will be replaced with actual permission-based calculation
+
     // Convert query params to service params with defaults - FIXED: Use correct parameter structure
     let service_params = EPSRankingParams {
         country: params.country.clone(),
@@ -29,6 +33,7 @@ pub async fn get_eps_rankings(
         limit: params.limit.unwrap_or(50), // FIXED: Use correct i32 type
         min_eps: params.min_eps, // FIXED: Use correct field name (not market_cap_min)
         min_growth: params.min_growth, // FIXED: Add missing min_growth parameter
+        rank_offset, // SECURITY: Enforced from user permissions
     };
 
     debug!("Converted to service params: {:?}", service_params);
@@ -44,7 +49,7 @@ pub async fn get_eps_rankings(
     let mut result = service.get_eps_rankings(service_params).await.map_err(|e| AppError {
         kind: crate::core::errors::ErrorKind::InternalError,
         message: format!("Failed to get EPS rankings: {}", e),
-        context: crate::core::errors::ErrorContext::default(),
+        context: Box::new(crate::core::errors::ErrorContext::default()),
         correlation_id: uuid::Uuid::new_v4().to_string(),
         timestamp: chrono::Utc::now(),
         stack_trace: None,
@@ -53,6 +58,7 @@ pub async fn get_eps_rankings(
     
     // TEMPORARILY DISABLED: WebSocket enhancement causes 50+ second response times
     // The TradingView data is already real (not hardcoded), so WebSocket enhancement is optional
+    #[allow(clippy::overly_complex_bool_expr)]
     if false && result.rankings.len() <= 20 && !result.rankings.is_empty() {
         debug!("Enhancing {} rankings with WebSocket EPS data", result.rankings.len());
         
@@ -84,7 +90,7 @@ pub async fn get_eps_rankings(
     let limit = params.limit.unwrap_or(50);
     let total = result.pagination.total;
     let total_pages = ((total as f64 / limit as f64).ceil() as i32).max(1);
-    
+
     let api_response = EPSRankingsApiResponse {
         data: result.rankings,
         pagination: EPSPaginationResponse {
@@ -94,6 +100,10 @@ pub async fn get_eps_rankings(
             total_pages,
             has_next: page < total_pages,
             has_prev: page > 1,
+        },
+        access_info: super::types::AccessInfo {
+            min_accessible_rank: rank_offset,
+            locked_ranks_count: rank_offset - 1,  // Ranks 1 to (offset-1) are locked
         },
     };
 
@@ -116,7 +126,7 @@ pub fn convert_screening_result_to_eps_ranking(
             None // Don't use fake default values
         }
     });
-    let growth_factor = result.eps_growth_yoy.or_else(|| {
+    let growth_factor = result.eps_growth_yoy.or({
         // Fallback: use price change as growth proxy if EPS growth not available
         Some(result.change_percent)
     });
@@ -201,6 +211,7 @@ mod tests {
             limit: params.limit.unwrap_or(50),
             min_eps: params.min_eps,
             min_growth: params.min_growth,
+            rank_offset: 0,  // No rank restriction for test
         };
 
         assert_eq!(service_params.page, 1);

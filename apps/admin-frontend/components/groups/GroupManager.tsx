@@ -11,48 +11,52 @@
 
 'use client'
 
-import React, { useState, useCallback, useMemo } from 'react'
 import { 
   Users, Plus, Settings, Trash2, Edit, Shield, Clock, 
   AlertTriangle, CheckCircle, Star, Zap, Globe, Key,
   TrendingUp, Activity, FileText, Search, Filter, MoreHorizontal
 } from 'lucide-react'
+import React, { useState, useCallback, useMemo } from 'react'
 
+import { GroupAnalyticsDashboard } from './GroupAnalyticsDashboard'
+import { GroupEditor } from './GroupEditor'
+import { GroupMembershipManager } from './GroupMembershipManager'
+
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Input } from '@/components/ui/input'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter 
 } from '@/components/ui/dialog'
 import { 
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/components/ui/use-toast'
-
-import { 
-  usePermissionGroups, 
-  useGroupAnalytics, 
-  useAdminGroupPermissions
+import { adminCardVariants, adminButtonVariants } from '@/design-system'
+import {
+  usePermissionGroups,
+  useGroupAnalytics
 } from '@/hooks/useGroupPermissions'
 import { PermissionGroup } from '@/lib/api/group-management-client'
-
-// Stub type for build compatibility
-type GroupPermissionStats = any;
-import { adminCardVariants, adminButtonVariants } from '@/design-system'
 import { cn } from '@/lib/shared'
 
 // Sub-components
-import { GroupEditor } from './GroupEditor'
-import { GroupMembershipManager } from './GroupMembershipManager'
-import { GroupAnalyticsDashboard } from './GroupAnalyticsDashboard'
+
+// Stub type for build compatibility
+type GroupPermissionStats = any;
 
 interface GroupManagerProps {
   className?: string
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.className
+ */
 export function GroupManager({ className }: GroupManagerProps) {
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState('all')
@@ -62,28 +66,35 @@ export function GroupManager({ className }: GroupManagerProps) {
   const [editingGroup, setEditingGroup] = useState<PermissionGroup | null>(null)
 
   // Hooks
-  const { 
-    groups, 
-    systemGroups, 
-    customGroups, 
-    isLoading, 
-    error, 
-    deleteGroup 
+  const {
+    groups,
+    loading: isLoading,
+    error,
+    deleteGroup
   } = usePermissionGroups()
-  
+
   const { stats } = useGroupAnalytics()
-  const { canManageGroups } = useAdminGroupPermissions()
+  // Backend handles permission checking - no client-side validation needed
 
   // Filter groups based on search
   const filteredGroups = useMemo(() => {
-    if (!searchTerm) return groups
+    if (!searchTerm) {return groups}
     const searchLower = searchTerm.toLowerCase()
-    return groups.filter(group => 
+    return groups.filter(group =>
       group.name.toLowerCase().includes(searchLower) ||
       group.description?.toLowerCase().includes(searchLower) ||
       group.permissions.some(p => p.toLowerCase().includes(searchLower))
     )
   }, [groups, searchTerm])
+
+  // Separate system and custom groups
+  const systemGroups = useMemo(() => {
+    return groups.filter(group => group.is_system_group)
+  }, [groups])
+
+  const customGroups = useMemo(() => {
+    return groups.filter(group => !group.is_system_group)
+  }, [groups])
 
   // Event handlers
   const handleCreateGroup = useCallback(() => {
@@ -112,10 +123,10 @@ export function GroupManager({ className }: GroupManagerProps) {
         title: 'Group Deleted',
         description: `Permission group "${group.name}" has been deleted.`
       })
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: 'Delete Failed',
-        description: error instanceof Error ? error.message : 'Failed to delete group',
+        description: _error instanceof Error ? _error.message : 'Failed to delete group',
         variant: 'destructive'
       })
     }
@@ -137,20 +148,20 @@ export function GroupManager({ className }: GroupManagerProps) {
 
   // Helper functions
   const getGroupIcon = (group: PermissionGroup) => {
-    if (group.is_system_group) return <Star className="h-4 w-4" />
+    if (group.is_system_group) {return <Star className="h-4 w-4" />}
     return <Users className="h-4 w-4" />
   }
 
   const getGroupBadgeVariant = (group: PermissionGroup) => {
-    if (group.is_system_group) return 'default'
-    if (group.priority_level > 5) return 'destructive'
+    if (group.is_system_group) {return 'default'}
+    if (group.priority_level > 5) {return 'destructive'}
     return 'secondary'
   }
 
   const getPriorityLabel = (priority: number) => {
-    if (priority >= 8) return 'Critical'
-    if (priority >= 5) return 'High'
-    if (priority >= 3) return 'Medium'
+    if (priority >= 8) {return 'Critical'}
+    if (priority >= 5) {return 'High'}
+    if (priority >= 3) {return 'Medium'}
     return 'Low'
   }
 
@@ -185,7 +196,7 @@ export function GroupManager({ className }: GroupManagerProps) {
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            Failed to load permission groups: {error.message || 'Unknown error'}
+            Failed to load permission groups: {error || 'Unknown error'}
           </AlertDescription>
         </Alert>
       </div>
@@ -220,7 +231,7 @@ export function GroupManager({ className }: GroupManagerProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Groups</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total_groups}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalGroups}</p>
               </div>
               <Users className="h-8 w-8 text-blue-600" />
             </div>
@@ -232,7 +243,7 @@ export function GroupManager({ className }: GroupManagerProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Active Members</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total_active_memberships}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.totalUsers}</p>
               </div>
               <CheckCircle className="h-8 w-8 text-green-600" />
             </div>
@@ -244,7 +255,7 @@ export function GroupManager({ className }: GroupManagerProps) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Expiring Soon</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.expiring_soon}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.recentActivity}</p>
               </div>
               <Clock className="h-8 w-8 text-orange-600" />
             </div>

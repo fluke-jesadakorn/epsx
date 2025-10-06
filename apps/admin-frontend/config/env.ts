@@ -48,15 +48,15 @@ export const authConfig = {
   },
   
   get authorizationEndpoint() {
-    return urls.oauth.authorize;  // Uses unified URL helper
+    return urls.oidc.authorize();  // Uses unified URL helper
   },
-  
+
   get tokenEndpoint() {
-    return urls.oauth.token;      // Uses unified URL helper
+    return urls.oidc.token();      // Uses unified URL helper
   },
-  
+
   get userinfoEndpoint() {
-    return urls.oauth.userinfo;   // Uses unified URL helper
+    return urls.oidc.userinfo();   // Uses unified URL helper
   }
 } as const;
 
@@ -105,8 +105,6 @@ export const serverConfig = {
  * Development validation
  */
 if (typeof window !== 'undefined' && isDev) {
-  console.log('✅ Admin Frontend Environment Configuration Loaded (Unified Schema)');
-  console.log('🔧 Admin Configuration:', {
     adminUrl: config.adminUrl,
     backendUrl: config.backendUrl,
     clientId: config.clientId,

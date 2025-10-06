@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
+
 import { env } from '../../config/env';
 
 // Server action utilities
@@ -45,6 +46,10 @@ interface UpdateUserData {
 }
 
 // User Management Server Actions
+/**
+ *
+ * @param data
+ */
 export async function createUser(data: CreateUserData) {
   try {
     const result = await makeServerRequest('/api/v1/admin/users', {
@@ -54,15 +59,21 @@ export async function createUser(data: CreateUserData) {
 
     revalidatePath('/users');
     return { success: true, data: result };
-  } catch (error) {
-    console.error('Error creating user:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Error creating user:', _error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to create user',
+      error: _error instanceof Error ? _error.message : 'Failed to create user',
     };
   }
 }
 
+/**
+ *
+ * @param userId
+ * @param data
+ */
 export async function updateUser(userId: string, data: UpdateUserData) {
   try {
     const result = await makeServerRequest(`/api/v1/admin/users/${userId}`, {
@@ -73,15 +84,20 @@ export async function updateUser(userId: string, data: UpdateUserData) {
     revalidatePath('/users');
     revalidatePath(`/users/${userId}`);
     return { success: true, data: result };
-  } catch (error) {
-    console.error('Error updating user:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Error updating user:', _error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to update user',
+      error: _error instanceof Error ? _error.message : 'Failed to update user',
     };
   }
 }
 
+/**
+ *
+ * @param userId
+ */
 export async function deleteUser(userId: string) {
   try {
     await makeServerRequest(`/api/v1/admin/users/${userId}`, {
@@ -90,25 +106,35 @@ export async function deleteUser(userId: string) {
 
     revalidatePath('/users');
     return { success: true };
-  } catch (error) {
-    console.error('Error deleting user:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Error deleting user:', _error);
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to delete user',
+      error: _error instanceof Error ? _error.message : 'Failed to delete user',
     };
   }
 }
 
+/**
+ *
+ */
 export async function fetchUserDetails() {
   try {
     const result = await makeServerRequest('/api/v1/admin/users');
     return result.users || [];
-  } catch (error) {
-    console.error('Error fetching users:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Error fetching users:', _error);
     return [];
   }
 }
 
+/**
+ *
+ * @param userId
+ * @param role
+ */
 export async function updateUserRole(userId: string, role: string) {
   try {
     const result = await makeServerRequest(
@@ -126,17 +152,24 @@ export async function updateUserRole(userId: string, role: string) {
       message: 'User role updated successfully',
       data: result,
     };
-  } catch (error) {
-    console.error('Error updating user role:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Error updating user role:', _error);
     return {
       success: false,
       error:
-        error instanceof Error ? error.message : 'Failed to update user role',
+        _error instanceof Error ? _error.message : 'Failed to update user role',
     };
   }
 }
 
 // Permission Management Server Actions
+/**
+ *
+ * @param userId
+ * @param permission
+ * @param expiresAt
+ */
 export async function grantPermission(
   userId: string,
   permission: string,
@@ -162,16 +195,22 @@ export async function grantPermission(
     revalidatePath(`/users/${userId}`);
     revalidatePath('/permissions');
     return { success: true, data: result };
-  } catch (error) {
-    console.error('Error granting permission:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Error granting permission:', _error);
     return {
       success: false,
       error:
-        error instanceof Error ? error.message : 'Failed to grant permission',
+        _error instanceof Error ? _error.message : 'Failed to grant permission',
     };
   }
 }
 
+/**
+ *
+ * @param userId
+ * @param permission
+ */
 export async function revokePermission(userId: string, permission: string) {
   try {
     const result = await makeServerRequest(
@@ -189,16 +228,22 @@ export async function revokePermission(userId: string, permission: string) {
     revalidatePath(`/users/${userId}`);
     revalidatePath('/permissions');
     return { success: true, data: result };
-  } catch (error) {
-    console.error('Error revoking permission:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Error revoking permission:', _error);
     return {
       success: false,
       error:
-        error instanceof Error ? error.message : 'Failed to revoke permission',
+        _error instanceof Error ? _error.message : 'Failed to revoke permission',
     };
   }
 }
 
+/**
+ *
+ * @param userIds
+ * @param permissions
+ */
 export async function bulkGrantPermissions(
   userIds: string[],
   permissions: string[]
@@ -219,16 +264,22 @@ export async function bulkGrantPermissions(
     revalidatePath('/users');
     revalidatePath('/permissions');
     return { success: true, data: result };
-  } catch (error) {
-    console.error('Error bulk granting permissions:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Error bulk granting permissions:', _error);
     return {
       success: false,
       error:
-        error instanceof Error ? error.message : 'Failed to grant permissions',
+        _error instanceof Error ? _error.message : 'Failed to grant permissions',
     };
   }
 }
 
+/**
+ *
+ * @param userIds
+ * @param permissions
+ */
 export async function bulkRevokePermissions(
   userIds: string[],
   permissions: string[]
@@ -249,17 +300,25 @@ export async function bulkRevokePermissions(
     revalidatePath('/users');
     revalidatePath('/permissions');
     return { success: true, data: result };
-  } catch (error) {
-    console.error('Error bulk revoking permissions:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Error bulk revoking permissions:', _error);
     return {
       success: false,
       error:
-        error instanceof Error ? error.message : 'Failed to revoke permissions',
+        _error instanceof Error ? _error.message : 'Failed to revoke permissions',
     };
   }
 }
 
 // Notification Server Actions
+/**
+ *
+ * @param userIdOrEmail
+ * @param title
+ * @param message
+ * @param priority
+ */
 export async function sendNotification(
   userIdOrEmail: string,
   title: string,
@@ -283,16 +342,23 @@ export async function sendNotification(
 
     revalidatePath('/notifications');
     return { success: true, data: result };
-  } catch (error) {
-    console.error('Error sending notification:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Error sending notification:', _error);
     return {
       success: false,
       error:
-        error instanceof Error ? error.message : 'Failed to send notification',
+        _error instanceof Error ? _error.message : 'Failed to send notification',
     };
   }
 }
 
+/**
+ *
+ * @param title
+ * @param message
+ * @param priority
+ */
 export async function sendBroadcastNotification(
   title: string,
   message: string,
@@ -314,18 +380,23 @@ export async function sendBroadcastNotification(
 
     revalidatePath('/notifications');
     return { success: true, data: result };
-  } catch (error) {
-    console.error('Error sending broadcast notification:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Error sending broadcast notification:', _error);
     return {
       success: false,
       error:
-        error instanceof Error
-          ? error.message
+        _error instanceof Error
+          ? _error.message
           : 'Failed to send broadcast notification',
     };
   }
 }
 
+/**
+ *
+ * @param notificationId
+ */
 export async function markNotificationAsRead(notificationId: string) {
   try {
     const result = await makeServerRequest(
@@ -337,27 +408,31 @@ export async function markNotificationAsRead(notificationId: string) {
 
     revalidatePath('/notifications');
     return { success: true, data: result };
-  } catch (error) {
-    console.error('Error marking notification as read:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Error marking notification as read:', _error);
     return {
       success: false,
       error:
-        error instanceof Error
-          ? error.message
+        _error instanceof Error
+          ? _error.message
           : 'Failed to mark notification as read',
     };
   }
 }
 
+/**
+ *
+ */
 export async function getUserStats() {
   try {
-    const result = await makeServerRequest(
+    return await makeServerRequest(
       '/api/v1/admin/analytics/user-statistics'
     );
-    return result;
-  } catch (error) {
-    console.error('Error getting user stats:', error);
-    throw error;
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Error getting user stats:', _error);
+    throw _error;
   }
 }
 
@@ -398,6 +473,10 @@ interface IAMUserFilters {
   offset?: number;
 }
 
+/**
+ *
+ * @param filters
+ */
 export async function getIAMUsers(filters?: IAMUserFilters) {
   try {
     const queryParams = new URLSearchParams();
@@ -411,26 +490,35 @@ export async function getIAMUsers(filters?: IAMUserFilters) {
 
     const endpoint = `users${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
     return await makeIAMRequest(endpoint);
-  } catch (error) {
-    console.error('Error fetching IAM users:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Error fetching IAM users:', _error);
     return [];
   }
 }
 
+/**
+ *
+ */
 export async function getIAMRoles() {
   try {
     return await makeIAMRequest('roles');
-  } catch (error) {
-    console.error('Error fetching IAM roles:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Error fetching IAM roles:', _error);
     return [];
   }
 }
 
+/**
+ *
+ */
 export async function getIAMPolicies() {
   try {
     return await makeIAMRequest('policies');
-  } catch (error) {
-    console.error('Error fetching IAM policies:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Error fetching IAM policies:', _error);
     return [];
   }
 }

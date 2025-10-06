@@ -50,7 +50,7 @@ export function FeatureGate({
         },
         body: JSON.stringify({
           feature_key: featureKey,
-          context: context
+          context
         })
       })
 
@@ -237,7 +237,7 @@ export function useFeatureAccess(featureKey: string, context: 'web_app' | 'api_a
           },
           body: JSON.stringify({
             feature_key: featureKey,
-            context: context
+            context
           })
         })
 

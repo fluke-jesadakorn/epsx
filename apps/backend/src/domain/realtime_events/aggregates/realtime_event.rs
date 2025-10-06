@@ -214,7 +214,7 @@ impl RealtimeEvent {
         match self.status {
             EventStatus::Pending => true,
             EventStatus::Scheduled | EventStatus::Retrying => {
-                self.scheduled_for.map_or(true, |time| time <= Utc::now())
+                self.scheduled_for.is_none_or(|time| time <= Utc::now())
             },
             _ => false,
         }

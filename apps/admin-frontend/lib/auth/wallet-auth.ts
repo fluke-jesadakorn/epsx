@@ -61,15 +61,7 @@ export async function getWalletSessionFromCookies(): Promise<WalletSession | nul
     const signature = cookieStore.get('wallet_signature')?.value;
     const message = cookieStore.get('wallet_message')?.value;
     const expiresAt = cookieStore.get('wallet_expires_at')?.value;
-    
-    console.log('🔍 Wallet session check:', {
-      walletAddress: walletAddress ? 'present' : 'missing',
-      nonce: nonce ? 'present' : 'missing',
-      signature: signature ? 'present' : 'missing',
-      message: message ? 'present' : 'missing',
-      expiresAt: expiresAt ? 'present' : 'missing'
-    });
-    
+
     if (!walletAddress || !nonce || !signature || !message || !expiresAt) {
       return null;
     }
@@ -81,14 +73,16 @@ export async function getWalletSessionFromCookies(): Promise<WalletSession | nul
       message,
       expires_at: parseInt(expiresAt, 10)
     };
-  } catch (error) {
-    console.error('❌ Failed to get wallet session from cookies:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Failed to get wallet session from cookies:', _error);
     return null;
   }
 }
 
 /**
  * Validate wallet session with local admin API
+ * @param session
  */
 export async function validateWalletWithBackend(session: WalletSession): Promise<WalletUser | null> {
   try {
@@ -109,6 +103,7 @@ export async function validateWalletWithBackend(session: WalletSession): Promise
     });
     
     if (!response.ok) {
+      // eslint-disable-next-line no-console
       console.error('❌ Wallet validation failed:', response.status);
       return null;
     }
@@ -123,14 +118,21 @@ export async function validateWalletWithBackend(session: WalletSession): Promise
       permissions: userInfo.permissions || [],
       platform_context: userInfo.platform_context
     };
-  } catch (error) {
-    console.error('❌ Wallet validation error:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Wallet validation error:', _error);
     return null;
   }
 }
 
 /**
  * Set wallet authentication session in cookies
+ * @param sessionData
+ * @param sessionData.wallet_address
+ * @param sessionData.nonce
+ * @param sessionData.signature
+ * @param sessionData.message
+ * @param sessionData.expires_in
  */
 export async function setWalletSession(sessionData: {
   wallet_address: string;
@@ -185,9 +187,10 @@ export async function clearWalletSession(): Promise<void> {
 
 /**
  * Check if user has admin access
+ * @param user
  */
 export function hasAdminAccess(user: WalletUser | undefined): boolean {
-  if (!user || !user.permissions || !Array.isArray(user.permissions)) {
+  if (!user?.permissions || !Array.isArray(user.permissions)) {
     return false;
   }
   
@@ -200,6 +203,7 @@ export function hasAdminAccess(user: WalletUser | undefined): boolean {
 
 /**
  * Check if permissions array has admin access (legacy function)
+ * @param permissions
  */
 export function checkAdminPermissions(permissions: string[]): boolean {
   if (!permissions || !Array.isArray(permissions)) {
@@ -215,9 +219,11 @@ export function checkAdminPermissions(permissions: string[]): boolean {
 
 /**
  * Check specific permission
+ * @param user
+ * @param requiredPermission
  */
 export function hasPermission(user: WalletUser | undefined, requiredPermission: string): boolean {
-  if (!user || !user.permissions || !Array.isArray(user.permissions)) {
+  if (!user?.permissions || !Array.isArray(user.permissions)) {
     return false;
   }
   
@@ -249,6 +255,8 @@ export function hasPermission(user: WalletUser | undefined, requiredPermission: 
 
 /**
  * Check specific permission (legacy function with permissions array)
+ * @param userPermissions
+ * @param requiredPermission
  */
 export function checkPermission(userPermissions: string[], requiredPermission: string): boolean {
   if (!userPermissions || !Array.isArray(userPermissions)) {
@@ -283,6 +291,8 @@ export function checkPermission(userPermissions: string[], requiredPermission: s
 
 /**
  * Filter permissions by platform
+ * @param permissions
+ * @param platform
  */
 export function getPermissionsByPlatform(permissions: string[], platform: string): string[] {
   return permissions.filter(permission => 
@@ -293,6 +303,8 @@ export function getPermissionsByPlatform(permissions: string[], platform: string
 
 /**
  * Check if permissions are expiring soon (for embedded timestamps)
+ * @param permissions
+ * @param withinDays
  */
 export function getExpiringPermissions(permissions: string[], withinDays = 7): string[] {
   const now = Date.now() / 1000;
@@ -322,7 +334,6 @@ export async function getAdminSession(): Promise<AdminSession> {
     
     // Check if wallet session exists
     if (!walletSession) {
-      console.log('📝 No wallet session found');
       return {
         isAuthenticated: false,
         isLoggedIn: false,
@@ -334,7 +345,6 @@ export async function getAdminSession(): Promise<AdminSession> {
     
     // Check if session is expired
     if (Date.now() > walletSession.expires_at) {
-      console.log('📝 Wallet session expired');
       await clearWalletSession();
       return {
         isAuthenticated: false,
@@ -350,8 +360,7 @@ export async function getAdminSession(): Promise<AdminSession> {
       const siweMessage = new SiweMessage(walletSession.message);
       // Note: In production, you'd verify the signature here
       // For now, we trust the backend validation
-    } catch (error) {
-      console.log('📝 Invalid SIWE message format');
+    } catch (_error) {
       return {
         isAuthenticated: false,
         isLoggedIn: false,
@@ -365,7 +374,6 @@ export async function getAdminSession(): Promise<AdminSession> {
     const user = await validateWalletWithBackend(walletSession);
     
     if (!user) {
-      console.log('📝 Wallet validation with backend failed');
       return {
         isAuthenticated: false,
         isLoggedIn: false,
@@ -379,7 +387,6 @@ export async function getAdminSession(): Promise<AdminSession> {
     const adminAccess = hasAdminAccess(user);
     
     if (!adminAccess) {
-      console.log('📝 Wallet lacks admin permissions');
       return {
         isAuthenticated: true,
         isLoggedIn: true,
@@ -389,8 +396,6 @@ export async function getAdminSession(): Promise<AdminSession> {
       };
     }
     
-    console.log('✅ Valid admin wallet session established for:', user.wallet_address);
-    
     return {
       isAuthenticated: true,
       isLoggedIn: true,
@@ -399,14 +404,15 @@ export async function getAdminSession(): Promise<AdminSession> {
       expiresAt: walletSession.expires_at
     };
     
-  } catch (error) {
-    console.error('❌ Wallet session validation error:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Wallet session validation error:', _error);
     return {
       isAuthenticated: false,
       isLoggedIn: false,
       user: null,
       hasAdminAccess: false,
-      error: error instanceof Error ? error.message : 'Session validation failed'
+      error: _error instanceof Error ? _error.message : 'Session validation failed'
     };
   }
 }
@@ -442,6 +448,7 @@ export async function isValidSession(): Promise<boolean> {
 
 /**
  * Generate SIWE nonce for wallet authentication
+ * @param walletAddress
  */
 export async function generateWalletNonce(walletAddress: string): Promise<string> {
   try {
@@ -459,14 +466,20 @@ export async function generateWalletNonce(walletAddress: string): Promise<string
 
     const { nonce } = await response.json();
     return nonce;
-  } catch (error) {
-    console.error('❌ Failed to generate wallet nonce:', error);
-    throw error;
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Failed to generate wallet nonce:', _error);
+    throw _error;
   }
 }
 
 /**
  * Verify wallet signature and create session
+ * @param data
+ * @param data.wallet_address
+ * @param data.signature
+ * @param data.nonce
+ * @param data.message
  */
 export async function verifyWalletSignature(data: {
   wallet_address: string;
@@ -509,10 +522,10 @@ export async function verifyWalletSignature(data: {
       redirectUrl: '/' // Redirect to dashboard
     };
     
-  } catch (error) {
+  } catch (_error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Wallet authentication failed'
+      error: _error instanceof Error ? _error.message : 'Wallet authentication failed'
     };
   }
 }
@@ -545,11 +558,19 @@ export async function getTokensFromCookies(): Promise<{
   };
 }
 
+/**
+ *
+ * @param data
+ */
 export async function setAuthTokens(data: unknown): Promise<void> {
   // This function is deprecated in wallet auth
+  // eslint-disable-next-line no-console
   console.warn('setAuthTokens is deprecated in wallet authentication', data);
 }
 
+/**
+ *
+ */
 export async function clearAuthTokens(): Promise<void> {
   await clearWalletSession();
 }

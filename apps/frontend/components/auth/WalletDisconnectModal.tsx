@@ -34,7 +34,7 @@ export function WalletDisconnectModal({
     try {
       await navigator.clipboard.writeText(walletAddress);
       toast.success('Address copied to clipboard');
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to copy address');
     }
   };

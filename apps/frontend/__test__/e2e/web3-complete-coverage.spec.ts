@@ -65,7 +65,7 @@ async function mockWallet(page: any, address: string, options: any = {}) {
     (window as any).__MOCK_WALLET__ = {
       connected: !rejectConn,
       address: addr,
-      type: type,
+      type,
       chainId: chain
     };
   }, {

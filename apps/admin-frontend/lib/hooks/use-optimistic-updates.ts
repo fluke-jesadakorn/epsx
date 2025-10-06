@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface OptimisticUpdate<T> {
   id: string;
@@ -17,6 +17,10 @@ export interface UseOptimisticUpdatesOptions {
   rollbackDelay?: number;
 }
 
+/**
+ *
+ * @param options
+ */
 export function useOptimisticUpdates<T>(
   options: UseOptimisticUpdatesOptions = {}
 ) {
@@ -82,7 +86,7 @@ export function useOptimisticUpdates<T>(
 
   const rollbackUpdate = useCallback((id: string) => {
     const update = pendingUpdates.get(id);
-    if (!update) return null;
+    if (!update) {return null;}
 
     setPendingUpdates(prev => {
       const newMap = new Map(prev);
@@ -126,7 +130,7 @@ export function useOptimisticUpdates<T>(
       try {
         await retryFn();
         confirmUpdate(id);
-      } catch (error) {
+      } catch (_error) {
         retryUpdate(id, retryFn);
       }
     }, retryDelay * Math.pow(2, update.retryCount)); // Exponential backoff
@@ -206,26 +210,34 @@ export interface UseBackgroundSyncOptions {
   onError?: (error: Error) => void;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.syncInterval
+ * @param root0.enabled
+ * @param root0.onSync
+ * @param root0.onError
+ */
 export function useBackgroundSync({
   syncInterval = 30000,
   enabled = true,
   onSync,
   onError
 }: UseBackgroundSyncOptions = {}) {
-  const [isOnline, setIsOnline] = useState(navigator.onlineState !== false);
+  const [isOnline, setIsOnline] = useState(navigator.onLine !== false);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const [syncInProgress, setSyncInProgress] = useState(false);
-  const intervalRef = useRef<NodeJS.Timeout>();
+  const intervalRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const sync = useCallback(async () => {
-    if (!onSync || syncInProgress || !isOnline) return;
+    if (!onSync || syncInProgress || !isOnline) {return;}
 
     setSyncInProgress(true);
     try {
       await onSync();
       setLastSyncTime(new Date());
-    } catch (error) {
-      onError?.(error as Error);
+    } catch (_error) {
+      onError?.(_error as Error);
     } finally {
       setSyncInProgress(false);
     }
@@ -253,7 +265,7 @@ export function useBackgroundSync({
   });
 
   // Setup interval sync
-  useState(() => {
+  useEffect(() => {
     if (enabled && isOnline) {
       intervalRef.current = setInterval(sync, syncInterval);
     }
@@ -292,6 +304,13 @@ export interface PerformanceMetric {
   metadata?: Record<string, any>;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.enabled
+ * @param root0.sampleRate
+ * @param root0.onMetric
+ */
 export function usePerformanceMonitor({
   enabled = true,
   sampleRate = 1,
@@ -300,16 +319,16 @@ export function usePerformanceMonitor({
   const measurementRefs = useRef<Map<string, number>>(new Map());
 
   const startMeasurement = useCallback((name: string) => {
-    if (!enabled || Math.random() > sampleRate) return;
+    if (!enabled || Math.random() > sampleRate) {return;}
     
     measurementRefs.current.set(name, performance.now());
   }, [enabled, sampleRate]);
 
   const endMeasurement = useCallback((name: string, metadata?: Record<string, any>) => {
-    if (!enabled) return;
+    if (!enabled) {return;}
     
     const startTime = measurementRefs.current.get(name);
-    if (startTime === undefined) return;
+    if (startTime === undefined) {return;}
 
     const duration = performance.now() - startTime;
     measurementRefs.current.delete(name);
@@ -332,7 +351,7 @@ export function usePerformanceMonitor({
     value: number, 
     metadata?: Record<string, any>
   ) => {
-    if (!enabled || Math.random() > sampleRate) return;
+    if (!enabled || Math.random() > sampleRate) {return;}
 
     const metric: PerformanceMetric = {
       name,
@@ -348,18 +367,18 @@ export function usePerformanceMonitor({
   }, [enabled, sampleRate, onMetric]);
 
   const getNavigationMetrics = useCallback(() => {
-    if (!enabled || !performance.getEntriesByType) return [];
+    if (!enabled || !performance.getEntriesByType) {return [];}
 
     const navEntries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
     return navEntries.map(entry => ({
       name: 'navigation',
-      value: entry.loadEventEnd - entry.navigationStart,
+      value: entry.loadEventEnd - entry.startTime,
       timestamp: Date.now(),
       category: 'navigation' as const,
       metadata: {
-        domContentLoaded: entry.domContentLoadedEventEnd - entry.navigationStart,
-        domInteractive: entry.domInteractive - entry.navigationStart,
-        firstPaint: entry.responseEnd - entry.navigationStart
+        domContentLoaded: entry.domContentLoadedEventEnd - entry.startTime,
+        domInteractive: entry.domInteractive - entry.startTime,
+        firstPaint: entry.responseEnd - entry.startTime
       }
     }));
   }, [enabled]);

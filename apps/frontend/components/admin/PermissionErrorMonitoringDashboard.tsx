@@ -31,13 +31,12 @@ interface ErrorSummary {
 // ============================================================================
 
 function PermissionErrorMonitoringDashboardCore() {
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [errorData, setErrorData] = useState<ErrorSummary>({
+  const errorData: ErrorSummary = {
     total_errors: 0,
     unique_users_affected: 0,
     error_types: {},
     top_components: []
-  });
+  };
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">

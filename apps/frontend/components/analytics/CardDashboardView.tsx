@@ -288,7 +288,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
     }
   };
 
-  const getSystemModeColor = (mode: string) => {
+  const _getSystemModeColor = (mode: string) => {
     switch (mode) {
       case 'TRACK':
         return 'bg-green-500';
@@ -299,7 +299,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
     }
   };
 
-  const getSystemModeIcon = (mode: string) => {
+  const _getSystemModeIcon = (mode: string) => {
     switch (mode) {
       case 'TRACK':
         return '🟢';

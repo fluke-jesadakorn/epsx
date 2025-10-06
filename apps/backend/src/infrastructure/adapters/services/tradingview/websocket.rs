@@ -90,7 +90,7 @@ impl TradingViewWebSocketHandler {
             
             // Placeholder implementation - would be replaced with actual WebSocket data processing
             let eps_data = FrontendEPSData {
-                id: format!("ws_{}", Uuid::new_v4().to_string()),
+                id: format!("ws_{}", Uuid::new_v4()),
                 symbol: symbol.clone(),
                 company_name: format!("{} Corporation", symbol),
                 current_eps: 0.0, // Would come from WebSocket
@@ -268,7 +268,7 @@ impl TradingViewWebSocketHandler {
         // Parse symbol to extract exchange and clean symbol
         let (clean_symbol, _exchange) = if symbol.contains(':') {
             let parts: Vec<&str> = symbol.split(':').collect();
-            (parts.get(1).unwrap_or(&symbol).to_string(), parts.get(0).unwrap_or(&"NASDAQ").to_string())
+            (parts.get(1).unwrap_or(&symbol).to_string(), parts.first().unwrap_or(&"NASDAQ").to_string())
         } else {
             (symbol.to_string(), "NASDAQ".to_string())
         };
@@ -301,7 +301,7 @@ impl TradingViewWebSocketHandler {
         };
         
         Some(FrontendEPSData {
-            id: format!("ws_{}", uuid::Uuid::new_v4().to_string()),
+            id: format!("ws_{}", uuid::Uuid::new_v4()),
             symbol: clean_symbol,
             company_name,
             current_eps,

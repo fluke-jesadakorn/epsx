@@ -2,9 +2,9 @@
  * Centralized JWT Cookie Management for EPSX Applications
  * Provides secure cookie handling with refresh token support
  */
-import { NextResponse } from 'next/server';
 import { serialize } from 'cookie';
 import { cookies } from 'next/headers';
+import { NextResponse } from 'next/server';
 
 export interface CookieConfig {
   name: string;
@@ -27,12 +27,17 @@ export interface TokenCookies {
 export class JWTCookieManager {
   private config: TokenCookies;
   
+  /**
+   *
+   * @param appName
+   */
   constructor(appName: 'frontend' | 'admin' | 'shared') {
     this.config = this.createCookieConfig(appName);
   }
 
   /**
    * Create cookie configuration based on application type
+   * @param appName
    */
   private createCookieConfig(appName: 'frontend' | 'admin' | 'shared'): TokenCookies {
     const isProduction = process.env.NODE_ENV === 'production';
@@ -62,6 +67,8 @@ export class JWTCookieManager {
 
   /**
    * Set JWT access token cookie on response
+   * @param response
+   * @param token
    */
   setAccessTokenCookie(response: NextResponse, token: string): NextResponse {
     const config = this.config.accessToken;
@@ -80,6 +87,8 @@ export class JWTCookieManager {
 
   /**
    * Alias for setAccessTokenCookie for compatibility
+   * @param response
+   * @param token
    */
   async setAccessToken(response: NextResponse, token: string): Promise<NextResponse> {
     return this.setAccessTokenCookie(response, token);
@@ -87,6 +96,8 @@ export class JWTCookieManager {
 
   /**
    * Set refresh token cookie on response
+   * @param response
+   * @param token
    */
   setRefreshTokenCookie(response: NextResponse, token: string): NextResponse {
     const config = this.config.refreshToken;
@@ -105,6 +116,9 @@ export class JWTCookieManager {
 
   /**
    * Set both access and refresh token cookies
+   * @param response
+   * @param accessToken
+   * @param refreshToken
    */
   setTokenCookies(
     response: NextResponse, 
@@ -118,6 +132,7 @@ export class JWTCookieManager {
 
   /**
    * Clear access token cookie
+   * @param response
    */
   clearAccessTokenCookie(response: NextResponse): NextResponse {
     response.cookies.delete(this.config.accessToken.name);
@@ -126,6 +141,7 @@ export class JWTCookieManager {
 
   /**
    * Clear refresh token cookie
+   * @param response
    */
   clearRefreshTokenCookie(response: NextResponse): NextResponse {
     response.cookies.delete(this.config.refreshToken.name);
@@ -134,6 +150,7 @@ export class JWTCookieManager {
 
   /**
    * Clear all authentication cookies
+   * @param response
    */
   clearAllCookies(response: NextResponse): NextResponse {
     this.clearAccessTokenCookie(response);
@@ -149,8 +166,9 @@ export class JWTCookieManager {
       const cookieStore = await cookies();
       const tokenCookie = cookieStore.get(this.config.accessToken.name);
       return tokenCookie?.value || null;
-    } catch (error) {
-      console.error('Error reading access token cookie:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Error reading access token cookie:', _error);
       return null;
     }
   }
@@ -163,8 +181,9 @@ export class JWTCookieManager {
       const cookieStore = await cookies();
       const tokenCookie = cookieStore.get(this.config.refreshToken.name);
       return tokenCookie?.value || null;
-    } catch (error) {
-      console.error('Error reading refresh token cookie:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Error reading refresh token cookie:', _error);
       return null;
     }
   }
@@ -174,7 +193,7 @@ export class JWTCookieManager {
    */
   async hasValidAccessToken(): Promise<boolean> {
     const token = await this.getAccessToken();
-    if (!token) return false;
+    if (!token) {return false;}
 
     try {
       // Basic JWT expiration check (without full verification)
@@ -191,7 +210,7 @@ export class JWTCookieManager {
    */
   async getTokenTimeToExpiry(): Promise<number> {
     const token = await this.getAccessToken();
-    if (!token) return 0;
+    if (!token) {return 0;}
 
     try {
       const payload = JSON.parse(atob(token.split('.')[1]));
@@ -220,6 +239,7 @@ export class JWTCookieManager {
 
 /**
  * Factory function to create cookie manager for specific app
+ * @param appName
  */
 export function createCookieManager(appName: 'frontend' | 'admin' | 'shared'): JWTCookieManager {
   return new JWTCookieManager(appName);
@@ -227,12 +247,13 @@ export function createCookieManager(appName: 'frontend' | 'admin' | 'shared'): J
 
 /**
  * Utility function to extract JWT claims without verification
+ * @param token
  */
 export function extractJWTClaims(token: string): Record<string, unknown> {
   try {
     const payload = JSON.parse(atob(token.split('.')[1]));
     return payload as Record<string, unknown>;
-  } catch (error) {
+  } catch (_error) {
     throw new Error('Invalid JWT token format');
   }
 }

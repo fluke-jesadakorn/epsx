@@ -128,7 +128,53 @@
         "*.ts",
         "*.tsx",
         ".eslintrc.*",
-        "eslint.config.*"
+        "eslint.config.*",
+        "../../shared/config/eslint.js"
+      ]
+    },
+    "lint:frontend": {
+      "outputs": ["node_modules/.cache/.eslintcache"],
+      "inputs": [
+        "app/**",
+        "components/**",
+        "lib/**",
+        "utils/**",
+        "types/**",
+        "*.js",
+        "*.ts",
+        "*.tsx",
+        "eslint.config.*",
+        "../../shared/config/eslint.js"
+      ]
+    },
+    "lint:admin": {
+      "outputs": ["node_modules/.cache/.eslintcache"],
+      "inputs": [
+        "app/**",
+        "components/**",
+        "lib/**",
+        "utils/**",
+        "types/**",
+        "*.js",
+        "*.ts",
+        "*.tsx",
+        "eslint.config.*",
+        "../../shared/config/eslint.js"
+      ]
+    },
+    "lint:apps": {
+      "outputs": ["node_modules/.cache/.eslintcache"],
+      "inputs": [
+        "app/**",
+        "components/**",
+        "lib/**",
+        "utils/**",
+        "types/**",
+        "*.js",
+        "*.ts",
+        "*.tsx",
+        "eslint.config.*",
+        "../../shared/config/eslint.js"
       ]
     },
     "lint:fix": {

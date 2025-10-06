@@ -254,7 +254,7 @@ impl UnifiedRateLimiter {
         // Save updated entry to cache with appropriate TTL
         let cache_ttl = std::cmp::max(
             TimeWindow::Day.duration_seconds() as i64,
-            DAY as i64 // 24 hours minimum
+            DAY // 24 hours minimum
         );
         
         // Cache updated entry (Cache.set() doesn't return Result, so no need for match)

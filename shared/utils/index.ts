@@ -123,70 +123,9 @@ export {
 // ============================================================================
 // CALCULATION UTILITIES
 // ============================================================================
-import {
-  // Financial calculations
-  calculateEPSGrowth,
-  calculateEPSSurprise,
-  calculateEstimatedGrowth,
-  calculatePERatio,
-  formatPERatio,
-  calculatePriceGrowth,
-  calculatePriceTarget,
-  calculatePercentageChange,
-  calculateCurrentRatio,
-  calculateQuickRatio,
-  calculateGrossMargin,
-  calculateOperatingMargin,
-  calculateNetMargin,
-  calculateBookValuePerShare,
-  calculatePriceToBook,
-  calculateDividendYield,
-  calculatePayoutRatio,
-  calculateEnterpriseValue,
-  calculateEVToEBITDA,
-  calculateAssetTurnover,
-  calculateInventoryTurnover,
-  calculateReceivablesTurnover,
-  calculateWorkingCapital,
-  calculateMarketCap,
-  calculateEarningsYield,
-  calculateFreeCashFlow,
-  calculateFCFYield,
-  calculateBeta,
-  calculateSharpeRatio
-} from './calculations/financial'
-
-export {
-  calculateEPSGrowth,
-  calculateEPSSurprise,
-  calculateEstimatedGrowth,
-  calculatePERatio,
-  formatPERatio,
-  calculatePriceGrowth,
-  calculatePriceTarget,
-  calculatePercentageChange,
-  calculateCurrentRatio,
-  calculateQuickRatio,
-  calculateGrossMargin,
-  calculateOperatingMargin,
-  calculateNetMargin,
-  calculateBookValuePerShare,
-  calculatePriceToBook,
-  calculateDividendYield,
-  calculatePayoutRatio,
-  calculateEnterpriseValue,
-  calculateEVToEBITDA,
-  calculateAssetTurnover,
-  calculateInventoryTurnover,
-  calculateReceivablesTurnover,
-  calculateWorkingCapital,
-  calculateMarketCap,
-  calculateEarningsYield,
-  calculateFreeCashFlow,
-  calculateFCFYield,
-  calculateBeta,
-  calculateSharpeRatio
-}
+// Financial calculations moved to app-specific implementations:
+// - apps/admin-frontend/lib/consolidated-utils.ts
+// - apps/frontend/components/home/utils/financialCalculations.ts
 
 // ============================================================================
 // HELPER UTILITIES
@@ -466,11 +405,6 @@ export const utils = {
   formatPercentage,
   formatPrice,
   formatEPSGrowth,
-  
-  // Most frequently used calculations
-  calculateEPSGrowth,
-  calculatePERatio,
-  calculatePercentageChange,
   
   // Most frequently used helpers
   debounce,

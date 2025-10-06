@@ -1,10 +1,10 @@
 // Web3 Permission Service Adapter (Infrastructure Layer)
 // Provides infrastructure implementation for Web3 permission validation with blockchain integration
 
-use std::sync::Arc;
+use crate::prelude::*;
+
 use std::collections::HashMap;
 use std::time::Duration;
-use serde::{Deserialize, Serialize};
 use tokio::time::timeout;
 use tracing::{error, info, warn, debug};
 use sqlx::PgPool;
@@ -14,8 +14,7 @@ use ethers::types::{Address, U256, Bytes, TransactionRequest};
 use ethers::types::transaction::eip2718::TypedTransaction;
 use std::str::FromStr;
 
-use crate::core::errors::{AppError, AppResult};
-use crate::domain::user_management::{
+use crate::domain::wallet_management::{
     aggregates::WalletUser,
     value_objects::{WalletAddress, Permission, PermissionType},
     domain_services::{
@@ -646,24 +645,51 @@ impl Web3PermissionServiceAdapter {
     /// Get user permissions for a wallet address
     pub async fn get_user_permissions(&self, wallet_address: &str) -> AppResult<Vec<String>> {
         debug!("Getting user permissions for wallet: {}", wallet_address);
-        
-        // Get permissions from wallet_users table
+
+        // Get permissions from normalized permission tables (groups + direct)
         let permissions_result = sqlx::query!(
-            "SELECT permissions FROM wallet_users WHERE wallet_address = $1",
+            r#"
+            -- Permissions from groups
+            SELECT DISTINCT p.permission_string
+            FROM wallet_group_assignments wga
+            JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
+            JOIN permissions p ON pgm.permission_id = p.id
+            WHERE wga.wallet_address = $1
+              AND wga.is_active = true
+              AND p.is_active = true
+              AND (wga.expires_at IS NULL OR wga.expires_at > NOW())
+
+            UNION
+
+            -- Direct permissions
+            SELECT DISTINCT p.permission_string
+            FROM wallet_direct_permissions wdp
+            JOIN permissions p ON wdp.permission_id = p.id
+            WHERE wdp.wallet_address = $1
+              AND wdp.is_active = true
+              AND p.is_active = true
+              AND (wdp.expires_at IS NULL OR wdp.expires_at > NOW())
+
+            ORDER BY permission_string
+            "#,
             wallet_address
         )
-        .fetch_optional(&self.pool)
+        .fetch_all(&self.pool)
         .await;
-        
+
         match permissions_result {
-            Ok(Some(row)) => {
-                // Parse the JSON permissions array
-                if let Ok(permissions_array) = serde_json::from_value::<Vec<String>>(row.permissions) {
-                    debug!("Found {} permissions for wallet: {}", permissions_array.len(), wallet_address);
-                    Ok(permissions_array)
+            Ok(records) => {
+                let permissions: Vec<String> = records
+                    .into_iter()
+                    .filter_map(|r| r.permission_string)
+                    .collect();
+
+                if !permissions.is_empty() {
+                    debug!("Found {} permissions for wallet: {}", permissions.len(), wallet_address);
+                    Ok(permissions)
                 } else {
-                    debug!("Failed to parse permissions JSON for wallet: {}", wallet_address);
-                    // Return basic permissions as fallback
+                    debug!("No permissions found for wallet: {}", wallet_address);
+                    // Return basic permissions as fallback for new users
                     Ok(vec![
                         "epsx:read:analytics".to_string(),
                         "epsx:read:market_data".to_string(),
@@ -671,18 +697,9 @@ impl Web3PermissionServiceAdapter {
                     ])
                 }
             }
-            Ok(None) => {
-                debug!("No wallet user found for: {}", wallet_address);
-                // Return basic permissions for new users
-                Ok(vec![
-                    "epsx:read:analytics".to_string(),
-                    "epsx:read:market_data".to_string(),
-                    "epsx:read:portfolio".to_string(),
-                ])
-            }
             Err(e) => {
-                warn!("Database error getting permissions for wallet {}: {}", wallet_address, e);
-                // Return basic permissions as fallback
+                debug!("Database error getting permissions for wallet {}: {}", wallet_address, e);
+                // Return basic permissions for new users
                 Ok(vec![
                     "epsx:read:analytics".to_string(),
                     "epsx:read:market_data".to_string(),

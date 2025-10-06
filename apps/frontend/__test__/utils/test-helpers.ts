@@ -97,7 +97,7 @@ export class ApiMockHelper {
         contentType: 'application/json',
         body: JSON.stringify({
           valid: true,
-          user: user,
+          user,
           permissions: user.permissions,
           package_tier: user.package_tier,
           performance: {

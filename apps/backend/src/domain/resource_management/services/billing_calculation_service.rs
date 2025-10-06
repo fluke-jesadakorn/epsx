@@ -36,8 +36,8 @@ impl BillingCalculationService {
         let mut total_overage = 0.0;
 
         // Calculate overage costs for each resource type
-        for (resource_type, current_usage) in &usage.current_usage {
-            if let Some(limit) = usage.quota_limits.get(resource_type) {
+        for (resource_type, current_usage) in usage.current_usage() {
+            if let Some(limit) = usage.quota_limits().get(resource_type) {
                 if *limit > 0 && *current_usage > *limit {
                     let overage_amount = current_usage - limit;
                     if let Some(price_per_unit) = overage_pricing.get(resource_type) {
@@ -50,10 +50,10 @@ impl BillingCalculationService {
         }
 
         BillingSummary {
-            wallet_address: usage.wallet_address.clone(),
-            plan_id: usage.plan_id,
-            billing_period_start: usage.billing_period_start,
-            billing_period_end: usage.billing_period_end,
+            wallet_address: usage.wallet_address().to_string(),
+            plan_id: usage.plan_id(),
+            billing_period_start: usage.billing_period_start(),
+            billing_period_end: usage.billing_period_end(),
             base_cost: base_plan_cost,
             overage_costs,
             total_cost: base_plan_cost + total_overage,

@@ -10,6 +10,9 @@ const getEnvironmentConfig = async () => ({ env: {} });
 
 export const dynamic = 'force-dynamic';
 
+/**
+ *
+ */
 export default async function SettingsPage() {
   // Fetch settings data server-side
   const [

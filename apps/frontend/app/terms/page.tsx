@@ -13,17 +13,17 @@ const formSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
 });
 
-type SubscribeForm = z.infer<typeof formSchema>;
+type SubscribeFormData = z.infer<typeof formSchema>;
 
 function SubscribeForm() {
-  const form = useForm<SubscribeForm>({
+  const form = useForm<SubscribeFormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       email: "",
     },
   });
 
-  const handleSubmit = (_values: SubscribeForm) => {
+  const handleSubmit = (_values: SubscribeFormData) => {
     // TODO: Implement actual email storage
     // Email will be stored: values.email
   };

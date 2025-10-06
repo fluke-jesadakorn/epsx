@@ -1,23 +1,30 @@
 'use client';
 
-import { useState } from 'react';
 import { User, Shield, Settings, Database, Crown } from 'lucide-react';
-import { type User as UserType } from '../../../../shared/types/auth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useState } from 'react';
+
 import { AdminPermissions } from './AdminPermissions';
+import { type User as UserType } from '../../../../shared/types/auth';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface AdminProfileClientProps {
   user: UserType;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.user
+ */
 export function AdminProfileClient({ user }: AdminProfileClientProps) {
   const [activeTab, setActiveTab] = useState('account');
 
   const formatDate = (timestamp?: number) => {
-    if (!timestamp) return 'Not available';
+    if (!timestamp) {return 'Not available';}
     return new Date(timestamp * 1000).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
@@ -29,8 +36,8 @@ export function AdminProfileClient({ user }: AdminProfileClientProps) {
 
   const getAdminLevel = () => {
     const adminPermissions = user.permissions?.filter(p => p.startsWith('admin:')) || [];
-    if (adminPermissions.length >= 10) return 'Super Admin';
-    if (adminPermissions.length >= 5) return 'Admin';
+    if (adminPermissions.length >= 10) {return 'Super Admin';}
+    if (adminPermissions.length >= 5) {return 'Admin';}
     return 'Limited Admin';
   };
 

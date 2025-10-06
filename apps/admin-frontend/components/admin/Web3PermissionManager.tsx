@@ -1,8 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { format, parseISO, addDays, addMonths, addYears } from 'date-fns';
 import { 
   Shield, 
   Plus, 
@@ -22,18 +21,20 @@ import {
   Wallet,
   ExternalLink
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { format, parseISO, addDays, addMonths, addYears } from 'date-fns';
+import { useAccount } from 'wagmi';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 
 interface WalletPermission {
   id: string;
@@ -89,6 +90,9 @@ interface DAOProposal {
   expires_at: string;
 }
 
+/**
+ *
+ */
 export function Web3PermissionManager() {
   const { address } = useAccount();
   const queryClient = useQueryClient();
@@ -156,7 +160,7 @@ export function Web3PermissionManager() {
       const response = await fetch('/api/admin/web3/permissions', {
         credentials: 'include',
       });
-      if (!response.ok) throw new Error('Failed to fetch permissions');
+      if (!response.ok) {throw new Error('Failed to fetch permissions');}
       return response.json();
     },
     refetchInterval: 30000,
@@ -169,7 +173,7 @@ export function Web3PermissionManager() {
       const response = await fetch('/api/admin/web3/nft-gates', {
         credentials: 'include',
       });
-      if (!response.ok) throw new Error('Failed to fetch NFT gates');
+      if (!response.ok) {throw new Error('Failed to fetch NFT gates');}
       return response.json();
     },
   });
@@ -181,7 +185,7 @@ export function Web3PermissionManager() {
       const response = await fetch('/api/admin/web3/token-gates', {
         credentials: 'include',
       });
-      if (!response.ok) throw new Error('Failed to fetch token gates');
+      if (!response.ok) {throw new Error('Failed to fetch token gates');}
       return response.json();
     },
   });
@@ -193,7 +197,7 @@ export function Web3PermissionManager() {
       const response = await fetch('/api/admin/web3/dao-proposals', {
         credentials: 'include',
       });
-      if (!response.ok) throw new Error('Failed to fetch DAO proposals');
+      if (!response.ok) {throw new Error('Failed to fetch DAO proposals');}
       return response.json();
     },
   });
@@ -212,7 +216,7 @@ export function Web3PermissionManager() {
         }),
         credentials: 'include',
       });
-      if (!response.ok) throw new Error('Failed to grant permission');
+      if (!response.ok) {throw new Error('Failed to grant permission');}
       return response.json();
     },
     onSuccess: () => {
@@ -234,7 +238,7 @@ export function Web3PermissionManager() {
         body: JSON.stringify(data),
         credentials: 'include',
       });
-      if (!response.ok) throw new Error('Failed to create NFT gate');
+      if (!response.ok) {throw new Error('Failed to create NFT gate');}
       return response.json();
     },
     onSuccess: () => {
@@ -256,7 +260,7 @@ export function Web3PermissionManager() {
         body: JSON.stringify(data),
         credentials: 'include',
       });
-      if (!response.ok) throw new Error('Failed to create token gate');
+      if (!response.ok) {throw new Error('Failed to create token gate');}
       return response.json();
     },
     onSuccess: () => {
@@ -281,7 +285,7 @@ export function Web3PermissionManager() {
         }),
         credentials: 'include',
       });
-      if (!response.ok) throw new Error('Failed to create DAO proposal');
+      if (!response.ok) {throw new Error('Failed to create DAO proposal');}
       return response.json();
     },
     onSuccess: () => {

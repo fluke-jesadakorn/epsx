@@ -6,11 +6,12 @@
 
 'use client';
 
-import React, { Component, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home, Shield, Bug } from 'lucide-react';
+import React, { Component, ReactNode } from 'react';
+
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 
 interface Props {
   children: ReactNode;
@@ -27,9 +28,16 @@ interface State {
   retryCount: number;
 }
 
+/**
+ *
+ */
 export class AdminErrorBoundary extends Component<Props, State> {
   private maxRetries = 3;
 
+  /**
+   *
+   * @param props
+   */
   constructor(props: Props) {
     super(props);
     this.state = { 
@@ -40,6 +48,10 @@ export class AdminErrorBoundary extends Component<Props, State> {
     };
   }
 
+  /**
+   *
+   * @param error
+   */
   static getDerivedStateFromError(error: Error): Partial<State> {
     const errorId = `admin_err_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
     
@@ -50,10 +62,16 @@ export class AdminErrorBoundary extends Component<Props, State> {
     };
   }
 
+  /**
+   *
+   * @param error
+   * @param errorInfo
+   */
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     const { context = 'component', featureName } = this.props;
     
     // Enhanced error logging for admin interface
+    // eslint-disable-next-line no-console
     console.error('🚨 Admin Error Boundary caught an error:', {
       error: error.message,
       stack: error.stack,
@@ -92,6 +110,7 @@ export class AdminErrorBoundary extends Component<Props, State> {
 
   private reportCriticalError = (error: Error, errorInfo: React.ErrorInfo) => {
     // For critical admin errors, we might want special handling
+    // eslint-disable-next-line no-console
     console.error('🔥 CRITICAL ADMIN ERROR:', {
       error: error.message,
       context: this.props.context,
@@ -129,9 +148,9 @@ export class AdminErrorBoundary extends Component<Props, State> {
     const { context } = this.props;
     const { retryCount } = this.state;
     
-    if (context === 'critical' || retryCount >= this.maxRetries) return 'critical';
-    if (context === 'page' || retryCount >= 2) return 'high';
-    if (context === 'feature' || retryCount >= 1) return 'medium';
+    if (context === 'critical' || retryCount >= this.maxRetries) {return 'critical';}
+    if (context === 'page' || retryCount >= 2) {return 'high';}
+    if (context === 'feature' || retryCount >= 1) {return 'medium';}
     return 'low';
   };
 
@@ -144,6 +163,9 @@ export class AdminErrorBoundary extends Component<Props, State> {
     }
   };
 
+  /**
+   *
+   */
   render() {
     if (this.state.hasError) {
       // Use custom fallback if provided
@@ -280,6 +302,12 @@ export class AdminErrorBoundary extends Component<Props, State> {
 }
 
 // Convenience wrapper for admin components
+/**
+ *
+ * @param Component
+ * @param context
+ * @param featureName
+ */
 export function withAdminErrorBoundary<P extends object>(
   Component: React.ComponentType<P>,
   context: Props['context'] = 'component',

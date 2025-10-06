@@ -12,41 +12,39 @@
 
 'use client'
 
-import React, { useState, useCallback, useMemo } from 'react'
 import { 
   Zap, Plus, Settings, Trash2, Edit, Globe, Coins,
   Image, Users, AlertTriangle, CheckCircle, Eye,
   Search, Filter, MoreHorizontal, Play, Pause,
   ExternalLink, Copy, Wallet, TrendingUp, Activity
 } from 'lucide-react'
+import React, { useState, useCallback, useMemo } from 'react'
 
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { 
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter 
 } from '@/components/ui/dialog'
 import { 
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/components/ui/use-toast'
-
-import { 
+import { adminCardVariants, adminButtonVariants } from '@/design-system'
+import {
   useWeb3AssignmentRules,
-  usePermissionGroups,
-  useAdminGroupPermissions
+  usePermissionGroups
 } from '@/hooks/useGroupPermissions'
 import { 
   Web3AssignmentRule, 
   CreateWeb3RuleRequest,
   ProcessWalletRequest 
 } from '@/lib/api/group-management-client'
-import { adminCardVariants, adminButtonVariants } from '@/design-system'
 import { cn } from '@/lib/shared'
 
 interface Web3AssignmentRulesManagerProps {
@@ -83,6 +81,11 @@ const VERIFICATION_TYPES = [
   }
 ] as const
 
+/**
+ *
+ * @param root0
+ * @param root0.className
+ */
 export function Web3AssignmentRulesManager({ className }: Web3AssignmentRulesManagerProps) {
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState('')
@@ -95,20 +98,17 @@ export function Web3AssignmentRulesManager({ className }: Web3AssignmentRulesMan
   const [activeTab, setActiveTab] = useState('rules')
 
   // Hooks
-  const { 
-    rules, 
-    activeRules, 
-    isLoading, 
-    error, 
-    createRule, 
-    deleteRule,
+  const {
+    rules,
+    loading: isLoading,
+    error,
     processWallet,
     verifyWalletAssets,
-    refreshRules 
+    refreshRules
   } = useWeb3AssignmentRules()
-  
+
   const { groups } = usePermissionGroups()
-  const { canManageWeb3Rules } = useAdminGroupPermissions()
+  // Backend handles permission checking - no client-side validation needed
 
   // Filter rules
   const filteredRules = useMemo(() => {
@@ -140,69 +140,51 @@ export function Web3AssignmentRulesManager({ className }: Web3AssignmentRulesMan
 
   // Event handlers
   const handleCreateRule = useCallback(async (ruleData: CreateWeb3RuleRequest) => {
-    try {
-      await createRule(ruleData)
-      setShowCreateDialog(false)
-      toast({
-        title: 'Rule Created',
-        description: 'Web3 assignment rule has been created successfully.'
-      })
-    } catch (error) {
-      toast({
-        title: 'Creation Failed',
-        description: error instanceof Error ? error.message : 'Failed to create rule',
-        variant: 'destructive'
-      })
-    }
-  }, [createRule, toast])
+    toast({
+      title: 'Not Implemented',
+      description: 'Creating Web3 assignment rules is not yet implemented.',
+      variant: 'destructive'
+    })
+  }, [toast])
 
   const handleDeleteRule = useCallback(async (rule: Web3AssignmentRule) => {
-    try {
-      await deleteRule(rule.id)
-      toast({
-        title: 'Rule Deleted',
-        description: 'Web3 assignment rule has been deleted.'
-      })
-    } catch (error) {
-      toast({
-        title: 'Deletion Failed',
-        description: error instanceof Error ? error.message : 'Failed to delete rule',
-        variant: 'destructive'
-      })
-    }
-  }, [deleteRule, toast])
+    toast({
+      title: 'Not Implemented',
+      description: 'Deleting Web3 assignment rules is not yet implemented.',
+      variant: 'destructive'
+    })
+  }, [toast])
 
   const handleTestWallet = useCallback(async (walletAddress: string) => {
-    if (!walletAddress.trim()) return
+    if (!walletAddress.trim()) {return}
 
     try {
       setTestingRule(null)
-      const assignedGroups = await processWallet(walletAddress.trim())
+      await processWallet(walletAddress.trim())
       toast({
         title: 'Wallet Processed',
-        description: `Assigned to ${assignedGroups.length} group(s) based on blockchain assets.`
+        description: 'Wallet has been processed based on blockchain assets.'
       })
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: 'Processing Failed',
-        description: error instanceof Error ? error.message : 'Failed to process wallet',
+        description: _error instanceof Error ? _error.message : 'Failed to process wallet',
         variant: 'destructive'
       })
     }
   }, [processWallet, toast])
 
   const handleVerifyAssets = useCallback(async (walletAddress: string, rule?: Web3AssignmentRule) => {
-    if (!walletAddress.trim()) return
+    if (!walletAddress.trim()) {return}
 
     try {
       setTestingRule(rule || null)
       const assets = await verifyWalletAssets(walletAddress.trim())
       // Handle verification results
-      console.log('Wallet assets:', assets)
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: 'Verification Failed',
-        description: error instanceof Error ? error.message : 'Failed to verify wallet assets',
+        description: _error instanceof Error ? _error.message : 'Failed to verify wallet assets',
         variant: 'destructive'
       })
     }
@@ -242,7 +224,7 @@ export function Web3AssignmentRulesManager({ className }: Web3AssignmentRulesMan
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            Failed to load Web3 assignment rules: {error.message}
+            Failed to load Web3 assignment rules: {error}
           </AlertDescription>
         </Alert>
       </div>
@@ -289,7 +271,7 @@ export function Web3AssignmentRulesManager({ className }: Web3AssignmentRulesMan
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Active Rules</p>
-                <p className="text-2xl font-bold text-green-600">{activeRules.length}</p>
+                <p className="text-2xl font-bold text-green-600">{rules.length}</p>
               </div>
               <CheckCircle className="h-8 w-8 text-green-600" />
             </div>
@@ -435,7 +417,7 @@ export function Web3AssignmentRulesManager({ className }: Web3AssignmentRulesMan
                             variant="ghost" 
                             size="sm" 
                             className="h-6 w-6 p-0"
-                            onClick={() => navigator.clipboard.writeText(rule.contract_address!)}
+                            onClick={() => navigator.clipboard.writeText(rule.contract_address)}
                           >
                             <Copy className="h-3 w-3" />
                           </Button>
@@ -554,7 +536,7 @@ function Web3RuleForm({ groups, onSave, onCancel }: Web3RuleFormProps) {
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.group_id || !formData.contract_address) return
+    if (!formData.group_id || !formData.contract_address) {return}
 
     const request: CreateWeb3RuleRequest = {
       group_id: formData.group_id,

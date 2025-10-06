@@ -31,6 +31,8 @@ export function SafeThemeScript() {
 
 /**
  * Alternative approach using nonce for CSP compatibility
+ * @param root0
+ * @param root0.nonce
  */
 export function SafeThemeScriptWithNonce({ nonce }: { nonce?: string }) {
   const script = `(function(){try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.classList.add(t)}catch(e){document.documentElement.classList.add('light')}})();`;
@@ -51,7 +53,7 @@ export const themeUtils = {
   getTheme: (): ValidTheme => {
     try {
       const stored = localStorage.getItem(THEME_CONFIG.storageKey);
-      if (stored === 'light' || stored === 'dark') return stored;
+      if (stored === 'light' || stored === 'dark') {return stored;}
       
       return window.matchMedia('(prefers-color-scheme: dark)').matches 
         ? 'dark' 
@@ -66,8 +68,9 @@ export const themeUtils = {
       localStorage.setItem(THEME_CONFIG.storageKey, theme);
       document.documentElement.classList.remove('light', 'dark');
       document.documentElement.classList.add(theme);
-    } catch (error) {
-      console.error('Failed to set theme:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to set theme:', _error);
     }
   },
   

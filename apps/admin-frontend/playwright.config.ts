@@ -23,7 +23,7 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:3001',
     trace: 'on-first-retry',
-    screenshot: 'on-failure',
+    screenshot: { mode: 'only-on-failure' },
     video: 'retain-on-failure',
     actionTimeout: 15000,
     navigationTimeout: 30000,

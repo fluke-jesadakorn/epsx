@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { useRouter } from 'next/navigation'
 import { Search, Users, Shield, Clock, CheckCircle, AlertCircle, UserPlus } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useState, useMemo } from 'react'
+
 import { User } from '@/types/core'
 
 interface GrantPermissionHubProps {
@@ -10,13 +11,19 @@ interface GrantPermissionHubProps {
   currentUser: any
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.users
+ * @param root0.currentUser
+ */
 export function GrantPermissionHub({ users, currentUser }: GrantPermissionHubProps) {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
 
   // Filter and search users
   const filteredUsers = useMemo(() => {
-    if (!searchQuery.trim()) return users
+    if (!searchQuery.trim()) {return users}
     
     const query = searchQuery.toLowerCase()
     return users.filter(user => 

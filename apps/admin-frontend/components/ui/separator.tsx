@@ -9,6 +9,12 @@ interface SeparatorProps {
   orientation?: 'horizontal' | 'vertical'
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.className
+ * @param root0.orientation
+ */
 export function Separator({ className, orientation = 'horizontal' }: SeparatorProps) {
   return (
     <div

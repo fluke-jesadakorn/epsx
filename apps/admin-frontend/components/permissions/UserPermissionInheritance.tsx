@@ -5,21 +5,20 @@
 
 'use client'
 
-import React, { useState, useCallback, useMemo } from 'react'
 import { 
   GitBranch, Shield, User, Clock, AlertTriangle, CheckCircle, 
   Eye, EyeOff, ChevronDown, ChevronRight, Star, Crown, Key
 } from 'lucide-react'
+import React, { useState, useCallback, useMemo } from 'react'
 
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { 
   Collapsible, CollapsibleContent, CollapsibleTrigger 
 } from '@/components/ui/collapsible'
-
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { adminCardVariants } from '@/design-system'
 import { cn } from '@/lib/shared'
 
@@ -51,6 +50,13 @@ interface UserPermissionInheritanceProps {
   className?: string;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.data
+ * @param root0.onRefresh
+ * @param root0.className
+ */
 export function UserPermissionInheritance({ 
   data, 
   onRefresh, 
@@ -161,7 +167,7 @@ export function UserPermissionInheritance({
     const isExpanded = expandedSources.has(source.id)
     const expired = isExpired(source)
     
-    if (expired && !showExpired) return null
+    if (expired && !showExpired) {return null}
 
     return (
       <Card 

@@ -14,6 +14,19 @@ interface PancakeButtonProps {
   metro?: boolean;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.variant
+ * @param root0.size
+ * @param root0.children
+ * @param root0.onClick
+ * @param root0.disabled
+ * @param root0.loading
+ * @param root0.icon
+ * @param root0.fullWidth
+ * @param root0.metro
+ */
 export function PancakeButton({
   variant = 'pancake',
   size = 'md',
@@ -132,6 +145,16 @@ interface PancakeIconButtonProps {
   disabled?: boolean;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.variant
+ * @param root0.icon
+ * @param root0.size
+ * @param root0.onClick
+ * @param root0.badge
+ * @param root0.disabled
+ */
 export function PancakeIconButton({
   variant = 'pancake',
   icon,
@@ -188,6 +211,14 @@ interface PancakeFABProps {
   position?: 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.variant
+ * @param root0.icon
+ * @param root0.onClick
+ * @param root0.position
+ */
 export function PancakeFAB({
   variant = 'pancake',
   icon,

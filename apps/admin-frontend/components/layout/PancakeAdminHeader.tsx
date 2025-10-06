@@ -1,9 +1,10 @@
 'use client';
 
-import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useState, useEffect } from 'react';
 import { useAccount, useDisconnect } from 'wagmi';
+
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
 
 interface User {
@@ -17,6 +18,11 @@ interface PancakeAdminHeaderProps {
   user?: User;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.user
+ */
 export function PancakeAdminHeader({ user }: PancakeAdminHeaderProps) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -25,11 +31,13 @@ export function PancakeAdminHeader({ user }: PancakeAdminHeaderProps) {
   
   // Only use WAGMI hooks after component mounts to avoid SSR issues
   let address: string | undefined;
-  let isConnected: boolean = false;
+  let isConnected = false;
   let disconnect: (() => void) | undefined;
-  
+
   try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- Defensive pattern for when WAGMI is not available
     const account = useAccount();
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- Defensive pattern for when WAGMI is not available
     const disconnectHook = useDisconnect();
     
     if (mounted) {
@@ -37,9 +45,10 @@ export function PancakeAdminHeader({ user }: PancakeAdminHeaderProps) {
       isConnected = account.isConnected;
       disconnect = disconnectHook.disconnect;
     }
-  } catch (error) {
+  } catch (_error) {
     // WAGMI hooks not available, continue with defaults
-    console.warn('WAGMI hooks not available:', error);
+    // eslint-disable-next-line no-console
+    console.warn('WAGMI hooks not available:', _error);
   }
   
   useEffect(() => {
@@ -57,8 +66,9 @@ export function PancakeAdminHeader({ user }: PancakeAdminHeaderProps) {
       }
 
       setShowUserMenu(false);
-    } catch (error) {
-      console.error('Disconnect error:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Disconnect error:', _error);
     }
   };
 

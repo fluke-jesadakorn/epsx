@@ -6,11 +6,12 @@ use sqlx::PgPool;
 use crate::infrastructure::cache::Cache;
 use crate::infrastructure::adapters::repositories::{
     wallet_user_repository_adapter::WalletUserRepositoryAdapter,
+    session_repository_adapter::SessionRepositoryAdapter,
 };
 use crate::infrastructure::adapters::services::{
     web3_permission_service_adapter::{Web3PermissionServiceAdapter, BlockchainConfig},
 };
-use crate::domain::user_management::{
+use crate::domain::wallet_management::{
     WalletPermissionService,
     WalletUserRepositoryPort,
     WalletUserAnalyticsPort,
@@ -18,21 +19,29 @@ use crate::domain::user_management::{
 use crate::auth::unified_web3_auth_service::UnifiedWeb3AuthService;
 use crate::auth::openid_token_service::OpenIDTokenService;
 use crate::auth::key_manager::KeyManager;
+use crate::infrastructure::cqrs::{EventStore, PostgresEventStore, TransactionalOutbox};
 
 /// Enhanced container with Web3-first services
 #[derive(Clone)]
 pub struct SimpleContainer {
     pub db_pool: Arc<PgPool>,
     pub cache: Option<Arc<dyn Cache>>,
-    
+
     // NEW - Web3-first services (primary)
     pub wallet_user_repository: Option<Arc<WalletUserRepositoryAdapter>>,
+    pub session_repository: Option<Arc<SessionRepositoryAdapter>>,
     pub wallet_permission_service: Option<Arc<WalletPermissionService>>,
     pub web3_permission_adapter: Option<Arc<Web3PermissionServiceAdapter>>,
     pub unified_web3_auth_service: Option<Arc<UnifiedWeb3AuthService>>,
     pub openid_token_service: Option<Arc<OpenIDTokenService>>,
-    
-    
+    pub event_bus: Option<Arc<dyn crate::domain::DomainEventBus>>,
+
+    // CQRS Infrastructure (Event Sourcing)
+    pub event_store: Option<Arc<dyn EventStore>>,
+    pub transactional_outbox: Option<Arc<TransactionalOutbox>>,
+    pub event_dispatcher: Option<Arc<crate::infrastructure::EventDispatcher>>,
+    pub projection_manager: Option<Arc<crate::infrastructure::ProjectionManager>>,
+
     // Compatibility fields for compilation
     pub permission_service: Option<String>,
     pub auth_trigger_service: Option<String>,
@@ -45,10 +54,17 @@ impl SimpleContainer {
             cache: None,
             // NEW - Web3-first services (initialized as None, configured via builder methods)
             wallet_user_repository: None,
+            session_repository: None,
             wallet_permission_service: None,
             web3_permission_adapter: None,
             unified_web3_auth_service: None,
             openid_token_service: None,
+            event_bus: None,
+            // CQRS
+            event_store: None,
+            transactional_outbox: None,
+            event_dispatcher: None,
+            projection_manager: None,
             // Compatibility
             permission_service: None,
             auth_trigger_service: None,
@@ -94,25 +110,26 @@ impl SimpleContainer {
         blockchain_config: Option<BlockchainConfig>,
     ) -> Self {
         // Create repository adapters
-        let wallet_user_repository = Arc::new(WalletUserRepositoryAdapter::new(db_pool.clone()));
-        
+        let wallet_user_repository = Arc::new(WalletUserRepositoryAdapter::new(Arc::clone(&db_pool)));
+        let session_repository = Arc::new(SessionRepositoryAdapter::new((*db_pool).clone()));
+
         // Create domain services
         let wallet_permission_service = Arc::new(WalletPermissionService);
-        
+
         // Create infrastructure adapters
         let web3_permission_adapter = Arc::new(Web3PermissionServiceAdapter::new(
-            cache.clone(),
+            cache.as_ref().map(Arc::clone),
             blockchain_config,
             (*db_pool).clone(),
         ));
-        
+
         // Create unified auth service with environment-based domain
         let domain = Self::get_web3_domain();
         let unified_web3_auth_service = Arc::new(UnifiedWeb3AuthService::new(
             (*db_pool).clone(),
             domain,
         ));
-        
+
         // Create OpenID token service with RSA key manager
         let key_manager = KeyManager::from_env_or_generate()
             .expect("Failed to initialize RSA key manager");
@@ -122,16 +139,70 @@ impl SimpleContainer {
             vec!["epsx-frontend".to_string(), "epsx-admin".to_string()], // audiences
             Arc::new(key_manager),
         ));
-        
+
+        // Create event bus
+        let event_bus: Arc<dyn crate::domain::DomainEventBus> = Arc::new(
+            crate::infrastructure::event_bus::simple_event_bus::SimpleEventBus::new()
+        );
+
+        // Create CQRS infrastructure (Event Sourcing)
+        let event_store: Arc<dyn EventStore> = Arc::new(PostgresEventStore::new(Arc::clone(&db_pool)));
+        let transactional_outbox = Arc::new(TransactionalOutbox::new(
+            Arc::clone(&db_pool),
+            Arc::clone(&event_store),
+        ));
+
+        // Create EventDispatcher
+        use std::env;
+        let redis_url = env::var("REDIS_URL").ok();
+        let dispatcher_config = crate::infrastructure::EventDispatcherConfig::default();
+        let event_dispatcher = match crate::infrastructure::EventDispatcher::new(
+            Arc::clone(&transactional_outbox),
+            redis_url.clone(),
+            dispatcher_config,
+        ) {
+            Ok(dispatcher) => Some(Arc::new(dispatcher)),
+            Err(e) => {
+                tracing::warn!("Failed to create EventDispatcher: {}", e);
+                None
+            }
+        };
+
+        // Create ProjectionManager with WalletReadModelProjection
+        let projection_manager = match crate::infrastructure::ProjectionManager::new(
+            Arc::clone(&db_pool),
+            redis_url,
+            "domain_events".to_string(),
+        ) {
+            Ok(manager) => {
+                // Register WalletReadModelProjection
+                let wallet_projection = Arc::new(
+                    crate::infrastructure::WalletReadModelProjection::new(Arc::clone(&db_pool))
+                );
+                Some(Arc::new(manager.register(wallet_projection)))
+            }
+            Err(e) => {
+                tracing::warn!("Failed to create ProjectionManager: {}", e);
+                None
+            }
+        };
+
         Self {
             db_pool,
             cache,
             // Web3-first services
             wallet_user_repository: Some(wallet_user_repository),
+            session_repository: Some(session_repository),
             wallet_permission_service: Some(wallet_permission_service),
             web3_permission_adapter: Some(web3_permission_adapter),
             unified_web3_auth_service: Some(unified_web3_auth_service),
             openid_token_service: Some(openid_token_service),
+            event_bus: Some(event_bus),
+            // CQRS
+            event_store: Some(event_store),
+            transactional_outbox: Some(transactional_outbox),
+            event_dispatcher,
+            projection_manager,
             // Compatibility
             permission_service: None,
             auth_trigger_service: None,
@@ -144,10 +215,16 @@ impl SimpleContainer {
             cache: Some(cache),
             // Initialize Web3 services as None - use new_with_web3_services for full setup
             wallet_user_repository: None,
+            session_repository: None,
             wallet_permission_service: None,
             web3_permission_adapter: None,
             unified_web3_auth_service: None,
             openid_token_service: None,
+            event_bus: None,
+            event_store: None,
+            transactional_outbox: None,
+            event_dispatcher: None,
+            projection_manager: None,
             permission_service: None,
             auth_trigger_service: None,
         }
@@ -158,7 +235,7 @@ impl SimpleContainer {
         // Recreate Web3 services with blockchain config
         if let Some(cache) = &self.cache {
             self.web3_permission_adapter = Some(Arc::new(Web3PermissionServiceAdapter::new(
-                Some(cache.clone()),
+                Some(Arc::clone(cache)),
                 Some(blockchain_config),
                 (*self.db_pool).clone(),
             )));
@@ -168,7 +245,7 @@ impl SimpleContainer {
 
     // Compatibility methods
     pub fn db_pool(&self) -> Arc<PgPool> {
-        self.db_pool.clone()
+        Arc::clone(&self.db_pool)
     }
 
     pub fn infra(&self) -> &Self {
@@ -177,31 +254,31 @@ impl SimpleContainer {
 
     // NEW - Web3-first service getters (primary)
     pub fn get_wallet_user_repository(&self) -> Option<Arc<WalletUserRepositoryAdapter>> {
-        self.wallet_user_repository.clone()
+        self.wallet_user_repository.as_ref().map(Arc::clone)
     }
-    
+
     pub fn get_wallet_user_repository_port(&self) -> Option<Arc<dyn WalletUserRepositoryPort>> {
-        self.wallet_user_repository.as_ref().map(|repo| repo.clone() as Arc<dyn WalletUserRepositoryPort>)
+        self.wallet_user_repository.as_ref().map(|repo| Arc::clone(repo) as Arc<dyn WalletUserRepositoryPort>)
     }
-    
+
     pub fn get_wallet_user_analytics_port(&self) -> Option<Arc<dyn WalletUserAnalyticsPort>> {
-        self.wallet_user_repository.as_ref().map(|repo| repo.clone() as Arc<dyn WalletUserAnalyticsPort>)
+        self.wallet_user_repository.as_ref().map(|repo| Arc::clone(repo) as Arc<dyn WalletUserAnalyticsPort>)
     }
 
     pub fn get_wallet_permission_service(&self) -> Option<Arc<WalletPermissionService>> {
-        self.wallet_permission_service.clone()
+        self.wallet_permission_service.as_ref().map(Arc::clone)
     }
 
     pub fn get_web3_permission_adapter(&self) -> Option<Arc<Web3PermissionServiceAdapter>> {
-        self.web3_permission_adapter.clone()
+        self.web3_permission_adapter.as_ref().map(Arc::clone)
     }
 
     pub fn get_unified_web3_auth_service(&self) -> Option<Arc<UnifiedWeb3AuthService>> {
-        self.unified_web3_auth_service.clone()
+        self.unified_web3_auth_service.as_ref().map(Arc::clone)
     }
 
     pub fn get_openid_token_service(&self) -> Option<Arc<OpenIDTokenService>> {
-        self.openid_token_service.clone()
+        self.openid_token_service.as_ref().map(Arc::clone)
     }
     
 
@@ -213,24 +290,28 @@ impl SimpleContainer {
             wallet_permission_service: self.get_wallet_permission_service(),
             web3_permission_adapter: self.get_web3_permission_adapter(),
             unified_web3_auth_service: self.get_unified_web3_auth_service(),
-            db_pool: self.db_pool.clone(),
-            cache: self.cache.clone(),
+            db_pool: Arc::clone(&self.db_pool),
+            cache: self.cache.as_ref().map(Arc::clone),
         }
     }
     
     // Health check for all services
     pub async fn health_check(&self) -> ContainerHealthStatus {
-        let mut status = ContainerHealthStatus::default();
-        
         // Check database connectivity
-        status.database_healthy = sqlx::query!("SELECT 1 as health_check").fetch_one(&*self.db_pool).await.is_ok();
-        
+        let database_healthy = sqlx::query!("SELECT 1 as health_check").fetch_one(&*self.db_pool).await.is_ok();
+
         // Check cache connectivity
-        if let Some(cache) = &self.cache {
-            status.cache_healthy = cache.health_check().is_ok();
+        let cache_healthy = if let Some(cache) = &self.cache {
+            cache.health_check().is_ok()
         } else {
-            status.cache_healthy = true; // No cache configured, considered healthy
-        }
+            true // No cache configured, considered healthy
+        };
+
+        let mut status = ContainerHealthStatus {
+            database_healthy,
+            cache_healthy,
+            ..Default::default()
+        };
         
         // Check Web3 services
         status.web3_services_healthy = self.wallet_user_repository.is_some() &&
@@ -315,21 +396,16 @@ impl Web3AppState {
     /// Get all required services - panics if any are missing
     pub fn services(&self) -> Web3Services {
         Web3Services {
-            wallet_user_repository: self.wallet_user_repository.as_ref()
-                .expect("WalletUserRepository not configured")
-                .clone(),
-            wallet_user_analytics: self.wallet_user_analytics.as_ref()
-                .expect("WalletUserAnalytics not configured")
-                .clone(),
-            wallet_permission_service: self.wallet_permission_service.as_ref()
-                .expect("WalletPermissionService not configured")
-                .clone(),
-            web3_permission_adapter: self.web3_permission_adapter.as_ref()
-                .expect("Web3PermissionServiceAdapter not configured")
-                .clone(),
-            unified_web3_auth_service: self.unified_web3_auth_service.as_ref()
-                .expect("UnifiedWeb3AuthService not configured")
-                .clone(),
+            wallet_user_repository: Arc::clone(self.wallet_user_repository.as_ref()
+                .expect("WalletUserRepository not configured")),
+            wallet_user_analytics: Arc::clone(self.wallet_user_analytics.as_ref()
+                .expect("WalletUserAnalytics not configured")),
+            wallet_permission_service: Arc::clone(self.wallet_permission_service.as_ref()
+                .expect("WalletPermissionService not configured")),
+            web3_permission_adapter: Arc::clone(self.web3_permission_adapter.as_ref()
+                .expect("Web3PermissionServiceAdapter not configured")),
+            unified_web3_auth_service: Arc::clone(self.unified_web3_auth_service.as_ref()
+                .expect("UnifiedWeb3AuthService not configured")),
         }
     }
 }

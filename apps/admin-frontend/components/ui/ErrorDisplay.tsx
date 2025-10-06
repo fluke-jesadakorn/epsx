@@ -1,5 +1,6 @@
-import React from 'react';
 import { AlertTriangle, RefreshCw, Home, LogOut } from 'lucide-react';
+import React from 'react';
+
 import { Button } from '@/components/ui/button';
 
 export interface ErrorDisplayProps {
@@ -13,6 +14,18 @@ export interface ErrorDisplayProps {
   className?: string;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.error
+ * @param root0.context
+ * @param root0.title
+ * @param root0.onRetry
+ * @param root0.onGoBack
+ * @param root0.onSignOut
+ * @param root0.showDetails
+ * @param root0.className
+ */
 export function ErrorDisplay({
   error,
   context = 'server',
@@ -23,7 +36,7 @@ export function ErrorDisplay({
   showDetails = false,
   className = ''
 }: ErrorDisplayProps) {
-  if (!error) return null;
+  if (!error) {return null;}
 
   const errorMessage = typeof error === 'string' ? error : error.message || 'An unexpected error occurred';
   const errorStack = typeof error === 'object' && error?.stack ? error.stack : undefined;

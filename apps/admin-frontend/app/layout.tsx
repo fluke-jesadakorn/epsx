@@ -5,12 +5,13 @@
  */
 
 import './globals.css';
-import { ErrorBoundary } from '@/components/providers/ErrorBoundary';
-import { ClientProviders } from '@/components/providers/ClientProviders';
-import { ServerConditionalLayout } from '@/components/layout/ServerConditionalLayout';
-import { ThemeProvider } from '@/components/providers/ThemeProvider';
-import { Toaster } from 'react-hot-toast';
 import { Metadata, Viewport } from 'next';
+import { Toaster } from 'react-hot-toast';
+
+import { ServerConditionalLayout } from '@/components/layout/ServerConditionalLayout';
+import { ClientProviders } from '@/components/providers/ClientProviders';
+import { ErrorBoundary } from '@/components/providers/ErrorBoundary';
+import { ThemeProvider } from '@/components/providers/ThemeProvider';
 
 export const metadata: Metadata = {
   title: 'EPSX Admin',
@@ -44,6 +45,11 @@ export const viewport: Viewport = {
   userScalable: true,
 };
 
+/**
+ *
+ * @param root0
+ * @param root0.children
+ */
 export default function RootLayout({
   children,
 }: {

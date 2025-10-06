@@ -148,7 +148,7 @@ function userReducer(state: UserState, action: StateAction): UserState {
         ),
       } as UserState;
 
-    case 'ROLLBACK_OPTIMISTIC_UPDATE':
+    case 'ROLLBACK_OPTIMISTIC_UPDATE': {
       const updateToRollback = userState.optimisticUpdates.find(
         (update: any) => update.id === action.payload
       );
@@ -161,6 +161,7 @@ function userReducer(state: UserState, action: StateAction): UserState {
           (update: any) => update.id !== action.payload
         ),
       } as UserState;
+    }
 
     default:
       return state;

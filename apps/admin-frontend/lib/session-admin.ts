@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+
 import { type User } from '../../../shared/types/auth';
 import { getBackendUrl } from '../../../shared/utils/url-resolver';
 
@@ -13,7 +14,7 @@ export interface AdminSessionData {
  */
 export async function getServerSessionAdmin(): Promise<AdminSessionData | null> {
   try {
-    const cookieStore = cookies();
+    const cookieStore = await cookies();
     const accessToken = cookieStore.get('access_token')?.value;
     
     if (!accessToken) {
@@ -52,8 +53,9 @@ export async function getServerSessionAdmin(): Promise<AdminSessionData | null> 
       expiresAt: sessionData.expiresAt,
     };
     
-  } catch (error) {
-    console.error('Failed to get admin server session:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to get admin server session:', _error);
     return { isAuthenticated: false };
   }
 }

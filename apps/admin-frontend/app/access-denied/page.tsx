@@ -1,5 +1,5 @@
-import Link from 'next/link';
 import { Shield, Home, RotateCcw } from 'lucide-react';
+import Link from 'next/link';
 
 interface AccessDeniedPageProps {
   searchParams: {
@@ -10,6 +10,11 @@ interface AccessDeniedPageProps {
   };
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.searchParams
+ */
 export default function AccessDeniedPage({ searchParams }: AccessDeniedPageProps) {
   const route = searchParams.route || '/';
   const reason = searchParams.reason || 'Access denied';

@@ -4,28 +4,25 @@
  * Phase 4.2: Updated to use Web3 app secrets, legacy JWT marked for Web3 migration
  */
 import { jwtVerify } from 'jose';
+
+import type { EPSXJWTPayload } from '../../../../shared/auth/jwt';
+
 import { env } from '@/config/env';
 
-// Minimal JWT payload type for legacy support
-export interface EPSXJWTPayload {
-  sub: string;
-  email: string;
-  name: string;
-  permissions: string[];
-  iat: number;
-  exp: number;
-}
+export type { EPSXJWTPayload };
 
 /**
  * JWT verification function with Web3 app secret
  * Phase 4.2: Updated to use WEB3_APP_SECRET instead of NEXTAUTH_SECRET
+ * @param token
  */
 async function verifyJWT(token: string): Promise<EPSXJWTPayload | null> {
   try {
     // Use Web3 app secret with legacy fallback
-    const jwtSecret = env.WEB3_APP_SECRET || env.JWT_SECRET;
+    const jwtSecret = env.WEB3_APP_SECRET || env.WEB3_APP_SECRET;
     
     if (!jwtSecret) {
+      // eslint-disable-next-line no-console
       console.error('No WEB3_APP_SECRET or JWT_SECRET configured for JWT verification');
       return null;
     }
@@ -38,8 +35,9 @@ async function verifyJWT(token: string): Promise<EPSXJWTPayload | null> {
       }
     );
     return payload as EPSXJWTPayload;
-  } catch (error) {
-    console.error('JWT verification failed:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('JWT verification failed:', _error);
     return null;
   }
 }
@@ -54,15 +52,14 @@ export async function getJWTFromCookies(): Promise<string | null> {
     
     // Debug: Log all cookies to see what's available
     const allCookies = cookieStore.getAll();
-    console.log('🔍 All available cookies:', allCookies.map(c => ({ name: c.name, hasValue: !!c.value })));
     
     // OIDC Migration: Get access token instead of legacy JWT
     const jwtCookie = cookieStore.get('access_token');
-    console.log('🔍 OIDC access token lookup result:', { found: !!jwtCookie, hasValue: !!jwtCookie?.value });
     
     return jwtCookie?.value || null;
-  } catch (error) {
-    console.error('❌ Failed to get JWT from cookies:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Failed to get JWT from cookies:', _error);
     return null;
   }
 }
@@ -73,11 +70,12 @@ export async function getJWTFromCookies(): Promise<string | null> {
 export async function verifyJWTFromCookies(): Promise<EPSXJWTPayload | null> {
   try {
     const token = await getJWTFromCookies();
-    if (!token) return null;
+    if (!token) {return null;}
     
     return await verifyJWT(token);
-  } catch (error) {
-    console.error('❌ Failed to verify JWT from cookies:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Failed to verify JWT from cookies:', _error);
     return null;
   }
 }
@@ -97,8 +95,9 @@ export async function getSessionFromJWT(): Promise<{
     }
     
     return { isAuthenticated: true, user: payload };
-  } catch (error) {
-    console.error('❌ Failed to get session from JWT:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Failed to get session from JWT:', _error);
     return { isAuthenticated: false, user: null };
   }
 }

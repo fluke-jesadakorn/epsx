@@ -6,13 +6,7 @@ use crate::auth::{
     PermissionValidator, RoutePermissionResolver, ValidationContext, HandlerPermissionExt,
     create_permission_authority, create_permission_registry,
 };
-use axum::{
-    extract::{Request, State},
-    http::{HeaderMap, Method, StatusCode},
-    middleware::Next,
-    response::Response,
-    Router,
-};
+use axum::http::HeaderMap;
 use sqlx::PgPool;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -64,36 +58,66 @@ async fn get_test_db_pool() -> PgPool {
 }
 
 async fn setup_test_wallet_permissions(db_pool: &PgPool, wallet_address: &str, permissions: &[&str]) {
-    // Create test permission group
     let group_id = Uuid::new_v4();
-    let permissions_array: Vec<String> = permissions.iter().map(|p| p.to_string()).collect();
-    
+
     let _ = sqlx::query!(
         r#"
-        INSERT INTO permission_groups (id, name, slug, description, permissions, is_active)
-        VALUES ($1, $2, $3, $4, $5, true)
-        ON CONFLICT (id) DO UPDATE SET
-            permissions = EXCLUDED.permissions,
-            updated_at = NOW()
+        INSERT INTO permission_groups (id, name, slug, description, is_active)
+        VALUES ($1, $2, $3, $4, true)
+        ON CONFLICT (name) DO NOTHING
         "#,
         group_id,
         "Integration Test Group",
         "integration-test-group",
-        "Group for integration testing",
-        &permissions_array
+        "Group for integration testing"
     )
     .execute(db_pool)
     .await
     .expect("Failed to create test group");
 
-    // Assign wallet to group
+    // Create permissions and link to group
+    for perm in permissions {
+        let parts: Vec<&str> = perm.split(':').collect();
+        if parts.len() == 3 {
+            let (platform, resource, action) = (parts[0], parts[1], parts[2]);
+
+            let perm_id = sqlx::query_scalar!(
+                r#"
+                INSERT INTO permissions (permission_string, platform, resource, action, is_active)
+                VALUES ($1, $2, $3, $4, true)
+                ON CONFLICT (permission_string) DO UPDATE SET is_active = true
+                RETURNING id
+                "#,
+                perm,
+                platform,
+                resource,
+                action
+            )
+            .fetch_one(db_pool)
+            .await
+            .ok();
+
+            if let Some(pid) = perm_id {
+                let _ = sqlx::query!(
+                    r#"
+                    INSERT INTO permission_group_memberships (group_id, permission_id)
+                    VALUES ($1, $2)
+                    ON CONFLICT (group_id, permission_id) DO NOTHING
+                    "#,
+                    group_id,
+                    pid
+                )
+                .execute(db_pool)
+                .await;
+            }
+        }
+    }
+
     let _ = sqlx::query!(
         r#"
-        INSERT INTO wallet_group_memberships (wallet_address, group_id, is_active)
+        INSERT INTO wallet_group_assignments (wallet_address, group_id, is_active)
         VALUES ($1, $2, true)
-        ON CONFLICT (wallet_address, group_id) DO UPDATE SET
-            is_active = true,
-            updated_at = NOW()
+        ON CONFLICT (wallet_address, group_id) DO UPDATE SET is_active = true
         "#,
         wallet_address,
         group_id
@@ -167,7 +191,7 @@ fn create_test_headers(wallet_address: &str) -> HeaderMap {
 async fn test_complete_permission_validation_flow() {
     let system = setup_integrated_system().await;
     let wallet = "0x742d35cc6abaac8b14a3780b5b0e11b2ce65d695";
-    let route_path = "/api/v1/admin/users";
+    let route_path = "/api/v1/admin/wallets";
     let required_permission = "admin:users:manage";
     
     // Setup test data
@@ -226,7 +250,7 @@ async fn test_complete_permission_validation_flow() {
 async fn test_permission_denied_flow() {
     let system = setup_integrated_system().await;
     let wallet = "0x742d35cc6abaac8b14a3780b5b0e11b2ce65d695";
-    let route_path = "/api/v1/admin/users";
+    let route_path = "/api/v1/admin/wallets";
     let required_permission = "admin:users:manage";
     let granted_permission = "epsx:analytics:read"; // Different permission
     
@@ -299,7 +323,7 @@ async fn test_wildcard_permission_integration() {
     
     // Setup various admin routes
     let admin_routes = [
-        ("/api/admin/users", "admin:users:read"),
+        ("/api/admin/wallets", "admin:users:read"),
         ("/api/admin/permission-groups", "admin:permission-groups:manage"),
         ("/api/admin/analytics", "admin:analytics:view"),
     ];
@@ -658,7 +682,7 @@ async fn test_system_resilience_to_database_issues() {
     setup_test_wallet_permissions(&system.db_pool, wallet, &["epsx:analytics:read"]).await;
     
     // First validation to populate cache
-    let headers = create_test_headers(wallet);
+    let _headers = create_test_headers(wallet);
     let context = ValidationContext {
         request_id: Uuid::new_v4().to_string(),
         user_agent: Some("resilience-test".to_string()),

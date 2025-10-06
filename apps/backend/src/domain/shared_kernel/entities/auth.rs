@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 
 // Re-export session from user management for compatibility
-pub use crate::domain::user_management::aggregates::session::Session;
+pub use crate::domain::wallet_management::aggregates::session::Session;
 
 /// Authentication session information
 #[derive(Debug, Clone, Serialize, Deserialize)]

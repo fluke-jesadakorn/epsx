@@ -2,7 +2,6 @@
 
 import { createApiClient, isApiError } from '@/lib/api-client';
 import { requireAuth, requirePermission } from '../auth';
-import { safeError } from '@/lib/utils/logging';
 
 // ============================================================================
 // Permission Management Server Actions

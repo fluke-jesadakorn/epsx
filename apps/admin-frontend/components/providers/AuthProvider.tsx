@@ -4,12 +4,14 @@
  * Maintains same interface for compatibility with existing code
  */
 
-import { ReactNode } from 'react';
 import { headers } from 'next/headers';
-import { UnifiedAuth } from '@/lib/auth/wallet-auth';
 import { redirect } from 'next/navigation';
-import { PancakeAdminLayout } from '@/components/layout/PancakeAdminLayout';
+import { ReactNode } from 'react';
+
 import { ClientProviders } from './ClientProviders';
+
+import { PancakeAdminLayout } from '@/components/layout/PancakeAdminLayout';
+import { UnifiedAuth } from '@/lib/auth/wallet-auth';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -22,6 +24,11 @@ interface AuthProviderProps {
  * Unified Authentication Provider
  * Handles both server-side authentication and client-side auth context
  * Supports both layout-wrapped and standalone authentication
+ * @param root0
+ * @param root0.children
+ * @param root0.requireAuth
+ * @param root0.requireAdmin
+ * @param root0.layout
  */
 export async function AuthProvider({ 
   children, 
@@ -63,7 +70,6 @@ export async function AuthProvider({
     const session = await UnifiedAuth.getSession();
     
     if (!session?.user) {
-      console.log('❌ AuthProvider: No valid wallet session found');
       redirect('/login');
     }
     
@@ -72,6 +78,7 @@ export async function AuthProvider({
       const hasAdminAccess = UnifiedAuth.hasAdminAccess(session.user);
       
       if (!hasAdminAccess) {
+        // eslint-disable-next-line no-console
         console.warn('⚠️ AuthProvider: Wallet lacks admin permissions', {
           wallet_address: session.user?.wallet_address,
           email: session.user?.email,
@@ -80,13 +87,6 @@ export async function AuthProvider({
         });
         redirect('/access-denied?reason=insufficient_admin_permissions');
       }
-      
-      console.log('✅ AuthProvider: Admin wallet authentication successful', {
-        wallet_address: session.user?.wallet_address,
-        email: session.user?.email,
-        permissions: session.user?.permissions?.filter(p => p.startsWith('admin:')).length || 0,
-        hasAdminAccess
-      });
     }
     
     // Render with layout if requested
@@ -99,8 +99,9 @@ export async function AuthProvider({
             </PancakeAdminLayout>
           </ClientProviders>
         );
-      } catch (error) {
-        console.error('Critical AuthProvider error:', error);
+      } catch (_error) {
+        // eslint-disable-next-line no-console
+        console.error('Critical AuthProvider error:', _error);
         return <AuthError />;
       }
     } else {
@@ -154,6 +155,7 @@ function AuthError() {
 
 /**
  * Higher-order component for protecting routes with admin access
+ * @param Component
  * @deprecated Use AuthProvider with requireAdmin=true instead
  */
 export function withAdminAuth<T extends {}>(Component: React.ComponentType<T>) {
@@ -168,6 +170,7 @@ export function withAdminAuth<T extends {}>(Component: React.ComponentType<T>) {
 
 /**
  * Higher-order component for protecting routes with basic auth
+ * @param Component
  * @deprecated Use AuthProvider with requireAuth=true instead  
  */
 export function withAuth<T extends {}>(Component: React.ComponentType<T>) {

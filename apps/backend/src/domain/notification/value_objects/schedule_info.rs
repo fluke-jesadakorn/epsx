@@ -310,6 +310,14 @@ impl ScheduleType {
             ScheduleType::Scheduled => "scheduled",
         }
     }
+
+    pub fn from_str(s: &str) -> Result<Self, String> {
+        match s.to_lowercase().as_str() {
+            "immediate" => Ok(ScheduleType::Immediate),
+            "scheduled" | "delayed" => Ok(ScheduleType::Scheduled),
+            _ => Err(format!("Invalid schedule type: {}", s)),
+        }
+    }
 }
 
 /// Current schedule status

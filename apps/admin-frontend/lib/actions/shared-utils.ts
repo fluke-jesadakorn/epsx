@@ -6,11 +6,14 @@
 'use server';
 
 import { cookies } from 'next/headers';
+
 import { env } from '@/config/env';
 
 /**
  * Make authenticated request to backend API
  * Shared utility to eliminate duplication across action files
+ * @param endpoint
+ * @param options
  */
 export async function makeAuthenticatedRequest(endpoint: string, options: RequestInit = {}) {
   const cookieStore = await cookies();

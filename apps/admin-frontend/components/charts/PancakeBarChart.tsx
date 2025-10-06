@@ -18,6 +18,7 @@ import {
   Cell,
   TooltipProps
 } from 'recharts'
+
 import { PancakeSwapColors, getChartColor, getThemeColors } from './chartColors'
 import { ChartContainer } from './ChartContainer'
 
@@ -61,7 +62,7 @@ const CustomTooltip = ({
   label, 
   formatTooltip 
 }: any) => {
-  if (!active || !payload || !payload.length) return null
+  if (!active || !payload?.length) {return null}
 
   return (
     <div className="bg-card/95 backdrop-blur-sm border border-yellow-400/30 rounded-lg p-3 shadow-xl">
@@ -94,6 +95,30 @@ const CustomTooltip = ({
   )
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.data
+ * @param root0.bars
+ * @param root0.title
+ * @param root0.subtitle
+ * @param root0.height
+ * @param root0.showGrid
+ * @param root0.showLegend
+ * @param root0.showTooltip
+ * @param root0.xAxisDataKey
+ * @param root0.formatTooltip
+ * @param root0.formatXAxis
+ * @param root0.formatYAxis
+ * @param root0.className
+ * @param root0.variant
+ * @param root0.showLiveDot
+ * @param root0.isDark
+ * @param root0.barRadius
+ * @param root0.layout
+ * @param root0.useGradient
+ * @param root0.customColors
+ */
 export function PancakeBarChart({
   data,
   bars,

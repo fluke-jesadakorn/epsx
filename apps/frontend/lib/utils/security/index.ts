@@ -3,8 +3,6 @@
  * Consolidated security, permission validation, and encryption utilities
  */
 
-import { safeError } from '../logging';
-
 // ============================================================================
 // Types
 // ============================================================================

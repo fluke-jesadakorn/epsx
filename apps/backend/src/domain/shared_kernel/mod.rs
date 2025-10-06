@@ -11,8 +11,8 @@ pub mod services;
 pub mod event_bus;
 pub mod ports;
 
-pub use aggregate_root::{ AggregateRoot, Identity, new_id };
-pub use domain_event::{ DomainEvent, DomainEventBus };
+pub use aggregate_root::{ AggregateRoot, AggregateBase, Identity, new_id };
+pub use domain_event::{ DomainEvent, DomainEventBus, EventMetadata };
 pub use specification::Specification;
 pub use value_object::ValueObject;
 pub use value_objects::*;

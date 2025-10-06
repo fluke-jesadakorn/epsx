@@ -3,9 +3,9 @@
 /**
  * Modern navigation header replacing breadcrumbs
  */
-import { useState, useEffect } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
 import { ArrowLeft, Home, User, Shield, Settings, BarChart3 } from 'lucide-react'
+import { usePathname, useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
 
 // Page configuration with icons and descriptions
 const pageConfig: Record<string, { title: string; icon: React.ComponentType<any>; description?: string }> = {
@@ -18,6 +18,9 @@ const pageConfig: Record<string, { title: string; icon: React.ComponentType<any>
   '/system': { title: 'System', icon: Settings, description: 'System control' },
 }
 
+/**
+ *
+ */
 export function ServerBreadcrumb() {
   const pathname = usePathname()
   const router = useRouter()
@@ -63,7 +66,7 @@ export function ServerBreadcrumb() {
   // Get parent page for back navigation
   const getParentPath = () => {
     const segments = pathname.split('/').filter(Boolean)
-    if (segments.length <= 1) return null
+    if (segments.length <= 1) {return null}
     return '/' + segments.slice(0, -1).join('/')
   }
 

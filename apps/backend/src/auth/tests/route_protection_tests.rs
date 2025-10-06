@@ -2,8 +2,7 @@
 // Tests PermissionGuard, middleware builders, and handler traits
 
 use crate::auth::{
-    PermissionGuard, PermissionState, RequirePermission, HandlerPermissionExt,
-    CentralizedPermissionAuthority, DatabasePermissionRegistry, ValidationContext,
+    PermissionGuard, PermissionState, RequirePermission, HandlerPermissionExt, ValidationContext,
     create_permission_authority, create_permission_registry,
 };
 use axum::http::HeaderMap;
@@ -48,27 +47,65 @@ fn create_test_headers(wallet_address: &str) -> HeaderMap {
 
 async fn setup_test_permissions(db_pool: &PgPool, wallet_address: &str, permissions: &[&str]) {
     let group_id = Uuid::new_v4();
-    let permissions_array: Vec<String> = permissions.iter().map(|p| p.to_string()).collect();
-    
+
     let _ = sqlx::query!(
         r#"
-        INSERT INTO permission_groups (id, name, slug, description, permissions, is_active)
-        VALUES ($1, $2, $3, $4, $5, true)
-        ON CONFLICT (id) DO NOTHING
+        INSERT INTO permission_groups (id, name, slug, description, is_active)
+        VALUES ($1, $2, $3, $4, true)
+        ON CONFLICT (name) DO NOTHING
         "#,
         group_id,
         "Route Protection Test Group",
         "route-protection-test",
-        "Test group for route protection",
-        &permissions_array
+        "Test group for route protection"
     )
     .execute(db_pool)
     .await
     .expect("Failed to create test group");
 
+    // Create permissions and link to group
+    for perm in permissions {
+        let parts: Vec<&str> = perm.split(':').collect();
+        if parts.len() == 3 {
+            let (platform, resource, action) = (parts[0], parts[1], parts[2]);
+
+            // Create permission
+            let perm_id = sqlx::query_scalar!(
+                r#"
+                INSERT INTO permissions (permission_string, platform, resource, action, is_active)
+                VALUES ($1, $2, $3, $4, true)
+                ON CONFLICT (permission_string) DO UPDATE SET is_active = true
+                RETURNING id
+                "#,
+                perm,
+                platform,
+                resource,
+                action
+            )
+            .fetch_one(db_pool)
+            .await
+            .ok();
+
+            // Link permission to group
+            if let Some(pid) = perm_id {
+                let _ = sqlx::query!(
+                    r#"
+                    INSERT INTO permission_group_memberships (group_id, permission_id)
+                    VALUES ($1, $2)
+                    ON CONFLICT (group_id, permission_id) DO NOTHING
+                    "#,
+                    group_id,
+                    pid
+                )
+                .execute(db_pool)
+                .await;
+            }
+        }
+    }
+
     let _ = sqlx::query!(
         r#"
-        INSERT INTO wallet_group_memberships (wallet_address, group_id, is_active)
+        INSERT INTO wallet_group_assignments (wallet_address, group_id, is_active)
         VALUES ($1, $2, true)
         ON CONFLICT (wallet_address, group_id) DO UPDATE SET is_active = true
         "#,

@@ -186,7 +186,7 @@ export function validateDesignSystem(): {
     } else {
       errors.push('Button variants not properly configured');
     }
-  } catch (error) {
+  } catch (_error) {
     errors.push('Button variants not properly configured');
   }
   
@@ -196,7 +196,7 @@ export function validateDesignSystem(): {
     } else {
       errors.push('Card variants not properly configured');
     }
-  } catch (error) {
+  } catch (_error) {
     errors.push('Card variants not properly configured');
   }
   
@@ -225,21 +225,18 @@ export function debugDesignSystem(): void {
   const validation = validateDesignSystem();
   
   console.group('🎨 Admin Frontend Design System');
-  console.log('Version:', info.version);
-  console.log('Components:', info.components);
-  console.log('Tokens:', info.tokens);
-  console.log('Migration Support:', info.migration);
   
   if (validation.errors.length > 0) {
+    // eslint-disable-next-line no-console
     console.error('❌ Errors:', validation.errors);
   }
   
   if (validation.warnings.length > 0) {
+    // eslint-disable-next-line no-console
     console.warn('⚠️ Warnings:', validation.warnings);
   }
   
   if (validation.isValid) {
-    console.log('✅ Design system is properly configured');
   }
   
   console.groupEnd();

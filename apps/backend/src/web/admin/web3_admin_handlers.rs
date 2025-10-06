@@ -147,16 +147,31 @@ pub async fn get_user_permissions(
     format!("WHERE {}", query_conditions.join(" AND "))
   };
   
-  // Query wallet permissions from database
+  // Query wallet permissions from normalized tables
+  // This query gets wallets with their permission counts
   let query_str = format!(
-    "SELECT wu.wallet_address, wu.tier_level, wu.created_at, wu.last_auth_at, wu.is_active
+    r#"SELECT
+        wu.wallet_address,
+        wu.created_at,
+        wu.last_auth_at,
+        wu.is_active,
+        COALESCE(COUNT(DISTINCT CASE
+          WHEN p.is_active = true
+            AND (wga.expires_at IS NULL OR wga.expires_at > NOW())
+            AND (wdp.expires_at IS NULL OR wdp.expires_at > NOW())
+          THEN p.id END), 0) as active_permissions_count
      FROM wallet_users wu
+     LEFT JOIN wallet_group_assignments wga ON wu.wallet_address = wga.wallet_address
+     LEFT JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
+     LEFT JOIN permissions p ON pgm.permission_id = p.id
+     LEFT JOIN wallet_direct_permissions wdp ON wu.wallet_address = wdp.wallet_address
      {}
+     GROUP BY wu.wallet_address, wu.created_at, wu.last_auth_at, wu.is_active
      ORDER BY wu.last_auth_at DESC NULLS LAST
-     LIMIT {} OFFSET {}",
+     LIMIT {} OFFSET {}"#,
     where_clause, limit, offset
   );
-  
+
   let wallets = match sqlx::query(&query_str)
     .fetch_all(db_pool)
     .await {
@@ -166,26 +181,67 @@ pub async fn get_user_permissions(
       return Ok(Json(AdminApiResponse::server_error()));
     }
   };
-  
-  // Convert to response format
-  let permissions: Vec<WalletPermissionResponse> = wallets
-    .into_iter()
-    .enumerate()
-    .map(|(i, row)| WalletPermissionResponse {
+
+  // For each wallet, get their first permission as primary
+  let mut permissions: Vec<WalletPermissionResponse> = Vec::new();
+
+  for (i, row) in wallets.into_iter().enumerate() {
+    let wallet_address: String = row.get("wallet_address");
+    let active_perms_count: i64 = row.get("active_permissions_count");
+
+    // Get first permission for this wallet as primary permission
+    let primary_perm_query = sqlx::query!(
+      r#"
+      SELECT DISTINCT p.permission_string, 'group' as source
+      FROM wallet_group_assignments wga
+      JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
+      JOIN permissions p ON pgm.permission_id = p.id
+      WHERE wga.wallet_address = $1
+        AND wga.is_active = true
+        AND p.is_active = true
+        AND (wga.expires_at IS NULL OR wga.expires_at > NOW())
+
+      UNION
+
+      SELECT DISTINCT p.permission_string, 'direct' as source
+      FROM wallet_direct_permissions wdp
+      JOIN permissions p ON wdp.permission_id = p.id
+      WHERE wdp.wallet_address = $1
+        AND wdp.is_active = true
+        AND p.is_active = true
+        AND (wdp.expires_at IS NULL OR wdp.expires_at > NOW())
+
+      ORDER BY permission_string
+      LIMIT 1
+      "#,
+      &wallet_address
+    )
+    .fetch_optional(db_pool)
+    .await;
+
+    let (primary_permission, permission_source) = match primary_perm_query {
+      Ok(Some(rec)) => (
+        rec.permission_string,
+        rec.source.unwrap_or_else(|| "unknown".to_string())
+      ),
+      _ => (Some("epsx:basic:view".to_string()), "default".to_string())
+    };
+
+    permissions.push(WalletPermissionResponse {
       id: format!("perm_{}", i),
-      wallet_address: row.get("wallet_address"),
-      permission: format!("epsx:{}:view", row.get::<String, _>("tier_level")),
-      source: "tier_based".to_string(),
+      wallet_address: wallet_address.clone(),
+      permission: primary_permission.unwrap_or_else(|| "epsx:basic:view".to_string()),
+      source: permission_source,
       expires_at: None,
       granted_at: row.get::<chrono::DateTime<chrono::Utc>, _>("created_at").to_rfc3339(),
       granted_by: "system".to_string(),
       is_active: row.get("is_active"),
       metadata: Some(serde_json::json!({
-        "tier_level": row.get::<String, _>("tier_level"),
+        "permissions_count": active_perms_count,
         "last_auth_at": row.get::<Option<chrono::DateTime<chrono::Utc>>, _>("last_auth_at")
       })),
-    })
-    .collect();
+    });
+  }
   
   let response = PermissionsResponse {
     permissions,
@@ -240,13 +296,19 @@ pub async fn grant_manual_permission(
     }
   };
 
-  // Create a simple event bus for domain events
-  let event_bus = std::sync::Arc::new(crate::domain::shared_kernel::domain_event::InMemoryEventBus::new());
+  // Get TransactionalOutbox from domain container (for CQRS event persistence)
+  let outbox = match &app_state.domain_container.transactional_outbox {
+    Some(outbox) => outbox.clone(),
+    None => {
+      error!("❌ Admin: TransactionalOutbox not available");
+      return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+  };
 
-  // Create the grant permission handler
-  let handler = crate::application::user_management::commands::handlers::GrantPermissionCommandHandler::new(
+  // Create the grant permission handler (CQRS-enabled)
+  let handler = crate::application::wallet_management::commands::handlers::GrantPermissionCommandHandler::new(
     wallet_repository,
-    event_bus,
+    outbox,
   );
 
   // Process each permission
@@ -255,7 +317,7 @@ pub async fn grant_manual_permission(
 
   for permission_str in &request.permissions {
     // Create the grant permission command
-    let command = crate::application::user_management::commands::models::GrantPermissionCommand::new(
+    let command = crate::application::wallet_management::commands::models::GrantPermissionCommand::new(
       request.wallet_address.clone(),
       permission_str.clone(),
     )
@@ -319,7 +381,7 @@ pub async fn create_nft_gate(
 
   // NFT gate creation requires proper Web3 service integration - not implemented
   warn!("⚠️ Admin: NFT gate creation not implemented");
-  return Err(StatusCode::NOT_IMPLEMENTED)
+  Err(StatusCode::NOT_IMPLEMENTED)
 }
 
 // Handler: Create token permission gate
@@ -337,7 +399,7 @@ pub async fn create_token_gate(
 
   // Token gate creation requires proper Web3 service integration - not implemented
   warn!("⚠️ Admin: Token gate creation not implemented");
-  return Err(StatusCode::NOT_IMPLEMENTED)
+  Err(StatusCode::NOT_IMPLEMENTED)
 }
 
 // Handler: Create DAO proposal
@@ -371,7 +433,7 @@ pub async fn create_dao_proposal(
 
   // DAO proposal creation requires proper Web3 service integration - not implemented
   warn!("⚠️ Admin: DAO proposal creation not implemented");
-  return Err(StatusCode::NOT_IMPLEMENTED)
+  Err(StatusCode::NOT_IMPLEMENTED)
 }
 
 // Handler: Get NFT gates (placeholder for now)
@@ -444,25 +506,38 @@ pub async fn get_recent_wallets(
   // Get database connection from app state
   let db_pool = app_state.db_pool.as_ref();
 
-  // Query recent wallet connections with metadata
+  // Query recent wallet connections with metadata from normalized tables
   let recent_wallets = match sqlx::query!(
     r#"
-    SELECT 
-      wallet_address,
-      tier_level,
-      wallet_metadata,
-      created_at,
-      last_auth_at,
-      is_active,
+    SELECT
+      wu.wallet_address,
+      wu.wallet_metadata,
+      wu.created_at,
+      wu.last_auth_at,
+      wu.is_active,
       (
-        SELECT COUNT(*)::int 
-        FROM jsonb_array_elements(permissions) AS perm
-        WHERE perm->>'is_active' = 'true'
-        AND (perm->>'expires_at' IS NULL OR (perm->>'expires_at')::timestamptz > NOW())
+        SELECT COUNT(DISTINCT p.id)::int
+        FROM wallet_group_assignments wga
+        JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
+        JOIN permissions p ON pgm.permission_id = p.id
+        WHERE wga.wallet_address = wu.wallet_address
+          AND wga.is_active = true
+          AND p.is_active = true
+          AND (wga.expires_at IS NULL OR wga.expires_at > NOW())
+
+        UNION
+
+        SELECT COUNT(DISTINCT p.id)::int
+        FROM wallet_direct_permissions wdp
+        JOIN permissions p ON wdp.permission_id = p.id
+        WHERE wdp.wallet_address = wu.wallet_address
+          AND wdp.is_active = true
+          AND p.is_active = true
+          AND (wdp.expires_at IS NULL OR wdp.expires_at > NOW())
       ) as active_permissions_count
-    FROM wallet_users 
-    WHERE created_at >= NOW() - make_interval(days => $2)
-    ORDER BY created_at DESC
+    FROM wallet_users wu
+    WHERE wu.created_at >= NOW() - make_interval(days => $2)
+    ORDER BY wu.created_at DESC
     LIMIT $1
     "#,
     limit as i64,
@@ -522,10 +597,9 @@ pub async fn get_recent_wallets(
     .into_iter()
     .map(|row| {
       let metadata = serde_json::json!({});
-      
+
       serde_json::json!({
         "wallet_address": row.wallet_address,
-        "tier_level": row.tier_level,
         "metadata": metadata,
         "created_at": row.created_at,
         "last_auth_at": row.last_auth_at,
@@ -604,12 +678,8 @@ pub async fn search_wallets(
   
   let order_by = match sort_by {
     "wallet_address" => format!("wallet_address {}", sort_order.to_uppercase()),
-    "tier_level" => format!("tier_level {}", sort_order.to_uppercase()),
     "last_auth_at" => format!("last_auth_at {} NULLS LAST", sort_order.to_uppercase()),
-    "permissions_count" => format!("(
-      SELECT COUNT(*) FROM jsonb_array_elements(permissions) AS perm
-      WHERE perm->>'is_active' = 'true'
-    ) {}", sort_order.to_uppercase()),
+    "permissions_count" => format!("active_permissions_count {}", sort_order.to_uppercase()),
     _ => format!("created_at {}", sort_order.to_uppercase()),
   };
 
@@ -620,24 +690,34 @@ pub async fn search_wallets(
   // Get database connection from app state
   let db_pool = app_state.db_pool.as_ref();
 
-  // Build and execute the main query
+  // Build and execute the main query (NOTE: This query template is unused - actual query is below)
   let _base_query = format!(
     r#"
-    SELECT 
-      wallet_address,
-      tier_level,
-      wallet_metadata,
-      created_at,
-      last_auth_at,
-      is_active,
-      permissions,
-      (
-        SELECT COUNT(*)::int 
-        FROM jsonb_array_elements(permissions) AS perm
-        WHERE perm->>'is_active' = 'true'
-        AND (perm->>'expires_at' IS NULL OR (perm->>'expires_at')::timestamptz > NOW())
-      ) as active_permissions_count
-    FROM wallet_users 
+    SELECT
+      wu.wallet_address,
+      wu.wallet_metadata,
+      wu.created_at,
+      wu.last_auth_at,
+      wu.is_active,
+      COALESCE((
+        SELECT COUNT(DISTINCT p.id)::int
+        FROM wallet_group_assignments wga
+        JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
+        JOIN permissions p ON pgm.permission_id = p.id
+        WHERE wga.wallet_address = wu.wallet_address
+          AND wga.is_active = true
+          AND p.is_active = true
+          AND (wga.expires_at IS NULL OR wga.expires_at > NOW())
+      ), 0) + COALESCE((
+        SELECT COUNT(DISTINCT p.id)::int
+        FROM wallet_direct_permissions wdp
+        JOIN permissions p ON wdp.permission_id = p.id
+        WHERE wdp.wallet_address = wu.wallet_address
+          AND wdp.is_active = true
+          AND p.is_active = true
+          AND (wdp.expires_at IS NULL OR wdp.expires_at > NOW())
+      ), 0) as active_permissions_count
+    FROM wallet_users wu
     {}
     ORDER BY {}
     LIMIT {}
@@ -646,25 +726,35 @@ pub async fn search_wallets(
     where_clause, order_by, limit, offset
   );
 
-  // For now, use a simplified query since dynamic parameter binding is complex
+  // Query wallets with permission counts from normalized tables
   let wallets = match sqlx::query!(
     r#"
-    SELECT 
-      wallet_address,
-      tier_level,
-      wallet_metadata,
-      created_at,
-      last_auth_at,
-      is_active,
-      permissions,
-      (
-        SELECT COUNT(*)::int 
-        FROM jsonb_array_elements(permissions) AS perm
-        WHERE perm->>'is_active' = 'true'
-        AND (perm->>'expires_at' IS NULL OR (perm->>'expires_at')::timestamptz > NOW())
-      ) as active_permissions_count
-    FROM wallet_users 
-    ORDER BY created_at DESC
+    SELECT
+      wu.wallet_address,
+      wu.wallet_metadata,
+      wu.created_at,
+      wu.last_auth_at,
+      wu.is_active,
+      COALESCE((
+        SELECT COUNT(DISTINCT p.id)::int
+        FROM wallet_group_assignments wga
+        JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
+        JOIN permissions p ON pgm.permission_id = p.id
+        WHERE wga.wallet_address = wu.wallet_address
+          AND wga.is_active = true
+          AND p.is_active = true
+          AND (wga.expires_at IS NULL OR wga.expires_at > NOW())
+      ), 0) + COALESCE((
+        SELECT COUNT(DISTINCT p.id)::int
+        FROM wallet_direct_permissions wdp
+        JOIN permissions p ON wdp.permission_id = p.id
+        WHERE wdp.wallet_address = wu.wallet_address
+          AND wdp.is_active = true
+          AND p.is_active = true
+          AND (wdp.expires_at IS NULL OR wdp.expires_at > NOW())
+      ), 0) as active_permissions_count
+    FROM wallet_users wu
+    ORDER BY wu.created_at DESC
     LIMIT $1
     OFFSET $2
     "#,
@@ -698,12 +788,11 @@ pub async fn search_wallets(
     .into_iter()
     .map(|row| {
       let metadata = serde_json::json!({});
-      
+
       let permissions: Vec<serde_json::Value> = vec![];
 
       serde_json::json!({
         "wallet_address": row.wallet_address,
-        "tier_level": row.tier_level,
         "metadata": metadata,
         "created_at": row.created_at,
         "last_auth_at": row.last_auth_at,

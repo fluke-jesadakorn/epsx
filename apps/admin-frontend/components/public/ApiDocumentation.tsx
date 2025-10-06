@@ -1,6 +1,5 @@
 'use client';
 
-import React, { useState } from 'react';
 import { 
   Code, 
   Shield, 
@@ -13,8 +12,10 @@ import {
   ChevronRight,
   ChevronDown
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
+
+import { Button } from '@/components/ui/button';
 
 interface EndpointExample {
   method: string;
@@ -276,6 +277,9 @@ const moduleDocumentation: ModuleDocumentation[] = [
   }
 ];
 
+/**
+ *
+ */
 export const ApiDocumentation: React.FC = () => {
   const [expandedModule, setExpandedModule] = useState<string | null>(null);
   const [expandedEndpoint, setExpandedEndpoint] = useState<string | null>(null);
@@ -300,10 +304,10 @@ export const ApiDocumentation: React.FC = () => {
   };
 
   const getAccessLevelColor = (level: string) => {
-    if (level.includes('Bronze')) return 'text-amber-600';
-    if (level.includes('Silver')) return 'text-gray-500';
-    if (level.includes('Gold')) return 'text-yellow-500';
-    if (level.includes('Platinum')) return 'text-purple-600';
+    if (level.includes('Bronze')) {return 'text-amber-600';}
+    if (level.includes('Silver')) {return 'text-gray-500';}
+    if (level.includes('Gold')) {return 'text-yellow-500';}
+    if (level.includes('Platinum')) {return 'text-purple-600';}
     return 'text-blue-600';
   };
 

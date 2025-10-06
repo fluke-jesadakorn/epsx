@@ -43,10 +43,11 @@ class PermissionErrorAnalytics {
     }
     
     // Log to console for debugging
+    // eslint-disable-next-line no-console
     console.warn('Permission Error:', permissionError);
   }
 
-  getErrorStats(timeRangeHours: number = 24): PermissionErrorStats {
+  getErrorStats(timeRangeHours = 24): PermissionErrorStats {
     const cutoffTime = new Date(Date.now() - timeRangeHours * 60 * 60 * 1000);
     const recentEvents = this.events.filter(
       event => new Date(event.timestamp) > cutoffTime
@@ -109,13 +110,13 @@ class PermissionErrorAnalytics {
     };
   }
 
-  getRecentErrors(limit: number = 50): PermissionErrorEvent[] {
+  getRecentErrors(limit = 50): PermissionErrorEvent[] {
     return this.events
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
       .slice(0, limit);
   }
 
-  clearOldEvents(daysToKeep: number = 7): void {
+  clearOldEvents(daysToKeep = 7): void {
     const cutoffTime = new Date(Date.now() - daysToKeep * 24 * 60 * 60 * 1000);
     this.events = this.events.filter(
       event => new Date(event.timestamp) > cutoffTime
@@ -135,6 +136,13 @@ class PermissionErrorAnalytics {
 export const permissionErrorAnalytics = new PermissionErrorAnalytics();
 
 // Helper functions
+/**
+ *
+ * @param attemptedPermission
+ * @param currentPermissions
+ * @param userId
+ * @param metadata
+ */
 export function logPermissionDenied(
   attemptedPermission: string,
   currentPermissions: string[],
@@ -150,6 +158,12 @@ export function logPermissionDenied(
   });
 }
 
+/**
+ *
+ * @param attemptedPermission
+ * @param reason
+ * @param userId
+ */
 export function logInvalidPermission(
   attemptedPermission: string,
   reason: string,
@@ -164,6 +178,11 @@ export function logInvalidPermission(
   });
 }
 
+/**
+ *
+ * @param expiredPermission
+ * @param userId
+ */
 export function logExpiredPermission(
   expiredPermission: string,
   userId?: string
@@ -176,10 +195,18 @@ export function logExpiredPermission(
   });
 }
 
+/**
+ *
+ * @param timeRangeHours
+ */
 export function getPermissionErrorStats(timeRangeHours?: number): PermissionErrorStats {
   return permissionErrorAnalytics.getErrorStats(timeRangeHours);
 }
 
+/**
+ *
+ * @param limit
+ */
 export function getRecentPermissionErrors(limit?: number): PermissionErrorEvent[] {
   return permissionErrorAnalytics.getRecentErrors(limit);
 }

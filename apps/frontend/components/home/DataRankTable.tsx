@@ -40,8 +40,8 @@ interface DataRankTableProps {
   data: TableDataMetrics[];
   columns?: ColumnDef[];
   defaultView?: 'table' | 'card';
-  userPermissions?: string[]; // User permissions for ranking access control
-  rankingLimit?: number; // @deprecated Use userPermissions instead - max items to display, from user profile
+  userPermissions?: string[];
+  rankingLimit?: number; // Legacy support - use userPermissions for new code
 }
 
 const defaultColumns: ColumnDef[] = [
@@ -500,7 +500,7 @@ function DataRankTable({
       case 'number':
         return index + 1;
       // valueIndex removed
-      case 'growthRate':
+      case 'growthRate': {
         const growthRate = parseFloat(row.growthRate || '0');
         return (
           <span
@@ -510,6 +510,7 @@ function DataRankTable({
             {!isNaN(growthRate) ? `${growthRate.toFixed(2)}%` : 'N/A'}
           </span>
         );
+      }
       // activityScore removed
       case 'marketSize':
         return row.marketSize || 'N/A';
@@ -572,12 +573,13 @@ function DataRankTable({
             </a>
           </Button>
         );
-      default:
+      default: {
         const value = row[column.key as keyof TableDataMetrics];
         if (typeof value === 'string') {
           return value;
         }
         return null;
+      }
     }
   };
 

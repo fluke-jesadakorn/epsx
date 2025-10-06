@@ -23,6 +23,13 @@ interface AdminIconProps {
   size?: number;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.name
+ * @param root0.className
+ * @param root0.size
+ */
 export function AdminIcon({ name, className = '', size = 24 }: AdminIconProps) {
   const icons = {
     users: Users,
@@ -64,6 +71,20 @@ interface EnhancedStatsCardProps {
   statusColor?: 'green' | 'yellow' | 'red' | 'blue';
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.title
+ * @param root0.value
+ * @param root0.subtitle
+ * @param root0.iconName
+ * @param root0.trend
+ * @param root0.trendValue
+ * @param root0.onClick
+ * @param root0.isLoading
+ * @param root0.error
+ * @param root0.statusColor
+ */
 export function EnhancedStatsCard({
   title,
   value,

@@ -1,5 +1,5 @@
 // IAM Types for AWS-style permission system
-import { PermissionSource } from '@/shared/permissions/types'
+import { PermissionSource } from '../../../../shared/types/domain/Permission'
 import { PermissionGroup } from '../../../../shared/types/domain/User'
 
 export interface UserWithPermissions extends User {

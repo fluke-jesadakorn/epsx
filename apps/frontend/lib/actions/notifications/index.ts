@@ -2,7 +2,6 @@
 
 import { createApiClient, isApiError } from '@/lib/api-client';
 import { requireAuth, requirePermission } from '../auth';
-import { safeError } from '@/lib/shared';
 
 // ============================================================================
 // Types
@@ -17,7 +16,7 @@ export interface Notification {
   sender: 'system' | 'admin' | 'automated';
   imageUrl?: string;
   actionUrl?: string;
-  customData?: Record<string, any>;
+  customData?: Record<string, unknown>;
   createdAt: string;
   readAt?: string;
   clickedAt?: string;
@@ -52,18 +51,18 @@ export async function getUserNotifications(params?: {
     const result = await client.getNotifications(params);
     
     // Transform the response to match expected NotificationData interface
-    const notifications = result.data.map((notification: any) => ({
-      id: notification.id,
-      title: notification.title,
-      body: notification.message,
-      type: notification.type,
-      priority: notification.priority,
-      createdAt: notification.createdAt,
-      readAt: notification.readAt,
-      actionUrl: notification.actionUrl,
+    const notifications = result.data.map((notification: Record<string, unknown>) => ({
+      id: notification.id as string,
+      title: notification.title as string,
+      body: notification.message as string,
+      type: notification.type as Notification['type'],
+      priority: notification.priority as Notification['priority'],
+      createdAt: notification.createdAt as string,
+      readAt: notification.readAt as string | undefined,
+      actionUrl: notification.actionUrl as string | undefined,
     }));
 
-    const unreadCount = notifications.filter((n: any) => !n.readAt).length;
+    const unreadCount = notifications.filter(n => !n.readAt).length;
     
     return {
       notifications,
@@ -124,14 +123,14 @@ export async function deleteNotification(notificationId: string): Promise<void> 
 /**
  * Get notification preferences
  */
-export async function getNotificationPreferences(): Promise<any> {
+export async function getNotificationPreferences(): Promise<Record<string, unknown>> {
   try {
     await requireAuth();
-    
+
     const client = getClient();
     const result = await client.get('/api/v1/user/notification-preferences');
-    
-    return result.data;
+
+    return result.data as Record<string, unknown>;
   } catch (error) {
     console.error('Get notification preferences error:', error);
     throw error;
@@ -141,10 +140,10 @@ export async function getNotificationPreferences(): Promise<any> {
 /**
  * Update notification preferences
  */
-export async function updateNotificationPreferences(preferences: any): Promise<void> {
+export async function updateNotificationPreferences(preferences: Record<string, unknown>): Promise<void> {
   try {
     await requireAuth();
-    
+
     const client = getClient();
     await client.put('/api/v1/user/notification-preferences', preferences);
   } catch (error) {
@@ -177,14 +176,14 @@ export async function sendNotification(notification: {
 /**
  * Get notification stats (admin only)
  */
-export async function getNotificationStats(): Promise<any> {
+export async function getNotificationStats(): Promise<Record<string, unknown> | undefined> {
   try {
     await requirePermission('admin:notifications:read');
-    
+
     const client = getClient();
     const result = await client.getNotificationStats();
-    
-    return result;
+
+    return result as Record<string, unknown> | undefined;
   } catch (error) {
     console.error('Get notification stats error:', error);
     throw error;

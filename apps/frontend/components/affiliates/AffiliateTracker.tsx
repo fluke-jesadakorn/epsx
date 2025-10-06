@@ -22,7 +22,7 @@ interface AffiliateStats {
 
 interface AffiliateTrackerProps {
   children?: React.ReactNode;
-  onAffiliateDetected?: (affiliateInfo: AffiliateInfo) => void;
+  onAffiliateDetected?: (_affiliateInfo: AffiliateInfo) => void;
 }
 
 export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTrackerProps) {
@@ -31,7 +31,7 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
   const [isLoading, setIsLoading] = useState(false);
   
   const searchParams = useSearchParams();
-  const router = useRouter();
+  const _router = useRouter();
 
   // Track affiliate attribution
   const trackAffiliate = useCallback(async (code: string) => {
@@ -47,7 +47,7 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
         if (result.success) {
           // Simulate affiliate validation (normally would come from backend)
           const mockAffiliateInfo: AffiliateInfo = {
-            code: code,
+            code,
             name: getAffiliateDisplayName(code),
             commissionRate: 15, // This would come from the backend
             tier: getAffiliateTier(code),

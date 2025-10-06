@@ -1,4 +1,3 @@
-import { Button } from '@/components/ui/button';
 import LimitSelectorForm from './LimitSelectorForm';
 import PaginationButton from './PaginationButton';
 import JumpToPageForm from './JumpToPageForm';

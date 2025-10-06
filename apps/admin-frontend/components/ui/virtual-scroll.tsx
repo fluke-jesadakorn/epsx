@@ -20,6 +20,20 @@ interface VirtualScrollProps<T extends VirtualScrollItem> {
   emptyComponent?: React.ReactNode;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.items
+ * @param root0.itemHeight
+ * @param root0.containerHeight
+ * @param root0.renderItem
+ * @param root0.className
+ * @param root0.overscan
+ * @param root0.onScroll
+ * @param root0.loading
+ * @param root0.loadingComponent
+ * @param root0.emptyComponent
+ */
 export function VirtualScroll<T extends VirtualScrollItem>({
   items,
   itemHeight,
@@ -51,7 +65,7 @@ export function VirtualScroll<T extends VirtualScrollItem>({
   }, [onScroll]);
 
   const scrollToItem = useCallback((index: number, align: 'start' | 'center' | 'end' = 'start') => {
-    if (!containerRef.current) return;
+    if (!containerRef.current) {return;}
 
     let scrollTop: number;
     switch (align) {
@@ -132,6 +146,10 @@ export function VirtualScroll<T extends VirtualScrollItem>({
 }
 
 // Hook for virtual scroll control
+/**
+ *
+ * @param items
+ */
 export function useVirtualScroll<T extends VirtualScrollItem>(items: T[]) {
   const [scrollController, setScrollController] = useState<{
     scrollToItem: (index: number, align?: 'start' | 'center' | 'end') => void;
@@ -170,6 +188,22 @@ interface VirtualTableProps<T extends VirtualScrollItem> {
   onSelectionChange?: (selected: Set<string | number>) => void;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.items
+ * @param root0.columns
+ * @param root0.rowHeight
+ * @param root0.containerHeight
+ * @param root0.className
+ * @param root0.onRowClick
+ * @param root0.sortBy
+ * @param root0.sortDirection
+ * @param root0.onSort
+ * @param root0.loading
+ * @param root0.selectedItems
+ * @param root0.onSelectionChange
+ */
 export function VirtualTable<T extends VirtualScrollItem>({
   items,
   columns,
@@ -185,15 +219,15 @@ export function VirtualTable<T extends VirtualScrollItem>({
   onSelectionChange
 }: VirtualTableProps<T>) {
   const handleSort = (column: VirtualTableColumn<T>) => {
-    if (!column.sortable || !onSort) return;
+    if (!column.sortable || !onSort) {return;}
     
-    const key = column.key as keyof T | string;
+    const key = column.key;
     const newDirection = sortBy === key && sortDirection === 'asc' ? 'desc' : 'asc';
     onSort(key, newDirection);
   };
 
   const handleSelectAll = (checked: boolean) => {
-    if (!onSelectionChange) return;
+    if (!onSelectionChange) {return;}
     
     if (checked) {
       onSelectionChange(new Set(items.map(item => item.id)));
@@ -203,7 +237,7 @@ export function VirtualTable<T extends VirtualScrollItem>({
   };
 
   const handleSelectItem = (itemId: string | number, checked: boolean) => {
-    if (!onSelectionChange) return;
+    if (!onSelectionChange) {return;}
     
     const newSelected = new Set(selectedItems);
     if (checked) {
@@ -237,7 +271,7 @@ export function VirtualTable<T extends VirtualScrollItem>({
       {columns.map((column, colIndex) => {
         const value = typeof column.key === 'string' ? 
           (item as any)[column.key] : 
-          (item as any)[column.key as keyof T];
+          (item as any)[column.key];
         
         return (
           <div

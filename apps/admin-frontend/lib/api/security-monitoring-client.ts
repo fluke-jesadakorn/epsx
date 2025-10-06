@@ -1,5 +1,6 @@
-import { UnifiedAdminClient } from './unified-admin-client';
 import { URL, URLContext, Service } from '../../../../shared/utils/url-resolver';
+
+import { UnifiedApiClient } from '@/shared/utils/api-client';
 
 // Security Event Types
 export interface SecurityEvent {
@@ -105,24 +106,28 @@ export interface UserThreatResponse {
 }
 
 // API Client Class
+/**
+ *
+ */
 export class SecurityMonitoringClient {
-  private client: UnifiedAdminClient;
-
-  constructor(baseUrl?: string, token?: string, serverSide = false) {
-    this.client = new UnifiedAdminClient(baseUrl, token, serverSide);
-  }
+  /**
+   *
+   * @param client
+   */
+  constructor(private client: UnifiedApiClient) {}
 
   /**
    * Get security events with optional filtering
+   * @param query
    */
   async getSecurityEvents(query: SecurityEventsQuery = {}): Promise<SecurityEventsResponse> {
     const params: Record<string, string> = {};
     
-    if (query.limit) params.limit = query.limit.toString();
-    if (query.severity) params.severity = query.severity;
-    if (query.event_type) params.event_type = query.event_type;
-    if (query.resolved !== undefined) params.resolved = query.resolved.toString();
-    if (query.user_id) params.user_id = query.user_id;
+    if (query.limit) {params.limit = query.limit.toString();}
+    if (query.severity) {params.severity = query.severity;}
+    if (query.event_type) {params.event_type = query.event_type;}
+    if (query.resolved !== undefined) {params.resolved = query.resolved.toString();}
+    if (query.user_id) {params.user_id = query.user_id;}
 
     const response = await this.client.get<SecurityEventsResponse>('/admin/security/events', params);
     if (!response.success || !response.data) {
@@ -144,6 +149,7 @@ export class SecurityMonitoringClient {
 
   /**
    * Get threat assessment for a specific user
+   * @param userId
    */
   async getUserThreatAssessment(userId: string): Promise<UserThreatResponse> {
     const params = { user_id: userId };
@@ -156,8 +162,9 @@ export class SecurityMonitoringClient {
 
   /**
    * Get recent high-severity security events
+   * @param limit
    */
-  async getHighSeverityEvents(limit: number = 10): Promise<SecurityEvent[]> {
+  async getHighSeverityEvents(limit = 10): Promise<SecurityEvent[]> {
     const response = await this.getSecurityEvents({
       severity: 'High',
       resolved: false,
@@ -178,8 +185,10 @@ export class SecurityMonitoringClient {
 
   /**
    * Get security events for a specific event type
+   * @param eventType
+   * @param limit
    */
-  async getEventsByType(eventType: string, limit: number = 20): Promise<SecurityEvent[]> {
+  async getEventsByType(eventType: string, limit = 20): Promise<SecurityEvent[]> {
     const response = await this.getSecurityEvents({
       event_type: eventType,
       limit
@@ -189,8 +198,9 @@ export class SecurityMonitoringClient {
 
   /**
    * Get unresolved security events
+   * @param limit
    */
-  async getUnresolvedEvents(limit: number = 50): Promise<SecurityEvent[]> {
+  async getUnresolvedEvents(limit = 50): Promise<SecurityEvent[]> {
     const response = await this.getSecurityEvents({
       resolved: false,
       limit
@@ -234,17 +244,28 @@ export class SecurityMonitoringClient {
       ).length;
       
       return criticalAlerts > 0 || response.metrics.active_threats > 10;
-    } catch (error) {
-      console.error('Failed to check system alert status:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to check system alert status:', _error);
       return false;
     }
   }
 }
 
-// Export singleton instance
-export const securityMonitoringClient = new SecurityMonitoringClient();
+// Factory function
+/**
+ *
+ * @param client
+ */
+export function createSecurityMonitoringClient(client: UnifiedApiClient): SecurityMonitoringClient {
+  return new SecurityMonitoringClient(client);
+}
 
 // Utility functions
+/**
+ *
+ * @param severity
+ */
 export const getSeverityColor = (severity: string): string => {
   switch (severity.toLowerCase()) {
     case 'critical': return 'text-red-600';
@@ -255,6 +276,10 @@ export const getSeverityColor = (severity: string): string => {
   }
 };
 
+/**
+ *
+ * @param severity
+ */
 export const getSeverityBadgeColor = (severity: string): string => {
   switch (severity.toLowerCase()) {
     case 'critical': return 'bg-red-100 text-red-800 border-red-200';
@@ -265,13 +290,21 @@ export const getSeverityBadgeColor = (severity: string): string => {
   }
 };
 
+/**
+ *
+ * @param score
+ */
 export const formatThreatScore = (score: number): string => {
-  if (score >= 80) return `${score.toFixed(1)} (Critical)`;
-  if (score >= 60) return `${score.toFixed(1)} (High)`;
-  if (score >= 40) return `${score.toFixed(1)} (Medium)`;
+  if (score >= 80) {return `${score.toFixed(1)} (Critical)`;}
+  if (score >= 60) {return `${score.toFixed(1)} (High)`;}
+  if (score >= 40) {return `${score.toFixed(1)} (Medium)`;}
   return `${score.toFixed(1)} (Low)`;
 };
 
+/**
+ *
+ * @param eventType
+ */
 export const getEventTypeIcon = (eventType: string): string => {
   switch (eventType.toLowerCase()) {
     case 'suspiciouslogin': return '🔒';

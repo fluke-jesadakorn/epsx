@@ -1,8 +1,5 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { useRouter, usePathname } from 'next/navigation';
 import { 
   Globe, 
   Coins, 
@@ -18,8 +15,12 @@ import {
   Wallet,
   Gavel
 } from 'lucide-react';
-import { PlatformSwitcher } from '../shared/UnifiedPlatformSwitcher';
+import Link from 'next/link';
+import { useRouter, usePathname } from 'next/navigation';
+import { useState } from 'react';
+
 import { useCrossPlatformAuth, usePlatformContext, usePlatformPermissions } from '../../hooks/useCrossPlatformAuth';
+import { PlatformSwitcher } from '../shared/UnifiedPlatformSwitcher';
 
 interface NavigationItem {
   id: string;
@@ -175,6 +176,9 @@ const platformIcons: { [key: string]: typeof Globe } = {
   'epsx-token': Vote,
 };
 
+/**
+ *
+ */
 export function CrossPlatformNavigation() {
   const { user, hasPermission } = useCrossPlatformAuth();
   const { currentPlatform, switchToPlatform, accessiblePlatforms } = usePlatformContext();
@@ -213,8 +217,9 @@ export function CrossPlatformNavigation() {
       } else {
         router.push(`/admin/${platformCode}`);
       }
-    } catch (error) {
-      console.error('Failed to switch platform:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to switch platform:', _error);
     } finally {
       setIsSwitching(false);
     }
@@ -222,7 +227,7 @@ export function CrossPlatformNavigation() {
 
   const filteredNavigation = currentConfig.navigation.filter(item => {
     // If no permission required, show the item
-    if (!item.permission) return true;
+    if (!item.permission) {return true;}
     
     // Check if user has the required permission
     return hasPermission(item.permission);

@@ -2,7 +2,7 @@
 
 import { useAnalyticsFilters } from '@/hooks/useAnalyticsFilters';
 import { 
-  AnalyticsClient, 
+  // AnalyticsClient, 
   UnifiedAnalyticsRankingsResponse, 
   UnifiedRankingItem
 } from '@/lib/api-client';
@@ -185,7 +185,7 @@ function AnalyticsClientWrapper({
       } else {
         setError('Failed to refresh data');
       }
-    } catch (err) {
+    } catch {
       setError('Failed to refresh data');
     } finally {
       setIsLoading(false);

@@ -16,11 +16,13 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
+
 import { makeAuthenticatedRequest } from './shared-utils';
-import { createSuccessResult, createErrorResult, type ActionResult } from '@/lib/action-utils';
+
 import { env } from '@/config/env';
+import { createSuccessResult, createErrorResult, type ActionResult } from '@/lib/action-utils';
 import { getServerSession } from '@/lib/server/auth';
 
 // ============================================================================
@@ -93,14 +95,23 @@ export async function getAdminNotifications(): Promise<ActionResult<AdminNotific
   try {
     const response = await makeAuthenticatedRequest('/admin/notifications');
     return createSuccessResult(response.notifications || []);
-  } catch (error) {
-    console.error('Failed to fetch admin notifications:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to fetch notifications');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to fetch admin notifications:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch notifications');
   }
 }
 
 /**
  * Create admin notification
+ * @param notification
+ * @param notification.title
+ * @param notification.message
+ * @param notification.type
+ * @param notification.priority
+ * @param notification.targetUsers
+ * @param notification.targetRoles
+ * @param notification.expiresAt
  */
 export async function createAdminNotification(notification: {
   title: string;
@@ -119,14 +130,17 @@ export async function createAdminNotification(notification: {
 
     revalidatePath('/admin');
     return createSuccessResult(response, 'Notification created successfully');
-  } catch (error) {
-    console.error('Failed to create admin notification:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to create notification');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to create admin notification:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to create notification');
   }
 }
 
 /**
  * Update admin notification
+ * @param notificationId
+ * @param updates
  */
 export async function updateAdminNotification(
   notificationId: string,
@@ -140,14 +154,16 @@ export async function updateAdminNotification(
 
     revalidatePath('/admin');
     return createSuccessResult(response, 'Notification updated successfully');
-  } catch (error) {
-    console.error('Failed to update admin notification:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to update notification');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to update admin notification:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update notification');
   }
 }
 
 /**
  * Delete admin notification
+ * @param notificationId
  */
 export async function deleteAdminNotification(notificationId: string): Promise<ActionResult<void>> {
   try {
@@ -157,14 +173,16 @@ export async function deleteAdminNotification(notificationId: string): Promise<A
 
     revalidatePath('/admin');
     return createSuccessResult(undefined, 'Notification deleted successfully');
-  } catch (error) {
-    console.error('Failed to delete admin notification:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to delete notification');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to delete admin notification:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to delete notification');
   }
 }
 
 /**
  * Mark notification as read
+ * @param notificationId
  */
 export async function markNotificationAsRead(notificationId: string): Promise<ActionResult<void>> {
   try {
@@ -174,14 +192,20 @@ export async function markNotificationAsRead(notificationId: string): Promise<Ac
 
     revalidatePath('/admin');
     return createSuccessResult(undefined, 'Notification marked as read');
-  } catch (error) {
-    console.error('Failed to mark notification as read:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to mark notification as read');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to mark notification as read:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to mark notification as read');
   }
 }
 
 /**
  * Broadcast notification to all users
+ * @param notification
+ * @param notification.title
+ * @param notification.message
+ * @param notification.type
+ * @param notification.priority
  */
 export async function broadcastNotification(notification: {
   title: string;
@@ -196,9 +220,10 @@ export async function broadcastNotification(notification: {
     });
 
     return createSuccessResult(undefined, 'Notification broadcasted successfully');
-  } catch (error) {
-    console.error('Failed to broadcast notification:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to broadcast notification');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to broadcast notification:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to broadcast notification');
   }
 }
 
@@ -213,14 +238,16 @@ export async function getSystemConfig(): Promise<ActionResult<SystemConfig>> {
   try {
     const response = await makeAuthenticatedRequest('/admin/config');
     return createSuccessResult(response.config || {});
-  } catch (error) {
-    console.error('Failed to fetch system config:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to fetch system configuration');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to fetch system config:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch system configuration');
   }
 }
 
 /**
  * Update system configuration
+ * @param config
  */
 export async function updateSystemConfig(config: Partial<SystemConfig>): Promise<ActionResult<SystemConfig>> {
   try {
@@ -231,9 +258,10 @@ export async function updateSystemConfig(config: Partial<SystemConfig>): Promise
 
     revalidatePath('/admin/settings');
     return createSuccessResult(response, 'System configuration updated successfully');
-  } catch (error) {
-    console.error('Failed to update system config:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to update system configuration');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to update system config:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update system configuration');
   }
 }
 
@@ -248,9 +276,10 @@ export async function resetSystemConfig(): Promise<ActionResult<SystemConfig>> {
 
     revalidatePath('/admin/settings');
     return createSuccessResult(response, 'System configuration reset to defaults');
-  } catch (error) {
-    console.error('Failed to reset system config:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to reset system configuration');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to reset system config:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to reset system configuration');
   }
 }
 
@@ -260,6 +289,14 @@ export async function resetSystemConfig(): Promise<ActionResult<SystemConfig>> {
 
 /**
  * Get audit logs with filtering
+ * @param filters
+ * @param filters.userId
+ * @param filters.action
+ * @param filters.resource
+ * @param filters.startDate
+ * @param filters.endDate
+ * @param filters.page
+ * @param filters.limit
  */
 export async function getAuditLogs(filters: {
   userId?: string;
@@ -285,14 +322,22 @@ export async function getAuditLogs(filters: {
 
     const response = await makeAuthenticatedRequest(`/admin/audit-logs?${params.toString()}`);
     return createSuccessResult(response);
-  } catch (error) {
-    console.error('Failed to fetch audit logs:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to fetch audit logs');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to fetch audit logs:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch audit logs');
   }
 }
 
 /**
  * Export audit logs
+ * @param filters
+ * @param filters.userId
+ * @param filters.action
+ * @param filters.resource
+ * @param filters.startDate
+ * @param filters.endDate
+ * @param filters.format
  */
 export async function exportAuditLogs(filters: {
   userId?: string;
@@ -315,9 +360,10 @@ export async function exportAuditLogs(filters: {
 
     const response = await makeAuthenticatedRequest(`/admin/audit-logs/export?${params.toString()}`);
     return createSuccessResult(response);
-  } catch (error) {
-    console.error('Failed to export audit logs:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to export audit logs');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to export audit logs:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to export audit logs');
   }
 }
 
@@ -348,9 +394,10 @@ export async function getSystemHealth(): Promise<ActionResult<{
   try {
     const response = await makeAuthenticatedRequest('/admin/health');
     return createSuccessResult(response);
-  } catch (error) {
-    console.error('Failed to fetch system health:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to fetch system health');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to fetch system health:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch system health');
   }
 }
 
@@ -382,9 +429,10 @@ export async function getSystemStats(): Promise<ActionResult<{
   try {
     const response = await makeAuthenticatedRequest('/admin/stats');
     return createSuccessResult(response);
-  } catch (error) {
-    console.error('Failed to fetch system stats:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to fetch system statistics');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to fetch system stats:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch system statistics');
   }
 }
 
@@ -394,6 +442,7 @@ export async function getSystemStats(): Promise<ActionResult<{
 
 /**
  * Clear system cache
+ * @param cacheType
  */
 export async function clearSystemCache(cacheType?: 'all' | 'permissions' | 'users' | 'sessions'): Promise<ActionResult<void>> {
   try {
@@ -403,9 +452,10 @@ export async function clearSystemCache(cacheType?: 'all' | 'permissions' | 'user
     });
 
     return createSuccessResult(undefined, 'System cache cleared successfully');
-  } catch (error) {
-    console.error('Failed to clear system cache:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to clear system cache');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to clear system cache:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to clear system cache');
   }
 }
 
@@ -425,14 +475,16 @@ export async function getActiveSessions(): Promise<ActionResult<Array<{
   try {
     const response = await makeAuthenticatedRequest('/admin/sessions');
     return createSuccessResult(response.sessions || []);
-  } catch (error) {
-    console.error('Failed to fetch active sessions:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to fetch active sessions');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to fetch active sessions:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch active sessions');
   }
 }
 
 /**
  * Revoke user session
+ * @param sessionId
  */
 export async function revokeUserSession(sessionId: string): Promise<ActionResult<void>> {
   try {
@@ -441,9 +493,10 @@ export async function revokeUserSession(sessionId: string): Promise<ActionResult
     });
 
     return createSuccessResult(undefined, 'Session revoked successfully');
-  } catch (error) {
-    console.error('Failed to revoke session:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to revoke session');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to revoke session:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to revoke session');
   }
 }
 
@@ -458,14 +511,16 @@ export async function getUsersAction(): Promise<ActionResult<any[]>> {
   try {
     const response = await makeAuthenticatedRequest('/admin/users');
     return createSuccessResult(response.users || []);
-  } catch (error) {
-    console.error('Failed to fetch users:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to fetch users');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to fetch users:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to fetch users');
   }
 }
 
 /**
  * Soft delete user
+ * @param formData
  */
 export async function softDeleteUserAction(formData: FormData): Promise<ActionResult<{ message: string }>> {
   const userId = formData.get('userId') as string;
@@ -481,9 +536,10 @@ export async function softDeleteUserAction(formData: FormData): Promise<ActionRe
 
     revalidatePath('/users');
     return createSuccessResult(response, 'User deleted successfully');
-  } catch (error) {
-    console.error('Failed to soft delete user:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to delete user');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to soft delete user:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to delete user');
   }
 }
 
@@ -493,6 +549,7 @@ export async function softDeleteUserAction(formData: FormData): Promise<ActionRe
 
 /**
  * Assign permission profile to user (form-based)
+ * @param formData
  */
 export async function assignPermissionProfileAction(formData: FormData): Promise<ActionResult<AssignmentResult>> {
   const profileId = formData.get('profileId') as string;
@@ -512,9 +569,10 @@ export async function assignPermissionProfileAction(formData: FormData): Promise
     revalidatePath('/admin/permission-profiles');
     revalidatePath('/users');
     return createSuccessResult(response, 'Permission profile assigned successfully');
-  } catch (error) {
-    console.error('Failed to assign permission profile:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Assignment failed');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to assign permission profile:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Assignment failed');
   }
 }
 
@@ -524,6 +582,7 @@ export async function assignPermissionProfileAction(formData: FormData): Promise
 
 /**
  * Bulk assign stock ranking packages
+ * @param formData
  */
 export async function assignBulkStockRankingAction(formData: FormData): Promise<ActionResult<AssignmentResult>> {
   const userIds = JSON.parse(formData.get('userIds') as string);
@@ -543,14 +602,16 @@ export async function assignBulkStockRankingAction(formData: FormData): Promise<
     revalidatePath('/admin/stock-ranking');
     revalidatePath('/users');
     return createSuccessResult(response, 'Stock ranking packages assigned successfully');
-  } catch (error) {
-    console.error('Failed to assign bulk stock ranking:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Assignment failed');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to assign bulk stock ranking:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Assignment failed');
   }
 }
 
 /**
  * Revoke stock ranking assignment
+ * @param assignmentId
  */
 export async function revokeStockRankingAssignmentAction(assignmentId: string): Promise<ActionResult<AssignmentResult>> {
   try {
@@ -560,14 +621,17 @@ export async function revokeStockRankingAssignmentAction(assignmentId: string): 
 
     revalidatePath('/admin/stock-ranking');
     return createSuccessResult(response, 'Stock ranking assignment revoked successfully');
-  } catch (error) {
-    console.error('Failed to revoke stock ranking assignment:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Revocation failed');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to revoke stock ranking assignment:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Revocation failed');
   }
 }
 
 /**
  * Extend stock ranking assignment
+ * @param assignmentId
+ * @param formData
  */
 export async function extendStockRankingAssignmentAction(assignmentId: string, formData: FormData): Promise<ActionResult<AssignmentResult>> {
   const newExpiresAt = formData.get('newExpiresAt') as string;
@@ -582,14 +646,17 @@ export async function extendStockRankingAssignmentAction(assignmentId: string, f
 
     revalidatePath('/admin/stock-ranking');
     return createSuccessResult(response, 'Stock ranking assignment extended successfully');
-  } catch (error) {
-    console.error('Failed to extend stock ranking assignment:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Extension failed');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to extend stock ranking assignment:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Extension failed');
   }
 }
 
 /**
  * Update stock ranking assignment
+ * @param assignmentId
+ * @param formData
  */
 export async function updateStockRankingAssignmentAction(assignmentId: string, formData: FormData): Promise<ActionResult<AssignmentResult>> {
   const updateData: StockRankingAssignmentUpdateRequest = {
@@ -606,9 +673,10 @@ export async function updateStockRankingAssignmentAction(assignmentId: string, f
 
     revalidatePath('/admin/stock-ranking');
     return createSuccessResult(response, 'Stock ranking assignment updated successfully');
-  } catch (error) {
-    console.error('Failed to update stock ranking assignment:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Update failed');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to update stock ranking assignment:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Update failed');
   }
 }
 
@@ -638,6 +706,7 @@ export async function handleSignOut(): Promise<void> {
         }
       });
     } catch (logoutError) {
+      // eslint-disable-next-line no-console
       console.error('❌ Backend logout failed:', logoutError);
       // Continue with local logout even if backend fails
     }
@@ -663,9 +732,10 @@ export async function cleanupExpiredPermissionsAction(): Promise<ActionResult<vo
     });
 
     return createSuccessResult(undefined, 'Expired permissions cleaned up successfully');
-  } catch (error) {
-    console.error('Failed to cleanup expired permissions:', error);
-    return createErrorResult(error instanceof Error ? error.message : 'Failed to cleanup expired permissions');
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to cleanup expired permissions:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to cleanup expired permissions');
   }
 }
 

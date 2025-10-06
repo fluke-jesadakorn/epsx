@@ -1,11 +1,11 @@
 // Web3-First Authentication module
 
 // Active authentication components
-pub mod routes;
+pub mod app_state;
+pub mod routes; // Deprecated - use unified_router instead
 pub mod web3_handlers;
 pub mod openid_web3_handlers;
 pub mod session_verification_handlers;
-pub mod modern_routes;
 
 // Main exports
-pub use routes::AppState;
+pub use app_state::AppState;

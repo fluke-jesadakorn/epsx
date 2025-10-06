@@ -1,14 +1,13 @@
 'use client'
 
-import { useState, useTransition } from 'react'
 import { Send, BarChart3, Users, Clock, Zap, Settings, Filter, Sparkles, Bell } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { createAdminNotification, broadcastNotification } from '@/lib/actions/consolidated-admin-actions'
+
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
 import {
   Select,
   SelectContent,
@@ -16,7 +15,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { AdminNotificationStats, RecentNotification } from '@/lib/api/notifications'
+import { Textarea } from '@/components/ui/textarea'
+import { createAdminNotification, broadcastNotification } from '@/lib/actions/consolidated-admin-actions'
+
+// Types (moved from legacy lib/api/notifications.ts)
+export interface AdminNotificationStats {
+  totalSent: number
+  delivered: number
+  failed: number
+  pending: number
+  successRate: number
+  todaysSent: number
+  todaysDelivered: number
+  avgDeliveryTime: number
+  peakHour: string
+}
+
+export interface RecentNotification {
+  id: string
+  title: string
+  body: string
+  target: string
+  sentAt: string
+  recipientCount: number
+  deliveryStatus: 'sent' | 'delivering' | 'delivered' | 'failed'
+  priority: string
+  type: string
+}
 
 interface AdminNotificationDashboardProps {
   initialStats: AdminNotificationStats
@@ -44,26 +69,26 @@ function StatCard({ title, value, description, icon: Icon, gradient }: {
 }) {
   // Map gradient to icon color
   const getIconColor = () => {
-    if (gradient.includes('blue') || gradient.includes('cyan')) return 'text-blue-500'
-    if (gradient.includes('green') || gradient.includes('emerald')) return 'text-green-500'
-    if (gradient.includes('purple') || gradient.includes('pink')) return 'text-purple-500'
-    if (gradient.includes('orange') || gradient.includes('yellow')) return 'text-orange-500'
+    if (gradient.includes('blue') || gradient.includes('cyan')) {return 'text-blue-500'}
+    if (gradient.includes('green') || gradient.includes('emerald')) {return 'text-green-500'}
+    if (gradient.includes('purple') || gradient.includes('pink')) {return 'text-purple-500'}
+    if (gradient.includes('orange') || gradient.includes('yellow')) {return 'text-orange-500'}
     return 'text-blue-500'
   }
 
   const getStatusLabel = () => {
-    if (gradient.includes('blue') || gradient.includes('cyan')) return 'Today'
-    if (gradient.includes('green') || gradient.includes('emerald')) return 'Success'
-    if (gradient.includes('purple') || gradient.includes('pink')) return 'Total'
-    if (gradient.includes('orange') || gradient.includes('yellow')) return 'Peak'
+    if (gradient.includes('blue') || gradient.includes('cyan')) {return 'Today'}
+    if (gradient.includes('green') || gradient.includes('emerald')) {return 'Success'}
+    if (gradient.includes('purple') || gradient.includes('pink')) {return 'Total'}
+    if (gradient.includes('orange') || gradient.includes('yellow')) {return 'Peak'}
     return 'Status'
   }
 
   const getBorderColor = () => {
-    if (gradient.includes('blue') || gradient.includes('cyan')) return 'border-blue-300 dark:border-blue-700'
-    if (gradient.includes('green') || gradient.includes('emerald')) return 'border-green-300 dark:border-green-700'
-    if (gradient.includes('purple') || gradient.includes('pink')) return 'border-purple-300 dark:border-purple-700'
-    if (gradient.includes('orange') || gradient.includes('yellow')) return 'border-orange-300 dark:border-orange-700'
+    if (gradient.includes('blue') || gradient.includes('cyan')) {return 'border-blue-300 dark:border-blue-700'}
+    if (gradient.includes('green') || gradient.includes('emerald')) {return 'border-green-300 dark:border-green-700'}
+    if (gradient.includes('purple') || gradient.includes('pink')) {return 'border-purple-300 dark:border-purple-700'}
+    if (gradient.includes('orange') || gradient.includes('yellow')) {return 'border-orange-300 dark:border-orange-700'}
     return 'border-blue-300 dark:border-blue-700'
   }
 
@@ -133,6 +158,12 @@ function RecentNotificationCard({ notification }: { notification: RecentNotifica
   )
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.initialStats
+ * @param root0.initialRecentNotifications
+ */
 export function AdminNotificationDashboard({
   initialStats,
   initialRecentNotifications
@@ -194,7 +225,7 @@ export function AdminNotificationDashboard({
   }
 
   const handleSendNotification = async () => {
-    if (!form.title.trim() || !form.body.trim()) return
+    if (!form.title.trim() || !form.body.trim()) {return}
 
     startTransition(async () => {
       try {
@@ -244,8 +275,9 @@ export function AdminNotificationDashboard({
         } else {
           toast.error(result.error || 'Failed to send notification')
         }
-      } catch (error) {
-        console.error('Failed to send notification:', error)
+      } catch (_error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to send notification:', _error)
         toast.error('Failed to send notification')
       }
     })

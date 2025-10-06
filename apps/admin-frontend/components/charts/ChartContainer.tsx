@@ -4,6 +4,7 @@
  */
 
 import React from 'react'
+
 import { adminCardVariants } from '@/design-system'
 import { cn } from '@/lib/utils'
 
@@ -17,6 +18,17 @@ interface ChartContainerProps {
   showLiveDot?: boolean
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.title
+ * @param root0.subtitle
+ * @param root0.children
+ * @param root0.className
+ * @param root0.variant
+ * @param root0.size
+ * @param root0.showLiveDot
+ */
 export function ChartContainer({
   title,
   subtitle,

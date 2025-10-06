@@ -1,10 +1,11 @@
 'use client';
 
-import { memo, useCallback } from 'react';
 import { Key, Plus, Copy, Eye, EyeOff, Trash2, Settings } from 'lucide-react';
+import { memo, useCallback } from 'react';
+
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 
 interface ApiKey {
   id: string;

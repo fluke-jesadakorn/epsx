@@ -6,6 +6,7 @@
 'use client'
 
 import * as React from 'react'
+
 import { cn } from '@/lib/shared'
 
 interface CollapsibleContextValue {
@@ -31,6 +32,15 @@ interface CollapsibleProps {
   className?: string
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.children
+ * @param root0.open
+ * @param root0.defaultOpen
+ * @param root0.onOpenChange
+ * @param root0.className
+ */
 export function Collapsible({ 
   children, 
   open: controlledOpen, 
@@ -69,6 +79,13 @@ interface CollapsibleTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonE
   asChild?: boolean
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.children
+ * @param root0.asChild
+ * @param root0.onClick
+ */
 export function CollapsibleTrigger({ 
   children, 
   asChild = false, 
@@ -84,11 +101,11 @@ export function CollapsibleTrigger({
 
   if (asChild) {
     // Clone the child element and add the click handler
-    return React.cloneElement(children as React.ReactElement, {
+    return React.cloneElement(children as React.ReactElement<any>, {
       onClick: handleClick,
       'aria-expanded': open,
       'data-state': open ? 'open' : 'closed'
-    })
+    } as any)
   }
 
   return (
@@ -108,6 +125,12 @@ interface CollapsibleContentProps {
   className?: string
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.children
+ * @param root0.className
+ */
 export function CollapsibleContent({ children, className }: CollapsibleContentProps) {
   const { open } = useCollapsible()
   const [isVisible, setIsVisible] = React.useState(open)

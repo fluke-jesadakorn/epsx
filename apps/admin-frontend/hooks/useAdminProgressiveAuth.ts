@@ -113,7 +113,7 @@ export function useAdminProgressiveAuth(): AuthState & {
 
   return {
     level: currentLevel,
-    walletAddress,
+    walletAddress: walletAddress ?? undefined,
     isAuthenticated,
     isWalletConnected: isConnected,
     adminPermissions: permissions || [],

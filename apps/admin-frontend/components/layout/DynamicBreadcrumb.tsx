@@ -1,7 +1,7 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
 import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 interface BreadcrumbItem {
   label: string
@@ -67,6 +67,9 @@ function generateBreadcrumbs(pathname: string): BreadcrumbItem[] {
   return breadcrumbs
 }
 
+/**
+ *
+ */
 export function DynamicBreadcrumb() {
   const pathname = usePathname()
   const breadcrumbs = generateBreadcrumbs(pathname)

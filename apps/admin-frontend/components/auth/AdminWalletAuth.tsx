@@ -1,8 +1,9 @@
 'use client';
 
-import React from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Wallet, LogOut, Shield, Crown, AlertTriangle, CheckCircle } from 'lucide-react';
+import React from 'react';
+
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
 import { SharedWeb3SignIn } from '@/shared/components/auth/SharedWeb3SignIn';
@@ -14,6 +15,13 @@ interface AdminWalletAuthProps {
   className?: string;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.onAuthSuccess
+ * @param root0.onAuthError
+ * @param root0.className
+ */
 export function AdminWalletAuth({ 
   onAuthSuccess, 
   onAuthError, 
@@ -35,10 +43,7 @@ export function AdminWalletAuth({
   // Call success callback when authenticated with enhanced handling
   React.useEffect(() => {
     if (isAuthenticated && walletAddress && isAdmin()) {
-      console.log('✅ Admin wallet auth: Admin user authenticated', { wallet_address: walletAddress });
       onAuthSuccess?.(walletAddress);
-    } else if (isAuthenticated && walletAddress && !isAdmin()) {
-      console.log('⚠️ Admin wallet auth: User authenticated but lacks admin permissions');
     }
   }, [isAuthenticated, walletAddress, isAdmin, onAuthSuccess]);
   
@@ -52,8 +57,9 @@ export function AdminWalletAuth({
   const handleDisconnect = async () => {
     try {
       await disconnectWallet();
-    } catch (error) {
-      console.error('Disconnect error:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Disconnect error:', _error);
     }
   };
 
@@ -84,7 +90,7 @@ export function AdminWalletAuth({
           
           <ConnectButton.Custom>
             {({ account, chain, openAccountModal, openChainModal, openConnectModal, mounted }) => {
-              if (!mounted) return null;
+              if (!mounted) {return null;}
               
               if (!account) {
                 return (
@@ -104,9 +110,10 @@ export function AdminWalletAuth({
                     onClick={async () => {
                       try {
                         await useAuth.getState().authenticateAdmin();
-                      } catch (error) {
-                        console.error('Admin authentication failed:', error);
-                        onAuthError?.(error instanceof Error ? error.message : 'Authentication failed');
+                      } catch (_error) {
+                        // eslint-disable-next-line no-console
+                        console.error('Admin authentication failed:', _error);
+                        onAuthError?.(_error instanceof Error ? _error.message : 'Authentication failed');
                       }
                     }}
                     className="w-full"

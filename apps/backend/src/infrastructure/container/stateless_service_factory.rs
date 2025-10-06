@@ -11,7 +11,7 @@ use crate::infrastructure::adapters::repositories::wallet_user_repository_adapte
 use crate::infrastructure::adapters::services::web3_permission_service_adapter::{
     Web3PermissionServiceAdapter, BlockchainConfig
 };
-use crate::domain::user_management::{
+use crate::domain::wallet_management::{
     WalletPermissionService,
     WalletUserRepositoryPort,
     WalletUserAnalyticsPort,
@@ -103,6 +103,10 @@ impl StatelessServiceFactory {
         let db_pool = get_db_pool().await
             .map_err(|e| anyhow::anyhow!("Failed to get database pool: {}", e))?;
 
+        // Clone pool once for Arc wrapping (PgPool clone is cheap - it's Arc internally)
+        let db_pool_owned = db_pool.clone();
+        let db_pool_arc = Arc::new(db_pool_owned.clone());
+
         // Create cache (Redis ONLY - no fallback to memory for serverless)
         let cache = if let Some(redis_url) = &self.config.redis_url {
             Some(ServerlessCacheFactory::redis_with_url(redis_url.clone()).await?)
@@ -110,39 +114,39 @@ impl StatelessServiceFactory {
             None
         };
 
-        // Create repository adapters using global pool reference
-        let wallet_user_repository = WalletUserRepositoryAdapter::new(Arc::new(db_pool.clone()));
+        // Create repository adapters using Arc pool reference
+        let wallet_user_repository = WalletUserRepositoryAdapter::new(db_pool_arc.clone());
 
         // Create domain services (stateless by design)
         let wallet_permission_service = WalletPermissionService;
 
-        // Create infrastructure adapters using global pool
+        // Create infrastructure adapters using owned pool
         let web3_permission_adapter = Web3PermissionServiceAdapter::new(
             cache.clone(),
             self.config.blockchain_config.clone(),
-            db_pool.clone(),
+            db_pool_owned.clone(),
         );
 
-        // Create auth services using global pool
+        // Create auth services using owned pool
         let unified_web3_auth_service = UnifiedWeb3AuthService::new(
-            db_pool.clone(),
+            db_pool_owned.clone(),
             self.config.domain.clone(),
         );
 
-        // Create OpenID token service using global pool and RSA key manager
+        // Create OpenID token service using owned pool and RSA key manager
         let key_manager = KeyManager::from_env_or_generate()
             .expect("Failed to initialize RSA key manager");
         let openid_token_service = OpenIDTokenService::new(
-            db_pool.clone(),
+            db_pool_owned.clone(),
             self.config.issuer_url.clone(),
             self.config.oidc_audiences.clone(),
             Arc::new(key_manager),
         );
 
         // Create centralized permission services
-        let permission_authority = Arc::new(create_permission_authority(db_pool.clone()));
-        let permission_registry = Arc::new(create_permission_registry(db_pool.clone()));
-        
+        let permission_authority = Arc::new(create_permission_authority(db_pool_owned.clone()));
+        let permission_registry = Arc::new(create_permission_registry(db_pool_owned));
+
         // Initialize permission registry with default routes
         if let Err(e) = permission_registry.initialize().await {
             tracing::warn!("Failed to initialize permission registry: {}", e);
@@ -155,14 +159,14 @@ impl StatelessServiceFactory {
         );
 
         Ok(RequestServices {
-            db_pool: Arc::new(db_pool.clone()),
+            db_pool: db_pool_arc,
             cache,
             wallet_user_repository: Arc::new(wallet_user_repository),
             wallet_permission_service,
             web3_permission_adapter: Arc::new(web3_permission_adapter),
             unified_web3_auth_service: Arc::new(unified_web3_auth_service),
             openid_token_service: Arc::new(openid_token_service),
-            
+
             // New centralized permission services
             permission_authority,
             permission_registry,
@@ -214,8 +218,8 @@ impl RequestServices {
     }
 
     /// Create app state for auth routes
-    pub fn create_auth_app_state(&self) -> crate::web::auth::routes::AppState {
-        crate::web::auth::routes::AppState::new(
+    pub fn create_auth_app_state(&self) -> crate::web::auth::AppState {
+        crate::web::auth::AppState::new(
             self.db_pool.clone(),
             self.cache.as_ref().unwrap().clone(), // Auth requires cache
             // Convert to legacy container format for compatibility

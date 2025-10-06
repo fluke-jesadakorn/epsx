@@ -23,36 +23,8 @@ pub trait QueryHandler<Q: Query>: Send + Sync {
     async fn handle(&self, query: Q) -> ApplicationResult<Q::Response>;
 }
 
-/// Query bus interface for dispatching queries
-#[async_trait]
-pub trait QueryBus: Send + Sync {
-    /// Execute a query and return its response
-    async fn execute<Q: Query>(&self, query: Q) -> ApplicationResult<Q::Response>;
-}
-
-/// Simple in-memory query bus implementation
-pub struct InMemoryQueryBus {
-    // In a real implementation, this would contain a registry of handlers
-    // For now, we'll use direct handler injection in the application services
-}
-
-impl InMemoryQueryBus {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
-#[async_trait]
-impl QueryBus for InMemoryQueryBus {
-    async fn execute<Q: Query>(&self, query: Q) -> ApplicationResult<Q::Response> {
-        // Validate query first
-        query.validate()?;
-        
-        // In a real implementation, this would look up the appropriate handler
-        // and execute it. For now, this is a placeholder.
-        todo!("Query bus handler lookup not implemented yet")
-    }
-}
+// QueryBus trait and InMemoryQueryBus removed - unused abstraction
+// Handlers are called directly in application services, no bus dispatch needed
 
 /// Query metadata for performance monitoring and caching
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,7 +80,7 @@ impl PaginationParams {
     pub fn new(page: u32, page_size: u32) -> Self {
         Self {
             page: page.max(1), // Pages are 1-indexed
-            page_size: page_size.min(1000).max(1), // Reasonable limits
+            page_size: page_size.clamp(1, 1000), // Reasonable limits
             max_page_size: 1000,
         }
     }

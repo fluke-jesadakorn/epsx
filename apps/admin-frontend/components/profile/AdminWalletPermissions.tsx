@@ -1,7 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAccount } from 'wagmi';
 import { 
   Shield, 
   Crown, 
@@ -16,13 +14,16 @@ import {
   BarChart3,
   Wallet
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Progress } from '@/components/ui/progress';
+import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import { useAccount } from 'wagmi';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface WalletPermission {
   permission: string;
@@ -48,6 +49,12 @@ interface AdminWalletPermissionsProps {
   initialPermissions?: string[];
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.walletAddress
+ * @param root0.initialPermissions
+ */
 export function AdminWalletPermissions({ 
   walletAddress: initialWalletAddress,
   initialPermissions 
@@ -86,7 +93,7 @@ export function AdminWalletPermissions({
   }, [initialPermissions]);
 
   const fetchWalletPermissions = async () => {
-    if (!walletAddress) return;
+    if (!walletAddress) {return;}
 
     try {
       setIsLoading(true);
@@ -117,8 +124,9 @@ export function AdminWalletPermissions({
       } else {
         toast.error('Failed to fetch wallet permissions');
       }
-    } catch (error) {
-      console.error('Failed to fetch wallet permissions:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to fetch wallet permissions:', _error);
       toast.error('Failed to fetch wallet permissions');
     } finally {
       setIsLoading(false);
@@ -150,7 +158,7 @@ export function AdminWalletPermissions({
     const sevenDaysFromNow = now + (7 * 24 * 60 * 60 * 1000);
     
     const expiring = perms.filter(perm => {
-      if (!perm.expires_at) return false;
+      if (!perm.expires_at) {return false;}
       const expiryTime = new Date(perm.expires_at).getTime();
       return expiryTime <= sevenDaysFromNow && expiryTime > now;
     });
@@ -159,9 +167,9 @@ export function AdminWalletPermissions({
   };
 
   const determineAccessLevel = (perms: WalletPermission[]): 'super' | 'admin' | 'manager' | 'user' => {
-    if (perms.some(p => p.permission.includes('*:*'))) return 'super';
-    if (perms.some(p => p.permission.startsWith('admin:'))) return 'admin';
-    if (perms.some(p => p.permission.includes('manage'))) return 'manager';
+    if (perms.some(p => p.permission.includes('*:*'))) {return 'super';}
+    if (perms.some(p => p.permission.startsWith('admin:'))) {return 'admin';}
+    if (perms.some(p => p.permission.includes('manage'))) {return 'manager';}
     return 'user';
   };
 
@@ -182,17 +190,17 @@ export function AdminWalletPermissions({
   };
 
   const getPermissionLevel = (permission: string): 'read' | 'write' | 'admin' => {
-    if (permission.includes('admin') || permission.includes('manage')) return 'admin';
-    if (permission.includes('write') || permission.includes('create') || permission.includes('update')) return 'write';
+    if (permission.includes('admin') || permission.includes('manage')) {return 'admin';}
+    if (permission.includes('write') || permission.includes('create') || permission.includes('update')) {return 'write';}
     return 'read';
   };
 
   const getPermissionIcon = (permission: string) => {
-    if (permission.includes('admin')) return Crown;
-    if (permission.includes('users')) return Users;
-    if (permission.includes('analytics')) return BarChart3;
-    if (permission.includes('system')) return Settings;
-    if (permission.includes('web3')) return Wallet;
+    if (permission.includes('admin')) {return Crown;}
+    if (permission.includes('users')) {return Users;}
+    if (permission.includes('analytics')) {return BarChart3;}
+    if (permission.includes('system')) {return Settings;}
+    if (permission.includes('web3')) {return Wallet;}
     return Shield;
   };
 

@@ -1,8 +1,8 @@
-use chrono::{DateTime, Utc};
-use crate::domain::shared_kernel::aggregate_root::{AggregateRoot, AggregateBase};
-use crate::domain::shared_kernel::domain_event::{DomainEvent, EventMetadata};
+use crate::prelude::*;
+
+use crate::domain::shared_kernel::aggregate_root::AggregateBase;
+use crate::domain::shared_kernel::domain_event::EventMetadata;
 use crate::domain::trading_analytics::value_objects::*;
-use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use uuid::Uuid;
 
@@ -36,7 +36,7 @@ impl EPSRanking {
             ranking_id: ranking_id.clone(),
             ranking_type: ranking_type.clone(),
             time_period,
-            sector_filter: sector_filter.clone(),
+            sector_filter,
             country_filter: country_filter.clone(),
             entries: BTreeMap::new(),
             total_entries: 0,
@@ -202,7 +202,7 @@ impl EPSRanking {
     fn calculate_rank(&self, new_entry: &RankingEntry) -> u32 {
         let mut rank = 1;
         
-        for (_, existing_entry) in &self.entries {
+        for existing_entry in self.entries.values() {
             if new_entry.score > existing_entry.score {
                 break;
             }
@@ -267,7 +267,7 @@ impl EPSRanking {
         };
     }
 
-    fn calculate_median(values: &mut Vec<f64>) -> f64 {
+    fn calculate_median(values: &mut [f64]) -> f64 {
         values.sort_by(|a, b| a.partial_cmp(b).unwrap());
         let len = values.len();
         if len % 2 == 0 {
@@ -309,6 +309,7 @@ impl EPSRanking {
     pub fn total_entries(&self) -> u32 { self.total_entries }
     pub fn last_updated(&self) -> DateTime<Utc> { self.last_updated }
     pub fn statistics(&self) -> &RankingStatistics { &self.statistics }
+    pub fn entries(&self) -> &BTreeMap<u32, RankingEntry> { &self.entries }
 }
 
 impl AggregateRoot for EPSRanking {
@@ -376,6 +377,21 @@ impl RankingType {
             RankingType::Combined => "combined",
         }
     }
+
+    pub fn from_str(s: &str) -> Result<Self, String> {
+        match s.to_lowercase().as_str() {
+            "eps_value" | "epsvalue" => Ok(RankingType::EPSValue),
+            "eps_growth" | "epsgrowth" => Ok(RankingType::EPSGrowth),
+            "combined" => Ok(RankingType::Combined),
+            _ => Err(format!("Invalid ranking type: {}", s)),
+        }
+    }
+}
+
+impl std::fmt::Display for RankingType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
+    }
 }
 
 /// Time periods for rankings
@@ -393,6 +409,21 @@ impl RankingPeriod {
             RankingPeriod::Yearly => "yearly",
             RankingPeriod::Trailing12Months => "ttm",
         }
+    }
+
+    pub fn from_str(s: &str) -> Result<Self, String> {
+        match s.to_lowercase().as_str() {
+            "quarterly" | "q" => Ok(RankingPeriod::Quarterly),
+            "yearly" | "annual" | "y" => Ok(RankingPeriod::Yearly),
+            "ttm" | "trailing12months" | "trailing_12_months" => Ok(RankingPeriod::Trailing12Months),
+            _ => Err(format!("Invalid ranking period: {}", s)),
+        }
+    }
+}
+
+impl std::fmt::Display for RankingPeriod {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
     }
 }
 
@@ -446,6 +477,10 @@ impl DomainEvent for EPSRankingCreated {
         "EPSRankingCreated"
     }
 
+    fn aggregate_type(&self) -> &'static str {
+        "EpsRanking"
+    }
+
     fn occurred_at(&self) -> DateTime<Utc> {
         self.metadata.occurred_at
     }
@@ -461,7 +496,7 @@ impl DomainEvent for EPSRankingCreated {
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
-    
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -501,6 +536,10 @@ impl DomainEvent for StockAddedToRanking {
         "StockAddedToRanking"
     }
 
+    fn aggregate_type(&self) -> &'static str {
+        "EpsRanking"
+    }
+
     fn occurred_at(&self) -> DateTime<Utc> {
         self.metadata.occurred_at
     }
@@ -516,7 +555,7 @@ impl DomainEvent for StockAddedToRanking {
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
-    
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
@@ -553,6 +592,10 @@ impl DomainEvent for StockRemovedFromRanking {
         "StockRemovedFromRanking"
     }
 
+    fn aggregate_type(&self) -> &'static str {
+        "EpsRanking"
+    }
+
     fn occurred_at(&self) -> DateTime<Utc> {
         self.metadata.occurred_at
     }
@@ -568,7 +611,7 @@ impl DomainEvent for StockRemovedFromRanking {
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
-    
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }

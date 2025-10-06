@@ -1,6 +1,5 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
 import { 
   Bell, 
   Plus, 
@@ -17,24 +16,32 @@ import {
   Edit,
   Eye
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import React, { useState, useEffect } from 'react';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 type Notification = any;
 type NotificationListParams = any;
 type NotificationListResponse = any;
 type NotificationStats = any;
 type NotificationCreateRequest = any;
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Select } from '@/components/ui/select';
-import { Dialog } from '@/components/ui/dialog';
-import { useRouter } from 'next/navigation';
 
 interface NotificationDashboardProps {
   className?: string;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.className
+ */
 export function NotificationDashboard({ className }: NotificationDashboardProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [stats, setStats] = useState<NotificationStats | null>(null);
@@ -74,6 +81,7 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
       setTotalPages(response.data.pagination.totalPages);
       setError(null);
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error('Failed to load notifications:', err);
       setError('Failed to load notifications');
     } finally {
@@ -87,6 +95,7 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
       // setStats(response.data);
       setStats({});
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error('Failed to load notification stats:', err);
     }
   };
@@ -97,12 +106,13 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
       setNotifications(prev => prev.filter(n => n.id !== id));
       loadStats(); // Refresh stats
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error('Failed to delete notification:', err);
     }
   };
 
   const handleBulkDelete = async () => {
-    if (selectedNotifications.size === 0) return;
+    if (selectedNotifications.size === 0) {return;}
     
     try {
       // await apiClient.deleteNotifications(Array.from(selectedNotifications));
@@ -110,12 +120,13 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
       setSelectedNotifications(new Set());
       loadStats(); // Refresh stats
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error('Failed to delete notifications:', err);
     }
   };
 
   const handleBulkMarkRead = async () => {
-    if (selectedNotifications.size === 0) return;
+    if (selectedNotifications.size === 0) {return;}
     
     try {
       // await apiClient.markNotificationsRead(Array.from(selectedNotifications));
@@ -125,6 +136,7 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
       setSelectedNotifications(new Set());
       loadStats(); // Refresh stats
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error('Failed to mark notifications as read:', err);
     }
   };
@@ -150,10 +162,9 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
   };
 
   const filteredNotifications = notifications.filter(notification => {
-    const matchesSearch = !searchQuery || 
+    return !searchQuery || 
       notification.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       notification.message.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
   });
 
   return (

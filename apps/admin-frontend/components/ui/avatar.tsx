@@ -24,6 +24,7 @@ export interface AvatarImageProps extends React.ImgHTMLAttributes<HTMLImageEleme
 const AvatarImage = React.forwardRef<HTMLImageElement, AvatarImageProps>(
   ({ className, ...props }, ref) => {
     return (
+      // eslint-disable-next-line @next/next/no-img-element -- Primitive component supports external URLs
       <img
         ref={ref}
         className={`aspect-square h-full w-full object-cover ${className || ''}`}

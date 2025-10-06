@@ -111,11 +111,10 @@ async fn ensure_wallet_user_exists(
 
     // Create new wallet user
     sqlx::query!(
-        "INSERT INTO wallet_users (wallet_address, is_active, permissions, tier_level, wallet_metadata) VALUES ($1, $2, $3, $4, $5)",
+        "INSERT INTO wallet_users (wallet_address, is_active, permissions, wallet_metadata) VALUES ($1, $2, $3, $4)",
         wallet_address,
         true,
         serde_json::json!([]),
-        "Bronze",
         serde_json::json!({})
     )
     .execute(pool)

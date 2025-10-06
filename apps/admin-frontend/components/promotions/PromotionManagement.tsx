@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+
 import { PancakeCard } from '@/components/ui/PancakeCard'
 
 interface Promotion {
@@ -29,6 +30,12 @@ interface PromotionManagementProps {
   currentUser: any
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.promotions
+ * @param root0.currentUser
+ */
 export function PromotionManagement({ promotions, currentUser }: PromotionManagementProps) {
   const [selectedPromotion, setSelectedPromotion] = useState<Promotion | null>(null)
   const [isCreating, setIsCreating] = useState(false)
@@ -62,7 +69,7 @@ export function PromotionManagement({ promotions, currentUser }: PromotionManage
   }
 
   const getUsagePercentage = (promotion: Promotion) => {
-    if (!promotion.usageLimit) return 0
+    if (!promotion.usageLimit) {return 0}
     return Math.min((promotion.currentUsage / promotion.usageLimit) * 100, 100)
   }
 

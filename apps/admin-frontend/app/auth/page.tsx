@@ -1,17 +1,23 @@
 'use client';
 
-import {
-  requestWalletChallenge,
-  verifyWalletSignature,
-} from '@/shared/auth/direct-web3-api';
-import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { useAccount } from 'wagmi';
+
 import { useAdminWeb3Context } from '../../providers/Web3Provider';
 
+import {
+  requestWalletChallenge,
+  verifyWalletSignature,
+} from '@/shared/auth/direct-web3-api';
+import { OIDC_KEYS } from '@/shared/auth/storage-keys';
+import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
+
+/**
+ *
+ */
 export default function AuthPage() {
   const { isInitialized } = useAdminWeb3Context();
   const {
@@ -27,8 +33,9 @@ export default function AuthPage() {
   // Always call useAccount but handle when Web3 isn't ready
   let accountData;
   try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- Defensive pattern for when WAGMI is not available
     accountData = useAccount();
-  } catch (error) {
+  } catch (_error) {
     accountData = { isConnected: false, address: undefined };
   }
 
@@ -136,7 +143,7 @@ export default function AuthPage() {
 
   // Step 2: Request challenge and sign message
   const handleSignMessage = async () => {
-    if (!address) return;
+    if (!address) {return;}
 
     try {
       setError('');
@@ -166,14 +173,14 @@ export default function AuthPage() {
       });
 
       if (result.success) {
-        // Store access token in localStorage for session validation
+        // Store access token in unified OpenID localStorage for session validation
         if (result.access_token) {
           try {
             localStorage.setItem(
-              'epsx-admin_access_token',
+              OIDC_KEYS.ACCESS_TOKEN,
               result.access_token
             );
-          } catch (error) {
+          } catch (_error) {
             // Ignore storage errors
           }
         }

@@ -1,7 +1,7 @@
 'use client'
 
-import React from 'react'
 import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react'
+import React from 'react'
 
 export interface PaginationProps {
   currentPage: number
@@ -14,6 +14,12 @@ export interface PaginationProps {
 /**
  * PancakeSwap x Windows Phone Pagination Component
  * Modern pagination with tile-style buttons and mobile optimization
+ * @param root0
+ * @param root0.currentPage
+ * @param root0.totalPages
+ * @param root0.onPageChange
+ * @param root0.showPages
+ * @param root0.disabled
  */
 export default function Pagination({
   currentPage,
@@ -22,7 +28,7 @@ export default function Pagination({
   showPages = 5,
   disabled = false
 }: PaginationProps) {
-  if (totalPages <= 1) return null
+  if (totalPages <= 1) {return null}
 
   const getVisiblePages = () => {
     const pages: (number | 'ellipsis')[] = []
@@ -159,6 +165,12 @@ export default function Pagination({
 
 /**
  * Simple pagination info component for showing current results
+ * @param root0
+ * @param root0.currentPage
+ * @param root0.totalPages
+ * @param root0.totalItems
+ * @param root0.itemsPerPage
+ * @param root0.itemName
  */
 export function PaginationInfo({ 
   currentPage, 

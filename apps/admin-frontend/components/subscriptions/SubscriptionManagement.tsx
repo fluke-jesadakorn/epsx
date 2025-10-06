@@ -1,16 +1,24 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { PancakeCard } from '@/components/ui/PancakeCard'
-import { adminClient, SubscriptionResponse, isApiSuccess } from '@/lib/api/unified-admin-client'
+
 import { CreateSubscriptionForm } from './CreateSubscriptionForm'
 import { SubscriptionDetailsModal } from './SubscriptionDetailsModal'
+
+import { PancakeCard } from '@/components/ui/PancakeCard'
 import { toast } from '@/hooks/use-toast'
+import { createPlansClient, type SubscriptionResponse, isApiSuccess } from '@/shared/api/plans'
+import { createAdminApiClient } from '@/shared/utils/api-client'
 
 interface SubscriptionManagementProps {
   currentUser: any
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.currentUser
+ */
 export function SubscriptionManagement({ currentUser }: SubscriptionManagementProps) {
   const [subscriptions, setSubscriptions] = useState<SubscriptionResponse[]>([])
   const [loading, setLoading] = useState(true)
@@ -25,6 +33,7 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
   }, [])
 
   const loadSubscriptions = async () => {
+    const adminClient = createPlansClient(createAdminApiClient())
     try {
       setLoading(true)
       const response = await adminClient.getSubscriptions({
@@ -42,7 +51,7 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
           variant: "destructive"
         })
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "Error",
         description: "Failed to load subscriptions",
@@ -67,6 +76,7 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
       return
     }
 
+    const adminClient = createPlansClient(createAdminApiClient())
     try {
       const response = await adminClient.cancelSubscription(subscriptionId)
       
@@ -83,7 +93,7 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
           variant: "destructive"
         })
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "Error",
         description: "Failed to cancel subscription",
@@ -98,7 +108,7 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
     const searchMatch = searchTerm === '' || 
       sub.plan_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       sub.user_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (sub.api_key_name && sub.api_key_name.toLowerCase().includes(searchTerm.toLowerCase()))
+      (sub.api_key_name?.toLowerCase().includes(searchTerm.toLowerCase()))
     
     return statusMatch && contextMatch && searchMatch
   })

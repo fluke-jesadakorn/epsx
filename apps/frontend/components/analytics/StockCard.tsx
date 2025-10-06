@@ -6,9 +6,9 @@ import type {
   SymbolCardData,
 } from '@/types/analytics';
 import {
-  EPSGrowthTrend,
+  // EPSGrowthTrend,
   formatPercentage,
-  getGrowthTrend,
+  // getGrowthTrend,
 } from '@/types/analytics';
 import { memo } from 'react';
 
@@ -56,7 +56,7 @@ const StockCard = memo<StockCardAllProps>(props => {
 
     // Convert to card format
     cardData = {
-      rank: rank,
+      rank,
       symbol: ranking.symbol,
       latest_date: new Date().toLocaleDateString('en-US', {
         year: 'numeric',

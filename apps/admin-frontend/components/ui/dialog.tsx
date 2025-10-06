@@ -1,8 +1,8 @@
 "use client"
 
-import * as React from "react"
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { X } from "lucide-react"
+import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -53,6 +53,11 @@ const DialogContent = React.forwardRef<
 ))
 DialogContent.displayName = DialogPrimitive.Content.displayName
 
+/**
+ *
+ * @param root0
+ * @param root0.className
+ */
 const DialogHeader = ({
   className,
   ...props
@@ -67,6 +72,11 @@ const DialogHeader = ({
 )
 DialogHeader.displayName = "DialogHeader"
 
+/**
+ *
+ * @param root0
+ * @param root0.className
+ */
 const DialogFooter = ({
   className,
   ...props

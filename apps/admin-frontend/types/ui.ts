@@ -5,7 +5,17 @@
  */
 
 import type { ReactNode } from 'react';
-import type { User, Permission, Notification } from './core';
+import type { User, Permission } from './core';
+
+// Basic Notification interface for UI types
+interface Notification {
+  id: string;
+  type: string;
+  priority: string;
+  title: string;
+  message: string;
+  isRead?: boolean;
+}
 
 // ============================================================================
 // Generic UI Component Types

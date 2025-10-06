@@ -4,13 +4,14 @@
  */
 'use client';
 
+import { RefreshCw, Wallet, TrendingUp, Calendar, Eye } from 'lucide-react';
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { RefreshCw, Wallet, TrendingUp, Calendar, Eye } from 'lucide-react';
 
 interface WalletConnection {
   wallet_address: string;
@@ -47,6 +48,9 @@ interface RecentWalletsData {
   };
 }
 
+/**
+ *
+ */
 export function RecentWalletsPanel() {
   const [data, setData] = useState<RecentWalletsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,7 +59,7 @@ export function RecentWalletsPanel() {
   const [expanded, setExpanded] = useState(false);
 
   const fetchRecentWallets = useCallback(async (showRefreshing = false) => {
-    if (showRefreshing) setRefreshing(true);
+    if (showRefreshing) {setRefreshing(true);}
     setError(null);
 
     try {
@@ -73,6 +77,7 @@ export function RecentWalletsPanel() {
       const result = await response.json();
       setData(result);
     } catch (err) {
+      // eslint-disable-next-line no-console
       console.error('Error fetching recent wallets:', err);
       setError(err instanceof Error ? err.message : 'Failed to load recent wallets');
     } finally {
@@ -94,8 +99,8 @@ export function RecentWalletsPanel() {
     const now = new Date();
     const diffInHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
     
-    if (diffInHours < 1) return 'Just now';
-    if (diffInHours < 24) return `${diffInHours}h ago`;
+    if (diffInHours < 1) {return 'Just now';}
+    if (diffInHours < 24) {return `${diffInHours}h ago`;}
     return `${Math.floor(diffInHours / 24)}d ago`;
   };
 
@@ -169,7 +174,7 @@ export function RecentWalletsPanel() {
     );
   }
 
-  if (!data) return null;
+  if (!data) {return null;}
 
   const displayedWallets = expanded ? data.recent_wallets : data.recent_wallets.slice(0, 5);
 

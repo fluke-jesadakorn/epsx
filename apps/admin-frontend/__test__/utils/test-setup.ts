@@ -115,11 +115,11 @@ export class PerformanceMonitor {
       startTime: performance.now(),
       errors: []
     };
-    console.log(`📊 Started performance measurement: ${identifier}`);
   }
 
   endMeasurement(): PerformanceMetrics | null {
     if (!this.currentMetric || !this.currentMetric.startTime) {
+      // eslint-disable-next-line no-console
       console.warn('⚠️ No active measurement to end');
       return null;
     }
@@ -134,7 +134,6 @@ export class PerformanceMonitor {
     this.metrics.push(completedMetric);
     this.currentMetric = null;
 
-    console.log(`📊 Completed performance measurement: ${completedMetric.duration.toFixed(2)}ms`);
     return completedMetric;
   }
 
@@ -231,7 +230,6 @@ export class AuthenticationHelper {
     const user = TEST_USERS[userType];
     const session = Object.values(TEST_SESSIONS).find(s => s.userId === user.id);
     
-    console.log(`🔐 Logging in as ${user.name} (${user.email})`);
 
     try {
       // Navigate to login page
@@ -277,14 +275,15 @@ export class AuthenticationHelper {
       const token = await this.extractAuthToken();
       
       if (token) {
-        console.log(`✅ Successfully logged in as ${user.name}`);
         return token;
       } else {
+        // eslint-disable-next-line no-console
         console.error(`❌ Failed to extract auth token for ${user.name}`);
         return null;
       }
-    } catch (error) {
-      console.error(`❌ Login failed for ${user.name}:`, error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error(`❌ Login failed for ${user.name}:`, _error);
       return null;
     }
   }
@@ -308,7 +307,6 @@ export class AuthenticationHelper {
   }
 
   async logout(): Promise<void> {
-    console.log('🚪 Logging out...');
     
     try {
       // Try to find and click logout button
@@ -333,9 +331,9 @@ export class AuthenticationHelper {
         sessionStorage.clear();
       });
 
-      console.log('✅ Logout completed');
-    } catch (error) {
-      console.error('⚠️ Logout error:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('⚠️ Logout error:', _error);
     }
   }
 }
@@ -354,7 +352,6 @@ export class SecurityTestHelper {
   }
 
   async testSQLInjection(endpoint: string, payloads: string[], token?: string): Promise<SecurityTestResult[]> {
-    console.log(`🛡️ Testing SQL injection on ${endpoint}`);
     
     const results: SecurityTestResult[] = [];
 
@@ -370,7 +367,7 @@ export class SecurityTestHelper {
           status: response.status(),
           responseTime: 0 // Would be measured in real implementation
         });
-      } catch (error) {
+      } catch (_error) {
         results.push({
           payload,
           blocked: true,
@@ -382,13 +379,11 @@ export class SecurityTestHelper {
     }
 
     const blockRate = (results.filter(r => r.blocked).length / results.length) * 100;
-    console.log(`📊 SQL injection block rate: ${blockRate.toFixed(1)}%`);
 
     return results;
   }
 
   async testXSS(endpoint: string, payloads: string[], token?: string): Promise<SecurityTestResult[]> {
-    console.log(`🔒 Testing XSS on ${endpoint}`);
     
     const results: SecurityTestResult[] = [];
 
@@ -423,7 +418,7 @@ export class SecurityTestHelper {
           responseTime: 0,
           sanitized
         });
-      } catch (error) {
+      } catch (_error) {
         results.push({
           payload,
           blocked: true,
@@ -438,7 +433,6 @@ export class SecurityTestHelper {
   }
 
   async testRateLimiting(endpoint: string, requestCount: number, token?: string): Promise<RateLimitTestResult> {
-    console.log(`🚦 Testing rate limiting on ${endpoint} with ${requestCount} requests`);
     
     const startTime = performance.now();
     const requests = Array.from({ length: requestCount }, (_, i) => 
@@ -468,7 +462,6 @@ export class SecurityTestHelper {
   }
 
   async testCSRF(endpoint: string, token?: string): Promise<CSRFTestResult> {
-    console.log(`🎯 Testing CSRF protection on ${endpoint}`);
 
     try {
       const response = await this.request.post(`${this.baseUrl}${endpoint}`, {
@@ -486,7 +479,7 @@ export class SecurityTestHelper {
         status: response.status(),
         responseTime: 0
       };
-    } catch (error) {
+    } catch (_error) {
       return {
         protected: true,
         status: 0,
@@ -531,7 +524,6 @@ export interface CSRFTestResult {
 
 export class EnvironmentValidator {
   static async validateTestEnvironment(): Promise<ValidationResult> {
-    console.log('🔍 Validating test environment...');
     
     const results: ValidationResult = {
       database: false,
@@ -544,11 +536,11 @@ export class EnvironmentValidator {
     try {
       // Implementation: Check database connectivity
       results.database = true;
-      console.log('✅ Database connection validated');
-    } catch (error) {
+    } catch (_error) {
       results.database = false;
       results.errors.push(`Database validation failed: ${error}`);
-      console.error('❌ Database validation failed:', error);
+      // eslint-disable-next-line no-console
+      console.error('❌ Database validation failed:', _error);
     }
 
     // Validate API availability
@@ -557,34 +549,36 @@ export class EnvironmentValidator {
       results.api = response.ok;
       
       if (results.api) {
-        console.log('✅ API availability validated');
       } else {
         results.errors.push(`API health check failed: ${response.status}`);
+        // eslint-disable-next-line no-console
         console.error('❌ API validation failed:', response.status);
       }
-    } catch (error) {
+    } catch (_error) {
       results.api = false;
       results.errors.push(`API validation failed: ${error}`);
-      console.error('❌ API validation failed:', error);
+      // eslint-disable-next-line no-console
+      console.error('❌ API validation failed:', _error);
     }
 
     // Validate authentication system
     try {
       // Implementation: Check authentication endpoints
       results.authentication = true;
-      console.log('✅ Authentication system validated');
-    } catch (error) {
+    } catch (_error) {
       results.authentication = false;
       results.errors.push(`Authentication validation failed: ${error}`);
-      console.error('❌ Authentication validation failed:', error);
+      // eslint-disable-next-line no-console
+      console.error('❌ Authentication validation failed:', _error);
     }
 
     const allValid = results.database && results.api && results.authentication;
     
     if (allValid) {
-      console.log('🎉 Test environment validation passed');
     } else {
+      // eslint-disable-next-line no-console
       console.error('❌ Test environment validation failed');
+      // eslint-disable-next-line no-console
       console.error('Errors:', results.errors);
     }
 
@@ -592,12 +586,10 @@ export class EnvironmentValidator {
   }
 
   static async validatePermissions(): Promise<boolean> {
-    console.log('🔐 Validating admin permissions...');
     
     // Implementation: Validate that test users have correct permissions
     // This would check the database or API to ensure test users exist with proper permissions
     
-    console.log('✅ Admin permissions validated');
     return true;
   }
 }
@@ -621,56 +613,52 @@ export class TestDataManager {
   }
 
   async setupTestData(): Promise<void> {
-    console.log('🚀 Setting up test data...');
     
     try {
       await this.dbUtils.seedTestUsers();
       await this.dbUtils.seedRoleProfiles();
       await this.dbUtils.seedTestSessions();
       
-      console.log('✅ Test data setup completed');
-    } catch (error) {
-      console.error('❌ Test data setup failed:', error);
-      throw error;
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('❌ Test data setup failed:', _error);
+      throw _error;
     }
   }
 
   async cleanupTestData(): Promise<void> {
-    console.log('🧹 Cleaning up test data...');
     
     try {
       await this.dbUtils.cleanupTestData();
-      console.log('✅ Test data cleanup completed');
-    } catch (error) {
-      console.error('❌ Test data cleanup failed:', error);
-      throw error;
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('❌ Test data cleanup failed:', _error);
+      throw _error;
     }
   }
 
   async resetTestData(): Promise<void> {
-    console.log('🔄 Resetting test data...');
     
     await this.cleanupTestData();
     await this.setupTestData();
     
-    console.log('✅ Test data reset completed');
   }
 
   async verifyTestDataIntegrity(): Promise<boolean> {
-    console.log('🔍 Verifying test data integrity...');
     
     try {
       const isValid = await this.dbUtils.verifyDatabaseIntegrity();
       
       if (isValid) {
-        console.log('✅ Test data integrity verified');
       } else {
+        // eslint-disable-next-line no-console
         console.error('❌ Test data integrity check failed');
       }
       
       return isValid;
-    } catch (error) {
-      console.error('❌ Test data integrity verification failed:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('❌ Test data integrity verification failed:', _error);
       return false;
     }
   }
@@ -698,11 +686,9 @@ export class GlobalTestSetup {
 
   async globalSetup(): Promise<void> {
     if (this.isSetup) {
-      console.log('⚠️ Global setup already completed');
       return;
     }
 
-    console.log('🚀 Starting global test setup...');
 
     // Validate environment
     const validation = await EnvironmentValidator.validateTestEnvironment();
@@ -717,22 +703,18 @@ export class GlobalTestSetup {
     await EnvironmentValidator.validatePermissions();
 
     this.isSetup = true;
-    console.log('✅ Global test setup completed');
   }
 
   async globalTeardown(): Promise<void> {
     if (!this.isSetup) {
-      console.log('⚠️ No global setup to tear down');
       return;
     }
 
-    console.log('🧹 Starting global test teardown...');
 
     // Cleanup test data
     await this.dataManager.cleanupTestData();
 
     this.isSetup = false;
-    console.log('✅ Global test teardown completed');
   }
 }
 

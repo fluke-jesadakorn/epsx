@@ -33,19 +33,25 @@ pub async fn request_id_middleware(
 ) -> Result<Response, Response> {
     // Generate request ID
     let request_id = Uuid::new_v4().to_string();
-    
+
     // Insert request ID into request extensions
     request.extensions_mut().insert(RequestId(request_id.clone()));
-    
+
     // Process the request
     let mut response = next.run(request).await;
-    
+
     // Add request ID to response headers
-    response.headers_mut().insert(
-        HeaderName::from_static("x-request-id"),
-        HeaderValue::from_str(&request_id).unwrap(),
-    );
-    
+    // UUID strings are always valid header values, but handle error for safety
+    if let Ok(header_value) = HeaderValue::from_str(&request_id) {
+        response.headers_mut().insert(
+            HeaderName::from_static("x-request-id"),
+            header_value,
+        );
+    } else {
+        // This should never happen with a valid UUID, but log if it does
+        tracing::warn!("Failed to create header value from request ID: {}", request_id);
+    }
+
     Ok(response)
 }
 

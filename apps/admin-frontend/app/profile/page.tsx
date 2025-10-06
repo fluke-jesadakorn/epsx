@@ -1,14 +1,18 @@
-import { Suspense } from 'react';
-import { redirect } from 'next/navigation';
-import { getServerSessionAdmin } from '@/lib/session-admin';
-import { AdminProfileClient } from '@/components/profile/AdminProfileClient';
 import { Loader2 } from 'lucide-react';
+import { redirect } from 'next/navigation';
+import { Suspense } from 'react';
+
+import { AdminProfileClient } from '@/components/profile/AdminProfileClient';
+import { getServerSessionAdmin } from '@/lib/session-admin';
 
 export const metadata = {
   title: 'Admin Profile | EPSX Admin',
   description: 'Manage your admin account settings and permissions',
 };
 
+/**
+ *
+ */
 export default async function AdminProfilePage() {
   const session = await getServerSessionAdmin();
 

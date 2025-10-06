@@ -70,6 +70,12 @@ pub struct ThreatDetectionService {
     blocked_users: std::sync::RwLock<HashMap<String, DateTime<Utc>>>,
 }
 
+impl Default for ThreatDetectionService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ThreatDetectionService {
     pub fn new() -> Self {
         Self {
@@ -316,7 +322,7 @@ impl ThreatDetectionService {
                 _ => ThreatLevel::Low,
             },
             blocked_until,
-            is_blocked: blocked_until.map_or(false, |until| Utc::now() < until),
+            is_blocked: blocked_until.is_some_and(|until| Utc::now() < until),
         })
     }
     
@@ -368,7 +374,7 @@ static THREAT_DETECTION: OnceLock<ThreatDetectionService> = OnceLock::new();
 
 /// Get global threat detection service instance
 pub fn get_threat_detection_service() -> &'static ThreatDetectionService {
-    THREAT_DETECTION.get_or_init(|| ThreatDetectionService::new())
+    THREAT_DETECTION.get_or_init(ThreatDetectionService::new)
 }
 
 #[cfg(test)]

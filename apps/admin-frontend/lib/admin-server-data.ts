@@ -6,9 +6,10 @@
  * NO fetch() calls in Server Actions - direct database access or navigation only
  */
 
-import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
+
 import { AdminFilters, UserPermissionFilters } from '@/lib/admin-types'
 
 // ============================================================================
@@ -18,6 +19,7 @@ import { AdminFilters, UserPermissionFilters } from '@/lib/admin-types'
 /**
  * Get admin users data for server-side rendering
  * Uses direct database access - NO fetch() calls for serverless optimization
+ * @param filters
  */
 export async function getAdminUsersServerSide(filters?: AdminFilters) {
   // TODO: Replace with direct database/service access
@@ -35,8 +37,9 @@ export async function getAdminUsersServerSide(filters?: AdminFilters) {
       limit: filters?.limit || 20,
       filters,
     }
-  } catch (error) {
-    console.error('❌ Failed to fetch admin users server-side:', error)
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Failed to fetch admin users server-side:', _error)
     return {
       users: [],
       total: 0, 
@@ -61,8 +64,9 @@ export async function getAdminStatsServerSide() {
       systemHealth: 100,
       timestamp: new Date().toISOString(),
     }
-  } catch (error) {
-    console.error('❌ Failed to fetch admin stats server-side:', error)
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Failed to fetch admin stats server-side:', _error)
     return {
       totalUsers: 0,
       activeUsers: 0,
@@ -75,6 +79,7 @@ export async function getAdminStatsServerSide() {
 
 /**
  * Get analytics data for server-side dashboard rendering
+ * @param timeRange
  */
 export async function getAnalyticsDataServerSide(timeRange?: string) {
   try {
@@ -86,8 +91,9 @@ export async function getAnalyticsDataServerSide(timeRange?: string) {
       timeRange: timeRange || '7d',
       timestamp: new Date().toISOString(),
     }
-  } catch (error) {
-    console.error('❌ Failed to fetch analytics server-side:', error)
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Failed to fetch analytics server-side:', _error)
     return {
       userGrowth: [],
       permissionUsage: [],
@@ -104,6 +110,7 @@ export async function getAnalyticsDataServerSide(timeRange?: string) {
 /**
  * Navigate to users page with filters
  * Server Action for navigation only - no data fetching
+ * @param filters
  */
 export async function navigateToUsersWithFilters(filters: AdminFilters) {
   const queryParams = new URLSearchParams()
@@ -121,6 +128,8 @@ export async function navigateToUsersWithFilters(filters: AdminFilters) {
 /**
  * Navigate to user detail page
  * Server Action for navigation only
+ * @param userId
+ * @param tab
  */
 export async function navigateToUserDetail(userId: string, tab?: string) {
   const url = `/users/${userId}${tab ? `/${tab}` : ''}`
@@ -130,6 +139,9 @@ export async function navigateToUserDetail(userId: string, tab?: string) {
 /**
  * Navigate to analytics page with filters
  * Server Action for navigation only
+ * @param filters
+ * @param filters.timeRange
+ * @param filters.metric
  */
 export async function navigateToAnalytics(filters?: { timeRange?: string; metric?: string }) {
   const queryParams = new URLSearchParams()
@@ -148,6 +160,7 @@ export async function navigateToAnalytics(filters?: { timeRange?: string; metric
 
 /**
  * Navigate to permission management page
+ * @param userId
  */
 export async function navigateToPermissions(userId?: string) {
   const url = userId ? `/users/${userId}/permissions` : '/permissions'
@@ -156,6 +169,8 @@ export async function navigateToPermissions(userId?: string) {
 
 /**
  * Navigate between admin pages with state preservation
+ * @param page
+ * @param params
  */
 export async function navigateToAdminPage(
   page: 'dashboard' | 'users' | 'analytics' | 'permissions' | 'system',
@@ -183,6 +198,9 @@ export async function navigateToAdminPage(
 /**
  * Process bulk user operations
  * Handles form submissions for bulk operations
+ * @param operation
+ * @param userIds
+ * @param params
  */
 export async function processBulkUserOperation(
   operation: 'assign_permissions' | 'revoke_permissions' | 'update_roles',
@@ -193,8 +211,6 @@ export async function processBulkUserOperation(
     // TODO: Implement direct database/service operations
     // This should use direct service calls, not fetch()
     
-    console.log(`📝 Bulk ${operation} for users:`, userIds, 'with params:', params)
-    
     // Revalidate affected pages
     revalidatePath('/users')
     revalidatePath('/permissions')
@@ -202,8 +218,9 @@ export async function processBulkUserOperation(
     // Redirect to results or back to users page
     redirect(`/users?operation=${operation}&status=completed`)
     
-  } catch (error) {
-    console.error(`❌ Bulk ${operation} failed:`, error)
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error(`❌ Bulk ${operation} failed:`, _error)
     redirect(`/users?operation=${operation}&status=failed`)
   }
 }
@@ -211,6 +228,7 @@ export async function processBulkUserOperation(
 /**
  * Create new user action
  * Form submission handler for user creation
+ * @param formData
  */
 export async function createUserAction(formData: FormData) {
   try {
@@ -222,7 +240,6 @@ export async function createUserAction(formData: FormData) {
     }
     
     // TODO: Direct service call for user creation
-    console.log('📝 Creating user:', userData)
     
     // Revalidate users page
     revalidatePath('/users')
@@ -230,8 +247,9 @@ export async function createUserAction(formData: FormData) {
     // Redirect to new user page or users list
     redirect('/users?status=user_created')
     
-  } catch (error) {
-    console.error('❌ User creation failed:', error)
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ User creation failed:', _error)
     redirect('/users/create?error=creation_failed')
   }
 }
@@ -239,6 +257,8 @@ export async function createUserAction(formData: FormData) {
 /**
  * Update user profile action
  * Form submission handler for user updates
+ * @param userId
+ * @param formData
  */
 export async function updateUserAction(userId: string, formData: FormData) {
   try {
@@ -249,7 +269,6 @@ export async function updateUserAction(userId: string, formData: FormData) {
     }
     
     // TODO: Direct service call for user update
-    console.log(`📝 Updating user ${userId}:`, updates)
     
     // Revalidate user detail page
     revalidatePath(`/users/${userId}`)
@@ -258,8 +277,9 @@ export async function updateUserAction(userId: string, formData: FormData) {
     // Redirect back to user detail
     redirect(`/users/${userId}?status=updated`)
     
-  } catch (error) {
-    console.error(`❌ User update failed for ${userId}:`, error)
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error(`❌ User update failed for ${userId}:`, _error)
     redirect(`/users/${userId}/edit?error=update_failed`)
   }
 }
@@ -271,16 +291,16 @@ export async function updateUserAction(userId: string, formData: FormData) {
 export async function markAllNotificationsRead() {
   try {
     // TODO: Direct service call to mark all notifications as read
-    console.log('📝 Marking all admin notifications as read')
     
     // Revalidate notifications page
     revalidatePath('/notifications')
     
     return { updated_count: 0 } // Placeholder
     
-  } catch (error) {
-    console.error('❌ Failed to mark all notifications as read:', error)
-    throw error
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Failed to mark all notifications as read:', _error)
+    throw _error
   }
 }
 
@@ -291,16 +311,16 @@ export async function markAllNotificationsRead() {
 export async function clearAllNotifications() {
   try {
     // TODO: Direct service call to clear all notifications
-    console.log('📝 Clearing all admin notifications')
     
     // Revalidate notifications page
     revalidatePath('/notifications')
     
     return { deleted_count: 0 } // Placeholder
     
-  } catch (error) {
-    console.error('❌ Failed to clear all notifications:', error)
-    throw error
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Failed to clear all notifications:', _error)
+    throw _error
   }
 }
 
@@ -311,6 +331,7 @@ export async function clearAllNotifications() {
 /**
  * Revalidate admin pages after data changes
  * Server Action for cache invalidation
+ * @param pages
  */
 export async function revalidateAdminPages(pages?: string[]) {
   const defaultPages = [
@@ -327,12 +348,12 @@ export async function revalidateAdminPages(pages?: string[]) {
     revalidatePath(page)
   })
   
-  console.log('✅ Revalidated admin pages:', pagesToRevalidate)
 }
 
 /**
  * Force refresh of specific data sections
  * Server Action for targeted cache invalidation
+ * @param section
  */
 export async function refreshDataSection(section: 'users' | 'permissions' | 'analytics' | 'system') {
   switch (section) {
@@ -351,7 +372,6 @@ export async function refreshDataSection(section: 'users' | 'permissions' | 'ana
       break
   }
   
-  console.log(`✅ Refreshed ${section} data section`)
 }
 
 // ============================================================================

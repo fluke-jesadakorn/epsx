@@ -19,7 +19,7 @@ pub struct AppError {
     /// Human-readable error message
     pub message: String,
     /// Additional error context
-    pub context: ErrorContext,
+    pub context: Box<ErrorContext>,
     /// Correlation ID for distributed tracing
     pub correlation_id: String,
     /// When the error occurred
@@ -102,7 +102,7 @@ impl AppError {
         Self {
             kind,
             message: message.into(),
-            context: ErrorContext::default(),
+            context: Box::new(ErrorContext::default()),
             correlation_id: Uuid::new_v4().to_string(),
             timestamp: Utc::now(),
             stack_trace: None,
@@ -183,7 +183,7 @@ impl AppError {
     }
     
     pub fn with_context(mut self, context: ErrorContext) -> Self {
-        self.context = context;
+        self.context = Box::new(context);
         self
     }
     
@@ -286,8 +286,10 @@ impl From<crate::application::shared::error::ApplicationError> for AppError {
                 AppError::business_rule_violation(format!("Business logic error: {}", message)),
             ApplicationError::Security { message } => 
                 AppError::unauthorized(format!("Security error: {}", message)),
-            ApplicationError::WalletAddress(wallet_err) => 
+            ApplicationError::WalletAddress(wallet_err) =>
                 AppError::validation_error(format!("Invalid wallet address: {}", wallet_err)),
+            ApplicationError::ValueObject(value_err) =>
+                AppError::validation_error(format!("Value object error: {}", value_err)),
         }
     }
 }
@@ -572,11 +574,18 @@ impl ErrorSanitizer {
             r"\b\d{3,4}-\d{2}-\d{4}\b", // SSN pattern
             r"\b\d{4}[\s-]\d{4}[\s-]\d{4}[\s-]\d{4}\b", // Credit card pattern
         ];
-        
+
         let mut sanitized = message.to_string();
         for pattern in &sensitive_patterns {
-            let regex = regex::Regex::new(pattern).unwrap();
-            sanitized = regex.replace_all(&sanitized, "[REDACTED]").to_string();
+            match regex::Regex::new(pattern) {
+                Ok(regex) => {
+                    sanitized = regex.replace_all(&sanitized, "[REDACTED]").to_string();
+                }
+                Err(e) => {
+                    // This should never happen with hardcoded patterns, but log if it does
+                    tracing::warn!("Failed to compile sanitization regex {}: {}", pattern, e);
+                }
+            }
         }
         sanitized
     }

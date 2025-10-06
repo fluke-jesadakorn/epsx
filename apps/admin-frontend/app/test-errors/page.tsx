@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { PermissionErrorUI } from '@/components/errors/PermissionErrorUI';
+
 import { AdminErrorBoundary } from '@/components/errors/AdminErrorBoundary';
+import { PermissionErrorUI } from '@/components/errors/PermissionErrorUI';
 import useAdminApi from '@/hooks/useAdminApi';
 import { ApiError } from '@/shared/utils/response-handler';
 
@@ -136,10 +137,6 @@ export default function TestErrorsPage() {
             </h3>
             <PermissionErrorUI
               error={mockErrors[selectedErrorType]}
-              onRetry={() => console.log('Retry clicked')}
-              onLogin={() => console.log('Login clicked')}
-              onUpgrade={(tier) => console.log('Upgrade clicked:', tier)}
-              onSupport={(context) => console.log('Support clicked:', context)}
               variant="card"
             />
           </div>
@@ -188,7 +185,6 @@ export default function TestErrorsPage() {
                   error={error}
                   onRetry={clearError}
                   onLogin={() => window.location.href = '/login'}
-                  onSupport={(context) => console.log('Support requested:', context)}
                   variant="card"
                 />
               </AdminErrorBoundary>

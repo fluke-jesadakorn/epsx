@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Notification Priority - pure domain enum
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum NotificationPriority {
     #[serde(rename = "urgent")]
     Urgent,
@@ -32,6 +32,29 @@ impl std::fmt::Display for NotificationPriority {
             NotificationPriority::Low => "Low",
         };
         write!(f, "{}", s)
+    }
+}
+
+impl NotificationPriority {
+    pub fn from_str(s: &str) -> Result<Self, String> {
+        match s.to_lowercase().as_str() {
+            "urgent" => Ok(NotificationPriority::Urgent),
+            "critical" => Ok(NotificationPriority::Critical),
+            "high" => Ok(NotificationPriority::High),
+            "normal" => Ok(NotificationPriority::Normal),
+            "low" => Ok(NotificationPriority::Low),
+            _ => Err(format!("Invalid notification priority: {}", s)),
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            NotificationPriority::Urgent => "urgent",
+            NotificationPriority::Critical => "critical",
+            NotificationPriority::High => "high",
+            NotificationPriority::Normal => "normal",
+            NotificationPriority::Low => "low",
+        }
     }
 }
 
@@ -72,8 +95,8 @@ impl Notification {
             recipientwallet_address: Some(recipientwallet_address),
             topic: None,
             content,
-            notification_type: notification_type.clone(),
-            priority: priority.clone(),
+            notification_type,
+            priority,
             channels,
             schedule,
             metadata: NotificationMetadata::new(),
@@ -88,9 +111,9 @@ impl Notification {
             notification.base.version,
             recipientwallet_address,
             None,
-            notification_type,
-            priority,
-            notification.status.clone(),
+            notification.notification_type.clone(),
+            notification.priority,
+            notification.status,
         )));
 
         Ok(notification)
@@ -125,8 +148,8 @@ impl Notification {
             recipientwallet_address: None,
             topic: Some(topic.clone()),
             content,
-            notification_type: notification_type.clone(),
-            priority: priority.clone(),
+            notification_type,
+            priority,
             channels,
             schedule,
             metadata: NotificationMetadata::with_creator(created_by),
@@ -141,9 +164,9 @@ impl Notification {
             notification.base.version,
             Uuid::nil(), // No specific recipient for topic notifications
             Some(topic.name().to_string()),
-            notification_type,
-            priority,
-            notification.status.clone(),
+            notification.notification_type.clone(),
+            notification.priority,
+            notification.status,
         )));
 
         Ok(notification)
@@ -171,7 +194,7 @@ impl Notification {
             self.id.as_str(),
             self.base.version,
             self.schedule.scheduled_at(),
-            self.status.clone(),
+            self.status,
         )));
 
         self.base.touch();
@@ -245,7 +268,7 @@ impl Notification {
             self.base.add_event(Box::new(NotificationDeliveryCompleted::new(
                 self.id.as_str(),
                 self.base.version,
-                self.status.clone(),
+                self.status,
                 self.delivery_tracking.successful_channels(),
                 self.delivery_tracking.failed_channels(),
             )));
@@ -280,8 +303,8 @@ impl Notification {
             return Err("Cannot update priority of notification that has been sent".to_string());
         }
 
-        let old_priority = self.priority.clone();
-        self.priority = new_priority.clone();
+        let old_priority = self.priority;
+        self.priority = new_priority;
 
         // Publish priority update event
         self.base.add_event(Box::new(NotificationPriorityUpdated::new(
@@ -384,6 +407,7 @@ impl Notification {
     pub fn channels(&self) -> &MultiChannelConfig { &self.channels }
     pub fn schedule(&self) -> &ScheduleInfo { &self.schedule }
     pub fn metadata(&self) -> &NotificationMetadata { &self.metadata }
+    pub fn metadata_mut(&mut self) -> &mut NotificationMetadata { &mut self.metadata }
     pub fn delivery_tracking(&self) -> &DeliveryTracking { &self.delivery_tracking }
     pub fn status(&self) -> &NotificationStatus { &self.status }
 }
@@ -433,6 +457,12 @@ pub struct NotificationMetadata {
     data_payload: Option<serde_json::Value>,
     tags: Vec<String>,
     notes: Vec<String>,
+}
+
+impl Default for NotificationMetadata {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl NotificationMetadata {
@@ -494,6 +524,12 @@ pub struct DeliveryTracking {
     send_started_at: Option<DateTime<Utc>>,
     channel_status: HashMap<String, ChannelDeliveryStatus>,
     total_attempts: u32,
+}
+
+impl Default for DeliveryTracking {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DeliveryTracking {
@@ -598,7 +634,7 @@ pub enum DeliveryResult {
 }
 
 /// Notification status
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NotificationStatus {
     Created,              // Just created
     Scheduled,            // Scheduled for future delivery
@@ -623,6 +659,21 @@ impl NotificationStatus {
             NotificationStatus::Failed => "failed",
             NotificationStatus::Expired => "expired",
             NotificationStatus::Cancelled => "cancelled",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Result<Self, String> {
+        match s.to_lowercase().replace("_", "").as_str() {
+            "created" => Ok(NotificationStatus::Created),
+            "scheduled" => Ok(NotificationStatus::Scheduled),
+            "queued" => Ok(NotificationStatus::Queued),
+            "sending" => Ok(NotificationStatus::Sending),
+            "delivered" => Ok(NotificationStatus::Delivered),
+            "partiallydelivered" => Ok(NotificationStatus::PartiallyDelivered),
+            "failed" => Ok(NotificationStatus::Failed),
+            "expired" => Ok(NotificationStatus::Expired),
+            "cancelled" | "canceled" => Ok(NotificationStatus::Cancelled),
+            _ => Err(format!("Invalid notification status: {}", s)),
         }
     }
 }
@@ -667,6 +718,7 @@ mod placeholder {
     impl DomainEvent for NotificationCreated {
         fn event_id(&self) -> Uuid { self.metadata.event_id }
         fn event_type(&self) -> &'static str { "NotificationCreated" }
+        fn aggregate_type(&self) -> &'static str { "Notification" }
         fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
         fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
         fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
@@ -705,6 +757,7 @@ impl NotificationScheduled {
 impl DomainEvent for NotificationScheduled {
     fn event_id(&self) -> Uuid { self.metadata.event_id }
     fn event_type(&self) -> &'static str { "NotificationScheduled" }
+    fn aggregate_type(&self) -> &'static str { "Notification" }
     fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
     fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
     fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
@@ -732,6 +785,7 @@ impl NotificationSending {
 impl DomainEvent for NotificationSending {
     fn event_id(&self) -> Uuid { self.metadata.event_id }
     fn event_type(&self) -> &'static str { "NotificationSending" }
+    fn aggregate_type(&self) -> &'static str { "Notification" }
     fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
     fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
     fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
@@ -769,6 +823,7 @@ impl NotificationDeliveryCompleted {
 impl DomainEvent for NotificationDeliveryCompleted {
     fn event_id(&self) -> Uuid { self.metadata.event_id }
     fn event_type(&self) -> &'static str { "NotificationDeliveryCompleted" }
+    fn aggregate_type(&self) -> &'static str { "Notification" }
     fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
     fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
     fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
@@ -800,6 +855,7 @@ impl NotificationExpired {
 impl DomainEvent for NotificationExpired {
     fn event_id(&self) -> Uuid { self.metadata.event_id }
     fn event_type(&self) -> &'static str { "NotificationExpired" }
+    fn aggregate_type(&self) -> &'static str { "Notification" }
     fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
     fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
     fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
@@ -834,6 +890,7 @@ impl NotificationPriorityUpdated {
 impl DomainEvent for NotificationPriorityUpdated {
     fn event_id(&self) -> Uuid { self.metadata.event_id }
     fn event_type(&self) -> &'static str { "NotificationPriorityUpdated" }
+    fn aggregate_type(&self) -> &'static str { "Notification" }
     fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
     fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
     fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
@@ -861,6 +918,7 @@ impl NotificationCancelled {
 impl DomainEvent for NotificationCancelled {
     fn event_id(&self) -> Uuid { self.metadata.event_id }
     fn event_type(&self) -> &'static str { "NotificationCancelled" }
+    fn aggregate_type(&self) -> &'static str { "Notification" }
     fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
     fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
     fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }

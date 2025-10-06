@@ -20,7 +20,7 @@ const createQueryClient = () => new QueryClient({
     queries: {
       retry: 3,
       staleTime: 60000, // 1 minute for admin data
-      cacheTime: 300000, // 5 minutes cache
+      gcTime: 300000, // 5 minutes garbage collection time
     },
   },
 });

@@ -12,24 +12,24 @@
 
 'use client'
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { 
   Shield, Key, AlertTriangle, CheckCircle, Info,
   Search, X, Plus, Minus, Star, Clock, Users,
   Globe, MapPin, Smartphone, Monitor, Cpu, Database
 } from 'lucide-react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/form-components'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Checkbox } from '@/components/ui/form-components'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/components/ui/use-toast'
-
+import { adminCardVariants, adminButtonVariants } from '@/design-system'
 import { 
   usePermissionGroups, 
   useAvailablePermissions 
@@ -39,7 +39,6 @@ import {
   CreateGroupRequest, 
   UpdateGroupRequest 
 } from '@/lib/api/group-management-client'
-import { adminCardVariants, adminButtonVariants } from '@/design-system'
 import { cn } from '@/lib/shared'
 
 interface GroupEditorProps {
@@ -56,6 +55,14 @@ interface PermissionCategory {
   description: string
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.group
+ * @param root0.onSave
+ * @param root0.onCancel
+ * @param root0.className
+ */
 export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorProps) {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
@@ -209,7 +216,7 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
   }, [errors.permissions])
 
   const handleSave = useCallback(async () => {
-    if (!validateForm()) return
+    if (!validateForm()) {return}
     
     setLoading(true)
     try {
@@ -226,10 +233,10 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
         : await createGroup(requestData as CreateGroupRequest)
       
       onSave(savedGroup)
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: 'Save Failed',
-        description: error instanceof Error ? error.message : 'Failed to save group',
+        description: _error instanceof Error ? _error.message : 'Failed to save group',
         variant: 'destructive'
       })
     } finally {
@@ -238,16 +245,16 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
   }, [formData, group, validateForm, createGroup, updateGroup, onSave, toast])
 
   const getPriorityLabel = (priority: number) => {
-    if (priority >= 8) return 'Critical'
-    if (priority >= 6) return 'High'
-    if (priority >= 4) return 'Medium'
+    if (priority >= 8) {return 'Critical'}
+    if (priority >= 6) {return 'High'}
+    if (priority >= 4) {return 'Medium'}
     return 'Low'
   }
 
   const getPriorityColor = (priority: number) => {
-    if (priority >= 8) return 'text-red-600'
-    if (priority >= 6) return 'text-orange-600'
-    if (priority >= 4) return 'text-yellow-600'
+    if (priority >= 8) {return 'text-red-600'}
+    if (priority >= 6) {return 'text-orange-600'}
+    if (priority >= 4) {return 'text-yellow-600'}
     return 'text-green-600'
   }
 

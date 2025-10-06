@@ -8,6 +8,12 @@
 import { AlertTriangle, RefreshCw, Home, ArrowLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
+/**
+ *
+ * @param root0
+ * @param root0.error
+ * @param root0.reset
+ */
 export default function Error({
   error,
   reset,

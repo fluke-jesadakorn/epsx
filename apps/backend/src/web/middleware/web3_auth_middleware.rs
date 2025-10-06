@@ -18,15 +18,14 @@ use jsonwebtoken;
 use crate::auth::{
     openid_token_service::OpenIDTokenService,
 };
-use crate::web::auth::routes::AppState;
+use crate::web::auth::AppState;
 
 /// Web3 Authentication Context - attached to requests after successful validation
 /// Represents authenticated wallet with permissions from wallet_users table
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Web3AuthContext {
     pub wallet_address: String,        // Primary key from wallet_users table
-    pub permissions: Vec<String>,      // JSON permissions from wallet_users.permissions  
-    pub tier_level: String,           // From wallet_users.tier_level
+    pub permissions: Vec<String>,      // JSON permissions from wallet_users.permissions
     pub is_active: bool,              // From wallet_users.is_active
     pub verified_at: DateTime<Utc>,   // When signature was verified
     pub signature_hash: String,       // Hash of the SIWE signature
@@ -166,14 +165,10 @@ async fn validate_web3_signature_auth(headers: &HeaderMap, app_state: &AppState)
         "epsx:data:read".to_string(),
     ];
 
-    // Determine tier level based on permissions
-    let tier_level = determine_tier_level(&permissions);
-
     // Generate Bearer token for API access
     let (bearer_token, token_expires_at) = match generate_bearer_token(
         wallet_header,
         &permissions,
-        &tier_level,
         &openid_service,
     ).await {
         Ok((token, expiry)) => (Some(token), Some(expiry)),
@@ -186,7 +181,6 @@ async fn validate_web3_signature_auth(headers: &HeaderMap, app_state: &AppState)
     let auth_context = Web3AuthContext {
         wallet_address: wallet_header.to_lowercase(),
         permissions,
-        tier_level,
         is_active: true,
         verified_at: Utc::now(),
         signature_hash: format!("0x{}", &signature_header[2..18]), // First 16 chars of signature
@@ -202,14 +196,14 @@ async fn validate_web3_signature_auth(headers: &HeaderMap, app_state: &AppState)
 
 
 /// Extract Web3 authentication context from request
-pub fn get_web3_context<'a>(request: &'a Request) -> Option<&'a Web3AuthContext> {
+pub fn get_web3_context(request: &Request) -> Option<&Web3AuthContext> {
     request.extensions().get::<Web3AuthContext>()
 }
 
 /// Require authentication - returns 401 if no valid Web3 context
-pub async fn require_web3_auth<'a>(
-    request: &'a Request,
-) -> Result<&'a Web3AuthContext, StatusCode> {
+pub async fn require_web3_auth(
+    request: &Request,
+) -> Result<&Web3AuthContext, StatusCode> {
     get_web3_context(request).ok_or(StatusCode::UNAUTHORIZED)
 }
 
@@ -233,9 +227,9 @@ pub async fn require_permission<'a>(
 }
 
 /// Require admin access - checks for admin permissions
-pub async fn require_admin<'a>(
-    request: &'a Request,
-) -> Result<&'a Web3AuthContext, StatusCode> {
+pub async fn require_admin(
+    request: &Request,
+) -> Result<&Web3AuthContext, StatusCode> {
     let context = require_web3_auth(request).await?;
     
     // Check for admin permissions
@@ -253,74 +247,34 @@ pub async fn require_admin<'a>(
     }
 }
 
-/// Require tier level - checks if user has minimum tier level
-pub async fn require_tier<'a>(
-    request: &'a Request,
-    required_tier: &str,
-) -> Result<&'a Web3AuthContext, StatusCode> {
-    let context = require_web3_auth(request).await?;
-    
-    // Check if wallet is active
-    if !context.is_active {
-        warn!("Inactive wallet attempted access: {}", context.wallet_address);
-        return Err(StatusCode::FORBIDDEN);
-    }
-    
-    // Simple tier level check (Bronze < Silver < Gold < Platinum < Diamond)
-    let tier_hierarchy = ["Bronze", "Silver", "Gold", "Platinum", "Diamond"];
-    let required_index = tier_hierarchy.iter().position(|&t| t == required_tier).unwrap_or(0);
-    let user_index = tier_hierarchy.iter().position(|&t| t == context.tier_level).unwrap_or(0);
-    
-    if user_index >= required_index {
-        Ok(context)
-    } else {
-        warn!(
-            "Tier level '{}' required but wallet {} has tier '{}'",
-            required_tier,
-            context.wallet_address,
-            context.tier_level
-        );
-        Err(StatusCode::FORBIDDEN)
-    }
-}
-
-/// Determine tier level based on wallet permissions
-fn determine_tier_level(permissions: &[String]) -> String {
-    if permissions.iter().any(|p| p.starts_with("admin:")) {
-        "admin".to_string()
-    } else if permissions.iter().any(|p| p.contains("premium") || p.contains("platinum") || p.contains("diamond")) {
-        "premium".to_string()
-    } else if permissions.iter().any(|p| p.contains("silver") || p.contains("gold")) {
-        "silver".to_string()
-    } else {
-        "bronze".to_string()
-    }
-}
-
 /// Generate Bearer token for API access after successful Web3 authentication
 async fn generate_bearer_token(
     wallet_address: &str,
     permissions: &[String],
-    tier_level: &str,
     _openid_service: &OpenIDTokenService,
 ) -> Result<(String, DateTime<Utc>), String> {
     use crate::auth::AccessTokenClaims;
-    
+
     let now = Utc::now();
     let expiry = now + chrono::Duration::hours(1); // 1 hour token expiry
-    
+
+    // Convert permissions to OIDC scope format
+    let scope = format!("openid profile {}", permissions.join(" "));
+
     let claims = AccessTokenClaims {
-        sub: wallet_address.to_string(),
-        wallet_address: wallet_address.to_string(),
-        permissions: permissions.to_vec(),
-        tier_level: tier_level.to_string(),
-        auth_method: "web3_siwe".to_string(),
-        aud: vec!["epsx-api".to_string()],
+        // Standard OIDC claims
         iss: "https://api.epsx.io".to_string(),
+        sub: wallet_address.to_string(),
+        aud: vec!["epsx-api".to_string()],
         exp: expiry.timestamp(),
         iat: now.timestamp(),
-        auth_time: now.timestamp(),
         jti: uuid::Uuid::new_v4().to_string(),
+        scope,
+
+        // EPSX custom claims
+        wallet_address: wallet_address.to_string(),
+        auth_method: "web3_siwe".to_string(),
+        auth_time: now.timestamp(),
     };
     
     // Create JWT header
@@ -354,7 +308,6 @@ mod tests {
         let context = Web3AuthContext {
             wallet_address: "0x742d35cc6634c0532925a3b8d369d7763f3c45c6".to_string(),
             permissions: vec!["epsx:basic:view".to_string()],
-            tier_level: "Silver".to_string(),
             is_active: true,
             verified_at: Utc::now(),
             signature_hash: "0x12345678".to_string(),
@@ -363,20 +316,11 @@ mod tests {
             bearer_token: Some("bearer_token_example".to_string()),
             token_expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
         };
-        
+
         assert!(!context.wallet_address.is_empty());
-        assert_eq!(context.tier_level, "Silver");
         assert!(context.is_active);
         assert_eq!(context.chain_id, 56);
         assert!(context.bearer_token.is_some());
         assert!(context.token_expires_at.is_some());
-    }
-    
-    #[test]
-    fn test_determine_tier_level() {
-        assert_eq!(determine_tier_level(&vec!["admin:users:read".to_string()]), "admin");
-        assert_eq!(determine_tier_level(&vec!["epsx:premium:analytics".to_string()]), "premium");
-        assert_eq!(determine_tier_level(&vec!["epsx:silver:view".to_string()]), "silver");
-        assert_eq!(determine_tier_level(&vec!["epsx:basic:view".to_string()]), "bronze");
     }
 }

@@ -2,19 +2,16 @@
 // Replaces hardcoded permission mapping with dynamic database configuration
 // Supports wildcard patterns, route hierarchies, and hot-reload
 
-use async_trait::async_trait;
-use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use crate::prelude::*;
+
 use sqlx::PgPool;
 use std::collections::HashMap;
-use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use crate::auth::permission_authority::{RoutePermissionResolver, CacheConfig};
-use crate::core::errors::AppError;
 
 // ============================================================================
 // PERMISSION REGISTRY TYPES
@@ -101,54 +98,19 @@ impl RoutePattern {
     fn wildcard_match(&self, pattern: &str, path: &str) -> bool {
         let pattern_parts: Vec<&str> = pattern.split('/').collect();
         let path_parts: Vec<&str> = path.split('/').collect();
-        
-        self.match_parts(&pattern_parts, &path_parts, 0, 0)
+
+        match_parts(&pattern_parts, &path_parts, 0, 0)
     }
-    
-    /// Recursive wildcard matching
-    fn match_parts(&self, pattern: &[&str], path: &[&str], p_idx: usize, path_idx: usize) -> bool {
-        // Both exhausted - match
-        if p_idx >= pattern.len() && path_idx >= path.len() {
-            return true;
-        }
-        
-        // Pattern exhausted but path not - no match unless last pattern was **
-        if p_idx >= pattern.len() {
-            return false;
-        }
-        
-        let pattern_part = pattern[p_idx];
-        
-        // ** matches everything remaining
-        if pattern_part == "**" {
-            return true;
-        }
-        
-        // * matches any single segment
-        if pattern_part == "*" {
-            if path_idx >= path.len() {
-                return false;
-            }
-            return self.match_parts(pattern, path, p_idx + 1, path_idx + 1);
-        }
-        
-        // Exact segment match
-        if path_idx < path.len() && pattern_part == path[path_idx] {
-            return self.match_parts(pattern, path, p_idx + 1, path_idx + 1);
-        }
-        
-        false
-    }
-    
+
     /// Parameter matching (e.g., /users/:id matches /users/123)
     fn param_match(&self, pattern: &str, path: &str) -> bool {
         let pattern_parts: Vec<&str> = pattern.split('/').collect();
         let path_parts: Vec<&str> = path.split('/').collect();
-        
+
         if pattern_parts.len() != path_parts.len() {
             return false;
         }
-        
+
         for (pattern_part, path_part) in pattern_parts.iter().zip(path_parts.iter()) {
             if pattern_part.starts_with(':') {
                 continue; // Parameter - matches any value
@@ -157,8 +119,51 @@ impl RoutePattern {
                 return false;
             }
         }
-        
+
         true
+    }
+}
+
+/// Recursive wildcard matching (standalone function)
+fn match_parts(pattern: &[&str], path: &[&str], p_idx: usize, path_idx: usize) -> bool {
+    // Both exhausted - match
+    if p_idx >= pattern.len() && path_idx >= path.len() {
+        return true;
+    }
+
+    // Pattern exhausted but path not - no match unless last pattern was **
+    if p_idx >= pattern.len() {
+        return false;
+    }
+
+    let pattern_part = pattern[p_idx];
+
+    // ** matches everything remaining
+    if pattern_part == "**" {
+        return true;
+    }
+
+    // * matches any single segment
+    if pattern_part == "*" {
+        if path_idx >= path.len() {
+            return false;
+        }
+        return match_parts(pattern, path, p_idx + 1, path_idx + 1);
+    }
+
+    // Exact segment match
+    if path_idx < path.len() && pattern_part == path[path_idx] {
+        return match_parts(pattern, path, p_idx + 1, path_idx + 1);
+    }
+
+    false
+}
+
+impl DatabasePermissionRegistry {
+    /// Test-only accessor for db_pool
+    #[cfg(test)]
+    pub fn db_pool(&self) -> &PgPool {
+        &self.db_pool
     }
 }
 
@@ -412,18 +417,20 @@ impl DatabasePermissionRegistry {
         self.ensure_fresh_patterns().await?;
         
         let patterns = self.route_patterns.read().await;
-        
+
         // Find matching pattern with highest priority
         let mut best_match: Option<&RoutePattern> = None;
-        
+
         for pattern in patterns.iter() {
             if pattern.matches(method, path) {
-                if best_match.is_none() || pattern.priority > best_match.unwrap().priority {
+                // Safe comparison: if best_match is Some, compare priorities
+                let should_replace = best_match.map_or(true, |current| pattern.priority > current.priority);
+                if should_replace {
                     best_match = Some(pattern);
                 }
             }
         }
-        
+
         match best_match {
             Some(pattern) => Ok(RouteResolution {
                 permission: pattern.permission.clone(),
@@ -580,7 +587,7 @@ pub fn get_default_route_permissions() -> Vec<RegisterRoutePermissionRequest> {
         
         // Admin routes
         RegisterRoutePermissionRequest {
-            route_pattern: "/admin/users/**".to_string(),
+            route_pattern: "/admin/wallets/**".to_string(),
             http_method: "*".to_string(),
             required_permission: "admin:users:manage".to_string(),
             priority: Some(900),

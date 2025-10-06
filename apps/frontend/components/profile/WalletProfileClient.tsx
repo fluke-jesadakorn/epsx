@@ -3,7 +3,6 @@
 import { useState } from 'react';
 import { Wallet, Settings, Database, Shield, Mail, Download } from 'lucide-react';
 import { type User as WalletType } from '../../../../shared/types/auth';
-import { derivePermissionGroupFromPermissions, getPermissionGroupDisplayName } from '../../../../shared/permissions/utils/platform';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,6 +10,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmailManagement } from './EmailManagement';
 import { Web3Integration } from './Web3Integration';
 import { DataManagement } from './DataManagement';
+
+// Simple permission group helpers (for display only)
+function derivePermissionGroupFromPermissions(permissions: string[]): string {
+  if (permissions.some(p => p.includes('admin:'))) return 'Admin';
+  if (permissions.some(p => p.includes('premium') || p.includes('platinum'))) return 'Premium';
+  if (permissions.some(p => p.includes('gold'))) return 'Gold';
+  if (permissions.some(p => p.includes('silver'))) return 'Silver';
+  return 'Basic';
+}
+
+function getPermissionGroupDisplayName(group: string): string {
+  return group;
+}
 
 interface WalletProfileClientProps {
   wallet: WalletType;

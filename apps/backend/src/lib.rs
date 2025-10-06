@@ -1,5 +1,6 @@
 // Clean architecture library exports
 
+pub mod prelude; // Common imports prelude
 pub mod core; // Shared kernel
 pub mod domain; // DDD Domain layer with bounded contexts (User Management, Trading Analytics, Notification, Payment)
 pub mod application; // Application layer with CQRS command/query handlers
@@ -12,4 +13,4 @@ pub mod auth; // Web3 wallet-first authentication system
 // Selective re-exports for clean namespace
 pub use core::{ errors, types, telemetry };
 pub use infrastructure::container::DomainContainer;
-pub use web::{create_router, create_stateless_router, create_standardized_router};
+pub use web::create_router;

@@ -1,8 +1,9 @@
+import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
+
 import { SubscriptionManagement } from '@/components/subscriptions/SubscriptionManagement'
 import { UnifiedAuth } from '@/lib/auth/unified-auth'
 import { ServerAuth } from '@/lib/server/auth-helpers'
-import { notFound } from 'next/navigation'
 
 export const dynamic = 'force-dynamic'
 
@@ -82,6 +83,9 @@ async function SubscriptionsDataWrapper() {
   )
 }
 
+/**
+ *
+ */
 export default function AdminSubscriptionsPage() {
   return (
     <Suspense fallback={<SubscriptionsHubSkeleton />}>

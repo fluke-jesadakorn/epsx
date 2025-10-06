@@ -6,7 +6,7 @@ pub mod query_bus;
 pub mod validation;
 pub mod error;
 
-pub use command_bus::{Command, CommandHandler, CommandBus};
-pub use query_bus::{Query, QueryHandler, QueryBus, PaginationParams, SortParams, SortDirection};
+pub use command_bus::{Command, CommandHandler};
+pub use query_bus::{Query, QueryHandler, PaginationParams, SortParams, SortDirection};
 pub use validation::{ValidationError, Validator, ValidationUtils};
 pub use error::{ApplicationError, ApplicationResult};

@@ -42,17 +42,13 @@ function parseSearchParams(
   };
 }
 
-const formatCurrency = (value: number, currency: string = 'USD') => {
+const _formatCurrency = (value: number, currency: string = 'USD') => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: currency,
+    currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
-};
-
-const formatPercentage = (value: number) => {
-  return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
 };
 
 const SymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
@@ -66,7 +62,7 @@ const SymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
   const formatCurrencyLocal = (value: number, currency: string = 'USD') => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: currency,
+      currency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);
@@ -230,7 +226,7 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
   const formatCurrencyTop5 = (value: number, currency: string = 'USD') => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: currency,
+      currency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);
@@ -253,7 +249,7 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
     return { avgGrowth, activeCount, totalValue };
   };
 
-  const insights = getLeaderInsights(top5Data);
+  const _insights = getLeaderInsights(top5Data);
 
   return (
     <div className="mb-8">

@@ -1,3 +1,8 @@
+import { useEffect, useState } from 'react';
+
+import { adminCardVariants, adminButtonVariants, adminBadgeVariants } from '@/design-system';
+import { cn } from '@/lib/utils';
+
 'use client';
 
 enum PackageTier {
@@ -10,9 +15,6 @@ enum PackageTier {
   PREMIUM = 'premium'
 }
 type StockRankingPackageAssignment = any;
-import { useEffect, useState } from 'react';
-import { adminCardVariants, adminButtonVariants, adminBadgeVariants } from '@/design-system';
-import { cn } from '@/lib/utils';
 
 interface User {
   id: string;
@@ -28,6 +30,11 @@ interface StockRankingAssignmentListProps {
   refreshTrigger?: number;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.refreshTrigger
+ */
 export default function StockRankingAssignmentList({
   refreshTrigger,
 }: StockRankingAssignmentListProps) {
@@ -54,6 +61,7 @@ export default function StockRankingAssignmentList({
       const response = await fetch('/api/v1/admin/stock-ranking/assignments');
       
       if (!response.ok) {
+        // eslint-disable-next-line no-console
         console.error('Assignment API error:', response.status, response.statusText);
         setAssignments([]);
         return;
@@ -61,6 +69,7 @@ export default function StockRankingAssignmentList({
       
       const contentType = response.headers.get('content-type');
       if (!contentType?.includes('application/json')) {
+        // eslint-disable-next-line no-console
         console.error('Invalid response type:', contentType);
         setAssignments([]);
         return;
@@ -68,8 +77,9 @@ export default function StockRankingAssignmentList({
       
       const data = await response.json();
       setAssignments(data.assignments || []);
-    } catch (error) {
-      console.error('Failed to load assignments:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to load assignments:', _error);
       setAssignments([]);
     } finally {
       setIsLoading(false);
@@ -95,8 +105,9 @@ export default function StockRankingAssignmentList({
       } else {
         throw new Error('Failed to revoke assignment');
       }
-    } catch (error) {
-      console.error('Error revoking assignment:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Error revoking assignment:', _error);
       alert('Failed to revoke assignment');
     }
   };
@@ -125,8 +136,9 @@ export default function StockRankingAssignmentList({
       } else {
         throw new Error('Failed to extend assignment');
       }
-    } catch (error) {
-      console.error('Error extending assignment:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Error extending assignment:', _error);
       alert('Failed to extend assignment');
     }
   };
@@ -201,7 +213,7 @@ export default function StockRankingAssignmentList({
   };
 
   const isExpiringSoon = (assignment: AssignmentWithUser) => {
-    if (!assignment.expiresAt) return false;
+    if (!assignment.expiresAt) {return false;}
     const expirationDate = new Date(assignment.expiresAt);
     const now = new Date();
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);

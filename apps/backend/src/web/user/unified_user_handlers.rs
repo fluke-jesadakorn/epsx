@@ -23,7 +23,7 @@ use utoipa::ToSchema;
 
 use crate::{
     web::{
-        auth::routes::AppState,
+        auth::AppState,
         middleware::{require_user_context, check_user_permission},
         responses::{UnifiedApiResponse, ResponseMeta, PermissionContext},
     },
@@ -33,7 +33,6 @@ use crate::{
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct UserProfile {
     pub wallet_address: String,
-    pub tier_level: String,
     pub permissions: Vec<String>,
     pub auth_method: String,
     pub created_at: String,
@@ -50,7 +49,7 @@ pub struct UserPermissionsQuery {
 /// Uses OpenID Bearer token for authentication
 #[utoipa::path(
     get,
-    path = "/api/v1/user/profile",
+    path = "/api/v1/wallet/profile",
     responses(
         (status = 200, description = "User profile retrieved successfully", body = UnifiedApiResponse<UserProfile>),
         (status = 401, description = "Authentication required"),
@@ -79,18 +78,14 @@ pub async fn get_current_user_profile(
     // Create user profile from authenticated context
     let user_profile = UserProfile {
         wallet_address: user_context.wallet_address.clone(),
-        tier_level: user_context.tier_level.clone(),
         permissions: user_context.permissions.clone(),
         auth_method: user_context.auth_method.clone(),
         created_at: chrono::Utc::now().to_rfc3339(), // TODO: Get from database
         last_login: chrono::Utc::now().to_rfc3339(),  // TODO: Get from database
     };
 
-    // Create permission context for frontend
-    let permission_context = PermissionContext::from_user_tier(
-        &user_context.tier_level,
-        &user_context.permissions,
-    );
+    // Create permission context for frontend from permissions only
+    let permission_context = PermissionContext::from_permissions(&user_context.permissions);
 
     // Create response metadata with permission context
     let meta = ResponseMeta::default().with_permissions(permission_context);
@@ -110,7 +105,7 @@ pub async fn get_current_user_profile(
 /// Requires specific permission to view permissions
 #[utoipa::path(
     get,
-    path = "/api/v1/user/permissions",
+    path = "/api/v1/wallet/permissions",
     params(UserPermissionsQuery),
     responses(
         (status = 200, description = "User permissions retrieved", body = UnifiedApiResponse<Vec<String>>),
@@ -158,11 +153,8 @@ pub async fn get_user_permissions(
         user_context.permissions.clone()
     };
 
-    // Create permission context
-    let permission_context = PermissionContext::from_user_tier(
-        &user_context.tier_level,
-        &user_context.permissions,
-    );
+    // Create permission context from permissions only
+    let permission_context = PermissionContext::from_permissions(&user_context.permissions);
 
     let meta = ResponseMeta::default().with_permissions(permission_context);
 
@@ -188,7 +180,7 @@ pub struct UpdateUserPreferencesRequest {
 
 #[utoipa::path(
     post,
-    path = "/api/v1/user/preferences",
+    path = "/api/v1/wallet/preferences",
     request_body = UpdateUserPreferencesRequest,
     responses(
         (status = 200, description = "Preferences updated successfully", body = UnifiedApiResponse<Value>),
@@ -241,11 +233,11 @@ pub async fn update_user_preferences(
     Ok(Json(UnifiedApiResponse::success(updated_preferences)))
 }
 
-/// Admin endpoint - get user by wallet address
+/// Admin endpoint - get wallet by wallet address
 /// Example of admin-only endpoint with permission checking
 #[utoipa::path(
     get,
-    path = "/api/v1/admin/users/{wallet_address}",
+    path = "/api/v1/admin/wallets/{wallet_address}",
     params(
         ("wallet_address" = String, Path, description = "Wallet address of the user")
     ),
@@ -290,7 +282,6 @@ pub async fn get_user_by_wallet_address(
     // For now, return mock data
     let user_profile = UserProfile {
         wallet_address: wallet_address.clone(),
-        tier_level: "premium".to_string(),
         permissions: vec![
             "epsx:analytics:read".to_string(),
             "epsx:export:csv".to_string(),
@@ -300,11 +291,8 @@ pub async fn get_user_by_wallet_address(
         last_login: chrono::Utc::now().to_rfc3339(),
     };
 
-    // Create admin permission context
-    let permission_context = PermissionContext::from_user_tier(
-        &user_context.tier_level,
-        &user_context.permissions,
-    );
+    // Create admin permission context from permissions only
+    let permission_context = PermissionContext::from_permissions(&user_context.permissions);
 
     let meta = ResponseMeta::default().with_permissions(permission_context);
 

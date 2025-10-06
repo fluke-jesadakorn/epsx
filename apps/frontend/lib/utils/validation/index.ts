@@ -3,8 +3,6 @@
  * Environment validation, input validation, and schema validation utilities
  */
 
-import { safeError } from '../logging';
-
 // ============================================================================
 // Environment Validation
 // ============================================================================
@@ -194,9 +192,10 @@ export class InputValidator {
       case 'boolean':
         return typeof value !== 'boolean' && value !== 'true' && value !== 'false' ? 'Must be a boolean' : null;
       
-      case 'email':
+      case 'email': {
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return !emailRegex.test(String(value)) ? 'Must be a valid email address' : null;
+      }
       
       case 'url':
         try {
@@ -206,9 +205,10 @@ export class InputValidator {
           return 'Must be a valid URL';
         }
       
-      case 'date':
+      case 'date': {
         const date = new Date(value);
         return isNaN(date.getTime()) ? 'Must be a valid date' : null;
+      }
       
       default:
         return null;
@@ -263,7 +263,7 @@ export class InputValidator {
 
 export const commonPatterns = {
   email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-  phone: /^\+?[\d\s\-\(\)]+$/,
+  phone: /^\+?[\d\s\-()]+$/,
   url: /^https?:\/\/.+/,
   slug: /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
   username: /^[a-zA-Z0-9_-]{3,20}$/,

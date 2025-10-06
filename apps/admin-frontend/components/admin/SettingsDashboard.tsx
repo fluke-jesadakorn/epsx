@@ -13,7 +13,8 @@ import {
   Zap,
 } from 'lucide-react';
 import * as React from 'react';
-import { UnifiedAdminClient } from '@/lib/api/unified-admin-client';
+
+import { createAdminApiClient } from '@/shared/utils/api-client';
 
 interface SettingsDashboardProps {
   initialSystemConfig: any;
@@ -24,6 +25,16 @@ interface SettingsDashboardProps {
   initialEnvironmentConfig: any;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.initialSystemConfig
+ * @param root0.initialGeneralSettings
+ * @param root0.initialNotificationSettings
+ * @param root0.initialSecuritySettings
+ * @param root0.initialFeatureFlags
+ * @param root0.initialEnvironmentConfig
+ */
 export const SettingsDashboard: React.FC<SettingsDashboardProps> = ({
   initialSystemConfig,
   initialGeneralSettings,
@@ -87,8 +98,9 @@ export const SettingsDashboard: React.FC<SettingsDashboardProps> = ({
         // });
       }
       alert('Settings saved successfully!');
-    } catch (error) {
-      console.error('Error saving settings:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Error saving settings:', _error);
       alert('Failed to save settings');
     }
   };

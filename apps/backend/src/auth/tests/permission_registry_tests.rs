@@ -2,13 +2,10 @@
 // Tests route-to-permission mapping, pattern matching, and caching
 
 use crate::auth::{
-    DatabasePermissionRegistry, RoutePermissionResolver, RoutePermissionMapping,
-    RegisterRoutePermissionRequest, RouteResolution, create_permission_registry,
+    DatabasePermissionRegistry, RoutePermissionResolver,
     get_default_route_permissions,
 };
 use sqlx::PgPool;
-use std::time::Duration;
-use uuid::Uuid;
 
 // ============================================================================
 // TEST UTILITIES
@@ -81,7 +78,7 @@ async fn test_exact_route_match() {
     
     // Insert test route
     insert_test_route(
-        &registry.db_pool,
+        registry.db_pool(),
         "/test/exact",
         "GET",
         "test:exact:read",
@@ -105,7 +102,7 @@ async fn test_exact_route_match() {
     // Should return None or a default permission
     
     // Cleanup
-    cleanup_test_routes(&registry.db_pool).await;
+    cleanup_test_routes(registry.db_pool()).await;
 }
 
 #[tokio::test]
@@ -114,7 +111,7 @@ async fn test_wildcard_route_matching() {
     
     // Insert wildcard routes with different priorities
     insert_test_route(
-        &registry.db_pool,
+        registry.db_pool(),
         "/test/admin/*",
         "*",
         "admin:test:access",
@@ -123,7 +120,7 @@ async fn test_wildcard_route_matching() {
     ).await;
     
     insert_test_route(
-        &registry.db_pool,
+        registry.db_pool(),
         "/test/**",
         "*",
         "test:general:access",
@@ -134,7 +131,7 @@ async fn test_wildcard_route_matching() {
     registry.refresh_patterns().await.expect("Failed to refresh patterns");
     
     // Test specific admin path (should match higher priority rule)
-    let result = registry.resolve_route_permission("GET", "/test/admin/users").await;
+    let result = registry.resolve_route_permission("GET", "/test/admin/wallets").await;
     assert!(result.is_ok());
     let permission = result.unwrap();
     assert_eq!(permission, Some("admin:test:access".to_string()));
@@ -146,7 +143,7 @@ async fn test_wildcard_route_matching() {
     assert_eq!(permission, Some("test:general:access".to_string()));
     
     // Cleanup
-    cleanup_test_routes(&registry.db_pool).await;
+    cleanup_test_routes(registry.db_pool()).await;
 }
 
 #[tokio::test]
@@ -155,7 +152,7 @@ async fn test_http_method_matching() {
     
     // Insert method-specific routes
     insert_test_route(
-        &registry.db_pool,
+        registry.db_pool(),
         "/test/resource",
         "GET",
         "test:resource:read",
@@ -164,7 +161,7 @@ async fn test_http_method_matching() {
     ).await;
     
     insert_test_route(
-        &registry.db_pool,
+        registry.db_pool(),
         "/test/resource",
         "POST",
         "test:resource:write",
@@ -173,7 +170,7 @@ async fn test_http_method_matching() {
     ).await;
     
     insert_test_route(
-        &registry.db_pool,
+        registry.db_pool(),
         "/test/any",
         "*",
         "test:any:access",
@@ -198,7 +195,7 @@ async fn test_http_method_matching() {
     assert_eq!(result.unwrap(), Some("test:any:access".to_string()));
     
     // Cleanup
-    cleanup_test_routes(&registry.db_pool).await;
+    cleanup_test_routes(registry.db_pool()).await;
 }
 
 #[tokio::test]
@@ -207,7 +204,7 @@ async fn test_priority_ordering() {
     
     // Insert overlapping routes with different priorities
     insert_test_route(
-        &registry.db_pool,
+        registry.db_pool(),
         "/test/priority",
         "GET",
         "test:low:priority",
@@ -216,7 +213,7 @@ async fn test_priority_ordering() {
     ).await;
     
     insert_test_route(
-        &registry.db_pool,
+        registry.db_pool(),
         "/test/priority",
         "*",
         "test:high:priority",
@@ -233,7 +230,7 @@ async fn test_priority_ordering() {
     assert_eq!(permission, Some("test:high:priority".to_string()));
     
     // Cleanup
-    cleanup_test_routes(&registry.db_pool).await;
+    cleanup_test_routes(registry.db_pool()).await;
 }
 
 #[tokio::test]
@@ -242,7 +239,7 @@ async fn test_public_route_handling() {
     
     // Insert public route
     insert_test_route(
-        &registry.db_pool,
+        registry.db_pool(),
         "/test/public",
         "GET",
         "public",
@@ -259,7 +256,7 @@ async fn test_public_route_handling() {
     assert_eq!(permission, Some("public".to_string()));
     
     // Cleanup
-    cleanup_test_routes(&registry.db_pool).await;
+    cleanup_test_routes(registry.db_pool()).await;
 }
 
 // ============================================================================
@@ -284,7 +281,7 @@ async fn test_register_new_route_permission() {
     assert_eq!(resolved.unwrap(), Some(permission.to_string()));
     
     // Cleanup
-    cleanup_test_routes(&registry.db_pool).await;
+    cleanup_test_routes(registry.db_pool()).await;
 }
 
 #[tokio::test]
@@ -310,7 +307,7 @@ async fn test_register_duplicate_route_permission() {
     assert_eq!(resolved.unwrap(), Some(permission2.to_string()));
     
     // Cleanup
-    cleanup_test_routes(&registry.db_pool).await;
+    cleanup_test_routes(registry.db_pool()).await;
 }
 
 // ============================================================================
@@ -323,7 +320,7 @@ async fn test_parameter_route_matching() {
     
     // Insert parameterized route
     insert_test_route(
-        &registry.db_pool,
+        registry.db_pool(),
         "/test/users/:id",
         "GET",
         "test:users:read",
@@ -332,7 +329,7 @@ async fn test_parameter_route_matching() {
     ).await;
     
     insert_test_route(
-        &registry.db_pool,
+        registry.db_pool(),
         "/test/users/:id/posts/:post_id",
         "GET",
         "test:posts:read",
@@ -356,7 +353,7 @@ async fn test_parameter_route_matching() {
     // Should not match the parameterized route
     
     // Cleanup
-    cleanup_test_routes(&registry.db_pool).await;
+    cleanup_test_routes(registry.db_pool()).await;
 }
 
 #[tokio::test]
@@ -364,15 +361,15 @@ async fn test_complex_wildcard_patterns() {
     let registry = create_test_registry().await;
     
     // Insert various wildcard patterns
-    insert_test_route(&registry.db_pool, "/api/v1/admin/**", "*", "admin:api:access", 900, false).await;
-    insert_test_route(&registry.db_pool, "/api/v1/*/public", "GET", "api:public:read", 800, false).await;
-    insert_test_route(&registry.db_pool, "/api/*/analytics/*", "GET", "analytics:read", 700, false).await;
+    insert_test_route(registry.db_pool(), "/api/v1/admin/**", "*", "admin:api:access", 900, false).await;
+    insert_test_route(registry.db_pool(), "/api/v1/*/public", "GET", "api:public:read", 800, false).await;
+    insert_test_route(registry.db_pool(), "/api/*/analytics/*", "GET", "analytics:read", 700, false).await;
     
     registry.refresh_patterns().await.expect("Failed to refresh patterns");
     
     // Test complex pattern matching
     let test_cases = vec![
-        ("GET", "/api/v1/admin/users/create", Some("admin:api:access")),
+        ("GET", "/api/v1/admin/wallets/create", Some("admin:api:access")),
         ("POST", "/api/v1/admin/anything/here", Some("admin:api:access")),
         ("GET", "/api/v1/users/public", Some("api:public:read")),
         ("GET", "/api/v1/analytics/rankings", Some("analytics:read")),
@@ -392,7 +389,7 @@ async fn test_complex_wildcard_patterns() {
     }
     
     // Cleanup
-    cleanup_test_routes(&registry.db_pool).await;
+    cleanup_test_routes(registry.db_pool()).await;
 }
 
 // ============================================================================
@@ -404,7 +401,7 @@ async fn test_route_resolution_caching() {
     let registry = create_test_registry().await;
     
     insert_test_route(
-        &registry.db_pool,
+        registry.db_pool(),
         "/test/cached",
         "GET",
         "test:cached:read",
@@ -441,7 +438,7 @@ async fn test_route_resolution_caching() {
     assert!(stats.misses > 0);
     
     // Cleanup
-    cleanup_test_routes(&registry.db_pool).await;
+    cleanup_test_routes(registry.db_pool()).await;
 }
 
 #[tokio::test]
@@ -449,7 +446,7 @@ async fn test_cache_invalidation_on_pattern_refresh() {
     let registry = create_test_registry().await;
     
     insert_test_route(
-        &registry.db_pool,
+        registry.db_pool(),
         "/test/refresh",
         "GET",
         "test:refresh:old",
@@ -468,7 +465,7 @@ async fn test_cache_invalidation_on_pattern_refresh() {
     let _ = sqlx::query!(
         "UPDATE route_permissions SET required_permission = 'test:refresh:new' WHERE route_pattern = '/test/refresh'"
     )
-    .execute(&registry.db_pool)
+    .execute(registry.db_pool())
     .await;
     
     // Refresh patterns (should invalidate cache)
@@ -485,7 +482,7 @@ async fn test_cache_invalidation_on_pattern_refresh() {
     assert_eq!(result2.unwrap(), Some("test:refresh:new".to_string()));
     
     // Cleanup
-    cleanup_test_routes(&registry.db_pool).await;
+    cleanup_test_routes(registry.db_pool()).await;
 }
 
 // ============================================================================
@@ -516,7 +513,7 @@ async fn test_admin_route_permissions() {
     
     // Test admin routes have appropriate permissions
     let test_cases = vec![
-        ("GET", "/admin/users/list", "admin:users:manage"),
+        ("GET", "/admin/wallets/list", "admin:users:manage"),
         ("GET", "/admin/permission-groups/list", "admin:permission-groups:manage"),
         ("POST", "/admin/web3/permissions", "admin:web3:manage"),
         ("GET", "/api/admin/analytics", "admin:api:access"),
@@ -562,7 +559,7 @@ async fn test_invalid_http_methods() {
     let registry = create_test_registry().await;
     
     insert_test_route(
-        &registry.db_pool,
+        registry.db_pool(),
         "/test/method",
         "GET",
         "test:method:get",
@@ -582,7 +579,7 @@ async fn test_invalid_http_methods() {
     }
     
     // Cleanup
-    cleanup_test_routes(&registry.db_pool).await;
+    cleanup_test_routes(registry.db_pool()).await;
 }
 
 // ============================================================================
@@ -596,7 +593,7 @@ async fn test_route_resolution_performance() {
     // Insert many routes with various patterns
     for i in 0..100 {
         insert_test_route(
-            &registry.db_pool,
+            registry.db_pool(),
             &format!("/test/perf/{}", i),
             "GET",
             &format!("test:perf:read:{}", i),
@@ -606,7 +603,7 @@ async fn test_route_resolution_performance() {
     }
     
     // Add some wildcard routes
-    insert_test_route(&registry.db_pool, "/test/perf/**", "*", "test:perf:wildcard", 50, false).await;
+    insert_test_route(registry.db_pool(), "/test/perf/**", "*", "test:perf:wildcard", 50, false).await;
     
     registry.refresh_patterns().await.expect("Failed to refresh patterns");
     
@@ -630,7 +627,7 @@ async fn test_route_resolution_performance() {
     println!("Resolved {} routes in {}ms", resolved_count, elapsed.as_millis());
     
     // Cleanup
-    cleanup_test_routes(&registry.db_pool).await;
+    cleanup_test_routes(registry.db_pool()).await;
 }
 
 // ============================================================================
@@ -642,8 +639,8 @@ async fn test_get_all_mappings() {
     let registry = create_test_registry().await;
     
     // Insert test mappings
-    insert_test_route(&registry.db_pool, "/test/mapping1", "GET", "test:map1", 100, false).await;
-    insert_test_route(&registry.db_pool, "/test/mapping2", "POST", "test:map2", 200, false).await;
+    insert_test_route(registry.db_pool(), "/test/mapping1", "GET", "test:map1", 100, false).await;
+    insert_test_route(registry.db_pool(), "/test/mapping2", "POST", "test:map2", 200, false).await;
     
     registry.refresh_patterns().await.expect("Failed to refresh patterns");
     
@@ -666,7 +663,7 @@ async fn test_get_all_mappings() {
     assert_eq!(test_mapping2.unwrap().required_permission, "test:map2");
     
     // Cleanup
-    cleanup_test_routes(&registry.db_pool).await;
+    cleanup_test_routes(registry.db_pool()).await;
 }
 
 #[tokio::test]
@@ -674,7 +671,7 @@ async fn test_route_cache_invalidation() {
     let registry = create_test_registry().await;
     
     insert_test_route(
-        &registry.db_pool,
+        registry.db_pool(),
         "/test/invalidate",
         "GET",
         "test:invalidate:read",
@@ -697,5 +694,5 @@ async fn test_route_cache_invalidation() {
     assert_eq!(result2.unwrap(), Some("test:invalidate:read".to_string()));
     
     // Cleanup
-    cleanup_test_routes(&registry.db_pool).await;
+    cleanup_test_routes(registry.db_pool()).await;
 }

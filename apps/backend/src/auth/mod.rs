@@ -17,10 +17,6 @@ pub mod openid_token_service;
 // PERFORMANCE OPTIMIZATIONS
 pub mod simplified_auth_cache;
 
-// DYNAMIC GROUP SYSTEM MODULES
-pub mod dynamic_group_rules_engine;
-pub mod group_template_system;
-
 // CORE AUTH MODULES (Web3-First)
 pub mod key_manager;
 pub mod permissions;
@@ -96,16 +92,6 @@ pub use policy_engine::{
 
 pub use cleanup::{TokenCleanupService, CleanupConfig, CleanupResult, CleanupError, start_cleanup_service, manual_cleanup, get_cleanup_stats};
 
-// DYNAMIC GROUP SYSTEM EXPORTS
-pub use dynamic_group_rules_engine::{
-    DynamicGroupRulesEngine, DynamicRule, RuleCondition, LogicOperator, 
-    RuleActions, RuleEvaluationResult, ConditionOperator, RuleType,
-    UserContext, UserBehavioralData, Web3UserData, EvaluationContext
-};
-pub use group_template_system::{
-    GroupTemplateSystem, GroupTemplate, TemplateCategory, EvaluationFrequency,
-    TemplateParameters, ParameterDefinition, ParameterType, ValidationRule
-};
 
 // ============================================================================
 // TEST MODULES (only included in test builds)

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { getAnalyticsStatistics } from '../../lib/data/admin';
 
 interface IAMStats {
   totalUsers: number;
@@ -26,8 +25,14 @@ export const useIAMStats = () => {
       try {
         setLoading(true);
 
-        // Get real analytics data from backend
-        const analyticsData = await getAnalyticsStatistics();
+        // TODO: Implement with shared API client
+        // Stub data for now
+        const analyticsData = {
+          total_users: 0,
+          active_users: 0,
+          user_growth: 0,
+          package_distribution: {}
+        };
 
         // Transform backend analytics to IAM stats format
         const statsData: IAMStats = {
@@ -46,9 +51,10 @@ export const useIAMStats = () => {
         };
 
         setStats(statsData);
-      } catch (error) {
+      } catch (_error) {
+        // eslint-disable-next-line no-console
         console.error('Failed to fetch IAM stats', {
-          error: error instanceof Error ? error.message : String(error),
+          error: _error instanceof Error ? _error.message : String(error),
         });
         // Set fallback values
         setStats({

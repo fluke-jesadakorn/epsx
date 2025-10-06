@@ -1,11 +1,5 @@
 'use client'
 
-import React, { useState, useCallback } from 'react'
-import { Card } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { 
   Plus, 
   Trash2, 
@@ -23,6 +17,13 @@ import {
   ChevronDown,
   ChevronRight
 } from 'lucide-react'
+import React, { useState, useCallback } from 'react'
+
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface RuleNode {
   id: string
@@ -198,6 +199,11 @@ const OPERATORS = {
   array: ['contains', 'contains_all', 'contains_any', 'length_equals', 'length_greater', 'length_less']
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.onSave
+ */
 export default function VisualRuleBuilder({ onSave }: { onSave?: (rule: RuleNode) => void }) {
   const [ruleTree, setRuleTree] = useState<RuleNode>({
     id: 'root',
@@ -311,7 +317,6 @@ export default function VisualRuleBuilder({ onSave }: { onSave?: (rule: RuleNode
 
   const testRule = async () => {
     // Mock rule testing
-    console.log('Testing rule:', ruleTree)
     alert('Rule test completed! Check console for details.')
   }
 
@@ -327,7 +332,6 @@ export default function VisualRuleBuilder({ onSave }: { onSave?: (rule: RuleNode
       tree: ruleTree
     }
     
-    console.log('Saving rule:', ruleData)
     onSave?.(ruleTree)
     alert('Rule saved successfully!')
   }
@@ -467,21 +471,21 @@ export default function VisualRuleBuilder({ onSave }: { onSave?: (rule: RuleNode
   }
 
   const NodeEditor = () => {
-    if (!selectedNode) return null
+    if (!selectedNode) {return null}
 
     const findNode = (nodes: RuleNode[], id: string): RuleNode | null => {
       for (const node of nodes) {
-        if (node.id === id) return node
+        if (node.id === id) {return node}
         if (node.children) {
           const found = findNode(node.children, id)
-          if (found) return found
+          if (found) {return found}
         }
       }
       return null
     }
 
     const node = selectedNode === 'root' ? ruleTree : findNode(ruleTree.children || [], selectedNode)
-    if (!node) return null
+    if (!node) {return null}
 
     return (
       <Card className="p-4">

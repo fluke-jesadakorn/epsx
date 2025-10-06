@@ -1,15 +1,22 @@
 // EPS Analytics Module - Focused Domain Separation
-// Breaks down 1,865-line God Object into 7 focused modules with clear domain boundaries
+// Breaks down 1,865-line God Object into focused modules with clear domain boundaries
 
 // Public modules - each handles a specific domain
 pub mod types;         // Data Transfer Objects and API structures
 pub mod rankings;      // Core EPS rankings business logic
-pub mod metadata;      // Country and sector data management  
+pub mod metadata;      // Country and sector data management
 pub mod health;        // Health checks and debug endpoints
 pub mod cache;         // Cache management and caching logic
 pub mod enhancement;   // WebSocket data enhancement
 pub mod transform;     // Data transformation and formatting
 pub mod errors;        // EPS-specific error handling
+
+// Internal modules for transform decomposition
+mod quarterly;         // Quarterly data generation logic
+mod price;             // Price growth calculations
+mod date_metrics;      // Date utilities and metrics
+mod estimate;          // Next quarter estimation
+mod system;            // System mode and config utilities
 
 // Re-export key types for easy access
 pub use types::*;
@@ -28,7 +35,7 @@ mod tests {
     #[test]
     fn test_module_structure() {
         // Test that all modules are accessible
-        let _dto_test = dto::EPSRankingQueryParams {
+        let _dto_test = types::EPSRankingQueryParams {
             page: Some(1),
             limit: Some(10),
             country: None,
@@ -52,7 +59,7 @@ mod tests {
 
     #[test]
     fn test_transformation_functions() {
-        use crate::domain::shared_kernel::entities::eps_growth::{EPSRanking, EPSGrowthData};
+        use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
 
         // Create proper EPSRanking using the correct constructor
         let mut ranking = EPSRanking::default();
@@ -70,8 +77,8 @@ mod tests {
 
         let unified = transform::transform_ranking_to_unified_format(ranking, 1);
         assert_eq!(unified.symbol, "AAPL");
-        
-        let card = transform::transform_unified_to_card_format(unified);
+
+        let card = transform::transform_unified_to_card_format(&unified);
         assert_eq!(card.symbol, "AAPL");
         assert_eq!(card.rank, 1);
     }

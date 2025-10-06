@@ -668,7 +668,7 @@ impl TradingViewScanner {
 
         let frontend_data = response.data
             .into_iter()
-            .map(|stock| super::mapper::TradingViewMapper::map_to_frontend_eps_data(stock))
+            .map(super::mapper::TradingViewMapper::map_to_frontend_eps_data)
             .collect();
         let total_pages = (total as f64 / limit as f64).ceil() as i32;
         let has_next = page < total_pages;

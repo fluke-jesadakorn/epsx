@@ -81,18 +81,18 @@ impl TradingViewMapper {
       warn!("Missing country for symbol: {}", symbol);
     }
 
-    let eps_data = EPSGrowthData::new(
-      symbol.clone(),
+    let eps_data = EPSGrowthData::new(crate::domain::shared_kernel::entities::eps_growth::EPSGrowthParams {
+      symbol: symbol.clone(),
       name,
-      country.to_lowercase(),
+      country: country.to_lowercase(),
       sector,
       exchange,
       current_eps,
-      qoq_growth,
+      growth_factor: qoq_growth,
       price_current,
       market_cap,
-      volume
-    );
+      volume,
+    });
 
     // Validate the created data
     eps_data.validate().map_err(|e| {
@@ -458,6 +458,8 @@ mod tests {
         sector: "Technology".to_string(),
         ranking_score: 85.5,
         currency: "USD".to_string(),
+        next_earnings_date: None,
+        last_earnings_date: None,
       },
       FrontendEPSData {
         id: "2".to_string(),
@@ -472,6 +474,8 @@ mod tests {
         sector: "Technology".to_string(),
         ranking_score: 50.0,
         currency: "USD".to_string(),
+        next_earnings_date: None,
+        last_earnings_date: None,
       }
     ];
 
@@ -496,6 +500,8 @@ mod tests {
       sector: "Technology".to_string(),
       ranking_score: 85.5,
       currency: "USD".to_string(),
+      next_earnings_date: None,
+      last_earnings_date: None,
     }];
 
     let websocket_data = vec![FrontendEPSData {
@@ -511,6 +517,8 @@ mod tests {
       sector: "Technology".to_string(),
       ranking_score: 0.0,
       currency: "USD".to_string(),
+      next_earnings_date: None,
+      last_earnings_date: None,
     }];
 
     let merged = TradingViewMapper::merge_scanner_and_websocket_data(

@@ -102,7 +102,7 @@ export const getRankingLimitFromPermissions = (permissions: string[]): number =>
 
 export const getDisplayTierFromPermissions = (permissions: string[]): string => {
   // Find the highest tier based on permissions
-  for (const [templateName, template] of Object.entries(PERMISSION_TEMPLATES)) {
+  for (const [_templateName, template] of Object.entries(PERMISSION_TEMPLATES)) {
     const hasRequiredPermissions = template.permissions.some(perm => 
       permissions.some(userPerm => {
         // Simple match for now - could be more sophisticated

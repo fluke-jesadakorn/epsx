@@ -16,11 +16,19 @@ pub struct EPSRankingQueryParams {
     pub min_growth: Option<f64>,
 }
 
+/// Access information for rank-based permissions
+#[derive(Debug, Serialize, Clone)]
+pub struct AccessInfo {
+    pub min_accessible_rank: i32,  // Minimum rank user can access
+    pub locked_ranks_count: i32,    // How many ranks are locked (same as min_accessible_rank - 1)
+}
+
 /// API response structure matching frontend pattern
 #[derive(Debug, Serialize)]
 pub struct EPSRankingsApiResponse {
     pub data: Vec<crate::domain::shared_kernel::entities::eps_growth::EPSRanking>,
     pub pagination: EPSPaginationResponse,
+    pub access_info: AccessInfo,  // User's access level information
 }
 
 /// Pagination response structure
@@ -289,6 +297,10 @@ impl EPSRankingsApiResponse {
                 total_pages,
                 has_next: page < total_pages,
                 has_prev: page > 1,
+            },
+            access_info: AccessInfo {
+                min_accessible_rank: 0,  // Default: full access for DDD rankings
+                locked_ranks_count: 0,
             },
         }
     }

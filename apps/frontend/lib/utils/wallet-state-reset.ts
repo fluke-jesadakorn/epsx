@@ -138,7 +138,6 @@ function clearLocalStorage(preserveTheme = true): void {
       window.localStorage.setItem('theme', themeValue);
     }
 
-    console.log('✅ localStorage cleared successfully');
   } catch (error) {
     console.error('❌ Failed to clear localStorage:', error);
   }
@@ -181,7 +180,6 @@ function clearSessionStorage(): void {
       }
     });
 
-    console.log('✅ sessionStorage cleared successfully');
   } catch (error) {
     console.error('❌ Failed to clear sessionStorage:', error);
   }
@@ -213,7 +211,6 @@ function clearAuthCookies(): void {
       });
     });
 
-    console.log('✅ Authentication cookies cleared successfully');
   } catch (error) {
     console.error('❌ Failed to clear authentication cookies:', error);
   }
@@ -226,7 +223,6 @@ function invalidateQueryClientCache(queryClient?: QueryClient): void {
   if (!queryClient) return;
 
   try {
-    console.log('🗑️ Invalidating QueryClient cache for wallet data...');
     
     // First, invalidate specific wagmi queries
     queryClient.invalidateQueries({
@@ -279,7 +275,6 @@ function invalidateQueryClientCache(queryClient?: QueryClient): void {
       queryClient.removeQueries({ queryKey: pattern });
     });
 
-    console.log('✅ QueryClient cache invalidated successfully');
   } catch (error) {
     console.error('❌ Failed to invalidate QueryClient cache:', error);
   }
@@ -308,7 +303,6 @@ function broadcastStateReset(): void {
       }
     }
     
-    console.log('✅ Cross-tab state reset broadcast sent');
   } catch (error) {
     console.warn('❌ Failed to broadcast state reset:', error);
   }
@@ -334,7 +328,6 @@ export function resetWalletState(options: WalletStateResetOptions = {}): void {
     preserveTheme = true,
   } = options;
 
-  console.log('🔄 Starting comprehensive wallet state reset...');
 
   try {
     // Clear browser storage
@@ -356,7 +349,6 @@ export function resetWalletState(options: WalletStateResetOptions = {}): void {
       broadcastStateReset();
     }
 
-    console.log('✅ Comprehensive wallet state reset completed successfully');
 
     if (showToast) {
       toast.success('Wallet state reset successfully');
@@ -390,7 +382,6 @@ export function listenForStateReset(onReset: () => void): () => void {
     const handleMessage = (event: MessageEvent) => {
       try {
         if (event.data?.type === 'COMPLETE_WALLET_RESET') {
-          console.log('📡 Received cross-tab wallet reset broadcast');
           onReset();
         }
       } catch (error) {
@@ -460,7 +451,6 @@ export function detectStateCorruption(): boolean {
  */
 export function autoRecoverWalletState(queryClient?: QueryClient): void {
   if (detectStateCorruption()) {
-    console.log('🔧 Auto-recovering from detected wallet state corruption...');
     resetWalletState({
       queryClient,
       clearCookies: true,

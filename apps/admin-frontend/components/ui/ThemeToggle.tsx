@@ -10,6 +10,13 @@ interface ThemeToggleProps {
   className?: string;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.variant
+ * @param root0.size
+ * @param root0.className
+ */
 export function ThemeToggle({ 
   variant = 'default', 
   size = 'md',

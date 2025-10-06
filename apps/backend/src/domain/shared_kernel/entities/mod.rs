@@ -8,7 +8,7 @@ pub mod auth;
 pub mod user;
 
 // Re-export common entity types
-pub use crate::domain::user_management::aggregates::Session;
+pub use crate::domain::wallet_management::aggregates::Session;
 pub use audit::*;
 pub use eps_growth::*;
 pub use stock::*;

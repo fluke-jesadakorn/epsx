@@ -376,25 +376,26 @@ mod tests {
         let cache = SimplifiedAuthCache::new(config);
         
         let user_id = Uuid::new_v4();
+        let wallet_address = user_id.to_string();
         let permissions = vec![];
-        let access_level = AccessLevel::Free;
-        
+        let access_level = AccessLevel::Read;
+
         // Test cache miss
-        let result = cache.get_permissions(&user_id, None).await;
+        let result = cache.get_permissions(&wallet_address, None).await;
         assert!(result.is_none());
-        
+
         // Cache the permissions
-        cache.cache_permissions(&user_id, None, permissions.clone(), access_level.clone()).await;
-        
+        cache.cache_permissions(&wallet_address, None, permissions.clone(), access_level.clone()).await;
+
         // Test cache hit
-        let result = cache.get_permissions(&user_id, None).await;
+        let result = cache.get_permissions(&wallet_address, None).await;
         assert!(result.is_some());
-        
+
         // Wait for expiry
         sleep(Duration::from_millis(150)).await;
-        
+
         // Test cache miss after expiry
-        let result = cache.get_permissions(&user_id, None).await;
+        let result = cache.get_permissions(&wallet_address, None).await;
         assert!(result.is_none());
     }
     
@@ -402,11 +403,12 @@ mod tests {
     async fn test_cache_stats() {
         let cache = SimplifiedAuthCache::new(SimplifiedCacheConfig::default());
         let user_id = Uuid::new_v4();
-        
+        let wallet_address = user_id.to_string();
+
         // Generate cache misses
-        cache.get_permissions(&user_id, None).await;
-        cache.get_permissions(&user_id, None).await;
-        
+        cache.get_permissions(&wallet_address, None).await;
+        cache.get_permissions(&wallet_address, None).await;
+
         let stats = cache.get_stats().await;
         assert_eq!(stats.permission_misses, 2);
         assert_eq!(stats.permission_hit_rate(), 0.0);

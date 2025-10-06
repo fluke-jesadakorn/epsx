@@ -178,7 +178,7 @@ class ApiClient {
     this.baseUrl = env.BACKEND_URL || getBackendUrl('client');
   }
 
-  private async getAuthHeaders(endpoint: string, method: string = 'GET', body?: any): Promise<HeadersInit> {
+  private async getAuthHeaders(endpoint: string, method: string = 'GET', body?: unknown): Promise<HeadersInit> {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
     };
@@ -408,13 +408,13 @@ class ApiClient {
   // User Management API Methods
   // ============================================================================
 
-  async getUserProfile(): Promise<any | undefined> {
-    const response = await this.request('/api/v1/user/profile');
+  async getUserProfile(): Promise<Record<string, unknown> | undefined> {
+    const response = await this.request<Record<string, unknown>>('/api/v1/user/profile');
     return response?.data;
   }
 
-  async updateUserProfile(data: any): Promise<any | undefined> {
-    const response = await this.request('/api/v1/user/profile', {
+  async updateUserProfile(data: Record<string, unknown>): Promise<Record<string, unknown> | undefined> {
+    const response = await this.request<Record<string, unknown>>('/api/v1/user/profile', {
       method: 'PUT',
       body: JSON.stringify(data)
     });
@@ -425,8 +425,8 @@ class ApiClient {
   // Watchlist API Methods
   // ============================================================================
 
-  async getWatchlist(): Promise<any[] | undefined> {
-    const response = await this.request<any[]>('/api/v1/user/watchlist');
+  async getWatchlist(): Promise<Array<Record<string, unknown>> | undefined> {
+    const response = await this.request<Array<Record<string, unknown>>>('/api/v1/user/watchlist');
     return response?.data;
   }
 
@@ -447,8 +447,8 @@ class ApiClient {
   // Price Alerts API Methods
   // ============================================================================
 
-  async getPriceAlerts(): Promise<any[] | undefined> {
-    const response = await this.request<any[]>('/api/v1/user/alerts');
+  async getPriceAlerts(): Promise<Array<Record<string, unknown>> | undefined> {
+    const response = await this.request<Array<Record<string, unknown>>>('/api/v1/user/alerts');
     return response?.data;
   }
 
@@ -486,11 +486,11 @@ class ApiClient {
   // Generic HTTP Methods
   // ============================================================================
 
-  async get<T = any>(endpoint: string, options?: RequestInit): Promise<ApiResponse<T>> {
+  async get<T = unknown>(endpoint: string, options?: RequestInit): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, { ...options, method: 'GET' });
   }
 
-  async post<T = any>(endpoint: string, data?: any, options?: RequestInit): Promise<ApiResponse<T>> {
+  async post<T = unknown>(endpoint: string, data?: unknown, options?: RequestInit): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       ...options,
       method: 'POST',
@@ -498,7 +498,7 @@ class ApiClient {
     });
   }
 
-  async put<T = any>(endpoint: string, data?: any, options?: RequestInit): Promise<ApiResponse<T>> {
+  async put<T = unknown>(endpoint: string, data?: unknown, options?: RequestInit): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
       ...options,
       method: 'PUT',
@@ -506,7 +506,7 @@ class ApiClient {
     });
   }
 
-  async delete<T = any>(endpoint: string, options?: RequestInit): Promise<ApiResponse<T>> {
+  async delete<T = unknown>(endpoint: string, options?: RequestInit): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, { ...options, method: 'DELETE' });
   }
 }

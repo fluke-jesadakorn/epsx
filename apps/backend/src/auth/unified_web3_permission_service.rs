@@ -11,6 +11,19 @@ use uuid::Uuid;
 
 use super::web3_shared_types::{ PermissionInfo, Web3PermissionResult };
 
+/// Parameters for group assignment
+#[derive(Debug)]
+pub struct GroupAssignmentParams<'a> {
+  pub wallet_address: &'a str,
+  pub group_id: Uuid,
+  pub assignment_source: &'a str,
+  pub assignment_reason: Option<&'a str>,
+  pub expires_at: Option<DateTime<Utc>>,
+  pub assigned_by: Option<&'a str>,
+  pub payment_reference: Option<&'a str>,
+  pub subscription_id: Option<&'a str>,
+}
+
 /// Unified Web3 permission management service using new group-based system
 #[derive(Clone)]
 pub struct UnifiedWeb3PermissionService {
@@ -132,29 +145,22 @@ impl UnifiedWeb3PermissionService {
   /// Assign wallet to permission group (replaces manual permission grants)
   pub async fn assign_to_group(
     &self,
-    wallet_address: &str,
-    group_id: Uuid,
-    assignment_source: &str,
-    assignment_reason: Option<&str>,
-    expires_at: Option<DateTime<Utc>>,
-    assigned_by: Option<&str>,
-    payment_reference: Option<&str>,
-    subscription_id: Option<&str>
+    params: GroupAssignmentParams<'_>
   ) -> Web3PermissionResult<Uuid> {
-    info!("✅ Assigning wallet '{}' to group: {}", wallet_address, group_id);
+    info!("✅ Assigning wallet '{}' to group: {}", params.wallet_address, params.group_id);
 
-    let lowercase_wallet = wallet_address.to_lowercase();
+    let lowercase_wallet = params.wallet_address.to_lowercase();
 
     // Use the new assign_wallet_to_group() database function
     let membership_id: Option<Uuid> = sqlx
       ::query_scalar(
         r#"
             SELECT assign_wallet_to_group(
-                $1::varchar(42), 
-                $2::uuid, 
-                $3::varchar(42), 
-                $4::varchar(50), 
-                $5::text, 
+                $1::varchar(42),
+                $2::uuid,
+                $3::varchar(42),
+                $4::varchar(50),
+                $5::text,
                 $6::timestamptz,
                 $7::varchar(255),
                 $8::varchar(255)
@@ -162,21 +168,21 @@ impl UnifiedWeb3PermissionService {
             "#
       )
       .bind(&lowercase_wallet)
-      .bind(group_id)
-      .bind(assigned_by)
-      .bind(assignment_source)
-      .bind(assignment_reason)
-      .bind(expires_at)
-      .bind(payment_reference)
-      .bind(subscription_id)
+      .bind(params.group_id)
+      .bind(params.assigned_by)
+      .bind(params.assignment_source)
+      .bind(params.assignment_reason)
+      .bind(params.expires_at)
+      .bind(params.payment_reference)
+      .bind(params.subscription_id)
       .fetch_one(&self.db_pool).await?;
 
     let membership_id = membership_id.unwrap_or_else(Uuid::new_v4);
 
     info!(
       "✅ Successfully assigned wallet '{}' to group {} with membership ID: {}",
-      wallet_address,
-      group_id,
+      params.wallet_address,
+      params.group_id,
       membership_id
     );
     Ok(membership_id)
@@ -292,12 +298,12 @@ impl UnifiedWeb3PermissionService {
 
     let temporary_permissions = effective_permissions
       .iter()
-      .filter(|p| p.expires_at.is_some() && p.expires_at.unwrap() > Utc::now())
+      .filter(|p| p.expires_at.map_or(false, |exp| exp > Utc::now()))
       .count() as u32;
 
     let expired_permissions = effective_permissions
       .iter()
-      .filter(|p| p.expires_at.is_some() && p.expires_at.unwrap() <= Utc::now())
+      .filter(|p| p.expires_at.map_or(false, |exp| exp <= Utc::now()))
       .count() as u32;
 
     Ok(PermissionStats {

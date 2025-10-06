@@ -91,6 +91,7 @@ pub async fn debug_ranking_data(
         page: 1,
         limit: 5,
         sort_by: None,
+        rank_offset: 0,  // Debug endpoint: show top ranks
     }).await {
         Ok(rankings_response) => {
             let mut results = Vec::new();

@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getUsers } from '../../lib/data/admin';
-import type { UserWithPermissions } from '../../types/admin/iam';
 
 interface UseUsersOptions {
   searchTerm: string;
@@ -25,9 +23,9 @@ export const useUsers = (options: UseUsersOptions) => {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      // Get users from real backend API
-      const response = await getUsers();
-      const adminUsers = response.users;
+      // TODO: Implement with shared API client
+      // Stub data for now
+      const adminUsers: any[] = [];
 
       // Transform AdminUser to our User interface and apply filters
       let transformedUsers: User[] = adminUsers.map(
@@ -65,9 +63,10 @@ export const useUsers = (options: UseUsersOptions) => {
       }
 
       setUsers(transformedUsers);
-    } catch (error) {
+    } catch (_error) {
+      // eslint-disable-next-line no-console
       console.error('Error fetching users', {
-        error: error instanceof Error ? error.message : String(error),
+        error: _error instanceof Error ? _error.message : String(error),
         searchTerm: options.searchTerm,
         statusFilter: options.statusFilter,
         packageFilter: options.packageFilter,

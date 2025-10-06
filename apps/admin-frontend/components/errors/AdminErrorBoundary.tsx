@@ -1,7 +1,9 @@
 'use client';
 
 import React, { Component, ReactNode } from 'react';
+
 import { PermissionErrorUI } from './PermissionErrorUI';
+
 import { 
   ApiError,
   isPermissionDeniedError,
@@ -27,6 +29,10 @@ interface State {
  * Displays appropriate error UI for different error types
  */
 export class AdminErrorBoundary extends Component<Props, State> {
+  /**
+   *
+   * @param props
+   */
   constructor(props: Props) {
     super(props);
     this.state = {
@@ -36,6 +42,10 @@ export class AdminErrorBoundary extends Component<Props, State> {
     };
   }
 
+  /**
+   *
+   * @param error
+   */
   static getDerivedStateFromError(error: Error): State {
     // Check if this is an API error with permission information
     let apiError: ApiError | null = null;
@@ -51,7 +61,13 @@ export class AdminErrorBoundary extends Component<Props, State> {
     };
   }
 
+  /**
+   *
+   * @param error
+   * @param errorInfo
+   */
   componentDidCatch(error: Error, errorInfo: any) {
+    // eslint-disable-next-line no-console
     console.error('AdminErrorBoundary caught an error:', error, errorInfo);
     
     // Call optional error handler
@@ -74,10 +90,12 @@ export class AdminErrorBoundary extends Component<Props, State> {
 
   handleSupport = (context?: any) => {
     // Log support request or redirect to support
-    console.log('Support requested for error:', context);
     // Could implement support ticket creation or redirect
   };
 
+  /**
+   *
+   */
   render() {
     if (this.state.hasError) {
       // If we have a structured API error, use the permission error UI
@@ -144,6 +162,8 @@ export class AdminErrorBoundary extends Component<Props, State> {
 
 /**
  * HOC to wrap components with admin error boundary
+ * @param Component
+ * @param errorBoundaryProps
  */
 export function withAdminErrorBoundary<P extends object>(
   Component: React.ComponentType<P>,

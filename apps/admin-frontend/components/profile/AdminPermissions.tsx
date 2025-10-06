@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
 import { Shield, Eye, AlertCircle, Clock, Filter, Search, ChevronDown, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
+
 import { type User } from '../../../../shared/types/auth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
+
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 
 interface AdminPermissionsProps {
   user: User;
@@ -20,13 +22,18 @@ interface PermissionCategory {
   icon: string;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.user
+ */
 export function AdminPermissions({ user }: AdminPermissionsProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['admin']));
   const [filterType, setFilterType] = useState<'all' | 'admin' | 'platform'>('all');
 
   const formatDate = (timestamp?: number) => {
-    if (!timestamp) return 'Not available';
+    if (!timestamp) {return 'Not available';}
     return new Date(timestamp * 1000).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
@@ -90,8 +97,8 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
 
   const filteredCategories = categorizePermissions()
     .filter(category => {
-      if (filterType === 'admin' && category.name !== 'admin') return false;
-      if (filterType === 'platform' && category.name === 'admin') return false;
+      if (filterType === 'admin' && category.name !== 'admin') {return false;}
+      if (filterType === 'platform' && category.name === 'admin') {return false;}
       return true;
     })
     .map(category => ({
@@ -103,8 +110,8 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
     .filter(category => category.permissions.length > 0);
 
   const getPermissionLevel = (permission: string): string => {
-    if (permission.includes(':admin') || permission.includes(':manage')) return 'high';
-    if (permission.includes(':write') || permission.includes(':create') || permission.includes(':update')) return 'medium';
+    if (permission.includes(':admin') || permission.includes(':manage')) {return 'high';}
+    if (permission.includes(':write') || permission.includes(':create') || permission.includes(':update')) {return 'medium';}
     return 'low';
   };
 

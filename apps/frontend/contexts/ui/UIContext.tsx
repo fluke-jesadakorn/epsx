@@ -84,7 +84,7 @@ function uiReducer(state: UIState, action: StateAction): UIState {
         },
       };
 
-    case 'ADD_TOAST':
+    case 'ADD_TOAST': {
       const newToast = {
         ...(action.payload as any),
         id: Math.random().toString(36).substr(2, 9),
@@ -94,6 +94,7 @@ function uiReducer(state: UIState, action: StateAction): UIState {
         ...state,
         toasts: [...state.toasts, newToast],
       };
+    }
 
     case 'REMOVE_TOAST':
       return {

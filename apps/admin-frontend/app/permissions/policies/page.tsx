@@ -1,8 +1,9 @@
-import { Suspense } from 'react'
-import { UnifiedAuth } from '@/lib/auth/unified-auth'
-import { notFound } from 'next/navigation'
-import { PolicyTabs } from '@/components/policies/PolicyTabs'
 import { BarChart3Icon } from 'lucide-react'
+import { notFound } from 'next/navigation'
+import { Suspense } from 'react'
+
+import { PolicyTabs } from '@/components/policies/PolicyTabs'
+import { UnifiedAuth } from '@/lib/auth/unified-auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -128,6 +129,9 @@ async function PoliciesDataWrapper() {
   )
 }
 
+/**
+ *
+ */
 export default function DynamicPoliciesPage() {
   return (
     <Suspense fallback={<PoliciesSkeleton />}>

@@ -5,13 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
-import { 
-  Key, 
-  Plus, 
-  Copy, 
-  Eye, 
-  EyeOff, 
+import {
+  Key,
+  Plus,
+  Copy,
+  Eye,
+  EyeOff,
   Trash2, 
   Shield, 
   Calendar,

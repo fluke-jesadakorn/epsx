@@ -31,21 +31,21 @@ class Logger {
   }
 
   private log(level: LogLevel, message: string, context?: LogContext): void {
-    if (!this.shouldLog(level)) return
+    if (!this.shouldLog(level)) {return}
 
     const formattedMessage = this.formatMessage(level, message, context)
 
     switch (level) {
       case 'debug':
-        console.debug(formattedMessage)
         break
       case 'info':
-        console.info(formattedMessage)
         break
       case 'warn':
+        // eslint-disable-next-line no-console
         console.warn(formattedMessage)
         break
       case 'error':
+        // eslint-disable-next-line no-console
         console.error(formattedMessage)
         break
     }
@@ -118,7 +118,7 @@ export const logger = new Logger()
 export type { LogLevel, LogContext }
 
 // Legacy console replacement - helps with gradual migration
-export const console_log = logger.debug
-export const console_info = logger.info
-export const console_warn = logger.warn  
-export const console_error = logger.error
+export const consoleLog = logger.debug
+export const consoleInfo = logger.info
+export const consoleWarn = logger.warn
+export const consoleError = logger.error

@@ -1,6 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { NextRequest, NextResponse } from 'next/server';
 
+/**
+ *
+ */
 export async function POST() {
   try {
     const cookieStore = await cookies();
@@ -21,15 +24,14 @@ export async function POST() {
     cookieStore.set('wallet_chain_id', '', cookieOptions);
     cookieStore.set('wallet_expires_at', '', cookieOptions);
 
-    console.log('✅ Web3 session cookies cleared');
-
     return NextResponse.json({ 
       success: true, 
       message: 'Session cleared successfully' 
     });
 
-  } catch (error) {
-    console.error('❌ Failed to clear Web3 session:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Failed to clear Web3 session:', _error);
     return NextResponse.json(
       { success: false, error: 'Failed to clear session data' },
       { status: 500 }

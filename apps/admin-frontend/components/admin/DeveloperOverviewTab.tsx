@@ -1,7 +1,8 @@
 'use client';
 
-import { memo } from 'react';
 import { Key, Activity, BarChart3, Clock, AlertTriangle, Globe } from 'lucide-react';
+import { memo } from 'react';
+
 import { Card, CardContent } from '@/components/ui/card';
 
 interface ApiKey {
@@ -34,7 +35,7 @@ function DeveloperOverviewTab({ apiKeys, modules }: DeveloperOverviewTabProps) {
   const activeKeys = apiKeys.filter(key => key.status === 'active');
   const totalRequests = apiKeys.reduce((sum, key) => sum + key.total_requests, 0);
   const recentlyUsedKeys = apiKeys.filter(key => {
-    if (!key.last_used_at) return false;
+    if (!key.last_used_at) {return false;}
     const lastUsed = new Date(key.last_used_at);
     const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     return lastUsed > dayAgo;

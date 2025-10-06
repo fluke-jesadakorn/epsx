@@ -1,4 +1,6 @@
-// Clean Authentication Routes - PancakeSwap Theme Ready
+// Clean Authentication Routes - DEPRECATED
+// NOTE: This file contains deprecated route definitions that are no longer used
+// Routes are now managed by UnifiedRouteBuilder in src/web/routes/unified_router.rs
 
 use std::sync::Arc;
 use axum::{
@@ -6,11 +8,7 @@ use axum::{
     Router,
 };
 use sqlx::PgPool as DbPool;
-
-use crate::infrastructure::cache::Cache;
 use crate::infrastructure::container::DomainContainer;
-use crate::web::notifications::NotificationBroadcaster;
-use crate::infrastructure::adapters::repositories::database_types::PermissionGroupRepository;
 
 // Import Web3 authentication handlers
 use crate::web::auth::web3_handlers::{
@@ -39,70 +37,13 @@ use crate::web::auth::session_verification_handlers::{
     get_session_status_handler,
 };
 
-use crate::web::user::user_handlers::{
-    // Available handlers
-    get_permissions_handler,
-    verify_ownership_handler,
-    get_holdings_handler,
-    delegate_permission_handler,
-};
+// Import AppState from new location
+use super::AppState;
 
-// Import group permission routes
-// use super::group_routes::{
-//     get_user_permissions,
-//     check_permission,
-//     get_user_groups,
-//     create_permission_group,
-//     get_permission_groups,
-//     assign_user_to_group,
-//     remove_user_from_group, // Removed - group routes no longer exist
-    // get_group_memberships,
-    // cleanup_expired_memberships,
-    // permission_updates_sse,
-// }; // Removed - group routes no longer exist
-
-/// Clean Application State for Dependency Injection
-#[derive(Clone)]
-pub struct AppState {
-    pub db_pool: Arc<DbPool>,
-    pub cache: Arc<dyn Cache>,
-    pub domain_container: Arc<DomainContainer>,
-    pub notification_broadcaster: NotificationBroadcaster,
-    pub permission_group_repo: PermissionGroupRepository,
-    // Add back user_repo as stub to fix admin handlers
-    pub user_repo: Option<String>, // Placeholder
-}
-
-impl AppState {
-    pub fn new(
-        db_pool: Arc<DbPool>,
-        cache: Arc<dyn Cache>,
-        domain_container: Arc<DomainContainer>,
-    ) -> Self {
-        let permission_group_repo = PermissionGroupRepository::new(db_pool.clone());
-        Self {
-            db_pool,
-            cache,
-            domain_container,
-            notification_broadcaster: NotificationBroadcaster::new(),
-            permission_group_repo,
-            user_repo: None,
-        }
-    }
-}
-
-/// Create authentication routes with RESTful patterns and v1 versioning
+/// Create authentication routes with RESTful patterns and v1 versioning (Web3-first only)
+/// NOTE: This file is deprecated - routes are now managed by UnifiedRouteBuilder
+/// These route definitions are no longer used in production
 pub fn create_auth_routes(app_state: AppState) -> Router {
-    // Note: Many handlers are missing after Web3 migration
-    // TODO: Implement Web3-compatible handlers
-    
-    // Available routes using existing handlers
-    let user_routes = Router::new()
-        .route("/api/v1/users/permissions", get(get_permissions_handler))
-        .route("/api/v1/users/holdings", get(get_holdings_handler))
-        .route("/api/v1/users/verify", post(verify_ownership_handler))
-        .route("/api/v1/users/delegate", post(delegate_permission_handler));
-        
     // Public Web3 authentication routes (no auth required)
     let web3_public_routes = Router::new()
         .route("/api/v1/auth/web3/challenge", post(generate_challenge_handler))
@@ -146,18 +87,14 @@ pub fn create_auth_routes(app_state: AppState) -> Router {
         //     crate::web::middleware::web3_auth_middleware
         // ));
 
-    // Legacy routes removed - use RESTful /api/v1/ endpoints only
-    
-    let router = Router::new()
-        .merge(user_routes)
+    // Combine all route groups (Web3-first only, no legacy user routes)
+    Router::new()
         .merge(web3_public_routes)
         .merge(web3_protected_routes)
         .merge(openid_public_routes)
         .merge(openid_protected_routes)
         .merge(permission_routes)
-        .with_state(app_state.clone());
-
-    router
+        .with_state(app_state.clone())
 }
 
 /// Create registration routes with DomainContainer state (RESTful patterns)

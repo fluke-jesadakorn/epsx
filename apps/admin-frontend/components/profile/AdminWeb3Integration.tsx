@@ -1,7 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAccount, useDisconnect } from 'wagmi';
 import { 
   Wallet, 
   Shield, 
@@ -14,15 +12,18 @@ import {
   ExternalLink,
   RefreshCcw
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Separator } from '@/components/ui/separator';
+import { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
+import { useAccount, useDisconnect } from 'wagmi';
+
 import { AdminWalletAuth } from '@/components/auth/AdminWalletAuth';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
 import { UserWalletDisplay, UserTierBadge, UserAuthStatus, UserPermissionsDisplay } from '@/shared/components/display/UserDisplay';
-import { toast } from 'react-hot-toast';
 
 interface WalletPermission {
   permission: string;
@@ -37,6 +38,13 @@ interface AdminWeb3IntegrationProps {
   permissions?: string[];
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.walletAddress
+ * @param root0.email
+ * @param root0.permissions
+ */
 export function AdminWeb3Integration({ 
   walletAddress: initialWalletAddress, 
   email: initialEmail,
@@ -76,13 +84,14 @@ export function AdminWeb3Integration({
           setEmail(data.email);
         }
       }
-    } catch (error) {
-      console.error('Failed to check email link status:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to check email link status:', _error);
     }
   };
 
   const handleLinkEmail = async () => {
-    if (!walletAddress) return;
+    if (!walletAddress) {return;}
 
     try {
       setIsLoading(true);
@@ -104,7 +113,7 @@ export function AdminWeb3Integration({
         setEmailLinkStatus('unlinked');
         toast.error('Failed to link email to wallet');
       }
-    } catch (error) {
+    } catch (_error) {
       setEmailLinkStatus('unlinked');
       toast.error('Failed to link email to wallet');
     } finally {
@@ -113,7 +122,7 @@ export function AdminWeb3Integration({
   };
 
   const handleUnlinkEmail = async () => {
-    if (!walletAddress) return;
+    if (!walletAddress) {return;}
 
     try {
       setIsLoading(true);
@@ -131,7 +140,7 @@ export function AdminWeb3Integration({
       } else {
         toast.error('Failed to unlink email from wallet');
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error('Failed to unlink email from wallet');
     } finally {
       setIsLoading(false);
@@ -287,7 +296,7 @@ export function AdminWeb3Integration({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <UserPermissionsDisplay maxDisplay={20} showSource={true} />
+            <UserPermissionsDisplay maxDisplay={20} />
           </CardContent>
         </Card>
       )}

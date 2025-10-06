@@ -33,7 +33,6 @@ pub use web3_auth_middleware::{
   require_web3_auth,
   require_permission,
   require_admin,
-  require_tier,
 };
 
 // OpenID Bearer auth exports (standard OpenID Connect)

@@ -1,14 +1,17 @@
-import { useState, useCallback } from 'react';
-import { adminApiClient } from '@/lib/api/simple-api-client';
-import { ApiResponse, ApiError } from '@/shared/utils/response-handler';
+import { useState, useCallback, useMemo } from 'react';
+import { createAdminApiClient, ApiResponse } from '@/shared/utils/api-client';
+import { ApiError } from '@/shared/utils/response-handler';
 
 /**
  * Hook for making admin API calls with error handling
- * Provides loading state and error management for backend-only permission validation
+ * Uses shared API client with loading state and error management
  */
 export function useAdminApi() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
+
+  // Create client instance (memoized)
+  const client = useMemo(() => createAdminApiClient(), []);
 
   const clearError = useCallback(() => {
     setError(null);
@@ -22,12 +25,12 @@ export function useAdminApi() {
 
     try {
       const response = await operation();
-      
+
       if (response.success) {
-        return response.data;
+        return response.data ?? null;
       } else {
         // Handle API error
-        setError(response);
+        setError(response as any);
         return null;
       }
     } catch (err) {
@@ -56,31 +59,31 @@ export function useAdminApi() {
     search?: string;
     role?: string;
   }) => {
-    return apiCall(() => adminApiClient.getUsers(params));
-  }, [apiCall]);
+    return apiCall<any>(() => client.get('/api/v1/admin/users', params));
+  }, [apiCall, client]);
 
   const getUser = useCallback((userId: string) => {
-    return apiCall(() => adminApiClient.getUser(userId));
-  }, [apiCall]);
+    return apiCall<any>(() => client.get(`/api/v1/admin/users/${userId}`));
+  }, [apiCall, client]);
 
   const createUser = useCallback((userData: {
     email: string;
     wallet_address?: string;
     role?: string;
   }) => {
-    return apiCall(() => adminApiClient.createUser(userData));
-  }, [apiCall]);
+    return apiCall<any>(() => client.post('/api/v1/admin/users', userData));
+  }, [apiCall, client]);
 
   const updateUser = useCallback((userId: string, userData: {
     email?: string;
     role?: string;
   }) => {
-    return apiCall(() => adminApiClient.updateUser(userId, userData));
-  }, [apiCall]);
+    return apiCall<any>(() => client.put(`/api/v1/admin/users/${userId}`, userData));
+  }, [apiCall, client]);
 
   const deleteUser = useCallback((userId: string) => {
-    return apiCall(() => adminApiClient.deleteUser(userId));
-  }, [apiCall]);
+    return apiCall<any>(() => client.delete(`/api/v1/admin/users/${userId}`));
+  }, [apiCall, client]);
 
   const grantPermission = useCallback((request: {
     user_id: string;
@@ -88,28 +91,28 @@ export function useAdminApi() {
     expires_at?: string;
     reason?: string;
   }) => {
-    return apiCall(() => adminApiClient.grantPermission(request));
-  }, [apiCall]);
+    return apiCall<any>(() => client.post('/api/v1/admin/permissions/grant', request));
+  }, [apiCall, client]);
 
   const revokePermission = useCallback((request: {
     user_id: string;
     permission: string;
     reason?: string;
   }) => {
-    return apiCall(() => adminApiClient.revokePermission(request));
-  }, [apiCall]);
+    return apiCall<any>(() => client.post('/api/v1/admin/permissions/revoke', request));
+  }, [apiCall, client]);
 
   const getUserPermissions = useCallback((userId: string) => {
-    return apiCall(() => adminApiClient.getUserPermissions(userId));
-  }, [apiCall]);
+    return apiCall<any>(() => client.get(`/api/v1/admin/users/${userId}/permissions`));
+  }, [apiCall, client]);
 
   const getSystemHealth = useCallback(() => {
-    return apiCall(() => adminApiClient.getSystemHealth());
-  }, [apiCall]);
+    return apiCall<any>(() => client.get('/api/v1/admin/system/health'));
+  }, [apiCall, client]);
 
   const getSystemMetrics = useCallback(() => {
-    return apiCall(() => adminApiClient.getSystemMetrics());
-  }, [apiCall]);
+    return apiCall<any>(() => client.get('/api/v1/admin/system/metrics'));
+  }, [apiCall, client]);
 
   return {
     // State

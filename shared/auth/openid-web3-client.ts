@@ -12,6 +12,8 @@
  * - Display exactly what backend tells us to display
  */
 
+import { OIDC_KEYS } from './storage-keys';
+
 // Web3 JWT Token Response (from backend)
 export interface Web3TokenResponse {
   access_token: string;      // Web3 JWT Bearer token for API access
@@ -117,12 +119,18 @@ export class SharedWeb3AuthClient {
 
   private loadTokensFromStorage(): void {
     if (typeof window === 'undefined') return;
-    
+
     try {
-      this.accessToken = localStorage.getItem(`${this.clientId}_access_token`);
+      this.accessToken = localStorage.getItem(OIDC_KEYS.ACCESS_TOKEN);
       // No refresh token in Web3-first system
-      const expiry = localStorage.getItem(`${this.clientId}_token_expiry`);
+      const expiry = localStorage.getItem(OIDC_KEYS.EXPIRES_AT);
       this.tokenExpiry = expiry ? parseInt(expiry, 10) : null;
+
+      // Restore user object from unified OpenID storage
+      const storedUser = localStorage.getItem(OIDC_KEYS.USER);
+      if (storedUser) {
+        this.user = JSON.parse(storedUser);
+      }
     } catch (error) {
       console.warn('Failed to load tokens from storage', { error });
     }
@@ -130,14 +138,19 @@ export class SharedWeb3AuthClient {
 
   private saveTokensToStorage(): void {
     if (typeof window === 'undefined') return;
-    
+
     try {
       if (this.accessToken) {
-        localStorage.setItem(`${this.clientId}_access_token`, this.accessToken);
+        localStorage.setItem(OIDC_KEYS.ACCESS_TOKEN, this.accessToken);
       }
       // No refresh token in Web3-first system
       if (this.tokenExpiry) {
-        localStorage.setItem(`${this.clientId}_token_expiry`, this.tokenExpiry.toString());
+        localStorage.setItem(OIDC_KEYS.EXPIRES_AT, this.tokenExpiry.toString());
+      }
+      // Save user object to unified OpenID storage
+      if (this.user) {
+        localStorage.setItem(OIDC_KEYS.USER, JSON.stringify(this.user));
+        localStorage.setItem(OIDC_KEYS.AUTH_TIME, Date.now().toString());
       }
     } catch (error) {
       console.warn('Failed to save tokens to storage', { error });
@@ -146,11 +159,13 @@ export class SharedWeb3AuthClient {
 
   private clearTokensFromStorage(): void {
     if (typeof window === 'undefined') return;
-    
+
     try {
-      localStorage.removeItem(`${this.clientId}_access_token`);
-      localStorage.removeItem(`${this.clientId}_refresh_token`);
-      localStorage.removeItem(`${this.clientId}_token_expiry`);
+      localStorage.removeItem(OIDC_KEYS.ACCESS_TOKEN);
+      localStorage.removeItem(OIDC_KEYS.REFRESH_TOKEN);
+      localStorage.removeItem(OIDC_KEYS.EXPIRES_AT);
+      localStorage.removeItem(OIDC_KEYS.USER);
+      localStorage.removeItem(OIDC_KEYS.AUTH_TIME);
     } catch (error) {
       console.warn('Failed to clear tokens from storage', { error });
     }
@@ -344,24 +359,18 @@ export class SharedWeb3AuthClient {
   ): Promise<UnifiedApiResponse<T>> {
     // Ensure we have valid tokens
     if (!this.isAuthenticated()) {
-      if (this.refreshToken && await this.refreshTokens()) {
-        // Token refreshed successfully, continue
-      } else {
-        return {
-          success: false,
-          error: {
-            code: 401,
-            message: 'Authentication required',
-            reason: 'No valid authentication tokens'
-          }
-        };
-      }
+      // Web3-first: No refresh tokens, user must re-authenticate
+      return {
+        success: false,
+        error: {
+          code: 401,
+          message: 'Authentication required',
+          reason: 'No valid authentication tokens'
+        }
+      };
     }
 
-    // Refresh token if it expires soon
-    if (this.needsRefresh() && this.refreshToken) {
-      await this.refreshTokens();
-    }
+    // Web3-first: No auto-refresh, token expiry handled by re-authentication
 
     const url = endpoint.startsWith('http') 
       ? endpoint 

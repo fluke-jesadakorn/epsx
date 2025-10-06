@@ -379,35 +379,6 @@ export async function getServerPortfolio(filters: EPSQueryParams): Promise<Serve
   }
 }
 
-/**
- * Server-side stock data fetching using unified client
- * Note: This would need a stocks API client when created
- */
-export async function getServerStockData(symbol: string) {
-  try {
-    // TODO: Create stocks API client and replace this
-    // For now, keeping the original implementation
-    return null;
-  } catch (error) {
-    console.error(`Failed to fetch server stock data for ${symbol}:`, error);
-    return null;
-  }
-}
-
-/**
- * Server-side batch stock data fetching using unified client
- * Note: This would need a stocks API client when created
- */
-export async function getServerBatchStocks(symbols: string[]) {
-  try {
-    // TODO: Create stocks API client and replace this
-    // For now, keeping the original implementation
-    return { stocks: {} };
-  } catch (error) {
-    console.error('Failed to fetch server batch stocks:', error);
-    return { stocks: {} };
-  }
-}
 
 // ============================================================================
 // COMPATIBILITY ALIASES
@@ -419,27 +390,3 @@ export async function getServerBatchStocks(symbols: string[]) {
 export const getAnalyticsData = getServerAnalytics;
 export const getPortfolioData = getServerPortfolio;
 
-// ============================================================================
-// MIGRATION UTILITIES
-// ============================================================================
-
-/**
- * Helper to check if unified client is available
- */
-export function isUnifiedClientAvailable(): boolean {
-  try {
-    return typeof createFrontendApiClient === 'function';
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Performance comparison utility
- */
-export function trackMigrationPerformance(operation: string, startTime: number) {
-  const endTime = performance.now();
-  const duration = endTime - startTime;
-  console.log(`🚀 Unified client ${operation} completed in ${duration.toFixed(2)}ms`);
-  return duration;
-}

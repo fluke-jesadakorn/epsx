@@ -1,11 +1,10 @@
-use std::sync::Arc;
+use crate::prelude::*;
+
 use std::collections::HashMap;
-use serde::{Deserialize, Serialize};
 use tracing::{debug, info};
 use tokio::sync::RwLock;
 
 use crate::domain::shared_kernel::entities::eps_growth::{EPSGrowthData, EPSRanking, EPSRankingsResponse, EPSPagination};
-use crate::core::errors::AppError;
 use crate::domain::shared_kernel::ports::MarketDataServicePort;
 use crate::domain::shared_kernel::services::eps_ranking_service::EPSRepository;
 
@@ -56,7 +55,7 @@ struct CacheEntry {
 }
 
 /// Cache statistics
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CacheStats {
     pub total_entries: usize,
     pub active_entries: usize,
@@ -77,6 +76,7 @@ pub struct EPSCacheParams {
     pub min_eps: Option<f64>,
     pub min_growth: Option<f64>,
     pub force_refresh: bool, // Force cache refresh
+    pub rank_offset: i32,  // Minimum accessible rank (from permissions)
 }
 
 impl Default for EPSCacheParams {
@@ -90,6 +90,7 @@ impl Default for EPSCacheParams {
             min_eps: None,
             min_growth: None,
             force_refresh: false,
+            rank_offset: 100,  // Default: free tier
         }
     }
 }
@@ -166,8 +167,9 @@ impl EPSCacheService {
         let start_time = std::time::Instant::now();
 
         // Primary source: Database EPS rankings
-        info!("Fetching EPS rankings from database");
+        info!("Fetching EPS rankings from database (offset: {})", params.rank_offset);
         let db_rankings = self.eps_repository.get_rankings_filtered(
+            params.rank_offset,  // SECURITY: Enforced minimum rank
             params.country.clone(),
             params.sector.clone(),
             params.sort_by.clone(),
@@ -217,8 +219,8 @@ impl EPSCacheService {
             }
         }
 
-        // Get total count for pagination
-        let total_count = self.eps_repository.get_total_count(params.country.clone(), params.sector.clone()).await?;
+        // Get total count for pagination (from offset onwards)
+        let total_count = self.eps_repository.get_total_count(params.rank_offset, params.country.clone(), params.sector.clone()).await?;
         let pagination = EPSPagination::new(params.page, params.limit, total_count);
 
         // Use database rankings directly (already filtered and sorted)
@@ -292,12 +294,25 @@ impl EPSCacheService {
         
         rankings.sort_by(|a, b| {
             match sort_field {
-                "growth_factor" | "qoq_growth" => b.growth_factor.unwrap_or(0.0).partial_cmp(&a.growth_factor.unwrap_or(0.0)).unwrap(),
+                "growth_factor" | "qoq_growth" => {
+                    let a_val = a.growth_factor.unwrap_or(0.0);
+                    let b_val = b.growth_factor.unwrap_or(0.0);
+                    // Use total_cmp to handle NaN values deterministically
+                    b_val.total_cmp(&a_val)
+                }
                 "market_cap" => b.market_cap.unwrap_or(0).cmp(&a.market_cap.unwrap_or(0)),
                 "volume" => b.volume.unwrap_or(0).cmp(&a.volume.unwrap_or(0)),
-                "current_eps" => b.current_eps.unwrap_or(0.0).partial_cmp(&a.current_eps.unwrap_or(0.0)).unwrap(),
+                "current_eps" => {
+                    let a_val = a.current_eps.unwrap_or(0.0);
+                    let b_val = b.current_eps.unwrap_or(0.0);
+                    b_val.total_cmp(&a_val)
+                }
                 "name" => a.name.cmp(&b.name),
-                _ => b.growth_factor.unwrap_or(0.0).partial_cmp(&a.growth_factor.unwrap_or(0.0)).unwrap(),
+                _ => {
+                    let a_val = a.growth_factor.unwrap_or(0.0);
+                    let b_val = b.growth_factor.unwrap_or(0.0);
+                    b_val.total_cmp(&a_val)
+                }
             }
         });
 
@@ -379,8 +394,8 @@ impl EPSCacheService {
 
     /// Get total count for pagination validation from database
     pub async fn get_total_count_for_params(&self, params: &EPSCacheParams) -> Result<i64, AppError> {
-        // Use database as source of truth for total count
-        self.eps_repository.get_total_count(params.country.clone(), params.sector.clone()).await
+        // Use database as source of truth for total count (from offset onwards)
+        self.eps_repository.get_total_count(params.rank_offset, params.country.clone(), params.sector.clone()).await
     }
 
     /// Force cache refresh from database
@@ -408,7 +423,7 @@ impl Clone for EPSCacheService {
             cache: Arc::clone(&self.cache),
             market_data_service: Arc::clone(&self.market_data_service),
             eps_repository: Arc::clone(&self.eps_repository),
-            config: self.config.clone(),
+            config: self.config.clone(), // EPSCacheConfig is simple struct, regular clone is fine
         }
     }
 }

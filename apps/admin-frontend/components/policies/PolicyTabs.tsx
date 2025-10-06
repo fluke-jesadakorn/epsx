@@ -6,11 +6,15 @@
 
 'use client';
 
-import { useState } from 'react';
 import { ShieldIcon, ActivityIcon } from 'lucide-react';
+import { useState } from 'react';
+
 import PolicyBuilder from './PolicyBuilder';
 import PolicyMonitor from './PolicyMonitor';
 
+/**
+ *
+ */
 export function PolicyTabs() {
   const [activeTab, setActiveTab] = useState<'builder' | 'monitor'>('builder');
 

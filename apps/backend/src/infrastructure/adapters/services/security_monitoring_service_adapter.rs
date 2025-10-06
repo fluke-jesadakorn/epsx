@@ -1,7 +1,7 @@
 // Security Monitoring Service Adapter
-use async_trait::async_trait;
-use std::sync::Arc;
-use chrono::{DateTime, Utc, Duration};
+use crate::prelude::*;
+
+use chrono::Duration;
 use tracing::{debug, info, warn};
 
 // use crate::domain::authentication::repositories::SecurityMonitoringServicePort; // REMOVED: authentication domain deleted
@@ -92,7 +92,7 @@ impl SecurityMonitoringServicePort for SecurityMonitoringServiceAdapter {
         // Update user metrics if wallet_address is provided
         if let Some(wallet_address) = &event.wallet_address {
             self.update_user_security_metrics(wallet_address, "security_event", 1).await
-                .map_err(|e| SecurityMonitoringError::Cache(e))?;
+                .map_err(SecurityMonitoringError::Cache)?;
         }
         
         Ok(())

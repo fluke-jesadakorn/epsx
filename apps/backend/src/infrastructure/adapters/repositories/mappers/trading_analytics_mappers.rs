@@ -101,7 +101,7 @@ impl EPSRankingMapper {
             sector,
             country,
             score: 0.0,  // Default score
-            added_at: growth_data.created_at.unwrap_or_else(|| Utc::now()),
+            added_at: growth_data.created_at.unwrap_or_else(Utc::now),
         })
     }
 
@@ -172,16 +172,14 @@ impl StockAnalysisMapper {
             .map_err(|e| format!("Invalid previous EPS: {}", e))?;
 
         // Create basic stock analysis (sector and country unknown from legacy stock)
-        let stock_analysis = StockAnalysis::new(
+        StockAnalysis::new(
             symbol,
             "Unknown Company".to_string(),
             current_eps,
             previous_eps,
             MarketSector::new("Unknown".to_string()).unwrap(),
             Country::new("unknown".to_string()).unwrap(),
-        );
-
-        stock_analysis
+        )
     }
 
     /// Convert legacy EPSRanking to DDD StockAnalysis
@@ -212,16 +210,14 @@ impl StockAnalysisMapper {
             .map_err(|e| format!("Invalid default country: {}", e))?;
 
         // Create stock analysis
-        let stock_analysis = StockAnalysis::new(
+        StockAnalysis::new(
             symbol,
             legacy_ranking.name.clone(),
             current_eps,
             previous_eps,
             sector,
             country,
-        );
-
-        stock_analysis
+        )
     }
 
     /// Convert DDD StockAnalysis back to legacy format (for API compatibility)

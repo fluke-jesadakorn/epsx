@@ -346,6 +346,10 @@ export function getPermissionPlatform(permission: string): string | null {
 
 /**
  * Check if user has permission (supports wildcards)
+ *
+ * ⚠️ IMPORTANT: FOR UI DISPLAY ONLY - DO NOT USE FOR AUTHORIZATION
+ * Backend validates all permissions via Rust middleware.
+ * Use hasPermissionForDisplay() from SharedWeb3AuthClient for UI display.
  */
 export function hasPermission(userPermissions: string[], requiredPermission: string): boolean {
   if (!userPermissions || userPermissions.length === 0) return false;
@@ -368,6 +372,9 @@ export function hasPermission(userPermissions: string[], requiredPermission: str
 
 /**
  * Check if user has any of the required permissions
+ *
+ * ⚠️ IMPORTANT: FOR UI DISPLAY ONLY - DO NOT USE FOR AUTHORIZATION
+ * Backend validates all permissions via Rust middleware.
  */
 export function hasAnyPermission(userPermissions: string[], requiredPermissions: string[]): boolean {
   return requiredPermissions.some(permission => hasPermission(userPermissions, permission));
@@ -375,6 +382,9 @@ export function hasAnyPermission(userPermissions: string[], requiredPermissions:
 
 /**
  * Check if user has all required permissions
+ *
+ * ⚠️ IMPORTANT: FOR UI DISPLAY ONLY - DO NOT USE FOR AUTHORIZATION
+ * Backend validates all permissions via Rust middleware.
  */
 export function hasAllPermissions(userPermissions: string[], requiredPermissions: string[]): boolean {
   return requiredPermissions.every(permission => hasPermission(userPermissions, permission));

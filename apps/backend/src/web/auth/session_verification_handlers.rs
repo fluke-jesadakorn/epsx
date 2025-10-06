@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{info};
 use utoipa::ToSchema;
 
-use crate::web::auth::routes::AppState;
+use crate::web::auth::AppState;
 
 /// Session verification request
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
@@ -56,11 +56,7 @@ fn extract_bearer_token(headers: &HeaderMap) -> Option<String> {
         .get("authorization")
         .and_then(|value| value.to_str().ok())
         .and_then(|auth_header| {
-            if auth_header.starts_with("Bearer ") {
-                Some(auth_header[7..].to_string())
-            } else {
-                None
-            }
+            auth_header.strip_prefix("Bearer ").map(|token| token.to_string())
         })
 }
 

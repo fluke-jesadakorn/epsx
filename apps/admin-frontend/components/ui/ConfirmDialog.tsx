@@ -13,6 +13,18 @@ interface ConfirmDialogProps {
   loading?: boolean;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.open
+ * @param root0.title
+ * @param root0.description
+ * @param root0.confirmText
+ * @param root0.cancelText
+ * @param root0.onConfirm
+ * @param root0.onCancel
+ * @param root0.loading
+ */
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   open,
   title = 'Are you sure?',
@@ -23,7 +35,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   onCancel,
   loading = false,
 }) => {
-  if (!open) return null;
+  if (!open) {return null;}
   return (
     <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50">
       <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-sm shadow-lg">

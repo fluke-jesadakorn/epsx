@@ -6,12 +6,6 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Shield, 
   AlertTriangle, 
@@ -29,6 +23,13 @@ import {
   FileText,
   Activity
 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // Compliance Types
 interface ComplianceStatus {
@@ -104,6 +105,9 @@ interface RegulatorySetting {
   last_updated: string;
 }
 
+/**
+ *
+ */
 export default function ComplianceMonitoringDashboard() {
   // State Management
   const [complianceStatuses, setComplianceStatuses] = useState<ComplianceStatus[]>([]);
@@ -136,8 +140,9 @@ export default function ComplianceMonitoringDashboard() {
         loadComplianceMetrics(),
         loadRegulatorySettings(),
       ]);
-    } catch (error) {
-      console.error('Failed to load compliance data:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to load compliance data:', _error);
     } finally {
       setLoading(false);
     }
@@ -152,8 +157,9 @@ export default function ComplianceMonitoringDashboard() {
         const data = await response.json();
         setComplianceStatuses(data.statuses || []);
       }
-    } catch (error) {
-      console.error('Failed to load compliance statuses:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to load compliance statuses:', _error);
     }
   };
 
@@ -166,8 +172,9 @@ export default function ComplianceMonitoringDashboard() {
         const data = await response.json();
         setRiskAssessments(data.assessments || []);
       }
-    } catch (error) {
-      console.error('Failed to load risk assessments:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to load risk assessments:', _error);
     }
   };
 
@@ -180,8 +187,9 @@ export default function ComplianceMonitoringDashboard() {
         const data = await response.json();
         setAuditTrail(data.trail || []);
       }
-    } catch (error) {
-      console.error('Failed to load audit trail:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to load audit trail:', _error);
     }
   };
 
@@ -194,8 +202,9 @@ export default function ComplianceMonitoringDashboard() {
         const data = await response.json();
         setSuspiciousActivities(data.activities || []);
       }
-    } catch (error) {
-      console.error('Failed to load suspicious activities:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to load suspicious activities:', _error);
     }
   };
 
@@ -208,8 +217,9 @@ export default function ComplianceMonitoringDashboard() {
         const data = await response.json();
         setComplianceMetrics(data.metrics);
       }
-    } catch (error) {
-      console.error('Failed to load compliance metrics:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to load compliance metrics:', _error);
     }
   };
 
@@ -222,8 +232,9 @@ export default function ComplianceMonitoringDashboard() {
         const data = await response.json();
         setRegulatorySettings(data.settings || []);
       }
-    } catch (error) {
-      console.error('Failed to load regulatory settings:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to load regulatory settings:', _error);
     }
   };
 
@@ -238,8 +249,9 @@ export default function ComplianceMonitoringDashboard() {
       if (response.ok) {
         await loadComplianceStatuses();
       }
-    } catch (error) {
-      console.error('Failed to approve KYC:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to approve KYC:', _error);
     }
   };
 
@@ -255,8 +267,9 @@ export default function ComplianceMonitoringDashboard() {
       if (response.ok) {
         await loadComplianceStatuses();
       }
-    } catch (error) {
-      console.error('Failed to reject KYC:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to reject KYC:', _error);
     }
   };
 
@@ -272,8 +285,9 @@ export default function ComplianceMonitoringDashboard() {
       if (response.ok) {
         await loadComplianceData();
       }
-    } catch (error) {
-      console.error('Failed to flag user:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to flag user:', _error);
     }
   };
 
@@ -289,8 +303,9 @@ export default function ComplianceMonitoringDashboard() {
       if (response.ok) {
         await loadComplianceData();
       }
-    } catch (error) {
-      console.error('Failed to block user:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to block user:', _error);
     }
   };
 
@@ -306,8 +321,9 @@ export default function ComplianceMonitoringDashboard() {
       if (response.ok) {
         await loadRiskAssessments();
       }
-    } catch (error) {
-      console.error('Failed to update risk assessment:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to update risk assessment:', _error);
     }
   };
 
@@ -323,8 +339,9 @@ export default function ComplianceMonitoringDashboard() {
       if (response.ok) {
         await loadSuspiciousActivities();
       }
-    } catch (error) {
-      console.error('Failed to assign investigation:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to assign investigation:', _error);
     }
   };
 
@@ -352,8 +369,9 @@ export default function ComplianceMonitoringDashboard() {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
       }
-    } catch (error) {
-      console.error('Failed to export compliance report:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to export compliance report:', _error);
     }
   };
 

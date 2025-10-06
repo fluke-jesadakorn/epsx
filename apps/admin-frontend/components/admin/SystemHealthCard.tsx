@@ -4,14 +4,27 @@
  */
 
 import { Cpu, Database, Zap, Activity } from 'lucide-react'
-import type { SystemMetrics } from '@/lib/data/dashboard'
+
 import { adminCardVariants } from '@/design-system'
 import { cn } from '@/lib/utils'
+
+interface SystemMetrics {
+  serverLoad: number
+  memoryUsage: number
+  databaseConnections: number
+  errorRate: number
+  uptime: number
+}
 
 interface SystemHealthCardProps {
   metrics: SystemMetrics
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.metrics
+ */
 export function SystemHealthCard({ metrics }: SystemHealthCardProps) {
   const healthItems = [
     {

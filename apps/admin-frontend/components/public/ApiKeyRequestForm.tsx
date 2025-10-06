@@ -1,10 +1,11 @@
 'use client';
 
+import { Send, CheckCircle, Building, Mail, Globe, Code } from 'lucide-react';
 import React, { useState } from 'react';
+import { toast } from 'react-hot-toast';
+
 import { Button } from '@/components/ui/button';
 import { FormField, Input, Select, Textarea } from '@/components/ui/form-components';
-import { toast } from 'react-hot-toast';
-import { Send, CheckCircle, Building, Mail, Globe, Code } from 'lucide-react';
 
 interface ApiKeyRequest {
   company_name: string;
@@ -48,6 +49,9 @@ const AVAILABLE_MODULES = [
   { id: 'trading-signals', name: 'Trading Signals', description: 'AI-powered trading signals' },
 ];
 
+/**
+ *
+ */
 export const ApiKeyRequestForm: React.FC = () => {
   const [formData, setFormData] = useState<ApiKeyRequest>({
     company_name: '',
@@ -94,11 +98,11 @@ export const ApiKeyRequestForm: React.FC = () => {
       // Simulate API call - in real implementation, this would send to your backend
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      
       setIsSubmitted(true);
       toast.success('Your API key request has been submitted successfully!');
-    } catch (error) {
-      console.error('Failed to submit request:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to submit request:', _error);
       toast.error('Failed to submit request. Please try again.');
     } finally {
       setIsSubmitting(false);

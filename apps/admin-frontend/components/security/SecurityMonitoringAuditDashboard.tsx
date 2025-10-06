@@ -1,12 +1,13 @@
 'use client'
 
+import { AlertTriangle, Shield, Eye, Clock, Download, Filter, Search, TrendingUp, AlertCircle, CheckCircle, XCircle } from 'lucide-react'
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { PancakeCard } from '../ui/PancakeCard'
+
+import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
+import { PancakeCard } from '../ui/PancakeCard'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
-import { Badge } from '../ui/badge'
-import { AlertTriangle, Shield, Eye, Clock, Download, Filter, Search, TrendingUp, AlertCircle, CheckCircle, XCircle } from 'lucide-react'
 
 // Comprehensive Security Event Types
 interface SecurityEvent {
@@ -71,6 +72,13 @@ interface SecurityMonitoringAuditDashboardProps {
   refreshInterval?: number
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.className
+ * @param root0.autoRefresh
+ * @param root0.refreshInterval
+ */
 export const SecurityMonitoringAuditDashboard: React.FC<SecurityMonitoringAuditDashboardProps> = ({
   className = '',
   autoRefresh = true,

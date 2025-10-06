@@ -2,7 +2,6 @@
 
 import { createApiClient, isApiError } from '@/lib/api-client';
 import { requireAuth } from '../auth';
-import { safeError } from '@/lib/utils/logging';
 
 // ============================================================================
 // Payment Server Actions
