@@ -94,7 +94,7 @@ export default function StockRankingPackageAssignment({
   const loadUsers = async () => {
     setIsLoading(prev => ({ ...prev, users: true }));
     try {
-      const response = await fetch('/api/v1/admin/users');
+      const response = await fetch('/api/admin/users');
       
       if (!response.ok) {
         // eslint-disable-next-line no-console
@@ -169,7 +169,7 @@ export default function StockRankingPackageAssignment({
         reason: assignmentReason
       };
 
-      const response = await fetch('/api/v1/admin/users/bulk/assign-modules', {
+      const response = await fetch('/api/admin/users/bulk/assign-modules', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

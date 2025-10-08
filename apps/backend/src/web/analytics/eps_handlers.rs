@@ -1,20 +1,19 @@
 // EPS Analytics Handlers - Refactored with Focused Module Architecture
-// Originally 1,865 lines - now split into 7 focused modules with domain separation
+// Originally 1,865 lines - now split into focused modules with domain separation
 
 // Re-export all handlers from focused modules for backward compatibility
 pub use crate::web::analytics::eps::*;
 
 // Re-export handler functions with their original names for routing compatibility
 pub use rankings::get_eps_rankings;
-pub use metadata::{get_available_countries, get_all_valid_countries, get_sectors_by_country, get_filter_options};  
-pub use health::{eps_health_check, debug_eps_correction, debug_ranking_data, debug_websocket_eps, trigger_eps_sync};
-pub use cache::{get_unified_analytics_rankings_cached, get_cache_stats, force_cache_refresh, cache_health_check};
+pub use metadata::{get_available_countries, get_all_valid_countries, get_sectors_by_country, get_filter_options};
+pub use cache::{get_unified_analytics_rankings_cached, get_cache_stats, force_cache_refresh};
 
 // Re-export key DTOs that are used in routes
 pub use types::{
     EPSRankingQueryParams, EPSRankingsApiResponse, EPSPaginationResponse,
-    CountriesResponse, SectorsResponse, EPSHealthResponse, FiltersResponse,
-    CardDashboardResponse, CacheStatsResponse, CacheRefreshResponse, CacheHealthResponse
+    CountriesResponse, SectorsResponse, FiltersResponse,
+    CardDashboardResponse, CacheStatsResponse, CacheRefreshResponse
 };
 
 // Test module for backward compatibility verification

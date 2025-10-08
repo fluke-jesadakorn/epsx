@@ -50,7 +50,7 @@ export default function DashboardPage() {
       const loadDashboardData = async () => {
         try {
           const client = createAdminApiClient()
-          const response = await client.get('/api/v1/admin/users', { limit: '100' })
+          const response = await client.get('/api/admin/users', { limit: '100' })
 
           if (response.success && response.data && Array.isArray(response.data)) {
             setDashboardStats(prev => ({

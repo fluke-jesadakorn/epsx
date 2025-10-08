@@ -44,7 +44,7 @@ export function ApiKeyManager({ className = '' }: ApiKeyManagerProps) {
 
   // Generate API key function
   const generateApiKey = async (name: string) => {
-    const response = await makeApiRequest('/api/v1/user/api-keys', {
+    const response = await makeApiRequest('/api/user/api-keys', {
       method: 'POST',
       body: JSON.stringify({ name })
     });

@@ -12,8 +12,6 @@ pub mod openapi;
 pub use openapi::ApiDoc;
 pub use routes::{
     create_docs_routes,
-    docs_landing_handler,
     docs_scalar_handler,
-    docs_redoc_handler,
     openapi_json_handler
 };

@@ -2,7 +2,7 @@
 
 // Active authentication components
 pub mod app_state;
-pub mod routes; // Deprecated - use unified_router instead
+// pub mod routes; // DELETED - routes now managed by unified_router
 pub mod web3_handlers;
 pub mod openid_web3_handlers;
 pub mod session_verification_handlers;

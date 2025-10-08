@@ -12,9 +12,7 @@ pub mod get_stock_statistics;
 // New queries for web layer migration
 pub mod get_cached_rankings;
 pub mod get_cache_stats;
-pub mod get_cache_health;
 pub mod get_sectors_by_country;
-pub mod get_eps_service_health;
 pub mod get_portfolio_rankings;
 pub mod get_system_metrics;
 pub mod get_admin_timeseries;
@@ -34,9 +32,7 @@ pub use get_stock_statistics::{GetStockStatisticsQuery, GetStockStatisticsRespon
 // Re-export new queries
 pub use get_cached_rankings::{GetCachedRankingsQuery, GetCachedRankingsResponse};
 pub use get_cache_stats::{GetCacheStatsQuery, GetCacheStatsResponse};
-pub use get_cache_health::{GetCacheHealthQuery, GetCacheHealthResponse};
 pub use get_sectors_by_country::{GetSectorsByCountryQuery, GetSectorsByCountryResponse};
-pub use get_eps_service_health::{GetEPSServiceHealthQuery, GetEPSServiceHealthResponse};
 pub use get_portfolio_rankings::{GetPortfolioRankingsQuery, GetPortfolioRankingsResponse};
 pub use get_system_metrics::*;
 pub use get_admin_timeseries::*;

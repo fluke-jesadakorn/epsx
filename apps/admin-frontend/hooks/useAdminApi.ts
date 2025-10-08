@@ -59,11 +59,11 @@ export function useAdminApi() {
     search?: string;
     role?: string;
   }) => {
-    return apiCall<any>(() => client.get('/api/v1/admin/users', params));
+    return apiCall<any>(() => client.get('/api/admin/users', params));
   }, [apiCall, client]);
 
   const getUser = useCallback((userId: string) => {
-    return apiCall<any>(() => client.get(`/api/v1/admin/users/${userId}`));
+    return apiCall<any>(() => client.get(`/api/admin/users/${userId}`));
   }, [apiCall, client]);
 
   const createUser = useCallback((userData: {
@@ -71,18 +71,18 @@ export function useAdminApi() {
     wallet_address?: string;
     role?: string;
   }) => {
-    return apiCall<any>(() => client.post('/api/v1/admin/users', userData));
+    return apiCall<any>(() => client.post('/api/admin/users', userData));
   }, [apiCall, client]);
 
   const updateUser = useCallback((userId: string, userData: {
     email?: string;
     role?: string;
   }) => {
-    return apiCall<any>(() => client.put(`/api/v1/admin/users/${userId}`, userData));
+    return apiCall<any>(() => client.put(`/api/admin/users/${userId}`, userData));
   }, [apiCall, client]);
 
   const deleteUser = useCallback((userId: string) => {
-    return apiCall<any>(() => client.delete(`/api/v1/admin/users/${userId}`));
+    return apiCall<any>(() => client.delete(`/api/admin/users/${userId}`));
   }, [apiCall, client]);
 
   const grantPermission = useCallback((request: {
@@ -91,7 +91,7 @@ export function useAdminApi() {
     expires_at?: string;
     reason?: string;
   }) => {
-    return apiCall<any>(() => client.post('/api/v1/admin/permissions/grant', request));
+    return apiCall<any>(() => client.post('/api/admin/permissions/grant', request));
   }, [apiCall, client]);
 
   const revokePermission = useCallback((request: {
@@ -99,19 +99,19 @@ export function useAdminApi() {
     permission: string;
     reason?: string;
   }) => {
-    return apiCall<any>(() => client.post('/api/v1/admin/permissions/revoke', request));
+    return apiCall<any>(() => client.post('/api/admin/permissions/revoke', request));
   }, [apiCall, client]);
 
   const getUserPermissions = useCallback((userId: string) => {
-    return apiCall<any>(() => client.get(`/api/v1/admin/users/${userId}/permissions`));
+    return apiCall<any>(() => client.get(`/api/admin/users/${userId}/permissions`));
   }, [apiCall, client]);
 
   const getSystemHealth = useCallback(() => {
-    return apiCall<any>(() => client.get('/api/v1/admin/system/health'));
+    return apiCall<any>(() => client.get('/api/admin/system/health'));
   }, [apiCall, client]);
 
   const getSystemMetrics = useCallback(() => {
-    return apiCall<any>(() => client.get('/api/v1/admin/system/metrics'));
+    return apiCall<any>(() => client.get('/api/admin/system/metrics'));
   }, [apiCall, client]);
 
   return {

@@ -32,7 +32,7 @@ pub struct EPSRankingsApiResponse {
 }
 
 /// Pagination response structure
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct EPSPaginationResponse {
     pub page: i32,
     pub limit: i32,
@@ -46,21 +46,21 @@ pub struct EPSPaginationResponse {
 }
 
 /// Country data with display name and API value
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct CountryData {
     pub value: String,      // API value (lowercase)
     pub label: String,      // Display name (proper capitalization)
 }
 
-/// Countries list response  
-#[derive(Debug, Serialize)]
+/// Countries list response
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct CountriesResponse {
     pub countries: Vec<CountryData>,
     pub count: usize,
 }
 
 /// Sectors list response
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct SectorsResponse {
     pub sectors: Vec<String>,
     pub count: usize,
@@ -68,7 +68,7 @@ pub struct SectorsResponse {
 }
 
 /// Combined filters response for frontend
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct FiltersResponse {
     pub countries: Vec<CountryData>,
     pub sectors: Vec<String>,
@@ -164,7 +164,7 @@ pub struct UnifiedFilters {
 }
 
 /// Cache statistics response
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct CacheStatsResponse {
     pub success: bool,
     pub stats: CacheStats,
@@ -173,7 +173,7 @@ pub struct CacheStatsResponse {
 }
 
 /// Cache refresh response
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct CacheRefreshResponse {
     pub success: bool,
     pub refreshed_entries: usize,
@@ -182,18 +182,8 @@ pub struct CacheRefreshResponse {
     pub timestamp: chrono::DateTime<chrono::Utc>,
 }
 
-/// Cache health check response
-#[derive(Debug, Serialize)]
-pub struct CacheHealthResponse {
-    pub status: String,
-    pub healthy: bool,
-    pub cache_stats: CacheStats,
-    pub recommendations: Vec<String>,
-    pub timestamp: chrono::DateTime<chrono::Utc>,
-}
-
 /// Card dashboard response structure for multi-symbol EPS analytics
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct CardDashboardResponse {
     pub success: bool,
     pub data: Vec<SymbolCardData>,
@@ -204,7 +194,7 @@ pub struct CardDashboardResponse {
 }
 
 /// Individual symbol card data matching frontend UI requirements
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct SymbolCardData {
     pub rank: i32,
     pub symbol: String,
@@ -220,10 +210,14 @@ pub struct SymbolCardData {
     pub next_earnings_date_formatted: Option<String>, // "Nov 18, 2025"
     pub days_until_next_earnings: Option<i32>,        // 185
     pub progress_percentage: Option<f64>,             // 0-100 for progress bar
+    // Top-level fields for frontend (derived from quarterly_performance[0])
+    pub current_eps: Option<f64>,      // From quarterly_performance[0].eps
+    pub growth_factor: Option<f64>,    // From quarterly_performance[0].eps_growth
+    pub price_current: Option<f64>,    // From quarterly_performance[0].price
 }
 
 /// 4-Quarter EPS Data Structure matching frontend expectations
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, utoipa::ToSchema)]
 pub struct EPSQuarterlyData {
     pub eps_q_minus_2: Option<f64>,        // Q-2 (2 quarters ago)
     pub eps_q_minus_1: Option<f64>,        // Q-1 (1 quarter ago) 
@@ -245,7 +239,7 @@ pub struct EPSQuarterlyData {
 }
 
 /// Quarterly performance data for the card dashboard
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct QuarterlyPerformanceData {
     pub quarter: String,      // "Q1", "Q0", etc. OR "Announced Jul 25, 2024" 
     pub date: String,         // "Aug 8, 2025"
@@ -260,7 +254,7 @@ pub struct QuarterlyPerformanceData {
 }
 
 /// Next quarter EPS estimate data
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct NextQuarterEstimate {
     pub quarter: String,                       // "2025-Q4"
     pub estimated_eps: f64,                    // 3.85
@@ -272,7 +266,7 @@ pub struct NextQuarterEstimate {
 }
 
 /// Metadata for card dashboard
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct CardDashboardMetadata {
     pub available_countries: Vec<String>,
     pub available_sectors: Vec<String>,

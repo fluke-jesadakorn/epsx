@@ -26,7 +26,7 @@ export async function fetchPublicRankingData(page = 1, limit = 5) {
     const apiUrl = URL.get(Service.BACKEND, URLContext.SERVER);
     // Start from rank 101 (page 21 with 5 per page: (21-1)*5 + 1 = 101)
     const publicPage = Math.floor(100 / limit) + page;
-    const url = `${apiUrl}/api/v1/analytics/rankings?page=${publicPage}&limit=${limit}&sort_by=market_cap`;
+    const url = `${apiUrl}/api/analytics/rankings?page=${publicPage}&limit=${limit}&sort_by=market_cap`;
     
     const response = await fetch(url, {
       method: 'GET',
@@ -82,7 +82,7 @@ export async function fetchEpsCardData(page = 1, limit = 3) {
     const apiUrl = URL.get(Service.BACKEND, URLContext.SERVER);
     // Start from rank 101 (page 34 with 3 per page: (34-1)*3 + 1 = 100, so page 35 = 103)
     const publicPage = Math.floor(100 / limit) + page;
-    const url = `${apiUrl}/api/v1/analytics/rankings?page=${publicPage}&limit=${limit}&sort_by=market_cap`;
+    const url = `${apiUrl}/api/analytics/rankings?page=${publicPage}&limit=${limit}&sort_by=market_cap`;
     
     const response = await fetch(url, {
       method: 'GET',

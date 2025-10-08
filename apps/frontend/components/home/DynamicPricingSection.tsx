@@ -74,25 +74,41 @@ const DynamicPricingSection = () => {
     const fetchPlans = async () => {
       try {
         setLoading(true);
-        
+
         // Build API URL with affiliate tracking
         const baseUrl = env.BACKEND_URL;
-        let apiUrl = `${baseUrl}/api/v1/public/plans`;
-        
+        let apiUrl = `${baseUrl}/api/public/plans`;
+
         // Add affiliate code if available
         if (affiliateCode) {
           apiUrl += `?affiliate_code=${encodeURIComponent(affiliateCode)}`;
         }
 
-        const response = await fetch(apiUrl);
-        
+        console.log('[DynamicPricing] Fetching plans from:', apiUrl);
+
+        const response = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+        });
+
+        console.log('[DynamicPricing] Response status:', response.status);
+
         if (!response.ok) {
-          throw new Error('Failed to fetch plans');
+          const errorText = await response.text();
+          console.error('[DynamicPricing] Failed to fetch plans:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText
+          });
+          throw new Error(`Failed to fetch plans: ${response.status} ${response.statusText}`);
         }
-        
+
         const result = await response.json();
-        
-        if (result.success && result.data) {
+        console.log('[DynamicPricing] Plans received:', result);
+
+        if (result.success && result.data && Array.isArray(result.data)) {
           const planData = result.data
             .map((item: any) => ({
               id: item.id,
@@ -104,40 +120,53 @@ const DynamicPricingSection = () => {
               currency: item.currency || 'USD',
               displayOrder: item.display_order || 0,
               isActive: item.is_active,
-              isHighlighted: item.is_highlighted || false,
+              isHighlighted: item.is_highlighted || item.is_promoted || false,
               features: Array.isArray(item.features) ? item.features : [],
               activePromotions: [],
               promotionalBadges: [],
               campaignSummary: item.description,
               affiliateCommissionRate: 0
             }));
-          
+
           // Separate personal and API plans
           const personal = planData
-            .filter((plan: any) => plan.planType === 'personal' && plan.isActive)
+            .filter((plan: any) => plan.isActive)
+            .filter((plan: any) => {
+              const type = plan.planType?.toLowerCase();
+              return !type || !type.includes('api');
+            })
             .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
             .map(transformToPricingCard);
-            
+
           const api = planData
-            .filter((plan: any) => plan.planType === 'api' && plan.isActive)
+            .filter((plan: any) => plan.isActive)
+            .filter((plan: any) => {
+              const type = plan.planType?.toLowerCase();
+              return type && type.includes('api');
+            })
             .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
             .map(transformToPricingCard);
-          
+
           setPersonalPlans(personal);
           setApiPlans(api);
+
+          console.log('[DynamicPricing] Plans loaded from API:', {
+            total: planData.length,
+            personal: personal.length,
+            api: api.length
+          });
 
           // If affiliate code provided, try to fetch affiliate info
           if (affiliateCode && planData.length > 0) {
             fetchAffiliateInfo(affiliateCode);
           }
         } else {
-          // If no valid data from API, use fallback
           throw new Error('No valid plan data received');
         }
       } catch (error) {
-        console.error('Error fetching dynamic plans:', error);
-        // Fallback to static plans if API fails
-        loadFallbackPlans();
+        console.error('[DynamicPricing] Error fetching plans:', error);
+        setPersonalPlans([]);
+        setApiPlans([]);
       } finally {
         setLoading(false);
       }
@@ -150,7 +179,7 @@ const DynamicPricingSection = () => {
   const fetchAffiliateInfo = async (code: string) => {
     try {
       const baseUrl = env.BACKEND_URL;
-      const response = await fetch(`${baseUrl}/api/v1/public/plans/calculate-price/1?affiliate_code=${code}`);
+      const response = await fetch(`${baseUrl}/api/public/plans/calculate-price/1?affiliate_code=${code}`);
       
       if (response.ok) {
         const result = await response.json();
@@ -185,112 +214,6 @@ const DynamicPricingSection = () => {
     };
   };
 
-  // Fallback to static plans if API is unavailable
-  const loadFallbackPlans = () => {
-    const fallbackPersonal: DynamicPricingCard[] = [
-      {
-        id: 1,
-        title: 'Free Plan',
-        price: '0 USD',
-        features: [
-          { text: 'View 3 rankings', included: true },
-          { text: 'Basic analytics', included: true },
-          { text: 'Community support', included: true },
-          { text: 'Public data access', included: true },
-        ],
-        buttonText: 'Start Free',
-        buttonVariant: 'outline',
-        promotions: [],
-        badges: [],
-      },
-      {
-        id: 2,
-        title: 'Professional Plan',
-        price: '49.99 USD',
-        originalPrice: '59.99 USD',
-        features: [
-          { text: 'View 50 rankings', included: true },
-          { text: 'Advanced analytics', included: true },
-          { text: 'Priority support', included: true },
-          { text: 'Custom reports', included: true },
-          { text: 'Real-time data', included: true },
-          { text: 'Export capabilities', included: true },
-        ],
-        highlight: true,
-        buttonText: 'Most Popular',
-        promotions: ['Limited Time Offer'],
-        badges: ['POPULAR'],
-        savings: 'Save USD 10.00',
-      },
-      {
-        id: 3,
-        title: 'Enterprise Plan',
-        price: '199.99 USD',
-        features: [
-          { text: 'Unlimited rankings', included: true },
-          { text: 'Full platform access', included: true },
-          { text: 'Dedicated support', included: true },
-          { text: 'Custom integrations', included: true },
-          { text: 'White-label options', included: true },
-          { text: 'SLA guarantee', included: true },
-        ],
-        buttonText: 'Contact Sales',
-        promotions: [],
-        badges: ['ENTERPRISE'],
-      },
-    ];
-
-    const fallbackApi: DynamicPricingCard[] = [
-      {
-        id: 4,
-        title: 'API Basic',
-        price: '29.99 USD',
-        features: [
-          { text: '1,000 API calls/month', included: true },
-          { text: 'Basic endpoints', included: true },
-          { text: 'Documentation access', included: true },
-          { text: 'Email support', included: true },
-        ],
-        buttonText: 'Get Started',
-        promotions: [],
-        badges: [],
-      },
-      {
-        id: 5,
-        title: 'API Pro',
-        price: '99.99 USD',
-        features: [
-          { text: '10,000 API calls/month', included: true },
-          { text: 'All endpoints', included: true },
-          { text: 'Webhook support', included: true },
-          { text: 'Priority support', included: true },
-          { text: 'Rate limit increase', included: true },
-        ],
-        highlight: true,
-        buttonText: 'Popular Choice',
-        promotions: [],
-        badges: ['RECOMMENDED'],
-      },
-      {
-        id: 6,
-        title: 'API Enterprise',
-        price: '299.99 USD',
-        features: [
-          { text: 'Unlimited API calls', included: true },
-          { text: 'Custom endpoints', included: true },
-          { text: 'SLA guarantee', included: true },
-          { text: 'Dedicated support', included: true },
-          { text: 'Custom rate limits', included: true },
-        ],
-        buttonText: 'Contact Sales',
-        promotions: [],
-        badges: ['ENTERPRISE'],
-      },
-    ];
-
-    setPersonalPlans(fallbackPersonal);
-    setApiPlans(fallbackApi);
-  };
 
   const handlePlanClick = (plan: DynamicPricingCard) => {
     // Build payment URL with affiliate tracking

@@ -119,7 +119,7 @@ export default function PolicyMonitor() {
 
   const loadPolicyStats = async () => {
     try {
-      const response = await fetch('/api/v1/admin/policies/stats');
+      const response = await fetch('/api/admin/policies/stats');
       if (response.ok) {
         const data = await response.json();
         setStats(data.stats);

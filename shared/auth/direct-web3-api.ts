@@ -93,7 +93,7 @@ class DirectWeb3ApiClient {
       }
 
       const challengeData: ChallengeResponse = await response.json();
-      
+
       if (!challengeData.success) {
         console.error('❌ Challenge generation failed', { error: challengeData.error });
         throw new Error(challengeData.error || 'Challenge generation failed');
@@ -102,7 +102,8 @@ class DirectWeb3ApiClient {
       console.log('✅ SIWE challenge received successfully', {
         wallet_address: challengeData.wallet_address,
         nonce: challengeData.nonce,
-        expires_at: new Date(challengeData.expires_at * 1000).toISOString()
+        expires_at: challengeData.expires_at,
+        expires_at_iso: new Date(challengeData.expires_at * 1000).toISOString()
       });
 
       return challengeData;

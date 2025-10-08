@@ -108,10 +108,21 @@ pub async fn create_demo_router() -> Router {
   use serde_json::json;
 
   Router::new()
-    // Use unified health endpoints from health module (stateless versions)
-    .route("/health", get(health::health_check_handler))
-    .route("/readiness", get(health::health_check_handler)) // Use stateless version for demo
-    .route("/liveness", get(health::liveness_check_handler))
+    // Health endpoint (demo mode - no external service checks)
+    .route("/health", get(|| async {
+      Json(
+        json!({
+          "status": "healthy",
+          "service": "epsx-backend",
+          "mode": "demo",
+          "timestamp": chrono::Utc::now(),
+          "services": {
+            "postgres": {"status": "not_configured", "latency_ms": null},
+            "redis": {"status": "not_configured", "latency_ms": null}
+          }
+        })
+      )
+    }))
     .route(
       "/",
       get(|| async {

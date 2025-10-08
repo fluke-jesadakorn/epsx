@@ -101,7 +101,7 @@ pub struct WalletListResponse {
     pub pagination: PaginationInfo,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct UpdateWalletRequest {
     pub is_active: Option<bool>,
     pub metadata: Option<serde_json::Value>,
@@ -126,6 +126,29 @@ pub struct WalletStatsResponse {
  * List all users with filtering and pagination (CQRS-based)
  * GET /admin/wallets
  */
+#[utoipa::path(
+    get,
+    path = "/admin/wallets",
+    tag = "admin-wallets",
+    responses(
+        (status = 200, description = "Successfully retrieved wallet list"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+        (status = 500, description = "Internal server error")
+    ),
+    params(
+        ("page" = Option<i32>, Query, description = "Page number"),
+        ("limit" = Option<i32>, Query, description = "Items per page"),
+        ("search" = Option<String>, Query, description = "Search by wallet address"),
+        ("tier" = Option<String>, Query, description = "Filter by tier"),
+        ("status" = Option<String>, Query, description = "Filter by status (active/inactive)"),
+        ("date_from" = Option<String>, Query, description = "Filter by creation date from"),
+        ("date_to" = Option<String>, Query, description = "Filter by creation date to"),
+        ("sort_by" = Option<String>, Query, description = "Sort field"),
+        ("sort_order" = Option<String>, Query, description = "Sort order (asc/desc)")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn list_users_handler(
     Query(params): Query<WalletListQuery>,
     State(app_state): State<AppState>,
@@ -201,6 +224,22 @@ pub async fn list_users_handler(
  * Get detailed user information (CQRS-based)
  * GET /admin/wallets/:wallet_address
  */
+#[utoipa::path(
+    get,
+    path = "/admin/wallets/{wallet_address}",
+    tag = "admin-wallets",
+    responses(
+        (status = 200, description = "Successfully retrieved wallet details"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+        (status = 404, description = "Wallet not found"),
+        (status = 500, description = "Internal server error")
+    ),
+    params(
+        ("wallet_address" = String, Path, description = "Wallet address")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn get_user_handler(
     Path(wallet_address): Path<String>,
     State(app_state): State<AppState>,
@@ -242,6 +281,24 @@ pub async fn get_user_handler(
  * Update user information (CQRS-based)
  * PUT /admin/wallets/:wallet_address
  */
+#[utoipa::path(
+    put,
+    path = "/admin/wallets/{wallet_address}",
+    tag = "admin-wallets",
+    request_body = UpdateWalletRequest,
+    responses(
+        (status = 200, description = "Successfully updated wallet"),
+        (status = 400, description = "Bad request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+        (status = 404, description = "Wallet not found"),
+        (status = 500, description = "Internal server error")
+    ),
+    params(
+        ("wallet_address" = String, Path, description = "Wallet address")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn update_user_handler(
     Path(wallet_address): Path<String>,
     State(app_state): State<AppState>,
@@ -286,6 +343,18 @@ pub async fn update_user_handler(
  * Get user statistics (CQRS-based)
  * GET /admin/wallets/stats
  */
+#[utoipa::path(
+    get,
+    path = "/admin/wallets/stats",
+    tag = "admin-wallets",
+    responses(
+        (status = 200, description = "Successfully retrieved wallet statistics"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+        (status = 500, description = "Internal server error")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn get_user_stats_handler(
     State(app_state): State<AppState>,
 ) -> Result<Json<AdminApiResponse<WalletStatsResponse>>, StatusCode> {

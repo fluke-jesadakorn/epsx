@@ -68,10 +68,10 @@ export class MarketApiClient {
     } else if (typeof window === 'undefined') {
       // Server-side: use absolute URL
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      this.baseUrl = `${frontendUrl}/api/v1/market-data/stocks`;
+      this.baseUrl = `${frontendUrl}/api/market-data/stocks`;
     } else {
       // Client-side: use relative URL
-      this.baseUrl = '/api/v1/market-data/stocks';
+      this.baseUrl = '/api/market-data/stocks';
     }
   }
 
@@ -221,7 +221,7 @@ export class MarketApiClient {
    */
   async getStockPrice(symbol: string): Promise<StockPrice> {
     try {
-      const url = `/api/v1/market-data/prices/${symbol}`;
+      const url = `/api/market-data/prices/${symbol}`;
       
       const response = await fetch(url, {
         credentials: 'include',
@@ -249,7 +249,7 @@ export class MarketApiClient {
    */
   async getStockChart(symbol: string, timeframe: StockChart['timeframe'] = '1d'): Promise<StockChart> {
     try {
-      const url = `/api/v1/market-data/charts/${symbol}?timeframe=${timeframe}`;
+      const url = `/api/market-data/charts/${symbol}?timeframe=${timeframe}`;
       
       const response = await fetch(url, {
         credentials: 'include',
@@ -283,7 +283,7 @@ export class MarketApiClient {
     country: string;
   }>> {
     try {
-      const url = `/api/v1/market-data/search?q=${encodeURIComponent(query)}&limit=${limit}`;
+      const url = `/api/market-data/search?q=${encodeURIComponent(query)}&limit=${limit}`;
       
       const response = await fetch(url, {
         credentials: 'include',
@@ -312,7 +312,7 @@ export class MarketApiClient {
    */
   async getSectors(): Promise<string[]> {
     try {
-      const url = `/api/v1/market-data/sectors`;
+      const url = `/api/market-data/sectors`;
       
       const response = await fetch(url, {
         credentials: 'include',
@@ -339,7 +339,7 @@ export class MarketApiClient {
    */
   async getCountries(): Promise<string[]> {
     try {
-      const url = `/api/v1/market-data/countries`;
+      const url = `/api/market-data/countries`;
       
       const response = await fetch(url, {
         credentials: 'include',

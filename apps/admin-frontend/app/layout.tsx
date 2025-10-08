@@ -8,7 +8,7 @@ import './globals.css';
 import { Metadata, Viewport } from 'next';
 import { Toaster } from 'react-hot-toast';
 
-import { ServerConditionalLayout } from '@/components/layout/ServerConditionalLayout';
+import { LayoutWrapper } from '@/components/layout/LayoutWrapper';
 import { ClientProviders } from '@/components/providers/ClientProviders';
 import { ErrorBoundary } from '@/components/providers/ErrorBoundary';
 import { ThemeProvider } from '@/components/providers/ThemeProvider';
@@ -70,9 +70,9 @@ export default function RootLayout({
             <ThemeProvider>
               <ClientProviders>
                 <main className="flex-1 relative">
-                  <ServerConditionalLayout>
+                  <LayoutWrapper>
                     {children}
-                  </ServerConditionalLayout>
+                  </LayoutWrapper>
                 </main>
               </ClientProviders>
             </ThemeProvider>

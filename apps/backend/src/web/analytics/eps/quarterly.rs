@@ -47,65 +47,65 @@ fn generate_quarterly_data_from_real_scanner_data(
     ranking.symbol
   );
 
-  let mut result = Vec::new();
-
-  let current_quarter_date = current_date;
+  let mut result: Vec<QuarterlyData> = Vec::new();
   let current_year = current_date.year();
   let current_month = current_date.month();
   let current_quarter_num = (current_month - 1) / 3 + 1;
 
-  // Current quarter with real TradingView scanner data
-  result.push(QuarterlyData {
-    quarter: format!("Q{} '{}", current_quarter_num, current_year % 100),
-    date: current_quarter_date,
-    price: current_price,
-    eps: current_eps,
-    eps_growth: growth_factor_pct,
-    price_growth: growth_factor_pct * 0.9,
-    volume: ranking.volume,
-  });
-
-  // Previous quarter estimation
-  let prev_quarter_num = if current_quarter_num == 1 { 4 } else { current_quarter_num - 1 };
-  let prev_year = if current_quarter_num == 1 { current_year - 1 } else { current_year };
-  let prev_quarter_date = current_date - chrono::Duration::days(90);
-
+  // Generate 6 quarters of data with proper quarter-over-quarter growth calculation
   let growth_factor = growth_factor_pct / 100.0;
-  let prev_eps = if growth_factor != 0.0 && current_eps > 0.0 {
-    current_eps / (1.0 + growth_factor)
-  } else if current_eps > 0.0 {
-    current_eps * 0.95
-  } else {
-    0.0
-  };
 
-  let prev_price = if current_price > 0.0 {
-    current_price * 0.92
-  } else {
-    0.0
-  };
+  for i in 0..6 {
+    let quarters_back = i;
+    let quarter_date = current_date - chrono::Duration::days(quarters_back * 90);
+    let quarter_year = quarter_date.year();
+    let quarter_month = quarter_date.month();
+    let quarter_num = (quarter_month - 1) / 3 + 1;
 
-  result.push(QuarterlyData {
-    quarter: format!("Q{} '{}", prev_quarter_num, prev_year % 100),
-    date: prev_quarter_date,
-    price: prev_price,
-    eps: prev_eps,
-    eps_growth: 0.0,
-    price_growth: -3.5,
-    volume: ranking.volume.map(|v| ((v as f64) * 1.1) as i64),
-  });
+    // Calculate EPS for this quarter (working backwards from current)
+    let quarter_eps = if i == 0 {
+      current_eps
+    } else {
+      // Work backwards using growth_factor, with slight decay
+      let decay_factor = 1.0 - (i as f64 * 0.02); // 2% decay per quarter
+      current_eps / ((1.0 + growth_factor).powi(i as i32) * decay_factor.max(0.8))
+    };
 
-  debug!(
-    "📊 [DEBUG] Generated quarterly data from scanner: Current Q{}/{}: EPS={:.2}, Price=${:.2}, Growth={:.1}%",
-    current_quarter_num,
-    current_year,
-    current_eps,
-    current_price,
-    growth_factor_pct
-  );
+    // Calculate quarter-over-quarter growth by comparing to previous quarter
+    let qoq_growth = if i > 0 && !result.is_empty() {
+      let prev_eps = result[(i - 1) as usize].eps;
+      if prev_eps != 0.0 {
+        ((quarter_eps - prev_eps) / prev_eps) * 100.0
+      } else {
+        0.0
+      }
+    } else {
+      growth_factor_pct // Current quarter uses TradingView growth
+    };
+
+    // Calculate price for this quarter
+    let quarter_price = if i == 0 {
+      current_price
+    } else {
+      current_price * (quarter_eps / current_eps).max(0.5)
+    };
+
+    result.push(QuarterlyData {
+      quarter: format!("Q{} '{}", quarter_num, quarter_year % 100),
+      date: quarter_date,
+      price: quarter_price,
+      eps: quarter_eps,
+      eps_growth: qoq_growth,
+      price_growth: qoq_growth * 0.8,
+      volume: ranking.volume.map(|v| {
+        let volume_decay = 1.0 + (i as f64 * 0.05);
+        ((v as f64) * volume_decay) as i64
+      }),
+    });
+  }
 
   info!(
-    "✅ [DEBUG] Generated {} real scanner-based quarterly data points for {}",
+    "✅ [DEBUG] Generated {} quarterly data points for {} with proper QoQ growth calculation",
     result.len(),
     ranking.symbol
   );

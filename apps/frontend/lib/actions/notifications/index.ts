@@ -128,7 +128,7 @@ export async function getNotificationPreferences(): Promise<Record<string, unkno
     await requireAuth();
 
     const client = getClient();
-    const result = await client.get('/api/v1/user/notification-preferences');
+    const result = await client.get('/api/user/notification-preferences');
 
     return result.data as Record<string, unknown>;
   } catch (error) {
@@ -145,7 +145,7 @@ export async function updateNotificationPreferences(preferences: Record<string, 
     await requireAuth();
 
     const client = getClient();
-    await client.put('/api/v1/user/notification-preferences', preferences);
+    await client.put('/api/user/notification-preferences', preferences);
   } catch (error) {
     console.error('Update notification preferences error:', error);
     throw error;
@@ -166,7 +166,7 @@ export async function sendNotification(notification: {
     await requirePermission('admin:notifications:send');
     
     const client = getClient();
-    await client.post('/api/v1/admin/notifications/send', notification);
+    await client.post('/api/admin/notifications/send', notification);
   } catch (error) {
     console.error('Send notification error:', error);
     throw error;

@@ -124,7 +124,6 @@ clap = { version = "4.4", features = ["derive"], optional = true }
 
 # API documentation (always available)
 utoipa = { version = "5.1", features = ["axum_extras", "chrono", "uuid"] }
-utoipa-redoc = { version = "5.0", features = ["axum"] }
 
 # Input validation
 validator = { version = "0.18", features = ["derive"] }

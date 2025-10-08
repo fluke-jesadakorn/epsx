@@ -40,7 +40,7 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
     setIsLoading(true);
     try {
       const baseUrl = env.BACKEND_URL;
-      const response = await fetch(`${baseUrl}/api/v1/public/plans?affiliate_code=${code}`);
+      const response = await fetch(`${baseUrl}/api/public/plans?affiliate_code=${code}`);
       
       if (response.ok) {
         const result = await response.json();
@@ -132,7 +132,7 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
       };
 
       // Fire and forget - don't wait for response
-      fetch(`${baseUrl}/api/v1/public/plans/details/1?affiliate_code=${code}`, {
+      fetch(`${baseUrl}/api/public/plans/details/1?affiliate_code=${code}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'

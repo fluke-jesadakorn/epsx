@@ -65,7 +65,7 @@ fn extract_bearer_token(headers: &HeaderMap) -> Option<String> {
 /// Verify Web3 authentication session
 #[utoipa::path(
     post,
-    path = "/api/v1/auth/session/verify",
+    path = "/api/auth/session/verify",
     request_body = SessionVerificationRequest,
     responses(
         (status = 200, description = "Session verification result", body = SessionVerificationResponse),
@@ -136,7 +136,7 @@ pub async fn verify_session_handler(
 /// Get current session status (GET version for convenience)
 #[utoipa::path(
     get,
-    path = "/api/v1/auth/session/status",
+    path = "/api/auth/session/status",
     responses(
         (status = 200, description = "Session status", body = SessionVerificationResponse),
         (status = 401, description = "Authentication required"),

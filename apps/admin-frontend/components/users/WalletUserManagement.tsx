@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { apiFetch } from '@/lib/api-fetch';
 import type {
   Web3Permission,
   GroupMembership,
@@ -101,14 +102,8 @@ export function WalletUserManagement() {
 
     try {
       // Get user permissions and data
-      const permissionsResponse = await fetch(`/api/v1/auth/web3/permissions?wallet_address=${walletAddress}`);
-      
-      if (!permissionsResponse.ok) {
-        throw new Error('Failed to fetch wallet data');
-      }
+      const permissionsData = await apiFetch(`/api/auth/web3/permissions?wallet_address=${walletAddress}`);
 
-      const permissionsData = await permissionsResponse.json();
-      
       // Construct user data from response
       const walletUserData: WalletUserData = {
         wallet_address: walletAddress,
@@ -148,20 +143,14 @@ export function WalletUserManagement() {
         notes: newPermission.notes
       };
 
-      const response = await fetch('/api/v1/admin/permissions/grant', {
+      await apiFetch('/api/admin/permissions/grant', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to grant permission');
-      }
-
       setSuccess(`Permission "${newPermission.permission}" granted successfully`);
       setNewPermission({ permission: '', notes: '' });
-      
+
       // Refresh user data
       await lookupWallet();
     } catch (err) {
@@ -178,22 +167,16 @@ export function WalletUserManagement() {
     clearMessages();
 
     try {
-      const response = await fetch('/api/v1/admin/permissions/revoke', {
+      await apiFetch('/api/admin/permissions/revoke', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           wallet_address: userData.wallet_address,
           permission
         })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to revoke permission');
-      }
-
       setSuccess(`Permission "${permission}" revoked successfully`);
-      
+
       // Refresh user data
       await lookupWallet();
     } catch (err) {
@@ -213,23 +196,17 @@ export function WalletUserManagement() {
     clearMessages();
 
     try {
-      const response = await fetch('/api/v1/admin/groups/assign', {
+      await apiFetch('/api/admin/groups/assign', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           wallet_address: userData.wallet_address,
           group_id: selectedGroup
         })
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to assign to group');
-      }
-
       setSuccess(`User assigned to group "${selectedGroup}" successfully`);
       setSelectedGroup('');
-      
+
       // Refresh user data
       await lookupWallet();
     } catch (err) {

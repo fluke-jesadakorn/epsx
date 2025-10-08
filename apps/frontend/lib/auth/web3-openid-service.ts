@@ -83,7 +83,7 @@ export class Web3OpenIDService {
    * Request Web3 challenge from backend
    */
   async requestChallenge(walletAddress: string): Promise<Web3ChallengeResponse> {
-    const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/auth/web3/challenge`;
+    const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/web3/challenge`;
     
     logger.info('Requesting Web3 challenge', { wallet_address: walletAddress });
 

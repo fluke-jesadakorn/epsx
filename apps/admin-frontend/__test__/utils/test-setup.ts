@@ -297,7 +297,7 @@ export class AuthenticationHelper {
 
   async validateSession(token: string): Promise<boolean> {
     try {
-      const response = await this.page.request.get('/api/v1/admin/auth/profile', {
+      const response = await this.page.request.get('/api/admin/auth/profile', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       return response.ok();

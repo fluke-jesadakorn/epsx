@@ -133,7 +133,7 @@ export function NotificationBellSimple({ className = "", showBadge = true, initi
           return
         }
 
-        const response = await fetch(`${clientConfig.backendUrl}/api/v1/notifications/unread`, {
+        const response = await fetch(`${clientConfig.backendUrl}/api/notifications/unread`, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json'

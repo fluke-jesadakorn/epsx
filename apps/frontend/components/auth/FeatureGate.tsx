@@ -43,7 +43,7 @@ export function FeatureGate({
   const checkFeatureAccess = async () => {
     try {
       setLoading(true)
-      const response = await fetch(`/api/v1/user/features/check`, {
+      const response = await fetch(`/api/user/features/check`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -230,7 +230,7 @@ export function useFeatureAccess(featureKey: string, context: 'web_app' | 'api_a
     const checkAccess = async () => {
       try {
         setLoading(true)
-        const response = await fetch(`/api/v1/user/features/check`, {
+        const response = await fetch(`/api/user/features/check`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

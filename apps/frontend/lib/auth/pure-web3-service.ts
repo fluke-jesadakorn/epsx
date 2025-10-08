@@ -238,9 +238,9 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
 
         try {
           // Sign request for permissions endpoint
-          const signedHeaders = await get().signRequest('/api/v1/users/permissions', 'GET');
+          const signedHeaders = await get().signRequest('/api/users/permissions', 'GET');
           
-          const response = await fetch(`${getBackendUrl()}/api/v1/users/permissions`, {
+          const response = await fetch(`${getBackendUrl()}/api/users/permissions`, {
             method: 'GET',
             headers: signedHeaders as any,
           });

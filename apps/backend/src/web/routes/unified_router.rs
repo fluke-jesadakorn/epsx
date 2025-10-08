@@ -7,6 +7,7 @@ use axum::{
     Router,
     response::Json,
     middleware as axum_middleware,
+    Extension,
 };
 use serde_json::json;
 use std::sync::Arc;
@@ -40,7 +41,7 @@ impl UnifiedRouteBuilder {
         let docs_routes = crate::web::docs::create_docs_routes();
         let permission_authority_routes = self.create_permission_authority_routes();
 
-        // Combine all routes
+        // Combine all routes - SIMPLIFIED STANDARD
         let router = Router::new()
             // Core health endpoints (public, no auth)
             .merge(health_routes)
@@ -48,33 +49,31 @@ impl UnifiedRouteBuilder {
             // API documentation (public, no auth)
             .merge(docs_routes)
 
-            // Permission Authority API (centralized permission validation)
-            .merge(permission_authority_routes)
-            .route("/api/permissions/health", get(|| async {
-                Json(json!({"permission_authority": "ready", "integrated": true}))
-            }))
+            // All routes under /api prefix
+            .nest("/api", Router::new()
+                // Permission Authority (centralized permission validation)
+                .merge(permission_authority_routes)
 
-            // Authentication routes
-            .nest("/api/auth", auth_routes.clone())
+                // Authentication routes
+                .nest("/auth", auth_routes)
 
-            // API v1 routes (backward compatibility)
-            .nest("/api/v1", Router::new()
+                // Public API endpoints (no authentication)
+                .nest("/public", public_routes)
+
+                // User routes (authenticated)
+                .nest("/user", user_routes)
+
+                // Admin routes (authenticated + permission validation)
+                .nest("/admin", admin_routes)
+
+                // Analytics routes (authenticated)
                 .nest("/analytics", analytics_routes.clone())
-                .nest("/notifications", notification_routes.clone())
+
+                // Notifications routes (authenticated)
+                .nest("/notifications", notification_routes)
             )
 
-            // Public API endpoints (no authentication)
-            .nest("/api/v1/public", public_routes)
-
-            // Admin routes (authenticated + permission validation)
-            .nest("/admin", admin_routes.clone())
-            .nest("/api/admin", admin_routes.clone()) // Alias for frontend compatibility
-            .nest("/api/v1/admin", admin_routes) // Backward compatibility alias (legacy paths)
-
-            // User routes (authenticated)
-            .nest("/user", user_routes)
-
-            // Analytics routes (legacy paths)
+            // Legacy analytics route (backward compatibility only)
             .nest("/analytics", analytics_routes);
 
         // Apply middleware stack
@@ -93,21 +92,20 @@ impl UnifiedRouteBuilder {
     // ============================================================================
 
     fn create_health_routes(&self) -> Router {
+        let cache = self.container.cache.clone()
+            .unwrap_or_else(|| {
+                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
+                    as Arc<dyn crate::infrastructure::cache::Cache>
+            });
+
+        let health_state = crate::web::health::HealthState {
+            pool: self.container.db_pool(),
+            cache,
+        };
+
         Router::new()
-            .route("/health", get(|| async {
-                Json(json!({
-                    "status": "healthy",
-                    "service": "epsx-backend",
-                    "timestamp": chrono::Utc::now(),
-                    "router": "unified"
-                }))
-            }))
-            .route("/readiness", get(|| async {
-                Json(json!({"status": "ready"}))
-            }))
-            .route("/liveness", get(|| async {
-                Json(json!({"status": "alive"}))
-            }))
+            .route("/health", get(crate::web::health::health_check_handler))
+            .with_state(health_state)
     }
 
     // ============================================================================
@@ -150,11 +148,6 @@ impl UnifiedRouteBuilder {
             .route("/web3/permissions/grant", post(grant_permission_handler))
             .route("/web3/permissions/revoke", delete(revoke_permission_handler))
 
-            // Health check
-            .route("/health", get(|| async {
-                Json(json!({"auth": "healthy", "type": "web3"}))
-            }))
-
             .with_state(app_state)
     }
 
@@ -191,9 +184,6 @@ impl UnifiedRouteBuilder {
             ));
 
         Router::new()
-            .route("/health", get(|| async {
-                Json(json!({"admin": "healthy", "permission_authority": "active"}))
-            }))
             .merge(admin_routes)
             .merge(permission_authority_routes)
     }
@@ -203,13 +193,26 @@ impl UnifiedRouteBuilder {
     // ============================================================================
 
     fn create_analytics_routes(&self) -> Router {
+        let cache = self.container.cache.clone()
+            .unwrap_or_else(|| {
+                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
+                    as Arc<dyn crate::infrastructure::cache::Cache>
+            });
+
+        // Create TradingView service and EPS ranking service
+        let config = Arc::new(crate::config::get_fallback_config());
+        let tradingview_service = Arc::new(crate::infrastructure::adapters::services::tradingview::TradingViewApiService::new(config));
+        let eps_repository = Arc::new(crate::web::analytics::TradingViewEPSRepository::new(tradingview_service));
+        let eps_ranking_service = Arc::new(crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService::new(eps_repository));
+
         Router::new()
             .route("/rankings", get(crate::web::analytics::eps_handlers::get_unified_analytics_rankings_cached))
             .route("/filters", get(crate::web::analytics::eps_handlers::get_all_valid_countries))
             .route("/countries", get(crate::web::analytics::eps_handlers::get_all_valid_countries))
             .route("/available-countries", get(crate::web::analytics::eps_handlers::get_available_countries))
             .route("/sectors", get(crate::web::analytics::eps_handlers::get_sectors_by_country))
-            .route("/status", get(|| async { "analytics_ok" }))
+            .layer(Extension(cache))
+            .layer(Extension(eps_ranking_service))
     }
 
     // ============================================================================
@@ -229,25 +232,28 @@ impl UnifiedRouteBuilder {
             Arc::new((*self.container).clone()),
         );
 
+        // Create TradingView service and EPS ranking service for public analytics
+        let config = Arc::new(crate::config::get_fallback_config());
+        let tradingview_service = Arc::new(crate::infrastructure::adapters::services::tradingview::TradingViewApiService::new(config));
+        let eps_repository = Arc::new(crate::web::analytics::TradingViewEPSRepository::new(tradingview_service));
+        let eps_ranking_service = Arc::new(crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService::new(eps_repository));
+
+        let cache_clone = self.container.cache.clone()
+            .unwrap_or_else(|| {
+                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
+                    as Arc<dyn crate::infrastructure::cache::Cache>
+            });
+
         Router::new()
             .nest("/analytics", Router::new()
-                .route("/rankings", get(|| async {
-                    Json(json!({
-                        "success": true,
-                        "data": [],
-                        "pagination": {
-                            "page": 1,
-                            "limit": 5,
-                            "total": 0,
-                            "total_pages": 0
-                        },
-                        "message": "Public analytics data (limited)"
-                    }))
-                }))
+                .route("/rankings", get(crate::web::analytics::eps_handlers::get_unified_analytics_rankings_cached))
                 .route("/filters", get(crate::web::analytics::eps_handlers::get_all_valid_countries))
                 .route("/countries", get(crate::web::analytics::eps_handlers::get_all_valid_countries))
+                .layer(Extension(cache_clone))
+                .layer(Extension(eps_ranking_service))
             )
             .route("/plans", get(crate::web::public::plans_handlers::get_public_plans))
+            .route("/plans/seed", post(crate::web::public::seed_plans_handler::seed_subscription_plans))
             .with_state(app_state)
     }
 
@@ -257,9 +263,22 @@ impl UnifiedRouteBuilder {
 
     fn create_user_routes(&self) -> Router {
         Router::new()
-            .route("/health", get(|| async {
-                Json(json!({"user": "healthy"}))
-            }))
+            // TODO: User profile routes need proper middleware setup
+            // User handlers exist in src/web/user/unified_user_handlers.rs but require:
+            // 1. Web3 auth middleware to extract user context from Bearer token
+            // 2. Permission validation middleware
+            // Available handlers:
+            //   - get_current_user_profile -> /api/v1/wallet/profile
+            //   - get_user_permissions -> /api/v1/wallet/permissions
+            //   - update_user_preferences -> /api/v1/wallet/preferences
+            //
+            // TODO: Implement watchlist, alerts, and push subscription handlers
+            // Missing handlers that frontend expects:
+            //   - /api/v1/user/watchlist (GET, POST, DELETE)
+            //   - /api/v1/user/alerts (GET, POST, DELETE)
+            //   - /api/v1/user/push-subscription (POST, DELETE)
+            //
+            // For now, these routes return 404 until proper implementation
     }
 
     // ============================================================================
@@ -283,7 +302,6 @@ impl UnifiedRouteBuilder {
             .route("/stream", get(crate::web::notifications::sse_notifications_handler))
             .route("/send", post(crate::web::notifications::send_sse_notification_handler))
             .route("/broadcast", post(crate::web::notifications::broadcast_sse_notification_handler))
-            .route("/health", get(crate::web::notifications::sse_health_handler))
             .with_state(app_state)
     }
 
@@ -318,53 +336,103 @@ impl UnifiedRouteBuilder {
 
     fn configure_cors(&self) -> CorsLayer {
         use tower_http::cors::Any;
-        use axum::http::HeaderName;
+        use axum::http::{HeaderName, HeaderValue};
         use std::time::Duration;
+        use crate::config::env::is_production;
 
-        CorsLayer::new()
-            .allow_origin(Any)
-            .allow_methods([
-                Method::GET,
-                Method::POST,
-                Method::PUT,
-                Method::PATCH,
-                Method::DELETE,
-                Method::OPTIONS,
-            ])
-            .allow_headers([
-                // Standard HTTP headers
-                HeaderName::from_static("accept"),
-                HeaderName::from_static("authorization"),
-                HeaderName::from_static("content-type"),
-                HeaderName::from_static("origin"),
-                HeaderName::from_static("referer"),
-                // Custom API headers
-                HeaderName::from_static("x-api-version"),
-                HeaderName::from_static("x-request-id"),
-                HeaderName::from_static("x-client-version"),
-                HeaderName::from_static("x-admin-session"),
-                // Next.js React Server Components
-                HeaderName::from_static("rsc"),
-                HeaderName::from_static("next-router-prefetch"),
-                HeaderName::from_static("next-router-state-tree"),
-                HeaderName::from_static("next-url"),
-                HeaderName::from_static("purpose"),
-                HeaderName::from_static("x-middleware-prefetch"),
-                HeaderName::from_static("x-nextjs-data"),
-                // Web3 authentication headers
-                HeaderName::from_static("x-wallet-address"),
-                HeaderName::from_static("x-chain-id"),
-                HeaderName::from_static("x-web3-signature"),
-                HeaderName::from_static("x-signed-message"),
-                HeaderName::from_static("x-timestamp"),
-                HeaderName::from_static("x-nonce"),
-            ])
-            .expose_headers([
-                HeaderName::from_static("x-request-id"),
-                HeaderName::from_static("x-rate-limit-remaining"),
-                HeaderName::from_static("x-rate-limit-reset"),
-            ])
-            .allow_credentials(false) // Must be false when using Any origin
-            .max_age(Duration::from_secs(86400))
+        if is_production() {
+            // Production: Use Any origin without credentials
+            CorsLayer::new()
+                .allow_origin(Any)
+                .allow_methods([
+                    Method::GET,
+                    Method::POST,
+                    Method::PUT,
+                    Method::PATCH,
+                    Method::DELETE,
+                    Method::OPTIONS,
+                ])
+                .allow_headers([
+                    HeaderName::from_static("accept"),
+                    HeaderName::from_static("authorization"),
+                    HeaderName::from_static("content-type"),
+                    HeaderName::from_static("origin"),
+                    HeaderName::from_static("referer"),
+                    HeaderName::from_static("x-api-version"),
+                    HeaderName::from_static("x-request-id"),
+                    HeaderName::from_static("x-client-version"),
+                    HeaderName::from_static("x-admin-session"),
+                    HeaderName::from_static("rsc"),
+                    HeaderName::from_static("next-router-prefetch"),
+                    HeaderName::from_static("next-router-state-tree"),
+                    HeaderName::from_static("next-url"),
+                    HeaderName::from_static("purpose"),
+                    HeaderName::from_static("x-middleware-prefetch"),
+                    HeaderName::from_static("x-nextjs-data"),
+                    HeaderName::from_static("x-wallet-address"),
+                    HeaderName::from_static("x-chain-id"),
+                    HeaderName::from_static("x-web3-signature"),
+                    HeaderName::from_static("x-signed-message"),
+                    HeaderName::from_static("x-timestamp"),
+                    HeaderName::from_static("x-nonce"),
+                ])
+                .expose_headers([
+                    HeaderName::from_static("x-request-id"),
+                    HeaderName::from_static("x-rate-limit-remaining"),
+                    HeaderName::from_static("x-rate-limit-reset"),
+                ])
+                .allow_credentials(false)
+                .max_age(Duration::from_secs(86400))
+        } else {
+            // Development: Use specific origins with credentials
+            let origins: Vec<HeaderValue> = vec![
+                "http://localhost:3000".parse().unwrap(),
+                "http://localhost:3001".parse().unwrap(),
+                "http://127.0.0.1:3000".parse().unwrap(),
+                "http://127.0.0.1:3001".parse().unwrap(),
+            ];
+
+            CorsLayer::new()
+                .allow_origin(origins)
+                .allow_methods([
+                    Method::GET,
+                    Method::POST,
+                    Method::PUT,
+                    Method::PATCH,
+                    Method::DELETE,
+                    Method::OPTIONS,
+                ])
+                .allow_headers([
+                    HeaderName::from_static("accept"),
+                    HeaderName::from_static("authorization"),
+                    HeaderName::from_static("content-type"),
+                    HeaderName::from_static("origin"),
+                    HeaderName::from_static("referer"),
+                    HeaderName::from_static("x-api-version"),
+                    HeaderName::from_static("x-request-id"),
+                    HeaderName::from_static("x-client-version"),
+                    HeaderName::from_static("x-admin-session"),
+                    HeaderName::from_static("rsc"),
+                    HeaderName::from_static("next-router-prefetch"),
+                    HeaderName::from_static("next-router-state-tree"),
+                    HeaderName::from_static("next-url"),
+                    HeaderName::from_static("purpose"),
+                    HeaderName::from_static("x-middleware-prefetch"),
+                    HeaderName::from_static("x-nextjs-data"),
+                    HeaderName::from_static("x-wallet-address"),
+                    HeaderName::from_static("x-chain-id"),
+                    HeaderName::from_static("x-web3-signature"),
+                    HeaderName::from_static("x-signed-message"),
+                    HeaderName::from_static("x-timestamp"),
+                    HeaderName::from_static("x-nonce"),
+                ])
+                .expose_headers([
+                    HeaderName::from_static("x-request-id"),
+                    HeaderName::from_static("x-rate-limit-remaining"),
+                    HeaderName::from_static("x-rate-limit-reset"),
+                ])
+                .allow_credentials(true) // Can allow credentials with specific origins
+                .max_age(Duration::from_secs(3600))
+        }
     }
 }

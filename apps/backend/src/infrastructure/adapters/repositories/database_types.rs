@@ -309,19 +309,21 @@ impl PermissionGroupRepository {
     pub async fn get_subscription_plans(&self) -> Result<Vec<PermissionGroup>, sqlx::Error> {
         let plans = sqlx::query_as::<_, PermissionGroup>(
             r#"
-            SELECT 
-                id, name, slug, description, group_type, permissions, group_metadata,
+            SELECT
+                id, name, slug, description, group_type,
+                COALESCE(group_metadata->'permissions', '[]'::jsonb) as permissions,
+                group_metadata,
                 price, currency, billing_cycle, is_active, is_promoted, display_order,
                 max_members, auto_assign_enabled, assignment_rules, created_at, updated_at,
                 created_by, last_modified_by
-            FROM permission_groups 
-            WHERE group_type = 'subscription' AND COALESCE(is_active, true) = true 
+            FROM permission_groups
+            WHERE group_type = 'subscription' AND COALESCE(is_active, true) = true
             ORDER BY COALESCE(display_order, 0), COALESCE(price, 0)
             "#
         )
         .fetch_all(&*self.pool)
         .await?;
-        
+
         Ok(plans)
     }
 
@@ -329,19 +331,21 @@ impl PermissionGroupRepository {
     pub async fn get_plan_by_id(&self, plan_id: Uuid) -> Result<Option<PermissionGroup>, sqlx::Error> {
         let plan = sqlx::query_as::<_, PermissionGroup>(
             r#"
-            SELECT 
-                id, name, slug, description, group_type, permissions, group_metadata,
+            SELECT
+                id, name, slug, description, group_type,
+                COALESCE(group_metadata->'permissions', '[]'::jsonb) as permissions,
+                group_metadata,
                 price, currency, billing_cycle, is_active, is_promoted, display_order,
                 max_members, auto_assign_enabled, assignment_rules, created_at, updated_at,
                 created_by, last_modified_by
-            FROM permission_groups 
+            FROM permission_groups
             WHERE id = $1 AND group_type = 'subscription'
             "#
         )
         .bind(plan_id)
         .fetch_optional(&*self.pool)
         .await?;
-        
+
         Ok(plan)
     }
 
@@ -349,19 +353,21 @@ impl PermissionGroupRepository {
     pub async fn get_all_groups(&self) -> Result<Vec<PermissionGroup>, sqlx::Error> {
         let groups = sqlx::query_as::<_, PermissionGroup>(
             r#"
-            SELECT 
-                id, name, slug, description, group_type, permissions, group_metadata,
+            SELECT
+                id, name, slug, description, group_type,
+                COALESCE(group_metadata->'permissions', '[]'::jsonb) as permissions,
+                group_metadata,
                 price, currency, billing_cycle, is_active, is_promoted, display_order,
                 max_members, auto_assign_enabled, assignment_rules, created_at, updated_at,
                 created_by, last_modified_by
-            FROM permission_groups 
-            WHERE COALESCE(is_active, true) = true 
+            FROM permission_groups
+            WHERE COALESCE(is_active, true) = true
             ORDER BY COALESCE(display_order, 0), name
             "#
         )
         .fetch_all(&*self.pool)
         .await?;
-        
+
         Ok(groups)
     }
 
@@ -369,32 +375,42 @@ impl PermissionGroupRepository {
     pub async fn get_group_by_id(&self, group_id: Uuid) -> Result<Option<PermissionGroup>, sqlx::Error> {
         let group = sqlx::query_as::<_, PermissionGroup>(
             r#"
-            SELECT 
-                id, name, slug, description, group_type, permissions, group_metadata,
+            SELECT
+                id, name, slug, description, group_type,
+                COALESCE(group_metadata->'permissions', '[]'::jsonb) as permissions,
+                group_metadata,
                 price, currency, billing_cycle, is_active, is_promoted, display_order,
                 max_members, auto_assign_enabled, assignment_rules, created_at, updated_at,
                 created_by, last_modified_by
-            FROM permission_groups 
+            FROM permission_groups
             WHERE id = $1
             "#
         )
         .bind(group_id)
         .fetch_optional(&*self.pool)
         .await?;
-        
+
         Ok(group)
     }
 
     /// Create a new permission group
     pub async fn create_group(&self, new_group: NewPermissionGroup) -> Result<PermissionGroup, sqlx::Error> {
+        // Merge permissions into group_metadata
+        let mut metadata = new_group.group_metadata.clone();
+        if let Some(obj) = metadata.as_object_mut() {
+            obj.insert("permissions".to_string(), new_group.permissions.clone());
+        }
+
         let group = sqlx::query_as::<_, PermissionGroup>(
             r#"
             INSERT INTO permission_groups (
-                name, slug, description, group_type, permissions, group_metadata,
+                name, slug, description, group_type, group_metadata,
                 price, currency, billing_cycle, is_active, display_order, created_by
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-            RETURNING 
-                id, name, slug, description, group_type, permissions, group_metadata,
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            RETURNING
+                id, name, slug, description, group_type,
+                COALESCE(group_metadata->'permissions', '[]'::jsonb) as permissions,
+                group_metadata,
                 price, currency, billing_cycle, is_active, is_promoted, display_order,
                 max_members, auto_assign_enabled, assignment_rules, created_at, updated_at,
                 created_by, last_modified_by
@@ -404,8 +420,7 @@ impl PermissionGroupRepository {
         .bind(&new_group.slug)
         .bind(&new_group.description)
         .bind(&new_group.group_type)
-        .bind(&new_group.permissions)
-        .bind(&new_group.group_metadata)
+        .bind(&metadata)
         .bind(new_group.price)
         .bind(new_group.currency)
         .bind(new_group.billing_cycle)
@@ -414,7 +429,7 @@ impl PermissionGroupRepository {
         .bind(new_group.created_by)
         .fetch_one(&*self.pool)
         .await?;
-        
+
         Ok(group)
     }
 
@@ -425,7 +440,10 @@ impl PermissionGroupRepository {
             UPDATE permission_groups SET
                 name = COALESCE($2, name),
                 description = COALESCE($3, description),
-                permissions = COALESCE($4, permissions),
+                group_metadata = CASE
+                    WHEN $4 IS NOT NULL THEN jsonb_set(COALESCE(group_metadata, '{}'::jsonb), '{permissions}', $4)
+                    ELSE group_metadata
+                END,
                 price = COALESCE($5, price),
                 currency = COALESCE($6, currency),
                 billing_cycle = COALESCE($7, billing_cycle),
@@ -434,7 +452,9 @@ impl PermissionGroupRepository {
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = $1
             RETURNING
-                id, name, slug, description, group_type, permissions, group_metadata,
+                id, name, slug, description, group_type,
+                COALESCE(group_metadata->'permissions', '[]'::jsonb) as permissions,
+                group_metadata,
                 price, currency, billing_cycle, is_active, is_promoted, display_order,
                 max_members, auto_assign_enabled, assignment_rules, created_at, updated_at,
                 created_by, last_modified_by
@@ -457,21 +477,28 @@ impl PermissionGroupRepository {
 
     /// Update plan (alias for update_group, used specifically for subscription plans)
     pub async fn update_plan(&self, plan: PermissionGroup) -> Result<PermissionGroup, sqlx::Error> {
+        // Merge permissions into group_metadata
+        let mut metadata = plan.group_metadata.clone();
+        if let Some(obj) = metadata.as_object_mut() {
+            obj.insert("permissions".to_string(), plan.permissions.clone());
+        }
+
         let updated_plan = sqlx::query_as::<_, PermissionGroup>(
             r#"
             UPDATE permission_groups SET
                 name = $2,
                 description = $3,
-                permissions = $4,
-                group_metadata = $5,
-                price = $6,
-                currency = $7,
-                billing_cycle = $8,
-                is_active = $9,
+                group_metadata = $4,
+                price = $5,
+                currency = $6,
+                billing_cycle = $7,
+                is_active = $8,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = $1 AND group_type = 'subscription'
             RETURNING
-                id, name, slug, description, group_type, permissions, group_metadata,
+                id, name, slug, description, group_type,
+                COALESCE(group_metadata->'permissions', '[]'::jsonb) as permissions,
+                group_metadata,
                 price, currency, billing_cycle, is_active, is_promoted, display_order,
                 max_members, auto_assign_enabled, assignment_rules, created_at, updated_at,
                 created_by, last_modified_by
@@ -480,8 +507,7 @@ impl PermissionGroupRepository {
         .bind(plan.id)
         .bind(plan.name)
         .bind(plan.description)
-        .bind(plan.permissions)
-        .bind(plan.group_metadata)
+        .bind(&metadata)
         .bind(plan.price)
         .bind(plan.currency)
         .bind(plan.billing_cycle)

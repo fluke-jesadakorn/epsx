@@ -65,7 +65,7 @@ pub struct OpenIDErrorResponse {
 /// Authenticate Web3 wallet and issue OpenID Connect tokens
 #[utoipa::path(
     post,
-    path = "/api/v1/auth/web3/token",
+    path = "/api/auth/web3/token",
     request_body = Web3OpenIDAuthRequest,
     responses(
         (status = 200, description = "OpenID tokens issued successfully", body = OpenIDTokenResponse),
@@ -139,7 +139,7 @@ pub async fn authenticate_web3_and_issue_openid_tokens(
 /// Refresh OpenID Connect tokens
 #[utoipa::path(
     post,
-    path = "/api/v1/auth/token/refresh",
+    path = "/api/auth/token/refresh",
     request_body = RefreshTokenRequest,
     responses(
         (status = 200, description = "Tokens refreshed successfully", body = OpenIDTokenResponse),
@@ -212,7 +212,7 @@ pub async fn refresh_openid_tokens(
 /// Revoke refresh token (logout)
 #[utoipa::path(
     post,
-    path = "/api/v1/auth/token/revoke",
+    path = "/api/auth/token/revoke",
     request_body = RefreshTokenRequest,
     responses(
         (status = 200, description = "Token revoked successfully"),
@@ -277,8 +277,8 @@ pub async fn openid_discovery(
     Json(json!({
         "issuer": "https://api.epsx.io",
         "authorization_endpoint": "https://api.epsx.io/auth/web3-signin",
-        "token_endpoint": "https://api.epsx.io/api/v1/auth/web3/token",
-        "userinfo_endpoint": "https://api.epsx.io/api/v1/auth/userinfo",
+        "token_endpoint": "https://api.epsx.io/api/auth/web3/token",
+        "userinfo_endpoint": "https://api.epsx.io/api/auth/userinfo",
         "jwks_uri": "https://api.epsx.io/.well-known/jwks.json",
         "response_types_supported": ["code", "token"],
         "subject_types_supported": ["public"],
@@ -290,8 +290,8 @@ pub async fn openid_discovery(
             "wallet_address", "permissions"
         ],
         "grant_types_supported": ["refresh_token", "web3_wallet"],
-        "web3_auth_endpoint": "https://api.epsx.io/api/v1/auth/web3/token",
-        "web3_challenge_endpoint": "https://api.epsx.io/api/v1/auth/web3/challenge",
+        "web3_auth_endpoint": "https://api.epsx.io/api/auth/web3/token",
+        "web3_challenge_endpoint": "https://api.epsx.io/api/auth/web3/challenge",
         "web3_supported_methods": ["siwe"]
     }))
 }
@@ -330,7 +330,7 @@ pub async fn jwks(
 /// Get user information from access token
 #[utoipa::path(
     get,
-    path = "/api/v1/auth/userinfo",
+    path = "/api/auth/userinfo",
     responses(
         (status = 200, description = "User information", body = Value),
         (status = 401, description = "Invalid or expired token"),

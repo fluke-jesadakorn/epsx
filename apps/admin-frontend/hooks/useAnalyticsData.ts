@@ -3,6 +3,8 @@
 import useSWR from 'swr';
 import { useCallback } from 'react';
 
+import { apiFetch } from '@/lib/api-fetch';
+
 // Client-side interfaces for analytics data
 interface AnalyticsDashboardData {
   user_stats?: any;
@@ -40,32 +42,15 @@ interface SystemMetrics {
   new_signups: number;
 }
 
-// Fetcher function for SWR
+// Fetcher function for SWR - uses apiFetch
 const fetcher = async (url: string) => {
-  const response = await fetch(url, {
-    method: 'GET',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch: ${response.status}`);
-  }
-
-  const data = await response.json();
-  if (!data.success) {
-    throw new Error(data.error?.message || 'API request failed');
-  }
-
-  return data.data;
+  return await apiFetch(url);
 };
 
 // Real-time data fetching hooks
 export function useUserStats() {
   const { data, error, isLoading, mutate } = useSWR<UserStats>(
-    '/api/v1/admin/users/stats',
+    '/api/admin/users/stats',
     fetcher,
     {
       refreshInterval: 30000, // Refresh every 30 seconds
@@ -84,7 +69,7 @@ export function useUserStats() {
 
 export function usePermissionAnalytics() {
   const { data, error, isLoading, mutate } = useSWR<PermissionAnalytics>(
-    '/api/v1/admin/analytics/permissions',
+    '/api/admin/analytics/permissions',
     fetcher,
     {
       refreshInterval: 60000, // Refresh every minute
@@ -103,7 +88,7 @@ export function usePermissionAnalytics() {
 
 export function useSystemMetrics() {
   const { data, error, isLoading, mutate } = useSWR<SystemMetrics>(
-    '/api/v1/admin/analytics/performance',
+    '/api/admin/analytics/performance',
     fetcher,
     {
       refreshInterval: 10000, // Refresh every 10 seconds for real-time system metrics
@@ -122,7 +107,7 @@ export function useSystemMetrics() {
 
 export function useAnalyticsDashboard(dateRange: string = '7d', selectedModule: string = 'all') {
   const { data, error, isLoading, mutate } = useSWR<AnalyticsDashboardData>(
-    `/api/v1/admin/analytics/dashboard?dateRange=${dateRange}&selectedModule=${selectedModule}`,
+    `/api/admin/analytics/dashboard?dateRange=${dateRange}&selectedModule=${selectedModule}`,
     fetcher,
     {
       refreshInterval: 60000, // Refresh every minute
@@ -142,7 +127,7 @@ export function useAnalyticsDashboard(dateRange: string = '7d', selectedModule: 
 // API Key Management - Server-side data fetching
 export function useApiKeys() {
   const { data, error, isLoading, mutate } = useSWR(
-    '/api/v1/admin/api-keys',
+    '/api/admin/api-keys',
     fetcher,
     {
       refreshInterval: 300000, // Refresh every 5 minutes

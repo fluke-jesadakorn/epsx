@@ -49,7 +49,7 @@ pub struct UserPermissionsQuery {
 /// Uses OpenID Bearer token for authentication
 #[utoipa::path(
     get,
-    path = "/api/v1/wallet/profile",
+    path = "/api/wallet/profile",
     responses(
         (status = 200, description = "User profile retrieved successfully", body = UnifiedApiResponse<UserProfile>),
         (status = 401, description = "Authentication required"),
@@ -105,7 +105,7 @@ pub async fn get_current_user_profile(
 /// Requires specific permission to view permissions
 #[utoipa::path(
     get,
-    path = "/api/v1/wallet/permissions",
+    path = "/api/wallet/permissions",
     params(UserPermissionsQuery),
     responses(
         (status = 200, description = "User permissions retrieved", body = UnifiedApiResponse<Vec<String>>),
@@ -180,7 +180,7 @@ pub struct UpdateUserPreferencesRequest {
 
 #[utoipa::path(
     post,
-    path = "/api/v1/wallet/preferences",
+    path = "/api/wallet/preferences",
     request_body = UpdateUserPreferencesRequest,
     responses(
         (status = 200, description = "Preferences updated successfully", body = UnifiedApiResponse<Value>),
@@ -237,7 +237,7 @@ pub async fn update_user_preferences(
 /// Example of admin-only endpoint with permission checking
 #[utoipa::path(
     get,
-    path = "/api/v1/admin/wallets/{wallet_address}",
+    path = "/api/admin/wallets/{wallet_address}",
     params(
         ("wallet_address" = String, Path, description = "Wallet address of the user")
     ),

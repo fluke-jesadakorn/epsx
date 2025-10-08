@@ -182,7 +182,7 @@ export const ADMIN_IAM_CONFIG = {
     client: {
       baseUrl: '/api/admin',
       endpoints: {
-        auth: '/api/v1/auth',
+        auth: '/api/auth',
         permissions: '/api/admin/permissions',
         users: '/api/admin/users',
         analytics: '/api/admin/analytics',

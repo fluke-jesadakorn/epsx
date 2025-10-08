@@ -82,13 +82,36 @@ impl WebSocketEarningsService {
         // Add any remaining cached results
         Self::add_cached_results(&symbols, &mut result_map);
 
+        // Validate all symbols have data
+        let missing_symbols: Vec<String> = symbols
+            .iter()
+            .filter(|s| !result_map.contains_key(*s))
+            .cloned()
+            .collect();
+
+        if !missing_symbols.is_empty() {
+            tracing::error!(
+                "❌ Missing earnings data for {} symbols: {:?}",
+                missing_symbols.len(),
+                missing_symbols
+            );
+            return Err(
+                AppError::validation_error(
+                    format!(
+                        "No earnings data available for symbols: {}",
+                        missing_symbols.join(", ")
+                    )
+                )
+            );
+        }
+
         tracing::info!("📊 WebSocket earnings fetch complete: {}/{} symbols processed",
                       result_map.len(), symbols.len());
 
         Ok(result_map)
     }
 
-    /// Fetch WebSocket data with timeout and fallback
+    /// Fetch WebSocket data with timeout
     async fn fetch_with_timeout(symbols: Vec<String>) -> Result<Vec<EPSWebSocketData>, AppError> {
         let fetch_future = async {
             let mut websocket_service = TradingViewWebSocketService::new();
@@ -98,7 +121,7 @@ impl WebSocketEarningsService {
         match tokio::time::timeout(std::time::Duration::from_secs(15), fetch_future).await {
             Ok(Ok(data)) => Ok(data),
             Ok(Err(e)) => {
-                tracing::warn!("⚠️ WebSocket earnings fetch failed: {}, using fallbacks", e);
+                tracing::error!("❌ WebSocket earnings fetch failed: {}", e);
                 Err(e)
             }
             Err(_) => {
@@ -115,7 +138,7 @@ impl WebSocketEarningsService {
         current_timestamp: i64,
         result_map: &mut HashMap<String, (i64, i32)>
     ) {
-        tracing::warn!("⚠️ No quarterly pattern available for {}, calculating from last announcement", symbol);
+        tracing::warn!("⚠️ No quarterly pattern available for {}, trying last announcement", symbol);
 
         // Try to calculate from last known announcement
         if let Some(last_quarter) = quarterly_data.first() {
@@ -128,11 +151,7 @@ impl WebSocketEarningsService {
             }
         }
 
-        // Last resort: use smart fallback
-        let fallback_days = Self::get_smart_fallback_estimate(symbol);
-        let fallback_timestamp = current_timestamp + (fallback_days as i64 * 86400);
-        result_map.insert(symbol.to_string(), (fallback_timestamp, fallback_days));
-        tracing::warn!("⚠️ Using hardcoded fallback for {}: {} days", symbol, fallback_days);
+        tracing::error!("❌ No valid earnings data available for {}", symbol);
     }
 
     /// Add cached results for symbols not fetched from WebSocket
@@ -147,23 +166,6 @@ impl WebSocketEarningsService {
         }
     }
 
-    /// Get intelligent fallback estimate based on symbol characteristics
-    pub fn get_smart_fallback_estimate(symbol: &str) -> i32 {
-        match symbol {
-            "MSFT" => 29, "AMZN" => 24, "TSLA" => 16, "NVDA" => 51,
-            "AAPL" => 31, "META" => 28, "GOOGL" | "GOOG" => 26,
-            _ => {
-                let symbol_upper = symbol.to_uppercase();
-                if symbol_upper.len() <= 3 && matches!(symbol_upper.as_str(), "JPM" | "BAC" | "WFC" | "C") {
-                    15 // Financial early reporters
-                } else if symbol.chars().any(|c| c.is_numeric()) || symbol.len() >= 5 {
-                    35 // International stocks
-                } else {
-                    25 // Standard US companies
-                }
-            }
-        }
-    }
 
     /// Find next earnings announcement from quarterly data using intelligent QoQ pattern analysis
     fn find_next_earnings_announcement(quarterly_data: &[QuarterlyEPSData], current_timestamp: i64) -> Option<i64> {

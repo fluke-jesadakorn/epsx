@@ -89,7 +89,7 @@ pub async fn generate_challenge_handler(
                 "success": true,
                 "nonce": challenge.nonce,
                 "message": challenge.message,
-                "expires_at": challenge.expires_at,
+                "expires_at": challenge.expires_at.timestamp(),
                 "wallet_address": challenge.wallet_address
             })))
         }

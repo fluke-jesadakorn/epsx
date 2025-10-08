@@ -64,7 +64,7 @@ type PaymentStep = 'package' | 'payment' | 'confirmation'
 // API helper function to fetch plans
 const fetchPlans = async (): Promise<PaymentPackage[]> => {
   try {
-    const response = await fetch('/api/v1/public/plans', {
+    const response = await fetch('/api/public/plans', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -311,7 +311,7 @@ export default function OneClickPayment({
     // Call backend to confirm payment and activate subscription
     if (selectedPkg) {
       try {
-        const response = await fetch('/api/v1/payments/confirm', {
+        const response = await fetch('/api/payments/confirm', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

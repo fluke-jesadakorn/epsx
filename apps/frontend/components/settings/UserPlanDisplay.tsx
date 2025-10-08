@@ -38,7 +38,7 @@ export function UserPlanDisplay({ userId }: UserPlanDisplayProps) {
     try {
       setLoading(true)
       // Fetch user permissions from the new permission-based API
-      const response = await fetch(`/api/v1/user/permissions`)
+      const response = await fetch(`/api/user/permissions`)
       
       if (response.ok) {
         const data = await response.json()

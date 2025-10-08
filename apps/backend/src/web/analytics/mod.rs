@@ -14,146 +14,35 @@ pub use types::{AuthenticatedUser, AnalyticsQuery};
 pub use eps_handlers::*;
 
 use axum::{
-    routing::{get, post},
-    Router,
-    Extension,
     extract::{Request, Path, Query},
     http::StatusCode,
     response::{Json, Response, IntoResponse},
-    middleware::from_fn,
+    middleware::Next,
+    Extension,
 };
-use axum::middleware::Next;
 use chrono::Datelike;
 use std::sync::Arc;
 
-use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
-use crate::config::Config;
-use crate::infrastructure::cache::{Cache, ServerlessCacheFactory};
-
-pub async fn create_analytics_router(db_pool: Arc<sqlx::PgPool>) -> Router {
-    // Create services for both database and cache approaches
-
-    // Create cache-based EPS service with TradingView integration
-    let config = match Config::from_env() {
-        Ok(config) => std::sync::Arc::new(config),
-        Err(e) => {
-            tracing::warn!("Failed to load config, using fallback: {:?}", e);
-            // Use a minimal config that should work for basic operation
-            std::sync::Arc::new(crate::config::get_fallback_config())
-        }
-    };
-    let tradingview_service = std::sync::Arc::new(TradingViewApiService::new(config.clone()));
-
-    // Create TradingView-based EPS repository
-    let eps_repository = std::sync::Arc::new(TradingViewEPSRepository::new(tradingview_service.clone()));
-
-    // Create EPS ranking service with TradingView repository
-    let eps_ranking_service = std::sync::Arc::new(
-        crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService::new(eps_repository)
-    );
-
-    // Create unified cache service (Redis-only for serverless)
-    let unified_cache_service: std::sync::Arc<dyn Cache> = ServerlessCacheFactory::redis_only_arc().await
-        .unwrap_or_else(|e| {
-            tracing::warn!("Redis cache creation failed: {}, falling back to minimal cache", e);
-            std::sync::Arc::new(crate::infrastructure::cache::MemoryCache::new())
-        });
-
-    // Clone database pool for Extension layer
-    let db_pool_for_extension = db_pool.as_ref().clone();
-
-    // Create versioned routes with permission middleware
-    let v1_routes = Router::new()
-        // Main EPS rankings endpoints (RESTful structure) - now internally using DDD Trading Analytics
-        .route("/api/v1/analytics/eps-rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
-        // Compatibility endpoint - same handler, different path
-        .route("/api/v1/analytics/rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
-        // All existing endpoints continue to work with same API contract
-        .route("/api/v1/analytics/eps-rankings/countries", get(eps_handlers::get_available_countries))
-        .route("/api/v1/analytics/eps-rankings/countries/all", get(eps_handlers::get_all_valid_countries))
-        .route("/api/v1/analytics/eps-rankings/sectors", get(eps_handlers::get_sectors_by_country))
-        .route("/api/v1/analytics/eps-rankings/health", get(eps_handlers::eps_health_check))
-        // Simplified analytics endpoints for frontend compatibility
-        .route("/api/v1/analytics/filters", get(eps_handlers::get_filter_options))
-        .route("/api/v1/analytics/countries", get(eps_handlers::get_available_countries))
-        .route("/api/v1/analytics/sectors", get(eps_handlers::get_sectors_by_country))
-        // Cache management endpoints - require epsx:analytics:manage permission
-        .route("/api/v1/analytics/cache/stats", get(eps_handlers::get_cache_stats))
-        .route("/api/v1/analytics/cache/refresh", post(eps_handlers::force_cache_refresh))
-        .route("/api/v1/analytics/cache/health", get(eps_handlers::cache_health_check))
-        // Admin cache management endpoints (namespace consistency)
-        .route("/api/v1/admin/cache/stats", get(eps_handlers::get_cache_stats))
-        .route("/api/v1/admin/cache/refresh", post(eps_handlers::force_cache_refresh))
-        .route("/api/v1/admin/cache/health", get(eps_handlers::cache_health_check))
-        // System metrics endpoint for admin dashboard
-        .route("/api/v1/admin/analytics/metrics", get(system_metrics_handler))
-        // Admin analytics endpoints for dashboard
-        .route("/api/v1/admin/analytics/time-series", get(admin_time_series_handler))
-        .route("/api/v1/admin/analytics/modules", get(admin_modules_handler))
-        // Stock ranking assignment endpoints
-        .route("/api/v1/admin/stock-ranking/assignments", get(stock_ranking_assignments_handler))
-        .route("/api/v1/admin/stock-ranking/assignments/:assignment_id/extend", post(extend_assignment_handler))
-        .route("/api/v1/admin/stock-ranking/assignments/:assignment_id/revoke", post(revoke_assignment_handler))
-        // Add service extensions before middleware
-        .layer(Extension(db_pool_for_extension.clone()))
-        .layer(Extension(unified_cache_service.clone()))
-        .layer(Extension(eps_ranking_service.clone()))
-        // Web3 authentication middleware disabled - using permission-based validation instead
-        // Apply analytics view permission requirement to all analytics routes
-        .layer(from_fn(require_analytics_permission));
-
-    // Legacy routes for backward compatibility with permission enforcement
-    let legacy_routes = Router::new()
-        .route("/analytics/rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
-        .route("/analytics/eps-rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
-        .route("/analytics/eps-rankings/countries", get(eps_handlers::get_available_countries))
-        .route("/analytics/eps-rankings/countries/all", get(eps_handlers::get_all_valid_countries))
-        .route("/analytics/eps-rankings/sectors", get(eps_handlers::get_sectors_by_country))
-        .route("/analytics/eps-rankings/health", get(eps_handlers::eps_health_check))
-        .route("/analytics/system/metrics", get(system_metrics_handler))
-        // V1 prefix routes (also legacy - should use /api/v1/ instead)
-        .route("/v1/analytics/rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
-        .route("/v1/analytics/eps-rankings", get(eps_handlers::get_unified_analytics_rankings_cached))
-        .route("/v1/analytics/eps-rankings/countries", get(eps_handlers::get_available_countries))
-        .route("/v1/analytics/eps-rankings/countries/all", get(eps_handlers::get_all_valid_countries))
-        .route("/v1/analytics/eps-rankings/sectors", get(eps_handlers::get_sectors_by_country))
-        .route("/v1/analytics/eps-rankings/health", get(eps_handlers::eps_health_check))
-        .route("/v1/analytics/cache/stats", get(eps_handlers::get_cache_stats))
-        .route("/v1/analytics/cache/refresh", post(eps_handlers::force_cache_refresh))
-        .route("/v1/analytics/cache/health", get(eps_handlers::cache_health_check))
-        // Add service extensions before middleware
-        .layer(Extension(db_pool_for_extension.clone()))
-        .layer(Extension(unified_cache_service.clone()))
-        .layer(Extension(eps_ranking_service.clone()))
-        // Web3 authentication middleware disabled - using permission-based validation instead
-        .layer(from_fn(require_analytics_permission));
-
-    // Public routes (no authentication required) - use simple test handler first
-    let public_routes = Router::new()
-        .route("/api/v1/public/analytics/rankings", get(simple_rankings_handler))
-        .route("/api/v1/public/analytics/eps-rankings", get(simple_rankings_handler))
-        .route("/api/v1/debug/websocket-earnings", get(debug_websocket_earnings))
-        .route("/api/v1/public/analytics/filters", get(eps_handlers::get_filter_options))
-        .route("/api/v1/public/analytics/countries", get(eps_handlers::get_available_countries))
-        .route("/api/v1/public/analytics/sectors", get(eps_handlers::get_sectors_by_country))
-        // Portfolio routes - positive growth only
-        .route("/api/v1/portfolio/rankings", get(portfolio_rankings_handler))
-        .route("/api/v1/public/portfolio/rankings", get(portfolio_rankings_handler));
-        // No authentication middleware for public routes - test with simple handler first
-
-    // Note: EPS repository implementation removed - using direct TradingView integration
-
-    Router::new()
-        .merge(v1_routes)
-        .merge(legacy_routes)
-        .merge(public_routes)
-        // Add EPS service extension (cache extensions already added to individual route groups)
-        // Note: EPS service extension removed with repository cleanup
-}
+// NOTE: Legacy create_analytics_router function DELETED
+// All routes are now managed by UnifiedRouteBuilder in src/web/routes/unified_router.rs
+// This function was creating duplicate routes and is no longer used.
+// Deleted on: 2025-01-XX during route reconciliation cleanup
 
 /// System metrics handler for admin dashboard (CQRS-based)
-/// GET /api/v1/admin/analytics/metrics
-async fn system_metrics_handler(
+/// GET /api/admin/analytics/metrics
+#[utoipa::path(
+    get,
+    path = "/api/admin/analytics/metrics",
+    tag = "admin-analytics",
+    responses(
+        (status = 200, description = "Successfully retrieved system metrics"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+        (status = 500, description = "Internal server error")
+    ),
+    security(("bearerAuth" = []))
+)]
+pub async fn system_metrics_handler(
     Extension(db_pool): Extension<sqlx::PgPool>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     use crate::application::shared::QueryHandler;
@@ -195,8 +84,26 @@ async fn system_metrics_handler(
 }
 
 /// Admin time series data handler for dashboard (CQRS-based)
-/// GET /api/v1/admin/analytics/time-series
-async fn admin_time_series_handler(
+/// GET /api/admin/analytics/time-series
+#[utoipa::path(
+    get,
+    path = "/api/admin/analytics/time-series",
+    tag = "admin-analytics",
+    responses(
+        (status = 200, description = "Successfully retrieved time series data"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+        (status = 500, description = "Internal server error")
+    ),
+    params(
+        ("start_date" = Option<String>, Query, description = "Start date in RFC3339 format"),
+        ("end_date" = Option<String>, Query, description = "End date in RFC3339 format"),
+        ("granularity" = Option<String>, Query, description = "Time granularity: hourly, daily, weekly, monthly"),
+        ("metric_type" = Option<String>, Query, description = "Metric type: api_requests, cache_hits, database_queries, active_users, ranking_updates")
+    ),
+    security(("bearerAuth" = []))
+)]
+pub async fn admin_time_series_handler(
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     use crate::application::shared::QueryHandler;
@@ -269,8 +176,23 @@ async fn admin_time_series_handler(
 }
 
 /// Admin modules data handler for dashboard (CQRS-based)
-/// GET /api/v1/admin/analytics/modules
-async fn admin_modules_handler(
+/// GET /api/admin/analytics/modules
+#[utoipa::path(
+    get,
+    path = "/api/admin/analytics/modules",
+    tag = "admin-analytics",
+    responses(
+        (status = 200, description = "Successfully retrieved admin modules data"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+        (status = 500, description = "Internal server error")
+    ),
+    params(
+        ("include_inactive" = Option<bool>, Query, description = "Include inactive modules")
+    ),
+    security(("bearerAuth" = []))
+)]
+pub async fn admin_modules_handler(
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     use crate::application::shared::QueryHandler;
@@ -472,12 +394,10 @@ async fn debug_websocket_earnings(
                     }));
                     tracing::info!("📊 {}: {} days from WebSocket", symbol, days);
                 } else {
-                    let fallback_days = WebSocketEarningsService::get_smart_fallback_estimate(symbol);
-                    debug_result["fallback_data"][symbol] = serde_json::json!({
-                        "days": fallback_days,
-                        "reason": "not_in_websocket_response"
-                    });
-                    tracing::warn!("⚠️ {}: No WebSocket data, fallback {} days", symbol, fallback_days);
+                    debug_result["errors"].as_array_mut().unwrap().push(serde_json::Value::String(
+                        format!("No data available for {}", symbol)
+                    ));
+                    tracing::error!("❌ {}: No WebSocket data available", symbol);
                 }
             }
         }
@@ -488,32 +408,14 @@ async fn debug_websocket_earnings(
             );
             debug_result["timing"]["status"] = serde_json::Value::String("error".to_string());
             debug_result["errors"].as_array_mut().unwrap().push(serde_json::Value::String(e.to_string()));
-            
+
             tracing::error!("❌ WebSocket service error: {}", e);
-            
-            // Show fallback for all symbols
-            for symbol in &symbols {
-                let fallback_days = WebSocketEarningsService::get_smart_fallback_estimate(symbol);
-                debug_result["fallback_data"][symbol] = serde_json::json!({
-                    "days": fallback_days,
-                    "reason": "websocket_service_error"
-                });
-            }
         }
         Err(_) => {
             debug_result["timing"]["status"] = serde_json::Value::String("timeout".to_string());
             debug_result["errors"].as_array_mut().unwrap().push(serde_json::Value::String("WebSocket timeout after 8 seconds".to_string()));
-            
+
             tracing::error!("⏰ WebSocket service timed out after 8 seconds");
-            
-            // Show fallback for all symbols
-            for symbol in &symbols {
-                let fallback_days = WebSocketEarningsService::get_smart_fallback_estimate(symbol);
-                debug_result["fallback_data"][symbol] = serde_json::json!({
-                    "days": fallback_days,
-                    "reason": "websocket_timeout"
-                });
-            }
         }
     }
     
@@ -567,28 +469,22 @@ async fn simple_rankings_handler(
     let symbols: Vec<String> = screening_results.iter().map(|r| r.symbol.clone()).collect();
     
     // Fetch real earnings dates via WebSocket with caching
-    let earnings_map = match WebSocketEarningsService::fetch_earnings_dates(symbols.clone()).await {
-        Ok(earnings) => {
-            tracing::info!("🎯 Retrieved WebSocket earnings data for {} symbols", earnings.len());
-            earnings
-        }
-        Err(e) => {
-            tracing::warn!("⚠️ WebSocket earnings fetch failed: {}, using fallback estimates", e);
-            std::collections::HashMap::new() // Empty map will trigger fallback logic
-        }
-    };
+    let earnings_map = WebSocketEarningsService::fetch_earnings_dates(symbols.clone()).await
+        .map_err(|e| {
+            tracing::error!("❌ WebSocket earnings fetch failed: {}", e);
+            StatusCode::SERVICE_UNAVAILABLE
+        })?;
+
+    tracing::info!("🎯 Retrieved WebSocket earnings data for {} symbols", earnings_map.len());
     
     // Fetch real QoQ growth data via WebSocket with caching
-    let qoq_map = match WebSocketEarningsService::fetch_qoq_data(symbols.clone()).await {
-        Ok(qoq_data) => {
-            tracing::info!("🎯 Retrieved WebSocket QoQ data for {} symbols", qoq_data.len());
-            qoq_data
-        }
-        Err(e) => {
-            tracing::warn!("⚠️ WebSocket QoQ fetch failed: {}, using screening data", e);
-            std::collections::HashMap::new() // Empty map will trigger fallback logic
-        }
-    };
+    let qoq_map = WebSocketEarningsService::fetch_qoq_data(symbols.clone()).await
+        .map_err(|e| {
+            tracing::error!("❌ WebSocket QoQ fetch failed: {}", e);
+            StatusCode::SERVICE_UNAVAILABLE
+        })?;
+
+    tracing::info!("🎯 Retrieved WebSocket QoQ data for {} symbols", qoq_map.len());
     
     // Convert screening results to EPSRanking format for analytics client
     let rankings: Vec<serde_json::Value> = screening_results
@@ -596,15 +492,16 @@ async fn simple_rankings_handler(
         .enumerate()
         .map(|(i, result)| {
             let ranking_position = (skip as usize) + i + 1;
-            // Use real WebSocket QoQ data or fallback to screening data
-            let growth_factor = if let Some(websocket_qoq) = qoq_map.get(&result.symbol) {
-                tracing::info!("📊 Using WebSocket QoQ for {}: {:.2}%", result.symbol, websocket_qoq);
-                *websocket_qoq
-            } else {
-                let fallback_growth = result.eps_growth_yoy.unwrap_or(result.change_percent);
-                tracing::info!("📈 Using screening QoQ for {}: {} %", result.symbol, fallback_growth);
-                fallback_growth
-            };
+            // Use real WebSocket QoQ data only
+            let growth_factor = qoq_map.get(&result.symbol)
+                .map(|websocket_qoq| {
+                    tracing::info!("📊 Using WebSocket QoQ for {}: {:.2}%", result.symbol, websocket_qoq);
+                    *websocket_qoq
+                })
+                .unwrap_or_else(|| {
+                    tracing::error!("❌ Missing QoQ data for {}", result.symbol);
+                    0.0
+                });
             let current_eps = result.current_eps.unwrap_or_else(|| {
                 // Calculate EPS from price/PE if not available
                 if let Some(pe_ratio) = result.pe_ratio {
@@ -629,15 +526,16 @@ async fn simple_rankings_handler(
                     _ => format!("{}-Q4", current_year)
                 };
                 
-                // Use real WebSocket earnings data or smart fallbacks
-                let (days_from_today, confidence_level) = if let Some((_timestamp, days_until)) = earnings_map.get(&result.symbol) {
-                    tracing::info!("📊 Using WebSocket data for {}: {} days", result.symbol, days_until);
-                    (*days_until, "Real TradingView WebSocket Data")
-                } else {
-                    let fallback_days = WebSocketEarningsService::get_smart_fallback_estimate(&result.symbol);
-                    tracing::info!("📈 Using smart fallback for {}: {} days", result.symbol, fallback_days);
-                    (fallback_days, "Smart Earnings Estimate")
-                };
+                // Use real WebSocket earnings data only
+                let (days_from_today, confidence_level) = earnings_map.get(&result.symbol)
+                    .map(|(_timestamp, days_until)| {
+                        tracing::info!("📊 Using WebSocket data for {}: {} days", result.symbol, days_until);
+                        (*days_until, "Real TradingView WebSocket Data")
+                    })
+                    .unwrap_or_else(|| {
+                        tracing::error!("❌ Missing earnings data for {}", result.symbol);
+                        (0, "Data Unavailable")
+                    });
                 
                 let announcement_date = now.date_naive() + chrono::Duration::days(days_from_today as i64);
                 let announcement_datetime: chrono::DateTime<chrono::Utc> = chrono::DateTime::from_naive_utc_and_offset(

@@ -39,7 +39,7 @@ export function SettingsClient() {
 
   const loadUserInfo = async () => {
     try {
-      const response = await fetch('/api/v1/auth/me');
+      const response = await fetch('/api/auth/me');
       if (response.ok) {
         const user = await response.json();
         setUserId(user.uid || user.id || user.user_id || '');
@@ -52,7 +52,7 @@ export function SettingsClient() {
   const loadNotificationPreferences = async () => {
     try {
       setPrefsLoading(true);
-      const response = await fetch('/api/v1/notifications/preferences');
+      const response = await fetch('/api/notifications/preferences');
       
       if (response.ok) {
         const data = await response.json();
@@ -78,7 +78,7 @@ export function SettingsClient() {
       setPrefsError(null);
       setPrefsSuccess(null);
       
-      const response = await fetch('/api/v1/notifications/preferences', {
+      const response = await fetch('/api/notifications/preferences', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

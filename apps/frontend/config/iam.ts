@@ -67,11 +67,11 @@ export const IAM_CONFIG = {
     client: {
       baseUrl: '/api',
       endpoints: {
-        auth: '/api/v1/auth',
-        permissions: '/api/v1/iam/permissions',
-        users: '/api/v1/users',
-        analytics: '/api/v1/analytics',
-        payment: '/api/v1/payment',
+        auth: '/api/auth',
+        permissions: '/api/iam/permissions',
+        users: '/api/users',
+        analytics: '/api/analytics',
+        payment: '/api/payment',
         web3: '/api/auth/web3',
       },
     },

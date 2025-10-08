@@ -3,11 +3,11 @@
 import { usePathname, useRouter } from 'next/navigation'
 import { ReactNode, useEffect, useState } from 'react'
 
-import { PancakeAdminLayout } from './PancakeAdminLayout'
+import { MainLayout } from './MainLayout'
 
 import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider'
 
-interface ConditionalAdminLayoutProps {
+interface AuthLayoutProps {
   children: ReactNode
   user?: {
     id: string
@@ -19,9 +19,10 @@ interface ConditionalAdminLayoutProps {
 
 // Pages that should NEVER have the admin layout
 const NO_LAYOUT_PATHS = [
-  '/unauthorized', 
+  '/unauthorized',
   '/access-denied',
-  '/request-access'
+  '/request-access',
+  '/permissions/policies'
 ]
 
 // Pages that don't require authentication
@@ -39,7 +40,7 @@ const PUBLIC_PATHS = [
  * @param root0.children
  * @param root0.user
  */
-export function ConditionalAdminLayout({ children, user: serverUser }: ConditionalAdminLayoutProps) {
+export function AuthLayout({ children, user: serverUser }: AuthLayoutProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
@@ -122,7 +123,7 @@ export function ConditionalAdminLayout({ children, user: serverUser }: Condition
   }
   
   // Special pages that never get layout
-  const isNoLayoutPage = NO_LAYOUT_PATHS.some(path => pathname === path)
+  const isNoLayoutPage = NO_LAYOUT_PATHS.some(path => pathname === path || pathname.startsWith(path))
   if (isNoLayoutPage) {
     return <>{children}</>
   }
@@ -138,8 +139,8 @@ export function ConditionalAdminLayout({ children, user: serverUser }: Condition
   // Always show layout for all pages except the excluded ones
   // This ensures consistent navigation and branding regardless of auth status
   return (
-    <PancakeAdminLayout user={layoutUser}>
+    <MainLayout user={layoutUser}>
       {children}
-    </PancakeAdminLayout>
+    </MainLayout>
   )
 }

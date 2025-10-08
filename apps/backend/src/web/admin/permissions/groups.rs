@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use sqlx::Row;
+use bigdecimal::BigDecimal;
 
 use crate::web::auth::AppState;
 use crate::web::responses::{AdminResponse, create_pagination};
@@ -18,14 +19,15 @@ use crate::web::responses::{AdminResponse, create_pagination};
 // REQUEST/RESPONSE TYPES
 // ============================================================================
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct CreateGroupRequest {
     pub name: String,
     pub slug: String,
     pub description: String,
     pub group_type: String,
     pub permissions: Vec<String>,
-    pub price: Option<f64>,
+    #[schema(value_type = Option<f64>)]
+    pub price: Option<BigDecimal>,
     pub currency: Option<String>,
     pub billing_cycle: Option<String>,
     pub is_active: Option<bool>,
@@ -36,12 +38,13 @@ pub struct CreateGroupRequest {
     pub group_metadata: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct UpdateGroupRequest {
     pub name: Option<String>,
     pub description: Option<String>,
     pub permissions: Option<Vec<String>>,
-    pub price: Option<f64>,
+    #[schema(value_type = Option<f64>)]
+    pub price: Option<BigDecimal>,
     pub currency: Option<String>,
     pub billing_cycle: Option<String>,
     pub is_active: Option<bool>,
@@ -60,7 +63,7 @@ pub struct GroupResponse {
     pub description: String,
     pub group_type: String,
     pub permissions: Vec<String>,
-    pub price: f64,
+    pub price: BigDecimal,
     pub currency: String,
     pub billing_cycle: String,
     pub is_active: bool,
@@ -88,6 +91,20 @@ pub struct ListGroupsQuery {
 
 /// Create a new permission group
 /// POST /admin/permissions/groups
+#[utoipa::path(
+    post,
+    path = "/admin/permissions/groups",
+    tag = "admin-permissions",
+    request_body = CreateGroupRequest,
+    responses(
+        (status = 201, description = "Permission group created successfully"),
+        (status = 400, description = "Bad request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+        (status = 500, description = "Internal server error")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn create_group(
     State(app_state): State<AppState>,
     Json(req): Json<CreateGroupRequest>,
@@ -121,7 +138,7 @@ pub async fn create_group(
     .bind(&req.slug)
     .bind(&req.description)
     .bind(&req.group_type)
-    .bind(req.price.unwrap_or(0.0))
+    .bind(req.price.clone().unwrap_or_else(|| BigDecimal::from(0)))
     .bind(req.currency.as_deref().unwrap_or("USD"))
     .bind(req.billing_cycle.as_deref().unwrap_or("monthly"))
     .bind(req.is_active.unwrap_or(true))
@@ -194,7 +211,7 @@ pub async fn create_group(
         description: req.description,
         group_type: req.group_type,
         permissions: req.permissions,
-        price: req.price.unwrap_or(0.0),
+        price: req.price.unwrap_or_else(|| BigDecimal::from(0)),
         currency: req.currency.unwrap_or_else(|| "USD".to_string()),
         billing_cycle: req.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
         is_active: req.is_active.unwrap_or(true),
@@ -213,6 +230,23 @@ pub async fn create_group(
 
 /// Get a permission group by ID
 /// GET /admin/permissions/groups/:group_id
+#[utoipa::path(
+    get,
+    path = "/admin/permissions/groups/{group_id}",
+    tag = "admin-permissions",
+    responses(
+        (status = 200, description = "Successfully retrieved permission group"),
+        (status = 400, description = "Invalid group ID format"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+        (status = 404, description = "Permission group not found"),
+        (status = 500, description = "Internal server error")
+    ),
+    params(
+        ("group_id" = String, Path, description = "UUID of the permission group")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn get_group(
     State(app_state): State<AppState>,
     Path(group_id): Path<String>,
@@ -284,6 +318,24 @@ pub async fn get_group(
 
 /// List permission groups with pagination
 /// GET /admin/permissions/groups
+#[utoipa::path(
+    get,
+    path = "/admin/permissions/groups",
+    tag = "admin-permissions",
+    responses(
+        (status = 200, description = "Successfully retrieved permission groups list"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+        (status = 500, description = "Internal server error")
+    ),
+    params(
+        ("page" = Option<u32>, Query, description = "Page number"),
+        ("limit" = Option<u32>, Query, description = "Items per page"),
+        ("group_type" = Option<String>, Query, description = "Filter by group type"),
+        ("is_active" = Option<bool>, Query, description = "Filter by active status")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn list_groups(
     State(app_state): State<AppState>,
     Query(query): Query<ListGroupsQuery>,
@@ -389,6 +441,24 @@ pub async fn list_groups(
 
 /// Update a permission group
 /// PUT /admin/permissions/groups/:group_id
+#[utoipa::path(
+    put,
+    path = "/admin/permissions/groups/{group_id}",
+    tag = "admin-permissions",
+    request_body = UpdateGroupRequest,
+    responses(
+        (status = 200, description = "Permission group updated successfully"),
+        (status = 400, description = "Bad request"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+        (status = 404, description = "Permission group not found"),
+        (status = 500, description = "Internal server error")
+    ),
+    params(
+        ("group_id" = String, Path, description = "UUID of the permission group")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn update_group(
     State(app_state): State<AppState>,
     Path(group_id): Path<String>,
@@ -432,6 +502,23 @@ pub async fn update_group(
 
 /// Delete a permission group
 /// DELETE /admin/permissions/groups/:group_id
+#[utoipa::path(
+    delete,
+    path = "/admin/permissions/groups/{group_id}",
+    tag = "admin-permissions",
+    responses(
+        (status = 200, description = "Permission group deleted successfully"),
+        (status = 400, description = "Invalid group ID format"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+        (status = 404, description = "Permission group not found"),
+        (status = 500, description = "Internal server error")
+    ),
+    params(
+        ("group_id" = String, Path, description = "UUID of the permission group")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn delete_group(
     State(app_state): State<AppState>,
     Path(group_id): Path<String>,
@@ -459,6 +546,22 @@ pub async fn delete_group(
 
 /// Get members of a permission group
 /// GET /admin/permissions/groups/:group_id/members
+#[utoipa::path(
+    get,
+    path = "/admin/permissions/groups/{group_id}/members",
+    tag = "admin-permissions",
+    responses(
+        (status = 200, description = "Successfully retrieved group members"),
+        (status = 400, description = "Invalid group ID format"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+        (status = 500, description = "Internal server error")
+    ),
+    params(
+        ("group_id" = String, Path, description = "UUID of the permission group")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn get_group_members(
     State(app_state): State<AppState>,
     Path(group_id): Path<String>,

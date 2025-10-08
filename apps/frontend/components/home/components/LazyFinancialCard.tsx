@@ -32,7 +32,7 @@ export function LazyFinancialCard({
         }
 
         // Use the new individual API with server-side cache
-        const response = await fetch(`/api/v1/market-data/stocks/individual?symbol=${symbol}`);
+        const response = await fetch(`/api/market-data/stocks/individual?symbol=${symbol}`);
         if (!response.ok) {
           throw new Error('Failed to fetch data');
         }

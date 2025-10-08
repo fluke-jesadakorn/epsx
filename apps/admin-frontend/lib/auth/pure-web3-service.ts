@@ -88,8 +88,10 @@ declare global {
   }
 }
 
-// Backend URLs - Admin backend
-const getBackendUrl = () => process.env.BACKEND_URL || 'http://localhost:8080';
+import { apiFetch } from '../api-fetch'
+import { env } from '@/config/env'
+
+const BACKEND_URL = env.BACKEND_URL
 
 // Pure Web3 Auth Store for Admin
 export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()( 
@@ -124,37 +126,28 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
       // Generate authentication challenge from backend
       generateChallenge: async (endpoint = '/api/auth/web3/verify') => {
         const state = get();
-        
+
         if (!state.walletAddress) {
           throw new Error('Admin wallet not connected');
         }
 
         try {
-          const response = await fetch(`${getBackendUrl()}/api/auth/web3/challenge`, {
+          const challenge = await apiFetch('/api/auth/web3/challenge', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
             body: JSON.stringify({
               wallet_address: state.walletAddress,
               chain_id: state.chainId,
               endpoint: endpoint
-            }),
+            })
           });
 
-          if (!response.ok) {
-            throw new Error(`Failed to get admin challenge: ${response.status}`);
-          }
-
-          const challenge = await response.json();
-          
           // Store nonce with expiry
           const expiryTime = new Date(challenge.expires_at).getTime();
-          set({ 
-            currentNonce: challenge.nonce, 
-            nonceExpiry: expiryTime 
+          set({
+            currentNonce: challenge.nonce,
+            nonceExpiry: expiryTime
           });
-          
+
           return {
             nonce: challenge.nonce,
             message: challenge.message,
@@ -194,7 +187,7 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
             'X-Nonce': challenge.nonce
           };
 
-          const response = await fetch(`${getBackendUrl()}/api/auth/web3/verify`, {
+          const response = await fetch(`${BACKEND_URL}/api/auth/web3/verify`, {
             method: 'GET',
             headers: headers as any,
           });
@@ -246,7 +239,7 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
           // Sign request for admin permissions endpoint
           const signedHeaders = await get().signRequest('/user/permissions', 'GET');
           
-          const response = await fetch(`${getBackendUrl()}/user/permissions`, {
+          const response = await fetch(`${BACKEND_URL}/user/permissions`, {
             method: 'GET',
             headers: signedHeaders as any,
           });
@@ -279,7 +272,7 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
             // Clear nonces on backend
             const signedHeaders = await get().signRequest('/api/auth/web3/logout', 'DELETE');
             
-            await fetch(`${getBackendUrl()}/api/auth/web3/logout`, {
+            await fetch(`${BACKEND_URL}/api/auth/web3/logout`, {
               method: 'DELETE',
               headers: signedHeaders as any,
               body: JSON.stringify({ clear_all_sessions: true }),
@@ -382,179 +375,76 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
   )
 );
 
-// API Client for Pure Web3 Admin Requests
-/**
- *
- */
-export class PureWeb3AdminApiClient {
-  private baseUrl: string;
-  private authStore: any;
+// Admin API methods with Web3 signing (no abstraction layer)
+export const web3AdminApi = {
+  async request<T>(endpoint: string, options: {
+    method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
+    body?: any
+    headers?: Record<string, string>
+  } = {}): Promise<T> {
+    const { method = 'GET', body, headers = {} } = options
+    const signedHeaders = await usePureWeb3AuthStore.getState().signRequest(endpoint, method, body)
 
-  /**
-   *
-   */
-  constructor() {
-    this.baseUrl = getBackendUrl();
-    this.authStore = usePureWeb3AuthStore;
-  }
+    const res = await fetch(`${BACKEND_URL}${endpoint}`, {
+      method,
+      headers: { 'Content-Type': 'application/json', ...headers, ...signedHeaders },
+      body: body && (method === 'POST' || method === 'PUT') ? JSON.stringify(body) : undefined
+    })
 
-  // Generic request method with automatic signing
-  /**
-   *
-   * @param endpoint
-   * @param options
-   * @param options.method
-   * @param options.body
-   * @param options.headers
-   */
-  async request<T>(
-    endpoint: string, 
-    options: {
-      method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
-      body?: any;
-      headers?: Record<string, string>;
-    } = {}
-  ): Promise<T> {
-    const { method = 'GET', body, headers = {} } = options;
-    
-    try {
-      // Get signed headers
-      const signedHeaders = await this.authStore.getState().signRequest(
-        endpoint, 
-        method, 
-        body
-      );
-
-      // Prepare request
-      const requestOptions: RequestInit = {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          ...headers,
-          ...signedHeaders,
-        },
-      };
-
-      if (body && (method === 'POST' || method === 'PUT')) {
-        requestOptions.body = JSON.stringify(body);
-      }
-
-      // Make request
-      const response = await fetch(`${this.baseUrl}${endpoint}`, requestOptions);
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Admin request failed: ${response.status}`);
-      }
-
-      return await response.json();
-    } catch (_error) {
-      // eslint-disable-next-line no-console
-      console.error(`Pure Web3 Admin API request failed [${method} ${endpoint}]:`, _error);
-      throw _error;
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.message || `Request failed: ${res.status}`)
     }
-  }
 
-  // Convenience methods
-  /**
-   *
-   * @param endpoint
-   * @param headers
-   */
-  async get<T>(endpoint: string, headers?: Record<string, string>): Promise<T> {
-    return this.request<T>(endpoint, { method: 'GET', headers });
-  }
+    return res.json()
+  },
 
-  /**
-   *
-   * @param endpoint
-   * @param body
-   * @param headers
-   */
-  async post<T>(endpoint: string, body?: any, headers?: Record<string, string>): Promise<T> {
-    return this.request<T>(endpoint, { method: 'POST', body, headers });
-  }
+  get<T>(endpoint: string, headers?: Record<string, string>): Promise<T> {
+    return this.request<T>(endpoint, { method: 'GET', headers })
+  },
 
-  /**
-   *
-   * @param endpoint
-   * @param body
-   * @param headers
-   */
-  async put<T>(endpoint: string, body?: any, headers?: Record<string, string>): Promise<T> {
-    return this.request<T>(endpoint, { method: 'PUT', body, headers });
-  }
+  post<T>(endpoint: string, body?: any, headers?: Record<string, string>): Promise<T> {
+    return this.request<T>(endpoint, { method: 'POST', body, headers })
+  },
 
-  /**
-   *
-   * @param endpoint
-   * @param headers
-   */
-  async delete<T>(endpoint: string, headers?: Record<string, string>): Promise<T> {
-    return this.request<T>(endpoint, { method: 'DELETE', headers });
-  }
+  put<T>(endpoint: string, body?: any, headers?: Record<string, string>): Promise<T> {
+    return this.request<T>(endpoint, { method: 'PUT', body, headers })
+  },
 
-  // Admin-specific API methods
-  /**
-   *
-   */
-  async getAdminStatus() {
-    return this.get('/admin/status');
-  }
+  delete<T>(endpoint: string, headers?: Record<string, string>): Promise<T> {
+    return this.request<T>(endpoint, { method: 'DELETE', headers })
+  },
 
-  /**
-   *
-   */
-  async getSystemStats() {
-    return this.get('/admin/system/stats');
-  }
+  getAdminStatus() {
+    return this.get('/api/admin/status')
+  },
 
-  /**
-   *
-   * @param params
-   * @param params.limit
-   * @param params.offset
-   */
-  async listWallets(params: { limit?: number; offset?: number } = {}) {
-    const query = new URLSearchParams();
-    if (params.limit) {query.set('limit', params.limit.toString());}
-    if (params.offset) {query.set('offset', params.offset.toString());}
-    return this.get(`/admin/wallets?${query}`);
-  }
+  getSystemStats() {
+    return this.get('/api/admin/system/stats')
+  },
 
-  /**
-   *
-   * @param walletAddress
-   * @param permission
-   * @param expiresAt
-   */
-  async grantWalletPermission(walletAddress: string, permission: string, expiresAt?: string) {
-    return this.post(`/admin/wallets/${walletAddress}/permissions`, {
+  listWallets(params: { limit?: number; offset?: number } = {}) {
+    const q = new URLSearchParams()
+    if (params.limit) q.set('limit', params.limit.toString())
+    if (params.offset) q.set('offset', params.offset.toString())
+    return this.get(`/api/admin/wallets?${q}`)
+  },
+
+  grantWalletPermission(walletAddress: string, permission: string, expiresAt?: string) {
+    return this.post(`/api/admin/wallets/${walletAddress}/permissions`, {
       permission,
       expires_at: expiresAt
-    });
-  }
+    })
+  },
 
-  /**
-   *
-   * @param walletAddress
-   * @param permission
-   */
-  async revokeWalletPermission(walletAddress: string, permission: string) {
-    return this.delete(`/admin/wallets/${walletAddress}/permissions/${permission}`);
-  }
+  revokeWalletPermission(walletAddress: string, permission: string) {
+    return this.delete(`/api/admin/wallets/${walletAddress}/permissions/${permission}`)
+  },
 
-  /**
-   *
-   * @param walletAddress
-   */
-  async getWalletDetails(walletAddress: string) {
-    return this.get(`/admin/wallets/${walletAddress}`);
+  getWalletDetails(walletAddress: string) {
+    return this.get(`/api/admin/wallets/${walletAddress}`)
   }
 }
-
-// Singleton API client
-export const pureWeb3AdminApiClient = new PureWeb3AdminApiClient();
 
 // Hook for using Pure Web3 admin auth
 /**
@@ -590,9 +480,9 @@ export function usePureWeb3Auth() {
       permissions.every(p => store.permissions.includes(p)),
     
     isAdmin: () => store.permissions.some(p => p.startsWith('admin:')),
-    
+
     // API client
-    api: pureWeb3AdminApiClient
+    api: web3AdminApi
   };
 }
 

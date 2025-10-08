@@ -5,7 +5,6 @@
 pub mod types;         // Data Transfer Objects and API structures
 pub mod rankings;      // Core EPS rankings business logic
 pub mod metadata;      // Country and sector data management
-pub mod health;        // Health checks and debug endpoints
 pub mod cache;         // Cache management and caching logic
 pub mod enhancement;   // WebSocket data enhancement
 pub mod transform;     // Data transformation and formatting
@@ -22,8 +21,7 @@ mod system;            // System mode and config utilities
 pub use types::*;
 pub use rankings::{get_eps_rankings, convert_screening_result_to_eps_ranking, is_valid_eps_for_ranking};
 pub use metadata::{get_available_countries, get_all_valid_countries, get_sectors_by_country};
-pub use health::{eps_health_check, debug_eps_correction, debug_ranking_data, debug_websocket_eps, trigger_eps_sync};
-pub use cache::{get_unified_analytics_rankings_cached, get_cache_stats, force_cache_refresh, cache_health_check};
+pub use cache::{get_unified_analytics_rankings_cached, get_cache_stats, force_cache_refresh};
 pub use enhancement::enhance_with_websocket_data;
 pub use transform::{transform_ranking_to_unified_format, transform_unified_to_card_format};
 pub use errors::*;

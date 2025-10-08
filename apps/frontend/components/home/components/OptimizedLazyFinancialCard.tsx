@@ -74,7 +74,7 @@ function FinancialCardError({
     setRetrying(true);
     // Clear cache for this symbol and trigger reload
     try {
-      await fetch(`/api/v1/system/cache?symbol=${symbol}`, { method: 'DELETE' });
+      await fetch(`/api/system/cache?symbol=${symbol}`, { method: 'DELETE' });
       window.location.reload();
     } catch (err) {
       console.error('Retry failed:', err);

@@ -47,7 +47,7 @@ export interface OpenIDErrorResponse {
   error_uri?: string;
 }
 
-// User Info Response (from /api/v1/auth/userinfo)
+// User Info Response (from /api/auth/userinfo)
 export interface UserInfoResponse {
   sub: string;                    // Wallet address
   wallet_address: string;         // Web3 wallet address
@@ -137,7 +137,7 @@ export class OpenIDApiClient {
    * Main entry point: Web3 signature → OpenID Connect tokens
    */
   async authenticateWithWeb3(request: Web3AuthRequest): Promise<OpenIDTokenResponse> {
-    const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/auth/web3/token`;
+    const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/web3/token`;
     
     logger.info('Authenticating with Web3 wallet for OpenID tokens', {
       wallet_address: request.wallet_address,
@@ -187,7 +187,7 @@ export class OpenIDApiClient {
       return false;
     }
 
-    const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/auth/token/refresh`;
+    const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/token/refresh`;
     const request: TokenRefreshRequest = {
       refresh_token: this.refreshToken,
       client_id: this.clientId,
@@ -241,7 +241,7 @@ export class OpenIDApiClient {
       return;
     }
 
-    const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/auth/token/revoke`;
+    const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/token/revoke`;
     const request: TokenRefreshRequest = {
       refresh_token: this.refreshToken,
       client_id: this.clientId,
@@ -295,7 +295,7 @@ export class OpenIDApiClient {
    * Get current user info from backend
    */
   async getCurrentUser(): Promise<UserInfoResponse | null> {
-    const response = await this.makeAuthenticatedRequest('/api/v1/auth/userinfo');
+    const response = await this.makeAuthenticatedRequest('/api/auth/userinfo');
     return response.success ? (response.data as UserInfoResponse) : null;
   }
 

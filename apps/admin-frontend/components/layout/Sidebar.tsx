@@ -92,7 +92,7 @@ const navigationItems: NavItem[] = [
 /**
  *
  */
-export function PancakeAdminNav() {
+export function Sidebar() {
   const pathname = usePathname();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set(['permissions']));
   const { isConnected } = useAccount();
