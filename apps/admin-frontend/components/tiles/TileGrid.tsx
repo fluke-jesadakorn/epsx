@@ -6,6 +6,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { LiveTile } from './LiveTile';
 import { TileData, TileGridConfig } from './types';
 
+import { apiFetch } from '@/lib/api-fetch';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 
@@ -279,9 +280,7 @@ export function CompactTileGrid(props: TileGridProps) {
 async function fetchTileData(tileId: string): Promise<any> {
   // This would be replaced with actual API calls based on tile type
   try {
-    const response = await fetch(`/api/v1/admin/tiles/${tileId}`);
-    if (!response.ok) {throw new Error(`HTTP ${response.status}`);}
-    return response.json();
+    return await apiFetch(`/api/admin/tiles/${tileId}`);
   } catch (_error) {
     logger.error(`Failed to fetch data for tile ${tileId}`, { tileId, _error });
     throw _error;

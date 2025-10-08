@@ -10,11 +10,11 @@ pub use connection::*;
 pub use extractor::*;
 
 use std::collections::HashMap;
-use tokio::time::{sleep, Duration};
+use tokio::time::{ sleep, Duration };
 use tokio_tungstenite::tungstenite::protocol::Message;
 use futures_util::StreamExt;
-use serde_json::{json, Value};
-use tracing::{debug, info, warn};
+use serde_json::{ json, Value };
+use tracing::{ debug, info, warn };
 
 use crate::core::errors::AppError;
 
@@ -55,7 +55,10 @@ impl TradingViewWebSocketService {
     &mut self,
     symbols: Vec<String>
   ) -> Result<Vec<EPSWebSocketData>, AppError> {
-    info!("🚀 Starting TradingView WebSocket connection for {} symbols", symbols.len());
+    info!(
+      "🚀 Starting TradingView WebSocket connection for {} symbols",
+      symbols.len()
+    );
     self.symbols = symbols.clone();
 
     let ws_stream = connection::connect_websocket().await?;
@@ -76,17 +79,22 @@ impl TradingViewWebSocketService {
           continue;
         }
       }
-
-      sleep(Duration::from_millis(500)).await;
     }
 
-    info!("✅ TradingView WebSocket extraction complete: {}/{} symbols", all_eps_data.len(), symbols.len());
+    info!(
+      "✅ TradingView WebSocket extraction complete: {}/{} symbols",
+      all_eps_data.len(),
+      symbols.len()
+    );
     Ok(all_eps_data)
   }
 
   async fn extract_symbol_eps_data(
     &mut self,
-    write: &mut futures_util::stream::SplitSink<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, Message>,
+    write: &mut futures_util::stream::SplitSink<
+      tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
+      Message
+    >,
     read: &mut futures_util::stream::SplitStream<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>>,
     symbol: &str
   ) -> Result<EPSWebSocketData, AppError> {
@@ -99,39 +107,54 @@ impl TradingViewWebSocketService {
     self.chart_session = Some(format!("cs_{}", connection::generate_id(12)));
     let chart_session = self.chart_session.as_ref().unwrap();
 
-    connection::send_message(write, &json!({
+    connection::send_message(
+      write,
+      &json!({
       "m": "chart_create_session",
       "p": [chart_session, ""]
-    })).await?;
+    })
+    ).await?;
 
     let symbol_id = "sds_sym_1";
-    connection::send_message(write, &json!({
+    connection::send_message(
+      write,
+      &json!({
       "m": "resolve_symbol",
       "p": [
         chart_session,
         symbol_id,
         format!("={{\"adjustment\":\"splits\",\"symbol\":\"{}\"}}", symbol)
       ]
-    })).await?;
+    })
+    ).await?;
 
     let series_id = "sds_1";
-    connection::send_message(write, &json!({
+    connection::send_message(
+      write,
+      &json!({
       "m": "create_series",
       "p": [chart_session, series_id, "s1", symbol_id, "1D", 300, ""]
-    })).await?;
+    })
+    ).await?;
 
     self.quote_session = Some(format!("qs_{}", connection::generate_id(12)));
     let quote_session = self.quote_session.as_ref().unwrap();
 
-    connection::send_message(write, &json!({
+    connection::send_message(
+      write,
+      &json!({
       "m": "quote_create_session",
       "p": [quote_session]
-    })).await?;
+    })
+    ).await?;
 
-    connection::send_message(write, &json!({
+    connection::send_message(
+      write,
+      &json!({
       "m": "quote_add_symbols",
       "p": [quote_session, format!("{}:{}", "NASDAQ", symbol)]
-    })).await?;
+    })
+    ).await?;
 
     info!("⏳ Waiting for symbol resolution and series creation...");
 
@@ -142,7 +165,10 @@ impl TradingViewWebSocketService {
     &mut self,
     read: &mut futures_util::stream::SplitStream<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>>,
     symbol: &str,
-    write: &mut futures_util::stream::SplitSink<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, Message>
+    write: &mut futures_util::stream::SplitSink<
+      tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
+      Message
+    >
   ) -> Result<EPSWebSocketData, AppError> {
     use tokio::time::timeout;
 
@@ -165,14 +191,22 @@ impl TradingViewWebSocketService {
         }
       }
 
-      Err(AppError::internal_server_error("No EPS data extracted before WebSocket closed"))
+      Err(
+        AppError::internal_server_error(
+          "No EPS data extracted before WebSocket closed"
+        )
+      )
     }).await;
 
     match extraction_timeout {
       Ok(result) => result,
       Err(_) => {
         warn!("⏰ WebSocket extraction timed out for {}", symbol);
-        Err(AppError::internal_server_error(format!("WebSocket extraction timeout for {}", symbol)))
+        Err(
+          AppError::internal_server_error(
+            format!("WebSocket extraction timeout for {}", symbol)
+          )
+        )
       }
     }
   }
@@ -181,7 +215,10 @@ impl TradingViewWebSocketService {
     &mut self,
     parsed: &Value,
     symbol: &str,
-    write: &mut futures_util::stream::SplitSink<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, Message>
+    write: &mut futures_util::stream::SplitSink<
+      tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
+      Message
+    >
   ) {
     let method = parsed["m"].as_str().unwrap_or("");
 
@@ -221,12 +258,17 @@ impl TradingViewWebSocketService {
 
   async fn create_studies_after_series(
     &mut self,
-    write: &mut futures_util::stream::SplitSink<tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>, Message>,
+    write: &mut futures_util::stream::SplitSink<
+      tokio_tungstenite::WebSocketStream<tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>>,
+      Message
+    >,
     _symbol: &str
   ) -> Result<(), AppError> {
     let chart_session = self.chart_session.as_ref().unwrap();
 
-    connection::send_message(write, &json!({
+    connection::send_message(
+      write,
+      &json!({
       "m": "create_study",
       "p": [
         chart_session,
@@ -236,17 +278,25 @@ impl TradingViewWebSocketService {
         "Earnings@tv-basicstudies-246",
         json!({})
       ]
-    })).await?;
+    })
+    ).await?;
 
     info!("✅ Created ST4 earnings study");
     Ok(())
   }
 
-  fn process_timescale_update(&mut self, parsed: &Value, symbol: &str) -> Option<EPSWebSocketData> {
+  fn process_timescale_update(
+    &mut self,
+    parsed: &Value,
+    symbol: &str
+  ) -> Option<EPSWebSocketData> {
     if let Some(params) = parsed["p"].as_array() {
       if params.len() >= 2 {
         if let Some(st4_array) = params[1]["st4"].as_array() {
-          info!("🎯 Found ST4 earnings data in timescale_update: {} quarters", st4_array.len());
+          info!(
+            "🎯 Found ST4 earnings data in timescale_update: {} quarters",
+            st4_array.len()
+          );
 
           let quarterly_data = extractor::extract_eps_from_st4(
             st4_array,
@@ -255,26 +305,35 @@ impl TradingViewWebSocketService {
             |data| self.correlate_price_with_earnings(data)
           );
 
-          return Some(extractor::build_eps_websocket_data(
-            symbol,
-            quarterly_data,
-            self.price_data.values().cloned().collect(),
-            "Unknown".to_string(),
-            "Unknown".to_string(),
-            symbol.to_string(),
-          ));
+          return Some(
+            extractor::build_eps_websocket_data(
+              symbol,
+              quarterly_data,
+              self.price_data.values().cloned().collect(),
+              "Unknown".to_string(),
+              "Unknown".to_string(),
+              symbol.to_string()
+            )
+          );
         }
       }
     }
     None
   }
 
-  fn process_data_update(&mut self, parsed: &Value, symbol: &str) -> Option<EPSWebSocketData> {
+  fn process_data_update(
+    &mut self,
+    parsed: &Value,
+    symbol: &str
+  ) -> Option<EPSWebSocketData> {
     if let Some(params) = parsed["p"].as_array() {
       if params.len() >= 2 {
         if let Some(st4_data) = params[1]["st4"].as_object() {
           if let Some(st_array) = st4_data["st"].as_array() {
-            info!("🎯 Found ST4 earnings data in data_update: {} quarters", st_array.len());
+            info!(
+              "🎯 Found ST4 earnings data in data_update: {} quarters",
+              st_array.len()
+            );
 
             let quarterly_data = extractor::extract_eps_from_st4(
               st_array,
@@ -283,14 +342,16 @@ impl TradingViewWebSocketService {
               |data| self.correlate_price_with_earnings(data)
             );
 
-            return Some(extractor::build_eps_websocket_data(
-              symbol,
-              quarterly_data,
-              self.price_data.values().cloned().collect(),
-              "Unknown".to_string(),
-              "Unknown".to_string(),
-              symbol.to_string(),
-            ));
+            return Some(
+              extractor::build_eps_websocket_data(
+                symbol,
+                quarterly_data,
+                self.price_data.values().cloned().collect(),
+                "Unknown".to_string(),
+                "Unknown".to_string(),
+                symbol.to_string()
+              )
+            );
           }
         }
       }
@@ -314,42 +375,54 @@ impl TradingViewWebSocketService {
     }
   }
 
-  fn correlate_price_with_earnings(&self, quarterly_data: Vec<QuarterlyEPSData>) -> Vec<QuarterlyEPSData> {
+  fn correlate_price_with_earnings(
+    &self,
+    quarterly_data: Vec<QuarterlyEPSData>
+  ) -> Vec<QuarterlyEPSData> {
     quarterly_data
   }
 
   /// Convert to frontend format
-  pub fn convert_to_frontend_format(&self, websocket_data: Vec<EPSWebSocketData>) -> Vec<FrontendEPSData> {
-    websocket_data.into_iter().map(|data| {
-      let qoq_growth = if data.quarterly_data.len() >= 2 {
-        let current = data.quarterly_data[0].actual_eps;
-        let previous = data.quarterly_data[1].actual_eps;
-        if previous != 0.0 {
-          ((current - previous) / previous) * 100.0
+  pub fn convert_to_frontend_format(
+    &self,
+    websocket_data: Vec<EPSWebSocketData>
+  ) -> Vec<FrontendEPSData> {
+    websocket_data
+      .into_iter()
+      .map(|data| {
+        let qoq_growth = if data.quarterly_data.len() >= 2 {
+          let current = data.quarterly_data[0].actual_eps;
+          let previous = data.quarterly_data[1].actual_eps;
+          if previous != 0.0 {
+            ((current - previous) / previous) * 100.0
+          } else {
+            0.0
+          }
         } else {
           0.0
-        }
-      } else {
-        0.0
-      };
+        };
 
-      FrontendEPSData {
-        id: uuid::Uuid::new_v4().to_string(),
-        symbol: data.symbol.clone(),
-        name: data.symbol.clone(),
-        company_name: data.company_name.clone(),
-        current_eps: data.current_eps,
-        previous_eps: data.quarterly_data.get(1).map(|q| q.actual_eps).unwrap_or(0.0),
-        growth_rate: qoq_growth,
-        qoq_growth,
-        market_cap: data.market_cap_basic as i64,
-        price_current: data.price_current,
-        volume: data.volume as i64,
-        country: data.country.clone(),
-        sector: data.sector.clone(),
-        ranking_score: 0.0,
-        last_updated: chrono::Utc::now(),
-      }
-    }).collect()
+        FrontendEPSData {
+          id: uuid::Uuid::new_v4().to_string(),
+          symbol: data.symbol.clone(),
+          name: data.symbol.clone(),
+          company_name: data.company_name.clone(),
+          current_eps: data.current_eps,
+          previous_eps: data.quarterly_data
+            .get(1)
+            .map(|q| q.actual_eps)
+            .unwrap_or(0.0),
+          growth_rate: qoq_growth,
+          qoq_growth,
+          market_cap: data.market_cap_basic as i64,
+          price_current: data.price_current,
+          volume: data.volume as i64,
+          country: data.country.clone(),
+          sector: data.sector.clone(),
+          ranking_score: 0.0,
+          last_updated: chrono::Utc::now(),
+        }
+      })
+      .collect()
   }
 }

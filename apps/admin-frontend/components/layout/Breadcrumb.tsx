@@ -70,7 +70,7 @@ function generateBreadcrumbs(pathname: string): BreadcrumbItem[] {
 /**
  *
  */
-export function DynamicBreadcrumb() {
+export function Breadcrumb() {
   const pathname = usePathname()
   const breadcrumbs = generateBreadcrumbs(pathname)
   

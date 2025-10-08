@@ -34,8 +34,6 @@ use utoipa::{
         // HEALTH & SYSTEM ENDPOINTS
         // ============================================================================
         crate::web::health::health_check_handler,
-        crate::web::health::readiness_check_handler,
-        crate::web::health::liveness_check_handler,
 
         // ============================================================================
         // WEB3 AUTHENTICATION ENDPOINTS
@@ -47,21 +45,60 @@ use utoipa::{
         crate::web::auth::web3_handlers::check_permission_handler,
 
         // ============================================================================
-        // ADMIN - PLAN MANAGEMENT ENDPOINTS
+        // ANALYTICS ENDPOINTS
+        // ============================================================================
+        crate::web::analytics::eps::cache::get_unified_analytics_rankings_cached,
+        crate::web::analytics::eps::cache::get_cache_stats,
+        crate::web::analytics::eps::cache::force_cache_refresh,
+        crate::web::analytics::eps::metadata::get_available_countries,
+        crate::web::analytics::eps::metadata::get_all_valid_countries,
+        crate::web::analytics::eps::metadata::get_sectors_by_country,
+        crate::web::analytics::eps::metadata::get_filter_options,
+        crate::web::analytics::system_metrics_handler,
+        crate::web::analytics::admin_time_series_handler,
+        crate::web::analytics::admin_modules_handler,
+
+        // ============================================================================
+        // ADMIN - PERFORMANCE MONITORING
+        // ============================================================================
+        crate::web::admin::performance_handlers::get_auth_cache_performance,
+        crate::web::admin::performance_handlers::get_cache_summary,
+        crate::web::admin::performance_handlers::clear_auth_cache,
+
+        // ============================================================================
+        // ADMIN - WALLET MANAGEMENT
+        // ============================================================================
+        crate::web::admin::wallet_management_handlers::list_users_handler,
+        crate::web::admin::wallet_management_handlers::get_user_handler,
+        crate::web::admin::wallet_management_handlers::update_user_handler,
+        crate::web::admin::wallet_management_handlers::get_user_stats_handler,
+
+        // ============================================================================
+        // ADMIN - PERMISSION GROUPS
+        // ============================================================================
+        crate::web::admin::permissions::groups::create_group,
+        crate::web::admin::permissions::groups::get_group,
+        crate::web::admin::permissions::groups::list_groups,
+        crate::web::admin::permissions::groups::update_group,
+        crate::web::admin::permissions::groups::delete_group,
+        crate::web::admin::permissions::groups::get_group_members,
+
+        // ============================================================================
+        // ADMIN - PLAN MANAGEMENT
         // ============================================================================
         crate::web::admin::plan_handlers::create_plan_handler,
         crate::web::admin::plan_handlers::list_plans_handler,
 
-        // Note: Additional endpoints documented but not yet annotated with #[utoipa::path]:
-        // - Admin: Security monitoring, performance, analytics, wallet management, Web3 admin
-        // - Analytics: EPS rankings, metadata, health, cache management
-        // - Notifications: SSE stream, send, broadcast
-        // - User/Public: Profile, plans
-        // - Permissions: Group CRUD, assignments, validation, bulk operations
-        //
-        // These endpoints are functional and accessible via the routes, but need individual
-        // #[utoipa::path] annotations to appear in the interactive documentation.
-        // The pattern demonstrated above can be applied to all remaining handlers.
+        // ============================================================================
+        // NOTIFICATIONS - SSE
+        // ============================================================================
+        crate::web::notifications::sse_handlers::sse_notifications_handler,
+
+        // ============================================================================
+        // PUBLIC ENDPOINTS
+        // ============================================================================
+        crate::web::public::plans_handlers::get_public_plans,
+        crate::web::public::seed_plans_handler::seed_subscription_plans,
     ),
     components(
         schemas(
@@ -75,6 +112,29 @@ use utoipa::{
             crate::web::admin::plan_handlers::CreatePlanRequest,
             crate::web::admin::plan_handlers::PlanResponse,
             crate::web::admin::plan_handlers::PermissionGroupRequest,
+
+            // Admin Wallet Management schemas
+            crate::web::admin::wallet_management_handlers::UpdateWalletRequest,
+
+            // Admin Permission Group schemas
+            crate::web::admin::permissions::groups::CreateGroupRequest,
+            crate::web::admin::permissions::groups::UpdateGroupRequest,
+
+            // Analytics schemas
+            crate::web::analytics::eps::types::CountriesResponse,
+            crate::web::analytics::eps::types::SectorsResponse,
+            crate::web::analytics::eps::types::FiltersResponse,
+            crate::web::analytics::eps::types::CountryData,
+            crate::web::analytics::eps::types::EPSPaginationResponse,
+            crate::web::analytics::eps::types::CacheStatsResponse,
+            crate::web::analytics::eps::types::CacheRefreshResponse,
+            crate::web::analytics::eps::types::CardDashboardResponse,
+            crate::web::analytics::eps::types::SymbolCardData,
+            crate::web::analytics::eps::types::CardDashboardMetadata,
+            crate::web::analytics::eps::types::QuarterlyPerformanceData,
+            crate::web::analytics::eps::types::NextQuarterEstimate,
+            crate::web::analytics::eps::types::EPSQuarterlyData,
+            crate::domain::shared_kernel::services::eps_cache_service::CacheStats,
 
             // Common response schemas
             crate::web::docs::schemas::ErrorResponse,

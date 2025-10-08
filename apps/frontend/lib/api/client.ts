@@ -333,14 +333,14 @@ class ApiClient {
     });
 
     const queryString = searchParams.toString();
-    const endpoint = queryString ? `/api/v1/analytics/rankings?${queryString}` : '/api/v1/analytics/rankings';
+    const endpoint = queryString ? `/api/analytics/rankings?${queryString}` : '/api/analytics/rankings';
 
     const response = await this.request<UnifiedAnalyticsRankingsResponse>(endpoint);
     return response?.data;
   }
 
   async getAnalyticsHealth(): Promise<{ status: string; timestamp: string } | undefined> {
-    const response = await this.request<{ status: string; timestamp: string }>('/api/v1/analytics/health');
+    const response = await this.request<{ status: string; timestamp: string }>('/api/analytics/health');
     return response?.data;
   }
 
@@ -358,31 +358,31 @@ class ApiClient {
     });
 
     const queryString = searchParams.toString();
-    const endpoint = queryString ? `/api/v1/notifications?${queryString}` : '/api/v1/notifications';
+    const endpoint = queryString ? `/api/notifications?${queryString}` : '/api/notifications';
 
     const response = await this.request<PaginatedResponse<NotificationResponse>>(endpoint);
     return response?.data;
   }
 
   async markNotificationRead(notificationId: string): Promise<void> {
-    await this.request(`/api/v1/notifications/${notificationId}/read`, {
+    await this.request(`/api/notifications/${notificationId}/read`, {
       method: 'POST'
     });
   }
 
   async markAllNotificationsRead(): Promise<void> {
-    await this.request('/api/v1/notifications/read-all', {
+    await this.request('/api/notifications/read-all', {
       method: 'POST'
     });
   }
 
   async getNotificationStats(): Promise<NotificationStats | undefined> {
-    const response = await this.request<NotificationStats>('/api/v1/notifications/stats');
+    const response = await this.request<NotificationStats>('/api/notifications/stats');
     return response?.data;
   }
 
   async deleteNotification(notificationId: string): Promise<void> {
-    await this.request(`/api/v1/notifications/${notificationId}`, {
+    await this.request(`/api/notifications/${notificationId}`, {
       method: 'DELETE'
     });
   }
@@ -409,12 +409,12 @@ class ApiClient {
   // ============================================================================
 
   async getUserProfile(): Promise<Record<string, unknown> | undefined> {
-    const response = await this.request<Record<string, unknown>>('/api/v1/user/profile');
+    const response = await this.request<Record<string, unknown>>('/api/user/profile');
     return response?.data;
   }
 
   async updateUserProfile(data: Record<string, unknown>): Promise<Record<string, unknown> | undefined> {
-    const response = await this.request<Record<string, unknown>>('/api/v1/user/profile', {
+    const response = await this.request<Record<string, unknown>>('/api/user/profile', {
       method: 'PUT',
       body: JSON.stringify(data)
     });
@@ -426,19 +426,19 @@ class ApiClient {
   // ============================================================================
 
   async getWatchlist(): Promise<Array<Record<string, unknown>> | undefined> {
-    const response = await this.request<Array<Record<string, unknown>>>('/api/v1/user/watchlist');
+    const response = await this.request<Array<Record<string, unknown>>>('/api/user/watchlist');
     return response?.data;
   }
 
   async addToWatchlist(request: WatchlistAddRequest): Promise<void> {
-    await this.request('/api/v1/user/watchlist', {
+    await this.request('/api/user/watchlist', {
       method: 'POST',
       body: JSON.stringify(request)
     });
   }
 
   async removeFromWatchlist(symbol: string): Promise<void> {
-    await this.request(`/api/v1/user/watchlist/${symbol}`, {
+    await this.request(`/api/user/watchlist/${symbol}`, {
       method: 'DELETE'
     });
   }
@@ -448,19 +448,19 @@ class ApiClient {
   // ============================================================================
 
   async getPriceAlerts(): Promise<Array<Record<string, unknown>> | undefined> {
-    const response = await this.request<Array<Record<string, unknown>>>('/api/v1/user/alerts');
+    const response = await this.request<Array<Record<string, unknown>>>('/api/user/alerts');
     return response?.data;
   }
 
   async createPriceAlert(request: PriceAlertCreateRequest): Promise<void> {
-    await this.request('/api/v1/user/alerts', {
+    await this.request('/api/user/alerts', {
       method: 'POST',
       body: JSON.stringify(request)
     });
   }
 
   async deletePriceAlert(alertId: string): Promise<void> {
-    await this.request(`/api/v1/user/alerts/${alertId}`, {
+    await this.request(`/api/user/alerts/${alertId}`, {
       method: 'DELETE'
     });
   }
@@ -470,14 +470,14 @@ class ApiClient {
   // ============================================================================
 
   async subscribeToPushNotifications(subscription: PushSubscriptionRequest): Promise<void> {
-    await this.request('/api/v1/user/push-subscription', {
+    await this.request('/api/user/push-subscription', {
       method: 'POST',
       body: JSON.stringify(subscription)
     });
   }
 
   async unsubscribeFromPushNotifications(): Promise<void> {
-    await this.request('/api/v1/user/push-subscription', {
+    await this.request('/api/user/push-subscription', {
       method: 'DELETE'
     });
   }

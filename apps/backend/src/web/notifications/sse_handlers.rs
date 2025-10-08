@@ -100,6 +100,22 @@ impl Default for NotificationBroadcaster {
 // ============================================================================
 
 /// SSE endpoint for real-time notifications
+#[utoipa::path(
+    get,
+    path = "/api/notifications/sse",
+    tag = "notifications",
+    responses(
+        (status = 200, description = "Successfully established SSE connection"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal server error")
+    ),
+    params(
+        ("wallet_address" = Option<String>, Query, description = "Wallet address to filter notifications"),
+        ("types" = Option<String>, Query, description = "Comma-separated notification types to filter"),
+        ("timeout" = Option<u64>, Query, description = "Connection timeout in seconds")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn sse_notifications_handler(
     State(app_state): State<AppState>,
     Query(query): Query<SSEQuery>,

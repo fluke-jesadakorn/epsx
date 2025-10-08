@@ -134,7 +134,7 @@ async function createServerAuthClient(): Promise<AuthAPIClient> {
 
 /**
  * Server-side analytics data fetching using unified client
- * Replaces: /api/v1/analytics/rankings and /api/v1/public/analytics/rankings proxy routes
+ * Replaces: /api/analytics/rankings and /api/public/analytics/rankings proxy routes
  */
 export async function getServerAnalytics(filters: EPSQueryParams): Promise<ServerAnalyticsResponse> {
   try {
@@ -169,30 +169,35 @@ export async function getServerAnalytics(filters: EPSQueryParams): Promise<Serve
       throw new Error('Invalid rankings data format received from API');
     }
 
-    const transformedRankings: SymbolCardData[] = rankingsData.map((ranking, index) => ({
-      rank: ranking?.ranking_position || index + 1,
-      symbol: ranking?.symbol || '',
-      latest_date: ranking?.quarterly_data?.[0]?.date || new Date().toISOString(),
-      value: ranking?.price_current || 0,
-      active_status: ranking?.active_status || 'unknown',
-      quarterly_performance: (ranking?.quarterly_data || []).map(q => ({
-        quarter: q?.quarter || '',
-        date: q?.date || '',
-        price: q?.price || 0,
-        eps: q?.eps || 0,
-        eps_growth: q?.eps_growth || 0,
-        price_growth: q?.price_growth || 0,
-      })),
-      next_quarter_estimate: ranking?.next_quarter_estimate ? {
-        quarter: ranking.next_quarter_estimate.quarter || '',
-        estimated_eps: ranking.next_quarter_estimate.estimated_eps || 0,
-        announcement_date: ranking.next_quarter_estimate.announcement_date || '',
-        announcement_timestamp: ranking.next_quarter_estimate.announcement_timestamp || 0,
-        days_until_announcement: ranking.next_quarter_estimate.days_until_announcement || 0,
-        confidence: ranking.next_quarter_estimate.confidence || 'Medium'
-      } : undefined,
-      currency: 'USD'
-    }));
+    const transformedRankings: SymbolCardData[] = rankingsData.map((ranking: any, index: number) => {
+      // Backend returns quarterly_performance, not quarterly_data
+      const qData = ranking?.quarterly_performance || ranking?.quarterly_data || [];
+
+      return {
+        rank: ranking?.rank || ranking?.ranking_position || index + 1,
+        symbol: ranking?.symbol || '',
+        latest_date: qData[0]?.date || ranking?.latest_date || new Date().toISOString(),
+        value: ranking?.value || ranking?.price_current || 0,
+        active_status: ranking?.active_status || 'unknown',
+        quarterly_performance: qData.map((q: any) => ({
+          quarter: q?.quarter || '',
+          date: q?.date || '',
+          price: q?.price || 0,
+          eps: q?.eps || 0,
+          eps_growth: q?.eps_growth || 0,
+          price_growth: q?.price_growth || 0,
+        })),
+        next_quarter_estimate: ranking?.next_quarter_estimate ? {
+          quarter: ranking.next_quarter_estimate.quarter || '',
+          estimated_eps: ranking.next_quarter_estimate.estimated_eps || 0,
+          announcement_date: ranking.next_quarter_estimate.announcement_date || '',
+          announcement_timestamp: ranking.next_quarter_estimate.announcement_timestamp || 0,
+          days_until_announcement: ranking.next_quarter_estimate.days_until_announcement || 0,
+          confidence: ranking.next_quarter_estimate.confidence || 'Medium'
+        } : undefined,
+        currency: 'USD'
+      };
+    });
 
     return {
       success: true,
@@ -235,7 +240,7 @@ export async function getServerAnalytics(filters: EPSQueryParams): Promise<Serve
 
 /**
  * Server-side filter options fetching using unified client
- * Replaces: /api/v1/analytics/filters proxy route
+ * Replaces: /api/analytics/filters proxy route
  */
 export async function getServerFilterOptions(): Promise<FilterOptions> {
   try {
@@ -275,7 +280,7 @@ export async function getServerFilterOptions(): Promise<FilterOptions> {
 
 /**
  * Server-side portfolio data fetching using unified client
- * Replaces: /api/v1/portfolio/rankings proxy route
+ * Replaces: /api/portfolio/rankings proxy route
  */
 export async function getServerPortfolio(filters: EPSQueryParams): Promise<ServerAnalyticsResponse> {
   try {
@@ -315,30 +320,35 @@ export async function getServerPortfolio(filters: EPSQueryParams): Promise<Serve
     );
 
     // Transform unified client response to legacy format for compatibility
-    const transformedRankings: SymbolCardData[] = positiveGrowthRankings.map((ranking, index) => ({
-      rank: ranking?.ranking_position || index + 1,
-      symbol: ranking?.symbol || '',
-      latest_date: ranking?.quarterly_data?.[0]?.date || new Date().toISOString(),
-      value: ranking?.price_current || 0,
-      active_status: ranking?.active_status || 'unknown',
-      quarterly_performance: (ranking?.quarterly_data || []).map(q => ({
-        quarter: q?.quarter || '',
-        date: q?.date || '',
-        price: q?.price || 0,
-        eps: q?.eps || 0,
-        eps_growth: q?.eps_growth || 0,
-        price_growth: q?.price_growth || 0,
-      })),
-      next_quarter_estimate: ranking?.next_quarter_estimate ? {
-        quarter: ranking.next_quarter_estimate.quarter || '',
-        estimated_eps: ranking.next_quarter_estimate.estimated_eps || 0,
-        announcement_date: ranking.next_quarter_estimate.announcement_date || '',
-        announcement_timestamp: ranking.next_quarter_estimate.announcement_timestamp || 0,
-        days_until_announcement: ranking.next_quarter_estimate.days_until_announcement || 0,
-        confidence: ranking.next_quarter_estimate.confidence || 'Medium'
-      } : undefined,
-      currency: 'USD'
-    }));
+    const transformedRankings: SymbolCardData[] = positiveGrowthRankings.map((ranking: any, index: number) => {
+      // Backend returns quarterly_performance, not quarterly_data
+      const qData = ranking?.quarterly_performance || ranking?.quarterly_data || [];
+
+      return {
+        rank: ranking?.rank || ranking?.ranking_position || index + 1,
+        symbol: ranking?.symbol || '',
+        latest_date: qData[0]?.date || ranking?.latest_date || new Date().toISOString(),
+        value: ranking?.value || ranking?.price_current || 0,
+        active_status: ranking?.active_status || 'unknown',
+        quarterly_performance: qData.map((q: any) => ({
+          quarter: q?.quarter || '',
+          date: q?.date || '',
+          price: q?.price || 0,
+          eps: q?.eps || 0,
+          eps_growth: q?.eps_growth || 0,
+          price_growth: q?.price_growth || 0,
+        })),
+        next_quarter_estimate: ranking?.next_quarter_estimate ? {
+          quarter: ranking.next_quarter_estimate.quarter || '',
+          estimated_eps: ranking.next_quarter_estimate.estimated_eps || 0,
+          announcement_date: ranking.next_quarter_estimate.announcement_date || '',
+          announcement_timestamp: ranking.next_quarter_estimate.announcement_timestamp || 0,
+          days_until_announcement: ranking.next_quarter_estimate.days_until_announcement || 0,
+          confidence: ranking.next_quarter_estimate.confidence || 'Medium'
+        } : undefined,
+        currency: 'USD'
+      };
+    });
 
     return {
       success: true,

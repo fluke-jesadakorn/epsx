@@ -58,7 +58,7 @@ export default function StockRankingAssignmentList({
   const loadAssignments = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/v1/admin/stock-ranking/assignments');
+      const response = await fetch('/api/admin/stock-ranking/assignments');
       
       if (!response.ok) {
         // eslint-disable-next-line no-console
@@ -93,7 +93,7 @@ export default function StockRankingAssignmentList({
 
     try {
       const response = await fetch(
-        `/api/v1/admin/stock-ranking/assignments/${assignmentId}/revoke`,
+        `/api/admin/stock-ranking/assignments/${assignmentId}/revoke`,
         {
           method: 'POST',
         }
@@ -118,7 +118,7 @@ export default function StockRankingAssignmentList({
   ) => {
     try {
       const response = await fetch(
-        `/api/v1/admin/stock-ranking/assignments/${assignmentId}/extend`,
+        `/api/admin/stock-ranking/assignments/${assignmentId}/extend`,
         {
           method: 'POST',
           headers: {

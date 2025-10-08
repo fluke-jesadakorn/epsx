@@ -177,7 +177,7 @@ async function serverFetcher(url: string, options: RequestInit = {}) {
  */
 export async function getServerStockData(symbol: string) {
   try {
-    const result = await serverFetcher(`/api/v1/stocks/${symbol}`)
+    const result = await serverFetcher(`/api/analytics/stocks/${symbol}`)
     
     // Handle unauthenticated users gracefully
     if (result === null) {
@@ -191,7 +191,7 @@ export async function getServerStockData(symbol: string) {
       stack: error instanceof Error ? error.stack : undefined,
       type: error instanceof Error ? error.constructor.name : typeof error,
       symbol,
-      endpoint: `/api/v1/stocks/${symbol}`,
+      endpoint: `/api/analytics/stocks/${symbol}`,
       timestamp: new Date().toISOString()
     }
     
@@ -208,7 +208,7 @@ export async function getServerStockData(symbol: string) {
 export async function getServerBatchStocks(symbols: string[]) {
   try {
     const symbolsParam = symbols.join(',')
-    const result = await serverFetcher(`/api/v1/stocks/batch?symbols=${symbolsParam}`)
+    const result = await serverFetcher(`/api/analytics/stocks/batch?symbols=${symbolsParam}`)
     
     // Handle unauthenticated users gracefully
     if (result === null) {
@@ -223,7 +223,7 @@ export async function getServerBatchStocks(symbols: string[]) {
       type: error instanceof Error ? error.constructor.name : typeof error,
       symbols,
       symbolsParam: symbols.join(','),
-      endpoint: `/api/v1/stocks/batch`,
+      endpoint: `/api/analytics/stocks/batch`,
       timestamp: new Date().toISOString()
     }
     
@@ -247,12 +247,12 @@ export async function getServerAnalytics(filters: EPSQueryParams): Promise<Serve
     })
     
     // Try authenticated endpoint first
-    const authenticatedEndpoint = `/api/v1/analytics/rankings?${params.toString()}`
+    const authenticatedEndpoint = `/api/analytics/rankings?${params.toString()}`
     let result = await serverFetcher(authenticatedEndpoint)
     
     // If authentication failed, try public endpoint with pagination
     if (result === null) {
-      const publicEndpoint = `/api/v1/public/analytics/rankings?${params.toString()}`
+      const publicEndpoint = `/api/public/analytics/rankings?${params.toString()}`
       result = await serverFetcher(publicEndpoint)
     }
     
@@ -330,7 +330,7 @@ export async function getServerAnalytics(filters: EPSQueryParams): Promise<Serve
       code: error && typeof error === 'object' && 'code' in error ? error.code : undefined,
       cause: error instanceof Error && error.cause ? error.cause : undefined,
       filters,
-      endpoint: `/api/v1/analytics/rankings`,
+      endpoint: `/api/analytics/rankings`,
       timestamp: new Date().toISOString()
     }
     
@@ -363,7 +363,7 @@ export async function getServerAnalytics(filters: EPSQueryParams): Promise<Serve
 export async function getServerFilterOptions(): Promise<FilterOptions> {
   try {
     
-    const result = await serverFetcher('/api/v1/analytics/filters')
+    const result = await serverFetcher('/api/analytics/filters')
     
     if (result === null) {
       return {
@@ -403,7 +403,7 @@ export async function getServerFilterOptions(): Promise<FilterOptions> {
       status: error && typeof error === 'object' && 'status' in error ? error.status : undefined,
       code: error && typeof error === 'object' && 'code' in error ? error.code : undefined,
       cause: error instanceof Error && error.cause ? error.cause : undefined,
-      endpoint: '/api/v1/analytics/filters',
+      endpoint: '/api/analytics/filters',
       timestamp: new Date().toISOString(),
       errorString: JSON.stringify(error, Object.getOwnPropertyNames(error)),
       errorKeys: error && typeof error === 'object' ? Object.keys(error) : [],
@@ -437,12 +437,12 @@ export async function getServerPortfolio(filters: EPSQueryParams): Promise<Serve
     })
     
     // Try portfolio endpoint (positive growth only)
-    const portfolioEndpoint = `/api/v1/portfolio/rankings?${params.toString()}`
+    const portfolioEndpoint = `/api/analytics/portfolio/rankings?${params.toString()}`
     let result = await serverFetcher(portfolioEndpoint)
     
     // If portfolio endpoint failed, try public portfolio endpoint
     if (result === null) {
-      const publicPortfolioEndpoint = `/api/v1/public/portfolio/rankings?${params.toString()}`
+      const publicPortfolioEndpoint = `/api/public/analytics/portfolio/rankings?${params.toString()}`
       result = await serverFetcher(publicPortfolioEndpoint)
     }
     
@@ -520,7 +520,7 @@ export async function getServerPortfolio(filters: EPSQueryParams): Promise<Serve
       code: error && typeof error === 'object' && 'code' in error ? error.code : undefined,
       cause: error instanceof Error && error.cause ? error.cause : undefined,
       filters,
-      endpoint: `/api/v1/portfolio/rankings`,
+      endpoint: `/api/analytics/portfolio/rankings`,
       timestamp: new Date().toISOString()
     }
     

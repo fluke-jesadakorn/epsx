@@ -10,7 +10,7 @@ import { ReactNode } from 'react';
 
 import { ClientProviders } from './ClientProviders';
 
-import { PancakeAdminLayout } from '@/components/layout/PancakeAdminLayout';
+import { MainLayout } from '@/components/layout/MainLayout';
 import { UnifiedAuth } from '@/lib/auth/wallet-auth';
 
 interface AuthProviderProps {
@@ -94,9 +94,9 @@ export async function AuthProvider({
       try {
         return (
           <ClientProviders>
-            <PancakeAdminLayout user={session.user as any}>
+            <MainLayout user={session.user as any}>
               {children}
-            </PancakeAdminLayout>
+            </MainLayout>
           </ClientProviders>
         );
       } catch (_error) {

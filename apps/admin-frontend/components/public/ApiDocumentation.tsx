@@ -48,7 +48,7 @@ const moduleDocumentation: ModuleDocumentation[] = [
     endpoints: [
       {
         method: 'GET',
-        path: '/api/v1/stock-ranking/rankings',
+        path: '/api/stock-ranking/rankings',
         description: 'Get basic stock rankings with filtering options',
         accessLevel: 'Bronze+',
         parameters: [
@@ -76,7 +76,7 @@ const moduleDocumentation: ModuleDocumentation[] = [
       },
       {
         method: 'GET',
-        path: '/api/v1/stock-ranking/rankings/ai-insights',
+        path: '/api/stock-ranking/rankings/ai-insights',
         description: 'Get AI-powered insights and predictions',
         accessLevel: 'Silver+',
         parameters: [
@@ -99,7 +99,7 @@ const moduleDocumentation: ModuleDocumentation[] = [
       },
       {
         method: 'POST',
-        path: '/api/v1/stock-ranking/rankings/custom',
+        path: '/api/stock-ranking/rankings/custom',
         description: 'Create custom ranking algorithm',
         accessLevel: 'Gold+',
         parameters: [
@@ -123,7 +123,7 @@ const moduleDocumentation: ModuleDocumentation[] = [
     endpoints: [
       {
         method: 'GET',
-        path: '/api/v1/market-data/quotes/{symbol}',
+        path: '/api/market-data/quotes/{symbol}',
         description: 'Get current quote for a symbol (15-minute delay for Bronze)',
         accessLevel: 'Bronze+',
         parameters: [
@@ -141,7 +141,7 @@ const moduleDocumentation: ModuleDocumentation[] = [
       },
       {
         method: 'GET',
-        path: '/api/v1/market-data/quotes/{symbol}/live',
+        path: '/api/market-data/quotes/{symbol}/live',
         description: 'Get real-time quote (no delay)',
         accessLevel: 'Silver+',
         parameters: [
@@ -159,7 +159,7 @@ const moduleDocumentation: ModuleDocumentation[] = [
       },
       {
         method: 'GET',
-        path: '/api/v1/market-data/indicators/{symbol}/rsi',
+        path: '/api/market-data/indicators/{symbol}/rsi',
         description: 'Get Relative Strength Index (RSI) indicator',
         accessLevel: 'Silver+',
         parameters: [
@@ -185,7 +185,7 @@ const moduleDocumentation: ModuleDocumentation[] = [
     endpoints: [
       {
         method: 'POST',
-        path: '/api/v1/portfolio-analysis/portfolios',
+        path: '/api/portfolio-analysis/portfolios',
         description: 'Create a new portfolio for analysis',
         accessLevel: 'Bronze+',
         parameters: [
@@ -202,7 +202,7 @@ const moduleDocumentation: ModuleDocumentation[] = [
       },
       {
         method: 'GET',
-        path: '/api/v1/portfolio-analysis/portfolios/{id}/risk',
+        path: '/api/portfolio-analysis/portfolios/{id}/risk',
         description: 'Get comprehensive risk analysis',
         accessLevel: 'Silver+',
         parameters: [
@@ -230,7 +230,7 @@ const moduleDocumentation: ModuleDocumentation[] = [
     endpoints: [
       {
         method: 'GET',
-        path: '/api/v1/trading-signals/signals',
+        path: '/api/trading-signals/signals',
         description: 'Get current trading signals',
         accessLevel: 'Silver+',
         parameters: [
@@ -253,7 +253,7 @@ const moduleDocumentation: ModuleDocumentation[] = [
       },
       {
         method: 'POST',
-        path: '/api/v1/trading-signals/strategies/{id}/backtest',
+        path: '/api/trading-signals/strategies/{id}/backtest',
         description: 'Run backtesting on a trading strategy',
         accessLevel: 'Gold+',
         parameters: [

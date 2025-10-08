@@ -55,7 +55,7 @@ struct CacheEntry {
 }
 
 /// Cache statistics
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct CacheStats {
     pub total_entries: usize,
     pub active_entries: usize,

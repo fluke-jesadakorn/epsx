@@ -22,6 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { apiFetch } from '@/lib/api-fetch';
 import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
 import { UserWalletDisplay, UserTierBadge, UserAuthStatus, UserPermissionsDisplay } from '@/shared/components/display/UserDisplay';
 
@@ -71,18 +72,14 @@ export function AdminWeb3Integration({
 
   const checkEmailLinkStatus = async (address: string) => {
     try {
-      const response = await fetch('/api/auth/web3/email-status', {
+      const data = await apiFetch('/api/auth/web3/email-status', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wallet_address: address }),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setEmailLinkStatus(data.linked ? 'linked' : 'unlinked');
-        if (data.email) {
-          setEmail(data.email);
-        }
+      setEmailLinkStatus(data.linked ? 'linked' : 'unlinked');
+      if (data.email) {
+        setEmail(data.email);
       }
     } catch (_error) {
       // eslint-disable-next-line no-console
@@ -96,23 +93,17 @@ export function AdminWeb3Integration({
     try {
       setIsLoading(true);
       setEmailLinkStatus('pending');
-      
-      const response = await fetch('/api/auth/web3/link-email', {
+
+      await apiFetch('/api/auth/web3/link-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           wallet_address: walletAddress,
           email: email || 'admin@epsx.io' // Default admin email
         }),
       });
 
-      if (response.ok) {
-        setEmailLinkStatus('linked');
-        toast.success('Email linked to wallet successfully');
-      } else {
-        setEmailLinkStatus('unlinked');
-        toast.error('Failed to link email to wallet');
-      }
+      setEmailLinkStatus('linked');
+      toast.success('Email linked to wallet successfully');
     } catch (_error) {
       setEmailLinkStatus('unlinked');
       toast.error('Failed to link email to wallet');
@@ -126,20 +117,15 @@ export function AdminWeb3Integration({
 
     try {
       setIsLoading(true);
-      
-      const response = await fetch('/api/auth/web3/unlink-email', {
+
+      await apiFetch('/api/auth/web3/unlink-email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wallet_address: walletAddress }),
       });
 
-      if (response.ok) {
-        setEmailLinkStatus('unlinked');
-        setEmail(undefined);
-        toast.success('Email unlinked from wallet');
-      } else {
-        toast.error('Failed to unlink email from wallet');
-      }
+      setEmailLinkStatus('unlinked');
+      setEmail(undefined);
+      toast.success('Email unlinked from wallet');
     } catch (_error) {
       toast.error('Failed to unlink email from wallet');
     } finally {

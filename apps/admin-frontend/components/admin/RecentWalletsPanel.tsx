@@ -63,7 +63,7 @@ export function RecentWalletsPanel() {
     setError(null);
 
     try {
-      const response = await fetch('/api/v1/admin/web3/recent-wallets?limit=10&days=7', {
+      const response = await fetch('/api/admin/web3/recent-wallets?limit=10&days=7', {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',

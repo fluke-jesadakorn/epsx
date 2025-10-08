@@ -1,10 +1,11 @@
 'use client';
 
+import { usePathname } from 'next/navigation';
 import { ReactNode } from 'react';
 
-import { DynamicBreadcrumb } from './DynamicBreadcrumb';
-import { PancakeAdminHeader } from './PancakeAdminHeader';
-import { PancakeAdminNav } from './PancakeAdminNav';
+import { Breadcrumb } from './Breadcrumb';
+import { Header } from './Header';
+import { Sidebar } from './Sidebar';
 
 interface User {
   id: string;
@@ -13,10 +14,12 @@ interface User {
   role: string;
 }
 
-interface PancakeAdminLayoutProps {
+interface MainLayoutProps {
   children: ReactNode;
   user?: User;
 }
+
+const NO_SIDEBAR_PATHS = ['/permissions/policies'];
 
 /**
  *
@@ -24,23 +27,30 @@ interface PancakeAdminLayoutProps {
  * @param root0.children
  * @param root0.user
  */
-export function PancakeAdminLayout({
+export function MainLayout({
   children,
   user,
-}: PancakeAdminLayoutProps) {
+}: MainLayoutProps) {
+  const pathname = usePathname();
+  const hideLayout = NO_SIDEBAR_PATHS.some(path => pathname === path || pathname.startsWith(path));
+
+  if (hideLayout) {
+    return <>{children}</>;
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
       {/* Sidebar Navigation */}
-      <PancakeAdminNav />
+      <Sidebar />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <PancakeAdminHeader user={user} />
+        <Header user={user} />
 
         {/* Breadcrumb */}
         <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3">
-          <DynamicBreadcrumb />
+          <Breadcrumb />
         </div>
 
         {/* Main Content */}

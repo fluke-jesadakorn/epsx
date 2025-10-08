@@ -66,17 +66,17 @@ export const serverConfig = {
  */
 export const enterpriseUrls = {
   // Enterprise API endpoints
-  authenticate: `${env.BACKEND_URL}/api/v1/enterprise/auth/verify`,
-  challenge: `${env.BACKEND_URL}/api/v1/enterprise/auth/challenge`,
-  permissions: `${env.BACKEND_URL}/api/v1/enterprise/auth/permissions`,
-  marketplace: `${env.BACKEND_URL}/api/v1/enterprise/marketplace`,
-  billing: `${env.BACKEND_URL}/api/v1/enterprise/billing`,
-  analytics: `${env.BACKEND_URL}/api/v1/enterprise/analytics`,
+  authenticate: `${env.BACKEND_URL}/api/enterprise/auth/verify`,
+  challenge: `${env.BACKEND_URL}/api/enterprise/auth/challenge`,
+  permissions: `${env.BACKEND_URL}/api/enterprise/auth/permissions`,
+  marketplace: `${env.BACKEND_URL}/api/enterprise/marketplace`,
+  billing: `${env.BACKEND_URL}/api/enterprise/billing`,
+  analytics: `${env.BACKEND_URL}/api/enterprise/analytics`,
   
   // Health and status
-  health: `${env.BACKEND_URL}/api/v1/enterprise/health`,
-  status: `${env.BACKEND_URL}/api/v1/enterprise/status`,
-  tiers: `${env.BACKEND_URL}/api/v1/enterprise/tiers`,
+  health: `${env.BACKEND_URL}/api/enterprise/health`,
+  status: `${env.BACKEND_URL}/api/enterprise/status`,
+  tiers: `${env.BACKEND_URL}/api/enterprise/tiers`,
 } as const;
 
 /**

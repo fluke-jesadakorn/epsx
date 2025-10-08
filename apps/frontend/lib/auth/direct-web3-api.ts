@@ -54,7 +54,7 @@ export class DirectWeb3Api {
 
   /**
    * Request SIWE challenge from backend
-   * Uses public route: POST /api/v1/auth/web3/challenge
+   * Uses public route: POST /api/auth/web3/challenge
    */
   async requestChallenge(walletAddress: string): Promise<ChallengeResponse> {
     try {
@@ -104,7 +104,7 @@ export class DirectWeb3Api {
 
   /**
    * Verify wallet signature and create/save wallet user
-   * Uses public route: POST /api/v1/auth/web3/verify
+   * Uses public route: POST /api/auth/web3/verify
    */
   async verifySignature(request: VerifyRequest): Promise<VerifyResponse> {
     try {

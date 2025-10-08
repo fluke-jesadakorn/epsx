@@ -1,9 +1,9 @@
 'use client';
 
-import { 
-  ShieldIcon, 
-  PlusIcon, 
-  TrashIcon, 
+import {
+  ShieldIcon,
+  PlusIcon,
+  TrashIcon,
   SettingsIcon,
   ClockIcon,
   MapPinIcon,
@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { apiFetch } from '@/lib/api-fetch';
 
 type PolicyType = 'time_based' | 'location_based' | 'risk_based' | 'device_based' | 'behavioral' | 'compliance' | 'custom';
 type ConditionOperator = 'AND' | 'OR' | 'NOT';
@@ -150,11 +151,8 @@ export default function PolicyBuilder() {
 
   const loadTemplates = async () => {
     try {
-      const response = await fetch('/api/v1/admin/policies/templates');
-      if (response.ok) {
-        const data = await response.json();
-        setTemplates(data.templates || []);
-      }
+      const data = await apiFetch('/api/admin/policies/templates');
+      setTemplates(data.templates || []);
     } catch (_error) {
       // eslint-disable-next-line no-console
       console.error('Error loading templates:', _error);
@@ -233,22 +231,16 @@ export default function PolicyBuilder() {
         }
       };
 
-      const response = await fetch('/api/v1/admin/policies/evaluate', {
+      const data = await apiFetch('/api/admin/policies/evaluate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(testContext),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setTestResults(data.evaluation);
-        toast({
-          title: "Test Complete",
-          description: `Policy decision: ${data.evaluation.decision}`,
-        });
-      }
+      setTestResults(data.evaluation);
+      toast({
+        title: "Test Complete",
+        description: `Policy decision: ${data.evaluation.decision}`,
+      });
     } catch (_error) {
       // eslint-disable-next-line no-console
       console.error('Error testing policy:', _error);
@@ -263,7 +255,7 @@ export default function PolicyBuilder() {
   const handleSavePolicy = async () => {
     try {
       setSaving(true);
-      
+
       if (!formData.name || formData.target_actions.length === 0 || formData.conditions.conditions.length === 0) {
         toast({
           title: "Validation Error",
@@ -273,41 +265,32 @@ export default function PolicyBuilder() {
         return;
       }
 
-      const response = await fetch('/api/v1/admin/policies', {
+      await apiFetch('/api/admin/policies', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(formData),
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        toast({
-          title: "Success",
-          description: `Policy "${formData.name}" created successfully`,
-        });
-        
-        // Reset form
-        setFormData({
-          name: '',
-          description: '',
-          policy_type: 'time_based',
-          target_actions: [],
-          conditions: {
-            operator: 'AND',
-            conditions: []
-          },
-          actions: {
-            primary: 'require_approval',
-            secondary_actions: [],
-          },
-          priority: 100,
-        });
-      } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create policy');
-      }
+      toast({
+        title: "Success",
+        description: `Policy "${formData.name}" created successfully`,
+      });
+
+      // Reset form
+      setFormData({
+        name: '',
+        description: '',
+        policy_type: 'time_based',
+        target_actions: [],
+        conditions: {
+          operator: 'AND',
+          conditions: []
+        },
+        actions: {
+          primary: 'require_approval',
+          secondary_actions: [],
+        },
+        priority: 100,
+      });
     } catch (_error) {
       // eslint-disable-next-line no-console
       console.error('Error saving policy:', _error);

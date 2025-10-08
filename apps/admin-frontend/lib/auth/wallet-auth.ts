@@ -8,6 +8,8 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { SiweMessage } from 'siwe';
 
+import { apiFetch } from '@/lib/api-fetch';
+
 // ============================================================================
 // Core Types - Adapted for Wallet Authentication
 // ============================================================================
@@ -87,29 +89,17 @@ export async function getWalletSessionFromCookies(): Promise<WalletSession | nul
 export async function validateWalletWithBackend(session: WalletSession): Promise<WalletUser | null> {
   try {
     // Use local admin frontend API route instead of backend
-    const response = await fetch('/api/auth/web3/verify', {
+    const userInfo = await apiFetch('/api/auth/web3/verify', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
       body: JSON.stringify({
         wallet_address: session.wallet_address,
         signature: session.signature,
         nonce: session.nonce,
         message: session.message,
         admin_context: true
-      }),
-      credentials: 'include'
+      })
     });
-    
-    if (!response.ok) {
-      // eslint-disable-next-line no-console
-      console.error('❌ Wallet validation failed:', response.status);
-      return null;
-    }
-    
-    const userInfo = await response.json();
-    
+
     return {
       sub: userInfo.wallet_address, // Use wallet address as subject
       wallet_address: userInfo.wallet_address,
@@ -452,20 +442,12 @@ export async function isValidSession(): Promise<boolean> {
  */
 export async function generateWalletNonce(walletAddress: string): Promise<string> {
   try {
-    const response = await fetch('/api/auth/web3/challenge', {
+    const data = await apiFetch('/api/auth/web3/challenge', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({ wallet_address: walletAddress }),
     });
 
-    if (!response.ok) {
-      throw new Error('Failed to generate nonce');
-    }
-
-    const { nonce } = await response.json();
-    return nonce;
+    return data.nonce;
   } catch (_error) {
     // eslint-disable-next-line no-console
     console.error('❌ Failed to generate wallet nonce:', _error);
@@ -488,22 +470,11 @@ export async function verifyWalletSignature(data: {
   message: string;
 }): Promise<AuthenticationResult> {
   try {
-    const response = await fetch('/api/auth/web3/verify', {
+    await apiFetch('/api/auth/web3/verify', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-      credentials: 'include',
+      body: JSON.stringify(data)
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Verification failed' }));
-      return { success: false, error: errorData.error };
-    }
-
-    const result = await response.json();
-    
     // Set wallet session
     await setWalletSession({
       wallet_address: data.wallet_address,
@@ -512,16 +483,16 @@ export async function verifyWalletSignature(data: {
       message: data.message,
       expires_in: 3600 // 1 hour
     });
-    
+
     // Get session to validate
     const session = await getAdminSession();
-    
+
     return {
       success: true,
       session,
       redirectUrl: '/' // Redirect to dashboard
     };
-    
+
   } catch (_error) {
     return {
       success: false,

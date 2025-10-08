@@ -130,7 +130,7 @@ export function EnhancedWalletSearch() {
         }
       });
 
-      const response = await fetch(`/api/v1/admin/wallets/search?${cleanParams.toString()}`, {
+      const response = await fetch(`/api/admin/wallets/search?${cleanParams.toString()}`, {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',

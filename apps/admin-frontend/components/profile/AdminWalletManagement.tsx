@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
+import { apiFetch } from '@/lib/api-fetch';
 
 interface WalletSession {
   wallet_address: string;
@@ -65,21 +66,16 @@ export function AdminWalletManagement({ initialSession }: AdminWalletManagementP
   const fetchSessionInfo = async (walletAddress: string) => {
     try {
       setIsLoading(true);
-      const response = await fetch('/api/auth/session', {
-        credentials: 'include',
-      });
+      const sessionData = await apiFetch('/api/auth/session');
 
-      if (response.ok) {
-        const sessionData = await response.json();
-        if (sessionData.wallet_address === walletAddress) {
-          setSession({
-            wallet_address: walletAddress,
-            connected_at: Date.now() - (3600 * 1000), // 1 hour ago (mock)
-            expires_at: Date.now() + (3600 * 1000), // 1 hour from now
-            last_activity: Date.now(),
-            session_id: sessionData.session_id || 'mock-session-id'
-          });
-        }
+      if (sessionData.wallet_address === walletAddress) {
+        setSession({
+          wallet_address: walletAddress,
+          connected_at: Date.now() - (3600 * 1000), // 1 hour ago (mock)
+          expires_at: Date.now() + (3600 * 1000), // 1 hour from now
+          last_activity: Date.now(),
+          session_id: sessionData.session_id || 'mock-session-id'
+        });
       }
     } catch (_error) {
       // eslint-disable-next-line no-console
@@ -118,28 +114,22 @@ export function AdminWalletManagement({ initialSession }: AdminWalletManagementP
 
     try {
       setIsLoading(true);
-      
+
       // Mock extending session by refreshing authentication
-      const response = await fetch('/api/auth/web3/verify', {
+      await apiFetch('/api/auth/web3/verify', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           wallet_address: address,
           extend_session: true
         }),
-        credentials: 'include',
       });
 
-      if (response.ok) {
-        setSession(prev => prev ? {
-          ...prev,
-          expires_at: Date.now() + (3600 * 1000), // Extend by 1 hour
-          last_activity: Date.now()
-        } : null);
-        toast.success('Session extended successfully');
-      } else {
-        toast.error('Failed to extend session');
-      }
+      setSession(prev => prev ? {
+        ...prev,
+        expires_at: Date.now() + (3600 * 1000), // Extend by 1 hour
+        last_activity: Date.now()
+      } : null);
+      toast.success('Session extended successfully');
     } catch (_error) {
       toast.error('Failed to extend session');
     } finally {
@@ -150,17 +140,16 @@ export function AdminWalletManagement({ initialSession }: AdminWalletManagementP
   const handleForceDisconnect = async () => {
     try {
       setIsLoading(true);
-      
+
       // Call logout API
-      await fetch('/api/auth/logout', {
+      await apiFetch('/api/auth/logout', {
         method: 'POST',
-        credentials: 'include',
       });
-      
+
       // Disconnect wallet
       disconnect();
       setSession(null);
-      
+
       toast.success('Wallet disconnected successfully');
     } catch (_error) {
       toast.error('Failed to disconnect wallet');

@@ -7,6 +7,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
+import { apiFetch } from '@/lib/api-fetch';
 import { getWeb3AdminSession, Web3AdminSessionData } from '@/lib/web3-admin-session';
 
 // ============================================================================
@@ -101,12 +102,8 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
  */
 export async function validateWeb3Session(sessionData: Web3SessionData): Promise<Web3AdminUser | null> {
   try {
-    
-    const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/web3/verify`, {
+    const validationResult = await apiFetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/web3/verify`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
       body: JSON.stringify({
         walletAddress: sessionData.walletAddress,
         signature: sessionData.signature,
@@ -115,19 +112,11 @@ export async function validateWeb3Session(sessionData: Web3SessionData): Promise
         chainId: sessionData.chainId
       })
     });
-    
-    if (!response.ok) {
-      // eslint-disable-next-line no-console
-      console.error('❌ Web3 validation failed:', response.status, await response.text().catch(() => 'No response text'));
-      return null;
-    }
-    
-    const validationResult = await response.json();
-    
+
     if (!validationResult.valid || !validationResult.hasAdminAccess) {
       return null;
     }
-    
+
     // Create Web3AdminUser from validation result
     const web3User: Web3AdminUser = {
       walletAddress: sessionData.walletAddress,
@@ -139,9 +128,9 @@ export async function validateWeb3Session(sessionData: Web3SessionData): Promise
       sessionExpiry: sessionData.expiresAt,
       lastVerified: Date.now()
     };
-    
+
     return web3User;
-    
+
   } catch (_error) {
     // eslint-disable-next-line no-console
     console.error('❌ Web3 validation error:', _error);

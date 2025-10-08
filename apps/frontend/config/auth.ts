@@ -127,10 +127,10 @@ export function buildFrontendWeb3ChallengeUrl(walletAddress: string): string {
       token: `${backendUrl}/oauth/token`,
       userinfo: `${backendUrl}/oauth/userinfo`,
       logout: `${backendUrl}/oauth/logout`,
-      challenge: `${backendUrl}/api/v1/auth/web3/challenge`,
-      verify: `${backendUrl}/api/v1/auth/web3/verify`,
+      challenge: `${backendUrl}/api/auth/web3/challenge`,
+      verify: `${backendUrl}/api/auth/web3/verify`,
       refresh: `${backendUrl}/oauth/token`,
-      permissions: `${backendUrl}/api/v1/auth/permissions`
+      permissions: `${backendUrl}/api/auth/permissions`
     }
   };
   return buildWeb3ChallengeUrl(oidcLikeConfig, walletAddress);

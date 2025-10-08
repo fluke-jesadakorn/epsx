@@ -22,8 +22,26 @@ use super::{
   metadata::{ get_available_countries_static, get_available_sectors_static },
 };
 
-/// GET /api/v1/analytics/rankings - Direct TradingView card dashboard endpoint with caching
+/// GET /api/analytics/rankings - Direct TradingView card dashboard endpoint with caching
 /// Same API contract as before, now using direct TradingView API calls (bypasses broken DDD adapter)
+#[utoipa::path(
+    get,
+    path = "/api/analytics/rankings",
+    tag = "analytics",
+    responses(
+        (status = 200, description = "Successfully retrieved analytics rankings", body = CardDashboardResponse),
+        (status = 500, description = "Internal server error")
+    ),
+    params(
+        ("page" = Option<i32>, Query, description = "Page number (default: 1)"),
+        ("limit" = Option<i32>, Query, description = "Items per page (default: 10)"),
+        ("country" = Option<String>, Query, description = "Filter by country code (e.g., 'america', 'uk')"),
+        ("sector" = Option<String>, Query, description = "Filter by sector (e.g., 'Technology', 'Healthcare')"),
+        ("sort_by" = Option<String>, Query, description = "Sort field (default: 'qoq_growth')"),
+        ("min_eps" = Option<f64>, Query, description = "Minimum EPS filter"),
+        ("min_growth" = Option<f64>, Query, description = "Minimum growth percentage filter")
+    )
+)]
 pub async fn get_unified_analytics_rankings_cached(
   Query(params): Query<EPSRankingQueryParams>,
   Extension(cache): Extension<Arc<dyn Cache>>
@@ -248,7 +266,16 @@ pub async fn get_unified_analytics_rankings_cached(
   Ok(Json(card_response))
 }
 
-/// GET /api/v1/analytics/cache/stats - Get cache statistics
+/// GET /api/analytics/cache/stats - Get cache statistics
+#[utoipa::path(
+    get,
+    path = "/api/analytics/cache/stats",
+    tag = "analytics",
+    responses(
+        (status = 200, description = "Successfully retrieved cache statistics", body = CacheStatsResponse),
+        (status = 500, description = "Internal server error")
+    )
+)]
 pub async fn get_cache_stats(Extension(
   cache_service,
 ): Extension<Arc<EPSCacheService>>) -> Result<
@@ -276,7 +303,17 @@ pub async fn get_cache_stats(Extension(
   Ok(Json(response))
 }
 
-/// POST /api/v1/analytics/cache/refresh - Force cache refresh
+/// POST /api/analytics/cache/refresh - Force cache refresh
+#[utoipa::path(
+    post,
+    path = "/api/analytics/cache/refresh",
+    tag = "analytics",
+    responses(
+        (status = 200, description = "Successfully refreshed cache", body = CacheRefreshResponse),
+        (status = 500, description = "Internal server error")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn force_cache_refresh(Extension(
   cache_service,
 ): Extension<Arc<EPSCacheService>>) -> Result<
@@ -308,59 +345,6 @@ pub async fn force_cache_refresh(Extension(
     "Cache refresh completed - {} entries refreshed in {:?}",
     refreshed_count,
     duration
-  );
-
-  Ok(Json(response))
-}
-
-/// GET /api/v1/analytics/cache/health - Cache health check
-pub async fn cache_health_check(Extension(
-  cache_service,
-): Extension<Arc<EPSCacheService>>) -> Result<
-  Json<CacheHealthResponse>,
-  AppError
-> {
-  debug!("Checking cache health");
-
-  let stats = cache_service.get_cache_stats().await;
-
-  // Determine health status based on cache metrics
-  let healthy = stats.active_entries > 0 && stats.hit_ratio > 0.1;
-  let status = if healthy { "healthy" } else { "degraded" };
-
-  let mut recommendations = Vec::new();
-
-  if stats.active_entries == 0 {
-    recommendations.push(
-      "Cache is empty - consider warming the cache".to_string()
-    );
-  }
-
-  if stats.hit_ratio < 0.5 {
-    recommendations.push(
-      "Low cache hit ratio - consider increasing TTL".to_string()
-    );
-  }
-
-  if stats.cache_size_mb > 100.0 {
-    recommendations.push(
-      "Cache size is large - monitor memory usage".to_string()
-    );
-  }
-
-  let response = CacheHealthResponse {
-    status: status.to_string(),
-    healthy,
-    cache_stats: stats,
-    recommendations,
-    timestamp: chrono::Utc::now(),
-  };
-
-  info!(
-    "Cache health check - Status: {}, Active entries: {}, Hit ratio: {:.2}%",
-    status,
-    response.cache_stats.active_entries,
-    response.cache_stats.hit_ratio * 100.0
   );
 
   Ok(Json(response))

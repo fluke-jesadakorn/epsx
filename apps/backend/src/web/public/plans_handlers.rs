@@ -7,16 +7,40 @@ use serde_json::{json, Value};
 use crate::web::auth::AppState;
 
 /// Get public pricing plans (no authentication required)
-/// GET /api/v1/public/plans
+/// GET /api/public/plans
+#[utoipa::path(
+    get,
+    path = "/api/public/plans",
+    tag = "public",
+    responses(
+        (status = 200, description = "Successfully retrieved subscription plans"),
+        (status = 500, description = "Internal server error")
+    )
+)]
 pub async fn get_public_plans(State(app_state): State<AppState>) -> Result<Json<Value>, StatusCode> {
+    tracing::info!("📊 Fetching public subscription plans");
+
     // Get plans from database instead of hardcoded data
     let db_plans = match app_state.permission_group_repo.get_subscription_plans().await {
-        Ok(plans) => plans,
+        Ok(plans) => {
+            tracing::info!("✅ Found {} subscription plans in database", plans.len());
+            plans
+        },
         Err(err) => {
-            tracing::error!(error = %err, "Failed to fetch subscription plans from database");
+            tracing::error!(error = %err, "❌ Failed to fetch subscription plans from database");
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
     };
+
+    // If no plans found, return empty array (not an error)
+    if db_plans.is_empty() {
+        tracing::warn!("⚠️ No subscription plans found in database - returning empty array");
+        return Ok(Json(json!({
+            "success": true,
+            "data": [],
+            "message": "No subscription plans available. Please contact support or use fallback plans."
+        })));
+    }
 
     // Convert database plans to frontend format
     let plans: Vec<Value> = db_plans.into_iter().map(|plan| {

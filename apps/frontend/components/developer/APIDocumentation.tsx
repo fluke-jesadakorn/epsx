@@ -27,7 +27,7 @@ export function APIDocumentation({ currentUser }: APIDocumentationProps) {
     analytics: [
       {
         method: 'GET',
-        endpoint: '/api/v1/analytics/rankings',
+        endpoint: '/api/analytics/rankings',
         description: 'Get stock rankings with EPS analysis',
         requiresAuth: true,
         tier: 'basic',
@@ -57,12 +57,12 @@ export function APIDocumentation({ currentUser }: APIDocumentationProps) {
     "total_pages": 100
   }
 }`,
-        example: `curl -X GET "https://api.epsx.io/api/v1/analytics/rankings?limit=10&country=US" \\
+        example: `curl -X GET "https://api.epsx.io/api/analytics/rankings?limit=10&country=US" \\
   -H "Authorization: Bearer YOUR_API_KEY"`
       },
       {
         method: 'GET',
-        endpoint: '/api/v1/analytics/stock/{symbol}',
+        endpoint: '/api/analytics/stock/{symbol}',
         description: 'Get detailed analytics for a specific stock',
         requiresAuth: true,
         tier: 'premium',
@@ -91,14 +91,14 @@ export function APIDocumentation({ currentUser }: APIDocumentationProps) {
     "confidence": 0.82
   }
 }`,
-        example: `curl -X GET "https://api.epsx.io/api/v1/analytics/stock/AAPL?period=1y" \\
+        example: `curl -X GET "https://api.epsx.io/api/analytics/stock/AAPL?period=1y" \\
   -H "Authorization: Bearer YOUR_API_KEY"`
       }
     ],
     webhooks: [
       {
         method: 'POST',
-        endpoint: '/api/v1/webhooks/rankings-update',
+        endpoint: '/api/webhooks/rankings-update',
         description: 'Register webhook for ranking updates',
         requiresAuth: true,
         tier: 'premium',
@@ -114,7 +114,7 @@ export function APIDocumentation({ currentUser }: APIDocumentationProps) {
   "status": "active",
   "created_at": "2024-01-15T10:30:00Z"
 }`,
-        example: `curl -X POST "https://api.epsx.io/api/v1/webhooks/rankings-update" \\
+        example: `curl -X POST "https://api.epsx.io/api/webhooks/rankings-update" \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{

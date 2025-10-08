@@ -57,10 +57,10 @@ export function getAdminAuthConfig(): AuthConfig {
     web3: getWeb3Config(),
     session: getSessionConfig('admin'),
     endpoints: {
-      authorize: '/api/v1/auth/web3/challenge',
-      token: '/api/v1/auth/web3/verify', 
-      userinfo: '/api/v1/auth/web3/permissions',
-      logout: '/api/v1/auth/web3/logout'
+      authorize: '/api/auth/web3/challenge',
+      token: '/api/auth/web3/verify', 
+      userinfo: '/api/auth/web3/permissions',
+      logout: '/api/auth/web3/logout'
     }
   };
 }
@@ -84,15 +84,15 @@ export function getSessionConfig(context?: string): SessionConfig {
 
 // Web3 URL builders
 export function buildWeb3ChallengeUrl(address: string): string {
-  return `/api/v1/auth/web3/challenge?address=${address}`;
+  return `/api/auth/web3/challenge?address=${address}`;
 }
 
 export function buildWeb3VerifyUrl(): string {
-  return `/api/v1/auth/web3/verify`;
+  return `/api/auth/web3/verify`;
 }
 
 export function buildWeb3LogoutUrl(): string {
-  return `/api/v1/auth/web3/logout`;
+  return `/api/auth/web3/logout`;
 }
 
 // Web3 validation functions

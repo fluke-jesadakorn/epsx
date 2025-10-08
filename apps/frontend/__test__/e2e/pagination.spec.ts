@@ -117,7 +117,7 @@ test.describe('Analytics Pagination', () => {
     const apiResponses: any[] = [];
     
     page.on('response', response => {
-      if (response.url().includes('/api/v1/analytics/eps-rankings')) {
+      if (response.url().includes('/api/analytics/eps-rankings')) {
         apiResponses.push({
           url: response.url(),
           status: response.status(),

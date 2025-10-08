@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { apiFetch } from '@/lib/api-fetch';
 
 interface WalletPermission {
   permission: string;
@@ -97,33 +98,26 @@ export function AdminWalletPermissions({
 
     try {
       setIsLoading(true);
-      const response = await fetch('/api/auth/web3/permissions', {
+      const data = await apiFetch('/api/auth/web3/permissions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wallet_address: walletAddress }),
-        credentials: 'include',
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        const mappedPermissions = data.permissions?.map((permission: string) => ({
-          permission,
-          source: 'manual' as const,
-          granted_at: new Date().toISOString(),
-          metadata: {
-            description: getPermissionDescription(permission),
-            level: getPermissionLevel(permission),
-            platform: permission.split(':')[0]
-          }
-        })) || [];
-        
-        setPermissions(mappedPermissions);
-        groupPermissions(mappedPermissions);
-        checkExpiringPermissions(mappedPermissions);
-        setLastUpdated(new Date());
-      } else {
-        toast.error('Failed to fetch wallet permissions');
-      }
+      const mappedPermissions = data.permissions?.map((permission: string) => ({
+        permission,
+        source: 'manual' as const,
+        granted_at: new Date().toISOString(),
+        metadata: {
+          description: getPermissionDescription(permission),
+          level: getPermissionLevel(permission),
+          platform: permission.split(':')[0]
+        }
+      })) || [];
+
+      setPermissions(mappedPermissions);
+      groupPermissions(mappedPermissions);
+      checkExpiringPermissions(mappedPermissions);
+      setLastUpdated(new Date());
     } catch (_error) {
       // eslint-disable-next-line no-console
       console.error('Failed to fetch wallet permissions:', _error);

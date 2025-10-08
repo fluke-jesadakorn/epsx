@@ -1,16 +1,16 @@
 /**
- * Consolidated User Actions
- * Combines: user-list-actions.ts, user-list-focused-actions.ts, user-profile-actions.ts, 
- * user-permissions-actions.ts, app/actions/user-actions.ts, and users.ts
- * 
- * This file contains ALL user management operations including:
- * - User CRUD operations
+ * Consolidated Wallet Actions
+ * Combines: wallet-list-actions.ts, wallet-list-focused-actions.ts, wallet-profile-actions.ts,
+ * wallet-permissions-actions.ts, app/actions/wallet-actions.ts, and wallets.ts
+ *
+ * This file contains ALL wallet management operations including:
+ * - Wallet CRUD operations
  * - Permission management (roles, profiles, custom permissions)
  * - Bulk operations
  * - Temporary permissions
  * - Activity logging and history
  * - Permission analysis and validation
- * - User search functionality
+ * - Wallet search functionality
  */
 
 'use server';
@@ -21,13 +21,13 @@ import { redirect } from 'next/navigation';
 import { makeAuthenticatedRequest } from './shared-utils';
 
 import { createSuccessResult, createErrorResult, type ActionResult } from '@/lib/action-utils';
-import type { UnifiedUserData, UserOperationResult } from '@/lib/types/unified-user';
+import type { UnifiedWalletData, WalletOperationResult } from '@/lib/types/unified-wallet';
 
 // ============================================================================
 // TYPES AND INTERFACES
 // ============================================================================
 
-export interface UserListFilters {
+export interface WalletListFilters {
   search: string;
   status: string;
   role: string;
@@ -37,7 +37,7 @@ export interface UserListFilters {
   sortOrder: 'asc' | 'desc';
 }
 
-export interface CreateUserRequest {
+export interface CreateWalletRequest {
   email: string;
   name?: string;
   role?: string;
@@ -45,7 +45,7 @@ export interface CreateUserRequest {
   sendInvite?: boolean;
 }
 
-export interface UpdateUserRequest {
+export interface UpdateWalletRequest {
   id: string;
   email?: string;
   name?: string;
@@ -54,15 +54,15 @@ export interface UpdateUserRequest {
   permissions?: string[];
 }
 
-export interface UserPermissionChange {
-  userId: string;
+export interface WalletPermissionChange {
+  walletAddress: string;
   permissions: string[];
   action: 'grant' | 'revoke' | 'replace';
   expiresAt?: string;
   reason?: string;
 }
 
-export interface UserProfileUpdateData {
+export interface WalletProfileUpdateData {
   displayName?: string;
   firstName?: string;
   lastName?: string;
@@ -71,12 +71,12 @@ export interface UserProfileUpdateData {
   language?: string;
 }
 
-export interface UserStatusUpdateData {
+export interface WalletStatusUpdateData {
   status: 'active' | 'inactive' | 'suspended';
   reason?: string;
 }
 
-export interface UserRoleUpdateData {
+export interface WalletRoleUpdateData {
   roles: string[];
   reason?: string;
 }
@@ -89,7 +89,7 @@ export interface ModuleAccessUpdateData {
 
 export interface PermissionHistoryEntry {
   id: string;
-  userId: string;
+  walletAddress: string;
   action: 'granted' | 'revoked' | 'modified';
   type: 'role' | 'permission' | 'profile';
   resource?: string;
@@ -137,8 +137,8 @@ export interface ActivityLogParams {
  * Get paginated user list with filters
  * @param filters
  */
-export async function getUserList(filters: UserListFilters): Promise<ActionResult<{
-  users: UnifiedUserData[];
+export async function getWalletList(filters: WalletListFilters): Promise<ActionResult<{
+  users: UnifiedWalletData[];
   totalCount: number;
   currentPage: number;
   totalPages: number;
@@ -154,7 +154,7 @@ export async function getUserList(filters: UserListFilters): Promise<ActionResul
       sortOrder: filters.sortOrder
     });
 
-    const response = await makeAuthenticatedRequest(`/admin/users?${params.toString()}`);
+    const response = await makeAuthenticatedRequest(`/api/admin/wallets?${params.toString()}`);
     
     return createSuccessResult(response);
   } catch (_error) {
@@ -169,7 +169,7 @@ export async function getUserList(filters: UserListFilters): Promise<ActionResul
  * @param query
  * @param filters
  */
-export async function searchUsers(query: string, filters?: Partial<UserListFilters>): Promise<ActionResult<UnifiedUserData[]>> {
+export async function searchWallets(query: string, filters?: Partial<WalletListFilters>): Promise<ActionResult<UnifiedWalletData[]>> {
   try {
     const params = new URLSearchParams({
       q: query,
@@ -178,7 +178,7 @@ export async function searchUsers(query: string, filters?: Partial<UserListFilte
       )
     });
 
-    const response = await makeAuthenticatedRequest(`/admin/users/search?${params.toString()}`);
+    const response = await makeAuthenticatedRequest(`/api/admin/wallets/search?${params.toString()}`);
     
     return createSuccessResult(response.users || []);
   } catch (_error) {
@@ -191,14 +191,14 @@ export async function searchUsers(query: string, filters?: Partial<UserListFilte
 /**
  * Get user statistics for dashboard
  */
-export async function getUserStats(): Promise<ActionResult<{
+export async function getWalletStats(): Promise<ActionResult<{
   totalUsers: number;
   activeUsers: number;
   newUsersThisMonth: number;
   totalAdmins: number;
 }>> {
   try {
-    const response = await makeAuthenticatedRequest('/admin/users/stats');
+    const response = await makeAuthenticatedRequest('/api/admin/wallets/stats');
     return createSuccessResult(response);
   } catch (_error) {
     // eslint-disable-next-line no-console
@@ -213,11 +213,11 @@ export async function getUserStats(): Promise<ActionResult<{
 
 /**
  * Get user profile by ID
- * @param userId
+ * @param walletAddress
  */
-export async function getUserProfile(userId: string): Promise<ActionResult<UnifiedUserData>> {
+export async function getWalletProfile(walletAddress: string): Promise<ActionResult<UnifiedWalletData>> {
   try {
-    const response = await makeAuthenticatedRequest(`/admin/users/${userId}`);
+    const response = await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}`);
     return createSuccessResult(response);
   } catch (_error) {
     // eslint-disable-next-line no-console
@@ -230,9 +230,9 @@ export async function getUserProfile(userId: string): Promise<ActionResult<Unifi
  * Create new user
  * @param userData
  */
-export async function createUser(userData: CreateUserRequest): Promise<ActionResult<UnifiedUserData>> {
+export async function createWallet(userData: CreateWalletRequest): Promise<ActionResult<UnifiedWalletData>> {
   try {
-    const response = await makeAuthenticatedRequest('/admin/users', {
+    const response = await makeAuthenticatedRequest('/api/admin/wallets', {
       method: 'POST',
       body: JSON.stringify(userData)
     });
@@ -250,11 +250,11 @@ export async function createUser(userData: CreateUserRequest): Promise<ActionRes
  * Update user profile
  * @param userData
  */
-export async function updateUser(userData: UpdateUserRequest): Promise<ActionResult<UnifiedUserData>> {
+export async function updateWallet(userData: UpdateWalletRequest): Promise<ActionResult<UnifiedWalletData>> {
   try {
     const { id, ...updateData } = userData;
     
-    const response = await makeAuthenticatedRequest(`/admin/users/${id}`, {
+    const response = await makeAuthenticatedRequest(`/api/admin/wallets/${id}`, {
       method: 'PUT',
       body: JSON.stringify(updateData)
     });
@@ -271,11 +271,11 @@ export async function updateUser(userData: UpdateUserRequest): Promise<ActionRes
 
 /**
  * Delete user
- * @param userId
+ * @param walletAddress
  */
-export async function deleteUser(userId: string): Promise<ActionResult<void>> {
+export async function deleteWallet(walletAddress: string): Promise<ActionResult<void>> {
   try {
-    await makeAuthenticatedRequest(`/admin/users/${userId}`, {
+    await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}`, {
       method: 'DELETE'
     });
 
@@ -290,16 +290,17 @@ export async function deleteUser(userId: string): Promise<ActionResult<void>> {
 
 /**
  * Toggle user active status
- * @param userId
+ * @param walletAddress
  */
-export async function toggleUserStatus(userId: string): Promise<ActionResult<UnifiedUserData>> {
+export async function toggleWalletStatus(walletAddress: string): Promise<ActionResult<UnifiedWalletData>> {
   try {
-    const response = await makeAuthenticatedRequest(`/admin/users/${userId}/toggle-status`, {
+    // NOTE: Backend does not implement /wallets/:wallet_address/toggle-status - DEAD CODE
+    const response = await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/toggle-status`, {
       method: 'PATCH'
     });
 
     revalidatePath('/users');
-    revalidatePath(`/users/${userId}`);
+    revalidatePath(`/users/${walletAddress}`);
     return createSuccessResult(response, 'User status updated successfully');
   } catch (_error) {
     // eslint-disable-next-line no-console
@@ -314,15 +315,15 @@ export async function toggleUserStatus(userId: string): Promise<ActionResult<Uni
 
 /**
  * Get user permissions
- * @param userId
+ * @param walletAddress
  */
-export async function getUserPermissions(userId: string): Promise<ActionResult<{
+export async function getWalletPermissions(walletAddress: string): Promise<ActionResult<{
   permissions: string[];
   roles: string[];
   profiles: string[];
 }>> {
   try {
-    const response = await makeAuthenticatedRequest(`/admin/users/${userId}/permissions`);
+    const response = await makeAuthenticatedRequest(`/api/admin/permissions/wallets/${walletAddress}/permissions`);
     return createSuccessResult(response);
   } catch (_error) {
     // eslint-disable-next-line no-console
@@ -335,9 +336,9 @@ export async function getUserPermissions(userId: string): Promise<ActionResult<{
  * Update user permissions
  * @param change
  */
-export async function updateUserPermissions(change: UserPermissionChange): Promise<ActionResult<void>> {
+export async function updateWalletPermissions(change: WalletPermissionChange): Promise<ActionResult<void>> {
   try {
-    await makeAuthenticatedRequest(`/admin/users/${change.userId}/permissions`, {
+    await makeAuthenticatedRequest(`/api/admin/permissions/wallets/${change.walletAddress}/permissions`, {
       method: 'PUT',
       body: JSON.stringify({
         permissions: change.permissions,
@@ -348,7 +349,7 @@ export async function updateUserPermissions(change: UserPermissionChange): Promi
     });
 
     revalidatePath('/users');
-    revalidatePath(`/users/${change.userId}`);
+    revalidatePath(`/users/${change.walletAddress}`);
     return createSuccessResult(undefined, 'User permissions updated successfully');
   } catch (_error) {
     // eslint-disable-next-line no-console
@@ -361,13 +362,14 @@ export async function updateUserPermissions(change: UserPermissionChange): Promi
  * Bulk permission updates
  * @param changes
  */
-export async function bulkUpdateUserPermissions(changes: UserPermissionChange[]): Promise<ActionResult<{
+export async function bulkUpdateWalletPermissions(changes: WalletPermissionChange[]): Promise<ActionResult<{
   successful: number;
   failed: number;
   errors: string[];
 }>> {
   try {
-    const response = await makeAuthenticatedRequest('/admin/users/permissions/bulk', {
+    // NOTE: Should use /permissions/bulk/grant or /permissions/bulk/revoke instead
+    const response = await makeAuthenticatedRequest('/api/admin/wallets/permissions/bulk', {
       method: 'PUT',
       body: JSON.stringify({ changes })
     });
@@ -387,17 +389,18 @@ export async function bulkUpdateUserPermissions(changes: UserPermissionChange[])
 
 /**
  * Bulk delete users
- * @param userIds
+ * @param walletAddresss
  */
-export async function bulkDeleteUsers(userIds: string[]): Promise<ActionResult<{
+export async function bulkDeleteWallets(walletAddresses: string[]): Promise<ActionResult<{
   successful: number;
   failed: number;
   errors: string[];
 }>> {
   try {
-    const response = await makeAuthenticatedRequest('/admin/users/bulk-delete', {
+    // NOTE: Backend does not implement /wallets/bulk-delete - DEAD CODE
+    const response = await makeAuthenticatedRequest('/api/admin/wallets/bulk-delete', {
       method: 'DELETE',
-      body: JSON.stringify({ userIds })
+      body: JSON.stringify({ walletAddresses })
     });
 
     revalidatePath('/users');
@@ -413,7 +416,7 @@ export async function bulkDeleteUsers(userIds: string[]): Promise<ActionResult<{
  * Export users to CSV
  * @param filters
  */
-export async function exportUsers(filters?: Partial<UserListFilters>): Promise<ActionResult<{
+export async function exportWallets(filters?: Partial<WalletListFilters>): Promise<ActionResult<{
   downloadUrl: string;
   filename: string;
 }>> {
@@ -424,7 +427,8 @@ export async function exportUsers(filters?: Partial<UserListFilters>): Promise<A
       )
     ).toString() : '';
 
-    const response = await makeAuthenticatedRequest(`/admin/users/export?${params}`);
+    // NOTE: Backend does not implement /wallets/export - DEAD CODE
+    const response = await makeAuthenticatedRequest(`/api/admin/wallets/export?${params}`);
     return createSuccessResult(response);
   } catch (_error) {
     // eslint-disable-next-line no-console
@@ -439,11 +443,12 @@ export async function exportUsers(filters?: Partial<UserListFilters>): Promise<A
 
 /**
  * Get unified detailed user data by ID
- * @param userId
+ * @param walletAddress
  */
-export async function getUnifiedUserData(userId: string): Promise<ActionResult<UnifiedUserData>> {
+export async function getUnifiedWalletData(walletAddress: string): Promise<ActionResult<UnifiedWalletData>> {
   try {
-    const response = await makeAuthenticatedRequest(`/admin/users/${userId}/unified`);
+    // NOTE: Backend does not implement /wallets/:wallet_address/unified - DEAD CODE
+    const response = await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/unified`);
     
     // Transform backend response to match frontend interface
     const userData = {
@@ -516,17 +521,18 @@ export async function getUnifiedUserData(userId: string): Promise<ActionResult<U
 
 /**
  * Update user profile information
- * @param userId
+ * @param walletAddress
  * @param data
  */
-export async function updateUserProfile(userId: string, data: UserProfileUpdateData): Promise<ActionResult<void>> {
+export async function updateWalletProfile(walletAddress: string, data: WalletProfileUpdateData): Promise<ActionResult<void>> {
   try {
-    await makeAuthenticatedRequest(`/admin/users/${userId}/profile`, {
+    // NOTE: Backend does not implement /wallets/:wallet_address/profile - DEAD CODE
+    await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/profile`, {
       method: 'PUT',
       body: JSON.stringify(data)
     });
 
-    revalidatePath(`/users/${userId}`);
+    revalidatePath(`/users/${walletAddress}`);
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Profile updated successfully');
   } catch (_error) {
@@ -538,17 +544,18 @@ export async function updateUserProfile(userId: string, data: UserProfileUpdateD
 
 /**
  * Update user status
- * @param userId
+ * @param walletAddress
  * @param data
  */
-export async function updateUserStatus(userId: string, data: UserStatusUpdateData): Promise<ActionResult<void>> {
+export async function updateWalletStatus(walletAddress: string, data: WalletStatusUpdateData): Promise<ActionResult<void>> {
   try {
-    await makeAuthenticatedRequest(`/admin/users/${userId}/status`, {
+    // NOTE: Backend does not implement /wallets/:wallet_address/status - DEAD CODE
+    await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/status`, {
       method: 'PUT',
       body: JSON.stringify(data)
     });
 
-    revalidatePath(`/users/${userId}`);
+    revalidatePath(`/users/${walletAddress}`);
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Status updated successfully');
   } catch (_error) {
@@ -560,17 +567,18 @@ export async function updateUserStatus(userId: string, data: UserStatusUpdateDat
 
 /**
  * Update user roles
- * @param userId
+ * @param walletAddress
  * @param data
  */
-export async function updateUserRoles(userId: string, data: UserRoleUpdateData): Promise<ActionResult<void>> {
+export async function updateWalletRoles(walletAddress: string, data: WalletRoleUpdateData): Promise<ActionResult<void>> {
   try {
-    await makeAuthenticatedRequest(`/admin/users/${userId}/roles`, {
+    // NOTE: Backend does not implement /wallets/:wallet_address/roles - DEAD CODE
+    await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/roles`, {
       method: 'PUT',
       body: JSON.stringify(data)
     });
 
-    revalidatePath(`/users/${userId}`);
+    revalidatePath(`/users/${walletAddress}`);
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Roles updated successfully');
   } catch (_error) {
@@ -582,17 +590,18 @@ export async function updateUserRoles(userId: string, data: UserRoleUpdateData):
 
 /**
  * Update module access
- * @param userId
+ * @param walletAddress
  * @param data
  */
-export async function updateModuleAccess(userId: string, data: ModuleAccessUpdateData): Promise<ActionResult<void>> {
+export async function updateModuleAccess(walletAddress: string, data: ModuleAccessUpdateData): Promise<ActionResult<void>> {
   try {
-    await makeAuthenticatedRequest(`/admin/users/${userId}/modules`, {
+    // NOTE: Backend does not implement /wallets/:wallet_address/modules - DEAD CODE
+    await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/modules`, {
       method: 'PUT',
       body: JSON.stringify(data)
     });
 
-    revalidatePath(`/users/${userId}`);
+    revalidatePath(`/users/${walletAddress}`);
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Module access updated successfully');
   } catch (_error) {
@@ -609,21 +618,21 @@ export async function updateModuleAccess(userId: string, data: ModuleAccessUpdat
 /**
  * Assign role to user
  * @param data
- * @param data.userId
+ * @param data.walletAddress
  * @param data.role
  * @param data.reason
  */
-export async function assignUserRole(data: { userId: string; role: string; reason?: string }): Promise<ActionResult<void>> {
+export async function assignWalletRole(data: { walletAddress: string; role: string; reason?: string }): Promise<ActionResult<void>> {
   try {
-    await makeAuthenticatedRequest('/admin/casbin/roles', {
+    await makeAuthenticatedRequest('/api/admin/casbin/roles', {
       method: 'POST',
       body: JSON.stringify({
-        user: data.userId,
+        user: data.walletAddress,
         role: data.role
       })
     });
 
-    revalidatePath(`/users/${data.userId}`);
+    revalidatePath(`/users/${data.walletAddress}`);
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Role assigned successfully');
   } catch (_error) {
@@ -636,21 +645,21 @@ export async function assignUserRole(data: { userId: string; role: string; reaso
 /**
  * Remove role from user
  * @param data
- * @param data.userId
+ * @param data.walletAddress
  * @param data.role
  * @param data.reason
  */
-export async function removeUserRole(data: { userId: string; role: string; reason?: string }): Promise<ActionResult<void>> {
+export async function removeWalletRole(data: { walletAddress: string; role: string; reason?: string }): Promise<ActionResult<void>> {
   try {
-    await makeAuthenticatedRequest('/admin/casbin/roles', {
+    await makeAuthenticatedRequest('/api/admin/casbin/roles', {
       method: 'DELETE',
       body: JSON.stringify({
-        user: data.userId,
+        user: data.walletAddress,
         role: data.role
       })
     });
 
-    revalidatePath(`/users/${data.userId}`);
+    revalidatePath(`/users/${data.walletAddress}`);
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Role removed successfully');
   } catch (_error) {
@@ -667,21 +676,21 @@ export async function removeUserRole(data: { userId: string; role: string; reaso
 /**
  * Assign permission profile to user
  * @param data
- * @param data.userId
+ * @param data.walletAddress
  * @param data.profileId
  * @param data.reason
  */
-export async function assignPermissionProfile(data: { userId: string; profileId: string; reason?: string }): Promise<ActionResult<void>> {
+export async function assignPermissionProfile(data: { walletAddress: string; profileId: string; reason?: string }): Promise<ActionResult<void>> {
   try {
-    await makeAuthenticatedRequest('/admin/permission-profiles/assign', {
+    await makeAuthenticatedRequest('/api/admin/permission-profiles/assign', {
       method: 'POST',
       body: JSON.stringify({
         profile_id: data.profileId,
-        user_ids: [data.userId]
+        user_ids: [data.walletAddress]
       })
     });
 
-    revalidatePath(`/users/${data.userId}`);
+    revalidatePath(`/users/${data.walletAddress}`);
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Permission profile assigned successfully');
   } catch (_error) {
@@ -698,23 +707,23 @@ export async function assignPermissionProfile(data: { userId: string; profileId:
 /**
  * Add custom permission to user
  * @param data
- * @param data.userId
+ * @param data.walletAddress
  * @param data.resource
  * @param data.action
  * @param data.reason
  */
-export async function addCustomPermission(data: { userId: string; resource: string; action: string; reason?: string }): Promise<ActionResult<void>> {
+export async function addCustomPermission(data: { walletAddress: string; resource: string; action: string; reason?: string }): Promise<ActionResult<void>> {
   try {
-    await makeAuthenticatedRequest('/admin/casbin/policies', {
+    await makeAuthenticatedRequest('/api/admin/casbin/policies', {
       method: 'POST',
       body: JSON.stringify({
-        subject: data.userId,
+        subject: data.walletAddress,
         object: data.resource,
         action: data.action
       })
     });
 
-    revalidatePath(`/users/${data.userId}`);
+    revalidatePath(`/users/${data.walletAddress}`);
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Permission added successfully');
   } catch (_error) {
@@ -727,23 +736,23 @@ export async function addCustomPermission(data: { userId: string; resource: stri
 /**
  * Remove custom permission from user
  * @param data
- * @param data.userId
+ * @param data.walletAddress
  * @param data.resource
  * @param data.action
  * @param data.reason
  */
-export async function removeCustomPermission(data: { userId: string; resource: string; action: string; reason?: string }): Promise<ActionResult<void>> {
+export async function removeCustomPermission(data: { walletAddress: string; resource: string; action: string; reason?: string }): Promise<ActionResult<void>> {
   try {
-    await makeAuthenticatedRequest('/admin/casbin/policies', {
+    await makeAuthenticatedRequest('/api/admin/casbin/policies', {
       method: 'DELETE',
       body: JSON.stringify({
-        subject: data.userId,
+        subject: data.walletAddress,
         object: data.resource,
         action: data.action
       })
     });
 
-    revalidatePath(`/users/${data.userId}`);
+    revalidatePath(`/users/${data.walletAddress}`);
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Permission removed successfully');
   } catch (_error) {
@@ -760,20 +769,20 @@ export async function removeCustomPermission(data: { userId: string; resource: s
 /**
  * Bulk assign permissions to multiple users
  * @param data
- * @param data.userIds
+ * @param data.walletAddresss
  * @param data.permissions
  * @param data.reason
  */
 export async function bulkAssignPermissions(data: {
-  userIds: string[];
+  walletAddresses: string[];
   permissions: { resource: string; action: string }[];
   reason?: string;
-}): Promise<ActionResult<{ succeeded: string[]; failed: { userId: string; error: string }[] }>> {
+}): Promise<ActionResult<{ succeeded: string[]; failed: { walletAddress: string; error: string }[] }>> {
   try {
-    const response = await makeAuthenticatedRequest('/admin/casbin/bulk-assign', {
+    const response = await makeAuthenticatedRequest('/api/admin/casbin/bulk-assign', {
       method: 'POST',
       body: JSON.stringify({
-        user_ids: data.userIds,
+        user_ids: data.walletAddresses,
         policies: data.permissions.map(p => ({
           object: p.resource,
           action: p.action
@@ -782,8 +791,8 @@ export async function bulkAssignPermissions(data: {
       })
     });
 
-    data.userIds.forEach(userId => {
-      revalidatePath(`/users/${userId}`);
+    data.walletAddresses.forEach((addr: string) => {
+      revalidatePath(`/users/${addr}`);
     });
     revalidatePath('/users');
 
@@ -798,20 +807,20 @@ export async function bulkAssignPermissions(data: {
 /**
  * Bulk remove permissions from multiple users
  * @param data
- * @param data.userIds
+ * @param data.walletAddresss
  * @param data.permissions
  * @param data.reason
  */
 export async function bulkRemovePermissions(data: {
-  userIds: string[];
+  walletAddresses: string[];
   permissions: { resource: string; action: string }[];
   reason?: string;
-}): Promise<ActionResult<{ succeeded: string[]; failed: { userId: string; error: string }[] }>> {
+}): Promise<ActionResult<{ succeeded: string[]; failed: { walletAddress: string; error: string }[] }>> {
   try {
-    const response = await makeAuthenticatedRequest('/admin/casbin/bulk-remove', {
+    const response = await makeAuthenticatedRequest('/api/admin/casbin/bulk-remove', {
       method: 'POST',
       body: JSON.stringify({
-        user_ids: data.userIds,
+        user_ids: data.walletAddresses,
         policies: data.permissions.map(p => ({
           object: p.resource,
           action: p.action
@@ -820,8 +829,8 @@ export async function bulkRemovePermissions(data: {
       })
     });
 
-    data.userIds.forEach(userId => {
-      revalidatePath(`/users/${userId}`);
+    data.walletAddresses.forEach((addr: string) => {
+      revalidatePath(`/users/${addr}`);
     });
     revalidatePath('/users');
 
@@ -840,24 +849,24 @@ export async function bulkRemovePermissions(data: {
 /**
  * Assign temporary permission with expiration
  * @param data
- * @param data.userId
+ * @param data.walletAddress
  * @param data.resource
  * @param data.action
  * @param data.expires
  * @param data.reason
  */
 export async function assignTemporaryPermission(data: {
-  userId: string;
+  walletAddress: string;
   resource: string;
   action: string;
   expires: Date;
   reason?: string;
 }): Promise<ActionResult<void>> {
   try {
-    await makeAuthenticatedRequest('/admin/casbin/temporary-policies', {
+    await makeAuthenticatedRequest('/api/admin/casbin/temporary-policies', {
       method: 'POST',
       body: JSON.stringify({
-        subject: data.userId,
+        subject: data.walletAddress,
         object: data.resource,
         action: data.action,
         expires_at: data.expires.toISOString(),
@@ -865,7 +874,7 @@ export async function assignTemporaryPermission(data: {
       })
     });
 
-    revalidatePath(`/users/${data.userId}`);
+    revalidatePath(`/users/${data.walletAddress}`);
     revalidatePath('/users');
     return createSuccessResult(undefined, 'Temporary permission assigned successfully');
   } catch (_error) {
@@ -881,7 +890,7 @@ export async function assignTemporaryPermission(data: {
  */
 export async function getExpiringPermissions(days = 7): Promise<ActionResult<any[]>> {
   try {
-    const response = await makeAuthenticatedRequest(`/admin/casbin/expiring-permissions?days=${days}`);
+    const response = await makeAuthenticatedRequest(`/api/admin/casbin/expiring-permissions?days=${days}`);
     return createSuccessResult(response.permissions || []);
   } catch (_error) {
     // eslint-disable-next-line no-console
@@ -897,20 +906,20 @@ export async function getExpiringPermissions(days = 7): Promise<ActionResult<any
 /**
  * Validate permission assignment for conflicts
  * @param data
- * @param data.userId
+ * @param data.walletAddress
  * @param data.resource
  * @param data.action
  */
 export async function validatePermissionAssignment(data: {
-  userId: string;
+  walletAddress: string;
   resource: string;
   action: string;
 }): Promise<ActionResult<{ conflicts: any[]; warnings: string[] }>> {
   try {
-    const response = await makeAuthenticatedRequest('/admin/casbin/validate-assignment', {
+    const response = await makeAuthenticatedRequest('/api/admin/casbin/validate-assignment', {
       method: 'POST',
       body: JSON.stringify({
-        subject: data.userId,
+        subject: data.walletAddress,
         object: data.resource,
         action: data.action
       })
@@ -926,11 +935,12 @@ export async function validatePermissionAssignment(data: {
 
 /**
  * Get permission impact analysis for a user
- * @param userId
+ * @param walletAddress
  */
-export async function getPermissionImpact(userId: string): Promise<ActionResult<{ canAccess: string[]; cannotAccess: string[]; totalResources: number }>> {
+export async function getPermissionImpact(walletAddress: string): Promise<ActionResult<{ canAccess: string[]; cannotAccess: string[]; totalResources: number }>> {
   try {
-    const response = await makeAuthenticatedRequest(`/admin/users/${userId}/permission-impact`);
+    // NOTE: Backend does not implement /wallets/:wallet_address/permission-impact - DEAD CODE
+    const response = await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/permission-impact`);
     return createSuccessResult(response);
   } catch (_error) {
     // eslint-disable-next-line no-console
@@ -945,12 +955,13 @@ export async function getPermissionImpact(userId: string): Promise<ActionResult<
 
 /**
  * Get permission history for a user
- * @param userId
+ * @param walletAddress
  * @param limit
  */
-export async function getPermissionHistory(userId: string, limit = 50): Promise<ActionResult<PermissionHistoryEntry[]>> {
+export async function getPermissionHistory(walletAddress: string, limit = 50): Promise<ActionResult<PermissionHistoryEntry[]>> {
   try {
-    const response = await makeAuthenticatedRequest(`/admin/users/${userId}/activity?limit=${limit}`);
+    // NOTE: Backend does not implement /wallets/:wallet_address/activity - DEAD CODE
+    const response = await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/activity?limit=${limit}`);
     
     const history: PermissionHistoryEntry[] = (response.activities || [])
       .filter((activity: any) => 
@@ -960,7 +971,7 @@ export async function getPermissionHistory(userId: string, limit = 50): Promise<
       )
       .map((activity: any) => ({
         id: activity.id,
-        userId,
+        walletAddress,
         action: activity.action?.includes('granted') ? 'granted' : 
                activity.action?.includes('revoked') ? 'revoked' : 'modified',
         type: activity.action?.includes('role') ? 'role' : 
@@ -985,10 +996,10 @@ export async function getPermissionHistory(userId: string, limit = 50): Promise<
 
 /**
  * Get comprehensive activity logs for a user
- * @param userId
+ * @param walletAddress
  * @param params
  */
-export async function getUserActivityLogs(userId: string, params: ActivityLogParams = {}): Promise<ActionResult<{
+export async function getWalletActivityLogs(walletAddress: string, params: ActivityLogParams = {}): Promise<ActionResult<{
   activities: ActivityLogEntry[];
   statistics: {
     total_activities: number;
@@ -1010,8 +1021,9 @@ export async function getUserActivityLogs(userId: string, params: ActivityLogPar
     if (params.start_date) {queryParams.append('start_date', params.start_date);}
     if (params.end_date) {queryParams.append('end_date', params.end_date);}
     if (params.action_type) {queryParams.append('action_type', params.action_type);}
-    
-    const response = await makeAuthenticatedRequest(`/admin/users/${userId}/activity?${queryParams.toString()}`);
+
+    // NOTE: Backend does not implement /wallets/:wallet_address/activity - DEAD CODE
+    const response = await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/activity?${queryParams.toString()}`);
     
     const activities: ActivityLogEntry[] = (response.activities || []).map((activity: any) => ({
       id: activity.id,
@@ -1064,7 +1076,7 @@ export async function getUserActivityLogs(userId: string, params: ActivityLogPar
  * @param searchParams.sort_by
  * @param searchParams.sort_order
  */
-export async function searchUsersAction(searchParams: {
+export async function searchWalletsAction(searchParams: {
   search?: string;
   email?: string;
   package_tier?: string;
@@ -1088,7 +1100,7 @@ export async function searchUsersAction(searchParams: {
       }
     });
     
-    const response = await makeAuthenticatedRequest(`/admin/users/search?${queryParams.toString()}`);
+    const response = await makeAuthenticatedRequest(`/api/admin/wallets/search?${queryParams.toString()}`);
     return createSuccessResult(response);
   } catch (_error) {
     // eslint-disable-next-line no-console

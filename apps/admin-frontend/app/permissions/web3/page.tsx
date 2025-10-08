@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { groupManagementClient, PermissionGroup, GroupAnalytics } from '@/lib/api/group-management-client'
+import { groupMgmt, PermissionGroup, GroupAnalytics } from '@/lib/api/group-management-client'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,12 +55,12 @@ function WalletAssignmentModal({ isOpen, onClose, onSuccess }: {
   
   const { data: permissionGroups = [] } = useQuery({
     queryKey: ['permission-groups'],
-    queryFn: () => groupManagementClient.getPermissionGroups()
+    queryFn: () => groupMgmt.getPermissionGroups()
   })
   
   const assignWalletMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      return groupManagementClient.assignUserToGroup({
+      return groupMgmt.assignUserToGroup({
         user_id: data.wallet_address, // Using wallet_address as user_id
         group_id: data.group_id,
         expires_at: data.expires_at || null,
@@ -188,7 +188,7 @@ function CreateGroupModal({ isOpen, onClose, onSuccess }: {
   
   const createGroupMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      return groupManagementClient.createPermissionGroup({
+      return groupMgmt.createPermissionGroup({
         name: data.name,
         description: data.description,
         permissions: data.permissions,
@@ -382,7 +382,7 @@ function EditGroupModal({ isOpen, onClose, onSuccess, group }: {
     mutationFn: async (data: typeof formData) => {
       if (!group) {throw new Error('No group selected for update')}
       
-      return groupManagementClient.updatePermissionGroup(group.id, {
+      return groupMgmt.updatePermissionGroup(group.id, {
         name: data.name,
         description: data.description,
         permissions: data.permissions,
@@ -542,7 +542,7 @@ function GroupMembersModal({ isOpen, onClose, group }: {
     mutationFn: async (walletAddress: string) => {
       if (!group) {throw new Error('No group selected')}
       
-      return groupManagementClient.assignUserToGroup({
+      return groupMgmt.assignUserToGroup({
         user_id: walletAddress,
         group_id: group.id,
         reason: 'Added via Members view'
@@ -565,7 +565,7 @@ function GroupMembersModal({ isOpen, onClose, group }: {
       if (!group) {throw new Error('No group selected')}
       
       // TODO: Implement removeUserFromGroup when backend supports it
-      return groupManagementClient.removeUserFromGroup(walletAddress, group.id)
+      return groupMgmt.removeUserFromGroup(walletAddress, group.id)
     },
     onSuccess: () => {
       toast.success('Member removed successfully')
@@ -729,11 +729,11 @@ function ExpiringAssignmentsModal({ isOpen, onClose }: {
       setIsLoading(true)
       try {
         // Get assignments expiring in the next 7 days
-        const response = await groupManagementClient.getExpiringMemberships(7)
+        const response = await groupMgmt.getExpiringMemberships(7)
         setExpiringAssignments(response)
-      } catch (_error) {
+      } catch (error) {
         // eslint-disable-next-line no-console
-        console.error('Failed to load expiring assignments:', _error)
+        console.error('Failed to load expiring assignments:', error)
         toast.error('Failed to load expiring assignments')
         setExpiringAssignments([])
       } finally {
@@ -751,7 +751,7 @@ function ExpiringAssignmentsModal({ isOpen, onClose }: {
       newExpiryDate.setDate(newExpiryDate.getDate() + days)
       
       // Re-assign with new expiry date
-      return groupManagementClient.assignUserToGroup({
+      return groupMgmt.assignUserToGroup({
         user_id: userId,
         group_id: groupId,
         expires_at: newExpiryDate.toISOString(),
@@ -763,7 +763,7 @@ function ExpiringAssignmentsModal({ isOpen, onClose }: {
       queryClient.invalidateQueries({ queryKey: ['group-analytics'] })
       // Reload expiring assignments
       setIsLoading(true)
-      void groupManagementClient.getExpiringMemberships(7)
+      void groupMgmt.getExpiringMemberships(7)
         .then(setExpiringAssignments)
         .catch(error => {
           // eslint-disable-next-line no-console
@@ -779,14 +779,14 @@ function ExpiringAssignmentsModal({ isOpen, onClose }: {
 
   const removeAssignmentMutation = useMutation({
     mutationFn: async ({ userId, groupId }: { userId: string, groupId: string }) => {
-      return groupManagementClient.removeUserFromGroup(userId, groupId)
+      return groupMgmt.removeUserFromGroup(userId, groupId)
     },
     onSuccess: () => {
       toast.success('Assignment removed successfully')
       queryClient.invalidateQueries({ queryKey: ['group-analytics'] })
       // Reload expiring assignments
       setIsLoading(true)
-      void groupManagementClient.getExpiringMemberships(7)
+      void groupMgmt.getExpiringMemberships(7)
         .then(setExpiringAssignments)
         .catch(error => {
           // eslint-disable-next-line no-console
@@ -960,7 +960,7 @@ function Web3PermissionsPage() {
 
       setIsLoadingActivity(true)
       try {
-        const response = await groupManagementClient.getGroupAssignmentHistory({
+        const response = await groupMgmt.getGroupAssignmentHistory({
           limit: 10,
           // Get recent activity from last 30 days
           date_from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
@@ -971,9 +971,9 @@ function Web3PermissionsPage() {
         } else {
           setRecentActivity([])
         }
-      } catch (_error) {
+      } catch (error) {
         // eslint-disable-next-line no-console
-        console.error('Failed to load recent activity:', _error)
+        console.error('Failed to load recent activity:', error)
         setRecentActivity([])
       } finally {
         setIsLoadingActivity(false)
@@ -988,11 +988,11 @@ function Web3PermissionsPage() {
     queryKey: ['permission-groups'],
     queryFn: async () => {
       try {
-        const result = await groupManagementClient.getPermissionGroups();
+        const result = await groupMgmt.getPermissionGroups();
         return result || [];
-      } catch (_error) {
+      } catch (error) {
         // eslint-disable-next-line no-console
-        console.error('❌ Query function error:', _error);
+        console.error('❌ Query function error:', error);
         // Return empty array instead of throwing to prevent undefined
         return [];
       }
@@ -1007,13 +1007,13 @@ function Web3PermissionsPage() {
   // Fetch group analytics
   const { data: analytics, isLoading: analyticsLoading } = useQuery({
     queryKey: ['group-analytics'],
-    queryFn: () => groupManagementClient.getGroupAnalytics(),
+    queryFn: () => groupMgmt.getGroupAnalytics(),
     refetchInterval: 60000
   })
   
   // Delete group mutation
   const deleteGroupMutation = useMutation({
-    mutationFn: (groupId: string) => groupManagementClient.deletePermissionGroup(groupId),
+    mutationFn: (groupId: string) => groupMgmt.deletePermissionGroup(groupId),
     onSuccess: () => {
       toast.success('Permission group deleted successfully')
       queryClient.invalidateQueries({ queryKey: ['permission-groups'] })
@@ -1035,7 +1035,7 @@ function Web3PermissionsPage() {
     if (activeTab === 'assignments') {
       setIsLoadingActivity(true)
       try {
-        const response = await groupManagementClient.getGroupAssignmentHistory({
+        const response = await groupMgmt.getGroupAssignmentHistory({
           limit: 10,
           date_from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
         })
@@ -1043,9 +1043,9 @@ function Web3PermissionsPage() {
         if (response.success && response.data) {
           setRecentActivity(response.data.history)
         }
-      } catch (_error) {
+      } catch (error) {
         // eslint-disable-next-line no-console
-        console.error('Failed to reload recent activity:', _error)
+        console.error('Failed to reload recent activity:', error)
       } finally {
         setIsLoadingActivity(false)
       }
@@ -1092,7 +1092,7 @@ function Web3PermissionsPage() {
     try {
       // Search for wallet assignments using the group assignment history endpoint
       // This will find any assignments related to the wallet address
-      const response = await groupManagementClient.getGroupAssignmentHistory({
+      const response = await groupMgmt.getGroupAssignmentHistory({
         user_search: searchTerm,
         limit: 20
       })

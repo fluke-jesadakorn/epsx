@@ -136,7 +136,7 @@ export class AnalyticsAPIClient {
 
   /**
    * Get public analytics rankings with limited data access
-   * Route: GET /api/v1/public/analytics/rankings
+   * Route: GET /api/public/analytics/rankings
    */
   async getPublicRankings(filters: AnalyticsFilters = {}): Promise<EPSRankingsResponse> {
     // Apply public API limits
@@ -161,7 +161,7 @@ export class AnalyticsAPIClient {
     };
 
     const response = await this.client.get<EPSRankingsResponse>(
-      '/api/v1/public/analytics/rankings',
+      '/api/public/analytics/rankings',
       publicFilters,
       {
         timeout: 60000, // 60 second timeout for analytics queries
@@ -181,11 +181,11 @@ export class AnalyticsAPIClient {
 
   /**
    * Get public analytics filters with basic options only
-   * Route: GET /api/v1/public/analytics/filters
+   * Route: GET /api/public/analytics/filters
    */
   async getPublicFilters(): Promise<AnalyticsFiltersResponse> {
     const response = await this.client.get<AnalyticsFiltersResponse>(
-      '/api/v1/public/analytics/filters',
+      '/api/public/analytics/filters',
       undefined,
       {
         timeout: 30000, // 30 second timeout for filter queries
@@ -209,11 +209,11 @@ export class AnalyticsAPIClient {
 
   /**
    * Get authenticated analytics rankings with full data access
-   * Route: GET /api/v1/analytics/rankings
+   * Route: GET /api/analytics/rankings
    */
   async getAuthenticatedRankings(filters: AnalyticsFilters = {}): Promise<EPSRankingsResponse> {
     const response = await this.client.get<EPSRankingsResponse>(
-      '/api/v1/analytics/rankings',
+      '/api/analytics/rankings',
       filters,
       {
         timeout: 60000, // 60 second timeout for analytics queries
@@ -233,11 +233,11 @@ export class AnalyticsAPIClient {
 
   /**
    * Get authenticated analytics filters with advanced options
-   * Route: GET /api/v1/analytics/filters
+   * Route: GET /api/analytics/filters
    */
   async getAuthenticatedFilters(): Promise<AnalyticsFiltersResponse> {
     const response = await this.client.get<AnalyticsFiltersResponse>(
-      '/api/v1/analytics/filters',
+      '/api/analytics/filters',
       undefined,
       {
         timeout: 30000, // 30 second timeout for filter queries
@@ -257,11 +257,11 @@ export class AnalyticsAPIClient {
 
   /**
    * Export analytics data for authenticated users
-   * Route: POST /api/v1/auth/analytics/export
+   * Route: POST /api/auth/analytics/export
    */
   async exportAnalyticsData(exportRequest: ExportRequest): Promise<ExportResponse> {
     const response = await this.client.post<ExportResponse>(
-      '/api/v1/auth/analytics/export',
+      '/api/auth/analytics/export',
       exportRequest,
       {
         timeout: 90000, // 90 second timeout for export operations
@@ -281,11 +281,11 @@ export class AnalyticsAPIClient {
 
   /**
    * Get export status
-   * Route: GET /api/v1/auth/analytics/exports/{exportId}
+   * Route: GET /api/auth/analytics/exports/{exportId}
    */
   async getExportStatus(exportId: string): Promise<ExportResponse> {
     const response = await this.client.get<ExportResponse>(
-      `/api/v1/auth/analytics/exports/${exportId}`,
+      `/api/auth/analytics/exports/${exportId}`,
       undefined,
       {
         timeout: 15000, // 15 second timeout for status checks
@@ -309,7 +309,7 @@ export class AnalyticsAPIClient {
 
   /**
    * Get admin analytics overview
-   * Route: GET /api/v1/admin/analytics/overview
+   * Route: GET /api/admin/analytics/overview
    */
   async getAdminOverview(): Promise<{
     total_users: number;
@@ -318,7 +318,7 @@ export class AnalyticsAPIClient {
     growth_rate: number;
   }> {
     const response = await this.client.get(
-      '/api/v1/admin/analytics/overview',
+      '/api/admin/analytics/overview',
       undefined,
       {
         timeout: 30000, // 30 second timeout for admin queries
@@ -338,7 +338,7 @@ export class AnalyticsAPIClient {
 
   /**
    * Get admin user analytics
-   * Route: GET /api/v1/admin/analytics/users
+   * Route: GET /api/admin/analytics/users
    */
   async getAdminUserAnalytics(): Promise<{
     user_metrics: {
@@ -348,7 +348,7 @@ export class AnalyticsAPIClient {
     };
   }> {
     const response = await this.client.get(
-      '/api/v1/admin/analytics/users',
+      '/api/admin/analytics/users',
       undefined,
       {
         timeout: 30000, // 30 second timeout for admin queries
@@ -368,14 +368,14 @@ export class AnalyticsAPIClient {
 
   /**
    * Get admin permission analytics
-   * Route: GET /api/v1/admin/analytics/permissions
+   * Route: GET /api/admin/analytics/permissions
    */
   async getAdminPermissionAnalytics(): Promise<{
     permission_distribution: Record<string, number>;
     group_membership: Array<{ group: string; count: number }>;
   }> {
     const response = await this.client.get(
-      '/api/v1/admin/analytics/permissions',
+      '/api/admin/analytics/permissions',
       undefined,
       {
         timeout: 30000, // 30 second timeout for admin queries
@@ -395,7 +395,7 @@ export class AnalyticsAPIClient {
 
   /**
    * Get admin revenue analytics
-   * Route: GET /api/v1/admin/analytics/revenue
+   * Route: GET /api/admin/analytics/revenue
    */
   async getAdminRevenueAnalytics(): Promise<{
     total_revenue: number;
@@ -403,7 +403,7 @@ export class AnalyticsAPIClient {
     revenue_trends: Array<{ month: string; revenue: number }>;
   }> {
     const response = await this.client.get(
-      '/api/v1/admin/analytics/revenue',
+      '/api/admin/analytics/revenue',
       undefined,
       {
         headers: {
@@ -422,7 +422,7 @@ export class AnalyticsAPIClient {
 
   /**
    * Get admin performance analytics
-   * Route: GET /api/v1/admin/analytics/performance
+   * Route: GET /api/admin/analytics/performance
    */
   async getAdminPerformanceAnalytics(): Promise<{
     api_response_times: Record<string, number>;
@@ -430,7 +430,7 @@ export class AnalyticsAPIClient {
     error_rates: Record<string, number>;
   }> {
     const response = await this.client.get(
-      '/api/v1/admin/analytics/performance',
+      '/api/admin/analytics/performance',
       undefined,
       {
         headers: {

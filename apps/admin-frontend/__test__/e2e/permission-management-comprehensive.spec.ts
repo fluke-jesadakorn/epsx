@@ -390,7 +390,7 @@ test.describe('Admin Permission Management - Comprehensive E2E Tests', () => {
 
     test('should handle API errors gracefully', async ({ page }) => {
       // Mock API failure
-      await page.route('**/api/v1/admin/**', route => {
+      await page.route('**/api/admin/**', route => {
         route.fulfill({ status: 500, body: JSON.stringify({ error: 'Server Error' }) });
       });
       

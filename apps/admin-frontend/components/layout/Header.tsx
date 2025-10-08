@@ -14,7 +14,7 @@ interface User {
   role: string;
 }
 
-interface PancakeAdminHeaderProps {
+interface HeaderProps {
   user?: User;
 }
 
@@ -23,7 +23,7 @@ interface PancakeAdminHeaderProps {
  * @param root0
  * @param root0.user
  */
-export function PancakeAdminHeader({ user }: PancakeAdminHeaderProps) {
+export function Header({ user }: HeaderProps) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const [mounted, setMounted] = useState(false);

@@ -59,7 +59,7 @@ export async function getUserInfoFromWeb3(): Promise<EPSXJWTPayload | null> {
     
     // Get user info from backend Web3 authentication endpoint
     const backendUrl = clientConfig.backendUrl || 'http://localhost:8080';
-    const response = await fetch(`${backendUrl}/api/v1/auth/web3/user`, {
+    const response = await fetch(`${backendUrl}/api/auth/web3/user`, {
       headers: {
         'Authorization': `Bearer ${sessionToken}`,
         'Content-Type': 'application/json',

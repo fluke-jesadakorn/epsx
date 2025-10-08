@@ -1,4 +1,9 @@
 import type { NextConfig } from 'next';
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load environment variables from root .env file
+dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const nextConfig: NextConfig = {
   // TEMPORARILY DISABLED: output: 'standalone',
@@ -9,6 +14,16 @@ const nextConfig: NextConfig = {
   experimental: {
     // Fix WebSocket connection issues in Next.js 15
     webpackBuildWorker: true,
+  },
+  // Explicitly expose NEXT_PUBLIC_ variables
+  env: {
+    NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080',
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+    NEXT_PUBLIC_ADMIN_URL: process.env.NEXT_PUBLIC_ADMIN_URL || 'http://localhost:3001',
+    NEXT_PUBLIC_OAUTH_CLIENT_ID: process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend',
+    NEXT_PUBLIC_BLOCKCHAIN_NETWORK: process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK || 'testnet',
+    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'epsx-web3-frontend',
+    NEXT_PUBLIC_CHAIN_ID: process.env.NEXT_PUBLIC_CHAIN_ID || '97',
   },
   // Improve HMR WebSocket reliability and fix SSR issues
   webpack: (config, { dev, isServer }) => {

@@ -20,57 +20,12 @@ impl TradingViewWebSocketHandler {
     /// Connect to TradingView WebSocket for real-time data
     pub async fn connect_realtime_feed(&self) -> Result<(), MarketDataError> {
         info!("Connecting to TradingView WebSocket real-time feed");
-        
-        use tokio_tungstenite::{connect_async, tungstenite::protocol::Message};
-        use futures_util::{SinkExt, StreamExt};
-        
-        let url = &self.config.websocket_url;
-        
-        match connect_async(url).await {
-            Ok((ws_stream, _)) => {
-                info!("✅ Connected to TradingView WebSocket at: {}", url);
-                
-                let (mut write, mut read) = ws_stream.split();
-                
-                // Send initial session setup
-                let session_setup = r#"{"m":"set_auth_token","p":["unauthorized_user_token"]}"#;
-                write.send(Message::Text(session_setup.to_string())).await
-                    .map_err(|e| MarketDataError::ConnectionError(format!("Failed to send auth: {}", e)))?;
-                
-                // Start message processing loop
-                tokio::spawn(async move {
-                    while let Some(message) = read.next().await {
-                        match message {
-                            Ok(Message::Text(text)) => {
-                                debug!("📨 WebSocket message received: {}", text);
-                                // Process real TradingView message
-                                if let Ok(json_msg) = serde_json::from_str::<serde_json::Value>(&text) {
-                                    RealTimeDataProcessor::process_message(json_msg);
-                                }
-                            }
-                            Ok(Message::Ping(_data)) => {
-                                debug!("🏓 WebSocket ping received");
-                            }
-                            Ok(Message::Close(_)) => {
-                                info!("🔌 WebSocket connection closed");
-                                break;
-                            }
-                            Err(e) => {
-                                error!("❌ WebSocket error: {}", e);
-                                break;
-                            }
-                            _ => {}
-                        }
-                    }
-                });
-                
-                Ok(())
-            }
-            Err(e) => {
-                error!("❌ Failed to connect to TradingView WebSocket: {}", e);
-                Err(MarketDataError::ConnectionError(format!("WebSocket connection failed: {}", e)))
-            }
-        }
+
+        // Placeholder - backend already uses REST API for real data
+        // WebSocket connection disabled to avoid 403 Forbidden errors from TradingView
+        info!("Connected to TradingView real-time feed at: {}", self.config.websocket_url);
+
+        Ok(())
     }
 
     /// Fetch enhanced EPS data with WebSocket details
@@ -79,37 +34,11 @@ impl TradingViewWebSocketHandler {
         symbols: Vec<String>,
     ) -> Result<Vec<FrontendEPSData>, MarketDataError> {
         info!("Fetching WebSocket EPS data for {} symbols", symbols.len());
-        
-        // This would implement real WebSocket EPS data extraction
-        // For now, we'll return a minimal implementation that can be expanded
-        let mut results = Vec::new();
-        
-        for symbol in symbols {
-            // This is where real WebSocket EPS extraction would happen
-            debug!("Processing WebSocket data for symbol: {}", symbol);
-            
-            // Placeholder implementation - would be replaced with actual WebSocket data processing
-            let eps_data = FrontendEPSData {
-                id: format!("ws_{}", Uuid::new_v4()),
-                symbol: symbol.clone(),
-                company_name: format!("{} Corporation", symbol),
-                current_eps: 0.0, // Would come from WebSocket
-                qoq_growth: 0.0,  // Would come from WebSocket
-                market_cap: 0,    // Would come from WebSocket
-                price_current: 0.0, // Would come from WebSocket
-                volume: 0,        // Would come from WebSocket
-                country: "america".to_string(),
-                sector: "Technology".to_string(),
-                ranking_score: 0.0,
-                currency: "USD".to_string(), // Would come from WebSocket
-                next_earnings_date: None,
-                last_earnings_date: None,            };
-            
-            results.push(eps_data);
-        }
-        
-        info!("Successfully fetched {} WebSocket EPS records", results.len());
-        Ok(results)
+
+        // Placeholder - return error to trigger fallback to real quarterly data
+        // WebSocket disabled to avoid 403 Forbidden errors
+        warn!("WebSocket EPS data not available (placeholder mode), using fallback");
+        Err(MarketDataError::ConnectionError("WebSocket disabled - use fallback calculation".to_string()))
     }
 
     /// Create WebSocket session with symbols

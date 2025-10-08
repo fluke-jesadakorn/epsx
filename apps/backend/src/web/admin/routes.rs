@@ -192,6 +192,11 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/analytics/permissions", get(get_permission_analytics_handler))
     .route("/analytics/revenue", get(get_revenue_analytics_handler))
 
+    // CQRS-based admin analytics endpoints (from analytics module)
+    .route("/analytics/metrics", get(crate::web::analytics::system_metrics_handler))
+    .route("/analytics/time-series", get(crate::web::analytics::admin_time_series_handler))
+    .route("/analytics/modules", get(crate::web::analytics::admin_modules_handler))
+
     // TODO: Temporarily disabled due to Axum trait bound issues
     // .layer(axum::middleware::from_fn(crate::web::middleware::web3_auth_middleware))
 }
@@ -200,10 +205,6 @@ pub fn create_admin_public_routes() -> Router<AppState> {
   Router::new()
     // Public admin authentication routes - handler missing
     // .route("/auth/login", post(login_handler))
-    .route(
-      "/health",
-      get(|| async { "OK" })
-    )
 }
 
 // ============================================================================

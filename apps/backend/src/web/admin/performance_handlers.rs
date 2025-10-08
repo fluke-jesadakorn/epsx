@@ -11,6 +11,18 @@ use crate::web::auth::AppState;
 ///
 /// Returns cache hit rates, usage statistics, and performance indicators
 /// for the authentication system's performance cache.
+#[utoipa::path(
+    get,
+    path = "/admin/performance/cache",
+    tag = "admin-performance",
+    responses(
+        (status = 200, description = "Successfully retrieved authentication cache performance metrics"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+        (status = 500, description = "Internal server error")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn get_auth_cache_performance(State(
   _app_state,
 ): State<AppState>) -> Result<Json<Value>, StatusCode> {
@@ -57,6 +69,18 @@ pub async fn get_auth_cache_performance(State(
 ///
 /// Returns a summary of cache performance including hit rates,
 /// cache sizes, and health indicators.
+#[utoipa::path(
+    get,
+    path = "/admin/performance/cache/summary",
+    tag = "admin-performance",
+    responses(
+        (status = 200, description = "Successfully retrieved cache summary"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+        (status = 500, description = "Internal server error")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn get_cache_summary(State(_app_state): State<AppState>) -> Result<
   Json<Value>,
   StatusCode
@@ -100,6 +124,18 @@ pub async fn get_cache_summary(State(_app_state): State<AppState>) -> Result<
 ///
 /// Clears all cached authentication data. Use with caution as this
 /// will cause a temporary increase in database load.
+#[utoipa::path(
+    post,
+    path = "/admin/performance/cache/clear",
+    tag = "admin-performance",
+    responses(
+        (status = 200, description = "Successfully cleared authentication cache"),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+        (status = 500, description = "Internal server error")
+    ),
+    security(("bearerAuth" = []))
+)]
 pub async fn clear_auth_cache(State(_app_state): State<AppState>) -> Result<
   Json<Value>,
   StatusCode

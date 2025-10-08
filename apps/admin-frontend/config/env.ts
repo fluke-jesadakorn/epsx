@@ -105,6 +105,7 @@ export const serverConfig = {
  * Development validation
  */
 if (typeof window !== 'undefined' && isDev) {
+  console.log('Environment Configuration:', {
     adminUrl: config.adminUrl,
     backendUrl: config.backendUrl,
     clientId: config.clientId,

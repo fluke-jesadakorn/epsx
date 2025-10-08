@@ -129,6 +129,11 @@ pub fn transform_unified_to_card_format(
     ((90 - days.min(90)) as f64 / 90.0 * 100.0).max(0.0)
   });
 
+  // Extract top-level fields from quarterly_performance[0] for frontend
+  let current_eps = quarterly_performance.first().map(|q| q.eps);
+  let growth_factor = quarterly_performance.first().map(|q| q.eps_growth);
+  let price_current = quarterly_performance.first().map(|q| q.price);
+
   SymbolCardData {
     rank: unified_item.ranking_position,
     symbol: unified_item.symbol.clone(),
@@ -145,6 +150,9 @@ pub fn transform_unified_to_card_format(
     }),
     days_until_next_earnings,
     progress_percentage,
+    current_eps,
+    growth_factor,
+    price_current,
   }
 }
 
