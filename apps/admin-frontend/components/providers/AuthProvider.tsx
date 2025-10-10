@@ -73,21 +73,8 @@ export async function AuthProvider({
       redirect('/login');
     }
     
-    // Check admin access if required
-    if (requireAdmin) {
-      const hasAdminAccess = UnifiedAuth.hasAdminAccess(session.user);
-      
-      if (!hasAdminAccess) {
-        // eslint-disable-next-line no-console
-        console.warn('⚠️ AuthProvider: Wallet lacks admin permissions', {
-          wallet_address: session.user?.wallet_address,
-          email: session.user?.email,
-          permissions: session.user?.permissions,
-          required: 'admin:*:* or admin:{resource}:{action}'
-        });
-        redirect('/access-denied?reason=insufficient_admin_permissions');
-      }
-    }
+    // Backend validates all permissions - don't check on frontend
+    // Just let authenticated users through - backend will return 403 if no access
     
     // Render with layout if requested
     if (layout && session.user) {

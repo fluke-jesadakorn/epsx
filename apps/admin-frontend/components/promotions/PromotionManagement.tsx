@@ -1,45 +1,69 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 import { PancakeCard } from '@/components/ui/PancakeCard'
-
-interface Promotion {
-  id: number
-  name: string
-  code: string
-  discountType: 'percentage' | 'fixed'
-  discountValue: number
-  maxDiscountAmount: number | null
-  minPurchaseAmount: number
-  usageLimit: number | null
-  currentUsage: number
-  isActive: boolean
-  startDate: string
-  endDate: string
-  applicablePlans: string[]
-  description: string
-  createdAt: string
-  updatedAt: string
-  totalRevenue: number
-  conversionRate: number
-}
+import { toast } from '@/hooks/use-toast'
+import { createPromotionsClient, type Promotion, isApiSuccess } from '@/shared/api/promotions'
+import { createAdminApiClient } from '@/shared/utils/api-client'
 
 interface PromotionManagementProps {
-  promotions: Promotion[]
   currentUser: any
 }
 
 /**
  *
  * @param root0
- * @param root0.promotions
  * @param root0.currentUser
  */
-export function PromotionManagement({ promotions, currentUser }: PromotionManagementProps) {
+export function PromotionManagement({ currentUser }: PromotionManagementProps) {
+  const [promotions, setPromotions] = useState<Promotion[]>([])
+  const [loading, setLoading] = useState(true)
   const [selectedPromotion, setSelectedPromotion] = useState<Promotion | null>(null)
   const [isCreating, setIsCreating] = useState(false)
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
+
+  useEffect(() => {
+    loadPromotions()
+  }, [])
+
+  const loadPromotions = async () => {
+    try {
+      setLoading(true)
+      const apiClient = createAdminApiClient()
+      const promotionsClient = createPromotionsClient(apiClient)
+
+      const response = await promotionsClient.getPromotions({
+        limit: 100,
+      })
+
+      if (isApiSuccess(response)) {
+        const promos = response.data?.promotions || []
+        setPromotions(promos.map(p => ({
+          ...p,
+          discountType: p.discountType as 'percentage' | 'fixed',
+          discountValue: parseFloat(p.discountValue),
+          maxDiscountAmount: p.maxDiscountAmount ? parseFloat(p.maxDiscountAmount) : null,
+          minPurchaseAmount: parseFloat(p.minPurchaseAmount || '0'),
+          totalRevenue: parseFloat(p.totalRevenue),
+        })))
+      } else {
+        toast({
+          title: "Error",
+          description: response.error || "Failed to load promotions",
+          variant: "destructive"
+        })
+      }
+    } catch (_error) {
+      toast({
+        title: "Error",
+        description: "Failed to load promotions",
+        variant: "destructive"
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const filteredPromotions = promotions.filter(promotion => 
     filterStatus === 'all' || 
@@ -50,7 +74,25 @@ export function PromotionManagement({ promotions, currentUser }: PromotionManage
   const activePromotions = promotions.filter(p => p.isActive)
   const totalUsage = promotions.reduce((sum, p) => sum + p.currentUsage, 0)
   const totalRevenue = promotions.reduce((sum, p) => sum + p.totalRevenue, 0)
-  const avgConversionRate = promotions.reduce((sum, p) => sum + p.conversionRate, 0) / promotions.length
+  const avgConversionRate = promotions.length > 0
+    ? promotions.reduce((sum, p) => sum + p.conversionRate, 0) / promotions.length
+    : 0
+
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto space-y-8 animate-pulse">
+        <div className="text-center mb-12">
+          <div className="h-16 bg-gradient-to-r from-pink-400 to-rose-500 rounded-2xl w-96 mx-auto mb-6"></div>
+          <div className="h-6 bg-gray-300 rounded-full w-64 mx-auto"></div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="bg-gradient-to-br from-gray-300 to-gray-400 rounded-3xl h-64"></div>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {

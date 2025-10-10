@@ -462,8 +462,8 @@ impl UnifiedWeb3AuthService {
     async fn get_manual_permissions(&self, wallet_address: &str) -> Result<Vec<String>, Web3AuthError> {
         let permissions = sqlx::query!(
             r#"
-            -- Manual permissions from groups
-            SELECT DISTINCT p.permission_string as permission
+            -- Manual permissions from groups (extract name from JSON VARCHAR)
+            SELECT DISTINCT (p.permission_string::jsonb)->>'name' as permission
             FROM wallet_group_assignments wga
             JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
             JOIN permissions p ON pgm.permission_id = p.id
@@ -475,8 +475,8 @@ impl UnifiedWeb3AuthService {
 
             UNION
 
-            -- Direct manual permissions
-            SELECT DISTINCT p.permission_string as permission
+            -- Direct manual permissions (extract name from JSON VARCHAR)
+            SELECT DISTINCT (p.permission_string::jsonb)->>'name' as permission
             FROM wallet_direct_permissions wdp
             JOIN permissions p ON wdp.permission_id = p.id
             WHERE wdp.wallet_address = $1

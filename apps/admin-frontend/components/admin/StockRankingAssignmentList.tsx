@@ -1,9 +1,9 @@
+'use client';
+
 import { useEffect, useState } from 'react';
 
 import { adminCardVariants, adminButtonVariants, adminBadgeVariants } from '@/design-system';
 import { cn } from '@/lib/utils';
-
-'use client';
 
 enum PackageTier {
   FREE = 'free',

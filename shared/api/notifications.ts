@@ -213,11 +213,11 @@ export class NotificationsAPIClient {
 
   /**
    * Get user notifications
-   * Route: GET /api/v1/auth/notifications
+   * Route: GET /api/notifications
    */
   async getNotifications(filters: NotificationFilters = {}): Promise<NotificationsResponse> {
     const response = await this.client.get<NotificationsResponse>(
-      '/api/v1/auth/notifications',
+      '/api/notifications',
       filters,
       {
         headers: {
@@ -236,11 +236,11 @@ export class NotificationsAPIClient {
 
   /**
    * Get unread notification count
-   * Route: GET /api/v1/auth/notifications/unread-count
+   * Route: GET /api/notifications/unread-count
    */
   async getUnreadCount(): Promise<{ unread_count: number }> {
     const response = await this.client.get<{ unread_count: number }>(
-      '/api/v1/auth/notifications/unread-count',
+      '/api/notifications/unread-count',
       undefined,
       {
         headers: {
@@ -259,11 +259,11 @@ export class NotificationsAPIClient {
 
   /**
    * Mark notification as read
-   * Route: PUT /api/v1/auth/notifications/{id}/read
+   * Route: PUT /api/notifications/{id}/read
    */
   async markAsRead(notificationId: string): Promise<{ success: boolean; message: string }> {
     const response = await this.client.put<{ success: boolean; message: string }>(
-      `/api/v1/auth/notifications/${notificationId}/read`,
+      `/api/notifications/${notificationId}/read`,
       {},
       {
         headers: {
@@ -286,7 +286,7 @@ export class NotificationsAPIClient {
    */
   async markAllAsRead(): Promise<{ success: boolean; updated_count: number }> {
     const response = await this.client.put<{ success: boolean; updated_count: number }>(
-      '/api/v1/auth/notifications/mark-all-read',
+      '/api/notifications/mark-all-read',
       {},
       {
         headers: {
@@ -309,7 +309,7 @@ export class NotificationsAPIClient {
    */
   async deleteNotification(notificationId: string): Promise<{ success: boolean; message: string }> {
     const response = await this.client.delete<{ success: boolean; message: string }>(
-      `/api/v1/auth/notifications/${notificationId}`,
+      `/api/notifications/${notificationId}`,
       {
         headers: {
           'X-API-Version': 'v1',
@@ -331,7 +331,7 @@ export class NotificationsAPIClient {
    */
   async clearAllNotifications(): Promise<{ success: boolean; deleted_count: number }> {
     const response = await this.client.delete<{ success: boolean; deleted_count: number }>(
-      '/api/v1/auth/notifications/clear-all',
+      '/api/notifications/clear-all',
       {
         headers: {
           'X-API-Version': 'v1',
@@ -357,7 +357,7 @@ export class NotificationsAPIClient {
    */
   async getPreferences(): Promise<NotificationPreferencesResponse> {
     const response = await this.client.get<NotificationPreferencesResponse>(
-      '/api/v1/auth/notifications/preferences',
+      '/api/notifications/preferences',
       undefined,
       {
         headers: {
@@ -383,7 +383,7 @@ export class NotificationsAPIClient {
     message: string;
   }> {
     const response = await this.client.put<{ success: boolean; message: string }>(
-      '/api/v1/auth/notifications/preferences',
+      '/api/notifications/preferences',
       preferences,
       {
         headers: {
@@ -410,7 +410,7 @@ export class NotificationsAPIClient {
    */
   async subscribeToPush(subscription: PushSubscription): Promise<PushSubscriptionResponse> {
     const response = await this.client.post<PushSubscriptionResponse>(
-      '/api/v1/auth/notifications/push/subscribe',
+      '/api/notifications/push/subscribe',
       subscription,
       {
         headers: {
@@ -433,7 +433,7 @@ export class NotificationsAPIClient {
    */
   async unsubscribeFromPush(): Promise<{ success: boolean; message: string }> {
     const response = await this.client.delete<{ success: boolean; message: string }>(
-      '/api/v1/auth/notifications/push/unsubscribe',
+      '/api/notifications/push/unsubscribe',
       {
         headers: {
           'X-API-Version': 'v1',
@@ -459,7 +459,7 @@ export class NotificationsAPIClient {
     created_at?: string;
   }> {
     const response = await this.client.get(
-      '/api/v1/auth/notifications/push/status',
+      '/api/notifications/push/status',
       undefined,
       {
         headers: {
@@ -482,11 +482,11 @@ export class NotificationsAPIClient {
 
   /**
    * Send notification (admin only)
-   * Route: POST /api/v1/admin/notifications/send
+   * Route: POST /api/admin/notifications/send
    */
   async sendNotification(request: SendNotificationRequest): Promise<SendNotificationResponse> {
     const response = await this.client.post<SendNotificationResponse>(
-      '/api/v1/admin/notifications/send',
+      '/api/admin/notifications/send',
       request,
       {
         headers: {
@@ -506,11 +506,11 @@ export class NotificationsAPIClient {
 
   /**
    * Get notification statistics (admin only)
-   * Route: GET /api/v1/admin/notifications/stats
+   * Route: GET /api/admin/notifications/stats
    */
   async getNotificationStats(): Promise<NotificationStatsResponse> {
     const response = await this.client.get<NotificationStatsResponse>(
-      '/api/v1/admin/notifications/stats',
+      '/api/admin/notifications/stats',
       undefined,
       {
         headers: {
@@ -530,11 +530,11 @@ export class NotificationsAPIClient {
 
   /**
    * Get all notifications (admin only)
-   * Route: GET /api/v1/admin/notifications
+   * Route: GET /api/admin/notifications
    */
   async getAllNotifications(filters: NotificationFilters = {}): Promise<NotificationsResponse> {
     const response = await this.client.get<NotificationsResponse>(
-      '/api/v1/admin/notifications',
+      '/api/admin/notifications',
       filters,
       {
         headers: {
@@ -572,7 +572,7 @@ export class NotificationsAPIClient {
     if (options.types) params.append('types', options.types.join(','));
     if (options.priority) params.append('priority', options.priority);
 
-    const sseUrl = `${this.client['baseURL']}/api/v1/auth/notifications/stream?${params.toString()}`;
+    const sseUrl = `${this.client['baseURL']}/api/notifications/stream?${params.toString()}`;
 
     // Create SSE connection
     this.sseConnection = new EventSource(sseUrl, {

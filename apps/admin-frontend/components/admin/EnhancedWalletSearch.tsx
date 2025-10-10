@@ -56,23 +56,14 @@ interface SearchResponse {
   };
 }
 
-const TIER_OPTIONS = [
-  { value: '', label: 'All Tiers' },
-  { value: 'admin', label: 'Admin' },
-  { value: 'platinum', label: 'Platinum' },
-  { value: 'gold', label: 'Gold' },
-  { value: 'silver', label: 'Silver' },
-  { value: 'bronze', label: 'Bronze' },
-];
-
 const STATUS_OPTIONS = [
-  { value: '', label: 'All Status' },
+  { value: 'all', label: 'All Status' },
   { value: 'active', label: 'Active' },
   { value: 'inactive', label: 'Inactive' },
 ];
 
 const DATE_RANGE_OPTIONS = [
-  { value: '', label: 'All Time' },
+  { value: 'all', label: 'All Time' },
   { value: '1d', label: 'Last 24 hours' },
   { value: '7d', label: 'Last 7 days' },
   { value: '30d', label: 'Last 30 days' },
@@ -95,6 +86,7 @@ export function EnhancedWalletSearch() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [tiers, setTiers] = useState<Array<{ value: string; label: string }>>([{ value: 'all', label: 'All Tiers' }]);
   const [filters, setFilters] = useState<SearchFilters>({
     search: '',
     tier: '',
@@ -104,6 +96,30 @@ export function EnhancedWalletSearch() {
     sortBy: 'created_at',
     sortOrder: 'desc',
   });
+
+  useEffect(() => {
+    const fetchTiers = async () => {
+      try {
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+        const response = await fetch(`${backendUrl}/api/admin/tiers`, {
+          credentials: 'include',
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setTiers([
+            { value: 'all', label: 'All Tiers' },
+            ...data.map((tier: string) => ({
+              value: tier.toLowerCase(),
+              label: tier.charAt(0).toUpperCase() + tier.slice(1)
+            }))
+          ]);
+        }
+      } catch (err) {
+        console.error('Failed to fetch tiers:', err);
+      }
+    };
+    fetchTiers();
+  }, []);
 
   const searchWallets = useCallback(async (newPage = 1, newFilters = filters) => {
     setLoading(true);
@@ -130,7 +146,8 @@ export function EnhancedWalletSearch() {
         }
       });
 
-      const response = await fetch(`/api/admin/wallets/search?${cleanParams.toString()}`, {
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+      const response = await fetch(`${backendUrl}/api/admin/wallets/search?${cleanParams.toString()}`, {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
@@ -190,7 +207,8 @@ export function EnhancedWalletSearch() {
     return date.toLocaleDateString();
   };
 
-  const getTierColor = (tier: string) => {
+  const getTierColor = (tier: string | null | undefined) => {
+    if (!tier) return 'outline';
     switch (tier.toLowerCase()) {
       case 'admin': return 'destructive';
       case 'platinum': case 'diamond': return 'default';
@@ -207,39 +225,41 @@ export function EnhancedWalletSearch() {
   return (
     <div className="space-y-6">
       {/* Search and Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
-            Wallet Search & Filters
+      <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-2 border-blue-300/50 dark:border-blue-700/50 shadow-xl">
+        <CardHeader className="pb-4">
+          <CardTitle className="flex items-center gap-3 text-xl">
+            <div className="text-2xl">🔍</div>
+            <span className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent font-bold">
+              Search & Filters
+            </span>
           </CardTitle>
-          <CardDescription>
-            Search and filter wallet users by various criteria
+          <CardDescription className="text-base text-gray-600 dark:text-gray-400">
+            Find wallets by address, tier, status, or activity
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {/* Search Input */}
-            <div className="lg:col-span-2">
-              <Label htmlFor="search">Search Wallets</Label>
+            <div className="md:col-span-2 lg:col-span-2 xl:col-span-2">
+              <Label htmlFor="search" className="text-sm font-medium">Search Wallets</Label>
               <Input
                 id="search"
-                placeholder="Search by wallet address..."
+                placeholder="0x... or wallet address"
                 value={filters.search}
                 onChange={(e) => handleFilterChange('search', e.target.value)}
-                className="font-mono"
+                className="font-mono text-sm h-10 mt-1.5"
               />
             </div>
 
             {/* Tier Filter */}
             <div>
-              <Label>Tier Level</Label>
+              <Label className="text-sm font-medium">Tier Level</Label>
               <Select value={filters.tier} onValueChange={(value) => handleFilterChange('tier', value)}>
-                <SelectTrigger>
+                <SelectTrigger className="h-10 mt-1.5">
                   <SelectValue placeholder="All Tiers" />
                 </SelectTrigger>
                 <SelectContent>
-                  {TIER_OPTIONS.map((option) => (
+                  {tiers.map((option) => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
@@ -250,9 +270,9 @@ export function EnhancedWalletSearch() {
 
             {/* Status Filter */}
             <div>
-              <Label>Status</Label>
+              <Label className="text-sm font-medium">Status</Label>
               <Select value={filters.status} onValueChange={(value) => handleFilterChange('status', value)}>
-                <SelectTrigger>
+                <SelectTrigger className="h-10 mt-1.5">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -267,9 +287,9 @@ export function EnhancedWalletSearch() {
 
             {/* Date Range Filter */}
             <div>
-              <Label>Date Range</Label>
+              <Label className="text-sm font-medium">Date Range</Label>
               <Select value={filters.dateRange} onValueChange={(value) => handleFilterChange('dateRange', value)}>
-                <SelectTrigger>
+                <SelectTrigger className="h-10 mt-1.5">
                   <SelectValue placeholder="All Time" />
                 </SelectTrigger>
                 <SelectContent>
@@ -284,9 +304,9 @@ export function EnhancedWalletSearch() {
 
             {/* Sort Options */}
             <div>
-              <Label>Sort By</Label>
+              <Label className="text-sm font-medium">Sort By</Label>
               <Select value={filters.sortBy} onValueChange={(value) => handleFilterChange('sortBy', value)}>
-                <SelectTrigger>
+                <SelectTrigger className="h-10 mt-1.5">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -301,9 +321,9 @@ export function EnhancedWalletSearch() {
 
             {/* Sort Order */}
             <div>
-              <Label>Order</Label>
+              <Label className="text-sm font-medium">Order</Label>
               <Select value={filters.sortOrder} onValueChange={(value) => handleFilterChange('sortOrder', value as 'asc' | 'desc')}>
-                <SelectTrigger>
+                <SelectTrigger className="h-10 mt-1.5">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -324,17 +344,17 @@ export function EnhancedWalletSearch() {
             </div>
 
             {/* Action Buttons */}
-            <div className="lg:col-span-2 flex gap-2 items-end">
-              <Button 
-                onClick={() => searchWallets(1)} 
+            <div className="md:col-span-2 lg:col-span-3 xl:col-span-2 flex gap-3 items-end">
+              <Button
+                onClick={() => searchWallets(1)}
                 disabled={loading}
-                className="flex items-center gap-2"
+                className="flex items-center gap-2 h-10 px-6 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
               >
                 <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                 Search
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => {
                   setFilters({
                     search: '',
@@ -355,8 +375,9 @@ export function EnhancedWalletSearch() {
                     sortOrder: 'desc',
                   });
                 }}
+                className="h-10 px-6 border-2 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800"
               >
-                Clear Filters
+                Clear
               </Button>
             </div>
           </div>
@@ -364,21 +385,23 @@ export function EnhancedWalletSearch() {
       </Card>
 
       {/* Results */}
-      <Card>
-        <CardHeader>
+      <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-2 border-purple-300/50 dark:border-purple-700/50 shadow-xl">
+        <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Search Results
+              <CardTitle className="flex items-center gap-3 text-xl">
+                <div className="text-2xl">📊</div>
+                <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent font-bold">
+                  Results
+                </span>
                 {results && (
-                  <Badge variant="secondary" className="ml-2">
-                    {results.total_count} wallets
+                  <Badge className="bg-gradient-to-r from-purple-400 to-pink-500 text-white border-0 text-sm font-medium px-3 py-1">
+                    {results.total_count}
                   </Badge>
                 )}
               </CardTitle>
-              <CardDescription>
-                {results && `Showing ${results.wallets.length} of ${results.total_count} results`}
+              <CardDescription className="text-base mt-1 text-gray-600 dark:text-gray-400">
+                {results ? `Showing ${results.wallets.length} of ${results.total_count} wallets` : 'Enter search criteria above'}
               </CardDescription>
             </div>
           </div>
@@ -393,17 +416,20 @@ export function EnhancedWalletSearch() {
           {loading && (
             <div className="space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex items-center justify-between p-4 border rounded">
-                  <div className="flex items-center gap-4">
-                    <Skeleton className="h-10 w-10 rounded-full" />
-                    <div className="space-y-2">
-                      <Skeleton className="h-4 w-32" />
-                      <Skeleton className="h-3 w-24" />
+                <div key={i} className="bg-gradient-to-r from-blue-400/10 via-purple-400/10 to-pink-400/10 rounded-2xl p-0.5">
+                  <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl p-5 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <Skeleton className="h-12 w-12 rounded-xl" />
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="h-3 w-32" />
+                      </div>
                     </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Skeleton className="h-5 w-16" />
-                    <Skeleton className="h-4 w-20" />
+                    <div className="space-y-2 text-right">
+                      <Skeleton className="h-3 w-24" />
+                      <Skeleton className="h-3 w-20" />
+                      <Skeleton className="h-5 w-16" />
+                    </div>
                   </div>
                 </div>
               ))}
@@ -411,10 +437,10 @@ export function EnhancedWalletSearch() {
           )}
 
           {!loading && results && results.wallets.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p className="text-lg font-medium mb-2">No wallets found</p>
-              <p>Try adjusting your search criteria or filters</p>
+            <div className="text-center py-12 text-muted-foreground">
+              <Search className="h-16 w-16 mx-auto mb-4 opacity-40" />
+              <p className="text-lg font-semibold mb-2">No wallets found</p>
+              <p className="text-sm">Try different search criteria or filters</p>
             </div>
           )}
 
@@ -423,43 +449,52 @@ export function EnhancedWalletSearch() {
               {results.wallets.map((wallet) => (
                 <div
                   key={wallet.wallet_address}
-                  className="flex items-center justify-between p-4 border rounded hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                  className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-400/10 via-purple-400/10 to-pink-400/10 p-0.5 hover:scale-[1.02] transition-all duration-300"
                 >
-                  <div className="flex items-center gap-4">
-                    <div className="h-10 w-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
-                      {wallet.wallet_address.slice(2, 4).toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="font-mono text-sm font-medium">
-                        {formatWalletAddress(wallet.wallet_address)}
+                  <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl p-5 flex items-center justify-between">
+                    <div className="absolute top-4 right-4 w-3 h-3 bg-gradient-to-r from-blue-400 to-cyan-500 rounded-full blur-sm opacity-60"></div>
+                    <div className="flex items-center gap-4">
+                      <div className="relative h-12 w-12 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-xl flex items-center justify-center text-white font-bold shrink-0 shadow-lg">
+                        {wallet.wallet_address.slice(2, 4).toUpperCase()}
+                        <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-400 rounded-full border-2 border-white"></div>
                       </div>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant={getTierColor(wallet.tier_level)} className="text-xs">
-                          {wallet.tier_level}
-                        </Badge>
-                        <span className="text-xs text-gray-500">
-                          {getActivePermissionsCount(wallet.permissions)} permissions
-                        </span>
-                        {wallet.groups.length > 0 && (
-                          <span className="text-xs text-gray-500">
-                            • {wallet.groups.length} groups
+                      <div className="min-w-0">
+                        <div className="font-mono text-sm font-semibold mb-1.5">
+                          {formatWalletAddress(wallet.wallet_address)}
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant={getTierColor(wallet.tier_level)} className="text-xs font-medium">
+                            {wallet.tier_level}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {getActivePermissionsCount(wallet.permissions)} permissions
                           </span>
-                        )}
+                          {wallet.groups.length > 0 && (
+                            <span className="text-xs text-muted-foreground">
+                              • {wallet.groups.length} groups
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs text-gray-500">
-                      Created: {formatTimeAgo(wallet.created_at)}
-                    </div>
-                    {wallet.last_auth_at && (
-                      <div className="text-xs text-gray-500">
-                        Last seen: {formatTimeAgo(wallet.last_auth_at)}
+                    <div className="text-right shrink-0 ml-4">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
+                        Created {formatTimeAgo(wallet.created_at)}
                       </div>
-                    )}
-                    <Badge variant={wallet.is_active ? 'default' : 'outline'} className="text-xs mt-1">
-                      {wallet.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
+                      {wallet.last_auth_at && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                          Active {formatTimeAgo(wallet.last_auth_at)}
+                        </div>
+                      )}
+                      <Badge
+                        className={wallet.is_active
+                          ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white border-0'
+                          : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border-0'
+                        }
+                      >
+                        {wallet.is_active ? '🟢 Active' : '⚪ Inactive'}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -468,11 +503,12 @@ export function EnhancedWalletSearch() {
 
           {/* Pagination */}
           {results && results.has_more && (
-            <div className="flex justify-center mt-6">
+            <div className="flex justify-center mt-8 pt-6 border-t">
               <Button
                 variant="outline"
                 onClick={() => searchWallets(page + 1)}
                 disabled={loading}
+                className="h-10 px-8"
               >
                 Load More ({results.total_count - results.wallets.length} remaining)
               </Button>

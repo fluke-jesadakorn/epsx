@@ -332,8 +332,8 @@ impl OpenIDTokenService {
         // Query effective permissions from normalized tables (group permissions + direct permissions)
         let permission_records = sqlx::query!(
             r#"
-            -- Permissions from groups
-            SELECT DISTINCT p.permission_string
+            -- Permissions from groups (extract name from JSON VARCHAR)
+            SELECT DISTINCT (p.permission_string::jsonb)->>'name' as permission_string
             FROM wallet_group_assignments wga
             JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
             JOIN permissions p ON pgm.permission_id = p.id
@@ -344,8 +344,8 @@ impl OpenIDTokenService {
 
             UNION
 
-            -- Direct permissions
-            SELECT DISTINCT p.permission_string
+            -- Direct permissions (extract name from JSON VARCHAR)
+            SELECT DISTINCT (p.permission_string::jsonb)->>'name' as permission_string
             FROM wallet_direct_permissions wdp
             JOIN permissions p ON wdp.permission_id = p.id
             WHERE wdp.wallet_address = $1

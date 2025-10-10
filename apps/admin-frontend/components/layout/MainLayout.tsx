@@ -27,39 +27,36 @@ const NO_SIDEBAR_PATHS = ['/permissions/policies'];
  * @param root0.children
  * @param root0.user
  */
-export function MainLayout({
-  children,
-  user,
-}: MainLayoutProps) {
+export function MainLayout({ children, user }: MainLayoutProps) {
   const pathname = usePathname();
-  const hideLayout = NO_SIDEBAR_PATHS.some(path => pathname === path || pathname.startsWith(path));
+  const hideLayout = NO_SIDEBAR_PATHS.some(
+    path => pathname === path || pathname.startsWith(path)
+  );
 
   if (hideLayout) {
     return <>{children}</>;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Sidebar Navigation */}
       <Sidebar />
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex flex-1 flex-col">
         {/* Header */}
         <Header user={user} />
 
         {/* Breadcrumb */}
-        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3">
+        <div className="border-b border-gray-200 bg-white px-6 py-3 dark:border-gray-700 dark:bg-gray-800">
           <Breadcrumb />
         </div>
 
         {/* Main Content */}
-        <main className="flex-1 p-6">
-          {children}
-        </main>
+        <main className="flex-1">{children}</main>
 
         {/* Footer */}
-        <footer className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-6 py-4">
+        <footer className="border-t border-gray-200 bg-white px-6 py-4 dark:border-gray-700 dark:bg-gray-800">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span>⚡</span>
@@ -76,4 +73,3 @@ export function MainLayout({
     </div>
   );
 }
-

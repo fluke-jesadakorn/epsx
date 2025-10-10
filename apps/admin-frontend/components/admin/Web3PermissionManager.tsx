@@ -534,7 +534,7 @@ export function Web3PermissionManager() {
                       <SelectItem value="30">30 Days</SelectItem>
                       <SelectItem value="90">90 Days</SelectItem>
                       <SelectItem value="365">1 Year</SelectItem>
-                      <SelectItem value="">Never</SelectItem>
+                      <SelectItem value="never">Never</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
