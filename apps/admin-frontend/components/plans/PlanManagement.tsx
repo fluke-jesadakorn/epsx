@@ -1,12 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-
-import { CreatePlanForm } from './CreatePlanForm'
-import { EditPlanModal } from './EditPlanModal'
-import { PlanAnalyticsModal } from './PlanAnalyticsModal'
-
-import { PancakeCard } from '@/components/ui/PancakeCard'
+import { useRouter } from 'next/navigation'
 import { toast } from '@/hooks/use-toast'
 import { createPlansClient, type PlanResponse, isApiSuccess } from '@/shared/api/plans'
 import { createAdminApiClient } from '@/shared/utils/api-client'
@@ -21,14 +16,11 @@ interface PlanManagementProps {
  * @param root0.currentUser
  */
 export function PlanManagement({ currentUser }: PlanManagementProps) {
+  const router = useRouter()
   const [plans, setPlans] = useState<PlanResponse[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedPlan, setSelectedPlan] = useState<PlanResponse | null>(null)
-  const [editingPlan, setEditingPlan] = useState<PlanResponse | null>(null)
-  const [isCreating, setIsCreating] = useState(false)
-  const [showAnalytics, setShowAnalytics] = useState<number | null>(null)
   const [filterCategory, setFilterCategory] = useState<'all' | 'standard' | 'api' | 'enterprise' | 'custom'>('all')
-  const [filterActive, setFilterActive] = useState<boolean | null>(null)
 
   // Load plans on component mount
   useEffect(() => {
@@ -38,29 +30,48 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
   const loadPlans = async () => {
     try {
       setLoading(true)
+      console.log('[PlanManagement] Loading plans...')
       const apiClient = createAdminApiClient()
       const plansClient = createPlansClient(apiClient)
 
+      console.log('[PlanManagement] Making API request to /api/admin/plans')
       const response = await plansClient.getPlans({
         limit: 100,
-        plan_category: filterCategory === 'all' ? undefined : filterCategory,
-        is_active: filterActive === null ? undefined : filterActive
+        plan_category: filterCategory === 'all' ? undefined : filterCategory
       })
 
+      console.log('[PlanManagement] Full API response:', JSON.stringify(response, null, 2))
+
       if (isApiSuccess(response)) {
-        const plans = response.data?.plans || []
-        setPlans(plans)
+        // Backend returns: { success, data: { plans: [...], has_more, total_count }, message }
+        // API client wraps backend response as-is in its own data field
+        // So response.data is the entire backend JSON response
+        const backendResponse = response.data as any
+
+        // Extract plans from backend response structure
+        const plansData = backendResponse?.data?.plans || backendResponse?.plans || []
+
+        console.log('[PlanManagement] Backend response structure:', {
+          hasDataField: !!backendResponse?.data,
+          hasPlansDirectly: !!backendResponse?.plans,
+          plansCount: plansData.length
+        })
+        console.log('[PlanManagement] Extracted plans:', plansData)
+
+        setPlans(plansData)
       } else {
+        console.error('[PlanManagement] API error:', response.error)
         toast({
           title: "Error",
           description: response.error || "Failed to load plans",
           variant: "destructive"
         })
       }
-    } catch (_error) {
+    } catch (error) {
+      console.error('[PlanManagement] Exception:', error)
       toast({
         title: "Error",
-        description: "Failed to load plans",
+        description: error instanceof Error ? error.message : "Failed to load plans",
         variant: "destructive"
       })
     } finally {
@@ -68,50 +79,10 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
     }
   }
 
-  const handlePlanCreated = () => {
-    setIsCreating(false)
-    loadPlans()
-    toast({
-      title: "Success",
-      description: "Plan created successfully",
-    })
-  }
 
-  const handleTogglePlanStatus = async (planId: number, currentStatus: boolean) => {
-    try {
-      const apiClient = createAdminApiClient()
-      const plansClient = createPlansClient(apiClient)
-
-      const response = await plansClient.updatePlan(planId, {
-        is_active: !currentStatus
-      })
-
-      if (isApiSuccess(response)) {
-        loadPlans()
-        toast({
-          title: "Success",
-          description: `Plan ${!currentStatus ? 'activated' : 'deactivated'} successfully`,
-        })
-      } else {
-        toast({
-          title: "Error",
-          description: response.error || "Failed to update plan status",
-          variant: "destructive"
-        })
-      }
-    } catch (_error) {
-      toast({
-        title: "Error",
-        description: "Failed to update plan status",
-        variant: "destructive"
-      })
-    }
-  }
 
   const filteredPlans = plans.filter(plan => {
-    const categoryMatch = filterCategory === 'all' || plan.plan_category === filterCategory
-    const activeMatch = filterActive === null || plan.is_active === filterActive
-    return categoryMatch && activeMatch
+    return filterCategory === 'all' || plan.plan_category === filterCategory
   })
 
   const standardPlans = plans.filter(p => p.plan_category === 'standard')
@@ -150,34 +121,6 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
 
   return (
     <div>
-      {/* Plan Creation Form Modal */}
-      {isCreating && (
-        <CreatePlanForm 
-          onClose={() => setIsCreating(false)}
-          onSuccess={handlePlanCreated}
-        />
-      )}
-
-      {/* Plan Analytics Modal */}
-      {showAnalytics && (
-        <PlanAnalyticsModal
-          planId={showAnalytics}
-          onClose={() => setShowAnalytics(null)}
-        />
-      )}
-
-      {/* Edit Plan Modal */}
-      {editingPlan && (
-        <EditPlanModal
-          plan={editingPlan}
-          onClose={() => setEditingPlan(null)}
-          onSuccess={() => {
-            setEditingPlan(null)
-            loadPlans()
-          }}
-        />
-      )}
-
       <div className="space-y-6 sm:space-y-8">
         {/* Background Decorations */}
         <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -204,7 +147,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-12">
             <div
               className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-emerald-400/20 via-green-500/20 to-teal-500/20 p-0.5 cursor-pointer"
-              onClick={() => setIsCreating(true)}
+              onClick={() => router.push('/plans/new')}
             >
               <div className="relative bg-gradient-to-br from-emerald-400 via-green-500 to-teal-500 text-white rounded-2xl sm:rounded-3xl">
                 <div className="p-6 sm:p-8">
@@ -292,7 +235,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
             </div>
           </div>
 
-          {/* Filter Tabs */}
+          {/* Category Filter Tabs */}
           <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-purple-400/20 via-blue-400/20 to-green-400/20 p-0.5 mb-6">
             <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4">
               <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-4">
@@ -401,7 +344,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          setEditingPlan(plan)
+                          router.push(`/plans/${plan.id}/edit`)
                         }}
                         className="px-3 py-2 rounded-xl font-semibold bg-gradient-to-r from-purple-400 to-purple-500 text-white min-h-[44px] text-sm"
                       >
@@ -410,22 +353,9 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          handleTogglePlanStatus(plan.id, plan.is_active)
+                          router.push(`/plans/${plan.id}/analytics`)
                         }}
-                        className={`px-3 py-2 rounded-xl font-semibold min-h-[44px] text-sm ${
-                          plan.is_active
-                            ? 'bg-gradient-to-r from-green-400 to-green-500 text-white'
-                            : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
-                        }`}
-                      >
-                        {plan.is_active ? '✓ Active' : 'Activate'}
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setShowAnalytics(plan.id)
-                        }}
-                        className="px-3 py-2 rounded-xl font-semibold bg-gradient-to-r from-blue-400 to-blue-500 text-white col-span-2 min-h-[44px] text-sm"
+                        className="px-3 py-2 rounded-xl font-semibold bg-gradient-to-r from-blue-400 to-blue-500 text-white min-h-[44px] text-sm"
                       >
                         📊 Analytics
                       </button>
@@ -492,7 +422,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          setEditingPlan(plan)
+                          router.push(`/plans/${plan.id}/edit`)
                         }}
                         className="px-4 py-2 rounded-xl font-semibold bg-gradient-to-r from-purple-400 to-purple-500 text-white hover:from-purple-500 hover:to-purple-600 min-h-[44px]"
                       >
@@ -502,21 +432,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          handleTogglePlanStatus(plan.id, plan.is_active)
-                        }}
-                        className={`px-4 py-2 rounded-xl font-semibold min-h-[44px] ${
-                          plan.is_active
-                            ? 'bg-gradient-to-r from-green-400 to-green-500 text-white'
-                            : 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
-                        }`}
-                      >
-                        {plan.is_active ? '✓ Active' : 'Inactive'}
-                      </button>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setShowAnalytics(plan.id)
+                          router.push(`/plans/${plan.id}/analytics`)
                         }}
                         className="px-4 py-2 rounded-xl font-semibold bg-gradient-to-r from-blue-400 to-blue-500 text-white hover:from-blue-500 hover:to-blue-600 min-h-[44px]"
                       >

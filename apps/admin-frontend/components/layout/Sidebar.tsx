@@ -38,26 +38,10 @@ const navigationItems: NavItem[] = [
   },
   {
     id: 'permissions',
-    label: 'Permissions',
-    href: '/permissions',
+    label: 'Web3 Permissions',
+    href: '/permissions/web3',
     icon: '🔑',
     requiresAuth: true,
-    children: [
-      {
-        id: 'permissions-web3',
-        label: 'Web3 Permissions',
-        href: '/permissions/web3',
-        icon: '🌐',
-        requiresAuth: true,
-      },
-      {
-        id: 'permissions-policies',
-        label: 'Policies',
-        href: '/permissions/policies',
-        icon: '🛡️',
-        requiresAuth: true,
-      },
-    ]
   },
   {
     id: 'plans',
@@ -137,7 +121,7 @@ export function Sidebar() {
               {/* Main Item */}
               <div className="relative">
                 {isDisabled ? (
-                  <div className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors cursor-not-allowed opacity-50 ${
+                  <div className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-not-allowed opacity-50 ${
                     'text-gray-400 dark:text-gray-500'
                   }`}>
                     <span className="text-lg">{item.icon}</span>
@@ -146,7 +130,7 @@ export function Sidebar() {
                   </div>
                 ) : (
                   <Link href={item.href}>
-                    <div className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                    <div className={`flex items-center gap-3 px-3 py-2 rounded-lg ${
                       isActive || hasActiveChild
                         ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
                         : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
@@ -182,14 +166,14 @@ export function Sidebar() {
                     return (
                       <div key={child.id}>
                         {childIsDisabled ? (
-                          <div className="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors cursor-not-allowed opacity-50 text-gray-400 dark:text-gray-500">
+                          <div className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-not-allowed opacity-50 text-gray-400 dark:text-gray-500">
                             <span className="text-sm">{child.icon}</span>
                             <span className="text-sm font-medium">{child.label}</span>
                             <span className="text-xs ml-auto bg-orange-100 text-orange-600 px-1 py-0.5 rounded dark:bg-orange-900 dark:text-orange-300">🔒</span>
                           </div>
                         ) : (
                           <Link href={child.href}>
-                            <div className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                            <div className={`flex items-center gap-3 px-3 py-2 rounded-lg ${
                               childIsActive
                                 ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300'
                                 : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'

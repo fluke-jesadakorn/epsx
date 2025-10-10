@@ -29,7 +29,7 @@ function DashboardSkeleton() {
  *
  */
 export default function DashboardPage() {
-  const { user, isAuthenticated, isLoading, hasPermissionForDisplay } = useSharedAuth()
+  const { user, isAuthenticated, isLoading } = useSharedAuth()
   const [dashboardStats, setDashboardStats] = useState({
     totalUsers: 0,
     activeUsers: 0,
@@ -40,18 +40,18 @@ export default function DashboardPage() {
     systemUptime: '99.9%',
     avgResponseTime: '120ms'
   })
+  const [accessError, setAccessError] = useState<string | null>(null)
 
-  // Check if user has admin permissions
-  const isAdmin = hasPermissionForDisplay('admin:*:*') || hasPermissionForDisplay('admin:users:view')
-
-  // Load dashboard data
+  // Load dashboard data - backend will handle permission validation
   useEffect(() => {
-    if (isAuthenticated && isAdmin) {
+    if (isAuthenticated) {
       const loadDashboardData = async () => {
         try {
+          setAccessError(null)
           const client = createAdminApiClient()
           const response = await client.get('/api/admin/users', { limit: '100' })
 
+          // Backend returned success - user has permission
           if (response.success && response.data && Array.isArray(response.data)) {
             setDashboardStats(prev => ({
               ...prev,
@@ -63,38 +63,57 @@ export default function DashboardPage() {
                 new Date(user.lastLoginAt) > new Date(Date.now() - 24 * 60 * 60 * 1000)
               ).length
             }))
+          } else if (response.status === 403 || response.status === 401) {
+            // Backend rejected - no permission
+            setAccessError(response.error || 'Access denied by backend')
           }
-        } catch (_error) {
-          // eslint-disable-next-line no-console
-          console.error('Failed to load dashboard stats:', _error)
+          // For 404 or other errors, just skip loading stats but don't block access
+        } catch {
+          // Silently handle missing endpoints - don't block dashboard access
         }
       }
 
       loadDashboardData()
     }
-  }, [isAuthenticated, isAdmin])
+  }, [isAuthenticated])
 
   // Show loading state
   if (isLoading) {
     return <DashboardSkeleton />
   }
 
-  // Show authentication required if not authenticated or not admin
-  if (!isAuthenticated || !isAdmin) {
+  // Show authentication required if not authenticated
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-6">
         <div className="text-center max-w-md mx-auto mt-32">
           <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">
-            {!isAuthenticated ? 'Authentication Required' : 'Admin Access Required'}
+            Authentication Required
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-8">
-            {!isAuthenticated 
-              ? 'Please log in to access the admin dashboard.' 
-              : 'You need admin permissions to access this dashboard.'
-            }
+            Please connect your wallet to access the admin dashboard.
           </p>
           <a href="/login" className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 rounded-2xl text-white font-semibold hover:shadow-lg transition-all duration-300">
-            {!isAuthenticated ? 'Connect Wallet' : 'Request Access'}
+            Connect Wallet
+          </a>
+        </div>
+      </div>
+    )
+  }
+
+  // Show access error if backend rejected the request
+  if (accessError) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-6">
+        <div className="text-center max-w-md mx-auto mt-32">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+            Access Denied
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400 mb-8">
+            {accessError}
+          </p>
+          <a href="/login" className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 rounded-2xl text-white font-semibold hover:shadow-lg transition-all duration-300">
+            Try Again
           </a>
         </div>
       </div>

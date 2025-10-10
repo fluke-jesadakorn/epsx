@@ -212,7 +212,7 @@ export interface TestSession {
 export const TEST_SESSIONS: Record<string, TestSession> = {
   VALID_ADMIN: {
     sessionId: 'sess-admin-001',
-    userId: TEST_USERS.ADMIN.id,
+    userId: TEST_USERS['ADMIN']?.id || 'admin-001',
     token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbi0wMDEiLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MTcwMDAwMzYwMH0.test_token_admin',
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     createdAt: new Date().toISOString(),
@@ -223,7 +223,7 @@ export const TEST_SESSIONS: Record<string, TestSession> = {
   
   VALID_USER_MANAGER: {
     sessionId: 'sess-user-mgr-002',
-    userId: TEST_USERS.USER_MANAGER.id,
+    userId: TEST_USERS['USER_MANAGER']?.id || 'user-mgr-002',
     token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLW1nci0wMDIiLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MTcwMDAwMzYwMH0.test_token_user_mgr',
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     createdAt: new Date().toISOString(),
@@ -278,7 +278,7 @@ export const SECURITY_EVENT_FIXTURES: Record<string, SecurityEvent> = {
     id: 'evt-login-001',
     eventType: 'LOGIN_SUCCESS',
     severity: 'LOW',
-    userId: TEST_USERS.ADMIN.id,
+    userId: TEST_USERS['ADMIN']?.id || 'admin-001',
     endpoint: '/api/admin/auth/login',
     method: 'POST',
     statusCode: 200,
@@ -292,7 +292,7 @@ export const SECURITY_EVENT_FIXTURES: Record<string, SecurityEvent> = {
     id: 'evt-unauth-002',
     eventType: 'UNAUTHORIZED_ACCESS',
     severity: 'HIGH',
-    userId: TEST_USERS.RESTRICTED_USER.id,
+    userId: TEST_USERS['RESTRICTED_USER']?.id || 'restricted-003',
     endpoint: '/api/admin/admin-modules',
     method: 'GET',
     statusCode: 403,
@@ -320,7 +320,7 @@ export const SECURITY_EVENT_FIXTURES: Record<string, SecurityEvent> = {
     id: 'evt-rate-004',
     eventType: 'RATE_LIMIT_EXCEEDED',
     severity: 'MEDIUM',
-    userId: TEST_USERS.USER_MANAGER.id,
+    userId: TEST_USERS['USER_MANAGER']?.id || 'user-mgr-002',
     endpoint: '/api/admin/users',
     method: 'GET',
     statusCode: 429,
@@ -334,7 +334,7 @@ export const SECURITY_EVENT_FIXTURES: Record<string, SecurityEvent> = {
     id: 'evt-priv-005',
     eventType: 'PRIVILEGE_ESCALATION_ATTEMPT',
     severity: 'CRITICAL',
-    userId: TEST_USERS.USER_MANAGER.id,
+    userId: TEST_USERS['USER_MANAGER']?.id || 'user-mgr-002',
     endpoint: '/api/admin/admin-modules/assign',
     method: 'POST',
     statusCode: 403,
@@ -498,8 +498,8 @@ export class TestDatabaseUtilities {
     
     // This would interact with your actual database
     // Implementation depends on your database client
-    for (const [key, user] of Object.entries(TEST_USERS)) {
-      // await this.createUser(user);
+    for (const [_key, _user] of Object.entries(TEST_USERS)) {
+      // await this.createUser(_user);
     }
     
   }
@@ -509,7 +509,7 @@ export class TestDatabaseUtilities {
    */
   async seedRoleProfiles(): Promise<void> {
     
-    for (const [key, profile] of Object.entries(ROLE_PROFILES)) {
+    for (const [_key, _profile] of Object.entries(ROLE_PROFILES)) {
       // await this.createRoleProfile(profile);
     }
     
@@ -520,7 +520,7 @@ export class TestDatabaseUtilities {
    */
   async seedTestSessions(): Promise<void> {
     
-    for (const [key, session] of Object.entries(TEST_SESSIONS)) {
+    for (const [_key, session] of Object.entries(TEST_SESSIONS)) {
       if (session.isActive) {
         // await this.createSession(session);
       }
@@ -648,10 +648,10 @@ export interface TestEnvironmentConfig {
 
 export const TEST_ENVIRONMENT_CONFIG: TestEnvironmentConfig = {
   database: {
-    host: process.env.TEST_DB_HOST || 'localhost',
-    port: parseInt(process.env.TEST_DB_PORT || '5432'),
-    name: process.env.TEST_DB_NAME || 'epsx_test',
-    user: process.env.TEST_DB_USER || 'test_user',
+    host: (process.env.TEST_DB_HOST as string | undefined) || 'localhost',
+    port: parseInt((process.env.TEST_DB_PORT as string | undefined) || '5432'),
+    name: (process.env.TEST_DB_NAME as string | undefined) || 'epsx_test',
+    user: (process.env.TEST_DB_USER as string | undefined) || 'test_user',
     password: process.env.TEST_DB_PASSWORD || 'test_password'
   },
   api: {

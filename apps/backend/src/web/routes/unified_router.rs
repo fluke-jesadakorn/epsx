@@ -3,13 +3,11 @@
 // Supports both stateful (DomainContainer) and stateless (StatelessServiceFactory) modes
 
 use axum::{
-    routing::{get, post, delete},
+    routing::{get, post, delete, put},
     Router,
-    response::Json,
     middleware as axum_middleware,
     Extension,
 };
-use serde_json::json;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 use axum::http::Method;
@@ -286,6 +284,13 @@ impl UnifiedRouteBuilder {
     // ============================================================================
 
     fn create_notification_routes(&self) -> Router {
+        use crate::web::admin::notification_handlers::{
+            get_user_notifications_handler,
+            mark_notification_read_handler,
+            delete_notification_handler,
+            get_unread_count_handler,
+        };
+
         let cache = self.container.cache.clone()
             .unwrap_or_else(|| {
                 Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
@@ -299,9 +304,15 @@ impl UnifiedRouteBuilder {
         );
 
         Router::new()
+            // SSE real-time stream
             .route("/stream", get(crate::web::notifications::sse_notifications_handler))
-            .route("/send", post(crate::web::notifications::send_sse_notification_handler))
-            .route("/broadcast", post(crate::web::notifications::broadcast_sse_notification_handler))
+
+            // User notification management (authenticated)
+            .route("/", get(get_user_notifications_handler))
+            .route("/unread-count", get(get_unread_count_handler))
+            .route("/:id/read", put(mark_notification_read_handler))
+            .route("/:id", delete(delete_notification_handler))
+
             .with_state(app_state)
     }
 

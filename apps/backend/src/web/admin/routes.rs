@@ -12,6 +12,14 @@ use super::plan_handlers::{
   update_plan_handler,
   create_subscription_handler,
 };
+// Promotion management handlers
+use super::promotion_handlers::{
+  create_promotion_handler,
+  get_promotion_handler,
+  list_promotions_handler,
+  update_promotion_handler,
+  delete_promotion_handler,
+};
 // Consolidated permission module - all permission operations
 use super::permissions::{
   // Group CRUD operations
@@ -69,6 +77,7 @@ use super::web3_admin_handlers::{
   get_dao_proposals,
   get_recent_wallets,
   search_wallets,
+  get_tiers,
 };
 // Consolidated user management handlers
 use super::wallet_management_handlers::{
@@ -83,6 +92,12 @@ use super::analytics_handlers::{
   get_user_analytics_handler,
   get_permission_analytics_handler,
   get_revenue_analytics_handler,
+};
+// Notification management handlers
+use super::notification_handlers::{
+  send_notification_handler,
+  get_all_notifications_handler,
+  get_notification_stats_handler,
 };
 use crate::web::auth::AppState;
 
@@ -106,6 +121,12 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/plans", post(create_plan_handler))
     .route("/plans/:plan_id", get(get_plan_handler))
     .route("/plans/:plan_id", put(update_plan_handler))
+    // Promotion Management routes (require admin:promotions:* permissions)
+    .route("/promotions", get(list_promotions_handler))
+    .route("/promotions", post(create_promotion_handler))
+    .route("/promotions/:id", get(get_promotion_handler))
+    .route("/promotions/:id", put(update_promotion_handler))
+    .route("/promotions/:id", delete(delete_promotion_handler))
     // Subscription Management routes (require admin:subscriptions:* permissions) - Simplified
     .route("/subscriptions", post(create_subscription_handler))
     // Performance monitoring routes (require admin:performance:* permissions)
@@ -123,6 +144,7 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/web3/dao-proposals", post(create_dao_proposal))
     .route("/web3/recent-wallets", get(get_recent_wallets))
     .route("/wallets/search", get(search_wallets))
+    .route("/tiers", get(get_tiers))
 
     // ============================================================================
     // BACKEND-CENTRIC PERMISSION AUTHORITY SYSTEM (THE SINGLE SOURCE OF TRUTH)
@@ -196,6 +218,16 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/analytics/metrics", get(crate::web::analytics::system_metrics_handler))
     .route("/analytics/time-series", get(crate::web::analytics::admin_time_series_handler))
     .route("/analytics/modules", get(crate::web::analytics::admin_modules_handler))
+
+    // ============================================================================
+    // NOTIFICATION MANAGEMENT SYSTEM
+    // Admin notification sending and statistics
+    // ============================================================================
+
+    // Notification routes (require admin:notifications:* permissions)
+    .route("/notifications/send", post(send_notification_handler))
+    .route("/notifications", get(get_all_notifications_handler))
+    .route("/notifications/stats", get(get_notification_stats_handler))
 
     // TODO: Temporarily disabled due to Axum trait bound issues
     // .layer(axum::middleware::from_fn(crate::web::middleware::web3_auth_middleware))

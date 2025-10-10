@@ -17,24 +17,25 @@ interface PlanFeature {
 }
 
 interface Plan {
-  id: number
+  id: number | string // Support both number and UUID string
   name: string
   description?: string
   plan_type: string
-  current_price: number
+  current_price: number | string // Support both number and decimal string
   currency: string
   target_audience: string
   billing_model: string
   plan_category: string
   is_active: boolean
   features: PlanFeature[]
+  permissions?: string[] // Add permissions support from backend
   subscriber_count: number
-  revenue_last_30_days: number
+  revenue_last_30_days: number | string // Support both number and decimal string
 }
 
 interface UserSubscription {
   id: string
-  plan_id: number
+  plan_id: number | string // Support both number and UUID string
   plan_name: string
   status: string
 }
@@ -62,10 +63,11 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
       setLoading(true)
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
       const response = await fetch(`${backendUrl}/api/public/plans`)
-      
+
       if (response.ok) {
         const data = await response.json()
-        if (data.success && data.data) {
+        if (data.success && Array.isArray(data.data)) {
+          // Data is already array of plans
           setPlans(data.data.filter((plan: Plan) => plan.is_active))
         } else {
           throw new Error('Invalid API response structure')
@@ -121,11 +123,11 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
     }
   }
 
-  const isUserSubscribed = (planId: number) => {
+  const isUserSubscribed = (planId: number | string) => {
     return userSubscriptions.some(sub => sub.plan_id === planId && sub.status === 'active')
   }
 
-  const getUserCurrentPlan = (planId: number) => {
+  const getUserCurrentPlan = (planId: number | string) => {
     return userSubscriptions.find(sub => sub.plan_id === planId && sub.status === 'active')
   }
 
@@ -294,10 +296,10 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
 
                 <div className="flex items-baseline gap-2">
                   <span className="text-3xl font-bold text-gray-900 dark:text-white">
-                    ${plan.current_price}
+                    ${typeof plan.current_price === 'string' ? parseFloat(plan.current_price).toFixed(2) : plan.current_price}
                   </span>
                   <span className="text-gray-500 dark:text-gray-400">
-                    /{plan.billing_model === 'subscription' ? 'month' : 'use'}
+                    /{plan.billing_model === 'monthly' ? 'month' : 'use'}
                   </span>
                 </div>
               </CardHeader>

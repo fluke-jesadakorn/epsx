@@ -829,3 +829,32 @@ pub async fn search_wallets(
   info!("✅ Admin: Successfully searched {} wallets (page {} of {})", formatted_wallets.len(), page, total_pages);
   Ok(Json(response))
 }
+
+// Handler: Get available tier levels
+pub async fn get_tiers(
+  State(app_state): State<AppState>
+) -> Result<Json<Vec<String>>, StatusCode> {
+  info!("📊 Admin: Fetching available tier levels");
+
+  let db_pool = app_state.db_pool.as_ref();
+
+  let tiers: Vec<String> = match sqlx::query!(
+    r#"
+    SELECT DISTINCT tier_level
+    FROM wallet_users
+    WHERE tier_level IS NOT NULL
+    ORDER BY tier_level
+    "#
+  )
+  .fetch_all(db_pool)
+  .await {
+    Ok(rows) => rows.into_iter().map(|r| r.tier_level).collect(),
+    Err(e) => {
+      error!("❌ Admin: Failed to fetch tiers: {}", e);
+      return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+  };
+
+  info!("✅ Admin: Successfully fetched {} tier levels", tiers.len());
+  Ok(Json(tiers))
+}

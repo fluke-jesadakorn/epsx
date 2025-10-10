@@ -84,42 +84,66 @@ fn get_permissions_from_group_template(group_name: &str) -> Vec<String> {
 }
 
 /// Generate quota limits from permissions
+/// Logic: -1 = unlimited, 0 = not granted, >0 = specific limit
 fn generate_quota_from_permissions(permissions: &[String]) -> serde_json::Value {
-    let mut api_calls = 100; // Default
-    let mut rankings_limit = 3; // Default
-    
+    let mut api_calls = 0; // Default = not granted
+    let mut rankings_limit = 0; // Default = not granted
+    let mut analytics_queries = 0; // Default = not granted
+    let mut export_limit = 0; // Default = not granted
+
+    // Extract API calls limit
+    for perm in permissions {
+        if let Some(limit_str) = perm.strip_prefix("epsx:api:calls:") {
+            if limit_str == "unlimited" {
+                api_calls = -1; // -1 = unlimited
+            } else if let Ok(limit) = limit_str.parse::<i32>() {
+                api_calls = limit; // Specific limit
+            }
+        }
+    }
+
     // Extract ranking limit
     for perm in permissions {
         if let Some(limit_str) = perm.strip_prefix("epsx:rankings:view:") {
             if limit_str == "unlimited" {
-                rankings_limit = -1;
-                api_calls = -1; // Unlimited API calls for enterprise
-                break;
-            }
-            if let Ok(limit) = limit_str.parse::<i32>() {
-                rankings_limit = limit;
-                // Scale API calls based on ranking tier
-                api_calls = match limit {
-                    0..=5 => 100,
-                    6..=25 => 500,
-                    26..=50 => 2000,
-                    51..=100 => 5000,
-                    _ => 10000,
-                };
+                rankings_limit = -1; // -1 = unlimited
+            } else if let Ok(limit) = limit_str.parse::<i32>() {
+                rankings_limit = limit; // Specific limit
             }
         }
     }
-    
+
+    // Extract analytics queries limit
+    for perm in permissions {
+        if let Some(limit_str) = perm.strip_prefix("epsx:analytics:queries:") {
+            if limit_str == "unlimited" {
+                analytics_queries = -1; // -1 = unlimited
+            } else if let Ok(limit) = limit_str.parse::<i32>() {
+                analytics_queries = limit; // Specific limit
+            }
+        }
+    }
+
+    // Extract export limit
+    for perm in permissions {
+        if let Some(limit_str) = perm.strip_prefix("epsx:export:limit:") {
+            if limit_str == "unlimited" {
+                export_limit = -1; // -1 = unlimited
+            } else if let Ok(limit) = limit_str.parse::<i32>() {
+                export_limit = limit; // Specific limit
+            }
+        }
+    }
+
     // Check for premium features
-    let has_analytics = permissions.iter().any(|p| p.contains("analytics"));
     let has_trading_premium = permissions.iter().any(|p| p.contains("trading:premium"));
-    
+
     serde_json::json!({
         "api_calls": api_calls,
         "rankings_limit": rankings_limit,
-        "analytics_queries": if has_analytics { api_calls / 10 } else { 0 },
+        "analytics_queries": analytics_queries,
         "premium_features": has_trading_premium,
-        "export_limit": if rankings_limit > 25 { 50 } else { 10 }
+        "export_limit": export_limit
     })
 }
 
@@ -194,39 +218,84 @@ pub struct PermissionGroupResponse {
     security(("bearerAuth" = []))
 )]
 pub async fn create_plan_handler(
-    State(_state): State<AppState>,
+    State(app_state): State<AppState>,
     Json(request): Json<CreatePlanRequest>,
 ) -> Result<JsonResponse<PlanResponse>, StatusCode> {
-    let plan_id = rand::random::<i32>().abs();
-    
     // Derive group type from permissions
     let group_type = derive_group_from_permissions(&request.permissions);
-    
+
+    // Create slug from name
+    let slug = request.name.to_lowercase().replace(" ", "-");
+
+    // Convert Decimal to BigDecimal for database
+    let price_bigdecimal = sqlx::types::BigDecimal::from_str(&request.current_price.to_string())
+        .map_err(|_| StatusCode::BAD_REQUEST)?;
+
+    // Build metadata JSON
+    let mut metadata = request.metadata.unwrap_or_else(|| serde_json::json!({}));
+    if let Some(obj) = metadata.as_object_mut() {
+        obj.insert("target_audience".to_string(), serde_json::json!(request.target_audience));
+        obj.insert("permissions".to_string(), serde_json::json!(request.permissions));
+    }
+
+    // Create new permission group in database
+    let new_group = crate::infrastructure::adapters::repositories::database_types::NewPermissionGroup {
+        name: request.name.clone(),
+        slug,
+        description: request.description.clone().unwrap_or_else(|| format!("{} subscription plan", request.name)),
+        group_type: "subscription".to_string(),
+        permissions: serde_json::json!(request.permissions),
+        group_metadata: metadata,
+        price: Some(price_bigdecimal),
+        currency: Some(request.currency.clone()),
+        billing_cycle: Some(request.billing_model.clone()),
+        is_active: Some(true),
+        display_order: None,
+        created_by: Some("admin".to_string()),
+    };
+
+    let created_plan = match app_state.permission_group_repo.create_group(new_group).await {
+        Ok(plan) => plan,
+        Err(err) => {
+            tracing::error!(error = %err, "Failed to create plan in database");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    // Convert to response format
+    let permissions = created_plan.permissions.as_array()
+        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
+        .unwrap_or_default();
+
+    let price_decimal = created_plan.price.as_ref()
+        .map(|p| Decimal::from_str(&p.to_string()).unwrap_or(Decimal::ZERO))
+        .unwrap_or(Decimal::ZERO);
+
     let plan_response = PlanResponse {
-        id: plan_id,
-        name: request.name,
-        description: request.description,
-        permission_group_name: request.permission_group_name,
-        current_price: request.current_price,
-        currency: request.currency,
+        id: 0, // Legacy field - UUID is the real identifier
+        name: created_plan.name.clone(),
+        description: Some(created_plan.description),
+        permission_group_name: created_plan.name,
+        current_price: price_decimal,
+        currency: created_plan.currency.unwrap_or_else(|| "USD".to_string()),
         target_audience: request.target_audience,
-        billing_model: request.billing_model,
+        billing_model: created_plan.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
         group_type,
-        is_active: true,
-        permissions: request.permissions,
-        metadata: request.metadata,
-        created_at: Utc::now(),
-        updated_at: Some(Utc::now()),
-        subscriber_count: 0,
+        is_active: created_plan.is_active.unwrap_or(true),
+        permissions,
+        metadata: Some(created_plan.group_metadata),
+        created_at: created_plan.created_at,
+        updated_at: Some(created_plan.updated_at),
+        subscriber_count: 0, // New plan has no subscribers yet
         revenue_last_30_days: Decimal::ZERO,
     };
 
     tracing::info!(
-        plan_id = plan_id,
+        plan_id = %created_plan.id,
         plan_name = %plan_response.name,
         permission_group = %plan_response.permission_group_name,
         group_type = %plan_response.group_type,
-        "Permission group plan created"
+        "Permission group plan created in database"
     );
 
     Ok(JsonResponse(plan_response))
@@ -262,41 +331,48 @@ pub async fn list_plans_handler(
         let permissions = plan.permissions.as_array()
             .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
             .unwrap_or_default();
-        
+
         // Generate group type from permissions (for backward compatibility)
         let group_type = derive_group_from_permissions(&permissions);
-        
+
         // Extract metadata values
         let target_audience = plan.group_metadata.get("target_audience")
             .and_then(|v| v.as_str())
             .unwrap_or("web_users")
             .to_string();
-        
-        // Mock subscriber data (could be calculated from database in the future)
+
+        // Get price as string
         let price_str = plan.price.as_ref()
             .map(|p| p.to_string())
             .unwrap_or_else(|| "0.00".to_string());
-        let (subscriber_count, revenue_last_30_days) = match price_str.as_str() {
-            "0.00" => (500, "0.00"),
-            price if price.parse::<f64>().unwrap_or(0.0) < 20.0 => (150, "1499.85"),
-            price if price.parse::<f64>().unwrap_or(0.0) < 60.0 => (75, "3749.25"),
-            _ => (25, "4999.75"),
+
+        // Map group type to plan_category
+        let plan_category = match group_type.as_str() {
+            "Enterprise Access Group" => "enterprise",
+            "Professional Access Group" => "api",
+            "Premium Access Group" => "api",
+            _ => "standard"
         };
 
         serde_json::json!({
-            "id": plan.id,
+            "id": plan.id.to_string(),
             "name": plan.name.clone(),
             "description": plan.description,
-            "permission_group_name": plan.name, // Use plan name as group name
+            "permission_group_name": plan.name.clone(),
+            "plan_type": group_type.clone(),
+            "plan_category": plan_category,
             "current_price": price_str,
             "currency": plan.currency.unwrap_or_else(|| "USD".to_string()),
             "target_audience": target_audience,
             "billing_model": plan.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
             "group_type": group_type,
             "permissions": permissions,
+            "features": [],
             "is_active": plan.is_active.unwrap_or(true),
-            "subscriber_count": subscriber_count,
-            "revenue_last_30_days": revenue_last_30_days
+            "created_at": plan.created_at.to_rfc3339(),
+            "updated_at": plan.updated_at.to_rfc3339(),
+            "subscriber_count": 0,
+            "revenue_last_30_days": "0.00"
         })
     }).collect();
 
@@ -361,18 +437,11 @@ pub async fn get_plan_handler(
         .and_then(|v| v.as_str())
         .unwrap_or("web_users")
         .to_string();
-    
-    // Mock subscriber data (could be calculated from database in the future)
+
+    // Convert price to Decimal
     let price_decimal = plan.price.as_ref()
         .map(|p| rust_decimal::Decimal::from_str(&p.to_string()).unwrap_or(rust_decimal::Decimal::ZERO))
         .unwrap_or_else(|| rust_decimal::Decimal::ZERO);
-    
-    let (subscriber_count, revenue_last_30_days) = match price_decimal.to_string().as_str() {
-        "0" | "0.00" => (500, Decimal::ZERO),
-        price if price.parse::<f64>().unwrap_or(0.0) < 20.0 => (150, Decimal::new(149985, 2)), // 1499.85
-        price if price.parse::<f64>().unwrap_or(0.0) < 60.0 => (75, Decimal::new(374925, 2)),  // 3749.25
-        _ => (25, Decimal::new(499975, 2)), // 4999.75
-    };
     
     let plan_response = PlanResponse {
         id: 0, // Legacy field - could be removed or mapped differently
@@ -389,8 +458,8 @@ pub async fn get_plan_handler(
         metadata: Some(plan.group_metadata),
         created_at: plan.created_at,
         updated_at: Some(plan.updated_at),
-        subscriber_count,
-        revenue_last_30_days,
+        subscriber_count: 0,
+        revenue_last_30_days: Decimal::ZERO,
     };
 
     Ok(JsonResponse(plan_response))
@@ -535,17 +604,10 @@ pub async fn update_plan_handler(
                 .unwrap_or("web_users")
                 .to_string();
 
-            // Mock subscriber data
+            // Convert price to Decimal
             let price_decimal = plan.price.as_ref()
                 .map(|p| rust_decimal::Decimal::from_str(&p.to_string()).unwrap_or(rust_decimal::Decimal::ZERO))
                 .unwrap_or_else(|| rust_decimal::Decimal::ZERO);
-
-            let (subscriber_count, revenue_last_30_days) = match price_decimal.to_string().as_str() {
-                "0" | "0.00" => (500, Decimal::ZERO),
-                price if price.parse::<f64>().unwrap_or(0.0) < 20.0 => (150, Decimal::new(149985, 2)),
-                price if price.parse::<f64>().unwrap_or(0.0) < 60.0 => (75, Decimal::new(374925, 2)),
-                _ => (25, Decimal::new(499975, 2)),
-            };
 
             let plan_response = PlanResponse {
                 id: 0, // Legacy field
@@ -562,8 +624,8 @@ pub async fn update_plan_handler(
                 metadata: Some(plan.group_metadata),
                 created_at: plan.created_at,
                 updated_at: Some(plan.updated_at),
-                subscriber_count,
-                revenue_last_30_days,
+                subscriber_count: 0,
+                revenue_last_30_days: Decimal::ZERO,
             };
 
             tracing::info!(

@@ -85,7 +85,7 @@ export function Header({ user }: HeaderProps) {
             <input
               type="search"
               placeholder="Search users, permissions..."
-              className="h-12 w-full rounded-2xl border-2 border-yellow-200/50 bg-gradient-to-r from-white to-yellow-50 pr-4 pl-12 text-gray-900 shadow-lg  placeholder:text-gray-500 focus:border-orange-400 focus:ring-2 focus:ring-orange-200 focus:outline-none dark:border-slate-600/50 dark:from-slate-800 dark:to-slate-700 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-slate-500 dark:focus:ring-slate-500/20"
+              className="h-12 w-full rounded-2xl border-2 border-yellow-200/50 bg-gradient-to-r from-white to-yellow-50 pr-4 pl-12 text-gray-900 shadow-lg placeholder:text-gray-500 focus:border-orange-400 focus:ring-2 focus:ring-orange-200 focus:outline-none dark:border-slate-600/50 dark:from-slate-800 dark:to-slate-700 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-slate-500 dark:focus:ring-slate-500/20"
             />
             <div className="absolute top-1/2 left-4 -translate-y-1/2">
               <span className="text-xl">🔍</span>
@@ -94,11 +94,11 @@ export function Header({ user }: HeaderProps) {
 
           {/* Quick Actions */}
           <div className="hidden items-center gap-3 md:flex">
-            <button className="h-12 rounded-2xl bg-gradient-to-r from-green-400 to-teal-500 px-4 font-semibold text-white shadow-lg   hover:from-green-500 hover:to-teal-600 hover:shadow-xl">
+            <button className="h-12 rounded-2xl bg-gradient-to-r from-green-400 to-teal-500 px-4 font-semibold text-white shadow-lg">
               <span className="mr-2">➕</span>
               Add User
             </button>
-            <button className="h-12 rounded-2xl bg-gradient-to-r from-blue-400 to-purple-500 px-4 font-semibold text-white shadow-lg   hover:from-blue-500 hover:to-purple-600 hover:shadow-xl">
+            <button className="h-12 rounded-2xl bg-gradient-to-r from-blue-400 to-purple-500 px-4 font-semibold text-white shadow-lg">
               <span className="mr-2">🔑</span>
               Grant Access
             </button>
@@ -111,10 +111,10 @@ export function Header({ user }: HeaderProps) {
           <div className="relative">
             <button
               onClick={() => setShowNotifications(!showNotifications)}
-              className="relative h-12 w-12 rounded-2xl bg-gradient-to-r from-orange-400 to-red-500 font-semibold text-white shadow-lg   hover:from-orange-500 hover:to-red-600 hover:shadow-xl"
+              className="relative h-12 w-12 rounded-2xl bg-gradient-to-r from-orange-400 to-red-500 font-semibold text-white shadow-lg"
             >
               <span className="text-xl">🔔</span>
-              <div className="absolute -top-2 -right-2 flex h-6 w-6  items-center justify-center rounded-full bg-gradient-to-r from-pink-500 to-red-500 text-xs text-white shadow-lg">
+              <div className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-r from-pink-500 to-red-500 text-xs text-white shadow-lg">
                 3
               </div>
             </button>
@@ -179,7 +179,7 @@ export function Header({ user }: HeaderProps) {
                     </div>
                   </div>
 
-                  <button className="w-full rounded-2xl bg-gradient-to-r from-orange-400 to-red-500 py-2 font-semibold text-white  hover:from-orange-500 hover:to-red-600">
+                  <button className="w-full rounded-2xl bg-gradient-to-r from-orange-400 to-red-500 py-2 font-semibold text-white">
                     View All Notifications
                   </button>
                 </div>
@@ -188,7 +188,7 @@ export function Header({ user }: HeaderProps) {
           </div>
 
           {/* Theme Toggle */}
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-r from-purple-400 to-pink-500 shadow-lg   hover:from-purple-500 hover:to-pink-600 hover:shadow-xl">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-r from-purple-400 to-pink-500 shadow-lg">
             <ThemeToggle />
           </div>
 
@@ -206,7 +206,7 @@ export function Header({ user }: HeaderProps) {
               // Show Admin User Menu when connected
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex h-12 items-center gap-3 rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-500 pr-5 pl-4 font-semibold text-white shadow-lg   hover:from-yellow-500 hover:to-orange-600 hover:shadow-xl"
+                className="flex h-12 items-center gap-3 rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-500 pr-5 pl-4 font-semibold text-white shadow-lg"
               >
                 <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20">
                   <span className="text-lg">👤</span>
@@ -222,7 +222,7 @@ export function Header({ user }: HeaderProps) {
                 {({ openConnectModal }) => (
                   <button
                     onClick={openConnectModal}
-                    className="flex h-12 items-center gap-3 rounded-2xl bg-gradient-to-r from-blue-400 to-indigo-500 pr-5 pl-4 font-semibold text-white shadow-lg   hover:from-blue-500 hover:to-indigo-600 hover:shadow-xl"
+                    className="flex h-12 items-center gap-3 rounded-2xl bg-gradient-to-r from-blue-400 to-indigo-500 pr-5 pl-4 font-semibold text-white shadow-lg"
                   >
                     <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20">
                       <span className="text-lg">🔗</span>
@@ -256,15 +256,15 @@ export function Header({ user }: HeaderProps) {
                   </div>
 
                   <div className="space-y-1">
-                    <button className="flex w-full items-center gap-3 rounded-2xl p-3 text-left  hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-600">
+                    <button className="flex w-full items-center gap-3 rounded-2xl p-3 text-left hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-600">
                       <span>👤</span>
                       <span>Profile Settings</span>
                     </button>
-                    <button className="flex w-full items-center gap-3 rounded-2xl p-3 text-left  hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-600">
+                    <button className="flex w-full items-center gap-3 rounded-2xl p-3 text-left hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-600">
                       <span>🔒</span>
                       <span>Security</span>
                     </button>
-                    <button className="flex w-full items-center gap-3 rounded-2xl p-3 text-left  hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-600">
+                    <button className="flex w-full items-center gap-3 rounded-2xl p-3 text-left hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-600">
                       <span>❓</span>
                       <span>Help & Support</span>
                     </button>
@@ -274,7 +274,7 @@ export function Header({ user }: HeaderProps) {
                   <div className="border-t border-gray-200 pt-3 dark:border-gray-600">
                     <button
                       onClick={handleWalletDisconnect}
-                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-400 to-red-500 p-3 font-semibold text-white  hover:from-orange-500 hover:to-red-600"
+                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-400 to-red-500 p-3 font-semibold text-white"
                     >
                       <span>🔌</span>
                       <span>Disconnect Wallet</span>

@@ -90,17 +90,9 @@ export function AuthLayout({ children, user: serverUser }: AuthLayoutProps) {
         return
       }
       
-      // If authenticated but no admin permissions, redirect to auth with different reason
-      // Defense-in-depth: Explicitly check user and permissions array exist
-      if (isAuthenticated && authUser && Array.isArray(authUser.permissions) && !hasPermissionForDisplay('admin:*:*')) {
-        setRedirecting(true);
-        const authUrl = new URL('/auth', window.location.origin)
-        authUrl.searchParams.set('return_url', pathname)
-        authUrl.searchParams.set('reason', 'no-admin-permissions')
-        router.push(authUrl.toString())
-        return
-      }
-      
+      // Backend validates all permissions - frontend just checks if authenticated
+      // No need to check permissions here - let backend return 403 if no access
+
       // If we reach here, auth is valid
       setAuthChecked(true)
       setRedirecting(false)

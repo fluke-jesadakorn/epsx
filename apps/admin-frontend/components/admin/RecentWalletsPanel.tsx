@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { fetchBackend } from '@/lib/backend-url';
 
 interface WalletConnection {
   wallet_address: string;
@@ -63,12 +64,7 @@ export function RecentWalletsPanel() {
     setError(null);
 
     try {
-      const response = await fetch('/api/admin/web3/recent-wallets?limit=10&days=7', {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
+      const response = await fetchBackend('/api/admin/web3/recent-wallets?limit=10&days=7');
 
       if (!response.ok) {
         throw new Error(`Failed to fetch recent wallets: ${response.status}`);

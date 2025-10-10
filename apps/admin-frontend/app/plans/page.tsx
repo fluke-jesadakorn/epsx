@@ -64,109 +64,6 @@ function PlansHubSkeleton() {
   )
 }
 
-// Demo promotion data
-const demoPromotions = [
-  {
-    id: 1,
-    name: 'Black Friday 2024',
-    code: 'BLACKFRIDAY24',
-    discountType: 'percentage' as const,
-    discountValue: 25,
-    maxDiscountAmount: 50,
-    minPurchaseAmount: 99,
-    usageLimit: 1000,
-    currentUsage: 347,
-    isActive: true,
-    startDate: '2024-11-25T00:00:00Z',
-    endDate: '2024-11-30T23:59:59Z',
-    applicablePlans: ['personal', 'api'],
-    description: 'Black Friday mega sale - 25% off all plans',
-    createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-    totalRevenue: 8675.50,
-    conversionRate: 12.5
-  },
-  {
-    id: 2,
-    name: 'New Year Special',
-    code: 'NEWYEAR2025',
-    discountType: 'fixed' as const,
-    discountValue: 20,
-    maxDiscountAmount: null,
-    minPurchaseAmount: 50,
-    usageLimit: 500,
-    currentUsage: 89,
-    isActive: true,
-    startDate: '2025-01-01T00:00:00Z',
-    endDate: '2025-01-31T23:59:59Z',
-    applicablePlans: ['personal'],
-    description: 'New Year kickstart - $20 off personal plans',
-    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-    updatedAt: new Date().toISOString(),
-    totalRevenue: 1780.00,
-    conversionRate: 8.9
-  },
-  {
-    id: 3,
-    name: 'API Launch Promo',
-    code: 'APILAUNCH',
-    discountType: 'percentage' as const,
-    discountValue: 15,
-    maxDiscountAmount: 100,
-    minPurchaseAmount: 199,
-    usageLimit: 200,
-    currentUsage: 156,
-    isActive: true,
-    startDate: '2024-12-01T00:00:00Z',
-    endDate: '2025-03-01T23:59:59Z',
-    applicablePlans: ['api'],
-    description: 'Special launch promotion for API plans',
-    createdAt: new Date(Date.now() - 86400000 * 15).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000 * 1).toISOString(),
-    totalRevenue: 4680.75,
-    conversionRate: 15.2
-  },
-  {
-    id: 4,
-    name: 'Summer Sale',
-    code: 'SUMMER2024',
-    discountType: 'percentage' as const,
-    discountValue: 30,
-    maxDiscountAmount: 75,
-    minPurchaseAmount: 0,
-    usageLimit: 750,
-    currentUsage: 642,
-    isActive: false,
-    startDate: '2024-06-01T00:00:00Z',
-    endDate: '2024-08-31T23:59:59Z',
-    applicablePlans: ['personal', 'api'],
-    description: 'Summer vacation special - 30% off everything',
-    createdAt: new Date(Date.now() - 86400000 * 90).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000 * 30).toISOString(),
-    totalRevenue: 12456.25,
-    conversionRate: 18.7
-  },
-  {
-    id: 5,
-    name: 'Student Discount',
-    code: 'STUDENT50',
-    discountType: 'percentage' as const,
-    discountValue: 50,
-    maxDiscountAmount: 25,
-    minPurchaseAmount: 0,
-    usageLimit: null,
-    currentUsage: 1247,
-    isActive: true,
-    startDate: '2024-01-01T00:00:00Z',
-    endDate: '2025-12-31T23:59:59Z',
-    applicablePlans: ['personal'],
-    description: 'Year-round student discount program',
-    createdAt: new Date(Date.now() - 86400000 * 180).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000 * 7).toISOString(),
-    totalRevenue: 15234.80,
-    conversionRate: 22.3
-  }
-]
 
 /**
  *
@@ -225,7 +122,7 @@ export default function AdminPlansPage() {
       {activeTab === 'plans' ? (
         <PlanManagement currentUser={user} />
       ) : (
-        <PromotionManagement promotions={demoPromotions} currentUser={user} />
+        <PromotionManagement currentUser={user} />
       )}
     </div>
   )

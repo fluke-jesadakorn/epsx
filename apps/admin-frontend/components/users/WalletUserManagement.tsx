@@ -230,29 +230,35 @@ export function WalletUserManagement() {
   return (
     <div className="w-full max-w-6xl mx-auto space-y-6">
       {/* Wallet Lookup */}
-      <Card>
+      <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-2 border-purple-300/50 dark:border-purple-700/50 shadow-xl">
         <CardHeader>
-          <CardTitle>Wallet User Lookup</CardTitle>
-          <CardDescription>
+          <CardTitle className="flex items-center gap-3 text-xl">
+            <div className="text-2xl">🔎</div>
+            <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent font-bold">
+              Wallet User Lookup
+            </span>
+          </CardTitle>
+          <CardDescription className="text-base text-gray-600 dark:text-gray-400">
             Enter a wallet address to view and manage user permissions
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4">
             <div className="flex-1">
-              <Label htmlFor="wallet-address">Wallet Address</Label>
+              <Label htmlFor="wallet-address" className="text-sm font-medium">Wallet Address</Label>
               <Input
                 id="wallet-address"
                 placeholder="0x742d35Cc3681d452bC9a4D0c99D2DB8b4E8B5f43"
                 value={walletAddress}
                 onChange={(e) => setWalletAddress(e.target.value)}
-                className="font-mono"
+                className="font-mono h-10 mt-1.5"
               />
             </div>
             <div className="flex items-end">
-              <Button 
-                onClick={lookupWallet} 
+              <Button
+                onClick={lookupWallet}
                 disabled={loading || !walletAddress}
+                className="h-10 px-6 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0"
               >
                 {loading ? 'Looking up...' : 'Lookup Wallet'}
               </Button>
@@ -279,19 +285,26 @@ export function WalletUserManagement() {
       {/* User Data Display */}
       {userData && (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="permissions">Permissions</TabsTrigger>
-            <TabsTrigger value="groups">Groups</TabsTrigger>
-            <TabsTrigger value="actions">Actions</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-2 border-indigo-300/50 dark:border-indigo-700/50 p-1">
+            <TabsTrigger value="overview" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-400 data-[state=active]:to-purple-500 data-[state=active]:text-white">Overview</TabsTrigger>
+            <TabsTrigger value="permissions" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-400 data-[state=active]:to-emerald-500 data-[state=active]:text-white">Permissions</TabsTrigger>
+            <TabsTrigger value="groups" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-400 data-[state=active]:to-cyan-500 data-[state=active]:text-white">Groups</TabsTrigger>
+            <TabsTrigger value="actions" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-400 data-[state=active]:to-red-500 data-[state=active]:text-white">Actions</TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
           <TabsContent value="overview">
-            <Card>
+            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-2 border-indigo-300/50 dark:border-indigo-700/50 shadow-xl">
               <CardHeader>
-                <CardTitle>User Overview</CardTitle>
-                <CardDescription>Basic information about the wallet user</CardDescription>
+                <CardTitle className="flex items-center gap-3 text-xl">
+                  <div className="text-2xl">👤</div>
+                  <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent font-bold">
+                    User Overview
+                  </span>
+                </CardTitle>
+                <CardDescription className="text-base text-gray-600 dark:text-gray-400">
+                  Basic information about the wallet user
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
@@ -307,14 +320,20 @@ export function WalletUserManagement() {
                   </div>
                   <div>
                     <Label>Tier Level</Label>
-                    <Badge variant={userData.tier_level === 'admin' ? 'destructive' : 'secondary'}>
+                    <Badge className={userData.tier_level === 'admin'
+                      ? 'bg-gradient-to-r from-red-400 to-pink-500 text-white border-0'
+                      : 'bg-gradient-to-r from-blue-400 to-cyan-500 text-white border-0'
+                    }>
                       {userData.tier_level}
                     </Badge>
                   </div>
                   <div>
                     <Label>Status</Label>
-                    <Badge variant={userData.is_active ? 'default' : 'outline'}>
-                      {userData.is_active ? 'Active' : 'Inactive'}
+                    <Badge className={userData.is_active
+                      ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white border-0'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border-0'
+                    }>
+                      {userData.is_active ? '🟢 Active' : '⚪ Inactive'}
                     </Badge>
                   </div>
                   <div>
@@ -351,10 +370,17 @@ export function WalletUserManagement() {
           <TabsContent value="permissions">
             <div className="space-y-4">
               {/* Current Permissions */}
-              <Card>
+              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-2 border-green-300/50 dark:border-green-700/50 shadow-xl">
                 <CardHeader>
-                  <CardTitle>Current Permissions</CardTitle>
-                  <CardDescription>Active permissions for this wallet</CardDescription>
+                  <CardTitle className="flex items-center gap-3 text-xl">
+                    <div className="text-2xl">✅</div>
+                    <span className="bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent font-bold">
+                      Current Permissions
+                    </span>
+                  </CardTitle>
+                  <CardDescription className="text-base text-gray-600 dark:text-gray-400">
+                    Active permissions for this wallet
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   {userData.permissions.length === 0 ? (
@@ -362,26 +388,29 @@ export function WalletUserManagement() {
                   ) : (
                     <div className="space-y-2">
                       {userData.permissions.map((permission, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 border rounded">
-                          <div className="flex-1">
-                            <p className="font-medium">{permission.permission}</p>
-                            {permission.expires_at && (
-                              <p className="text-sm text-gray-500">
-                                Expires: {formatTimestamp(permission.expires_at)}
-                                {isPermissionExpired(permission) && (
-                                  <span className="text-red-500 ml-2">(Expired)</span>
-                                )}
-                              </p>
-                            )}
+                        <div key={index} className="relative overflow-hidden rounded-xl bg-gradient-to-r from-green-400/10 via-emerald-400/10 to-teal-400/10 p-0.5">
+                          <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-xl p-3 flex items-center justify-between">
+                            <div className="flex-1">
+                              <p className="font-semibold text-sm">{permission.permission}</p>
+                              {permission.expires_at && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                  Expires: {formatTimestamp(permission.expires_at)}
+                                  {isPermissionExpired(permission) && (
+                                    <span className="text-red-500 ml-2">(Expired)</span>
+                                  )}
+                                </p>
+                              )}
+                            </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => revokePermission(permission.permission)}
+                              disabled={loading}
+                              className="border-2 border-red-300 dark:border-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                            >
+                              Revoke
+                            </Button>
                           </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => revokePermission(permission.permission)}
-                            disabled={loading}
-                          >
-                            Revoke
-                          </Button>
                         </div>
                       ))}
                     </div>
@@ -390,10 +419,17 @@ export function WalletUserManagement() {
               </Card>
 
               {/* Grant New Permission */}
-              <Card>
+              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-2 border-blue-300/50 dark:border-blue-700/50 shadow-xl">
                 <CardHeader>
-                  <CardTitle>Grant Permission</CardTitle>
-                  <CardDescription>Assign a new permission to this wallet</CardDescription>
+                  <CardTitle className="flex items-center gap-3 text-xl">
+                    <div className="text-2xl">➕</div>
+                    <span className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent font-bold">
+                      Grant Permission
+                    </span>
+                  </CardTitle>
+                  <CardDescription className="text-base text-gray-600 dark:text-gray-400">
+                    Assign a new permission to this wallet
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>

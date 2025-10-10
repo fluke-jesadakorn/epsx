@@ -584,7 +584,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
                   <SelectValue placeholder="All Countries" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Countries</SelectItem>
+                  <SelectItem value="all">All Countries</SelectItem>
                   {filterOptions.countries.map(country => (
                     <SelectItem key={country.value} value={country.value}>
                       {country.label}
@@ -604,7 +604,7 @@ export function CardDashboardView({ className = '' }: CardDashboardViewProps) {
                   <SelectValue placeholder="All Sectors" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Sectors</SelectItem>
+                  <SelectItem value="all">All Sectors</SelectItem>
                   {filterOptions.sectors.map(sector => (
                     <SelectItem key={sector} value={sector}>
                       {sector}

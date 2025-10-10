@@ -305,7 +305,7 @@ impl PermissionGroupRepository {
         Self { pool }
     }
 
-    /// Get all active subscription plans
+    /// Get all subscription plans (including inactive)
     pub async fn get_subscription_plans(&self) -> Result<Vec<PermissionGroup>, sqlx::Error> {
         let plans = sqlx::query_as::<_, PermissionGroup>(
             r#"
@@ -317,7 +317,7 @@ impl PermissionGroupRepository {
                 max_members, auto_assign_enabled, assignment_rules, created_at, updated_at,
                 created_by, last_modified_by
             FROM permission_groups
-            WHERE group_type = 'subscription' AND COALESCE(is_active, true) = true
+            WHERE group_type = 'subscription'
             ORDER BY COALESCE(display_order, 0), COALESCE(price, 0)
             "#
         )
