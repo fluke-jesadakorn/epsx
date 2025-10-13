@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 
 import { AffiliateManagement, type Affiliate } from '@/components/affiliates/AffiliateManagement'
-import { UnifiedAuth } from '@/lib/auth/unified-auth'
+import { UnifiedAuth } from '@/lib/auth/auth'
 import { ServerAuth } from '@/lib/server/auth-helpers'
 
 export const dynamic = 'force-dynamic'

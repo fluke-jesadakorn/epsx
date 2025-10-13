@@ -164,14 +164,14 @@ pub async fn send_notification_handler(
         ));
     }
 
-    // Determine target wallet address
+    // Determine target wallet address (convert to lowercase for consistency)
     let wallet_address = if request.broadcast.unwrap_or(false) {
         "all".to_string()
     } else if let Some(addr) = request.recipient_wallet_address {
-        addr
+        addr.to_lowercase()
     } else if let Some(group) = request.recipient_group {
         // TODO: Fetch wallet addresses for group
-        group
+        group.to_lowercase()
     } else {
         return Err(AppError::new(
             ErrorKind::ValidationError,
@@ -226,26 +226,39 @@ pub async fn send_notification_handler(
     .await
     .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to save notification: {}", e)))?;
 
-    // Broadcast via SSE
-    let broadcaster = app_state.notification_broadcaster.clone();
+    // Publish via Redis pub/sub
+    let redis_broadcaster = app_state.redis_broadcaster.clone();
 
-    // Attempt to broadcast, but don't fail if no listeners
-    let _ = broadcaster.broadcast(sse_notification.clone());
+    let subscriber_count = if wallet_address == "all" {
+        redis_broadcaster.publish_to_all(&sse_notification).await?
+    } else {
+        redis_broadcaster.publish_to_wallet(&wallet_address, &sse_notification).await?
+    };
+
+    // Update delivery attempt in database
+    sqlx::query!(
+        "UPDATE wallet_notifications SET delivery_attempts = 1, last_delivery_attempt_at = NOW() WHERE id = $1",
+        notification_uuid
+    )
+    .execute(&*app_state.db_pool)
+    .await?;
 
     // Build response
     let response = SendNotificationResponse {
         success: true,
         data: SendNotificationData {
             notification_id,
-            recipients_count: if wallet_address == "all" { 1000 } else { 1 }, // TODO: Get actual count
+            recipients_count: subscriber_count,
             scheduled: request.schedule_at.is_some(),
             delivery_status: if request.schedule_at.is_some() {
                 "scheduled".to_string()
-            } else {
+            } else if subscriber_count > 0 {
                 "sent".to_string()
+            } else {
+                "queued".to_string() // No active subscribers, will deliver when they connect
             },
         },
-        message: "Notification sent successfully".to_string(),
+        message: "Notification sent successfully via Redis".to_string(),
         api_version: "v1".to_string(),
     };
 
@@ -373,45 +386,132 @@ pub async fn get_all_notifications_handler(
     security(("bearerAuth" = []))
 )]
 pub async fn get_notification_stats_handler(
-    State(_app_state): State<AppState>,
+    State(app_state): State<AppState>,
 ) -> Result<impl IntoResponse, AppError> {
-    // TODO: Query database for real statistics
-    // For now, return sample data to demonstrate the system
+    // Get total notifications count
+    let total_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM wallet_notifications")
+        .fetch_one(&*app_state.db_pool)
+        .await
+        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count notifications: {}", e)))?;
+
+    // Get notifications sent today
+    let today_count: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM wallet_notifications WHERE timestamp >= CURRENT_DATE"
+    )
+        .fetch_one(&*app_state.db_pool)
+        .await
+        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count today's notifications: {}", e)))?;
+
+    // Get notifications sent this week
+    let week_count: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM wallet_notifications WHERE timestamp >= CURRENT_DATE - INTERVAL '7 days'"
+    )
+        .fetch_one(&*app_state.db_pool)
+        .await
+        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count week's notifications: {}", e)))?;
+
+    // Get notifications sent this month
+    let month_count: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM wallet_notifications WHERE timestamp >= CURRENT_DATE - INTERVAL '30 days'"
+    )
+        .fetch_one(&*app_state.db_pool)
+        .await
+        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count month's notifications: {}", e)))?;
+
+    // Get count by type
+    let type_counts = sqlx::query_as::<_, (String, i64)>(
+        "SELECT notification_type, COUNT(*) as count FROM wallet_notifications GROUP BY notification_type"
+    )
+        .fetch_all(&*app_state.db_pool)
+        .await
+        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get type counts: {}", e)))?;
+
+    let mut by_type = serde_json::Map::new();
+    for (notif_type, count) in type_counts {
+        by_type.insert(notif_type, serde_json::json!(count));
+    }
+
+    // Get count by priority
+    let priority_counts = sqlx::query_as::<_, (String, i64)>(
+        "SELECT priority, COUNT(*) as count FROM wallet_notifications GROUP BY priority"
+    )
+        .fetch_all(&*app_state.db_pool)
+        .await
+        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get priority counts: {}", e)))?;
+
+    let mut by_priority = serde_json::Map::new();
+    for (priority, count) in priority_counts {
+        by_priority.insert(priority, serde_json::json!(count));
+    }
+
+    // Calculate delivery rate (all notifications are delivered for now)
+    let delivery_rate = if total_count.0 > 0 { 1.0 } else { 0.0 };
+
+    // Calculate read rate
+    let read_count: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM wallet_notifications WHERE read_at IS NOT NULL"
+    )
+        .fetch_one(&*app_state.db_pool)
+        .await
+        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count read notifications: {}", e)))?;
+
+    let read_rate = if total_count.0 > 0 {
+        (read_count.0 as f64) / (total_count.0 as f64)
+    } else {
+        0.0
+    };
+
+    // Calculate click rate
+    let clicked_count: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM wallet_notifications WHERE clicked_at IS NOT NULL"
+    )
+        .fetch_one(&*app_state.db_pool)
+        .await
+        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count clicked notifications: {}", e)))?;
+
+    let click_rate = if total_count.0 > 0 {
+        (clicked_count.0 as f64) / (total_count.0 as f64)
+    } else {
+        0.0
+    };
+
+    // Get recent activity (last 24 hours, grouped by hour)
+    let recent_activity_records = sqlx::query_as::<_, (DateTime<Utc>, i64)>(
+        r#"
+        SELECT
+            DATE_TRUNC('hour', timestamp) as hour,
+            COUNT(*) as count
+        FROM wallet_notifications
+        WHERE timestamp >= NOW() - INTERVAL '24 hours'
+        GROUP BY hour
+        ORDER BY hour DESC
+        LIMIT 10
+        "#
+    )
+        .fetch_all(&*app_state.db_pool)
+        .await
+        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get recent activity: {}", e)))?;
+
+    let recent_activity: Vec<RecentActivity> = recent_activity_records
+        .into_iter()
+        .map(|(timestamp, count)| RecentActivity {
+            timestamp,
+            action: "notification_sent".to_string(),
+            count: count as usize,
+        })
+        .collect();
 
     let stats = NotificationStats {
-        total_notifications: 156,
-        sent_today: 12,
-        sent_this_week: 47,
-        sent_this_month: 156,
-        delivery_rate: 0.98,
-        read_rate: 0.75,
-        click_rate: 0.42,
-        by_type: serde_json::json!({
-            "system": 45,
-            "security": 23,
-            "permission": 12,
-            "wallet": 34,
-            "payment": 18,
-            "general": 24
-        }),
-        by_priority: serde_json::json!({
-            "low": 89,
-            "normal": 45,
-            "high": 18,
-            "urgent": 4
-        }),
-        recent_activity: vec![
-            RecentActivity {
-                timestamp: Utc::now() - chrono::Duration::hours(2),
-                action: "broadcast_sent".to_string(),
-                count: 1,
-            },
-            RecentActivity {
-                timestamp: Utc::now() - chrono::Duration::hours(5),
-                action: "notification_sent".to_string(),
-                count: 3,
-            },
-        ],
+        total_notifications: total_count.0 as usize,
+        sent_today: today_count.0 as usize,
+        sent_this_week: week_count.0 as usize,
+        sent_this_month: month_count.0 as usize,
+        delivery_rate,
+        read_rate,
+        click_rate,
+        by_type: serde_json::Value::Object(by_type),
+        by_priority: serde_json::Value::Object(by_priority),
+        recent_activity,
     };
 
     let response = NotificationStatsResponse {
@@ -458,9 +558,16 @@ pub async fn get_user_notifications_handler(
     let limit = filters.limit.unwrap_or(20);
     let offset = ((page - 1) * limit) as i64;
 
-    // Build query - get notifications sent to 'all' (broadcast)
-    // In production, you'd also filter by specific wallet_address from auth
-    let mut query = String::from("SELECT * FROM wallet_notifications WHERE wallet_address = 'all'");
+    // Build query - get notifications sent to 'all' (broadcast) OR specific wallet
+    // TODO: Extract wallet_address from Bearer token/session for proper filtering
+    // For now, show only broadcasts since we don't have wallet extraction in REST handlers yet
+    let wallet_filter = if let Some(ref wallet) = filters.wallet_address {
+        format!("(wallet_address = '{}' OR wallet_address = 'all')", wallet)
+    } else {
+        "wallet_address = 'all'".to_string()
+    };
+
+    let mut query = format!("SELECT * FROM wallet_notifications WHERE {}", wallet_filter);
 
     if let Some(ref notif_type) = filters.notification_type {
         query.push_str(&format!(" AND notification_type = '{}'", notif_type));
@@ -506,13 +613,15 @@ pub async fn get_user_notifications_handler(
     }).collect();
 
     // Get total count for this user
-    let total_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM wallet_notifications WHERE wallet_address = 'all'")
+    let total_count_query = format!("SELECT COUNT(*) FROM wallet_notifications WHERE {}", wallet_filter);
+    let total_count: (i64,) = sqlx::query_as(&total_count_query)
         .fetch_one(&*app_state.db_pool)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count notifications: {}", e)))?;
 
     // Get unread count for this user
-    let unread_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM wallet_notifications WHERE wallet_address = 'all' AND read_at IS NULL")
+    let unread_count_query = format!("SELECT COUNT(*) FROM wallet_notifications WHERE {} AND read_at IS NULL", wallet_filter);
+    let unread_count: (i64,) = sqlx::query_as(&unread_count_query)
         .fetch_one(&*app_state.db_pool)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count unread: {}", e)))?;
@@ -658,5 +767,108 @@ pub async fn get_unread_count_handler(
 
     Ok(Json(serde_json::json!({
         "unread_count": 0
+    })))
+}
+
+/// Mark all notifications as read
+#[utoipa::path(
+    put,
+    path = "/api/notifications/mark-all-read",
+    tag = "notifications",
+    responses(
+        (status = 200, description = "All notifications marked as read"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal server error")
+    ),
+    security(("bearerAuth" = []))
+)]
+pub async fn mark_all_notifications_read_handler(
+    State(app_state): State<AppState>,
+) -> Result<impl IntoResponse, AppError> {
+    // TODO: Extract wallet_address from Bearer token/session for user-specific marking
+    // For now, mark all broadcast notifications as read
+
+    let result = sqlx::query!(
+        r#"
+        UPDATE wallet_notifications
+        SET read_at = $1, updated_at = $1
+        WHERE wallet_address = 'all' AND read_at IS NULL
+        "#,
+        Utc::now()
+    )
+    .execute(&*app_state.db_pool)
+    .await
+    .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to mark all notifications as read: {}", e)))?;
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "updated_count": result.rows_affected(),
+        "message": "All notifications marked as read"
+    })))
+}
+
+/// Clear all notifications (delete)
+#[utoipa::path(
+    delete,
+    path = "/api/notifications/clear-all",
+    tag = "notifications",
+    responses(
+        (status = 200, description = "All notifications cleared successfully"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal server error")
+    ),
+    security(("bearerAuth" = []))
+)]
+pub async fn clear_all_notifications_handler(
+    State(app_state): State<AppState>,
+) -> Result<impl IntoResponse, AppError> {
+    // TODO: Extract wallet_address from Bearer token/session for user-specific clearing
+    // For now, clear all broadcast notifications
+
+    let result = sqlx::query!(
+        r#"
+        DELETE FROM wallet_notifications
+        WHERE wallet_address = 'all'
+        "#
+    )
+    .execute(&*app_state.db_pool)
+    .await
+    .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to clear all notifications: {}", e)))?;
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "deleted_count": result.rows_affected(),
+        "message": "All notifications cleared successfully"
+    })))
+}
+
+/// Acknowledge notification (mark as received by client)
+/// This is called automatically by the frontend when a notification is received via SSE
+#[utoipa::path(
+    put,
+    path = "/api/notifications/{id}/acknowledge",
+    tag = "notifications",
+    params(
+        ("id" = String, Path, description = "Notification ID")
+    ),
+    responses(
+        (status = 200, description = "Notification acknowledged successfully"),
+        (status = 400, description = "Invalid notification ID"),
+        (status = 500, description = "Internal server error")
+    ),
+    security(("bearerAuth" = []))
+)]
+pub async fn acknowledge_notification_handler(
+    State(app_state): State<AppState>,
+    Path(notification_id): Path<String>,
+) -> Result<impl IntoResponse, AppError> {
+    // Call the offline_queue module's mark_as_acknowledged function
+    crate::web::notifications::mark_as_acknowledged(&*app_state.db_pool, &notification_id)
+        .await?;
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "message": "Notification acknowledged successfully",
+        "notification_id": notification_id
     })))
 }

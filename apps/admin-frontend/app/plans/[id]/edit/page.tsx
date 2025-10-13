@@ -2,10 +2,11 @@
 
 import { toast } from '@/hooks/use-toast'
 import { createPlansClient, isApiSuccess, type PlanResponse } from '@/shared/api/plans'
-import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider'
+import { useSharedAuth } from '@/shared/components/auth/Provider'
 import { createAdminApiClient } from '@/shared/utils/api-client'
 import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import * as Promo from '@/shared/utils/promo'
 
 export default function EditPlanPage() {
   const router = useRouter()
@@ -23,7 +24,14 @@ export default function EditPlanPage() {
     analytics_queries: 0,
     premium_features: false,
     export_limit: 10,
-    feature_list: [] as string[]
+    feature_list: [] as string[],
+    // Promotion fields
+    promo_enabled: false,
+    promo_type: 'percentage' as 'percentage' | 'fixed',
+    promo_value: 0,
+    promo_price: 0,
+    promo_start: '',
+    promo_end: ''
   })
   const [newFeature, setNewFeature] = useState('')
   const [saving, setSaving] = useState(false)
@@ -89,6 +97,9 @@ export default function EditPlanPage() {
             return isNaN(parsed) ? defaultValue : parsed
           }
 
+          // Extract promotion data from metadata
+          const promo = planData.metadata?.promotion || {}
+
           setFormData({
             name: planData.name,
             description: planData.description || '',
@@ -99,7 +110,14 @@ export default function EditPlanPage() {
             analytics_queries: parseLimit(analyticsPermission, 0),
             premium_features: planData.permissions?.some((p: string) => p.includes('premium')) || false,
             export_limit: 10,
-            feature_list: featureList
+            feature_list: featureList,
+            // Promotion fields
+            promo_enabled: promo.enabled || false,
+            promo_type: promo.type || 'percentage',
+            promo_value: promo.value || 0,
+            promo_price: promo.price || 0,
+            promo_start: promo.start_date || '',
+            promo_end: promo.end_date || ''
           })
         } else {
           toast({
@@ -189,7 +207,15 @@ export default function EditPlanPage() {
             export_limit: formData.export_limit,
             premium_features: formData.premium_features
           },
-          feature_list: formData.feature_list // Keep both for compatibility
+          feature_list: formData.feature_list, // Keep both for compatibility
+          promotion: formData.promo_enabled ? {
+            enabled: true,
+            type: formData.promo_type,
+            value: formData.promo_value,
+            price: formData.promo_price,
+            start_date: formData.promo_start,
+            end_date: formData.promo_end
+          } : null
         }
       })
 
@@ -319,6 +345,186 @@ export default function EditPlanPage() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* Promotions */}
+            <div className="bg-gradient-to-r from-rose-50 to-red-50 dark:from-rose-900/20 dark:to-red-900/20 rounded-2xl p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">🎁 Promotion & Discounts</h3>
+                {formData.promo_enabled && formData.promo_start && formData.promo_end && (
+                  <div className={`px-4 py-2 rounded-xl font-semibold ${
+                    Promo.getStatusColor(Promo.getStatus(formData.promo_enabled, formData.promo_start, formData.promo_end))
+                  }`}>
+                    {Promo.getStatusIcon(Promo.getStatus(formData.promo_enabled, formData.promo_start, formData.promo_end))}
+                    {' '}
+                    {Promo.getStatusText(Promo.getStatus(formData.promo_enabled, formData.promo_start, formData.promo_end))}
+                    {Promo.getStatus(formData.promo_enabled, formData.promo_start, formData.promo_end) === 'active' && (
+                      <span className="ml-2 text-xs">
+                        ({Promo.getTimeRemaining(formData.promo_end)})
+                      </span>
+                    )}
+                    {Promo.getStatus(formData.promo_enabled, formData.promo_start, formData.promo_end) === 'upcoming' && (
+                      <span className="ml-2 text-xs">
+                        ({Promo.getTimeUntilStart(formData.promo_start)})
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Enable Promotion Toggle */}
+              <div className="mb-6">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.promo_enabled}
+                    onChange={(e) => setFormData({ ...formData, promo_enabled: e.target.checked })}
+                    className="w-6 h-6 rounded border-2 border-gray-300 dark:border-gray-600 text-rose-500 focus:ring-2 focus:ring-rose-500"
+                  />
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    Enable Promotion
+                  </span>
+                </label>
+              </div>
+
+              {formData.promo_enabled && (
+                <div className="space-y-4">
+                  {/* Discount Type */}
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                      Discount Type
+                    </label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, promo_type: 'percentage' })}
+                        className={`p-4 rounded-xl border-2 font-semibold ${
+                          formData.promo_type === 'percentage'
+                            ? 'border-rose-500 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300'
+                            : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                        }`}
+                      >
+                        % Percentage
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, promo_type: 'fixed' })}
+                        className={`p-4 rounded-xl border-2 font-semibold ${
+                          formData.promo_type === 'fixed'
+                            ? 'border-rose-500 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300'
+                            : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                        }`}
+                      >
+                        $ Fixed Amount
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Discount Value */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        {formData.promo_type === 'percentage' ? 'Discount (%)' : 'Discount Amount ($)'}
+                      </label>
+                      <input
+                        type="number"
+                        step={formData.promo_type === 'percentage' ? '1' : '0.01'}
+                        min="0"
+                        max={formData.promo_type === 'percentage' ? '100' : undefined}
+                        value={formData.promo_value}
+                        onChange={(e) => {
+                          const value = parseFloat(e.target.value) || 0
+                          const newValue = formData.promo_type === 'percentage' ? Math.min(value, 100) : value
+                          setFormData({ ...formData, promo_value: newValue })
+                        }}
+                        className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                        placeholder={formData.promo_type === 'percentage' ? '20' : '5.00'}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        Final Promotional Price ($)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.promo_price}
+                        onChange={(e) => setFormData({ ...formData, promo_price: parseFloat(e.target.value) || 0 })}
+                        className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                        placeholder="Auto-calculated or custom"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        Auto: ${Promo.calcPrice(
+                          formData.current_price,
+                          formData.promo_type,
+                          formData.promo_value
+                        ).toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Promotion Period */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        Start Date
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={formData.promo_start}
+                        onChange={(e) => setFormData({ ...formData, promo_start: e.target.value })}
+                        className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        End Date
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={formData.promo_end}
+                        onChange={(e) => setFormData({ ...formData, promo_end: e.target.value })}
+                        className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-rose-500 focus:ring-2 focus:ring-rose-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Promotion Preview */}
+                  <div className="mt-4 p-4 bg-gradient-to-r from-rose-100 to-red-100 dark:from-rose-900/30 dark:to-red-900/30 rounded-xl border-2 border-rose-200 dark:border-rose-700">
+                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Preview:</p>
+                    <div className="space-y-1">
+                      <p className="text-gray-900 dark:text-white">
+                        <span className="line-through text-gray-500">${formData.current_price.toFixed(2)}</span>
+                        {' → '}
+                        <span className="font-bold text-rose-600 dark:text-rose-400">
+                          ${Promo.calcPrice(
+                            formData.current_price,
+                            formData.promo_type,
+                            formData.promo_value,
+                            formData.promo_price > 0 ? formData.promo_price : undefined
+                          ).toFixed(2)}
+                        </span>
+                        <span className="ml-2 text-sm text-rose-600 dark:text-rose-400 font-semibold">
+                          {Promo.formatBadge(formData.promo_type, formData.promo_value, 'active')}
+                        </span>
+                      </p>
+                      {formData.promo_start && formData.promo_end && (
+                        <>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
+                            Valid: {new Date(formData.promo_start).toLocaleDateString()} - {new Date(formData.promo_end).toLocaleDateString()}
+                          </p>
+                          <p className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                            Status: {Promo.getStatusText(Promo.getStatus(formData.promo_enabled, formData.promo_start, formData.promo_end))}
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* API Limitations */}

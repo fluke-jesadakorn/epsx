@@ -5,7 +5,8 @@ import { useState, useEffect } from 'react';
 import { useAccount, useDisconnect } from 'wagmi';
 
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
-import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
+import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { AdminNotificationBell } from './AdminNotificationBellClient';
 
 interface User {
   id: string;
@@ -25,7 +26,6 @@ interface HeaderProps {
  */
 export function Header({ user }: HeaderProps) {
   const [showUserMenu, setShowUserMenu] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { logout } = useSharedAuth();
   
@@ -107,85 +107,8 @@ export function Header({ user }: HeaderProps) {
 
         {/* Right Section */}
         <div className="flex items-center gap-4">
-          {/* Notifications */}
-          <div className="relative">
-            <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="relative h-12 w-12 rounded-2xl bg-gradient-to-r from-orange-400 to-red-500 font-semibold text-white shadow-lg"
-            >
-              <span className="text-xl">🔔</span>
-              <div className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-r from-pink-500 to-red-500 text-xs text-white shadow-lg">
-                3
-              </div>
-            </button>
-
-            {showNotifications && (
-              <div className="absolute top-14 right-0 z-50 w-80 rounded-3xl border border-yellow-200 bg-white p-6 shadow-2xl dark:border-slate-700/50 dark:bg-slate-800">
-                <div className="space-y-4">
-                  <h3 className="bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-lg font-bold text-transparent">
-                    🔥 Recent Notifications
-                  </h3>
-
-                  <div className="space-y-3">
-                    <div className="rounded-2xl border border-green-200 bg-gradient-to-r from-green-50 to-teal-50 p-4 dark:border-green-500/30 dark:from-green-900/20 dark:to-teal-900/20">
-                      <div className="flex items-start gap-3">
-                        <span className="text-xl">✅</span>
-                        <div>
-                          <div className="font-semibold text-green-800 dark:text-green-300">
-                            New user registered
-                          </div>
-                          <div className="text-sm text-green-600 dark:text-green-400">
-                            sarah@example.com just signed up
-                          </div>
-                          <div className="mt-1 text-xs text-gray-500">
-                            2 minutes ago
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-blue-200 bg-gradient-to-r from-blue-50 to-purple-50 p-4 dark:border-blue-500/30 dark:from-blue-900/20 dark:to-purple-900/20">
-                      <div className="flex items-start gap-3">
-                        <span className="text-xl">🔑</span>
-                        <div>
-                          <div className="font-semibold text-blue-800 dark:text-blue-300">
-                            Permission request
-                          </div>
-                          <div className="text-sm text-blue-600 dark:text-blue-400">
-                            mike@example.com wants admin access
-                          </div>
-                          <div className="mt-1 text-xs text-gray-500">
-                            5 minutes ago
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-orange-200 bg-gradient-to-r from-orange-50 to-red-50 p-4 dark:border-orange-500/30 dark:from-orange-900/20 dark:to-red-900/20">
-                      <div className="flex items-start gap-3">
-                        <span className="text-xl">⚠️</span>
-                        <div>
-                          <div className="font-semibold text-orange-800 dark:text-orange-300">
-                            Permission expiring
-                          </div>
-                          <div className="text-sm text-orange-600 dark:text-orange-400">
-                            john@example.com access expires in 2 days
-                          </div>
-                          <div className="mt-1 text-xs text-gray-500">
-                            10 minutes ago
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <button className="w-full rounded-2xl bg-gradient-to-r from-orange-400 to-red-500 py-2 font-semibold text-white">
-                    View All Notifications
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          {/* Notifications - Real data from backend */}
+          <AdminNotificationBell />
 
           {/* Theme Toggle */}
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-r from-purple-400 to-pink-500 shadow-lg">

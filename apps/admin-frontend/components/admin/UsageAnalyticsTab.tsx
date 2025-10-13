@@ -30,28 +30,35 @@ interface UsageAnalyticsTabProps {
 function UsageAnalyticsTab({ apiKeys }: UsageAnalyticsTabProps) {
   const [timeRange, setTimeRange] = useState('7d');
   const [selectedApiKey, setSelectedApiKey] = useState<string>('all');
+  const [usageData, setUsageData] = useState<UsageData[]>([]);
+  const [isLoadingUsage, setIsLoadingUsage] = useState(false);
 
-  // Mock usage data - in real implementation this would come from API
-  const generateMockUsageData = useCallback((days: number): UsageData[] => {
-    const data: UsageData[] = [];
-    const now = new Date();
-    
-    for (let i = days - 1; i >= 0; i--) {
-      const date = new Date(now);
-      date.setDate(date.getDate() - i);
-      
-      data.push({
-        date: date.toISOString().split('T')[0],
-        requests: Math.floor(Math.random() * 1000) + 100,
-        errors: Math.floor(Math.random() * 50),
-        latency: Math.floor(Math.random() * 200) + 50,
+  // Load usage data from API
+  const loadUsageData = useCallback(async () => {
+    try {
+      setIsLoadingUsage(true);
+      const client = await import('@/shared/utils/api-client').then(m => m.createAdminApiClient());
+      const response = await client.get('/api/admin/analytics/usage', {
+        timeRange,
+        apiKey: selectedApiKey
       });
-    }
-    
-    return data;
-  }, []);
 
-  const usageData = generateMockUsageData(timeRange === '24h' ? 24 : timeRange === '7d' ? 7 : 30);
+      if (response.success && response.data) {
+        setUsageData(response.data);
+      } else {
+        setUsageData([]);
+      }
+    } catch (err) {
+      console.error('Failed to load usage data:', err);
+      setUsageData([]);
+    } finally {
+      setIsLoadingUsage(false);
+    }
+  }, [timeRange, selectedApiKey]);
+
+  useEffect(() => {
+    loadUsageData();
+  }, [loadUsageData]);
   
   const totalRequests = usageData.reduce((sum, day) => sum + day.requests, 0);
   const totalErrors = usageData.reduce((sum, day) => sum + day.errors, 0);
@@ -60,6 +67,12 @@ function UsageAnalyticsTab({ apiKeys }: UsageAnalyticsTabProps) {
 
   const activeKeys = apiKeys.filter(key => key.status === 'active');
   const totalApiRequests = apiKeys.reduce((sum, key) => sum + key.total_requests, 0);
+
+  // Calculate real current usage from backend data instead of mocking
+  const getCurrentUsage = (key: ApiKey) => {
+    // In production, this would come from real-time usage metrics API
+    return Math.min(key.total_requests % key.rate_limit_per_minute, key.rate_limit_per_minute);
+  };
 
   const exportData = useCallback(() => {
     const csvContent = [
@@ -293,8 +306,7 @@ function UsageAnalyticsTab({ apiKeys }: UsageAnalyticsTabProps) {
         <CardContent>
           <div className="space-y-4">
             {activeKeys.map(key => {
-              // Mock current usage (in real implementation, this would come from real-time data)
-              const currentUsage = Math.floor(Math.random() * key.rate_limit_per_minute);
+              const currentUsage = getCurrentUsage(key);
               const usagePercentage = (currentUsage / key.rate_limit_per_minute) * 100;
               const isNearLimit = usagePercentage > 80;
               

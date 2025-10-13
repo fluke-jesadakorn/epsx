@@ -127,21 +127,22 @@ export default function DAOGovernanceInterface() {
       setLoading(true);
       setError(null);
 
-      // Mock API calls - Replace with actual DAO API endpoints
-      const [membershipsResponse, proposalsResponse, analyticsResponse, votingResponse, delegationsResponse] = await Promise.all([
-        fetch('/api/admin/dao/memberships', { credentials: 'include' }),
-        fetch('/api/admin/dao/proposals', { credentials: 'include' }),
-        fetch('/api/admin/dao/analytics', { credentials: 'include' }),
-        fetch('/api/admin/dao/voting-history', { credentials: 'include' }),
-        fetch('/api/admin/dao/delegations', { credentials: 'include' }),
+      const client = await import('@/shared/utils/api-client').then(m => m.createAdminApiClient());
+
+      // Fetch all DAO data in parallel with proper error handling
+      const [membershipsRes, proposalsRes, analyticsRes, votingRes, delegationsRes] = await Promise.all([
+        client.get('/api/admin/dao/memberships').catch(() => ({ success: false, data: [] })),
+        client.get('/api/admin/dao/proposals').catch(() => ({ success: false, data: [] })),
+        client.get('/api/admin/dao/analytics').catch(() => ({ success: false, data: null })),
+        client.get('/api/admin/dao/voting-history').catch(() => ({ success: false, data: [] })),
+        client.get('/api/admin/dao/delegations').catch(() => ({ success: false, data: [] })),
       ]);
 
-      // For now, use mock data since backend endpoints are not implemented yet
-      setDAOMemberships(mockDAOMemberships);
-      setProposals(mockProposals);
-      setAnalytics(mockAnalytics);
-      setVotingHistory(mockVotingHistory);
-      setDelegations(mockDelegations);
+      setDAOMemberships(membershipsRes.success && membershipsRes.data ? membershipsRes.data : []);
+      setProposals(proposalsRes.success && proposalsRes.data ? proposalsRes.data : []);
+      setAnalytics(analyticsRes.success && analyticsRes.data ? analyticsRes.data : null);
+      setVotingHistory(votingRes.success && votingRes.data ? votingRes.data : []);
+      setDelegations(delegationsRes.success && delegationsRes.data ? delegationsRes.data : []);
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load DAO data');
@@ -152,16 +153,13 @@ export default function DAOGovernanceInterface() {
 
   const handleRefreshProposals = async (daoName: string) => {
     try {
-      // Mock API call to refresh proposals for a specific DAO
-      const response = await fetch(`/api/admin/dao/proposals/refresh/${daoName}`, {
-        method: 'POST',
-        credentials: 'include',
-      });
+      const client = await import('@/shared/utils/api-client').then(m => m.createAdminApiClient());
+      const response = await client.post(`/api/admin/dao/proposals/refresh/${daoName}`);
 
-      if (response.ok) {
+      if (response.success) {
         await loadDAOData(); // Refresh all data
       } else {
-        setError('Failed to refresh proposals');
+        setError(response.error || 'Failed to refresh proposals');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to refresh proposals');
@@ -783,133 +781,3 @@ export default function DAOGovernanceInterface() {
     </div>
   );
 }
-
-// Mock data for development (replace with actual API calls)
-const mockDAOMemberships: DAOMembership[] = [
-  {
-    id: '1',
-    wallet_address: '0x742d35Cc6DbfC5B3bDd5c8e8E0C7b8eF5d5A2dA1',
-    dao_name: 'MakerDAO',
-    dao_contract: '0x9f8f72aa9304c8b593d555f12ef6589cc3a579a2',
-    network: 'ethereum',
-    membership_type: 'token_holder',
-    governance_tokens: 1250.5,
-    voting_power: 1250.5,
-    joined_at: '2023-06-15T00:00:00Z',
-    last_vote: '2024-01-18T10:30:00Z',
-    delegation_status: 'none',
-  },
-  {
-    id: '2',
-    wallet_address: '0x8ba1f109551bD432803012645Hac136c22Fd5B',
-    dao_name: 'Compound',
-    dao_contract: '0xc00e94cb662c3520282e6f5717214004a7f26888',
-    network: 'ethereum',
-    membership_type: 'delegated',
-    governance_tokens: 0,
-    voting_power: 500.0,
-    joined_at: '2023-08-20T00:00:00Z',
-    last_vote: '2024-01-15T14:20:00Z',
-    delegation_status: 'delegated_from',
-    delegated_from: ['0x123456789abcdef123456789abcdef123456789a'],
-  },
-];
-
-const mockProposals: GovernanceProposal[] = [
-  {
-    id: '1',
-    dao_name: 'MakerDAO',
-    proposal_id: 'MIP-45',
-    title: 'Increase Stability Fee for ETH-A Vault Type',
-    description: 'Proposal to increase stability fee to manage DAI supply',
-    proposer: '0x742d35Cc6DbfC5B3bDd5c8e8E0C7b8eF5d5A2dA1',
-    status: 'active',
-    votes_for: 125000,
-    votes_against: 45000,
-    votes_abstain: 5000,
-    total_votes: 175000,
-    quorum_required: 100000,
-    voting_deadline: '2024-01-25T23:59:59Z',
-    network: 'ethereum',
-    proposal_url: 'https://vote.makerdao.com/polling/QmMIP45',
-  },
-  {
-    id: '2',
-    dao_name: 'Compound',
-    proposal_id: '156',
-    title: 'Add support for new collateral asset',
-    description: 'Proposal to add WSTETH as collateral',
-    proposer: '0x8ba1f109551bD432803012645Hac136c22Fd5B',
-    status: 'succeeded',
-    votes_for: 680000,
-    votes_against: 120000,
-    votes_abstain: 25000,
-    total_votes: 825000,
-    quorum_required: 400000,
-    voting_deadline: '2024-01-20T23:59:59Z',
-    execution_deadline: '2024-01-27T23:59:59Z',
-    network: 'ethereum',
-    proposal_url: 'https://compound.finance/governance/proposals/156',
-  },
-];
-
-const mockAnalytics: DAOAnalytics = {
-  total_daos_tracked: 24,
-  total_active_members: 15420,
-  total_governance_tokens: 2450000,
-  active_proposals: 12,
-  completed_votes_24h: 145,
-  top_daos_by_members: [
-    { dao_name: 'MakerDAO', members: 3250, total_voting_power: 650000 },
-    { dao_name: 'Compound', members: 2890, total_voting_power: 580000 },
-    { dao_name: 'Aave', members: 2650, total_voting_power: 520000 },
-    { dao_name: 'Uniswap', members: 2100, total_voting_power: 420000 },
-  ],
-  governance_activity: [],
-  network_distribution: {
-    ethereum: 18,
-    polygon: 4,
-    arbitrum: 2,
-  },
-};
-
-const mockVotingHistory: VotingHistory[] = [
-  {
-    id: '1',
-    wallet_address: '0x742d35Cc6DbfC5B3bDd5c8e8E0C7b8eF5d5A2dA1',
-    dao_name: 'MakerDAO',
-    proposal_id: 'MIP-45',
-    proposal_title: 'Increase Stability Fee for ETH-A Vault Type',
-    vote_choice: 'for',
-    voting_power_used: 1250.5,
-    voted_at: '2024-01-18T10:30:00Z',
-    transaction_hash: '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890',
-    network: 'ethereum',
-  },
-  {
-    id: '2',
-    wallet_address: '0x8ba1f109551bD432803012645Hac136c22Fd5B',
-    dao_name: 'Compound',
-    proposal_id: '156',
-    proposal_title: 'Add support for new collateral asset',
-    vote_choice: 'for',
-    voting_power_used: 500.0,
-    voted_at: '2024-01-15T14:20:00Z',
-    transaction_hash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-    network: 'ethereum',
-  },
-];
-
-const mockDelegations: DelegationRecord[] = [
-  {
-    id: '1',
-    delegator: '0x123456789abcdef123456789abcdef123456789a',
-    delegatee: '0x8ba1f109551bD432803012645Hac136c22Fd5B',
-    dao_name: 'Compound',
-    voting_power: 500.0,
-    delegated_at: '2023-12-01T00:00:00Z',
-    is_active: true,
-    network: 'ethereum',
-    transaction_hash: '0xdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abc',
-  },
-];

@@ -66,7 +66,7 @@ use super::performance_handlers::{
   clear_auth_cache,
 };
 // Web3 permission management handlers
-use super::web3_admin_handlers::{
+use super::auth_handlers::{
   get_user_permissions,
   grant_manual_permission,
   create_nft_gate,
@@ -98,6 +98,7 @@ use super::notification_handlers::{
   send_notification_handler,
   get_all_notifications_handler,
   get_notification_stats_handler,
+  acknowledge_notification_handler,
 };
 use crate::web::auth::AppState;
 
@@ -228,6 +229,7 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/notifications/send", post(send_notification_handler))
     .route("/notifications", get(get_all_notifications_handler))
     .route("/notifications/stats", get(get_notification_stats_handler))
+    .route("/notifications/:id/acknowledge", put(acknowledge_notification_handler))
 
     // TODO: Temporarily disabled due to Axum trait bound issues
     // .layer(axum::middleware::from_fn(crate::web::middleware::web3_auth_middleware))

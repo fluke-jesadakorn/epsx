@@ -4,7 +4,7 @@
  */
 
 import { redirect } from 'next/navigation'
-import { getOIDCAccessTokenFromCookies } from '@/lib/server/jwt'
+import { getOIDCAccessTokenFromCookies } from '@/lib/server/token'
 import { getBackendUrl } from '../../../shared/utils/url-resolver'
 import { isServerComponentContext } from '@/lib/utils/index'
 

@@ -19,9 +19,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Wallet, CheckCircle, AlertCircle } from 'lucide-react';
-import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
+import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { logger } from '@/lib/shared';
-import { requestWalletChallenge, verifyWalletSignature } from '@/lib/auth/direct-web3-api';
+import { requestWalletChallenge, verifyWalletSignature } from '@/lib/auth/api-direct';
+
+// Note: Import direct API temporarily, will be migrated to shared system
 
 // Authentication step states
 type AuthStep = 'connect' | 'challenge' | 'signing' | 'authenticating' | 'success' | 'error';
@@ -38,7 +40,7 @@ export function Web3OpenIDSignIn({
   className = '' 
 }: Web3OpenIDSignInProps) {
   const router = useRouter();
-  const { authenticateWithDirectApi, isLoading } = useSharedAuth();
+  const { authenticateWithWallet } = useSharedAuth();
   
   const [currentStep, setCurrentStep] = useState<AuthStep>('connect');
   const [walletAddress, setWalletAddress] = useState<string>('');

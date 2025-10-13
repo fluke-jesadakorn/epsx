@@ -15,7 +15,7 @@
 
 import React, { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
+import { useSharedAuth } from '@/shared/components/auth/Provider';
 import Web3OpenIDSignIn from '@/components/auth/Web3OpenIDSignIn';
 import { logger } from '@/lib/shared';
 

@@ -231,24 +231,28 @@ pub async fn admin_modules_handler(
 }
 
 /// Stock ranking assignments handler for admin dashboard
+#[allow(dead_code)]
 async fn stock_ranking_assignments_handler() -> Result<Json<serde_json::Value>, StatusCode> {
     // Real implementation - query actual stock ranking assignments from database
     Err(StatusCode::NOT_IMPLEMENTED)
 }
 
 /// Extend stock ranking assignment handler
+#[allow(dead_code)]
 async fn extend_assignment_handler(Path(_assignment_id): Path<String>) -> Result<Json<serde_json::Value>, StatusCode> {
     // Real implementation - update assignment expiry in database
     Err(StatusCode::NOT_IMPLEMENTED)
 }
 
 /// Revoke stock ranking assignment handler
+#[allow(dead_code)]
 async fn revoke_assignment_handler(Path(_assignment_id): Path<String>) -> Result<Json<serde_json::Value>, StatusCode> {
     // Real implementation - revoke assignment in database
     Err(StatusCode::NOT_IMPLEMENTED)
 }
 
 /// Analytics permission middleware - requires epsx:analytics:view permission
+#[allow(dead_code)]
 async fn require_analytics_permission(
     request: Request,
     next: Next,
@@ -282,6 +286,7 @@ async fn require_analytics_permission(
 }
 
 /// Check if user permission matches required permission (supports wildcards and embedded timestamps)
+#[allow(dead_code)]
 fn permission_matches(user_permission: &str, required_permission: &str) -> bool {
     // First check for embedded timestamp permissions (format: platform:resource:action:timestamp)
     let parts: Vec<&str> = user_permission.split(':').collect();
@@ -319,6 +324,7 @@ fn permission_matches(user_permission: &str, required_permission: &str) -> bool 
 }
 
 /// Create analytics unauthorized response
+#[allow(dead_code)]
 fn create_analytics_unauthorized_response(message: &str) -> Response {
     let error_body = serde_json::json!({
         "error": "unauthorized",
@@ -335,6 +341,7 @@ fn create_analytics_unauthorized_response(message: &str) -> Response {
 }
 
 /// Create analytics forbidden response
+#[allow(dead_code)]
 fn create_analytics_forbidden_response(message: &str) -> Response {
     let error_body = serde_json::json!({
         "error": "forbidden",
@@ -351,6 +358,7 @@ fn create_analytics_forbidden_response(message: &str) -> Response {
 }
 
 /// Debug endpoint for testing WebSocket earnings data directly
+#[allow(dead_code)]
 async fn debug_websocket_earnings(
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
@@ -423,6 +431,7 @@ async fn debug_websocket_earnings(
 }
 
 /// Real TradingView handler for public analytics rankings
+#[allow(dead_code)]
 async fn simple_rankings_handler(
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
@@ -610,6 +619,7 @@ async fn simple_rankings_handler(
 }
 
 /// Portfolio rankings handler with positive growth filtering (CQRS-based)
+#[allow(dead_code)]
 async fn portfolio_rankings_handler(
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {

@@ -102,131 +102,26 @@ export const SecurityMonitoringAuditDashboard: React.FC<SecurityMonitoringAuditD
   const [isRealTimeEnabled, setIsRealTimeEnabled] = useState(true)
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null)
 
-  // Load security events and metrics
+  // Load security events and metrics from real API
   const loadSecurityData = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
 
-      // Mock data for comprehensive security monitoring
-      const mockEvents: SecurityEvent[] = [
-        {
-          id: 'evt_001',
-          timestamp: new Date().toISOString(),
-          eventType: 'input_threat',
-          severity: 'high',
-          source: 'ComprehensiveInputSanitizer',
-          userId: 'usr_123',
-          userEmail: 'user@example.com',
-          component: 'UserManagement',
-          description: 'SQL injection attempt detected in user input',
-          threatVector: 'sql_injection',
-          blocked: true,
-          remediationAction: 'Input sanitized and blocked',
-          metadata: { inputField: 'username', sanitizedValue: 'user***', threatPattern: 'UNION SELECT' },
-          ipAddress: '192.168.1.100',
-          userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
-          sessionId: 'sess_456',
-          riskScore: 85,
-          complianceImpact: ['gdpr', 'pci'],
-          remediated: true
-        },
-        {
-          id: 'evt_002',
-          timestamp: new Date(Date.now() - 300000).toISOString(),
-          eventType: 'xss_attempt',
-          severity: 'critical',
-          source: 'AdvancedXSSCSRFProtection',
-          userId: 'usr_789',
-          userEmail: 'attacker@malicious.com',
-          component: 'PermissionForm',
-          description: 'Cross-site scripting attack blocked',
-          threatVector: 'reflected_xss',
-          blocked: true,
-          remediationAction: 'Script tags sanitized, user session flagged',
-          metadata: { scriptContent: '<script>alert("xss")</script>', sanitizedContent: '&lt;script&gt;alert("xss")&lt;/script&gt;' },
-          ipAddress: '10.0.0.50',
-          userAgent: 'Malicious Bot 1.0',
-          sessionId: 'sess_789',
-          riskScore: 95,
-          complianceImpact: ['gdpr', 'sox'],
-          remediated: false
-        },
-        {
-          id: 'evt_003',
-          timestamp: new Date(Date.now() - 600000).toISOString(),
-          eventType: 'permission_breach',
-          severity: 'high',
-          source: 'SecurePermissionContextManager',
-          userId: 'usr_456',
-          userEmail: 'insider@company.com',
-          component: 'AdminPanel',
-          description: 'Unauthorized access attempt to admin resources',
-          threatVector: 'privilege_escalation',
-          blocked: true,
-          remediationAction: 'Access denied, security team notified',
-          metadata: { requestedPermission: 'admin:users:delete', userPermission: 'user:profile:read' },
-          ipAddress: '172.16.0.25',
-          userAgent: 'Chrome/119.0.0.0',
-          sessionId: 'sess_101',
-          riskScore: 78,
-          complianceImpact: ['sox', 'hipaa'],
-          remediated: true
-        }
-      ]
+      const client = await import('@/shared/utils/api-client').then(m => m.createAdminApiClient())
 
-      const mockAlerts: SecurityAlert[] = [
-        {
-          id: 'alert_001',
-          type: 'critical_threat',
-          priority: 'urgent',
-          title: 'Multiple XSS Attempts Detected',
-          description: 'Coordinated XSS attack from IP range 10.0.0.0/24',
-          timestamp: new Date().toISOString(),
-          acknowledged: false,
-          resolved: false,
-          relatedEvents: ['evt_002']
-        },
-        {
-          id: 'alert_002',
-          type: 'compliance_violation',
-          priority: 'high',
-          title: 'GDPR Compliance Warning',
-          description: 'Sensitive data exposure detected in API responses',
-          timestamp: new Date(Date.now() - 900000).toISOString(),
-          acknowledged: true,
-          resolved: false,
-          assignedTo: 'security@company.com',
-          relatedEvents: ['evt_001', 'evt_003']
-        }
-      ]
+      // Fetch all security data in parallel
+      const [eventsRes, alertsRes, metricsRes, complianceRes] = await Promise.all([
+        client.get('/api/admin/security/events').catch(() => ({ success: false, data: [] })),
+        client.get('/api/admin/security/alerts').catch(() => ({ success: false, data: [] })),
+        client.get('/api/admin/security/metrics').catch(() => ({ success: false, data: null })),
+        client.get('/api/admin/security/compliance').catch(() => ({ success: false, data: null }))
+      ])
 
-      const mockMetrics: ThreatMetrics = {
-        totalThreats: 247,
-        blockedThreats: 242,
-        activeIncidents: 3,
-        riskScore: 23,
-        complianceScore: 87,
-        lastThreatTime: new Date(Date.now() - 300000).toISOString(),
-        threatTrends: [
-          { period: '00:00', count: 5, severity: 'low' },
-          { period: '06:00', count: 12, severity: 'medium' },
-          { period: '12:00', count: 8, severity: 'high' },
-          { period: '18:00', count: 15, severity: 'critical' }
-        ]
-      }
-
-      const mockComplianceStatus: ComplianceStatus = {
-        gdpr: { status: 'warning', lastCheck: new Date().toISOString(), issues: ['Data exposure in evt_001'] },
-        pci: { status: 'compliant', lastCheck: new Date().toISOString(), issues: [] },
-        sox: { status: 'compliant', lastCheck: new Date().toISOString(), issues: [] },
-        hipaa: { status: 'compliant', lastCheck: new Date().toISOString(), issues: [] }
-      }
-
-      setEvents(mockEvents)
-      setAlerts(mockAlerts)
-      setMetrics(mockMetrics)
-      setComplianceStatus(mockComplianceStatus)
+      setEvents(eventsRes.success && eventsRes.data ? eventsRes.data : [])
+      setAlerts(alertsRes.success && alertsRes.data ? alertsRes.data : [])
+      setMetrics(metricsRes.success && metricsRes.data ? metricsRes.data : null)
+      setComplianceStatus(complianceRes.success && complianceRes.data ? complianceRes.data : null)
       setLastUpdate(new Date())
 
     } catch (err) {

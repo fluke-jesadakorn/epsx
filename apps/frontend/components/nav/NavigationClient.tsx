@@ -29,9 +29,9 @@ import { useChainId, useSwitchChain, useAccount } from 'wagmi';
 import { bsc, bscTestnet } from 'wagmi/chains';
 
 import { NavbarSkeleton } from '@/components/nav/NavbarSkeleton';
-import { NotificationBellSimple } from '@/components/notifications/NotificationBellSimple';
 import { ChainSelector } from '@/components/nav/ChainSelector';
 import { WalletProviderIcon } from '@/components/nav/WalletProviderIcon';
+import { NotificationBellClient } from '@/components/notifications/NotificationBellClient';
 import { UserManagementDropdown } from '@/components/nav/UserManagementDropdown';
 import {
   NavbarProvider,
@@ -50,8 +50,7 @@ import {
   SheetTrigger,
 } from '@/components/ui';
 import { navigationService } from '@/services/navigation.service';
-import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
-import { UserAuthStatus } from '@/shared/components/display/UserDisplay';
+import { useSharedAuth } from '@/shared/components/auth/Provider';
 
 // Pure Web3 Navigation - no props needed
 interface NavigationClientProps {}
@@ -96,7 +95,7 @@ function NavigationContent() {
   const { isConnected } = useAccount();
 
   // Get shared authentication state
-  const { isAuthenticated, user } = useSharedAuth();
+  const { isAuthenticated } = useSharedAuth();
   
   // Get all nav items - no permission filtering
   const navItems = navigationService.getNavItems();
@@ -302,46 +301,8 @@ function NavigationContent() {
 
         {/* Right Actions - Hidden on mobile */}
         <div className="hidden items-center gap-2 lg:flex">
-          {/* Notifications Dropdown - Display only if authenticated */}
-          {isAuthenticated && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200">
-                  <Bell className="h-5 w-5 text-orange-500" />
-                  <span>Notifications</span>
-                  <ChevronDown className="h-3 w-3 ml-1 text-slate-400" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-64 bg-white/95 backdrop-blur-xl border border-orange-100/50 dark:bg-slate-900/95 dark:border-slate-700/50">
-                <DropdownMenuItem className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200">
-                  <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
-                    <Bell className="h-2.5 w-2.5 text-white" />
-                  </div>
-                  View All Notifications
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200">
-                  <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
-                    <Settings className="h-2.5 w-2.5 text-white" />
-                  </div>
-                  Notification Settings
-                </DropdownMenuItem>
-                <DropdownMenuItem className="flex items-center gap-3 px-3 py-2 text-sm cursor-pointer text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200">
-                  <div className="w-5 h-5 rounded-full bg-orange-500 flex items-center justify-center">
-                    <Bell className="h-2.5 w-2.5 text-white" />
-                  </div>
-                  Mark All as Read
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-
-          {/* Authentication Status Display */}
-          {isAuthenticated && user && (
-            <div className="flex items-center gap-2 px-3 py-2">
-              <UserAuthStatus className="text-xs" />
-            </div>
-          )}
+          {/* Notifications Bell - Display only if authenticated */}
+          {isAuthenticated && <NotificationBellClient />}
 
           {/* About Us Link */}
           <Link

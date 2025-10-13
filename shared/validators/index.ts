@@ -15,7 +15,7 @@ export {
   requireSession,
   type SessionValidatorConfig,
   type ValidationRequest
-} from './BaseSessionValidator'
+} from '../session/validator'
 
 // ============================================================================
 // SPECIALIZED VALIDATORS (BACKWARD COMPATIBILITY)

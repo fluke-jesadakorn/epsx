@@ -1,6 +1,6 @@
 'use server'
 
-import { getOIDCAccessTokenFromCookies } from '@/lib/server/jwt'
+import { getOIDCAccessTokenFromCookies } from '@/lib/server/token'
 
 /**
  * Server Action for adding to watchlist

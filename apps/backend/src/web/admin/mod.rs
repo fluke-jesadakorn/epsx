@@ -6,7 +6,7 @@ pub mod security_monitoring_handlers;
 pub mod plan_handlers;
 pub mod promotion_handlers;
 pub mod performance_handlers;
-pub mod web3_admin_handlers;
+pub mod auth_handlers;
 pub mod responses;
 pub mod wallet_management_handlers;
 pub mod analytics_handlers;

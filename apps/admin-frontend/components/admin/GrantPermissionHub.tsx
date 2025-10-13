@@ -70,15 +70,15 @@ export function GrantPermissionHub({ users, currentUser }: GrantPermissionHubPro
     <div className="min-h-screen">
       {/* Background Decorations */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-full blur-xl animate-pulse"></div>
-        <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-purple-500/20 rounded-full blur-lg animate-pulse animation-delay-1000"></div>
-        <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-orange-400/15 to-yellow-500/15 rounded-full blur-xl animate-pulse animation-delay-2000"></div>
+        <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-full blur-xl"></div>
+        <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-purple-500/20 rounded-full blur-lg"></div>
+        <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-orange-400/15 to-yellow-500/15 rounded-full blur-xl"></div>
       </div>
       
       <div className="relative z-10 max-w-7xl mx-auto">
         {/* Hero Header */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center p-4 mb-6 rounded-3xl bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 shadow-2xl">
+          <div className="inline-flex items-center justify-center p-4 mb-6 rounded-3xl bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 shadow-xl">
             <Shield className="h-12 w-12 text-white mr-4" />
             <div className="text-left">
               <h1 className="text-4xl font-bold text-white tracking-tight">Grant Permissions</h1>
@@ -176,10 +176,11 @@ export function GrantPermissionHub({ users, currentUser }: GrantPermissionHubPro
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredUsers.map((user) => (
-              <div
+              <button
                 key={user.id}
+                type="button"
                 onClick={() => handleUserSelect(user)}
-                className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-purple-400/20 via-pink-400/20 to-red-400/20 p-0.5 group cursor-pointer hover:scale-105 transition-all duration-300"
+                className="relative w-full overflow-hidden rounded-3xl bg-gradient-to-r from-purple-400/20 via-pink-400/20 to-red-400/20 p-0.5 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-purple-500"
               >
                 <div className="relative bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-3xl p-6 h-48">
                   {/* Status Indicator */}
@@ -189,7 +190,7 @@ export function GrantPermissionHub({ users, currentUser }: GrantPermissionHubPro
 
                   {/* Action Icons */}
                   <div className="absolute top-3 right-3 flex gap-2">
-                    <div className="w-6 h-6 bg-gradient-to-r from-purple-400 to-pink-500 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <div className="w-6 h-6 bg-gradient-to-r from-purple-400 to-pink-500 rounded-lg flex items-center justify-center">
                       <Shield className="h-4 w-4 text-white" />
                     </div>
                   </div>
@@ -223,14 +224,8 @@ export function GrantPermissionHub({ users, currentUser }: GrantPermissionHubPro
                     </div>
                   </div>
 
-                  {/* Hover Overlay */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-600/10 to-pink-600/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-3xl flex items-center justify-center">
-                    <div className="bg-white/90 dark:bg-gray-800/90 px-4 py-2 rounded-2xl shadow-xl">
-                      <span className="text-sm font-medium text-gray-900 dark:text-white">Grant Permissions</span>
-                    </div>
-                  </div>
                 </div>
-              </div>
+              </button>
             ))}
           </div>
 

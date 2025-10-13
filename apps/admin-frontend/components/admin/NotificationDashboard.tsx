@@ -1,13 +1,13 @@
 'use client';
 
-import { 
-  Bell, 
-  Plus, 
-  Search, 
-  Filter, 
-  Send, 
-  Users, 
-  BarChart3, 
+import {
+  Bell,
+  Plus,
+  Search,
+  Filter,
+  Send,
+  Users,
+  BarChart3,
   Settings,
   AlertTriangle,
   CheckCircle,
@@ -22,19 +22,50 @@ import React, { useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
-type Notification = any;
-type NotificationListParams = any;
-type NotificationListResponse = any;
-type NotificationStats = any;
-type NotificationCreateRequest = any;
+import { SendNotificationForm } from '@/components/notifications/SendNotificationForm';
+import {
+  createNotificationsClient,
+} from '@/shared/api/notifications';
+import type {
+  Notification as ApiNotification,
+  NotificationFilters,
+  NotificationPriority,
+  NotificationType,
+} from '@/shared/api/notifications';
+import { createAdminApiClient } from '@/shared/utils/api-client';
 
 interface NotificationDashboardProps {
   className?: string;
+}
+
+interface AdminNotification {
+  id: string;
+  title: string;
+  message: string;
+  notificationType: NotificationType;
+  priority: NotificationPriority;
+  createdAt: string;
+  read: boolean;
+  walletAddress?: string;
+}
+
+interface DashboardStats {
+  total: number;
+  unread: number;
+  last24Hours: number;
+  lastWeek: number;
+  byType: Partial<Record<NotificationType, number>>;
+  byPriority: Partial<Record<NotificationPriority, number>>;
 }
 
 /**
@@ -43,21 +74,33 @@ interface NotificationDashboardProps {
  * @param root0.className
  */
 export function NotificationDashboard({ className }: NotificationDashboardProps) {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [stats, setStats] = useState<NotificationStats | null>(null);
+  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedType, setSelectedType] = useState<string>('all');
-  const [selectedPriority, setSelectedPriority] = useState<string>('all');
+  const [selectedType, setSelectedType] = useState<NotificationType | 'all'>('all');
+  const [selectedPriority, setSelectedPriority] = useState<NotificationPriority | 'all'>('all');
   const router = useRouter();
   const [selectedNotifications, setSelectedNotifications] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState('overview');
-  
+  const [showSendDialog, setShowSendDialog] = useState(false);
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const itemsPerPage = 20;
+
+  const mapNotification = (notification: ApiNotification): AdminNotification => ({
+    id: notification.id,
+    title: notification.title,
+    message: notification.message,
+    notificationType: notification.notification_type,
+    priority: notification.priority,
+    createdAt: notification.timestamp,
+    read: Boolean(notification.read_at),
+    walletAddress: notification.wallet_address,
+  });
 
   useEffect(() => {
     loadNotifications();
@@ -67,21 +110,45 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
   const loadNotifications = async () => {
     try {
       setLoading(true);
-      const params: NotificationListParams = {
+      const client = createNotificationsClient(createAdminApiClient());
+      const filters: NotificationFilters = {
         page: currentPage,
         limit: itemsPerPage,
-        ...(selectedType !== 'all' && { type: selectedType }),
-        ...(selectedPriority !== 'all' && { priority: selectedPriority }),
-        ...(searchQuery && { search: searchQuery }),
       };
-      
-      // const response = await apiClient.getNotifications(params);
-      const response = { data: { notifications: [], pagination: { totalPages: 1 } } };
-      setNotifications(response.data.notifications);
-      setTotalPages(response.data.pagination.totalPages);
+
+      if (selectedType !== 'all') {
+        filters.type = selectedType;
+      }
+
+      if (selectedPriority !== 'all') {
+        filters.priority = selectedPriority;
+      }
+
+      const response = await client.getAllNotifications(filters);
+      const apiNotifications = response.data.notifications.map(mapNotification);
+
+      setNotifications(apiNotifications);
+      setTotalPages(response.data.total_pages);
+      setStats((previous) => {
+        if (previous) {
+          return {
+            ...previous,
+            total: response.data.total_count,
+            unread: response.data.unread_count,
+          };
+        }
+
+        return {
+          total: response.data.total_count,
+          unread: response.data.unread_count,
+          last24Hours: 0,
+          lastWeek: 0,
+          byType: {},
+          byPriority: {},
+        };
+      });
       setError(null);
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error('Failed to load notifications:', err);
       setError('Failed to load notifications');
     } finally {
@@ -91,11 +158,20 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
 
   const loadStats = async () => {
     try {
-      // const response = await apiClient.getNotificationStats();
-      // setStats(response.data);
-      setStats({});
+      const client = createNotificationsClient(createAdminApiClient());
+      const response = await client.getNotificationStats();
+
+      // Map backend response to frontend format
+      const backendStats = response.data;
+      setStats((previous) => ({
+        total: backendStats.total_notifications,
+        unread: previous?.unread ?? 0,
+        last24Hours: backendStats.sent_today,
+        lastWeek: backendStats.sent_this_week,
+        byType: backendStats.by_type || {},
+        byPriority: backendStats.by_priority || {},
+      }));
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error('Failed to load notification stats:', err);
     }
   };
@@ -141,30 +217,50 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
     }
   };
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor = (priority: NotificationPriority) => {
     switch (priority) {
-      case 'critical': return 'bg-red-500';
-      case 'high': return 'bg-orange-500';
-      case 'medium': return 'bg-yellow-500';
-      case 'low': return 'bg-green-500';
-      default: return 'bg-gray-500';
+      case 'critical':
+        return 'bg-red-500';
+      case 'high':
+        return 'bg-orange-500';
+      case 'normal':
+        return 'bg-blue-500';
+      case 'low':
+        return 'bg-green-500';
+      default:
+        return 'bg-gray-500';
     }
   };
 
-  const getTypeIcon = (type: string) => {
+  const getTypeIcon = (type: NotificationType) => {
     switch (type) {
-      case 'trading': return <BarChart3 className="h-4 w-4" />;
-      case 'system': return <Settings className="h-4 w-4" />;
-      case 'security': return <AlertTriangle className="h-4 w-4" />;
-      case 'compliance': return <CheckCircle className="h-4 w-4" />;
-      default: return <Bell className="h-4 w-4" />;
+      case 'system':
+        return <Settings className="h-4 w-4" />;
+      case 'security':
+        return <AlertTriangle className="h-4 w-4" />;
+      case 'permission':
+        return <CheckCircle className="h-4 w-4" />;
+      case 'wallet_management':
+      case 'wallet':
+        return <Users className="h-4 w-4" />;
+      case 'payment':
+        return <Send className="h-4 w-4" />;
+      default:
+        return <Bell className="h-4 w-4" />;
     }
   };
 
-  const filteredNotifications = notifications.filter(notification => {
-    return !searchQuery || 
-      notification.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      notification.message.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredNotifications = notifications.filter((notification) => {
+    if (!searchQuery) {
+      return true;
+    }
+
+    const needle = searchQuery.toLowerCase();
+    return (
+      notification.title.toLowerCase().includes(needle) ||
+      notification.message.toLowerCase().includes(needle) ||
+      (notification.walletAddress?.toLowerCase().includes(needle) ?? false)
+    );
   });
 
   return (
@@ -177,9 +273,9 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
             Manage and monitor system notifications
           </p>
         </div>
-        <Button onClick={() => router.push('/notifications/create')} className="flex items-center gap-2">
+        <Button onClick={() => setShowSendDialog(true)} className="flex items-center gap-2">
           <Plus className="h-4 w-4" />
-          Create Notification
+          Send Notification
         </Button>
       </div>
 
@@ -308,26 +404,29 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
                 </div>
                 
                 <select 
-                  value={selectedType} 
-                  onChange={(e) => setSelectedType(e.target.value)}
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value as NotificationType | 'all')}
                   className="px-3 py-2 border border-input rounded-md bg-background"
                 >
                   <option value="all">All Types</option>
-                  <option value="trading">Trading</option>
                   <option value="system">System</option>
                   <option value="security">Security</option>
-                  <option value="compliance">Compliance</option>
+                  <option value="permission">Permission</option>
+                  <option value="wallet_management">Wallet Management</option>
+                  <option value="wallet">Wallet</option>
+                  <option value="payment">Payment</option>
+                  <option value="general">General</option>
                 </select>
                 
                 <select 
-                  value={selectedPriority} 
-                  onChange={(e) => setSelectedPriority(e.target.value)}
+                  value={selectedPriority}
+                  onChange={(e) => setSelectedPriority(e.target.value as NotificationPriority | 'all')}
                   className="px-3 py-2 border border-input rounded-md bg-background"
                 >
                   <option value="all">All Priorities</option>
                   <option value="critical">Critical</option>
                   <option value="high">High</option>
-                  <option value="medium">Medium</option>
+                  <option value="normal">Normal</option>
                   <option value="low">Low</option>
                 </select>
               </div>
@@ -362,8 +461,7 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
             {loading ? (
               <Card>
                 <CardContent className="p-8 text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-                  <p className="mt-2 text-muted-foreground">Loading notifications...</p>
+                  <p className="text-muted-foreground">Loading notifications...</p>
                 </CardContent>
               </Card>
             ) : error ? (
@@ -380,7 +478,7 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
               </Card>
             ) : (
               filteredNotifications.map((notification) => (
-                <Card key={notification.id} className={`transition-colors ${!notification.read ? 'bg-muted/30' : ''}`}>
+                <Card key={notification.id} className={notification.read ? undefined : 'bg-muted/30'}>
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
                       <input
@@ -402,7 +500,7 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                              {getTypeIcon(notification.type)}
+                              {getTypeIcon(notification.notificationType)}
                               <h3 className="font-medium">{notification.title}</h3>
                               <Badge 
                                 variant="secondary" 
@@ -418,13 +516,13 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
                               {notification.message}
                             </p>
                             <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                              <span>Type: {notification.type}</span>
+                              <span>Type: {notification.notificationType}</span>
                               <span>•</span>
                               <span>{new Date(notification.createdAt).toLocaleString()}</span>
-                              {notification.userId && (
+                              {notification.walletAddress && (
                                 <>
                                   <span>•</span>
-                                  <span>User: {notification.userId}</span>
+                                  <span>Wallet: {notification.walletAddress}</span>
                                 </>
                               )}
                             </div>
@@ -498,7 +596,25 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
         </TabsContent>
       </Tabs>
 
-      {/* Create Notification Modal */}
+      {/* Send Notification Dialog */}
+      <Dialog open={showSendDialog} onOpenChange={setShowSendDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Send Notification</DialogTitle>
+            <DialogDescription>
+              Send a notification to a specific wallet or broadcast to all users
+            </DialogDescription>
+          </DialogHeader>
+          <SendNotificationForm
+            onSuccess={() => {
+              setShowSendDialog(false);
+              loadNotifications();
+              loadStats();
+            }}
+            onCancel={() => setShowSendDialog(false)}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

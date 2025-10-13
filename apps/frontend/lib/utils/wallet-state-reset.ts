@@ -79,7 +79,13 @@ function clearLocalStorage(preserveTheme = true): void {
     // Get theme before clearing if preservation is enabled
     let themeValue: string | null = null;
     if (preserveTheme) {
-      themeValue = window.localStorage.getItem('theme');
+      // Try to get theme from cookies first, then fallback to localStorage for migration
+      const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+        const [key, value] = cookie.trim().split('=');
+        if (key && value) acc[key] = value;
+        return acc;
+      }, {} as Record<string, string>);
+      themeValue = cookies.theme || window.localStorage.getItem('theme');
     }
 
     // Clear all wagmi-related keys
@@ -135,7 +141,8 @@ function clearLocalStorage(preserveTheme = true): void {
 
     // Restore theme if preservation is enabled
     if (preserveTheme && themeValue) {
-      window.localStorage.setItem('theme', themeValue);
+      // Store theme back in cookie
+      document.cookie = `theme=${themeValue}; path=/; max-age=31536000; SameSite=lax`;
     }
 
   } catch (error) {
@@ -423,9 +430,15 @@ export function detectStateCorruption(): boolean {
       window.localStorage.getItem(key) !== null
     );
 
-    // Check for orphaned authentication state
-    const hasOidcSession = window.localStorage.getItem('oidc_session') !== null;
-    const hasAuthState = window.localStorage.getItem('web3_auth_state') !== null;
+    // Check for orphaned authentication state in cookies and localStorage (fallback)
+    const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+      const [key, value] = cookie.trim().split('=');
+      if (key && value) acc[key] = value;
+      return acc;
+    }, {} as Record<string, string>);
+    
+    const hasOidcSession = cookies.oidc_session !== null || window.localStorage.getItem('oidc_session') !== null;
+    const hasAuthState = cookies.web3_auth_state !== null || window.localStorage.getItem('web3_auth_state') !== null;
     
     // Detect potential corruption patterns
     const hasWagmiData = wagmiKeys.length > 0;

@@ -6,14 +6,14 @@ import { useEffect, useRef, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { useAccount } from 'wagmi';
 
-import { useAdminWeb3Context } from '../../providers/Web3Provider';
+import { useAdminWeb3Context } from '../../providers/AuthProvider';
 
 import {
   requestWalletChallenge,
   verifyWalletSignature,
-} from '@/shared/auth/direct-web3-api';
-import { OIDC_KEYS } from '@/shared/auth/storage-keys';
-import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
+} from '@/shared/auth/api';
+import { OIDC_KEYS } from '@/shared/auth/storage';
+import { useSharedAuth } from '@/shared/components/auth/Provider';
 
 /**
  *

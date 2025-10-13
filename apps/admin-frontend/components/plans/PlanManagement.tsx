@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from '@/hooks/use-toast'
 import { createPlansClient, type PlanResponse, isApiSuccess } from '@/shared/api/plans'
 import { createAdminApiClient } from '@/shared/utils/api-client'
+import * as Promo from '@/shared/utils/promo'
 
 interface PlanManagementProps {
   currentUser: any
@@ -324,8 +325,23 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                               INACTIVE
                             </span>
                           )}
+                          {plan.promotion_active && plan.promotion_status === 'active' && (
+                            <span className="bg-rose-500 text-white text-xs px-2 py-1 rounded-full font-semibold">
+                              {Math.round(plan.promotion_discount || 0)}% OFF
+                            </span>
+                          )}
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">${plan.current_price} {plan.currency}</p>
+                        <div className="flex items-center gap-2">
+                          {plan.promotion_active && plan.effective_price !== undefined ? (
+                            <>
+                              <span className="text-sm line-through text-gray-500">${plan.current_price}</span>
+                              <span className="text-sm font-bold text-rose-600 dark:text-rose-400">${plan.effective_price.toFixed(2)}</span>
+                              <span className="text-xs text-gray-600 dark:text-gray-400">{plan.currency}</span>
+                            </>
+                          ) : (
+                            <p className="text-sm text-gray-600 dark:text-gray-400">${plan.current_price} {plan.currency}</p>
+                          )}
+                        </div>
                       </div>
                     </div>
                     
@@ -399,11 +415,33 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                               INACTIVE
                             </span>
                           )}
+                          {plan.promotion_status && plan.promotion_status !== 'disabled' && (
+                            <span className={`text-xs px-3 py-1 rounded-full font-semibold ${
+                              Promo.getStatusColor(plan.promotion_status)
+                            }`}>
+                              {Promo.getStatusIcon(plan.promotion_status)} {Promo.getStatusText(plan.promotion_status)}
+                              {plan.promotion_status === 'active' && plan.promotion_ends_at && (
+                                <span className="ml-1">({Promo.getTimeRemaining(plan.promotion_ends_at)})</span>
+                              )}
+                            </span>
+                          )}
                         </div>
                         <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 flex-wrap">
-                          <span className="font-semibold">
-                            ${plan.current_price} {plan.currency}
-                          </span>
+                          {plan.promotion_active && plan.effective_price !== undefined ? (
+                            <>
+                              <span className="line-through text-gray-500">${plan.current_price}</span>
+                              <span className="font-bold text-rose-600 dark:text-rose-400">
+                                ${plan.effective_price.toFixed(2)} {plan.currency}
+                              </span>
+                              <span className="bg-rose-100 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded-full font-semibold">
+                                {Math.round(plan.promotion_discount || 0)}% OFF
+                              </span>
+                            </>
+                          ) : (
+                            <span className="font-semibold">
+                              ${plan.current_price} {plan.currency}
+                            </span>
+                          )}
                           <span>•</span>
                           <span>{plan.permissions?.length || 0} permissions</span>
                           <span>•</span>

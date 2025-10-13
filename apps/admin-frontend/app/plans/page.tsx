@@ -4,7 +4,7 @@ import { useState } from 'react'
 
 import { PlanManagement } from '@/components/plans/PlanManagement'
 import { PromotionManagement } from '@/components/promotions/PromotionManagement'
-import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider'
+import { useSharedAuth } from '@/shared/components/auth/Provider'
 
 function PlansHubSkeleton() {
   return (

@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 
 import HierarchyBuilder from '@/components/permissions/HierarchyBuilder'
-import { UnifiedAuth } from '@/lib/auth/unified-auth'
+import { UnifiedAuth } from '@/lib/auth/auth'
 
 export const dynamic = 'force-dynamic'
 

@@ -22,7 +22,7 @@ import {
   createAuthClient,
   AuthAPIClient 
 } from '../../../shared/api/auth';
-import { getOIDCAccessTokenFromCookies } from '@/lib/server/jwt';
+import { getOIDCAccessTokenFromCookies } from '@/lib/server/token';
 
 // ============================================================================
 // TYPES (for compatibility with existing frontend)

@@ -19,7 +19,7 @@ async function getAuthorizationUrl(): Promise<{ url: string; codeVerifier: strin
  */
 export async function getServerSession() {
   try {
-    const { getSessionFromJWT } = await import('./jwt');
+    const { getSessionFromJWT } = await import('./token');
     return await getSessionFromJWT();
   } catch (_error) {
     // eslint-disable-next-line no-console
@@ -33,7 +33,7 @@ export async function getServerSession() {
  */
 export async function getAuthUser() {
   try {
-    const { verifyJWTFromCookies } = await import('./jwt');
+    const { verifyJWTFromCookies } = await import('./token');
     const user = await verifyJWTFromCookies();
     
     // Validate admin permissions

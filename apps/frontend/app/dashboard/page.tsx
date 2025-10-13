@@ -1,4 +1,4 @@
-import { getSessionFromWeb3 } from '@/lib/server/jwt';
+import { getSessionFromWeb3 } from '@/lib/server/token';
 import { DashboardClient } from '@/components/dashboard/DashboardClient';
 
 // Force dynamic rendering for pages that use authentication

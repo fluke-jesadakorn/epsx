@@ -5,7 +5,7 @@ import { useConnect } from 'wagmi';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Wallet, Loader2, ChevronDown, AlertCircle, RefreshCw } from 'lucide-react';
-import { useWeb3Context } from '@/components/providers/MinimalWeb3Provider';
+import { useWeb3Context } from '@/components/providers/AuthProvider';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 

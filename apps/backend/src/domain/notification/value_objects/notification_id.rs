@@ -31,6 +31,11 @@ impl NotificationId {
     pub fn as_str(&self) -> String {
         self.id.to_string()
     }
+
+    /// Create from string (convenience method)
+    pub fn from_string(s: String) -> Self {
+        Self::try_from(s).unwrap_or_else(|_| Self::new())
+    }
 }
 
 impl Default for NotificationId {

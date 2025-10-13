@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { Suspense } from 'react';
 
 import { AdminProfileClient } from '@/components/profile/AdminProfileClient';
-import { getServerSessionAdmin } from '@/lib/session-admin';
+import { getServerSessionAdmin } from '@/lib/session';
 
 export const metadata = {
   title: 'Admin Profile | EPSX Admin',

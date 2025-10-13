@@ -60,7 +60,7 @@ impl ScheduleInfo {
     /// Create with expiry only (immediate delivery but expires)
     pub fn with_expiry(expires_at: DateTime<Utc>) -> Result<Self, String> {
         let now = Utc::now();
-        
+
         if expires_at <= now {
             return Err("Expiry time must be in the future".to_string());
         }
@@ -70,6 +70,22 @@ impl ScheduleInfo {
             expires_at: Some(expires_at),
             created_at: now,
             schedule_type: ScheduleType::Immediate,
+            timezone_hint: None,
+        })
+    }
+
+    /// Reconstruct schedule info from persistence (used by repository)
+    /// Does not validate times since they may be in the past after loading from database
+    pub fn from_persistence(
+        schedule_type: ScheduleType,
+        scheduled_at: Option<DateTime<Utc>>,
+        expires_at: Option<DateTime<Utc>>,
+    ) -> Result<Self, String> {
+        Ok(Self {
+            scheduled_at,
+            expires_at,
+            created_at: scheduled_at.unwrap_or_else(|| Utc::now()),
+            schedule_type,
             timezone_hint: None,
         })
     }

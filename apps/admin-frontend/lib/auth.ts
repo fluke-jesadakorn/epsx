@@ -8,7 +8,7 @@
 import { create } from 'zustand'
 
 import { config } from '@/config/env'
-import { createAdminClient, SharedWeb3AuthClient, UserInfoResponse } from '@/shared/auth/openid-web3-client'
+import { createAdminClient, SharedWeb3AuthClient, UserInfoResponse } from '@/shared/auth/client'
 
 // Web3 Admin Wallet interface (migrated from EnterpriseAdminUser)
 export interface AdminWallet {

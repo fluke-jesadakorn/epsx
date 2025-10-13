@@ -15,8 +15,8 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSharedAuth } from '../auth/SharedOpenIDWeb3Provider';
-import { UnifiedApiResponse } from '../../auth/openid-web3-client';
+import { useSharedAuth } from '../auth/Provider';
+import { UnifiedApiResponse } from '../../auth/client';
 
 // API request state
 interface ApiState<T> {

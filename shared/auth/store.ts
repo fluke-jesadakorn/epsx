@@ -14,22 +14,6 @@ import {
   SmartRefreshRequest,
   SmartRefreshResponse 
 } from '../types/auth'
-// Removed client-side permission derivation - backend provides this data
-// Simple helper functions that rely on backend data
-const derivePrimaryPlatformFromPermissions = (permissions: string[]): string => {
-  // Backend should provide platform_context - this is just a fallback
-  return 'epsx'
-}
-
-const deriveAccessiblePlatformsFromPermissions = (permissions: string[]): string[] => {
-  // Backend should provide accessible platforms - this is just a fallback
-  return ['epsx']
-}
-
-const derivePermissionGroupFromPermissions = (permissions: string[]): string => {
-  // Backend should provide permission_group - this is just a fallback
-  return 'user'
-}
 import { getBackendUrl, getFrontendUrl, oidcUrls, callbackUrls } from '../utils/url-resolver'
 
 // Core auth store factory
@@ -252,164 +236,24 @@ export function createAuthStore<T extends AuthState>(
       },
       
       checkTokenHealth: () => {
-        const { expiresAt, lastRefreshTime, user } = get()
+        const { expiresAt, user } = get()
         const now = Date.now()
-        
+
         if (!expiresAt || !user) return false
-        
+
         // Check if token expires soon (within 10 seconds)
         const timeToExpiry = expiresAt - now
         const needsRefresh = timeToExpiry <= 10000
-        
-        // Check if permissions might be stale (older than 5 minutes)
-        const permissionAge = user.permission_last_updated ? 
-          now / 1000 - user.permission_last_updated : Infinity
-        const permissionsStale = permissionAge > 300 // 5 minutes
-        
-        const isHealthy = !needsRefresh && !permissionsStale
-        
+
+        const isHealthy = !needsRefresh
+
         if (!isHealthy) {
-          console.log(`Token health check: expires in ${timeToExpiry}ms, permissions age: ${permissionAge}s`)
+          console.log(`Token health check: expires in ${timeToExpiry}ms`)
         }
-        
+
         return isHealthy
       },
     }),
-
-    can: (permission: string) => {
-      const { user } = get()
-      if (!user) return false
-      
-      // Enhanced health check if available
-      if (config.enableAutoRefresh && (get() as any).checkTokenHealth) {
-        const isHealthy = (get() as any).checkTokenHealth()
-        if (!isHealthy && (get() as any).autoRefreshEnabled) {
-          // Trigger background refresh for stale tokens/permissions
-          setTimeout(() => get().refreshSession(), 0)
-        }
-      }
-      
-      // If permission doesn't contain platform prefix, add current platform
-      let checkPermission = permission
-      if (!permission.includes(':')) {
-        const currentPlatform = user.platform_context || derivePrimaryPlatformFromPermissions(user.permissions)
-        checkPermission = `${currentPlatform}:${permission}`
-      }
-      
-      // Validate embedded permissions with timestamp filtering
-      const validPermissions = user.permissions.filter((p: string) => {
-        // Check if permission has embedded timestamp (format: platform:resource:action:timestamp)
-        const parts = p.split(':')
-        if (parts.length === 4) {
-          const timestamp = parseInt(parts[3], 10)
-          if (!isNaN(timestamp)) {
-            // Check if timestamp permission is still valid
-            return Date.now() / 1000 <= timestamp
-          }
-        }
-        return true // Permanent permission (no timestamp)
-      })
-      
-      return checkStructuredPermission(validPermissions, checkPermission)
-    },
-
-    hasAnyPermission: (permissions: string[]) => {
-      const { user } = get()
-      if (!user) return false
-      
-      return permissions.some(permission => get().can(permission))
-    },
-
-    hasAllPermissions: (permissions: string[]) => {
-      const { user } = get()
-      if (!user) return false
-      
-      return permissions.every(permission => get().can(permission))
-    },
-
-    hasTier: (tier: string) => {
-      const { user } = get()
-      if (!user) return false
-      
-      const permissionGroupHierarchy = {
-        'Basic Access Group': 1,
-        'Standard Access Group': 2,
-        'Premium Access Group': 3,
-        'Professional Access Group': 4,
-        'Enterprise Access Group': 5,
-      }
-      
-      const userPermissionGroup = derivePermissionGroupFromPermissions(user.permissions)
-      const userLevel = permissionGroupHierarchy[userPermissionGroup as keyof typeof permissionGroupHierarchy] || 0
-      const requiredLevel = permissionGroupHierarchy[tier as keyof typeof permissionGroupHierarchy] || 1
-      
-      return userLevel >= requiredLevel
-    },
-    
-    // Cross-platform functionality
-    switchPlatform: async (platform: string) => {
-      const { user } = get()
-      if (!user) return
-      
-      // Check if user can access the platform
-      const availablePlatforms = deriveAccessiblePlatformsFromPermissions(user.permissions)
-      if (!availablePlatforms.includes(platform)) {
-        set({ error: `Access denied to platform: ${platform}` })
-        return
-      }
-      
-      set({ isLoading: true, error: null })
-      
-      try {
-        // Update platform context on server
-        const response = await fetch('/api/auth/switch-platform', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ platform }),
-          credentials: 'include',
-        })
-        
-        if (!response.ok) {
-          throw new Error(`Platform switch failed: ${response.status}`)
-        }
-        
-        // Update local user state
-        set({ 
-          user: { 
-            ...user, 
-            platform_context: platform 
-          },
-          isLoading: false
-        })
-        
-      } catch (error) {
-        console.error('❌ Platform switch failed:', error)
-        set({ 
-          error: 'Failed to switch platform. Please try again.',
-          isLoading: false
-        })
-      }
-    },
-    
-    getCurrentPlatform: () => {
-      const { user } = get()
-      return user?.platform_context || derivePrimaryPlatformFromPermissions(user?.permissions || []) || 'epsx'
-    },
-    
-    getAvailablePlatforms: () => {
-      const { user } = get()
-      return deriveAccessiblePlatformsFromPermissions(user?.permissions || [])
-    },
-    
-    canAccessPlatform: (platform: string) => {
-      const { user } = get()
-      if (!user) return false
-      
-      const availablePlatforms = deriveAccessiblePlatformsFromPermissions(user.permissions)
-      return availablePlatforms.includes(platform)
-    },
   } as T))
 }
 
@@ -423,35 +267,7 @@ export function createAdminAuthStore() {
     enableSmartRefresh: false,
   })
 
-  // @ts-ignore - TypeScript has issues with Zustand generic store types
-  return create((set: any, get: any) => ({
-    ...baseStore.getState(),
-    
-    // Admin-specific permission checks
-    isAdmin: () => {
-      return get().can('admin:*:*')
-    },
-    
-    canManageUsers: () => {
-      return get().hasAnyPermission(['admin:users:manage', 'epsx:users:manage'])
-    },
-    
-    canManageSystem: () => {
-      return get().hasAnyPermission(['admin:system:manage', 'admin:*:*'])
-    },
-    
-    canViewAnalytics: () => {
-      return get().hasAnyPermission(['epsx:analytics:view', 'epsx:analytics:*', 'admin:*:*'])
-    },
-    
-    canManagePlatforms: () => {
-      return get().hasAnyPermission(['admin:platforms:manage', 'admin:*:*'])
-    },
-
-    canViewAudit: () => {
-      return get().hasAnyPermission(['admin:audit:read', 'epsx:audit:read', 'admin:*:*'])
-    },
-  })) as AdminAuthState
+  return baseStore
 }
 
 // Frontend store factory with enhanced features
@@ -463,31 +279,6 @@ export function createFrontendAuthStore() {
     enableAutoRefresh: true,
     enableSmartRefresh: true,
     refreshBuffer: 5000,
-  })
-}
-
-// Shared permission checking logic
-function checkStructuredPermission(userPermissions: string[], requiredPermission: string): boolean {
-  // Check exact match
-  if (userPermissions.includes(requiredPermission)) {
-    return true
-  }
-  
-  // Check wildcard permissions
-  return userPermissions.some(p => {
-    if (p.endsWith('*')) {
-      const prefix = p.slice(0, -1)
-      return requiredPermission.startsWith(prefix)
-    }
-    
-    // Check platform-level wildcards (e.g., "epsx:*")
-    const parts = p.split(':')
-    if (parts.length >= 2 && parts[1] === '*') {
-      const checkParts = requiredPermission.split(':')
-      return checkParts[0] === parts[0]
-    }
-    
-    return false
   })
 }
 

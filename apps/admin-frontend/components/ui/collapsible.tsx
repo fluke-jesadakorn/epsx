@@ -133,36 +133,14 @@ interface CollapsibleContentProps {
  */
 export function CollapsibleContent({ children, className }: CollapsibleContentProps) {
   const { open } = useCollapsible()
-  const [isVisible, setIsVisible] = React.useState(open)
-  const contentRef = React.useRef<HTMLDivElement>(null)
-
-  React.useEffect(() => {
-    if (open) {
-      setIsVisible(true)
-    } else {
-      // Add a small delay to allow for closing animations
-      const timer = setTimeout(() => setIsVisible(false), 150)
-      return () => clearTimeout(timer)
-    }
-  }, [open])
-
-  if (!isVisible) {
+  if (!open) {
     return null
   }
 
   return (
     <div
-      ref={contentRef}
-      className={cn(
-        'overflow-hidden transition-all duration-200 ease-in-out',
-        open ? 'animate-in slide-in-from-top-2' : 'animate-out slide-out-to-top-2',
-        className
-      )}
+      className={cn('overflow-hidden', className)}
       data-state={open ? 'open' : 'closed'}
-      style={{
-        height: open ? 'auto' : 0,
-        opacity: open ? 1 : 0
-      }}
     >
       {children}
     </div>

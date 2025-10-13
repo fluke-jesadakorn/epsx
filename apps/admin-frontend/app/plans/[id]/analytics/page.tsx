@@ -6,7 +6,7 @@ import { PancakeCard } from '@/components/ui/PancakeCard'
 import { toast } from '@/hooks/use-toast'
 import { createPlansClient, type PlanAnalyticsResponse, isApiSuccess } from '@/shared/api/plans'
 import { createAdminApiClient } from '@/shared/utils/api-client'
-import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider'
+import { useSharedAuth } from '@/shared/components/auth/Provider'
 
 export default function PlanAnalyticsPage() {
   const router = useRouter()

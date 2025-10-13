@@ -48,9 +48,16 @@ function initializeTheme() {
 
     const { defaultTheme, storageKey } = JSON.parse(config);
     
-    // Get theme from localStorage with validation
+    // Get theme from cookies first, then fallback to localStorage (migration)
     let theme: SafeTheme = defaultTheme;
-    const storedTheme = localStorage.getItem(storageKey);
+    const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+      const [key, value] = cookie.trim().split('=');
+      if (key && value) acc[key] = value;
+      return acc;
+    }, {} as Record<string, string>);
+    
+    const cookieTheme = cookies.theme;
+    const storedTheme = cookieTheme || localStorage.getItem(storageKey); // Fallback to localStorage for migration
     
     if (storedTheme && isSafeTheme(storedTheme)) {
       theme = storedTheme;
@@ -65,8 +72,8 @@ function initializeTheme() {
     root.classList.remove('light', 'dark');
     root.classList.add(theme);
     
-    // Store for future use
-    localStorage.setItem(storageKey, theme);
+    // Store in cookie for future use
+    document.cookie = `theme=${theme}; path=/; max-age=31536000; SameSite=lax`;
     
   } catch (_error) {
     // eslint-disable-next-line no-console
@@ -84,7 +91,18 @@ export function getThemeBlockingScript(): string {
   return `
     (function() {
       try {
-        var theme = localStorage.getItem('theme');
+        // Try to get theme from cookies first, then fallback to localStorage
+        var cookies = {};
+        if (document.cookie) {
+          var cookiePairs = document.cookie.split(';');
+          for (var i = 0; i < cookiePairs.length; i++) {
+            var name = cookiePairs[i].trim().split('=')[0];
+            var value = cookiePairs[i].trim().split('=')[1];
+            if (name && value) cookies[name] = value;
+          }
+        }
+        
+        var theme = cookies.theme || localStorage.getItem('theme');
         var validThemes = ['light', 'dark'];
         
         if (!theme || validThemes.indexOf(theme) === -1) {

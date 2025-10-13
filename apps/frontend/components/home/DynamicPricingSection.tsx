@@ -58,13 +58,19 @@ const DynamicPricingSection = () => {
     const refCode = searchParams.get('ref') || searchParams.get('affiliate') || searchParams.get('aff');
     if (refCode) {
       setAffiliateCode(refCode);
-      // Store in localStorage for persistence
-      localStorage.setItem('affiliateCode', refCode);
+      // Store in cookie for persistence
+      document.cookie = `affiliate_code=${encodeURIComponent(refCode)}; path=/; max-age=2592000; SameSite=lax`; // 30 days
     } else {
-      // Check localStorage for existing affiliate code
-      const storedCode = localStorage.getItem('affiliateCode');
+      // Check cookies for existing affiliate code, fallback to localStorage for migration
+      const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+        const [key, value] = cookie.trim().split('=');
+        if (key && value) acc[key] = value;
+        return acc;
+      }, {} as Record<string, string>);
+      
+      const storedCode = cookies.affiliate_code || localStorage.getItem('affiliateCode');
       if (storedCode) {
-        setAffiliateCode(storedCode);
+        setAffiliateCode(decodeURIComponent(storedCode));
       }
     }
   }, [searchParams]);

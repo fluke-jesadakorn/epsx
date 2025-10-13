@@ -1,8 +1,8 @@
 'use client';
 
-// Legacy ServerAuthProvider import removed - using multi-provider authentication
+// Pure client-side layout with Web3 authentication
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { NavigationWithAuth } from '@/components/nav';
+import { NavigationClient } from '@/components/nav';
 import { StateProvider } from '@/components/state/StateProvider';
 import { ToastProvider } from '@/components/ui/toaster';
 import { useLoadingState, useUI } from '@/context/ui-context';
@@ -115,7 +115,7 @@ function InnerLayout({
         />
       </div>
 
-      <NavigationWithAuth />
+      <NavigationClient />
       <main className="relative z-10">{children}</main>
     </div>
   );

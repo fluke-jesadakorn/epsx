@@ -4,20 +4,22 @@
 use std::sync::Arc;
 use sqlx::PgPool;
 use crate::infrastructure::cache::Cache;
+use crate::infrastructure::redis::RedisPool;
+use crate::web::notifications::RedisNotificationBroadcaster;
 use crate::infrastructure::adapters::repositories::{
     wallet_user_repository_adapter::WalletUserRepositoryAdapter,
     session_repository_adapter::SessionRepositoryAdapter,
 };
 use crate::infrastructure::adapters::services::{
-    web3_permission_service_adapter::{Web3PermissionServiceAdapter, BlockchainConfig},
+    permission_adapter::{Web3PermissionServiceAdapter, BlockchainConfig},
 };
 use crate::domain::wallet_management::{
     WalletPermissionService,
     WalletUserRepositoryPort,
     WalletUserAnalyticsPort,
 };
-use crate::auth::unified_web3_auth_service::UnifiedWeb3AuthService;
-use crate::auth::openid_token_service::OpenIDTokenService;
+use crate::auth::auth_service::UnifiedWeb3AuthService;
+use crate::auth::token_service::OpenIDTokenService;
 use crate::auth::key_manager::KeyManager;
 use crate::infrastructure::cqrs::{EventStore, PostgresEventStore, TransactionalOutbox};
 
@@ -32,9 +34,13 @@ pub struct SimpleContainer {
     pub session_repository: Option<Arc<SessionRepositoryAdapter>>,
     pub wallet_permission_service: Option<Arc<WalletPermissionService>>,
     pub web3_permission_adapter: Option<Arc<Web3PermissionServiceAdapter>>,
-    pub unified_web3_auth_service: Option<Arc<UnifiedWeb3AuthService>>,
-    pub openid_token_service: Option<Arc<OpenIDTokenService>>,
+    pub auth_service: Option<Arc<UnifiedWeb3AuthService>>,
+    pub token_service: Option<Arc<OpenIDTokenService>>,
     pub event_bus: Option<Arc<dyn crate::domain::DomainEventBus>>,
+
+    // Redis infrastructure for real-time notifications
+    pub redis_pool: Option<Arc<RedisPool>>,
+    pub redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
 
     // CQRS Infrastructure (Event Sourcing)
     pub event_store: Option<Arc<dyn EventStore>>,
@@ -57,9 +63,12 @@ impl SimpleContainer {
             session_repository: None,
             wallet_permission_service: None,
             web3_permission_adapter: None,
-            unified_web3_auth_service: None,
-            openid_token_service: None,
+            auth_service: None,
+            token_service: None,
             event_bus: None,
+            // Redis
+            redis_pool: None,
+            redis_broadcaster: None,
             // CQRS
             event_store: None,
             transactional_outbox: None,
@@ -104,7 +113,7 @@ impl SimpleContainer {
     }
     
     /// Create container with Web3 services properly wired
-    pub fn new_with_web3_services(
+    pub async fn new_with_web3_services(
         db_pool: Arc<PgPool>,
         cache: Option<Arc<dyn Cache>>,
         blockchain_config: Option<BlockchainConfig>,
@@ -125,7 +134,7 @@ impl SimpleContainer {
 
         // Create unified auth service with environment-based domain
         let domain = Self::get_web3_domain();
-        let unified_web3_auth_service = Arc::new(UnifiedWeb3AuthService::new(
+        let auth_service = Arc::new(UnifiedWeb3AuthService::new(
             (*db_pool).clone(),
             domain,
         ));
@@ -133,7 +142,7 @@ impl SimpleContainer {
         // Create OpenID token service with RSA key manager
         let key_manager = KeyManager::from_env_or_generate()
             .expect("Failed to initialize RSA key manager");
-        let openid_token_service = Arc::new(OpenIDTokenService::new(
+        let token_service = Arc::new(OpenIDTokenService::new(
             (*db_pool).clone(),
             "https://api.epsx.io".to_string(), // issuer
             vec!["epsx-frontend".to_string(), "epsx-admin".to_string()], // audiences
@@ -171,7 +180,7 @@ impl SimpleContainer {
         // Create ProjectionManager with WalletReadModelProjection
         let projection_manager = match crate::infrastructure::ProjectionManager::new(
             Arc::clone(&db_pool),
-            redis_url,
+            redis_url.clone(),
             "domain_events".to_string(),
         ) {
             Ok(manager) => {
@@ -187,6 +196,28 @@ impl SimpleContainer {
             }
         };
 
+        // Create Redis pool and notification broadcaster
+        let (redis_pool, redis_broadcaster) = match redis_url {
+            Some(url) => {
+                match RedisPool::new(&url).await {
+                    Ok(pool) => {
+                        let pool_arc = Arc::new(pool);
+                        let broadcaster = Arc::new(RedisNotificationBroadcaster::new(Arc::clone(&pool_arc)));
+                        tracing::info!("✅ Redis notification system initialized");
+                        (Some(pool_arc), Some(broadcaster))
+                    }
+                    Err(e) => {
+                        tracing::warn!("⚠️ Failed to create Redis pool: {} (notifications will not work)", e);
+                        (None, None)
+                    }
+                }
+            }
+            None => {
+                tracing::warn!("⚠️ No REDIS_URL configured - notifications will not work");
+                (None, None)
+            }
+        };
+
         Self {
             db_pool,
             cache,
@@ -195,9 +226,12 @@ impl SimpleContainer {
             session_repository: Some(session_repository),
             wallet_permission_service: Some(wallet_permission_service),
             web3_permission_adapter: Some(web3_permission_adapter),
-            unified_web3_auth_service: Some(unified_web3_auth_service),
-            openid_token_service: Some(openid_token_service),
+            auth_service: Some(auth_service),
+            token_service: Some(token_service),
             event_bus: Some(event_bus),
+            // Redis notifications
+            redis_pool,
+            redis_broadcaster,
             // CQRS
             event_store: Some(event_store),
             transactional_outbox: Some(transactional_outbox),
@@ -218,13 +252,18 @@ impl SimpleContainer {
             session_repository: None,
             wallet_permission_service: None,
             web3_permission_adapter: None,
-            unified_web3_auth_service: None,
-            openid_token_service: None,
+            auth_service: None,
+            token_service: None,
             event_bus: None,
+            // Redis
+            redis_pool: None,
+            redis_broadcaster: None,
+            // CQRS
             event_store: None,
             transactional_outbox: None,
             event_dispatcher: None,
             projection_manager: None,
+            // Compatibility
             permission_service: None,
             auth_trigger_service: None,
         }
@@ -273,14 +312,21 @@ impl SimpleContainer {
         self.web3_permission_adapter.as_ref().map(Arc::clone)
     }
 
-    pub fn get_unified_web3_auth_service(&self) -> Option<Arc<UnifiedWeb3AuthService>> {
-        self.unified_web3_auth_service.as_ref().map(Arc::clone)
+    pub fn get_auth_service(&self) -> Option<Arc<UnifiedWeb3AuthService>> {
+        self.auth_service.as_ref().map(Arc::clone)
     }
 
-    pub fn get_openid_token_service(&self) -> Option<Arc<OpenIDTokenService>> {
-        self.openid_token_service.as_ref().map(Arc::clone)
+    pub fn get_token_service(&self) -> Option<Arc<OpenIDTokenService>> {
+        self.token_service.as_ref().map(Arc::clone)
     }
-    
+
+    pub fn get_redis_pool(&self) -> Option<Arc<RedisPool>> {
+        self.redis_pool.as_ref().map(Arc::clone)
+    }
+
+    pub fn get_redis_broadcaster(&self) -> Option<Arc<RedisNotificationBroadcaster>> {
+        self.redis_broadcaster.as_ref().map(Arc::clone)
+    }
 
     // Enhanced app state creation with Web3 services
     pub fn create_app_state(&self) -> Web3AppState {
@@ -289,7 +335,7 @@ impl SimpleContainer {
             wallet_user_analytics: self.get_wallet_user_analytics_port(),
             wallet_permission_service: self.get_wallet_permission_service(),
             web3_permission_adapter: self.get_web3_permission_adapter(),
-            unified_web3_auth_service: self.get_unified_web3_auth_service(),
+            auth_service: self.get_auth_service(),
             db_pool: Arc::clone(&self.db_pool),
             cache: self.cache.as_ref().map(Arc::clone),
         }
@@ -341,11 +387,11 @@ impl SimpleContainer {
             errors.push("Web3PermissionServiceAdapter not configured".to_string());
         }
         
-        if self.unified_web3_auth_service.is_none() {
+        if self.auth_service.is_none() {
             errors.push("UnifiedWeb3AuthService not configured".to_string());
         }
         
-        if self.openid_token_service.is_none() {
+        if self.token_service.is_none() {
             errors.push("OpenIDTokenService not configured".to_string());
         }
         
@@ -360,7 +406,7 @@ pub struct Web3AppState {
     pub wallet_user_analytics: Option<Arc<dyn WalletUserAnalyticsPort>>,
     pub wallet_permission_service: Option<Arc<WalletPermissionService>>,
     pub web3_permission_adapter: Option<Arc<Web3PermissionServiceAdapter>>,
-    pub unified_web3_auth_service: Option<Arc<UnifiedWeb3AuthService>>,
+    pub auth_service: Option<Arc<UnifiedWeb3AuthService>>,
     pub db_pool: Arc<PgPool>,
     pub cache: Option<Arc<dyn Cache>>,
 }
@@ -382,7 +428,7 @@ impl Web3AppState {
             errors.push("Web3PermissionServiceAdapter is required".to_string());
         }
         
-        if self.unified_web3_auth_service.is_none() {
+        if self.auth_service.is_none() {
             errors.push("UnifiedWeb3AuthService is required".to_string());
         }
         
@@ -404,7 +450,7 @@ impl Web3AppState {
                 .expect("WalletPermissionService not configured")),
             web3_permission_adapter: Arc::clone(self.web3_permission_adapter.as_ref()
                 .expect("Web3PermissionServiceAdapter not configured")),
-            unified_web3_auth_service: Arc::clone(self.unified_web3_auth_service.as_ref()
+            auth_service: Arc::clone(self.auth_service.as_ref()
                 .expect("UnifiedWeb3AuthService not configured")),
         }
     }
@@ -417,7 +463,7 @@ pub struct Web3Services {
     pub wallet_user_analytics: Arc<dyn WalletUserAnalyticsPort>,
     pub wallet_permission_service: Arc<WalletPermissionService>,
     pub web3_permission_adapter: Arc<Web3PermissionServiceAdapter>,
-    pub unified_web3_auth_service: Arc<UnifiedWeb3AuthService>,
+    pub auth_service: Arc<UnifiedWeb3AuthService>,
 }
 
 /// Health status for the container and its services

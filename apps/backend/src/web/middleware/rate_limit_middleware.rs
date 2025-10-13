@@ -10,7 +10,7 @@ use tokio::sync::RwLock;
 use chrono::{ DateTime, Utc, Duration };
 use tracing::{ debug, warn };
 use crate::infrastructure::container::DomainContainer;
-use crate::infrastructure::adapters::services::web3_permission_service_adapter::Web3PermissionServiceAdapter;
+use crate::infrastructure::adapters::services::permission_adapter::Web3PermissionServiceAdapter;
 
 /// Rate limit tier based on token holdings
 #[derive(Debug, Clone, PartialEq)]

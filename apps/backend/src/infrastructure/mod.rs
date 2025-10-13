@@ -11,10 +11,12 @@ pub mod security;
 pub mod config;
 pub mod database;
 pub mod cqrs; // NEW: Event sourcing and CQRS infrastructure
+pub mod repositories; // NEW: DDD repositories
+pub mod redis; // Redis connection pool for notification pub/sub
 
 // Re-export infrastructure components with explicit imports to avoid conflicts
 pub use adapters::{
-    repositories, services
+    repositories as adapter_repositories, services
 };
 
 // Re-export commonly needed services for backward compatibility

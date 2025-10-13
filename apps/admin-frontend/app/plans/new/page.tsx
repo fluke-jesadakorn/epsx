@@ -7,7 +7,7 @@ import { toast } from '@/hooks/use-toast'
 import { createPlansClient, isApiSuccess } from '@/shared/api/plans'
 import { createAdminApiClient } from '@/shared/utils/api-client'
 import { PermissionTemplateName, PERMISSION_TEMPLATE_CONFIGS } from '@/types/permission-templates'
-import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider'
+import { useSharedAuth } from '@/shared/components/auth/Provider'
 
 interface CreatePermissionTemplateRequest {
   name: string

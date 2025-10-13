@@ -1,6 +1,5 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
 import { ReactNode } from 'react';
 
 import { Breadcrumb } from './Breadcrumb';
@@ -19,8 +18,6 @@ interface MainLayoutProps {
   user?: User;
 }
 
-const NO_SIDEBAR_PATHS = ['/permissions/policies'];
-
 /**
  *
  * @param root0
@@ -28,15 +25,6 @@ const NO_SIDEBAR_PATHS = ['/permissions/policies'];
  * @param root0.user
  */
 export function MainLayout({ children, user }: MainLayoutProps) {
-  const pathname = usePathname();
-  const hideLayout = NO_SIDEBAR_PATHS.some(
-    path => pathname === path || pathname.startsWith(path)
-  );
-
-  if (hideLayout) {
-    return <>{children}</>;
-  }
-
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Sidebar Navigation */}

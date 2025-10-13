@@ -56,12 +56,12 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
           
           setAffiliateInfo(mockAffiliateInfo);
           
-          // Store in localStorage for persistence
-          localStorage.setItem('affiliateAttribution', JSON.stringify({
+          // Store in cookies for persistence
+          document.cookie = `affiliate_attribution=${encodeURIComponent(JSON.stringify({
             code,
             timestamp: Date.now(),
             info: mockAffiliateInfo
-          }));
+          }))}; path=/; max-age=2592000; SameSite=lax`; // 30 days
 
           // Load affiliate stats
           loadAffiliateStats(code);
@@ -94,8 +94,14 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
         return;
       }
 
-      // Check localStorage for existing attribution
-      const storedAttribution = localStorage.getItem('affiliateAttribution');
+      // Check cookies for existing attribution, fallback to localStorage for migration
+      const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+        const [key, value] = cookie.trim().split('=');
+        if (key && value) acc[key] = value;
+        return acc;
+      }, {} as Record<string, string>);
+      
+      const storedAttribution = cookies.affiliate_attribution || localStorage.getItem('affiliateAttribution');
       if (storedAttribution) {
         try {
           const attribution = JSON.parse(storedAttribution);
@@ -109,6 +115,8 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
           }
         } catch (error) {
           console.error('Error parsing stored affiliate attribution:', error);
+          // Remove from both cookie and localStorage
+          document.cookie = 'affiliate_attribution=; max-age=0; path=/; SameSite=lax';
           localStorage.removeItem('affiliateAttribution');
         }
       }

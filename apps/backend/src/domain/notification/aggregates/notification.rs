@@ -172,6 +172,41 @@ impl Notification {
         Ok(notification)
     }
 
+    /// Reconstruct notification aggregate from persistence
+    /// Used by repository to hydrate domain models from database
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_persistence(
+        id: NotificationId,
+        recipient_wallet_id: Option<Uuid>,
+        topic: Option<NotificationTopic>,
+        content: NotificationContent,
+        notification_type: NotificationType,
+        priority: NotificationPriority,
+        channels: MultiChannelConfig,
+        schedule: ScheduleInfo,
+        metadata: NotificationMetadata,
+        delivery_tracking: DeliveryTracking,
+        status: NotificationStatus,
+        version: u64,
+        created_at: DateTime<Utc>,
+        updated_at: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            id,
+            recipientwallet_address: recipient_wallet_id,
+            topic,
+            content,
+            notification_type,
+            priority,
+            channels,
+            schedule,
+            metadata,
+            delivery_tracking,
+            status,
+            base: AggregateBase::from_persistence(version, created_at, updated_at),
+        }
+    }
+
     /// Schedule the notification for delivery
     pub fn schedule_for_delivery(&mut self) -> Result<(), String> {
         if self.status != NotificationStatus::Created {
@@ -410,6 +445,11 @@ impl Notification {
     pub fn metadata_mut(&mut self) -> &mut NotificationMetadata { &mut self.metadata }
     pub fn delivery_tracking(&self) -> &DeliveryTracking { &self.delivery_tracking }
     pub fn status(&self) -> &NotificationStatus { &self.status }
+
+    // Aggregate base getters (convenience methods)
+    pub fn version(&self) -> u64 { self.base.version }
+    pub fn created_at(&self) -> DateTime<Utc> { self.base.created_at }
+    pub fn updated_at(&self) -> DateTime<Utc> { self.base.updated_at }
 }
 
 impl AggregateRoot for Notification {

@@ -99,13 +99,20 @@ export function useDebounce<T>(value: T, delay: number): T {
   return debouncedValue;
 }
 
-// Local storage hook
-export function useLocalStorage<T>(key: string, initialValue: T) {
+// Cookie storage hook (replaces localStorage)
+export function useCookieStorage<T>(key: string, initialValue: T, maxAge?: number) {
   const [storedValue, setStoredValue] = useState<T>(() => {
     if (typeof window === 'undefined') return initialValue;
     
     try {
-      const item = window.localStorage.getItem(key);
+      // Try cookie first, then fallback to localStorage for migration
+      const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+        const [k, v] = cookie.trim().split('=');
+        if (k && v) acc[k] = v;
+        return acc;
+      }, {} as Record<string, string>);
+      
+      const item = cookies[key] || window.localStorage.getItem(key);
       return item ? JSON.parse(item) : initialValue;
     } catch (_error) {
       return initialValue;
@@ -117,14 +124,22 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
       const valueToStore = value instanceof Function ? value(storedValue) : value;
       setStoredValue(valueToStore);
       if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, JSON.stringify(valueToStore));
+        // Store in cookie instead of localStorage
+        const maxAgeStr = maxAge ? `max-age=${maxAge}` : '';
+        document.cookie = `${key}=${encodeURIComponent(JSON.stringify(valueToStore))}; path=/; ${maxAgeStr} SameSite=lax`;
       }
     } catch (error) {
-      console.error(`Error setting localStorage key "${key}":`, error);
+      console.error(`Error setting cookie key "${key}":`, error);
     }
   };
 
   return [storedValue, setValue] as const;
+}
+
+// Deprecated localStorage hook (for migration only - useCookieStorage instead)
+export function useLocalStorage<T>(key: string, initialValue: T) {
+  console.warn(`useLocalStorage is deprecated. Migration to useCookieStorage recommended for key: ${key}`);
+  return useCookieStorage(key, initialValue);
 }
 
 // Media query hook
