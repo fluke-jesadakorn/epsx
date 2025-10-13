@@ -128,14 +128,3 @@ export {
   ProfessionalNotification,
   ProfessionalAlert
 } from './UnifiedNotification';
-
-// Additional specialized components
-export { WindowsPhoneTile } from './WindowsPhoneTile';
-export { 
-  ProfessionalTile, 
-  ProfessionalDashboard,
-  AnalyticsTile,
-  PremiumTile,
-  ProfessionalStatsTile,
-  ProfessionalActionTile
-} from './ProfessionalTile';

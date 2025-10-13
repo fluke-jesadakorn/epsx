@@ -327,6 +327,8 @@ pub async fn list_plans_handler(
 
     // Convert database plans to admin format (with additional fields for admin UI)
     let plans: Vec<serde_json::Value> = db_plans.into_iter().map(|plan| {
+        use crate::domain::subscription_management::Promotion;
+
         // Extract permissions array from JSONB
         let permissions = plan.permissions.as_array()
             .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
@@ -346,6 +348,24 @@ pub async fn list_plans_handler(
             .map(|p| p.to_string())
             .unwrap_or_else(|| "0.00".to_string());
 
+        let base_price = price_str.parse::<f64>().unwrap_or(0.0);
+
+        // Extract and process promotion
+        let promotion_data = plan.group_metadata.get("promotion");
+        let (effective_price, promotion_active, promotion_status, promotion_discount) = if let Some(promo_value) = promotion_data {
+            if let Ok(promo) = serde_json::from_value::<Promotion>(promo_value.clone()) {
+                let effective = promo.calculate_effective_price(base_price);
+                let active = promo.is_active();
+                let status = promo.get_status();
+                let discount = promo.get_discount_percentage(base_price);
+                (effective, active, status, discount)
+            } else {
+                (base_price, false, crate::domain::subscription_management::PromotionStatus::Disabled, 0.0)
+            }
+        } else {
+            (base_price, false, crate::domain::subscription_management::PromotionStatus::Disabled, 0.0)
+        };
+
         // Map group type to plan_category
         let plan_category = match group_type.as_str() {
             "Enterprise Access Group" => "enterprise",
@@ -362,6 +382,10 @@ pub async fn list_plans_handler(
             "plan_type": group_type.clone(),
             "plan_category": plan_category,
             "current_price": price_str,
+            "effective_price": effective_price,
+            "promotion_active": promotion_active,
+            "promotion_status": format!("{:?}", promotion_status).to_lowercase(),
+            "promotion_discount": promotion_discount,
             "currency": plan.currency.unwrap_or_else(|| "USD".to_string()),
             "target_audience": target_audience,
             "billing_model": plan.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
@@ -391,7 +415,9 @@ pub async fn list_plans_handler(
 pub async fn get_plan_handler(
     State(app_state): State<AppState>,
     Path(plan_id_str): Path<String>,
-) -> Result<JsonResponse<PlanResponse>, StatusCode> {
+) -> Result<JsonResponse<serde_json::Value>, StatusCode> {
+    use crate::domain::subscription_management::Promotion;
+
     // Parse plan ID as UUID (new format) or handle legacy integer IDs
     let plan_uuid = match Uuid::parse_str(&plan_id_str) {
         Ok(uuid) => uuid,
@@ -405,7 +431,7 @@ pub async fn get_plan_handler(
                     return Err(StatusCode::INTERNAL_SERVER_ERROR);
                 }
             };
-            
+
             if let Some(plan) = db_plans.first() {
                 plan.id
             } else {
@@ -413,7 +439,7 @@ pub async fn get_plan_handler(
             }
         }
     };
-    
+
     // Get plan from database
     let plan = match app_state.permission_group_repo.get_plan_by_id(plan_uuid).await {
         Ok(Some(plan)) => plan,
@@ -423,15 +449,15 @@ pub async fn get_plan_handler(
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
     };
-    
+
     // Extract permissions array from JSONB
     let permissions = plan.permissions.as_array()
         .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
         .unwrap_or_else(Vec::new);
-    
+
     // Generate group type from permissions
     let group_type = derive_group_from_permissions(&permissions);
-    
+
     // Extract metadata values
     let target_audience = plan.group_metadata.get("target_audience")
         .and_then(|v| v.as_str())
@@ -442,25 +468,47 @@ pub async fn get_plan_handler(
     let price_decimal = plan.price.as_ref()
         .map(|p| rust_decimal::Decimal::from_str(&p.to_string()).unwrap_or(rust_decimal::Decimal::ZERO))
         .unwrap_or_else(|| rust_decimal::Decimal::ZERO);
-    
-    let plan_response = PlanResponse {
-        id: 0, // Legacy field - could be removed or mapped differently
-        name: plan.name.clone(),
-        description: Some(plan.description),
-        permission_group_name: plan.name, // Use plan name as group name
-        current_price: price_decimal,
-        currency: plan.currency.unwrap_or_else(|| "USD".to_string()),
-        target_audience,
-        billing_model: plan.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
-        group_type,
-        is_active: plan.is_active.unwrap_or(true),
-        permissions,
-        metadata: Some(plan.group_metadata),
-        created_at: plan.created_at,
-        updated_at: Some(plan.updated_at),
-        subscriber_count: 0,
-        revenue_last_30_days: Decimal::ZERO,
+
+    let base_price = price_decimal.to_string().parse::<f64>().unwrap_or(0.0);
+
+    // Extract and process promotion
+    let promotion_data = plan.group_metadata.get("promotion");
+    let (effective_price, promotion_active, promotion_status, promotion_discount) = if let Some(promo_value) = promotion_data {
+        if let Ok(promo) = serde_json::from_value::<Promotion>(promo_value.clone()) {
+            let effective = promo.calculate_effective_price(base_price);
+            let active = promo.is_active();
+            let status = promo.get_status();
+            let discount = promo.get_discount_percentage(base_price);
+            (effective, active, status, discount)
+        } else {
+            (base_price, false, crate::domain::subscription_management::PromotionStatus::Disabled, 0.0)
+        }
+    } else {
+        (base_price, false, crate::domain::subscription_management::PromotionStatus::Disabled, 0.0)
     };
+
+    let plan_response = serde_json::json!({
+        "id": 0,
+        "name": plan.name.clone(),
+        "description": plan.description,
+        "permission_group_name": plan.name,
+        "current_price": price_decimal.to_string(),
+        "effective_price": effective_price,
+        "promotion_active": promotion_active,
+        "promotion_status": format!("{:?}", promotion_status).to_lowercase(),
+        "promotion_discount": promotion_discount,
+        "currency": plan.currency.unwrap_or_else(|| "USD".to_string()),
+        "target_audience": target_audience,
+        "billing_model": plan.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
+        "group_type": group_type,
+        "is_active": plan.is_active.unwrap_or(true),
+        "permissions": permissions,
+        "metadata": plan.group_metadata,
+        "created_at": plan.created_at.to_rfc3339(),
+        "updated_at": plan.updated_at.to_rfc3339(),
+        "subscriber_count": 0,
+        "revenue_last_30_days": "0.00",
+    });
 
     Ok(JsonResponse(plan_response))
 }

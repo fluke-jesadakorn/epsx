@@ -111,7 +111,7 @@ impl UnifiedRouteBuilder {
     // ============================================================================
 
     fn create_auth_routes(&self) -> Router {
-        use crate::web::auth::web3_handlers::{
+        use crate::web::auth::handlers::{
             generate_challenge_handler,
             verify_signature_handler,
             logout_handler,
@@ -128,10 +128,17 @@ impl UnifiedRouteBuilder {
                     as Arc<dyn crate::infrastructure::cache::Cache>
             });
 
+        let redis_pool = self.container.get_redis_pool()
+            .expect("Redis pool not configured - notifications will not work");
+        let redis_broadcaster = self.container.get_redis_broadcaster()
+            .expect("Redis broadcaster not configured - notifications will not work");
+
         let app_state = AppState::new(
             self.container.db_pool(),
             cache,
             self.container.clone(),
+            redis_pool,
+            redis_broadcaster,
         );
 
         Router::new()
@@ -160,10 +167,17 @@ impl UnifiedRouteBuilder {
                     as Arc<dyn crate::infrastructure::cache::Cache>
             });
 
+        let redis_pool = self.container.get_redis_pool()
+            .expect("Redis pool not configured - notifications will not work");
+        let redis_broadcaster = self.container.get_redis_broadcaster()
+            .expect("Redis broadcaster not configured - notifications will not work");
+
         let app_state = crate::web::auth::AppState::new(
             self.container.db_pool(),
             cache,
             Arc::new((*self.container).clone()),
+            redis_pool,
+            redis_broadcaster,
         );
 
         // Create admin routes with permission validation middleware
@@ -224,10 +238,17 @@ impl UnifiedRouteBuilder {
                     as Arc<dyn crate::infrastructure::cache::Cache>
             });
 
+        let redis_pool = self.container.get_redis_pool()
+            .expect("Redis pool not configured - notifications will not work");
+        let redis_broadcaster = self.container.get_redis_broadcaster()
+            .expect("Redis broadcaster not configured - notifications will not work");
+
         let app_state = crate::web::auth::AppState::new(
             self.container.db_pool(),
             cache,
             Arc::new((*self.container).clone()),
+            redis_pool,
+            redis_broadcaster,
         );
 
         // Create TradingView service and EPS ranking service for public analytics
@@ -287,7 +308,9 @@ impl UnifiedRouteBuilder {
         use crate::web::admin::notification_handlers::{
             get_user_notifications_handler,
             mark_notification_read_handler,
+            mark_all_notifications_read_handler,
             delete_notification_handler,
+            clear_all_notifications_handler,
             get_unread_count_handler,
         };
 
@@ -297,23 +320,61 @@ impl UnifiedRouteBuilder {
                     as Arc<dyn crate::infrastructure::cache::Cache>
             });
 
+        let redis_pool = self.container.get_redis_pool()
+            .expect("Redis pool not configured - notifications will not work");
+        let redis_broadcaster = self.container.get_redis_broadcaster()
+            .expect("Redis broadcaster not configured - notifications will not work");
+
         let app_state = crate::web::auth::AppState::new(
             self.container.db_pool(),
             cache,
             Arc::new((*self.container).clone()),
+            redis_pool,
+            redis_broadcaster,
         );
 
-        Router::new()
-            // SSE real-time stream
+        // Create SSE route with permissive CORS (EventSource cannot send credentials)
+        let sse_route = Router::new()
             .route("/stream", get(crate::web::notifications::sse_notifications_handler))
+            .layer(Self::create_sse_cors_layer())
+            .with_state(app_state.clone());
 
-            // User notification management (authenticated)
+        // Other notification routes with normal auth
+        let notification_routes = Router::new()
             .route("/", get(get_user_notifications_handler))
             .route("/unread-count", get(get_unread_count_handler))
+            .route("/mark-all-read", put(mark_all_notifications_read_handler))
+            .route("/clear-all", delete(clear_all_notifications_handler))
             .route("/:id/read", put(mark_notification_read_handler))
             .route("/:id", delete(delete_notification_handler))
+            .with_state(app_state);
 
-            .with_state(app_state)
+        // Merge SSE and notification routes
+        sse_route.merge(notification_routes)
+    }
+
+    // Create permissive CORS for EventSource connections
+    fn create_sse_cors_layer() -> CorsLayer {
+        use tower_http::cors::Any;
+        use axum::http::HeaderName;
+        use std::time::Duration;
+
+        // EventSource cannot send custom headers or credentials
+        // Use permissive CORS without credentials
+        CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods([Method::GET, Method::OPTIONS])
+            .allow_headers([
+                HeaderName::from_static("accept"),
+                HeaderName::from_static("cache-control"),
+                HeaderName::from_static("content-type"),
+            ])
+            .expose_headers([
+                HeaderName::from_static("content-type"),
+                HeaderName::from_static("cache-control"),
+            ])
+            .allow_credentials(false)
+            .max_age(Duration::from_secs(3600))
     }
 
     // ============================================================================
@@ -327,10 +388,17 @@ impl UnifiedRouteBuilder {
                     as Arc<dyn crate::infrastructure::cache::Cache>
             });
 
+        let redis_pool = self.container.get_redis_pool()
+            .expect("Redis pool not configured - notifications will not work");
+        let redis_broadcaster = self.container.get_redis_broadcaster()
+            .expect("Redis broadcaster not configured - notifications will not work");
+
         let app_state = crate::web::auth::AppState::new(
             self.container.db_pool(),
             cache,
             Arc::new((*self.container).clone()),
+            redis_pool,
+            redis_broadcaster,
         );
 
         crate::web::admin::routes::create_permission_authority_routes()
@@ -373,6 +441,8 @@ impl UnifiedRouteBuilder {
                     HeaderName::from_static("x-request-id"),
                     HeaderName::from_static("x-client-version"),
                     HeaderName::from_static("x-admin-session"),
+                    HeaderName::from_static("x-access-level"),
+                    HeaderName::from_static("x-admin-context"),
                     HeaderName::from_static("rsc"),
                     HeaderName::from_static("next-router-prefetch"),
                     HeaderName::from_static("next-router-state-tree"),
@@ -423,6 +493,8 @@ impl UnifiedRouteBuilder {
                     HeaderName::from_static("x-request-id"),
                     HeaderName::from_static("x-client-version"),
                     HeaderName::from_static("x-admin-session"),
+                    HeaderName::from_static("x-access-level"),
+                    HeaderName::from_static("x-admin-context"),
                     HeaderName::from_static("rsc"),
                     HeaderName::from_static("next-router-prefetch"),
                     HeaderName::from_static("next-router-state-tree"),

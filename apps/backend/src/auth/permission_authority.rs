@@ -11,7 +11,8 @@ use tokio::sync::RwLock;
 use tracing::{debug, info, warn};
 use uuid::Uuid;
 
-use crate::auth::unified_web3_permission_service::UnifiedWeb3PermissionService;
+use crate::auth::unified_permission_service::UnifiedPermissionService;
+use crate::infrastructure::cache::unified_permission_cache::UnifiedPermissionCache;
 
 // ============================================================================
 // CORE TRAITS FOR REUSABLE PERMISSION VALIDATION
@@ -220,7 +221,7 @@ impl CachedRouteEntry {
 #[allow(dead_code)]
 pub struct CentralizedPermissionAuthority {
     db_pool: PgPool,
-    web3_permission_service: UnifiedWeb3PermissionService,
+    web3_permission_service: UnifiedPermissionService,
     cache_config: CacheConfig,
     
     // In-memory caches with RwLock for performance
@@ -247,7 +248,14 @@ impl CentralizedPermissionAuthority {
         cache_config: Option<CacheConfig>,
     ) -> Self {
         let config = cache_config.unwrap_or_default();
-        let web3_permission_service = UnifiedWeb3PermissionService::new(db_pool.clone());
+
+        // Create minimal Redis cache for deprecated CentralizedPermissionAuthority
+        // Default to localhost Redis, failures are handled gracefully by UnifiedPermissionCache
+        let redis_client = redis::Client::open("redis://localhost:6379")
+            .unwrap_or_else(|_| redis::Client::open("redis://127.0.0.1:6379").unwrap());
+        let cache = Arc::new(UnifiedPermissionCache::new(Arc::new(redis_client)));
+
+        let web3_permission_service = UnifiedPermissionService::new(db_pool.clone(), cache);
 
         Self {
             db_pool,
@@ -354,14 +362,30 @@ impl CentralizedPermissionAuthority {
         // Convert to our Permission format
         let permissions = permission_infos
             .into_iter()
-            .map(|info| Permission {
-                name: info.permission,
-                permission_type: info.permission_type,
-                is_active: info.is_active,
-                expires_at: info.expires_at,
-                granted_at: info.granted_at,
-                source: PermissionSource::Group("unknown".to_string()), // TODO: Determine actual source
-                metadata: None, // TODO: Add metadata if needed
+            .map(|info| {
+                use crate::auth::unified_permission_service::PermissionSource as UnifiedPermissionSource;
+
+                // Map UnifiedPermissionSource to our PermissionSource enum
+                let source = match info.source_type {
+                    UnifiedPermissionSource::Group => PermissionSource::Group(info.source_name.clone()),
+                    UnifiedPermissionSource::Direct => PermissionSource::Manual(info.source_name.clone()),
+                };
+
+                // Determine if permission is active (not expired and is permanent or has future expiry)
+                let is_active = info.is_permanent || info.expires_at.map_or(true, |exp| exp > Utc::now());
+
+                Permission {
+                    name: info.permission_string,
+                    permission_type: match info.source_type {
+                        UnifiedPermissionSource::Group => "group".to_string(),
+                        UnifiedPermissionSource::Direct => "direct".to_string(),
+                    },
+                    is_active,
+                    expires_at: info.expires_at,
+                    granted_at: info.granted_at,
+                    source,
+                    metadata: None,
+                }
             })
             .collect();
 

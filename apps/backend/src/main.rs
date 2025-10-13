@@ -65,8 +65,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         db_pool,
         cache,
         None, // blockchain_config - will use defaults
-    ));
-    info!("✅ Domain container initialized with Web3 services");
+    ).await);
+    info!("✅ Domain container initialized with Web3 services and Redis notifications");
 
     // Start EventDispatcher (background worker for publishing events to Redis)
     if let Some(dispatcher) = &container.event_dispatcher {

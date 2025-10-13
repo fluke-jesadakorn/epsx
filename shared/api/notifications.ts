@@ -1,12 +1,12 @@
 /**
  * UNIFIED NOTIFICATIONS API CLIENT
- * 
+ *
  * Consolidates all notification-related API calls across EPSX applications.
  * Eliminates proxy routes by providing direct backend communication.
- * 
+ *
  * Features:
  * - User notification management (get, mark read, delete)
- * - Admin notification sending and management  
+ * - Admin notification sending and management
  * - Real-time SSE notifications
  * - Push notification subscriptions
  * - Notification preferences management
@@ -14,6 +14,7 @@
  */
 
 import { UnifiedApiClient, ApiResponse, PaginatedResponse } from '../utils/api-client';
+import { COOKIES } from '../auth/cookies';
 
 // ============================================================================
 // NOTIFICATION TYPES
@@ -36,16 +37,16 @@ export interface Notification {
   image_url?: string;
 }
 
-export type NotificationType = 
-  | 'system' 
-  | 'security' 
-  | 'permission' 
-  | 'user_management' 
-  | 'wallet' 
-  | 'payment' 
+export type NotificationType =
+  | 'system'
+  | 'security'
+  | 'permission'
+  | 'wallet_management'
+  | 'wallet'
+  | 'payment'
   | 'general';
 
-export type NotificationPriority = 'low' | 'normal' | 'high' | 'urgent';
+export type NotificationPriority = 'low' | 'normal' | 'high' | 'critical';
 
 export interface NotificationFilters {
   page?: number;
@@ -298,6 +299,31 @@ export class NotificationsAPIClient {
 
     if (!this.client.isApiSuccess(response)) {
       throw new Error(`Failed to mark all notifications as read: ${response.error}`);
+    }
+
+    return response.data;
+  }
+
+  /**
+   * Acknowledge notification (mark as delivered/received)
+   * Route: PUT /api/notifications/{id}/acknowledge
+   */
+  async acknowledgeNotification(notificationId: string): Promise<{ success: boolean; message: string }> {
+    const response = await this.client.put<{ success: boolean; message: string }>(
+      `/api/notifications/${notificationId}/acknowledge`,
+      {},
+      {
+        headers: {
+          'X-API-Version': 'v1',
+          'X-Access-Level': 'auth',
+        },
+      }
+    );
+
+    if (!this.client.isApiSuccess(response)) {
+      // Don't throw error for acknowledgement failures - just log
+      console.warn(`Failed to acknowledge notification ${notificationId}: ${response.error}`);
+      return { success: false, message: response.error || 'Failed to acknowledge notification' };
     }
 
     return response.data;
@@ -566,18 +592,69 @@ export class NotificationsAPIClient {
     onError?: (error: Event) => void,
     onOpen?: (event: Event) => void
   ): () => void {
+    // Close existing connection if any
+    if (this.sseConnection) {
+      console.log('🔄 Closing existing SSE connection before creating new one');
+      this.sseConnection.close();
+      this.sseConnection = undefined;
+    }
+
+    // Check EventSource support
+    if (typeof EventSource === 'undefined') {
+      const error = 'EventSource not supported in this browser';
+      console.error(error);
+      throw new Error(error);
+    }
+
     // Build SSE URL with parameters
     const params = new URLSearchParams();
     if (options.wallet_address) params.append('wallet_address', options.wallet_address);
     if (options.types) params.append('types', options.types.join(','));
     if (options.priority) params.append('priority', options.priority);
 
-    const sseUrl = `${this.client['baseURL']}/api/notifications/stream?${params.toString()}`;
+    // Get token from cookies (EventSource doesn't support Authorization header)
+    const token = this.getTokenFromCookies();
+    const platform = this.client['platform'] as 'admin' | 'frontend' | undefined;
+
+    if (token) {
+      params.append('wallet_address', token);
+      console.log(`🔑 SSE [${platform}]: User wallet found and added to connection URL: ${token}`);
+    } else {
+      console.warn(`⚠️ SSE [${platform}]: No authenticated user found in cookies, only broadcast notifications will be received`);
+      console.warn(`Available cookies: ${document.cookie ? document.cookie.split(';').map(c => c.trim().split('=')[0]).join(', ') : 'none'}`);
+    }
+
+    // Only append query string if there are parameters
+    const queryString = params.toString();
+    const baseURL = this.client['baseURL'];
+    const sseUrl = `${baseURL}/api/notifications/stream${queryString ? '?' + queryString : ''}`;
+
+    // Comprehensive validation
+    if (!baseURL || typeof baseURL !== 'string') {
+      const error = `Invalid baseURL: "${baseURL}" (type: ${typeof baseURL})`;
+      console.error('❌ SSE Connection Error:', error);
+      throw new Error(error);
+    }
+
+    // Validate URL format
+    try {
+      const urlObj = new URL(sseUrl);
+      console.log('✅ SSE URL validated:', {
+        protocol: urlObj.protocol,
+        host: urlObj.host,
+        pathname: urlObj.pathname,
+        search: urlObj.search,
+        fullURL: sseUrl
+      });
+    } catch (e) {
+      const error = `Invalid SSE URL format: "${sseUrl}"`;
+      console.error('❌ SSE URL validation failed:', error, e);
+      throw new Error(error);
+    }
 
     // Create SSE connection
-    this.sseConnection = new EventSource(sseUrl, {
-      withCredentials: true,
-    });
+    console.log('🔌 Creating EventSource connection to:', sseUrl);
+    this.sseConnection = new EventSource(sseUrl);
 
     // Generate unique listener ID
     const listenerId = Math.random().toString(36).substring(7);
@@ -585,7 +662,7 @@ export class NotificationsAPIClient {
 
     // Handle SSE events
     this.sseConnection.onopen = (event) => {
-      console.log('SSE connection opened');
+      console.log('✅ SSE connection opened');
       if (onOpen) onOpen(event);
     };
 
@@ -593,36 +670,84 @@ export class NotificationsAPIClient {
       try {
         const notification: SSENotification = JSON.parse(event.data);
         onNotification(notification);
+
+        // Auto-acknowledge notification in background
+        this.acknowledgeNotification(notification.id).catch(err => {
+          console.debug(`Background acknowledgement failed for notification ${notification.id}:`, err);
+        });
       } catch (error) {
         console.error('Failed to parse SSE notification:', error);
       }
     };
 
+    // Handle ping events (connection establishment)
+    this.sseConnection.addEventListener('ping', (event) => {
+      console.log('🏓 SSE ping received:', event.data);
+    });
+
     this.sseConnection.onerror = (event) => {
-      console.error('SSE connection error:', event);
-      if (onError) onError(event);
-      
-      // Auto-reconnect if enabled
-      if (options.auto_reconnect !== false) {
-        const interval = options.reconnect_interval || 5000;
-        setTimeout(() => {
-          if (this.sseConnection?.readyState === EventSource.CLOSED) {
-            this.connectToSSE(options, onNotification, onError, onOpen);
-          }
-        }, interval);
+      const currentState = this.sseConnection?.readyState;
+      const stateNames = {
+        0: 'CONNECTING',
+        1: 'OPEN',
+        2: 'CLOSED'
+      };
+
+      // EventSource errors don't provide details, log what we can
+      console.error('❌ SSE connection error:', {
+        readyState: currentState,
+        stateName: stateNames[currentState as 0 | 1 | 2] || 'UNKNOWN',
+        url: sseUrl,
+        timestamp: new Date().toISOString(),
+        // EventSource.CONNECTING = 0, OPEN = 1, CLOSED = 2
+        constants: {
+          CONNECTING: EventSource.CONNECTING,
+          OPEN: EventSource.OPEN,
+          CLOSED: EventSource.CLOSED
+        }
+      });
+
+      // Only reconnect if connection is actually closed
+      if (currentState === EventSource.CLOSED) {
+        console.log('🔴 Connection is CLOSED, triggering cleanup and reconnect logic');
+
+        if (onError) onError(event);
+
+        // Auto-reconnect if enabled (but not immediately to avoid tight loops)
+        if (options.auto_reconnect !== false) {
+          const interval = options.reconnect_interval || 5000;
+          console.log(`🔄 Scheduling reconnection in ${interval}ms...`);
+
+          setTimeout(() => {
+            // Double-check connection is still closed and not recreated
+            if (!this.sseConnection || this.sseConnection.readyState === EventSource.CLOSED) {
+              console.log('🔁 Attempting reconnection...');
+              this.connectToSSE(options, onNotification, onError, onOpen);
+            } else {
+              console.log('⏭️ Skipping reconnection, connection already exists:', this.sseConnection.readyState);
+            }
+          }, interval);
+        }
+      } else if (currentState === EventSource.CONNECTING) {
+        console.log('⏳ Connection is still CONNECTING, waiting...');
+      } else if (currentState === EventSource.OPEN) {
+        console.log('⚠️ Connection is OPEN but error event fired (transient error)');
       }
     };
 
-    // Handle specific notification types
-    Object.values(['system', 'security', 'permission', 'user_management', 'wallet', 'payment', 'general']).forEach(type => {
-      this.sseConnection!.addEventListener(type, (event) => {
-        try {
-          const notification: SSENotification = JSON.parse(event.data);
-          onNotification(notification);
-        } catch (error) {
-          console.error(`Failed to parse ${type} notification:`, error);
-        }
-      });
+    // Handle specific notification types (with event name as notification type)
+    this.sseConnection.addEventListener('notification', (event: any) => {
+      try {
+        const notification: SSENotification = JSON.parse(event.data);
+        onNotification(notification);
+
+        // Auto-acknowledge notification in background
+        this.acknowledgeNotification(notification.id).catch(err => {
+          console.debug(`Background acknowledgement failed for notification ${notification.id}:`, err);
+        });
+      } catch (error) {
+        console.error('Failed to parse notification event:', error);
+      }
     });
 
     // Return disconnect function
@@ -715,8 +840,54 @@ export class NotificationsAPIClient {
     if (minutes < 60) return `${minutes}m ago`;
     if (hours < 24) return `${hours}h ago`;
     if (days < 7) return `${days}d ago`;
-    
+
     return date.toLocaleDateString();
+  }
+
+  /**
+   * Get authentication token information from accessible cookies
+   * Since access tokens are HttpOnly, we get user info from client-side cookies
+   */
+  private getTokenFromCookies(): string | null {
+    if (typeof document === 'undefined') return null;
+
+    const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+      const [key, value] = cookie.trim().split('=');
+      acc[key] = value;
+      return acc;
+    }, {} as Record<string, string>);
+
+    // Get platform from client (accessing private property like we do for baseURL)
+    const platform = this.client['platform'] as 'admin' | 'frontend' | undefined;
+
+    let token: string | null = null;
+
+    // Get user data from accessible client-side cookies
+    if (platform === 'admin') {
+      const userCookie = cookies[COOKIES.admin.user];
+      if (userCookie) {
+        try {
+          const user = JSON.parse(decodeURIComponent(userCookie));
+          // Return wallet address as token identifier (backend will verify via server-side cookies)
+          token = user.wallet_address || user.sub;
+        } catch (error) {
+          console.warn('Failed to parse admin user cookie:', error);
+        }
+      }
+    } else {
+      const userCookie = cookies[COOKIES.user.user];
+      if (userCookie) {
+        try {
+          const user = JSON.parse(decodeURIComponent(userCookie));
+          // Return wallet address as token identifier (backend will verify via server-side cookies)
+          token = user.wallet_address || user.sub;
+        } catch (error) {
+          console.warn('Failed to parse user cookie:', error);
+        }
+      }
+    }
+
+    return token;
   }
 }
 

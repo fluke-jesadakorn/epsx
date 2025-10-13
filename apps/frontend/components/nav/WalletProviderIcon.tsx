@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount, useDisconnect } from 'wagmi';
+import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
 import { Wallet, ExternalLink, Copy, Check, Settings } from 'lucide-react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import Link from 'next/link';
@@ -14,8 +14,9 @@ import {
   Button,
   UnifiedThemeToggle,
 } from '@/components/ui';
-import { formatAddress } from '@/lib/auth/web3-store';
-import { useWeb3Context } from '@/components/providers/MinimalWeb3Provider';
+import { formatAddress, useWeb3AuthStore } from '@/lib/auth/store';
+import { useWeb3Context } from '@/components/providers/AuthProvider';
+import { useSharedAuth } from '@/shared/components/auth/Provider';
 
 interface WalletProviderIconProps {
   className?: string;
@@ -60,9 +61,15 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   const [isHydrated, setIsHydrated] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
   const { address, isConnected, connector } = useAccount();
   const { disconnect } = useDisconnect();
   const { isInitialized } = useWeb3Context();
+  const { isAuthenticated, requestChallenge, authenticateWithWallet } = useSharedAuth();
+  const { signMessageAsync } = useSignMessage();
+
+  // Get web3 auth store for syncing authentication state
+  const { setAuthenticated: setWeb3Authenticated, setWalletAddress: setWeb3WalletAddress } = useWeb3AuthStore();
 
   useEffect(() => {
     setIsHydrated(true);
@@ -71,9 +78,78 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
       address,
       connector: connector?.id,
       isHydrated: true,
-      isInitialized
+      isInitialized,
+      isAuthenticated
     });
-  }, [isConnected, address, connector, isInitialized]);
+  }, [isConnected, address, connector, isInitialized, isAuthenticated]);
+
+  // Sync disconnect state: Clear web3 auth store when wallet disconnects
+  useEffect(() => {
+    if (!isConnected || !address) {
+      // Wallet disconnected - clear web3 auth store
+      setWeb3Authenticated(false);
+      setWeb3WalletAddress(undefined);
+      console.log('🔌 Wallet disconnected - cleared web3 auth store');
+    }
+  }, [isConnected, address, setWeb3Authenticated, setWeb3WalletAddress]);
+
+  // Auto-authenticate when wallet connects
+  useEffect(() => {
+    const autoAuthenticate = async () => {
+      // Only trigger if:
+      // 1. Wallet is connected
+      // 2. Address exists
+      // 3. Not already authenticated
+      // 4. Not currently authenticating
+      // 5. Component is hydrated
+      if (isConnected && address && !isAuthenticated && !isAuthenticating && isHydrated) {
+        try {
+          setIsAuthenticating(true);
+          console.log('🔐 Auto-authenticating wallet:', address);
+
+          // Step 1: Request challenge from backend
+          const challenge = await requestChallenge(address);
+          console.log('✅ Challenge received, prompting user to sign...');
+
+          // Step 2: Prompt user to sign the SIWE message
+          const signature = await signMessageAsync({
+            message: challenge.message,
+          });
+          console.log('✅ Message signed by user');
+
+          // Step 3: Complete authentication with signature
+          const result = await authenticateWithWallet(
+            challenge.wallet_address,
+            signature,
+            challenge.message,
+            challenge.nonce
+          );
+
+          if (result.success) {
+            console.log('✅ Auto-authentication successful!');
+
+            // ✅ SYNC: Update web3 auth store to match SharedAuth state
+            setWeb3Authenticated(true);
+            setWeb3WalletAddress(address.toLowerCase());
+            console.log('✅ Synced authentication to web3 auth store for SSE notifications');
+          } else {
+            console.error('❌ Auto-authentication failed:', result.error);
+          }
+        } catch (error: any) {
+          // User rejected signature or other error
+          if (error?.code === 4001 || error?.message?.includes('User rejected')) {
+            console.log('ℹ️ User rejected signature request');
+          } else {
+            console.error('❌ Auto-authentication error:', error);
+          }
+        } finally {
+          setIsAuthenticating(false);
+        }
+      }
+    };
+
+    autoAuthenticate();
+  }, [isConnected, address, isAuthenticated, isAuthenticating, isHydrated, requestChallenge, authenticateWithWallet, signMessageAsync, setWeb3Authenticated, setWeb3WalletAddress]);
 
   const handleCopyAddress = async () => {
     if (!address) return;
@@ -134,6 +210,28 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   const providerInfo = walletProviders[connectorId] || walletProviders.injected;
 
   const getTriggerContent = () => {
+    // Show authenticating state
+    if (isAuthenticating) {
+      if (compact) {
+        return (
+          <div className="flex items-center gap-2">
+            <Wallet className="h-4 w-4 text-orange-500" />
+            <span className="text-xs font-medium text-orange-600 dark:text-orange-400">
+              Signing...
+            </span>
+          </div>
+        );
+      }
+      return (
+        <div className="flex items-center gap-2">
+          <Wallet className="h-5 w-5 text-orange-500" />
+          <span className="text-sm font-medium text-orange-600 dark:text-orange-400">
+            Signing...
+          </span>
+        </div>
+      );
+    }
+
     if (compact) {
       return (
         <div className="flex items-center gap-2">
@@ -257,6 +355,9 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
         <DropdownMenuItem
           onClick={() => {
             disconnect();
+            // Clear web3 auth store on disconnect
+            setWeb3Authenticated(false);
+            setWeb3WalletAddress(undefined);
             setIsOpen(false);
           }}
           className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-red-50/80 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400"

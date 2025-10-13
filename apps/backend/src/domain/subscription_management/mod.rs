@@ -7,6 +7,7 @@ pub mod value_objects;
 pub mod events;
 pub mod repository_ports;
 pub mod domain_services;
+pub mod promotion;
 
 // Re-export key types
 pub use aggregates::{Plan, Subscription, CreatePlanParams, CreateSubscriptionParams};
@@ -35,4 +36,10 @@ pub use repository_ports::{
 pub use domain_services::{
     PricingService,
     SubscriptionLifecycleService,
+};
+
+pub use promotion::{
+    Promotion,
+    PromotionType,
+    PromotionStatus,
 };

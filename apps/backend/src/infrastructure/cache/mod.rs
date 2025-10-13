@@ -4,13 +4,15 @@ use std::sync::Arc;
 
 pub mod memory_cache;
 pub mod redis_cache;
-pub mod permission_cache;
+pub mod permission_cache;  // DEPRECATED - Use unified_permission_cache instead
+pub mod unified_permission_cache;  // NEW - Unified permission cache with invalidation
 pub mod serverless_cache_factory;
 
 // Re-export cache types
 pub use memory_cache::*;
 pub use redis_cache::*;
-pub use permission_cache::*;
+pub use permission_cache::*;  // DEPRECATED
+pub use unified_permission_cache::*;  // NEW - Primary permission cache
 pub use serverless_cache_factory::*;
 
 // Legacy alias

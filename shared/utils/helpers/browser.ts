@@ -4,75 +4,109 @@
  */
 
 /**
- * Storage utilities with error handling
+ * Cookie storage utilities with error handling (replacing localStorage)
  */
 export const storage = {
   /**
-   * Set item in localStorage with error handling
+   * Set item in cookie with error handling
    */
-  set(key: string, value: any): boolean {
+  set(key: string, value: any, maxAge?: number): boolean {
     try {
       if (typeof window === 'undefined') return false
-      localStorage.setItem(key, JSON.stringify(value))
+      const encodedValue = encodeURIComponent(JSON.stringify(value))
+      const maxAgeStr = maxAge ? `max-age=${maxAge}` : ''
+      document.cookie = `${key}=${encodedValue}; path=/; ${maxAgeStr} SameSite=lax`
       return true
     } catch (error) {
-      console.error('Failed to save to localStorage:', error)
+      console.error('Failed to save to cookie:', error)
       return false
     }
   },
 
   /**
-   * Get item from localStorage with error handling
+   * Get item from cookie with error handling, fallback to localStorage for migration
    */
   get<T>(key: string, defaultValue?: T): T | null {
     try {
       if (typeof window === 'undefined') return defaultValue || null
+      
+      // Try cookie first
+      const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+        const [k, v] = cookie.trim().split('=')
+        if (k && v) acc[k] = v
+        return acc
+      }, {} as Record<string, string>)
+      
+      const cookieValue = cookies[key]
+      if (cookieValue) {
+        return JSON.parse(decodeURIComponent(cookieValue))
+      }
+      
+      // Fallback to localStorage for migration
       const item = localStorage.getItem(key)
       return item ? JSON.parse(item) : defaultValue || null
     } catch (error) {
-      console.error('Failed to read from localStorage:', error)
+      console.error('Failed to read from cookie:', error)
       return defaultValue || null
     }
   },
 
   /**
-   * Remove item from localStorage
+   * Remove item from cookie and localStorage
    */
   remove(key: string): boolean {
     try {
       if (typeof window === 'undefined') return false
+      
+      // Remove from cookie
+      document.cookie = `${key}=; max-age=0; path=/; SameSite=lax`
+      
+      // Remove from localStorage (fallback cleanup)
       localStorage.removeItem(key)
       return true
     } catch (error) {
-      console.error('Failed to remove from localStorage:', error)
+      console.error('Failed to remove from cookie:', error)
       return false
     }
   },
 
   /**
-   * Clear all localStorage
+   * Clear all cookies and localStorage
    */
   clear(): boolean {
     try {
       if (typeof window === 'undefined') return false
+      
+      // Clear localStorage
       localStorage.clear()
+      
+      // Clear all cookies by setting them to expire
+      document.cookie.split(';').forEach(cookie => {
+        const key = cookie.split('=')[0].trim()
+        if (key) {
+          document.cookie = `${key}=; max-age=0; path=/; SameSite=lax`
+        }
+      })
       return true
     } catch (error) {
-      console.error('Failed to clear localStorage:', error)
+      console.error('Failed to clear storage:', error)
       return false
     }
   },
 
   /**
-   * Check if localStorage is available
+   * Check if storage is available
    */
   isAvailable(): boolean {
+    if (typeof window === 'undefined') return false
+    
+    // Try cookies
+    const test = '__storage_test__'
     try {
-      if (typeof window === 'undefined') return false
-      const test = '__localStorage_test__'
-      localStorage.setItem(test, test)
-      localStorage.removeItem(test)
-      return true
+      document.cookie = `${test}=test; path=/; SameSite=lax`
+      const hasCookie = document.cookie.includes(test)
+      document.cookie = `${test}=; max-age=0; path=/; SameSite=lax`
+      return hasCookie
     } catch {
       return false
     }

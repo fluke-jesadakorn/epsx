@@ -18,7 +18,7 @@ import {
   CheckCircle,
   ExternalLink
 } from 'lucide-react';
-import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
+import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { toast } from 'sonner';
 import { formatDistanceToNow } from 'date-fns';
 

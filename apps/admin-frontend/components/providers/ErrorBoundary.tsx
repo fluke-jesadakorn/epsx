@@ -5,6 +5,7 @@ import { Component, ReactNode } from 'react';
 interface ErrorBoundaryState {
   hasError: boolean;
   error?: Error;
+  _error?: Error; // Add _error for backward compatibility
 }
 
 interface ErrorBoundaryProps {
@@ -22,7 +23,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
    */
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, error: undefined, _error: undefined };
   }
 
   /**
@@ -30,7 +31,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
    * @param error
    */
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error };
+    return { hasError: true, error, _error: error };
   }
 
   /**
@@ -41,6 +42,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   componentDidCatch(error: Error, errorInfo: any) {
     // eslint-disable-next-line no-console
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+    
+    // Update state to include _error for backward compatibility
+    this.setState({ _error: error });
   }
 
   /**

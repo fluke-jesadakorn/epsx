@@ -5,13 +5,12 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
-use tokio::sync::broadcast;
-use tokio_stream::{wrappers::BroadcastStream, StreamExt};
 use chrono::{DateTime, Utc};
+use futures::StreamExt;
 
 use crate::{
     web::auth::AppState,
-    core::errors::{AppError, ErrorKind},
+    core::errors::AppError,
 };
 
 // ============================================================================
@@ -54,55 +53,20 @@ pub enum NotificationPriority {
 
 #[derive(Debug, Deserialize)]
 pub struct SSEQuery {
-    pub wallet_address: Option<String>,
     pub types: Option<String>, // comma-separated notification types
     pub timeout: Option<u64>,  // seconds
-}
-
-// ============================================================================
-// SSE BROADCAST SYSTEM
-// ============================================================================
-
-#[derive(Clone)]
-pub struct NotificationBroadcaster {
-    sender: broadcast::Sender<SSENotification>,
-}
-
-impl NotificationBroadcaster {
-    pub fn new() -> Self {
-        let (sender, _) = broadcast::channel(1000);
-        Self { sender }
-    }
-
-    pub fn broadcast(&self, notification: SSENotification) -> Result<(), AppError> {
-        self.sender.send(notification).map_err(|_| {
-            AppError::new(
-                ErrorKind::InternalError,
-                "Failed to broadcast notification".to_string(),
-            )
-        })?;
-        Ok(())
-    }
-
-    pub fn subscribe(&self) -> broadcast::Receiver<SSENotification> {
-        self.sender.subscribe()
-    }
-}
-
-impl Default for NotificationBroadcaster {
-    fn default() -> Self {
-        Self::new()
-    }
+    pub token: Option<String>, // Bearer token (for EventSource compatibility)
 }
 
 // ============================================================================
 // SSE HANDLERS
 // ============================================================================
 
-/// SSE endpoint for real-time notifications
+/// SSE endpoint for real-time notifications via Redis pub/sub
+/// Supports wallet-specific notifications + broadcast notifications
 #[utoipa::path(
     get,
-    path = "/api/notifications/sse",
+    path = "/api/notifications/stream",
     tag = "notifications",
     responses(
         (status = 200, description = "Successfully established SSE connection"),
@@ -110,174 +74,147 @@ impl Default for NotificationBroadcaster {
         (status = 500, description = "Internal server error")
     ),
     params(
-        ("wallet_address" = Option<String>, Query, description = "Wallet address to filter notifications"),
         ("types" = Option<String>, Query, description = "Comma-separated notification types to filter"),
-        ("timeout" = Option<u64>, Query, description = "Connection timeout in seconds")
+        ("timeout" = Option<u64>, Query, description = "Connection timeout in seconds"),
+        ("token" = Option<String>, Query, description = "Bearer token for authentication (for EventSource compatibility)")
     ),
     security(("bearerAuth" = []))
 )]
 pub async fn sse_notifications_handler(
     State(app_state): State<AppState>,
     Query(query): Query<SSEQuery>,
+    request: axum::extract::Request,
 ) -> Result<impl IntoResponse, AppError> {
-    // Get wallet address from query or extract from auth context
-    let wallet_address = query.wallet_address.unwrap_or_else(|| "anonymous".to_string());
-    
-    // Parse notification types filter
-    let allowed_types: Option<Vec<NotificationType>> = query.types.map(|types_str| {
-        types_str.split(',')
-            .filter_map(|t| match t.trim() {
-                "system" => Some(NotificationType::System),
-                "security" => Some(NotificationType::Security),
-                "permission" => Some(NotificationType::Permission),
-                "user_management" => Some(NotificationType::WalletManagement),
-                "wallet" => Some(NotificationType::Wallet),
-                "payment" => Some(NotificationType::Payment),
-                "general" => Some(NotificationType::General),
-                _ => None,
-            })
-            .collect()
-    });
+    // Extract wallet address from authentication
+    let wallet_address = extract_wallet_from_request(&request)
+        .or_else(|| extract_wallet_from_token(query.token.as_deref()))
+        .unwrap_or_else(|| "all".to_string());
 
-    // Get broadcaster from app state
-    let broadcaster = app_state.notification_broadcaster.clone();
-    let receiver = broadcaster.subscribe();
-    
-    let stream = BroadcastStream::new(receiver)
-        .filter_map(move |result| -> Option<Result<Event, axum::Error>> {
-            let allowed_types = allowed_types.clone();
-            let wallet_address = wallet_address.clone();
-            
-            match result {
-                Ok(notification) => {
-                    // Filter by wallet address (allow "all" for broadcast notifications)
-                    if notification.wallet_address != wallet_address && notification.wallet_address != "all" {
-                        return None;
+    tracing::info!(
+        "🔌 SSE connection request: wallet={}, types={:?}",
+        wallet_address,
+        query.types
+    );
+
+    // Fetch queued (offline) notifications first
+    let queued_notifications = if wallet_address != "all" {
+        crate::web::notifications::fetch_queued_notifications(
+            &app_state.db_pool,
+            &wallet_address
+        ).await.unwrap_or_default()
+    } else {
+        vec![]
+    };
+
+    tracing::info!(
+        "📦 Found {} queued notifications for wallet: {}",
+        queued_notifications.len(),
+        wallet_address
+    );
+
+    // Subscribe to Redis pub/sub
+    let redis_broadcaster = app_state.redis_broadcaster.clone();
+    let mut pubsub = redis_broadcaster.subscribe_to_wallet(&wallet_address).await?;
+
+    // Parse notification type filters
+    let allowed_types = parse_notification_types(query.types);
+
+    // Clone for async stream
+    let db_pool = app_state.db_pool.clone();
+    let wallet_for_stream = wallet_address.clone();
+
+    // Create stream from Redis pub/sub messages
+    let redis_stream = async_stream::stream! {
+        // First, send queued notifications
+        for notification in queued_notifications {
+            if should_send_notification(&notification, &allowed_types) {
+                match serde_json::to_string(&notification) {
+                    Ok(data) => {
+                        yield Ok::<Event, axum::Error>(
+                            Event::default()
+                                .event("notification")
+                                .id(notification.id.clone())
+                                .data(data)
+                        );
+
+                        // Mark as delivered in background
+                        let db = db_pool.clone();
+                        let notif_id = notification.id.clone();
+                        tokio::spawn(async move {
+                            let _ = crate::web::notifications::mark_as_delivered(
+                                &db,
+                                &notif_id
+                            ).await;
+                        });
                     }
-                    
-                    // Filter by notification types if specified
-                    if let Some(ref types) = allowed_types {
-                        if !types.contains(&notification.notification_type) {
-                            return None;
-                        }
-                    }
-                    
-                    // Check if notification has expired
-                    if let Some(expires_at) = notification.expires_at {
-                        if Utc::now() > expires_at {
-                            return None;
-                        }
-                    }
-                    
-                    // Convert to SSE event
-                    match serde_json::to_string(&notification) {
-                        Ok(data) => Some(Ok(Event::default()
-                            .event(format!("notification_{}", notification.notification_type as u8))
-                            .id(notification.id.clone())
-                            .data(data))),
-                        Err(_) => None,
+                    Err(e) => {
+                        tracing::error!("Failed to serialize queued notification: {}", e);
                     }
                 }
-                Err(_) => None,
             }
-        });
+        }
 
-    let keep_alive_duration = Duration::from_secs(query.timeout.unwrap_or(30));
-    
-    Ok(Sse::new(stream)
+        // Then stream real-time notifications from Redis
+        let mut message_stream = pubsub.on_message();
+        while let Some(msg) = message_stream.next().await {
+            let payload: String = match msg.get_payload() {
+                Ok(p) => p,
+                Err(e) => {
+                    tracing::error!("Failed to get Redis message payload: {}", e);
+                    continue;
+                }
+            };
+
+            let notification: SSENotification = match serde_json::from_str(&payload) {
+                Ok(n) => n,
+                Err(e) => {
+                    tracing::error!("Failed to deserialize notification from Redis: {}", e);
+                    continue;
+                }
+            };
+
+            tracing::info!(
+                "📨 Received notification from Redis: wallet={}, id={}, title={}",
+                wallet_for_stream,
+                notification.id,
+                notification.title
+            );
+
+            if should_send_notification(&notification, &allowed_types) {
+                match serde_json::to_string(&notification) {
+                    Ok(data) => {
+                        yield Ok::<Event, axum::Error>(
+                            Event::default()
+                                .event("notification")
+                                .id(notification.id.clone())
+                                .data(data)
+                        );
+                    }
+                    Err(e) => {
+                        tracing::error!("Failed to serialize notification: {}", e);
+                    }
+                }
+            }
+        }
+
+        tracing::info!("🔴 Redis pub/sub stream ended for wallet: {}", wallet_for_stream);
+    };
+
+    // Send initial ping event to establish connection
+    let initial_ping = tokio_stream::once(Ok::<Event, axum::Error>(
+        Event::default()
+            .event("ping")
+            .data("connected")
+    ));
+
+    // Combine streams
+    let combined_stream = initial_ping.chain(redis_stream);
+
+    // Keep-alive every 15 seconds
+    let keep_alive_duration = Duration::from_secs(15);
+
+    Ok(Sse::new(combined_stream)
         .keep_alive(KeepAlive::new().interval(keep_alive_duration)))
-}
-
-/// Send notification via SSE (for admin use)
-pub async fn send_sse_notification_handler(
-    State(app_state): State<AppState>,
-    axum::extract::Json(request): axum::extract::Json<SendNotificationRequest>,
-) -> Result<impl IntoResponse, AppError> {
-    // TODO: Add authentication check for admin users
-    
-    let notification = SSENotification {
-        id: uuid::Uuid::new_v4().to_string(),
-        wallet_address: request.wallet_address.unwrap_or_else(|| "all".to_string()),
-        notification_type: request.notification_type,
-        title: request.title,
-        message: request.message,
-        data: request.data,
-        priority: request.priority,
-        timestamp: Utc::now(),
-        expires_at: request.expires_in_seconds.map(|seconds| {
-            Utc::now() + chrono::Duration::seconds(seconds as i64)
-        }),
-    };
-
-    // Broadcast the notification
-    let broadcaster = app_state.notification_broadcaster.clone();
-    broadcaster.broadcast(notification.clone())?;
-
-    // Store in database for persistence (stateless approach)
-    // TODO: Implement database storage for notification history
-    
-    Ok(axum::response::Json(serde_json::json!({
-        "success": true,
-        "notification_id": notification.id,
-        "message": "Notification sent successfully"
-    })))
-}
-
-/// Broadcast notification to all users (admin only)
-pub async fn broadcast_sse_notification_handler(
-    State(app_state): State<AppState>,
-    axum::extract::Json(request): axum::extract::Json<BroadcastNotificationRequest>,
-) -> Result<impl IntoResponse, AppError> {
-    // TODO: Add authentication check for admin users
-    
-    let notification = SSENotification {
-        id: uuid::Uuid::new_v4().to_string(),
-        wallet_address: "all".to_string(), // Broadcast to all wallets
-        notification_type: request.notification_type,
-        title: request.title,
-        message: request.message,
-        data: request.data,
-        priority: request.priority,
-        timestamp: Utc::now(),
-        expires_at: request.expires_in_seconds.map(|seconds| {
-            Utc::now() + chrono::Duration::seconds(seconds as i64)
-        }),
-    };
-
-    // Broadcast the notification
-    let broadcaster = app_state.notification_broadcaster.clone();
-    broadcaster.broadcast(notification.clone())?;
-
-    Ok(axum::response::Json(serde_json::json!({
-        "success": true,
-        "notification_id": notification.id,
-        "message": "Broadcast notification sent successfully"
-    })))
-}
-
-// ============================================================================
-// REQUEST TYPES
-// ============================================================================
-
-#[derive(Debug, Deserialize)]
-pub struct SendNotificationRequest {
-    pub wallet_address: Option<String>,
-    pub notification_type: NotificationType,
-    pub title: String,
-    pub message: String,
-    pub data: Option<serde_json::Value>,
-    pub priority: NotificationPriority,
-    pub expires_in_seconds: Option<u32>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct BroadcastNotificationRequest {
-    pub notification_type: NotificationType,
-    pub title: String,
-    pub message: String,
-    pub data: Option<serde_json::Value>,
-    pub priority: NotificationPriority,
-    pub expires_in_seconds: Option<u32>,
 }
 
 // ============================================================================
@@ -288,35 +225,134 @@ pub struct BroadcastNotificationRequest {
 pub async fn sse_health_handler(
     State(app_state): State<AppState>,
 ) -> Result<impl IntoResponse, AppError> {
-    let broadcaster = app_state.notification_broadcaster.clone();
-    
-    // Send a test heartbeat notification
-    let heartbeat = SSENotification {
-        id: uuid::Uuid::new_v4().to_string(),
-        wallet_address: "system".to_string(),
-        notification_type: NotificationType::System,
-        title: "SSE Health Check".to_string(),
-        message: "SSE system is operational".to_string(),
-        data: Some(serde_json::json!({
-            "timestamp": Utc::now(),
-            "status": "healthy"
-        })),
-        priority: NotificationPriority::Low,
-        timestamp: Utc::now(),
-        expires_at: Some(Utc::now() + chrono::Duration::seconds(5)),
-    };
+    // Check Redis health
+    let redis_healthy = app_state.redis_pool.health_check().await;
 
-    // Attempt to broadcast
-    match broadcaster.broadcast(heartbeat) {
-        Ok(_) => Ok(axum::response::Json(serde_json::json!({
-            "status": "healthy",
-            "sse_active": true,
-            "timestamp": Utc::now()
-        }))),
-        Err(_) => Ok(axum::response::Json(serde_json::json!({
-            "status": "degraded",
-            "sse_active": false,
-            "timestamp": Utc::now()
-        })))
+    // Get notification stats
+    let stats = crate::web::notifications::get_notification_stats(&app_state.db_pool)
+        .await
+        .ok();
+
+    Ok(axum::response::Json(serde_json::json!({
+        "status": if redis_healthy { "healthy" } else { "degraded" },
+        "redis_healthy": redis_healthy,
+        "timestamp": Utc::now(),
+        "stats": stats,
+    })))
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/// Helper function to filter notifications
+fn should_send_notification(
+    notification: &SSENotification,
+    allowed_types: &Option<Vec<NotificationType>>,
+) -> bool {
+    // Check type filter
+    if let Some(types) = allowed_types {
+        if !types.contains(&notification.notification_type) {
+            return false;
+        }
+    }
+
+    // Check expiry
+    if let Some(expires_at) = notification.expires_at {
+        if Utc::now() > expires_at {
+            return false;
+        }
+    }
+
+    true
+}
+
+/// Parse notification types from query string
+fn parse_notification_types(types_str: Option<String>) -> Option<Vec<NotificationType>> {
+    types_str.map(|s| {
+        s.split(',')
+            .filter_map(|t| match t.trim() {
+                "system" => Some(NotificationType::System),
+                "security" => Some(NotificationType::Security),
+                "permission" => Some(NotificationType::Permission),
+                "wallet_management" => Some(NotificationType::WalletManagement),
+                "wallet" => Some(NotificationType::Wallet),
+                "payment" => Some(NotificationType::Payment),
+                "general" => Some(NotificationType::General),
+                _ => None,
+            })
+            .collect()
+    })
+}
+
+/// Extract wallet address from Bearer token in request
+/// Returns None if no auth present or token invalid
+fn extract_wallet_from_request(request: &axum::extract::Request) -> Option<String> {
+    // Get Authorization header
+    let auth_header = request.headers()
+        .get("authorization")
+        .and_then(|h| h.to_str().ok())?;
+
+    // Check Bearer format
+    if !auth_header.starts_with("Bearer ") {
+        return None;
+    }
+
+    let token = &auth_header[7..];
+    extract_wallet_from_token(Some(token))
+}
+
+/// Extract wallet address from Bearer token string
+/// Returns None if token is invalid or missing
+fn extract_wallet_from_token(token: Option<&str>) -> Option<String> {
+    use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
+    use serde::Deserialize;
+
+    #[derive(Debug, Deserialize)]
+    struct TokenClaims {
+        #[serde(default)]
+        wallet_address: String,
+        #[serde(default)]
+        sub: String,
+    }
+
+    let token = token?;
+
+    // First, try legacy format: "web3_token_{wallet_address}"
+    if token.starts_with("web3_token_") {
+        let wallet = token.strip_prefix("web3_token_").unwrap_or("").to_string();
+        if !wallet.is_empty() && wallet.len() >= 20 {
+            tracing::debug!("✅ Extracted wallet from legacy token format: {}", wallet);
+            return Some(wallet.to_lowercase());
+        }
+    }
+
+    // Fall back to JWT decoding
+    let secret = "epsx-web3-bearer-token-secret-key".as_bytes();
+    let decoding_key = DecodingKey::from_secret(secret);
+
+    let mut validation = Validation::new(Algorithm::HS256);
+    validation.validate_exp = true;
+
+    // Try to decode token
+    match decode::<TokenClaims>(token, &decoding_key, &validation) {
+        Ok(token_data) => {
+            let wallet = if !token_data.claims.wallet_address.is_empty() {
+                token_data.claims.wallet_address
+            } else {
+                token_data.claims.sub
+            };
+
+            if !wallet.is_empty() && wallet != "anonymous" {
+                tracing::debug!("✅ Extracted wallet from JWT token: {}", wallet);
+                Some(wallet.to_lowercase())
+            } else {
+                None
+            }
+        }
+        Err(e) => {
+            tracing::warn!("❌ Failed to decode token as JWT: {:?}", e);
+            None
+        }
     }
 }

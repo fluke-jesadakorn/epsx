@@ -10,7 +10,7 @@ pub use connection::*;
 pub use extractor::*;
 
 use std::collections::HashMap;
-use tokio::time::{ sleep, Duration };
+use tokio::time::Duration;
 use tokio_tungstenite::tungstenite::protocol::Message;
 use futures_util::StreamExt;
 use serde_json::{ json, Value };

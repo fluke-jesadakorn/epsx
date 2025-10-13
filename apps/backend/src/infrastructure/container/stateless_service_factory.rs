@@ -7,8 +7,10 @@ use anyhow::Result;
 use std::sync::Arc;
 use crate::infrastructure::cache::{Cache, ServerlessCacheFactory};
 use crate::infrastructure::database::{ServerlessConnectionManager, get_db_pool};
+use crate::infrastructure::redis::RedisPool;
+use crate::web::notifications::RedisNotificationBroadcaster;
 use crate::infrastructure::adapters::repositories::wallet_user_repository_adapter::WalletUserRepositoryAdapter;
-use crate::infrastructure::adapters::services::web3_permission_service_adapter::{
+use crate::infrastructure::adapters::services::permission_adapter::{
     Web3PermissionServiceAdapter, BlockchainConfig
 };
 use crate::domain::wallet_management::{
@@ -16,8 +18,8 @@ use crate::domain::wallet_management::{
     WalletUserRepositoryPort,
     WalletUserAnalyticsPort,
 };
-use crate::auth::unified_web3_auth_service::UnifiedWeb3AuthService;
-use crate::auth::openid_token_service::OpenIDTokenService;
+use crate::auth::auth_service::UnifiedWeb3AuthService;
+use crate::auth::token_service::OpenIDTokenService;
 use crate::auth::key_manager::KeyManager;
 use crate::auth::{
     CentralizedPermissionAuthority, DatabasePermissionRegistry, PermissionState,
@@ -128,7 +130,7 @@ impl StatelessServiceFactory {
         );
 
         // Create auth services using owned pool
-        let unified_web3_auth_service = UnifiedWeb3AuthService::new(
+        let auth_service = UnifiedWeb3AuthService::new(
             db_pool_owned.clone(),
             self.config.domain.clone(),
         );
@@ -136,7 +138,7 @@ impl StatelessServiceFactory {
         // Create OpenID token service using owned pool and RSA key manager
         let key_manager = KeyManager::from_env_or_generate()
             .expect("Failed to initialize RSA key manager");
-        let openid_token_service = OpenIDTokenService::new(
+        let token_service = OpenIDTokenService::new(
             db_pool_owned.clone(),
             self.config.issuer_url.clone(),
             self.config.oidc_audiences.clone(),
@@ -158,14 +160,36 @@ impl StatelessServiceFactory {
             permission_registry.clone(),
         );
 
+        // Create Redis pool and notification broadcaster
+        let (redis_pool, redis_broadcaster) = if let Some(redis_url) = &self.config.redis_url {
+            match RedisPool::new(redis_url).await {
+                Ok(pool) => {
+                    let pool_arc = Arc::new(pool);
+                    let broadcaster = Arc::new(RedisNotificationBroadcaster::new(Arc::clone(&pool_arc)));
+                    (Some(pool_arc), Some(broadcaster))
+                }
+                Err(e) => {
+                    tracing::warn!("⚠️ Failed to create Redis pool: {} (notifications will not work)", e);
+                    (None, None)
+                }
+            }
+        } else {
+            tracing::warn!("⚠️ No REDIS_URL configured - notifications will not work");
+            (None, None)
+        };
+
         Ok(RequestServices {
             db_pool: db_pool_arc,
             cache,
             wallet_user_repository: Arc::new(wallet_user_repository),
             wallet_permission_service,
             web3_permission_adapter: Arc::new(web3_permission_adapter),
-            unified_web3_auth_service: Arc::new(unified_web3_auth_service),
-            openid_token_service: Arc::new(openid_token_service),
+            auth_service: Arc::new(auth_service),
+            token_service: Arc::new(token_service),
+
+            // Redis notifications
+            redis_pool,
+            redis_broadcaster,
 
             // New centralized permission services
             permission_authority,
@@ -192,14 +216,18 @@ impl StatelessServiceFactory {
 pub struct RequestServices {
     pub db_pool: Arc<PgPool>,
     pub cache: Option<Arc<dyn Cache>>,
-    
+
     // Service instances (owned by this request)
     pub wallet_user_repository: Arc<WalletUserRepositoryAdapter>,
     pub wallet_permission_service: WalletPermissionService,
     pub web3_permission_adapter: Arc<Web3PermissionServiceAdapter>,
-    pub unified_web3_auth_service: Arc<UnifiedWeb3AuthService>,
-    pub openid_token_service: Arc<OpenIDTokenService>,
-    
+    pub auth_service: Arc<UnifiedWeb3AuthService>,
+    pub token_service: Arc<OpenIDTokenService>,
+
+    // Redis notification infrastructure
+    pub redis_pool: Option<Arc<RedisPool>>,
+    pub redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
+
     // Centralized permission services (v2.0)
     pub permission_authority: Arc<CentralizedPermissionAuthority>,
     pub permission_registry: Arc<DatabasePermissionRegistry>,
@@ -219,11 +247,18 @@ impl RequestServices {
 
     /// Create app state for auth routes
     pub fn create_auth_app_state(&self) -> crate::web::auth::AppState {
+        let redis_pool = self.redis_pool.as_ref()
+            .expect("Redis pool required for auth routes");
+        let redis_broadcaster = self.redis_broadcaster.as_ref()
+            .expect("Redis broadcaster required for auth routes");
+
         crate::web::auth::AppState::new(
             self.db_pool.clone(),
             self.cache.as_ref().unwrap().clone(), // Auth requires cache
             // Convert to legacy container format for compatibility
             Arc::new(crate::infrastructure::container::DomainContainer::new(self.db_pool.clone())),
+            redis_pool.clone(),
+            redis_broadcaster.clone(),
         )
     }
 

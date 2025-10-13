@@ -104,7 +104,9 @@ export function RecentWalletsPanel() {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  const getTierColor = (tier: string) => {
+  const getTierColor = (tier?: string | null) => {
+    if (!tier) return 'outline';
+
     switch (tier.toLowerCase()) {
       case 'admin': return 'destructive';
       case 'platinum': case 'diamond': return 'default';
@@ -245,7 +247,7 @@ export function RecentWalletsPanel() {
             displayedWallets.map((wallet, index) => (
               <div
                 key={wallet.wallet_address}
-                className="flex items-center justify-between p-3 border rounded hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                className="flex items-center justify-between p-3 border rounded hover:bg-gray-50 dark:hover:bg-gray-800/50"
               >
                 <div className="flex items-center gap-3">
                   <div className="relative">
@@ -262,7 +264,7 @@ export function RecentWalletsPanel() {
                     </div>
                     <div className="flex items-center gap-2 mt-1">
                       <Badge variant={getTierColor(wallet.tier_level)} className="text-xs">
-                        {wallet.tier_level}
+                        {wallet.tier_level || 'Free'}
                       </Badge>
                       <span className="text-xs text-gray-500">
                         {wallet.active_permissions_count} permissions

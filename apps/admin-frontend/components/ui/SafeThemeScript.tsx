@@ -19,7 +19,8 @@ type ValidTheme = typeof THEME_CONFIG.validThemes[number];
  */
 export function SafeThemeScript() {
   // Generate script with compile-time constants (no user input)
-  const script = `(function(){try{var t=localStorage.getItem('${THEME_CONFIG.storageKey}');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.classList.add(t)}catch(e){document.documentElement.classList.add('${THEME_CONFIG.defaultTheme}')}})();`;
+  // Updated to use cookies with localStorage fallback
+  const script = `(function(){try{var c={};if(document.cookie){var p=document.cookie.split(';');for(var i=0;i<p.length;i++){var k=p[i].trim().split('=')[0];var v=p[i].trim().split('=')[1];if(k&&v)c[k]=v}var t=c.theme||localStorage.getItem('${THEME_CONFIG.storageKey}');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.classList.add(t)}catch(e){document.documentElement.classList.add('${THEME_CONFIG.defaultTheme}')}})();`;
 
   return (
     <script
@@ -35,7 +36,7 @@ export function SafeThemeScript() {
  * @param root0.nonce
  */
 export function SafeThemeScriptWithNonce({ nonce }: { nonce?: string }) {
-  const script = `(function(){try{var t=localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.classList.add(t)}catch(e){document.documentElement.classList.add('light')}})();`;
+  const script = `(function(){try{var c={};if(document.cookie){var p=document.cookie.split(';');for(var i=0;i<p.length;i++){var k=p[i].trim().split('=')[0];var v=p[i].trim().split('=')[1];if(k&&v)c[k]=v}var t=c.theme||localStorage.getItem('theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'}document.documentElement.classList.add(t)}catch(e){document.documentElement.classList.add('light')}})();`;
 
   return (
     <script
@@ -52,7 +53,14 @@ export function SafeThemeScriptWithNonce({ nonce }: { nonce?: string }) {
 export const themeUtils = {
   getTheme: (): ValidTheme => {
     try {
-      const stored = localStorage.getItem(THEME_CONFIG.storageKey);
+      // Try cookies first, then fallback to localStorage
+      const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+        const [key, value] = cookie.trim().split('=');
+        if (key && value) acc[key] = value;
+        return acc;
+      }, {} as Record<string, string>);
+      
+      const stored = cookies.theme || localStorage.getItem(THEME_CONFIG.storageKey);
       if (stored === 'light' || stored === 'dark') {return stored;}
       
       return window.matchMedia('(prefers-color-scheme: dark)').matches 
@@ -65,7 +73,8 @@ export const themeUtils = {
   
   setTheme: (theme: ValidTheme): void => {
     try {
-      localStorage.setItem(THEME_CONFIG.storageKey, theme);
+      // Store theme in cookie instead of localStorage
+      document.cookie = `theme=${theme}; path=/; max-age=31536000; SameSite=lax`;
       document.documentElement.classList.remove('light', 'dark');
       document.documentElement.classList.add(theme);
     } catch (_error) {

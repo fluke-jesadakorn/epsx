@@ -48,9 +48,9 @@ fn generate_quarterly_data_from_real_scanner_data(
   );
 
   let mut result: Vec<QuarterlyData> = Vec::new();
-  let current_year = current_date.year();
+  let _current_year = current_date.year();
   let current_month = current_date.month();
-  let current_quarter_num = (current_month - 1) / 3 + 1;
+  let _current_quarter_num = (current_month - 1) / 3 + 1;
 
   // Generate 6 quarters of data with proper quarter-over-quarter growth calculation
   let growth_factor = growth_factor_pct / 100.0;

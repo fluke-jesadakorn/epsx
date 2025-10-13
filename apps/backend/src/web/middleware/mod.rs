@@ -5,10 +5,10 @@
 pub mod security_headers;
 
 // Web3 wallet authentication middleware (pure SIWE)
-pub mod web3_auth_middleware;
+pub mod auth_middleware;
 
 // OpenID Connect Bearer token authentication middleware
-pub mod openid_bearer_auth_middleware;
+pub mod bearer_middleware;
 
 // Rate limiting for API protection
 pub mod rate_limiter;
@@ -25,7 +25,7 @@ pub use security_headers::{
 };
 
 // Web3 auth exports (pure wallet-first authentication)
-pub use web3_auth_middleware::{
+pub use auth_middleware::{
   web3_auth_middleware,
   Web3AuthContext,
   Web3AuthError,
@@ -36,9 +36,9 @@ pub use web3_auth_middleware::{
 };
 
 // OpenID Bearer auth exports (standard OpenID Connect)
-pub use openid_bearer_auth_middleware::{
-  openid_bearer_auth_middleware,
-  optional_openid_bearer_auth_middleware,
+pub use bearer_middleware::{
+  bearer_middleware,
+  optional_bearer_middleware,
   OpenIDUserContext,
   UnifiedErrorResponse,
   ErrorDetails,

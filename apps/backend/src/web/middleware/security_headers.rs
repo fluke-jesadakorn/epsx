@@ -92,13 +92,19 @@ fn add_security_headers(headers: &mut HeaderMap) {
         HeaderName::from_static("referrer-policy"),
         HeaderValue::from_static("strict-origin-when-cross-origin"),
     );
-    
+
+    // Cross-Origin-Opener-Policy for security isolation
+    headers.insert(
+        HeaderName::from_static("cross-origin-opener-policy"),
+        HeaderValue::from_static("same-origin-allow-popups"),
+    );
+
     // Feature policy / Permissions policy
     headers.insert(
         HeaderName::from_static("permissions-policy"),
         HeaderValue::from_static("geolocation=(), microphone=(), camera=(), payment=(), usb=()"),
     );
-    
+
     // Server information hiding
     headers.insert(
         HeaderName::from_static("server"),

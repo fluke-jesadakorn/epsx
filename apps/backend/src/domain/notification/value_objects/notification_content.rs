@@ -7,6 +7,7 @@ use std::fmt::{self, Display};
 pub struct NotificationContent {
     title: String,
     body: String,
+    urgency: ContentUrgency,
 }
 
 impl NotificationContent {
@@ -38,7 +39,18 @@ impl NotificationContent {
             return Err("Notification content contains suspicious patterns".to_string());
         }
 
-        Ok(Self { title, body })
+        Ok(Self {
+            title,
+            body,
+            urgency: ContentUrgency::Normal, // Default urgency
+        })
+    }
+
+    /// Create notification content with specific urgency level
+    pub fn with_urgency(title: String, body: String, urgency: ContentUrgency) -> Result<Self, String> {
+        let mut content = Self::new(title, body)?;
+        content.urgency = urgency;
+        Ok(content)
     }
 
     /// Get the title
@@ -49,6 +61,11 @@ impl NotificationContent {
     /// Get the body
     pub fn body(&self) -> &str {
         &self.body
+    }
+
+    /// Get the urgency level
+    pub fn urgency(&self) -> &ContentUrgency {
+        &self.urgency
     }
 
     /// Get content length (title + body)
@@ -78,6 +95,7 @@ impl NotificationContent {
         Self {
             title: truncated_title,
             body: truncated_body,
+            urgency: self.urgency,
         }
     }
 
@@ -135,6 +153,7 @@ impl NotificationContent {
         Self {
             title: self.sanitize_text(&self.title),
             body: self.sanitize_text(&self.body),
+            urgency: self.urgency,
         }
     }
 
@@ -164,6 +183,16 @@ impl ContentUrgency {
             ContentUrgency::Normal => "normal",
             ContentUrgency::High => "high",
             ContentUrgency::Urgent => "urgent",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Result<Self, String> {
+        match s.to_lowercase().as_str() {
+            "low" => Ok(ContentUrgency::Low),
+            "normal" => Ok(ContentUrgency::Normal),
+            "high" => Ok(ContentUrgency::High),
+            "urgent" => Ok(ContentUrgency::Urgent),
+            _ => Err(format!("Invalid content urgency: {}", s)),
         }
     }
 }

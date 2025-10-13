@@ -91,6 +91,17 @@ impl AggregateBase {
     pub fn take_events(&mut self) -> Vec<Box<dyn DomainEvent>> {
         std::mem::take(&mut self.events)
     }
+
+    /// Reconstruct aggregate base from persistence
+    /// Used by repositories to hydrate aggregates from database
+    pub fn from_persistence(version: u64, created_at: DateTime<Utc>, updated_at: DateTime<Utc>) -> Self {
+        Self {
+            version,
+            created_at,
+            updated_at,
+            events: Vec::new(), // Events not persisted, always start empty
+        }
+    }
 }
 
 impl Clone for AggregateBase {

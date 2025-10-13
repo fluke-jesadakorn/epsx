@@ -13,7 +13,7 @@ use axum::{
 use serde_json::json;
 use tracing::{info, warn, debug};
 
-use crate::web::middleware::openid_bearer_auth_middleware::OpenIDUserContext;
+use crate::web::middleware::bearer_middleware::OpenIDUserContext;
 use crate::web::errors::PermissionError;
 
 /// JWT-ONLY Permission validation middleware
@@ -37,7 +37,7 @@ pub async fn permission_validation_middleware(
         return next.run(request).await;
     }
 
-    // Extract user context from JWT (set by openid_bearer_auth_middleware)
+    // Extract user context from JWT (set by bearer_middleware)
     let user_context = match request.extensions().get::<OpenIDUserContext>() {
         Some(ctx) => ctx,
         None => {

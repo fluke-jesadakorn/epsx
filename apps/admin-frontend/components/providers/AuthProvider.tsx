@@ -11,7 +11,7 @@ import { ReactNode } from 'react';
 import { ClientProviders } from './ClientProviders';
 
 import { MainLayout } from '@/components/layout/MainLayout';
-import { UnifiedAuth } from '@/lib/auth/wallet-auth';
+import { UnifiedAuth } from '@/lib/auth/auth';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -130,7 +130,7 @@ function AuthError() {
           <p className="text-gray-600">Failed to load admin interface</p>
           <a 
             href="/login" 
-            className="inline-block bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-6 py-3 rounded-2xl font-semibold hover:from-yellow-500 hover:to-orange-600 transition-all duration-200 shadow-lg"
+          className="inline-block bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-6 py-3 rounded-2xl font-semibold shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow-500"
           >
             Return to Login
           </a>

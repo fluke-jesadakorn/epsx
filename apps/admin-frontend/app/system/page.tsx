@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { Suspense } from 'react'
 
 import { SettingsDashboard } from '@/components/admin/SettingsDashboard'
-import { UnifiedAuth } from '@/lib/auth/unified-auth'
+import { UnifiedAuth } from '@/lib/auth/auth'
 
 // This page uses real backend data and should be dynamic
 export const dynamic = 'force-dynamic'

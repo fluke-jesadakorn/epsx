@@ -64,6 +64,11 @@ export interface PlanResponse {
   description?: string;
   plan_type: string;
   current_price: number | string; // Support both number and decimal string
+  effective_price?: number; // Calculated price with promotion
+  promotion_active?: boolean; // Is promotion currently active
+  promotion_status?: 'active' | 'upcoming' | 'expired' | 'disabled'; // Promotion status
+  promotion_discount?: number; // Discount percentage
+  promotion_ends_at?: string; // When active promotion ends
   currency: string;
   target_audience: string;
   billing_model: string;

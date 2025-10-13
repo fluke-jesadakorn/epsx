@@ -2,7 +2,7 @@
 // Web3-first service implementations for blockchain integration and external services
 
 // NEW - Web3-first service adapters (primary)
-pub mod web3_permission_service_adapter;
+pub mod permission_adapter;
 
 // Core service adapters
 pub mod security_monitoring_service_adapter;
@@ -22,7 +22,7 @@ pub mod trading_view_market_data_adapter;
 // Re-export service adapters with explicit imports to avoid conflicts
 
 // NEW - Web3-first service adapter exports (primary)
-pub use web3_permission_service_adapter::{
+pub use permission_adapter::{
     Web3PermissionServiceAdapter,
     BlockchainConfig,
     NftOwnershipResult,

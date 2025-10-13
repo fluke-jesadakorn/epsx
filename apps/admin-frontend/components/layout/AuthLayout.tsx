@@ -5,7 +5,7 @@ import { ReactNode, useEffect, useState } from 'react'
 
 import { MainLayout } from './MainLayout'
 
-import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider'
+import { useSharedAuth } from '@/shared/components/auth/Provider'
 
 interface AuthLayoutProps {
   children: ReactNode

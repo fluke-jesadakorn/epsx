@@ -38,11 +38,11 @@ use utoipa::{
         // ============================================================================
         // WEB3 AUTHENTICATION ENDPOINTS
         // ============================================================================
-        crate::web::auth::web3_handlers::generate_challenge_handler,
-        crate::web::auth::web3_handlers::verify_signature_handler,
-        crate::web::auth::web3_handlers::logout_handler,
-        crate::web::auth::web3_handlers::get_session_handler,
-        crate::web::auth::web3_handlers::check_permission_handler,
+        crate::web::auth::handlers::generate_challenge_handler,
+        crate::web::auth::handlers::verify_signature_handler,
+        crate::web::auth::handlers::logout_handler,
+        crate::web::auth::handlers::get_session_handler,
+        crate::web::auth::handlers::check_permission_handler,
 
         // ============================================================================
         // ANALYTICS ENDPOINTS
@@ -103,10 +103,10 @@ use utoipa::{
     components(
         schemas(
             // Web3 Authentication schemas
-            crate::web::auth::web3_handlers::ChallengeRequest,
-            crate::web::auth::web3_handlers::SignatureVerificationRequest,
-            crate::web::auth::web3_handlers::LogoutRequest,
-            crate::web::auth::web3_handlers::PermissionCheckQuery,
+            crate::web::auth::handlers::ChallengeRequest,
+            crate::web::auth::handlers::SignatureVerificationRequest,
+            crate::web::auth::handlers::LogoutRequest,
+            crate::web::auth::handlers::PermissionCheckQuery,
 
             // Admin Plan Management schemas
             crate::web::admin::plan_handlers::CreatePlanRequest,

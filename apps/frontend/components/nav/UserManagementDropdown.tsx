@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { formatAddress } from '@/lib/auth/web3-store';
+import { formatAddress } from '@/lib/auth/store';
 import {
   User,
   Settings,

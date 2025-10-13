@@ -16,7 +16,7 @@ pub use service_ports::*;
 
 // Additional driven port interfaces would be defined here
 // Currently implemented services that could be abstracted as ports:
-// - Web3 service (infrastructure/adapters/services/web3_permission_service_adapter.rs)
+// - Web3 service (infrastructure/adapters/services/permission_adapter.rs)
 // - Payment service (infrastructure/adapters/services/payment_security_service.rs)  
 // - Notification service (infrastructure/adapters/services/notification_service_adapter.rs)
 // - Cache service (infrastructure/cache/mod.rs)

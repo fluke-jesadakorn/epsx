@@ -1,10 +1,10 @@
 // Import browser polyfills first to handle SSR issues
 import { NavigationClient } from '@/components/nav/NavigationClient';
 import { ClientProviders } from '@/components/providers/ClientProviders';
-import { MinimalWeb3Provider } from '@/components/providers/MinimalWeb3Provider';
+import { MinimalWeb3Provider } from '@/components/providers/AuthProvider';
 import { GlobalErrorBoundary } from '@/components/error-boundaries/GlobalErrorBoundary';
 import '@/lib/browser-polyfills';
-import { SharedOpenIDWeb3Provider } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
+import { SharedOpenIDWeb3Provider } from '@/shared/components/auth/Provider';
 import { Kanit } from 'next/font/google';
 import { Toaster } from 'sonner';
 import { initializeRuntimeEnvironment } from '../../../shared/utils/runtime-env-validator';

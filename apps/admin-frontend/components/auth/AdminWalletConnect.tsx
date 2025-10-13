@@ -6,7 +6,7 @@
 
 import React from 'react';
 
-import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
+import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { UserWalletDisplay, UserTierBadge, UserAuthStatus } from '@/shared/components/display/UserDisplay';
 
 interface AdminWalletConnectProps {

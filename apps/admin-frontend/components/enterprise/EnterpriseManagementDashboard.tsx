@@ -97,19 +97,20 @@ export default function EnterpriseManagementDashboard() {
       setLoading(true);
       setError(null);
 
-      // Mock API calls - Replace with actual enterprise API endpoints
-      const [usersResponse, tiersResponse, analyticsResponse, templatesResponse] = await Promise.all([
-        fetch('/api/admin/enterprise/users', { credentials: 'include' }),
-        fetch('/api/admin/enterprise/tiers', { credentials: 'include' }),
-        fetch('/api/admin/enterprise/analytics', { credentials: 'include' }),
-        fetch('/api/admin/enterprise/permission-templates', { credentials: 'include' }),
+      const client = await import('@/shared/utils/api-client').then(m => m.createAdminApiClient());
+
+      // Fetch all enterprise data in parallel with proper error handling
+      const [usersRes, tiersRes, analyticsRes, templatesRes] = await Promise.all([
+        client.get('/api/admin/enterprise/users').catch(() => ({ success: false, data: [] })),
+        client.get('/api/admin/enterprise/tiers').catch(() => ({ success: false, data: [] })),
+        client.get('/api/admin/enterprise/analytics').catch(() => ({ success: false, data: null })),
+        client.get('/api/admin/enterprise/permission-templates').catch(() => ({ success: false, data: [] })),
       ]);
 
-      // For now, use mock data since backend endpoints are not implemented yet
-      setEnterpriseUsers(mockEnterpriseUsers);
-      setTierConfigs(mockTierConfigs);
-      setAnalytics(mockAnalytics);
-      setPermissionTemplates(mockPermissionTemplates);
+      setEnterpriseUsers(usersRes.success && usersRes.data ? usersRes.data : []);
+      setTierConfigs(tiersRes.success && tiersRes.data ? tiersRes.data : []);
+      setAnalytics(analyticsRes.success && analyticsRes.data ? analyticsRes.data : null);
+      setPermissionTemplates(templatesRes.success && templatesRes.data ? templatesRes.data : []);
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load enterprise data');
@@ -120,27 +121,22 @@ export default function EnterpriseManagementDashboard() {
 
   const handleUserUpdate = async (userId: string, updates: Partial<EnterpriseUser>) => {
     try {
-      // Mock API call - Replace with actual enterprise API
-      const response = await fetch(`/api/admin/enterprise/users/${userId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-        credentials: 'include',
-      });
+      const client = await import('@/shared/utils/api-client').then(m => m.createAdminApiClient());
+      const response = await client.patch(`/api/admin/enterprise/users/${userId}`, updates);
 
-      if (!response.ok) {
-        throw new Error('Failed to update user');
+      if (response.success) {
+        // Update local state
+        setEnterpriseUsers(users =>
+          users.map(user =>
+            user.id === userId ? { ...user, ...updates } : user
+          )
+        );
+
+        setIsEditing(false);
+        setSelectedUser(null);
+      } else {
+        throw new Error(response.error || 'Failed to update user');
       }
-
-      // Update local state
-      setEnterpriseUsers(users => 
-        users.map(user => 
-          user.id === userId ? { ...user, ...updates } : user
-        )
-      );
-      
-      setIsEditing(false);
-      setSelectedUser(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update user');
     }
@@ -148,24 +144,19 @@ export default function EnterpriseManagementDashboard() {
 
   const handleTierConfigUpdate = async (tier: string, updates: Partial<TierConfig>) => {
     try {
-      // Mock API call - Replace with actual enterprise API
-      const response = await fetch(`/api/admin/enterprise/tiers/${tier}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-        credentials: 'include',
-      });
+      const client = await import('@/shared/utils/api-client').then(m => m.createAdminApiClient());
+      const response = await client.patch(`/api/admin/enterprise/tiers/${tier}`, updates);
 
-      if (!response.ok) {
-        throw new Error('Failed to update tier configuration');
+      if (response.success) {
+        // Update local state
+        setTierConfigs(configs =>
+          configs.map(config =>
+            config.tier === tier ? { ...config, ...updates } : config
+          )
+        );
+      } else {
+        throw new Error(response.error || 'Failed to update tier configuration');
       }
-
-      // Update local state
-      setTierConfigs(configs => 
-        configs.map(config => 
-          config.tier === tier ? { ...config, ...updates } : config
-        )
-      );
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update tier configuration');
     }
@@ -685,117 +676,3 @@ export default function EnterpriseManagementDashboard() {
     </div>
   );
 }
-
-// Mock data for development (replace with actual API calls)
-const mockEnterpriseUsers: EnterpriseUser[] = [
-  {
-    id: '1',
-    wallet_address: '0x742d35Cc6DbfC5B3bDd5c8e8E0C7b8eF5d5A2dA1',
-    enterprise_tier: 'Whale',
-    verified_tokens_usd: 2500000,
-    has_api_access: true,
-    permissions: ['enterprise:*:*', 'admin:analytics:view'],
-    nft_collections: ['0xbc4ca0eda7647a8ab7c2061c2e118a18a936f13d'],
-    dao_memberships: ['makerdao', 'compound'],
-    created_at: '2024-01-15T00:00:00Z',
-    last_active: '2024-01-20T12:30:00Z',
-    api_calls_last_30_days: 45000,
-    subscription_status: 'active',
-  },
-  {
-    id: '2',
-    wallet_address: '0x8ba1f109551bD432803012645Hac136c22Fd5B',
-    enterprise_tier: 'Enterprise',
-    verified_tokens_usd: 250000,
-    has_api_access: true,
-    permissions: ['enterprise:api:read', 'enterprise:marketplace:access'],
-    nft_collections: [],
-    dao_memberships: ['aave'],
-    created_at: '2024-01-10T00:00:00Z',
-    last_active: '2024-01-19T15:45:00Z',
-    api_calls_last_30_days: 12000,
-    subscription_status: 'active',
-  },
-];
-
-const mockTierConfigs: TierConfig[] = [
-  {
-    tier: 'Starter',
-    minimum_token_value_usd: 1000,
-    rate_limit_per_minute: 100,
-    features: ['Basic API Access', 'Standard Support', 'Daily Reports'],
-    support_level: 'Email Support',
-    description: 'Perfect for small teams getting started with Web3 analytics',
-  },
-  {
-    tier: 'Business',
-    minimum_token_value_usd: 10000,
-    rate_limit_per_minute: 500,
-    features: ['Enhanced API Access', 'Priority Support', 'Real-time Data', 'Custom Webhooks'],
-    support_level: 'Priority Email + Chat',
-    description: 'Ideal for growing businesses requiring more data and faster support',
-  },
-  {
-    tier: 'Enterprise',
-    minimum_token_value_usd: 100000,
-    rate_limit_per_minute: 2000,
-    features: ['Full API Access', 'Dedicated Support', 'Custom Integrations', 'SLA Guarantee'],
-    support_level: 'Dedicated Account Manager',
-    description: 'Comprehensive solution for large enterprises with complex requirements',
-  },
-  {
-    tier: 'Whale',
-    minimum_token_value_usd: 1000000,
-    rate_limit_per_minute: 10000,
-    features: ['Unlimited Access', 'White-glove Support', 'Custom Development', 'Strategic Consulting'],
-    support_level: 'Executive Support Team',
-    description: 'Premium tier for institutional clients requiring maximum capabilities',
-  },
-];
-
-const mockAnalytics: EnterpriseAnalytics = {
-  total_users: 1247,
-  active_users_30_days: 892,
-  total_api_calls: 2500000,
-  total_revenue_usd: 145000,
-  tier_distribution: {
-    'Starter': 650,
-    'Business': 420,
-    'Enterprise': 150,
-    'Whale': 27,
-  },
-  top_users_by_calls: [
-    { wallet_address: '0x742d35Cc6DbfC5B3bDd5c8e8E0C7b8eF5d5A2dA1', calls: 45000 },
-    { wallet_address: '0x8ba1f109551bD432803012645Hac136c22Fd5B', calls: 12000 },
-    { wallet_address: '0x123456789abcdef123456789abcdef123456789a', calls: 8500 },
-  ],
-  growth_metrics: {
-    new_users_this_month: 89,
-    revenue_growth_percentage: 23.5,
-    api_usage_growth_percentage: 45.2,
-  },
-};
-
-const mockPermissionTemplates: PermissionTemplate[] = [
-  {
-    id: '1',
-    name: 'Basic API Access',
-    description: 'Standard read-only access to basic API endpoints',
-    permissions: ['enterprise:api:read', 'enterprise:analytics:view'],
-    tier_requirement: 'Starter',
-  },
-  {
-    id: '2',
-    name: 'Advanced Analytics',
-    description: 'Full analytics access with custom reporting capabilities',
-    permissions: ['enterprise:api:read', 'enterprise:analytics:*', 'enterprise:reports:generate'],
-    tier_requirement: 'Business',
-  },
-  {
-    id: '3',
-    name: 'Full Enterprise Access',
-    description: 'Complete access to all enterprise features and management',
-    permissions: ['enterprise:*:*', 'admin:enterprise:view'],
-    tier_requirement: 'Enterprise',
-  },
-];

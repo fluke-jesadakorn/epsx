@@ -6,7 +6,7 @@
 
 import { useMemo } from 'react';
 import { useAccount } from 'wagmi';
-import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
+import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { AuthLevel, type AuthLevelType, type AuthState } from '@/types/progressive-auth';
 
 export function useAdminProgressiveAuth(): AuthState & {

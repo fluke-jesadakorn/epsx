@@ -1,9 +1,9 @@
 /**
  * UNIFIED API CLIENT
- * 
+ *
  * Consolidates API client logic for both admin-frontend and frontend applications.
  * Replaces duplicate API client implementations with a single, platform-aware solution.
- * 
+ *
  * Features:
  * - Platform-aware authentication (admin vs frontend)
  * - Generic HTTP methods with type safety
@@ -14,6 +14,7 @@
  */
 
 import { getBackendUrl } from './url-resolver';
+import { COOKIES } from '../auth/cookies';
 
 // ============================================================================
 // CORE TYPES AND INTERFACES
@@ -105,11 +106,10 @@ export class UnifiedApiClient {
             const { cookies } = await import('next/headers');
             const cookieStore = await cookies();
 
-            // Web3-First Migration: Use web3_session for both admin and frontend
-            // Fallback to legacy OIDC cookies for backward compatibility
+            // Get access token from OpenID-compliant cookies
             const tokenCookie = this.platform === 'admin'
-              ? cookieStore.get('web3_session') || cookieStore.get('admin_jwt') || cookieStore.get('access_token')
-              : cookieStore.get('web3_session') || cookieStore.get('access_token');
+              ? cookieStore.get(COOKIES.admin.access)
+              : cookieStore.get(COOKIES.user.access);
 
             if (tokenCookie?.value) {
               headers['Authorization'] = `Bearer ${tokenCookie.value}`;
@@ -163,13 +163,8 @@ export class UnifiedApiClient {
           // Redirect to appropriate login page
           window.location.href = this.platform === 'admin' ? '/login' : '/auth/login';
         }
-        
-        const apiError: ApiError = {
-          status: 401,
-          message: 'Unauthorized - please log in again',
-          code: 'UNAUTHORIZED'
-        };
-        throw apiError;
+
+        throw new APIError(401, 'Unauthorized - please log in again', 'UNAUTHORIZED');
       }
 
       // Parse response data
@@ -182,13 +177,12 @@ export class UnifiedApiClient {
 
       if (!response.ok) {
         const errorMessage = data?.message || data?.error || `HTTP ${response.status}: ${response.statusText}`;
-        const apiError: ApiError = {
-          status: response.status,
-          message: errorMessage,
-          code: data?.code || 'HTTP_ERROR',
-          details: data?.details
-        };
-        throw apiError;
+        throw new APIError(
+          response.status,
+          errorMessage,
+          data?.code || 'HTTP_ERROR',
+          data?.details
+        );
       }
 
       return {
@@ -201,26 +195,17 @@ export class UnifiedApiClient {
     } catch (error) {
       // Handle AbortError (timeout)
       if (error instanceof Error && error.name === 'AbortError') {
-        const timeoutError: ApiError = {
-          status: 408,
-          message: `Request timeout after ${timeout}ms`,
-          code: 'TIMEOUT'
-        };
-        throw timeoutError;
+        throw new APIError(408, `Request timeout after ${timeout}ms`, 'TIMEOUT');
       }
 
-      // Re-throw API errors
-      if (this.isApiError(error)) {
+      // Re-throw API errors (already proper Error instances)
+      if (error instanceof APIError) {
         throw error;
       }
 
       // Handle network and other errors
-      const networkError: ApiError = {
-        status: 0,
-        message: error instanceof Error ? error.message : 'Unknown error',
-        code: 'NETWORK_ERROR'
-      };
-      throw networkError;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      throw new APIError(0, errorMessage, 'NETWORK_ERROR');
     }
   }
 

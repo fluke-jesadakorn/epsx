@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { WalletConnectAuth } from '@/components/auth/WalletConnectAuth';
 import { Web3PermissionsDisplay } from '@/components/auth/Web3PermissionsDisplay';
 import { ApiKeyManager } from '@/components/auth/ApiKeyManager';
-import { useSharedAuth } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
+import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { UserWalletDisplay, UserTierBadge, UserAuthStatus, UserPermissionsDisplay } from '@/shared/components/display/UserDisplay';
 
 interface Web3IntegrationProps {

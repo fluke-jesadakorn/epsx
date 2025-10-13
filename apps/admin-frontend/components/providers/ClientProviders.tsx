@@ -3,9 +3,9 @@
 import { ThemeProvider } from 'next-themes';
 import { ReactNode } from 'react';
 
-import { Web3Provider } from '../../providers/Web3Provider';
+import { Web3Provider } from '../../providers/AuthProvider';
 
-import { SharedOpenIDWeb3Provider } from '@/shared/components/auth/SharedOpenIDWeb3Provider';
+import { SharedOpenIDWeb3Provider } from '@/shared/components/auth/Provider';
 
 interface ClientProvidersProps {
   children: ReactNode;

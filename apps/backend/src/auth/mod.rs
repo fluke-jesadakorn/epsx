@@ -1,21 +1,33 @@
-// WEB3-FIRST AUTHENTICATION MODULE  
+// WEB3-FIRST AUTHENTICATION MODULE
 // Clean, focused authentication system using Web3 wallet signatures
 
-// UNIFIED WEB3 AUTHENTICATION (NEW - SINGLE SOURCE OF TRUTH)
-pub mod unified_web3_auth_service;
-pub mod unified_web3_permission_service;
+// ============================================================================
+// UNIFIED PERMISSION SYSTEM - SINGLE SOURCE OF TRUTH
+// ============================================================================
+// This is the ONLY permission system in use. All legacy systems removed.
 
-// CENTRALIZED PERMISSION AUTHORITY (NEW - HIGH PERFORMANCE)
+// UNIFIED PERMISSION SERVICE (NEW - DATABASE-BACKED)
+pub mod unified_permission_service;
+
+// UNIFIED WEB3 AUTHENTICATION (CURRENT - SINGLE SOURCE OF TRUTH)
+pub mod auth_service;
+
+// OPENID CONNECT INTEGRATION WITH WEB3
+pub mod token_service;
+
+// PERFORMANCE OPTIMIZATIONS
+pub mod cache;
+
+// ============================================================================
+// LEGACY SYSTEMS (TO BE REMOVED IN PHASE 3)
+// ============================================================================
+// DEPRECATED: These modules will be deleted in Phase 3
+// DO NOT USE: Use unified_permission_service instead
+
+// CENTRALIZED PERMISSION AUTHORITY (DEPRECATED - Use unified_permission_service)
 pub mod permission_authority;
 pub mod permission_registry;
 pub mod route_protection;
-
-// OPENID CONNECT INTEGRATION WITH WEB3 (NEW)
-pub mod openid_token_service;
-
-
-// PERFORMANCE OPTIMIZATIONS
-pub mod simplified_auth_cache;
 
 // CORE AUTH MODULES (Web3-First)
 pub mod key_manager;
@@ -24,20 +36,29 @@ pub mod granular_permissions;
 pub mod hierarchy_resolver;
 pub mod policy_engine;
 pub mod cleanup;
-pub mod web3_shared_types;
+pub mod types;
+
+// ============================================================================
+// EXPORTS - UNIFIED PERMISSION SYSTEM
+// ============================================================================
+
+// UNIFIED PERMISSION SERVICE (PRIMARY - DATABASE-BACKED)
+pub use unified_permission_service::{
+    UnifiedPermissionService, PermissionDetail, PermissionSource as UnifiedPermissionSource,
+    PermissionStats as UnifiedPermissionStats, GrantPermissionRequest, RevokePermissionRequest,
+    AssignGroupRequest, RemoveGroupRequest
+};
 
 // WEB3-FIRST AUTH EXPORTS
 
-// UNIFIED WEB3 AUTHENTICATION SERVICE (NEW - SINGLE SOURCE OF TRUTH)
-pub use unified_web3_auth_service::{
+// UNIFIED WEB3 AUTHENTICATION SERVICE (CURRENT - SINGLE SOURCE OF TRUTH)
+pub use auth_service::{
     UnifiedWeb3AuthService, Web3Challenge, Web3VerificationRequest, Web3AuthResult,
     Web3Permission, Web3PermissionType, Web3AuthError
 };
 
 // UNIFIED WEB3 PERMISSION SERVICE (NEW - WALLET-FIRST SYSTEM)
-pub use unified_web3_permission_service::{
-    UnifiedWeb3PermissionService, PermissionStats, GroupMembership
-};
+// Now using unified_permission_service exclusively
 
 // CENTRALIZED PERMISSION AUTHORITY (NEW - HIGH PERFORMANCE)
 pub use permission_authority::{
@@ -61,16 +82,16 @@ pub use route_protection::{
 };
 
 // OPENID CONNECT TOKEN SERVICE (NEW - WEB3 + OPENID HYBRID)
-pub use openid_token_service::{
+pub use token_service::{
     OpenIDTokenService, OpenIDTokenResponse, AccessTokenClaims, IdTokenClaims,
     Web3AuthTokenRequest, OpenIDTokenError, RefreshTokenInfo
 };
 
 
 // PERFORMANCE OPTIMIZATION EXPORTS
-pub use simplified_auth_cache::{
+pub use cache::{
     SimplifiedAuthCache, SimplifiedCacheConfig, SimplifiedCacheStats,
-    PermissionCacheEntry as SimplifiedPermissionCacheEntry, 
+    PermissionCacheEntry as SimplifiedPermissionCacheEntry,
     ChallengeCacheEntry as SimplifiedChallengeCacheEntry
 };
 

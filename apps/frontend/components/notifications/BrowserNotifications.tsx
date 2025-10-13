@@ -45,8 +45,14 @@ export function BrowserNotifications({
       setIsSupported(true);
       setPermission(Notification.permission);
       
-      // Load settings from localStorage
-      const savedSettings = localStorage.getItem('browser-notifications');
+      // Load settings from cookies first, fallback to localStorage for migration
+      const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+        const [key, value] = cookie.trim().split('=');
+        if (key && value) acc[key] = value;
+        return acc;
+      }, {} as Record<string, string>);
+      
+      const savedSettings = cookies.browser_notifications || localStorage.getItem('browser-notifications');
       if (savedSettings) {
         try {
           const parsed = JSON.parse(savedSettings);
@@ -58,10 +64,11 @@ export function BrowserNotifications({
     }
   }, []);
 
-  // Save settings to localStorage
+  // Save settings to cookies
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('browser-notifications', JSON.stringify(settings));
+      // Store notification settings in cookie
+      document.cookie = `browser_notifications=${JSON.stringify(settings)}; path=/; max-age=31536000; SameSite=lax`;
     }
   }, [settings]);
 

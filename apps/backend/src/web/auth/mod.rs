@@ -2,10 +2,10 @@
 
 // Active authentication components
 pub mod app_state;
-// pub mod routes; // DELETED - routes now managed by unified_router
-pub mod web3_handlers;
-pub mod openid_web3_handlers;
-pub mod session_verification_handlers;
+pub mod handlers;
+pub mod session_handlers;
+pub mod wallet_extractor;
 
 // Main exports
 pub use app_state::AppState;
+pub use wallet_extractor::{AuthWallet, AuthAdmin};

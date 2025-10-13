@@ -89,6 +89,28 @@ impl NotificationTopic {
         Self::new(name, display_name, Some(description), TopicCategory::General)
     }
 
+    /// Create broadcast topic (for system-wide announcements)
+    pub fn broadcast_topic() -> Result<Self, String> {
+        Self::system_topic("broadcast".to_string(), "System Broadcast".to_string())
+    }
+
+    /// Reconstruct topic from name (simplified reconstruction for database lookups)
+    /// This is a temporary helper - full topics should be loaded from database
+    pub fn from_name(name: String) -> Result<Self, String> {
+        // Simplified reconstruction - in production, load full topic from database
+        if name == "broadcast" {
+            return Self::broadcast_topic();
+        }
+
+        // Default reconstruction for other topics
+        Self::new(
+            name.clone(),
+            name.clone(), // Use name as display name temporarily
+            None,
+            TopicCategory::General,
+        )
+    }
+
     /// Get topic name (used for email topic name)
     pub fn name(&self) -> &str {
         &self.name

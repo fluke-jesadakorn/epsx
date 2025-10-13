@@ -8,7 +8,7 @@ import React from 'react';
 import { authConfig } from '@/config/auth';
 import { clientConfig } from '@/config/env';
 import { logger as authLogger, safeError, isJWTExpired, getJWTTimeToExpiry } from '@/lib/shared';
-import { createFrontendClient, SharedWeb3AuthClient, UserInfoResponse, Web3TokenResponse } from '../../../../shared/auth/openid-web3-client';
+import { createFrontendClient, SharedWeb3AuthClient, UserInfoResponse, Web3TokenResponse } from '../../../../shared/auth/client';
 
 // 🔒 SECURITY CRITICAL: Backend permission authority removed - permissions handled by backend only
 
