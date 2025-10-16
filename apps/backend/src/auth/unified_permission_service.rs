@@ -266,7 +266,7 @@ impl UnifiedPermissionService {
         debug!("Batch checking {} permissions for wallet: {}", permissions.len(), wallet_lower);
 
         // Convert to PostgreSQL array
-        let perms_array: Vec<String> = permissions.iter().map(|s| s.clone()).collect();
+        let perms_array: Vec<String> = permissions.iter().cloned().collect();
 
         let rows = sqlx::query(
             r#"

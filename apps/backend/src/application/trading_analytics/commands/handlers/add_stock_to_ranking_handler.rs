@@ -55,7 +55,7 @@ impl CommandHandler<AddStockToRankingCommand> for AddStockToRankingCommandHandle
             symbol.clone(),
             command.company_name,
             eps_value,
-            growth_factor.clone(),
+            growth_factor,
             sector,
             country,
         ).map_err(|e| ApplicationError::business_logic(e.to_string()))?;

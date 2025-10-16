@@ -41,7 +41,7 @@ impl CommandHandler<UpdateNotificationPriorityCommand> for UpdateNotificationPri
 
         // 4. Update priority (domain logic validates state transition)
         notification.update_priority(new_priority)
-            .map_err(|e| ApplicationError::business_logic(e))?;
+            .map_err(ApplicationError::business_logic)?;
 
         // 5. Save updated notification
         self.notification_repository.save(&notification).await

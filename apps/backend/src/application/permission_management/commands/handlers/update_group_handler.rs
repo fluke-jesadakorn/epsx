@@ -42,7 +42,7 @@ impl CommandHandler<UpdatePermissionGroupCommand> for UpdatePermissionGroupComma
         let permissions = if let Some(perms) = command.permissions {
             let parsed: Result<Vec<PermissionString>, _> = perms
                 .iter()
-                .map(|p| PermissionString::new(p))
+                .map(PermissionString::new)
                 .collect();
             Some(parsed.map_err(|e| ApplicationError::validation("permissions", e.to_string()))?)
         } else {

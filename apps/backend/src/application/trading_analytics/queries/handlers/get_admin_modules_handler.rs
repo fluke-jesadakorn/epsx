@@ -7,6 +7,12 @@ use crate::application::trading_analytics::queries::{
 /// Query handler for getting admin module statistics
 pub struct GetAdminModulesQueryHandler {}
 
+impl Default for GetAdminModulesQueryHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GetAdminModulesQueryHandler {
     pub fn new() -> Self {
         Self {}

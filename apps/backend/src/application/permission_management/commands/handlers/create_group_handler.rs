@@ -43,7 +43,7 @@ impl CommandHandler<CreatePermissionGroupCommand> for CreatePermissionGroupComma
         // 3. Parse permissions
         let permissions: Result<Vec<PermissionString>, _> = command.permissions
             .iter()
-            .map(|p| PermissionString::new(p))
+            .map(PermissionString::new)
             .collect();
 
         let permissions = permissions

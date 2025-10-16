@@ -84,7 +84,7 @@ impl ScheduleInfo {
         Ok(Self {
             scheduled_at,
             expires_at,
-            created_at: scheduled_at.unwrap_or_else(|| Utc::now()),
+            created_at: scheduled_at.unwrap_or_else(Utc::now),
             schedule_type,
             timezone_hint: None,
         })

@@ -9,6 +9,12 @@ use chrono::Duration;
 /// Query handler for getting admin time-series analytics data
 pub struct GetAdminTimeSeriesQueryHandler {}
 
+impl Default for GetAdminTimeSeriesQueryHandler {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl GetAdminTimeSeriesQueryHandler {
     pub fn new() -> Self {
         Self {}
@@ -32,7 +38,7 @@ impl GetAdminTimeSeriesQueryHandler {
 
         while current <= end {
             buckets.push(current);
-            current = current + duration;
+            current += duration;
         }
 
         buckets

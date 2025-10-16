@@ -34,7 +34,7 @@ impl CommandHandler<CancelNotificationCommand> for CancelNotificationCommandHand
 
         // 2. Cancel notification (domain logic validates state transition)
         notification.cancel(command.reason.clone())
-            .map_err(|e| ApplicationError::business_logic(e))?;
+            .map_err(ApplicationError::business_logic)?;
 
         // 3. Save cancelled notification
         self.notification_repository.save(&notification).await

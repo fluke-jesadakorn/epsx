@@ -424,7 +424,7 @@ impl DatabasePermissionRegistry {
         for pattern in patterns.iter() {
             if pattern.matches(method, path) {
                 // Safe comparison: if best_match is Some, compare priorities
-                let should_replace = best_match.map_or(true, |current| pattern.priority > current.priority);
+                let should_replace = best_match.is_none_or(|current| pattern.priority > current.priority);
                 if should_replace {
                     best_match = Some(pattern);
                 }

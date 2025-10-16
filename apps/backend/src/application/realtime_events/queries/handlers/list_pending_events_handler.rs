@@ -23,7 +23,7 @@ impl QueryHandler<ListPendingEventsQuery> for ListPendingEventsQueryHandler {
         let events = self.event_repository
             .find_pending_events(query.limit)
             .await
-            .map_err(|e| ApplicationError::infrastructure(e))?;
+            .map_err(ApplicationError::infrastructure)?;
 
         // 2. Map to summaries
         let summaries: Vec<PendingEventSummary> = events.iter().map(|event| {

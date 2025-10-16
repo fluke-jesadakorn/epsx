@@ -34,7 +34,7 @@ impl TradingViewEPSRepository {
             }
         });
 
-        let growth_factor = result.eps_growth_yoy.or_else(|| Some(result.change_percent));
+        let growth_factor = result.eps_growth_yoy.or(Some(result.change_percent));
 
         // Convert TradingView earnings timestamps to strings for EPSGrowthData
         let next_earnings_date_str = result.next_earnings_date.and_then(|ts| {

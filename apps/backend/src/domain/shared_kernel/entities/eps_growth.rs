@@ -26,6 +26,7 @@ pub struct EPSGrowthData {
 
 /// EPS Ranking result for API responses
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct EPSRanking {
     pub symbol: String,
     pub name: String,
@@ -229,26 +230,6 @@ impl EPSRanking {
     }
 }
 
-impl Default for EPSRanking {
-    fn default() -> Self {
-        Self {
-            symbol: String::new(),
-            name: String::new(),
-            country: String::new(),
-            sector: String::new(),
-            exchange: String::new(),
-            current_eps: None,
-            growth_factor: None,
-            price_current: None,
-            market_cap: None,
-            volume: None,
-            ranking_position: None,
-            quarterly_data: None,
-            next_earnings_date: None,
-            last_earnings_date: None,
-        }
-    }
-}
 
 impl EPSPagination {
     /// Create pagination info

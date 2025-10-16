@@ -96,7 +96,7 @@ impl CommandHandler<CreateUserNotificationCommand> for CreateUserNotificationCom
             priority,
             multi_channel_config,
             schedule,
-        ).map_err(|e| ApplicationError::business_logic(e))?;
+        ).map_err(ApplicationError::business_logic)?;
 
         // 8. Add optional metadata
         if let Some(image_url) = command.image_url {

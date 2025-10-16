@@ -41,7 +41,7 @@ impl PricingService {
 
     /// Apply discount to price
     pub fn apply_discount(price: &Price, discount: f64) -> AppResult<Price> {
-        if discount < 0.0 || discount > 1.0 {
+        if !(0.0..=1.0).contains(&discount) {
             return Err(AppError::validation_error("Discount must be between 0 and 1"));
         }
 
