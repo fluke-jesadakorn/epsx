@@ -128,10 +128,13 @@ impl UnifiedRouteBuilder {
                     as Arc<dyn crate::infrastructure::cache::Cache>
             });
 
-        let redis_pool = self.container.get_redis_pool()
-            .expect("Redis pool not configured - notifications will not work");
-        let redis_broadcaster = self.container.get_redis_broadcaster()
-            .expect("Redis broadcaster not configured - notifications will not work");
+        // Get Redis services - optional, log warning if not available
+        let redis_pool = self.container.get_redis_pool();
+        let redis_broadcaster = self.container.get_redis_broadcaster();
+
+        if redis_pool.is_none() || redis_broadcaster.is_none() {
+            tracing::warn!("⚠️ Redis not configured - notifications and real-time features will not work");
+        }
 
         let app_state = AppState::new(
             self.container.db_pool(),
@@ -167,10 +170,8 @@ impl UnifiedRouteBuilder {
                     as Arc<dyn crate::infrastructure::cache::Cache>
             });
 
-        let redis_pool = self.container.get_redis_pool()
-            .expect("Redis pool not configured - notifications will not work");
-        let redis_broadcaster = self.container.get_redis_broadcaster()
-            .expect("Redis broadcaster not configured - notifications will not work");
+        let redis_pool = self.container.get_redis_pool();
+        let redis_broadcaster = self.container.get_redis_broadcaster();
 
         let app_state = crate::web::auth::AppState::new(
             self.container.db_pool(),
@@ -238,10 +239,8 @@ impl UnifiedRouteBuilder {
                     as Arc<dyn crate::infrastructure::cache::Cache>
             });
 
-        let redis_pool = self.container.get_redis_pool()
-            .expect("Redis pool not configured - notifications will not work");
-        let redis_broadcaster = self.container.get_redis_broadcaster()
-            .expect("Redis broadcaster not configured - notifications will not work");
+        let redis_pool = self.container.get_redis_pool();
+        let redis_broadcaster = self.container.get_redis_broadcaster();
 
         let app_state = crate::web::auth::AppState::new(
             self.container.db_pool(),
@@ -312,6 +311,7 @@ impl UnifiedRouteBuilder {
             delete_notification_handler,
             clear_all_notifications_handler,
             get_unread_count_handler,
+            acknowledge_notification_handler,
         };
 
         let cache = self.container.cache.clone()
@@ -320,10 +320,8 @@ impl UnifiedRouteBuilder {
                     as Arc<dyn crate::infrastructure::cache::Cache>
             });
 
-        let redis_pool = self.container.get_redis_pool()
-            .expect("Redis pool not configured - notifications will not work");
-        let redis_broadcaster = self.container.get_redis_broadcaster()
-            .expect("Redis broadcaster not configured - notifications will not work");
+        let redis_pool = self.container.get_redis_pool();
+        let redis_broadcaster = self.container.get_redis_broadcaster();
 
         let app_state = crate::web::auth::AppState::new(
             self.container.db_pool(),
@@ -346,6 +344,7 @@ impl UnifiedRouteBuilder {
             .route("/mark-all-read", put(mark_all_notifications_read_handler))
             .route("/clear-all", delete(clear_all_notifications_handler))
             .route("/:id/read", put(mark_notification_read_handler))
+            .route("/:id/acknowledge", put(acknowledge_notification_handler))
             .route("/:id", delete(delete_notification_handler))
             .with_state(app_state);
 
@@ -388,10 +387,8 @@ impl UnifiedRouteBuilder {
                     as Arc<dyn crate::infrastructure::cache::Cache>
             });
 
-        let redis_pool = self.container.get_redis_pool()
-            .expect("Redis pool not configured - notifications will not work");
-        let redis_broadcaster = self.container.get_redis_broadcaster()
-            .expect("Redis broadcaster not configured - notifications will not work");
+        let redis_pool = self.container.get_redis_pool();
+        let redis_broadcaster = self.container.get_redis_broadcaster();
 
         let app_state = crate::web::auth::AppState::new(
             self.container.db_pool(),

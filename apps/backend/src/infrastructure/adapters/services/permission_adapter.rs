@@ -651,7 +651,7 @@ impl Web3PermissionServiceAdapter {
             r#"
             -- Permissions from groups
             SELECT DISTINCT p.permission_string
-            FROM wallet_group_assignments wga
+            FROM wallet_group_memberships wga
             JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
             JOIN permissions p ON pgm.permission_id = p.id
             WHERE wga.wallet_address = $1

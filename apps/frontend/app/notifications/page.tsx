@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { Bell, Check, Trash2, Filter, X } from 'lucide-react'
 import { createNotificationsClient } from '@/shared/api/notifications'
 import { createFrontendApiClient } from '@/shared/utils/api-client'
+import { useSharedAuth } from '@/shared/components/auth/Provider'
 
 interface Notification {
   id: string
@@ -26,6 +27,9 @@ export default function NotificationsPage() {
   const focusId = searchParams.get('id')
   const notificationRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
 
+  // Authentication
+  const { isAuthenticated, user } = useSharedAuth()
+
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<FilterType>('all')
@@ -38,8 +42,10 @@ export default function NotificationsPage() {
   const [focusedId, setFocusedId] = useState<string | null>(focusId)
 
   useEffect(() => {
-    fetchNotifications()
-  }, [filter, typeFilter, priorityFilter, page])
+    if (isAuthenticated && user?.wallet_address) {
+      fetchNotifications()
+    }
+  }, [filter, typeFilter, priorityFilter, page, isAuthenticated, user?.wallet_address])
 
   useEffect(() => {
     if (focusId && notifications.length > 0) {
@@ -63,9 +69,16 @@ export default function NotificationsPage() {
   }, [focusId, notifications])
 
   const fetchNotifications = async () => {
+    if (!isAuthenticated || !user?.wallet_address) {
+      console.warn('Cannot fetch notifications: not authenticated')
+      setNotifications([])
+      setLoading(false)
+      return
+    }
+
     try {
       setLoading(true)
-      const client = createNotificationsClient(createFrontendApiClient())
+      const client = createNotificationsClient(createFrontendApiClient({ token: user?.access }))
 
       const data = await client.getNotifications({
         page,
@@ -91,7 +104,10 @@ export default function NotificationsPage() {
       setUnreadCount(data.data.unread_count)
       setTotalPages(data.data.total_pages)
     } catch (error) {
-      console.warn('Failed to fetch notifications:', error)
+      const apiError = error as any
+      if (apiError?.status !== 401) {
+        console.warn('Failed to fetch notifications:', error)
+      }
       setNotifications([])
     } finally {
       setLoading(false)
@@ -99,8 +115,13 @@ export default function NotificationsPage() {
   }
 
   const markAsRead = async (notificationId: string) => {
+    if (!isAuthenticated || !user?.wallet_address) {
+      console.warn('Cannot mark notification as read: not authenticated')
+      return
+    }
+
     try {
-      const client = createNotificationsClient(createFrontendApiClient())
+      const client = createNotificationsClient(createFrontendApiClient({ token: user?.access }))
       await client.markAsRead(notificationId)
 
       setNotifications(prev => prev.map(n =>
@@ -113,8 +134,13 @@ export default function NotificationsPage() {
   }
 
   const markAllAsRead = async () => {
+    if (!isAuthenticated || !user?.wallet_address) {
+      console.warn('Cannot mark all notifications as read: not authenticated')
+      return
+    }
+
     try {
-      const client = createNotificationsClient(createFrontendApiClient())
+      const client = createNotificationsClient(createFrontendApiClient({ token: user?.access }))
       await client.markAllAsRead()
 
       setNotifications(prev => prev.map(n => ({ ...n, read: true })))
@@ -125,8 +151,13 @@ export default function NotificationsPage() {
   }
 
   const deleteNotification = async (notificationId: string) => {
+    if (!isAuthenticated || !user?.wallet_address) {
+      console.warn('Cannot delete notification: not authenticated')
+      return
+    }
+
     try {
-      const client = createNotificationsClient(createFrontendApiClient())
+      const client = createNotificationsClient(createFrontendApiClient({ token: user?.access }))
       await client.deleteNotification(notificationId)
 
       setNotifications(prev => prev.filter(n => n.id !== notificationId))
@@ -142,7 +173,7 @@ export default function NotificationsPage() {
     }
 
     try {
-      const client = createNotificationsClient(createFrontendApiClient())
+      const client = createNotificationsClient(createFrontendApiClient({ token: user?.access }))
       await client.clearAllNotifications()
 
       setNotifications([])

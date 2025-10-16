@@ -106,10 +106,8 @@ export class UnifiedApiClient {
             const { cookies } = await import('next/headers');
             const cookieStore = await cookies();
 
-            // Get access token from OpenID-compliant cookies
-            const tokenCookie = this.platform === 'admin'
-              ? cookieStore.get(COOKIES.admin.access)
-              : cookieStore.get(COOKIES.user.access);
+            // Get access token from unified cookies (no context separation)
+            const tokenCookie = cookieStore.get(COOKIES.access);
 
             if (tokenCookie?.value) {
               headers['Authorization'] = `Bearer ${tokenCookie.value}`;
@@ -159,11 +157,8 @@ export class UnifiedApiClient {
 
       // Handle authentication errors
       if (response.status === 401) {
-        if (!this.isServerSide && typeof window !== 'undefined') {
-          // Redirect to appropriate login page
-          window.location.href = this.platform === 'admin' ? '/login' : '/auth/login';
-        }
-
+        // Don't redirect - let the application handle authentication state
+        // The auth provider will show wallet connection UI when needed
         throw new APIError(401, 'Unauthorized - please log in again', 'UNAUTHORIZED');
       }
 

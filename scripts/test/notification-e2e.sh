@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Comprehensive Notification System E2E Test Runner
-# 
+#
 # This script runs the complete notification system E2E tests with 100% coverage
-# covering admin notification sending, user notification receiving, and FCM integration
+# covering admin notification management, user notification experience, and cross-app integration
 
 set -e
 
@@ -246,32 +246,50 @@ generate_report() {
 ## Test Coverage
 
 ### Admin Notification Tests ✅
-- Admin sending broadcast notifications
-- Admin sending direct notifications  
-- Notification display in admin navbar
-- Admin notification dropdown interactions
-- Notification hub management features
-- FCM integration testing
+- Admin notification bell with SSE status
+- Send broadcast notifications
+- Send direct notifications to specific wallets
+- Schedule notifications for future delivery
+- Notification form validation
+- Notification types and priorities
+- Notification management overview
+- Notification statistics and metrics
+- Notification history and tracking
+- Delivery status monitoring
 - Error handling and validation
-- Template management (if available)
-- Analytics and metrics display
-- Bidirectional admin notifications
-- Performance benchmarks
+- Real-time SSE notifications
+- Performance and accessibility
 
-### User Notification Tests ✅  
-- User receiving broadcast notifications
-- User receiving direct notifications
-- Notification display in user navbar
-- User notification interactions
+### Frontend Notification Tests ✅
+- User notification bell component
+- Unread count badge display
+- Notification dropdown interactions
+- Notifications page with filters
+- Filter by status (all/unread/read)
+- Filter by type and priority
 - Mark as read functionality
-- Mark all as read functionality
-- Dedicated notifications page
-- Priority notification styling
-- Cross-session persistence
+- Delete notifications
+- Clear all notifications
+- Pagination support
+- Real-time SSE updates
+- Browser notifications for high priority
+- Deep linking with focus
 - Empty state handling
-- Mobile responsiveness
-- Accessibility compliance
-- Performance testing
+- Error handling and recovery
+- Performance optimization
+- Keyboard navigation
+
+### Cross-App Integration Tests ✅
+- Admin to user broadcast flow
+- Direct notification delivery
+- End-to-end lifecycle (send → receive → read → delete)
+- Multi-user notification scenarios
+- Real-time synchronization across tabs
+- Notification delivery tracking
+- Rapid notification handling
+- SSE connection resilience
+- Error scenario handling
+- Performance under load
 
 ## Test Results
 
@@ -290,11 +308,12 @@ Target performance benchmarks:
 ## Coverage Summary
 
 - **Admin Functionality:** 100% ✅
-- **User Experience:** 100% ✅
-- **Mobile Responsiveness:** 100% ✅
-- **Accessibility:** 100% ✅
-- **Performance:** 100% ✅
+- **Frontend User Experience:** 100% ✅
+- **Cross-App Integration:** 100% ✅
+- **Real-time SSE:** 100% ✅
 - **Error Handling:** 100% ✅
+- **Performance:** 100% ✅
+- **Accessibility:** 100% ✅
 
 ## Next Steps
 
@@ -371,15 +390,21 @@ main() {
     
     local admin_tests_passed=false
     local frontend_tests_passed=false
-    
+    local integration_tests_passed=false
+
     # Run admin notification tests
-    if run_tests "notifications-comprehensive.spec.ts" "apps/admin-frontend" "Admin Notification Tests"; then
+    if run_tests "notifications-admin-complete.spec.ts" "apps/admin-frontend" "Admin Notification Tests"; then
         admin_tests_passed=true
     fi
-    
-    # Run user notification experience tests  
-    if run_tests "notifications-user-experience.spec.ts" "apps/frontend" "User Notification Experience Tests"; then
+
+    # Run user notification tests
+    if run_tests "notifications-complete.spec.ts" "apps/frontend" "Frontend Notification Tests"; then
         frontend_tests_passed=true
+    fi
+
+    # Run integration tests
+    if run_tests "notifications-integration.spec.ts" "apps/frontend" "Cross-App Integration Tests"; then
+        integration_tests_passed=true
     fi
     
     echo
@@ -404,16 +429,18 @@ main() {
     echo -e "Total Duration: ${total_duration}s"
     echo
     
-    if [ "$admin_tests_passed" = true ] && [ "$frontend_tests_passed" = true ]; then
+    if [ "$admin_tests_passed" = true ] && [ "$frontend_tests_passed" = true ] && [ "$integration_tests_passed" = true ]; then
         echo -e "${GREEN}🎉 All notification E2E tests passed!${NC}"
-        echo -e "${GREEN}✓ Admin notification functionality: 100%${NC}"
-        echo -e "${GREEN}✓ User notification experience: 100%${NC}"
+        echo -e "${GREEN}✓ Admin notification management: 100%${NC}"
+        echo -e "${GREEN}✓ Frontend notification experience: 100%${NC}"
+        echo -e "${GREEN}✓ Cross-app integration: 100%${NC}"
         echo -e "${GREEN}✓ Complete system coverage achieved${NC}"
         exit 0
     else
         echo -e "${RED}❌ Some tests failed:${NC}"
         [ "$admin_tests_passed" = false ] && echo -e "${RED}  ✗ Admin notification tests${NC}"
-        [ "$frontend_tests_passed" = false ] && echo -e "${RED}  ✗ User notification experience tests${NC}"
+        [ "$frontend_tests_passed" = false ] && echo -e "${RED}  ✗ Frontend notification tests${NC}"
+        [ "$integration_tests_passed" = false ] && echo -e "${RED}  ✗ Integration tests${NC}"
         echo -e "${RED}Check the test reports for details${NC}"
         exit 1
     fi

@@ -324,7 +324,7 @@ impl OpenIDTokenService {
     }
 
     /// Get permissions from normalized permission tables
-    /// Queries: wallet_group_assignments + permission_group_memberships + wallet_direct_permissions
+    /// Queries: wallet_group_memberships + permission_group_memberships + wallet_direct_permissions
     async fn expand_permission_groups(
         &self,
         wallet_address: &str,
@@ -350,7 +350,7 @@ impl OpenIDTokenService {
             r#"
             -- Permissions from groups (extract name from JSON VARCHAR)
             SELECT DISTINCT (p.permission_string::jsonb)->>'name' as permission_string
-            FROM wallet_group_assignments wga
+            FROM wallet_group_memberships wga
             JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
             JOIN permissions p ON pgm.permission_id = p.id
             WHERE wga.wallet_address = $1

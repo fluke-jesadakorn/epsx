@@ -15,7 +15,7 @@ export interface SessionData {
 export async function getServerSession(): Promise<SessionData | null> {
   try {
     const cookieStore = await cookies();
-    const accessToken = cookieStore.get(COOKIES.user.access)?.value;
+    const accessToken = cookieStore.get(COOKIES.access)?.value;
 
     if (!accessToken) {
       return { isAuthenticated: false };

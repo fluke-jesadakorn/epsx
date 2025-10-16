@@ -21,6 +21,14 @@ interface UseSSENotificationsReturn {
   addNotification: (notification: SSENotification) => void
 }
 
+// Connection states to prevent race conditions
+enum ConnectionState {
+  DISCONNECTED = 'DISCONNECTED',
+  CONNECTING = 'CONNECTING',
+  CONNECTED = 'CONNECTED',
+  DISCONNECTING = 'DISCONNECTING',
+}
+
 export function useSSENotifications(
   options: UseSSENotificationsOptions
 ): UseSSENotificationsReturn {
@@ -37,11 +45,14 @@ export function useSSENotifications(
   const [notifications, setNotifications] = useState<SSENotification[]>([])
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Connection management with atomic state transitions
+  const connectionStateRef = useRef<ConnectionState>(ConnectionState.DISCONNECTED)
   const disconnectRef = useRef<(() => void) | null>(null)
   const reconnectAttempts = useRef(0)
   const maxReconnectAttempts = 10
-  const isConnecting = useRef(false)
   const isMounted = useRef(true)
+  const connectionIdRef = useRef(0) // Track connection attempts to identify stale ones
 
   // Store callbacks in refs to avoid dependency changes
   const onNotificationRef = useRef(onNotification)
@@ -56,14 +67,16 @@ export function useSSENotifications(
   }, [onNotification, onError, onConnect])
 
   const connect = useCallback(() => {
-    // Prevent multiple simultaneous connections
-    if (isConnecting.current || disconnectRef.current) {
-      console.log('⏭️ SSE: Already connected or connecting, skipping...')
+    // Atomic state check - prevent race conditions
+    if (connectionStateRef.current !== ConnectionState.DISCONNECTED) {
+      console.log(`⏭️ SSE: Already ${connectionStateRef.current}, skipping connection attempt`)
       return
     }
 
-    isConnecting.current = true
-    console.log('🔌 SSE: Initiating connection...')
+    // Atomically transition to CONNECTING state
+    connectionStateRef.current = ConnectionState.CONNECTING
+    const currentConnectionId = ++connectionIdRef.current
+    console.log(`🔌 SSE: Initiating connection #${currentConnectionId}...`)
 
     try {
       const client = createNotificationsClient(apiClient)
@@ -72,56 +85,117 @@ export function useSSENotifications(
         {
           wallet_address: walletAddress,
           types: types as any,
-          auto_reconnect: true,
+          auto_reconnect: false, // We handle reconnection ourselves to avoid conflicts
           reconnect_interval: Math.min(5000 * (reconnectAttempts.current + 1), 30000),
         },
         (notification) => {
-          if (!isMounted.current) return
+          // Verify this callback is from the current connection
+          if (!isMounted.current || connectionIdRef.current !== currentConnectionId) {
+            console.log(`⚠️ SSE: Stale notification from connection #${currentConnectionId}, ignoring`)
+            return
+          }
+
           setNotifications((prev) => [notification, ...prev].slice(0, 100))
           onNotificationRef.current?.(notification)
           reconnectAttempts.current = 0
         },
         (err) => {
-          if (!isMounted.current) return
-          setIsConnected(false)
-          const errorMsg = 'Connection lost. Reconnecting...'
-          setError(errorMsg)
-          onErrorRef.current?.(errorMsg)
+          // Verify this callback is from the current connection
+          if (!isMounted.current || connectionIdRef.current !== currentConnectionId) {
+            console.log(`⚠️ SSE: Stale error from connection #${currentConnectionId}, ignoring`)
+            return
+          }
 
-          reconnectAttempts.current++
-          if (reconnectAttempts.current >= maxReconnectAttempts) {
-            setError('Failed to connect after multiple attempts')
-            onErrorRef.current?.('Failed to connect after multiple attempts')
+          // Only update state if we're still in CONNECTED state and component is mounted
+          if (connectionStateRef.current === ConnectionState.CONNECTED && isMounted.current) {
+            connectionStateRef.current = ConnectionState.DISCONNECTED
+            setIsConnected(false)
+            const errorMsg = 'Connection lost. Reconnecting...'
+            setError(errorMsg)
+            onErrorRef.current?.(errorMsg)
+
+            reconnectAttempts.current++
+            if (reconnectAttempts.current < maxReconnectAttempts) {
+              // Attempt reconnection with exponential backoff
+              const delay = Math.min(5000 * reconnectAttempts.current, 30000)
+              console.log(`🔄 SSE: Scheduling reconnect attempt ${reconnectAttempts.current} in ${delay}ms`)
+              setTimeout(() => {
+                if (isMounted.current && connectionStateRef.current === ConnectionState.DISCONNECTED) {
+                  connect()
+                }
+              }, delay)
+            } else {
+              if (isMounted.current) {
+                setError('Failed to connect after multiple attempts')
+              }
+              onErrorRef.current?.('Failed to connect after multiple attempts')
+            }
           }
         },
         () => {
-          if (!isMounted.current) return
-          console.log('✅ SSE: Connection established')
-          setIsConnected(true)
-          setError(null)
+          // Verify this callback is from the current connection
+          if (!isMounted.current || connectionIdRef.current !== currentConnectionId) {
+            console.log(`⚠️ SSE: Stale open event from connection #${currentConnectionId}, ignoring`)
+            return
+          }
+
+          console.log(`✅ SSE: Connection #${currentConnectionId} established`)
+          connectionStateRef.current = ConnectionState.CONNECTED
+
+          if (isMounted.current) {
+            setIsConnected(true)
+            setError(null)
+          }
           reconnectAttempts.current = 0
-          isConnecting.current = false
           onConnectRef.current?.()
         }
       )
 
       disconnectRef.current = disconnectFn
     } catch (err) {
-      isConnecting.current = false
+      // Reset state on connection failure
+      connectionStateRef.current = ConnectionState.DISCONNECTED
       const errorMsg = err instanceof Error ? err.message : 'Failed to connect to notification stream'
-      setError(errorMsg)
+
+      if (isMounted.current) {
+        setError(errorMsg)
+      }
       onErrorRef.current?.(errorMsg)
+      console.error(`❌ SSE: Connection #${currentConnectionId} failed:`, errorMsg)
     }
   }, [apiClient, walletAddress, types])
 
   const disconnect = useCallback(() => {
-    console.log('🔴 SSE: Disconnecting...')
+    // Atomic state transition to DISCONNECTING
+    const prevState = connectionStateRef.current
+    if (prevState === ConnectionState.DISCONNECTED) {
+      console.log('⏭️ SSE: Already disconnected, skipping')
+      return
+    }
+
+    console.log(`🔴 SSE: Disconnecting from ${prevState} state...`)
+    connectionStateRef.current = ConnectionState.DISCONNECTING
+
+    // Increment connection ID to invalidate any pending callbacks
+    connectionIdRef.current++
+
     if (disconnectRef.current) {
-      disconnectRef.current()
+      try {
+        disconnectRef.current()
+      } catch (err) {
+        console.error('❌ SSE: Error during disconnect:', err)
+      }
       disconnectRef.current = null
     }
-    isConnecting.current = false
-    setIsConnected(false)
+
+    // Final state transition
+    connectionStateRef.current = ConnectionState.DISCONNECTED
+
+    // Only update state if component is still mounted
+    if (isMounted.current) {
+      setIsConnected(false)
+    }
+    console.log('✅ SSE: Disconnected successfully')
   }, [])
 
   const addNotification = useCallback((notification: SSENotification) => {
@@ -131,7 +205,7 @@ export function useSSENotifications(
   useEffect(() => {
     isMounted.current = true
 
-    if (autoConnect && !isConnecting.current && !disconnectRef.current) {
+    if (autoConnect && connectionStateRef.current === ConnectionState.DISCONNECTED) {
       console.log('🎬 SSE: Auto-connect triggered')
       connect()
     }

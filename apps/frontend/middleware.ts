@@ -5,23 +5,24 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { enterpriseUrls } from '@/config/env';
+import { COOKIES } from '@/shared/auth/cookies';
+
+// Middleware validation cache (5 seconds TTL)
+const validationCache = new Map<string, { valid: boolean; user: any; timestamp: number }>();
+const CACHE_TTL = 5000; // 5 seconds
 
 // Public routes that don't require Web3 authentication
 const publicRoutes = [
   '/',
+  '/auth',
   '/connect-wallet',
   '/access-denied',
-  '/unauthorized', 
+  '/unauthorized',
   '/terms',
   '/privacy',
   '/analytics',
-  '/login',
   '/upgrade',
-  '/api/auth/web3/challenge',
-  '/api/auth/web3/authenticate',
-  '/api/auth/web3/verify',
-  '/api/auth/web3/logout',
-  '/api/auth/session',
+  '/api/auth',
   '/api/public',
   '/_next',
   '/favicon.ico'
@@ -91,7 +92,7 @@ export async function middleware(request: NextRequest) {
   try {
     // Validate Web3 enterprise authentication
     const authResult = await validateWeb3Authentication(request);
-    
+
     if (!authResult.valid || !authResult.user) {
       // Log security event for failed authentication
       await logSecurityEvent({
@@ -102,9 +103,9 @@ export async function middleware(request: NextRequest) {
         method,
         details: { error: authResult.error }
       });
-      
-      // Redirect to wallet connection
-      return redirectToWalletConnect(request);
+
+      // Allow page to render, client-side auth will handle wallet connection
+      return response;
     }
     
     const user = authResult.user;
@@ -163,7 +164,7 @@ export async function middleware(request: NextRequest) {
     
   } catch (error) {
     console.error('Web3 middleware validation error:', error);
-    
+
     // Log security event for middleware error
     await logSecurityEvent({
       type: 'MIDDLEWARE_ERROR',
@@ -171,31 +172,16 @@ export async function middleware(request: NextRequest) {
       ipAddress,
       path: pathname,
       method,
-      details: { 
+      details: {
         error: error instanceof Error ? error.message : 'Unknown error'
       }
     });
-    
-    // Redirect to wallet connection on any validation error
-    return redirectToWalletConnect(request);
+
+    // Allow page to render, client-side auth will handle errors
+    return response;
   }
 }
 
-/**
- * Create redirect response to Web3 wallet connection
- */
-function redirectToWalletConnect(request: NextRequest): NextResponse {
-  const callbackPath = `${request.nextUrl.pathname}${request.nextUrl.search}`;
-  const connectUrl = new URL('/connect-wallet', request.url);
-  connectUrl.searchParams.set('redirectTo', callbackPath);
-
-  const redirect = NextResponse.redirect(connectUrl.toString());
-  // Clear any invalid session tokens
-  redirect.cookies.delete('access_token');
-  redirect.cookies.delete('id_token');
-  redirect.cookies.delete('refresh_token');
-  return redirect;
-}
 
 /**
  * Validate Web3 enterprise authentication
@@ -209,14 +195,24 @@ async function validateWeb3Authentication(request: NextRequest): Promise<{
     // Extract Bearer token from Authorization header or session cookies
     const authHeader = request.headers.get('authorization');
     const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null;
-    
-    // Fallback to session cookies
-    const accessToken = bearerToken || request.cookies.get('access_token')?.value;
-    
+
+    // Fallback to session cookies using correct cookie names
+    const accessToken = bearerToken || request.cookies.get(COOKIES.access)?.value;
+
     if (!accessToken) {
       return { valid: false, error: 'No authentication token found' };
     }
-    
+
+    // Check cache first
+    const cacheKey = accessToken.substring(0, 20); // Use token prefix as cache key
+    const now = Date.now();
+    const cached = validationCache.get(cacheKey);
+
+    if (cached && (now - cached.timestamp) < CACHE_TTL) {
+      console.log('Using cached middleware validation');
+      return { valid: cached.valid, user: cached.user };
+    }
+
     // Validate with enterprise API
     const response = await fetch(enterpriseUrls.permissions, {
       method: 'GET',
@@ -225,30 +221,37 @@ async function validateWeb3Authentication(request: NextRequest): Promise<{
         'Content-Type': 'application/json',
       },
     });
-    
+
     if (!response.ok) {
-      return { valid: false, error: `Authentication validation failed: ${response.status}` };
+      const result = { valid: false, error: `Authentication validation failed: ${response.status}` };
+      // Cache failed validation for shorter period (1 second)
+      validationCache.set(cacheKey, { valid: false, user: undefined, timestamp: now });
+      setTimeout(() => validationCache.delete(cacheKey), 1000);
+      return result;
     }
-    
+
     const data = await response.json();
-    
-    return {
-      valid: true,
-      user: {
-        wallet_address: data.wallet_address,
-        enterprise_tier: data.enterprise_tier,
-        permissions: data.permissions || [],
-        has_api_access: data.has_api_access || false,
-        verified_tokens_usd: data.verified_tokens_usd || 0,
-        nft_collections: data.nft_collections || [],
-        dao_memberships: data.dao_memberships || []
-      }
+
+    const user: EnterpriseUser = {
+      wallet_address: data.wallet_address,
+      enterprise_tier: data.enterprise_tier,
+      permissions: data.permissions || [],
+      has_api_access: data.has_api_access || false,
+      verified_tokens_usd: data.verified_tokens_usd || 0,
+      nft_collections: data.nft_collections || [],
+      dao_memberships: data.dao_memberships || []
     };
-    
+
+    // Cache successful validation
+    validationCache.set(cacheKey, { valid: true, user, timestamp: now });
+    setTimeout(() => validationCache.delete(cacheKey), CACHE_TTL);
+
+    return { valid: true, user };
+
   } catch (error) {
-    return { 
-      valid: false, 
-      error: error instanceof Error ? error.message : 'Authentication validation error' 
+    return {
+      valid: false,
+      error: error instanceof Error ? error.message : 'Authentication validation error'
     };
   }
 }

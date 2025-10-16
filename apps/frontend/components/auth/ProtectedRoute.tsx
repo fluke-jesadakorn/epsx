@@ -46,14 +46,10 @@ export function ProtectedRoute({
       setIsChecking(false);
 
       if (requireAuth && !isAuthenticated) {
-        console.log('User not authenticated, redirecting to auth page', {
-          current_path: pathname,
-          redirect_to: redirectTo
+        console.log('User not authenticated - page will handle auth UI', {
+          current_path: pathname
         });
-        
-        // Store current path for post-auth redirect
-        const returnUrl = encodeURIComponent(pathname);
-        router.push(`${redirectTo}?returnUrl=${returnUrl}`);
+        // No redirect - let page handle authentication UI
         return;
       }
 
@@ -67,7 +63,7 @@ export function ProtectedRoute({
     };
 
     checkAuthentication();
-  }, [isAuthenticated, isLoading, requireAuth, router, pathname, redirectTo, user]);
+  }, [isAuthenticated, isLoading, requireAuth, pathname, user]);
 
   // Show loading state while checking authentication
   if (isLoading || isChecking) {
@@ -85,10 +81,12 @@ export function ProtectedRoute({
     );
   }
 
-  // If authentication is required but user is not authenticated, show nothing
-  // (router.push will handle the redirect)
+  // If authentication is required but user is not authenticated, show fallback or children
+  // (Page will handle showing auth UI)
   if (requireAuth && !isAuthenticated) {
-    return null;
+    if (fallback) {
+      return <>{fallback}</>;
+    }
   }
 
   // Render protected content
@@ -122,15 +120,6 @@ export function withProtectedRoute<P extends object>(
 // Simple authentication guard hook
 export function useAuthGuard(requireAuth: boolean = true) {
   const { isAuthenticated, isLoading, user } = useSharedAuth();
-  const router = useRouter();
-  const pathname = usePathname();
-
-  useEffect(() => {
-    if (!isLoading && requireAuth && !isAuthenticated) {
-      const returnUrl = encodeURIComponent(pathname);
-      router.push(`/auth/signin?returnUrl=${returnUrl}`);
-    }
-  }, [isAuthenticated, isLoading, requireAuth, router, pathname]);
 
   return {
     isAuthenticated,

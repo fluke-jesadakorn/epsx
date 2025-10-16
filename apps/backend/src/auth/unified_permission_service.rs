@@ -418,10 +418,10 @@ impl UnifiedPermissionService {
             request.group_id, wallet_lower, request.assigned_by
         );
 
-        // Insert into wallet_group_assignments
+        // Insert into wallet_group_memberships
         let assignment_id: Uuid = sqlx::query_scalar(
             r#"
-            INSERT INTO wallet_group_assignments (
+            INSERT INTO wallet_group_memberships (
                 wallet_address,
                 group_id,
                 assigned_at,
@@ -472,10 +472,10 @@ impl UnifiedPermissionService {
             request.group_id, wallet_lower, request.removed_by
         );
 
-        // Delete from wallet_group_assignments
+        // Delete from wallet_group_memberships
         let rows_affected = sqlx::query(
             r#"
-            DELETE FROM wallet_group_assignments
+            DELETE FROM wallet_group_memberships
             WHERE wallet_address = $1
               AND group_id = $2
               AND is_active = TRUE

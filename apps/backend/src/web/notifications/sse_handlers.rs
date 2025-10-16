@@ -112,9 +112,17 @@ pub async fn sse_notifications_handler(
         wallet_address
     );
 
-    // Subscribe to Redis pub/sub
+    // Subscribe to Redis pub/sub (if available)
     let redis_broadcaster = app_state.redis_broadcaster.clone();
-    let mut pubsub = redis_broadcaster.subscribe_to_wallet(&wallet_address).await?;
+
+    if redis_broadcaster.is_none() {
+        tracing::warn!("⚠️ Redis not available - SSE will only send queued notifications");
+    }
+
+    let mut pubsub = match &redis_broadcaster {
+        Some(broadcaster) => Some(broadcaster.subscribe_to_wallet(&wallet_address).await?),
+        None => None,
+    };
 
     // Parse notification type filters
     let allowed_types = parse_notification_types(query.types);
@@ -137,14 +145,24 @@ pub async fn sse_notifications_handler(
                                 .data(data)
                         );
 
-                        // Mark as delivered in background
+                        // Mark as delivered in background with error logging
                         let db = db_pool.clone();
                         let notif_id = notification.id.clone();
+                        let notif_title = notification.title.clone();
                         tokio::spawn(async move {
-                            let _ = crate::web::notifications::mark_as_delivered(
-                                &db,
-                                &notif_id
-                            ).await;
+                            match crate::web::notifications::mark_as_delivered(&db, &notif_id).await {
+                                Ok(_) => {
+                                    tracing::debug!("✅ Background task: Marked notification as delivered: id={}", notif_id);
+                                }
+                                Err(e) => {
+                                    tracing::error!(
+                                        "❌ Background task failed: Could not mark notification as delivered: id={}, title='{}', error={}",
+                                        notif_id,
+                                        notif_title,
+                                        e
+                                    );
+                                }
+                            }
                         });
                     }
                     Err(e) => {
@@ -154,9 +172,10 @@ pub async fn sse_notifications_handler(
             }
         }
 
-        // Then stream real-time notifications from Redis
-        let mut message_stream = pubsub.on_message();
-        while let Some(msg) = message_stream.next().await {
+        // Then stream real-time notifications from Redis (if available)
+        if let Some(ref mut ps) = pubsub {
+            let mut message_stream = ps.on_message();
+            while let Some(msg) = message_stream.next().await {
             let payload: String = match msg.get_payload() {
                 Ok(p) => p,
                 Err(e) => {
@@ -195,9 +214,12 @@ pub async fn sse_notifications_handler(
                     }
                 }
             }
-        }
+            }
 
-        tracing::info!("🔴 Redis pub/sub stream ended for wallet: {}", wallet_for_stream);
+            tracing::info!("🔴 Redis pub/sub stream ended for wallet: {}", wallet_for_stream);
+        } else {
+            tracing::info!("⚠️ Redis not available - SSE connection will only show queued notifications");
+        }
     };
 
     // Send initial ping event to establish connection
@@ -225,8 +247,12 @@ pub async fn sse_notifications_handler(
 pub async fn sse_health_handler(
     State(app_state): State<AppState>,
 ) -> Result<impl IntoResponse, AppError> {
-    // Check Redis health
-    let redis_healthy = app_state.redis_pool.health_check().await;
+    // Check Redis health (if available)
+    let redis_healthy = if let Some(redis_pool) = &app_state.redis_pool {
+        redis_pool.health_check().await
+    } else {
+        false
+    };
 
     // Get notification stats
     let stats = crate::web::notifications::get_notification_stats(&app_state.db_pool)
@@ -327,9 +353,10 @@ fn extract_wallet_from_token(token: Option<&str>) -> Option<String> {
         }
     }
 
-    // Fall back to JWT decoding
-    let secret = "epsx-web3-bearer-token-secret-key".as_bytes();
-    let decoding_key = DecodingKey::from_secret(secret);
+    // Fall back to JWT decoding using environment variable
+    let secret = std::env::var("JWT_SECRET")
+        .unwrap_or_else(|_| "epsx-web3-bearer-token-secret-key".to_string());
+    let decoding_key = DecodingKey::from_secret(secret.as_bytes());
 
     let mut validation = Validation::new(Algorithm::HS256);
     validation.validate_exp = true;

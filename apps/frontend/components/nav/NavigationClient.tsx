@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useChainId, useSwitchChain, useAccount } from 'wagmi';
 import { bsc, bscTestnet } from 'wagmi/chains';
 
@@ -92,11 +92,36 @@ function NavigationContent() {
   const { isHydrated } = useNavbarContext();
   const chainId = useChainId();
   const { switchChain, isPending: isSwitching } = useSwitchChain();
-  const { isConnected } = useAccount();
+  const { isConnected, address: connectedAddress } = useAccount();
 
   // Get shared authentication state
-  const { isAuthenticated } = useSharedAuth();
-  
+  const { isAuthenticated, isLoading: authLoading, user } = useSharedAuth();
+
+  // Comprehensive authentication check: wallet must be connected AND authenticated AND addresses match
+  const isFullyAuthenticated =
+    isConnected &&
+    isAuthenticated &&
+    !authLoading &&
+    connectedAddress &&
+    user?.wallet_address &&
+    connectedAddress.toLowerCase() === user.wallet_address.toLowerCase();
+
+  // Debug authentication state
+  useEffect(() => {
+    if (!isHydrated) return;
+
+    console.log('🔔 Notification Bell Display Check:', {
+      isConnected,
+      isAuthenticated,
+      authLoading,
+      connectedAddress: connectedAddress?.slice(0, 8),
+      authenticatedAddress: user?.wallet_address?.slice(0, 8),
+      addressesMatch: connectedAddress?.toLowerCase() === user?.wallet_address?.toLowerCase(),
+      isFullyAuthenticated,
+      shouldShowBell: isFullyAuthenticated
+    });
+  }, [isConnected, isAuthenticated, authLoading, connectedAddress, user?.wallet_address, isFullyAuthenticated, isHydrated]);
+
   // Get all nav items - no permission filtering
   const navItems = navigationService.getNavItems();
 
@@ -301,8 +326,8 @@ function NavigationContent() {
 
         {/* Right Actions - Hidden on mobile */}
         <div className="hidden items-center gap-2 lg:flex">
-          {/* Notifications Bell - Display only if authenticated */}
-          {isAuthenticated && <NotificationBellClient />}
+          {/* Notifications Bell - Display only if wallet connected AND authenticated */}
+          {isFullyAuthenticated && <NotificationBellClient />}
 
           {/* About Us Link */}
           <Link

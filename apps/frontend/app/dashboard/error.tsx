@@ -11,8 +11,13 @@ export default function Error({
 }) {
   const router = useRouter();
 
-  const handleSignOut = () => {
-    router.push('/auth');
+  const handleSignOut = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   return (

@@ -99,6 +99,7 @@ use super::notification_handlers::{
   get_all_notifications_handler,
   get_notification_stats_handler,
   acknowledge_notification_handler,
+  delete_admin_notification_handler,
 };
 use crate::web::auth::AppState;
 
@@ -230,6 +231,7 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/notifications", get(get_all_notifications_handler))
     .route("/notifications/stats", get(get_notification_stats_handler))
     .route("/notifications/:id/acknowledge", put(acknowledge_notification_handler))
+    .route("/notifications/:id", delete(delete_admin_notification_handler))
 
     // TODO: Temporarily disabled due to Axum trait bound issues
     // .layer(axum::middleware::from_fn(crate::web::middleware::web3_auth_middleware))

@@ -5,6 +5,9 @@ pub mod sse_handlers;
 pub mod redis_broadcaster;
 pub mod offline_queue;
 
+#[cfg(test)]
+mod tests;
+
 pub use sse_handlers::{
     SSENotification,
     NotificationType,

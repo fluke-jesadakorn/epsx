@@ -9,7 +9,7 @@ use sqlx;
 
 use crate::{
     core::errors::{AppError, ErrorKind},
-    web::auth::AppState,
+    web::auth::{AppState, wallet_extractor::AuthWallet},
     web::notifications::{SSENotification, NotificationType, NotificationPriority},
 };
 
@@ -226,13 +226,16 @@ pub async fn send_notification_handler(
     .await
     .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to save notification: {}", e)))?;
 
-    // Publish via Redis pub/sub
-    let redis_broadcaster = app_state.redis_broadcaster.clone();
-
-    let subscriber_count = if wallet_address == "all" {
-        redis_broadcaster.publish_to_all(&sse_notification).await?
+    // Publish via Redis pub/sub (if available)
+    let subscriber_count = if let Some(redis_broadcaster) = &app_state.redis_broadcaster {
+        if wallet_address == "all" {
+            redis_broadcaster.publish_to_all(&sse_notification).await?
+        } else {
+            redis_broadcaster.publish_to_wallet(&wallet_address, &sse_notification).await?
+        }
     } else {
-        redis_broadcaster.publish_to_wallet(&wallet_address, &sse_notification).await?
+        tracing::warn!("Redis not available - notification saved to database but not broadcast in real-time");
+        0 // No subscribers since Redis is not available
     };
 
     // Update delivery attempt in database
@@ -244,6 +247,12 @@ pub async fn send_notification_handler(
     .await?;
 
     // Build response
+    let delivery_message = if app_state.redis_broadcaster.is_some() {
+        "Notification sent successfully via Redis".to_string()
+    } else {
+        "Notification saved to database (Redis unavailable - no real-time broadcast)".to_string()
+    };
+
     let response = SendNotificationResponse {
         success: true,
         data: SendNotificationData {
@@ -258,7 +267,7 @@ pub async fn send_notification_handler(
                 "queued".to_string() // No active subscribers, will deliver when they connect
             },
         },
-        message: "Notification sent successfully via Redis".to_string(),
+        message: delivery_message,
         api_version: "v1".to_string(),
     };
 
@@ -293,34 +302,45 @@ pub async fn get_all_notifications_handler(
     let limit = filters.limit.unwrap_or(20);
     let offset = ((page - 1) * limit) as i64;
 
-    // Build query with filters
-    let mut query = String::from("SELECT * FROM wallet_notifications WHERE 1=1");
+    // Build parameterized query with filters (exclude soft-deleted notifications)
+    let mut query = sqlx::QueryBuilder::new(
+        "SELECT id, wallet_address, notification_type, title, message, data, priority, \
+         timestamp, expires_at, read_at, clicked_at, delivered_at, action_url, image_url, \
+         created_at, updated_at \
+         FROM wallet_notifications WHERE deleted_at IS NULL"
+    );
 
     if let Some(ref wallet) = filters.wallet_address {
-        query.push_str(&format!(" AND wallet_address = '{}'", wallet));
+        query.push(" AND wallet_address = ");
+        query.push_bind(wallet);
     }
     if let Some(ref notif_type) = filters.notification_type {
-        query.push_str(&format!(" AND notification_type = '{}'", notif_type));
+        query.push(" AND notification_type = ");
+        query.push_bind(notif_type);
     }
     if let Some(ref priority) = filters.priority {
-        query.push_str(&format!(" AND priority = '{}'", priority));
+        query.push(" AND priority = ");
+        query.push_bind(priority);
     }
     if let Some(ref status) = filters.status {
-        match status.as_str() {
-            "read" => query.push_str(" AND read_at IS NOT NULL"),
-            "unread" => query.push_str(" AND read_at IS NULL"),
-            _ => {}
+        if status == "read" {
+            query.push(" AND read_at IS NOT NULL");
+        } else if status == "unread" {
+            query.push(" AND read_at IS NULL");
         }
     }
 
-    query.push_str(" ORDER BY timestamp DESC");
-    query.push_str(&format!(" LIMIT {} OFFSET {}", limit, offset));
+    query.push(" ORDER BY timestamp DESC LIMIT ");
+    query.push_bind(limit as i64);
+    query.push(" OFFSET ");
+    query.push_bind(offset);
 
-    let records = sqlx::query_as::<_, (
-        uuid::Uuid, String, String, String, String, Option<serde_json::Value>, String,
-        DateTime<Utc>, Option<DateTime<Utc>>, Option<DateTime<Utc>>, Option<DateTime<Utc>>,
-        Option<DateTime<Utc>>, Option<String>, Option<String>, DateTime<Utc>, DateTime<Utc>
-    )>(&query)
+    let records = query
+        .build_query_as::<(
+            uuid::Uuid, String, String, String, String, Option<serde_json::Value>, String,
+            DateTime<Utc>, Option<DateTime<Utc>>, Option<DateTime<Utc>>, Option<DateTime<Utc>>,
+            Option<DateTime<Utc>>, Option<String>, Option<String>, DateTime<Utc>, DateTime<Utc>
+        )>()
         .fetch_all(&*app_state.db_pool)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to fetch notifications: {}", e)))?;
@@ -342,14 +362,57 @@ pub async fn get_all_notifications_handler(
         image_url: r.13,
     }).collect();
 
-    // Get total count
-    let total_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM wallet_notifications")
+    // Get total count (exclude soft-deleted) - with same filters
+    let mut count_query = sqlx::QueryBuilder::new(
+        "SELECT COUNT(*) FROM wallet_notifications WHERE deleted_at IS NULL"
+    );
+
+    if let Some(ref wallet) = filters.wallet_address {
+        count_query.push(" AND wallet_address = ");
+        count_query.push_bind(wallet);
+    }
+    if let Some(ref notif_type) = filters.notification_type {
+        count_query.push(" AND notification_type = ");
+        count_query.push_bind(notif_type);
+    }
+    if let Some(ref priority) = filters.priority {
+        count_query.push(" AND priority = ");
+        count_query.push_bind(priority);
+    }
+    if let Some(ref status) = filters.status {
+        if status == "read" {
+            count_query.push(" AND read_at IS NOT NULL");
+        } else if status == "unread" {
+            count_query.push(" AND read_at IS NULL");
+        }
+    }
+
+    let total_count: (i64,) = count_query
+        .build_query_as()
         .fetch_one(&*app_state.db_pool)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count notifications: {}", e)))?;
 
-    // Get unread count
-    let unread_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM wallet_notifications WHERE read_at IS NULL")
+    // Get unread count (exclude soft-deleted)
+    let mut unread_query = sqlx::QueryBuilder::new(
+        "SELECT COUNT(*) FROM wallet_notifications WHERE read_at IS NULL AND deleted_at IS NULL"
+    );
+
+    if let Some(ref wallet) = filters.wallet_address {
+        unread_query.push(" AND wallet_address = ");
+        unread_query.push_bind(wallet);
+    }
+    if let Some(ref notif_type) = filters.notification_type {
+        unread_query.push(" AND notification_type = ");
+        unread_query.push_bind(notif_type);
+    }
+    if let Some(ref priority) = filters.priority {
+        unread_query.push(" AND priority = ");
+        unread_query.push_bind(priority);
+    }
+
+    let unread_count: (i64,) = unread_query
+        .build_query_as()
         .fetch_one(&*app_state.db_pool)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count unread: {}", e)))?;
@@ -388,39 +451,39 @@ pub async fn get_all_notifications_handler(
 pub async fn get_notification_stats_handler(
     State(app_state): State<AppState>,
 ) -> Result<impl IntoResponse, AppError> {
-    // Get total notifications count
-    let total_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM wallet_notifications")
+    // Get total notifications count (exclude soft-deleted)
+    let total_count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM wallet_notifications WHERE deleted_at IS NULL")
         .fetch_one(&*app_state.db_pool)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count notifications: {}", e)))?;
 
-    // Get notifications sent today
+    // Get notifications sent today (exclude soft-deleted)
     let today_count: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM wallet_notifications WHERE timestamp >= CURRENT_DATE"
+        "SELECT COUNT(*) FROM wallet_notifications WHERE timestamp >= CURRENT_DATE AND deleted_at IS NULL"
     )
         .fetch_one(&*app_state.db_pool)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count today's notifications: {}", e)))?;
 
-    // Get notifications sent this week
+    // Get notifications sent this week (exclude soft-deleted)
     let week_count: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM wallet_notifications WHERE timestamp >= CURRENT_DATE - INTERVAL '7 days'"
+        "SELECT COUNT(*) FROM wallet_notifications WHERE timestamp >= CURRENT_DATE - INTERVAL '7 days' AND deleted_at IS NULL"
     )
         .fetch_one(&*app_state.db_pool)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count week's notifications: {}", e)))?;
 
-    // Get notifications sent this month
+    // Get notifications sent this month (exclude soft-deleted)
     let month_count: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM wallet_notifications WHERE timestamp >= CURRENT_DATE - INTERVAL '30 days'"
+        "SELECT COUNT(*) FROM wallet_notifications WHERE timestamp >= CURRENT_DATE - INTERVAL '30 days' AND deleted_at IS NULL"
     )
         .fetch_one(&*app_state.db_pool)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count month's notifications: {}", e)))?;
 
-    // Get count by type
+    // Get count by type (exclude soft-deleted)
     let type_counts = sqlx::query_as::<_, (String, i64)>(
-        "SELECT notification_type, COUNT(*) as count FROM wallet_notifications GROUP BY notification_type"
+        "SELECT notification_type, COUNT(*) as count FROM wallet_notifications WHERE deleted_at IS NULL GROUP BY notification_type"
     )
         .fetch_all(&*app_state.db_pool)
         .await
@@ -431,9 +494,9 @@ pub async fn get_notification_stats_handler(
         by_type.insert(notif_type, serde_json::json!(count));
     }
 
-    // Get count by priority
+    // Get count by priority (exclude soft-deleted)
     let priority_counts = sqlx::query_as::<_, (String, i64)>(
-        "SELECT priority, COUNT(*) as count FROM wallet_notifications GROUP BY priority"
+        "SELECT priority, COUNT(*) as count FROM wallet_notifications WHERE deleted_at IS NULL GROUP BY priority"
     )
         .fetch_all(&*app_state.db_pool)
         .await
@@ -444,12 +507,12 @@ pub async fn get_notification_stats_handler(
         by_priority.insert(priority, serde_json::json!(count));
     }
 
-    // Calculate delivery rate (all notifications are delivered for now)
+    // Calculate delivery rate (all active notifications are delivered)
     let delivery_rate = if total_count.0 > 0 { 1.0 } else { 0.0 };
 
-    // Calculate read rate
+    // Calculate read rate (exclude soft-deleted)
     let read_count: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM wallet_notifications WHERE read_at IS NOT NULL"
+        "SELECT COUNT(*) FROM wallet_notifications WHERE read_at IS NOT NULL AND deleted_at IS NULL"
     )
         .fetch_one(&*app_state.db_pool)
         .await
@@ -461,9 +524,9 @@ pub async fn get_notification_stats_handler(
         0.0
     };
 
-    // Calculate click rate
+    // Calculate click rate (exclude soft-deleted)
     let clicked_count: (i64,) = sqlx::query_as(
-        "SELECT COUNT(*) FROM wallet_notifications WHERE clicked_at IS NOT NULL"
+        "SELECT COUNT(*) FROM wallet_notifications WHERE clicked_at IS NOT NULL AND deleted_at IS NULL"
     )
         .fetch_one(&*app_state.db_pool)
         .await
@@ -475,7 +538,7 @@ pub async fn get_notification_stats_handler(
         0.0
     };
 
-    // Get recent activity (last 24 hours, grouped by hour)
+    // Get recent activity (last 24 hours, grouped by hour, exclude soft-deleted)
     let recent_activity_records = sqlx::query_as::<_, (DateTime<Utc>, i64)>(
         r#"
         SELECT
@@ -483,6 +546,7 @@ pub async fn get_notification_stats_handler(
             COUNT(*) as count
         FROM wallet_notifications
         WHERE timestamp >= NOW() - INTERVAL '24 hours'
+          AND deleted_at IS NULL
         GROUP BY hour
         ORDER BY hour DESC
         LIMIT 10
@@ -549,48 +613,55 @@ pub async fn get_notification_stats_handler(
 )]
 pub async fn get_user_notifications_handler(
     State(app_state): State<AppState>,
+    auth_wallet: AuthWallet,
     Query(filters): Query<NotificationFilters>,
 ) -> Result<impl IntoResponse, AppError> {
-    // TODO: Extract wallet_address from Bearer token/session
-    // For now, return all notifications (broadcast to 'all')
+    // Use authenticated wallet address from Bearer token
+    let wallet_address = auth_wallet.address.to_lowercase();
 
     let page = filters.page.unwrap_or(1);
     let limit = filters.limit.unwrap_or(20);
     let offset = ((page - 1) * limit) as i64;
 
-    // Build query - get notifications sent to 'all' (broadcast) OR specific wallet
-    // TODO: Extract wallet_address from Bearer token/session for proper filtering
-    // For now, show only broadcasts since we don't have wallet extraction in REST handlers yet
-    let wallet_filter = if let Some(ref wallet) = filters.wallet_address {
-        format!("(wallet_address = '{}' OR wallet_address = 'all')", wallet)
-    } else {
-        "wallet_address = 'all'".to_string()
-    };
+    // Build parameterized query - get notifications sent to authenticated wallet OR broadcast to 'all'
+    let mut query = sqlx::QueryBuilder::new(
+        "SELECT id, wallet_address, notification_type, title, message, data, priority, \
+         timestamp, expires_at, read_at, clicked_at, delivered_at, action_url, image_url, \
+         created_at, updated_at \
+         FROM wallet_notifications WHERE deleted_at IS NULL AND ("
+    );
 
-    let mut query = format!("SELECT * FROM wallet_notifications WHERE {}", wallet_filter);
+    query.push("wallet_address = ");
+    query.push_bind(&wallet_address);
+    query.push(" OR wallet_address = 'all')");
 
     if let Some(ref notif_type) = filters.notification_type {
-        query.push_str(&format!(" AND notification_type = '{}'", notif_type));
+        query.push(" AND notification_type = ");
+        query.push_bind(notif_type);
     }
     if let Some(ref priority) = filters.priority {
-        query.push_str(&format!(" AND priority = '{}'", priority));
+        query.push(" AND priority = ");
+        query.push_bind(priority);
     }
     if let Some(ref status) = filters.status {
-        match status.as_str() {
-            "read" => query.push_str(" AND read_at IS NOT NULL"),
-            "unread" => query.push_str(" AND read_at IS NULL"),
-            _ => {}
+        if status == "read" {
+            query.push(" AND read_at IS NOT NULL");
+        } else if status == "unread" {
+            query.push(" AND read_at IS NULL");
         }
     }
 
-    query.push_str(" ORDER BY timestamp DESC");
-    query.push_str(&format!(" LIMIT {} OFFSET {}", limit, offset));
+    query.push(" ORDER BY timestamp DESC LIMIT ");
+    query.push_bind(limit as i64);
+    query.push(" OFFSET ");
+    query.push_bind(offset);
 
-    let records = sqlx::query_as::<_, (
-        uuid::Uuid, String, String, String, String, Option<serde_json::Value>, String,
-        DateTime<Utc>, Option<DateTime<Utc>>, Option<DateTime<Utc>>, Option<DateTime<Utc>>,
-        Option<DateTime<Utc>>, Option<String>, Option<String>, DateTime<Utc>, DateTime<Utc>
-    )>(&query)
+    let records = query
+        .build_query_as::<(
+            uuid::Uuid, String, String, String, String, Option<serde_json::Value>, String,
+            DateTime<Utc>, Option<DateTime<Utc>>, Option<DateTime<Utc>>, Option<DateTime<Utc>>,
+            Option<DateTime<Utc>>, Option<String>, Option<String>, DateTime<Utc>, DateTime<Utc>
+        )>()
         .fetch_all(&*app_state.db_pool)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to fetch notifications: {}", e)))?;
@@ -612,16 +683,57 @@ pub async fn get_user_notifications_handler(
         image_url: r.13,
     }).collect();
 
-    // Get total count for this user
-    let total_count_query = format!("SELECT COUNT(*) FROM wallet_notifications WHERE {}", wallet_filter);
-    let total_count: (i64,) = sqlx::query_as(&total_count_query)
+    // Get total count for authenticated user (exclude soft-deleted)
+    let mut count_query = sqlx::QueryBuilder::new(
+        "SELECT COUNT(*) FROM wallet_notifications WHERE deleted_at IS NULL AND ("
+    );
+
+    count_query.push("wallet_address = ");
+    count_query.push_bind(&wallet_address);
+    count_query.push(" OR wallet_address = 'all')");
+
+    if let Some(ref notif_type) = filters.notification_type {
+        count_query.push(" AND notification_type = ");
+        count_query.push_bind(notif_type);
+    }
+    if let Some(ref priority) = filters.priority {
+        count_query.push(" AND priority = ");
+        count_query.push_bind(priority);
+    }
+    if let Some(ref status) = filters.status {
+        if status == "read" {
+            count_query.push(" AND read_at IS NOT NULL");
+        } else if status == "unread" {
+            count_query.push(" AND read_at IS NULL");
+        }
+    }
+
+    let total_count: (i64,) = count_query
+        .build_query_as()
         .fetch_one(&*app_state.db_pool)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count notifications: {}", e)))?;
 
-    // Get unread count for this user
-    let unread_count_query = format!("SELECT COUNT(*) FROM wallet_notifications WHERE {} AND read_at IS NULL", wallet_filter);
-    let unread_count: (i64,) = sqlx::query_as(&unread_count_query)
+    // Get unread count for authenticated user (exclude soft-deleted)
+    let mut unread_query = sqlx::QueryBuilder::new(
+        "SELECT COUNT(*) FROM wallet_notifications WHERE deleted_at IS NULL AND read_at IS NULL AND ("
+    );
+
+    unread_query.push("wallet_address = ");
+    unread_query.push_bind(&wallet_address);
+    unread_query.push(" OR wallet_address = 'all')");
+
+    if let Some(ref notif_type) = filters.notification_type {
+        unread_query.push(" AND notification_type = ");
+        unread_query.push_bind(notif_type);
+    }
+    if let Some(ref priority) = filters.priority {
+        unread_query.push(" AND priority = ");
+        unread_query.push_bind(priority);
+    }
+
+    let unread_count: (i64,) = unread_query
+        .build_query_as()
         .fetch_one(&*app_state.db_pool)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count unread: {}", e)))?;
@@ -663,21 +775,25 @@ pub async fn get_user_notifications_handler(
 )]
 pub async fn mark_notification_read_handler(
     State(app_state): State<AppState>,
+    auth_wallet: AuthWallet,
     Path(notification_id): Path<String>,
 ) -> Result<impl IntoResponse, AppError> {
-    // TODO: Extract wallet_address from Bearer token/session for authorization
+    // Use authenticated wallet address for authorization
+    let wallet_address = auth_wallet.address.to_lowercase();
 
     let notif_uuid = uuid::Uuid::parse_str(&notification_id)
         .map_err(|e| AppError::new(ErrorKind::ValidationError, format!("Invalid notification ID: {}", e)))?;
 
+    // Only allow marking as read if notification belongs to user or is broadcast
     let result = sqlx::query!(
         r#"
         UPDATE wallet_notifications
         SET read_at = $1, updated_at = $1
-        WHERE id = $2
+        WHERE id = $2 AND (wallet_address = $3 OR wallet_address = 'all')
         "#,
         Utc::now(),
-        notif_uuid
+        notif_uuid,
+        wallet_address
     )
     .execute(&*app_state.db_pool)
     .await
@@ -697,7 +813,7 @@ pub async fn mark_notification_read_handler(
     })))
 }
 
-/// Delete user notification
+/// Delete user notification (soft delete)
 #[utoipa::path(
     delete,
     path = "/api/v1/auth/notifications/{id}",
@@ -715,19 +831,24 @@ pub async fn mark_notification_read_handler(
 )]
 pub async fn delete_notification_handler(
     State(app_state): State<AppState>,
+    auth_wallet: AuthWallet,
     Path(notification_id): Path<String>,
 ) -> Result<impl IntoResponse, AppError> {
-    // TODO: Extract wallet_address from Bearer token/session for authorization
+    // Use authenticated wallet address for authorization
+    let wallet_address = auth_wallet.address.to_lowercase();
 
     let notif_uuid = uuid::Uuid::parse_str(&notification_id)
         .map_err(|e| AppError::new(ErrorKind::ValidationError, format!("Invalid notification ID: {}", e)))?;
 
+    // Soft delete: Only allow deleting if notification belongs to user or is broadcast
     let result = sqlx::query!(
         r#"
-        DELETE FROM wallet_notifications
-        WHERE id = $1
+        UPDATE wallet_notifications
+        SET deleted_at = NOW(), updated_at = NOW()
+        WHERE id = $1 AND deleted_at IS NULL AND (wallet_address = $2 OR wallet_address = 'all')
         "#,
-        notif_uuid
+        notif_uuid,
+        wallet_address
     )
     .execute(&*app_state.db_pool)
     .await
@@ -736,7 +857,7 @@ pub async fn delete_notification_handler(
     if result.rows_affected() == 0 {
         return Err(AppError::new(
             ErrorKind::AggregateNotFound,
-            "Notification not found".to_string(),
+            "Notification not found or already deleted".to_string(),
         ));
     }
 
@@ -760,13 +881,24 @@ pub async fn delete_notification_handler(
     security(("bearerAuth" = []))
 )]
 pub async fn get_unread_count_handler(
-    State(_app_state): State<AppState>,
+    State(app_state): State<AppState>,
+    auth_wallet: AuthWallet,
 ) -> Result<impl IntoResponse, AppError> {
-    // TODO: Extract wallet_address from Bearer token/session
-    // TODO: Query database for unread notification count
+    // Get unread count for authenticated user
+    let wallet_address = auth_wallet.address.to_lowercase();
+
+    let unread_count: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM wallet_notifications \
+         WHERE (wallet_address = $1 OR wallet_address = 'all') \
+         AND read_at IS NULL AND deleted_at IS NULL"
+    )
+    .bind(&wallet_address)
+    .fetch_one(&*app_state.db_pool)
+    .await
+    .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count unread notifications: {}", e)))?;
 
     Ok(Json(serde_json::json!({
-        "unread_count": 0
+        "unread_count": unread_count.0
     })))
 }
 
@@ -784,17 +916,19 @@ pub async fn get_unread_count_handler(
 )]
 pub async fn mark_all_notifications_read_handler(
     State(app_state): State<AppState>,
+    auth_wallet: AuthWallet,
 ) -> Result<impl IntoResponse, AppError> {
-    // TODO: Extract wallet_address from Bearer token/session for user-specific marking
-    // For now, mark all broadcast notifications as read
+    // Mark all notifications for authenticated user as read
+    let wallet_address = auth_wallet.address.to_lowercase();
 
     let result = sqlx::query!(
         r#"
         UPDATE wallet_notifications
         SET read_at = $1, updated_at = $1
-        WHERE wallet_address = 'all' AND read_at IS NULL
+        WHERE (wallet_address = $2 OR wallet_address = 'all') AND read_at IS NULL AND deleted_at IS NULL
         "#,
-        Utc::now()
+        Utc::now(),
+        wallet_address
     )
     .execute(&*app_state.db_pool)
     .await
@@ -807,7 +941,7 @@ pub async fn mark_all_notifications_read_handler(
     })))
 }
 
-/// Clear all notifications (delete)
+/// Clear all notifications (soft delete)
 #[utoipa::path(
     delete,
     path = "/api/notifications/clear-all",
@@ -821,15 +955,19 @@ pub async fn mark_all_notifications_read_handler(
 )]
 pub async fn clear_all_notifications_handler(
     State(app_state): State<AppState>,
+    auth_wallet: AuthWallet,
 ) -> Result<impl IntoResponse, AppError> {
-    // TODO: Extract wallet_address from Bearer token/session for user-specific clearing
-    // For now, clear all broadcast notifications
+    // Clear all notifications for authenticated user
+    let wallet_address = auth_wallet.address.to_lowercase();
 
+    // Soft delete: Set deleted_at timestamp instead of removing rows
     let result = sqlx::query!(
         r#"
-        DELETE FROM wallet_notifications
-        WHERE wallet_address = 'all'
-        "#
+        UPDATE wallet_notifications
+        SET deleted_at = NOW(), updated_at = NOW()
+        WHERE (wallet_address = $1 OR wallet_address = 'all') AND deleted_at IS NULL
+        "#,
+        wallet_address
     )
     .execute(&*app_state.db_pool)
     .await
@@ -869,6 +1007,52 @@ pub async fn acknowledge_notification_handler(
     Ok(Json(serde_json::json!({
         "success": true,
         "message": "Notification acknowledged successfully",
+        "notification_id": notification_id
+    })))
+}
+
+/// Delete notification (admin only - hard delete)
+#[utoipa::path(
+    delete,
+    path = "/api/v1/admin/notifications/{id}",
+    tag = "admin-notifications",
+    params(
+        ("id" = String, Path, description = "Notification ID")
+    ),
+    responses(
+        (status = 200, description = "Notification deleted successfully"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Notification not found"),
+        (status = 500, description = "Internal server error")
+    ),
+    security(("bearerAuth" = []))
+)]
+pub async fn delete_admin_notification_handler(
+    State(app_state): State<AppState>,
+    Path(notification_id): Path<String>,
+) -> Result<impl IntoResponse, AppError> {
+    let notif_uuid = uuid::Uuid::parse_str(&notification_id)
+        .map_err(|e| AppError::new(ErrorKind::ValidationError, format!("Invalid notification ID: {}", e)))?;
+
+    // Hard delete for admin
+    let result = sqlx::query!(
+        "DELETE FROM wallet_notifications WHERE id = $1",
+        notif_uuid
+    )
+    .execute(&*app_state.db_pool)
+    .await
+    .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to delete notification: {}", e)))?;
+
+    if result.rows_affected() == 0 {
+        return Err(AppError::new(
+            ErrorKind::AggregateNotFound,
+            "Notification not found".to_string(),
+        ));
+    }
+
+    Ok(Json(serde_json::json!({
+        "success": true,
+        "message": "Notification deleted successfully",
         "notification_id": notification_id
     })))
 }

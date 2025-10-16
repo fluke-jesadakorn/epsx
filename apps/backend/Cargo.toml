@@ -116,7 +116,8 @@ siwe = "0.6"
 reqwest = { version = "0.11", features = ["json"], optional = true, default-features = false }
 
 # Redis for notification pub/sub and event bus
-redis = { version = "0.24", features = ["tokio-comp", "connection-manager", "streams"], optional = true }
+# TLS support with rustls for production use
+redis = { version = "0.24", features = ["tokio-comp", "connection-manager", "streams", "tokio-rustls-comp"], optional = true }
 
 # PostgreSQL TLS removed - SQLx handles TLS internally with rustls
 

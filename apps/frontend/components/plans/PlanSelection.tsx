@@ -133,7 +133,7 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
 
   const handleSubscribe = async (plan: Plan) => {
     if (!currentUser) {
-      window.location.href = '/login'
+      alert('Please connect your wallet to subscribe to a plan');
       return
     }
 
@@ -275,19 +275,19 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
                 </div>
               )}
 
-              <CardHeader>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className={`p-2 rounded-xl bg-gradient-to-r ${getPlanColor(plan.plan_category)}`}>
+              <CardHeader className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className={`p-2 rounded-xl bg-gradient-to-r ${getPlanColor(plan.plan_category)} flex-shrink-0`}>
                     <PlanIcon className="h-6 w-6 text-white" />
                   </div>
-                  <div>
-                    <CardTitle className="text-xl">{plan.name}</CardTitle>
+                  <div className="flex-1">
+                    <CardTitle className="text-lg leading-tight whitespace-nowrap">{plan.name}</CardTitle>
                     <Badge variant="outline" className="text-xs mt-1">
                       {plan.plan_category.charAt(0).toUpperCase() + plan.plan_category.slice(1)}
                     </Badge>
                   </div>
                 </div>
-                
+
                 {plan.description && (
                   <p className="text-gray-600 dark:text-gray-400 text-sm">
                     {plan.description}
@@ -341,11 +341,12 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
                   {/* Action Button */}
                   <div className="pt-4">
                     {!currentUser ? (
-                      <Link href="/login">
-                        <Button className="w-full bg-gradient-to-r from-emerald-400 to-green-500 text-white">
-                          Sign in to Subscribe
-                        </Button>
-                      </Link>
+                      <Button
+                        className="w-full bg-gradient-to-r from-emerald-400 to-green-500 text-white"
+                        onClick={() => alert('Please connect your wallet using the navigation menu to subscribe')}
+                      >
+                        Connect Wallet to Subscribe
+                      </Button>
                     ) : isSubscribed ? (
                       <div className="space-y-2">
                         <Button disabled className="w-full bg-emerald-100 text-emerald-800 cursor-not-allowed">

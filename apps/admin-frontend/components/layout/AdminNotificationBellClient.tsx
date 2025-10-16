@@ -4,17 +4,18 @@ import { useState, useEffect } from 'react'
 import { createNotificationsClient } from '@/shared/api/notifications'
 import { createAdminApiClient } from '@/shared/utils/api-client'
 import { useSSENotifications } from '@/shared/hooks/useSSENotifications'
-
-interface Notification {
-  id: string
-  title: string
-  message: string
-  type: string
-  priority: string
-  timestamp: string
-  walletAddress: string
-  read: boolean
-}
+import {
+  getNotificationIcon,
+  formatTimestamp,
+  formatWalletAddress,
+  getPriorityBgGradient,
+  getPriorityBorderColor,
+  getPriorityTextColor,
+  getPrioritySubTextColor
+} from '@/shared/components/notifications/utils'
+import type { Notification } from '@/shared/components/notifications/types'
+import { MAX_DROPDOWN_NOTIFICATIONS } from '@/shared/components/notifications/constants'
+import toast from 'react-hot-toast'
 
 export function AdminNotificationBell() {
   const [count, setCount] = useState(0)
@@ -23,19 +24,19 @@ export function AdminNotificationBell() {
   const [loading, setLoading] = useState(true)
 
   // SSE real-time notifications for admin
-  const { isConnected: sseConnected } = useSSENotifications({
+  const { isConnected: sseConnected, reconnect: reconnectSSE } = useSSENotifications({
     apiClient: createAdminApiClient(),
-    autoConnect: true,
+    autoConnect: true, // Admin always connects to receive all notifications
     onNotification: (sseNotif) => {
       // Add to notifications list
       const newNotification: Notification = {
         id: sseNotif.id,
         title: sseNotif.title,
         message: sseNotif.message,
-        type: sseNotif.notification_type,
-        priority: sseNotif.priority,
+        type: sseNotif.notification_type as any,
+        priority: sseNotif.priority as any,
         timestamp: sseNotif.timestamp,
-        walletAddress: sseNotif.wallet_address,
+        wallet_address: sseNotif.wallet_address,
         read: false,
       }
 
@@ -44,6 +45,9 @@ export function AdminNotificationBell() {
     },
     onError: (error) => {
       console.warn('Admin SSE connection error:', error)
+    },
+    onConnect: () => {
+      console.log('✅ Admin SSE connected')
     },
   })
 
@@ -57,107 +61,33 @@ export function AdminNotificationBell() {
       const client = createNotificationsClient(createAdminApiClient())
       const data = await client.getAllNotifications({
         page: 1,
-        limit: 5,
+        limit: MAX_DROPDOWN_NOTIFICATIONS,
         status: 'unread'
       })
 
-      const mappedNotifications = data.data.notifications.map(n => ({
+      const mappedNotifications: Notification[] = data.data.notifications.map(n => ({
         id: n.id,
         title: n.title,
         message: n.message,
-        type: n.notification_type,
-        priority: n.priority,
+        type: n.notification_type as any,
+        priority: n.priority as any,
         timestamp: n.timestamp,
-        walletAddress: n.wallet_address,
+        wallet_address: n.wallet_address,
         read: !!n.read_at
       }))
 
       setNotifications(mappedNotifications)
       setCount(data.data.unread_count)
     } catch (error) {
-      // Silently fail if not authenticated - this is expected behavior
-      // The notification bell will simply show 0 notifications
       const apiError = error as any
       if (apiError?.status !== 401) {
         console.warn('Failed to fetch notifications:', error)
       }
-      // Set empty state
       setNotifications([])
       setCount(0)
     } finally {
       setLoading(false)
     }
-  }
-
-  const getNotificationIcon = (type: string) => {
-    switch (type) {
-      case 'security': return '🔒'
-      case 'permission': return '🔑'
-      case 'user_management': return '👥'
-      case 'wallet': return '💼'
-      case 'payment': return '💳'
-      case 'system': return '⚙️'
-      default: return '📬'
-    }
-  }
-
-  const getPriorityBgColor = (priority: string) => {
-    switch (priority) {
-      case 'critical':
-      case 'urgent': return 'from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20'
-      case 'high': return 'from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20'
-      case 'normal': return 'from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20'
-      case 'low': return 'from-green-50 to-teal-50 dark:from-green-900/20 dark:to-teal-900/20'
-      default: return 'from-gray-50 to-gray-100 dark:from-gray-900/20 dark:to-gray-800/20'
-    }
-  }
-
-  const getPriorityBorderColor = (priority: string) => {
-    switch (priority) {
-      case 'critical':
-      case 'urgent': return 'border-red-200 dark:border-red-500/30'
-      case 'high': return 'border-orange-200 dark:border-orange-500/30'
-      case 'normal': return 'border-blue-200 dark:border-blue-500/30'
-      case 'low': return 'border-green-200 dark:border-green-500/30'
-      default: return 'border-gray-200 dark:border-gray-500/30'
-    }
-  }
-
-  const getPriorityTextColor = (priority: string) => {
-    switch (priority) {
-      case 'critical':
-      case 'urgent': return 'text-red-800 dark:text-red-300'
-      case 'high': return 'text-orange-800 dark:text-orange-300'
-      case 'normal': return 'text-blue-800 dark:text-blue-300'
-      case 'low': return 'text-green-800 dark:text-green-300'
-      default: return 'text-gray-800 dark:text-gray-300'
-    }
-  }
-
-  const getPrioritySubTextColor = (priority: string) => {
-    switch (priority) {
-      case 'critical':
-      case 'urgent': return 'text-red-600 dark:text-red-400'
-      case 'high': return 'text-orange-600 dark:text-orange-400'
-      case 'normal': return 'text-blue-600 dark:text-blue-400'
-      case 'low': return 'text-green-600 dark:text-green-400'
-      default: return 'text-gray-600 dark:text-gray-400'
-    }
-  }
-
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp)
-    const now = new Date()
-    const diff = now.getTime() - date.getTime()
-    const minutes = Math.floor(diff / (1000 * 60))
-    const hours = Math.floor(diff / (1000 * 60 * 60))
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-
-    if (minutes < 1) return 'Just now'
-    if (minutes < 60) return `${minutes} minutes ago`
-    if (hours < 24) return `${hours} hours ago`
-    if (days < 7) return `${days} days ago`
-    return date.toLocaleDateString()
   }
 
   const handleToggleDropdown = (e: React.MouseEvent) => {
@@ -167,6 +97,23 @@ export function AdminNotificationBell() {
 
   const handleCloseDropdown = () => {
     setShowNotifications(false)
+  }
+
+  const handleDeleteNotification = async (e: React.MouseEvent, notificationId: string) => {
+    e.stopPropagation()
+    try {
+      const client = createNotificationsClient(createAdminApiClient())
+      await client.deleteAdminNotification(notificationId)
+
+      // Remove from local state
+      setNotifications(prev => prev.filter(n => n.id !== notificationId))
+      setCount(prev => Math.max(0, prev - 1))
+
+      toast.success('Notification deleted')
+    } catch (error) {
+      console.error('Failed to delete notification:', error)
+      toast.error('Failed to delete notification')
+    }
   }
 
   return (
@@ -218,7 +165,7 @@ export function AdminNotificationBell() {
                   {notifications.map((notification) => (
                     <div
                       key={notification.id}
-                      className={`rounded-2xl border bg-gradient-to-r p-4 ${getPriorityBorderColor(notification.priority)} ${getPriorityBgColor(notification.priority)}`}
+                      className={`rounded-2xl border bg-gradient-to-r p-4 group ${getPriorityBorderColor(notification.priority)} ${getPriorityBgGradient(notification.priority)}`}
                     >
                       <div className="flex items-start gap-3">
                         <span className="text-xl">{getNotificationIcon(notification.type)}</span>
@@ -231,11 +178,18 @@ export function AdminNotificationBell() {
                           </div>
                           <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
                             <span>{formatTimestamp(notification.timestamp)}</span>
-                            {notification.walletAddress && notification.walletAddress !== 'all' && (
-                              <span className="font-mono">{notification.walletAddress.slice(0, 6)}...{notification.walletAddress.slice(-4)}</span>
+                            {notification.wallet_address && notification.wallet_address !== 'all' && (
+                              <span className="font-mono">{formatWalletAddress(notification.wallet_address)}</span>
                             )}
                           </div>
                         </div>
+                        <button
+                          onClick={(e) => handleDeleteNotification(e, notification.id)}
+                          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 flex-shrink-0"
+                          title="Delete notification"
+                        >
+                          ✕
+                        </button>
                       </div>
                     </div>
                   ))}
