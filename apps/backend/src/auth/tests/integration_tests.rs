@@ -115,7 +115,7 @@ async fn setup_test_wallet_permissions(db_pool: &PgPool, wallet_address: &str, p
 
     let _ = sqlx::query!(
         r#"
-        INSERT INTO wallet_group_assignments (wallet_address, group_id, is_active)
+        INSERT INTO wallet_group_memberships (wallet_address, group_id, is_active)
         VALUES ($1, $2, true)
         ON CONFLICT (wallet_address, group_id) DO UPDATE SET is_active = true
         "#,

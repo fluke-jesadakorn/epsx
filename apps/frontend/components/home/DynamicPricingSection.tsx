@@ -271,36 +271,36 @@ const DynamicPricingSection = () => {
           {/* Card Content - Normal padding */}
           <div className="relative px-6 sm:px-8 pt-6 sm:pt-8 pb-6 sm:pb-8 flex flex-col h-full">
             {/* Enhanced Title Section - Exact height for perfect alignment */}
-            <div className="mb-4 h-[160px] flex flex-col">
-              <div className={`${card.highlight ? 'h-[80px]' : 'h-[40px]'} flex flex-col justify-start mb-2`}>
-                <h3 className={`text-xl sm:text-2xl font-bold leading-tight ${
-                  card.highlight 
-                    ? 'bg-gradient-to-r from-orange-600 to-yellow-600 bg-clip-text text-transparent' 
+            <div className="mb-4 h-[160px] flex flex-col items-center text-center">
+              <div className={`${card.highlight ? 'h-[80px]' : 'h-[40px]'} flex flex-col justify-start items-center mb-2`}>
+                <h3 className={`text-xl sm:text-2xl font-bold leading-tight whitespace-nowrap ${
+                  card.highlight
+                    ? 'bg-gradient-to-r from-orange-600 to-yellow-600 bg-clip-text text-transparent'
                     : 'text-foreground'
                 } uppercase`}>
                   {card.title}
                 </h3>
                 {card.highlight && (
-                  <div className="mt-2 inline-flex">
+                  <div className="mt-2">
                     <div className="bg-gradient-to-r from-orange-500 to-yellow-500 text-white px-3 py-1 rounded-full text-xs font-bold tracking-wide border-2 border-orange-300/50 shadow-lg shadow-orange-500/30">
                       ⭐ MOST POPULAR ⭐
                     </div>
                   </div>
                 )}
               </div>
-              
+
               {/* Enhanced Price Display - Exact height for perfect alignment */}
-              <div className={`${card.highlight ? 'h-[58px]' : 'h-[78px]'} flex flex-col justify-center`}>
-                <div className="flex items-baseline gap-3">
-                  <span className={`text-4xl sm:text-5xl font-bold leading-none ${
-                    card.highlight 
+              <div className={`${card.highlight ? 'h-[58px]' : 'h-[78px]'} flex flex-col justify-center items-center`}>
+                <div className="flex items-baseline gap-3 flex-wrap justify-center">
+                  <span className={`text-4xl sm:text-5xl font-bold leading-none whitespace-nowrap ${
+                    card.highlight
                       ? 'bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent'
                       : 'insight-gradient-text'
                   }`}>
                     {card.price}
                   </span>
                   {card.originalPrice && (
-                    <span className="text-lg text-gray-400 line-through decoration-2">
+                    <span className="text-lg text-gray-400 line-through decoration-2 whitespace-nowrap">
                       {card.originalPrice}
                     </span>
                   )}

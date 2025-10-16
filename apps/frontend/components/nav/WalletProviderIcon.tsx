@@ -62,14 +62,29 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   const [isOpen, setIsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
   const { address, isConnected, connector } = useAccount();
   const { disconnect } = useDisconnect();
   const { isInitialized } = useWeb3Context();
-  const { isAuthenticated, requestChallenge, authenticateWithWallet } = useSharedAuth();
+  const { isAuthenticated, requestChallenge, authenticateWithWallet, logout } = useSharedAuth();
   const { signMessageAsync } = useSignMessage();
 
   // Get web3 auth store for syncing authentication state
-  const { setAuthenticated: setWeb3Authenticated, setWalletAddress: setWeb3WalletAddress } = useWeb3AuthStore();
+  const {
+    setConnected: setWeb3Connected,
+    setAuthenticated: setWeb3Authenticated,
+    setWalletAddress: setWeb3WalletAddress
+  } = useWeb3AuthStore();
+
+  // Sync wallet connection state to Web3AuthStore immediately
+  useEffect(() => {
+    if (isConnected && address) {
+      // ✅ Set isConnected and walletAddress IMMEDIATELY when wallet connects
+      setWeb3Connected(true);
+      setWeb3WalletAddress(address.toLowerCase());
+      console.log('✅ Wallet connected - synced to Web3 auth store:', address);
+    }
+  }, [isConnected, address, setWeb3Connected, setWeb3WalletAddress]);
 
   useEffect(() => {
     setIsHydrated(true);
@@ -86,12 +101,13 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   // Sync disconnect state: Clear web3 auth store when wallet disconnects
   useEffect(() => {
     if (!isConnected || !address) {
-      // Wallet disconnected - clear web3 auth store
+      // Wallet disconnected - clear web3 auth store completely
+      setWeb3Connected(false);
       setWeb3Authenticated(false);
       setWeb3WalletAddress(undefined);
       console.log('🔌 Wallet disconnected - cleared web3 auth store');
     }
-  }, [isConnected, address, setWeb3Authenticated, setWeb3WalletAddress]);
+  }, [isConnected, address, setWeb3Connected, setWeb3Authenticated, setWeb3WalletAddress]);
 
   // Auto-authenticate when wallet connects
   useEffect(() => {
@@ -101,8 +117,9 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
       // 2. Address exists
       // 3. Not already authenticated
       // 4. Not currently authenticating
-      // 5. Component is hydrated
-      if (isConnected && address && !isAuthenticated && !isAuthenticating && isHydrated) {
+      // 5. Not disconnecting (prevent race condition)
+      // 6. Component is hydrated
+      if (isConnected && address && !isAuthenticated && !isAuthenticating && !isDisconnecting && isHydrated) {
         try {
           setIsAuthenticating(true);
           console.log('🔐 Auto-authenticating wallet:', address);
@@ -149,7 +166,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
     };
 
     autoAuthenticate();
-  }, [isConnected, address, isAuthenticated, isAuthenticating, isHydrated, requestChallenge, authenticateWithWallet, signMessageAsync, setWeb3Authenticated, setWeb3WalletAddress]);
+  }, [isConnected, address, isAuthenticated, isAuthenticating, isDisconnecting, isHydrated, requestChallenge, authenticateWithWallet, signMessageAsync, setWeb3Authenticated, setWeb3WalletAddress]);
 
   const handleCopyAddress = async () => {
     if (!address) return;
@@ -276,7 +293,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
                 {providerInfo.name}
               </div>
               <div className="text-xs text-slate-500 dark:text-slate-400">
-                Connected
+                {isAuthenticating ? 'Signing...' : isAuthenticated ? 'Authenticated' : 'Connected'}
               </div>
             </div>
           </div>
@@ -353,12 +370,34 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
 
         {/* Disconnect Wallet */}
         <DropdownMenuItem
-          onClick={() => {
-            disconnect();
-            // Clear web3 auth store on disconnect
-            setWeb3Authenticated(false);
-            setWeb3WalletAddress(undefined);
-            setIsOpen(false);
+          onClick={async () => {
+            // Prevent auto-auth during manual disconnect
+            setIsDisconnecting(true);
+
+            try {
+              // 1. OIDC Session Termination (clear access_token, id_token, refresh_token, session cookies)
+              await logout();
+
+              // 2. Wallet Disconnection (wagmi)
+              disconnect();
+
+              // 3. Local State Cleanup
+              setWeb3Connected(false);
+              setWeb3Authenticated(false);
+              setWeb3WalletAddress(undefined);
+              setIsOpen(false);
+            } catch (error) {
+              console.error('OIDC logout error:', error);
+              // Ensure wallet disconnects even if OIDC logout fails
+              disconnect();
+              setWeb3Connected(false);
+              setWeb3Authenticated(false);
+              setWeb3WalletAddress(undefined);
+              setIsOpen(false);
+            } finally {
+              // Reset flag after disconnect completes (500ms ensures wagmi cleanup finishes)
+              setTimeout(() => setIsDisconnecting(false), 500);
+            }
           }}
           className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-red-50/80 dark:hover:bg-red-900/20 text-red-600 dark:text-red-400"
         >

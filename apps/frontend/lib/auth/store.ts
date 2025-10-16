@@ -106,6 +106,9 @@ export type EnhancedWeb3AuthStore = EnhancedWeb3AuthState & EnhancedWeb3AuthActi
 // Initialize Web3 API client
 const web3ApiClient = createWeb3FrontendClient();
 
+// Debounce helper
+let initAuthTimeout: NodeJS.Timeout | null = null;
+
 // Enhanced Store
 export const useWeb3AuthStore = create<EnhancedWeb3AuthStore>()(
   persist(
@@ -168,23 +171,36 @@ export const useWeb3AuthStore = create<EnhancedWeb3AuthStore>()(
       // Initialize authentication state
       initializeAuth: async () => {
         const state = get();
-        
+
         // Prevent multiple initialization attempts
         if (state.hasInitialized) return;
-        
-        try {
-          set({ isLoading: true, error: undefined });
-          
-          // Check authentication status
-          await get().checkAuthStatus();
-          
-          set({ hasInitialized: true });
-        } catch (error) {
-          console.error('❌ Failed to initialize Web3 enterprise auth store:', error);
-          set({ error: error instanceof Error ? error.message : 'Initialization failed' });
-        } finally {
-          set({ isLoading: false });
+
+        // Debounce: Cancel previous pending initialization
+        if (initAuthTimeout) {
+          clearTimeout(initAuthTimeout);
         }
+
+        // Debounce initialization to prevent rapid calls
+        return new Promise<void>((resolve) => {
+          initAuthTimeout = setTimeout(async () => {
+            try {
+              set({ isLoading: true, error: undefined });
+
+              // Check authentication status
+              await get().checkAuthStatus();
+
+              set({ hasInitialized: true });
+              resolve();
+            } catch (error) {
+              console.error('❌ Failed to initialize Web3 enterprise auth store:', error);
+              set({ error: error instanceof Error ? error.message : 'Initialization failed' });
+              resolve();
+            } finally {
+              set({ isLoading: false });
+              initAuthTimeout = null;
+            }
+          }, 500); // 500ms debounce
+        });
       },
 
       // Check current authentication status
@@ -192,11 +208,26 @@ export const useWeb3AuthStore = create<EnhancedWeb3AuthStore>()(
         const state = get();
         if (!state.walletAddress) return false;
 
+        // Session check cache (5 seconds TTL)
+        const cacheKey = `session_check_${state.walletAddress}`;
+        const now = Date.now();
+        const cached = sessionStorage.getItem(cacheKey);
+
+        if (cached) {
+          const { result, timestamp } = JSON.parse(cached);
+          if (now - timestamp < 5000) { // 5 second cache
+            console.log('Using cached session check result');
+            return result;
+          }
+        }
+
         try {
           const response = await fetch('/api/auth/session', {
             credentials: 'include',
             cache: 'no-cache',
           });
+
+          let result = false;
 
           if (response.ok) {
             const session = await response.json();
@@ -208,15 +239,21 @@ export const useWeb3AuthStore = create<EnhancedWeb3AuthStore>()(
                 isAuthenticated: true,
                 error: undefined,
               });
-              
+
               // Refresh enterprise data
               await get().refreshEnterpriseData();
-              return true;
+              result = true;
             }
           }
 
-          set({ isAuthenticated: false, error: undefined });
-          return false;
+          if (!result) {
+            set({ isAuthenticated: false, error: undefined });
+          }
+
+          // Cache the result
+          sessionStorage.setItem(cacheKey, JSON.stringify({ result, timestamp: now }));
+
+          return result;
         } catch (error) {
           console.warn('Auth status check failed:', error);
           return false;
@@ -363,7 +400,7 @@ export const useWeb3AuthStore = create<EnhancedWeb3AuthStore>()(
           if (typeof window !== 'undefined' && accessToken) {
             try {
               // Store token in accessible cookie for SSE (not httpOnly)
-              document.cookie = `${COOKIES.user.expires_at}=${Date.now() + 3600000}; path=/; SameSite=Lax; max-age=86400`;
+              document.cookie = `${COOKIES.expires_at}=${Date.now() + 3600000}; path=/; SameSite=Lax; max-age=86400`;
             } catch (_error) {
               console.warn('Failed to store authentication token:', _error);
             }
@@ -444,14 +481,14 @@ export const useWeb3AuthStore = create<EnhancedWeb3AuthStore>()(
               });
 
               // Clear enterprise session cookies and tokens
-              const cookiesToClear = [COOKIES.user.access, COOKIES.user.id, COOKIES.user.refresh];
+              const cookiesToClear = [COOKIES.access, COOKIES.id, COOKIES.refresh];
               cookiesToClear.forEach(cookieName => {
                 document.cookie = `${cookieName}=; Max-Age=0; path=/; SameSite=Lax`;
                 document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
               });
 
               // Clear client-side cookies
-              clearClientSideCookies('user');
+              clearClientSideCookies();
             } catch (error) {
               console.error('Storage cleanup error:', error);
             }

@@ -139,12 +139,12 @@ impl UpdateWalletCommandHandler {
                 p.permission_string as permission,
                 'group' as source,
                 pgm.granted_at,
-                wga.expires_at,
-                wga.is_active
-            FROM wallet_group_assignments wga
-            JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
+                wgm.expires_at,
+                wgm.is_active
+            FROM wallet_group_memberships wgm
+            JOIN permission_group_memberships pgm ON wgm.group_id = pgm.group_id
             JOIN permissions p ON pgm.permission_id = p.id
-            WHERE wga.wallet_address = $1
+            WHERE wgm.wallet_address = $1
               AND p.is_active = true
 
             UNION ALL

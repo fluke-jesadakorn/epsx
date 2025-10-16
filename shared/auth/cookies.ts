@@ -35,42 +35,26 @@ const isProduction = env === 'production';
 const prefix = isProduction ? '__Host-' : '';
 
 /**
- * OpenID-compliant cookie names
+ * Unified cookie names - shared across all EPSX apps
+ * No context separation - same cookies for frontend and admin-frontend
  */
 export const COOKIES = {
-  user: {
-    // Server-side HttpOnly auth cookies
-    access: `${prefix}epsx.user.access`,
-    id: `${prefix}epsx.user.id`,
-    refresh: `${prefix}epsx.user.refresh`,
-    state: `${prefix}epsx.user.state`,
-    nonce: `${prefix}epsx.user.nonce`,
-    
-    // Client-side JavaScript accessible cookies (replacing localStorage)
-    user: `${prefix}epsx.user.user`,
-    expires_at: `${prefix}epsx.user.expires_at`,
-    auth_time: `${prefix}epsx.user.auth_time`,
-    theme: `${prefix}epsx.user.theme`,
-    browser_notifications: `${prefix}epsx.user.browser_notifications`,
-    affiliate_attribution: `${prefix}epsx.user.affiliate_attribution`,
-    affiliate_code: `${prefix}epsx.user.affiliate_code`,
-    wallet_state: `${prefix}epsx.user.wallet_state`,
-  },
-  admin: {
-    // Server-side HttpOnly auth cookies
-    access: `${prefix}epsx.admin.access`,
-    id: `${prefix}epsx.admin.id`,
-    refresh: `${prefix}epsx.admin.refresh`,
-    state: `${prefix}epsx.admin.state`,
-    nonce: `${prefix}epsx.admin.nonce`,
-    
-    // Client-side JavaScript accessible cookies for admin
-    user: `${prefix}epsx.admin.user`,
-    expires_at: `${prefix}epsx.admin.expires_at`,
-    auth_time: `${prefix}epsx.admin.auth_time`,
-    theme: `${prefix}epsx.admin.theme`,
-    browser_notifications: `${prefix}epsx.admin.browser_notifications`,
-  },
+  // Server-side HttpOnly auth cookies
+  access: `${prefix}epsx.access`,
+  id: `${prefix}epsx.id`,
+  refresh: `${prefix}epsx.refresh`,
+  state: `${prefix}epsx.state`,
+  nonce: `${prefix}epsx.nonce`,
+
+  // Client-side JavaScript accessible cookies
+  user: `${prefix}epsx.user`,
+  expires_at: `${prefix}epsx.expires_at`,
+  auth_time: `${prefix}epsx.auth_time`,
+  theme: `${prefix}epsx.theme`,
+  browser_notifications: `${prefix}epsx.browser_notifications`,
+  affiliate_attribution: `${prefix}epsx.affiliate_attribution`,
+  affiliate_code: `${prefix}epsx.affiliate_code`,
+  wallet_state: `${prefix}epsx.wallet_state`,
 } as const;
 
 /**
@@ -116,13 +100,12 @@ export const COOKIE_OPTIONS = {
 } as const;
 
 /**
- * Get cookie name for context and type
+ * Get cookie name for type
  */
 export function getCookieName(
-  context: 'user' | 'admin',
   type: 'access' | 'id' | 'refresh' | 'state' | 'nonce'
 ): string {
-  return COOKIES[context][type];
+  return COOKIES[type];
 }
 
 /**
@@ -210,12 +193,10 @@ export function getEpsxCookies(): Record<string, string> {
 /**
  * Clear all EPSX cookies
  */
-export function clearAllCookies(context?: 'user' | 'admin'): void {
+export function clearAllCookies(): void {
   if (typeof document === 'undefined') return;
 
-  const cookiesToClear = context
-    ? Object.values(COOKIES[context])
-    : [...Object.values(COOKIES.user), ...Object.values(COOKIES.admin)];
+  const cookiesToClear = Object.values(COOKIES);
 
   cookiesToClear.forEach(cookieName => {
     document.cookie = `${cookieName}=; Max-Age=0; path=${COOKIE_OPTIONS.path}`;
@@ -306,43 +287,11 @@ export function getClientCookieJSON<T = any>(name: string): T | null {
 
 
 /**
- * Clear all client-side cookies for a context
+ * Clear all client-side cookies
  */
-export function clearClientSideCookies(context: 'user' | 'admin'): void {
-  const contextCookies = COOKIES[context];
-  
+export function clearClientSideCookies(): void {
   // Clear only client-side cookies (not HttpOnly auth cookies)
   const clientCookieNames = [
-    'user',
-    'expires_at',
-    'auth_time', 
-    'theme',
-    'browser_notifications',
-    'affiliate_attribution',
-    'affiliate_code',
-    'wallet_state'
-  ] as const;
-  
-  clientCookieNames.forEach(cookieKey => {
-    if (contextCookies[cookieKey]) {
-      removeClientCookie(contextCookies[cookieKey]);
-    }
-  });
-}
-
-/**
- * Type definitions for cookie contexts and types
- */
-export type CookieContext = keyof typeof COOKIES;
-export type UserCookieType = keyof typeof COOKIES.user;
-export type AdminCookieType = keyof typeof COOKIES.admin;
-export type CookieType = UserCookieType | AdminCookieType;
-
-/**
- * Client-side cookie names (those that are NOT HttpOnly)
- */
-export const CLIENT_SIDE_COOKIES = {
-  user: [
     'user',
     'expires_at',
     'auth_time',
@@ -351,20 +300,41 @@ export const CLIENT_SIDE_COOKIES = {
     'affiliate_attribution',
     'affiliate_code',
     'wallet_state'
-  ] as const,
-  admin: [
-    'user',
-    'expires_at',
-    'auth_time', 
-    'theme',
-    'browser_notifications'
-  ] as const,
-} as const;
+  ] as const;
+
+  clientCookieNames.forEach(cookieKey => {
+    if (COOKIES[cookieKey]) {
+      removeClientCookie(COOKIES[cookieKey]);
+    }
+  });
+}
+
+/**
+ * Type definitions for cookies
+ */
+export type CookieType = keyof typeof COOKIES;
+
+/**
+ * Client-side cookie names (those that are NOT HttpOnly)
+ */
+export const CLIENT_SIDE_COOKIES = [
+  'user',
+  'expires_at',
+  'auth_time',
+  'theme',
+  'browser_notifications',
+  'affiliate_attribution',
+  'affiliate_code',
+  'wallet_state'
+] as const;
 
 /**
  * Server-side HttpOnly cookie names (auth tokens)
  */
-export const HTTP_ONLY_COOKIES = {
-  user: ['access', 'id', 'refresh', 'state', 'nonce'] as const,
-  admin: ['access', 'id', 'refresh', 'state', 'nonce'] as const,
-} as const;
+export const HTTP_ONLY_COOKIES = [
+  'access',
+  'id',
+  'refresh',
+  'state',
+  'nonce'
+] as const;

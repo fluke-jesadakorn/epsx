@@ -17,12 +17,8 @@ export default async function DeveloperPage() {
             <CardTitle>Authentication Required</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="mb-4">Please log in to access the Developer API portal and manage your API keys.</p>
-            <Link href="/login">
-              <Button>
-                Log In
-              </Button>
-            </Link>
+            <p className="mb-4">Please connect your wallet to access the Developer API portal and manage your API keys.</p>
+            <p className="text-sm text-gray-500">Use the wallet button in the navigation menu to connect.</p>
           </CardContent>
         </Card>
       </div>

@@ -109,10 +109,20 @@ export default defineConfig({
       },
     },
 
-    // Notification and Developer Portal Tests
+    // Notification System Tests - Admin Complete Coverage
     {
-      name: 'notification-developer-portal',
-      testMatch: '**/notification-developer-portal.spec.ts',
+      name: 'notifications-admin',
+      testMatch: '**/notifications-admin-complete.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        testIdAttribute: 'data-testid',
+      },
+    },
+
+    // Notification Delete with Toast Tests
+    {
+      name: 'notification-delete-toast',
+      testMatch: '**/notification-delete-with-toast.spec.ts',
       use: {
         ...devices['Desktop Chrome'],
         testIdAttribute: 'data-testid',

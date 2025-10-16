@@ -247,18 +247,21 @@ impl RequestServices {
 
     /// Create app state for auth routes
     pub fn create_auth_app_state(&self) -> crate::web::auth::AppState {
-        let redis_pool = self.redis_pool.as_ref()
-            .expect("Redis pool required for auth routes");
-        let redis_broadcaster = self.redis_broadcaster.as_ref()
-            .expect("Redis broadcaster required for auth routes");
+        // Redis is optional - notifications won't work if Redis is unavailable
+        let redis_pool = self.redis_pool.clone();
+        let redis_broadcaster = self.redis_broadcaster.clone();
+
+        if redis_pool.is_none() || redis_broadcaster.is_none() {
+            tracing::warn!("⚠️ Redis not configured - notifications will not work for auth routes");
+        }
 
         crate::web::auth::AppState::new(
             self.db_pool.clone(),
             self.cache.as_ref().unwrap().clone(), // Auth requires cache
             // Convert to legacy container format for compatibility
             Arc::new(crate::infrastructure::container::DomainContainer::new(self.db_pool.clone())),
-            redis_pool.clone(),
-            redis_broadcaster.clone(),
+            redis_pool,
+            redis_broadcaster,
         )
     }
 
