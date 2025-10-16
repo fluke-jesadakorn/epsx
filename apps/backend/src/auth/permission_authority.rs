@@ -372,7 +372,7 @@ impl CentralizedPermissionAuthority {
                 };
 
                 // Determine if permission is active (not expired and is permanent or has future expiry)
-                let is_active = info.is_permanent || info.expires_at.map_or(true, |exp| exp > Utc::now());
+                let is_active = info.is_permanent || info.expires_at.is_none_or(|exp| exp > Utc::now());
 
                 Permission {
                     name: info.permission_string,

@@ -4,6 +4,12 @@ use crate::prelude::*;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PlanId(i32);
 
+impl Default for PlanId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PlanId {
     /// Create a new plan ID (placeholder for new plans before database insertion)
     pub fn new() -> Self {

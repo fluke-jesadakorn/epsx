@@ -23,7 +23,7 @@ impl QueryHandler<GetRealtimeEventQuery> for GetRealtimeEventQueryHandler {
         let event = self.event_repository
             .find_by_id(&query.event_id)
             .await
-            .map_err(|e| ApplicationError::infrastructure(e))?
+            .map_err(ApplicationError::infrastructure)?
             .ok_or_else(|| ApplicationError::not_found("event", query.event_id.to_string()))?;
 
         // 2. Map to response

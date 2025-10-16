@@ -32,7 +32,7 @@ where
 
         // 2. Calculate usage percentages
         let mut usage_percentages = std::collections::HashMap::new();
-        for (resource_type, _) in usage.current_usage() {
+        for resource_type in usage.current_usage().keys() {
             let percentage = usage.get_usage_percentage(resource_type);
             usage_percentages.insert(resource_type.clone(), percentage);
         }

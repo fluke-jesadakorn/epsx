@@ -1001,7 +1001,7 @@ pub async fn acknowledge_notification_handler(
     Path(notification_id): Path<String>,
 ) -> Result<impl IntoResponse, AppError> {
     // Call the offline_queue module's mark_as_acknowledged function
-    crate::web::notifications::mark_as_acknowledged(&*app_state.db_pool, &notification_id)
+    crate::web::notifications::mark_as_acknowledged(&app_state.db_pool, &notification_id)
         .await?;
 
     Ok(Json(serde_json::json!({

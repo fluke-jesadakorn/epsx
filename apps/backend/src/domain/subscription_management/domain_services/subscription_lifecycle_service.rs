@@ -10,10 +10,7 @@ impl SubscriptionLifecycleService {
         plan: &Plan,
         start_date: chrono::DateTime<Utc>,
     ) -> Option<chrono::DateTime<Utc>> {
-        match plan.billing_cycle().duration_days() {
-            Some(days) => Some(start_date + Duration::days(days)),
-            None => None, // Lifetime subscription
-        }
+        plan.billing_cycle().duration_days().map(|days| start_date + Duration::days(days))
     }
 
     /// Check if subscription should be renewed

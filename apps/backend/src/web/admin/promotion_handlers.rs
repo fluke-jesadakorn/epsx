@@ -128,8 +128,8 @@ pub async fn list_promotions_handler(
                 start_date: row.start_date.to_rfc3339(),
                 end_date: row.end_date.map(|d| d.to_rfc3339()),
                 applicable_plans: vec![],
-                created_at: row.created_at.unwrap_or_else(|| Utc::now()).to_rfc3339(),
-                updated_at: row.updated_at.unwrap_or_else(|| Utc::now()).to_rfc3339(),
+                created_at: row.created_at.unwrap_or_else(Utc::now).to_rfc3339(),
+                updated_at: row.updated_at.unwrap_or_else(Utc::now).to_rfc3339(),
                 total_revenue: "0".to_string(),
                 conversion_rate: 0.0,
             }
@@ -199,8 +199,8 @@ pub async fn create_promotion_handler(
                 start_date: request.start_date.to_rfc3339(),
                 end_date: request.end_date.map(|d| d.to_rfc3339()),
                 applicable_plans: request.applicable_plans,
-                created_at: row.created_at.unwrap_or_else(|| Utc::now()).to_rfc3339(),
-                updated_at: row.updated_at.unwrap_or_else(|| Utc::now()).to_rfc3339(),
+                created_at: row.created_at.unwrap_or_else(Utc::now).to_rfc3339(),
+                updated_at: row.updated_at.unwrap_or_else(Utc::now).to_rfc3339(),
                 total_revenue: "0".to_string(),
                 conversion_rate: 0.0,
             };
@@ -259,8 +259,8 @@ pub async fn get_promotion_handler(
                 start_date: row.start_date.to_rfc3339(),
                 end_date: row.end_date.map(|d| d.to_rfc3339()),
                 applicable_plans: vec![],
-                created_at: row.created_at.unwrap_or_else(|| Utc::now()).to_rfc3339(),
-                updated_at: row.updated_at.unwrap_or_else(|| Utc::now()).to_rfc3339(),
+                created_at: row.created_at.unwrap_or_else(Utc::now).to_rfc3339(),
+                updated_at: row.updated_at.unwrap_or_else(Utc::now).to_rfc3339(),
                 total_revenue: "0".to_string(),
                 conversion_rate: 0.0,
             };
@@ -328,8 +328,8 @@ pub async fn update_promotion_handler(
                 start_date: row.start_date.to_rfc3339(),
                 end_date: row.end_date.map(|d| d.to_rfc3339()),
                 applicable_plans: vec![],
-                created_at: row.created_at.unwrap_or_else(|| Utc::now()).to_rfc3339(),
-                updated_at: row.updated_at.unwrap_or_else(|| Utc::now()).to_rfc3339(),
+                created_at: row.created_at.unwrap_or_else(Utc::now).to_rfc3339(),
+                updated_at: row.updated_at.unwrap_or_else(Utc::now).to_rfc3339(),
                 total_revenue: "0".to_string(),
                 conversion_rate: 0.0,
             };

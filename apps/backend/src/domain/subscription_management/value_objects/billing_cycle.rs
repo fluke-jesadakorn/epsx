@@ -2,7 +2,9 @@ use crate::prelude::*;
 
 /// Billing cycle value object
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default)]
 pub enum BillingCycle {
+    #[default]
     Monthly,
     Quarterly,
     Yearly,
@@ -45,8 +47,3 @@ impl std::fmt::Display for BillingCycle {
     }
 }
 
-impl Default for BillingCycle {
-    fn default() -> Self {
-        BillingCycle::Monthly
-    }
-}
