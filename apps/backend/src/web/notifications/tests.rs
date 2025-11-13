@@ -8,7 +8,6 @@
 #[cfg(test)]
 mod notification_tests {
     use crate::web::notifications::{
-        NotificationType, NotificationPriority, SSENotification,
         fetch_queued_notifications, mark_as_delivered, mark_as_acknowledged,
         get_notification_stats, cleanup_old_notifications,
     };
@@ -200,7 +199,7 @@ mod notification_tests {
             .await?;
 
         assert!(result.delivered_at.is_some(), "Should have delivered_at timestamp");
-        assert_eq!(result.delivery_attempts, 1, "Should increment delivery_attempts");
+        assert_eq!(result.delivery_attempts, Some(1), "Should increment delivery_attempts");
 
         cleanup_test_notifications(&pool).await?;
         Ok(())
@@ -246,7 +245,7 @@ mod notification_tests {
 
         // Create test notifications
         let id1 = setup_test_notification(&pool, wallet, "system", "normal").await?;
-        let id2 = setup_test_notification(&pool, wallet, "security", "high").await?;
+        let _id2 = setup_test_notification(&pool, wallet, "security", "high").await?;
 
         // Mark one as delivered
         mark_as_delivered(&pool, &id1.to_string()).await?;
@@ -290,7 +289,7 @@ mod notification_tests {
         Ok(())
     }
 
-    #[sqlx:test]
+    #[sqlx::test]
     async fn test_cleanup_old_read_notifications(pool: PgPool) -> Result<(), Box<dyn std::error::Error>> {
         let wallet = "0x1234567890abcdef1234567890abcdef12345678";
         let id = setup_test_notification(&pool, wallet, "system", "normal").await?;

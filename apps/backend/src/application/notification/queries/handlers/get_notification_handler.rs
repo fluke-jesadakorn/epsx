@@ -39,6 +39,44 @@ impl QueryHandler<GetNotificationQuery> for GetNotificationQueryHandler {
             .map(|ch| ch.channel_type().as_str().to_string())
             .collect();
 
+        // Get delivery tracking information from actual channel statuses
+        let delivery_tracking = notification.delivery_tracking();
+
+        // Get last attempt time across all channels
+        let last_delivery_attempt = notification.channels()
+            .enabled_channels()
+            .iter()
+            .filter_map(|ch| {
+                match delivery_tracking.get_channel_status(ch.channel_type().as_str()) {
+                    Some(crate::domain::notification::aggregates::notification::ChannelDeliveryStatus::Delivered { delivered_at, .. }) => {
+                        Some(*delivered_at)
+                    }
+                    Some(crate::domain::notification::aggregates::notification::ChannelDeliveryStatus::Failed(err)) => {
+                        Some(err.attempted_at)
+                    }
+                    None => None,
+                }
+            })
+            .max();
+
+        // Get delivered_at from first successful delivery
+        let delivered_at = if delivery_tracking.has_successful_delivery() {
+            notification.channels()
+                .enabled_channels()
+                .iter()
+                .filter_map(|ch| {
+                    match delivery_tracking.get_channel_status(ch.channel_type().as_str()) {
+                        Some(crate::domain::notification::aggregates::notification::ChannelDeliveryStatus::Delivered { delivered_at, .. }) => {
+                            Some(*delivered_at)
+                        }
+                        _ => None,
+                    }
+                })
+                .min()
+        } else {
+            None
+        };
+
         Ok(GetNotificationResponse {
             notification_id: notification.id().as_str().to_string(),
             recipient_type,
@@ -52,9 +90,9 @@ impl QueryHandler<GetNotificationQuery> for GetNotificationQueryHandler {
             schedule_type: notification.schedule().schedule_type().as_str().to_string(),
             scheduled_at: notification.schedule().scheduled_at(),
             expires_at: notification.schedule().expires_at(),
-            delivery_attempts: notification.delivery_tracking().total_attempts(),
-            last_delivery_attempt: None, // TODO: Add to domain model if needed
-            delivered_at: None, // TODO: Add to domain model if needed
+            delivery_attempts: delivery_tracking.total_attempts(),
+            last_delivery_attempt,
+            delivered_at,
             image_url: notification.metadata().image_url().map(|s| s.to_string()),
             action_url: notification.metadata().action_url().map(|s| s.to_string()),
             tags: notification.metadata().tags().iter().map(|s| s.to_string()).collect(),

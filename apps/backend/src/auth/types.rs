@@ -144,7 +144,7 @@ impl Default for NetworkConfig {
 #[derive(Debug, thiserror::Error)]
 pub enum Web3PermissionError {
     #[error("Database error: {0}")]
-    Database(#[from] sqlx::Error),
+    Database(#[from] diesel::result::Error),
     
     #[error("RPC error: {0}")]
     Rpc(String),

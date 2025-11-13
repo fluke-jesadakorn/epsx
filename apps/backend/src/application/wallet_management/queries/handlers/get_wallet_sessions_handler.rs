@@ -33,7 +33,7 @@ impl QueryHandler<GetWalletSessionsQuery> for GetWalletSessionsQueryHandler {
             .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
-        // 4. Separate active and expired sessions
+        // 4. Separate active and expired sessions with IP address tracking
         let active_sessions: Vec<crate::application::wallet_management::queries::models::get_wallet_sessions::SessionSummary> = sessions
             .iter()
             .filter(|s| s.is_valid())
@@ -42,7 +42,7 @@ impl QueryHandler<GetWalletSessionsQuery> for GetWalletSessionsQueryHandler {
                 created_at: s.created_at(),
                 expires_at: s.expires_at(),
                 is_valid: s.is_valid(),
-                ip_address: None, // TODO: Add IP address tracking to Session
+                ip_address: s.ip_address().map(|ip| ip.to_string()),
             })
             .collect();
 
@@ -55,7 +55,7 @@ impl QueryHandler<GetWalletSessionsQuery> for GetWalletSessionsQueryHandler {
                     created_at: s.created_at(),
                     expires_at: s.expires_at(),
                     is_valid: s.is_valid(),
-                    ip_address: None,
+                    ip_address: s.ip_address().map(|ip| ip.to_string()),
                 })
                 .collect()
         } else {

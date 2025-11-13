@@ -110,33 +110,33 @@ OIDC_CLIENT_SECRET=dev-client-secret
 OIDC_ADMIN_CLIENT_SECRET=dev-admin-secret
 
 # Verify environment setup
-pnpm env:validate     # Check all required variables
+bun env:validate     # Check all required variables
 ```
 
 ### Quick Start
 ```bash
 # Install dependencies
-pnpm install
+bun install
 
 # Start all services
-pnpm dev              # Frontend + Admin + Backend
+bun dev              # Frontend + Admin + Backend
 
 # Individual services
-pnpm dev:frontend     # Port 3000
-pnpm dev:admin        # Port 3001  
-pnpm dev:backend      # Port 8080
+bun dev:frontend     # Port 3000
+bun dev:admin        # Port 3001
+bun dev:backend      # Port 8080
 ```
 
 ### Build & Test
 ```bash
 # Build
-pnpm build           # All applications
-pnpm build:frontend  # Frontend only
-pnpm build:admin     # Admin only
+bun build           # All applications
+bun build:frontend  # Frontend only
+bun build:admin     # Admin only
 
 # Test
-pnpm test           # All tests
-pnpm test:e2e       # End-to-end tests
+bun test           # All tests
+bun test:e2e       # End-to-end tests
 ```
 
 ### Backend (Rust)
@@ -153,9 +153,9 @@ cargo run --bin migrate up # Apply migrations
 
 ### Quality Assurance
 ```bash
-pnpm lint           # ESLint
-pnpm type-check     # TypeScript
-pnpm format         # Prettier
+bun lint           # ESLint
+bun type-check     # TypeScript
+bun format         # Prettier
 ```
 
 ## File Structure
@@ -392,11 +392,11 @@ gcloud run services update-traffic frontend \
 
 ### Local Development (No Docker)
 ```bash
-# Use existing Node.js/Rust development workflow
-pnpm dev                    # All services
-pnpm dev:frontend          # Frontend only
-pnpm dev:admin             # Admin only
-pnpm dev:backend           # Backend only
+# Use existing Bun/Rust development workflow
+bun dev                    # All services
+bun dev:frontend          # Frontend only
+bun dev:admin             # Admin only
+bun dev:backend           # Backend only
 ```
 
 ### Alternative: Portainer for Container Management
@@ -616,7 +616,7 @@ For local development, use the credentials from your `.env` file or create test 
 ## Troubleshooting
 
 ### Common Issues
-- **Build Errors**: Clear cache with `pnpm clean`
+- **Build Errors**: Clear cache with `bun clean`
 - **Auth Issues**: Check OIDC configuration and token validation
 - **Database**: Ensure PostgreSQL running and SQLx migrations applied
 - **Environment**: Verify all required environment variables set
@@ -675,9 +675,9 @@ For local development, use the credentials from your `.env` file or create test 
 ### Debug Commands
 ```bash
 # Check services
-pnpm dev              # All services with logs
-cargo run --backend   # Backend with detailed logs  
-pnpm test:e2e:debug   # E2E tests in debug mode
+bun dev              # All services with logs
+cargo run --backend   # Backend with detailed logs
+bun test:e2e:debug   # E2E tests in debug mode
 
 # Cloud Run troubleshooting
 gcloud logging read "resource.type=cloud_run_revision" --limit=20

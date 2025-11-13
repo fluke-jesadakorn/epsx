@@ -9,11 +9,17 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
-use sqlx::Row;
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 use std::collections::HashMap;
 
 use crate::web::auth::AppState;
 use crate::web::responses::AdminResponse;
+use crate::auth::permission_authority::{
+    CentralizedPermissionAuthority,
+    PermissionValidator,
+    ValidationContext,
+};
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES
@@ -141,16 +147,34 @@ pub async fn validate_permission(
     let audit_id = Uuid::new_v4().to_string();
     let wallet = req.wallet_address.to_lowercase();
 
-    // Check if wallet has the permission through any active group
-    let has_permission = match check_wallet_permission(&app_state, &wallet, &req.permission).await {
+    // Create CentralizedPermissionAuthority
+    let authority = CentralizedPermissionAuthority::with_defaults(*app_state.db_pool);
+
+    // Create validation context
+    let context = ValidationContext {
+        request_id: req.request_id.clone().unwrap_or_else(|| audit_id.clone()),
+        user_agent: req.user_agent.clone(),
+        ip_address: req.ip_address.clone(),
+        timestamp: Utc::now(),
+        route_path: "/admin/permissions/validate".to_string(),
+        http_method: "POST".to_string(),
+    };
+
+    // Use CentralizedPermissionAuthority for validation
+    let validation_result = match authority.validate_permission(&wallet, &req.permission, &context).await {
         Ok(result) => result,
         Err(e) => {
-            tracing::error!("Failed to check permission: {}", e);
-            return AdminResponse::server_error("Permission check failed").into_response();
+            tracing::error!("Failed to validate permission: {}", e);
+            return AdminResponse::server_error("Permission validation failed").into_response();
         }
     };
 
-    let (is_valid, source_group, expires_at) = has_permission;
+    let is_valid = validation_result.granted;
+    let source_group = match &validation_result.source {
+        crate::auth::permission_authority::PermissionSource::Group(name) => Some(name.clone()),
+        _ => None,
+    };
+    let expires_at = validation_result.expires_at;
 
     // Build validation result
     let validation_result = PermissionValidationResult {
@@ -228,26 +252,35 @@ pub async fn validate_bulk_permissions(
     let audit_id = Uuid::new_v4().to_string();
     let wallet = req.wallet_address.to_lowercase();
 
-    let mut results = HashMap::new();
-    let mut granted_count = 0;
+    // Create CentralizedPermissionAuthority
+    let authority = CentralizedPermissionAuthority::with_defaults(*app_state.db_pool);
 
-    // Validate each permission
-    for permission in &req.permissions {
-        match check_wallet_permission(&app_state, &wallet, permission).await {
-            Ok((is_valid, _, _)) => {
-                results.insert(permission.clone(), is_valid);
-                if is_valid {
-                    granted_count += 1;
-                }
-            }
-            Err(e) => {
-                tracing::error!("Failed to check permission {}: {}", permission, e);
-                results.insert(permission.clone(), false);
-            }
+    // Create validation context
+    let context = ValidationContext {
+        request_id: req.request_id.clone().unwrap_or_else(|| audit_id.clone()),
+        user_agent: req.user_agent.clone(),
+        ip_address: req.ip_address.clone(),
+        timestamp: Utc::now(),
+        route_path: "/admin/permissions/validate/bulk".to_string(),
+        http_method: "POST".to_string(),
+    };
+
+    // Use CentralizedPermissionAuthority for bulk validation
+    let bulk_result = match authority.bulk_validate_permissions(&wallet, &req.permissions, &context).await {
+        Ok(result) => result,
+        Err(e) => {
+            tracing::error!("Failed to validate bulk permissions: {}", e);
+            return AdminResponse::server_error("Bulk permission validation failed").into_response();
         }
+    };
+
+    let mut results = HashMap::new();
+    for (permission, perm_result) in &bulk_result.results {
+        results.insert(permission.clone(), perm_result.granted);
     }
 
-    let denied_count = req.permissions.len() - granted_count;
+    let granted_count = bulk_result.granted_count;
+    let denied_count = bulk_result.denied_count;
     let overall_valid = denied_count == 0;
 
     tracing::info!(
@@ -280,8 +313,32 @@ pub async fn get_wallet_permissions(
     let audit_id = Uuid::new_v4().to_string();
     let wallet = wallet.to_lowercase();
 
+    let mut conn = match app_state.db_pool.get().await {
+        Ok(conn) => conn,
+        Err(e) => {
+            tracing::error!("Failed to get database connection: {}", e);
+            return AdminResponse::server_error("Database connection failed").into_response();
+        }
+    };
+
+    #[derive(QueryableByName)]
+    struct GroupRow {
+        #[diesel(sql_type = diesel::sql_types::Uuid)]
+        id: Uuid,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        name: String,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        group_type: String,
+        #[diesel(sql_type = diesel::sql_types::Bool)]
+        is_active: bool,
+        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+        assigned_at: DateTime<Utc>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+        expires_at: Option<DateTime<Utc>>,
+    }
+
     // Get permission groups assigned to wallet
-    let groups = match sqlx::query(
+    let groups = match diesel::sql_query(
         r#"
         SELECT
             pg.id, pg.name, pg.group_type,
@@ -292,8 +349,8 @@ pub async fn get_wallet_permissions(
         ORDER BY wga.assigned_at DESC
         "#
     )
-    .bind(&wallet)
-    .fetch_all(&*app_state.db_pool)
+    .bind::<diesel::sql_types::Text, _>(&wallet)
+    .load::<GroupRow>(&mut conn)
     .await
     {
         Ok(rows) => rows,
@@ -303,45 +360,43 @@ pub async fn get_wallet_permissions(
         }
     };
 
-    let permission_groups: Vec<PermissionGroupSummary> = groups.iter().map(|row| {
+    let permission_groups: Vec<PermissionGroupSummary> = groups.into_iter().map(|row| {
         PermissionGroupSummary {
-            id: row.get::<Uuid, _>("id").to_string(),
-            name: row.get("name"),
-            group_type: row.get("group_type"),
-            is_active: row.get("is_active"),
-            assigned_at: row.get("assigned_at"),
-            expires_at: row.get("expires_at"),
+            id: row.id.to_string(),
+            name: row.name,
+            group_type: row.group_type,
+            is_active: row.is_active,
+            assigned_at: row.assigned_at,
+            expires_at: row.expires_at,
         }
     }).collect();
 
-    // Get effective permissions from all active groups
-    let permissions = match sqlx::query_scalar::<_, String>(
-        r#"
-        SELECT DISTINCT p.permission_string
-        FROM permissions p
-        JOIN permission_group_memberships pgm ON p.id = pgm.permission_id
-        JOIN wallet_group_assignments wga ON pgm.group_id = wga.group_id
-        WHERE wga.wallet_address = $1
-          AND wga.is_active = true
-          AND (wga.expires_at IS NULL OR wga.expires_at > NOW())
-        ORDER BY p.permission_string
-        "#
-    )
-    .bind(&wallet)
-    .fetch_all(&*app_state.db_pool)
-    .await
-    {
+    // Get effective permissions using CentralizedPermissionAuthority
+    let authority = CentralizedPermissionAuthority::with_defaults(*app_state.db_pool);
+    let wallet_permissions = match authority.get_wallet_permissions(&wallet).await {
         Ok(perms) => perms,
         Err(e) => {
             tracing::error!("Failed to fetch effective permissions: {}", e);
-            return AdminResponse::server_error("Database query failed").into_response();
+            return AdminResponse::server_error("Failed to retrieve permissions").into_response();
         }
     };
 
+    let permissions: Vec<String> = wallet_permissions
+        .iter()
+        .filter(|p| p.is_active)
+        .map(|p| p.name.clone())
+        .collect();
+
+    #[derive(QueryableByName)]
+    struct CountRow {
+        #[diesel(sql_type = diesel::sql_types::BigInt)]
+        count: i64,
+    }
+
     // Calculate expiring permissions (within 7 days)
-    let expiring_count = match sqlx::query_scalar::<_, i64>(
+    let expiring_count = match diesel::sql_query(
         r#"
-        SELECT COUNT(DISTINCT wga.id)::bigint
+        SELECT COUNT(DISTINCT wga.id)::bigint as count
         FROM wallet_group_assignments wga
         WHERE wga.wallet_address = $1
           AND wga.is_active = true
@@ -349,34 +404,34 @@ pub async fn get_wallet_permissions(
           AND wga.expires_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'
         "#
     )
-    .bind(&wallet)
-    .fetch_one(&*app_state.db_pool)
+    .bind::<diesel::sql_types::Text, _>(&wallet)
+    .get_result::<CountRow>(&mut conn)
     .await
     {
-        Ok(count) => count as i32,
+        Ok(row) => row.count as i32,
         Err(_) => 0,
     };
 
     // Calculate expired permissions
-    let expired_count = match sqlx::query_scalar::<_, i64>(
+    let expired_count = match diesel::sql_query(
         r#"
-        SELECT COUNT(DISTINCT wga.id)::bigint
+        SELECT COUNT(DISTINCT wga.id)::bigint as count
         FROM wallet_group_assignments wga
         WHERE wga.wallet_address = $1
           AND wga.expires_at IS NOT NULL
           AND wga.expires_at < NOW()
         "#
     )
-    .bind(&wallet)
-    .fetch_one(&*app_state.db_pool)
+    .bind::<diesel::sql_types::Text, _>(&wallet)
+    .get_result::<CountRow>(&mut conn)
     .await
     {
-        Ok(count) => count as i32,
+        Ok(row) => row.count as i32,
         Err(_) => 0,
     };
 
     let highest_group = permission_groups
-        .first()
+        .get(0)
         .map(|g| g.name.clone())
         .unwrap_or_else(|| "None".to_string());
 
@@ -408,43 +463,8 @@ pub async fn get_wallet_permissions(
 }
 
 // ============================================================================
-// HELPER FUNCTIONS
+// HELPER FUNCTIONS (DEPRECATED - Now using CentralizedPermissionAuthority)
 // ============================================================================
 
-/// Check if wallet has a specific permission
-/// Returns (has_permission, source_group_id, expires_at)
-async fn check_wallet_permission(
-    app_state: &AppState,
-    wallet: &str,
-    permission: &str,
-) -> Result<(bool, Option<String>, Option<DateTime<Utc>>), sqlx::Error> {
-    let row = sqlx::query(
-        r#"
-        SELECT
-            pg.id as group_id,
-            pg.name as group_name,
-            wga.expires_at
-        FROM permissions p
-        JOIN permission_group_memberships pgm ON p.id = pgm.permission_id
-        JOIN permission_groups pg ON pgm.group_id = pg.id
-        JOIN wallet_group_assignments wga ON pg.id = wga.group_id
-        WHERE wga.wallet_address = $1
-          AND p.permission_string = $2
-          AND wga.is_active = true
-          AND (wga.expires_at IS NULL OR wga.expires_at > NOW())
-        LIMIT 1
-        "#
-    )
-    .bind(wallet)
-    .bind(permission)
-    .fetch_optional(&*app_state.db_pool)
-    .await?;
-
-    if let Some(r) = row {
-        let group_id: Uuid = r.get("group_id");
-        let expires_at: Option<DateTime<Utc>> = r.get("expires_at");
-        Ok((true, Some(group_id.to_string()), expires_at))
-    } else {
-        Ok((false, None, None))
-    }
-}
+// check_wallet_permission() function removed - replaced by CentralizedPermissionAuthority
+// The authority provides better caching, Web3 support, and unified permission validation

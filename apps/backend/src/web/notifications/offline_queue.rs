@@ -1,4 +1,5 @@
-use sqlx::PgPool;
+use diesel::prelude::*;
+use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
 use uuid::Uuid;
 use crate::web::notifications::{SSENotification, NotificationType, NotificationPriority};
 use crate::core::errors::AppError;
@@ -14,10 +15,35 @@ use crate::core::errors::AppError;
 /// - Limits to last 30 days to prevent fetching excessive old data
 /// - Excludes expired notifications
 pub async fn fetch_queued_notifications(
-    db_pool: &PgPool,
+    db_pool: &Pool<AsyncPgConnection>,
     wallet_address: &str,
 ) -> Result<Vec<SSENotification>, AppError> {
-    let records = sqlx::query!(
+    let mut conn = db_pool.get().await
+        .map_err(|e| AppError::database_error(format!("Connection pool error: {}", e)))?;
+
+    #[derive(QueryableByName)]
+    struct NotificationRow {
+        #[diesel(sql_type = diesel::sql_types::Uuid)]
+        id: Uuid,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        wallet_address: String,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        notification_type: String,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        title: String,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        message: String,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
+        data: Option<serde_json::Value>,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        priority: String,
+        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+        timestamp: chrono::DateTime<chrono::Utc>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+        expires_at: Option<chrono::DateTime<chrono::Utc>>,
+    }
+
+    let records = diesel::sql_query(
         r#"
         SELECT
             id, wallet_address, notification_type, title, message,
@@ -29,10 +55,10 @@ pub async fn fetch_queued_notifications(
           AND (expires_at IS NULL OR expires_at > NOW())
         ORDER BY timestamp DESC
         LIMIT 100
-        "#,
-        wallet_address.to_lowercase()
+        "#
     )
-    .fetch_all(db_pool)
+    .bind::<diesel::sql_types::Text, _>(wallet_address.to_lowercase())
+    .load::<NotificationRow>(&mut conn)
     .await?;
 
     let notifications: Vec<_> = records
@@ -63,17 +89,20 @@ pub async fn fetch_queued_notifications(
 
 /// Mark notification as delivered via Redis
 pub async fn mark_as_delivered(
-    db_pool: &PgPool,
+    db_pool: &Pool<AsyncPgConnection>,
     notification_id: &str,
 ) -> Result<(), AppError> {
     let id = Uuid::parse_str(notification_id)
         .map_err(|e| AppError::from(Box::new(e) as Box<dyn std::error::Error>))?;
 
-    sqlx::query!(
-        "UPDATE wallet_notifications SET delivered_at = NOW(), delivery_attempts = delivery_attempts + 1 WHERE id = $1",
-        id
+    let mut conn = db_pool.get().await
+        .map_err(|e| AppError::database_error(format!("Connection pool error: {}", e)))?;
+
+    diesel::sql_query(
+        "UPDATE wallet_notifications SET delivered_at = NOW(), delivery_attempts = delivery_attempts + 1 WHERE id = $1"
     )
-    .execute(db_pool)
+    .bind::<diesel::sql_types::Uuid, _>(id)
+    .execute(&mut conn)
     .await?;
 
     Ok(())
@@ -81,17 +110,20 @@ pub async fn mark_as_delivered(
 
 /// Mark notification as acknowledged by client
 pub async fn mark_as_acknowledged(
-    db_pool: &PgPool,
+    db_pool: &Pool<AsyncPgConnection>,
     notification_id: &str,
 ) -> Result<(), AppError> {
     let id = Uuid::parse_str(notification_id)
         .map_err(|e| AppError::from(Box::new(e) as Box<dyn std::error::Error>))?;
 
-    sqlx::query!(
-        "UPDATE wallet_notifications SET acknowledged_at = NOW() WHERE id = $1",
-        id
+    let mut conn = db_pool.get().await
+        .map_err(|e| AppError::database_error(format!("Connection pool error: {}", e)))?;
+
+    diesel::sql_query(
+        "UPDATE wallet_notifications SET acknowledged_at = NOW() WHERE id = $1"
     )
-    .execute(db_pool)
+    .bind::<diesel::sql_types::Uuid, _>(id)
+    .execute(&mut conn)
     .await?;
 
     tracing::debug!("✅ Notification acknowledged: id={}", notification_id);
@@ -109,40 +141,41 @@ pub async fn mark_as_acknowledged(
 ///
 /// This function is designed to be called by a cron job (not implemented)
 pub async fn cleanup_old_notifications(
-    db_pool: &PgPool,
+    db_pool: &Pool<AsyncPgConnection>,
     _days: i64,
 ) -> Result<u64, AppError> {
+    let mut conn = db_pool.get().await
+        .map_err(|e| AppError::database_error(format!("Connection pool error: {}", e)))?;
+
     // Delete soft-deleted notifications after grace period (7 days)
-    let soft_deleted_result = sqlx::query!(
+    let soft_deleted_count = diesel::sql_query(
         "DELETE FROM wallet_notifications WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days'"
     )
-    .execute(db_pool)
-    .await?;
+    .execute(&mut conn)
+    .await? as u64;
 
     // Delete old read notifications (90 days)
-    let read_result = sqlx::query!(
+    let read_count = diesel::sql_query(
         "DELETE FROM wallet_notifications WHERE read_at IS NOT NULL AND deleted_at IS NULL AND created_at < NOW() - INTERVAL '90 days'"
     )
-    .execute(db_pool)
-    .await?;
+    .execute(&mut conn)
+    .await? as u64;
 
     // Delete expired notifications immediately
-    let expired_result = sqlx::query!(
+    let expired_count = diesel::sql_query(
         "DELETE FROM wallet_notifications WHERE expires_at IS NOT NULL AND expires_at < NOW()"
     )
-    .execute(db_pool)
-    .await?;
+    .execute(&mut conn)
+    .await? as u64;
 
-    let total_cleaned = soft_deleted_result.rows_affected()
-        + read_result.rows_affected()
-        + expired_result.rows_affected();
+    let total_cleaned = soft_deleted_count + read_count + expired_count;
 
     tracing::info!(
         "🧹 Cleaned up {} notifications (soft-deleted: {}, read: {}, expired: {})",
         total_cleaned,
-        soft_deleted_result.rows_affected(),
-        read_result.rows_affected(),
-        expired_result.rows_affected()
+        soft_deleted_count,
+        read_count,
+        expired_count
     );
 
     Ok(total_cleaned)
@@ -150,29 +183,42 @@ pub async fn cleanup_old_notifications(
 
 /// Get notification statistics for monitoring (excludes soft-deleted)
 pub async fn get_notification_stats(
-    db_pool: &PgPool,
+    db_pool: &Pool<AsyncPgConnection>,
 ) -> Result<NotificationStats, AppError> {
-    let total: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM wallet_notifications WHERE deleted_at IS NULL")
-        .fetch_one(db_pool)
-        .await?;
+    let mut conn = db_pool.get().await
+        .map_err(|e| AppError::database_error(format!("Connection pool error: {}", e)))?;
 
-    let queued: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM wallet_notifications WHERE delivered_at IS NULL AND deleted_at IS NULL")
-        .fetch_one(db_pool)
-        .await?;
+    #[derive(QueryableByName)]
+    struct CountRow {
+        #[diesel(sql_type = diesel::sql_types::BigInt)]
+        count: i64,
+    }
 
-    let delivered: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM wallet_notifications WHERE delivered_at IS NOT NULL AND deleted_at IS NULL")
-        .fetch_one(db_pool)
-        .await?;
+    let total = diesel::sql_query("SELECT COUNT(*) as count FROM wallet_notifications WHERE deleted_at IS NULL")
+        .get_result::<CountRow>(&mut conn)
+        .await?
+        .count;
 
-    let acknowledged: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM wallet_notifications WHERE acknowledged_at IS NOT NULL AND deleted_at IS NULL")
-        .fetch_one(db_pool)
-        .await?;
+    let queued = diesel::sql_query("SELECT COUNT(*) as count FROM wallet_notifications WHERE delivered_at IS NULL AND deleted_at IS NULL")
+        .get_result::<CountRow>(&mut conn)
+        .await?
+        .count;
+
+    let delivered = diesel::sql_query("SELECT COUNT(*) as count FROM wallet_notifications WHERE delivered_at IS NOT NULL AND deleted_at IS NULL")
+        .get_result::<CountRow>(&mut conn)
+        .await?
+        .count;
+
+    let acknowledged = diesel::sql_query("SELECT COUNT(*) as count FROM wallet_notifications WHERE acknowledged_at IS NOT NULL AND deleted_at IS NULL")
+        .get_result::<CountRow>(&mut conn)
+        .await?
+        .count;
 
     Ok(NotificationStats {
-        total: total.0 as usize,
-        queued: queued.0 as usize,
-        delivered: delivered.0 as usize,
-        acknowledged: acknowledged.0 as usize,
+        total: total as usize,
+        queued: queued as usize,
+        delivered: delivered as usize,
+        acknowledged: acknowledged as usize,
     })
 }
 

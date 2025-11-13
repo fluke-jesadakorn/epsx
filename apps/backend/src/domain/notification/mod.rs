@@ -31,6 +31,7 @@
 /// - Web3 Services (for wallet-based delivery and blockchain events)
 pub mod value_objects;
 pub mod aggregates;
+pub mod events;
 pub mod repository_ports;
 
 // Public exports from value objects
@@ -47,7 +48,11 @@ pub use value_objects::{
 // Public exports from aggregates
 pub use aggregates::{
     Notification, NotificationMetadata, DeliveryTracking, ChannelDeliveryStatus,
-    DeliveryError, DeliveryResult, NotificationStatus, NotificationPriority,
+    DeliveryError, DeliveryResult, NotificationStatus, NotificationPriority
+};
+
+// Public exports from events
+pub use events::notification_events::{
     NotificationCreated, NotificationScheduled, NotificationSending,
     NotificationDeliveryCompleted, NotificationExpired, NotificationPriorityUpdated,
     NotificationCancelled

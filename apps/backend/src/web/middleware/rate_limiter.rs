@@ -12,6 +12,19 @@ use tracing::{debug, warn};
 use crate::config::Config;
 use crate::infrastructure::cache::Cache;
 
+// Rate limit constants
+mod rate_limits {
+    pub const DEFAULT_REQUESTS_PER_MINUTE: u32 = 60;
+    pub const DEFAULT_REQUESTS_PER_HOUR: u32 = 1000;
+    pub const DEFAULT_REQUESTS_PER_DAY: u32 = 10000;
+
+    pub const LOGIN_REQUESTS_PER_MINUTE: u32 = 5;
+    pub const PAYMENT_REQUESTS_PER_MINUTE: u32 = 10;
+    pub const ADMIN_REQUESTS_PER_MINUTE: u32 = 20;
+
+    pub const MINUTE_SECONDS: u64 = 60;
+}
+
 /// Time window for rate limiting
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TimeWindow {
@@ -63,9 +76,9 @@ impl std::fmt::Display for ClientId {
 impl Default for RateLimitConfig {
     fn default() -> Self {
         Self {
-            requests_per_minute: Some(60),
-            requests_per_hour: Some(1000),
-            requests_per_day: Some(10000),
+            requests_per_minute: Some(rate_limits::DEFAULT_REQUESTS_PER_MINUTE),
+            requests_per_hour: Some(rate_limits::DEFAULT_REQUESTS_PER_HOUR),
+            requests_per_day: Some(rate_limits::DEFAULT_REQUESTS_PER_DAY),
         }
     }
 }
@@ -130,7 +143,7 @@ impl RateLimitEntry {
                 return RateLimitResult {
                     allowed: false,
                     reason: format!("Minute rate limit exceeded: {}/{}", self.minute_count, limit),
-                    retry_after_seconds: Some(60 - (self.last_updated % 60)),
+                    retry_after_seconds: Some(rate_limits::MINUTE_SECONDS - (self.last_updated % rate_limits::MINUTE_SECONDS)),
                     window: TimeWindow::Minute,
                     current_count: self.minute_count,
                     limit,
@@ -302,23 +315,21 @@ impl UnifiedRateLimiter {
     
     /// Get rate limit configuration for an endpoint (from rate_limit.rs functionality)
     fn get_rate_limit_config(&self, endpoint: &str) -> (u32, u64) {
-        // Use default rate limits since simplified config doesn't have endpoint-specific rates
-        
-        // Check for pattern-based limits
+        // Pattern-based rate limits for different endpoint types
         if endpoint.contains("/login") {
-            return (5, 60); // 5 requests per minute for login
+            return (rate_limits::LOGIN_REQUESTS_PER_MINUTE, rate_limits::MINUTE_SECONDS);
         }
-        
+
         if endpoint.contains("/payment") {
-            return (10, 60); // 10 requests per minute for payments
+            return (rate_limits::PAYMENT_REQUESTS_PER_MINUTE, rate_limits::MINUTE_SECONDS);
         }
-        
+
         if endpoint.contains("/admin") {
-            return (20, 60); // 20 requests per minute for admin endpoints
+            return (rate_limits::ADMIN_REQUESTS_PER_MINUTE, rate_limits::MINUTE_SECONDS);
         }
-        
+
         // Default rate limit
-        (60, 60) // 60 requests per minute default
+        (rate_limits::DEFAULT_REQUESTS_PER_MINUTE, rate_limits::MINUTE_SECONDS)
     }
     
     /// Check and update rate limits for a user-endpoint combination (backward compatibility)
@@ -382,10 +393,10 @@ impl UnifiedRateLimiter {
     /// Reset rate limits for any client type (admin function) with cache support
     pub async fn reset_client_limits(&self, client_id: &ClientId) -> Result<u32, RateLimitError> {
         // Simplified implementation - delete common endpoint patterns
-        // TODO: Implement proper pattern-based deletion in cache layer
+        // Pattern-based deletion by iterating through common endpoints and methods
         let common_endpoints = ["*", "login", "register", "api", "admin"];
         let common_methods = ["GET", "POST", "PUT", "DELETE"];
-        
+
         let mut deleted_count = 0;
         for endpoint in &common_endpoints {
             for method in &common_methods {
@@ -394,7 +405,7 @@ impl UnifiedRateLimiter {
                 deleted_count += 1;
             }
         }
-        
+
         debug!("Reset {} rate limit entries for client {}", deleted_count, client_id);
         Ok(deleted_count)
     }
@@ -406,18 +417,20 @@ impl UnifiedRateLimiter {
     }
     
     /// Get statistics about rate limiter usage from cache
+    ///
+    /// Note: Returns placeholder stats until Cache trait exposes statistics interface
     pub async fn get_stats(&self) -> std::collections::HashMap<String, u32> {
         let mut stats = std::collections::HashMap::new();
-        
-        // TODO: Implement cache statistics when Cache trait supports it
-        // For now, return placeholder stats
+
+        // Placeholder stats - Cache trait doesn't expose statistics interface yet
+        // Future enhancement: extend Cache trait with get_stats() method
         stats.insert("total_entries".to_string(), 0);
         stats.insert("cache_hits".to_string(), 0);
         stats.insert("cache_misses".to_string(), 0);
         stats.insert("memory_usage_bytes".to_string(), 0);
-        
+
         debug!("Rate limiter stats (placeholder): {:?}", stats);
-        
+
         stats
     }
 }

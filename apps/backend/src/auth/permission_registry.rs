@@ -4,7 +4,8 @@
 
 use crate::prelude::*;
 
-use sqlx::PgPool;
+use diesel_async::{AsyncPgConnection, pooled_connection::deadpool::Pool, RunQueryDsl};
+use diesel::prelude::*;
 use std::collections::HashMap;
 use std::time::Duration;
 use tokio::sync::RwLock;
@@ -162,8 +163,8 @@ fn match_parts(pattern: &[&str], path: &[&str], p_idx: usize, path_idx: usize) -
 impl DatabasePermissionRegistry {
     /// Test-only accessor for db_pool
     #[cfg(test)]
-    pub fn db_pool(&self) -> &PgPool {
-        &self.db_pool
+    pub fn db_pool(&self) -> &'static Pool<AsyncPgConnection> {
+        self.db_pool
     }
 }
 
@@ -201,7 +202,7 @@ impl CachedRouteResolution {
 
 /// High-performance permission registry with database backing and intelligent caching
 pub struct DatabasePermissionRegistry {
-    db_pool: PgPool,
+    db_pool: &'static Pool<AsyncPgConnection>,
     cache_config: CacheConfig,
     
     // Cached route patterns for fast lookup
@@ -227,7 +228,7 @@ pub struct RegistryCacheStats {
 
 impl DatabasePermissionRegistry {
     /// Create new registry with custom cache configuration
-    pub fn new(db_pool: PgPool, cache_config: Option<CacheConfig>) -> Self {
+    pub fn new(db_pool: &'static Pool<AsyncPgConnection>, cache_config: Option<CacheConfig>) -> Self {
         let config = cache_config.unwrap_or_default();
         
         Self {
@@ -241,7 +242,7 @@ impl DatabasePermissionRegistry {
     }
     
     /// Create with default configuration
-    pub fn with_defaults(db_pool: PgPool) -> Self {
+    pub fn with_defaults(db_pool: &'static Pool<AsyncPgConnection>) -> Self {
         Self::new(db_pool, None)
     }
     
@@ -280,21 +281,36 @@ impl DatabasePermissionRegistry {
     
     /// Load route permission mappings from database
     async fn load_mappings_from_db(&self) -> Result<Vec<RoutePermissionMapping>, AppError> {
-        let rows = sqlx::query!(
-            r#"
-            SELECT 
-                id, route_pattern, http_method, required_permission, 
-                priority, is_active, is_public, description,
-                created_at, updated_at, created_by
-            FROM route_permissions 
-            WHERE is_active = true
-            ORDER BY priority DESC, route_pattern
-            "#
-        )
-        .fetch_all(&self.db_pool)
-        .await
-        .map_err(|e| AppError::database_error(format!("Failed to load route permissions: {}", e)))?;
-        
+        use crate::schema::route_permissions;
+
+        #[derive(Queryable, Selectable)]
+        #[diesel(table_name = crate::schema::route_permissions)]
+        struct RoutePermissionDb {
+            id: Uuid,
+            route_pattern: String,
+            http_method: String,
+            required_permission: String,
+            priority: i32,
+            is_active: bool,
+            is_public: bool,
+            description: Option<String>,
+            route_category: Option<String>,
+            created_at: DateTime<Utc>,
+            updated_at: DateTime<Utc>,
+            created_by: Option<String>,
+            last_modified_by: Option<String>,
+        }
+
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
+
+        let rows = route_permissions::table
+            .filter(route_permissions::is_active.eq(true))
+            .order((route_permissions::priority.desc(), route_permissions::route_pattern.asc()))
+            .load::<RoutePermissionDb>(&mut conn)
+            .await
+            .map_err(|e| AppError::database_error(format!("Failed to load route permissions: {}", e)))?;
+
         let mappings: Vec<RoutePermissionMapping> = rows
             .into_iter()
             .map(|row| RoutePermissionMapping {
@@ -311,7 +327,7 @@ impl DatabasePermissionRegistry {
                 created_by: row.created_by,
             })
             .collect();
-            
+
         debug!("Loaded {} route permission mappings from database", mappings.len());
         Ok(mappings)
     }
@@ -496,32 +512,39 @@ impl RoutePermissionResolver for DatabasePermissionRegistry {
             "Registering route permission: {} {} -> {}",
             method, route_pattern, permission
         );
-        
+
+        use crate::schema::route_permissions;
+
         let id = Uuid::new_v4();
-        
-        sqlx::query!(
-            r#"
-            INSERT INTO route_permissions 
-                (id, route_pattern, http_method, required_permission, priority, is_active, is_public)
-            VALUES ($1, $2, $3, $4, $5, true, false)
-            ON CONFLICT (route_pattern, http_method) 
-            DO UPDATE SET 
-                required_permission = $4,
-                updated_at = NOW()
-            "#,
-            id,
-            route_pattern,
-            method.to_uppercase(),
-            permission,
-            100 // Default priority
-        )
-        .execute(&self.db_pool)
-        .await
-        .map_err(|e| AppError::database_error(format!("Failed to register route permission: {}", e)))?;
-        
+        let now = Utc::now();
+        let method_upper = method.to_uppercase();
+
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
+
+        diesel::insert_into(route_permissions::table)
+            .values((
+                route_permissions::id.eq(&id),
+                route_permissions::route_pattern.eq(route_pattern),
+                route_permissions::http_method.eq(&method_upper),
+                route_permissions::required_permission.eq(permission),
+                route_permissions::priority.eq(100),
+                route_permissions::is_active.eq(true),
+                route_permissions::is_public.eq(false),
+            ))
+            .on_conflict((route_permissions::route_pattern, route_permissions::http_method))
+            .do_update()
+            .set((
+                route_permissions::required_permission.eq(permission),
+                route_permissions::updated_at.eq(&now),
+            ))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| AppError::database_error(format!("Failed to register route permission: {}", e)))?;
+
         // Refresh patterns to pick up new registration
         self.refresh_patterns().await?;
-        
+
         info!("Route permission registered and cache refreshed");
         Ok(())
     }
@@ -532,13 +555,13 @@ impl RoutePermissionResolver for DatabasePermissionRegistry {
 // ============================================================================
 
 /// Create default permission registry
-pub fn create_permission_registry(db_pool: PgPool) -> DatabasePermissionRegistry {
+pub fn create_permission_registry(db_pool: &'static Pool<AsyncPgConnection>) -> DatabasePermissionRegistry {
     DatabasePermissionRegistry::with_defaults(db_pool)
 }
 
 /// Create high-performance permission registry with custom settings
 pub fn create_high_performance_registry(
-    db_pool: PgPool,
+    db_pool: &'static Pool<AsyncPgConnection>,
     cache_ttl_seconds: u64,
     max_cache_size: usize,
 ) -> DatabasePermissionRegistry {

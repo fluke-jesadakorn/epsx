@@ -1,5 +1,6 @@
 use crate::prelude::*;
 use uuid::Uuid;
+use std::str::FromStr;
 
 /// Subscription ID value object
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -15,9 +16,7 @@ impl SubscriptionId {
     }
 
     pub fn from_str(s: &str) -> AppResult<Self> {
-        let uuid = Uuid::parse_str(s)
-            .map_err(|e| AppError::validation_error(format!("Invalid subscription ID: {}", e)))?;
-        Ok(Self(uuid))
+        s.parse()
     }
 
     pub fn value(&self) -> &Uuid {
@@ -26,6 +25,16 @@ impl SubscriptionId {
 
     pub fn as_str(&self) -> String {
         self.0.to_string()
+    }
+}
+
+impl FromStr for SubscriptionId {
+    type Err = AppError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let uuid = Uuid::parse_str(s)
+            .map_err(|e| AppError::validation_error(format!("Invalid subscription ID: {}", e)))?;
+        Ok(Self(uuid))
     }
 }
 

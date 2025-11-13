@@ -47,7 +47,7 @@ pub async fn get_public_plans(State(app_state): State<AppState>) -> Result<Json<
         use crate::domain::subscription_management::Promotion;
 
         // Extract permissions array from JSONB
-        let permissions = plan.permissions.as_array()
+        let permissions = plan.permissions().as_array()
             .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
             .unwrap_or_default();
 

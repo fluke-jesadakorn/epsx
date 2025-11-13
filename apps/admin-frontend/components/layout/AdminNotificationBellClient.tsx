@@ -40,8 +40,15 @@ export function AdminNotificationBell() {
         read: false,
       }
 
-      setNotifications(prev => [newNotification, ...prev])
-      setCount(prev => prev + 1)
+      setNotifications(prev => {
+        // Prevent duplicate notifications
+        if (prev.some(n => n.id === newNotification.id)) {
+          return prev
+        }
+        // Only increment count when actually adding a new notification
+        setCount(c => c + 1)
+        return [newNotification, ...prev]
+      })
     },
     onError: (error) => {
       console.warn('Admin SSE connection error:', error)

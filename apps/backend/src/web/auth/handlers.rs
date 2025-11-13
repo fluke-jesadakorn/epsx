@@ -277,11 +277,13 @@ pub async fn logout_handler(
 )]
 pub async fn get_session_handler(
     State(app_state): State<AppState>,
-    // TODO: Extract wallet address from auth middleware context
+    request: axum::extract::Request,
 ) -> Result<Json<Value>, StatusCode> {
-    // This is a placeholder - in a real implementation, the wallet address
-    // would be extracted from the authentication middleware context
-    let wallet_address = "0x742d35Cc6634C0532925a3b8D369D7763F3c45c6"; // Demo wallet
+    // Extract wallet address from authenticated Web3 context
+    use crate::web::middleware::auth_middleware::get_web3_context;
+
+    let auth_context = get_web3_context(&request).ok_or(StatusCode::UNAUTHORIZED)?;
+    let wallet_address = &auth_context.wallet_address;
 
     info!("Getting session for wallet: {}", wallet_address);
 
@@ -330,11 +332,13 @@ pub async fn get_session_handler(
 pub async fn check_permission_handler(
     State(app_state): State<AppState>,
     Query(query): Query<PermissionCheckQuery>,
-    // TODO: Extract wallet address from auth middleware context
+    request: axum::extract::Request,
 ) -> Result<Json<Value>, StatusCode> {
-    // This is a placeholder - in a real implementation, the wallet address
-    // would be extracted from the authentication middleware context
-    let wallet_address = "0x742d35Cc6634C0532925a3b8D369D7763F3c45c6"; // Demo wallet
+    // Extract wallet address from authenticated Web3 context
+    use crate::web::middleware::auth_middleware::get_web3_context;
+
+    let auth_context = get_web3_context(&request).ok_or(StatusCode::UNAUTHORIZED)?;
+    let wallet_address = &auth_context.wallet_address;
 
     info!(
         "Checking permission '{}' for wallet: {}",

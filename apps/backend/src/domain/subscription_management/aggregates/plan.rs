@@ -54,6 +54,20 @@ pub struct LoadPlanParams {
     pub version: u64,
 }
 
+#[derive(Default)]
+pub struct UpdatePlanParams {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub price: Option<Price>,
+    pub billing_cycle: Option<BillingCycle>,
+    pub features: Option<PlanFeatures>,
+    pub target_audience: Option<String>,
+    pub is_active: Option<bool>,
+    pub is_promoted: Option<bool>,
+    pub display_order: Option<i32>,
+    pub metadata: Option<serde_json::Value>,
+}
+
 impl Plan {
     /// Create a new plan
     pub fn create(id: PlanId, params: CreatePlanParams) -> AppResult<Self> {
@@ -99,47 +113,35 @@ impl Plan {
     }
 
     /// Update plan details
-    pub fn update(
-        &mut self,
-        name: Option<String>,
-        description: Option<String>,
-        price: Option<Price>,
-        billing_cycle: Option<BillingCycle>,
-        features: Option<PlanFeatures>,
-        target_audience: Option<String>,
-        is_active: Option<bool>,
-        is_promoted: Option<bool>,
-        display_order: Option<i32>,
-        metadata: Option<serde_json::Value>,
-    ) -> AppResult<()> {
-        if let Some(n) = name {
+    pub fn update(&mut self, params: UpdatePlanParams) -> AppResult<()> {
+        if let Some(n) = params.name {
             self.name = n;
         }
-        if let Some(d) = description {
+        if let Some(d) = params.description {
             self.description = d;
         }
-        if let Some(p) = price {
+        if let Some(p) = params.price {
             self.price = p;
         }
-        if let Some(bc) = billing_cycle {
+        if let Some(bc) = params.billing_cycle {
             self.billing_cycle = bc;
         }
-        if let Some(f) = features {
+        if let Some(f) = params.features {
             self.features = f;
         }
-        if let Some(ta) = target_audience {
+        if let Some(ta) = params.target_audience {
             self.target_audience = ta;
         }
-        if let Some(active) = is_active {
+        if let Some(active) = params.is_active {
             self.is_active = active;
         }
-        if let Some(promoted) = is_promoted {
+        if let Some(promoted) = params.is_promoted {
             self.is_promoted = promoted;
         }
-        if let Some(order) = display_order {
+        if let Some(order) = params.display_order {
             self.display_order = order;
         }
-        if let Some(meta) = metadata {
+        if let Some(meta) = params.metadata {
             self.metadata = meta;
         }
 

@@ -8,21 +8,21 @@ use utoipa::{
     openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
 };
 
-/// Main OpenAPI documentation structure
+/// Minimal OpenAPI documentation for Scalar
+/// Only includes successfully migrated handlers with working utoipa macros
 #[derive(OpenApi)]
 #[openapi(
     info(
         title = "EPSX Trading Platform API",
         version = "1.0.0",
-        description = "EPSX is a comprehensive trading analytics platform providing real-time market data, EPS rankings, and advanced financial analysis tools.",
+        description = "EPSX is a comprehensive trading analytics platform with Web3 authentication and permission management.",
         contact(
             name = "EPSX Team",
             url = "https://epsx.io",
             email = "support@epsx.io"
         ),
         license(
-            name = "MIT OR Apache-2.0",
-            url = "https://github.com/your-org/epsx"
+            name = "MIT OR Apache-2.0"
         )
     ),
     servers(
@@ -74,14 +74,14 @@ use utoipa::{
         crate::web::admin::wallet_management_handlers::get_user_stats_handler,
 
         // ============================================================================
-        // ADMIN - PERMISSION GROUPS
+        // ADMIN - PERMISSION GROUPS (Diesel-migrated handlers)
         // ============================================================================
         crate::web::admin::permissions::groups::create_group,
         crate::web::admin::permissions::groups::get_group,
         crate::web::admin::permissions::groups::list_groups,
         crate::web::admin::permissions::groups::update_group,
         crate::web::admin::permissions::groups::delete_group,
-        crate::web::admin::permissions::groups::get_group_members,
+        // crate::web::admin::permissions::groups::get_group_members, // TODO: Migrate to Diesel
 
         // ============================================================================
         // ADMIN - PLAN MANAGEMENT

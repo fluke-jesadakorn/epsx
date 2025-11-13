@@ -77,7 +77,8 @@ impl WalletAddress {
     /// Convert to UserId for compatibility with legacy session system
     /// In Web3-first architecture, wallet address IS the user ID
     pub fn to_user_id(&self) -> crate::domain::shared_kernel::value_objects::UserId {
-        crate::domain::shared_kernel::value_objects::UserId::from_string(self.value.clone()).unwrap()
+        crate::domain::shared_kernel::value_objects::UserId::from_string(self.value.clone())
+            .expect("Valid WalletAddress should always convert to UserId - this is a programming error")
     }
 
     fn validate_address(value: &str) -> Result<(), WalletAddressError> {

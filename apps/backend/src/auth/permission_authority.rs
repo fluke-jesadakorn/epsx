@@ -4,7 +4,8 @@
 
 use crate::prelude::*;
 
-use sqlx::PgPool;
+use diesel_async::{AsyncPgConnection, pooled_connection::deadpool::Pool, RunQueryDsl};
+use diesel::prelude::*;
 use std::collections::HashMap;
 use std::time::Duration;
 use tokio::sync::RwLock;
@@ -13,6 +14,10 @@ use uuid::Uuid;
 
 use crate::auth::unified_permission_service::UnifiedPermissionService;
 use crate::infrastructure::cache::unified_permission_cache::UnifiedPermissionCache;
+use crate::infrastructure::adapters::services::permission_adapter::{
+    Web3PermissionServiceAdapter,
+    BlockchainConfig,
+};
 
 // ============================================================================
 // CORE TRAITS FOR REUSABLE PERMISSION VALIDATION
@@ -191,14 +196,12 @@ impl CachedPermissionEntry {
 }
 
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 struct CachedRouteEntry {
     permission: Option<String>,
     cached_at: DateTime<Utc>,
     ttl: Duration,
 }
 
-#[allow(dead_code)]
 impl CachedRouteEntry {
     fn new(permission: Option<String>, ttl: Duration) -> Self {
         Self {
@@ -218,16 +221,17 @@ impl CachedRouteEntry {
 // ============================================================================
 
 /// High-performance centralized permission authority with intelligent caching
-#[allow(dead_code)]
+/// This is the ACTIVE single source of truth for all permission validation in EPSX
 pub struct CentralizedPermissionAuthority {
-    db_pool: PgPool,
+    db_pool: &'static Pool<AsyncPgConnection>,
     web3_permission_service: UnifiedPermissionService,
+    web3_adapter: Option<Arc<Web3PermissionServiceAdapter>>,
     cache_config: CacheConfig,
-    
+
     // In-memory caches with RwLock for performance
     permission_cache: Arc<RwLock<HashMap<String, CachedPermissionEntry>>>,
     route_cache: Arc<RwLock<HashMap<String, CachedRouteEntry>>>,
-    
+
     // Statistics for monitoring
     cache_stats: Arc<RwLock<CacheStats>>,
 }
@@ -244,22 +248,34 @@ pub struct CacheStats {
 impl CentralizedPermissionAuthority {
     /// Create new permission authority with custom cache configuration
     pub fn new(
-        db_pool: PgPool,
+        db_pool: &'static Pool<AsyncPgConnection>,
         cache_config: Option<CacheConfig>,
     ) -> Self {
         let config = cache_config.unwrap_or_default();
 
-        // Create minimal Redis cache for deprecated CentralizedPermissionAuthority
-        // Default to localhost Redis, failures are handled gracefully by UnifiedPermissionCache
+        // Create Redis cache for UnifiedPermissionService (uses UnifiedPermissionCache)
         let redis_client = redis::Client::open("redis://localhost:6379")
             .unwrap_or_else(|_| redis::Client::open("redis://127.0.0.1:6379").unwrap());
-        let cache = Arc::new(UnifiedPermissionCache::new(Arc::new(redis_client)));
+        let unified_cache = Arc::new(UnifiedPermissionCache::new(Arc::new(redis_client)));
 
-        let web3_permission_service = UnifiedPermissionService::new(db_pool.clone(), cache);
+        let web3_permission_service = UnifiedPermissionService::new(db_pool, unified_cache);
+
+        // Use MemoryCache for Web3 adapter (Cache trait) for simplicity in constructor
+        // Can be upgraded to RedisCache via builder pattern if needed
+        let web3_cache: Option<Arc<dyn crate::infrastructure::cache::Cache>> =
+            Some(Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new()));
+
+        // Create Web3 adapter with blockchain support
+        let web3_adapter = Some(Arc::new(Web3PermissionServiceAdapter::new(
+            web3_cache,
+            Some(BlockchainConfig::default()),
+            db_pool,
+        )));
 
         Self {
             db_pool,
             web3_permission_service,
+            web3_adapter,
             cache_config: config,
             permission_cache: Arc::new(RwLock::new(HashMap::new())),
             route_cache: Arc::new(RwLock::new(HashMap::new())),
@@ -269,12 +285,12 @@ impl CentralizedPermissionAuthority {
 
     /// Test-only accessor for db_pool
     #[cfg(test)]
-    pub fn db_pool(&self) -> &PgPool {
-        &self.db_pool
+    pub fn db_pool(&self) -> &'static Pool<AsyncPgConnection> {
+        self.db_pool
     }
 
     /// Create with default configuration
-    pub fn with_defaults(db_pool: PgPool) -> Self {
+    pub fn with_defaults(db_pool: &'static Pool<AsyncPgConnection>) -> Self {
         Self::new(db_pool, None)
     }
 
@@ -407,14 +423,104 @@ impl CentralizedPermissionAuthority {
     /// Warm cache for frequently accessed wallets
     pub async fn warm_cache(&self, wallet_addresses: &[String]) -> Result<(), AppError> {
         info!("Warming permission cache for {} wallets", wallet_addresses.len());
-        
+
         for wallet_address in wallet_addresses {
             if let Err(e) = self.get_cached_permissions(wallet_address).await {
                 warn!("Failed to warm cache for wallet {}: {}", wallet_address, e);
             }
         }
-        
+
         Ok(())
+    }
+
+    // ============================================================================
+    // WEB3 VALIDATION METHODS
+    // ============================================================================
+
+    /// Validate NFT ownership on blockchain
+    pub async fn validate_nft_ownership(
+        &self,
+        wallet_address: &str,
+        contract_address: &str,
+        token_ids: &[u64],
+        chain_id: u64,
+    ) -> Result<bool, AppError> {
+        if let Some(ref adapter) = self.web3_adapter {
+            use crate::domain::wallet_management::value_objects::WalletAddress;
+            let wallet = WalletAddress::new(wallet_address.to_string())
+                .map_err(|e| AppError::validation_error(format!("Invalid wallet address: {}", e)))?;
+
+            let result = adapter.validate_nft_ownership(&wallet, contract_address, token_ids, chain_id).await?;
+            Ok(result.owns_required_nfts)
+        } else {
+            warn!("Web3 adapter not configured - NFT validation unavailable");
+            Ok(false)
+        }
+    }
+
+    /// Validate token balance on blockchain
+    pub async fn validate_token_balance(
+        &self,
+        wallet_address: &str,
+        contract_address: &str,
+        min_balance: &str,
+        chain_id: u64,
+    ) -> Result<bool, AppError> {
+        if let Some(ref adapter) = self.web3_adapter {
+            use crate::domain::wallet_management::value_objects::WalletAddress;
+            let wallet = WalletAddress::new(wallet_address.to_string())
+                .map_err(|e| AppError::validation_error(format!("Invalid wallet address: {}", e)))?;
+
+            let result = adapter.validate_token_balance(&wallet, contract_address, min_balance, chain_id).await?;
+            Ok(result.meets_minimum_balance)
+        } else {
+            warn!("Web3 adapter not configured - token validation unavailable");
+            Ok(false)
+        }
+    }
+
+    /// Validate DAO membership on blockchain
+    pub async fn validate_dao_membership(
+        &self,
+        wallet_address: &str,
+        dao_contract: &str,
+        min_voting_power: &str,
+        chain_id: u64,
+    ) -> Result<bool, AppError> {
+        if let Some(ref adapter) = self.web3_adapter {
+            use crate::domain::wallet_management::value_objects::WalletAddress;
+            let wallet = WalletAddress::new(wallet_address.to_string())
+                .map_err(|e| AppError::validation_error(format!("Invalid wallet address: {}", e)))?;
+
+            let result = adapter.validate_dao_membership(&wallet, dao_contract, min_voting_power, chain_id).await?;
+            Ok(result.meets_minimum_voting_power)
+        } else {
+            warn!("Web3 adapter not configured - DAO validation unavailable");
+            Ok(false)
+        }
+    }
+
+    /// Check if wallet has specific permission with Web3 validation support
+    pub async fn has_permission_with_web3(
+        &self,
+        wallet_address: &str,
+        permission: &str,
+    ) -> Result<bool, AppError> {
+        // First check database permissions
+        let has_db_permission = self.has_permission(wallet_address, permission).await?;
+
+        if has_db_permission {
+            return Ok(true);
+        }
+
+        // If Web3 adapter is available, check blockchain-based permissions
+        if let Some(ref adapter) = self.web3_adapter {
+            // Use adapter's has_permission method which includes Web3 checks
+            let has_web3_permission = adapter.has_permission(wallet_address, permission).await?;
+            Ok(has_web3_permission)
+        } else {
+            Ok(false)
+        }
     }
 }
 
@@ -435,17 +541,40 @@ impl PermissionValidator for CentralizedPermissionAuthority {
 
         // Get cached permissions
         let permissions = self.get_cached_permissions(wallet_address).await?;
-        
-        // Check direct permission match
-        let has_direct_permission = permissions
+
+        // Check direct permission match and capture the matching permission
+        let matched_permission = permissions
             .iter()
-            .any(|p| p.name == permission && p.is_active && !self.is_permission_expired(p));
+            .find(|p| p.name == permission && p.is_active && !self.is_permission_expired(p));
 
         // Check wildcard permissions
         let has_wildcard_permission = self.check_wildcard_permissions(&permissions, permission);
-        
-        let granted = has_direct_permission || has_wildcard_permission;
+
+        let granted = matched_permission.is_some() || has_wildcard_permission;
         let validation_time = start_time.elapsed().as_millis() as u64;
+
+        // Extract expiry and source from matched permission
+        let (expires_at, source) = if let Some(perm) = matched_permission {
+            (perm.expires_at, perm.source.clone())
+        } else if has_wildcard_permission {
+            // For wildcard permissions, find the wildcard permission that matched
+            let wildcard_perm = permissions.iter()
+                .find(|p| p.is_active && (
+                    p.name == "admin:*:*" ||
+                    p.name == format!("{}:*:*", permission.split(':').next().unwrap_or("")) ||
+                    p.name == format!("{}:{}:*",
+                        permission.split(':').next().unwrap_or(""),
+                        permission.split(':').nth(1).unwrap_or(""))
+                ));
+
+            if let Some(wp) = wildcard_perm {
+                (wp.expires_at, wp.source.clone())
+            } else {
+                (None, PermissionSource::Group("database".to_string()))
+            }
+        } else {
+            (None, PermissionSource::Group("database".to_string()))
+        };
 
         let result = PermissionResult {
             granted,
@@ -458,8 +587,8 @@ impl PermissionValidator for CentralizedPermissionAuthority {
                     permission
                 ))
             },
-            expires_at: None, // TODO: Implement expiry logic
-            source: PermissionSource::Group("database".to_string()),
+            expires_at,
+            source,
             metadata: None,
             cached: true, // We used cached data
             validation_time_ms: validation_time,
@@ -602,18 +731,171 @@ impl CentralizedPermissionAuthority {
     }
 }
 
+#[async_trait]
+impl RoutePermissionResolver for CentralizedPermissionAuthority {
+    async fn resolve_route_permission(
+        &self,
+        method: &str,
+        path: &str,
+    ) -> Result<Option<String>, AppError> {
+        if !self.cache_config.enable_cache {
+            return self.resolve_route_permission_from_db(method, path).await;
+        }
+
+        let cache_key = format!("{}:{}", method, path);
+
+        // Check cache first
+        {
+            let cache = self.route_cache.read().await;
+            if let Some(entry) = cache.get(&cache_key) {
+                if !entry.is_expired() {
+                    let mut stats = self.cache_stats.write().await;
+                    stats.route_hits += 1;
+                    debug!("Route permission cache hit for {} {}", method, path);
+                    return Ok(entry.permission.clone());
+                }
+            }
+        }
+
+        // Cache miss - resolve from database
+        let permission = self.resolve_route_permission_from_db(method, path).await?;
+
+        // Update cache
+        {
+            let mut cache = self.route_cache.write().await;
+            let mut stats = self.cache_stats.write().await;
+
+            cache.insert(
+                cache_key,
+                CachedRouteEntry::new(permission.clone(), self.cache_config.route_mapping_ttl),
+            );
+            stats.route_misses += 1;
+
+            // Cleanup if cache is too large
+            if cache.len() > self.cache_config.max_cache_size {
+                let oldest_key = cache
+                    .iter()
+                    .min_by_key(|(_, entry)| entry.cached_at)
+                    .map(|(key, _)| key.clone());
+
+                if let Some(key) = oldest_key {
+                    cache.remove(&key);
+                }
+            }
+        }
+
+        debug!("Route permission cache miss for {} {}", method, path);
+        Ok(permission)
+    }
+
+    async fn register_route_permission(
+        &self,
+        route_pattern: &str,
+        method: &str,
+        permission: &str,
+    ) -> Result<(), AppError> {
+        info!(
+            "Registering route permission: {} {} -> {}",
+            method, route_pattern, permission
+        );
+
+        use crate::schema::route_permissions;
+
+        let now = Utc::now();
+
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
+
+        // Store in database for persistence
+        diesel::insert_into(route_permissions::table)
+            .values((
+                route_permissions::route_pattern.eq(route_pattern),
+                route_permissions::http_method.eq(method),
+                route_permissions::required_permission.eq(permission),
+                route_permissions::created_at.eq(&now),
+                route_permissions::updated_at.eq(&now),
+            ))
+            .on_conflict((route_permissions::route_pattern, route_permissions::http_method))
+            .do_update()
+            .set((
+                route_permissions::required_permission.eq(permission),
+                route_permissions::updated_at.eq(&now),
+            ))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| AppError::database_error(format!("Failed to register route permission: {}", e)))?;
+
+        // Invalidate cache
+        let cache_key = format!("{}:{}", method, route_pattern);
+        let mut cache = self.route_cache.write().await;
+        cache.remove(&cache_key);
+
+        Ok(())
+    }
+}
+
+impl CentralizedPermissionAuthority {
+    /// Resolve route permission from database
+    async fn resolve_route_permission_from_db(
+        &self,
+        method: &str,
+        path: &str,
+    ) -> Result<Option<String>, AppError> {
+        use crate::schema::route_permissions;
+
+        debug!("Resolving route permission from database for {} {}", method, path);
+
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
+
+        // Try exact match first
+        let result = route_permissions::table
+            .filter(route_permissions::route_pattern.eq(path))
+            .filter(route_permissions::http_method.eq(method))
+            .select(route_permissions::required_permission)
+            .first::<String>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| AppError::database_error(format!("Failed to resolve route permission: {}", e)))?;
+
+        if let Some(perm) = result {
+            return Ok(Some(perm));
+        }
+
+        // Try wildcard patterns (e.g., /api/admin/* matches /api/admin/users)
+        // Use raw SQL for LIKE with parameter binding
+        #[derive(QueryableByName)]
+        struct RoutePermissionResult {
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            required_permission: String,
+        }
+
+        let result = diesel::sql_query(
+            "SELECT required_permission FROM route_permissions WHERE $1 LIKE route_pattern AND http_method = $2 ORDER BY LENGTH(route_pattern) DESC LIMIT 1"
+        )
+        .bind::<diesel::sql_types::Text, _>(path)
+        .bind::<diesel::sql_types::Text, _>(method)
+        .get_result::<RoutePermissionResult>(&mut conn)
+        .await
+        .optional()
+        .map_err(|e| AppError::database_error(format!("Failed to resolve route permission: {}", e)))?;
+
+        Ok(result.map(|r| r.required_permission))
+    }
+}
+
 // ============================================================================
 // CONVENIENCE FUNCTIONS FOR EASY INTEGRATION
 // ============================================================================
 
 /// Create default permission authority instance
-pub fn create_permission_authority(db_pool: PgPool) -> CentralizedPermissionAuthority {
+pub fn create_permission_authority(db_pool: &'static Pool<AsyncPgConnection>) -> CentralizedPermissionAuthority {
     CentralizedPermissionAuthority::with_defaults(db_pool)
 }
 
 /// Create high-performance permission authority with custom cache settings
 pub fn create_high_performance_authority(
-    db_pool: PgPool,
+    db_pool: &'static Pool<AsyncPgConnection>,
     cache_ttl_seconds: u64,
     max_cache_size: usize,
 ) -> CentralizedPermissionAuthority {

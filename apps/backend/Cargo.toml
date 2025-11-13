@@ -25,18 +25,9 @@ path = "src/bin/grant_wallet_permission.rs"
 required-features = ["cli-tools"]
 
 [[bin]]
-name = "test_docs"
-path = "src/bin/test_docs.rs"
-
-[[bin]]
-name = "serverless_handler"
-path = "src/bin/serverless_handler.rs"
-required-features = ["serverless"]
-
-# Removed: fcm_cleanup binary - will be re-implemented
-
-
-
+name = "blockchain-monitor"
+path = "src/bin/blockchain_monitor.rs"
+required-features = []
 
 # Feature flags optimized for production
 [features]
@@ -50,7 +41,6 @@ auth = ["jwt", "dep:sha2"]
 jwt = ["dep:jsonwebtoken", "dep:sha2"]
 http-client = ["dep:reqwest", "tls-rustls"]
 cache = ["dep:redis"]  # CQRS event bus via Redis Streams
-serverless = ["auth", "postgres"]
 
 # TLS implementation (rustls only for production)
 tls-rustls = ["reqwest?/rustls-tls"]
@@ -70,7 +60,6 @@ dotenv = "0.15"
 futures = "0.3"
 hex = "0.4"
 http = "1.0"
-# hyper = "1.1" # Removed - axum handles HTTP functionality
 lazy_static = "1.4"
 base64 = "0.22"
 rust_decimal = { version = "1.33", features = ["serde-with-str"] }
@@ -83,7 +72,6 @@ tokio-stream = { version = "0.1", features = ["sync"] }
 async-stream = "0.3"
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors", "compression-gzip", "trace", "timeout", "limit"] }
-# tower-service = "0.3" # Removed - tower provides needed functionality
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tokio-retry = "0.3"
@@ -102,15 +90,11 @@ tokio-tungstenite = { version = "0.21", features = ["rustls-tls-native-roots"], 
 # Optional authentication and security
 jsonwebtoken = { version = "9.2", optional = true }
 sha2 = { version = "0.10", optional = true }
-# Removed unused crypto: hmac, ring, argon2, aes-gcm
-
-# RSA dependencies - needed for key management and JWT operations
 rsa = "0.9"
 
 # Web3 and Ethereum dependencies
 ethers = "2.0"
 siwe = "0.6"
-# Removed alloy (using ethers) and time (using chrono)
 
 # Optional HTTP client with TLS choice
 reqwest = { version = "0.11", features = ["json"], optional = true, default-features = false }
@@ -118,8 +102,6 @@ reqwest = { version = "0.11", features = ["json"], optional = true, default-feat
 # Redis for notification pub/sub and event bus
 # TLS support with rustls for production use
 redis = { version = "0.24", features = ["tokio-comp", "connection-manager", "streams", "tokio-rustls-comp"], optional = true }
-
-# PostgreSQL TLS removed - SQLx handles TLS internally with rustls
 
 # Optional CLI tools
 clap = { version = "4.4", features = ["derive"], optional = true }
@@ -130,27 +112,22 @@ utoipa = { version = "5.1", features = ["axum_extras", "chrono", "uuid"] }
 # Input validation
 validator = { version = "0.18", features = ["derive"] }
 
-# System monitoring - removed unused dependency
-
-# Template engine removed - not used
-# Redis cache removed - not implemented
-
-# Database access with SQLx - Cloud Run native async database driver
-sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "json", "migrate", "bigdecimal"] }
+# Database access with Diesel ORM - Type-safe async PostgreSQL driver
 bigdecimal = { version = "0.4", features = ["serde"] }
-# SQLx provides native async PostgreSQL access optimized for Cloud Run environments
-# Eliminates bb8/deadpool connection pool complexity with built-in async connection management
 
-# Removed unused dependencies: jemallocator, cargo-bloat
-
+# Diesel 2.x ORM with async support
+diesel = { version = "2.1", features = ["postgres", "uuid", "chrono", "numeric", "serde_json", "r2d2", "network-address"] }
+diesel-async = { version = "0.4", features = ["postgres", "deadpool", "async-connection-wrapper"] }
+diesel_migrations = "2.1"
+# Diesel provides type-safe ORM with async support via diesel-async
+# Using deadpool 0.9 (from diesel-async dependency) for async connection pooling
+# Note: diesel-async 0.4 requires diesel 2.1.x and deadpool 0.9.x
 
 [dev-dependencies]
 # mockall, criterion, tempfile removed - not used
 uuid = { version = "1.7", features = ["v4", "serde"] }
 axum-test = "15.0"
 tokio-test = "0.4"
-
-# Clean Architecture Test Configuration removed - using default tests/ directory
 
 # Performance Benchmark Tests
 

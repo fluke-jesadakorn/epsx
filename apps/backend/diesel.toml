@@ -1,0 +1,22 @@
+# Diesel Configuration for EPSX Backend
+# Documentation: https://diesel.rs/guides/configuring-diesel-cli.html
+
+[print_schema]
+# Output schema.rs to src/schema.rs
+file = "src/schema.rs"
+
+# Don't wrap in schema module - tables at root level
+# schema = "public"
+
+# Import types from diesel (always include this)
+import_types = ["diesel::sql_types::*"]
+
+# Exclude SQLx migrations table from schema generation
+filter = { except_tables = ["_sqlx_migrations", "__diesel_schema_migrations"] }
+
+# Use Rust naming conventions (snake_case table names -> snake_case)
+with_docs = true
+
+[migrations_directory]
+# Location of Diesel migrations (we're using fresh schema.rs approach)
+dir = "migrations/"

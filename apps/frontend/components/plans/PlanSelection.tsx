@@ -299,7 +299,7 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
                     ${typeof plan.current_price === 'string' ? parseFloat(plan.current_price).toFixed(2) : plan.current_price}
                   </span>
                   <span className="text-gray-500 dark:text-gray-400">
-                    /{plan.billing_model === 'monthly' ? 'month' : 'use'}
+                    /use
                   </span>
                 </div>
               </CardHeader>
