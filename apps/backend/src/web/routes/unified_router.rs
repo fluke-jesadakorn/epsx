@@ -26,6 +26,34 @@ impl UnifiedRouteBuilder {
         Self { container }
     }
 
+    // ============================================================================
+    // HELPER METHODS (DRY - Don't Repeat Yourself)
+    // ============================================================================
+
+    /// Get cache or create default MemoryCache - eliminates 7 duplicate patterns
+    fn get_or_default_cache(&self) -> Arc<dyn crate::infrastructure::cache::Cache> {
+        self.container.cache.clone()
+            .unwrap_or_else(|| {
+                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
+                    as Arc<dyn crate::infrastructure::cache::Cache>
+            })
+    }
+
+    /// Create AppState with container dependencies - eliminates 4 duplicate patterns
+    fn create_app_state(&self) -> crate::web::auth::AppState {
+        let cache = self.get_or_default_cache();
+        let redis_pool = self.container.get_redis_pool();
+        let redis_broadcaster = self.container.get_redis_broadcaster();
+
+        crate::web::auth::AppState::new(
+            self.container.db_pool(),
+            cache,
+            Arc::new((*self.container).clone()),
+            redis_pool,
+            redis_broadcaster,
+        )
+    }
+
     /// Build complete router with all routes and middleware
     pub fn build(self) -> Router {
         // Create route groups
@@ -90,15 +118,9 @@ impl UnifiedRouteBuilder {
     // ============================================================================
 
     fn create_health_routes(&self) -> Router {
-        let cache = self.container.cache.clone()
-            .unwrap_or_else(|| {
-                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
-                    as Arc<dyn crate::infrastructure::cache::Cache>
-            });
-
         let health_state = crate::web::health::HealthState {
             pool: self.container.db_pool(),
-            cache,
+            cache: self.get_or_default_cache(),
         };
 
         Router::new()
@@ -120,13 +142,6 @@ impl UnifiedRouteBuilder {
             grant_permission_handler,
             revoke_permission_handler,
         };
-        use crate::web::auth::AppState;
-
-        let cache = self.container.cache.clone()
-            .unwrap_or_else(|| {
-                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
-                    as Arc<dyn crate::infrastructure::cache::Cache>
-            });
 
         // Get Redis services - optional, log warning if not available
         let redis_pool = self.container.get_redis_pool();
@@ -136,13 +151,7 @@ impl UnifiedRouteBuilder {
             tracing::warn!("⚠️ Redis not configured - notifications and real-time features will not work");
         }
 
-        let app_state = AppState::new(
-            self.container.db_pool(),
-            cache,
-            self.container.clone(),
-            redis_pool,
-            redis_broadcaster,
-        );
+        let app_state = self.create_app_state();
 
         Router::new()
             // Web3 authentication endpoints
@@ -164,22 +173,7 @@ impl UnifiedRouteBuilder {
     // ============================================================================
 
     fn create_admin_routes(&self) -> Router {
-        let cache = self.container.cache.clone()
-            .unwrap_or_else(|| {
-                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
-                    as Arc<dyn crate::infrastructure::cache::Cache>
-            });
-
-        let redis_pool = self.container.get_redis_pool();
-        let redis_broadcaster = self.container.get_redis_broadcaster();
-
-        let app_state = crate::web::auth::AppState::new(
-            self.container.db_pool(),
-            cache,
-            Arc::new((*self.container).clone()),
-            redis_pool,
-            redis_broadcaster,
-        );
+        let app_state = self.create_app_state();
 
         // Create admin routes with permission validation middleware
         let admin_routes = crate::web::admin::routes::create_admin_routes()
@@ -206,12 +200,6 @@ impl UnifiedRouteBuilder {
     // ============================================================================
 
     fn create_analytics_routes(&self) -> Router {
-        let cache = self.container.cache.clone()
-            .unwrap_or_else(|| {
-                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
-                    as Arc<dyn crate::infrastructure::cache::Cache>
-            });
-
         // Create TradingView service and EPS ranking service
         let config = Arc::new(crate::config::get_fallback_config());
         let tradingview_service = Arc::new(crate::infrastructure::adapters::services::tradingview::TradingViewApiService::new(config));
@@ -224,7 +212,7 @@ impl UnifiedRouteBuilder {
             .route("/countries", get(crate::web::analytics::eps_handlers::get_all_valid_countries))
             .route("/available-countries", get(crate::web::analytics::eps_handlers::get_available_countries))
             .route("/sectors", get(crate::web::analytics::eps_handlers::get_sectors_by_country))
-            .layer(Extension(cache))
+            .layer(Extension(self.get_or_default_cache()))
             .layer(Extension(eps_ranking_service))
     }
 
@@ -233,22 +221,7 @@ impl UnifiedRouteBuilder {
     // ============================================================================
 
     fn create_public_routes(&self) -> Router {
-        let cache = self.container.cache.clone()
-            .unwrap_or_else(|| {
-                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
-                    as Arc<dyn crate::infrastructure::cache::Cache>
-            });
-
-        let redis_pool = self.container.get_redis_pool();
-        let redis_broadcaster = self.container.get_redis_broadcaster();
-
-        let app_state = crate::web::auth::AppState::new(
-            self.container.db_pool(),
-            cache,
-            Arc::new((*self.container).clone()),
-            redis_pool,
-            redis_broadcaster,
-        );
+        let app_state = self.create_app_state();
 
         // Create TradingView service and EPS ranking service for public analytics
         let config = Arc::new(crate::config::get_fallback_config());
@@ -256,18 +229,12 @@ impl UnifiedRouteBuilder {
         let eps_repository = Arc::new(crate::web::analytics::TradingViewEPSRepository::new(tradingview_service));
         let eps_ranking_service = Arc::new(crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService::new(eps_repository));
 
-        let cache_clone = self.container.cache.clone()
-            .unwrap_or_else(|| {
-                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
-                    as Arc<dyn crate::infrastructure::cache::Cache>
-            });
-
         Router::new()
             .nest("/analytics", Router::new()
                 .route("/rankings", get(crate::web::analytics::eps_handlers::get_unified_analytics_rankings_cached))
                 .route("/filters", get(crate::web::analytics::eps_handlers::get_all_valid_countries))
                 .route("/countries", get(crate::web::analytics::eps_handlers::get_all_valid_countries))
-                .layer(Extension(cache_clone))
+                .layer(Extension(self.get_or_default_cache()))
                 .layer(Extension(eps_ranking_service))
             )
             .route("/plans", get(crate::web::public::plans_handlers::get_public_plans))
@@ -314,22 +281,7 @@ impl UnifiedRouteBuilder {
             acknowledge_notification_handler,
         };
 
-        let cache = self.container.cache.clone()
-            .unwrap_or_else(|| {
-                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
-                    as Arc<dyn crate::infrastructure::cache::Cache>
-            });
-
-        let redis_pool = self.container.get_redis_pool();
-        let redis_broadcaster = self.container.get_redis_broadcaster();
-
-        let app_state = crate::web::auth::AppState::new(
-            self.container.db_pool(),
-            cache,
-            Arc::new((*self.container).clone()),
-            redis_pool,
-            redis_broadcaster,
-        );
+        let app_state = self.create_app_state();
 
         // Create SSE route with permissive CORS (EventSource cannot send credentials)
         let sse_route = Router::new()
@@ -381,22 +333,7 @@ impl UnifiedRouteBuilder {
     // ============================================================================
 
     fn create_permission_authority_routes(&self) -> Router {
-        let cache = self.container.cache.clone()
-            .unwrap_or_else(|| {
-                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
-                    as Arc<dyn crate::infrastructure::cache::Cache>
-            });
-
-        let redis_pool = self.container.get_redis_pool();
-        let redis_broadcaster = self.container.get_redis_broadcaster();
-
-        let app_state = crate::web::auth::AppState::new(
-            self.container.db_pool(),
-            cache,
-            Arc::new((*self.container).clone()),
-            redis_pool,
-            redis_broadcaster,
-        );
+        let app_state = self.create_app_state();
 
         crate::web::admin::routes::create_permission_authority_routes()
             .with_state(app_state.clone())
@@ -464,10 +401,14 @@ impl UnifiedRouteBuilder {
         } else {
             // Development: Use specific origins with credentials
             let origins: Vec<HeaderValue> = vec![
-                "http://localhost:3000".parse().unwrap(),
-                "http://localhost:3001".parse().unwrap(),
-                "http://127.0.0.1:3000".parse().unwrap(),
-                "http://127.0.0.1:3001".parse().unwrap(),
+                "http://localhost:3000".parse()
+                    .expect("Static localhost:3000 URL should always parse"),
+                "http://localhost:3001".parse()
+                    .expect("Static localhost:3001 URL should always parse"),
+                "http://127.0.0.1:3000".parse()
+                    .expect("Static 127.0.0.1:3000 URL should always parse"),
+                "http://127.0.0.1:3001".parse()
+                    .expect("Static 127.0.0.1:3001 URL should always parse"),
             ];
 
             CorsLayer::new()

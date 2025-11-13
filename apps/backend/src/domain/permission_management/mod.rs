@@ -9,7 +9,10 @@ pub mod repository_ports;
 pub mod domain_services;
 
 // Re-export key types
-pub use aggregates::{PermissionGroup, Policy};
+pub use aggregates::{
+    PermissionGroup, Policy,
+    CreatePermissionGroupParams, LoadPermissionGroupParams, UpdatePermissionGroupParams,
+};
 
 pub use value_objects::{
     GroupId, GroupSlug, PolicyId, PolicyRule, PermissionString

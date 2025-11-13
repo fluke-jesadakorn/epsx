@@ -42,10 +42,10 @@ pub trait RequirePermission {
     }
     
     /// Optional: Permission denied handler
-    fn permission_denied_response(&self) -> Response {
+    fn permission_denied_response(&self, wallet_address: &str) -> Response {
         let error = PermissionError::PermissionDenied {
             permission: Self::required_permission().to_string(),
-            reason: "Insufficient permissions".to_string(),
+            reason: format!("Wallet {} does not have permission '{}' for this action", wallet_address, Self::required_permission()),
             suggested_actions: vec![
                 "Check your permission group".to_string(),
                 "Contact support if you believe this is an error".to_string(),
@@ -268,7 +268,8 @@ impl PermissionMiddlewareBuilder {
                                 wallet_address, method, path, validation.required_permission
                             );
                             Err(create_permission_denied_response(
-                                &validation.required_permission.unwrap_or_default()
+                                &validation.required_permission.unwrap_or_default(),
+                                &wallet_address
                             ))
                         }
                     }
@@ -384,10 +385,10 @@ fn create_auth_required_response() -> Response {
 }
 
 /// Create permission denied response
-fn create_permission_denied_response(permission: &str) -> Response {
+fn create_permission_denied_response(permission: &str, wallet_address: &str) -> Response {
     let error = PermissionError::PermissionDenied {
         permission: permission.to_string(),
-        reason: "Insufficient permissions for this action".to_string(),
+        reason: format!("Wallet {} does not have permission '{}' for this action", wallet_address, permission),
         suggested_actions: vec![
             "Check your permission group membership".to_string(),
             "Contact support if you believe this is an error".to_string(),
@@ -507,7 +508,7 @@ impl HandlerPermissionExt for PermissionState {
     ) -> Result<(), Response> {
         match self.validate_permission(permission, wallet_address).await {
             Ok(true) => Ok(()),
-            Ok(false) => Err(create_permission_denied_response(permission)),
+            Ok(false) => Err(create_permission_denied_response(permission, wallet_address)),
             Err(_) => Err(create_validation_error_response()),
         }
     }

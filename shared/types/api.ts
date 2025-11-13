@@ -364,7 +364,7 @@ export interface SubscriptionLimits {
 export interface BillingInfo {
   amount: number;
   currency: string;
-  billing_cycle: 'monthly' | 'yearly';
+  billing_cycle: 'monthly' | 'yearly' | 'pay_per_use'; // Platform uses pay_per_use
   next_billing_date?: string;
   payment_method?: string;
 }

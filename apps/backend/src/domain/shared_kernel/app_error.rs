@@ -692,49 +692,7 @@ impl fmt::Display for ErrorSeverity {
 /// Result type for application operations
 pub type AppResult<T> = Result<T, AppError>;
 
-/// Conversion from the legacy DomainError to the new AppError
-impl From<super::domain_error::DomainError> for AppError {
-    fn from(error: super::domain_error::DomainError) -> Self {
-        match error {
-            super::domain_error::AppError::EntityNotFound { entity_type, id } => {
-                AppError::entity_not_found(entity_type, id)
-            },
-            super::domain_error::AppError::BusinessRuleViolation { rule } => {
-                AppError::business_rule_violation(rule)
-            },
-            super::domain_error::AppError::ValidationError { field, message } => {
-                AppError::validation_error(format!("{}: {}", field, message))
-            },
-            super::domain_error::AppError::PermissionDenied { action, resource } => {
-                AppError::permission_denied(action, resource)
-            },
-            super::domain_error::AppError::ResourceConflict { resource, reason } => {
-                AppError::ResourceConflict {
-                    resource,
-                    reason,
-                    context: ErrorContext::default(),
-                }
-            },
-            super::domain_error::AppError::ConcurrencyConflict { expected, actual } => {
-                AppError::ConcurrencyConflict {
-                    expected,
-                    actual,
-                    entity_id: "unknown".to_string(),
-                    context: ErrorContext::default(),
-                }
-            },
-            super::domain_error::AppError::InvalidOperation { operation, entity_type } => {
-                AppError::business_rule_violation(format!("Invalid operation {} on {}", operation, entity_type))
-            },
-            super::domain_error::AppError::InvariantViolation { invariant } => {
-                AppError::business_rule_violation(format!("Invariant violation: {}", invariant))
-            },
-            super::domain_error::AppError::Infrastructure { message } => {
-                AppError::infrastructure_error(message)
-            },
-        }
-    }
-}
+// Note: Legacy domain_error module has been removed in favor of unified AppError system
 
 /// Conversion from Value Object errors
 impl From<super::value_object::ValueObjectError> for AppError {
@@ -751,29 +709,6 @@ impl From<super::value_object::ValueObjectError> for AppError {
             message: error.to_string(),
             validation_type,
             context: ErrorContext::default(),
-        }
-    }
-}
-
-/// Conversion from SQLx database errors
-impl From<sqlx::Error> for AppError {
-    fn from(error: sqlx::Error) -> Self {
-        let (error_code, query_type, table) = match &error {
-            sqlx::Error::Database(db_error) => {
-                (Some(db_error.code().unwrap_or("unknown").to_string()), None, None)
-            },
-            sqlx::Error::RowNotFound => {
-                return AppError::entity_not_found("database_row", "query_result");
-            },
-            _ => (None, None, None),
-        };
-        
-        AppError::DatabaseError {
-            message: error.to_string(),
-            error_code,
-            table,
-            query_type,
-            context: ErrorContext::new("database", "query_execution"),
         }
     }
 }
@@ -799,7 +734,50 @@ impl From<reqwest::Error> for AppError {
 /// Conversion from serde JSON errors
 impl From<serde_json::Error> for AppError {
     fn from(error: serde_json::Error) -> Self {
-        AppError::validation_error(format!("JSON parsing error: {}", error))
+        AppError::validation_error("json", format!("JSON parsing error: {}", error))
+    }
+}
+
+/// Conversion from Diesel database errors (for migrated repositories)
+impl From<diesel::result::Error> for AppError {
+    fn from(error: diesel::result::Error) -> Self {
+        use diesel::result::Error as DieselError;
+        use diesel::result::DatabaseErrorKind;
+
+        match error {
+            DieselError::NotFound => AppError::entity_not_found("database_record", "query_result"),
+            DieselError::DatabaseError(kind, info) => {
+                let message = format!("Database error ({:?}): {}", kind, info.message());
+                let error_code = info.statement_position().map(|p| p.to_string());
+
+                // Map specific database errors
+                match kind {
+                    DatabaseErrorKind::UniqueViolation => AppError::ResourceConflict {
+                        resource: "database_record".to_string(),
+                        reason: message,
+                        context: ErrorContext::new("diesel_repository", "constraint_violation"),
+                    },
+                    DatabaseErrorKind::ForeignKeyViolation => AppError::validation_error(
+                        "foreign_key",
+                        format!("Foreign key constraint violation: {}", info.message())
+                    ),
+                    _ => AppError::DatabaseError {
+                        message,
+                        error_code,
+                        table: None,
+                        query_type: None,
+                        context: ErrorContext::new("diesel_repository", "query"),
+                    },
+                }
+            },
+            _ => AppError::DatabaseError {
+                message: error.to_string(),
+                error_code: None,
+                table: None,
+                query_type: None,
+                context: ErrorContext::new("diesel_repository", "query"),
+            },
+        }
     }
 }
 

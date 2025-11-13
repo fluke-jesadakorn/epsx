@@ -248,7 +248,7 @@ export function WalletUserManagement() {
               <Label htmlFor="wallet-address" className="text-sm font-medium">Wallet Address</Label>
               <Input
                 id="wallet-address"
-                placeholder="0x742d35Cc3681d452bC9a4D0c99D2DB8b4E8B5f43"
+                placeholder="0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7"
                 value={walletAddress}
                 onChange={(e) => setWalletAddress(e.target.value)}
                 className="font-mono h-10 mt-1.5"

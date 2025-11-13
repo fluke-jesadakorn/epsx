@@ -107,7 +107,8 @@ impl ThreatDetectionService {
     
     /// Check if user is currently blocked
     pub fn check_user_blocked(&self, wallet_address: &str) -> Result<(), SecurityError> {
-        let blocked_users = self.blocked_users.read().unwrap();
+        let blocked_users = self.blocked_users.read()
+            .expect("Security system: blocked_users lock poisoned - cannot verify user block status");
         
         if let Some(blocked_until) = blocked_users.get(wallet_address) {
             if Utc::now() < *blocked_until {
@@ -127,7 +128,8 @@ impl ThreatDetectionService {
         context: &SecurityContext,
     ) -> Result<(), SecurityError> {
         // Update security metrics
-        let mut metrics = self.security_metrics.write().unwrap();
+        let mut metrics = self.security_metrics.write()
+            .expect("Security system: security_metrics lock poisoned - cannot log security event");
         let user_metrics = metrics.entry(context.wallet_address.clone())
             .or_insert_with(|| SecurityMetrics {
                 failed_attempts: 0,
@@ -195,7 +197,8 @@ impl ThreatDetectionService {
         event: &SecurityEvent,
         context: &SecurityContext,
     ) -> Result<ThreatLevel, SecurityError> {
-        let metrics = self.security_metrics.read().unwrap();
+        let metrics = self.security_metrics.read()
+            .expect("Security system: security_metrics lock poisoned - cannot calculate threat level");
         let user_metrics = metrics.get(&context.wallet_address);
         
         let base_threat_level = match event {
@@ -272,7 +275,8 @@ impl ThreatDetectionService {
         duration: Duration,
     ) -> Result<(), SecurityError> {
         let blocked_until = Utc::now() + duration;
-        let mut blocked_users = self.blocked_users.write().unwrap();
+        let mut blocked_users = self.blocked_users.write()
+            .expect("Security system: blocked_users lock poisoned - cannot apply restrictions");
         blocked_users.insert(wallet_address.to_string(), blocked_until);
         
         warn!(
@@ -287,7 +291,8 @@ impl ThreatDetectionService {
     /// Block user for security violation
     async fn block_user(&self, wallet_address: &str, duration: Duration) -> Result<(), SecurityError> {
         let blocked_until = Utc::now() + duration;
-        let mut blocked_users = self.blocked_users.write().unwrap();
+        let mut blocked_users = self.blocked_users.write()
+            .expect("Security system: blocked_users lock poisoned - cannot block user");
         blocked_users.insert(wallet_address.to_string(), blocked_until);
         
         error!(
@@ -304,8 +309,10 @@ impl ThreatDetectionService {
     
     /// Get security summary for user
     pub fn get_security_summary(&self, wallet_address: &str) -> Option<SecuritySummary> {
-        let metrics = self.security_metrics.read().unwrap();
-        let blocked_users = self.blocked_users.read().unwrap();
+        let metrics = self.security_metrics.read()
+            .expect("Security system: security_metrics lock poisoned - cannot get security summary");
+        let blocked_users = self.blocked_users.read()
+            .expect("Security system: blocked_users lock poisoned - cannot get security summary");
         
         let user_metrics = metrics.get(wallet_address)?;
         let blocked_until = blocked_users.get(wallet_address).copied();
@@ -328,8 +335,10 @@ impl ThreatDetectionService {
     
     /// Reset security metrics for user (admin function)
     pub fn reset_user_security(&self, wallet_address: &str) {
-        let mut metrics = self.security_metrics.write().unwrap();
-        let mut blocked_users = self.blocked_users.write().unwrap();
+        let mut metrics = self.security_metrics.write()
+            .expect("Security system: security_metrics lock poisoned - cannot reset user security");
+        let mut blocked_users = self.blocked_users.write()
+            .expect("Security system: blocked_users lock poisoned - cannot reset user security");
         
         metrics.remove(wallet_address);
         blocked_users.remove(wallet_address);
@@ -343,13 +352,15 @@ impl ThreatDetectionService {
     /// Clean up expired blocks and old metrics
     pub async fn cleanup_expired_data(&self) {
         let now = Utc::now();
-        
+
         // Remove expired blocks
-        let mut blocked_users = self.blocked_users.write().unwrap();
+        let mut blocked_users = self.blocked_users.write()
+            .expect("Security system: blocked_users lock poisoned - cannot cleanup expired data");
         blocked_users.retain(|_, blocked_until| now < *blocked_until);
-        
+
         // Clean up old metrics (older than 24 hours)
-        let mut metrics = self.security_metrics.write().unwrap();
+        let mut metrics = self.security_metrics.write()
+            .expect("Security system: security_metrics lock poisoned - cannot cleanup expired data");
         metrics.retain(|_, user_metrics| {
             now.signed_duration_since(user_metrics.last_failure) < Duration::hours(24)
         });

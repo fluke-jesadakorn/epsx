@@ -3,16 +3,17 @@
 
 use crate::prelude::*;
 use crate::infrastructure::cqrs::projection::{Projection, ProjectionEvent, ProjectionCheckpoint};
-use sqlx::{PgPool, Postgres, Transaction};
+use diesel::prelude::*;
+use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
 use async_trait::async_trait;
 use chrono::Utc;
 
 pub struct WalletReadModelProjection {
-    _pool: Arc<PgPool>,
+    _pool: Arc<&'static Pool<AsyncPgConnection>>,
 }
 
 impl WalletReadModelProjection {
-    pub fn new(pool: Arc<PgPool>) -> Self {
+    pub fn new(pool: Arc<&'static Pool<AsyncPgConnection>>) -> Self {
         Self { _pool: pool }
     }
 }
@@ -36,16 +37,16 @@ impl Projection for WalletReadModelProjection {
 
     async fn project_event(
         &self,
-        tx: &mut Transaction<'_, Postgres>,
+        conn: &mut AsyncPgConnection,
         event: &ProjectionEvent,
     ) -> AppResult<()> {
         match event.event_type.as_str() {
-            "WalletUserCreated" => self.handle_wallet_created(tx, event).await,
-            "WalletUserActivated" => self.handle_wallet_activated(tx, event).await,
-            "WalletUserDeactivated" => self.handle_wallet_deactivated(tx, event).await,
-            "WalletPermissionsUpdated" => self.handle_permissions_updated(tx, event).await,
-            "SessionCreated" => self.handle_session_created(tx, event).await,
-            "SessionInvalidated" => self.handle_session_invalidated(tx, event).await,
+            "WalletUserCreated" => self.handle_wallet_created(conn, event).await,
+            "WalletUserActivated" => self.handle_wallet_activated(conn, event).await,
+            "WalletUserDeactivated" => self.handle_wallet_deactivated(conn, event).await,
+            "WalletPermissionsUpdated" => self.handle_permissions_updated(conn, event).await,
+            "SessionCreated" => self.handle_session_created(conn, event).await,
+            "SessionInvalidated" => self.handle_session_invalidated(conn, event).await,
             _ => {
                 tracing::warn!("Unhandled event type: {}", event.event_type);
                 Ok(())
@@ -53,8 +54,28 @@ impl Projection for WalletReadModelProjection {
         }
     }
 
-    async fn get_checkpoint(&self, pool: &PgPool) -> AppResult<Option<ProjectionCheckpoint>> {
-        let result = sqlx::query!(
+    async fn get_checkpoint(&self, pool: &Pool<AsyncPgConnection>) -> AppResult<Option<ProjectionCheckpoint>> {
+        let mut conn = pool.get().await.map_err(|e| {
+            AppError::database_error(format!("Failed to get connection: {}", e))
+        })?;
+
+        #[derive(QueryableByName)]
+        struct CheckpointRow {
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            projection_name: String,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Uuid>)]
+            last_processed_event_id: Option<uuid::Uuid>,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            last_processed_sequence: i64,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            events_processed_count: i64,
+            #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+            processed_at: chrono::DateTime<chrono::Utc>,
+            #[diesel(sql_type = diesel::sql_types::Bool)]
+            is_healthy: bool,
+        }
+
+        let result = diesel::sql_query(
             r#"
             SELECT
                 projection_name,
@@ -65,11 +86,12 @@ impl Projection for WalletReadModelProjection {
                 is_healthy
             FROM read_model.projection_checkpoints
             WHERE projection_name = $1
-            "#,
-            self.projection_name()
+            "#
         )
-        .fetch_optional(pool)
+        .bind::<diesel::sql_types::Text, _>(self.projection_name())
+        .get_result::<CheckpointRow>(&mut conn)
         .await
+        .optional()
         .map_err(|e| {
             AppError::database_error(format!("Failed to get checkpoint: {}", e))
         })?;
@@ -86,10 +108,10 @@ impl Projection for WalletReadModelProjection {
 
     async fn save_checkpoint(
         &self,
-        tx: &mut Transaction<'_, Postgres>,
+        conn: &mut AsyncPgConnection,
         checkpoint: &ProjectionCheckpoint,
     ) -> AppResult<()> {
-        sqlx::query!(
+        diesel::sql_query(
             r#"
             INSERT INTO read_model.projection_checkpoints (
                 projection_name,
@@ -105,15 +127,15 @@ impl Projection for WalletReadModelProjection {
                 events_processed_count = $4,
                 processed_at = $5,
                 is_healthy = $6
-            "#,
-            checkpoint.projection_name,
-            checkpoint.last_processed_event_id,
-            checkpoint.last_processed_sequence,
-            checkpoint.events_processed_count,
-            checkpoint.processed_at,
-            checkpoint.is_healthy
+            "#
         )
-        .execute(&mut **tx)
+        .bind::<diesel::sql_types::Text, _>(&checkpoint.projection_name)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Uuid>, _>(checkpoint.last_processed_event_id)
+        .bind::<diesel::sql_types::BigInt, _>(checkpoint.last_processed_sequence)
+        .bind::<diesel::sql_types::BigInt, _>(checkpoint.events_processed_count)
+        .bind::<diesel::sql_types::Timestamptz, _>(checkpoint.processed_at)
+        .bind::<diesel::sql_types::Bool, _>(checkpoint.is_healthy)
+        .execute(conn)
         .await
         .map_err(|e| {
             AppError::database_error(format!("Failed to save checkpoint: {}", e))
@@ -127,7 +149,7 @@ impl Projection for WalletReadModelProjection {
 impl WalletReadModelProjection {
     async fn handle_wallet_created(
         &self,
-        tx: &mut Transaction<'_, Postgres>,
+        conn: &mut AsyncPgConnection,
         event: &ProjectionEvent,
     ) -> AppResult<()> {
         let payload = &event.event_payload;
@@ -138,44 +160,48 @@ impl WalletReadModelProjection {
             .ok_or_else(|| AppError::internal_error("Missing wallet_address".to_string()))?;
 
         let created_at = event.occurred_at;
-        let permission_groups = payload["permission_groups"]
-            .as_array()
-            .map(|arr| serde_json::Value::Array(arr.clone()))
-            .unwrap_or_else(|| serde_json::json!([]));
+        let now = Utc::now();
 
-        // Insert into read model
-        sqlx::query!(
+        // Insert into read model (schema optimized - removed denormalized columns)
+        diesel::sql_query(
             r#"
             INSERT INTO read_model.wallet_details (
                 wallet_address,
                 is_active,
                 created_at,
                 updated_at,
-                permission_groups,
                 projection_version,
                 last_event_id,
                 last_projected_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
             ON CONFLICT (wallet_address) DO UPDATE SET
                 updated_at = $4,
                 projection_version = read_model.wallet_details.projection_version + 1,
-                last_event_id = $7,
-                last_projected_at = $8
-            "#,
-            wallet_address,
-            true, // is_active
-            created_at,
-            Utc::now(),
-            permission_groups,
-            1i64, // projection_version
-            event.event_id,
-            Utc::now()
+                last_event_id = $6,
+                last_projected_at = $7
+            "#
         )
-        .execute(&mut **tx)
+        .bind::<diesel::sql_types::Text, _>(wallet_address)
+        .bind::<diesel::sql_types::Bool, _>(true)
+        .bind::<diesel::sql_types::Timestamptz, _>(created_at)
+        .bind::<diesel::sql_types::Timestamptz, _>(now)
+        .bind::<diesel::sql_types::BigInt, _>(1i64)
+        .bind::<diesel::sql_types::Uuid, _>(event.event_id)
+        .bind::<diesel::sql_types::Timestamptz, _>(now)
+        .execute(conn)
         .await
         .map_err(|e| {
             AppError::database_error(format!("Failed to project WalletUserCreated: {}", e))
         })?;
+
+        // Update wallet details with current stats (calls update_wallet_details function)
+        diesel::sql_query(r#"SELECT update_wallet_details($1) as updated"#)
+            .bind::<diesel::sql_types::Text, _>(wallet_address)
+            .execute(conn)
+            .await
+            .map_err(|e| {
+                AppError::database_error(format!("Failed to update wallet details: {}", e))
+            })?;
 
         tracing::debug!("Projected WalletUserCreated for {}", wallet_address);
         Ok(())
@@ -183,10 +209,10 @@ impl WalletReadModelProjection {
 
     async fn handle_wallet_activated(
         &self,
-        tx: &mut Transaction<'_, Postgres>,
+        conn: &mut AsyncPgConnection,
         event: &ProjectionEvent,
     ) -> AppResult<()> {
-        sqlx::query!(
+        diesel::sql_query(
             r#"
             UPDATE read_model.wallet_details
             SET
@@ -196,11 +222,11 @@ impl WalletReadModelProjection {
                 last_event_id = $1,
                 last_projected_at = NOW()
             WHERE wallet_address = $2
-            "#,
-            event.event_id,
-            event.aggregate_id
+            "#
         )
-        .execute(&mut **tx)
+        .bind::<diesel::sql_types::Uuid, _>(event.event_id)
+        .bind::<diesel::sql_types::Text, _>(&event.aggregate_id)
+        .execute(conn)
         .await
         .map_err(|e| {
             AppError::database_error(format!("Failed to project WalletUserActivated: {}", e))
@@ -212,10 +238,10 @@ impl WalletReadModelProjection {
 
     async fn handle_wallet_deactivated(
         &self,
-        tx: &mut Transaction<'_, Postgres>,
+        conn: &mut AsyncPgConnection,
         event: &ProjectionEvent,
     ) -> AppResult<()> {
-        sqlx::query!(
+        diesel::sql_query(
             r#"
             UPDATE read_model.wallet_details
             SET
@@ -225,11 +251,11 @@ impl WalletReadModelProjection {
                 last_event_id = $1,
                 last_projected_at = NOW()
             WHERE wallet_address = $2
-            "#,
-            event.event_id,
-            event.aggregate_id
+            "#
         )
-        .execute(&mut **tx)
+        .bind::<diesel::sql_types::Uuid, _>(event.event_id)
+        .bind::<diesel::sql_types::Text, _>(&event.aggregate_id)
+        .execute(conn)
         .await
         .map_err(|e| {
             AppError::database_error(format!("Failed to project WalletUserDeactivated: {}", e))
@@ -241,60 +267,51 @@ impl WalletReadModelProjection {
 
     async fn handle_permissions_updated(
         &self,
-        tx: &mut Transaction<'_, Postgres>,
+        conn: &mut AsyncPgConnection,
         event: &ProjectionEvent,
     ) -> AppResult<()> {
-        let payload = &event.event_payload;
-
-        // Extract permissions from payload
-        let active_permissions = payload["active_permissions"]
-            .as_array()
-            .map(|arr| serde_json::Value::Array(arr.clone()))
-            .unwrap_or_else(|| serde_json::json!([]));
-
-        let permission_groups = payload["permission_groups"]
-            .as_array()
-            .map(|arr| serde_json::Value::Array(arr.clone()))
-            .unwrap_or_else(|| serde_json::json!([]));
-
-        let total_permissions = active_permissions.as_array().map(|arr| arr.len() as i32).unwrap_or(0);
-
-        sqlx::query!(
+        // Schema optimized - permissions now tracked in user_effective_permissions table
+        // and computed dynamically via triggers. Just update metadata.
+        diesel::sql_query(
             r#"
             UPDATE read_model.wallet_details
             SET
-                active_permissions = $1,
-                permission_groups = $2,
-                total_permissions = $3,
+                permissions_last_updated = NOW(),
+                groups_last_updated = NOW(),
                 updated_at = NOW(),
                 projection_version = projection_version + 1,
-                last_event_id = $4,
+                last_event_id = $1,
                 last_projected_at = NOW()
-            WHERE wallet_address = $5
-            "#,
-            active_permissions,
-            permission_groups,
-            total_permissions,
-            event.event_id,
-            event.aggregate_id
+            WHERE wallet_address = $2
+            "#
         )
-        .execute(&mut **tx)
+        .bind::<diesel::sql_types::Uuid, _>(event.event_id)
+        .bind::<diesel::sql_types::Text, _>(&event.aggregate_id)
+        .execute(conn)
         .await
         .map_err(|e| {
             AppError::database_error(format!("Failed to project WalletPermissionsUpdated: {}", e))
         })?;
 
+        // Update computed stats (calls update_wallet_details function)
+        diesel::sql_query(r#"SELECT update_wallet_details($1) as updated"#)
+            .bind::<diesel::sql_types::Text, _>(&event.aggregate_id)
+            .execute(conn)
+            .await
+            .map_err(|e| {
+                AppError::database_error(format!("Failed to update wallet details: {}", e))
+            })?;
+
         tracing::debug!(
-            "Projected WalletPermissionsUpdated for {} ({} permissions)",
-            event.aggregate_id,
-            total_permissions
+            "Projected WalletPermissionsUpdated for {}",
+            event.aggregate_id
         );
         Ok(())
     }
 
     async fn handle_session_created(
         &self,
-        tx: &mut Transaction<'_, Postgres>,
+        conn: &mut AsyncPgConnection,
         event: &ProjectionEvent,
     ) -> AppResult<()> {
         let payload = &event.event_payload;
@@ -304,7 +321,7 @@ impl WalletReadModelProjection {
             .as_str()
             .ok_or_else(|| AppError::internal_error("Missing wallet_address in session event".to_string()))?;
 
-        sqlx::query!(
+        diesel::sql_query(
             r#"
             UPDATE read_model.wallet_details
             SET
@@ -318,12 +335,12 @@ impl WalletReadModelProjection {
                 last_event_id = $2,
                 last_projected_at = NOW()
             WHERE wallet_address = $3
-            "#,
-            event.occurred_at,
-            event.event_id,
-            wallet_address
+            "#
         )
-        .execute(&mut **tx)
+        .bind::<diesel::sql_types::Timestamptz, _>(event.occurred_at)
+        .bind::<diesel::sql_types::Uuid, _>(event.event_id)
+        .bind::<diesel::sql_types::Text, _>(wallet_address)
+        .execute(conn)
         .await
         .map_err(|e| {
             AppError::database_error(format!("Failed to project SessionCreated: {}", e))
@@ -335,7 +352,7 @@ impl WalletReadModelProjection {
 
     async fn handle_session_invalidated(
         &self,
-        tx: &mut Transaction<'_, Postgres>,
+        conn: &mut AsyncPgConnection,
         event: &ProjectionEvent,
     ) -> AppResult<()> {
         let payload = &event.event_payload;
@@ -344,7 +361,7 @@ impl WalletReadModelProjection {
             .as_str()
             .ok_or_else(|| AppError::internal_error("Missing wallet_address in session event".to_string()))?;
 
-        sqlx::query!(
+        diesel::sql_query(
             r#"
             UPDATE read_model.wallet_details
             SET
@@ -354,11 +371,11 @@ impl WalletReadModelProjection {
                 last_event_id = $1,
                 last_projected_at = NOW()
             WHERE wallet_address = $2
-            "#,
-            event.event_id,
-            wallet_address
+            "#
         )
-        .execute(&mut **tx)
+        .bind::<diesel::sql_types::Uuid, _>(event.event_id)
+        .bind::<diesel::sql_types::Text, _>(wallet_address)
+        .execute(conn)
         .await
         .map_err(|e| {
             AppError::database_error(format!("Failed to project SessionInvalidated: {}", e))

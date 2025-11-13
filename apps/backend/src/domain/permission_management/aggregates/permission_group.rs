@@ -66,6 +66,22 @@ pub struct LoadPermissionGroupParams {
     pub version: u64,
 }
 
+#[derive(Default)]
+pub struct UpdatePermissionGroupParams {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub permissions: Option<Vec<PermissionString>>,
+    pub price: Option<f64>,
+    pub currency: Option<String>,
+    pub billing_cycle: Option<String>,
+    pub is_active: Option<bool>,
+    pub is_promoted: Option<bool>,
+    pub display_order: Option<i32>,
+    pub max_members: Option<Option<i32>>,
+    pub auto_assign_enabled: Option<bool>,
+    pub metadata: Option<serde_json::Value>,
+}
+
 impl PermissionGroup {
     /// Create a new permission group
     pub fn create(params: CreatePermissionGroupParams) -> AppResult<Self> {
@@ -134,55 +150,41 @@ impl PermissionGroup {
     }
 
     /// Update group information
-    pub fn update(
-        &mut self,
-        name: Option<String>,
-        description: Option<String>,
-        permissions: Option<Vec<PermissionString>>,
-        price: Option<f64>,
-        currency: Option<String>,
-        billing_cycle: Option<String>,
-        is_active: Option<bool>,
-        is_promoted: Option<bool>,
-        display_order: Option<i32>,
-        max_members: Option<Option<i32>>,
-        auto_assign_enabled: Option<bool>,
-        metadata: Option<serde_json::Value>,
-    ) -> AppResult<()> {
-        if let Some(n) = name {
+    pub fn update(&mut self, params: UpdatePermissionGroupParams) -> AppResult<()> {
+        if let Some(n) = params.name {
             self.name = n;
         }
-        if let Some(d) = description {
+        if let Some(d) = params.description {
             self.description = d;
         }
-        if let Some(perms) = permissions {
+        if let Some(perms) = params.permissions {
             self.permissions = perms.into_iter().collect();
         }
-        if let Some(p) = price {
+        if let Some(p) = params.price {
             self.price = p;
         }
-        if let Some(c) = currency {
+        if let Some(c) = params.currency {
             self.currency = c;
         }
-        if let Some(bc) = billing_cycle {
+        if let Some(bc) = params.billing_cycle {
             self.billing_cycle = bc;
         }
-        if let Some(active) = is_active {
+        if let Some(active) = params.is_active {
             self.is_active = active;
         }
-        if let Some(promoted) = is_promoted {
+        if let Some(promoted) = params.is_promoted {
             self.is_promoted = promoted;
         }
-        if let Some(order) = display_order {
+        if let Some(order) = params.display_order {
             self.display_order = order;
         }
-        if let Some(max) = max_members {
+        if let Some(max) = params.max_members {
             self.max_members = max;
         }
-        if let Some(auto) = auto_assign_enabled {
+        if let Some(auto) = params.auto_assign_enabled {
             self.auto_assign_enabled = auto;
         }
-        if let Some(meta) = metadata {
+        if let Some(meta) = params.metadata {
             self.metadata = meta;
         }
 

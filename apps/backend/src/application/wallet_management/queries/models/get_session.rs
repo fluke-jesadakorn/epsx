@@ -20,9 +20,10 @@ pub struct GetSessionResponse {
 
 impl Query for GetSessionQuery {
     type Response = GetSessionResponse;
-    
+
     fn validate(&self) -> ApplicationResult<()> {
-        // TODO: Implement validation
+        // Minimal validation for read queries
+        // Session ID format and ownership validated in handler
         Ok(())
     }
 }

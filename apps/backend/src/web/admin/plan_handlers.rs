@@ -228,7 +228,7 @@ pub async fn create_plan_handler(
     let slug = request.name.to_lowercase().replace(" ", "-");
 
     // Convert Decimal to BigDecimal for database
-    let price_bigdecimal = sqlx::types::BigDecimal::from_str(&request.current_price.to_string())
+    let price_bigdecimal = bigdecimal::BigDecimal::from_str(&request.current_price.to_string())
         .map_err(|_| StatusCode::BAD_REQUEST)?;
 
     // Build metadata JSON
@@ -244,12 +244,12 @@ pub async fn create_plan_handler(
         slug,
         description: request.description.clone().unwrap_or_else(|| format!("{} subscription plan", request.name)),
         group_type: "subscription".to_string(),
-        permissions: serde_json::json!(request.permissions),
-        group_metadata: metadata,
+        group_metadata: metadata, // permissions already inserted into metadata above
         price: Some(price_bigdecimal),
         currency: Some(request.currency.clone()),
-        billing_cycle: Some(request.billing_model.clone()),
+        billing_cycle: Some("pay_per_use".to_string()),
         is_active: Some(true),
+        is_promoted: Some(false),
         display_order: None,
         created_by: Some("admin".to_string()),
     };
@@ -263,7 +263,7 @@ pub async fn create_plan_handler(
     };
 
     // Convert to response format
-    let permissions = created_plan.permissions.as_array()
+    let permissions = created_plan.permissions().as_array()
         .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
         .unwrap_or_default();
 
@@ -279,7 +279,7 @@ pub async fn create_plan_handler(
         current_price: price_decimal,
         currency: created_plan.currency.unwrap_or_else(|| "USD".to_string()),
         target_audience: request.target_audience,
-        billing_model: created_plan.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
+        billing_model: created_plan.billing_cycle.unwrap_or_else(|| "pay_per_use".to_string()),
         group_type,
         is_active: created_plan.is_active.unwrap_or(true),
         permissions,
@@ -330,7 +330,7 @@ pub async fn list_plans_handler(
         use crate::domain::subscription_management::Promotion;
 
         // Extract permissions array from JSONB
-        let permissions = plan.permissions.as_array()
+        let permissions = plan.permissions().as_array()
             .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
             .unwrap_or_default();
 
@@ -388,7 +388,7 @@ pub async fn list_plans_handler(
             "promotion_discount": promotion_discount,
             "currency": plan.currency.unwrap_or_else(|| "USD".to_string()),
             "target_audience": target_audience,
-            "billing_model": plan.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
+            "billing_model": plan.billing_cycle.unwrap_or_else(|| "pay_per_use".to_string()),
             "group_type": group_type,
             "permissions": permissions,
             "features": [],
@@ -451,7 +451,7 @@ pub async fn get_plan_handler(
     };
 
     // Extract permissions array from JSONB
-    let permissions = plan.permissions.as_array()
+    let permissions = plan.permissions().as_array()
         .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
         .unwrap_or_else(Vec::new);
 
@@ -499,7 +499,7 @@ pub async fn get_plan_handler(
         "promotion_discount": promotion_discount,
         "currency": plan.currency.unwrap_or_else(|| "USD".to_string()),
         "target_audience": target_audience,
-        "billing_model": plan.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
+        "billing_model": plan.billing_cycle.unwrap_or_else(|| "pay_per_use".to_string()),
         "group_type": group_type,
         "is_active": plan.is_active.unwrap_or(true),
         "permissions": permissions,
@@ -610,8 +610,8 @@ pub async fn update_plan_handler(
     }
 
     if let Some(current_price) = request.current_price {
-        plan.price = Some(sqlx::types::BigDecimal::from_str(&current_price.to_string())
-            .unwrap_or_else(|_| sqlx::types::BigDecimal::from(0)));
+        plan.price = Some(bigdecimal::BigDecimal::from_str(&current_price.to_string())
+            .unwrap_or_else(|_| bigdecimal::BigDecimal::from(0)));
     }
 
     if let Some(is_active) = request.is_active {
@@ -619,7 +619,10 @@ pub async fn update_plan_handler(
     }
 
     if let Some(permissions) = request.permissions {
-        plan.permissions = serde_json::json!(permissions);
+        // Update permissions in group_metadata
+        if let Some(metadata_obj) = plan.group_metadata.as_object_mut() {
+            metadata_obj.insert("permissions".to_string(), serde_json::json!(permissions));
+        }
     }
 
     if let Some(metadata) = request.metadata {
@@ -639,7 +642,7 @@ pub async fn update_plan_handler(
     match app_state.permission_group_repo.update_plan(plan.clone()).await {
         Ok(_) => {
             // Extract permissions array from JSONB
-            let permissions = plan.permissions.as_array()
+            let permissions = plan.permissions().as_array()
                 .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
                 .unwrap_or_else(Vec::new);
 
@@ -665,7 +668,7 @@ pub async fn update_plan_handler(
                 current_price: price_decimal,
                 currency: plan.currency.unwrap_or_else(|| "USD".to_string()),
                 target_audience,
-                billing_model: plan.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
+                billing_model: plan.billing_cycle.unwrap_or_else(|| "pay_per_use".to_string()),
                 group_type,
                 is_active: plan.is_active.unwrap_or(true),
                 permissions,

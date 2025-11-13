@@ -23,9 +23,9 @@ interface PaymentStatusServerProps {
   showTitle?: boolean;
 }
 
-export async function PaymentStatusServer({ 
+export async function PaymentStatusServer({
   className = '',
-  showTitle = true 
+  showTitle = true
 }: PaymentStatusServerProps) {
   let transactions: Transaction[] = [];
   let error: string | null = null;
@@ -33,7 +33,7 @@ export async function PaymentStatusServer({
   try {
     // Fetch payment history server-side
     const userTransactions = await getPaymentHistory();
-    
+
     // Map payment history to Transaction format expected by TransactionHistory
     transactions = userTransactions.map((tx: any) => ({
       orderNo: tx.id || tx.orderNo || '',
@@ -48,12 +48,26 @@ export async function PaymentStatusServer({
       blockExplorerUrl: tx.blockExplorerUrl || ''
     }));
   } catch (err) {
-    console.error('Failed to fetch transactions server-side:', err);
-    error = 'Failed to load transaction history';
+    // Check if this is a redirect error (user not authenticated)
+    if (
+      err &&
+      typeof err === 'object' &&
+      'digest' in err &&
+      typeof err.digest === 'string' &&
+      err.digest.startsWith('NEXT_REDIRECT')
+    ) {
+      // User not authenticated - show empty state instead of redirecting
+      // This allows viewing pricing plans without login
+      transactions = [];
+      error = null; // No error - just empty state for unauthenticated users
+    } else {
+      console.error('Failed to fetch transactions server-side:', err);
+      error = 'Failed to load transaction history';
+    }
   }
 
   return (
-    <PaymentStatusSection 
+    <PaymentStatusSection
       className={className}
       showTitle={showTitle}
       transactions={transactions}

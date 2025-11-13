@@ -35,7 +35,7 @@ impl QueryHandler<GetWalletGroupsQuery> for GetWalletGroupsQueryHandler {
         let assignments = self.assignment_repository.find_by_wallet(&wallet_address).await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
-        // 3. Get group details for each assignment
+        // 3. Get group details for each assignment with actual timestamps
         let mut groups = Vec::new();
         for assignment in assignments {
             if let Ok(Some(group)) = self.group_repository.find_by_id(assignment.group_id()).await {
@@ -44,8 +44,8 @@ impl QueryHandler<GetWalletGroupsQuery> for GetWalletGroupsQueryHandler {
                     group_name: group.name().to_string(),
                     group_slug: group.slug().as_str().to_string(),
                     permissions: group.permissions().iter().map(|p| p.as_str().to_string()).collect(),
-                    assigned_at: chrono::Utc::now(), // TODO: Get from assignment
-                    expires_at: None, // TODO: Get from assignment
+                    assigned_at: assignment.assigned_at(),
+                    expires_at: assignment.expires_at(),
                     is_active: assignment.is_active(),
                 });
             }

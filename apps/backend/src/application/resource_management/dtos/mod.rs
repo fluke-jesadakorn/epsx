@@ -1,8 +1,4 @@
 // DTOs for Resource Management
 
-// TODO: Uncomment when DTOs are implemented
-// pub mod req;
-// pub mod res;
-
-// pub use req::*;
-// pub use res::*;
+// Note: DTOs not yet extracted - resource tracking not yet implemented
+// Future: Extract standardized DTOs for request validation and response formatting

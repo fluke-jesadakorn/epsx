@@ -20,10 +20,20 @@ impl SearchWalletsQueryHandler {
 #[async_trait]
 impl QueryHandler<SearchWalletsQuery> for SearchWalletsQueryHandler {
     async fn handle(&self, query: SearchWalletsQuery) -> ApplicationResult<SearchWalletsResponse> {
+        // Start timing
+        let start_time = std::time::Instant::now();
+
         // 1. Validate query
         query.validate()?;
 
-        // 2. Create search criteria
+        // 2. Create search criteria and capture filter flags
+        let has_wallet_pattern = query.wallet_pattern.is_some();
+        let has_is_active = query.is_active.is_some();
+        let has_permissions_filter = !query.has_permissions.is_empty();
+        let has_created_after = query.created_after.is_some();
+        let has_created_before = query.created_before.is_some();
+        let has_last_login_after = query.last_login_after.is_some();
+
         let has_permissions = query.has_permissions.iter()
             .filter_map(|p| crate::domain::wallet_management::value_objects::Permission::new(p).ok())
             .collect();
@@ -66,6 +76,30 @@ impl QueryHandler<SearchWalletsQuery> for SearchWalletsQueryHandler {
             })
             .collect();
 
+        // Calculate execution time
+        let execution_time_ms = start_time.elapsed().as_millis() as u64;
+
+        // Build filters applied list using captured flags
+        let mut filters_applied = vec![];
+        if has_wallet_pattern {
+            filters_applied.push("wallet_pattern".to_string());
+        }
+        if has_is_active {
+            filters_applied.push("is_active".to_string());
+        }
+        if has_permissions_filter {
+            filters_applied.push("has_permissions".to_string());
+        }
+        if has_created_after {
+            filters_applied.push("created_after".to_string());
+        }
+        if has_created_before {
+            filters_applied.push("created_before".to_string());
+        }
+        if has_last_login_after {
+            filters_applied.push("last_login_after".to_string());
+        }
+
         Ok(SearchWalletsResponse {
             users,
             pagination: crate::application::wallet_management::queries::models::search_wallets::PaginationResult {
@@ -77,8 +111,8 @@ impl QueryHandler<SearchWalletsQuery> for SearchWalletsQueryHandler {
                 has_previous: current_page > 1,
             },
             search_metadata: crate::application::wallet_management::queries::models::search_wallets::SearchMetadata {
-                execution_time_ms: 0, // TODO: Add timing
-                filters_applied: vec![],
+                execution_time_ms,
+                filters_applied,
                 sort_applied: None,
                 cache_hit: false,
             },

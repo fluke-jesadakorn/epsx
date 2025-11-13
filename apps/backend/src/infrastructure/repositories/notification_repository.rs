@@ -1,4 +1,5 @@
-use sqlx::{PgPool, Row};
+use diesel::prelude::*;
+use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
 use std::sync::Arc;
 use uuid::Uuid;
 use async_trait::async_trait;
@@ -9,43 +10,98 @@ use crate::core::errors::{AppError, ErrorKind};
 use super::notification_record::NotificationRecord;
 
 pub struct NotificationRepository {
-    pool: Arc<PgPool>,
+    pool: Arc<&'static Pool<AsyncPgConnection>>,
 }
 
 impl NotificationRepository {
-    pub fn new(pool: Arc<PgPool>) -> Self {
+    pub fn new(pool: Arc<&'static Pool<AsyncPgConnection>>) -> Self {
         Self { pool }
     }
 
-    async fn row_to_record(row: sqlx::postgres::PgRow) -> Result<NotificationRecord, AppError> {
+    fn diesel_row_to_record(row: NotificationQueryRow) -> Result<NotificationRecord, AppError> {
         Ok(NotificationRecord {
-            id: row.try_get("id").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            recipient_wallet_id: row.try_get("recipient_wallet_id").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            topic_name: row.try_get("topic_name").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            title: row.try_get("title").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            body: row.try_get("body").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            urgency: row.try_get("urgency").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            notification_type: row.try_get("notification_type").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            priority: row.try_get("priority").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            channels: row.try_get("channels").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            schedule_type: row.try_get("schedule_type").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            scheduled_at: row.try_get("scheduled_at").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            expires_at: row.try_get("expires_at").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            status: row.try_get("status").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            send_started_at: row.try_get("send_started_at").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            channel_status: row.try_get("channel_status").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            total_attempts: row.try_get("total_attempts").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            created_by_wallet_id: row.try_get("created_by_wallet_id").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            image_url: row.try_get("image_url").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            action_url: row.try_get("action_url").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            data_payload: row.try_get("data_payload").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            tags: row.try_get("tags").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            notes: row.try_get("notes").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            version: row.try_get("version").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            created_at: row.try_get("created_at").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
-            updated_at: row.try_get("updated_at").map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?,
+            id: row.id,
+            recipient_wallet_id: row.recipient_wallet_id,
+            topic_name: row.topic_name,
+            title: row.title,
+            body: row.body,
+            urgency: row.urgency,
+            notification_type: row.notification_type,
+            priority: row.priority,
+            channels: row.channels,
+            schedule_type: row.schedule_type,
+            scheduled_at: row.scheduled_at,
+            expires_at: row.expires_at,
+            status: row.status,
+            send_started_at: row.send_started_at,
+            channel_status: row.channel_status,
+            total_attempts: row.total_attempts,
+            created_by_wallet_id: row.created_by_wallet_id,
+            image_url: row.image_url,
+            action_url: row.action_url,
+            data_payload: row.data_payload,
+            tags: row.tags.unwrap_or_default(),
+            notes: row.notes.map(|n| vec![n]).unwrap_or_default(),
+            version: row.version as i64,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
         })
     }
+}
+
+// Diesel row struct for notification queries
+#[derive(QueryableByName)]
+struct NotificationQueryRow {
+    #[diesel(sql_type = diesel::sql_types::Uuid)]
+    id: Uuid,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Uuid>)]
+    recipient_wallet_id: Option<Uuid>,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+    topic_name: Option<String>,
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    title: String,
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    body: String,
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    urgency: String,
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    notification_type: String,
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    priority: String,
+    #[diesel(sql_type = diesel::sql_types::Jsonb)]
+    channels: serde_json::Value,
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    schedule_type: String,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+    scheduled_at: Option<chrono::DateTime<chrono::Utc>>,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+    expires_at: Option<chrono::DateTime<chrono::Utc>>,
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    status: String,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+    send_started_at: Option<chrono::DateTime<chrono::Utc>>,
+    #[diesel(sql_type = diesel::sql_types::Jsonb)]
+    channel_status: serde_json::Value,
+    #[diesel(sql_type = diesel::sql_types::Integer)]
+    total_attempts: i32,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Uuid>)]
+    created_by_wallet_id: Option<Uuid>,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+    image_url: Option<String>,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+    action_url: Option<String>,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
+    data_payload: Option<serde_json::Value>,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Array<diesel::sql_types::Text>>)]
+    tags: Option<Vec<String>>,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+    notes: Option<String>,
+    #[diesel(sql_type = diesel::sql_types::Integer)]
+    version: i32,
+    #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+    created_at: chrono::DateTime<chrono::Utc>,
+    #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+    updated_at: chrono::DateTime<chrono::Utc>,
 }
 
 #[async_trait]
@@ -54,7 +110,10 @@ impl NotificationRepositoryPort for NotificationRepository {
         let id = Uuid::parse_str(notification_id)
             .map_err(|e| AppError::new(ErrorKind::ValidationError, format!("Invalid notification ID: {}", e)))?;
 
-        let row = sqlx::query(
+        let mut conn = self.pool.get().await
+            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get connection: {}", e)))?;
+
+        let row = diesel::sql_query(
             r#"
             SELECT id, recipient_wallet_id, topic_name, title, body, urgency,
                    notification_type, priority, channels, schedule_type, scheduled_at, expires_at,
@@ -64,14 +123,15 @@ impl NotificationRepositoryPort for NotificationRepository {
             FROM notifications WHERE id = $1
             "#
         )
-        .bind(id)
-        .fetch_optional(&*self.pool)
+        .bind::<diesel::sql_types::Uuid, _>(id)
+        .get_result::<NotificationQueryRow>(&mut conn)
         .await
+        .optional()
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Database error: {}", e)))?;
 
         match row {
             Some(r) => {
-                let record = Self::row_to_record(r).await?;
+                let record = Self::diesel_row_to_record(r)?;
                 Ok(Some(record.to_domain().map_err(|e| AppError::new(ErrorKind::InternalError, e))?))
             },
             None => Ok(None),
@@ -79,7 +139,10 @@ impl NotificationRepositoryPort for NotificationRepository {
     }
 
     async fn find_all(&self, criteria: NotificationSearchCriteria) -> AppResult<Vec<Notification>> {
-        let rows = sqlx::query(
+        let mut conn = self.pool.get().await
+            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get connection: {}", e)))?;
+
+        let rows = diesel::sql_query(
             r#"
             SELECT id, recipient_wallet_id, topic_name, title, body, urgency,
                    notification_type, priority, channels, schedule_type, scheduled_at, expires_at,
@@ -98,22 +161,22 @@ impl NotificationRepositoryPort for NotificationRepository {
             LIMIT $8 OFFSET $9
             "#
         )
-        .bind(criteria.recipient_wallet_address)
-        .bind(criteria.topic)
-        .bind(criteria.status.as_ref().map(|s| s.as_str()))
-        .bind(criteria.notification_type.as_ref().map(|t| t.as_str()))
-        .bind(criteria.priority)
-        .bind(criteria.created_after)
-        .bind(criteria.created_before)
-        .bind(criteria.limit.unwrap_or(100))
-        .bind(criteria.offset.unwrap_or(0))
-        .fetch_all(&*self.pool)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Uuid>, _>(criteria.recipient_wallet_address)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(criteria.topic.as_deref())
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(criteria.status.as_ref().map(|s| s.as_str()))
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(criteria.notification_type.as_ref().map(|t| t.as_str()))
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(criteria.priority.as_deref())
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(criteria.created_after)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(criteria.created_before)
+        .bind::<diesel::sql_types::BigInt, _>(criteria.limit.unwrap_or(100) as i64)
+        .bind::<diesel::sql_types::BigInt, _>(criteria.offset.unwrap_or(0) as i64)
+        .load::<NotificationQueryRow>(&mut conn)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Database error: {}", e)))?;
 
         let mut notifications = Vec::new();
         for row in rows {
-            let record = Self::row_to_record(row).await?;
+            let record = Self::diesel_row_to_record(row)?;
             notifications.push(record.to_domain().map_err(|e| AppError::new(ErrorKind::InternalError, e))?);
         }
         Ok(notifications)
@@ -122,7 +185,10 @@ impl NotificationRepositoryPort for NotificationRepository {
     async fn save(&self, notification: &Notification) -> AppResult<()> {
         let record = NotificationRecord::from_domain(notification);
 
-        sqlx::query(
+        let mut conn = self.pool.get().await
+            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get connection: {}", e)))?;
+
+        diesel::sql_query(
             r#"
             INSERT INTO notifications (
                 id, recipient_wallet_id, topic_name, title, body, urgency,
@@ -159,32 +225,32 @@ impl NotificationRepositoryPort for NotificationRepository {
                 updated_at = EXCLUDED.updated_at
             "#
         )
-        .bind(record.id)
-        .bind(record.recipient_wallet_id)
-        .bind(record.topic_name)
-        .bind(record.title)
-        .bind(record.body)
-        .bind(record.urgency)
-        .bind(record.notification_type)
-        .bind(record.priority)
-        .bind(record.channels)
-        .bind(record.schedule_type)
-        .bind(record.scheduled_at)
-        .bind(record.expires_at)
-        .bind(record.status)
-        .bind(record.send_started_at)
-        .bind(record.channel_status)
-        .bind(record.total_attempts)
-        .bind(record.created_by_wallet_id)
-        .bind(record.image_url)
-        .bind(record.action_url)
-        .bind(record.data_payload)
-        .bind(&record.tags)
-        .bind(&record.notes)
-        .bind(record.version)
-        .bind(record.created_at)
-        .bind(record.updated_at)
-        .execute(&*self.pool)
+        .bind::<diesel::sql_types::Uuid, _>(record.id)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Uuid>, _>(record.recipient_wallet_id)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(record.topic_name.as_deref())
+        .bind::<diesel::sql_types::Text, _>(&record.title)
+        .bind::<diesel::sql_types::Text, _>(&record.body)
+        .bind::<diesel::sql_types::Text, _>(&record.urgency)
+        .bind::<diesel::sql_types::Text, _>(&record.notification_type)
+        .bind::<diesel::sql_types::Text, _>(&record.priority)
+        .bind::<diesel::sql_types::Jsonb, _>(&record.channels)
+        .bind::<diesel::sql_types::Text, _>(&record.schedule_type)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(record.scheduled_at)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(record.expires_at)
+        .bind::<diesel::sql_types::Text, _>(&record.status)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(record.send_started_at)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Jsonb>, _>(&record.channel_status)
+        .bind::<diesel::sql_types::Integer, _>(record.total_attempts)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Uuid>, _>(record.created_by_wallet_id)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(record.image_url.as_deref())
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(record.action_url.as_deref())
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Jsonb>, _>(&record.data_payload)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Array<diesel::sql_types::Text>>, _>(if record.tags.is_empty() { None } else { Some(&record.tags) })
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(if record.notes.is_empty() { None } else { Some(serde_json::to_string(&record.notes).unwrap_or_default()) }.as_deref())
+        .bind::<diesel::sql_types::BigInt, _>(record.version)
+        .bind::<diesel::sql_types::Timestamptz, _>(record.created_at)
+        .bind::<diesel::sql_types::Timestamptz, _>(record.updated_at)
+        .execute(&mut conn)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to save notification: {}", e)))?;
 
@@ -195,9 +261,12 @@ impl NotificationRepositoryPort for NotificationRepository {
         let id = Uuid::parse_str(notification_id)
             .map_err(|e| AppError::new(ErrorKind::ValidationError, format!("Invalid notification ID: {}", e)))?;
 
-        sqlx::query("DELETE FROM notifications WHERE id = $1")
-            .bind(id)
-            .execute(&*self.pool)
+        let mut conn = self.pool.get().await
+            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get connection: {}", e)))?;
+
+        diesel::sql_query("DELETE FROM notifications WHERE id = $1")
+            .bind::<diesel::sql_types::Uuid, _>(id)
+            .execute(&mut conn)
             .await
             .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to delete notification: {}", e)))?;
 
@@ -205,7 +274,16 @@ impl NotificationRepositoryPort for NotificationRepository {
     }
 
     async fn count(&self, criteria: NotificationSearchCriteria) -> AppResult<i64> {
-        let row = sqlx::query(
+        let mut conn = self.pool.get().await
+            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get connection: {}", e)))?;
+
+        #[derive(QueryableByName)]
+        struct CountRow {
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            count: i64,
+        }
+
+        let row = diesel::sql_query(
             r#"
             SELECT COUNT(*) as count
             FROM notifications
@@ -215,36 +293,44 @@ impl NotificationRepositoryPort for NotificationRepository {
               AND ($4::text IS NULL OR notification_type = $4)
             "#
         )
-        .bind(criteria.recipient_wallet_address)
-        .bind(criteria.topic)
-        .bind(criteria.status.as_ref().map(|s| s.as_str()))
-        .bind(criteria.notification_type.as_ref().map(|t| t.as_str()))
-        .fetch_one(&*self.pool)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Uuid>, _>(criteria.recipient_wallet_address)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(criteria.topic.as_deref())
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(criteria.status.as_ref().map(|s| s.as_str()))
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(criteria.notification_type.as_ref().map(|t| t.as_str()))
+        .get_result::<CountRow>(&mut conn)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count notifications: {}", e)))?;
 
-        let count: i64 = row.try_get("count")
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?;
-        Ok(count)
+        Ok(row.count)
     }
 
     async fn notification_exists(&self, notification_id: &str) -> AppResult<bool> {
         let id = Uuid::parse_str(notification_id)
             .map_err(|e| AppError::new(ErrorKind::ValidationError, format!("Invalid notification ID: {}", e)))?;
 
-        let row = sqlx::query("SELECT EXISTS(SELECT 1 FROM notifications WHERE id = $1) as exists")
-            .bind(id)
-            .fetch_one(&*self.pool)
+        let mut conn = self.pool.get().await
+            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get connection: {}", e)))?;
+
+        #[derive(QueryableByName)]
+        struct ExistsRow {
+            #[diesel(sql_type = diesel::sql_types::Bool)]
+            exists: bool,
+        }
+
+        let row = diesel::sql_query("SELECT EXISTS(SELECT 1 FROM notifications WHERE id = $1) as exists")
+            .bind::<diesel::sql_types::Uuid, _>(id)
+            .get_result::<ExistsRow>(&mut conn)
             .await
             .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Database error: {}", e)))?;
 
-        let exists: bool = row.try_get("exists")
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, e.to_string()))?;
-        Ok(exists)
+        Ok(row.exists)
     }
 
     async fn find_pending(&self, limit: u32) -> AppResult<Vec<Notification>> {
-        let rows = sqlx::query(
+        let mut conn = self.pool.get().await
+            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get connection: {}", e)))?;
+
+        let rows = diesel::sql_query(
             r#"
             SELECT id, recipient_wallet_id, topic_name, title, body, urgency,
                    notification_type, priority, channels, schedule_type, scheduled_at, expires_at,
@@ -259,14 +345,14 @@ impl NotificationRepositoryPort for NotificationRepository {
             LIMIT $1
             "#
         )
-        .bind(limit as i64)
-        .fetch_all(&*self.pool)
+        .bind::<diesel::sql_types::BigInt, _>(limit as i64)
+        .load::<NotificationQueryRow>(&mut conn)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Database error: {}", e)))?;
 
         let mut notifications = Vec::new();
         for row in rows {
-            let record = Self::row_to_record(row).await?;
+            let record = Self::diesel_row_to_record(row)?;
             notifications.push(record.to_domain().map_err(|e| AppError::new(ErrorKind::InternalError, e))?);
         }
         Ok(notifications)
@@ -297,7 +383,10 @@ impl NotificationRepositoryPort for NotificationRepository {
     }
 
     async fn find_expired(&self) -> AppResult<Vec<Notification>> {
-        let rows = sqlx::query(
+        let mut conn = self.pool.get().await
+            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get connection: {}", e)))?;
+
+        let rows = diesel::sql_query(
             r#"
             SELECT id, recipient_wallet_id, topic_name, title, body, urgency,
                    notification_type, priority, channels, schedule_type, scheduled_at, expires_at,
@@ -310,13 +399,13 @@ impl NotificationRepositoryPort for NotificationRepository {
               AND status NOT IN ('expired', 'delivered', 'cancelled')
             "#
         )
-        .fetch_all(&*self.pool)
+        .load::<NotificationQueryRow>(&mut conn)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Database error: {}", e)))?;
 
         let mut notifications = Vec::new();
         for row in rows {
-            let record = Self::row_to_record(row).await?;
+            let record = Self::diesel_row_to_record(row)?;
             notifications.push(record.to_domain().map_err(|e| AppError::new(ErrorKind::InternalError, e))?);
         }
         Ok(notifications)

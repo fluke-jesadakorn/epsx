@@ -6,16 +6,17 @@ use crate::application::wallet_management::queries::admin_models::{
     GetWalletStatsQuery, GetWalletStatsResponse, WalletStatsDto,
 };
 use async_trait::async_trait;
-use sqlx::PgPool;
+use diesel::prelude::*;
+use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
 use std::sync::Arc;
 use tracing::{error, info};
 
 pub struct GetWalletStatsQueryHandler {
-    db_pool: Arc<PgPool>,
+    db_pool: Arc<&'static Pool<AsyncPgConnection>>,
 }
 
 impl GetWalletStatsQueryHandler {
-    pub fn new(db_pool: Arc<PgPool>) -> Self {
+    pub fn new(db_pool: Arc<&'static Pool<AsyncPgConnection>>) -> Self {
         Self { db_pool }
     }
 }
@@ -29,8 +30,25 @@ impl QueryHandler<GetWalletStatsQuery> for GetWalletStatsQueryHandler {
         // 1. Validate query
         query.validate()?;
 
+        let mut conn = self.db_pool.get().await.map_err(|e| {
+            error!("❌ Failed to get connection: {}", e);
+            ApplicationError::infrastructure(format!("Failed to get connection: {}", e))
+        })?;
+
         // 2. Get wallet statistics
-        let stats_result = sqlx::query!(
+        #[derive(QueryableByName)]
+        struct StatsRow {
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
+            total_users: Option<i64>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
+            active_users: Option<i64>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
+            inactive_users: Option<i64>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
+            new_users_30_days: Option<i64>,
+        }
+
+        let stats_result = diesel::sql_query(
             r#"
             SELECT
                 COUNT(*) as total_users,
@@ -40,7 +58,7 @@ impl QueryHandler<GetWalletStatsQuery> for GetWalletStatsQueryHandler {
             FROM wallet_users
             "#
         )
-        .fetch_one(self.db_pool.as_ref())
+        .get_result::<StatsRow>(&mut conn)
         .await
         .map_err(|e| {
             error!("❌ Failed to fetch wallet statistics: {}", e);

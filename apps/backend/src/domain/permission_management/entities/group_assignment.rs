@@ -59,6 +59,14 @@ impl GroupAssignment {
         &self.wallet_address
     }
 
+    pub fn assigned_at(&self) -> chrono::DateTime<chrono::Utc> {
+        self.assigned_at
+    }
+
+    pub fn expires_at(&self) -> Option<chrono::DateTime<chrono::Utc>> {
+        self.expires_at
+    }
+
     pub fn is_active(&self) -> bool {
         self.is_active && !self.is_expired()
     }

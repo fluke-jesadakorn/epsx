@@ -280,16 +280,16 @@ impl RequirePermission for TestHandler {
         Ok(true)
     }
     
-    fn permission_denied_response(&self) -> axum::response::Response {
+    fn permission_denied_response(&self, wallet_address: &str) -> axum::response::Response {
         use axum::response::Json;
         use serde_json::json;
-        
+
         let error_response = json!({
             "error": "permission_denied",
-            "message": "Test handler access denied",
+            "message": format!("Test handler access denied for wallet {}", wallet_address),
             "required_permission": Self::required_permission()
         });
-        
+
         Json(error_response).into_response()
     }
 }
@@ -340,7 +340,8 @@ async fn test_require_permission_trait() {
     assert!(!after_hours_result.unwrap());
     
     // Test permission denied response
-    let response = handler.permission_denied_response();
+    let test_wallet = "0x742d35cc6abaac8b14a3780b5b0e11b2ce65d695";
+    let response = handler.permission_denied_response(test_wallet);
     assert_eq!(response.status(), axum::http::StatusCode::OK); // JSON response returns 200
 }
 

@@ -33,7 +33,7 @@ export interface CreatePlanRequest {
   current_price: number;
   currency: string;
   target_audience: string; // "web_users", "api_developers", "enterprises"
-  billing_model: string;   // "subscription", "pay_per_use", "hybrid"
+  billing_model: string;   // Always "pay_per_use"
   plan_category: string;   // "standard", "api", "enterprise", "custom"
   features: PlanFeatureRequest[];
   metadata?: Record<string, any>;

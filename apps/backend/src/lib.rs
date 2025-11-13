@@ -1,5 +1,8 @@
 // Clean architecture library exports
 
+// Diesel schema module (auto-generated from database)
+pub mod schema;
+
 pub mod prelude; // Common imports prelude
 pub mod core; // Shared kernel
 pub mod domain; // DDD Domain layer with bounded contexts (User Management, Trading Analytics, Notification, Payment)

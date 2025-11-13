@@ -13,10 +13,12 @@ pub mod database;
 pub mod cqrs; // NEW: Event sourcing and CQRS infrastructure
 pub mod repositories; // NEW: DDD repositories
 pub mod redis; // Redis connection pool for notification pub/sub
+pub mod blockchain; // Blockchain payment infrastructure
+pub mod services; // Background services
 
 // Re-export infrastructure components with explicit imports to avoid conflicts
 pub use adapters::{
-    repositories as adapter_repositories, services
+    repositories as adapter_repositories, services as adapter_services
 };
 
 // Re-export commonly needed services for backward compatibility
@@ -35,4 +37,8 @@ pub use cqrs::{
     EventDispatcher, EventDispatcherConfig,
     ProjectionManager, WalletReadModelProjection
 };
+pub use blockchain::{
+    BscEventListener, PaymentEvent, PaymentVerifier
+};
+pub use services::BlockchainMonitor;
 

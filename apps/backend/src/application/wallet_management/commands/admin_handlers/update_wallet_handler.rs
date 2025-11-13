@@ -9,16 +9,17 @@ use crate::application::wallet_management::queries::admin_models::{
     WalletActivitySummaryDto, WalletDetailDto, WalletGroupDto, WalletPermissionDto,
 };
 use async_trait::async_trait;
-use sqlx::PgPool;
+use diesel::prelude::*;
+use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
 use std::sync::Arc;
 use tracing::{error, info};
 
 pub struct UpdateWalletCommandHandler {
-    db_pool: Arc<PgPool>,
+    db_pool: Arc<&'static Pool<AsyncPgConnection>>,
 }
 
 impl UpdateWalletCommandHandler {
-    pub fn new(db_pool: Arc<PgPool>) -> Self {
+    pub fn new(db_pool: Arc<&'static Pool<AsyncPgConnection>>) -> Self {
         Self { db_pool }
     }
 }
@@ -32,13 +33,25 @@ impl CommandHandler<UpdateWalletCommand> for UpdateWalletCommandHandler {
         // 1. Validate command
         command.validate()?;
 
+        let mut conn = self.db_pool.get().await.map_err(|e| {
+            error!("❌ Failed to get connection: {}", e);
+            ApplicationError::infrastructure(format!("Failed to get connection: {}", e))
+        })?;
+
         // 2. Check if wallet exists
-        let wallet_exists = sqlx::query!(
-            "SELECT wallet_address FROM wallet_users WHERE wallet_address = $1",
-            command.wallet_address
+        #[derive(QueryableByName)]
+        struct WalletExistsRow {
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            wallet_address: String,
+        }
+
+        let wallet_exists = diesel::sql_query(
+            "SELECT wallet_address FROM wallet_users WHERE wallet_address = $1"
         )
-        .fetch_optional(self.db_pool.as_ref())
+        .bind::<diesel::sql_types::Text, _>(&command.wallet_address)
+        .get_result::<WalletExistsRow>(&mut conn)
         .await
+        .optional()
         .map_err(|e| {
             error!("❌ Failed to check wallet existence: {}", e);
             ApplicationError::infrastructure(format!("Failed to check wallet: {}", e))
@@ -53,11 +66,9 @@ impl CommandHandler<UpdateWalletCommand> for UpdateWalletCommandHandler {
 
         // 3. Build dynamic update query
         let mut updates = Vec::new();
-        let mut update_count = 1;
 
         if command.is_active.is_some() {
-            updates.push(format!("is_active = ${}", update_count));
-            update_count += 1;
+            updates.push(format!("is_active = {}", command.is_active.unwrap()));
         }
 
         // Always update updated_at
@@ -72,21 +83,13 @@ impl CommandHandler<UpdateWalletCommand> for UpdateWalletCommandHandler {
 
         // 4. Execute update
         let update_query = format!(
-            "UPDATE wallet_users SET {} WHERE wallet_address = ${}",
+            "UPDATE wallet_users SET {} WHERE wallet_address = '{}'",
             updates.join(", "),
-            update_count
+            command.wallet_address.replace("'", "''")
         );
 
-        let mut query = sqlx::query(&update_query);
-
-        // Bind parameters in order
-        if let Some(is_active) = command.is_active {
-            query = query.bind(is_active);
-        }
-        query = query.bind(&command.wallet_address);
-
-        query
-            .execute(self.db_pool.as_ref())
+        diesel::sql_query(&update_query)
+            .execute(&mut conn)
             .await
             .map_err(|e| {
                 error!("❌ Failed to update wallet: {}", e);
@@ -115,16 +118,33 @@ impl UpdateWalletCommandHandler {
         &self,
         wallet_address: &str,
     ) -> ApplicationResult<WalletDetailDto> {
+        let mut conn = self.db_pool.get().await.map_err(|e| {
+            error!("❌ Failed to get connection: {}", e);
+            ApplicationError::infrastructure(format!("Failed to get connection: {}", e))
+        })?;
+
         // Get basic wallet info
-        let wallet = sqlx::query!(
+        #[derive(QueryableByName)]
+        struct WalletRow {
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            wallet_address: String,
+            #[diesel(sql_type = diesel::sql_types::Bool)]
+            is_active: bool,
+            #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+            created_at: chrono::DateTime<chrono::Utc>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+            last_auth_at: Option<chrono::DateTime<chrono::Utc>>,
+        }
+
+        let wallet = diesel::sql_query(
             r#"
             SELECT wallet_address, is_active, created_at, last_auth_at
             FROM wallet_users
             WHERE wallet_address = $1
-            "#,
-            wallet_address
+            "#
         )
-        .fetch_one(self.db_pool.as_ref())
+        .bind::<diesel::sql_types::Text, _>(wallet_address)
+        .get_result::<WalletRow>(&mut conn)
         .await
         .map_err(|e| {
             error!("❌ Failed to fetch updated wallet: {}", e);
@@ -132,9 +152,22 @@ impl UpdateWalletCommandHandler {
         })?;
 
         // Get permissions
-        let permissions_result = sqlx::query!(
+        #[derive(QueryableByName)]
+        struct PermissionRow {
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            permission: Option<String>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            source: Option<String>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+            granted_at: Option<chrono::DateTime<chrono::Utc>>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+            expires_at: Option<chrono::DateTime<chrono::Utc>>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Bool>)]
+            is_active: Option<bool>,
+        }
+
+        let permissions_result = diesel::sql_query(
             r#"
-            -- Permissions from groups
             SELECT
                 p.permission_string as permission,
                 'group' as source,
@@ -149,7 +182,6 @@ impl UpdateWalletCommandHandler {
 
             UNION ALL
 
-            -- Direct permissions
             SELECT
                 p.permission_string as permission,
                 'direct' as source,
@@ -162,10 +194,10 @@ impl UpdateWalletCommandHandler {
               AND p.is_active = true
 
             ORDER BY permission
-            "#,
-            wallet_address
+            "#
         )
-        .fetch_all(self.db_pool.as_ref())
+        .bind::<diesel::sql_types::Text, _>(wallet_address)
+        .load::<PermissionRow>(&mut conn)
         .await
         .unwrap_or_default();
 

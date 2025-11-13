@@ -1,12 +1,17 @@
 // Wallet User Repository Adapter (Infrastructure Layer)
-// Implements WalletUserRepositoryPort using SQLx and PostgreSQL for Web3-first authentication
+// Implements WalletUserRepositoryPort using Diesel and PostgreSQL for Web3-first authentication
 
 use crate::prelude::*;
 
 use std::collections::{HashMap, HashSet};
 use chrono::NaiveDate;
-use sqlx::{PgPool, Row};
 use tracing::{error, info, warn};
+
+// Diesel imports
+use diesel::prelude::*;
+use diesel_async::{AsyncPgConnection, RunQueryDsl, AsyncConnection, pooled_connection::deadpool::Pool};
+use crate::schema::wallet_users;
+use crate::infrastructure::adapters::repositories::database_types::{WalletUserDb, NewWalletUserDb};
 
 use crate::domain::wallet_management::{
     aggregates::{WalletUser, WalletMetadata},
@@ -21,14 +26,31 @@ use crate::domain::wallet_management::{
     },
 };
 
-/// PostgreSQL implementation of WalletUserRepositoryPort
+// Query result struct for raw SQL permission queries
+#[derive(diesel::QueryableByName)]
+struct WalletUserQueryResult {
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    wallet_address: String,
+    #[diesel(sql_type = diesel::sql_types::Bool)]
+    is_active: bool,
+    #[diesel(sql_type = diesel::sql_types::Jsonb)]
+    wallet_metadata: serde_json::Value,
+    #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+    created_at: chrono::DateTime<chrono::Utc>,
+    #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+    updated_at: chrono::DateTime<chrono::Utc>,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+    last_auth_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+/// PostgreSQL implementation of WalletUserRepositoryPort using Diesel
 #[derive(Clone)]
 pub struct WalletUserRepositoryAdapter {
-    db_pool: Arc<PgPool>,
+    db_pool: &'static Pool<AsyncPgConnection>,
 }
 
 impl WalletUserRepositoryAdapter {
-    pub fn new(db_pool: Arc<PgPool>) -> Self {
+    pub fn new(db_pool: &'static Pool<AsyncPgConnection>) -> Self {
         Self { db_pool }
     }
 }
@@ -36,25 +58,30 @@ impl WalletUserRepositoryAdapter {
 #[async_trait]
 impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
     async fn find_by_wallet(&self, wallet_address: &WalletAddress) -> AppResult<Option<WalletUser>> {
-        let row = sqlx::query!(
-            r#"
-            SELECT
-                wallet_address, is_active, wallet_metadata,
-                created_at, updated_at, last_auth_at
-            FROM wallet_users
-            WHERE LOWER(wallet_address) = LOWER($1)
-            "#,
-            wallet_address.as_str()
-        )
-        .fetch_optional(self.db_pool.as_ref())
-        .await
-        .map_err(|e| {
-            error!("Failed to find wallet user by address {}: {}", wallet_address.as_str(), e);
-            AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-        })?;
+        use diesel::dsl::*;
 
-        if let Some(row) = row {
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation("find_by_wallet"))?;
+
+        // Diesel query: case-insensitive wallet address lookup
+        let db_user = wallet_users::table
+            .filter(sql::<diesel::sql_types::Bool>(&format!(
+                "LOWER(wallet_address) = LOWER('{}')",
+                wallet_address.as_str()
+            )))
+            .first::<WalletUserDb>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| {
+                error!("Failed to find wallet user by address {}: {}", wallet_address.as_str(), e);
+                AppError::database_error(e.to_string())
+                    .with_component("wallet_user_repository")
+                    .with_operation(&format!("find_by_wallet({})", wallet_address.as_str()))
+            })?;
+
+        if let Some(row) = db_user {
             let wallet_addr = WalletAddress::new(row.wallet_address)
                 .map_err(|e| AppError::validation_error(format!("Invalid wallet address: {}", e))
                     .with_component("wallet_user_repository"))?;
@@ -67,8 +94,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
             let permission_group_set: HashSet<String> = HashSet::new();
 
             // Parse wallet metadata
-            let metadata_json = row.wallet_metadata;
-            let metadata = WalletMetadata::from_json(metadata_json)
+            let metadata = WalletMetadata::from_json(row.wallet_metadata)
                 .map_err(|e| AppError::validation_error(format!("Invalid wallet metadata: {}", e))
                     .with_component("wallet_user_repository"))?;
 
@@ -95,36 +121,42 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
             return Ok(Vec::new());
         }
 
-        let addresses: Vec<String> = wallet_addresses.iter().map(|w| w.as_str().to_string()).collect();
-        
-        let rows = sqlx::query!(
-            r#"
-            SELECT
-                wallet_address, is_active, wallet_metadata,
-                created_at, updated_at, last_auth_at
-            FROM wallet_users
-            WHERE LOWER(wallet_address) = ANY(SELECT LOWER(unnest($1::text[])))
-            ORDER BY created_at DESC
-            "#,
-            &addresses
-        )
-        .fetch_all(self.db_pool.as_ref())
-        .await
-        .map_err(|e| {
-            error!("Failed to find wallet users by addresses: {}", e);
-            AppError::database_error(e.to_string())
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
                 .with_component("wallet_user_repository")
-        })?;
+                .with_operation("find_by_wallets"))?;
+
+        let addresses_lower: Vec<String> = wallet_addresses.iter()
+            .map(|w| w.as_str().to_lowercase())
+            .collect();
+
+        // Diesel query: find wallets with case-insensitive matching
+        let db_users = wallet_users::table
+            .filter(diesel::dsl::sql::<diesel::sql_types::Bool>(&format!(
+                "LOWER(wallet_address) = ANY(ARRAY[{}])",
+                addresses_lower.iter()
+                    .map(|a| format!("'{}'", a.replace("'", "''")))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            )))
+            .order(wallet_users::created_at.desc())
+            .load::<WalletUserDb>(&mut conn)
+            .await
+            .map_err(|e| {
+                error!("Failed to find wallet users by addresses: {}", e);
+                AppError::database_error(e.to_string())
+                    .with_component("wallet_user_repository")
+                    .with_operation(&format!("find_by_wallets({} addresses)", wallet_addresses.len()))
+            })?;
 
         let mut users = Vec::new();
-        for row in rows {
+        for row in db_users {
             if let Ok(wallet_addr) = WalletAddress::new(row.wallet_address) {
                 // NOTE: Permissions now in normalized tables
                 let permission_set: HashSet<Permission> = HashSet::new();
                 let permission_group_set: HashSet<String> = HashSet::new();
 
-                let metadata_json = row.wallet_metadata;
-                if let Ok(metadata) = WalletMetadata::from_json(metadata_json) {
+                if let Ok(metadata) = WalletMetadata::from_json(row.wallet_metadata) {
                     let wallet = WalletUser::load(crate::domain::wallet_management::aggregates::wallet_user::WalletUserLoadParams {
                         wallet_address: wallet_addr,
                         is_active: row.is_active,
@@ -150,49 +182,64 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
         // - wallet_group_memberships (assign wallet to groups)
         // - wallet_direct_permissions (grant direct permissions)
 
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation("save"))?;
+
         // Serialize wallet metadata to JSON
         let metadata_json = user.wallet_metadata().to_json()
             .map_err(|e| AppError::validation_error(format!("Failed to serialize wallet metadata: {}", e))
                 .with_component("wallet_user_repository"))?;
 
-        sqlx::query!(
-            r#"
-            INSERT INTO wallet_users (
-                wallet_address, is_active, wallet_metadata,
-                created_at, updated_at, last_auth_at
-            ) VALUES ($1, $2, $3, $4, $5, $6)
-            ON CONFLICT (wallet_address)
-            DO UPDATE SET
-                is_active = EXCLUDED.is_active,
-                wallet_metadata = EXCLUDED.wallet_metadata,
-                updated_at = EXCLUDED.updated_at,
-                last_auth_at = EXCLUDED.last_auth_at
-            "#,
-            user.wallet_address().as_str().to_lowercase(),
-            user.is_active(),
-            metadata_json,
-            user.created_at(),
-            user.updated_at(),
-            user.last_auth_at()
-        )
-        .execute(self.db_pool.as_ref())
-        .await
-        .map_err(|e| {
-            error!("Failed to save wallet user {}: {}", user.wallet_address().as_str(), e);
-            AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-        })?;
+        // Create new record for insert
+        let new_user = NewWalletUserDb {
+            wallet_address: user.wallet_address().as_str().to_lowercase(),
+            is_active: user.is_active(),
+            tier_level: "free".to_string(), // Default tier
+            wallet_metadata: metadata_json.clone(),
+        };
+
+        // Diesel upsert: insert or update on conflict
+        diesel::insert_into(wallet_users::table)
+            .values(&new_user)
+            .on_conflict(wallet_users::wallet_address)
+            .do_update()
+            .set((
+                wallet_users::is_active.eq(user.is_active()),
+                wallet_users::wallet_metadata.eq(metadata_json),
+                wallet_users::updated_at.eq(user.updated_at()),
+                wallet_users::last_auth_at.eq(user.last_auth_at()),
+            ))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| {
+                error!("Failed to save wallet user {}: {}", user.wallet_address().as_str(), e);
+                AppError::database_error(e.to_string())
+                    .with_component("wallet_user_repository")
+                    .with_operation(&format!("save({})", user.wallet_address().as_str()))
+            })?;
 
         info!("Saved wallet user: {}", user.wallet_address().as_str());
         Ok(())
     }
 
     async fn delete(&self, wallet_address: &WalletAddress) -> AppResult<()> {
-        let result = sqlx::query!(
-            "DELETE FROM wallet_users WHERE LOWER(wallet_address) = LOWER($1)",
-            wallet_address.as_str()
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation("delete"))?;
+
+        // Diesel delete: case-insensitive wallet address match
+        let rows_affected = diesel::delete(
+            wallet_users::table.filter(
+                diesel::dsl::sql::<diesel::sql_types::Bool>(&format!(
+                    "LOWER(wallet_address) = LOWER('{}')",
+                    wallet_address.as_str().replace("'", "''")
+                ))
+            )
         )
-        .execute(self.db_pool.as_ref())
+        .execute(&mut conn)
         .await
         .map_err(|e| {
             error!("Failed to delete wallet user {}: {}", wallet_address.as_str(), e);
@@ -200,7 +247,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 .with_component("wallet_user_repository")
         })?;
 
-        if result.rows_affected() > 0 {
+        if rows_affected > 0 {
             info!("Deleted wallet user: {}", wallet_address.as_str());
         } else {
             warn!("No wallet user found to delete: {}", wallet_address.as_str());
@@ -211,9 +258,13 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
 
     async fn find_by_permission(&self, permission: &Permission) -> AppResult<Vec<WalletUser>> {
         let permission_str = permission.as_str();
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation("find_by_permission"))?;
 
         // Query users with this permission from normalized tables
-        let rows = sqlx::query!(
+        let query = format!(
             r#"
             SELECT DISTINCT
                 wu.wallet_address, wu.is_active, wu.wallet_metadata,
@@ -226,20 +277,23 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
             LEFT JOIN permissions p2 ON wdp.permission_id = p2.id
             WHERE wu.is_active = true
               AND (
-                (p1.permission_string = $1 AND p1.is_active = true AND wga.is_active = true)
+                (p1.permission_string = '{}' AND p1.is_active = true AND wga.is_active = true)
                 OR
-                (p2.permission_string = $1 AND p2.is_active = true AND wdp.is_active = true)
+                (p2.permission_string = '{}' AND p2.is_active = true AND wdp.is_active = true)
               )
             "#,
-            permission_str
-        )
-        .fetch_all(self.db_pool.as_ref())
-        .await
-        .map_err(|e| {
-            error!("Failed to find users by permission {}: {}", permission_str, e);
-            AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-        })?;
+            permission_str.replace("'", "''"),
+            permission_str.replace("'", "''")
+        );
+
+        let rows = diesel::sql_query(query)
+            .load::<WalletUserQueryResult>(&mut conn)
+            .await
+            .map_err(|e| {
+                error!("Failed to find users by permission {}: {}", permission_str, e);
+                AppError::database_error(e.to_string())
+                    .with_component("wallet_user_repository")
+            })?;
 
         let mut users = Vec::new();
         for row in rows {
@@ -268,16 +322,85 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
     }
 
     async fn find_by_permission_type(&self, permission_type: &PermissionType) -> AppResult<Vec<WalletUser>> {
-        // This would require storing permission type metadata in the database
-        // For now, return empty result with a TODO
-        warn!("find_by_permission_type not yet implemented for permission type: {:?}", permission_type);
-        Ok(Vec::new())
+        let type_filter = match permission_type {
+            PermissionType::Manual => "manual",
+            PermissionType::NftGated { .. } => "nft_gated",
+            PermissionType::TokenGated { .. } => "token_gated",
+            PermissionType::DaoGovernance { .. } => "dao_governance",
+        };
+
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation("find_by_permission_type"))?;
+
+        let query = format!(
+            r#"
+            SELECT DISTINCT
+                wu.wallet_address, wu.is_active, wu.wallet_metadata,
+                wu.created_at, wu.updated_at, wu.last_auth_at
+            FROM wallet_users wu
+            LEFT JOIN wallet_group_memberships wgm ON wu.wallet_address = wgm.wallet_address
+            LEFT JOIN permission_group_memberships pgm ON wgm.group_id = pgm.group_id
+            LEFT JOIN permissions p1 ON pgm.permission_id = p1.id
+            LEFT JOIN wallet_direct_permissions wdp ON wu.wallet_address = wdp.wallet_address
+            LEFT JOIN permissions p2 ON wdp.permission_id = p2.id
+            WHERE wu.is_active = true
+              AND (
+                (p1.permission_type = '{}' AND p1.is_active = true AND wgm.is_active = true)
+                OR
+                (p2.permission_type = '{}' AND p2.is_active = true AND wdp.is_active = true)
+              )
+            ORDER BY wu.created_at DESC
+            "#,
+            type_filter, type_filter
+        );
+
+        let rows = diesel::sql_query(query)
+            .load::<WalletUserQueryResult>(&mut conn)
+            .await
+            .map_err(|e| {
+                error!("Failed to find users by permission type {:?}: {}", permission_type, e);
+                AppError::database_error(e.to_string())
+                    .with_component("wallet_user_repository")
+            })?;
+
+        let mut users = Vec::new();
+        for row in rows {
+            let wallet_address = WalletAddress::new(row.wallet_address).map_err(|e|
+                AppError::validation_error(format!("Invalid wallet address: {}", e)))?;
+
+            let permissions: HashSet<Permission> = HashSet::new();
+            let permission_group_set: HashSet<String> = HashSet::new();
+            let wallet_metadata = WalletMetadata::from_json(row.wallet_metadata)
+                .unwrap_or_default();
+
+            let wallet = WalletUser::load(crate::domain::wallet_management::aggregates::wallet_user::WalletUserLoadParams {
+                wallet_address,
+                is_active: row.is_active,
+                permissions,
+                permission_groups: permission_group_set,
+                wallet_metadata,
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+                last_auth_at: row.last_auth_at,
+                version: 1,
+            });
+            users.push(wallet);
+        }
+
+        info!("Found {} users with permission type {:?}", users.len(), permission_type);
+        Ok(users)
     }
 
     async fn find_by_permission_group(&self, permission_group: &str) -> AppResult<Vec<WalletUser>> {
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation("find_by_permission_group"))?;
+
         // Query users assigned to this group from normalized tables
-        // Note: permission_group can be group name or group slug
-        let rows = sqlx::query!(
+        let query = format!(
             r#"
             SELECT DISTINCT
                 wu.wallet_address, wu.is_active, wu.wallet_metadata,
@@ -288,18 +411,21 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
             WHERE wu.is_active = true
               AND wga.is_active = true
               AND pg.is_active = true
-              AND (pg.name = $1 OR pg.slug = $1)
+              AND (pg.name = '{}' OR pg.slug = '{}')
             ORDER BY wu.created_at DESC
             "#,
-            permission_group
-        )
-        .fetch_all(self.db_pool.as_ref())
-        .await
-        .map_err(|e| {
-            error!("Failed to find users by permission group {}: {}", permission_group, e);
-            AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-        })?;
+            permission_group.replace("'", "''"),
+            permission_group.replace("'", "''")
+        );
+
+        let rows = diesel::sql_query(query)
+            .load::<WalletUserQueryResult>(&mut conn)
+            .await
+            .map_err(|e| {
+                error!("Failed to find users by permission group {}: {}", permission_group, e);
+                AppError::database_error(e.to_string())
+                    .with_component("wallet_user_repository")
+            })?;
 
         let mut users = Vec::new();
         for row in rows {
@@ -333,50 +459,52 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
         limit: u32,
         offset: u32
     ) -> AppResult<WalletUserSearchResult> {
-        let mut query_builder = sqlx::QueryBuilder::new(
-            r#"
-            SELECT
-                wallet_address, is_active, permissions, wallet_metadata,
-                created_at, updated_at, last_auth_at
-            FROM wallet_users
-            WHERE 1=1
-            "#
-        );
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation("find_by_criteria"))?;
 
-        // Apply search criteria
+        // Build dynamic SQL query
+        let mut where_clauses = vec!["1=1".to_string()];
+
         if let Some(ref pattern) = criteria.wallet_pattern {
-            query_builder.push(" AND wallet_address ILIKE ");
-            query_builder.push_bind(format!("%{}%", pattern));
+            where_clauses.push(format!("wallet_address ILIKE '%{}%'", pattern.replace("'", "''")));
         }
 
         if let Some(is_active) = criteria.is_active {
-            query_builder.push(" AND is_active = ");
-            query_builder.push_bind(is_active);
+            where_clauses.push(format!("is_active = {}", is_active));
         }
 
         if let Some(ref permission_group) = criteria.permission_group {
-            query_builder.push(" AND permission_groups::jsonb ? ");
-            query_builder.push_bind(permission_group);
+            where_clauses.push(format!("permission_groups::jsonb ? '{}'", permission_group.replace("'", "''")));
         }
 
         if let Some(ref created_after) = criteria.created_after {
-            query_builder.push(" AND created_at > ");
-            query_builder.push_bind(created_after);
+            where_clauses.push(format!("created_at > '{}'", created_after.to_rfc3339()));
         }
 
         if let Some(ref created_before) = criteria.created_before {
-            query_builder.push(" AND created_at < ");
-            query_builder.push_bind(created_before);
+            where_clauses.push(format!("created_at < '{}'", created_before.to_rfc3339()));
         }
 
-        // Add ordering and pagination
-        query_builder.push(" ORDER BY created_at DESC LIMIT ");
-        query_builder.push_bind(limit as i64);
-        query_builder.push(" OFFSET ");
-        query_builder.push_bind(offset as i64);
+        let query = format!(
+            r#"
+            SELECT
+                wallet_address, is_active, wallet_metadata,
+                created_at, updated_at, last_auth_at
+            FROM wallet_users
+            WHERE {}
+            ORDER BY created_at DESC
+            LIMIT {}
+            OFFSET {}
+            "#,
+            where_clauses.join(" AND "),
+            limit,
+            offset
+        );
 
-        let query = query_builder.build();
-        let rows = query.fetch_all(self.db_pool.as_ref())
+        let rows = diesel::sql_query(query)
+            .load::<WalletUserQueryResult>(&mut conn)
             .await
             .map_err(|e| {
                 error!("Failed to search wallet users: {}", e);
@@ -384,31 +512,63 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 .with_component("wallet_user_repository")
             })?;
 
-        // Convert rows to users - simplified version
-        let users = self.rows_to_wallet_users_simple(rows).await?;
+        // Convert rows to users
+        let mut users = Vec::new();
+        for row in rows {
+            if let Ok(wallet_addr) = WalletAddress::new(row.wallet_address) {
+                if let Ok(metadata) = WalletMetadata::from_json(row.wallet_metadata) {
+                    let wallet = WalletUser::load(crate::domain::wallet_management::aggregates::wallet_user::WalletUserLoadParams {
+                        wallet_address: wallet_addr,
+                        is_active: row.is_active,
+                        permissions: HashSet::new(),
+                        permission_groups: HashSet::new(),
+                        wallet_metadata: metadata,
+                        created_at: row.created_at,
+                        updated_at: row.updated_at,
+                        last_auth_at: row.last_auth_at,
+                        version: 1,
+                    });
+                    users.push(wallet);
+                }
+            }
+        }
 
-        // Get total count (simplified - in production, you'd want to optimize this)
+        // Get total count
         let total_count = self.count_by_criteria(criteria).await?;
 
         Ok(WalletUserSearchResult::new(users, total_count, offset, limit))
     }
 
     async fn count_by_criteria(&self, criteria: &WalletUserSearchCriteria) -> AppResult<u64> {
-        let mut query_builder = sqlx::QueryBuilder::new("SELECT COUNT(*) FROM wallet_users WHERE 1=1");
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation("count_by_criteria"))?;
 
-        // Apply same criteria as search (simplified)
+        // Build dynamic SQL query
+        let mut where_clauses = vec!["1=1".to_string()];
+
         if let Some(ref pattern) = criteria.wallet_pattern {
-            query_builder.push(" AND wallet_address ILIKE ");
-            query_builder.push_bind(format!("%{}%", pattern));
+            where_clauses.push(format!("wallet_address ILIKE '%{}%'", pattern.replace("'", "''")));
         }
 
         if let Some(is_active) = criteria.is_active {
-            query_builder.push(" AND is_active = ");
-            query_builder.push_bind(is_active);
+            where_clauses.push(format!("is_active = {}", is_active));
         }
 
-        let query = query_builder.build_query_scalar::<i64>();
-        let count = query.fetch_one(self.db_pool.as_ref())
+        let query = format!(
+            "SELECT COUNT(*) as count FROM wallet_users WHERE {}",
+            where_clauses.join(" AND ")
+        );
+
+        #[derive(diesel::QueryableByName)]
+        struct CountResult {
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            count: i64,
+        }
+
+        let result = diesel::sql_query(query)
+            .load::<CountResult>(&mut conn)
             .await
             .map_err(|e| {
                 error!("Failed to count wallet users: {}", e);
@@ -416,31 +576,57 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 .with_component("wallet_user_repository")
             })?;
 
-        Ok(count as u64)
+        Ok(result.get(0).map(|r| r.count as u64).unwrap_or(0))
     }
 
     async fn find_eligible_for_web3_permissions(&self, chain_id: u64) -> AppResult<Vec<WalletUser>> {
-        // Find active users who don't have Web3 permissions for this chain yet
-        let rows = sqlx::query(
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation("find_eligible_for_web3_permissions"))?;
+
+        let query = format!(
             r#"
             SELECT
-                wallet_address, is_active, permissions, wallet_metadata,
+                wallet_address, is_active, wallet_metadata,
                 created_at, updated_at, last_auth_at
             FROM wallet_users
             WHERE is_active = true
-            AND (wallet_metadata->>'primary_chain_id')::bigint = $1
+            AND (wallet_metadata->>'primary_chain_id')::bigint = {}
             "#,
-        )
-        .bind(chain_id as i64)
-        .fetch_all(self.db_pool.as_ref())
-        .await
-        .map_err(|e| {
-            error!("Failed to find eligible users for chain {}: {}", chain_id, e);
-            AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-        })?;
+            chain_id
+        );
 
-        self.rows_to_users(rows).await
+        let rows = diesel::sql_query(query)
+            .load::<WalletUserQueryResult>(&mut conn)
+            .await
+            .map_err(|e| {
+                error!("Failed to find eligible users for chain {}: {}", chain_id, e);
+                AppError::database_error(e.to_string())
+                    .with_component("wallet_user_repository")
+            })?;
+
+        let mut users = Vec::new();
+        for row in rows {
+            if let Ok(wallet_addr) = WalletAddress::new(row.wallet_address) {
+                if let Ok(metadata) = WalletMetadata::from_json(row.wallet_metadata) {
+                    let wallet = WalletUser::load(crate::domain::wallet_management::aggregates::wallet_user::WalletUserLoadParams {
+                        wallet_address: wallet_addr,
+                        is_active: row.is_active,
+                        permissions: HashSet::new(),
+                        permission_groups: HashSet::new(),
+                        wallet_metadata: metadata,
+                        created_at: row.created_at,
+                        updated_at: row.updated_at,
+                        last_auth_at: row.last_auth_at,
+                        version: 1,
+                    });
+                    users.push(wallet);
+                }
+            }
+        }
+
+        Ok(users)
     }
 
     async fn save_batch(&self, users: &[WalletUser]) -> AppResult<()> {
@@ -448,56 +634,62 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
             return Ok(());
         }
 
-        let mut tx = self.db_pool.begin().await
-            .map_err(|e| AppError::database_error(format!("Transaction error: {}", e))
-                .with_component("wallet_user_repository"))?;
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation(&format!("save_batch({} users)", users.len())))?;
 
+        // Execute batch inserts without transaction for now
+        // TODO: Implement proper transaction support after adding From<diesel::result::Error> trait
         for user in users {
-            // NOTE: Permissions now in normalized tables, managed separately
             let metadata_json = user.wallet_metadata().to_json()
                 .map_err(|e| AppError::validation_error(format!("Failed to serialize wallet metadata: {}", e))
                 .with_component("wallet_user_repository"))?;
 
-            sqlx::query!(
-                r#"
-                INSERT INTO wallet_users (
-                    wallet_address, is_active, wallet_metadata,
-                    created_at, updated_at, last_auth_at
-                ) VALUES ($1, $2, $3, $4, $5, $6)
-                ON CONFLICT (wallet_address)
-                DO UPDATE SET
-                    is_active = EXCLUDED.is_active,
-                    wallet_metadata = EXCLUDED.wallet_metadata,
-                    updated_at = EXCLUDED.updated_at,
-                    last_auth_at = EXCLUDED.last_auth_at
-                "#,
-                user.wallet_address().as_str().to_lowercase(),
-                user.is_active(),
-                metadata_json,
-                user.created_at(),
-                user.updated_at(),
-                user.last_auth_at()
-            )
-            .execute(&mut *tx)
-            .await
-            .map_err(|e| {
-                error!("Failed to save wallet user in batch {}: {}", user.wallet_address().as_str(), e);
-                AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-            })?;
-        }
+            let new_user = NewWalletUserDb {
+                wallet_address: user.wallet_address().as_str().to_lowercase(),
+                is_active: user.is_active(),
+                tier_level: "free".to_string(),
+                wallet_metadata: metadata_json.clone(),
+            };
 
-        tx.commit().await
-            .map_err(|e| AppError::database_error(format!("Transaction commit error: {}", e))
-                .with_component("wallet_user_repository"))?;
+            diesel::insert_into(wallet_users::table)
+                .values(&new_user)
+                .on_conflict(wallet_users::wallet_address)
+                .do_update()
+                .set((
+                    wallet_users::is_active.eq(user.is_active()),
+                    wallet_users::wallet_metadata.eq(metadata_json),
+                    wallet_users::updated_at.eq(user.updated_at()),
+                    wallet_users::last_auth_at.eq(user.last_auth_at()),
+                ))
+                .execute(&mut conn)
+                .await
+                .map_err(|e| {
+                    error!("Failed to save wallet user in batch {}: {}", user.wallet_address().as_str(), e);
+                    AppError::database_error(e.to_string())
+                        .with_component("wallet_user_repository")
+                })?;
+        }
 
         info!("Saved batch of {} wallet users", users.len());
         Ok(())
     }
 
     async fn health_check(&self) -> AppResult<()> {
-        sqlx::query!("SELECT 1 as health_check")
-            .fetch_one(self.db_pool.as_ref())
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation("health_check"))?;
+
+        #[derive(diesel::QueryableByName)]
+        struct HealthCheck {
+            #[diesel(sql_type = diesel::sql_types::Integer)]
+            health_check: i32,
+        }
+
+        diesel::sql_query("SELECT 1 as health_check")
+            .load::<HealthCheck>(&mut conn)
             .await
             .map_err(|e| {
                 error!("Health check failed: {}", e);
@@ -581,79 +773,302 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
     }
 }
 
-// Helper methods
-impl WalletUserRepositoryAdapter {
-    async fn rows_to_users(&self, rows: Vec<sqlx::postgres::PgRow>) -> AppResult<Vec<WalletUser>> {
-        let mut users = Vec::new();
-        
-        for row in rows {
-            let wallet_address: String = row.get("wallet_address");
-            let is_active: bool = row.get("is_active");
-            let permissions_json: serde_json::Value = row.get("permissions");
-            let wallet_metadata: serde_json::Value = row.get("wallet_metadata");
-            let created_at: DateTime<Utc> = row.get("created_at");
-            let updated_at: DateTime<Utc> = row.get("updated_at");
-            let last_auth_at: Option<DateTime<Utc>> = row.get("last_auth_at");
+#[async_trait]
+impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
+    async fn get_statistics(&self) -> AppResult<WalletUserStatistics> {
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation("get_statistics"))?;
 
-            if let Ok(wallet_addr) = WalletAddress::new(wallet_address) {
-                if let Ok(permission_strings) = serde_json::from_value::<Vec<String>>(permissions_json) {
-                    let permission_set: HashSet<Permission> = permission_strings
-                        .into_iter()
-                        .filter_map(|p| Permission::new(p).ok())
-                        .collect();
+        #[derive(diesel::QueryableByName)]
+        struct StatsResult {
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            total_users: i64,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            active_users: i64,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            recent_auth_24h: i64,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            new_wallets_24h: i64,
+        }
 
-                    // Permission groups are now loaded from wallet_user_groups relationship table
-                    // Default to empty set - groups loaded separately if needed
-                    let permission_groups = HashSet::new();
+        let query = r#"
+            SELECT
+                COUNT(*) as total_users,
+                COUNT(*) FILTER (WHERE is_active = true) as active_users,
+                COUNT(*) FILTER (WHERE last_auth_at > NOW() - INTERVAL '24 hours') as recent_auth_24h,
+                COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours') as new_wallets_24h
+            FROM wallet_users
+        "#;
 
-                    if let Ok(metadata) = WalletMetadata::from_json(wallet_metadata) {
-                        let wallet = WalletUser::load(crate::domain::wallet_management::aggregates::wallet_user::WalletUserLoadParams {
-                            wallet_address: wallet_addr,
-                            is_active,
-                            permissions: permission_set,
-                            permission_groups,
-                            wallet_metadata: metadata,
-                            created_at,
-                            updated_at,
-                            last_auth_at,
-                            version: 1,
-                        });
-                        users.push(wallet);
-                    }
+        let results = diesel::sql_query(query)
+            .load::<StatsResult>(&mut conn)
+            .await
+            .map_err(|e| {
+                error!("Failed to get wallet user statistics: {}", e);
+                AppError::database_error(e.to_string())
+                    .with_component("wallet_user_repository")
+                    .with_operation("get_statistics")
+            })?;
+
+        let stats = results.get(0).ok_or_else(|| {
+            AppError::database_error("No statistics returned".to_string())
+                .with_component("wallet_user_repository")
+        })?;
+
+        // Tier system removed - permission groups tracked via wallet_user_groups table
+        let users_by_permission_group = HashMap::new();
+
+        Ok(WalletUserStatistics {
+            total_users: stats.total_users as u64,
+            active_users: stats.active_users as u64,
+            users_by_permission_group,
+            users_by_chain: HashMap::new(), // TODO: implement
+            manual_permissions: 0, // TODO: implement
+            nft_gated_permissions: 0, // TODO: implement
+            token_gated_permissions: 0, // TODO: implement
+            dao_governance_permissions: 0, // TODO: implement
+            recent_authentications_24h: stats.recent_auth_24h as u64,
+            new_wallets_24h: stats.new_wallets_24h as u64,
+        })
+    }
+
+    async fn get_web3_analytics(&self) -> AppResult<Web3Analytics> {
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation("get_web3_analytics"))?;
+
+        // Query permission type distribution
+        #[derive(diesel::QueryableByName)]
+        struct PermissionTypeRow {
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            permission_type: String,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            count: i64,
+        }
+
+        let permission_type_rows = diesel::sql_query(
+            r#"
+            SELECT
+                permission_type,
+                COUNT(DISTINCT p.id) as count
+            FROM permissions p
+            WHERE p.is_active = true
+            GROUP BY permission_type
+            "#
+        )
+        .load::<PermissionTypeRow>(&mut conn)
+        .await
+        .map_err(|e| {
+            error!("Failed to get permission type distribution: {}", e);
+            AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation("get_web3_analytics - permission_type_distribution")
+        })?;
+
+        let mut permission_type_distribution = HashMap::new();
+        for row in permission_type_rows {
+            permission_type_distribution.insert(row.permission_type, row.count as u64);
+        }
+
+        // Query chain distribution from wallet metadata
+        #[derive(diesel::QueryableByName)]
+        struct ChainRow {
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            chain_id: Option<String>,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            count: i64,
+        }
+
+        let chain_rows = diesel::sql_query(
+            r#"
+            SELECT
+                (wallet_metadata->>'primary_chain_id')::text as chain_id,
+                COUNT(*) as count
+            FROM wallet_users
+            WHERE is_active = true
+              AND wallet_metadata->>'primary_chain_id' IS NOT NULL
+            GROUP BY (wallet_metadata->>'primary_chain_id')::text
+            ORDER BY count DESC
+            "#
+        )
+        .load::<ChainRow>(&mut conn)
+        .await
+        .map_err(|e| {
+            error!("Failed to get chain distribution: {}", e);
+            AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation("get_web3_analytics - chain_distribution")
+        })?;
+
+        let mut chain_distribution = HashMap::new();
+        for row in chain_rows {
+            if let Some(chain_id_str) = row.chain_id {
+                if let Ok(chain_id) = chain_id_str.parse::<u64>() {
+                    chain_distribution.insert(chain_id, row.count as u64);
                 }
             }
         }
 
-        Ok(users)
+        info!("Generated Web3 analytics: {} permission types, {} chains",
+              permission_type_distribution.len(), chain_distribution.len());
+
+        Ok(Web3Analytics {
+            top_nft_contracts: Vec::new(), // TODO: Requires blockchain indexer integration
+            top_token_contracts: Vec::new(), // TODO: Requires blockchain indexer integration
+            top_dao_contracts: Vec::new(), // TODO: Requires blockchain indexer integration
+            chain_distribution,
+            permission_type_distribution,
+        })
     }
 
-    async fn rows_to_wallet_users_simple(&self, rows: Vec<sqlx::postgres::PgRow>) -> AppResult<Vec<WalletUser>> {
-        // Simplified version that doesn't fail on individual row parsing errors
-        let mut users = Vec::new();
-        
-        for row in rows {
-            if let (Ok(wallet_address), Ok(is_active)) = (
-                row.try_get::<String, _>("wallet_address"),
-                row.try_get::<bool, _>("is_active")
-            ) {
-                if let Ok(wallet_addr) = WalletAddress::new(wallet_address) {
-                    // Use defaults if parsing fails
-                    let permissions = HashSet::new(); // Simplified
-                    let permission_groups = HashSet::from(["Basic Access Group".to_string()]);
-                    let metadata = WalletMetadata::default();
-                    let created_at = row.try_get("created_at").unwrap_or_else(|_| Utc::now());
-                    let updated_at = row.try_get("updated_at").unwrap_or_else(|_| Utc::now());
-                    let last_auth_at = row.try_get("last_auth_at").ok();
+    async fn get_permission_distribution(&self) -> AppResult<HashMap<String, u64>> {
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation("get_permission_distribution"))?;
 
+        // Query permission usage across all active users
+        #[derive(diesel::QueryableByName)]
+        struct PermissionDistRow {
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            permission_string: String,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            user_count: i64,
+        }
+
+        let rows = diesel::sql_query(
+            r#"
+            SELECT
+                p.permission_string,
+                COUNT(DISTINCT COALESCE(wgm.wallet_address, wdp.wallet_address)) as user_count
+            FROM permissions p
+            LEFT JOIN permission_group_memberships pgm ON p.id = pgm.permission_id
+            LEFT JOIN wallet_group_memberships wgm ON pgm.group_id = wgm.group_id AND wgm.is_active = true
+            LEFT JOIN wallet_direct_permissions wdp ON p.id = wdp.permission_id AND wdp.is_active = true
+            WHERE p.is_active = true
+            GROUP BY p.permission_string
+            HAVING COUNT(DISTINCT COALESCE(wgm.wallet_address, wdp.wallet_address)) > 0
+            ORDER BY user_count DESC
+            "#
+        )
+        .load::<PermissionDistRow>(&mut conn)
+        .await
+        .map_err(|e| {
+            error!("Failed to get permission distribution: {}", e);
+            AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation("get_permission_distribution")
+        })?;
+
+        let mut distribution = HashMap::new();
+        for row in rows {
+            distribution.insert(row.permission_string, row.user_count as u64);
+        }
+
+        info!("Retrieved permission distribution for {} permissions", distribution.len());
+        Ok(distribution)
+    }
+
+    async fn get_activity_patterns_by_chain(
+        &self,
+        chain_id: u64,
+        days: u32
+    ) -> AppResult<Vec<(NaiveDate, u64)>> {
+        let cutoff_date = Utc::now() - chrono::Duration::days(days as i64);
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation(&format!("get_activity_patterns_by_chain(chain={}, days={})", chain_id, days)))?;
+
+        #[derive(diesel::QueryableByName)]
+        struct ActivityRow {
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Date>)]
+            auth_date: Option<NaiveDate>,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            daily_active_users: i64,
+        }
+
+        let query = format!(
+            r#"
+            SELECT
+                DATE(last_auth_at) as auth_date,
+                COUNT(DISTINCT wallet_address) as daily_active_users
+            FROM wallet_users
+            WHERE is_active = true
+              AND last_auth_at >= '{}'
+              AND (wallet_metadata->>'primary_chain_id')::bigint = {}
+            GROUP BY DATE(last_auth_at)
+            ORDER BY auth_date DESC
+            "#,
+            cutoff_date.to_rfc3339(),
+            chain_id
+        );
+
+        let rows = diesel::sql_query(query)
+            .load::<ActivityRow>(&mut conn)
+            .await
+            .map_err(|e| {
+                error!("Failed to get activity patterns for chain {}: {}", chain_id, e);
+                AppError::database_error(e.to_string())
+                    .with_component("wallet_user_repository")
+                    .with_operation(&format!("get_activity_patterns_by_chain(chain={}, days={})", chain_id, days))
+            })?;
+
+        let patterns: Vec<(NaiveDate, u64)> = rows.iter()
+            .filter_map(|row| {
+                row.auth_date.map(|date| (date, row.daily_active_users as u64))
+            })
+            .collect();
+
+        info!("Retrieved {} activity patterns for chain {} over {} days", patterns.len(), chain_id, days);
+        Ok(patterns)
+    }
+
+    async fn find_inactive_users(&self, days: u32) -> AppResult<Vec<WalletUser>> {
+        let cutoff_date = Utc::now() - chrono::Duration::days(days as i64);
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation("find_inactive_users"))?;
+
+        let query = format!(
+            r#"
+            SELECT
+                wallet_address, is_active, wallet_metadata,
+                created_at, updated_at, last_auth_at
+            FROM wallet_users
+            WHERE is_active = true
+            AND (last_auth_at IS NULL OR last_auth_at < '{}')
+            ORDER BY last_auth_at ASC NULLS FIRST
+            "#,
+            cutoff_date.to_rfc3339()
+        );
+
+        let rows = diesel::sql_query(query)
+            .load::<WalletUserQueryResult>(&mut conn)
+            .await
+            .map_err(|e| {
+                error!("Failed to find inactive users: {}", e);
+                AppError::database_error(e.to_string())
+                    .with_component("wallet_user_repository")
+            })?;
+
+        let mut users = Vec::new();
+        for row in rows {
+            if let Ok(wallet_addr) = WalletAddress::new(row.wallet_address) {
+                if let Ok(metadata) = WalletMetadata::from_json(row.wallet_metadata) {
                     let wallet = WalletUser::load(crate::domain::wallet_management::aggregates::wallet_user::WalletUserLoadParams {
                         wallet_address: wallet_addr,
-                        is_active,
-                        permissions,
-                        permission_groups,
+                        is_active: row.is_active,
+                        permissions: HashSet::new(),
+                        permission_groups: HashSet::new(),
                         wallet_metadata: metadata,
-                        created_at,
-                        updated_at,
-                        last_auth_at,
+                        created_at: row.created_at,
+                        updated_at: row.updated_at,
+                        last_auth_at: row.last_auth_at,
                         version: 1,
                     });
                     users.push(wallet);
@@ -663,100 +1078,53 @@ impl WalletUserRepositoryAdapter {
 
         Ok(users)
     }
-}
-
-#[async_trait]
-impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
-    async fn get_statistics(&self) -> AppResult<WalletUserStatistics> {
-        let stats = sqlx::query!(
-            r#"
-            SELECT
-                COUNT(*) as total_users,
-                COUNT(*) FILTER (WHERE is_active = true) as active_users,
-                COUNT(*) FILTER (WHERE last_auth_at > NOW() - INTERVAL '24 hours') as recent_auth_24h,
-                COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours') as new_wallets_24h
-            FROM wallet_users
-            "#
-        )
-        .fetch_one(self.db_pool.as_ref())
-        .await
-        .map_err(|e| {
-            error!("Failed to get wallet user statistics: {}", e);
-            AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-        })?;
-
-        // Tier system removed - permission groups tracked via wallet_user_groups table
-        let users_by_permission_group = HashMap::new();
-
-        Ok(WalletUserStatistics {
-            total_users: stats.total_users.unwrap_or(0) as u64,
-            active_users: stats.active_users.unwrap_or(0) as u64,
-            users_by_permission_group,
-            users_by_chain: HashMap::new(), // TODO: implement
-            manual_permissions: 0, // TODO: implement
-            nft_gated_permissions: 0, // TODO: implement
-            token_gated_permissions: 0, // TODO: implement
-            dao_governance_permissions: 0, // TODO: implement
-            recent_authentications_24h: stats.recent_auth_24h.unwrap_or(0) as u64,
-            new_wallets_24h: stats.new_wallets_24h.unwrap_or(0) as u64,
-        })
-    }
-
-    async fn get_web3_analytics(&self) -> AppResult<Web3Analytics> {
-        // Placeholder implementation
-        Ok(Web3Analytics {
-            top_nft_contracts: Vec::new(),
-            top_token_contracts: Vec::new(),
-            top_dao_contracts: Vec::new(),
-            chain_distribution: HashMap::new(),
-            permission_type_distribution: HashMap::new(),
-        })
-    }
-
-    async fn get_permission_distribution(&self) -> AppResult<HashMap<String, u64>> {
-        // Placeholder implementation
-        Ok(HashMap::new())
-    }
-
-    async fn get_activity_patterns_by_chain(
-        &self,
-        _chain_id: u64,
-        _days: u32
-    ) -> AppResult<Vec<(NaiveDate, u64)>> {
-        // Placeholder implementation
-        Ok(Vec::new())
-    }
-
-    async fn find_inactive_users(&self, days: u32) -> AppResult<Vec<WalletUser>> {
-        let cutoff_date = Utc::now() - chrono::Duration::days(days as i64);
-
-        let rows = sqlx::query(
-            r#"
-            SELECT
-                wallet_address, is_active, permissions, wallet_metadata,
-                created_at, updated_at, last_auth_at
-            FROM wallet_users
-            WHERE is_active = true
-            AND (last_auth_at IS NULL OR last_auth_at < $1)
-            ORDER BY last_auth_at ASC NULLS FIRST
-            "#,
-        )
-        .bind(cutoff_date)
-        .fetch_all(self.db_pool.as_ref())
-        .await
-        .map_err(|e| {
-            error!("Failed to find inactive users: {}", e);
-            AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
-        })?;
-
-        self.rows_to_users(rows).await
-    }
 
     async fn get_group_progression(&self) -> AppResult<HashMap<String, Vec<String>>> {
-        // Placeholder implementation for group progression analytics
-        Ok(HashMap::new())
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation("get_group_progression"))?;
+
+        // Query historical group assignments from audit log
+        #[derive(diesel::QueryableByName)]
+        struct ProgressionRow {
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            wallet_address: String,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            permission_group: String,
+        }
+
+        let rows = diesel::sql_query(
+            r#"
+            SELECT DISTINCT ON (wallet_address, permission_group)
+                wallet_address,
+                permission_group,
+                event_timestamp
+            FROM permission_audit_log
+            WHERE event_type = 'group_assigned'
+              AND permission_group IS NOT NULL
+            ORDER BY wallet_address, permission_group, event_timestamp ASC
+            "#
+        )
+        .load::<ProgressionRow>(&mut conn)
+        .await
+        .map_err(|e| {
+            error!("Failed to get group progression: {}", e);
+            AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+        })?;
+
+        let mut progression: HashMap<String, Vec<String>> = HashMap::new();
+        for row in rows {
+            if !row.wallet_address.is_empty() && !row.permission_group.is_empty() {
+                progression.entry(row.wallet_address)
+                    .or_insert_with(Vec::new)
+                    .push(row.permission_group);
+            }
+        }
+
+        info!("Retrieved group progression for {} wallets", progression.len());
+        Ok(progression)
     }
 
     async fn get_validation_success_rates(&self) -> AppResult<HashMap<String, f64>> {

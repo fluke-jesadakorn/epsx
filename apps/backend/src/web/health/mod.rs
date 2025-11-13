@@ -5,13 +5,14 @@ use axum::{response::Json, extract::State};
 use serde_json::{json, Value};
 use utoipa::ToSchema;
 use std::sync::Arc;
-use sqlx::PgPool;
+use diesel::prelude::*;
+use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
 use crate::infrastructure::cache::Cache;
 
 /// Health state for health endpoint
 #[derive(Clone)]
 pub struct HealthState {
-    pub pool: Arc<PgPool>,
+    pub pool: Arc<&'static Pool<AsyncPgConnection>>,
     pub cache: Arc<dyn Cache>,
 }
 
@@ -51,12 +52,30 @@ pub async fn health_check_handler(
 ) -> Json<Value> {
     let pool = state.pool;
     let cache = state.cache;
+
     // Check PostgreSQL
     let postgres_start = std::time::Instant::now();
-    let postgres_status = match sqlx::query("SELECT 1").fetch_one(pool.as_ref()).await {
-        Ok(_) => ServiceStatus {
-            status: "connected".to_string(),
-            latency_ms: Some(postgres_start.elapsed().as_millis() as u64),
+    let postgres_status = match pool.get().await {
+        Ok(mut conn) => {
+            #[derive(QueryableByName)]
+            struct HealthCheck {
+                #[diesel(sql_type = diesel::sql_types::Integer)]
+                _check: i32,
+            }
+
+            match diesel::sql_query("SELECT 1 as _check")
+                .get_result::<HealthCheck>(&mut conn)
+                .await
+            {
+                Ok(_) => ServiceStatus {
+                    status: "connected".to_string(),
+                    latency_ms: Some(postgres_start.elapsed().as_millis() as u64),
+                },
+                Err(_) => ServiceStatus {
+                    status: "disconnected".to_string(),
+                    latency_ms: None,
+                },
+            }
         },
         Err(_) => ServiceStatus {
             status: "disconnected".to_string(),

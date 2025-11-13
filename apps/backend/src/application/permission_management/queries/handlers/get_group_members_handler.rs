@@ -29,13 +29,13 @@ impl QueryHandler<GetGroupMembersQuery> for GetGroupMembersQueryHandler {
         let assignments = self.assignment_repository.find_by_group(&group_id).await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
-        // 3. Build response
+        // 3. Build response with actual timestamps
         let members: Vec<GroupMemberInfo> = assignments
             .iter()
             .map(|a| GroupMemberInfo {
                 wallet_address: a.wallet_address().as_str().to_string(),
-                assigned_at: chrono::Utc::now(), // TODO: Get from assignment
-                expires_at: None, // TODO: Get from assignment
+                assigned_at: a.assigned_at(),
+                expires_at: a.expires_at(),
                 is_active: a.is_active(),
             })
             .collect();

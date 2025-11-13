@@ -32,6 +32,7 @@ impl PricingService {
     /// Calculate discount based on billing cycle
     pub fn calculate_discount(_base_price: &Price, billing_cycle: &BillingCycle) -> f64 {
         match billing_cycle {
+            BillingCycle::PayPerUse => 0.0,
             BillingCycle::Monthly => 0.0,
             BillingCycle::Quarterly => 0.05,  // 5% discount
             BillingCycle::Yearly => 0.15,     // 15% discount

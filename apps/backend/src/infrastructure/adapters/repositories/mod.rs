@@ -12,9 +12,10 @@ pub mod mappers;
 
 pub mod wallet_user_repository_adapter;
 pub mod session_repository_adapter;
+pub mod permission_group_repository_adapter;
 
 
-pub use base_repository::{ BaseRepository, SqlxBaseRepository };
+pub use base_repository::{ BaseRepository, DieselBaseRepository };
 pub use database_types::*;
 pub use notification_repository_adapter::NotificationRepositoryAdapter;
 pub use stock_analysis_repository_adapter::StockAnalysisRepositoryAdapter;
@@ -22,26 +23,39 @@ pub use tradingview_eps_repository::TradingViewEPSRepository;
 
 pub use wallet_user_repository_adapter::WalletUserRepositoryAdapter;
 
+use diesel_async::{AsyncPgConnection, pooled_connection::AsyncDieselConnectionManager, pooled_connection::deadpool::Pool};
 
-// Database connection pool type - SQLx PostgreSQL pool
-pub type DbPool = sqlx::PgPool;
+// Database connection pool type - Diesel async PostgreSQL pool
+pub type DbPool = &'static Pool<AsyncPgConnection>;
 
 /// Create a database connection pool for production use
-pub async fn create_pool() -> Result<DbPool, sqlx::Error> {
+pub async fn create_pool() -> Result<&'static Pool<AsyncPgConnection>, Box<dyn std::error::Error>> {
   let database_url = std::env
     ::var("DATABASE_URL")
     .expect("DATABASE_URL must be set");
 
-  sqlx::PgPool::connect(&database_url).await
+  let config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(&database_url);
+  let pool = Pool::builder(config)
+    .max_size(10)
+    .build()?;
+
+  // Leak pool to make it 'static
+  Ok(Box::leak(Box::new(pool)))
 }
 
 /// Create a test database connection pool
-pub async fn create_test_pool() -> Result<DbPool, sqlx::Error> {
+pub async fn create_test_pool() -> Result<&'static Pool<AsyncPgConnection>, Box<dyn std::error::Error>> {
   let database_url = std::env
     ::var("DATABASE_URL")
     .unwrap_or_else(|_|
       "postgresql://postgres:password@localhost:5432/epsx_test_db".to_string()
     );
 
-  sqlx::PgPool::connect(&database_url).await
+  let config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(&database_url);
+  let pool = Pool::builder(config)
+    .max_size(5)
+    .build()?;
+
+  // Leak pool to make it 'static
+  Ok(Box::leak(Box::new(pool)))
 }

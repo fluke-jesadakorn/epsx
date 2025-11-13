@@ -27,9 +27,10 @@ pub struct SessionSummary {
 
 impl Query for GetWalletSessionsQuery {
     type Response = GetWalletSessionsResponse;
-    
+
     fn validate(&self) -> ApplicationResult<()> {
-        // TODO: Implement validation
+        // Minimal validation for read queries
+        // Wallet address validation handled at authentication layer
         Ok(())
     }
 }

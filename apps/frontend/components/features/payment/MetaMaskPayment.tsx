@@ -2,21 +2,24 @@
 
 import { useState, useEffect } from 'react'
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useConnect } from 'wagmi'
-import { parseUnits, formatUnits, getAddress, isAddress } from 'viem'
+import { parseUnits, formatUnits, getAddress } from 'viem'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { 
-  Wallet, 
-  Send, 
-  CheckCircle, 
-  AlertCircle, 
+import {
+  Wallet,
+  Send,
+  CheckCircle,
+  AlertCircle,
   Loader2,
   ExternalLink,
   Fuel,
-  DollarSign
+  DollarSign,
+  FileCheck
 } from 'lucide-react'
+import { PAYMENT_ESCROW_ABI } from '@/lib/contracts/PaymentEscrowABI'
+import { getPaymentEscrowAddress, getTokenAddress, getExplorerTxUrl, isPaymentEscrowDeployed } from '@/lib/contracts/addresses'
 
 interface MetaMaskPaymentProps {
   planId: number
@@ -26,40 +29,6 @@ interface MetaMaskPaymentProps {
   onSuccess: (txHash: string) => void
   onError: (error: string) => void
   className?: string
-}
-
-// USDT contract addresses on different networks
-const USDT_CONTRACTS = {
-  ethereum: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
-  polygon: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
-  arbitrum: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
-  base: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
-} as const
-
-// USDC contract addresses  
-const USDC_CONTRACTS = {
-  ethereum: '0xA0b86a33E6441986C3E02B9E5a81B4E89F9b6F60',
-  polygon: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174',
-  arbitrum: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
-  base: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'
-} as const
-
-// Payment recipient address (should be from env or config)
-const getPaymentRecipient = () => {
-  const address = process.env.NEXT_PUBLIC_PAYMENT_RECIPIENT_ADDRESS || '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045'
-  
-  // Log for debugging
-  console.log('Payment recipient address from env:', address)
-  
-  // Validate and checksum the address
-  if (!isAddress(address)) {
-    console.error('Address validation failed for:', address)
-    throw new Error(`Invalid payment recipient address: ${address}`)
-  }
-  
-  const checksummedAddress = getAddress(address)
-  console.log('Checksummed address:', checksummedAddress)
-  return checksummedAddress
 }
 
 // ERC20 ABI for transfer function
@@ -99,90 +68,202 @@ export default function MetaMaskPayment({
   onError,
   className = ''
 }: MetaMaskPaymentProps) {
+  // CACHE BUSTER - CODE VERSION: 2024-10-18-v3
+  console.log('🔥🔥🔥 MetaMaskPayment loaded - VERSION 3 - HARDCODED ADDRESS')
+
   const { address, isConnected, chain } = useAccount()
   const { connect, connectors } = useConnect()
   const [selectedToken, setSelectedToken] = useState<'USDT' | 'USDC'>('USDT')
   const [estimatedGas, setEstimatedGas] = useState<string>('0.005')
   const [isEstimatingGas, setIsEstimatingGas] = useState(false)
   const [autoConnectAttempted, setAutoConnectAttempted] = useState(false)
+  const [paymentStep, setPaymentStep] = useState<'idle' | 'approving' | 'paying' | 'complete'>('idle')
 
-  const { 
-    writeContract, 
-    data: hash, 
-    error: writeError, 
-    isPending: isWriting 
+  // Approval transaction
+  const {
+    writeContract: writeApproval,
+    data: approvalHash,
+    error: approvalError,
+    isPending: isApproving
   } = useWriteContract()
 
-  const { 
-    isLoading: isConfirming, 
-    isSuccess: isConfirmed,
-    error: receiptError 
+  const {
+    isLoading: isApprovalConfirming,
+    isSuccess: isApprovalConfirmed
   } = useWaitForTransactionReceipt({
-    hash,
+    hash: approvalHash,
   })
 
-  // Get contract address based on selected token and current chain
-  const getContractAddress = () => {
-    const contracts = selectedToken === 'USDT' ? USDT_CONTRACTS : USDC_CONTRACTS
-    
-    switch (chain?.id) {
-      case 1: return contracts.ethereum
-      case 137: return contracts.polygon  
-      case 42161: return contracts.arbitrum
-      case 8453: return contracts.base
-      default: return contracts.ethereum // fallback to ethereum
+  // Payment transaction
+  const {
+    writeContract: writePayment,
+    data: paymentHash,
+    error: paymentError,
+    isPending: isPaying
+  } = useWriteContract()
+
+  const {
+    isLoading: isPaymentConfirming,
+    isSuccess: isPaymentConfirmed,
+    error: receiptError
+  } = useWaitForTransactionReceipt({
+    hash: paymentHash,
+  })
+
+  // Get token contract address based on selected token and current chain
+  const getTokenContractAddress = () => {
+    if (!chain?.id) return null
+
+    try {
+      return getTokenAddress(selectedToken, chain.id)
+    } catch (error) {
+      console.error('Error getting token address:', error)
+      return null
     }
   }
 
-  // Handle successful transaction
-  useEffect(() => {
-    if (isConfirmed && hash) {
-      onSuccess(hash)
-    }
-  }, [isConfirmed, hash, onSuccess])
+  // Get payment escrow contract address
+  const getEscrowContractAddress = () => {
+    if (!chain?.id) return null
 
-  // Handle transaction errors
-  useEffect(() => {
-    if (writeError) {
-      // Check if it's an address validation error
-      if (writeError.message.includes('invalid') && writeError.message.includes('address')) {
-        onError(`Invalid payment address configuration. Please contact support.`)
-      } else {
-        onError(`Transaction failed: ${writeError.message}`)
+    try {
+      if (!isPaymentEscrowDeployed(chain.id)) {
+        console.error('Payment escrow not deployed on chain:', chain.id)
+        return null
       }
+      return getPaymentEscrowAddress(chain.id)
+    } catch (error) {
+      console.error('Error getting escrow address:', error)
+      return null
+    }
+  }
+
+  // Handle approval confirmation -> trigger payment
+  useEffect(() => {
+    if (isApprovalConfirmed && approvalHash) {
+      console.log('✅ Approval confirmed, proceeding to payment...')
+      setPaymentStep('paying')
+      executePayment()
+    }
+  }, [isApprovalConfirmed, approvalHash])
+
+  // Handle payment confirmation -> success
+  useEffect(() => {
+    if (isPaymentConfirmed && paymentHash) {
+      console.log('✅ Payment confirmed!')
+      setPaymentStep('complete')
+      onSuccess(paymentHash)
+    }
+  }, [isPaymentConfirmed, paymentHash, onSuccess])
+
+  // Handle errors
+  useEffect(() => {
+    if (approvalError) {
+      console.error('❌ Approval error:', approvalError)
+      setPaymentStep('idle')
+      onError(`Approval failed: ${approvalError.message}`)
+    }
+    if (paymentError) {
+      console.error('❌ Payment error:', paymentError)
+      setPaymentStep('idle')
+      onError(`Payment failed: ${paymentError.message}`)
     }
     if (receiptError) {
-      onError(`Transaction receipt error: ${receiptError.message}`)
+      console.error('❌ Receipt error:', receiptError)
+      setPaymentStep('idle')
+      onError(`Transaction error: ${receiptError.message}`)
     }
-  }, [writeError, receiptError, onError])
+  }, [approvalError, paymentError, receiptError, onError])
 
-  // Execute the token transfer
+  // Step 1: Approve escrow contract to spend tokens
   const handlePayment = async () => {
+    console.log('🚀 Starting two-step payment process')
+
     if (!isConnected || !address) {
+      console.error('❌ Wallet not connected')
       onError('Please connect your wallet first')
       return
     }
 
+    const tokenAddress = getTokenContractAddress()
+    const escrowAddress = getEscrowContractAddress()
+
+    if (!tokenAddress || !escrowAddress) {
+      onError('Payment contract not available on this network')
+      return
+    }
+
     try {
-      const contractAddress = getContractAddress()
       const decimals = 6 // USDT and USDC both use 6 decimals
       const transferAmount = parseUnits(amount.toString(), decimals)
 
-      // Validate payment recipient address
-      const recipient = getPaymentRecipient()
-      
-      writeContract({
-        address: contractAddress as `0x${string}`,
-        abi: ERC20_ABI,
-        functionName: 'transfer',
-        args: [recipient as `0x${string}`, transferAmount],
+      console.log('📝 Payment details:', {
+        planId,
+        tokenAddress,
+        escrowAddress,
+        amount,
+        decimals,
+        transferAmount: transferAmount.toString(),
+        chainId: chain?.id
       })
+
+      setPaymentStep('approving')
+
+      // Step 1: Approve escrow contract to spend tokens
+      console.log('⏳ Step 1: Approving token spending...')
+      writeApproval({
+        address: tokenAddress as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: 'approve',
+        args: [escrowAddress as `0x${string}`, transferAmount],
+      })
+
+      console.log('✅ Approval transaction submitted')
     } catch (error) {
-      if (error instanceof Error && error.message.includes('Invalid payment recipient address')) {
-        onError('Payment configuration error: Invalid recipient address. Please contact support.')
-      } else {
-        onError(`Payment preparation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
-      }
+      console.error('❌ handlePayment error:', error)
+      setPaymentStep('idle')
+      onError(`Payment preparation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  // Step 2: Execute payment through escrow contract
+  const executePayment = async () => {
+    const tokenAddress = getTokenContractAddress()
+    const escrowAddress = getEscrowContractAddress()
+
+    if (!tokenAddress || !escrowAddress) {
+      onError('Payment contract not available')
+      return
+    }
+
+    try {
+      const decimals = 6
+      const transferAmount = parseUnits(amount.toString(), decimals)
+
+      console.log('⏳ Step 2: Executing payment through escrow...')
+      writePayment({
+        address: escrowAddress as `0x${string}`,
+        abi: PAYMENT_ESCROW_ABI,
+        functionName: 'payForPlan',
+        args: [BigInt(planId), tokenAddress as `0x${string}`, transferAmount],
+      })
+
+      console.log('✅ Payment transaction submitted')
+    } catch (error) {
+      console.error('❌ executePayment error:', error)
+      setPaymentStep('idle')
+      onError(`Payment execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  // Get gas token symbol based on chain
+  const getGasTokenSymbol = () => {
+    switch (chain?.id) {
+      case 56:
+      case 97:
+        return 'BNB'
+      default:
+        return 'ETH'
     }
   }
 
@@ -192,7 +273,7 @@ export default function MetaMaskPayment({
     try {
       // Mock gas estimation - in real app, use eth_estimateGas
       await new Promise(resolve => setTimeout(resolve, 1000))
-      
+
       switch (chain?.id) {
         case 1: setEstimatedGas('0.008') // Ethereum mainnet
           break
@@ -201,6 +282,10 @@ export default function MetaMaskPayment({
         case 42161: setEstimatedGas('0.001') // Arbitrum
           break
         case 8453: setEstimatedGas('0.001') // Base
+          break
+        case 56: setEstimatedGas('0.0003') // BSC Mainnet
+          break
+        case 97: setEstimatedGas('0.0003') // BSC Testnet
           break
         default: setEstimatedGas('0.005')
       }
@@ -342,7 +427,7 @@ export default function MetaMaskPayment({
               {isEstimatingGas ? (
                 <Loader2 className="w-4 h-4" />
               ) : (
-                `~${estimatedGas} ETH`
+                `~${estimatedGas} ${getGasTokenSymbol()}`
               )}
             </span>
           </div>
@@ -408,8 +493,8 @@ export default function MetaMaskPayment({
         <Alert>
           <DollarSign className="w-4 h-4" />
           <AlertDescription className="text-sm">
-            Your transaction will be processed on the {chain?.name} network. 
-            Make sure you have enough {selectedToken} tokens and ETH for gas fees.
+            Your transaction will be processed on the {chain?.name} network.
+            Make sure you have enough {selectedToken} tokens and {getGasTokenSymbol()} for gas fees.
           </AlertDescription>
         </Alert>
       </CardContent>

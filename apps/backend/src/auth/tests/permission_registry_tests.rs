@@ -349,7 +349,7 @@ async fn test_parameter_route_matching() {
     assert_eq!(result.unwrap(), Some("test:posts:read".to_string()));
     
     // Test non-matching patterns
-    let result = registry.resolve_route_permission("GET", "/test/users").await;
+    let _result = registry.resolve_route_permission("GET", "/test/users").await;
     // Should not match the parameterized route
     
     // Cleanup
