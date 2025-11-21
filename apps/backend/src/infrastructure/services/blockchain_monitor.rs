@@ -229,7 +229,7 @@ impl BlockchainMonitor {
         let billing_cycle = "monthly";
 
         // Calculate subscription expiry based on billing cycle
-        let expires_at = match billing_cycle {
+        let _expires_at = match billing_cycle {
             "monthly" => Some(Utc::now() + Duration::days(30)),
             "yearly" => Some(Utc::now() + Duration::days(365)),
             "lifetime" => None, // No expiry for lifetime plans

@@ -39,7 +39,11 @@ async function main() {
     USDC_ADDRESS = "0x64544969ed7EBf5f083679233325356EbE738930";
     console.log("🌐 Network: BSC Testnet (97)");
   } else {
-    throw new Error(`Unsupported network: ${network.chainId}`);
+    // Local/Development network - use mock addresses
+    USDT_ADDRESS = "0x337610d27c682E347C9cD60BD4b3b107C9d34dDD"; // Use testnet addresses as fallback
+    USDC_ADDRESS = "0x64544969ed7EBf5f083679233325356EbE738930";
+    console.log("🌐 Network: Local Development (", network.chainId, ")");
+    console.log("⚠️  Using mock token addresses for development");
   }
 
   console.log("🪙 USDT Address:", USDT_ADDRESS);
@@ -93,7 +97,14 @@ async function main() {
     fs.mkdirSync(deploymentsDir, { recursive: true });
   }
 
-  const networkName = network.chainId === 56n ? "mainnet" : "testnet";
+  let networkName: string;
+if (network.chainId === 56n) {
+  networkName = "mainnet";
+} else if (network.chainId === 97n) {
+  networkName = "testnet";
+} else {
+  networkName = "localhost";
+}
   const deploymentFile = path.join(deploymentsDir, `${networkName}.json`);
   fs.writeFileSync(deploymentFile, JSON.stringify(deploymentInfo, null, 2));
 

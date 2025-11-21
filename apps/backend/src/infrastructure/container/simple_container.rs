@@ -131,7 +131,7 @@ impl SimpleContainer {
         let permission_group_repository = Arc::new(PermissionGroupRepositoryAdapter::new(diesel_pool));
 
         // Create domain services
-        let wallet_permission_service = Arc::new(WalletPermissionService);
+        let wallet_permission_service = Arc::new(WalletPermissionService::new());
 
         // Create infrastructure adapters
         let web3_permission_adapter = Arc::new(Web3PermissionServiceAdapter::new(
@@ -353,8 +353,7 @@ impl SimpleContainer {
     
     // Health check for all services
     pub async fn health_check(&self) -> ContainerHealthStatus {
-        use diesel::prelude::*;
-        use diesel_async::RunQueryDsl;
+                use diesel_async::RunQueryDsl;
 
         // Check database connectivity
         let database_healthy = async {

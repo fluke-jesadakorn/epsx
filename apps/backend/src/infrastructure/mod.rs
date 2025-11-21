@@ -6,7 +6,7 @@ pub mod event_bus;
 pub mod container;
 // pub mod integration; // Removed - empty module with only commented-out payment service
 pub mod cache;
-// pub mod models; // Removed - was empty
+pub mod models; // Re-added - contains Diesel database models
 pub mod security;
 pub mod config;
 pub mod database;
@@ -26,7 +26,7 @@ pub use event_bus::{SimpleEventBus};
 pub use container::DomainContainer;
 // pub use integration::{ PaymentServiceIntegration }; // Temporarily disabled
 pub use cache::{
-    MemoryCache, RedisCache, PermissionCache
+    MemoryCache, RedisCache, UnifiedPermissionCache
 };
 pub use security::{
     key_management as KeyManagement, threat_detection as ThreatDetection

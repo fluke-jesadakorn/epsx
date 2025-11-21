@@ -43,6 +43,16 @@ use utoipa::{
         crate::web::auth::handlers::logout_handler,
         crate::web::auth::handlers::get_session_handler,
         crate::web::auth::handlers::check_permission_handler,
+        crate::web::auth::handlers::grant_permission_handler,
+        crate::web::auth::handlers::revoke_permission_handler,
+
+        // ============================================================================
+        // USER MANAGEMENT ENDPOINTS
+        // ============================================================================
+        crate::web::user::unified_user_handlers::get_current_user_profile,
+        crate::web::user::unified_user_handlers::get_user_permissions,
+        crate::web::user::unified_user_handlers::update_user_preferences,
+        crate::web::user::unified_user_handlers::get_user_by_wallet_address,
 
         // ============================================================================
         // ANALYTICS ENDPOINTS
@@ -72,6 +82,7 @@ use utoipa::{
         crate::web::admin::wallet_management_handlers::get_user_handler,
         crate::web::admin::wallet_management_handlers::update_user_handler,
         crate::web::admin::wallet_management_handlers::get_user_stats_handler,
+        crate::web::admin::wallet_management_handlers::validate_user_permissions_bulk,
 
         // ============================================================================
         // ADMIN - PERMISSION GROUPS (Diesel-migrated handlers)
@@ -90,7 +101,7 @@ use utoipa::{
         crate::web::admin::plan_handlers::list_plans_handler,
 
         // ============================================================================
-        // NOTIFICATIONS - SSE
+        // NOTIFICATIONS - SSE endpoints only
         // ============================================================================
         crate::web::notifications::sse_handlers::sse_notifications_handler,
 
@@ -107,6 +118,13 @@ use utoipa::{
             crate::web::auth::handlers::SignatureVerificationRequest,
             crate::web::auth::handlers::LogoutRequest,
             crate::web::auth::handlers::PermissionCheckQuery,
+            crate::web::auth::handlers::GrantPermissionRequest,
+            crate::web::auth::handlers::RevokePermissionRequest,
+
+            // User Management schemas
+            crate::web::user::unified_user_handlers::UserProfile,
+            crate::web::user::unified_user_handlers::UserPermissionsQuery,
+            crate::web::user::unified_user_handlers::UpdateUserPreferencesRequest,
 
             // Admin Plan Management schemas
             crate::web::admin::plan_handlers::CreatePlanRequest,
@@ -115,6 +133,16 @@ use utoipa::{
 
             // Admin Wallet Management schemas
             crate::web::admin::wallet_management_handlers::UpdateWalletRequest,
+            crate::web::admin::wallet_management_handlers::BulkPermissionValidationRequest,
+            crate::web::admin::wallet_management_handlers::BulkPermissionValidationResponse,
+            crate::web::admin::wallet_management_handlers::WalletListQuery,
+            crate::web::admin::wallet_management_handlers::WalletSummaryResponse,
+            crate::web::admin::wallet_management_handlers::WalletDetailResponse,
+            crate::web::admin::wallet_management_handlers::WalletPermission,
+            crate::web::admin::wallet_management_handlers::WalletGroup,
+            crate::web::admin::wallet_management_handlers::WalletActivitySummary,
+            crate::web::admin::wallet_management_handlers::WalletListResponse,
+            crate::web::admin::wallet_management_handlers::WalletStatsResponse,
 
             // Admin Permission Group schemas
             crate::web::admin::permissions::groups::CreateGroupRequest,
@@ -136,6 +164,13 @@ use utoipa::{
             crate::web::analytics::eps::types::EPSQuarterlyData,
             crate::domain::shared_kernel::services::eps_cache_service::CacheStats,
 
+            // Notification schemas
+            crate::web::notifications::sse_handlers::SSENotification,
+            crate::web::notifications::sse_handlers::NotificationType,
+            crate::web::notifications::sse_handlers::NotificationPriority,
+            crate::web::notifications::sse_handlers::ScalarQuery,
+            crate::web::notifications::sse_handlers::ScalarListQuery,
+
             // Common response schemas
             crate::web::docs::schemas::ErrorResponse,
             crate::web::docs::schemas::HealthResponse,
@@ -154,6 +189,11 @@ use utoipa::{
             crate::web::docs::schemas::RankingItem,
             crate::web::docs::schemas::ChallengeResponse,
             crate::web::docs::schemas::VerificationResponse,
+
+            // Admin Response schemas
+            crate::web::admin::responses::AdminApiResponse<serde_json::Value>,
+            crate::web::admin::responses::AdminMetadata,
+            crate::web::admin::responses::AdminPermissionContext,
         )
     ),
     tags(

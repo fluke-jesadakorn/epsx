@@ -3,6 +3,7 @@
 
 pub mod base_repository;
 pub mod database_types;
+pub mod database_utils; // NEW: Shared database utilities and error handling macros
 pub mod notification_repository_adapter;
 pub mod stock_analysis_repository_adapter;
 pub mod market_data_repository_adapter;

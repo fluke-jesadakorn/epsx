@@ -1,9 +1,10 @@
 mod integration;
 
 // Removed reference to payment_verification_tests module
-use std::sync::Arc;
 use std::env;
-use sqlx::PgPool;
+
+// Import Diesel test utilities
+use epsx::infrastructure::database::diesel_connection_manager::get_diesel_pool;
 
 /// Main integration test runner
 /// 
@@ -28,24 +29,34 @@ async fn run_payment_verification_integration_tests() {
     println!("🚀 Starting EPSX Payment Verification Integration Tests");
     println!("📍 Database: {}", mask_connection_string(&database_url));
     
-    // Connect to database
-    let db_pool = Arc::new(
-        PgPool::connect(&database_url)
-            .await
-            .expect("Failed to connect to test database")
-    );
+    // Connect to database using Diesel
+    let _db_pool = get_diesel_pool()
+        .await
+        .expect("Failed to connect to test database");
 
     // Test suite placeholder - payment verification tests removed
     println!("✅ Database connection verified");
 
-    // Basic integration test - verify database connectivity
+    // Basic integration test - verify database connectivity using Diesel
     println!("\n🧪 Running basic integration tests...");
-    
-    // Simple test: verify we can query the database
-    let result = sqlx::query("SELECT 1 as test_value")
-        .fetch_one(db_pool.as_ref())
+
+    // Use Diesel for database health check
+    use diesel::prelude::*;
+    use diesel_async::RunQueryDsl;
+
+    #[derive(QueryableByName)]
+    struct TestResult {
+        #[diesel(sql_type = diesel::sql_types::Integer)]
+        test_value: i32,
+    }
+
+    let pool = get_diesel_pool().await.expect("Failed to get database pool");
+    let mut conn = pool.get().await.expect("Failed to get connection");
+
+    let result = diesel::sql_query("SELECT 1 as test_value")
+        .get_result::<TestResult>(&mut conn)
         .await;
-        
+
     match result {
         Ok(_) => println!("✅ Database query test passed"),
         Err(e) => panic!("❌ Database query test failed: {}", e),

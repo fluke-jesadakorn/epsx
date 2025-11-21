@@ -2,6 +2,7 @@
 
 import { createApiClient, isApiError } from '@/lib/api-client';
 import { requireAuth, requirePermission } from '../auth';
+import { API_ROUTES } from '@/shared/config/route-constants';
 
 // ============================================================================
 // Types
@@ -166,7 +167,7 @@ export async function sendNotification(notification: {
     await requirePermission('admin:notifications:send');
     
     const client = getClient();
-    await client.post('/api/admin/notifications/send', notification);
+    await client.post(API_ROUTES.ADMIN.NOTIFICATIONS + '/send', notification);
   } catch (error) {
     console.error('Send notification error:', error);
     throw error;

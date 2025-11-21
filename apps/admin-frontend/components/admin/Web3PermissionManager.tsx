@@ -33,7 +33,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Textarea } from '@/components/ui/textarea';
 
 interface WalletPermission {
@@ -337,7 +337,7 @@ export function Web3PermissionManager() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Crown className="h-6 w-6 text-yellow-500" />
-            Web3 Permission Management
+            Permission Management
           </CardTitle>
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Manage wallet permissions across all authentication methods: Manual, NFT, Token, and DAO governance

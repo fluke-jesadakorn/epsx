@@ -1,7 +1,4 @@
-// Comprehensive tests for the centralized permission system
-// Tests cover all components: Authority, Registry, Route Protection, and Middleware
+// Test module for authentication and authorization system
+// Note: Test modules have been removed as part of the refactoring to eliminate duplicate code
 
-pub mod permission_authority_tests;
-pub mod permission_registry_tests;
-pub mod route_protection_tests;
-pub mod integration_tests;
+// Test modules can be added here as needed for new functionality

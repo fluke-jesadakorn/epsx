@@ -24,10 +24,10 @@ export default async function ProfilePage() {
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">
-              Web3 Profile & Settings
+              Profile & Settings
             </h1>
             <p className="text-slate-600 dark:text-slate-400">
-              Manage your Web3 authentication, permissions, API keys, and account preferences
+              Manage your authentication, permissions, API keys, and account preferences
             </p>
           </div>
 

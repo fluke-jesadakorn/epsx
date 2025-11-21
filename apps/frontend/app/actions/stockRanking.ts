@@ -3,6 +3,7 @@
 import type { StockFinancialData } from '@/types/financialChartData';
 import { getStockFinancialData } from '@/lib/services/stock.service';
 import { getRankingLimitFromPermissions, getDisplayTierFromPermissions } from '@/app/constants/packages';
+import { MarketCountry } from '@/types/market';
 
 // Helper function to extract ranking limit from permissions
 function extractRankingLimitFromPermissions(permissions: string[]): number {
@@ -22,7 +23,7 @@ function deriveTierFromPermissions(permissions: string[]): string {
 export async function fetchStockRankingData(
   page = 1,
   limit = 10,
-  country?: string,
+  country?: typeof MarketCountry,
   quarters = 2,
 ): Promise<StockFinancialData[]> {
   // Use the same service as analytics page to leverage caching
@@ -37,7 +38,7 @@ export async function fetchStockRankingDataWithPermissions(
   userPermissions: string[],
   isExpired: boolean = true,
   page = 1,
-  country?: string,
+  country?: typeof MarketCountry,
   quarters = 2,
 ): Promise<StockFinancialData[]> {
   const maxLimit = isExpired ? 5 : extractRankingLimitFromPermissions(userPermissions);
@@ -60,7 +61,7 @@ export async function fetchStockRankingDataWithOffset(
   rankOffset = 0,
   page = 1,
   limit = 10,
-  country?: string,
+  country?: typeof MarketCountry,
   quarters = 2,
 ): Promise<{ data: StockFinancialData[]; rankOffset: number }> {
   const data = await getStockFinancialData(page, limit, country, quarters);

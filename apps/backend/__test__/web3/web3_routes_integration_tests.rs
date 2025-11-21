@@ -4,56 +4,56 @@ use axum::{
     Router,
 };
 use serde_json::{json, Value};
-use sqlx::PgPool;
+use diesel_async::pooled_connection::deadpool::Pool;
+use diesel_async::AsyncPgConnection;
 use std::env;
 use tower::ServiceExt;
 use uuid::Uuid;
 
 use crate::{
-    infrastructure::container::AppContainer,
+    infrastructure::container::SimpleContainer,
     web::auth::web3_routes,
+    infrastructure::database::diesel_connection_manager::get_diesel_pool,
 };
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::postgres::PgPoolOptions;
+    use diesel_async::RunQueryDsl;
+    use diesel::sql_query;
 
-    async fn setup_test_db() -> PgPool {
-        let database_url = env::var("DATABASE_URL")
-            .unwrap_or_else(|_| "postgresql://postgres:password@localhost:5432/epsx_test".to_string());
-        
-        PgPoolOptions::new()
-            .max_connections(5)
-            .connect(&database_url)
-            .await
-            .expect("Failed to connect to test database")
+    async fn setup_test_db() -> &'static Pool<AsyncPgConnection> {
+        get_diesel_pool().await.expect("Failed to create test database pool")
     }
 
     async fn setup_test_app() -> Router {
-        let pool = setup_test_db().await;
-        let container = AppContainer::new(pool).await.expect("Failed to create container");
-        
+        let _pool = setup_test_db().await;
+        let container = SimpleContainer::new().await.expect("Failed to create container");
+
         web3_routes::create_routes().with_state(container)
     }
 
-    async fn cleanup_test_data(pool: &PgPool) {
+    async fn cleanup_test_data(pool: &Pool<AsyncPgConnection>) -> Result<(), Box<dyn std::error::Error>> {
+        let mut conn = pool.get().await?;
+
         // Clean up test data
-        let _ = sqlx::query!("DELETE FROM web3_auth_nonces WHERE wallet_address LIKE '0xtest%'")
-            .execute(pool)
-            .await;
-        
-        let _ = sqlx::query!("DELETE FROM wallet_migrations WHERE wallet_address LIKE '0xtest%'")
-            .execute(pool)
-            .await;
-        
-        let _ = sqlx::query!("DELETE FROM wallet_permissions WHERE wallet_address LIKE '0xtest%'")
-            .execute(pool)
-            .await;
-        
-        let _ = sqlx::query!("DELETE FROM users WHERE email LIKE '%@wallet.epsx.io' AND email LIKE '0xtest%'")
-            .execute(pool)
-            .await;
+        let _ = sql_query("DELETE FROM web3_auth_nonces WHERE wallet_address LIKE '0xtest%'")
+            .execute(&mut conn)
+            .await?;
+
+        let _ = sql_query("DELETE FROM wallet_migrations WHERE wallet_address LIKE '0xtest%'")
+            .execute(&mut conn)
+            .await?;
+
+        let _ = sql_query("DELETE FROM wallet_permissions WHERE wallet_address LIKE '0xtest%'")
+            .execute(&mut conn)
+            .await?;
+
+        let _ = sql_query("DELETE FROM users WHERE email LIKE '%@wallet.epsx.io' AND email LIKE '0xtest%'")
+            .execute(&mut conn)
+            .await?;
+
+        Ok(())
     }
 
     #[tokio::test]

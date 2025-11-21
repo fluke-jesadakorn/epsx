@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Query, State},
+    extract::{Query, State, Path},
     response::sse::{Event, KeepAlive, Sse},
     response::IntoResponse,
 };
@@ -17,7 +17,7 @@ use crate::{
 // SSE NOTIFICATION TYPES
 // ============================================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct SSENotification {
     pub id: String,
     pub wallet_address: String,
@@ -56,6 +56,19 @@ pub struct SSEQuery {
     pub types: Option<String>, // comma-separated notification types
     pub timeout: Option<u64>,  // seconds
     pub token: Option<String>, // Bearer token (for EventSource compatibility)
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct ScalarQuery {
+    pub types: Option<String>,    // comma-separated notification types
+    pub limit: Option<u32>,       // maximum number to return
+    pub unread_only: Option<bool>, // filter for unread only
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct ScalarListQuery {
+    pub limit: Option<u32>, // maximum number to return
+    pub offset: Option<u32>, // number to skip
 }
 
 // ============================================================================
@@ -243,35 +256,7 @@ pub async fn sse_notifications_handler(
 // HEALTH CHECK
 // ============================================================================
 
-/// SSE health check endpoint
-pub async fn sse_health_handler(
-    State(app_state): State<AppState>,
-) -> Result<impl IntoResponse, AppError> {
-    // Check Redis health (if available)
-    let redis_healthy = if let Some(redis_pool) = &app_state.redis_pool {
-        redis_pool.health_check().await
-    } else {
-        false
-    };
-
-    // Get notification stats
-    let stats = crate::web::notifications::get_notification_stats(&app_state.db_pool)
-        .await
-        .ok();
-
-    Ok(axum::response::Json(serde_json::json!({
-        "status": if redis_healthy { "healthy" } else { "degraded" },
-        "redis_healthy": redis_healthy,
-        "timestamp": Utc::now(),
-        "stats": stats,
-    })))
-}
-
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-/// Helper function to filter notifications
+/// Scalar notifications endpoint - HTTP alternative to SSE
 fn should_send_notification(
     notification: &SSENotification,
     allowed_types: &Option<Vec<NotificationType>>,

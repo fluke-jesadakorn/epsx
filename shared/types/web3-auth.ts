@@ -21,7 +21,6 @@ export interface Web3VerificationRequest {
 export interface Web3AuthResult {
   wallet_address: string;
   permissions: string[];
-  tier_level: string;
   access_token: string;
   is_new_user: boolean;
 }
@@ -65,10 +64,10 @@ export interface GroupMembership {
 // Web3 Permission Types
 
 export enum Web3PermissionType {
-  Manual = "Manual",
-  NFT = "NFT", 
-  Token = "Token",
-  DAO = "DAO"
+  Manual = 'Manual',
+  NFT = 'NFT',
+  Token = 'Token',
+  DAO = 'DAO',
 }
 
 export interface Web3Permission {
@@ -155,7 +154,6 @@ export interface Web3AuthState {
   isLoading: boolean;
   wallet_address?: string;
   permissions: string[];
-  tier_level?: string;
   group_memberships: GroupMembership[];
   permission_stats?: PermissionStats;
   error?: Web3AuthError;
@@ -221,12 +219,22 @@ export interface NetworkConfig {
 
 // Conditional Permission Logic
 
-export type PermissionCondition = 
+export type PermissionCondition =
   | { type: 'And'; conditions: PermissionCondition[] }
   | { type: 'Or'; conditions: PermissionCondition[] }
   | { type: 'Not'; condition: PermissionCondition }
-  | { type: 'TokenBalance'; contract: string; network: string; min_balance: string }
-  | { type: 'NFTOwnership'; contract: string; network: string; token_id?: string }
+  | {
+      type: 'TokenBalance';
+      contract: string;
+      network: string;
+      min_balance: string;
+    }
+  | {
+      type: 'NFTOwnership';
+      contract: string;
+      network: string;
+      token_id?: string;
+    }
   | { type: 'DelegatedBy'; delegator: string }
   | { type: 'TimeWindow'; start: string; end: string };
 
@@ -264,22 +272,22 @@ export interface Web3AuthContextType {
   // Authentication State
   authState: Web3AuthState;
   walletState: WalletConnectionState;
-  
+
   // Authentication Actions
   connectWallet: () => Promise<void>;
   disconnectWallet: () => Promise<void>;
   authenticate: () => Promise<Web3AuthResult>;
   logout: () => Promise<void>;
-  
+
   // Permission Actions
   checkPermission: (permission: string) => Promise<boolean>;
   checkPermissions: (permissions: string[]) => Promise<BatchPermissionResult>;
   refreshPermissions: () => Promise<void>;
-  
+
   // Data Fetching
   getGroupMemberships: () => Promise<GroupMembership[]>;
   getPermissionStats: () => Promise<PermissionStats>;
-  
+
   // Utility
   hasPermission: (permission: string) => boolean;
   isAdmin: () => boolean;

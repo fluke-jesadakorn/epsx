@@ -12,7 +12,7 @@ use crate::domain::permission_management::{
     aggregates::permission_group::LoadPermissionGroupParams,
 };
 use crate::infrastructure::adapters::repositories::database_types::{PermissionGroupDb, NewPermissionGroupDb, PermissionRow};
-use crate::schema::{permission_groups, permission_group_memberships, permissions};
+use crate::schema::{permission_groups, permission_group_memberships};
 use std::collections::HashSet;
 
 #[derive(diesel::QueryableByName)]

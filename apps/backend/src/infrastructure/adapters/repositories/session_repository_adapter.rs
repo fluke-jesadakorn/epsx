@@ -4,11 +4,11 @@
 
 use crate::prelude::*;
 use chrono::{Duration, Utc};
-use tracing::{error, info, warn};
+use tracing::{error, info};
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, AsyncConnection, pooled_connection::deadpool::Pool};
+use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
 
-use crate::core::errors::{AppError, ErrorKind};
+use crate::core::errors::AppError;
 use crate::domain::wallet_management::{
     SessionRepositoryPort, SessionAnalyticsPort,
     SessionSearchCriteria, SessionSearchResult, SessionStatistics,
@@ -405,7 +405,6 @@ impl SessionRepositoryPort for SessionRepositoryAdapter {
     }
 
     async fn invalidate_all_for_wallet(&self, wallet_address: &UserId) -> Result<u32, AppError> {
-        use diesel::dsl::*;
 
         let mut conn = self.db_pool.get().await
             .map_err(|e| AppError::database_error(e.to_string())
@@ -435,7 +434,7 @@ impl SessionRepositoryPort for SessionRepositoryAdapter {
                 .with_component("session_repository")
                 .with_operation("find_expired_sessions"))?;
 
-        let query = r#"
+            let query = r#"
             SELECT id, user_id, access_token, expires_at, provider, session_token,
                    user_agent, ip_address::TEXT as ip_address, is_active, created_at
             FROM sessions
@@ -573,16 +572,11 @@ impl SessionRepositoryPort for SessionRepositoryAdapter {
                 .with_component("session_repository")
                 .with_operation("health_check"))?;
 
-        let query = "SELECT COUNT(*) as count FROM sessions";
+        use diesel::dsl::count_star;
 
-        #[derive(diesel::QueryableByName)]
-        struct CountRow {
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
-            count: i64,
-        }
-
-        let _result = diesel::sql_query(query)
-            .get_result::<CountRow>(&mut conn)
+        let _result: i64 = sessions::table
+            .select(count_star())
+            .first(&mut conn)
             .await
             .map_err(|e| AppError::database_error(e.to_string())
                 .with_component("session_repository")
@@ -676,7 +670,6 @@ impl SessionRepositoryPort for SessionRepositoryAdapter {
     }
 
     async fn get_session_statistics(&self) -> Result<SessionStatistics, AppError> {
-        use diesel::dsl::*;
 
         let mut conn = self.db_pool.get().await
             .map_err(|e| AppError::database_error(e.to_string())

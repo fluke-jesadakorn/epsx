@@ -1,5 +1,5 @@
-import type { NextConfig } from 'next';
 import dotenv from 'dotenv';
+import type { NextConfig } from 'next';
 import path from 'path';
 
 // Load environment variables from root .env file
@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
   // outputFileTracingRoot: process.env.NODE_ENV === 'production' ? '/app' : process.cwd(),
   eslint: {
     ignoreDuringBuilds: true,
+  },
+  turbopack: {
+    // ...
   },
   experimental: {
     // Fix WebSocket connection issues in Next.js 15
@@ -35,7 +38,7 @@ const nextConfig: NextConfig = {
         aggregateTimeout: 300,
       };
     }
-    
+
     // Fix browser-only APIs during SSR
     if (isServer) {
       config.resolve.fallback = {
@@ -67,7 +70,7 @@ const nextConfig: NextConfig = {
         },
       },
     };
-    
+
     return config;
   },
 };

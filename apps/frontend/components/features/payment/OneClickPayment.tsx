@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { env } from '../../../../../shared/env/schema';
+import { API_ROUTES } from '../../../../../shared/config/route-constants';
 import MetaMaskPayment from './MetaMaskPayment';
 
 interface OneClickPaymentProps {
@@ -73,7 +74,7 @@ type PaymentStep = 'package' | 'payment' | 'confirmation';
 const fetchPlans = async (): Promise<PaymentPackage[]> => {
   try {
     const baseUrl = env.BACKEND_URL;
-    const apiUrl = `${baseUrl}/api/public/plans`;
+    const apiUrl = `${baseUrl}${API_ROUTES.PUBLIC.PLANS}`;
 
     console.log('[OneClickPayment] Fetching plans from:', apiUrl);
 
@@ -123,16 +124,23 @@ const fetchPlans = async (): Promise<PaymentPackage[]> => {
 
       const effectivePrice = plan.effective_price ?? currentPrice;
 
-      // Parse ID with fallback to index to prevent NaN keys
-      let parsedId: number;
+      // Generate unique ID that maintains connection to original plan ID
+      // Format: {originalId}_{index} or just index+1 if original ID is invalid
+      let originalId: string | number;
       if (typeof plan.id === 'string') {
         const parsed = parseInt(plan.id, 10);
-        parsedId = isNaN(parsed) ? index + 1 : parsed;
+        originalId = isNaN(parsed) ? index + 1 : parsed;
       } else if (typeof plan.id === 'number') {
-        parsedId = isNaN(plan.id) ? index + 1 : plan.id;
+        originalId = isNaN(plan.id) ? index + 1 : plan.id;
       } else {
-        parsedId = index + 1;
+        originalId = index + 1;
       }
+
+      // Use composite key: originalId * 1000 + index to ensure uniqueness
+      // This maintains some connection to the original ID while preventing duplicates
+      const parsedId = typeof originalId === 'number'
+        ? originalId * 1000 + index
+        : parseInt(originalId.toString(), 10) * 1000 + index;
 
       return {
         ...plan,
@@ -615,7 +623,7 @@ export default function OneClickPayment({
             <div className="overflow-x-auto pb-4">
               <div className="flex gap-4 px-2">
                 {packages.map(pkg => (
-                  <div key={pkg.id} className="relative w-80 flex-shrink-0">
+                  <div key={`${pkg.id}-${pkg.name}`} className="relative w-80 flex-shrink-0">
                     {/* Main Card */}
                     <div
                       className={cn(
@@ -755,7 +763,7 @@ export default function OneClickPayment({
           {/* Desktop: Grid */}
           <div className="mb-8 hidden gap-6 md:grid md:grid-cols-3">
             {packages.map(pkg => (
-              <div key={pkg.id} className="relative">
+              <div key={`${pkg.id}-${pkg.name}`} className="relative">
                 {/* Main Card */}
                 <div
                   className={cn(

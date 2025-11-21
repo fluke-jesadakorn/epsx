@@ -41,19 +41,16 @@ impl DieselBaseRepository {
 
     /// Standard health check implementation
     pub async fn health_check_impl(&self) -> AppResult<()> {
+        use diesel_async::RunQueryDsl;
+
         let mut conn = self.pool.get().await
             .map_err(|e| AppError::invalid_operation(
                 format!("Failed to get database connection: {}", e)
             ))?;
 
-        #[derive(QueryableByName)]
-        struct HealthCheck {
-            #[diesel(sql_type = diesel::sql_types::Integer)]
-            _check: i32,
-        }
-
-        diesel::sql_query("SELECT 1 as _check")
-            .get_result::<HealthCheck>(&mut conn)
+        // Use Diesel DSL with a simple select statement
+        diesel::select(diesel::dsl::sql::<diesel::sql_types::Integer>("SELECT 1"))
+            .get_result::<i32>(&mut conn)
             .await
             .map_err(|e| AppError::invalid_operation(
                 format!("Database health check failed: {}", e)

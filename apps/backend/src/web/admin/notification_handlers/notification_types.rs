@@ -23,7 +23,7 @@ pub struct SendNotificationRequest {
     pub schedule_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct NotificationFilters {
     pub page: Option<u32>,
     pub limit: Option<u32>,
@@ -40,7 +40,7 @@ pub struct NotificationFilters {
 // RESPONSE TYPES
 // ============================================================================
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct SendNotificationResponse {
     pub success: bool,
     pub data: SendNotificationData,
@@ -48,7 +48,7 @@ pub struct SendNotificationResponse {
     pub api_version: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct SendNotificationData {
     pub notification_id: String,
     pub recipients_count: usize,
@@ -56,7 +56,7 @@ pub struct SendNotificationData {
     pub delivery_status: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct NotificationsResponse {
     pub success: bool,
     pub data: NotificationsData,
@@ -64,7 +64,7 @@ pub struct NotificationsResponse {
     pub access_level: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct NotificationsData {
     pub notifications: Vec<NotificationDto>,
     pub total_count: usize,
@@ -74,7 +74,7 @@ pub struct NotificationsData {
     pub total_pages: u32,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, utoipa::ToSchema)]
 pub struct NotificationDto {
     pub id: String,
     pub wallet_address: String,

@@ -28,93 +28,217 @@ use crate::application::wallet_management::commands::admin_handlers as command_h
 // REQUEST/RESPONSE TYPES
 // ============================================================================
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, utoipa::IntoParams, utoipa::ToSchema)]
 pub struct WalletListQuery {
+    /// Page number for pagination
+    #[param(example = 1)]
     pub page: Option<i32>,
+    /// Number of items per page
+    #[param(example = 20)]
     pub limit: Option<i32>,
+    /// Search term to filter by wallet address
+    #[param(example = "0x1234")]
     pub search: Option<String>,
+    /// Filter by user tier (deprecated - always shows all tiers)
+    #[param(example = "premium")]
     pub tier: Option<String>,
+    /// Filter by user status (active/inactive)
+    #[param(example = "active")]
     pub status: Option<String>,
+    /// Filter by creation date from (RFC3339 format)
+    #[param(example = "2024-01-01T00:00:00Z")]
     pub date_from: Option<String>,
+    /// Filter by creation date to (RFC3339 format)
+    #[param(example = "2024-12-31T23:59:59Z")]
     pub date_to: Option<String>,
+    /// Sort field
+    #[param(example = "created_at")]
     pub sort_by: Option<String>,
+    /// Sort order (asc/desc)
+    #[param(example = "desc")]
     pub sort_order: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct WalletSummaryResponse {
+    /// Wallet address of the user
+    #[schema(example = "0x1234567890123456789012345678901234567890")]
     pub wallet_address: String,
+    /// Whether the wallet is currently active
+    #[schema(example = true)]
     pub is_active: bool,
+    /// When the wallet was created
     pub created_at: DateTime<Utc>,
+    /// Last authentication timestamp
     pub last_auth_at: Option<DateTime<Utc>>,
+    /// Total number of permissions assigned
+    #[schema(example = 5)]
     pub permissions_count: i32,
+    /// Number of permission groups assigned
+    #[schema(example = 2)]
     pub groups_count: i32,
+    /// Last activity timestamp
     pub last_activity: Option<DateTime<Utc>>,
+    /// Additional wallet metadata
     pub metadata: serde_json::Value,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct WalletDetailResponse {
+    /// Wallet address of the user
+    #[schema(example = "0x1234567890123456789012345678901234567890")]
     pub wallet_address: String,
+    /// Whether the wallet is currently active
+    #[schema(example = true)]
     pub is_active: bool,
+    /// When the wallet was created
     pub created_at: DateTime<Utc>,
+    /// Last authentication timestamp
     pub last_auth_at: Option<DateTime<Utc>>,
+    /// List of wallet permissions
     pub permissions: Vec<WalletPermission>,
+    /// List of wallet groups
     pub groups: Vec<WalletGroup>,
+    /// Activity summary for the wallet
     pub activity_summary: WalletActivitySummary,
+    /// Additional wallet metadata
     pub metadata: serde_json::Value,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct WalletPermission {
+    /// Permission string (format: platform:resource:action)
+    #[schema(example = "epsx:analytics:read")]
     pub permission: String,
+    /// Source of the permission (direct, group, etc.)
+    #[schema(example = "group")]
     pub source: String,
+    /// When the permission was granted
     pub granted_at: DateTime<Utc>,
+    /// When the permission expires (if applicable)
     pub expires_at: Option<DateTime<Utc>>,
+    /// Whether the permission is currently active
+    #[schema(example = true)]
     pub is_active: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct WalletGroup {
+    /// Group unique identifier
+    #[schema(example = "550e8400-e29b-41d4-a716-446655440000")]
     pub group_id: String,
+    /// Group display name
+    #[schema(example = "Premium Users")]
     pub group_name: String,
+    /// Group type (system, custom, etc.)
+    #[schema(example = "system")]
     pub group_type: String,
+    /// When the wallet was assigned to this group
     pub assigned_at: DateTime<Utc>,
+    /// When the group assignment expires (if applicable)
     pub expires_at: Option<DateTime<Utc>>,
+    /// Whether the group assignment is currently active
+    #[schema(example = true)]
     pub is_active: bool,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct WalletActivitySummary {
+    /// Total number of logins for this wallet
+    #[schema(example = 150)]
     pub total_logins: i32,
+    /// Number of logins in the last 30 days
+    #[schema(example = 25)]
     pub last_30_days_logins: i32,
+    /// Total number of permissions (including expired)
+    #[schema(example = 8)]
     pub total_permissions: i32,
+    /// Number of currently active permissions
+    #[schema(example = 5)]
     pub active_permissions: i32,
+    /// Number of expired permissions
+    #[schema(example = 3)]
     pub expired_permissions: i32,
+    /// Number of groups the wallet belongs to
+    #[schema(example = 2)]
     pub groups_count: i32,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct WalletListResponse {
+    /// List of wallet users
     pub users: Vec<WalletSummaryResponse>,
+    /// Total number of wallets matching the filters
+    #[schema(example = 250)]
     pub total: i32,
+    /// Pagination information
     pub pagination: PaginationInfo,
 }
 
 #[derive(Debug, Deserialize, utoipa::ToSchema)]
 pub struct UpdateWalletRequest {
+    /// Whether the wallet should be active or disabled
+    #[schema(example = true)]
     pub is_active: Option<bool>,
+    /// Additional metadata stored as JSON
+    #[schema(example = json!({"notes": "VIP customer", "tier": "premium"}))]
     pub metadata: Option<serde_json::Value>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct BulkPermissionValidationRequest {
+    /// Wallet address to validate permissions for
+    #[schema(example = "0x1234567890123456789012345678901234567890")]
+    pub wallet_address: String,
+    /// List of permissions to validate
+    #[schema(example = json!(["admin:users:read", "epsx:analytics:read"]))]
+    pub permissions: Vec<String>,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
+pub struct BulkPermissionValidationResponse {
+    /// Wallet address that was validated
+    #[schema(example = "0x1234567890123456789012345678901234567890")]
+    pub wallet_address: String,
+    /// Total number of permissions validated
+    #[schema(example = 4)]
+    pub total_permissions: u32,
+    /// Number of permissions granted
+    #[schema(example = 3)]
+    pub granted_count: u32,
+    /// Number of permissions denied
+    #[schema(example = 1)]
+    pub denied_count: u32,
+    /// Time taken for validation in milliseconds
+    #[schema(example = 15)]
+    pub validation_time_ms: u64,
+    /// Detailed results for each permission
+    #[schema(example = json!([{"permission": "admin:users:read", "granted": true, "source": "group"}]))]
+    pub results: Vec<serde_json::Value>,
+}
+
+#[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct WalletStatsResponse {
+    /// Total number of registered wallet users
+    #[schema(example = 1250)]
     pub total_users: i32,
+    /// Number of currently active users
+    #[schema(example = 980)]
     pub active_users: i32,
+    /// Number of inactive users
+    #[schema(example = 270)]
     pub inactive_users: i32,
+    /// User distribution by tier (deprecated - shows empty object)
+    #[schema(example = json!({}))]
     pub users_by_tier: serde_json::Value,
+    /// Number of new users in the last 30 days
+    #[schema(example = 85)]
     pub new_users_30_days: i32,
+    /// Number of active users in the last 30 days
+    #[schema(example = 650)]
     pub active_users_30_days: i32,
+    /// Monthly growth rate percentage
+    #[schema(example = 7.2)]
     pub growth_rate: f64,
 }
 
@@ -441,14 +565,29 @@ fn map_wallet_detail_dto(dto: query_models::WalletDetailDto) -> WalletDetailResp
 // ADMIN UTILITY HANDLERS
 // ============================================================================
 
-/**
- * Utility function to demonstrate bulk permission validation
- */
+/// Bulk permission validation for admin utilities
+/// Validates multiple permissions for a wallet in a single request
+#[utoipa::path(
+    post,
+    path = "/admin/wallets/validate-permissions-bulk",
+    tag = "admin-wallets",
+    request_body = BulkPermissionValidationRequest,
+    responses(
+        (status = 200, description = "Successfully validated permissions", body = AdminApiResponse<BulkPermissionValidationResponse>),
+        (status = 400, description = "Invalid request data"),
+        (status = 401, description = "Authentication required"),
+        (status = 403, description = "Admin access required"),
+        (status = 500, description = "Internal server error")
+    ),
+    security(
+        ("bearerAuth" = [])
+    )
+)]
 pub async fn validate_user_permissions_bulk(
     State(permission_state): State<PermissionState>,
     headers: axum::http::HeaderMap,
-    RequestJson(request): RequestJson<serde_json::Value>,
-) -> Result<Json<AdminApiResponse<serde_json::Value>>, StatusCode> {
+    RequestJson(request): RequestJson<BulkPermissionValidationRequest>,
+) -> Result<Json<AdminApiResponse<BulkPermissionValidationResponse>>, StatusCode> {
     info!("🔐 Admin: Performing bulk permission validation test");
 
     // Extract admin wallet
@@ -463,16 +602,8 @@ pub async fn validate_user_permissions_bulk(
     }
 
     // Get test wallet and permissions from request
-    let test_wallet = request.get("wallet_address")
-        .and_then(|v| v.as_str())
-        .unwrap_or("0x742d35Cc6AbAAC8b14A3780B5b0E11B2Ce65d695");
-
-    let test_permissions = vec![
-        "admin:users:read".to_string(),
-        "admin:users:write".to_string(),
-        "epsx:analytics:read".to_string(),
-        "epsx:data:access".to_string(),
-    ];
+    let test_wallet = request.wallet_address.clone();
+    let test_permissions = request.permissions.clone();
 
     // Create validation context
     let context = ValidationContext {
@@ -486,23 +617,33 @@ pub async fn validate_user_permissions_bulk(
 
     // Perform bulk validation
     match permission_state.authority.bulk_validate_permissions(
-        test_wallet,
+        &test_wallet,
         &test_permissions,
         &context,
     ).await {
         Ok(bulk_result) => {
-            info!("✅ Bulk validation completed: {}/{} permissions granted", 
+            info!("✅ Bulk validation completed: {}/{} permissions granted",
                 bulk_result.granted_count, bulk_result.total_permissions);
 
-            let response_data = serde_json::json!({
-                "wallet_address": test_wallet,
-                "total_permissions": bulk_result.total_permissions,
-                "granted_count": bulk_result.granted_count,
-                "denied_count": bulk_result.denied_count,
-                "validation_time_ms": bulk_result.validation_time_ms,
-                "results": bulk_result.results,
-                "system_version": "centralized_authority_v2"
-            });
+            let response_data = BulkPermissionValidationResponse {
+                wallet_address: test_wallet,
+                total_permissions: bulk_result.total_permissions as u32,
+                granted_count: bulk_result.granted_count as u32,
+                denied_count: bulk_result.denied_count as u32,
+                validation_time_ms: bulk_result.validation_time_ms,
+                results: bulk_result.results
+                    .into_iter()
+                    .map(|(permission, result)| {
+                        serde_json::json!({
+                            "permission": permission,
+                            "granted": result.granted,
+                            "source": result.source,
+                            "expires_at": result.expires_at,
+                            "reason": result.reason
+                        })
+                    })
+                    .collect(),
+            };
 
             let metadata = AdminMetadata {
                 operation: "bulk_permission_validation".to_string(),

@@ -12,7 +12,7 @@ import FilterPanel from './FilterPanel';
 import Pagination from './Pagination';
 import StockCard from './StockCard';
 import { CardDashboardView } from './CardDashboardView';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { LayoutGrid, List } from 'lucide-react';
 
 interface RichFilterOptions {

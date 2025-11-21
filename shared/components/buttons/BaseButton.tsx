@@ -74,53 +74,44 @@ export interface BaseButtonProps extends React.ButtonHTMLAttributes<HTMLButtonEl
 
 const variantStyles = {
   primary: [
-    'bg-blue-600 hover:bg-blue-700',
-    'text-white',
-    'border border-blue-600 hover:border-blue-700',
+    'bg-[hsl(var(--primary))] hover:bg-[hsl(var(--primary))]/90',
+    'text-[hsl(var(--primary-foreground))]',
+    'border border-[hsl(var(--primary))] hover:border-[hsl(var(--primary))]/90',
     'shadow-sm hover:shadow-md',
-    'focus:ring-blue-500'
+    'focus:ring-[hsl(var(--primary))]'
   ],
   secondary: [
-    'bg-gray-100 hover:bg-gray-200',
-    'text-gray-900',
-    'border border-gray-300 hover:border-gray-400',
-    'dark:bg-gray-700 dark:hover:bg-gray-600',
-    'dark:text-gray-100',
-    'dark:border-gray-600 dark:hover:border-gray-500',
-    'focus:ring-gray-500'
+    'bg-[hsl(var(--secondary))] hover:bg-[hsl(var(--secondary))]/80',
+    'text-[hsl(var(--secondary-foreground))]',
+    'border border-[hsl(var(--secondary))]/30 hover:border-[hsl(var(--secondary))]/50',
+    'focus:ring-[hsl(var(--secondary))]'
   ],
   tertiary: [
-    'bg-white hover:bg-gray-50',
-    'text-gray-700',
-    'border border-gray-300 hover:border-gray-400',
-    'dark:bg-gray-800 dark:hover:bg-gray-700',
-    'dark:text-gray-300',
-    'dark:border-gray-600 dark:hover:border-gray-500',
-    'focus:ring-gray-500'
+    'bg-[hsl(var(--card))] hover:bg-[hsl(var(--accent))]',
+    'text-[hsl(var(--foreground))]',
+    'border border-[hsl(var(--border))] hover:border-[hsl(var(--border))]/80',
+    'focus:ring-[hsl(var(--foreground))]/20'
   ],
   ghost: [
-    'bg-transparent hover:bg-gray-100',
-    'text-gray-700 hover:text-gray-900',
+    'bg-transparent hover:bg-[hsl(var(--accent))]',
+    'text-[hsl(var(--foreground))] hover:text-[hsl(var(--foreground))]/90',
     'border border-transparent',
-    'dark:hover:bg-gray-800',
-    'dark:text-gray-300 dark:hover:text-gray-100',
-    'focus:ring-gray-500'
+    'focus:ring-[hsl(var(--foreground))]/20'
   ],
   link: [
     'bg-transparent',
-    'text-blue-600 hover:text-blue-700',
+    'text-[hsl(var(--primary))] hover:text-[hsl(var(--primary))]/80',
     'border border-transparent',
     'underline hover:no-underline',
-    'dark:text-blue-400 dark:hover:text-blue-300',
-    'focus:ring-blue-500',
+    'focus:ring-[hsl(var(--primary))]',
     'shadow-none'
   ],
   destructive: [
-    'bg-red-600 hover:bg-red-700',
-    'text-white',
-    'border border-red-600 hover:border-red-700',
+    'bg-[hsl(var(--destructive))] hover:bg-[hsl(var(--destructive))]/90',
+    'text-[hsl(var(--destructive-foreground))]',
+    'border border-[hsl(var(--destructive))] hover:border-[hsl(var(--destructive))]/90',
     'shadow-sm hover:shadow-md',
-    'focus:ring-red-500'
+    'focus:ring-[hsl(var(--destructive))]'
   ],
   success: [
     'bg-green-600 hover:bg-green-700',
@@ -267,7 +258,7 @@ export const BaseButton = React.forwardRef<HTMLButtonElement, BaseButtonProps>((
     'inline-flex items-center justify-center',
     'font-medium',
     'transition-all duration-200',
-    'focus:outline-none focus:ring-2 focus:ring-offset-2',
+    'focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[hsl(var(--background))]',
     'select-none',
     
     // Variant styling

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Helper script to run migrations with .env loaded
+# Helper script to run migrations with .env loaded (Diesel)
 
 set -e
 
@@ -27,9 +27,14 @@ if [ -z "$DATABASE_URL" ]; then
     exit 1
 fi
 
-echo "📦 Running database migrations..."
+echo "📦 Running database migrations with Diesel..."
 echo "   DATABASE_URL: ${DATABASE_URL%%@*}@***"
 
-sqlx migrate run
+# Build and run the Diesel migration tool
+cargo run --bin migrate -- up
 
 echo "✅ Migrations completed successfully!"
+echo ""
+echo "💡 Other migration commands:"
+echo "   ./scripts/migrate.sh status    - Check migration status"
+echo "   cargo run --bin migrate -- help    - See all commands"

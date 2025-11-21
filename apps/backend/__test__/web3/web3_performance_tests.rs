@@ -1,6 +1,8 @@
 use anyhow::Result;
 use chrono::{Duration, Utc};
-use sqlx::PgPool;
+use diesel_async::pooled_connection::deadpool::Pool;
+use diesel_async::{AsyncPgConnection, RunQueryDsl};
+use diesel::sql_query;
 use std::env;
 use std::sync::Arc;
 use std::time::{Duration as StdDuration, Instant};
@@ -9,36 +11,31 @@ use uuid::Uuid;
 
 use crate::auth::web3_auth_service::{Web3AuthService, VerifyRequest};
 use crate::auth::web3_permission_service::Web3PermissionService;
+use crate::infrastructure::database::diesel_connection_manager::get_diesel_pool;
 
 #[cfg(test)]
 mod performance_tests {
     use super::*;
-    use sqlx::postgres::PgPoolOptions;
 
-    async fn setup_test_db() -> PgPool {
-        let database_url = env::var("DATABASE_URL")
-            .unwrap_or_else(|_| "postgresql://postgres:password@localhost:5432/epsx_test".to_string());
-        
-        PgPoolOptions::new()
-            .max_connections(20) // Higher connection pool for performance tests
-            .connect(&database_url)
-            .await
-            .expect("Failed to connect to test database")
+    async fn setup_test_db() -> &'static Pool<AsyncPgConnection> {
+        get_diesel_pool().await.expect("Failed to create test database pool")
     }
 
-    async fn cleanup_test_data(pool: &PgPool) -> Result<()> {
-        sqlx::query!("DELETE FROM web3_auth_nonces WHERE wallet_address LIKE '0xperf%'")
-            .execute(pool)
+    async fn cleanup_test_data(pool: &Pool<AsyncPgConnection>) -> Result<()> {
+        let mut conn = pool.get().await?;
+
+        sql_query("DELETE FROM web3_auth_nonces WHERE wallet_address LIKE '0xperf%'")
+            .execute(&mut conn)
             .await?;
-        
-        sqlx::query!("DELETE FROM wallet_permissions WHERE wallet_address LIKE '0xperf%'")
-            .execute(pool)
+
+        sql_query("DELETE FROM wallet_permissions WHERE wallet_address LIKE '0xperf%'")
+            .execute(&mut conn)
             .await?;
-        
-        sqlx::query!("DELETE FROM wallet_migrations WHERE wallet_address LIKE '0xperf%'")
-            .execute(pool)
+
+        sql_query("DELETE FROM wallet_migrations WHERE wallet_address LIKE '0xperf%'")
+            .execute(&mut conn)
             .await?;
-        
+
         Ok(())
     }
 
@@ -320,19 +317,18 @@ mod performance_tests {
         // Create many expired nonces
         let expired_time = Utc::now() - Duration::hours(1);
         
+        let mut conn = pool.get().await?;
         for i in 0..num_nonces {
             let wallet = format!("{}{:04x}", wallet_base, i % 100); // Reuse wallets
             let nonce = format!("expired_nonce_{}", i);
-            
-            sqlx::query!(
-                "INSERT INTO web3_auth_nonces (wallet_address, nonce, expires_at) VALUES ($1, $2, $3)",
-                wallet.to_lowercase(),
-                nonce,
-                expired_time
-            )
-            .execute(&pool)
-            .await
-            .unwrap();
+
+            sql_query("INSERT INTO web3_auth_nonces (wallet_address, nonce, expires_at) VALUES ($1, $2, $3)")
+                .bind::<diesel::sql_types::Text, _>(wallet.to_lowercase())
+                .bind::<diesel::sql_types::Text, _>(nonce)
+                .bind::<diesel::sql_types::Timestamp, _>(expired_time)
+                .execute(&mut conn)
+                .await
+                .unwrap();
         }
         
         // Test cleanup performance

@@ -6,9 +6,10 @@ import { PancakeCard } from '@/components/ui/PancakeCard'
 import { toast } from '@/hooks/use-toast'
 import { createPromotionsClient, type Promotion, isApiSuccess } from '@/shared/api/promotions'
 import { createAdminApiClient } from '@/shared/utils/api-client'
+import { useSharedAuth } from '@/shared/components/auth/Provider'
 
 interface PromotionManagementProps {
-  currentUser: any
+  currentUser?: any
 }
 
 /**
@@ -17,6 +18,8 @@ interface PromotionManagementProps {
  * @param root0.currentUser
  */
 export function PromotionManagement({ currentUser }: PromotionManagementProps) {
+  const { user: authUser } = useSharedAuth()
+  const user = currentUser || authUser
   const [promotions, setPromotions] = useState<Promotion[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedPromotion, setSelectedPromotion] = useState<Promotion | null>(null)

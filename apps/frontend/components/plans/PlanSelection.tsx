@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { CheckCircle, Crown, Zap, Shield, TrendingUp, AlertCircle, Star } from 'lucide-react'
 import Link from 'next/link'
+import { API_ROUTES } from '../../../../shared/config/route-constants'
 
 interface PlanFeature {
   id: number
@@ -62,7 +63,7 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
     try {
       setLoading(true)
       const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
-      const response = await fetch(`${backendUrl}/api/public/plans`)
+      const response = await fetch(`${backendUrl}${API_ROUTES.PUBLIC.PLANS}`)
 
       if (response.ok) {
         const data = await response.json()

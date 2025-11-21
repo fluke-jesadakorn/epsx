@@ -85,7 +85,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("Failed to create database pool");
 
     // Test connection
-    pool.get().await.expect("Failed to connect to PostgreSQL database");
+    let _ = pool.get().await.expect("Failed to connect to PostgreSQL database");
     info!("✅ Database connection established");
 
     // Verify database migration

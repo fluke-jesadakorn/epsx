@@ -6,7 +6,7 @@ use diesel_async::{AsyncPgConnection, pooled_connection::deadpool::Pool};
 use anyhow::Result;
 use std::sync::Arc;
 use crate::infrastructure::cache::{Cache, ServerlessCacheFactory};
-use crate::infrastructure::database::{get_diesel_pool, diesel_health_check};
+use crate::infrastructure::database::diesel_health_check;
 use crate::infrastructure::redis::RedisPool;
 use crate::web::notifications::RedisNotificationBroadcaster;
 use crate::infrastructure::adapters::repositories::wallet_user_repository_adapter::WalletUserRepositoryAdapter;
@@ -116,7 +116,7 @@ impl StatelessServiceFactory {
         let wallet_user_repository = WalletUserRepositoryAdapter::new(diesel_pool);
 
         // Create domain services (stateless by design)
-        let wallet_permission_service = WalletPermissionService;
+        let wallet_permission_service = WalletPermissionService::new();
 
         // Create infrastructure adapters using Diesel pool
         let web3_permission_adapter = Web3PermissionServiceAdapter::new(

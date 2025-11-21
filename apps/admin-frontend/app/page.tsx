@@ -259,7 +259,7 @@ export default function DashboardPage() {
               {
                 href: "/wallet-management",
                 title: "👛 Wallet Management",
-                description: "Manage Web3 wallets and permissions",
+                description: "Manage wallets and permissions",
                 gradient: "from-blue-400 to-cyan-500",
                 bgGradient: "from-blue-400/20 via-cyan-400/20 to-blue-400/20",
                 stats: `${dashboardStats.totalWallets} wallets`

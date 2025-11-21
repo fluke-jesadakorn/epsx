@@ -7,10 +7,10 @@ use serde_json::{json, Value};
 use crate::web::auth::AppState;
 
 /// Get public pricing plans (no authentication required)
-/// GET /api/public/plans
+/// GET /api/v1/public/plans
 #[utoipa::path(
     get,
-    path = "/api/public/plans",
+    path = "/api/v1/public/plans",
     tag = "public",
     responses(
         (status = 200, description = "Successfully retrieved subscription plans"),

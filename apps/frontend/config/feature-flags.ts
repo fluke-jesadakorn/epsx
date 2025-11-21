@@ -76,6 +76,13 @@ export function isWeb3AuthEnabled(userId?: string, userPermissions?: string[]): 
 }
 
 /**
+ * @deprecated Use isWeb3AuthEnabled instead
+ */
+export function isAuthEnabled(userId?: string, userPermissions?: string[]): boolean {
+  return isWeb3AuthEnabled(userId, userPermissions);
+}
+
+/**
  * Check if real-time analytics is enabled
  */
 export function isRealTimeAnalyticsEnabled(userId?: string, userPermissions?: string[]): boolean {

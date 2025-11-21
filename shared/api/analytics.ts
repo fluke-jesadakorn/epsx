@@ -13,6 +13,7 @@
  */
 
 import { UnifiedApiClient, ApiResponse, PaginatedResponse } from '../utils/api-client';
+import { API_ROUTES } from '../config/route-constants';
 
 // ============================================================================
 // ANALYTICS TYPES
@@ -161,7 +162,7 @@ export class AnalyticsAPIClient {
     };
 
     const response = await this.client.get<EPSRankingsResponse>(
-      '/api/public/analytics/rankings',
+      API_ROUTES.ANALYTICS.PUBLIC_RANKINGS,
       publicFilters,
       {
         timeout: 60000, // 60 second timeout for analytics queries
@@ -185,7 +186,7 @@ export class AnalyticsAPIClient {
    */
   async getPublicFilters(): Promise<AnalyticsFiltersResponse> {
     const response = await this.client.get<AnalyticsFiltersResponse>(
-      '/api/public/analytics/filters',
+      API_ROUTES.ANALYTICS.PUBLIC_FILTERS,
       undefined,
       {
         timeout: 30000, // 30 second timeout for filter queries
@@ -213,7 +214,7 @@ export class AnalyticsAPIClient {
    */
   async getAuthenticatedRankings(filters: AnalyticsFilters = {}): Promise<EPSRankingsResponse> {
     const response = await this.client.get<EPSRankingsResponse>(
-      '/api/analytics/rankings',
+      API_ROUTES.ANALYTICS.RANKINGS,
       filters,
       {
         timeout: 60000, // 60 second timeout for analytics queries
@@ -237,7 +238,7 @@ export class AnalyticsAPIClient {
    */
   async getAuthenticatedFilters(): Promise<AnalyticsFiltersResponse> {
     const response = await this.client.get<AnalyticsFiltersResponse>(
-      '/api/analytics/filters',
+      API_ROUTES.ANALYTICS.FILTERS,
       undefined,
       {
         timeout: 30000, // 30 second timeout for filter queries
@@ -261,7 +262,7 @@ export class AnalyticsAPIClient {
    */
   async exportAnalyticsData(exportRequest: ExportRequest): Promise<ExportResponse> {
     const response = await this.client.post<ExportResponse>(
-      '/api/auth/analytics/export',
+      API_ROUTES.ANALYTICS.EXPORT,
       exportRequest,
       {
         timeout: 90000, // 90 second timeout for export operations
@@ -318,7 +319,7 @@ export class AnalyticsAPIClient {
     growth_rate: number;
   }> {
     const response = await this.client.get(
-      '/api/admin/analytics/overview',
+      API_ROUTES.ADMIN.ANALYTICS_OVERVIEW,
       undefined,
       {
         timeout: 30000, // 30 second timeout for admin queries
@@ -348,7 +349,7 @@ export class AnalyticsAPIClient {
     };
   }> {
     const response = await this.client.get(
-      '/api/admin/analytics/users',
+      API_ROUTES.ADMIN.ANALYTICS_USERS,
       undefined,
       {
         timeout: 30000, // 30 second timeout for admin queries
@@ -375,7 +376,7 @@ export class AnalyticsAPIClient {
     group_membership: Array<{ group: string; count: number }>;
   }> {
     const response = await this.client.get(
-      '/api/admin/analytics/permissions',
+      API_ROUTES.ADMIN.ANALYTICS_PERMISSIONS,
       undefined,
       {
         timeout: 30000, // 30 second timeout for admin queries
@@ -403,7 +404,7 @@ export class AnalyticsAPIClient {
     revenue_trends: Array<{ month: string; revenue: number }>;
   }> {
     const response = await this.client.get(
-      '/api/admin/analytics/revenue',
+      API_ROUTES.ADMIN.ANALYTICS_REVENUE,
       undefined,
       {
         headers: {
@@ -430,7 +431,7 @@ export class AnalyticsAPIClient {
     error_rates: Record<string, number>;
   }> {
     const response = await this.client.get(
-      '/api/admin/analytics/performance',
+      API_ROUTES.ADMIN.ANALYTICS_PERFORMANCE,
       undefined,
       {
         headers: {

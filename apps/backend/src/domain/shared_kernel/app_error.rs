@@ -787,7 +787,7 @@ mod tests {
     
     #[test]
     fn test_app_error_creation() {
-        let error = AppError::validation_error("Invalid wallet address format");
+        let error = AppError::validation_error("wallet_address", "Invalid wallet address format");
         assert!(error.is_user_error());
         assert_eq!(error.severity(), ErrorSeverity::Low);
     }
@@ -814,7 +814,7 @@ mod tests {
     
     #[test]
     fn test_domain_error_conversion() {
-        let domain_error = super::super::domain_error::AppError::business_rule_violation("Test rule");
+        let domain_error = AppError::business_rule_violation("Test rule");
         let app_error: AppError = domain_error.into();
         
         matches!(app_error, AppError::BusinessRuleViolation { .. });

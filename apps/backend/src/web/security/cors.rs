@@ -48,6 +48,8 @@ pub fn production_cors_layer() -> CorsLayer {
             HeaderValue::from_static("purpose"),
             HeaderValue::from_static("x-middleware-prefetch"),
             HeaderValue::from_static("x-nextjs-data"),
+            // Common HTTP headers needed by browsers and clients
+            HeaderValue::from_static("cache-control"),
         ])
         .expose_headers([
             HeaderValue::from_static("x-request-id"),
@@ -92,6 +94,8 @@ fn production_cors_with_origins(allowed_origins: Vec<String>) -> CorsLayer {
                     HeaderValue::from_static("next-router-state-tree"),
                     HeaderValue::from_static("next-url"),
                     HeaderValue::from_static("referer"),
+                    // Common HTTP headers needed by browsers and clients
+                    HeaderValue::from_static("cache-control"),
                 ])
                 .expose_headers([
                     HeaderValue::from_static("x-request-id"),
@@ -115,9 +119,9 @@ fn production_cors_fallback() -> CorsLayer {
         .allow_origin(Any) // This should be avoided in production
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
         .allow_headers([
-            ACCEPT, 
-            AUTHORIZATION, 
-            CONTENT_TYPE, 
+            ACCEPT,
+            AUTHORIZATION,
+            CONTENT_TYPE,
             HeaderValue::from_static("rsc"),
             HeaderValue::from_static("next-router-prefetch"),
             HeaderValue::from_static("next-router-state-tree"),
@@ -126,6 +130,8 @@ fn production_cors_fallback() -> CorsLayer {
             HeaderValue::from_static("purpose"),
             HeaderValue::from_static("x-middleware-prefetch"),
             HeaderValue::from_static("x-nextjs-data"),
+            // Common HTTP headers needed by browsers and clients
+            HeaderValue::from_static("cache-control"),
         ])
         .allow_credentials(false) // Safer default
         .max_age(Duration::from_secs(300)) // 5 minutes
@@ -169,6 +175,8 @@ fn development_cors() -> CorsLayer {
             HeaderValue::from_static("purpose"),
             HeaderValue::from_static("x-middleware-prefetch"),
             HeaderValue::from_static("x-nextjs-data"),
+            // Common HTTP headers needed by browsers and clients
+            HeaderValue::from_static("cache-control"),
         ])
         .expose_headers([
             HeaderValue::from_static("x-request-id"),
@@ -202,6 +210,8 @@ pub fn oidc_cors_layer() -> CorsLayer {
             HeaderValue::from_static("purpose"),
             HeaderValue::from_static("x-middleware-prefetch"),
             HeaderValue::from_static("x-nextjs-data"),
+            // Common HTTP headers needed by browsers and clients
+            HeaderValue::from_static("cache-control"),
         ])
         .expose_headers([
             HeaderValue::from_static("x-request-id"),
@@ -238,6 +248,8 @@ pub fn admin_cors_layer() -> CorsLayer {
                 HeaderValue::from_static("purpose"),
                 HeaderValue::from_static("x-middleware-prefetch"),
                 HeaderValue::from_static("x-nextjs-data"),
+                // Common HTTP headers needed by browsers and clients
+                HeaderValue::from_static("cache-control"),
             ])
             .expose_headers([
                 HeaderValue::from_static("x-request-id"),
@@ -278,6 +290,8 @@ pub fn admin_cors_layer() -> CorsLayer {
                 HeaderValue::from_static("purpose"),
                 HeaderValue::from_static("x-middleware-prefetch"),
                 HeaderValue::from_static("x-nextjs-data"),
+                // Common HTTP headers needed by browsers and clients
+                HeaderValue::from_static("cache-control"),
             ])
             .expose_headers([
                 HeaderValue::from_static("x-request-id"),
