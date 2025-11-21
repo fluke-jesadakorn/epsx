@@ -8,9 +8,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { WalletConnectAuth } from '@/components/auth/WalletConnectAuth';
-import { Web3PermissionsDisplay } from '@/components/auth/Web3PermissionsDisplay';
+import { PermissionsDisplay } from '@/components/auth/PermissionsDisplay';
 import { ApiKeyManager } from '@/components/auth/ApiKeyManager';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { UserWalletDisplay, UserTierBadge, UserAuthStatus, UserPermissionsDisplay } from '@/shared/components/display/UserDisplay';
@@ -51,7 +51,7 @@ export function Web3Integration(_props: Web3IntegrationProps) {
             Web3 Authentication Dashboard
           </CardTitle>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            Manage your Web3 wallet connection, permissions, and authentication settings
+            Manage your wallet connection, permissions, and authentication settings
           </p>
         </CardHeader>
         <CardContent>
@@ -182,7 +182,7 @@ export function Web3Integration(_props: Web3IntegrationProps) {
                   </TabsContent>
 
                   <TabsContent value="permissions">
-                    <Web3PermissionsDisplay variant="detailed" />
+                    <PermissionsDisplay variant="detailed" />
                   </TabsContent>
 
                   <TabsContent value="api">

@@ -129,7 +129,24 @@
     "deploy:admin": "./scripts/deploy/service.sh admin",
     "deploy:all:dev": "ENV=development bun deploy:dev",
     "deploy:all:staging": "ENV=staging bun deploy:staging",
-    "deploy:all:prod": "ENV=production bun deploy:prod"
+    "deploy:all:prod": "ENV=production bun deploy:prod",
+    "deploy": "./scripts/deploy.sh",
+    "deploy:cloudrun": "./scripts/deploy.sh cloudrun",
+    "deploy:k8s": "./scripts/deploy.sh k8s",
+    "deploy:both": "./scripts/deploy.sh both",
+    "deploy:cloudrun:dev": "./scripts/deploy.sh cloudrun development",
+    "deploy:cloudrun:staging": "./scripts/deploy.sh cloudrun staging",
+    "deploy:cloudrun:prod": "./scripts/deploy.sh cloudrun production",
+    "deploy:k8s:dev": "./scripts/deploy.sh k8s development",
+    "deploy:k8s:staging": "./scripts/deploy.sh k8s staging",
+    "deploy:k8s:prod": "./scripts/deploy.sh k8s production",
+    "k8s:setup": "./scripts/k8s/setup-cluster.sh",
+    "k8s:deploy": "./scripts/k8s/deploy-k8s.sh",
+    "k8s:deploy:dev": "./scripts/k8s/deploy-k8s.sh development",
+    "k8s:deploy:staging": "./scripts/k8s/deploy-k8s.sh staging",
+    "k8s:deploy:prod": "./scripts/k8s/deploy-k8s.sh production",
+    "k8s:monitoring": "./scripts/k8s/monitoring/setup-monitoring.sh",
+    "k8s:monitoring:access": "./scripts/k8s/monitoring/access-monitoring.sh"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.7",
@@ -164,6 +181,7 @@
     "apps/*"
   ],
   "dependencies": {
+    "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
     "jose": "^5.10.0",
@@ -172,6 +190,7 @@
     "react-hook-form": "7.58.1",
     "react-icons": "^5.5.0",
     "siwe": "^2.3.2",
+    "tailwind-merge": "^3.4.0",
     "zod": "4.0.15",
     "zustand": "^5.0.8"
   },

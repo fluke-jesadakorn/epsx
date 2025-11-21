@@ -248,14 +248,14 @@ impl ProjectionManager {
                 Box::pin(async move {
                     // Project event
                     projection.project_event(conn, &event).await
-                        .map_err(|e| diesel::result::Error::RollbackTransaction)?;
+                        .map_err(|_| diesel::result::Error::RollbackTransaction)?;
 
                     // Update checkpoint
                     checkpoint_clone.advance(&event);
 
                     // Save checkpoint
                     projection.save_checkpoint(conn, &checkpoint_clone).await
-                        .map_err(|e| diesel::result::Error::RollbackTransaction)?;
+                        .map_err(|_| diesel::result::Error::RollbackTransaction)?;
 
                     Ok(checkpoint_clone)
                 })

@@ -8,21 +8,47 @@
       }
     ],
     "baseUrl": "./",
-    "typeRoots": ["./node_modules/@types"],
+    "typeRoots": [
+      "./node_modules/@types"
+    ],
     "paths": {
-      "@/*": ["./*"],
-      "@/components/*": ["components/*"],
-      "@/lib/*": ["lib/*"],
-      "@/utils/*": ["utils/*"],
-      "@/hooks/*": ["hooks/*"],
-      "@/types/*": ["types/*"],
-      "@/context/*": ["context/*"],
-      "@/services/*": ["services/*"],
-      "@/config/*": ["config/*"],
-      "@/shared/*": ["../../shared/*"]
+      "@/*": [
+        "./*"
+      ],
+      "@/components/*": [
+        "components/*"
+      ],
+      "@/lib/*": [
+        "lib/*"
+      ],
+      "@/utils/*": [
+        "utils/*"
+      ],
+      "@/hooks/*": [
+        "hooks/*"
+      ],
+      "@/types/*": [
+        "types/*"
+      ],
+      "@/context/*": [
+        "context/*"
+      ],
+      "@/services/*": [
+        "services/*"
+      ],
+      "@/config/*": [
+        "config/*"
+      ],
+      "@/shared/*": [
+        "../../shared/*"
+      ]
     },
     "target": "ES2022",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -32,7 +58,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "jsxImportSource": "react",
     "incremental": true,
     "tsBuildInfoFile": "./.cache/.tsbuildinfo",
@@ -45,7 +71,18 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     "../../shared/**/*.ts",
-    "../../shared/**/*.tsx"
+    "../../shared/**/*.tsx",
+    ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", ".next", "out", "dist", "build", "**/__tests__/**", "**/__test__/**", "**/*.test.*", "**/*.spec.*"]
+  "exclude": [
+    "node_modules",
+    ".next",
+    "out",
+    "dist",
+    "build",
+    "**/__tests__/**",
+    "**/__test__/**",
+    "**/*.test.*",
+    "**/*.spec.*"
+  ]
 }

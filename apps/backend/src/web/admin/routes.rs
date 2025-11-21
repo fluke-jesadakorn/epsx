@@ -98,7 +98,7 @@ use super::notification_handlers::{
   send_notification_handler,
   get_all_notifications_handler,
   get_notification_stats_handler,
-  acknowledge_notification_handler,
+  // acknowledge_notification_handler, // Temporarily disabled due to trait issues
   delete_admin_notification_handler,
 };
 use crate::web::auth::AppState;
@@ -121,23 +121,26 @@ pub fn create_admin_routes() -> Router<AppState> {
     // Dynamic Plan Management routes (require admin:plans:* permissions) - Simplified
     .route("/plans", get(list_plans_handler))
     .route("/plans", post(create_plan_handler))
-    .route("/plans/:plan_id", get(get_plan_handler))
-    .route("/plans/:plan_id", put(update_plan_handler))
+    .route("/plans/{plan_id}", get(get_plan_handler))
+    .route("/plans/{plan_id}", put(update_plan_handler))
     // Promotion Management routes (require admin:promotions:* permissions)
     .route("/promotions", get(list_promotions_handler))
     .route("/promotions", post(create_promotion_handler))
-    .route("/promotions/:id", get(get_promotion_handler))
-    .route("/promotions/:id", put(update_promotion_handler))
-    .route("/promotions/:id", delete(delete_promotion_handler))
+    .route("/promotions/{id}", get(get_promotion_handler))
+    .route("/promotions/{id}", put(update_promotion_handler))
+    .route("/promotions/{id}", delete(delete_promotion_handler))
     // Subscription Management routes (require admin:subscriptions:* permissions) - Simplified
     .route("/subscriptions", post(create_subscription_handler))
     // Performance monitoring routes (require admin:performance:* permissions)
     .route("/performance/auth-cache", get(get_auth_cache_performance))
     .route("/performance/cache-summary", get(get_cache_summary))
     .route("/performance/clear-cache", post(clear_auth_cache))
-    // Web3 Permission Management routes (require admin:web3:* permissions)
+    // Permission Management routes (require admin:web3:* permissions)
     .route("/web3/permissions", get(get_user_permissions))
     .route("/web3/permissions/grant", post(grant_manual_permission))
+    // New simplified routes (aliased to above)
+    .route("/permissions", get(get_user_permissions))
+    .route("/permissions/grant", post(grant_manual_permission))
     .route("/web3/nft-gates", get(get_nft_gates))
     .route("/web3/nft-gates", post(create_nft_gate))
     .route("/web3/token-gates", get(get_token_gates))
@@ -155,45 +158,33 @@ pub fn create_admin_routes() -> Router<AppState> {
     // ============================================================================
     
     // ============================================================================
-    // CONSOLIDATED PERMISSION MODULE ROUTES
-    // Using new consolidated permission module structure
+    // ADMIN-SPECIFIC PERMISSION OPERATIONS
+    // Core permission operations moved to /api/v1/permissions/* (accessible by all apps)
     // ============================================================================
 
-    // Permission Group Management (CRUD)
-    .route("/permissions/groups", get(list_groups).post(create_group))
-    .route("/permissions/groups/:group_id", get(get_group).put(update_group).delete(delete_group))
-    .route("/permissions/groups/:group_id/members", get(get_group_members))
+    // Admin-only permission system operations
+    .route("/permissions/system/health", get(get_health))
+    .route("/permissions/system/stats", get(get_statistics))
+    .route("/permissions/system/cache/clear", post(clear_caches))
+    .route("/permissions/system/routes", get(get_route_permissions).post(register_route_permission))
 
-    // Wallet-Group Assignment Management
-    .route("/permissions/assignments", get(list_assignments).post(create_assignment))
-    .route("/permissions/assignments/:assignment_id", delete(remove_assignment))
-    .route("/permissions/assignments/expiring", get(get_expiring_assignments))
-    .route("/permissions/assignments/history/:wallet", get(get_assignment_history))
-    .route("/permissions/wallets/:wallet/groups", get(get_wallet_groups))
+    // Admin-only direct permission management (elevated privileges)
+    .route("/permissions/direct/grant", post(grant_permission))
+    .route("/permissions/direct/revoke", delete(revoke_permission))
+    .route("/permissions/direct/wallet/{wallet}", get(list_wallet_permissions))
+    .route("/permissions/groups/{group_id}/permissions", post(add_permission_to_group))
+    .route("/permissions/groups/{group_id}/permissions/{permission_id}", delete(remove_permission_from_group))
 
-    // Permission Validation
-    .route("/permissions/validate", post(validate_permission))
-    .route("/permissions/validate/bulk", post(validate_bulk_permissions))
-    .route("/permissions/wallets/:wallet/permissions", get(get_wallet_permissions))
-
-    // Direct Permission Management
-    .route("/permissions/direct", post(grant_permission).delete(revoke_permission))
-    .route("/permissions/direct/:wallet", get(list_wallet_permissions))
-    .route("/permissions/groups/:group_id/permissions", post(add_permission_to_group))
-    .route("/permissions/groups/:group_id/permissions/:permission_id", delete(remove_permission_from_group))
-
-    // Bulk Operations
+    // Admin-only bulk operations
     .route("/permissions/bulk/grant", post(bulk_grant))
     .route("/permissions/bulk/revoke", post(bulk_revoke))
     .route("/permissions/bulk/assign-roles", post(bulk_assign_roles))
     .route("/permissions/bulk/apply-template", post(bulk_apply_template))
     .route("/permissions/bulk/validate", post(bulk_validate))
 
-    // System Operations
-    .route("/permissions/system/health", get(get_health))
-    .route("/permissions/system/stats", get(get_statistics))
-    .route("/permissions/system/cache/clear", post(clear_caches))
-    .route("/permissions/system/routes", get(get_route_permissions).post(register_route_permission))
+    // Admin-specific permission analytics (TODO: implement these functions)
+    // .route("/permissions/analytics", get(crate::web::admin::permissions::get_permission_analytics))
+    // .route("/permissions/audit", get(crate::web::admin::permissions::get_permission_audit_log))
     // ============================================================================
     // CONSOLIDATED WALLET MANAGEMENT SYSTEM
     // Backend-centric wallet operations with comprehensive data and analytics
@@ -202,8 +193,8 @@ pub fn create_admin_routes() -> Router<AppState> {
     // Wallet Management routes (require admin:wallets:* permissions)
     .route("/wallets", get(list_users_handler))
     .route("/wallets/stats", get(get_user_stats_handler))
-    .route("/wallets/:wallet_address", get(get_user_handler))
-    .route("/wallets/:wallet_address", put(update_user_handler))
+    .route("/wallets/{wallet_address}", get(get_user_handler))
+    .route("/wallets/{wallet_address}", put(update_user_handler))
 
     // ============================================================================
     // ANALYTICS AND BUSINESS INTELLIGENCE SYSTEM
@@ -230,12 +221,10 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/notifications/send", post(send_notification_handler))
     .route("/notifications", get(get_all_notifications_handler))
     .route("/notifications/stats", get(get_notification_stats_handler))
-    .route("/notifications/:id/acknowledge", put(acknowledge_notification_handler))
-    .route("/notifications/:id", delete(delete_admin_notification_handler))
+    // .route("/notifications/{id}/acknowledge", put(acknowledge_notification_handler)) // Temporarily disabled
+    .route("/notifications/{id}", delete(delete_admin_notification_handler))
 
-    // TODO: Temporarily disabled due to Axum trait bound issues
-    // .layer(axum::middleware::from_fn(crate::web::middleware::web3_auth_middleware))
-}
+    }
 
 pub fn create_admin_public_routes() -> Router<AppState> {
   Router::new()
@@ -253,17 +242,35 @@ pub fn create_permission_authority_routes() -> Router<AppState> {
   Router::new()
     // ⚡ CRITICAL: Real-time permission validation - THE AUTHORITY
     // This endpoint is called by frontend/admin for ALL permission checks
-    .route("/api/permissions/validate", post(validate_permission))
+    // Route: /api/v1/permissions/validate
+    .route("/validate", post(validate_permission))
 
     // ⚡ CRITICAL: Bulk permission validation for performance
     // Used by frontend/admin for batch permission checking
-    .route("/api/permissions/validate-bulk", post(validate_bulk_permissions))
+    // Route: /api/v1/permissions/validate-bulk
+    .route("/validate-bulk", post(validate_bulk_permissions))
 
     // ⚡ CRITICAL: Wallet's effective permissions - what they can actually do
     // Used by frontend/admin to understand wallet capabilities
-    .route("/api/permissions/wallet/:wallet_address", get(get_wallet_permissions))
+    // Route: /api/v1/permissions/wallet/{wallet_address}
+    .route("/wallet/{wallet_address}", get(get_wallet_permissions))
+
+    // Permission Group Management (accessible by all apps)
+    // Route: /api/v1/permissions/groups
+    .route("/groups", get(list_groups).post(create_group))
+    .route("/groups/{group_id}", get(get_group).put(update_group).delete(delete_group))
+    .route("/groups/{group_id}/members", get(get_group_members))
+    // TODO: implement get_group_permissions function
+  // .route("/groups/{group_id}/permissions", get(crate::web::admin::permissions::get_group_permissions))
+
+    // Assignment Management (accessible by all apps)
+    // Route: /api/v1/permissions/assignments
+    .route("/assignments", get(list_assignments).post(create_assignment))
+    .route("/assignments/{assignment_id}", delete(remove_assignment))
+    .route("/assignments/expiring", get(get_expiring_assignments))
+    .route("/assignments/wallet/{wallet}", get(get_assignment_history))
+    // TODO: implement get_group_assignments function
+  // .route("/assignments/group/{group_id}", get(crate::web::admin::permissions::get_group_assignments))
 
     // Apply authentication middleware to permission authority routes
-    // TODO: Temporarily disabled due to Axum trait bound issues
-    // .layer(axum::middleware::from_fn(crate::web::middleware::web3_auth_middleware))
-}
+    }

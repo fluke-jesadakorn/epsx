@@ -30,7 +30,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let db_config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(&database_url);
     let pool = Pool::builder(db_config)
         .max_size(10)
-        .wait_timeout(Some(std::time::Duration::from_secs(30)))
         .build()
         .map_err(|e| format!("Failed to create database pool: {}", e))?;
 

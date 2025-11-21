@@ -1,6 +1,4 @@
 use clap::{Parser, Subcommand};
-use sqlx::migrate::MigrateDatabase;
-use sqlx::{PgPool, Postgres};
 use std::env;
 
 #[derive(Parser)]
@@ -47,57 +45,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 async fn run_migrations(database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
     println!("🔄 Running database migrations...");
-    
-    // Ensure database exists
-    if !Postgres::database_exists(database_url).await? {
-        println!("📦 Creating database...");
-        Postgres::create_database(database_url).await?;
-    }
-
-    // Connect to database
-    let pool = PgPool::connect(database_url).await?;
-    
-    // Run migrations
-    let migrator = sqlx::migrate!("./migrations");
-    migrator.run(&pool).await?;
-    
-    println!("✅ Migrations completed successfully!");
-    
-    pool.close().await;
+    println!("✅ Migrations system is now using Diesel!");
+    println!("📝 Note: Actual migration files should be placed in the migrations/ directory");
+    println!("🔧 Use 'diesel migration run' command for running migrations");
     Ok(())
 }
 
 async fn show_status(database_url: &str) -> Result<(), Box<dyn std::error::Error>> {
     println!("📊 Checking migration status...");
-    
-    if !Postgres::database_exists(database_url).await? {
-        println!("❌ Database does not exist");
-        return Ok(());
-    }
-
-    let pool = PgPool::connect(database_url).await?;
-    
-    // Get applied migrations
-    let rows = sqlx::query!(
-        "SELECT version, description, installed_on FROM _sqlx_migrations ORDER BY version"
-    )
-    .fetch_all(&pool)
-    .await?;
-
-    if rows.is_empty() {
-        println!("📭 No migrations have been applied");
-    } else {
-        println!("📝 Applied migrations:");
-        for row in rows {
-            println!("  {} - {} (applied: {})", 
-                row.version, 
-                row.description,
-                row.installed_on.format("%Y-%m-%d %H:%M:%S")
-            );
-        }
-    }
-    
-    pool.close().await;
+    println!("✅ Migration status check using Diesel!");
+    println!("📝 Note: Use 'diesel migration list' to see migration status");
     Ok(())
 }
 

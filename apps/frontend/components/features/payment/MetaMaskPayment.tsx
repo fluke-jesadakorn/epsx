@@ -31,8 +31,18 @@ interface MetaMaskPaymentProps {
   className?: string
 }
 
-// ERC20 ABI for transfer function
+// Complete ERC20 ABI for token operations
 const ERC20_ABI = [
+  {
+    type: 'function',
+    name: 'approve',
+    inputs: [
+      { name: 'spender', type: 'address' },
+      { name: 'amount', type: 'uint256' }
+    ],
+    outputs: [{ type: 'bool' }],
+    stateMutability: 'nonpayable'
+  },
   {
     type: 'function',
     name: 'transfer',
@@ -42,6 +52,27 @@ const ERC20_ABI = [
     ],
     outputs: [{ type: 'bool' }],
     stateMutability: 'nonpayable'
+  },
+  {
+    type: 'function',
+    name: 'transferFrom',
+    inputs: [
+      { name: 'from', type: 'address' },
+      { name: 'to', type: 'address' },
+      { name: 'amount', type: 'uint256' }
+    ],
+    outputs: [{ type: 'bool' }],
+    stateMutability: 'nonpayable'
+  },
+  {
+    type: 'function',
+    name: 'allowance',
+    inputs: [
+      { name: 'owner', type: 'address' },
+      { name: 'spender', type: 'address' }
+    ],
+    outputs: [{ type: 'uint256' }],
+    stateMutability: 'view'
   },
   {
     type: 'function',
@@ -55,6 +86,27 @@ const ERC20_ABI = [
     name: 'decimals',
     inputs: [],
     outputs: [{ type: 'uint8' }],
+    stateMutability: 'view'
+  },
+  {
+    type: 'function',
+    name: 'name',
+    inputs: [],
+    outputs: [{ type: 'string' }],
+    stateMutability: 'view'
+  },
+  {
+    type: 'function',
+    name: 'symbol',
+    inputs: [],
+    outputs: [{ type: 'string' }],
+    stateMutability: 'view'
+  },
+  {
+    type: 'function',
+    name: 'totalSupply',
+    inputs: [],
+    outputs: [{ type: 'uint256' }],
     stateMutability: 'view'
   }
 ] as const
@@ -115,7 +167,9 @@ export default function MetaMaskPayment({
     if (!chain?.id) return null
 
     try {
-      return getTokenAddress(selectedToken, chain.id)
+      const address = getTokenAddress(selectedToken, chain.id)
+      // Use viem's getAddress to ensure proper checksum formatting
+      return getAddress(address)
     } catch (error) {
       console.error('Error getting token address:', error)
       return null
@@ -131,7 +185,9 @@ export default function MetaMaskPayment({
         console.error('Payment escrow not deployed on chain:', chain.id)
         return null
       }
-      return getPaymentEscrowAddress(chain.id)
+      const address = getPaymentEscrowAddress(chain.id)
+      // Use viem's getAddress to ensure proper checksum formatting
+      return getAddress(address)
     } catch (error) {
       console.error('Error getting escrow address:', error)
       return null
@@ -156,21 +212,27 @@ export default function MetaMaskPayment({
     }
   }, [isPaymentConfirmed, paymentHash, onSuccess])
 
-  // Handle errors
+  // Handle errors with user rejection detection
   useEffect(() => {
     if (approvalError) {
-      console.error('❌ Approval error:', approvalError)
-      setPaymentStep('idle')
+      if (!handleTransactionError(approvalError, 'approval')) {
+        // User cancelled - don't show error
+        return
+      }
       onError(`Approval failed: ${approvalError.message}`)
     }
     if (paymentError) {
-      console.error('❌ Payment error:', paymentError)
-      setPaymentStep('idle')
+      if (!handleTransactionError(paymentError, 'payment')) {
+        // User cancelled - don't show error
+        return
+      }
       onError(`Payment failed: ${paymentError.message}`)
     }
     if (receiptError) {
-      console.error('❌ Receipt error:', receiptError)
-      setPaymentStep('idle')
+      if (!handleTransactionError(receiptError, 'receipt')) {
+        // User cancelled - don't show error
+        return
+      }
       onError(`Transaction error: ${receiptError.message}`)
     }
   }, [approvalError, paymentError, receiptError, onError])
@@ -189,7 +251,11 @@ export default function MetaMaskPayment({
     const escrowAddress = getEscrowContractAddress()
 
     if (!tokenAddress || !escrowAddress) {
-      onError('Payment contract not available on this network')
+      if (chain?.id === 97) {
+        onError('Payment escrow contract development mode. Contract functions will need real deployment for production payments.')
+      } else {
+        onError('Payment contract not available on this network')
+      }
       return
     }
 
@@ -220,8 +286,10 @@ export default function MetaMaskPayment({
 
       console.log('✅ Approval transaction submitted')
     } catch (error) {
-      console.error('❌ handlePayment error:', error)
-      setPaymentStep('idle')
+      if (!handleTransactionError(error, 'approval')) {
+        // User cancelled - don't show error
+        return
+      }
       onError(`Payment preparation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
   }
@@ -250,10 +318,46 @@ export default function MetaMaskPayment({
 
       console.log('✅ Payment transaction submitted')
     } catch (error) {
-      console.error('❌ executePayment error:', error)
-      setPaymentStep('idle')
+      if (!handleTransactionError(error, 'payment')) {
+        // User cancelled - don't show error
+        return
+      }
       onError(`Payment execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
+  }
+
+  // Detect if user rejected the transaction
+  const isUserRejection = (error: any): boolean => {
+    if (!error?.message) return false
+
+    const userRejectionPatterns = [
+      'user rejected the request',
+      'user denied transaction signature',
+      'User rejected the request',
+      'User denied transaction signature',
+      'user denied',
+      'rejected by user',
+      'denied by user'
+    ]
+
+    return userRejectionPatterns.some(pattern =>
+      error.message.toLowerCase().includes(pattern.toLowerCase())
+    )
+  }
+
+  // Handle transaction errors appropriately
+  const handleTransactionError = (error: any, transactionType: 'approval' | 'payment' | 'receipt') => {
+    if (isUserRejection(error)) {
+      // User cancelled - don't show as error, just reset state
+      console.log(`👤 User cancelled ${transactionType} transaction`)
+      setPaymentStep('idle')
+      return false // Don't trigger error callback
+    }
+
+    // Real error - show error message
+    console.error(`❌ ${transactionType} error:`, error)
+    setPaymentStep('idle')
+    return true // Trigger error callback
   }
 
   // Get gas token symbol based on chain
@@ -440,15 +544,18 @@ export default function MetaMaskPayment({
         </div>
 
         {/* Transaction Status */}
-        {hash && (
+        {(approvalHash || paymentHash) && (
           <Alert>
             <AlertCircle className="w-4 h-4" />
             <AlertDescription className="flex items-center justify-between">
               <span>
-                Transaction {isConfirming ? 'pending' : isConfirmed ? 'confirmed' : 'submitted'}
+                {paymentStep === 'approving'
+                  ? `Approval ${isApprovalConfirming ? 'pending' : isApprovalConfirmed ? 'confirmed' : 'submitted'}`
+                  : `Payment ${isPaymentConfirming ? 'pending' : isPaymentConfirmed ? 'confirmed' : 'submitted'}`
+                }
               </span>
-              <a 
-                href={`${chain?.blockExplorers?.default?.url}/tx/${hash}`}
+              <a
+                href={`${chain?.blockExplorers?.default?.url}/tx/${paymentStep === 'approving' ? approvalHash : paymentHash}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 text-primary hover:underline"
@@ -462,21 +569,36 @@ export default function MetaMaskPayment({
         {/* Payment Button */}
         <Button
           onClick={handlePayment}
-          disabled={isWriting || isConfirming || isConfirmed}
+          disabled={isApproving || isPaying || isApprovalConfirming || isPaymentConfirming || isApprovalConfirmed || isPaymentConfirmed}
           className="w-full"
           size="lg"
         >
-          {isWriting ? (
+          {isApproving ? (
             <>
               <Loader2 className="w-4 h-4 mr-2" />
-              Preparing Transaction...
+              Approving Token...
             </>
-          ) : isConfirming ? (
+          ) : isPaying ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2" />
+              Processing Payment...
+            </>
+          ) : isApprovalConfirming ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2" />
+              Confirming Approval...
+            </>
+          ) : isPaymentConfirming ? (
             <>
               <Loader2 className="w-4 h-4 mr-2" />
               Confirming Payment...
             </>
-          ) : isConfirmed ? (
+          ) : isApprovalConfirmed ? (
+            <>
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Approval Confirmed
+            </>
+          ) : isPaymentConfirmed ? (
             <>
               <CheckCircle className="w-4 h-4 mr-2" />
               Payment Confirmed

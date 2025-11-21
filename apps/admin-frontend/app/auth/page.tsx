@@ -77,14 +77,17 @@ export default function AuthPage() {
   const [mounted, setMounted] = useState(false);
 
   const returnUrl = searchParams.get('return_url') || '/';
-  
+
   // Decode the return URL if it's URL encoded
   const decodedReturnUrl = decodeURIComponent(returnUrl);
-  
+
   // Final return URL - ensure we don't redirect to auth pages
-  const finalReturnUrl = (decodedReturnUrl === '/' || decodedReturnUrl === '/auth' || decodedReturnUrl === '/login') 
-    ? '/' 
-    : decodedReturnUrl;
+  const finalReturnUrl =
+    decodedReturnUrl === '/' ||
+    decodedReturnUrl === '/auth' ||
+    decodedReturnUrl === '/login'
+      ? '/'
+      : decodedReturnUrl;
   const reason = searchParams.get('reason');
 
   useEffect(() => {
@@ -100,7 +103,7 @@ export default function AuthPage() {
       hasPermissionForDisplay('admin:*:*')
     ) {
       setAuthStepGuarded('success');
-      
+
       setTimeout(() => {
         window.location.href = finalReturnUrl;
       }, 1000);
@@ -143,7 +146,9 @@ export default function AuthPage() {
 
   // Step 2: Request challenge and sign message
   const handleSignMessage = async () => {
-    if (!address) {return;}
+    if (!address) {
+      return;
+    }
 
     try {
       setError('');
@@ -176,10 +181,7 @@ export default function AuthPage() {
         // Store access token in unified OpenID localStorage for session validation
         if (result.access_token) {
           try {
-            localStorage.setItem(
-              OIDC_KEYS.ACCESS_TOKEN,
-              result.access_token
-            );
+            localStorage.setItem(OIDC_KEYS.ACCESS_TOKEN, result.access_token);
           } catch (_error) {
             // Ignore storage errors
           }
@@ -193,7 +195,6 @@ export default function AuthPage() {
           await authenticateWithDirectApi({
             wallet_address: result.wallet_address,
             permissions: result.permissions,
-            tier_level: result.tier_level,
             is_new_user: result.is_new_user,
             access_token: result.access_token,
           });
@@ -233,7 +234,7 @@ export default function AuthPage() {
       case 'no-admin-permissions':
         return 'Your current wallet does not have admin permissions. Please connect a wallet with admin access.';
       default:
-        return 'Connect your Web3 wallet and sign to verify admin permissions.';
+        return 'Connect your wallet and sign to verify admin permissions.';
     }
   };
 
@@ -329,7 +330,7 @@ export default function AuthPage() {
                       </span>
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Connect your Web3 wallet that has admin permissions
+                      Connect your wallet that has admin permissions
                     </p>
                   </>
                 )}

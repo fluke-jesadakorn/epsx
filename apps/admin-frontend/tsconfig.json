@@ -8,23 +8,53 @@
       }
     ],
     "baseUrl": ".",
-    "typeRoots": ["./node_modules/@types"],
+    "typeRoots": [
+      "./node_modules/@types"
+    ],
     "paths": {
-      "@/*": ["./*"],
-      "@/components/*": ["./components/*"],
-      "@/lib/*": ["./lib/*"],
-      "@/utils/*": ["./utils/*"],
-      "@/hooks/*": ["./hooks/*"],
-      "@/types/*": ["./types/*"],
-      "@/context/*": ["./context/*"],
-      "@/services/*": ["./services/*"],
-      "@/config/*": ["./config/*"],
-      "@/design-system": ["./design-system/index.ts"],
-      "@/design-system/*": ["./design-system/*"],
-      "@/shared/*": ["../../shared/*"]
+      "@/*": [
+        "./*"
+      ],
+      "@/components/*": [
+        "./components/*"
+      ],
+      "@/lib/*": [
+        "./lib/*"
+      ],
+      "@/utils/*": [
+        "./utils/*"
+      ],
+      "@/hooks/*": [
+        "./hooks/*"
+      ],
+      "@/types/*": [
+        "./types/*"
+      ],
+      "@/context/*": [
+        "./context/*"
+      ],
+      "@/services/*": [
+        "./services/*"
+      ],
+      "@/config/*": [
+        "./config/*"
+      ],
+      "@/design-system": [
+        "./design-system/index.ts"
+      ],
+      "@/design-system/*": [
+        "./design-system/*"
+      ],
+      "@/shared/*": [
+        "../../shared/*"
+      ]
     },
     "target": "ES2022",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "allowJs": true,
     "skipLibCheck": true,
     "strict": true,
@@ -48,7 +78,7 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "isolatedModules": true,
-    "jsx": "preserve",
+    "jsx": "react-jsx",
     "incremental": true,
     "tsBuildInfoFile": "./.cache/.tsbuildinfo",
     "forceConsistentCasingInFileNames": true,
@@ -62,7 +92,14 @@
     "**/*.tsx",
     ".next/types/**/*.ts",
     "../../shared/**/*.ts",
-    "../../shared/**/*.tsx"
+    "../../shared/**/*.tsx",
+    ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", ".next", "out", "dist", "build"]
+  "exclude": [
+    "node_modules",
+    ".next",
+    "out",
+    "dist",
+    "build"
+  ]
 }

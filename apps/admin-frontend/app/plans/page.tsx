@@ -4,7 +4,8 @@ import { useState } from 'react'
 
 import { PlanManagement } from '@/components/plans/PlanManagement'
 import { PromotionManagement } from '@/components/promotions/PromotionManagement'
-import { useSharedAuth } from '@/shared/components/auth/Provider'
+import { AdminProgressiveAuthGate } from '@/components/auth/AdminProgressiveAuthGate'
+import { AuthLevel } from '@/types/progressive-auth'
 
 function PlansHubSkeleton() {
   return (
@@ -69,61 +70,52 @@ function PlansHubSkeleton() {
  *
  */
 export default function AdminPlansPage() {
-  const { user, isLoading, isAuthenticated } = useSharedAuth();
   const [activeTab, setActiveTab] = useState<'plans' | 'promotions'>('plans');
 
-  if (isLoading) {
-    return <PlansHubSkeleton />;
-  }
-
-  if (!isAuthenticated || !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Authentication Required</h1>
-          <p className="text-gray-600 dark:text-gray-400">Please connect your wallet to access this page.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-6">
-      <div className="max-w-7xl mx-auto mb-6">
-        {/* Tab Navigation */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-400/20 via-pink-400/20 to-purple-400/20 p-0.5">
-          <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl p-2">
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => setActiveTab('plans')}
-                className={`px-6 py-3 rounded-xl font-semibold text-base min-h-[44px] ${
-                  activeTab === 'plans'
-                    ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white shadow-lg'
-                    : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-              >
-                💳 Plans
-              </button>
-              <button
-                onClick={() => setActiveTab('promotions')}
-                className={`px-6 py-3 rounded-xl font-semibold text-base min-h-[44px] ${
-                  activeTab === 'promotions'
-                    ? 'bg-gradient-to-r from-pink-400 to-rose-500 text-white shadow-lg'
-                    : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
-              >
-                🎁 Promotions
-              </button>
+    <AdminProgressiveAuthGate
+      requiredLevel={AuthLevel.AUTHENTICATED}
+      requiredPermissions={['admin:plans:*', 'admin:*:*']}
+      loading={<PlansHubSkeleton />}
+      actionName="manage plans and promotions"
+    >
+      <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-6">
+        <div className="max-w-7xl mx-auto mb-6">
+          {/* Tab Navigation */}
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-400/20 via-pink-400/20 to-purple-400/20 p-0.5">
+            <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl p-2">
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setActiveTab('plans')}
+                  className={`px-6 py-3 rounded-xl font-semibold text-base min-h-[44px] ${
+                    activeTab === 'plans'
+                      ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white shadow-lg'
+                      : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  💳 Plans
+                </button>
+                <button
+                  onClick={() => setActiveTab('promotions')}
+                  className={`px-6 py-3 rounded-xl font-semibold text-base min-h-[44px] ${
+                    activeTab === 'promotions'
+                      ? 'bg-gradient-to-r from-pink-400 to-rose-500 text-white shadow-lg'
+                      : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  🎁 Promotions
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {activeTab === 'plans' ? (
-        <PlanManagement currentUser={user} />
-      ) : (
-        <PromotionManagement currentUser={user} />
-      )}
-    </div>
+        {activeTab === 'plans' ? (
+          <PlanManagement />
+        ) : (
+          <PromotionManagement />
+        )}
+      </div>
+    </AdminProgressiveAuthGate>
   )
 }

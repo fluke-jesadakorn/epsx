@@ -22,7 +22,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
 use diesel::prelude::*;
-use diesel::result::Error as DieselError;
 use std::sync::Arc;
 use tracing::{debug, info, warn, error};
 use uuid::Uuid;
@@ -225,7 +224,7 @@ impl UnifiedPermissionService {
                 expires_at,
                 granted_at,
                 is_permanent
-            FROM get_wallet_permissions_detailed($1)
+            FROM get_wallet_permissions_detailed_working($1)
             "#
         )
         .bind::<diesel::sql_types::Text, _>(&wallet_lower)

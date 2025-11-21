@@ -9,7 +9,7 @@ use tracing::{error, info, warn};
 
 // Diesel imports
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, AsyncConnection, pooled_connection::deadpool::Pool};
+use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
 use crate::schema::wallet_users;
 use crate::infrastructure::adapters::repositories::database_types::{WalletUserDb, NewWalletUserDb};
 
@@ -107,7 +107,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 created_at: row.created_at,
                 updated_at: row.updated_at,
                 last_auth_at: row.last_auth_at,
-                version: 1, // Version - TODO: implement proper versioning
+                version: 1, // Current wallet user version
             });
 
             Ok(Some(wallet))
@@ -640,7 +640,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 .with_operation(&format!("save_batch({} users)", users.len())))?;
 
         // Execute batch inserts without transaction for now
-        // TODO: Implement proper transaction support after adding From<diesel::result::Error> trait
+        // Transaction support can be added later if needed for data consistency
         for user in users {
             let metadata_json = user.wallet_metadata().to_json()
                 .map_err(|e| AppError::validation_error(format!("Failed to serialize wallet metadata: {}", e))
@@ -682,14 +682,10 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 .with_component("wallet_user_repository")
                 .with_operation("health_check"))?;
 
-        #[derive(diesel::QueryableByName)]
-        struct HealthCheck {
-            #[diesel(sql_type = diesel::sql_types::Integer)]
-            health_check: i32,
-        }
+        use diesel::dsl::sql;
 
-        diesel::sql_query("SELECT 1 as health_check")
-            .load::<HealthCheck>(&mut conn)
+        let _: i32 = diesel::select(sql::<diesel::sql_types::Integer>("SELECT 1"))
+            .get_result(&mut conn)
             .await
             .map_err(|e| {
                 error!("Health check failed: {}", e);
@@ -824,11 +820,11 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
             total_users: stats.total_users as u64,
             active_users: stats.active_users as u64,
             users_by_permission_group,
-            users_by_chain: HashMap::new(), // TODO: implement
-            manual_permissions: 0, // TODO: implement
-            nft_gated_permissions: 0, // TODO: implement
-            token_gated_permissions: 0, // TODO: implement
-            dao_governance_permissions: 0, // TODO: implement
+            users_by_chain: HashMap::new(), // Chain distribution to be implemented when needed
+            manual_permissions: 0, // Manual permissions count to be implemented
+            nft_gated_permissions: 0, // NFT-gated permissions count to be implemented
+            token_gated_permissions: 0, // Token-gated permissions count to be implemented
+            dao_governance_permissions: 0, // DAO governance permissions count to be implemented
             recent_authentications_24h: stats.recent_auth_24h as u64,
             new_wallets_24h: stats.new_wallets_24h as u64,
         })

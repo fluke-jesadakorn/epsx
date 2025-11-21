@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation'
 import { toast } from '@/hooks/use-toast'
 import { createPlansClient, type PlanResponse, isApiSuccess } from '@/shared/api/plans'
 import { createAdminApiClient } from '@/shared/utils/api-client'
+import { useSharedAuth } from '@/shared/components/auth/Provider'
 import * as Promo from '@/shared/utils/promo'
 
 interface PlanManagementProps {
-  currentUser: any
+  currentUser?: any
 }
 
 /**
@@ -17,6 +18,8 @@ interface PlanManagementProps {
  * @param root0.currentUser
  */
 export function PlanManagement({ currentUser }: PlanManagementProps) {
+  const { user: authUser } = useSharedAuth()
+  const user = currentUser || authUser
   const router = useRouter()
   const [plans, setPlans] = useState<PlanResponse[]>([])
   const [loading, setLoading] = useState(true)

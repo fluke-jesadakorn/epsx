@@ -217,19 +217,19 @@ export function setClientCookie(
   maxAge?: number | null
 ): void {
   if (typeof document === 'undefined') return;
-  
+
   const options = COOKIE_OPTIONS.clientSide;
   const parts = [`${name}=${encodeURIComponent(value)}`];
-  
+
   parts.push(`path=${options.path}`);
   if (options.secure) parts.push('Secure');
   if (options.sameSite) parts.push(`SameSite=${options.sameSite}`);
-  
+
   // Handle maxAge (null means session cookie)
   if (maxAge !== null && maxAge !== undefined) {
     parts.push(`max-age=${maxAge}`);
   }
-  
+
   document.cookie = parts.join('; ');
 }
 
@@ -251,7 +251,7 @@ export function getClientCookie(name: string): string | null {
  */
 export function removeClientCookie(name: string): void {
   if (typeof document === 'undefined') return;
-  
+
   const options = COOKIE_OPTIONS.clientSide;
   document.cookie = `${name}=; max-age=0; path=${options.path}; SameSite=${options.sameSite}${
     options.secure ? '; Secure' : ''
@@ -275,7 +275,7 @@ export function setClientCookieJSON<T extends Record<string, any>>(
 export function getClientCookieJSON<T = any>(name: string): T | null {
   const value = getClientCookie(name);
   if (!value) return null;
-  
+
   try {
     return JSON.parse(value) as T;
   } catch (error) {

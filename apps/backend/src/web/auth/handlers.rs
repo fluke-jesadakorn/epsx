@@ -55,6 +55,29 @@ pub struct PermissionCheckQuery {
     pub permission: String,
 }
 
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+pub struct GrantPermissionRequest {
+    /// Target wallet address to grant permission to
+    #[schema(example = "0x1234567890123456789012345678901234567890")]
+    pub wallet_address: String,
+    /// Permission to grant (format: platform:resource:action[:timestamp])
+    #[schema(example = "epsx:analytics:read")]
+    pub permission: String,
+    /// Optional expiration timestamp for time-limited permissions
+    #[schema(example = "2024-12-31T23:59:59Z")]
+    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+pub struct RevokePermissionRequest {
+    /// Target wallet address to revoke permission from
+    #[schema(example = "0x1234567890123456789012345678901234567890")]
+    pub wallet_address: String,
+    /// Permission to revoke (format: platform:resource:action)
+    #[schema(example = "epsx:analytics:read")]
+    pub permission: String,
+}
+
 /// Generate SIWE challenge for Web3 authentication
 #[utoipa::path(
     post,
@@ -370,31 +393,29 @@ pub async fn check_permission_handler(
     }
 }
 
-/// POST /api/v1/auth/web3/permissions/grant - Grant manual permission (admin only)
+/// Grant manual permission to wallet (admin only)
+#[utoipa::path(
+    post,
+    path = "/api/auth/web3/permissions/grant",
+    request_body = GrantPermissionRequest,
+    responses(
+        (status = 200, description = "Permission granted successfully", body = Value),
+        (status = 400, description = "Invalid request data", body = Value),
+        (status = 403, description = "Insufficient permissions", body = Value),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "auth",
+    security(
+        ("bearerAuth" = [])
+    )
+)]
 pub async fn grant_permission_handler(
     State(app_state): State<AppState>,
-    Json(request): Json<Value>,
+    Json(request): Json<GrantPermissionRequest>,
 ) -> Result<Json<Value>, StatusCode> {
-    // Extract request data
-    let wallet_address = request
-        .get("wallet_address")
-        .and_then(|v| v.as_str())
-        .ok_or(StatusCode::BAD_REQUEST)?;
-
-    let permission = request
-        .get("permission")
-        .and_then(|v| v.as_str())
-        .ok_or(StatusCode::BAD_REQUEST)?;
-
-    let expires_at = request
-        .get("expires_at")
-        .and_then(|v| v.as_str())
-        .and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
-        .map(|dt| dt.with_timezone(&chrono::Utc));
-
     info!(
         "Granting permission '{}' to wallet: {} (expires: {:?})",
-        permission, wallet_address, expires_at
+        request.permission, request.wallet_address, request.expires_at
     );
 
     let web3_permission_service = match app_state.domain_container.get_web3_permission_adapter() {
@@ -406,20 +427,20 @@ pub async fn grant_permission_handler(
     };
 
     match web3_permission_service
-        .grant_manual_permission(wallet_address, permission, None, expires_at)
+        .grant_manual_permission(&request.wallet_address, &request.permission, None, request.expires_at)
         .await
     {
         Ok(()) => {
             info!(
                 "Granted permission '{}' to wallet: {}",
-                permission, wallet_address
+                request.permission, request.wallet_address
             );
             Ok(Json(json!({
                 "success": true,
                 "operation": "grant_permission",
-                "wallet_address": wallet_address,
-                "permission": permission,
-                "expires_at": expires_at,
+                "wallet_address": request.wallet_address,
+                "permission": request.permission,
+                "expires_at": request.expires_at,
                 "granted_at": chrono::Utc::now()
             })))
         }
@@ -430,24 +451,29 @@ pub async fn grant_permission_handler(
     }
 }
 
-/// DELETE /api/v1/auth/web3/permissions/revoke - Revoke permission (admin only)
+/// Revoke permission from wallet (admin only)
+#[utoipa::path(
+    delete,
+    path = "/api/auth/web3/permissions/revoke",
+    request_body = RevokePermissionRequest,
+    responses(
+        (status = 200, description = "Permission revoked successfully", body = Value),
+        (status = 400, description = "Invalid request data", body = Value),
+        (status = 403, description = "Insufficient permissions", body = Value),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "auth",
+    security(
+        ("bearerAuth" = [])
+    )
+)]
 pub async fn revoke_permission_handler(
     State(app_state): State<AppState>,
-    Json(request): Json<Value>,
+    Json(request): Json<RevokePermissionRequest>,
 ) -> Result<Json<Value>, StatusCode> {
-    let wallet_address = request
-        .get("wallet_address")
-        .and_then(|v| v.as_str())
-        .ok_or(StatusCode::BAD_REQUEST)?;
-
-    let permission = request
-        .get("permission")
-        .and_then(|v| v.as_str())
-        .ok_or(StatusCode::BAD_REQUEST)?;
-
     info!(
         "Revoking permission '{}' from wallet: {}",
-        permission, wallet_address
+        request.permission, request.wallet_address
     );
 
     let web3_permission_service = match app_state.domain_container.get_web3_permission_adapter() {
@@ -459,18 +485,18 @@ pub async fn revoke_permission_handler(
     };
 
     match web3_permission_service
-        .revoke_permission(wallet_address, permission)
+        .revoke_permission(&request.wallet_address, &request.permission)
         .await
     {
         Ok(()) => {
             info!(
                 "Successfully revoked permission '{}' from wallet: {}",
-                permission, wallet_address
+                request.permission, request.wallet_address
             );
             Ok(Json(json!({
                 "success": true,
-                "wallet_address": wallet_address,
-                "permission": permission,
+                "wallet_address": request.wallet_address,
+                "permission": request.permission,
                 "revoked_at": chrono::Utc::now()
             })))
         }

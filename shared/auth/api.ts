@@ -37,7 +37,6 @@ export interface SignatureVerificationResponse {
   success: boolean;
   wallet_address: string;
   permissions: string[];
-  tier_level: string;
   is_new_user: boolean;
   access_token?: string;
   error?: string;
@@ -52,22 +51,25 @@ class DirectWeb3ApiClient {
 
   constructor() {
     // Enhanced backend URL resolution
-    this.baseUrl = typeof window !== 'undefined' 
-      ? (process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080')
-      : (process.env.BACKEND_URL || 'http://localhost:8080');
-    
-    console.log('🔧 DirectWeb3ApiClient initialized', { baseUrl: this.baseUrl });
+    this.baseUrl =
+      typeof window !== 'undefined'
+        ? process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
+        : process.env.BACKEND_URL || 'http://localhost:8080';
+
+    console.log('🔧 DirectWeb3ApiClient initialized', {
+      baseUrl: this.baseUrl,
+    });
   }
 
   /**
    * Request a SIWE challenge from the backend
    */
   async requestChallenge(walletAddress: string): Promise<ChallengeResponse> {
-    const url = `${this.baseUrl}/api/auth/web3/challenge`;
-    
-    console.log('📝 Requesting SIWE challenge', { 
+    const url = `${this.baseUrl}/api/v1/auth/web3/challenge`;
+
+    console.log('📝 Requesting SIWE challenge', {
       wallet_address: walletAddress,
-      url 
+      url,
     });
 
     try {
@@ -75,27 +77,33 @@ class DirectWeb3ApiClient {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          Accept: 'application/json',
         },
         body: JSON.stringify({
-          wallet_address: walletAddress
+          wallet_address: walletAddress,
         }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        console.error('❌ Challenge request failed', { 
-          status: response.status, 
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: 'Unknown error' }));
+        console.error('❌ Challenge request failed', {
+          status: response.status,
           statusText: response.statusText,
-          error: errorData 
+          error: errorData,
         });
-        throw new Error(`Challenge request failed: ${errorData.error || response.statusText}`);
+        throw new Error(
+          `Challenge request failed: ${errorData.error || response.statusText}`
+        );
       }
 
       const challengeData: ChallengeResponse = await response.json();
 
       if (!challengeData.success) {
-        console.error('❌ Challenge generation failed', { error: challengeData.error });
+        console.error('❌ Challenge generation failed', {
+          error: challengeData.error,
+        });
         throw new Error(challengeData.error || 'Challenge generation failed');
       }
 
@@ -103,26 +111,29 @@ class DirectWeb3ApiClient {
         wallet_address: challengeData.wallet_address,
         nonce: challengeData.nonce,
         expires_at: challengeData.expires_at,
-        expires_at_iso: new Date(challengeData.expires_at * 1000).toISOString()
+        expires_at_iso: new Date(challengeData.expires_at * 1000).toISOString(),
       });
 
       return challengeData;
-
     } catch (error) {
       console.error('❌ Challenge request error', { error });
-      throw error instanceof Error ? error : new Error('Failed to request challenge');
+      throw error instanceof Error
+        ? error
+        : new Error('Failed to request challenge');
     }
   }
 
   /**
    * Verify wallet signature and authenticate
    */
-  async verifySignature(request: SignatureVerificationRequest): Promise<SignatureVerificationResponse> {
-    const url = `${this.baseUrl}/api/auth/web3/verify`;
-    
-    console.log('🔐 Verifying wallet signature', { 
+  async verifySignature(
+    request: SignatureVerificationRequest
+  ): Promise<SignatureVerificationResponse> {
+    const url = `${this.baseUrl}/api/v1/auth/web3/verify`;
+
+    console.log('🔐 Verifying wallet signature', {
       wallet_address: request.wallet_address,
-      url 
+      url,
     });
 
     try {
@@ -130,40 +141,49 @@ class DirectWeb3ApiClient {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Accept': 'application/json',
+          Accept: 'application/json',
         },
         body: JSON.stringify(request),
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-        console.error('❌ Signature verification failed', { 
-          status: response.status, 
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: 'Unknown error' }));
+        console.error('❌ Signature verification failed', {
+          status: response.status,
           statusText: response.statusText,
-          error: errorData 
+          error: errorData,
         });
-        throw new Error(`Signature verification failed: ${errorData.error || response.statusText}`);
+        throw new Error(
+          `Signature verification failed: ${errorData.error || response.statusText}`
+        );
       }
 
-      const verificationData: SignatureVerificationResponse = await response.json();
-      
+      const verificationData: SignatureVerificationResponse =
+        await response.json();
+
       if (!verificationData.success) {
-        console.error('❌ Signature verification rejected', { error: verificationData.error });
-        throw new Error(verificationData.error || 'Signature verification failed');
+        console.error('❌ Signature verification rejected', {
+          error: verificationData.error,
+        });
+        throw new Error(
+          verificationData.error || 'Signature verification failed'
+        );
       }
 
       console.log('✅ Signature verification successful', {
         wallet_address: verificationData.wallet_address,
-        tier_level: verificationData.tier_level,
         permissions_count: verificationData.permissions?.length || 0,
-        is_new_user: verificationData.is_new_user
+        is_new_user: verificationData.is_new_user,
       });
 
       return verificationData;
-
     } catch (error) {
       console.error('❌ Signature verification error', { error });
-      throw error instanceof Error ? error : new Error('Failed to verify signature');
+      throw error instanceof Error
+        ? error
+        : new Error('Failed to verify signature');
     }
   }
 
@@ -171,11 +191,13 @@ class DirectWeb3ApiClient {
    * Complete authentication flow: request challenge + verify signature
    */
   async authenticateWallet(
-    walletAddress: string, 
+    walletAddress: string,
     signMessage: (message: string) => Promise<string>
   ): Promise<SignatureVerificationResponse> {
     try {
-      console.log('🚀 Starting complete wallet authentication flow', { wallet_address: walletAddress });
+      console.log('🚀 Starting complete wallet authentication flow', {
+        wallet_address: walletAddress,
+      });
 
       // Step 1: Request challenge
       const challenge = await this.requestChallenge(walletAddress);
@@ -190,21 +212,21 @@ class DirectWeb3ApiClient {
         wallet_address: walletAddress,
         signature,
         message: challenge.message,
-        nonce: challenge.nonce
+        nonce: challenge.nonce,
       });
 
       console.log('🎉 Wallet authentication completed successfully!', {
         wallet_address: verification.wallet_address,
-        tier_level: verification.tier_level,
         permissions: verification.permissions?.length || 0,
-        is_new_user: verification.is_new_user
+        is_new_user: verification.is_new_user,
       });
 
       return verification;
-
     } catch (error) {
       console.error('❌ Wallet authentication failed', { error });
-      throw error instanceof Error ? error : new Error('Wallet authentication failed');
+      throw error instanceof Error
+        ? error
+        : new Error('Wallet authentication failed');
     }
   }
 }
@@ -213,14 +235,14 @@ class DirectWeb3ApiClient {
 export const directWeb3Api = new DirectWeb3ApiClient();
 
 // Export convenience functions
-export const requestWalletChallenge = (walletAddress: string) => 
+export const requestWalletChallenge = (walletAddress: string) =>
   directWeb3Api.requestChallenge(walletAddress);
 
-export const verifyWalletSignature = (request: SignatureVerificationRequest) => 
+export const verifyWalletSignature = (request: SignatureVerificationRequest) =>
   directWeb3Api.verifySignature(request);
 
 export const authenticateWallet = (
-  walletAddress: string, 
+  walletAddress: string,
   signMessage: (message: string) => Promise<string>
 ) => directWeb3Api.authenticateWallet(walletAddress, signMessage);
 

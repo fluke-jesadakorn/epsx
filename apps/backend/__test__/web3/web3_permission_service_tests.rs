@@ -1,53 +1,50 @@
 use anyhow::Result;
 use chrono::{Duration, Utc};
-use sqlx::PgPool;
+use diesel_async::pooled_connection::deadpool::Pool;
+use diesel_async::{AsyncPgConnection, RunQueryDsl};
+use diesel::{sql_query, result::Numeric};
 use std::env;
 use uuid::Uuid;
 
 use crate::auth::web3_permission_service::{Web3PermissionService, NFTConfig, TokenConfig, DAOProposal};
+use crate::infrastructure::database::diesel_connection_manager::get_diesel_pool;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sqlx::postgres::PgPoolOptions;
 
-    async fn setup_test_db() -> PgPool {
-        let database_url = env::var("DATABASE_URL")
-            .unwrap_or_else(|_| "postgresql://postgres:password@localhost:5432/epsx_test".to_string());
-        
-        PgPoolOptions::new()
-            .max_connections(5)
-            .connect(&database_url)
-            .await
-            .expect("Failed to connect to test database")
+    async fn setup_test_db() -> &'static Pool<AsyncPgConnection> {
+        get_diesel_pool().await.expect("Failed to create test database pool")
     }
 
-    async fn cleanup_test_data(pool: &PgPool) -> Result<()> {
+    async fn cleanup_test_data(pool: &Pool<AsyncPgConnection>) -> Result<()> {
+        let mut conn = pool.get().await?;
+
         // Clean up test data
-        sqlx::query!("DELETE FROM wallet_permissions WHERE wallet_address LIKE '0xtest%'")
-            .execute(pool)
+        sql_query("DELETE FROM wallet_permissions WHERE wallet_address LIKE '0xtest%'")
+            .execute(&mut conn)
             .await?;
-        
-        sqlx::query!("DELETE FROM nft_permission_configs WHERE contract_address LIKE '0xtest%'")
-            .execute(pool)
+
+        sql_query("DELETE FROM nft_permission_configs WHERE contract_address LIKE '0xtest%'")
+            .execute(&mut conn)
             .await?;
-        
-        sqlx::query!("DELETE FROM token_permission_configs WHERE contract_address LIKE '0xtest%'")
-            .execute(pool)
+
+        sql_query("DELETE FROM token_permission_configs WHERE contract_address LIKE '0xtest%'")
+            .execute(&mut conn)
             .await?;
-        
-        sqlx::query!("DELETE FROM dao_permission_proposals WHERE dao_contract_address LIKE '0xtest%'")
-            .execute(pool)
+
+        sql_query("DELETE FROM dao_permission_proposals WHERE dao_contract_address LIKE '0xtest%'")
+            .execute(&mut conn)
             .await?;
-        
-        sqlx::query!("DELETE FROM web3_permission_cache WHERE wallet_address LIKE '0xtest%'")
-            .execute(pool)
+
+        sql_query("DELETE FROM web3_permission_cache WHERE wallet_address LIKE '0xtest%'")
+            .execute(&mut conn)
             .await?;
-        
+
         Ok(())
     }
 
-    fn create_test_service(pool: PgPool) -> Web3PermissionService {
+    fn create_test_service(pool: &'static Pool<AsyncPgConnection>) -> Web3PermissionService {
         Web3PermissionService::new(
             pool,
             "https://eth-mainnet.alchemyapi.io/v2/test-key".to_string(),
@@ -242,14 +239,23 @@ mod tests {
         let proposal_id = service.create_dao_proposal(proposal.clone()).await.unwrap();
         
         // Verify proposal was created
-        let created_proposal = sqlx::query!(
-            "SELECT title, permission, proposal_status FROM dao_permission_proposals WHERE id = $1",
-            proposal_id
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap();
-        
+        #[derive(QueryableByName)]
+        struct ProposalResult {
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            title: String,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            permission: String,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            proposal_status: Option<String>,
+        }
+
+        let mut conn = pool.get().await?;
+        let created_proposal: ProposalResult = sql_query("SELECT title, permission, proposal_status FROM dao_permission_proposals WHERE id = $1")
+            .bind::<diesel::sql_types::Uuid, _>(proposal_id)
+            .get_result(&mut conn)
+            .await
+            .unwrap();
+
         assert_eq!(created_proposal.title, proposal.title);
         assert_eq!(created_proposal.permission, proposal.permission);
         assert_eq!(created_proposal.proposal_status.unwrap_or_default(), "active");
@@ -334,22 +340,21 @@ mod tests {
         
         // Manually insert expired cache entry
         let expired_time = Utc::now() - Duration::hours(1);
-        sqlx::query!(
-            r#"
-            INSERT INTO web3_permission_cache 
+        let mut conn = pool.get().await?;
+        sql_query(r#"
+            INSERT INTO web3_permission_cache
             (wallet_address, permission_type, contract_address, network, verification_result, expires_at)
             VALUES ($1, $2, $3, $4, $5, $6)
-            "#,
-            wallet.to_lowercase(),
-            permission_type,
-            contract.to_lowercase(),
-            network,
-            true,
-            expired_time
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
+            "#)
+            .bind::<diesel::sql_types::Text, _>(wallet.to_lowercase())
+            .bind::<diesel::sql_types::Text, _>(permission_type)
+            .bind::<diesel::sql_types::Text, _>(contract.to_lowercase())
+            .bind::<diesel::sql_types::Text, _>(network)
+            .bind::<diesel::sql_types::Bool, _>(true)
+            .bind::<diesel::sql_types::Timestamp, _>(expired_time)
+            .execute(&mut conn)
+            .await
+            .unwrap();
         
         // Should not return expired cache
         let cached_result = service.get_cached_verification(wallet, contract, network, permission_type).await.unwrap();
@@ -399,38 +404,35 @@ mod tests {
         service.grant_manual_permission(wallet, "manual:permission", None, None).await.unwrap();
         
         // Create NFT permission (though verification will fail since blockchain isn't mocked)
-        sqlx::query!(
-            r#"
-            INSERT INTO wallet_permissions 
+        let mut conn = pool.get().await?;
+        sql_query(r#"
+            INSERT INTO wallet_permissions
             (wallet_address, permission, permission_type, nft_contract_address, nft_network)
             VALUES ($1, $2, 'nft_gated', $3, $4)
-            "#,
-            wallet.to_lowercase(),
-            "nft:permission",
-            "0xtest1234567890123456789012345678901234567890",
-            "ethereum"
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
-        
+            "#)
+            .bind::<diesel::sql_types::Text, _>(wallet.to_lowercase())
+            .bind::<diesel::sql_types::Text, _>("nft:permission")
+            .bind::<diesel::sql_types::Text, _>("0xtest1234567890123456789012345678901234567890")
+            .bind::<diesel::sql_types::Text, _>("ethereum")
+            .execute(&mut conn)
+            .await
+            .unwrap();
+
         // Create token permission
-        sqlx::query!(
-            r#"
-            INSERT INTO wallet_permissions 
+        sql_query(r#"
+            INSERT INTO wallet_permissions
             (wallet_address, permission, permission_type, token_contract_address, token_network, required_balance, token_decimals)
             VALUES ($1, $2, 'token_gated', $3, $4, $5, $6)
-            "#,
-            wallet.to_lowercase(),
-            "token:permission",
-            "0xtest1234567890123456789012345678901234567890",
-            "ethereum",
-            sqlx::types::BigDecimal::from(1000000000000000000i64), // 1 token
-            18
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
+            "#)
+            .bind::<diesel::sql_types::Text, _>(wallet.to_lowercase())
+            .bind::<diesel::sql_types::Text, _>("token:permission")
+            .bind::<diesel::sql_types::Text, _>("0xtest1234567890123456789012345678901234567890")
+            .bind::<diesel::sql_types::Text, _>("ethereum")
+            .bind::<diesel::sql_types::Numeric, _>(diesel::result::Numeric::from_i64(1000000000000000000i64).unwrap()) // 1 token
+            .bind::<diesel::sql_types::Integer, _>(18)
+            .execute(&mut conn)
+            .await
+            .unwrap();
         
         let permissions = service.get_wallet_permissions(wallet).await.unwrap();
         assert_eq!(permissions.len(), 3);
@@ -454,23 +456,22 @@ mod tests {
         let proposal_id = "test_proposal_123";
         
         // Create passed DAO proposal
-        sqlx::query!(
-            r#"
-            INSERT INTO dao_permission_proposals 
-            (dao_contract_address, network, proposal_id, title, target_wallet_address, 
+        let mut conn = pool.get().await?;
+        sql_query(r#"
+            INSERT INTO dao_permission_proposals
+            (dao_contract_address, network, proposal_id, title, target_wallet_address,
              permission, proposal_status, executed_at)
             VALUES ($1, $2, $3, $4, $5, $6, 'passed', CURRENT_TIMESTAMP)
-            "#,
-            dao_contract.to_lowercase(),
-            "ethereum",
-            proposal_id,
-            "Test proposal",
-            wallet.to_lowercase(),
-            "dao:permission"
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
+            "#)
+            .bind::<diesel::sql_types::Text, _>(dao_contract.to_lowercase())
+            .bind::<diesel::sql_types::Text, _>("ethereum")
+            .bind::<diesel::sql_types::Text, _>(proposal_id)
+            .bind::<diesel::sql_types::Text, _>("Test proposal")
+            .bind::<diesel::sql_types::Text, _>(wallet.to_lowercase())
+            .bind::<diesel::sql_types::Text, _>("dao:permission")
+            .execute(&mut conn)
+            .await
+            .unwrap();
         
         // Verify DAO permission
         let is_granted = service.verify_dao_permission(dao_contract, proposal_id, "ethereum", wallet).await.unwrap();

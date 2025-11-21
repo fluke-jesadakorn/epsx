@@ -67,7 +67,7 @@ impl UnifiedRouteBuilder {
         let docs_routes = crate::web::docs::create_docs_routes();
         let permission_authority_routes = self.create_permission_authority_routes();
 
-        // Combine all routes - SIMPLIFIED STANDARD
+        // Combine all routes - MIXED /api/ and /api/v1/ STRUCTURE
         let router = Router::new()
             // Core health endpoints (public, no auth)
             .merge(health_routes)
@@ -75,32 +75,32 @@ impl UnifiedRouteBuilder {
             // API documentation (public, no auth)
             .merge(docs_routes)
 
-            // All routes under /api prefix
-            .nest("/api", Router::new()
-                // Permission Authority (centralized permission validation)
-                .merge(permission_authority_routes)
+            // Authentication routes (Web3-first auth) - under /api/v1/auth/* (standardized)
+            .nest("/api/v1/auth", auth_routes)
 
-                // Authentication routes
-                .nest("/auth", auth_routes)
+            // All routes under standardized /api/v1/ prefix
+            .nest("/api/v1", Router::new()
+                // Permission Authority (centralized permission validation - ALL apps use this)
+                .nest("/permissions", permission_authority_routes)
 
                 // Public API endpoints (no authentication)
                 .nest("/public", public_routes)
 
-                // User routes (authenticated)
-                .nest("/user", user_routes)
+                // User management routes (authenticated users)
+                .nest("/users", user_routes)
 
-                // Admin routes (authenticated + permission validation)
+                // Admin-only routes (authenticated + admin permissions)
                 .nest("/admin", admin_routes)
 
                 // Analytics routes (authenticated)
-                .nest("/analytics", analytics_routes.clone())
+                .nest("/analytics", analytics_routes)
 
                 // Notifications routes (authenticated)
                 .nest("/notifications", notification_routes)
-            )
 
-            // Legacy analytics route (backward compatibility only)
-            .nest("/analytics", analytics_routes);
+                // Plan and billing routes (authenticated)
+                .nest("/plans", self.create_plan_routes())
+            );
 
         // Apply middleware stack
         router
@@ -175,9 +175,13 @@ impl UnifiedRouteBuilder {
     fn create_admin_routes(&self) -> Router {
         let app_state = self.create_app_state();
 
-        // Create admin routes with permission validation middleware
+        // Create admin routes with Web3 authentication middleware (original)
         let admin_routes = crate::web::admin::routes::create_admin_routes()
             .with_state(app_state.clone())
+            .layer(axum_middleware::from_fn_with_state(
+                app_state.clone(),
+                crate::web::middleware::web3_auth_middleware
+            ))
             .layer(axum_middleware::from_fn_with_state(
                 app_state.clone(),
                 crate::web::middleware::permission_validation_middleware
@@ -185,6 +189,10 @@ impl UnifiedRouteBuilder {
 
         let permission_authority_routes = crate::web::admin::routes::create_permission_authority_routes()
             .with_state(app_state.clone())
+            .layer(axum_middleware::from_fn_with_state(
+                app_state.clone(),
+                crate::web::middleware::web3_auth_middleware
+            ))
             .layer(axum_middleware::from_fn_with_state(
                 app_state.clone(),
                 crate::web::middleware::permission_validation_middleware
@@ -247,23 +255,64 @@ impl UnifiedRouteBuilder {
     // ============================================================================
 
     fn create_user_routes(&self) -> Router {
+        let app_state = self.create_app_state();
+
         Router::new()
-            // TODO: User profile routes need proper middleware setup
-            // User handlers exist in src/web/user/unified_user_handlers.rs but require:
-            // 1. Web3 auth middleware to extract user context from Bearer token
-            // 2. Permission validation middleware
-            // Available handlers:
-            //   - get_current_user_profile -> /api/v1/wallet/profile
-            //   - get_user_permissions -> /api/v1/wallet/permissions
-            //   - update_user_preferences -> /api/v1/wallet/preferences
-            //
-            // TODO: Implement watchlist, alerts, and push subscription handlers
-            // Missing handlers that frontend expects:
-            //   - /api/v1/user/watchlist (GET, POST, DELETE)
-            //   - /api/v1/user/alerts (GET, POST, DELETE)
-            //   - /api/v1/user/push-subscription (POST, DELETE)
-            //
-            // For now, these routes return 404 until proper implementation
+            // User profile and settings - using available handlers
+            .route("/profile", get(crate::web::user::unified_user_handlers::get_current_user_profile))
+            .route("/permissions", get(crate::web::user::unified_user_handlers::get_user_permissions))
+
+            // TODO: Fix handler signature for update_user_preferences
+            // .route("/profile", put(crate::web::user::unified_user_handlers::update_user_preferences))
+
+            // TODO: Implement missing handler modules
+            // Watchlist management (watchlist_handlers not implemented yet)
+            // .route("/watchlist", get(crate::web::user::watchlist_handlers::get_watchlist))
+            // .route("/watchlist", post(crate::web::user::watchlist_handlers::add_to_watchlist))
+            // .route("/watchlist/:symbol", delete(crate::web::user::watchlist_handlers::remove_from_watchlist))
+
+            // Alert management (alert_handlers not implemented yet)
+            // .route("/alerts", get(crate::web::user::alert_handlers::get_alerts))
+            // .route("/alerts", post(crate::web::user::alert_handlers::create_alert))
+            // .route("/alerts/:id", delete(crate::web::user::alert_handlers::delete_alert))
+
+            // Push subscription management (push_handlers not implemented yet)
+            // .route("/push-subscription", post(crate::web::user::push_handlers::register_push_subscription))
+            // .route("/push-subscription", delete(crate::web::user::push_handlers::unregister_push_subscription))
+
+            // Wallet management (wallet_handlers not implemented yet)
+            // .route("/wallet/connect", post(crate::web::user::wallet_handlers::connect_wallet))
+            // .route("/wallet/disconnect", delete(crate::web::user::wallet_handlers::disconnect_wallet))
+
+            // TODO: Fix notification handler signature issue
+            // .route("/notifications", get(crate::web::admin::notification_handlers::get_user_notifications_handler))
+
+            // Settings management (settings_handlers not implemented yet)
+            // .route("/settings", get(crate::web::user::settings_handlers::get_user_settings))
+            .with_state(app_state)
+    }
+
+    // ============================================================================
+    // PLAN AND BILLING ROUTES (authenticated users)
+    // ============================================================================
+
+    fn create_plan_routes(&self) -> Router {
+        let app_state = self.create_app_state();
+
+        Router::new()
+            // TODO: Implement plans module handlers
+            // Subscription management (plans module not implemented yet)
+            // .route("/subscription", get(crate::web::plans::subscription_handlers::get_subscription))
+            // .route("/subscription", post(crate::web::plans::subscription_handlers::create_subscription))
+            // .route("/subscription/status", get(crate::web::plans::subscription_handlers::get_subscription_status))
+            // .route("/subscription/history", get(crate::web::plans::subscription_handlers::get_subscription_history))
+
+            // Usage and billing (plans module not implemented yet)
+            // .route("/usage", get(crate::web::plans::usage_handlers::get_usage))
+            // .route("/billing", get(crate::web::plans::billing_handlers::get_billing_info))
+            // .route("/invoices", get(crate::web::plans::billing_handlers::get_invoices))
+
+            .with_state(app_state)
     }
 
     // ============================================================================
@@ -271,16 +320,6 @@ impl UnifiedRouteBuilder {
     // ============================================================================
 
     fn create_notification_routes(&self) -> Router {
-        use crate::web::admin::notification_handlers::{
-            get_user_notifications_handler,
-            mark_notification_read_handler,
-            mark_all_notifications_read_handler,
-            delete_notification_handler,
-            clear_all_notifications_handler,
-            get_unread_count_handler,
-            acknowledge_notification_handler,
-        };
-
         let app_state = self.create_app_state();
 
         // Create SSE route with permissive CORS (EventSource cannot send credentials)
@@ -289,15 +328,30 @@ impl UnifiedRouteBuilder {
             .layer(Self::create_sse_cors_layer())
             .with_state(app_state.clone());
 
-        // Other notification routes with normal auth
+        // Create authenticated user notification routes
+        let auth_routes = Router::new()
+            // User notification routes (authenticated)
+            .route("/unread-count", get(crate::web::admin::notification_handlers::get_unread_count_handler))
+            .route("/mark-all-read", put(crate::web::admin::notification_handlers::mark_all_notifications_read_handler))
+            .route("/clear-all", delete(crate::web::admin::notification_handlers::clear_all_notifications_handler))
+            .route("/{id}/read", put(crate::web::admin::notification_handlers::mark_notification_read_handler))
+            .route("/{id}", delete(crate::web::admin::notification_handlers::delete_notification_handler))
+            .route("/{id}/acknowledge", put(crate::web::admin::notification_handlers::acknowledge_notification_handler))
+            .route("/", get(crate::web::admin::notification_handlers::get_user_notifications_handler))
+            .with_state(app_state.clone());
+
+        // Create admin notification routes (admin-only)
+        let admin_routes = Router::new()
+            .route("/send", post(crate::web::admin::notification_handlers::send_notification_handler))
+            .route("/stats", get(crate::web::admin::notification_handlers::get_notification_stats_handler))
+            .route("/admin/{id}", delete(crate::web::admin::notification_handlers::delete_admin_notification_handler))
+            .route("/admin", get(crate::web::admin::notification_handlers::get_all_notifications_handler))
+            .with_state(app_state.clone());
+
+        // Combine all notification routes
         let notification_routes = Router::new()
-            .route("/", get(get_user_notifications_handler))
-            .route("/unread-count", get(get_unread_count_handler))
-            .route("/mark-all-read", put(mark_all_notifications_read_handler))
-            .route("/clear-all", delete(clear_all_notifications_handler))
-            .route("/:id/read", put(mark_notification_read_handler))
-            .route("/:id/acknowledge", put(acknowledge_notification_handler))
-            .route("/:id", delete(delete_notification_handler))
+            .merge(auth_routes)
+            .merge(admin_routes)
             .with_state(app_state);
 
         // Merge SSE and notification routes

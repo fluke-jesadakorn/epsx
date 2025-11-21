@@ -1,5 +1,6 @@
 use chrono::{Utc, Duration};
 use std::collections::{HashSet, HashMap};
+use std::sync::Arc;
 
 use crate::core::errors::AppResult;
 use crate::domain::shared_kernel::Specification;
@@ -7,13 +8,35 @@ use crate::domain::wallet_management::{
     aggregates::{WalletUser},
     value_objects::{Permission, WalletAddress, PermissionType},
 };
+use crate::infrastructure::blockchain::{BlockchainValidationClient, NftValidationResult, TokenValidationResult, DaoValidationResult};
 
-/// Domain service for managing Web3 wallet-based user permissions
-/// This service contains business logic for Web3 permission validation,
+/// Domain service for managing wallet-based user permissions
+/// This service contains business logic for permission validation,
 /// blockchain state synchronization, and cross-chain permission management
-pub struct WalletPermissionService;
+pub struct WalletPermissionService {
+    blockchain_client: Arc<BlockchainValidationClient>,
+}
+
+/// @deprecated Use WalletPermissionService instead
+pub struct Web3WalletPermissionService;
 
 impl WalletPermissionService {
+    pub fn new() -> Self {
+        Self {
+            blockchain_client: Arc::new(BlockchainValidationClient::new()),
+        }
+    }
+
+    pub fn with_client(blockchain_client: Arc<BlockchainValidationClient>) -> Self {
+        Self { blockchain_client }
+    }
+
+    pub fn with_timeout(blockchain_client: Arc<BlockchainValidationClient>, timeout_ms: u64) -> Self {
+        let client = (*blockchain_client).clone().with_timeout(timeout_ms);
+        Self {
+            blockchain_client: Arc::new(client)
+        }
+    }
     /// Calculate effective permissions for a wallet user
     /// Includes direct permissions, group-based permissions, and Web3-validated permissions
     pub async fn calculate_effective_permissions(
@@ -366,24 +389,38 @@ impl WalletPermissionService {
         wallet_address: &WalletAddress,
         permission: &Permission,
         contract_address: &str,
-        _token_ids: &[u64],
+        token_ids: &[u64],
         chain_id: u64,
         _context: &Web3PermissionContext
     ) -> AppResult<Web3ValidationResult> {
-        // TODO: Implement actual blockchain validation
-        // For now, return a mock result
-        Ok(Web3ValidationResult {
-            permission: permission.clone(),
-            is_valid: true, // Mock validation
-            validation_type: Web3ValidationType::NftGated,
-            blockchain_data: Some(format!(
-                "NFT validation for wallet {} on contract {} (chain {})",
-                wallet_address.as_str(),
-                contract_address,
-                chain_id
-            )),
-            error_details: None,
-        })
+        match self.blockchain_client.validate_nft_ownership(
+            chain_id,
+            wallet_address.as_str(),
+            contract_address,
+            token_ids
+        ).await {
+            Ok(nft_result) => Ok(Web3ValidationResult {
+                permission: permission.clone(),
+                is_valid: nft_result.is_valid,
+                validation_type: Web3ValidationType::NftGated,
+                blockchain_data: Some(format!(
+                    "NFT validation for wallet {} on contract {} (chain {}): owns {} tokens, total balance {}",
+                    wallet_address.as_str(),
+                    contract_address,
+                    chain_id,
+                    nft_result.owned_tokens.len(),
+                    nft_result.balance
+                )),
+                error_details: None,
+            }),
+            Err(e) => Ok(Web3ValidationResult {
+                permission: permission.clone(),
+                is_valid: false,
+                validation_type: Web3ValidationType::NftGated,
+                blockchain_data: None,
+                error_details: Some(format!("Blockchain validation failed: {}", e)),
+            })
+        }
     }
     
     async fn validate_token_permission(
@@ -395,21 +432,34 @@ impl WalletPermissionService {
         chain_id: u64,
         _context: &Web3PermissionContext
     ) -> AppResult<Web3ValidationResult> {
-        // TODO: Implement actual blockchain validation
-        // For now, return a mock result
-        Ok(Web3ValidationResult {
-            permission: permission.clone(),
-            is_valid: true, // Mock validation
-            validation_type: Web3ValidationType::TokenGated,
-            blockchain_data: Some(format!(
-                "Token validation for wallet {} on contract {} (min: {}, chain: {})",
-                wallet_address.as_str(),
-                contract_address,
-                min_balance,
-                chain_id
-            )),
-            error_details: None,
-        })
+        match self.blockchain_client.validate_token_balance(
+            chain_id,
+            wallet_address.as_str(),
+            contract_address,
+            min_balance
+        ).await {
+            Ok(token_result) => Ok(Web3ValidationResult {
+                permission: permission.clone(),
+                is_valid: token_result.is_valid,
+                validation_type: Web3ValidationType::TokenGated,
+                blockchain_data: Some(format!(
+                    "Token validation for wallet {} on contract {} (chain {}): balance {} / min {}",
+                    wallet_address.as_str(),
+                    contract_address,
+                    chain_id,
+                    token_result.balance,
+                    token_result.min_balance
+                )),
+                error_details: None,
+            }),
+            Err(e) => Ok(Web3ValidationResult {
+                permission: permission.clone(),
+                is_valid: false,
+                validation_type: Web3ValidationType::TokenGated,
+                blockchain_data: None,
+                error_details: Some(format!("Blockchain validation failed: {}", e)),
+            })
+        }
     }
     
     async fn validate_dao_permission(
@@ -421,44 +471,60 @@ impl WalletPermissionService {
         chain_id: u64,
         _context: &Web3PermissionContext
     ) -> AppResult<Web3ValidationResult> {
-        // TODO: Implement actual blockchain validation
-        // For now, return a mock result
-        Ok(Web3ValidationResult {
-            permission: permission.clone(),
-            is_valid: true, // Mock validation
-            validation_type: Web3ValidationType::DaoGovernance,
-            blockchain_data: Some(format!(
-                "DAO validation for wallet {} on contract {} (min voting power: {}, chain: {})",
-                wallet_address.as_str(),
-                dao_contract,
-                min_voting_power,
-                chain_id
-            )),
-            error_details: None,
-        })
+        match self.blockchain_client.validate_dao_voting_power(
+            chain_id,
+            wallet_address.as_str(),
+            dao_contract,
+            min_voting_power
+        ).await {
+            Ok(dao_result) => Ok(Web3ValidationResult {
+                permission: permission.clone(),
+                is_valid: dao_result.is_valid,
+                validation_type: Web3ValidationType::DaoGovernance,
+                blockchain_data: Some(format!(
+                    "DAO validation for wallet {} on contract {} (chain {}): voting power {} / min {}",
+                    wallet_address.as_str(),
+                    dao_contract,
+                    chain_id,
+                    dao_result.voting_power,
+                    dao_result.min_voting_power
+                )),
+                error_details: None,
+            }),
+            Err(e) => Ok(Web3ValidationResult {
+                permission: permission.clone(),
+                is_valid: false,
+                validation_type: Web3ValidationType::DaoGovernance,
+                blockchain_data: None,
+                error_details: Some(format!("Blockchain validation failed: {}", e)),
+            })
+        }
     }
 }
 
-/// Web3-specific context information for permission calculations
+/// Context information for permission calculations
 #[derive(Debug, Clone)]
-pub struct Web3PermissionContext {
+pub struct PermissionContext {
     /// Primary blockchain chain ID for the user
     pub primary_chain_id: Option<u64>,
     /// Available RPC endpoints for blockchain queries
     pub rpc_endpoints: HashMap<u64, String>,
     /// Maximum time to wait for blockchain queries
     pub blockchain_timeout_ms: u64,
+    /// Current block numbers for each supported chain
+    pub block_numbers: HashMap<u64, u64>,
     /// Whether to use cached validation results
     pub use_cache: bool,
     /// Cache TTL in seconds
     pub cache_ttl_seconds: u64,
-    /// Current block numbers for different chains (for consistency)
-    pub block_numbers: HashMap<u64, u64>,
     /// Cross-chain bridge contracts for multi-chain validation
     pub bridge_contracts: HashMap<u64, Vec<String>>,
 }
 
-impl Default for Web3PermissionContext {
+/// @deprecated Use PermissionContext instead
+pub type Web3PermissionContext = PermissionContext;
+
+impl Default for PermissionContext {
     fn default() -> Self {
         Self {
             primary_chain_id: Some(1), // Ethereum mainnet

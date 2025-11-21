@@ -89,22 +89,22 @@ export interface BaseCardProps {
 
 const cardVariants = {
   default: [
-    'bg-white dark:bg-gray-800',
-    'border border-gray-200 dark:border-gray-700',
+    'bg-[hsl(var(--card))]',
+    'border border-[hsl(var(--border))]',
     'shadow-sm'
   ],
   elevated: [
-    'bg-white dark:bg-gray-800',
-    'border border-gray-200 dark:border-gray-700',
+    'bg-[hsl(var(--card))]',
+    'border border-[hsl(var(--border))]',
     'shadow-md hover:shadow-lg'
   ],
   outlined: [
     'bg-transparent',
-    'border-2 border-gray-300 dark:border-gray-600'
+    'border-2 border-[hsl(var(--border))]'
   ],
   filled: [
-    'bg-gray-50 dark:bg-gray-700',
-    'border border-gray-200 dark:border-gray-600'
+    'bg-[hsl(var(--muted))]',
+    'border border-[hsl(var(--border))]'
   ],
   minimal: [
     'bg-transparent',
@@ -237,8 +237,9 @@ export const BaseCard = React.forwardRef<HTMLDivElement, BaseCardProps>(({
       'hover:shadow-md',
       'focus:outline-none',
       'focus:ring-2',
-      'focus:ring-blue-500',
-      'focus:ring-offset-2'
+      'focus:ring-[hsl(var(--ring))]',
+      'focus:ring-offset-2',
+      'focus:ring-offset-[hsl(var(--background))]'
     ],
     
     // Hoverable effects
@@ -281,7 +282,7 @@ export const BaseCard = React.forwardRef<HTMLDivElement, BaseCardProps>(({
     >
       {/* Header Section */}
       {header && (
-        <div className="card-header border-b border-gray-200 dark:border-gray-700 pb-3 mb-3">
+        <div className="card-header border-b border-[hsl(var(--border))] pb-3 mb-3">
           {header}
         </div>
       )}
@@ -296,7 +297,7 @@ export const BaseCard = React.forwardRef<HTMLDivElement, BaseCardProps>(({
             <div className="flex-1">
               {title && (
                 <h3 className={cn(
-                  'font-semibold text-gray-900 dark:text-gray-100',
+                  'font-semibold text-[hsl(var(--foreground))]',
                   size === 'sm' ? 'text-sm' : size === 'lg' ? 'text-lg' : 'text-base'
                 )}>
                   {title}
@@ -304,7 +305,7 @@ export const BaseCard = React.forwardRef<HTMLDivElement, BaseCardProps>(({
               )}
               {subtitle && (
                 <p className={cn(
-                  'text-gray-500 dark:text-gray-400',
+                  'text-[hsl(var(--muted-foreground))]',
                   size === 'sm' ? 'text-xs' : 'text-sm',
                   title ? 'mt-1' : ''
                 )}>
@@ -324,7 +325,7 @@ export const BaseCard = React.forwardRef<HTMLDivElement, BaseCardProps>(({
       {/* Description */}
       {description && (
         <div className={cn(
-          'card-description text-gray-600 dark:text-gray-300',
+          'card-description text-[hsl(var(--foreground))]/80',
           size === 'sm' ? 'text-sm' : 'text-base',
           orientation === 'horizontal' ? 'flex-shrink-0 mr-4' : 'mb-3'
         )}>
@@ -339,8 +340,8 @@ export const BaseCard = React.forwardRef<HTMLDivElement, BaseCardProps>(({
       )}>
         {loading ? (
           <div className="space-y-2">
-            <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded animate-pulse"></div>
-            <div className="h-4 bg-gray-200 dark:bg-gray-600 rounded animate-pulse w-3/4"></div>
+            <div className="h-4 bg-[hsl(var(--muted))] rounded animate-pulse"></div>
+            <div className="h-4 bg-[hsl(var(--muted))] rounded animate-pulse w-3/4"></div>
           </div>
         ) : (
           children
@@ -349,7 +350,7 @@ export const BaseCard = React.forwardRef<HTMLDivElement, BaseCardProps>(({
 
       {/* Footer Section */}
       {footer && (
-        <div className="card-footer border-t border-gray-200 dark:border-gray-700 pt-3 mt-3">
+        <div className="card-footer border-t border-[hsl(var(--border))] pt-3 mt-3">
           {footer}
         </div>
       )}
@@ -387,9 +388,9 @@ export const DataCard = React.forwardRef<HTMLDivElement, DataCardProps>(({
 }, ref) => {
   const getTrendColor = (trend?: 'up' | 'down' | 'flat') => {
     switch (trend) {
-      case 'up': return 'text-green-600 dark:text-green-400'
-      case 'down': return 'text-red-600 dark:text-red-400'
-      default: return 'text-gray-600 dark:text-gray-400'
+      case 'up': return 'text-[hsl(var(--success))]'
+      case 'down': return 'text-[hsl(var(--destructive))]'
+      default: return 'text-[hsl(var(--muted-foreground))]'
     }
   }
 
@@ -405,18 +406,18 @@ export const DataCard = React.forwardRef<HTMLDivElement, DataCardProps>(({
     <BaseCard ref={ref} variant="elevated" {...props}>
       <div className="flex items-center">
         {icon && (
-          <div className="flex-shrink-0 mr-3 text-gray-400">
+          <div className="flex-shrink-0 mr-3 text-[hsl(var(--muted-foreground))]">
             {icon}
           </div>
         )}
         <div className="flex-1">
           {value && (
-            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            <div className="text-2xl font-bold text-[hsl(var(--foreground))]">
               {value}
             </div>
           )}
           {label && (
-            <div className="text-sm text-gray-500 dark:text-gray-400">
+            <div className="text-sm text-[hsl(var(--muted-foreground))]">
               {label}
             </div>
           )}
@@ -427,7 +428,7 @@ export const DataCard = React.forwardRef<HTMLDivElement, DataCardProps>(({
             )}>
               <span className="mr-1">{getTrendIcon(trend)}</span>
               {Math.abs(change)}%
-              {changeLabel && <span className="ml-1 text-gray-500">{changeLabel}</span>}
+              {changeLabel && <span className="ml-1 text-[hsl(var(--muted-foreground))]">{changeLabel}</span>}
             </div>
           )}
         </div>
@@ -457,19 +458,19 @@ export const StatusCard = React.forwardRef<HTMLDivElement, StatusCardProps>(({
 }, ref) => {
   const getStatusColor = (status: StatusCardProps['status']) => {
     switch (status) {
-      case 'online': return 'text-green-600 dark:text-green-400'
-      case 'offline': return 'text-gray-600 dark:text-gray-400'
-      case 'warning': return 'text-yellow-600 dark:text-yellow-400'
-      case 'error': return 'text-red-600 dark:text-red-400'
+      case 'online': return 'text-[hsl(var(--success))]'
+      case 'offline': return 'text-[hsl(var(--muted-foreground))]'
+      case 'warning': return 'text-[hsl(var(--warning))]'
+      case 'error': return 'text-[hsl(var(--destructive))]'
     }
   }
 
   const getStatusBgColor = (status: StatusCardProps['status']) => {
     switch (status) {
-      case 'online': return 'bg-green-100 dark:bg-green-900/20'
-      case 'offline': return 'bg-gray-100 dark:bg-gray-900/20'
-      case 'warning': return 'bg-yellow-100 dark:bg-yellow-900/20'
-      case 'error': return 'bg-red-100 dark:bg-red-900/20'
+      case 'online': return 'bg-[hsl(var(--success))]/10'
+      case 'offline': return 'bg-[hsl(var(--muted))]'
+      case 'warning': return 'bg-[hsl(var(--warning))]/10'
+      case 'error': return 'bg-[hsl(var(--destructive))]/10'
     }
   }
 
@@ -479,10 +480,10 @@ export const StatusCard = React.forwardRef<HTMLDivElement, StatusCardProps>(({
         <div className="flex items-center">
           <div className={cn(
             'w-3 h-3 rounded-full mr-2',
-            status === 'online' && 'bg-green-500',
-            status === 'offline' && 'bg-gray-400',
-            status === 'warning' && 'bg-yellow-500',
-            status === 'error' && 'bg-red-500'
+            status === 'online' && 'bg-[hsl(var(--success))]',
+            status === 'offline' && 'bg-[hsl(var(--muted-foreground))]',
+            status === 'warning' && 'bg-[hsl(var(--warning))]',
+            status === 'error' && 'bg-[hsl(var(--destructive))]'
           )} />
           <span className={cn(
             'font-medium capitalize',
@@ -492,7 +493,7 @@ export const StatusCard = React.forwardRef<HTMLDivElement, StatusCardProps>(({
           </span>
         </div>
         {lastUpdated && (
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-[hsl(var(--muted-foreground))]">
             {lastUpdated}
           </span>
         )}

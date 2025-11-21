@@ -83,7 +83,7 @@ const DynamicPricingSection = () => {
 
         // Build API URL with affiliate tracking
         const baseUrl = env.BACKEND_URL;
-        let apiUrl = `${baseUrl}/api/public/plans`;
+        let apiUrl = `${baseUrl}/api/v1/public/plans`;
 
         // Add affiliate code if available
         if (affiliateCode) {
@@ -162,10 +162,10 @@ const DynamicPricingSection = () => {
             api: api.length
           });
 
-          // If affiliate code provided, try to fetch affiliate info
-          if (affiliateCode && planData.length > 0) {
-            fetchAffiliateInfo(affiliateCode);
-          }
+          // TODO: Implement affiliate info fetching when backend endpoint is available
+          // if (affiliateCode && planData.length > 0) {
+          //   fetchAffiliateInfo(affiliateCode);
+          // }
         } else {
           throw new Error('No valid plan data received');
         }
@@ -185,7 +185,7 @@ const DynamicPricingSection = () => {
   const fetchAffiliateInfo = async (code: string) => {
     try {
       const baseUrl = env.BACKEND_URL;
-      const response = await fetch(`${baseUrl}/api/public/plans/calculate-price/1?affiliate_code=${code}`);
+      const response = await fetch(`${baseUrl}/api/v1/public/plans/calculate-price/1?affiliate_code=${code}`);
       
       if (response.ok) {
         const result = await response.json();

@@ -20,7 +20,6 @@ export interface VerifyResponse {
   success: boolean;
   wallet_address: string;
   permissions: string[];
-  tier_level: string;
   access_token: string;
   is_new_user: boolean;
   error?: string;
@@ -45,11 +44,12 @@ export class DirectWeb3Api {
 
   constructor(backendUrl?: string) {
     // Enhanced backend URL resolution
-    this.backendUrl = backendUrl ||
-      (typeof window !== 'undefined' ?
-        (process.env.NEXT_PUBLIC_BACKEND_URL || window.location.origin.replace(/:300[0-9]/, ':8080')) :
-        (process.env.BACKEND_URL || 'http://localhost:8080')
-      );
+    this.backendUrl =
+      backendUrl ||
+      (typeof window !== 'undefined'
+        ? process.env.NEXT_PUBLIC_BACKEND_URL ||
+          window.location.origin.replace(/:300[0-9]/, ':8080')
+        : process.env.BACKEND_URL || 'http://localhost:8080');
   }
 
   /**
@@ -58,46 +58,48 @@ export class DirectWeb3Api {
    */
   async requestChallenge(walletAddress: string): Promise<ChallengeResponse> {
     try {
-      const response = await fetch(`${this.backendUrl}/api/auth/web3/challenge`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          wallet_address: walletAddress
-        }),
-      });
+      const response = await fetch(
+        `${this.backendUrl}/api/auth/web3/challenge`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            wallet_address: walletAddress,
+          }),
+        }
+      );
 
       if (!response.ok) {
         let errorMessage = `Challenge request failed: ${response.status} ${response.statusText}`;
-        
+
         try {
           const errorData = await response.json();
           errorMessage = errorData.error || errorData.message || errorMessage;
         } catch {
           // Use default error message if JSON parsing fails
         }
-        
+
         throw new Error(errorMessage);
       }
 
       const challengeData = await response.json();
-      
+
       if (!challengeData.success) {
         throw new Error(challengeData.error || 'Challenge generation failed');
       }
 
       return challengeData;
-      
     } catch (error) {
       console.error('❌ Challenge request failed:', error);
-      
+
       if (error instanceof TypeError && error.message.includes('fetch')) {
         throw new Error(
           `Cannot connect to backend at ${this.backendUrl}. Please ensure the backend server is running.`
         );
       }
-      
+
       throw error;
     }
   }
@@ -118,42 +120,44 @@ export class DirectWeb3Api {
 
       if (!response.ok) {
         let errorMessage = `Signature verification failed: ${response.status} ${response.statusText}`;
-        
+
         try {
           const errorData = await response.json();
           errorMessage = errorData.error || errorData.message || errorMessage;
         } catch {
           // Use default error message if JSON parsing fails
         }
-        
+
         throw new Error(errorMessage);
       }
 
       const verifyData = await response.json();
-      
+
       // Handle real API response
       if (!verifyData.success) {
-        throw new Error(verifyData.message || verifyData.error || 'Signature verification failed');
+        throw new Error(
+          verifyData.message ||
+            verifyData.error ||
+            'Signature verification failed'
+        );
       }
 
       return {
         success: verifyData.success,
         wallet_address: verifyData.wallet_address,
         permissions: verifyData.permissions || [],
-        tier_level: verifyData.tier_level,
         access_token: verifyData.access_token,
         is_new_user: verifyData.is_new_user,
       };
-      
     } catch (error) {
       console.error('❌ Signature verification failed:', error);
-      
+
       if (error instanceof TypeError && error.message.includes('fetch')) {
         throw new Error(
           `Cannot connect to backend at ${this.backendUrl}. Please ensure the backend server is running.`
         );
       }
-      
+
       throw error;
     }
   }
@@ -184,7 +188,6 @@ export class DirectWeb3Api {
       });
 
       return result;
-
     } catch (error) {
       console.error('❌ Web3 authentication flow failed:', error);
       throw error;
@@ -196,13 +199,13 @@ export class DirectWeb3Api {
 export const directWeb3Api = new DirectWeb3Api();
 
 // Convenience functions for direct usage
-export const requestWalletChallenge = (walletAddress: string) => 
+export const requestWalletChallenge = (walletAddress: string) =>
   directWeb3Api.requestChallenge(walletAddress);
 
-export const verifyWalletSignature = (request: VerifyRequest) => 
+export const verifyWalletSignature = (request: VerifyRequest) =>
   directWeb3Api.verifySignature(request);
 
 export const authenticateWallet = (
-  walletAddress: string, 
+  walletAddress: string,
   signMessage: (message: string) => Promise<string>
 ) => directWeb3Api.authenticateWallet(walletAddress, signMessage);

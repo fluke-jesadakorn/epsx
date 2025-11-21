@@ -13,10 +13,10 @@
 
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { Loader2 } from 'lucide-react';
+import { usePathname, useRouter } from 'next/navigation';
+import React, { useEffect, useState } from 'react';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -25,11 +25,11 @@ interface ProtectedRouteProps {
   requireAuth?: boolean;
 }
 
-export function ProtectedRoute({ 
-  children, 
+export function ProtectedRoute({
+  children,
   fallback,
   redirectTo = '/auth/signin',
-  requireAuth = true 
+  requireAuth = true,
 }: ProtectedRouteProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -47,7 +47,7 @@ export function ProtectedRoute({
 
       if (requireAuth && !isAuthenticated) {
         console.log('User not authenticated - page will handle auth UI', {
-          current_path: pathname
+          current_path: pathname,
         });
         // No redirect - let page handle authentication UI
         return;
@@ -56,8 +56,7 @@ export function ProtectedRoute({
       if (isAuthenticated && user) {
         console.log('User authenticated, allowing access', {
           wallet_address: user.wallet_address,
-          tier_level: user.tier_level,
-          path: pathname
+          path: pathname,
         });
       }
     };
@@ -72,7 +71,7 @@ export function ProtectedRoute({
     }
 
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex min-h-screen items-center justify-center">
         <div className="flex flex-col items-center space-y-4">
           <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
           <p className="text-sm text-gray-600">Checking authentication...</p>
@@ -103,7 +102,7 @@ export function withProtectedRoute<P extends object>(
 ) {
   const ProtectedComponent = (props: P) => {
     return (
-      <ProtectedRoute 
+      <ProtectedRoute
         redirectTo={options?.redirectTo}
         requireAuth={options?.requireAuth}
       >
@@ -113,7 +112,7 @@ export function withProtectedRoute<P extends object>(
   };
 
   ProtectedComponent.displayName = `withProtectedRoute(${Component.displayName || Component.name})`;
-  
+
   return ProtectedComponent;
 }
 
@@ -125,7 +124,7 @@ export function useAuthGuard(requireAuth: boolean = true) {
     isAuthenticated,
     isLoading,
     user,
-    shouldRender: !requireAuth || isAuthenticated
+    shouldRender: !requireAuth || isAuthenticated,
   };
 }
 

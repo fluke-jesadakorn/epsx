@@ -51,7 +51,6 @@ export interface Web3ChallengeResponse {
 export interface UserInfoResponse {
   sub: string; // Wallet address
   wallet_address: string; // Web3 wallet address
-  tier_level: string; // User tier
   auth_method: string; // "web3_siwe"
   permissions: string[]; // Backend-determined permissions (display only)
   email?: string; // Optional email (for compatibility)
@@ -92,7 +91,10 @@ export class SharedWeb3AuthClient {
   private listeners: Set<(user: UserInfoResponse | null) => void> = new Set();
   private clientId: string;
   private backendUrl: string;
-  private challengeCache: Map<string, { promise: Promise<Web3ChallengeResponse>; timestamp: number }> = new Map();
+  private challengeCache: Map<
+    string,
+    { promise: Promise<Web3ChallengeResponse>; timestamp: number }
+  > = new Map();
   private authInProgress: boolean = false;
 
   constructor(clientId: string, backendUrl: string) {
@@ -193,12 +195,12 @@ export class SharedWeb3AuthClient {
     const cached = this.challengeCache.get(cacheKey);
 
     // Return cached promise if request is in-flight or recent (within 60s)
-    if (cached && (now - cached.timestamp) < 60000) {
+    if (cached && now - cached.timestamp < 60000) {
       console.log('🔄 Reusing existing challenge request');
       return cached.promise;
     }
 
-    const challengeUrl = `${this.backendUrl}/api/auth/web3/challenge`;
+    const challengeUrl = `${this.backendUrl}/api/v1/auth/web3/challenge`;
 
     console.log('🔑 Requesting Web3 challenge', {
       url: challengeUrl,
@@ -221,34 +223,34 @@ export class SharedWeb3AuthClient {
           }),
         });
 
-      console.log('🔑 Challenge response received', {
-        status: response.status,
-        ok: response.ok,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-      });
-
-      if (!response.ok) {
-        let errorMessage = `Challenge request failed: ${response.status} ${response.statusText}`;
-
-        try {
-          const errorData = await response.json();
-          errorMessage = `Challenge request failed: ${errorData.message || errorMessage}`;
-        } catch {
-          const errorText = await response.text();
-          errorMessage = `Challenge request failed: ${response.status} ${response.statusText}. ${errorText}`;
-        }
-
-        // Enhanced error logging with troubleshooting hints
-        console.error('❌ Challenge request failed', {
-          url: challengeUrl,
+        console.log('🔑 Challenge response received', {
           status: response.status,
+          ok: response.ok,
           statusText: response.statusText,
-          troubleshooting: this.getTroubleshootingHints(response.status),
+          headers: Object.fromEntries(response.headers.entries()),
         });
 
-        throw new Error(errorMessage);
-      }
+        if (!response.ok) {
+          let errorMessage = `Challenge request failed: ${response.status} ${response.statusText}`;
+
+          try {
+            const errorData = await response.clone().json();
+            errorMessage = `Challenge request failed: ${errorData.message || errorMessage}`;
+          } catch {
+            const errorText = await response.clone().text();
+            errorMessage = `Challenge request failed: ${response.status} ${response.statusText}. ${errorText}`;
+          }
+
+          // Enhanced error logging with troubleshooting hints
+          console.error('❌ Challenge request failed', {
+            url: challengeUrl,
+            status: response.status,
+            statusText: response.statusText,
+            troubleshooting: this.getTroubleshootingHints(response.status),
+          });
+
+          throw new Error(errorMessage);
+        }
 
         const challengeData = await response.json();
         console.log('✅ Challenge request successful', challengeData);
@@ -280,7 +282,10 @@ export class SharedWeb3AuthClient {
     })();
 
     // Cache the promise
-    this.challengeCache.set(cacheKey, { promise: challengePromise, timestamp: now });
+    this.challengeCache.set(cacheKey, {
+      promise: challengePromise,
+      timestamp: now,
+    });
 
     return challengePromise;
   }
@@ -323,7 +328,7 @@ export class SharedWeb3AuthClient {
 
     try {
       // Call backend verify endpoint directly
-      const response = await fetch(`${this.backendUrl}/api/auth/web3/verify`, {
+      const response = await fetch(`${this.backendUrl}/api/v1/auth/web3/verify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -352,7 +357,6 @@ export class SharedWeb3AuthClient {
       const user: UserInfoResponse = {
         sub: result.wallet_address,
         wallet_address: result.wallet_address,
-        tier_level: 'standard', // TODO: Derive from permissions
         auth_method: 'web3_siwe',
         permissions: result.permissions || [],
         access: result.access_token,
@@ -376,7 +380,7 @@ export class SharedWeb3AuthClient {
   private async getWeb3Tokens(
     request: Web3AuthRequest
   ): Promise<Web3TokenResponse> {
-    const response = await fetch(`${this.backendUrl}/api/auth/web3/verify`, {
+    const response = await fetch(`${this.backendUrl}/api/v1/auth/web3/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -531,9 +535,12 @@ export class SharedWeb3AuthClient {
       permissions: string[];
       is_admin: boolean;
       expires: string;
-    }>('/api/auth/session/verify', {
-      method: 'POST',
-      body: JSON.stringify({ admin_context: false }),
+    }>(`${this.backendUrl}/api/v1/auth/web3/session`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.getToken()}`,
+      },
     });
 
     if (response.success && response.data?.authenticated) {
@@ -541,7 +548,6 @@ export class SharedWeb3AuthClient {
       return {
         sub: response.data.wallet_address,
         wallet_address: response.data.wallet_address,
-        tier_level: 'standard', // TODO: Derive from permissions
         auth_method: 'web3_siwe',
         permissions: response.data.permissions || [],
       };
@@ -581,10 +587,6 @@ export class SharedWeb3AuthClient {
 
   getWalletAddress(): string | null {
     return this.user?.wallet_address || null;
-  }
-
-  getUserTier(): string {
-    return this.user?.tier_level || 'free';
   }
 
   getUserPermissions(): string[] {

@@ -1,7 +1,7 @@
 /**
  * UNIFIED PERMISSIONS API CLIENT
  *
- * Permission management endpoints for Web3 wallet-based permissions.
+ * Permission management endpoints for wallet-based permissions.
  * Consolidates permission-related API calls across EPSX applications.
  *
  * Features:
@@ -13,6 +13,7 @@
  */
 
 import { UnifiedApiClient, ApiResponse, PaginatedResponse } from '../utils/api-client';
+import { API_ROUTES } from '../config/route-constants';
 
 // ============================================================================
 // TYPES
@@ -192,22 +193,38 @@ export class PermissionsApi {
   }
 
   // ============================================================================
-  // WEB3 PERMISSION MANAGEMENT (Admin only)
+  // PERMISSION MANAGEMENT (Admin only)
   // ============================================================================
 
   /**
-   * Get Web3 permissions (Admin)
-   * GET /api/admin/web3/permissions
+   * Get permissions (Admin)
+   * GET /api/admin/permissions
+   */
+  async getPermissions(): Promise<ApiResponse<PermissionEntry[]>> {
+    return this.client.get<PermissionEntry[]>('/api/admin/permissions');
+  }
+
+  /**
+   * Grant permission (Admin)
+   * POST /api/admin/permissions/grant
+   */
+  async grantPermission(data: GrantPermissionRequest): Promise<ApiResponse<{ granted: boolean }>> {
+    return this.client.post<{ granted: boolean }>('/api/admin/permissions/grant', data);
+  }
+
+  /**
+   * @deprecated Use getPermissions instead
    */
   async getWeb3Permissions(): Promise<ApiResponse<PermissionEntry[]>> {
+    // Keep using old route for backward compatibility
     return this.client.get<PermissionEntry[]>('/api/admin/web3/permissions');
   }
 
   /**
-   * Grant Web3 permission (Admin)
-   * POST /api/admin/web3/permissions/grant
+   * @deprecated Use grantPermission instead
    */
   async grantWeb3Permission(data: GrantPermissionRequest): Promise<ApiResponse<{ granted: boolean }>> {
+    // Keep using old route for backward compatibility
     return this.client.post<{ granted: boolean }>('/api/admin/web3/permissions/grant', data);
   }
 

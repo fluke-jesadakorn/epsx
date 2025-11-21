@@ -33,7 +33,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs'
 import { useToast } from '@/components/ui/use-toast'
 import { adminCardVariants, adminButtonVariants } from '@/design-system'
 import {

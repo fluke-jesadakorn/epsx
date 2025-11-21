@@ -4,7 +4,7 @@
 // Essential security middleware (core functionality)
 pub mod security_headers;
 
-// Web3 wallet authentication middleware (pure SIWE)
+// Web3 wallet authentication middleware (pure SIWE - improved implementation)
 pub mod auth_middleware;
 
 // OpenID Connect Bearer token authentication middleware
@@ -24,15 +24,17 @@ pub use security_headers::{
   request_id_middleware,
 };
 
-// Web3 auth exports (pure wallet-first authentication)
+// Web3 auth exports (improved wallet-first authentication)
 pub use auth_middleware::{
-  web3_auth_middleware,
-  Web3AuthContext,
-  Web3AuthError,
-  get_web3_context,
-  require_web3_auth,
-  require_permission,
-  require_admin,
+    web3_auth_middleware,
+    Web3AuthContext,
+    Web3AuthError,
+    get_web3_context,
+    require_web3_auth,
+    require_permission,
+    require_admin,
+    has_any_permission,
+    AuthMethod,
 };
 
 // OpenID Bearer auth exports (standard OpenID Connect)

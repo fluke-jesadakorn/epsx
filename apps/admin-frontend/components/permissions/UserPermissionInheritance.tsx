@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { 
   Collapsible, CollapsibleContent, CollapsibleTrigger 
 } from '@/components/ui/collapsible'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs'
 import { adminCardVariants } from '@/design-system'
 import { cn } from '@/lib/shared'
 

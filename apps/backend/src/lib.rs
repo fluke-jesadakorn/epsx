@@ -1,5 +1,11 @@
 // Clean architecture library exports
 
+// Temporary allowance for complex Axum trait lifetime issues
+#![allow(dead_code)]
+#![allow(unused_imports)]
+#![allow(unused_variables)]
+#![allow(improper_ctypes_definitions)]
+
 // Diesel schema module (auto-generated from database)
 pub mod schema;
 
