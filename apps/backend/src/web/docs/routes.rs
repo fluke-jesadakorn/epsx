@@ -7,7 +7,7 @@ use utoipa::OpenApi;
 
 use crate::web::docs::openapi::ApiDoc;
 
-/// Create documentation routes
+/// Create documentation routes for Scalar
 pub fn create_docs_routes() -> Router {
   Router::new()
     .route("/docs", get(docs_scalar_handler))
@@ -174,7 +174,7 @@ pub async fn docs_scalar_handler() -> Html<String> {
   Html(html)
 }
 
-/// Serve OpenAPI JSON specification at /api-docs/openapi.json
+/// Serve OpenAPI JSON specification for Scalar at /api-docs/openapi.json
 pub async fn openapi_json_handler() -> Json<utoipa::openapi::OpenApi> {
   Json(ApiDoc::openapi())
 }

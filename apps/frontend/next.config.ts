@@ -1,5 +1,5 @@
-import type { NextConfig } from 'next';
 import dotenv from 'dotenv';
+import type { NextConfig } from 'next';
 import path from 'path';
 
 // Load environment variables from root .env file
@@ -10,6 +10,9 @@ const nextConfig: NextConfig = {
   // outputFileTracingRoot: process.env.NODE_ENV === 'production' ? '/app' : process.cwd(),
   eslint: {
     ignoreDuringBuilds: true,
+  },
+  turbopack: {
+    // ...
   },
   experimental: {
     // Fix WebSocket connection issues in Next.js 15
@@ -24,6 +27,8 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_BLOCKCHAIN_NETWORK: process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK || 'testnet',
     NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'epsx-web3-frontend',
     NEXT_PUBLIC_CHAIN_ID: process.env.NEXT_PUBLIC_CHAIN_ID || '97',
+    NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: process.env.NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS || '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7',
+    NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: process.env.NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS || '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7',
   },
   // Improve HMR WebSocket reliability and fix SSR issues
   webpack: (config, { dev, isServer }) => {
@@ -33,7 +38,7 @@ const nextConfig: NextConfig = {
         aggregateTimeout: 300,
       };
     }
-    
+
     // Fix browser-only APIs during SSR
     if (isServer) {
       config.resolve.fallback = {
@@ -65,7 +70,7 @@ const nextConfig: NextConfig = {
         },
       },
     };
-    
+
     return config;
   },
 };

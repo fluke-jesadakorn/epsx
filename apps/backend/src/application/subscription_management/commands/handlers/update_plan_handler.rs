@@ -4,6 +4,7 @@ use crate::application::subscription_management::commands::{
     UpdatePlanCommand, UpdatePlanResponse
 };
 use crate::domain::subscription_management::{PlanId, PlanRepositoryPort, Price, BillingCycle};
+use crate::domain::subscription_management::aggregates::UpdatePlanParams;
 use crate::domain::shared_kernel::DomainEventBus;
 use rust_decimal::Decimal;
 use std::str::FromStr;
@@ -56,18 +57,18 @@ impl CommandHandler<UpdatePlanCommand> for UpdatePlanCommandHandler {
         };
 
         // 5. Update plan
-        plan.update(
-            command.name,
-            command.description,
-            price_vo,
+        plan.update(UpdatePlanParams {
+            name: command.name,
+            description: command.description,
+            price: price_vo,
             billing_cycle,
-            None, // features - not in command
-            command.target_audience,
-            command.is_active,
-            command.is_promoted,
-            command.display_order,
-            command.metadata,
-        ).map_err(|e| ApplicationError::business_logic(e.to_string()))?;
+            features: None, // features - not in command
+            target_audience: command.target_audience,
+            is_active: command.is_active,
+            is_promoted: command.is_promoted,
+            display_order: command.display_order,
+            metadata: command.metadata,
+        }).map_err(|e| ApplicationError::business_logic(e.to_string()))?;
 
         // 6. Save updated plan
         self.plan_repository.save(&plan).await

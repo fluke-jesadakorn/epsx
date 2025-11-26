@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@/components/ui';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { APIKeyManager } from './APIKeyManager';
 import { APIDocumentation } from './APIDocumentation';
 import { UsageMonitor } from './UsageMonitor';

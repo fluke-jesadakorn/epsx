@@ -43,9 +43,9 @@ pub struct CrossChainPermissionParams {
     pub aggregate_version: u64,
 }
 
-/// Event raised when a Web3 permission is validated against blockchain state
+/// Event raised when a permission is validated against blockchain state
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Web3PermissionValidatedEvent {
+pub struct PermissionValidatedEvent {
     pub metadata: EventMetadata,
     pub wallet_address: WalletAddress,
     pub permission: Permission,
@@ -54,7 +54,7 @@ pub struct Web3PermissionValidatedEvent {
     pub validation_metadata: HashMap<String, String>,
 }
 
-impl Web3PermissionValidatedEvent {
+impl PermissionValidatedEvent {
     pub fn new(
         wallet_address: WalletAddress,
         permission: Permission,
@@ -74,17 +74,17 @@ impl Web3PermissionValidatedEvent {
     }
 }
 
-impl DomainEvent for Web3PermissionValidatedEvent {
+impl DomainEvent for PermissionValidatedEvent {
     fn event_id(&self) -> Uuid {
         self.metadata.event_id
     }
 
     fn event_type(&self) -> &'static str {
-        "Web3PermissionValidated"
+        "PermissionValidated"
     }
 
     fn aggregate_type(&self) -> &'static str {
-        "Web3Permission"
+        "Permission"
     }
 
     fn aggregate_id(&self) -> String {
@@ -107,6 +107,9 @@ impl DomainEvent for Web3PermissionValidatedEvent {
         self
     }
 }
+
+/// @deprecated Use PermissionValidatedEvent instead
+pub type Web3PermissionValidatedEvent = PermissionValidatedEvent;
 
 /// Event raised when an NFT-gated permission is granted
 #[derive(Debug, Clone, Serialize, Deserialize)]

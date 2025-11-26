@@ -157,7 +157,7 @@ pub fn check_permission_access(user_permissions: &[String], required_permission:
             // Only parse and allocate if not in cache
             match Permission::from_string(&required_base) {
                 Ok(perm) => Arc::new(perm),
-                Err(_) => return Arc::new(Permission::new("invalid", "invalid", "invalid")),
+                Err(_) => Arc::new(Permission::new("invalid", "invalid", "invalid")),
             }
         })
         .clone();

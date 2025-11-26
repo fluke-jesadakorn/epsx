@@ -1,0 +1,253 @@
+# EPSX Platform - Docker Compose Configuration
+# Web3-First Architecture with Cloudflare Tunnel
+# All values parameterized via .env.docker - NO HARDCODED VALUES
+
+version: '3.9'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:17-alpine
+    container_name: epsx-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_INITDB_ARGS: "-E UTF8"
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - epsx_internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    ports:
+      - "${DB_PORT:-5432}:5432"
+
+  # Redis Cache and Session Store
+  redis:
+    image: redis:7-alpine
+    container_name: epsx-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    networks:
+      - epsx_internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+
+  # Rust Backend API
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/Dockerfile
+    container_name: epsx-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Environment
+      ENV: ${ENV}
+      NODE_ENV: ${NODE_ENV}
+      RUST_ENV: ${RUST_ENV}
+      RUST_LOG: ${RUST_LOG}
+      LOG_LEVEL: ${LOG_LEVEL}
+
+      # Service URLs
+      BACKEND_URL: ${BACKEND_URL}
+      FRONTEND_URL: ${FRONTEND_URL}
+      ADMIN_FRONTEND_URL: ${ADMIN_FRONTEND_URL}
+
+      # Database
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+      DATABASE_MAX_CONNECTIONS: ${DATABASE_MAX_CONNECTIONS}
+      DATABASE_MIN_CONNECTIONS: ${DATABASE_MIN_CONNECTIONS}
+      DATABASE_ACQUIRE_TIMEOUT: ${DATABASE_ACQUIRE_TIMEOUT}
+      DATABASE_IDLE_TIMEOUT: ${DATABASE_IDLE_TIMEOUT}
+
+      # Redis
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+
+      # Web3 Authentication
+      WEB3_APP_SECRET: ${WEB3_APP_SECRET}
+      WALLET_SIGNATURE_SECRET: ${WALLET_SIGNATURE_SECRET}
+      WEB3_SESSION_SECRET: ${WEB3_SESSION_SECRET}
+      WEB3_SESSION_DURATION_HOURS: ${WEB3_SESSION_DURATION_HOURS}
+      WEB3_SIGNATURE_TIMEOUT_MINUTES: ${WEB3_SIGNATURE_TIMEOUT_MINUTES}
+      JWT_SECRET: ${JWT_SECRET}
+
+      # Blockchain Configuration
+      NEXT_PUBLIC_BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK}
+      BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK}
+      COMPANY_WALLET_MAINNET: ${COMPANY_WALLET_MAINNET}
+      COMPANY_WALLET_TESTNET: ${COMPANY_WALLET_TESTNET}
+
+      # Blockchain RPC Endpoints
+      BSC_MAINNET_RPC_URL: ${BSC_MAINNET_RPC_URL}
+      BSC_TESTNET_RPC_URL: ${BSC_TESTNET_RPC_URL}
+
+      # Blockchain Settings
+      BLOCKCHAIN_CONFIRMATION_TIMEOUT_SECONDS: ${BLOCKCHAIN_CONFIRMATION_TIMEOUT_SECONDS}
+      BSC_REQUIRED_CONFIRMATIONS: ${BSC_REQUIRED_CONFIRMATIONS}
+      BSC_TESTNET_REQUIRED_CONFIRMATIONS: ${BSC_TESTNET_REQUIRED_CONFIRMATIONS}
+      MAX_PAYMENT_AGE_MINUTES: ${MAX_PAYMENT_AGE_MINUTES}
+
+      # Server Configuration
+      HOST: 0.0.0.0
+      PORT: 8080
+    networks:
+      - epsx_internal
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Next.js Frontend
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/frontend/Dockerfile
+      args:
+        - NEXT_PUBLIC_BACKEND_URL=${BACKEND_URL}
+        - NEXT_PUBLIC_APP_URL=${FRONTEND_URL}
+        - NEXT_PUBLIC_ADMIN_URL=${ADMIN_FRONTEND_URL}
+    container_name: epsx-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      # Environment
+      NODE_ENV: ${NODE_ENV}
+      ENV: ${ENV}
+
+      # Service URLs (client-accessible)
+      NEXT_PUBLIC_BACKEND_URL: ${BACKEND_URL}
+      NEXT_PUBLIC_APP_URL: ${FRONTEND_URL}
+      NEXT_PUBLIC_ADMIN_URL: ${ADMIN_FRONTEND_URL}
+
+      # Web3 Configuration (client-accessible)
+      NEXT_PUBLIC_BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK}
+      NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${WALLETCONNECT_PROJECT_ID}
+      NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID}
+
+      # Payment Configuration (client-accessible)
+      NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: ${COMPANY_WALLET_MAINNET}
+      NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: ${COMPANY_WALLET_TESTNET}
+
+      # Firebase Analytics (client-accessible, optional)
+      NEXT_PUBLIC_FIREBASE_API_KEY: ${FIREBASE_API_KEY}
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      NEXT_PUBLIC_FIREBASE_APP_ID: ${FIREBASE_APP_ID}
+      NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${FIREBASE_MEASUREMENT_ID}
+
+      # Server Configuration
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    networks:
+      - epsx_internal
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Next.js Admin Frontend
+  admin-frontend:
+    build:
+      context: .
+      dockerfile: apps/admin-frontend/Dockerfile
+      args:
+        - NEXT_PUBLIC_BACKEND_URL=${BACKEND_URL}
+        - NEXT_PUBLIC_APP_URL=${ADMIN_FRONTEND_URL}
+        - NEXT_PUBLIC_ADMIN_URL=${ADMIN_FRONTEND_URL}
+    container_name: epsx-admin
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      # Environment
+      NODE_ENV: ${NODE_ENV}
+      ENV: ${ENV}
+
+      # Service URLs (client-accessible)
+      NEXT_PUBLIC_BACKEND_URL: ${BACKEND_URL}
+      NEXT_PUBLIC_APP_URL: ${ADMIN_FRONTEND_URL}
+      NEXT_PUBLIC_ADMIN_URL: ${ADMIN_FRONTEND_URL}
+
+      # Web3 Configuration (client-accessible)
+      NEXT_PUBLIC_BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK}
+      NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: ${WALLETCONNECT_PROJECT_ID}
+      NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID}
+
+      # Payment Configuration (client-accessible)
+      NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: ${COMPANY_WALLET_MAINNET}
+      NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: ${COMPANY_WALLET_TESTNET}
+
+      # Firebase Analytics (client-accessible, optional)
+      NEXT_PUBLIC_FIREBASE_API_KEY: ${FIREBASE_API_KEY}
+      NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      NEXT_PUBLIC_FIREBASE_APP_ID: ${FIREBASE_APP_ID}
+      NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: ${FIREBASE_MEASUREMENT_ID}
+
+      # Server Configuration
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    networks:
+      - epsx_internal
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000/api/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Cloudflare Tunnel
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: epsx-cloudflared
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+      admin-frontend:
+        condition: service_healthy
+    command: tunnel --config /etc/cloudflared/config.yml run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    volumes:
+      - ./cloudflared-config.yml:/etc/cloudflared/config.yml:ro
+    networks:
+      - epsx_internal
+
+networks:
+  epsx_internal:
+    driver: bridge
+    name: epsx_network
+
+volumes:
+  postgres_data:
+    name: epsx_postgres_data
+  redis_data:
+    name: epsx_redis_data

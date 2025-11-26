@@ -257,7 +257,7 @@ const { data, loading } = useWallet(address);
 ### Week 2: High-Impact Components
 1. Migrate `WalletUserManagement.tsx`
 2. Migrate `ComplianceMonitoringDashboard.tsx`
-3. Migrate `Web3PermissionManager.tsx`
+3. Migrate `PermissionManager.tsx`
 4. Migrate `ApiKeyManager.tsx`
 5. Migrate `PlanSelection.tsx`
 

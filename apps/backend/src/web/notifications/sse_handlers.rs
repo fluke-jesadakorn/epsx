@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Query, State},
+    extract::{Query, State, Path},
     response::sse::{Event, KeepAlive, Sse},
     response::IntoResponse,
 };
@@ -17,7 +17,7 @@ use crate::{
 // SSE NOTIFICATION TYPES
 // ============================================================================
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct SSENotification {
     pub id: String,
     pub wallet_address: String,
@@ -56,6 +56,19 @@ pub struct SSEQuery {
     pub types: Option<String>, // comma-separated notification types
     pub timeout: Option<u64>,  // seconds
     pub token: Option<String>, // Bearer token (for EventSource compatibility)
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct ScalarQuery {
+    pub types: Option<String>,    // comma-separated notification types
+    pub limit: Option<u32>,       // maximum number to return
+    pub unread_only: Option<bool>, // filter for unread only
+}
+
+#[derive(Debug, Deserialize, utoipa::ToSchema)]
+pub struct ScalarListQuery {
+    pub limit: Option<u32>, // maximum number to return
+    pub offset: Option<u32>, // number to skip
 }
 
 // ============================================================================

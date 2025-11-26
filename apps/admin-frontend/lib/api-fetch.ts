@@ -13,8 +13,16 @@ function getToken(): string | null {
   if (typeof document === 'undefined') return null
 
   const cookies = document.cookie.split(';')
-  const tokenCookie = cookies.find(c => c.trim().startsWith('access_token='))
-  return tokenCookie?.split('=')[1] || null
+
+  // Try both development and production cookie names
+  const tokenCookie = cookies.find(c => {
+    const trimmed = c.trim()
+    return trimmed.startsWith('epsx.access=') || trimmed.startsWith('__Host-epsx.access=')
+  })
+
+  if (!tokenCookie) return null
+
+  return tokenCookie.split('=')[1] || null
 }
 
 export async function apiFetch<T = any>(

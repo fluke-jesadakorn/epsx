@@ -1,8 +1,7 @@
 //! OpenAPI Documentation Module
-//! 
-//! This module provides comprehensive API documentation using utoipa and ReDoc.
-//! The documentation is automatically generated from code annotations and provides
-//! an interactive interface for developers.
+//!
+//! This module provides API documentation using Scalar with utoipa.
+//! Minimal OpenAPI spec for successfully migrated handlers only.
 
 pub mod routes;
 pub mod schemas;

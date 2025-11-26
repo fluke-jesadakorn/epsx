@@ -13,6 +13,7 @@
  */
 
 import { UnifiedApiClient, ApiResponse } from '../utils/api-client';
+import { API_ROUTES } from '../config/route-constants';
 
 // ============================================================================
 // AUTH TYPES
@@ -151,7 +152,7 @@ export class AuthAPIClient {
    */
   async getWeb3Challenge(request: Web3ChallengeRequest): Promise<Web3Challenge> {
     const response = await this.client.post<Web3ChallengeResponse>(
-      '/api/v1/auth/web3/challenge',
+      API_ROUTES.AUTH.WEB3_CHALLENGE,
       request,
       {
         headers: {
@@ -178,7 +179,7 @@ export class AuthAPIClient {
    */
   async verifyWeb3Signature(request: Web3VerifyRequest): Promise<Web3VerifyResponse> {
     const response = await this.client.post<Web3VerifyResponse>(
-      '/api/v1/auth/web3/verify',
+      API_ROUTES.AUTH.WEB3_VERIFY,
       request,
       {
         headers: {
@@ -249,7 +250,7 @@ export class AuthAPIClient {
    */
   async validateSession(request?: SessionValidationRequest): Promise<SessionValidationResponse> {
     const response = await this.client.get<SessionValidationResponse>(
-      '/api/v1/auth/web3/session',
+      API_ROUTES.AUTH.WEB3_SESSION,
       request,
       {
         headers: {
@@ -272,7 +273,7 @@ export class AuthAPIClient {
    */
   async verifySession(token?: string): Promise<SessionValidationResponse> {
     const response = await this.client.post<SessionValidationResponse>(
-      '/api/v1/auth/session/verify',
+      API_ROUTES.AUTH.SESSION_VERIFY || API_ROUTES.AUTH.WEB3_SESSION, // Fallback to session route
       { token },
       {
         headers: {
@@ -295,7 +296,7 @@ export class AuthAPIClient {
    */
   async refreshToken(refreshToken: string): Promise<TokenRefreshResponse> {
     const response = await this.client.post<TokenRefreshResponse>(
-      '/api/v1/auth/session/refresh',
+      API_ROUTES.AUTH.SESSION_REFRESH,
       { refresh_token: refreshToken },
       {
         headers: {
@@ -328,7 +329,7 @@ export class AuthAPIClient {
     permissions: string[];
   }): Promise<{ success: boolean; message: string }> {
     const response = await this.client.post(
-      '/api/auth/web3/store-session',
+      API_ROUTES.AUTH.WEB3_SESSION, // Updated to use standard session endpoint
       sessionData,
       {
         headers: {
@@ -352,7 +353,7 @@ export class AuthAPIClient {
    */
   async clearSession(): Promise<{ success: boolean; message: string }> {
     const response = await this.client.post(
-      '/api/auth/web3/clear-session',
+      API_ROUTES.AUTH.WEB3_LOGOUT, // Updated to use standard logout endpoint
       {},
       {
         headers: {
@@ -379,7 +380,7 @@ export class AuthAPIClient {
    */
   async logout(): Promise<LogoutResponse> {
     const response = await this.client.delete<LogoutResponse>(
-      '/api/v1/auth/web3/logout',
+      API_ROUTES.AUTH.WEB3_LOGOUT,
       {
         headers: {
           'X-API-Version': 'v1',
@@ -414,7 +415,7 @@ export class AuthAPIClient {
    */
   async getUserProfile(): Promise<UserProfile> {
     const response = await this.client.get<UserProfileResponse>(
-      '/api/v1/auth/users/profile',
+      API_ROUTES.AUTH.PROFILE,
       undefined,
       {
         headers: {
@@ -437,7 +438,7 @@ export class AuthAPIClient {
    */
   async updateUserProfile(updates: Partial<UserProfile>): Promise<{ success: boolean; message: string }> {
     const response = await this.client.put(
-      '/api/v1/auth/users/profile',
+      API_ROUTES.AUTH.PROFILE,
       updates,
       {
         headers: {
@@ -465,7 +466,7 @@ export class AuthAPIClient {
     groups?: string[];
   }> {
     const response = await this.client.get<PermissionsResponse>(
-      '/api/v1/auth/users/permissions',
+      API_ROUTES.AUTH.PERMISSIONS,
       undefined,
       {
         headers: {

@@ -26,6 +26,34 @@ impl UnifiedRouteBuilder {
         Self { container }
     }
 
+    // ============================================================================
+    // HELPER METHODS (DRY - Don't Repeat Yourself)
+    // ============================================================================
+
+    /// Get cache or create default MemoryCache - eliminates 7 duplicate patterns
+    fn get_or_default_cache(&self) -> Arc<dyn crate::infrastructure::cache::Cache> {
+        self.container.cache.clone()
+            .unwrap_or_else(|| {
+                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
+                    as Arc<dyn crate::infrastructure::cache::Cache>
+            })
+    }
+
+    /// Create AppState with container dependencies - eliminates 4 duplicate patterns
+    fn create_app_state(&self) -> crate::web::auth::AppState {
+        let cache = self.get_or_default_cache();
+        let redis_pool = self.container.get_redis_pool();
+        let redis_broadcaster = self.container.get_redis_broadcaster();
+
+        crate::web::auth::AppState::new(
+            self.container.db_pool(),
+            cache,
+            Arc::new((*self.container).clone()),
+            redis_pool,
+            redis_broadcaster,
+        )
+    }
+
     /// Build complete router with all routes and middleware
     pub fn build(self) -> Router {
         // Create route groups
@@ -39,7 +67,7 @@ impl UnifiedRouteBuilder {
         let docs_routes = crate::web::docs::create_docs_routes();
         let permission_authority_routes = self.create_permission_authority_routes();
 
-        // Combine all routes - SIMPLIFIED STANDARD
+        // Combine all routes - MIXED /api/ and /api/v1/ STRUCTURE
         let router = Router::new()
             // Core health endpoints (public, no auth)
             .merge(health_routes)
@@ -47,32 +75,32 @@ impl UnifiedRouteBuilder {
             // API documentation (public, no auth)
             .merge(docs_routes)
 
-            // All routes under /api prefix
-            .nest("/api", Router::new()
-                // Permission Authority (centralized permission validation)
-                .merge(permission_authority_routes)
+            // Authentication routes (Web3-first auth) - under /api/v1/auth/* (standardized)
+            .nest("/api/v1/auth", auth_routes)
 
-                // Authentication routes
-                .nest("/auth", auth_routes)
+            // All routes under standardized /api/v1/ prefix
+            .nest("/api/v1", Router::new()
+                // Permission Authority (centralized permission validation - ALL apps use this)
+                .nest("/permissions", permission_authority_routes)
 
                 // Public API endpoints (no authentication)
                 .nest("/public", public_routes)
 
-                // User routes (authenticated)
-                .nest("/user", user_routes)
+                // User management routes (authenticated users)
+                .nest("/users", user_routes)
 
-                // Admin routes (authenticated + permission validation)
+                // Admin-only routes (authenticated + admin permissions)
                 .nest("/admin", admin_routes)
 
                 // Analytics routes (authenticated)
-                .nest("/analytics", analytics_routes.clone())
+                .nest("/analytics", analytics_routes)
 
                 // Notifications routes (authenticated)
                 .nest("/notifications", notification_routes)
-            )
 
-            // Legacy analytics route (backward compatibility only)
-            .nest("/analytics", analytics_routes);
+                // Plan and billing routes (authenticated)
+                .nest("/plans", self.create_plan_routes())
+            );
 
         // Apply middleware stack
         router
@@ -90,15 +118,9 @@ impl UnifiedRouteBuilder {
     // ============================================================================
 
     fn create_health_routes(&self) -> Router {
-        let cache = self.container.cache.clone()
-            .unwrap_or_else(|| {
-                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
-                    as Arc<dyn crate::infrastructure::cache::Cache>
-            });
-
         let health_state = crate::web::health::HealthState {
             pool: self.container.db_pool(),
-            cache,
+            cache: self.get_or_default_cache(),
         };
 
         Router::new()
@@ -120,13 +142,10 @@ impl UnifiedRouteBuilder {
             grant_permission_handler,
             revoke_permission_handler,
         };
-        use crate::web::auth::AppState;
 
-        let cache = self.container.cache.clone()
-            .unwrap_or_else(|| {
-                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
-                    as Arc<dyn crate::infrastructure::cache::Cache>
-            });
+        // Get Redis services - optional, log warning if not available
+        let redis_pool = self.container.get_redis_pool();
+        let redis_broadcaster = self.container.get_redis_broadcaster();
 
         // Get Redis services - optional, log warning if not available
         let redis_pool = self.container.get_redis_pool();
@@ -136,13 +155,7 @@ impl UnifiedRouteBuilder {
             tracing::warn!("⚠️ Redis not configured - notifications and real-time features will not work");
         }
 
-        let app_state = AppState::new(
-            self.container.db_pool(),
-            cache,
-            self.container.clone(),
-            redis_pool,
-            redis_broadcaster,
-        );
+        let app_state = self.create_app_state();
 
         Router::new()
             // Web3 authentication endpoints
@@ -164,11 +177,7 @@ impl UnifiedRouteBuilder {
     // ============================================================================
 
     fn create_admin_routes(&self) -> Router {
-        let cache = self.container.cache.clone()
-            .unwrap_or_else(|| {
-                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
-                    as Arc<dyn crate::infrastructure::cache::Cache>
-            });
+        let app_state = self.create_app_state();
 
         let redis_pool = self.container.get_redis_pool();
         let redis_broadcaster = self.container.get_redis_broadcaster();
@@ -186,11 +195,19 @@ impl UnifiedRouteBuilder {
             .with_state(app_state.clone())
             .layer(axum_middleware::from_fn_with_state(
                 app_state.clone(),
+                crate::web::middleware::web3_auth_middleware
+            ))
+            .layer(axum_middleware::from_fn_with_state(
+                app_state.clone(),
                 crate::web::middleware::permission_validation_middleware
             ));
 
         let permission_authority_routes = crate::web::admin::routes::create_permission_authority_routes()
             .with_state(app_state.clone())
+            .layer(axum_middleware::from_fn_with_state(
+                app_state.clone(),
+                crate::web::middleware::web3_auth_middleware
+            ))
             .layer(axum_middleware::from_fn_with_state(
                 app_state.clone(),
                 crate::web::middleware::permission_validation_middleware
@@ -206,12 +223,6 @@ impl UnifiedRouteBuilder {
     // ============================================================================
 
     fn create_analytics_routes(&self) -> Router {
-        let cache = self.container.cache.clone()
-            .unwrap_or_else(|| {
-                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
-                    as Arc<dyn crate::infrastructure::cache::Cache>
-            });
-
         // Create TradingView service and EPS ranking service
         let config = Arc::new(crate::config::get_fallback_config());
         let tradingview_service = Arc::new(crate::infrastructure::adapters::services::tradingview::TradingViewApiService::new(config));
@@ -224,7 +235,7 @@ impl UnifiedRouteBuilder {
             .route("/countries", get(crate::web::analytics::eps_handlers::get_all_valid_countries))
             .route("/available-countries", get(crate::web::analytics::eps_handlers::get_available_countries))
             .route("/sectors", get(crate::web::analytics::eps_handlers::get_sectors_by_country))
-            .layer(Extension(cache))
+            .layer(Extension(self.get_or_default_cache()))
             .layer(Extension(eps_ranking_service))
     }
 
@@ -256,18 +267,12 @@ impl UnifiedRouteBuilder {
         let eps_repository = Arc::new(crate::web::analytics::TradingViewEPSRepository::new(tradingview_service));
         let eps_ranking_service = Arc::new(crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService::new(eps_repository));
 
-        let cache_clone = self.container.cache.clone()
-            .unwrap_or_else(|| {
-                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
-                    as Arc<dyn crate::infrastructure::cache::Cache>
-            });
-
         Router::new()
             .nest("/analytics", Router::new()
                 .route("/rankings", get(crate::web::analytics::eps_handlers::get_unified_analytics_rankings_cached))
                 .route("/filters", get(crate::web::analytics::eps_handlers::get_all_valid_countries))
                 .route("/countries", get(crate::web::analytics::eps_handlers::get_all_valid_countries))
-                .layer(Extension(cache_clone))
+                .layer(Extension(self.get_or_default_cache()))
                 .layer(Extension(eps_ranking_service))
             )
             .route("/plans", get(crate::web::public::plans_handlers::get_public_plans))
@@ -280,23 +285,64 @@ impl UnifiedRouteBuilder {
     // ============================================================================
 
     fn create_user_routes(&self) -> Router {
+        let app_state = self.create_app_state();
+
         Router::new()
-            // TODO: User profile routes need proper middleware setup
-            // User handlers exist in src/web/user/unified_user_handlers.rs but require:
-            // 1. Web3 auth middleware to extract user context from Bearer token
-            // 2. Permission validation middleware
-            // Available handlers:
-            //   - get_current_user_profile -> /api/v1/wallet/profile
-            //   - get_user_permissions -> /api/v1/wallet/permissions
-            //   - update_user_preferences -> /api/v1/wallet/preferences
-            //
-            // TODO: Implement watchlist, alerts, and push subscription handlers
-            // Missing handlers that frontend expects:
-            //   - /api/v1/user/watchlist (GET, POST, DELETE)
-            //   - /api/v1/user/alerts (GET, POST, DELETE)
-            //   - /api/v1/user/push-subscription (POST, DELETE)
-            //
-            // For now, these routes return 404 until proper implementation
+            // User profile and settings - using available handlers
+            .route("/profile", get(crate::web::user::unified_user_handlers::get_current_user_profile))
+            .route("/permissions", get(crate::web::user::unified_user_handlers::get_user_permissions))
+
+            // TODO: Fix handler signature for update_user_preferences
+            // .route("/profile", put(crate::web::user::unified_user_handlers::update_user_preferences))
+
+            // TODO: Implement missing handler modules
+            // Watchlist management (watchlist_handlers not implemented yet)
+            // .route("/watchlist", get(crate::web::user::watchlist_handlers::get_watchlist))
+            // .route("/watchlist", post(crate::web::user::watchlist_handlers::add_to_watchlist))
+            // .route("/watchlist/:symbol", delete(crate::web::user::watchlist_handlers::remove_from_watchlist))
+
+            // Alert management (alert_handlers not implemented yet)
+            // .route("/alerts", get(crate::web::user::alert_handlers::get_alerts))
+            // .route("/alerts", post(crate::web::user::alert_handlers::create_alert))
+            // .route("/alerts/:id", delete(crate::web::user::alert_handlers::delete_alert))
+
+            // Push subscription management (push_handlers not implemented yet)
+            // .route("/push-subscription", post(crate::web::user::push_handlers::register_push_subscription))
+            // .route("/push-subscription", delete(crate::web::user::push_handlers::unregister_push_subscription))
+
+            // Wallet management (wallet_handlers not implemented yet)
+            // .route("/wallet/connect", post(crate::web::user::wallet_handlers::connect_wallet))
+            // .route("/wallet/disconnect", delete(crate::web::user::wallet_handlers::disconnect_wallet))
+
+            // TODO: Fix notification handler signature issue
+            // .route("/notifications", get(crate::web::admin::notification_handlers::get_user_notifications_handler))
+
+            // Settings management (settings_handlers not implemented yet)
+            // .route("/settings", get(crate::web::user::settings_handlers::get_user_settings))
+            .with_state(app_state)
+    }
+
+    // ============================================================================
+    // PLAN AND BILLING ROUTES (authenticated users)
+    // ============================================================================
+
+    fn create_plan_routes(&self) -> Router {
+        let app_state = self.create_app_state();
+
+        Router::new()
+            // TODO: Implement plans module handlers
+            // Subscription management (plans module not implemented yet)
+            // .route("/subscription", get(crate::web::plans::subscription_handlers::get_subscription))
+            // .route("/subscription", post(crate::web::plans::subscription_handlers::create_subscription))
+            // .route("/subscription/status", get(crate::web::plans::subscription_handlers::get_subscription_status))
+            // .route("/subscription/history", get(crate::web::plans::subscription_handlers::get_subscription_history))
+
+            // Usage and billing (plans module not implemented yet)
+            // .route("/usage", get(crate::web::plans::usage_handlers::get_usage))
+            // .route("/billing", get(crate::web::plans::billing_handlers::get_billing_info))
+            // .route("/invoices", get(crate::web::plans::billing_handlers::get_invoices))
+
+            .with_state(app_state)
     }
 
     // ============================================================================
@@ -337,7 +383,27 @@ impl UnifiedRouteBuilder {
             .layer(Self::create_sse_cors_layer())
             .with_state(app_state.clone());
 
-        // Other notification routes with normal auth
+        // Create authenticated user notification routes
+        let auth_routes = Router::new()
+            // User notification routes (authenticated)
+            .route("/unread-count", get(crate::web::admin::notification_handlers::get_unread_count_handler))
+            .route("/mark-all-read", put(crate::web::admin::notification_handlers::mark_all_notifications_read_handler))
+            .route("/clear-all", delete(crate::web::admin::notification_handlers::clear_all_notifications_handler))
+            .route("/{id}/read", put(crate::web::admin::notification_handlers::mark_notification_read_handler))
+            .route("/{id}", delete(crate::web::admin::notification_handlers::delete_notification_handler))
+            .route("/{id}/acknowledge", put(crate::web::admin::notification_handlers::acknowledge_notification_handler))
+            .route("/", get(crate::web::admin::notification_handlers::get_user_notifications_handler))
+            .with_state(app_state.clone());
+
+        // Create admin notification routes (admin-only)
+        let admin_routes = Router::new()
+            .route("/send", post(crate::web::admin::notification_handlers::send_notification_handler))
+            .route("/stats", get(crate::web::admin::notification_handlers::get_notification_stats_handler))
+            .route("/admin/{id}", delete(crate::web::admin::notification_handlers::delete_admin_notification_handler))
+            .route("/admin", get(crate::web::admin::notification_handlers::get_all_notifications_handler))
+            .with_state(app_state.clone());
+
+        // Combine all notification routes
         let notification_routes = Router::new()
             .route("/", get(get_user_notifications_handler))
             .route("/unread-count", get(get_unread_count_handler))
@@ -464,10 +530,14 @@ impl UnifiedRouteBuilder {
         } else {
             // Development: Use specific origins with credentials
             let origins: Vec<HeaderValue> = vec![
-                "http://localhost:3000".parse().unwrap(),
-                "http://localhost:3001".parse().unwrap(),
-                "http://127.0.0.1:3000".parse().unwrap(),
-                "http://127.0.0.1:3001".parse().unwrap(),
+                "http://localhost:3000".parse()
+                    .expect("Static localhost:3000 URL should always parse"),
+                "http://localhost:3001".parse()
+                    .expect("Static localhost:3001 URL should always parse"),
+                "http://127.0.0.1:3000".parse()
+                    .expect("Static 127.0.0.1:3000 URL should always parse"),
+                "http://127.0.0.1:3001".parse()
+                    .expect("Static 127.0.0.1:3001 URL should always parse"),
             ];
 
             CorsLayer::new()

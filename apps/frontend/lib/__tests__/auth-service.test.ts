@@ -141,16 +141,16 @@ describe('AuthService - Web3 Authentication', () => {
     })
   })
 
-  describe('Web3 Permission Checking', () => {
-    test('hasPermission should check structured Web3 permissions', async () => {
-      const mockWeb3User = {
+  describe('Permission Checking', () => {
+    test('hasPermission should check structured permissions', async () => {
+      const mockUser = {
         id: '0x742d35Cc6634C0532925a3b8D369D7763F3c45c6',
         wallet_address: '0x742d35Cc6634C0532925a3b8D369D7763F3c45c6',
         permissions: ['epsx:analytics:view', 'epsx:trading:execute', 'admin:users:manage'],
         tier: 'nft'
       }
 
-      authService['cachedUser'] = mockWeb3User
+      authService['cachedUser'] = mockUser
       mockTokenManagerInstance.isTokenExpired.mockReturnValue(false)
 
       const hasAnalyticsAccess = await authService.hasPermission('epsx:analytics:view')
@@ -170,7 +170,7 @@ describe('AuthService - Web3 Authentication', () => {
         tier: 'basic'
       }
 
-      authService['cachedUser'] = mockWeb3User
+      authService['cachedUser'] = mockUser
       mockTokenManagerInstance.isTokenExpired.mockReturnValue(false)
 
       const hasAdvancedAccess = await authService.hasPermission('epsx:trading:execute')
@@ -188,7 +188,7 @@ describe('AuthService - Web3 Authentication', () => {
         tier: 'enterprise'
       }
 
-      authService['cachedUser'] = mockWeb3User
+      authService['cachedUser'] = mockUser
       mockTokenManagerInstance.isTokenExpired.mockReturnValue(false)
 
       const hasAnalyticsAccess = await authService.hasPermission('epsx:analytics:view')

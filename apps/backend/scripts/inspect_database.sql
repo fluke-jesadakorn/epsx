@@ -125,7 +125,6 @@ SELECT
         WHEN 'users' THEN 'Replaced by wallet_users'
         WHEN 'oidc_users' THEN 'Consolidated into wallet_users'
         WHEN 'admin_modules' THEN 'Replaced by structured permissions'
-        WHEN 'user_tiers' THEN 'Consolidated into wallet_users.tier_level'
         WHEN 'tier_permissions' THEN 'Replaced by permission_groups'
         WHEN 'user_permissions' THEN 'Replaced by wallet_direct_permissions'
         WHEN 'user_sessions' THEN 'Replaced by sessions table'

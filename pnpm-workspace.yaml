@@ -1,6 +1,0 @@
-packages:
-  # Apps
-  - 'apps/*'
-
-  # Backend (Rust) - included for Turborepo integration
-  - 'apps/backend'

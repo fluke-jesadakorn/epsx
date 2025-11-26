@@ -34,8 +34,7 @@ impl PermissionValidationService {
 
     /// Check if a permission matches a wildcard pattern
     pub fn matches_wildcard(permission: &str, pattern: &str) -> bool {
-        if pattern.ends_with("*") {
-            let prefix = &pattern[..pattern.len() - 1];
+        if let Some(prefix) = pattern.strip_suffix("*") {
             permission.starts_with(prefix)
         } else {
             permission == pattern

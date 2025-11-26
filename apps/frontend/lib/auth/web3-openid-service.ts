@@ -12,7 +12,11 @@
  */
 
 import { logger } from '@/lib/shared';
-import { openidApiClient, Web3AuthRequest, UserInfoResponse } from './api-client';
+import {
+  openidApiClient,
+  UserInfoResponse,
+  Web3AuthRequest,
+} from './api-client';
 
 // Web3 Challenge Response
 export interface Web3ChallengeResponse {
@@ -82,9 +86,11 @@ export class Web3OpenIDService {
   /**
    * Request Web3 challenge from backend
    */
-  async requestChallenge(walletAddress: string): Promise<Web3ChallengeResponse> {
+  async requestChallenge(
+    walletAddress: string
+  ): Promise<Web3ChallengeResponse> {
     const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/web3/challenge`;
-    
+
     logger.info('Requesting Web3 challenge', { wallet_address: walletAddress });
 
     const response = await fetch(url, {
@@ -94,21 +100,23 @@ export class Web3OpenIDService {
       },
       body: JSON.stringify({
         wallet_address: walletAddress,
-        client_id: process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend'
+        client_id: process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend',
       }),
     });
 
     if (!response.ok) {
       const errorData = await response.json();
       logger.error('Challenge request failed', { error: errorData });
-      throw new Error(`Challenge request failed: ${errorData.message || 'Unknown error'}`);
+      throw new Error(
+        `Challenge request failed: ${errorData.message || 'Unknown error'}`
+      );
     }
 
     const challengeData: Web3ChallengeResponse = await response.json();
-    
+
     logger.info('Web3 challenge received successfully', {
       wallet_address: challengeData.wallet_address,
-      nonce: challengeData.nonce
+      nonce: challengeData.nonce,
     });
 
     return challengeData;
@@ -117,10 +125,12 @@ export class Web3OpenIDService {
   /**
    * Authenticate with Web3 signature and get OpenID tokens
    */
-  async authenticateWithSignature(signatureRequest: Web3SignatureRequest): Promise<Web3AuthResult> {
+  async authenticateWithSignature(
+    signatureRequest: Web3SignatureRequest
+  ): Promise<Web3AuthResult> {
     try {
       logger.info('Authenticating with Web3 signature', {
-        wallet_address: signatureRequest.wallet_address
+        wallet_address: signatureRequest.wallet_address,
       });
 
       // Create Web3 auth request for OpenID token issuance
@@ -129,22 +139,23 @@ export class Web3OpenIDService {
         signature: signatureRequest.signature,
         message: signatureRequest.message,
         nonce: signatureRequest.nonce,
-        client_id: process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend'
+        client_id: process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || 'epsx-frontend',
       };
 
       // Get OpenID tokens from backend
-      const tokenResponse = await openidApiClient.authenticateWithWeb3(web3AuthRequest);
-      
+      const tokenResponse =
+        await openidApiClient.authenticateWithWeb3(web3AuthRequest);
+
       logger.info('OpenID tokens received, fetching user info');
 
       // Get user information
       const user = await openidApiClient.getCurrentUser();
-      
+
       if (!user) {
         logger.error('Failed to fetch user info after authentication');
         return {
           success: false,
-          error: 'Failed to fetch user information'
+          error: 'Failed to fetch user information',
         };
       }
 
@@ -153,20 +164,18 @@ export class Web3OpenIDService {
 
       logger.info('Web3 authentication successful', {
         wallet_address: user.wallet_address,
-        tier_level: user.tier_level,
-        permissions_count: user.permissions.length
+        permissions_count: user.permissions.length,
       });
 
       return {
         success: true,
-        user
+        user,
       };
-
     } catch (error) {
       logger.error('Web3 authentication failed', { error });
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Authentication failed'
+        error: error instanceof Error ? error.message : 'Authentication failed',
       };
     }
   }
@@ -184,16 +193,15 @@ export class Web3OpenIDService {
       }
 
       logger.info('Loading current user from existing tokens');
-      
+
       const user = await openidApiClient.getCurrentUser();
-      
+
       if (user) {
         this.currentUser = user;
         this.notifyListeners();
-        
+
         logger.info('Current user loaded successfully', {
           wallet_address: user.wallet_address,
-          tier_level: user.tier_level
         });
       } else {
         this.currentUser = null;
@@ -202,7 +210,6 @@ export class Web3OpenIDService {
       }
 
       return user;
-
     } catch (error) {
       logger.error('Failed to load current user', { error });
       this.currentUser = null;
@@ -217,22 +224,21 @@ export class Web3OpenIDService {
   async logout(): Promise<void> {
     try {
       logger.info('Logging out user');
-      
+
       // Revoke OpenID tokens
       await openidApiClient.revokeTokens();
-      
+
       // Clear user state
       this.currentUser = null;
       this.notifyListeners();
-      
+
       logger.info('User logged out successfully');
-      
+
       // Trigger wallet disconnect event for Web3 components
       if (typeof window !== 'undefined') {
         const event = new CustomEvent('epsx:disconnect-wallet');
         window.dispatchEvent(event);
       }
-
     } catch (error) {
       logger.error('Logout failed', { error });
       throw new Error('Logout failed');
@@ -245,9 +251,9 @@ export class Web3OpenIDService {
   async refreshUser(): Promise<void> {
     try {
       logger.info('Refreshing user data');
-      
+
       const user = await openidApiClient.getCurrentUser();
-      
+
       if (user) {
         this.currentUser = user;
         this.notifyListeners();
@@ -258,7 +264,6 @@ export class Web3OpenIDService {
         this.notifyListeners();
         logger.warn('Failed to refresh user data - tokens may be invalid');
       }
-
     } catch (error) {
       logger.error('Failed to refresh user data', { error });
       throw new Error('Failed to refresh user data');
@@ -276,13 +281,6 @@ export class Web3OpenIDService {
   isAdminUser(): boolean {
     if (!this.currentUser) return false;
     return this.currentUser.permissions.some(p => p.startsWith('admin:'));
-  }
-
-  /**
-   * Get user tier (display helper only)
-   */
-  getUserTier(): string {
-    return this.currentUser?.tier_level || 'free';
   }
 
   /**

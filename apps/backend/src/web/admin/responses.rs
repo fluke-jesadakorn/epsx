@@ -11,10 +11,11 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use chrono::{DateTime, Utc};
+use utoipa::ToSchema;
 
 /// Standardized Admin API Response Structure
 /// Used by all admin endpoints for consistent response format
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct AdminApiResponse<T> {
     /// Request success status
     pub success: bool,
@@ -39,7 +40,7 @@ pub struct AdminApiResponse<T> {
 }
 
 /// Admin-specific metadata for operations
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct AdminMetadata {
     /// Operation performed
     pub operation: String,
@@ -62,7 +63,7 @@ pub struct AdminMetadata {
 }
 
 /// Pagination information for list responses
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct PaginationInfo {
     pub page: i32,
     pub limit: i32,
@@ -73,7 +74,7 @@ pub struct PaginationInfo {
 }
 
 /// Admin permission context
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct AdminPermissionContext {
     /// Admin user tier/role
     pub admin_role: String,

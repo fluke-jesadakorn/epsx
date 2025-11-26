@@ -37,7 +37,7 @@ impl CommandHandler<CreateRealtimeEventCommand> for CreateRealtimeEventCommandHa
         self.event_repository
             .save(&event)
             .await
-            .map_err(|e| ApplicationError::infrastructure(e))?;
+            .map_err(ApplicationError::infrastructure)?;
 
         // 3. Return response
         Ok(CreateRealtimeEventResponse {

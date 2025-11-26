@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { toast } from 'react-hot-toast';
 
 import { Button } from '@/components/ui/button';
-import { FormField, Input, Select, Textarea } from '@/components/ui/form-components';
+import { FormField, Input, Select, Textarea } from '@/components/ui/FormComponents';
 
 interface ApiKeyRequest {
   company_name: string;

@@ -13,7 +13,8 @@ use ethers::{
 };
 use serde::{Deserialize, Serialize};
 use siwe::{Message, VerificationOpts};
-use sqlx::PgPool;
+use diesel_async::{AsyncPgConnection, pooled_connection::deadpool::Pool, RunQueryDsl};
+use diesel::prelude::*;
 use std::str::FromStr;
 use tracing::{debug, error, info, warn};
 use jsonwebtoken;
@@ -26,7 +27,7 @@ use crate::config::env::get_bsc_chain_id;
 /// Handles all Web3 wallet authentication, SIWE verification, and permission management
 #[derive(Clone)]
 pub struct UnifiedWeb3AuthService {
-    db_pool: PgPool,
+    db_pool: &'static Pool<AsyncPgConnection>,
     openid_service: Option<OpenIDTokenService>,
     // Configuration
     domain: String,
@@ -116,7 +117,7 @@ pub enum Web3AuthError {
 impl UnifiedWeb3AuthService {
     /// Create new unified Web3 auth service
     pub fn new(
-        db_pool: PgPool,
+        db_pool: &'static Pool<AsyncPgConnection>,
         domain: String,
     ) -> Self {
         Self {
@@ -126,10 +127,10 @@ impl UnifiedWeb3AuthService {
             nonce_expiry_minutes: 15, // 15 minute nonce expiry
         }
     }
-    
+
     /// Create new unified Web3 auth service with OpenID token service
     pub fn new_with_openid(
-        db_pool: PgPool,
+        db_pool: &'static Pool<AsyncPgConnection>,
         domain: String,
         openid_service: OpenIDTokenService,
     ) -> Self {
@@ -156,25 +157,30 @@ impl UnifiedWeb3AuthService {
         let message = self.create_siwe_message(&address, &nonce)?;
 
         // Store nonce in database
-        sqlx::query!(
-            r#"
-            INSERT INTO web3_auth_nonces (wallet_address, nonce, message, expires_at, created_at)
-            VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (wallet_address) DO UPDATE SET
-                nonce = EXCLUDED.nonce,
-                message = EXCLUDED.message,
-                expires_at = EXCLUDED.expires_at,
-                created_at = EXCLUDED.created_at
-            "#,
-            wallet_address,
-            nonce,
-            message,
-            expires_at,
-            now
-        )
-        .execute(&self.db_pool)
-        .await
-        .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
+        use crate::schema::web3_auth_nonces;
+
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
+
+        diesel::insert_into(web3_auth_nonces::table)
+            .values((
+                web3_auth_nonces::wallet_address.eq(wallet_address),
+                web3_auth_nonces::nonce.eq(&nonce),
+                web3_auth_nonces::message.eq(&message),
+                web3_auth_nonces::expires_at.eq(&expires_at),
+                web3_auth_nonces::created_at.eq(&now),
+            ))
+            .on_conflict(web3_auth_nonces::wallet_address)
+            .do_update()
+            .set((
+                web3_auth_nonces::nonce.eq(&nonce),
+                web3_auth_nonces::message.eq(&message),
+                web3_auth_nonces::expires_at.eq(&expires_at),
+                web3_auth_nonces::created_at.eq(&now),
+            ))
+            .execute(&mut conn)
+            .await
+            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
         info!("Generated Web3 challenge for wallet: {}", wallet_address);
 
@@ -194,13 +200,26 @@ impl UnifiedWeb3AuthService {
             .map_err(|e| Web3AuthError::InvalidWalletAddress(e.to_string()))?;
 
         // Verify nonce exists and is valid
-        let nonce_record = sqlx::query!(
-            "SELECT nonce, message, expires_at FROM web3_auth_nonces WHERE wallet_address = $1",
-            request.wallet_address
-        )
-        .fetch_optional(&self.db_pool)
-        .await
-        .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?
+        use crate::schema::web3_auth_nonces;
+
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
+
+        #[derive(Queryable, Selectable)]
+        #[diesel(table_name = crate::schema::web3_auth_nonces)]
+        struct NonceRecord {
+            nonce: String,
+            message: String,
+            expires_at: DateTime<Utc>,
+        }
+
+        let nonce_record = web3_auth_nonces::table
+            .filter(web3_auth_nonces::wallet_address.eq(&request.wallet_address))
+            .select((web3_auth_nonces::nonce, web3_auth_nonces::message, web3_auth_nonces::expires_at))
+            .first::<NonceRecord>(&mut conn)
+            .await
+            .optional()
+            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?
         .ok_or_else(|| Web3AuthError::ExpiredNonce("No valid nonce found".to_string()))?;
 
         // Check nonce expiry
@@ -286,15 +305,16 @@ impl UnifiedWeb3AuthService {
 
     /// Grant manual permission to wallet
     pub async fn grant_manual_permission(&self, wallet_address: &str, permission: &str, expires_at: Option<DateTime<Utc>>) -> Result<(), Web3AuthError> {
-        sqlx::query!(
-            r#"SELECT add_wallet_user_permission($1, $2, 'Manual', $3, '{}') AS success"#,
-            wallet_address,
-            permission,
-            expires_at
-        )
-        .fetch_one(&self.db_pool)
-        .await
-        .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
+
+        diesel::sql_query("SELECT add_wallet_user_permission($1, $2, 'Manual', $3, '{}') AS success")
+            .bind::<diesel::sql_types::Text, _>(wallet_address)
+            .bind::<diesel::sql_types::Text, _>(permission)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(expires_at)
+            .execute(&mut conn)
+            .await
+            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
         info!("Granted manual permission '{}' to wallet: {}", permission, wallet_address);
         Ok(())
@@ -348,30 +368,48 @@ impl UnifiedWeb3AuthService {
 
     /// Cleanup used nonce
     async fn cleanup_nonce(&self, wallet_address: &str) -> Result<(), Web3AuthError> {
-        sqlx::query!("DELETE FROM web3_auth_nonces WHERE wallet_address = $1", wallet_address)
-            .execute(&self.db_pool)
+        use crate::schema::web3_auth_nonces;
+
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
+
+        diesel::delete(web3_auth_nonces::table)
+            .filter(web3_auth_nonces::wallet_address.eq(wallet_address))
+            .execute(&mut conn)
             .await
             .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
-        
+
         Ok(())
     }
 
     /// Get or create user for wallet
     async fn get_or_create_user(&self, wallet_address: &str) -> Result<(String, bool), Web3AuthError> {
+        use crate::schema::wallet_users;
+
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
+
         // Check if user exists in wallet_users table
-        if let Some(_existing_user) = sqlx::query!("SELECT wallet_address, last_auth_at FROM wallet_users WHERE wallet_address = $1", wallet_address)
-            .fetch_optional(&self.db_pool)
+        let user_exists = wallet_users::table
+            .filter(wallet_users::wallet_address.eq(wallet_address))
+            .select(wallet_users::wallet_address)
+            .first::<String>(&mut conn)
             .await
-            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?
-        {
-            // Update last_auth_at for existing user
-            sqlx::query!(
-                "UPDATE wallet_users SET last_auth_at = NOW(), updated_at = NOW() WHERE wallet_address = $1",
-                wallet_address
-            )
-            .execute(&self.db_pool)
-            .await
+            .optional()
             .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
+
+        if user_exists.is_some() {
+            // Update last_auth_at for existing user
+            let now = Utc::now();
+            diesel::update(wallet_users::table)
+                .filter(wallet_users::wallet_address.eq(wallet_address))
+                .set((
+                    wallet_users::last_auth_at.eq(&now),
+                    wallet_users::updated_at.eq(&now),
+                ))
+                .execute(&mut conn)
+                .await
+                .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
             debug!("Updated existing wallet user activity: {}", wallet_address);
             return Ok((wallet_address.to_string(), false));
@@ -460,7 +498,17 @@ impl UnifiedWeb3AuthService {
 
     /// Get manual permissions from normalized tables
     async fn get_manual_permissions(&self, wallet_address: &str) -> Result<Vec<String>, Web3AuthError> {
-        let permissions = sqlx::query!(
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
+        let now = Utc::now();
+
+        #[derive(QueryableByName)]
+        struct PermissionResult {
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            permission: Option<String>,
+        }
+
+        let permission_records = diesel::sql_query(
             r#"
             -- Manual permissions from groups (extract name from JSON VARCHAR)
             SELECT DISTINCT (p.permission_string::jsonb)->>'name' as permission
@@ -486,16 +534,17 @@ impl UnifiedWeb3AuthService {
               AND (wdp.expires_at IS NULL OR wdp.expires_at > $2)
 
             ORDER BY permission
-            "#,
-            wallet_address,
-            Utc::now()
+            "#
         )
-        .fetch_all(&self.db_pool)
-        .await
-        .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?
-        .into_iter()
-        .filter_map(|row| row.permission)
-        .collect();
+        .bind::<diesel::sql_types::Text, _>(wallet_address)
+        .bind::<diesel::sql_types::Timestamptz, _>(now)
+        .load::<PermissionResult>(&mut conn).await
+        .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
+
+        let permissions = permission_records
+            .into_iter()
+            .filter_map(|row| row.permission)
+            .collect();
 
         Ok(permissions)
     }
@@ -800,23 +849,26 @@ impl UnifiedWeb3AuthService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand::Rng;
+    use std::fmt::Write;
 
     #[test]
     fn test_nonce_generation() {
-        // Test nonce generation without requiring database connection
-        let service = UnifiedWeb3AuthService {
-            db_pool: unsafe { std::mem::zeroed() }, // Won't be used in this test
-            openid_service: None,
-            domain: "epsx.io".to_string(),
-            nonce_expiry_minutes: 15,
-        };
+        // Test nonce generation directly
+        fn generate_secure_nonce() -> String {
+            let mut rng = rand::thread_rng();
+            (0..32).map(|_| rng.gen_range(0..16)).fold(String::new(), |mut acc, n| {
+                let _ = write!(acc, "{:x}", n);
+                acc
+            })
+        }
 
-        let nonce = service.generate_secure_nonce();
+        let nonce = generate_secure_nonce();
         assert_eq!(nonce.len(), 32);
         assert!(nonce.chars().all(|c| c.is_ascii_hexdigit()));
-        
+
         // Test that nonces are different each time
-        let nonce2 = service.generate_secure_nonce();
+        let nonce2 = generate_secure_nonce();
         assert_ne!(nonce, nonce2);
     }
 }

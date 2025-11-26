@@ -4,16 +4,13 @@ import {
   Button,
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
+  CardHeader
 } from '@/components/ui';
 import type { StockFinancialData } from '@/types/financialChartData';
 import {
   ArrowRight,
   Crown,
-  Lock,
-  TrendingDown,
-  TrendingUp,
+  Lock
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -211,9 +208,6 @@ export function PublicRankingPreview({
                 </Button>
               </div>
 
-              <div className="text-muted-foreground text-xs">
-                Starting from $1/month • 30-day money-back guarantee
-              </div>
             </div>
           </CardContent>
         </Card>

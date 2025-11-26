@@ -37,7 +37,7 @@ impl Query for GetWalletListQuery {
 
         // Validate limit
         if let Some(limit) = self.limit {
-            if limit < 1 || limit > 1000 {
+            if !(1..=1000).contains(&limit) {
                 return Err(crate::application::shared::ApplicationError::validation(
                     "limit",
                     "Limit must be between 1 and 1000",

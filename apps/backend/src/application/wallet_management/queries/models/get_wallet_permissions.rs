@@ -19,9 +19,10 @@ pub struct GetWalletPermissionsResponse {
 
 impl Query for GetWalletPermissionsQuery {
     type Response = GetWalletPermissionsResponse;
-    
+
     fn validate(&self) -> ApplicationResult<()> {
-        // TODO: Implement validation
+        // Minimal validation for read queries
+        // Wallet address validation handled at authentication layer
         Ok(())
     }
 }

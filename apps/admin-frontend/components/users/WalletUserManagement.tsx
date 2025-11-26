@@ -5,24 +5,32 @@
  */
 'use client';
 
-import React, { useState, useCallback, useEffect } from 'react';
+import { useCallback, useState } from 'react';
 
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { apiFetch } from '@/lib/api-fetch';
-import type {
-  Web3Permission,
-  GroupMembership,
-  PermissionInfo
-} from '@/shared/types/web3-auth';
+import type { GroupMembership, Web3Permission } from '@/shared/types/web3-auth';
 import { createWeb3AdminClient } from '@/shared/utils/web3-api-client';
 
 interface WalletUserData {
@@ -30,7 +38,6 @@ interface WalletUserData {
   user_id?: string;
   permissions: Web3Permission[];
   groups: GroupMembership[];
-  tier_level: string;
   created_at?: string;
   last_active?: string;
   is_active: boolean;
@@ -53,15 +60,23 @@ const COMMON_PERMISSIONS = [
   'admin:users:manage',
   'admin:analytics:view',
   'admin:system:manage',
-  'admin:*:*'
+  'admin:*:*',
 ];
 
 const PERMISSION_GROUPS = [
   { id: 'basic', name: 'Basic User', description: 'Basic analytics access' },
-  { id: 'premium', name: 'Premium User', description: 'Advanced analytics and exports' },
+  {
+    id: 'premium',
+    name: 'Premium User',
+    description: 'Advanced analytics and exports',
+  },
   { id: 'admin', name: 'Administrator', description: 'Full system access' },
   { id: 'analyst', name: 'Analyst', description: 'Advanced analytics tools' },
-  { id: 'developer', name: 'Developer', description: 'API and development access' }
+  {
+    id: 'developer',
+    name: 'Developer',
+    description: 'API and development access',
+  },
 ];
 
 /**
@@ -75,7 +90,7 @@ export function WalletUserManagement() {
   const [success, setSuccess] = useState<string | null>(null);
   const [newPermission, setNewPermission] = useState<PermissionAssignment>({
     permission: '',
-    notes: ''
+    notes: '',
   });
   const [selectedGroup, setSelectedGroup] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
@@ -102,7 +117,9 @@ export function WalletUserManagement() {
 
     try {
       // Get user permissions and data
-      const permissionsData = await apiFetch(`/api/auth/web3/permissions?wallet_address=${walletAddress}`);
+      const permissionsData = await apiFetch(
+        `/api/auth/web3/permissions?wallet_address=${walletAddress}`
+      );
 
       // Construct user data from response
       const walletUserData: WalletUserData = {
@@ -110,10 +127,9 @@ export function WalletUserManagement() {
         user_id: permissionsData.user_id,
         permissions: permissionsData.permissions || [],
         groups: permissionsData.groups || [],
-        tier_level: permissionsData.tier || 'basic',
         is_active: permissionsData.has_access || false,
         last_active: permissionsData.last_active,
-        created_at: permissionsData.created_at
+        created_at: permissionsData.created_at,
       };
 
       setUserData(walletUserData);
@@ -140,51 +156,62 @@ export function WalletUserManagement() {
         wallet_address: userData.wallet_address,
         permission: newPermission.permission,
         expires_at: newPermission.expires_at,
-        notes: newPermission.notes
+        notes: newPermission.notes,
       };
 
       await apiFetch('/api/admin/permissions/grant', {
         method: 'POST',
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
-      setSuccess(`Permission "${newPermission.permission}" granted successfully`);
+      setSuccess(
+        `Permission "${newPermission.permission}" granted successfully`
+      );
       setNewPermission({ permission: '', notes: '' });
 
       // Refresh user data
       await lookupWallet();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to grant permission');
+      setError(
+        err instanceof Error ? err.message : 'Failed to grant permission'
+      );
     } finally {
       setLoading(false);
     }
   }, [userData, newPermission, clearMessages, lookupWallet]);
 
-  const revokePermission = useCallback(async (permission: string) => {
-    if (!userData) {return;}
+  const revokePermission = useCallback(
+    async (permission: string) => {
+      if (!userData) {
+        return;
+      }
 
-    setLoading(true);
-    clearMessages();
+      setLoading(true);
+      clearMessages();
 
-    try {
-      await apiFetch('/api/admin/permissions/revoke', {
-        method: 'POST',
-        body: JSON.stringify({
-          wallet_address: userData.wallet_address,
-          permission
-        })
-      });
+      try {
+        await apiFetch('/api/admin/permissions/revoke', {
+          method: 'POST',
+          body: JSON.stringify({
+            wallet_address: userData.wallet_address,
+            permission,
+          }),
+        });
 
-      setSuccess(`Permission "${permission}" revoked successfully`);
+        setSuccess(`Permission "${permission}" revoked successfully`);
 
-      // Refresh user data
-      await lookupWallet();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to revoke permission');
-    } finally {
-      setLoading(false);
-    }
-  }, [userData, clearMessages, lookupWallet]);
+        // Refresh user data
+        await lookupWallet();
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : 'Failed to revoke permission'
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [userData, clearMessages, lookupWallet]
+  );
 
   const assignToGroup = useCallback(async () => {
     if (!userData || !selectedGroup) {
@@ -200,8 +227,8 @@ export function WalletUserManagement() {
         method: 'POST',
         body: JSON.stringify({
           wallet_address: userData.wallet_address,
-          group_id: selectedGroup
-        })
+          group_id: selectedGroup,
+        }),
       });
 
       setSuccess(`User assigned to group "${selectedGroup}" successfully`);
@@ -210,31 +237,39 @@ export function WalletUserManagement() {
       // Refresh user data
       await lookupWallet();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to assign to group');
+      setError(
+        err instanceof Error ? err.message : 'Failed to assign to group'
+      );
     } finally {
       setLoading(false);
     }
   }, [userData, selectedGroup, clearMessages, lookupWallet]);
 
   const formatTimestamp = (timestamp?: string | number) => {
-    if (!timestamp) {return 'Never';}
-    const date = new Date(typeof timestamp === 'string' ? timestamp : timestamp * 1000);
+    if (!timestamp) {
+      return 'Never';
+    }
+    const date = new Date(
+      typeof timestamp === 'string' ? timestamp : timestamp * 1000
+    );
     return date.toLocaleString();
   };
 
   const isPermissionExpired = (permission: Web3Permission) => {
-    if (!permission.expires_at) {return false;}
+    if (!permission.expires_at) {
+      return false;
+    }
     return Date.now() > new Date(permission.expires_at).getTime();
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto space-y-6">
+    <div className="mx-auto w-full max-w-6xl space-y-6">
       {/* Wallet Lookup */}
-      <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-2 border-purple-300/50 dark:border-purple-700/50 shadow-xl">
+      <Card className="border-2 border-purple-300/50 bg-white/80 shadow-xl backdrop-blur-sm dark:border-purple-700/50 dark:bg-gray-800/80">
         <CardHeader>
           <CardTitle className="flex items-center gap-3 text-xl">
             <div className="text-2xl">🔎</div>
-            <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent font-bold">
+            <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text font-bold text-transparent">
               Wallet User Lookup
             </span>
           </CardTitle>
@@ -245,20 +280,22 @@ export function WalletUserManagement() {
         <CardContent>
           <div className="flex gap-4">
             <div className="flex-1">
-              <Label htmlFor="wallet-address" className="text-sm font-medium">Wallet Address</Label>
+              <Label htmlFor="wallet-address" className="text-sm font-medium">
+                Wallet Address
+              </Label>
               <Input
                 id="wallet-address"
-                placeholder="0x742d35Cc3681d452bC9a4D0c99D2DB8b4E8B5f43"
+                placeholder="0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7"
                 value={walletAddress}
-                onChange={(e) => setWalletAddress(e.target.value)}
-                className="font-mono h-10 mt-1.5"
+                onChange={e => setWalletAddress(e.target.value)}
+                className="mt-1.5 h-10 font-mono"
               />
             </div>
             <div className="flex items-end">
               <Button
                 onClick={lookupWallet}
                 disabled={loading || !walletAddress}
-                className="h-10 px-6 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white border-0"
+                className="h-10 border-0 bg-gradient-to-r from-purple-500 to-pink-500 px-6 text-white hover:from-purple-600 hover:to-pink-600"
               >
                 {loading ? 'Looking up...' : 'Lookup Wallet'}
               </Button>
@@ -285,20 +322,40 @@ export function WalletUserManagement() {
       {/* User Data Display */}
       {userData && (
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-2 border-indigo-300/50 dark:border-indigo-700/50 p-1">
-            <TabsTrigger value="overview" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-400 data-[state=active]:to-purple-500 data-[state=active]:text-white">Overview</TabsTrigger>
-            <TabsTrigger value="permissions" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-400 data-[state=active]:to-emerald-500 data-[state=active]:text-white">Permissions</TabsTrigger>
-            <TabsTrigger value="groups" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-400 data-[state=active]:to-cyan-500 data-[state=active]:text-white">Groups</TabsTrigger>
-            <TabsTrigger value="actions" className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-400 data-[state=active]:to-red-500 data-[state=active]:text-white">Actions</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-4 border-2 border-indigo-300/50 bg-white/80 p-1 backdrop-blur-sm dark:border-indigo-700/50 dark:bg-gray-800/80">
+            <TabsTrigger
+              value="overview"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-indigo-400 data-[state=active]:to-purple-500 data-[state=active]:text-white"
+            >
+              Overview
+            </TabsTrigger>
+            <TabsTrigger
+              value="permissions"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-400 data-[state=active]:to-emerald-500 data-[state=active]:text-white"
+            >
+              Permissions
+            </TabsTrigger>
+            <TabsTrigger
+              value="groups"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-400 data-[state=active]:to-cyan-500 data-[state=active]:text-white"
+            >
+              Groups
+            </TabsTrigger>
+            <TabsTrigger
+              value="actions"
+              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-400 data-[state=active]:to-red-500 data-[state=active]:text-white"
+            >
+              Actions
+            </TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
           <TabsContent value="overview">
-            <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-2 border-indigo-300/50 dark:border-indigo-700/50 shadow-xl">
+            <Card className="border-2 border-indigo-300/50 bg-white/80 shadow-xl backdrop-blur-sm dark:border-indigo-700/50 dark:bg-gray-800/80">
               <CardHeader>
                 <CardTitle className="flex items-center gap-3 text-xl">
                   <div className="text-2xl">👤</div>
-                  <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent font-bold">
+                  <span className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text font-bold text-transparent">
                     User Overview
                   </span>
                 </CardTitle>
@@ -310,39 +367,39 @@ export function WalletUserManagement() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>Wallet Address</Label>
-                    <p className="font-mono text-sm bg-gray-100 p-2 rounded">
+                    <p className="rounded bg-gray-100 p-2 font-mono text-sm">
                       {userData.wallet_address}
                     </p>
                   </div>
                   <div>
                     <Label>User ID</Label>
-                    <p className="text-sm">{userData.user_id || 'Not assigned'}</p>
-                  </div>
-                  <div>
-                    <Label>Tier Level</Label>
-                    <Badge className={userData.tier_level === 'admin'
-                      ? 'bg-gradient-to-r from-red-400 to-pink-500 text-white border-0'
-                      : 'bg-gradient-to-r from-blue-400 to-cyan-500 text-white border-0'
-                    }>
-                      {userData.tier_level}
-                    </Badge>
+                    <p className="text-sm">
+                      {userData.user_id || 'Not assigned'}
+                    </p>
                   </div>
                   <div>
                     <Label>Status</Label>
-                    <Badge className={userData.is_active
-                      ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white border-0'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 border-0'
-                    }>
+                    <Badge
+                      className={
+                        userData.is_active
+                          ? 'border-0 bg-gradient-to-r from-green-400 to-emerald-500 text-white'
+                          : 'border-0 bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                      }
+                    >
                       {userData.is_active ? '🟢 Active' : '⚪ Inactive'}
                     </Badge>
                   </div>
                   <div>
                     <Label>Created</Label>
-                    <p className="text-sm">{formatTimestamp(userData.created_at)}</p>
+                    <p className="text-sm">
+                      {formatTimestamp(userData.created_at)}
+                    </p>
                   </div>
                   <div>
                     <Label>Last Active</Label>
-                    <p className="text-sm">{formatTimestamp(userData.last_active)}</p>
+                    <p className="text-sm">
+                      {formatTimestamp(userData.last_active)}
+                    </p>
                   </div>
                 </div>
 
@@ -350,12 +407,13 @@ export function WalletUserManagement() {
 
                 <div>
                   <Label>Permission Count</Label>
-                  <div className="flex gap-2 mt-2">
+                  <div className="mt-2 flex gap-2">
                     <Badge variant="outline">
                       Total: {userData.permissions.length}
                     </Badge>
                     <Badge variant="outline">
-                      Expired: {userData.permissions.filter(isPermissionExpired).length}
+                      Expired:{' '}
+                      {userData.permissions.filter(isPermissionExpired).length}
                     </Badge>
                     <Badge variant="outline">
                       Groups: {userData.groups.length}
@@ -370,11 +428,11 @@ export function WalletUserManagement() {
           <TabsContent value="permissions">
             <div className="space-y-4">
               {/* Current Permissions */}
-              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-2 border-green-300/50 dark:border-green-700/50 shadow-xl">
+              <Card className="border-2 border-green-300/50 bg-white/80 shadow-xl backdrop-blur-sm dark:border-green-700/50 dark:bg-gray-800/80">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-3 text-xl">
                     <div className="text-2xl">✅</div>
-                    <span className="bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent font-bold">
+                    <span className="bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text font-bold text-transparent">
                       Current Permissions
                     </span>
                   </CardTitle>
@@ -388,15 +446,23 @@ export function WalletUserManagement() {
                   ) : (
                     <div className="space-y-2">
                       {userData.permissions.map((permission, index) => (
-                        <div key={index} className="relative overflow-hidden rounded-xl bg-gradient-to-r from-green-400/10 via-emerald-400/10 to-teal-400/10 p-0.5">
-                          <div className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-xl p-3 flex items-center justify-between">
+                        <div
+                          key={index}
+                          className="relative overflow-hidden rounded-xl bg-gradient-to-r from-green-400/10 via-emerald-400/10 to-teal-400/10 p-0.5"
+                        >
+                          <div className="flex items-center justify-between rounded-xl bg-white/95 p-3 backdrop-blur-xl dark:bg-gray-900/95">
                             <div className="flex-1">
-                              <p className="font-semibold text-sm">{permission.permission}</p>
+                              <p className="text-sm font-semibold">
+                                {permission.permission}
+                              </p>
                               {permission.expires_at && (
-                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                  Expires: {formatTimestamp(permission.expires_at)}
+                                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                  Expires:{' '}
+                                  {formatTimestamp(permission.expires_at)}
                                   {isPermissionExpired(permission) && (
-                                    <span className="text-red-500 ml-2">(Expired)</span>
+                                    <span className="ml-2 text-red-500">
+                                      (Expired)
+                                    </span>
                                   )}
                                 </p>
                               )}
@@ -404,9 +470,11 @@ export function WalletUserManagement() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => revokePermission(permission.permission)}
+                              onClick={() =>
+                                revokePermission(permission.permission)
+                              }
                               disabled={loading}
-                              className="border-2 border-red-300 dark:border-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                              className="border-2 border-red-300 hover:bg-red-50 dark:border-red-600 dark:hover:bg-red-950"
                             >
                               Revoke
                             </Button>
@@ -419,11 +487,11 @@ export function WalletUserManagement() {
               </Card>
 
               {/* Grant New Permission */}
-              <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-2 border-blue-300/50 dark:border-blue-700/50 shadow-xl">
+              <Card className="border-2 border-blue-300/50 bg-white/80 shadow-xl backdrop-blur-sm dark:border-blue-700/50 dark:bg-gray-800/80">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-3 text-xl">
                     <div className="text-2xl">➕</div>
-                    <span className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent font-bold">
+                    <span className="bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text font-bold text-transparent">
                       Grant Permission
                     </span>
                   </CardTitle>
@@ -436,13 +504,18 @@ export function WalletUserManagement() {
                     <Label>Permission</Label>
                     <Select
                       value={newPermission.permission}
-                      onValueChange={(value) => setNewPermission(prev => ({ ...prev, permission: value }))}
+                      onValueChange={value =>
+                        setNewPermission(prev => ({
+                          ...prev,
+                          permission: value,
+                        }))
+                      }
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select permission" />
                       </SelectTrigger>
                       <SelectContent>
-                        {COMMON_PERMISSIONS.map((permission) => (
+                        {COMMON_PERMISSIONS.map(permission => (
                           <SelectItem key={permission} value={permission}>
                             {permission}
                           </SelectItem>
@@ -455,9 +528,14 @@ export function WalletUserManagement() {
                     <Label>Expiry Date (Optional)</Label>
                     <Input
                       type="datetime-local"
-                      onChange={(e) => {
-                        const timestamp = e.target.value ? new Date(e.target.value).getTime() / 1000 : undefined;
-                        setNewPermission(prev => ({ ...prev, expires_at: timestamp }));
+                      onChange={e => {
+                        const timestamp = e.target.value
+                          ? new Date(e.target.value).getTime() / 1000
+                          : undefined;
+                        setNewPermission(prev => ({
+                          ...prev,
+                          expires_at: timestamp,
+                        }));
                       }}
                     />
                   </div>
@@ -467,11 +545,19 @@ export function WalletUserManagement() {
                     <Textarea
                       placeholder="Add notes about this permission grant..."
                       value={newPermission.notes}
-                      onChange={(e) => setNewPermission(prev => ({ ...prev, notes: e.target.value }))}
+                      onChange={e =>
+                        setNewPermission(prev => ({
+                          ...prev,
+                          notes: e.target.value,
+                        }))
+                      }
                     />
                   </div>
 
-                  <Button onClick={grantPermission} disabled={loading || !newPermission.permission}>
+                  <Button
+                    onClick={grantPermission}
+                    disabled={loading || !newPermission.permission}
+                  >
                     Grant Permission
                   </Button>
                 </CardContent>
@@ -486,7 +572,9 @@ export function WalletUserManagement() {
               <Card>
                 <CardHeader>
                   <CardTitle>Group Memberships</CardTitle>
-                  <CardDescription>Permission groups this wallet belongs to</CardDescription>
+                  <CardDescription>
+                    Permission groups this wallet belongs to
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   {userData.groups.length === 0 ? (
@@ -494,10 +582,15 @@ export function WalletUserManagement() {
                   ) : (
                     <div className="space-y-2">
                       {userData.groups.map((group, index) => (
-                        <div key={index} className="flex items-center justify-between p-3 border rounded">
+                        <div
+                          key={index}
+                          className="flex items-center justify-between rounded border p-3"
+                        >
                           <div>
                             <p className="font-medium">{group.group_name}</p>
-                            <p className="text-sm text-gray-500">Type: {group.group_type}</p>
+                            <p className="text-sm text-gray-500">
+                              Type: {group.group_type}
+                            </p>
                           </div>
                           <Badge variant="secondary">
                             {group.assignment_source || 'Manual'}
@@ -513,7 +606,9 @@ export function WalletUserManagement() {
               <Card>
                 <CardHeader>
                   <CardTitle>Assign to Group</CardTitle>
-                  <CardDescription>Add this wallet to a permission group</CardDescription>
+                  <CardDescription>
+                    Add this wallet to a permission group
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
@@ -526,11 +621,13 @@ export function WalletUserManagement() {
                         <SelectValue placeholder="Select group" />
                       </SelectTrigger>
                       <SelectContent>
-                        {PERMISSION_GROUPS.map((group) => (
+                        {PERMISSION_GROUPS.map(group => (
                           <SelectItem key={group.id} value={group.id}>
                             <div>
                               <p className="font-medium">{group.name}</p>
-                              <p className="text-sm text-gray-500">{group.description}</p>
+                              <p className="text-sm text-gray-500">
+                                {group.description}
+                              </p>
                             </div>
                           </SelectItem>
                         ))}
@@ -538,7 +635,10 @@ export function WalletUserManagement() {
                     </Select>
                   </div>
 
-                  <Button onClick={assignToGroup} disabled={loading || !selectedGroup}>
+                  <Button
+                    onClick={assignToGroup}
+                    disabled={loading || !selectedGroup}
+                  >
                     Assign to Group
                   </Button>
                 </CardContent>
@@ -551,28 +651,25 @@ export function WalletUserManagement() {
             <Card>
               <CardHeader>
                 <CardTitle>Administrative Actions</CardTitle>
-                <CardDescription>Advanced management options for this wallet</CardDescription>
+                <CardDescription>
+                  Advanced management options for this wallet
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <Button variant="outline">
-                    View Activity History
-                  </Button>
-                  <Button variant="outline">
-                    Export Permissions
-                  </Button>
-                  <Button variant="outline">
-                    Reset Permissions
-                  </Button>
-                  <Button variant="destructive">
-                    Deactivate Wallet
-                  </Button>
+                  <Button variant="outline">View Activity History</Button>
+                  <Button variant="outline">Export Permissions</Button>
+                  <Button variant="outline">Reset Permissions</Button>
+                  <Button variant="destructive">Deactivate Wallet</Button>
                 </div>
 
                 <Separator />
 
                 <div className="text-sm text-gray-600">
-                  <p><strong>Note:</strong> Administrative actions are logged and may require additional confirmation.</p>
+                  <p>
+                    <strong>Note:</strong> Administrative actions are logged and
+                    may require additional confirmation.
+                  </p>
                 </div>
               </CardContent>
             </Card>

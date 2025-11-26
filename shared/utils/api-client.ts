@@ -157,11 +157,8 @@ export class UnifiedApiClient {
 
       // Handle authentication errors
       if (response.status === 401) {
-        if (!this.isServerSide && typeof window !== 'undefined') {
-          // Redirect to appropriate login page
-          window.location.href = this.platform === 'admin' ? '/login' : '/auth/login';
-        }
-
+        // Don't redirect - let the application handle authentication state
+        // The auth provider will show wallet connection UI when needed
         throw new APIError(401, 'Unauthorized - please log in again', 'UNAUTHORIZED');
       }
 

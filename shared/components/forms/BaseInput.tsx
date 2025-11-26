@@ -21,24 +21,24 @@ export type InputState = 'default' | 'error' | 'success' | 'warning'
 
 const inputVariants = {
   default: [
-    'border border-gray-300 dark:border-gray-600',
-    'bg-white dark:bg-gray-800',
-    'focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+    'border border-[hsl(var(--border))]',
+    'bg-[hsl(var(--background))]',
+    'focus:ring-2 focus:ring-[hsl(var(--ring))] focus:border-[hsl(var(--ring))]'
   ],
   filled: [
     'border border-transparent',
-    'bg-gray-100 dark:bg-gray-700',
-    'focus:ring-2 focus:ring-blue-500 focus:bg-white dark:focus:bg-gray-800'
+    'bg-[hsl(var(--muted))]',
+    'focus:ring-2 focus:ring-[hsl(var(--ring))] focus:bg-[hsl(var(--background))]'
   ],
   outlined: [
-    'border-2 border-gray-300 dark:border-gray-600',
+    'border-2 border-[hsl(var(--border))]',
     'bg-transparent',
-    'focus:ring-0 focus:border-blue-500'
+    'focus:ring-0 focus:border-[hsl(var(--ring))]'
   ],
   ghost: [
     'border border-transparent',
     'bg-transparent',
-    'focus:ring-1 focus:ring-gray-300 focus:bg-gray-50 dark:focus:bg-gray-800'
+    'focus:ring-1 focus:ring-[hsl(var(--border))] focus:bg-[hsl(var(--muted))]'
   ]
 }
 
@@ -50,9 +50,9 @@ const inputSizes = {
 
 const inputStates = {
   default: '',
-  error: 'border-red-500 focus:border-red-500 focus:ring-red-500',
-  success: 'border-green-500 focus:border-green-500 focus:ring-green-500',
-  warning: 'border-yellow-500 focus:border-yellow-500 focus:ring-yellow-500'
+  error: 'border-[hsl(var(--destructive))] focus:border-[hsl(var(--destructive))] focus:ring-[hsl(var(--destructive))]',
+  success: 'border-[hsl(var(--success))] focus:border-[hsl(var(--success))] focus:ring-[hsl(var(--success))]',
+  warning: 'border-[hsl(var(--warning))] focus:border-[hsl(var(--warning))] focus:ring-[hsl(var(--warning))]'
 }
 
 // ============================================================================
@@ -105,7 +105,7 @@ export const BaseInput = React.forwardRef<HTMLInputElement, BaseInputProps>(
       'rounded-md',
       'transition-all duration-200',
       'focus-within:outline-none',
-      'placeholder:text-gray-400 dark:placeholder:text-gray-500',
+      'placeholder:text-[hsl(var(--muted-foreground))]',
       
       // Variant styling
       ...inputVariants[variant],
@@ -123,7 +123,7 @@ export const BaseInput = React.forwardRef<HTMLInputElement, BaseInputProps>(
       disabled && [
         'opacity-50',
         'cursor-not-allowed',
-        'bg-gray-100 dark:bg-gray-800'
+        'bg-[hsl(var(--muted))]'
       ]
     ].filter(Boolean).flat()
 
@@ -131,7 +131,7 @@ export const BaseInput = React.forwardRef<HTMLInputElement, BaseInputProps>(
       <div className="space-y-1">
         <div className={cn(baseClasses, className)}>
           {leftIcon && (
-            <div className="flex-shrink-0 mr-2 text-gray-400">
+            <div className="flex-shrink-0 mr-2 text-[hsl(var(--muted-foreground))]">
               {leftIcon}
             </div>
           )}
@@ -151,14 +151,14 @@ export const BaseInput = React.forwardRef<HTMLInputElement, BaseInputProps>(
             {...props}
           />
           {rightIcon && (
-            <div className="flex-shrink-0 ml-2 text-gray-400">
+            <div className="flex-shrink-0 ml-2 text-[hsl(var(--muted-foreground))]">
               {rightIcon}
             </div>
           )}
         </div>
         
         {helperText && !error && (
-          <p id={helperId} className="text-sm text-gray-500 dark:text-gray-400">
+          <p id={helperId} className="text-sm text-[hsl(var(--muted-foreground))] dark:text-[hsl(var(--muted-foreground))]">
             {helperText}
           </p>
         )}
@@ -220,7 +220,7 @@ export const BaseTextarea = React.forwardRef<HTMLTextAreaElement, BaseTextareaPr
       'rounded-md',
       'transition-all duration-200',
       'focus:outline-none',
-      'placeholder:text-gray-400 dark:placeholder:text-gray-500',
+      'placeholder:text-[hsl(var(--muted-foreground))]',
       'min-h-[80px]',
       
       // Variant styling
@@ -242,7 +242,7 @@ export const BaseTextarea = React.forwardRef<HTMLTextAreaElement, BaseTextareaPr
       disabled && [
         'opacity-50',
         'cursor-not-allowed',
-        'bg-gray-100 dark:bg-gray-800'
+        'bg-[hsl(var(--muted))]'
       ]
     ].filter(Boolean).flat()
 
@@ -258,7 +258,7 @@ export const BaseTextarea = React.forwardRef<HTMLTextAreaElement, BaseTextareaPr
         />
         
         {helperText && !error && (
-          <p id={helperId} className="text-sm text-gray-500 dark:text-gray-400">
+          <p id={helperId} className="text-sm text-[hsl(var(--muted-foreground))] dark:text-[hsl(var(--muted-foreground))]">
             {helperText}
           </p>
         )}
@@ -343,7 +343,7 @@ export const BaseSelect = React.forwardRef<HTMLSelectElement, BaseSelectProps>(
       disabled && [
         'opacity-50',
         'cursor-not-allowed',
-        'bg-gray-100 dark:bg-gray-800'
+        'bg-[hsl(var(--muted))]'
       ]
     ].filter(Boolean).flat()
 
@@ -366,7 +366,7 @@ export const BaseSelect = React.forwardRef<HTMLSelectElement, BaseSelectProps>(
         </select>
         
         {helperText && !error && (
-          <p id={helperId} className="text-sm text-gray-500 dark:text-gray-400">
+          <p id={helperId} className="text-sm text-[hsl(var(--muted-foreground))] dark:text-[hsl(var(--muted-foreground))]">
             {helperText}
           </p>
         )}
@@ -462,7 +462,7 @@ export const BaseCheckbox = React.forwardRef<HTMLInputElement, BaseCheckboxProps
                 <label
                   htmlFor={checkboxId}
                   className={cn(
-                    'text-sm font-medium text-gray-900 dark:text-gray-100',
+                    'text-sm font-medium text-[hsl(var(--foreground))]',
                     'cursor-pointer',
                     disabled && 'opacity-50 cursor-not-allowed'
                   )}
@@ -471,7 +471,7 @@ export const BaseCheckbox = React.forwardRef<HTMLInputElement, BaseCheckboxProps
                 </label>
               )}
               {description && (
-                <p id={helperId} className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                <p id={helperId} className="text-sm text-[hsl(var(--muted-foreground))] dark:text-[hsl(var(--muted-foreground))] mt-1">
                   {description}
                 </p>
               )}
@@ -561,7 +561,7 @@ export const BaseRadio = React.forwardRef<HTMLInputElement, BaseRadioProps>(
                 <label
                   htmlFor={radioId}
                   className={cn(
-                    'text-sm font-medium text-gray-900 dark:text-gray-100',
+                    'text-sm font-medium text-[hsl(var(--foreground))]',
                     'cursor-pointer',
                     disabled && 'opacity-50 cursor-not-allowed'
                   )}
@@ -570,7 +570,7 @@ export const BaseRadio = React.forwardRef<HTMLInputElement, BaseRadioProps>(
                 </label>
               )}
               {description && (
-                <p id={helperId} className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                <p id={helperId} className="text-sm text-[hsl(var(--muted-foreground))] dark:text-[hsl(var(--muted-foreground))] mt-1">
                   {description}
                 </p>
               )}

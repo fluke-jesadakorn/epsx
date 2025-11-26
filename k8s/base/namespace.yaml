@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: epsx
+  labels:
+    name: epsx
+    environment: production
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: epsx-staging
+  labels:
+    name: epsx-staging
+    environment: staging
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: epsx-development
+  labels:
+    name: epsx-development
+    environment: development

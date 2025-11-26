@@ -4,9 +4,9 @@
  */
 
 import { env } from '../../../../shared/env/schema';
-import { 
-  ApiResponse, 
-  ApiError, 
+import {
+  ApiResponse,
+  ApiError,
   PaginatedResponse,
   JsonRequestBody,
   isApiError
@@ -14,6 +14,7 @@ import {
 import { apiLogger, safeError } from '@/lib/utils/logging';
 import { getBackendUrl } from '../../../../shared/utils/url-resolver';
 import { usePureWeb3AuthStore } from '@/lib/auth/pure-web3-service';
+import { API_ROUTES } from '../../../../shared/config/route-constants';
 
 // ============================================================================
 // Core Types and Interfaces
@@ -333,14 +334,14 @@ class ApiClient {
     });
 
     const queryString = searchParams.toString();
-    const endpoint = queryString ? `/api/analytics/rankings?${queryString}` : '/api/analytics/rankings';
+    const endpoint = queryString ? `/api/analytics/rankings?${queryString}` : API_ROUTES.ANALYTICS.RANKINGS;
 
     const response = await this.request<UnifiedAnalyticsRankingsResponse>(endpoint);
     return response?.data;
   }
 
   async getAnalyticsHealth(): Promise<{ status: string; timestamp: string } | undefined> {
-    const response = await this.request<{ status: string; timestamp: string }>('/api/analytics/health');
+    const response = await this.request<{ status: string; timestamp: string }>(API_ROUTES.HEALTH);
     return response?.data;
   }
 
@@ -358,7 +359,7 @@ class ApiClient {
     });
 
     const queryString = searchParams.toString();
-    const endpoint = queryString ? `/api/notifications?${queryString}` : '/api/notifications';
+    const endpoint = queryString ? `/api/v1/notifications?${queryString}` : '/api/v1/notifications';
 
     const response = await this.request<PaginatedResponse<NotificationResponse>>(endpoint);
     return response?.data;
@@ -371,13 +372,13 @@ class ApiClient {
   }
 
   async markAllNotificationsRead(): Promise<void> {
-    await this.request('/api/notifications/read-all', {
+    await this.request('/api/v1/notifications/read-all', { // Simple route for read-all
       method: 'POST'
     });
   }
 
   async getNotificationStats(): Promise<NotificationStats | undefined> {
-    const response = await this.request<NotificationStats>('/api/notifications/stats');
+    const response = await this.request<NotificationStats>('/api/v1/notifications/unread-count');
     return response?.data;
   }
 
@@ -409,12 +410,12 @@ class ApiClient {
   // ============================================================================
 
   async getUserProfile(): Promise<Record<string, unknown> | undefined> {
-    const response = await this.request<Record<string, unknown>>('/api/user/profile');
+    const response = await this.request<Record<string, unknown>>(API_ROUTES.USERS.PROFILE);
     return response?.data;
   }
 
   async updateUserProfile(data: Record<string, unknown>): Promise<Record<string, unknown> | undefined> {
-    const response = await this.request<Record<string, unknown>>('/api/user/profile', {
+    const response = await this.request<Record<string, unknown>>(API_ROUTES.USERS.PROFILE, {
       method: 'PUT',
       body: JSON.stringify(data)
     });
@@ -426,12 +427,12 @@ class ApiClient {
   // ============================================================================
 
   async getWatchlist(): Promise<Array<Record<string, unknown>> | undefined> {
-    const response = await this.request<Array<Record<string, unknown>>>('/api/user/watchlist');
+    const response = await this.request<Array<Record<string, unknown>>>(API_ROUTES.USERS.WATCHLIST);
     return response?.data;
   }
 
   async addToWatchlist(request: WatchlistAddRequest): Promise<void> {
-    await this.request('/api/user/watchlist', {
+    await this.request(API_ROUTES.USERS.WATCHLIST, {
       method: 'POST',
       body: JSON.stringify(request)
     });
@@ -448,12 +449,12 @@ class ApiClient {
   // ============================================================================
 
   async getPriceAlerts(): Promise<Array<Record<string, unknown>> | undefined> {
-    const response = await this.request<Array<Record<string, unknown>>>('/api/user/alerts');
+    const response = await this.request<Array<Record<string, unknown>>>(API_ROUTES.USERS.ALERTS);
     return response?.data;
   }
 
   async createPriceAlert(request: PriceAlertCreateRequest): Promise<void> {
-    await this.request('/api/user/alerts', {
+    await this.request(API_ROUTES.USERS.ALERTS, {
       method: 'POST',
       body: JSON.stringify(request)
     });
@@ -470,14 +471,14 @@ class ApiClient {
   // ============================================================================
 
   async subscribeToPushNotifications(subscription: PushSubscriptionRequest): Promise<void> {
-    await this.request('/api/user/push-subscription', {
+    await this.request(API_ROUTES.USERS.PUSH_SUBSCRIPTION, {
       method: 'POST',
       body: JSON.stringify(subscription)
     });
   }
 
   async unsubscribeFromPushNotifications(): Promise<void> {
-    await this.request('/api/user/push-subscription', {
+    await this.request(API_ROUTES.USERS.PUSH_SUBSCRIPTION, {
       method: 'DELETE'
     });
   }

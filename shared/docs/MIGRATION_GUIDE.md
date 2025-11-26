@@ -5,6 +5,7 @@
 This guide shows how to migrate from raw `fetch()` calls to standardized shared API clients and React hooks.
 
 **Benefits:**
+
 - **90% less code** - Eliminate duplicate fetch logic
 - **Type safety** - Full TypeScript coverage
 - **Better UX** - Automatic loading states and error handling
@@ -16,16 +17,20 @@ This guide shows how to migrate from raw `fetch()` calls to standardized shared 
 ## Migration Strategy
 
 ### Phase 1: High-Impact Components (Week 1)
+
 Migrate components with the most fetch calls:
+
 1. `WalletUserManagement.tsx` (4 fetch → 1 hook)
 2. `ComplianceMonitoringDashboard.tsx` (13 fetch → 3 hooks)
-3. `Web3PermissionManager.tsx` (8 fetch → 2 hooks)
+3. `PermissionManager.tsx` (8 fetch → 2 hooks)
 4. `ApiKeyManager.tsx` (2 fetch → 1 hook)
 
 ### Phase 2: Medium Impact (Week 2)
+
 5-20 remaining admin-frontend components
 
 ### Phase 3: Frontend (Week 3)
+
 30+ frontend components
 
 ---
@@ -35,6 +40,7 @@ Migrate components with the most fetch calls:
 ### Example 1: WalletUserManagement.tsx
 
 #### Before (96 lines with fetch)
+
 ```tsx
 const lookupWallet = useCallback(async () => {
   if (!walletAddress || !validateWalletAddress(walletAddress)) {
@@ -47,7 +53,9 @@ const lookupWallet = useCallback(async () => {
 
   try {
     // Manual fetch with no error handling
-    const permissionsResponse = await fetch(`/api/v1/auth/web3/permissions?wallet_address=${walletAddress}`);
+    const permissionsResponse = await fetch(
+      `/api/v1/auth/web3/permissions?wallet_address=${walletAddress}`
+    );
 
     if (!permissionsResponse.ok) {
       throw new Error('Failed to fetch wallet data');
@@ -61,10 +69,9 @@ const lookupWallet = useCallback(async () => {
       user_id: permissionsData.user_id,
       permissions: permissionsData.permissions || [],
       groups: permissionsData.groups || [],
-      tier_level: permissionsData.tier || 'basic',
       is_active: permissionsData.has_access || false,
       last_active: permissionsData.last_active,
-      created_at: permissionsData.created_at
+      created_at: permissionsData.created_at,
     };
 
     setUserData(walletUserData);
@@ -79,11 +86,16 @@ const lookupWallet = useCallback(async () => {
 ```
 
 #### After (10 lines with hook)
+
 ```tsx
 import { useWalletPermissions } from '@/shared/hooks/usePermissions';
 
 // Automatic loading, error handling, and data fetching
-const { data: walletData, loading, error } = useWalletPermissions(walletAddress);
+const {
+  data: walletData,
+  loading,
+  error,
+} = useWalletPermissions(walletAddress);
 
 // That's it! No manual state management needed
 ```
@@ -95,6 +107,7 @@ const { data: walletData, loading, error } = useWalletPermissions(walletAddress)
 ### Example 2: ComplianceMonitoringDashboard.tsx
 
 #### Before (13 fetch calls, 400+ lines)
+
 ```tsx
 useEffect(() => {
   const fetchData = async () => {
@@ -102,25 +115,44 @@ useEffect(() => {
       setLoading(true);
 
       // 13 separate fetch calls
-      const [statusRes, riskRes, auditRes, activityRes, metricsRes, settingsRes] = await Promise.all([
+      const [
+        statusRes,
+        riskRes,
+        auditRes,
+        activityRes,
+        metricsRes,
+        settingsRes,
+      ] = await Promise.all([
         fetch('/api/admin/compliance/statuses', { credentials: 'include' }),
-        fetch('/api/admin/compliance/risk-assessments', { credentials: 'include' }),
+        fetch('/api/admin/compliance/risk-assessments', {
+          credentials: 'include',
+        }),
         fetch('/api/admin/compliance/audit-trail', { credentials: 'include' }),
-        fetch('/api/admin/compliance/suspicious-activities', { credentials: 'include' }),
+        fetch('/api/admin/compliance/suspicious-activities', {
+          credentials: 'include',
+        }),
         fetch('/api/admin/compliance/metrics', { credentials: 'include' }),
-        fetch('/api/admin/compliance/regulatory-settings', { credentials: 'include' }),
+        fetch('/api/admin/compliance/regulatory-settings', {
+          credentials: 'include',
+        }),
       ]);
 
       // Manual response parsing
-      const [statusData, riskData, auditData, activityData, metricsData, settingsData] =
-        await Promise.all([
-          statusRes.json(),
-          riskRes.json(),
-          auditRes.json(),
-          activityRes.json(),
-          metricsRes.json(),
-          settingsRes.json(),
-        ]);
+      const [
+        statusData,
+        riskData,
+        auditData,
+        activityData,
+        metricsData,
+        settingsData,
+      ] = await Promise.all([
+        statusRes.json(),
+        riskRes.json(),
+        auditRes.json(),
+        activityRes.json(),
+        metricsRes.json(),
+        settingsRes.json(),
+      ]);
 
       // Manual state updates
       setKycStatuses(statusData);
@@ -142,12 +174,13 @@ useEffect(() => {
 ```
 
 #### After (3 hooks, 15 lines)
+
 ```tsx
 import {
   useKYCStatuses,
   useRiskAssessments,
   useSuspiciousActivities,
-  useComplianceMetrics
+  useComplianceMetrics,
 } from '@/shared/hooks/useCompliance';
 
 // Automatic parallel fetching with individual loading states
@@ -166,6 +199,7 @@ const { data: metrics } = useComplianceMetrics();
 ### Example 3: ApiKeyManager.tsx (Frontend)
 
 #### Before (Manual fetch with state management)
+
 ```tsx
 const fetchApiKeys = async () => {
   try {
@@ -213,8 +247,13 @@ const handleGenerateKey = async () => {
 ```
 
 #### After (Clean hooks)
+
 ```tsx
-import { useApiKeys, useCreateApiKey, useDeleteApiKey } from '@/shared/hooks/useUsers';
+import {
+  useApiKeys,
+  useCreateApiKey,
+  useDeleteApiKey,
+} from '@/shared/hooks/useUsers';
 
 // Automatic data fetching with refetch capability
 const { data: apiKeys, loading, refetch } = useApiKeys();
@@ -237,6 +276,7 @@ const handleGenerateKey = async () => {
 ```
 
 **Benefits:**
+
 - ✅ No manual loading state
 - ✅ No manual error handling
 - ✅ Automatic refetch after mutations
@@ -249,6 +289,7 @@ const handleGenerateKey = async () => {
 ### Pattern 1: Simple GET Request
 
 #### Before
+
 ```tsx
 const [data, setData] = useState(null);
 const [loading, setLoading] = useState(false);
@@ -265,6 +306,7 @@ useEffect(() => {
 ```
 
 #### After
+
 ```tsx
 const { data, loading } = useWalletPermissions(address);
 ```
@@ -274,13 +316,14 @@ const { data, loading } = useWalletPermissions(address);
 ### Pattern 2: POST Mutation
 
 #### Before
+
 ```tsx
 const handleSubmit = async () => {
   setLoading(true);
   try {
     const res = await fetch('/api/...', {
       method: 'POST',
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
     });
     if (!res.ok) throw new Error();
     // ... handle success
@@ -293,6 +336,7 @@ const handleSubmit = async () => {
 ```
 
 #### After
+
 ```tsx
 const { mutate: grantPermission, loading } = useGrantPermission();
 
@@ -311,8 +355,9 @@ const handleSubmit = async () => {
 ### Pattern 3: Search/Filter
 
 #### Before
+
 ```tsx
-const handleSearch = async (filters) => {
+const handleSearch = async filters => {
   setLoading(true);
   const params = new URLSearchParams(filters);
   const res = await fetch(`/api/search?${params}`);
@@ -322,6 +367,7 @@ const handleSearch = async (filters) => {
 ```
 
 #### After
+
 ```tsx
 const [filters, setFilters] = useState({ query: '', tier: '' });
 const { data: results, loading } = useWalletSearch(filters);
@@ -336,13 +382,15 @@ const { data: results, loading } = useWalletSearch(filters);
 ### Admin Frontend (35 components, ~96 fetch calls)
 
 #### High Priority (Most fetch calls)
+
 1. ✅ `WalletUserManagement.tsx` - 4 fetch → `useWalletPermissions`, `useGrantPermission`
 2. ✅ `ComplianceMonitoringDashboard.tsx` - 13 fetch → `useKYCStatuses`, `useRiskAssessments`, etc.
-3. ✅ `Web3PermissionManager.tsx` - 8 fetch → `usePermissions`, `useGrantPermission`
+3. ✅ `PermissionManager.tsx` - 8 fetch → `usePermissions`, `useGrantPermission`
 4. ✅ `PolicyBuilder.tsx` - 3 fetch → `usePolicies` (to be created)
 5. ✅ `EnhancedWalletSearch.tsx` - 1 fetch → `useWalletSearch`
 
 #### Medium Priority
+
 6. `StockRankingPackageAssignment.tsx` - 2 fetch
 7. `RecentWalletsPanel.tsx` - 1 fetch → `useRecentWallets`
 8. `AdminWalletManagement.tsx` - 3 fetch → `useCurrentUserPermissions`
@@ -352,6 +400,7 @@ const { data: results, loading } = useWalletSearch(filters);
 ### Frontend (37 components, ~114 fetch calls)
 
 #### High Priority
+
 1. ✅ `ApiKeyManager.tsx` - 2 fetch → `useApiKeys`, `useCreateApiKey`
 2. ✅ `PlanSelection.tsx` - 3 fetch → `usePlans`, `useSubscriptions`
 3. ✅ `SettingsClient.tsx` - 3 fetch → `useUserProfile`, `useUserSettings`
@@ -363,16 +412,18 @@ const { data: results, loading } = useWalletSearch(filters);
 ## Testing Strategy
 
 ### Before (Mock fetch)
+
 ```tsx
 global.fetch = jest.fn(() =>
   Promise.resolve({
     ok: true,
-    json: () => Promise.resolve({ data: mockData })
+    json: () => Promise.resolve({ data: mockData }),
   })
 );
 ```
 
 ### After (Mock API client)
+
 ```tsx
 import { createAdminApiClient } from '@/shared/utils/api-client';
 
@@ -381,9 +432,9 @@ jest.mock('@/shared/utils/api-client', () => ({
     permissions: {
       getWalletPermissions: jest.fn(() =>
         Promise.resolve({ success: true, data: mockPermissions })
-      )
-    }
-  })
+      ),
+    },
+  }),
 }));
 ```
 
@@ -394,21 +445,25 @@ jest.mock('@/shared/utils/api-client', () => ({
 ## Rollout Timeline
 
 ### Week 1: Core Infrastructure ✅
+
 - [x] Create shared API modules (users, permissions, groups, wallets, compliance)
 - [x] Create React hooks (useUsers, usePermissions, useWallets, useCompliance)
 - [x] Migration guide and examples
 
 ### Week 2: High-Impact Components
+
 - [ ] Migrate top 10 admin components
 - [ ] Migrate top 10 frontend components
 - [ ] Update tests
 
 ### Week 3: Remaining Components
+
 - [ ] Migrate remaining admin components
 - [ ] Migrate remaining frontend components
 - [ ] Remove deprecated patterns
 
 ### Week 4: Polish & Optimization
+
 - [ ] Add React Query integration (optional)
 - [ ] Performance optimization
 - [ ] Documentation updates
@@ -420,6 +475,7 @@ jest.mock('@/shared/utils/api-client', () => ({
 ### Available Hooks
 
 **Users:**
+
 - `useUserProfile()` - Get current user
 - `useUpdateProfile()` - Update profile
 - `useUserSettings()` - Get settings
@@ -427,6 +483,7 @@ jest.mock('@/shared/utils/api-client', () => ({
 - `useSubscriptions()` - Get subscriptions
 
 **Permissions:**
+
 - `useCurrentUserPermissions()` - Get own permissions
 - `useWalletPermissions(address)` - Get wallet permissions
 - `useGrantPermission()` - Grant permission
@@ -434,12 +491,14 @@ jest.mock('@/shared/utils/api-client', () => ({
 - `usePermissionDisplay()` - UI display helper
 
 **Wallets:**
+
 - `useWallet(address)` - Get wallet info
 - `useWalletSearch(filters)` - Search wallets
 - `useRecentWallets()` - Get recent wallets
 - `useWalletStats()` - Get statistics
 
 **Compliance:**
+
 - `useKYCStatuses()` - Get KYC statuses
 - `useApproveKYC()` - Approve KYC
 - `useRiskAssessments()` - Get risk assessments

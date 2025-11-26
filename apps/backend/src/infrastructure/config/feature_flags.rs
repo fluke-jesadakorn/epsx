@@ -349,27 +349,30 @@ pub async fn conditional_auth_middleware(
     };
     
     if use_stateless {
-        debug!("Using stateless authentication middleware");
-        
+        warn!("Stateless auth routing enabled but actual authentication not implemented - falling back to passthrough");
+
         let _headers = request.headers().clone();
-        
+
+        // NOTE: This is a feature flag routing layer only. Actual authentication
+        // must be implemented elsewhere in the middleware chain.
+        // TODO: Implement actual Web3 stateless authentication middleware here
+        // when the signature compatibility issues with web3_auth_middleware are resolved.
+
         // Monitor stateless auth usage
         if flags.performance_monitoring_enabled {
             let start_time = std::time::Instant::now();
-            // FIXME: Temporarily disabled due to signature mismatch
             let result = Ok(next.run(request).await);
             let duration = start_time.elapsed();
-            
+
             // Log performance metrics
             debug!(
                 duration_ms = duration.as_millis(),
-                auth_type = "stateless",
-                "Authentication middleware performance"
+                auth_type = "stateless_passthrough",
+                "Feature flag routing performance"
             );
-            
+
             result
         } else {
-            // FIXME: Temporarily disabled due to signature mismatch
             Ok(next.run(request).await)
         }
     } else {
@@ -395,14 +398,17 @@ pub async fn conditional_auth_middleware(
     }
 }
 
-/// Legacy authentication middleware (existing implementation)
+/// Legacy authentication middleware (passthrough placeholder)
+///
+/// NOTE: This is a passthrough implementation. Actual authentication
+/// must be handled by other middleware in the chain. This function exists
+/// for feature flag routing compatibility.
+/// TODO: Integrate with the existing authentication middleware or implement proper auth here
 async fn legacy_auth_middleware(
     request: axum::extract::Request,
     next: axum::middleware::Next,
 ) -> Result<axum::response::Response, axum::http::StatusCode> {
-    // For now, use a simple fallback - in production you'd use your existing auth
-    // This is just a placeholder for the existing authentication system
-    debug!("Using legacy authentication (placeholder)");
+    debug!("Legacy auth routing (passthrough) - actual auth should be handled elsewhere");
     Ok(next.run(request).await)
 }
 

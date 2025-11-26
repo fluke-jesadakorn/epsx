@@ -649,7 +649,7 @@ export class NotificationsAPIClient {
 
   /**
    * Send notification (admin only)
-   * Route: POST /api/admin/notifications/send
+   * Route: POST /api/v1/admin/notifications/send
    */
   async sendNotification(request: SendNotificationRequest): Promise<SendNotificationResponse> {
     try {
@@ -687,7 +687,7 @@ export class NotificationsAPIClient {
 
   /**
    * Get notification statistics (admin only)
-   * Route: GET /api/admin/notifications/stats
+   * Route: GET /api/v1/admin/notifications/stats
    */
   async getNotificationStats(): Promise<NotificationStatsResponse> {
     try {
@@ -716,7 +716,7 @@ export class NotificationsAPIClient {
 
   /**
    * Get all notifications (admin only)
-   * Route: GET /api/admin/notifications
+   * Route: GET /api/v1/admin/notifications
    */
   async getAllNotifications(filters: NotificationFilters = {}): Promise<NotificationsResponse> {
     try {
@@ -793,7 +793,7 @@ export class NotificationsAPIClient {
     // Only append query string if there are parameters
     const queryString = params.toString();
     const baseURL = this.client['baseURL'];
-    const sseUrl = `${baseURL}/api/notifications/stream${queryString ? '?' + queryString : ''}`;
+    const sseUrl = `${baseURL}${API_ROUTES.NOTIFICATIONS.STREAM}${queryString ? '?' + queryString : ''}`;
 
     // Comprehensive validation
     if (!baseURL || typeof baseURL !== 'string') {
@@ -818,7 +818,13 @@ export class NotificationsAPIClient {
       throw new Error(error);
     }
 
-    // Create SSE connection
+    // Pre-connection validation and health check (fire-and-forget)
+    this.validateSSEConnection(baseURL, platform, token).catch(error => {
+      console.warn('⚠️ SSE validation failed:', error);
+    });
+
+    // Create SSE connection with timestamp for error tracking
+    const connectionStartTime = Date.now();
     console.log('🔌 Creating EventSource connection to:', sseUrl);
     this.sseConnection = new EventSource(sseUrl);
 
@@ -873,17 +879,59 @@ export class NotificationsAPIClient {
         2: 'CLOSED'
       };
 
-      // EventSource errors don't provide details, log what we can
+      // Enhanced error logging with detailed diagnostic information
       console.error('❌ SSE connection error:', {
+        // Connection state information
         readyState: currentState,
         stateName: stateNames[currentState as 0 | 1 | 2] || 'UNKNOWN',
         url: sseUrl,
         timestamp: new Date().toISOString(),
-        // EventSource.CONNECTING = 0, OPEN = 1, CLOSED = 2
+
+        // EventSource details
+        lastEventId: this.sseConnection?.lastEventId,
+        withCredentials: this.sseConnection?.withCredentials,
+
+        // Browser environment info
+        userAgent: navigator.userAgent,
+        onlineStatus: navigator.onLine,
+        cookieEnabled: navigator.cookieEnabled,
+
+        // Current context
+        platform: platform,
+        hasToken: !!token,
+        tokenLength: token?.length || 0,
+
+        // URL breakdown for debugging
+        urlParts: {
+          baseURL: baseURL,
+          routePath: API_ROUTES.NOTIFICATIONS.STREAM,
+          queryString: queryString,
+          paramsCount: params.toString().split('&').filter(p => p).length
+        },
+
+        // Available cookies (names only, for security)
+        availableCookies: document.cookie ? document.cookie.split(';').map(c => c.trim().split('=')[0]) : [],
+
+        // EventSource constants for reference
         constants: {
           CONNECTING: EventSource.CONNECTING,
           OPEN: EventSource.OPEN,
           CLOSED: EventSource.CLOSED
+        },
+
+        // Network information if available
+        connection: (navigator as any).connection ? {
+          effectiveType: (navigator as any).connection.effectiveType,
+          downlink: (navigator as any).connection.downlink,
+          rtt: (navigator as any).connection.rtt
+        } : 'not available',
+
+        // Event details (often empty but worth logging)
+        eventDetails: {
+          type: event.type,
+          bubbles: event.bubbles,
+          cancelable: event.cancelable,
+          timeSinceConnection: Date.now() - connectionStartTime
         }
       });
 
@@ -1066,18 +1114,22 @@ export class NotificationsAPIClient {
    * Since access tokens are HttpOnly, we get user info from client-side cookies
    */
   private getTokenFromCookies(): string | null {
-    if (typeof document === 'undefined') return null;
-
-    const cookies = document.cookie.split(';').reduce((acc, cookie) => {
-      const [key, value] = cookie.trim().split('=');
-      acc[key] = value;
-      return acc;
-    }, {} as Record<string, string>);
+    if (typeof document === 'undefined') {
+      console.warn('🔐 Document not available, cannot extract authentication token');
+      return null;
+    }
 
     // Get platform from client (accessing private property like we do for baseURL)
     const platform = this.client['platform'] as 'admin' | 'frontend' | undefined;
 
-    let token: string | null = null;
+    try {
+      const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+        const [key, value] = cookie.trim().split('=');
+        if (key && value) {
+          acc[key] = value;
+        }
+        return acc;
+      }, {} as Record<string, string>);
 
     // Get user data from accessible client-side cookies
     const userCookie = cookies[COOKIES.user];
@@ -1089,9 +1141,48 @@ export class NotificationsAPIClient {
       } catch (error) {
         console.warn('Failed to parse user cookie:', error);
       }
-    }
 
-    return token;
+      // Additional fallback: check for any JWT-like tokens
+      if (!token) {
+        const cookieNames = Object.keys(cookies);
+        for (const cookieName of cookieNames) {
+          const value = cookies[cookieName];
+          if (value && value.length > 50 && value.startsWith('eyJ')) { // JWT header
+            token = value;
+            tokenSource = `${cookieName} (JWT-like)`;
+            break;
+          }
+        }
+      }
+
+      // Validate token format
+      if (token) {
+        if (token.startsWith('web3_token_')) {
+          const wallet = token.substring(12); // Remove 'web3_token_' prefix
+          if (wallet.length >= 20 && wallet.startsWith('0x')) {
+            console.log(`🔑 Authentication token extracted from ${tokenSource}: ${wallet.substring(0, 8)}...${wallet.substring(wallet.length - 6)}`);
+            return token;
+          } else {
+            console.warn('⚠️ Invalid Web3 token format in cookies');
+            return null;
+          }
+        } else if (token.length > 20) {
+          console.log(`🔑 JWT token extracted from ${tokenSource}: ${token.substring(0, 20)}...`);
+          return token;
+        } else {
+          console.warn('⚠️ Token too short or invalid format');
+          return null;
+        }
+      } else {
+        console.warn(`⚠️ No authentication token found in cookies for platform: ${platform}`);
+        console.warn(`🔍 Available cookie names: ${Object.keys(cookies).join(', ')}`);
+        return null;
+      }
+
+    } catch (error) {
+      console.error('❌ Error extracting authentication token from cookies:', error);
+      return null;
+    }
   }
 }
 

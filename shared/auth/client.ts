@@ -243,6 +243,7 @@ export class SharedWeb3AuthClient {
         console.error('❌ Challenge request failed', {
           url: challengeUrl,
           status: response.status,
+          ok: response.ok,
           statusText: response.statusText,
           troubleshooting: this.getTroubleshootingHints(response.status),
         });
@@ -323,7 +324,7 @@ export class SharedWeb3AuthClient {
 
     try {
       // Call backend verify endpoint directly
-      const response = await fetch(`${this.backendUrl}/api/auth/web3/verify`, {
+      const response = await fetch(`${this.backendUrl}/api/v1/auth/web3/verify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -352,7 +353,6 @@ export class SharedWeb3AuthClient {
       const user: UserInfoResponse = {
         sub: result.wallet_address,
         wallet_address: result.wallet_address,
-        tier_level: 'standard', // TODO: Derive from permissions
         auth_method: 'web3_siwe',
         permissions: result.permissions || [],
         access: result.access_token,
@@ -541,7 +541,6 @@ export class SharedWeb3AuthClient {
       return {
         sub: response.data.wallet_address,
         wallet_address: response.data.wallet_address,
-        tier_level: 'standard', // TODO: Derive from permissions
         auth_method: 'web3_siwe',
         permissions: response.data.permissions || [],
       };
@@ -581,10 +580,6 @@ export class SharedWeb3AuthClient {
 
   getWalletAddress(): string | null {
     return this.user?.wallet_address || null;
-  }
-
-  getUserTier(): string {
-    return this.user?.tier_level || 'free';
   }
 
   getUserPermissions(): string[] {

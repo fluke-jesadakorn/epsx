@@ -30,7 +30,7 @@ import {
 import { 
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu'
-import { Checkbox } from '@/components/ui/form-components'
+import { Checkbox } from '@/components/ui/FormComponents'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'

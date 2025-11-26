@@ -32,6 +32,7 @@ impl PricingService {
     /// Calculate discount based on billing cycle
     pub fn calculate_discount(_base_price: &Price, billing_cycle: &BillingCycle) -> f64 {
         match billing_cycle {
+            BillingCycle::PayPerUse => 0.0,
             BillingCycle::Monthly => 0.0,
             BillingCycle::Quarterly => 0.05,  // 5% discount
             BillingCycle::Yearly => 0.15,     // 15% discount
@@ -41,7 +42,7 @@ impl PricingService {
 
     /// Apply discount to price
     pub fn apply_discount(price: &Price, discount: f64) -> AppResult<Price> {
-        if discount < 0.0 || discount > 1.0 {
+        if !(0.0..=1.0).contains(&discount) {
             return Err(AppError::validation_error("Discount must be between 0 and 1"));
         }
 

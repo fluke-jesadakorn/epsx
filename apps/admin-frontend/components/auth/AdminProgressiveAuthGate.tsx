@@ -89,17 +89,17 @@ export function AdminProgressiveAuthGate({
     
     try {
       if (upgradeAction === 'connect' || upgradeAction === 'connect_and_authenticate') {
-        // Redirect to Web3 login with current URL as return path
+        // Redirect to Web3 auth with current URL as return path
         const currentPath = window.location.pathname + window.location.search;
-        const loginUrl = `/login?return_url=${encodeURIComponent(currentPath)}&reason=no-permission`;
-        router.push(loginUrl);
+        const authUrl = `/auth?return_url=${encodeURIComponent(currentPath)}&reason=no-permission`;
+        router.push(authUrl);
       } else if (upgradeAction === 'authenticate') {
         // Try to authenticate if wallet is connected
         if (isWalletConnected) {
-          // Redirect to permissions page to complete authentication
-          router.push('/permissions/web3');
+          // Redirect to auth page to complete authentication
+          router.push('/auth');
         } else {
-          router.push('/login');
+          router.push('/auth');
         }
       }
     } catch (_error) {

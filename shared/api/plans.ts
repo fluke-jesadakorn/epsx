@@ -33,7 +33,7 @@ export interface CreatePlanRequest {
   current_price: number;
   currency: string;
   target_audience: string; // "web_users", "api_developers", "enterprises"
-  billing_model: string;   // "subscription", "pay_per_use", "hybrid"
+  billing_model: string;   // Always "pay_per_use"
   plan_category: string;   // "standard", "api", "enterprise", "custom"
   features: PlanFeatureRequest[];
   metadata?: Record<string, any>;
@@ -251,7 +251,7 @@ export class PlansAPIClient {
 
   /**
    * Get all plans with filtering
-   * Route: GET /api/admin/plans
+   * Route: GET /api/v1/admin/plans
    */
   async getPlans(params: {
     limit?: number;
@@ -260,7 +260,7 @@ export class PlansAPIClient {
     target_audience?: string;
     is_active?: boolean;
   } = {}): Promise<ApiResponse<PlanListResponse>> {
-    return this.client.get('/api/admin/plans', params);
+    return this.client.get('/api/v1/admin/plans', params);
   }
 
   /**
@@ -268,7 +268,7 @@ export class PlansAPIClient {
    * Route: GET /api/admin/plans/:id
    */
   async getPlan(planId: number | string): Promise<ApiResponse<PlanResponse>> {
-    return this.client.get(`/api/admin/plans/${planId}`);
+    return this.client.get(`/api/v1/admin/plans/${planId}`);
   }
 
   /**
@@ -276,7 +276,7 @@ export class PlansAPIClient {
    * Route: POST /api/admin/plans
    */
   async createPlan(planData: CreatePlanRequest): Promise<ApiResponse<PlanResponse>> {
-    return this.client.post('/api/admin/plans', planData);
+    return this.client.post('/api/v1/admin/plans', planData);
   }
 
   /**
@@ -284,7 +284,7 @@ export class PlansAPIClient {
    * Route: PUT /api/admin/plans/:id
    */
   async updatePlan(planId: number | string, planData: UpdatePlanRequest): Promise<ApiResponse<PlanResponse>> {
-    return this.client.put(`/api/admin/plans/${planId}`, planData);
+    return this.client.put(`/api/v1/admin/plans/${planId}`, planData);
   }
 
   /**
@@ -292,7 +292,7 @@ export class PlansAPIClient {
    * Route: DELETE /api/admin/plans/:id
    */
   async deletePlan(planId: number | string): Promise<ApiResponse<void>> {
-    return this.client.delete(`/api/admin/plans/${planId}`);
+    return this.client.delete(`/api/v1/admin/plans/${planId}`);
   }
 
   /**
@@ -301,7 +301,7 @@ export class PlansAPIClient {
    */
   async getPlanAnalytics(planId: number | string, period?: string): Promise<ApiResponse<PlanAnalyticsResponse>> {
     const params = period ? { period } : {};
-    return this.client.get(`/api/admin/plans/${planId}/analytics`, params);
+    return this.client.get(`/api/v1/admin/plans/${planId}/analytics`, params);
   }
 
   /**

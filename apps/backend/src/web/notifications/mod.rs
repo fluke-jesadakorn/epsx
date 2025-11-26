@@ -13,7 +13,6 @@ pub use sse_handlers::{
     NotificationType,
     NotificationPriority,
     sse_notifications_handler,
-    sse_health_handler,
 };
 
 pub use redis_broadcaster::RedisNotificationBroadcaster;

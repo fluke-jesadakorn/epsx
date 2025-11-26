@@ -13,20 +13,34 @@
 
 'use client';
 
-import React, { useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Wallet, CheckCircle, AlertCircle } from 'lucide-react';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  requestWalletChallenge,
+  verifyWalletSignature,
+} from '@/lib/auth/api-direct';
 import { logger } from '@/lib/shared';
-import { requestWalletChallenge, verifyWalletSignature } from '@/lib/auth/api-direct';
+import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { AlertCircle, CheckCircle, Loader2, Wallet } from 'lucide-react';
+import { useCallback, useState } from 'react';
 
 // Note: Import direct API temporarily, will be migrated to shared system
 
 // Authentication step states
-type AuthStep = 'connect' | 'challenge' | 'signing' | 'authenticating' | 'success' | 'error';
+type AuthStep =
+  | 'connect'
+  | 'challenge'
+  | 'signing'
+  | 'authenticating'
+  | 'success'
+  | 'error';
 
 interface Web3OpenIDSignInProps {
   onSuccess?: () => void;
@@ -54,18 +68,22 @@ export function Web3OpenIDSignIn({
 
       // Check if MetaMask is available
       if (typeof window.ethereum === 'undefined') {
-        throw new Error('MetaMask is not installed. Please install MetaMask to continue.');
+        throw new Error(
+          'MetaMask is not installed. Please install MetaMask to continue.'
+        );
       }
 
       logger.info('Requesting wallet connection');
 
       // Request account access
       const accounts = await window.ethereum.request({
-        method: 'eth_requestAccounts'
+        method: 'eth_requestAccounts',
       });
 
       if (!accounts || accounts.length === 0) {
-        throw new Error('No wallet accounts found. Please connect your wallet.');
+        throw new Error(
+          'No wallet accounts found. Please connect your wallet.'
+        );
       }
 
       const address = accounts[0];
@@ -80,7 +98,7 @@ export function Web3OpenIDSignIn({
       setChallenge({
         nonce: challengeResponse.nonce,
         message: challengeResponse.message,
-        wallet_address: challengeResponse.wallet_address
+        wallet_address: challengeResponse.wallet_address,
       });
 
       logger.info('Challenge received, ready for signing');
@@ -89,7 +107,8 @@ export function Web3OpenIDSignIn({
       await handleSignMessage(challengeResponse, address);
 
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to connect wallet';
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to connect wallet';
       logger.error('Wallet connection failed', { error: errorMessage });
       setError(errorMessage);
       setCurrentStep('error');
@@ -148,8 +167,63 @@ export function Web3OpenIDSignIn({
         if (onSuccess) {
           onSuccess();
         }
-      } else {
-        throw new Error(result.error || 'Authentication failed');
+
+        logger.info('Signature received, authenticating with backend');
+
+        // Authenticate with backend using direct API
+        setCurrentStep('authenticating');
+        const result = await verifyWalletSignature({
+          wallet_address: address,
+          signature,
+          message: challengeData.message,
+          nonce: challengeData.nonce,
+        });
+
+        if (result.success) {
+          logger.info('🎉 Authentication successful!', {
+            wallet: result.wallet_address,
+            permissions: result.permissions?.length || 0,
+            isNewUser: result.is_new_user,
+          });
+
+          // Update SharedOpenIDWeb3Provider with authenticated user
+          await authenticateWithDirectApi({
+            wallet_address: result.wallet_address,
+            permissions: result.permissions,
+            is_new_user: result.is_new_user,
+            access_token: result.access_token,
+          });
+
+          setCurrentStep('success');
+          setIsLoading(false);
+
+          // Call onSuccess callback if provided (no redirect)
+          if (onSuccess) {
+            onSuccess();
+          }
+        } else {
+          throw new Error(result.error || 'Authentication failed');
+        }
+      } catch (err: any) {
+        // Handle user rejection
+        if (err?.code === 4001 || err?.message?.includes('User rejected')) {
+          const errorMessage =
+            'Signature request was rejected. Please try again and approve the signature.';
+          logger.warn('User rejected signature request', { error: err });
+          setError(errorMessage);
+        } else {
+          const errorMessage =
+            err instanceof Error
+              ? err.message
+              : 'Signature or authentication failed';
+          logger.error('Authentication process failed', {
+            error: errorMessage,
+            details: err,
+          });
+          setError(errorMessage);
+        }
+        setCurrentStep('error');
+        setIsLoading(false);
       }
 
     } catch (err) {
@@ -179,12 +253,12 @@ export function Web3OpenIDSignIn({
               <Wallet className="h-12 w-12 text-blue-500" />
               <div className="text-center">
                 <h3 className="text-lg font-semibold">Connect Your Wallet</h3>
-                <p className="text-sm text-gray-600 mt-1">
+                <p className="mt-1 text-sm text-gray-600">
                   Connect your Web3 wallet to sign in with EPSX
                 </p>
               </div>
-              <Button 
-                onClick={handleConnectWallet} 
+              <Button
+                onClick={handleConnectWallet}
                 disabled={isLoading}
                 className="w-full"
               >
@@ -207,10 +281,12 @@ export function Web3OpenIDSignIn({
       case 'challenge':
         return (
           <div className="flex flex-col items-center space-y-4">
-            <Loader2 className="h-12 w-12 text-blue-500 animate-spin" />
+            <Loader2 className="h-12 w-12 animate-spin text-blue-500" />
             <div className="text-center">
-              <h3 className="text-lg font-semibold">Preparing Authentication</h3>
-              <p className="text-sm text-gray-600 mt-1">
+              <h3 className="text-lg font-semibold">
+                Preparing Authentication
+              </h3>
+              <p className="mt-1 text-sm text-gray-600">
                 Generating secure challenge for {walletAddress}
               </p>
             </div>
@@ -220,13 +296,13 @@ export function Web3OpenIDSignIn({
       case 'signing':
         return (
           <div className="flex flex-col items-center space-y-4">
-            <Loader2 className="h-12 w-12 text-orange-500 animate-spin" />
+            <Loader2 className="h-12 w-12 animate-spin text-orange-500" />
             <div className="text-center">
               <h3 className="text-lg font-semibold">Sign the Message</h3>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="mt-1 text-sm text-gray-600">
                 Please sign the message in your wallet to continue
               </p>
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="mt-2 text-xs text-gray-500">
                 This signature proves you own the wallet address
               </p>
             </div>
@@ -236,10 +312,10 @@ export function Web3OpenIDSignIn({
       case 'authenticating':
         return (
           <div className="flex flex-col items-center space-y-4">
-            <Loader2 className="h-12 w-12 text-green-500 animate-spin" />
+            <Loader2 className="h-12 w-12 animate-spin text-green-500" />
             <div className="text-center">
               <h3 className="text-lg font-semibold">Authenticating</h3>
-              <p className="text-sm text-gray-600 mt-1">
+              <p className="mt-1 text-sm text-gray-600">
                 Verifying your signature and issuing access tokens
               </p>
             </div>
@@ -251,8 +327,10 @@ export function Web3OpenIDSignIn({
           <div className="flex flex-col items-center space-y-4">
             <CheckCircle className="h-12 w-12 text-green-500" />
             <div className="text-center">
-              <h3 className="text-lg font-semibold text-green-700">Authentication Successful!</h3>
-              <p className="text-sm text-gray-600 mt-1">
+              <h3 className="text-lg font-semibold text-green-700">
+                Authentication Successful!
+              </h3>
+              <p className="mt-1 text-sm text-gray-600">
                 Welcome to EPSX! Redirecting you now...
               </p>
             </div>
@@ -264,8 +342,10 @@ export function Web3OpenIDSignIn({
           <div className="flex flex-col items-center space-y-4">
             <AlertCircle className="h-12 w-12 text-red-500" />
             <div className="text-center">
-              <h3 className="text-lg font-semibold text-red-700">Authentication Failed</h3>
-              <p className="text-sm text-gray-600 mt-1">
+              <h3 className="text-lg font-semibold text-red-700">
+                Authentication Failed
+              </h3>
+              <p className="mt-1 text-sm text-gray-600">
                 Please try again or check your wallet connection
               </p>
             </div>
@@ -281,10 +361,14 @@ export function Web3OpenIDSignIn({
   };
 
   return (
-    <div className={`flex items-center justify-center min-h-screen bg-gray-50 p-4 ${className}`}>
+    <div
+      className={`flex min-h-screen items-center justify-center bg-gray-50 p-4 ${className}`}
+    >
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">EPSX Authentication</CardTitle>
+          <CardTitle className="text-2xl font-bold">
+            EPSX Authentication
+          </CardTitle>
           <CardDescription>
             Secure Web3 authentication powered by OpenID Connect
           </CardDescription>
@@ -296,13 +380,13 @@ export function Web3OpenIDSignIn({
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-          
+
           {renderStepContent()}
-          
+
           {walletAddress && currentStep !== 'error' && (
-            <div className="bg-gray-50 p-3 rounded-lg">
-              <p className="text-xs text-gray-500 mb-1">Connected Wallet:</p>
-              <p className="text-sm font-mono break-all">{walletAddress}</p>
+            <div className="rounded-lg bg-gray-50 p-3">
+              <p className="mb-1 text-xs text-gray-500">Connected Wallet:</p>
+              <p className="font-mono text-sm break-all">{walletAddress}</p>
             </div>
           )}
         </CardContent>

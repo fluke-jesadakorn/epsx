@@ -174,6 +174,17 @@ export const clientEnvSchema = z.object({
     .default('97') // BSC Testnet default for development
     .describe('Blockchain chain ID - automatically determined by network setting'),
 
+  // Payment Configuration (2 variables) - Company wallet addresses for receiving payments
+  NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: z.string()
+    .optional()
+    .default('0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7')
+    .describe('Company wallet address for mainnet payments (BSC mainnet)'),
+
+  NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: z.string()
+    .optional()
+    .default('0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7')
+    .describe('Company wallet address for testnet payments (BSC testnet)'),
+
   // Firebase Analytics Configuration (4 variables) - Minimal config for frontend analytics only
   NEXT_PUBLIC_FIREBASE_API_KEY: z.string().optional()
     .describe('Firebase API key for client-side analytics (frontend only)'),
@@ -235,6 +246,9 @@ export const clientEnv = new Proxy({} as ClientEnv, {
             NEXT_PUBLIC_BLOCKCHAIN_NETWORK: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BLOCKCHAIN_NETWORK) || getDefaultBlockchainNetwork(),
             NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID) || getDefaultWalletConnectProjectId(),
             NEXT_PUBLIC_CHAIN_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_CHAIN_ID) || '97',
+            // Payment addresses
+            NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS) || '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7',
+            NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS) || '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7',
             // Firebase Analytics fallbacks - minimal config (frontend only)
             NEXT_PUBLIC_FIREBASE_API_KEY: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_API_KEY) || undefined,
             NEXT_PUBLIC_FIREBASE_PROJECT_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_PROJECT_ID) || undefined,
@@ -250,7 +264,9 @@ export const clientEnv = new Proxy({} as ClientEnv, {
             NEXT_PUBLIC_ADMIN_URL: getDefaultAdminUrl() || 'http://localhost:3001',
             NEXT_PUBLIC_BLOCKCHAIN_NETWORK: getDefaultBlockchainNetwork(),
             NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: getDefaultWalletConnectProjectId(),
-            NEXT_PUBLIC_CHAIN_ID: '97' // BSC Testnet default
+            NEXT_PUBLIC_CHAIN_ID: '97', // BSC Testnet default
+            NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7',
+            NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7'
           } as ClientEnv;
         }
       }
@@ -282,7 +298,15 @@ export const env = {
   get CHAIN_ID() {
     return clientEnv.NEXT_PUBLIC_CHAIN_ID;
   },
-  
+
+  // Payment Configuration - Company wallet addresses
+  get PAYMENT_MAINNET_ADDRESS() {
+    return clientEnv.NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS;
+  },
+  get PAYMENT_TESTNET_ADDRESS() {
+    return clientEnv.NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS;
+  },
+
   // Firebase Analytics Configuration (minimal - frontend only)
   get FIREBASE_API_KEY() {
     return clientEnv.NEXT_PUBLIC_FIREBASE_API_KEY;

@@ -51,7 +51,7 @@ impl CommandHandler<RecordDeliveryAttemptCommand> for RecordDeliveryAttemptComma
 
         // 4. Record delivery attempt (domain logic validates state and tracks attempts)
         notification.record_delivery_attempt(&channel, delivery_result)
-            .map_err(|e| ApplicationError::business_logic(e))?;
+            .map_err(ApplicationError::business_logic)?;
 
         // 5. Get attempt count for response
         let attempt_count = notification.delivery_tracking().total_attempts();
