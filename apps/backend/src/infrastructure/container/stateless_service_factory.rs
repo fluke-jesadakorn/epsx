@@ -2,11 +2,11 @@
 // Creates services per request without shared state containers
 // Designed for serverless environments (AWS Lambda, Google Cloud Functions, etc.)
 
-use sqlx::PgPool;
+use diesel_async::{AsyncPgConnection, pooled_connection::deadpool::Pool};
 use anyhow::Result;
 use std::sync::Arc;
 use crate::infrastructure::cache::{Cache, ServerlessCacheFactory};
-use crate::infrastructure::database::{ServerlessConnectionManager, get_db_pool};
+use crate::infrastructure::database::diesel_health_check;
 use crate::infrastructure::redis::RedisPool;
 use crate::web::notifications::RedisNotificationBroadcaster;
 use crate::infrastructure::adapters::repositories::wallet_user_repository_adapter::WalletUserRepositoryAdapter;
@@ -101,13 +101,9 @@ impl StatelessServiceFactory {
     /// Create all services for a single request
     /// This is called once per HTTP request in serverless environments
     pub async fn create_request_services(&self) -> Result<RequestServices> {
-        // Get global serverless-optimized database pool (reuses connections)
-        let db_pool = get_db_pool().await
-            .map_err(|e| anyhow::anyhow!("Failed to get database pool: {}", e))?;
-
-        // Clone pool once for Arc wrapping (PgPool clone is cheap - it's Arc internally)
-        let db_pool_owned = db_pool.clone();
-        let db_pool_arc = Arc::new(db_pool_owned.clone());
+        // Get global Diesel pool (static lifetime, connection pooling)
+        let diesel_pool = crate::infrastructure::database::get_diesel_pool().await
+            .expect("Failed to get Diesel pool");
 
         // Create cache (Redis ONLY - no fallback to memory for serverless)
         let cache = if let Some(redis_url) = &self.config.redis_url {
@@ -116,38 +112,38 @@ impl StatelessServiceFactory {
             None
         };
 
-        // Create repository adapters using Arc pool reference
-        let wallet_user_repository = WalletUserRepositoryAdapter::new(db_pool_arc.clone());
+        // Create repository adapters
+        let wallet_user_repository = WalletUserRepositoryAdapter::new(diesel_pool);
 
         // Create domain services (stateless by design)
-        let wallet_permission_service = WalletPermissionService;
+        let wallet_permission_service = WalletPermissionService::new();
 
-        // Create infrastructure adapters using owned pool
+        // Create infrastructure adapters using Diesel pool
         let web3_permission_adapter = Web3PermissionServiceAdapter::new(
             cache.clone(),
             self.config.blockchain_config.clone(),
-            db_pool_owned.clone(),
+            diesel_pool,
         );
 
-        // Create auth services using owned pool
+        // Create auth services using Diesel pool
         let auth_service = UnifiedWeb3AuthService::new(
-            db_pool_owned.clone(),
+            diesel_pool,
             self.config.domain.clone(),
         );
 
-        // Create OpenID token service using owned pool and RSA key manager
+        // Create OpenID token service using Diesel pool and RSA key manager
         let key_manager = KeyManager::from_env_or_generate()
             .expect("Failed to initialize RSA key manager");
         let token_service = OpenIDTokenService::new(
-            db_pool_owned.clone(),
+            diesel_pool,
             self.config.issuer_url.clone(),
             self.config.oidc_audiences.clone(),
             Arc::new(key_manager),
         );
 
         // Create centralized permission services
-        let permission_authority = Arc::new(create_permission_authority(db_pool_owned.clone()));
-        let permission_registry = Arc::new(create_permission_registry(db_pool_owned));
+        let permission_authority = Arc::new(create_permission_authority(diesel_pool));
+        let permission_registry = Arc::new(create_permission_registry(diesel_pool));
 
         // Initialize permission registry with default routes
         if let Err(e) = permission_registry.initialize().await {
@@ -179,7 +175,7 @@ impl StatelessServiceFactory {
         };
 
         Ok(RequestServices {
-            db_pool: db_pool_arc,
+            db_pool: Arc::new(diesel_pool),
             cache,
             wallet_user_repository: Arc::new(wallet_user_repository),
             wallet_permission_service,
@@ -202,19 +198,19 @@ impl StatelessServiceFactory {
 
     /// Create minimal services for health checks (faster cold start)
     pub async fn create_health_services(&self) -> Result<HealthServices> {
-        // Use global serverless connection manager for health checks
-        let db_pool = get_db_pool().await
-            .map_err(|e| anyhow::anyhow!("Failed to get database pool: {}", e))?;
+        // Use global Diesel pool for health checks
+        let diesel_pool = crate::infrastructure::database::get_diesel_pool().await
+            .expect("Failed to get Diesel pool");
 
         Ok(HealthServices {
-            db_pool: Arc::new(db_pool.clone()),
+            db_pool: Arc::new(diesel_pool),
         })
     }
 }
 
 /// Services created per request - no shared state
 pub struct RequestServices {
-    pub db_pool: Arc<PgPool>,
+    pub db_pool: Arc<&'static Pool<AsyncPgConnection>>,
     pub cache: Option<Arc<dyn Cache>>,
 
     // Service instances (owned by this request)
@@ -276,14 +272,14 @@ impl RequestServices {
 
 /// Minimal services for health checks only
 pub struct HealthServices {
-    pub db_pool: Arc<PgPool>,
+    pub db_pool: Arc<&'static Pool<AsyncPgConnection>>,
 }
 
 impl HealthServices {
-    /// Health check - test database connectivity using serverless manager
+    /// Health check - test database connectivity using Diesel
     pub async fn health_check(&self) -> bool {
-        // Use the optimized health check from ServerlessConnectionManager
-        ServerlessConnectionManager::health_check().await
+        // Use the Diesel health check
+        diesel_health_check().await
     }
 }
 

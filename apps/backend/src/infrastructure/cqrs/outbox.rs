@@ -8,15 +8,27 @@
 // All within a single database transaction (ACID)
 
 use crate::prelude::*;
-use sqlx::{PgPool, Postgres, Transaction};
+use diesel::prelude::*;
+use diesel_async::{AsyncPgConnection, AsyncConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
 use tracing::{info, error, debug, warn};
 use uuid::Uuid;
 
 use super::event_store::EventStore;
 
-/// Callback type for saving aggregate state
+/// Callback type for saving aggregate state with Diesel
 /// This allows repositories to provide their own save logic
-pub type AggregateSaveFn = Box<dyn for<'a> Fn(&'a mut Transaction<'a, Postgres>) -> std::pin::Pin<Box<dyn std::future::Future<Output = AppResult<()>> + Send + 'a>> + Send + Sync>;
+pub type AggregateSaveFn = Box<dyn for<'a> Fn(&'a mut AsyncPgConnection) -> std::pin::Pin<Box<dyn std::future::Future<Output = AppResult<()>> + Send + 'a>> + Send + Sync>;
+
+/// Parameters for save_with_events operation
+pub struct SaveWithEventsParams<F> {
+    pub aggregate_id: String,
+    pub aggregate_type: String,
+    pub events: Vec<Box<dyn DomainEvent>>,
+    pub save_aggregate: F,
+    pub causation_id: Option<Uuid>,
+    pub correlation_id: Option<Uuid>,
+    pub user_id: Option<String>,
+}
 
 /// Transactional Outbox - Atomic Event Persistence
 ///
@@ -26,12 +38,12 @@ pub type AggregateSaveFn = Box<dyn for<'a> Fn(&'a mut Transaction<'a, Postgres>)
 /// - Events are saved to outbox_events (for async publishing)
 /// - Everything happens atomically in one transaction
 pub struct TransactionalOutbox {
-    pool: Arc<PgPool>,
+    pool: Arc<&'static Pool<AsyncPgConnection>>,
     event_store: Arc<dyn EventStore>,
 }
 
 impl TransactionalOutbox {
-    pub fn new(pool: Arc<PgPool>, event_store: Arc<dyn EventStore>) -> Self {
+    pub fn new(pool: Arc<&'static Pool<AsyncPgConnection>>, event_store: Arc<dyn EventStore>) -> Self {
         Self { pool, event_store }
     }
 
@@ -69,49 +81,83 @@ impl TransactionalOutbox {
             return Ok(());
         }
 
-        // Start transaction
-        let mut tx = self.pool.begin().await.map_err(|e| {
-            error!("Failed to start transaction: {}", e);
-            AppError::database_error(format!("Transaction start failed: {}", e))
+        let mut conn = self.pool.get().await.map_err(|e| {
+            error!("Failed to get connection: {}", e);
+            AppError::database_error(format!("Connection failed: {}", e))
         })?;
+
+        let event_count = events.len();
 
         info!(
             "Appending {} events for aggregate {} (type: {})",
-            events.len(),
+            event_count,
             aggregate_id,
             aggregate_type
         );
 
-        // 1. Save events to event store (immutable log)
-        self.event_store
-            .append_events(&mut tx, &events, causation_id, correlation_id, user_id.clone())
-            .await
-            .map_err(|e| {
-                error!("Failed to append events to event store: {}", e);
-                e
-            })?;
+        let event_store = Arc::clone(&self.event_store);
+        let agg_id = aggregate_id.to_string();
+        let agg_type = aggregate_type.to_string();
 
-        debug!("Events appended to event store");
+        conn.transaction::<_, diesel::result::Error, _>(|conn| {
+            Box::pin(async move {
+                // 1. Save events to event store (immutable log)
+                event_store
+                    .append_events(conn, &events, causation_id, correlation_id, user_id.clone())
+                    .await
+                    .map_err(|e| {
+                        error!("Failed to append events to event store: {}", e);
+                        diesel::result::Error::RollbackTransaction
+                    })?;
 
-        // 2. Save events to outbox (for async publishing)
-        self.save_to_outbox(&mut tx, &events, aggregate_id, aggregate_type)
-            .await
-            .map_err(|e| {
-                error!("Failed to save events to outbox: {}", e);
-                e
-            })?;
+                debug!("Events appended to event store");
 
-        debug!("Events saved to outbox");
+                // 2. Save events to outbox (for async publishing)
+                for event in &events {
+                    let event_json_str = event.to_json()
+                        .map_err(|_| diesel::result::Error::RollbackTransaction)?;
 
-        // 3. Commit transaction
-        tx.commit().await.map_err(|e| {
-            error!("Failed to commit transaction: {}", e);
-            AppError::database_error(format!("Transaction commit failed: {}", e))
+                    let event_json: serde_json::Value = serde_json::from_str(&event_json_str)
+                        .map_err(|_| diesel::result::Error::RollbackTransaction)?;
+
+                    diesel::sql_query(
+                        r#"
+                        INSERT INTO outbox_events (
+                            event_id,
+                            aggregate_id,
+                            aggregate_type,
+                            event_type,
+                            event_payload
+                        ) VALUES ($1, $2, $3, $4, $5)
+                        "#
+                    )
+                    .bind::<diesel::sql_types::Uuid, _>(event.event_id())
+                    .bind::<diesel::sql_types::Text, _>(&agg_id)
+                    .bind::<diesel::sql_types::Text, _>(&agg_type)
+                    .bind::<diesel::sql_types::Text, _>(event.event_type())
+                    .bind::<diesel::sql_types::Jsonb, _>(event_json)
+                    .execute(conn)
+                    .await
+                    .map_err(|e| {
+                        error!("Failed to insert event into outbox: {}", e);
+                        diesel::result::Error::RollbackTransaction
+                    })?;
+                }
+
+                debug!("Events saved to outbox");
+
+                Ok(())
+            })
+        })
+        .await
+        .map_err(|e| {
+            error!("Transaction failed: {:?}", e);
+            AppError::database_error(format!("Transaction failed: {:?}", e))
         })?;
 
         info!(
             "✅ Successfully appended {} events for aggregate {}",
-            events.len(),
+            event_count,
             aggregate_id
         );
 
@@ -121,138 +167,145 @@ impl TransactionalOutbox {
     /// Save aggregate with events atomically
     ///
     /// # Arguments
-    /// * `aggregate_id` - Unique identifier for the aggregate
-    /// * `aggregate_type` - Type of aggregate (WalletUser, Subscription, etc.)
-    /// * `events` - Domain events to persist
-    /// * `save_aggregate` - Callback to save aggregate state
-    /// * `causation_id` - Optional command ID that caused these events
-    /// * `correlation_id` - Optional trace ID for distributed tracing
-    /// * `user_id` - Optional user who triggered these events
+    /// * `params` - SaveWithEventsParams containing all required fields
     ///
     /// # Returns
     /// Result indicating success or failure of the atomic operation
-    pub async fn save_with_events<F, Fut>(
-        &self,
-        aggregate_id: &str,
-        aggregate_type: &str,
-        events: Vec<Box<dyn DomainEvent>>,
-        save_aggregate: F,
-        causation_id: Option<Uuid>,
-        correlation_id: Option<Uuid>,
-        user_id: Option<String>,
-    ) -> AppResult<()>
+    pub async fn save_with_events<F, Fut>(&self, params: SaveWithEventsParams<F>) -> AppResult<()>
     where
-        F: FnOnce(&mut Transaction<'_, Postgres>) -> Fut + Send,
+        F: FnOnce(&mut AsyncPgConnection) -> Fut + Send,
         Fut: std::future::Future<Output = AppResult<()>> + Send,
     {
-        if events.is_empty() {
-            debug!("No events to save for aggregate {}", aggregate_id);
+        if params.events.is_empty() {
+            debug!("No events to save for aggregate {}", params.aggregate_id);
             return Ok(());
         }
 
-        // Start transaction
-        let mut tx = self.pool.begin().await.map_err(|e| {
-            error!("Failed to start transaction: {}", e);
-            AppError::database_error(format!("Transaction start failed: {}", e))
+        let mut conn = self.pool.get().await.map_err(|e| {
+            error!("Failed to get connection: {}", e);
+            AppError::database_error(format!("Connection failed: {}", e))
         })?;
 
         info!(
             "Starting atomic save: aggregate={}, type={}, events={}",
-            aggregate_id,
-            aggregate_type,
-            events.len()
+            params.aggregate_id,
+            params.aggregate_type,
+            params.events.len()
         );
 
-        // 1. Save aggregate state (using provided callback)
-        save_aggregate(&mut tx).await.map_err(|e| {
-            error!("Failed to save aggregate state: {}", e);
-            e
-        })?;
+        let event_store = Arc::clone(&self.event_store);
+        let agg_id = params.aggregate_id.clone();
+        let agg_type = params.aggregate_type.clone();
+        let events = params.events;
+        let event_count = events.len();
+        let agg_id_clone = agg_id.clone();
+        let causation_id = params.causation_id;
+        let correlation_id = params.correlation_id;
+        let user_id = params.user_id.clone();
 
-        debug!("Aggregate state saved");
+        conn.transaction::<_, diesel::result::Error, _>(|conn| {
+            Box::pin(async move {
+                // 1. Save aggregate state (using provided callback)
+                (params.save_aggregate)(conn).await.map_err(|e| {
+                    error!("Failed to save aggregate state: {}", e);
+                    diesel::result::Error::RollbackTransaction
+                })?;
 
-        // 2. Save events to event store (immutable log)
-        self.event_store
-            .append_events(&mut tx, &events, causation_id, correlation_id, user_id.clone())
-            .await
-            .map_err(|e| {
-                error!("Failed to append events to event store: {}", e);
-                e
-            })?;
+                debug!("Aggregate state saved");
 
-        debug!("Events appended to event store");
+                // 2. Save events to event store (immutable log)
+                event_store
+                    .append_events(conn, &events, causation_id, correlation_id, user_id.clone())
+                    .await
+                    .map_err(|e| {
+                        error!("Failed to append events to event store: {}", e);
+                        diesel::result::Error::RollbackTransaction
+                    })?;
 
-        // 3. Save events to outbox (for async publishing)
-        self.save_to_outbox(&mut tx, &events, aggregate_id, aggregate_type)
-            .await
-            .map_err(|e| {
-                error!("Failed to save events to outbox: {}", e);
-                e
-            })?;
+                debug!("Events appended to event store");
 
-        debug!("Events saved to outbox");
+                // 3. Save events to outbox (for async publishing)
+                for event in &events {
+                    let event_json_str = event.to_json()
+                        .map_err(|_| diesel::result::Error::RollbackTransaction)?;
 
-        // 4. Commit transaction (atomic!)
-        tx.commit().await.map_err(|e| {
-            error!("Failed to commit transaction: {}", e);
-            AppError::database_error(format!("Transaction commit failed: {}", e))
+                    let event_json: serde_json::Value = serde_json::from_str(&event_json_str)
+                        .map_err(|_| diesel::result::Error::RollbackTransaction)?;
+
+                    diesel::sql_query(
+                        r#"
+                        INSERT INTO outbox_events (
+                            event_id,
+                            aggregate_id,
+                            aggregate_type,
+                            event_type,
+                            event_payload
+                        ) VALUES ($1, $2, $3, $4, $5)
+                        "#
+                    )
+                    .bind::<diesel::sql_types::Uuid, _>(event.event_id())
+                    .bind::<diesel::sql_types::Text, _>(&agg_id)
+                    .bind::<diesel::sql_types::Text, _>(&agg_type)
+                    .bind::<diesel::sql_types::Text, _>(event.event_type())
+                    .bind::<diesel::sql_types::Jsonb, _>(event_json)
+                    .execute(conn)
+                    .await
+                    .map_err(|e| {
+                        error!("Failed to insert event into outbox: {}", e);
+                        diesel::result::Error::RollbackTransaction
+                    })?;
+                }
+
+                debug!("Events saved to outbox");
+
+                Ok(())
+            })
+        })
+        .await
+        .map_err(|e| {
+            error!("Transaction failed: {:?}", e);
+            AppError::database_error(format!("Transaction failed: {:?}", e))
         })?;
 
         info!(
             "✅ Atomic save successful: {} events for aggregate {}",
-            events.len(),
-            aggregate_id
+            event_count,
+            agg_id_clone
         );
-
-        Ok(())
-    }
-
-    /// Save events to outbox for async publishing
-    async fn save_to_outbox(
-        &self,
-        tx: &mut Transaction<'_, Postgres>,
-        events: &[Box<dyn DomainEvent>],
-        aggregate_id: &str,
-        aggregate_type: &str,
-    ) -> AppResult<()> {
-        for event in events {
-            let event_json_str = event.to_json()
-                .map_err(|e| AppError::internal_error(format!("Failed to serialize event: {}", e)))?;
-
-            let event_json: serde_json::Value = serde_json::from_str(&event_json_str)
-                .map_err(|e| AppError::internal_error(format!("Failed to parse event JSON: {}", e)))?;
-
-            sqlx::query!(
-                r#"
-                INSERT INTO outbox_events (
-                    event_id,
-                    aggregate_id,
-                    aggregate_type,
-                    event_type,
-                    event_payload
-                ) VALUES ($1, $2, $3, $4, $5::jsonb)
-                "#,
-                event.event_id(),
-                aggregate_id,
-                aggregate_type,
-                event.event_type(),
-                event_json
-            )
-            .execute(&mut **tx)
-            .await
-            .map_err(|e| {
-                error!("Failed to insert event into outbox: {}", e);
-                AppError::database_error(format!("Outbox insert failed: {}", e))
-            })?;
-        }
 
         Ok(())
     }
 
     /// Get unprocessed events from outbox (for EventDispatcher)
     pub async fn get_unprocessed_events(&self, batch_size: i64) -> AppResult<Vec<OutboxEvent>> {
-        let events = sqlx::query_as!(
-            OutboxEvent,
+        let mut conn = self.pool.get().await.map_err(|e| {
+            error!("Failed to get connection: {}", e);
+            AppError::database_error(format!("Connection failed: {}", e))
+        })?;
+
+        #[derive(QueryableByName)]
+        struct OutboxEventRow {
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            id: i64,
+            #[diesel(sql_type = diesel::sql_types::Uuid)]
+            event_id: Uuid,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            aggregate_id: String,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            aggregate_type: String,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            event_type: String,
+            #[diesel(sql_type = diesel::sql_types::Jsonb)]
+            event_payload: serde_json::Value,
+            #[diesel(sql_type = diesel::sql_types::Bool)]
+            processed: bool,
+            #[diesel(sql_type = diesel::sql_types::Integer)]
+            retry_count: i32,
+            #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+            created_at: chrono::DateTime<chrono::Utc>,
+        }
+
+        let events = diesel::sql_query(
             r#"
             SELECT
                 id,
@@ -269,15 +322,28 @@ impl TransactionalOutbox {
             ORDER BY sequence_number ASC
             LIMIT $1
             FOR UPDATE SKIP LOCKED
-            "#,
-            batch_size
+            "#
         )
-        .fetch_all(self.pool.as_ref())
+        .bind::<diesel::sql_types::BigInt, _>(batch_size)
+        .load::<OutboxEventRow>(&mut conn)
         .await
         .map_err(|e| {
             error!("Failed to fetch unprocessed events: {}", e);
             AppError::database_error(format!("Outbox query failed: {}", e))
-        })?;
+        })?
+        .into_iter()
+        .map(|row| OutboxEvent {
+            id: row.id,
+            event_id: row.event_id,
+            aggregate_id: row.aggregate_id,
+            aggregate_type: row.aggregate_type,
+            event_type: row.event_type,
+            event_payload: row.event_payload,
+            processed: row.processed,
+            retry_count: row.retry_count,
+            created_at: row.created_at,
+        })
+        .collect();
 
         Ok(events)
     }
@@ -288,15 +354,20 @@ impl TransactionalOutbox {
             return Ok(());
         }
 
-        sqlx::query!(
+        let mut conn = self.pool.get().await.map_err(|e| {
+            error!("Failed to get connection: {}", e);
+            AppError::database_error(format!("Connection failed: {}", e))
+        })?;
+
+        diesel::sql_query(
             r#"
             UPDATE outbox_events
             SET processed = true, processed_at = NOW()
             WHERE id = ANY($1)
-            "#,
-            event_ids
+            "#
         )
-        .execute(self.pool.as_ref())
+        .bind::<diesel::sql_types::Array<diesel::sql_types::BigInt>, _>(event_ids)
+        .execute(&mut conn)
         .await
         .map_err(|e| {
             error!("Failed to mark events as processed: {}", e);
@@ -317,7 +388,12 @@ impl TransactionalOutbox {
         // Calculate exponential backoff: 2^retry_count seconds
         let retry_delay_secs = 2_i32.pow(retry_count as u32).min(3600); // Max 1 hour
 
-        sqlx::query!(
+        let mut conn = self.pool.get().await.map_err(|e| {
+            error!("Failed to get connection: {}", e);
+            AppError::database_error(format!("Connection failed: {}", e))
+        })?;
+
+        diesel::sql_query(
             r#"
             UPDATE outbox_events
             SET
@@ -325,13 +401,13 @@ impl TransactionalOutbox {
                 last_error = $2,
                 next_retry_at = NOW() + ($3 || ' seconds')::interval
             WHERE id = $4
-            "#,
-            retry_count,
-            error_message,
-            retry_delay_secs.to_string(),
-            event_id
+            "#
         )
-        .execute(self.pool.as_ref())
+        .bind::<diesel::sql_types::Integer, _>(retry_count)
+        .bind::<diesel::sql_types::Text, _>(error_message)
+        .bind::<diesel::sql_types::Text, _>(retry_delay_secs.to_string())
+        .bind::<diesel::sql_types::BigInt, _>(event_id)
+        .execute(&mut conn)
         .await
         .map_err(|e| {
             error!("Failed to mark event as failed: {}", e);
@@ -348,7 +424,26 @@ impl TransactionalOutbox {
 
     /// Get outbox statistics for monitoring
     pub async fn get_stats(&self) -> AppResult<OutboxStats> {
-        let stats = sqlx::query!(
+        let mut conn = self.pool.get().await.map_err(|e| {
+            error!("Failed to get connection: {}", e);
+            AppError::database_error(format!("Connection failed: {}", e))
+        })?;
+
+        #[derive(QueryableByName)]
+        struct StatsRow {
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
+            pending_count: Option<i64>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
+            processed_count: Option<i64>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
+            retry_count: Option<i64>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
+            failed_count: Option<i64>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
+            max_sequence: Option<i64>,
+        }
+
+        let stats = diesel::sql_query(
             r#"
             SELECT
                 COUNT(*) FILTER (WHERE processed = false) as pending_count,
@@ -359,7 +454,7 @@ impl TransactionalOutbox {
             FROM outbox_events
             "#
         )
-        .fetch_one(self.pool.as_ref())
+        .get_result::<StatsRow>(&mut conn)
         .await
         .map_err(|e| {
             error!("Failed to get outbox stats: {}", e);
@@ -402,7 +497,5 @@ pub struct OutboxStats {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     // Integration tests will be added when test database is available
 }

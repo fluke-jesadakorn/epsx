@@ -444,7 +444,7 @@ export class PermissionAwareAuthService {
       this.stopPermissionMonitoring();
       this.notifyListeners();
       
-      authLogger.info('User logged out successfully (Web3 session and permissions cleared)');
+      authLogger.info('User logged out successfully (session and permissions cleared)');
       
       // Redirect to home
       window.location.href = '/';
@@ -456,7 +456,7 @@ export class PermissionAwareAuthService {
     }
   }
 
-  // Refresh Web3 session and permissions
+  // Refresh session and permissions
   async refreshToken(): Promise<boolean> {
     try {
       // Web3-first system: no refresh tokens, check current authentication status
@@ -497,7 +497,7 @@ export class PermissionAwareAuthService {
     if (!this.currentUser) return;
     
     try {
-      // Use Web3 client to reload current user and permissions
+      // Use client to reload current user and permissions
       const web3User = await this.web3Client.loadCurrentUser();
       
       if (!web3User) {

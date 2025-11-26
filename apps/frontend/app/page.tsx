@@ -125,7 +125,6 @@ export default function HomePage() {
                         <div className="space-y-4">
                           <h3 className="text-3xl font-bold">🔥 Limited Time Offer!</h3>
                           <p className="text-xl">Start from just <span className="text-4xl font-bold">$1/month</span></p>
-                          <p className="text-lg opacity-90">30-day money-back guarantee • Cancel anytime</p>
                           
                           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mt-6">
                             <button className="bg-white text-orange-600 font-bold py-4 px-8 rounded-2xl text-lg hover:bg-orange-50 shadow-xl">

@@ -101,7 +101,7 @@ impl CommandHandler<CreateTopicNotificationCommand> for CreateTopicNotificationC
             multi_channel_config,
             schedule,
             None, // created_by - no specific creator for topic broadcasts
-        ).map_err(|e| ApplicationError::business_logic(e))?;
+        ).map_err(ApplicationError::business_logic)?;
 
         // 8. Add optional metadata
         if let Some(image_url) = command.image_url {

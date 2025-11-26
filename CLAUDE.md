@@ -77,6 +77,63 @@ Complete transformation to local Docker builds with Cloud Run deployment:
 - **Development Workflow**: Build → Test locally → Push → Deploy
 - **Platform Optimized**: Linux/amd64 builds for Cloud Run compatibility
 
+### ✅ Standardized RESTful API Routing System (100% Complete)
+
+Complete transformation to standardized `/api/v1/` routing convention across all EPSX applications:
+
+**Centralized Route Constants:**
+- **Single Source of Truth**: All routes defined in `/shared/config/route-constants.ts`
+- **Type Safety**: TypeScript route constants with compile-time validation
+- **Version Control**: Consistent `/api/v1/` prefix for all backend endpoints
+- **RESTful Convention**: Standard `{resource}/{action}` pattern throughout
+
+**Backend API Structure:**
+```
+/api/v1/public/*          # Public endpoints (no auth required)
+/api/v1/auth/*           # Web3 authentication (SIWE challenge/verify)
+/api/v1/users/*          # User management (profile, watchlist, alerts)
+/api/v1/analytics/*      # Analytics data and market insights
+/api/v1/notifications/* # Real-time notifications and preferences
+/api/v1/admin/*          # Admin-only endpoints (requires permissions)
+/api/v1/permissions/*    # Permission authority (ALL applications use this)
+/api/v1/plans/*          # Subscription and billing management
+```
+
+**Frontend Route Alignment:**
+- **Direct Mapping**: Frontend routes align with backend endpoints without conflicts
+- **Consistent Naming**: Lowercase route names match backend patterns
+- **No Conflicts**: Eliminated duplicate `/analytics` routes between frontend and backend
+- **Server-Side API**: Optional `/app/api/` for Next.js server-side proxy routes
+
+**Admin Frontend Structure:**
+```
+/auth                    # Admin authentication
+/admin/users            # User management
+/admin/permissions      # Permission management
+/admin/wallets          # Wallet management
+/admin/analytics        # Admin analytics
+/admin/system           # System monitoring
+/admin/plans            # Plan management
+/admin/notifications    # Notification management
+```
+
+**Route Constant Examples:**
+```typescript
+// Centralized route management
+API_ROUTES.AUTH.WEB3_CHALLENGE        // '/api/v1/auth/web3/challenge'
+API_ROUTES.ANALYTICS.RANKINGS         // '/api/v1/analytics/rankings'
+API_ROUTES.USERS.PROFILE             // '/api/v1/users/profile'
+API_ROUTES.PERMISSIONS.VALIDATE      // '/api/v1/permissions/validate'
+API_ROUTES.ADMIN.WALLET_MANAGEMENT   // '/api/v1/admin/wallets'
+```
+
+**Benefits:**
+- **Consistency**: Single routing pattern across all applications
+- **Maintainability**: Centralized route changes propagate automatically
+- **Type Safety**: Compile-time route validation eliminates runtime errors
+- **Performance**: Eliminated duplicate routes and improved caching
+- **Developer Experience**: Predictable URL patterns and easier debugging
+
 ## Architecture
 
 ### Technology Stack
@@ -110,33 +167,33 @@ OIDC_CLIENT_SECRET=dev-client-secret
 OIDC_ADMIN_CLIENT_SECRET=dev-admin-secret
 
 # Verify environment setup
-pnpm env:validate     # Check all required variables
+bun env:validate     # Check all required variables
 ```
 
 ### Quick Start
 ```bash
 # Install dependencies
-pnpm install
+bun install
 
 # Start all services
-pnpm dev              # Frontend + Admin + Backend
+bun dev              # Frontend + Admin + Backend
 
 # Individual services
-pnpm dev:frontend     # Port 3000
-pnpm dev:admin        # Port 3001  
-pnpm dev:backend      # Port 8080
+bun dev:frontend     # Port 3000
+bun dev:admin        # Port 3001
+bun dev:backend      # Port 8080
 ```
 
 ### Build & Test
 ```bash
 # Build
-pnpm build           # All applications
-pnpm build:frontend  # Frontend only
-pnpm build:admin     # Admin only
+bun build           # All applications
+bun build:frontend  # Frontend only
+bun build:admin     # Admin only
 
 # Test
-pnpm test           # All tests
-pnpm test:e2e       # End-to-end tests
+bun test           # All tests
+bun test:e2e       # End-to-end tests
 ```
 
 ### Backend (Rust)
@@ -153,9 +210,9 @@ cargo run --bin migrate up # Apply migrations
 
 ### Quality Assurance
 ```bash
-pnpm lint           # ESLint
-pnpm type-check     # TypeScript
-pnpm format         # Prettier
+bun lint           # ESLint
+bun type-check     # TypeScript
+bun format         # Prettier
 ```
 
 ## File Structure
@@ -259,6 +316,13 @@ pnpm format         # Prettier
 - **Performance**: Optimize for mobile and desktop
 - **No Animations**: Follow zero animation policy strictly
 
+### VS Code SSH Development
+- **Process Preservation**: NEVER kill processes that could break VS Code SSH connections
+- **Safe Commands**: Use `Ctrl+C` instead of `kill` commands when stopping services
+- **Background Processes**: Avoid force-killing background processes that may affect SSH tunneling
+- **Connection Stability**: Process termination can cause SSH connection drops and VS Code disconnection
+- **Recommended**: Use graceful shutdown methods and avoid SIGKILL signals
+
 ### Debug and Test Files
 - **Debug Location**: All test/debug files should be created in `.debug/` folder
 - **Temporary Files**: Use `.debug/` for experimental code and debugging scripts
@@ -277,13 +341,32 @@ pnpm format         # Prettier
 
 ## API Patterns
 
-### REST Endpoints
+### Standardized REST Endpoints
+- **Consistent Versioning**: All endpoints use `/api/v1/` prefix
+- **Route Constants**: Centralized in `/shared/config/route-constants.ts`
 - **Authentication**: Bearer token in Authorization header
-- **Error Handling**: Structured error responses
-- **Validation**: Request/response validation
+- **Error Handling**: Structured error responses with proper HTTP status codes
+- **Validation**: Request/response validation with TypeScript types
 - **Rate Limiting**: API rate limiting implemented
+- **CORS**: Configured for cross-origin requests with proper security
 
-### Server Actions
+**Endpoint Categories:**
+- **Public**: `/api/v1/public/*` - No authentication required
+- **Auth**: `/api/v1/auth/*` - Web3 authentication and session management
+- **Users**: `/api/v1/users/*` - User management and preferences
+- **Analytics**: `/api/v1/analytics/*` - Market data and insights
+- **Notifications**: `/api/v1/notifications/*` - Real-time notifications
+- **Admin**: `/api/v1/admin/*` - Admin-only endpoints with permission validation
+- **Permissions**: `/api/v1/permissions/*` - Permission authority (all applications)
+- **Plans**: `/api/v1/plans/*` - Subscription and billing management
+
+### Client Integration
+- **Type-Safe Clients**: Shared API clients with centralized route constants
+- **Error Boundaries**: Graceful error handling across all applications
+- **Request/Response Types**: Consistent TypeScript interfaces
+- **Authentication Flow**: Automatic token management and refresh
+
+### Server Actions (Next.js)
 - **Forms**: Next.js Server Actions for mutations
 - **Validation**: Zod schema validation
 - **Error Handling**: Graceful error boundaries
@@ -392,11 +475,11 @@ gcloud run services update-traffic frontend \
 
 ### Local Development (No Docker)
 ```bash
-# Use existing Node.js/Rust development workflow
-pnpm dev                    # All services
-pnpm dev:frontend          # Frontend only
-pnpm dev:admin             # Admin only
-pnpm dev:backend           # Backend only
+# Use existing Bun/Rust development workflow
+bun dev                    # All services
+bun dev:frontend          # Frontend only
+bun dev:admin             # Admin only
+bun dev:backend           # Backend only
 ```
 
 ### Alternative: Portainer for Container Management
@@ -616,7 +699,7 @@ For local development, use the credentials from your `.env` file or create test 
 ## Troubleshooting
 
 ### Common Issues
-- **Build Errors**: Clear cache with `pnpm clean`
+- **Build Errors**: Clear cache with `bun clean`
 - **Auth Issues**: Check OIDC configuration and token validation
 - **Database**: Ensure PostgreSQL running and SQLx migrations applied
 - **Environment**: Verify all required environment variables set
@@ -675,9 +758,9 @@ For local development, use the credentials from your `.env` file or create test 
 ### Debug Commands
 ```bash
 # Check services
-pnpm dev              # All services with logs
-cargo run --backend   # Backend with detailed logs  
-pnpm test:e2e:debug   # E2E tests in debug mode
+bun dev              # All services with logs
+cargo run --backend   # Backend with detailed logs
+bun test:e2e:debug   # E2E tests in debug mode
 
 # Cloud Run troubleshooting
 gcloud logging read "resource.type=cloud_run_revision" --limit=20
@@ -739,7 +822,7 @@ gcloud logging read "resource.type=cloud_run_revision" --limit=20
 
 ---
 
-**🎉 EPSX has successfully completed all major migrations and is production-ready with Web3-first authentication, structured permissions, SQLx database layer, embedded timestamp permissions, admin wallet management UI, and optimized local Docker builds with deployment testing for Google Cloud Run!**
+**🎉 EPSX has successfully completed all major migrations and is production-ready with Web3-first authentication, permissions, SQLx database layer, embedded timestamp permissions, admin wallet management UI, and optimized local Docker builds with deployment testing for Google Cloud Run!**
 
 ## Latest Backend Deployment
 

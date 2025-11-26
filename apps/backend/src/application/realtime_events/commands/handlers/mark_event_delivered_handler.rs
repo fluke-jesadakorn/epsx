@@ -23,7 +23,7 @@ impl CommandHandler<MarkEventDeliveredCommand> for MarkEventDeliveredCommandHand
         let mut event = self.event_repository
             .find_by_id(&command.event_id)
             .await
-            .map_err(|e| ApplicationError::infrastructure(e))?
+            .map_err(ApplicationError::infrastructure)?
             .ok_or_else(|| ApplicationError::not_found("event", command.event_id.to_string()))?;
 
         // 2. Mark as delivered
@@ -37,7 +37,7 @@ impl CommandHandler<MarkEventDeliveredCommand> for MarkEventDeliveredCommandHand
         self.event_repository
             .save(&event)
             .await
-            .map_err(|e| ApplicationError::infrastructure(e))?;
+            .map_err(ApplicationError::infrastructure)?;
 
         // 4. Return response
         Ok(MarkEventDeliveredResponse {

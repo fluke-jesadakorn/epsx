@@ -28,7 +28,7 @@ import {
   Input,
   Select,
   Textarea,
-} from '@/components/ui/form-components';
+} from '@/components/ui/FormComponents';
 import { logger } from '@/lib/logger';
 import { createPlansClient, type ApiKeyResponse as ApiKey, type Module } from '@/shared/api/plans';
 import { createAdminApiClient } from '@/shared/utils/api-client';

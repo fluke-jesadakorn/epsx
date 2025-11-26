@@ -56,7 +56,7 @@ impl CommandHandler<CreateEPSRankingCommand> for CreateEPSRankingCommandHandler 
         let ranking = EPSRanking::new(
             ranking_type.clone(),
             time_period,
-            sector_filter.clone(),
+            sector_filter,
             country_filter.clone(),
         );
 

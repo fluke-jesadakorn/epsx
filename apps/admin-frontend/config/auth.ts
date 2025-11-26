@@ -4,6 +4,8 @@
  * Provides admin-specific auth configuration and backward compatibility
  */
 
+import { ROUTES } from '../lib/route-compatibility';
+
 // Web3-focused types for admin authentication
 export interface AuthConfig {
   name: string;
@@ -57,10 +59,10 @@ export function getAdminAuthConfig(): AuthConfig {
     web3: getWeb3Config(),
     session: getSessionConfig('admin'),
     endpoints: {
-      authorize: '/api/auth/web3/challenge',
-      token: '/api/auth/web3/verify', 
-      userinfo: '/api/auth/web3/permissions',
-      logout: '/api/auth/web3/logout'
+      authorize: ROUTES.AUTH.WEB3_CHALLENGE,
+      token: ROUTES.AUTH.WEB3_VERIFY,
+      userinfo: ROUTES.AUTH.WEB3_SESSION,
+      logout: ROUTES.AUTH.WEB3_LOGOUT
     }
   };
 }
@@ -84,15 +86,15 @@ export function getSessionConfig(context?: string): SessionConfig {
 
 // Web3 URL builders
 export function buildWeb3ChallengeUrl(address: string): string {
-  return `/api/auth/web3/challenge?address=${address}`;
+  return `${ROUTES.AUTH.WEB3_CHALLENGE}?address=${address}`;
 }
 
 export function buildWeb3VerifyUrl(): string {
-  return `/api/auth/web3/verify`;
+  return ROUTES.AUTH.WEB3_VERIFY;
 }
 
 export function buildWeb3LogoutUrl(): string {
-  return `/api/auth/web3/logout`;
+  return ROUTES.AUTH.WEB3_LOGOUT;
 }
 
 // Web3 validation functions

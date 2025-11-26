@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Star, Gift, Users, TrendingUp } from 'lucide-react';
 import { env } from '../../../../shared/env/schema';
+import { API_ROUTES } from '../../../../shared/config/route-constants';
 
 interface AffiliateInfo {
   code: string;
@@ -40,7 +41,7 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
     setIsLoading(true);
     try {
       const baseUrl = env.BACKEND_URL;
-      const response = await fetch(`${baseUrl}/api/public/plans?affiliate_code=${code}`);
+      const response = await fetch(`${baseUrl}${API_ROUTES.PUBLIC.PLANS}?affiliate_code=${code}`);
       
       if (response.ok) {
         const result = await response.json();
@@ -140,7 +141,7 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
       };
 
       // Fire and forget - don't wait for response
-      fetch(`${baseUrl}/api/public/plans/details/1?affiliate_code=${code}`, {
+      fetch(`${baseUrl}${API_ROUTES.PUBLIC.PLANS}/details/1?affiliate_code=${code}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'

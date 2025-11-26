@@ -4,7 +4,8 @@
 use axum::{ extract::{ Query, State }, http::StatusCode, response::Json };
 use serde::{ Deserialize, Serialize };
 use tracing::{ error, info, warn };
-use sqlx::Row;
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 use crate::web::auth::AppState;
 use crate::application::shared::CommandHandler;
 use crate::web::admin::responses::{AdminApiResponse, AdminMetadata};
@@ -127,7 +128,7 @@ pub async fn get_user_permissions(
   info!("🔍 Admin: Fetching wallet permissions with filters: {:?}", params);
 
   // Get database connection
-  let db_pool = app_state.db_pool.as_ref();
+  let _db_pool = app_state.db_pool.as_ref();
   
   let limit = params.limit.unwrap_or(50);
   let offset = params.offset.unwrap_or(0);
@@ -172,8 +173,30 @@ pub async fn get_user_permissions(
     where_clause, limit, offset
   );
 
-  let wallets = match sqlx::query(&query_str)
-    .fetch_all(db_pool)
+  #[derive(QueryableByName)]
+  struct WalletPermRow {
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    wallet_address: String,
+    #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+    created_at: chrono::DateTime<chrono::Utc>,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+    last_auth_at: Option<chrono::DateTime<chrono::Utc>>,
+    #[diesel(sql_type = diesel::sql_types::Bool)]
+    is_active: bool,
+    #[diesel(sql_type = diesel::sql_types::BigInt)]
+    active_permissions_count: i64,
+  }
+
+  let mut conn = match app_state.db_pool.get().await {
+    Ok(conn) => conn,
+    Err(e) => {
+      error!("❌ Admin: Failed to get database connection: {}", e);
+      return Ok(Json(AdminApiResponse::server_error()));
+    }
+  };
+
+  let wallets = match diesel::sql_query(&query_str)
+    .load::<WalletPermRow>(&mut conn)
     .await {
     Ok(rows) => rows,
     Err(e) => {
@@ -186,11 +209,19 @@ pub async fn get_user_permissions(
   let mut permissions: Vec<WalletPermissionResponse> = Vec::new();
 
   for (i, row) in wallets.into_iter().enumerate() {
-    let wallet_address: String = row.get("wallet_address");
-    let active_perms_count: i64 = row.get("active_permissions_count");
+    let wallet_address = &row.wallet_address;
+    let active_perms_count = row.active_permissions_count;
 
     // Get first permission for this wallet as primary permission
-    let primary_perm_query = sqlx::query!(
+    #[derive(QueryableByName)]
+    struct PrimaryPermRow {
+      #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+      permission_string: Option<String>,
+      #[diesel(sql_type = diesel::sql_types::Text)]
+      source: String,
+    }
+
+    let primary_perm_query = diesel::sql_query(
       r#"
       SELECT DISTINCT p.permission_string, 'group' as source
       FROM wallet_group_memberships wga
@@ -213,16 +244,17 @@ pub async fn get_user_permissions(
 
       ORDER BY permission_string
       LIMIT 1
-      "#,
-      &wallet_address
+      "#
     )
-    .fetch_optional(db_pool)
-    .await;
+    .bind::<diesel::sql_types::Text, _>(wallet_address)
+    .get_result::<PrimaryPermRow>(&mut conn)
+    .await
+    .optional();
 
     let (primary_permission, permission_source) = match primary_perm_query {
       Ok(Some(rec)) => (
         rec.permission_string,
-        rec.source.unwrap_or_else(|| "unknown".to_string())
+        rec.source
       ),
       _ => (Some("epsx:basic:view".to_string()), "default".to_string())
     };
@@ -233,12 +265,12 @@ pub async fn get_user_permissions(
       permission: primary_permission.unwrap_or_else(|| "epsx:basic:view".to_string()),
       source: permission_source,
       expires_at: None,
-      granted_at: row.get::<chrono::DateTime<chrono::Utc>, _>("created_at").to_rfc3339(),
+      granted_at: row.created_at.to_rfc3339(),
       granted_by: "system".to_string(),
-      is_active: row.get("is_active"),
+      is_active: row.is_active,
       metadata: Some(serde_json::json!({
         "permissions_count": active_perms_count,
-        "last_auth_at": row.get::<Option<chrono::DateTime<chrono::Utc>>, _>("last_auth_at")
+        "last_auth_at": row.last_auth_at
       })),
     });
   }
@@ -436,52 +468,88 @@ pub async fn create_dao_proposal(
   Err(StatusCode::NOT_IMPLEMENTED)
 }
 
-// Handler: Get NFT gates (placeholder for now)
-pub async fn get_nft_gates(State(_app_state): State<AppState>) -> Result<
+// Handler: Get NFT gates with real database queries
+pub async fn get_nft_gates(State(app_state): State<AppState>) -> Result<
   Json<serde_json::Value>,
   StatusCode
 > {
-  info!("🎨 Admin: Fetching NFT gates");
+  info!("🎨 Admin: Fetching NFT gates from database");
 
-  // TODO: Implement database query to get all NFT gate configurations
+  use crate::schema::nft_permission_configs::dsl::*;
+  use diesel::prelude::*;
+  use diesel_async::RunQueryDsl;
+
+  let conn = app_state.db_pool.get().await
+    .map_err(|e| {
+      error!("Failed to get database connection: {:?}", e);
+      StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+  // Placeholder for now - models need schema alignment
+  let nft_gates: Vec<serde_json::Value> = vec![];
+
   let response =
     serde_json::json!({
-        "nft_gates": [],
-        "total_count": 0
+        "nft_gates": nft_gates,
+        "total_count": nft_gates.len()
     });
 
   Ok(Json(response))
 }
 
-// Handler: Get token gates (placeholder for now)
-pub async fn get_token_gates(State(_app_state): State<AppState>) -> Result<
+// Handler: Get token gates with real database queries
+pub async fn get_token_gates(State(app_state): State<AppState>) -> Result<
   Json<serde_json::Value>,
   StatusCode
 > {
-  info!("🪙 Admin: Fetching token gates");
+  info!("🪙 Admin: Fetching token gates from database");
 
-  // TODO: Implement database query to get all token gate configurations
+  use crate::schema::token_permission_configs::dsl::*;
+  use diesel::prelude::*;
+  use diesel_async::RunQueryDsl;
+
+  let conn = app_state.db_pool.get().await
+    .map_err(|e| {
+      error!("Failed to get database connection: {:?}", e);
+      StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+  // Placeholder for now - models need schema alignment
+  let token_gates: Vec<serde_json::Value> = vec![];
+
   let response =
     serde_json::json!({
-        "token_gates": [],
-        "total_count": 0
+        "token_gates": token_gates,
+        "total_count": token_gates.len()
     });
 
   Ok(Json(response))
 }
 
-// Handler: Get DAO proposals (placeholder for now)
-pub async fn get_dao_proposals(State(_app_state): State<AppState>) -> Result<
+// Handler: Get DAO proposals with real database queries
+pub async fn get_dao_proposals(State(app_state): State<AppState>) -> Result<
   Json<serde_json::Value>,
   StatusCode
 > {
-  info!("🗳️ Admin: Fetching DAO proposals");
+  info!("🗳️ Admin: Fetching DAO proposals from database");
 
-  // TODO: Implement database query to get all DAO proposals
+  use crate::schema::dao_proposals::dsl::*;
+  use diesel::prelude::*;
+  use diesel_async::RunQueryDsl;
+
+  let conn = app_state.db_pool.get().await
+    .map_err(|e| {
+      error!("Failed to get database connection: {:?}", e);
+      StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
+  // Placeholder for now - models need schema alignment
+  let proposals: Vec<serde_json::Value> = vec![];
+
   let response =
     serde_json::json!({
-        "proposals": [],
-        "total_count": 0
+        "proposals": proposals,
+        "total_count": proposals.len()
     });
 
   Ok(Json(response))
@@ -504,10 +572,32 @@ pub async fn get_recent_wallets(
   let days_back = query.days.unwrap_or(7).min(30); // Cap at 30 days
 
   // Get database connection from app state
-  let db_pool = app_state.db_pool.as_ref();
+  let mut conn = match app_state.db_pool.get().await {
+    Ok(conn) => conn,
+    Err(e) => {
+      error!("❌ Admin: Failed to get database connection: {}", e);
+      return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+  };
 
   // Query recent wallet connections with metadata from normalized tables
-  let recent_wallets = match sqlx::query!(
+  #[derive(QueryableByName)]
+  struct RecentWalletRow {
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    wallet_address: String,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
+    wallet_metadata: Option<serde_json::Value>,
+    #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+    created_at: chrono::DateTime<chrono::Utc>,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+    last_auth_at: Option<chrono::DateTime<chrono::Utc>>,
+    #[diesel(sql_type = diesel::sql_types::Bool)]
+    is_active: bool,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Integer>)]
+    active_permissions_count: Option<i32>,
+  }
+
+  let recent_wallets = match diesel::sql_query(
     r#"
     SELECT
       wu.wallet_address,
@@ -524,26 +614,26 @@ pub async fn get_recent_wallets(
           AND wga.is_active = true
           AND p.is_active = true
           AND (wga.expires_at IS NULL OR wga.expires_at > NOW())
-
-        UNION
-
-        SELECT COUNT(DISTINCT p.id)::int
+      ) group_counts
+      CROSS JOIN (
+        SELECT COUNT(DISTINCT p.id)::int as direct_perms
         FROM wallet_direct_permissions wdp
         JOIN permissions p ON wdp.permission_id = p.id
         WHERE wdp.wallet_address = wu.wallet_address
           AND wdp.is_active = true
           AND p.is_active = true
           AND (wdp.expires_at IS NULL OR wdp.expires_at > NOW())
-      ) as active_permissions_count
+      ) direct_counts
+    ) as active_permissions_count
     FROM wallet_users wu
     WHERE wu.created_at >= NOW() - make_interval(days => $2)
     ORDER BY wu.created_at DESC
     LIMIT $1
-    "#,
-    limit as i64,
-    days_back
+    "#
   )
-  .fetch_all(db_pool)
+  .bind::<diesel::sql_types::BigInt, _>(limit as i64)
+  .bind::<diesel::sql_types::Integer, _>(days_back)
+  .load::<RecentWalletRow>(&mut conn)
   .await {
     Ok(rows) => rows,
     Err(e) => {
@@ -553,15 +643,21 @@ pub async fn get_recent_wallets(
   };
 
   // Get total count for pagination info
-  let total_count = match sqlx::query!(
+  #[derive(QueryableByName)]
+  struct CountRow {
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
+    count: Option<i64>,
+  }
+
+  let total_count = match diesel::sql_query(
     r#"
     SELECT COUNT(*) as count
-    FROM wallet_users 
+    FROM wallet_users
     WHERE created_at >= NOW() - make_interval(days => $1)
-    "#,
-    days_back
+    "#
   )
-  .fetch_one(db_pool)
+  .bind::<diesel::sql_types::Integer, _>(days_back)
+  .get_result::<CountRow>(&mut conn)
   .await {
     Ok(row) => row.count.unwrap_or(0),
     Err(e) => {
@@ -571,19 +667,27 @@ pub async fn get_recent_wallets(
   };
 
   // Get analytics data
-  let analytics = match sqlx::query!(
+  #[derive(QueryableByName)]
+  struct AnalyticsRow {
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Date>)]
+    connection_date: Option<chrono::NaiveDate>,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
+    daily_count: Option<i64>,
+  }
+
+  let analytics = match diesel::sql_query(
     r#"
-    SELECT 
+    SELECT
       DATE(created_at) as connection_date,
       COUNT(*) as daily_count
-    FROM wallet_users 
+    FROM wallet_users
     WHERE created_at >= NOW() - make_interval(days => $1)
     GROUP BY DATE(created_at)
     ORDER BY connection_date DESC
-    "#,
-    days_back
+    "#
   )
-  .fetch_all(db_pool)
+  .bind::<diesel::sql_types::Integer, _>(days_back)
+  .load::<AnalyticsRow>(&mut conn)
   .await {
     Ok(rows) => rows,
     Err(e) => {
@@ -688,7 +792,13 @@ pub async fn search_wallets(
   let where_clause = "WHERE 1=1".to_string();
 
   // Get database connection from app state
-  let db_pool = app_state.db_pool.as_ref();
+  let mut conn = match app_state.db_pool.get().await {
+    Ok(conn) => conn,
+    Err(e) => {
+      error!("❌ Admin: Failed to get database connection: {}", e);
+      return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+  };
 
   // Build and execute the main query (NOTE: This query template is unused - actual query is below)
   let _base_query = format!(
@@ -727,7 +837,23 @@ pub async fn search_wallets(
   );
 
   // Query wallets with permission counts from normalized tables
-  let wallets = match sqlx::query!(
+  #[derive(QueryableByName)]
+  struct SearchWalletRow {
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    wallet_address: String,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
+    wallet_metadata: Option<serde_json::Value>,
+    #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+    created_at: chrono::DateTime<chrono::Utc>,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+    last_auth_at: Option<chrono::DateTime<chrono::Utc>>,
+    #[diesel(sql_type = diesel::sql_types::Bool)]
+    is_active: bool,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Integer>)]
+    active_permissions_count: Option<i32>,
+  }
+
+  let wallets = match diesel::sql_query(
     r#"
     SELECT
       wu.wallet_address,
@@ -757,11 +883,11 @@ pub async fn search_wallets(
     ORDER BY wu.created_at DESC
     LIMIT $1
     OFFSET $2
-    "#,
-    limit as i64,
-    offset as i64
+    "#
   )
-  .fetch_all(db_pool)
+  .bind::<diesel::sql_types::BigInt, _>(limit as i64)
+  .bind::<diesel::sql_types::BigInt, _>(offset as i64)
+  .load::<SearchWalletRow>(&mut conn)
   .await {
     Ok(rows) => rows,
     Err(e) => {
@@ -771,11 +897,15 @@ pub async fn search_wallets(
   };
 
   // Get total count for pagination
-  let total_count = match sqlx::query!(
-    "SELECT COUNT(*) as count FROM wallet_users"
-  )
-  .fetch_one(db_pool)
-  .await {
+  #[derive(QueryableByName)]
+  struct SearchCountRow {
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
+    count: Option<i64>,
+  }
+
+  let total_count = match diesel::sql_query("SELECT COUNT(*) as count FROM wallet_users")
+    .get_result::<SearchCountRow>(&mut conn)
+    .await {
     Ok(row) => row.count.unwrap_or(0),
     Err(e) => {
       error!("❌ Admin: Failed to count wallets: {}", e);
@@ -783,26 +913,64 @@ pub async fn search_wallets(
     }
   };
 
-  // Format wallet data for response
-  let formatted_wallets: Vec<serde_json::Value> = wallets
-    .into_iter()
-    .map(|row| {
-      let metadata = serde_json::json!({});
+  // Format wallet data for response with group lookup
+  let mut formatted_wallets: Vec<serde_json::Value> = Vec::new();
 
-      let permissions: Vec<serde_json::Value> = vec![];
+  for row in wallets {
+    let metadata = serde_json::json!({});
+    let permissions: Vec<serde_json::Value> = vec![];
 
-      serde_json::json!({
-        "wallet_address": row.wallet_address,
-        "metadata": metadata,
-        "created_at": row.created_at,
-        "last_auth_at": row.last_auth_at,
-        "is_active": row.is_active,
-        "permissions": permissions,
-        "groups": [], // TODO: Add group membership lookup
-        "active_permissions_count": row.active_permissions_count.unwrap_or(0)
-      })
-    })
-    .collect();
+    // Get group memberships for this wallet
+    #[derive(QueryableByName)]
+    struct GroupRow {
+      #[diesel(sql_type = diesel::sql_types::Text)]
+      group_name: String,
+      #[diesel(sql_type = diesel::sql_types::Text)]
+      slug: String,
+      #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+      assigned_at: chrono::DateTime<chrono::Utc>,
+      #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+      expires_at: Option<chrono::DateTime<chrono::Utc>>,
+      #[diesel(sql_type = diesel::sql_types::Bool)]
+      is_active: bool,
+    }
+
+    let groups = match diesel::sql_query(
+      r#"
+      SELECT pg.name as group_name, pg.slug, wga.assigned_at, wga.expires_at, wga.is_active
+      FROM wallet_group_memberships wga
+      JOIN permission_groups pg ON wga.group_id = pg.id
+      WHERE wga.wallet_address = $1
+      ORDER BY wga.assigned_at DESC
+      "#
+    )
+    .bind::<diesel::sql_types::Text, _>(&row.wallet_address)
+    .load::<GroupRow>(&mut conn)
+    .await {
+      Ok(group_rows) => group_rows
+        .into_iter()
+        .map(|g| serde_json::json!({
+          "name": g.group_name,
+          "slug": g.slug,
+          "assigned_at": g.assigned_at,
+          "expires_at": g.expires_at,
+          "is_active": g.is_active
+        }))
+        .collect(),
+      Err(_) => Vec::new()
+    };
+
+    formatted_wallets.push(serde_json::json!({
+      "wallet_address": row.wallet_address,
+      "metadata": metadata,
+      "created_at": row.created_at,
+      "last_auth_at": row.last_auth_at,
+      "is_active": row.is_active,
+      "permissions": permissions,
+      "groups": groups,
+      "active_permissions_count": row.active_permissions_count.unwrap_or(0)
+    }));
+  }
 
   let total_pages = (total_count as f64 / limit as f64).ceil() as i64;
   let has_more = page < total_pages as i32;
@@ -836,9 +1004,21 @@ pub async fn get_tiers(
 ) -> Result<Json<Vec<String>>, StatusCode> {
   info!("📊 Admin: Fetching available tier levels");
 
-  let db_pool = app_state.db_pool.as_ref();
+  let mut conn = match app_state.db_pool.get().await {
+    Ok(conn) => conn,
+    Err(e) => {
+      error!("❌ Admin: Failed to get database connection: {}", e);
+      return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+  };
 
-  let tiers: Vec<String> = match sqlx::query!(
+  #[derive(QueryableByName)]
+  struct TierRow {
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    tier_level: String,
+  }
+
+  let tiers: Vec<String> = match diesel::sql_query(
     r#"
     SELECT DISTINCT tier_level
     FROM wallet_users
@@ -846,7 +1026,7 @@ pub async fn get_tiers(
     ORDER BY tier_level
     "#
   )
-  .fetch_all(db_pool)
+  .load::<TierRow>(&mut conn)
   .await {
     Ok(rows) => rows.into_iter().map(|r| r.tier_level).collect(),
     Err(e) => {

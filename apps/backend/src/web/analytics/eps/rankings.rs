@@ -3,6 +3,7 @@
 
 use axum::{
     extract::{Query, Extension},
+    http::HeaderMap,
     response::Json,
 };
 use std::sync::Arc;
@@ -10,19 +11,34 @@ use tracing::{debug, info, warn};
 
 use crate::core::errors::AppError;
 use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRankingService, EPSRankingParams};
+use crate::auth::permission_authority::{CentralizedPermissionAuthority, PermissionValidator};
 use super::{types::*, enhancement::enhance_with_websocket_data};
 
 /// GET /api/analytics/eps-rankings
 /// Returns top EPS growth stocks with filtering and pagination
 pub async fn get_eps_rankings(
+    headers: HeaderMap,
     Query(params): Query<EPSRankingQueryParams>,
     Extension(service): Extension<Arc<EPSRankingService>>,
+    Extension(permission_authority): Extension<Arc<CentralizedPermissionAuthority>>,
 ) -> Result<Json<EPSRankingsApiResponse>, AppError> {
     debug!("EPS Rankings API called with params: {:?}", params);
-    
-    // TODO: Extract user permissions from auth middleware and calculate rank_offset
-    // For now using default offset (100 = free tier)
-    let rank_offset = 100; // This will be replaced with actual permission-based calculation
+
+    // Extract wallet address from headers
+    let wallet_address = headers
+        .get("x-wallet-address")
+        .or_else(|| headers.get("X-Wallet-Address"))
+        .and_then(|h| h.to_str().ok())
+        .map(|addr| addr.to_lowercase());
+
+    // Calculate rank_offset based on user permissions
+    let rank_offset = if let Some(ref wallet) = wallet_address {
+        calculate_rank_offset_from_permissions(&permission_authority, wallet).await
+    } else {
+        100 // Default free tier offset for anonymous users
+    };
+
+    debug!("Calculated rank_offset: {} for wallet: {:?}", rank_offset, wallet_address);
 
     // Convert query params to service params with defaults - FIXED: Use correct parameter structure
     let service_params = EPSRankingParams {
@@ -184,6 +200,48 @@ pub fn is_valid_eps_for_ranking(eps: f64) -> bool {
 
     // All values in reasonable range are valid - no country/stock specific limits
     true
+}
+
+/// Calculate rank offset based on user permissions
+/// Premium users get access to top-ranked stocks, free users see lower ranks
+async fn calculate_rank_offset_from_permissions(
+    permission_authority: &Arc<CentralizedPermissionAuthority>,
+    wallet_address: &str,
+) -> i32 {
+    // Check permission tiers (from highest to lowest)
+    // Premium tier: Full access to all ranks (offset = 1)
+    if permission_authority
+        .has_permission(wallet_address, "epsx:analytics:premium")
+        .await
+        .unwrap_or(false)
+    {
+        debug!("User {} has premium access - full ranking access", wallet_address);
+        return 1; // Access to ranks 1+
+    }
+
+    // Pro tier: Access to top 50 ranks (offset = 1)
+    if permission_authority
+        .has_permission(wallet_address, "epsx:analytics:pro")
+        .await
+        .unwrap_or(false)
+    {
+        debug!("User {} has pro access - top 50 ranking access", wallet_address);
+        return 1; // Access to ranks 1+
+    }
+
+    // Basic tier: Access from rank 25+ (offset = 25)
+    if permission_authority
+        .has_permission(wallet_address, "epsx:analytics:basic")
+        .await
+        .unwrap_or(false)
+    {
+        debug!("User {} has basic access - rank 25+ access", wallet_address);
+        return 25; // Access to ranks 25+
+    }
+
+    // Free tier: Access from rank 100+ (default)
+    debug!("User {} has free tier access - rank 100+ access", wallet_address);
+    100 // Free tier offset
 }
 
 #[cfg(test)]

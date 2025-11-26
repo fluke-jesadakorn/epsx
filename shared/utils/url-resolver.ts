@@ -71,9 +71,9 @@ export enum APIPath {
   ANALYTICS = 'api/v1/analytics',
   
   // Admin paths
-  ADMIN = 'api/admin',
-  ADMIN_USERS = 'api/admin/users',
-  ADMIN_PERMISSIONS = 'api/admin/permissions'
+  ADMIN = 'api/v1/admin',
+  ADMIN_USERS = 'api/v1/admin/users',
+  ADMIN_PERMISSIONS = 'api/v1/admin/permissions'
 }
 
 // Legacy type for backward compatibility - will be deprecated
@@ -321,7 +321,13 @@ export const apiUrls = {
    * @param context - URL context (supports enum or string)
    */
   backend: (path: string, context: URLContext | URLContextLegacy = URLContext.SERVER) => {
-    const cleanPath = path.startsWith('/') ? path.slice(1) : path;
+    let cleanPath = path.startsWith('/') ? path.slice(1) : path;
+
+    // Auto-add /api/v1 prefix if it starts with /api but not /api/v1
+    if (cleanPath.startsWith('api/') && !cleanPath.startsWith('api/v1/')) {
+      cleanPath = cleanPath.replace(/^api\//, 'api/v1/');
+    }
+
     return `${getBackendUrl(context)}/${cleanPath}`;
   },
   

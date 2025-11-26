@@ -1,5 +1,8 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
+use diesel_async::AsyncPgConnection;
+use diesel_async::pooled_connection::deadpool::Pool;
+use diesel_async::pooled_connection::AsyncDieselConnectionManager;
 use tracing::{info, error};
 
 // Import from our library
@@ -20,19 +23,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     info!("🚀 Starting EPSX Backend Server - Data Analytics Platform...");
 
-    // Create database pool
+    // Create database pool with Diesel
     let database_url = std::env::var("DATABASE_URL")
         .map_err(|_| "DATABASE_URL must be set")?;
 
-    let db_pool = Arc::new(
-        sqlx::postgres::PgPoolOptions::new()
-            .max_connections(10)
-            .acquire_timeout(std::time::Duration::from_secs(30))
-            .connect(&database_url)
-            .await
-            .map_err(|e| format!("Failed to connect to database: {}", e))?
-    );
-    info!("✅ Database pool created successfully");
+    let db_config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(&database_url);
+    let pool = Pool::builder(db_config)
+        .max_size(10)
+        .build()
+        .map_err(|e| format!("Failed to create database pool: {}", e))?;
+
+    // Test database connection
+    match pool.get().await {
+        Ok(_) => info!("✅ Database pool created and connection verified"),
+        Err(e) => {
+            error!("❌ Failed to connect to database: {}", e);
+            return Err(format!("Database connection failed: {}", e).into());
+        }
+    }
+
+    // Leak the pool to make it 'static (required for container)
+    let _db_pool: &'static Pool<AsyncPgConnection> = Box::leak(Box::new(pool));
 
     // Create cache (optional)
     let cache = match std::env::var("REDIS_URL").ok() {
@@ -62,7 +73,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // Create domain container with Web3 services
     let container = Arc::new(DomainContainer::new_with_web3_services(
-        db_pool,
         cache,
         None, // blockchain_config - will use defaults
     ).await);

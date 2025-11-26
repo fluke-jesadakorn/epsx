@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Bell, BarChart3, Clock, AlertTriangle } from 'lucide-react';
+import toast from 'react-hot-toast';
 import { createNotificationsClient } from '@/shared/api/notifications';
 import { createAdminApiClient } from '@/shared/utils/api-client';
 import { SendNotificationForm } from './SendNotificationForm';
@@ -19,6 +20,12 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [stats, setStats] = useState<NotificationStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleteModal, setDeleteModal] = useState<{ show: boolean; id: string; title: string }>({
+    show: false,
+    id: '',
+    title: ''
+  });
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -49,6 +56,41 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
       console.error('Failed to load notifications:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const showDeleteModal = (id: string, title: string) => {
+    setDeleteModal({ show: true, id, title });
+  };
+
+  const hideDeleteModal = () => {
+    setDeleteModal({ show: false, id: '', title: '' });
+  };
+
+  const confirmDelete = async () => {
+    try {
+      setDeleting(true);
+      const client = createNotificationsClient(createAdminApiClient());
+      await client.deleteAdminNotification(deleteModal.id);
+
+      // Update local state immediately
+      setNotifications(prev => prev.filter(n => n.id !== deleteModal.id));
+
+      // Update stats
+      if (stats) {
+        setStats({
+          ...stats,
+          total: stats.total - 1
+        });
+      }
+
+      hideDeleteModal();
+      toast.success('Notification deleted');
+    } catch (err) {
+      console.error('Failed to delete notification:', err);
+      toast.error('Failed to delete notification');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -219,13 +261,21 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
                             <span>{new Date(notification.timestamp).toLocaleString()}</span>
                           </div>
                         </div>
-                        <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                          notification.priority === 'critical' ? 'bg-red-100 text-red-600' :
-                          notification.priority === 'high' ? 'bg-orange-100 text-orange-600' :
-                          notification.priority === 'normal' ? 'bg-blue-100 text-blue-600' :
-                          'bg-green-100 text-green-600'
-                        }`}>
-                          {notification.priority}
+                        <div className="flex items-center gap-2">
+                          <div className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                            notification.priority === 'critical' ? 'bg-red-100 text-red-600' :
+                            notification.priority === 'high' ? 'bg-orange-100 text-orange-600' :
+                            notification.priority === 'normal' ? 'bg-blue-100 text-blue-600' :
+                            'bg-green-100 text-green-600'
+                          }`}>
+                            {notification.priority}
+                          </div>
+                          <button
+                            onClick={() => showDeleteModal(notification.id, notification.title)}
+                            className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs font-semibold rounded-full"
+                          >
+                            Delete
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -236,6 +286,50 @@ export function NotificationManagement({ currentUser }: NotificationManagementPr
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteModal.show && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="relative bg-white dark:bg-gray-800 rounded-3xl p-8 max-w-md w-full shadow-2xl border-2 border-red-200 dark:border-red-700">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-red-100 dark:bg-red-900 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">🗑️</span>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Delete Notification
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Are you sure you want to delete this notification?
+              </p>
+              <div className="bg-gray-100 dark:bg-gray-700 rounded-xl p-4 mb-6">
+                <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2">
+                  {deleteModal.title}
+                </p>
+              </div>
+              <p className="text-sm text-red-600 dark:text-red-400 font-semibold">
+                This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={hideDeleteModal}
+                disabled={deleting}
+                className="flex-1 px-6 py-3 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-semibold rounded-xl disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="flex-1 px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl disabled:opacity-50"
+              >
+                {deleting ? 'Deleting...' : 'Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

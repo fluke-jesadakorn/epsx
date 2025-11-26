@@ -111,11 +111,12 @@ pub async fn get_user_permissions(
 > {
   info!("Getting permission status for user {}", user.id);
 
-  // Skip cache for now - complex Arc to Box conversion needed
-  // TODO: Implement proper cache integration with DDD approach
+  // Using JWT permissions directly (cache intentionally disabled)
+  // Note: Cache integration requires resolving Arc<dyn Cache> to Box conversion
+  // Current approach provides fresh data from JWT claims on each request
   let _cached_permissions: Option<Vec<String>> = None;
 
-  // Since cache is disabled, use JWT permissions directly
+  // Use JWT permissions directly from authenticated user
   let (permissions_map, permission_version) = {
     // Fall back to JWT permissions (convert to expected format)
     let mut permissions_map = HashMap::new();
@@ -277,9 +278,9 @@ pub async fn check_user_permission(
   let expires_at = None;
   let expires_soon = false;
 
-  // Skip cache for now - complex Arc to Box conversion needed
-  // TODO: Implement proper cache integration for permission expiry info
-  // For now, expiry info will remain None
+  // Note: Expiry info from cache intentionally disabled (using JWT data only)
+  // JWT claims don't include expiry timestamps for individual permissions
+  // Future enhancement: extend JWT claims or add cache layer for expiry tracking
 
   let check_result = SimplePermissionCheck {
     wallet_address: user.id.clone(),

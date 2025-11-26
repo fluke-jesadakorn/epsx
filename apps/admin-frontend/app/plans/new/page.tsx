@@ -34,7 +34,7 @@ export default function NewPlanPage() {
     current_price: 0,
     currency: 'USD',
     target_audience: 'web_users',
-    billing_model: 'subscription',
+    billing_model: 'pay_per_use',
     features: [],
     metadata: {}
   })
@@ -256,36 +256,19 @@ export default function NewPlanPage() {
               </div>
 
               {/* Categories */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Target Audience
-                  </label>
-                  <select
-                    value={formData.target_audience}
-                    onChange={(e) => setFormData({ ...formData, target_audience: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="web_users">Web Users</option>
-                    <option value="api_developers">API Developers</option>
-                    <option value="enterprises">Enterprises</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                    Billing Model
-                  </label>
-                  <select
-                    value={formData.billing_model}
-                    onChange={(e) => setFormData({ ...formData, billing_model: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
-                  >
-                    <option value="subscription">Subscription</option>
-                    <option value="pay_per_use">Pay Per Use</option>
-                    <option value="hybrid">Hybrid</option>
-                  </select>
-                </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Target Audience
+                </label>
+                <select
+                  value={formData.target_audience}
+                  onChange={(e) => setFormData({ ...formData, target_audience: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
+                >
+                  <option value="web_users">Web Users</option>
+                  <option value="api_developers">API Developers</option>
+                  <option value="enterprises">Enterprises</option>
+                </select>
               </div>
 
               {/* Description */}

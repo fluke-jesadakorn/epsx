@@ -17,12 +17,12 @@ import type { ApiResponse } from '../../../../shared/types/api';
 
 // OpenID Connect Token Response (from backend)
 export interface OpenIDTokenResponse {
-  access_token: string;      // JWT Bearer token for API access
-  token_type: string;        // Always "Bearer"
-  expires_in: number;        // Seconds until expiration
-  refresh_token: string;     // For token renewal
-  id_token: string;          // OpenID identity token
-  scope: string;             // "openid profile permissions"
+  access_token: string; // JWT Bearer token for API access
+  token_type: string; // Always "Bearer"
+  expires_in: number; // Seconds until expiration
+  refresh_token: string; // For token renewal
+  id_token: string; // OpenID identity token
+  scope: string; // "openid profile permissions"
 }
 
 // Web3 Authentication Request
@@ -31,7 +31,7 @@ export interface Web3AuthRequest {
   signature: string;
   message: string;
   nonce: string;
-  client_id: string;        // "epsx-frontend" or "epsx-admin"
+  client_id: string; // "epsx-frontend" or "epsx-admin"
 }
 
 // OpenID Token Refresh Request
@@ -49,11 +49,10 @@ export interface OpenIDErrorResponse {
 
 // User Info Response (from /api/auth/userinfo)
 export interface UserInfoResponse {
-  sub: string;                    // Wallet address
-  wallet_address: string;         // Web3 wallet address
-  tier_level: string;            // User tier
-  auth_method: string;           // "web3_siwe"
-  permissions: string[];         // Backend-determined permissions
+  sub: string; // Wallet address
+  wallet_address: string; // Web3 wallet address
+  auth_method: string; // "web3_siwe"
+  permissions: string[]; // Backend-determined permissions
 }
 
 // Using shared ApiResponse type from shared/types/api
@@ -87,7 +86,7 @@ export class OpenIDApiClient {
 
   private loadTokensFromStorage(): void {
     if (typeof window === 'undefined') return;
-    
+
     try {
       this.accessToken = localStorage.getItem('openid_access_token');
       this.refreshToken = localStorage.getItem('openid_refresh_token');
@@ -100,7 +99,7 @@ export class OpenIDApiClient {
 
   private saveTokensToStorage(): void {
     if (typeof window === 'undefined') return;
-    
+
     try {
       if (this.accessToken) {
         localStorage.setItem('openid_access_token', this.accessToken);
@@ -109,7 +108,10 @@ export class OpenIDApiClient {
         localStorage.setItem('openid_refresh_token', this.refreshToken);
       }
       if (this.tokenExpiry) {
-        localStorage.setItem('openid_token_expiry', this.tokenExpiry.toString());
+        localStorage.setItem(
+          'openid_token_expiry',
+          this.tokenExpiry.toString()
+        );
       }
     } catch (error) {
       logger.warn('Failed to save tokens to storage', { error });
@@ -118,7 +120,7 @@ export class OpenIDApiClient {
 
   private clearTokensFromStorage(): void {
     if (typeof window === 'undefined') return;
-    
+
     try {
       localStorage.removeItem('openid_access_token');
       localStorage.removeItem('openid_refresh_token');
@@ -136,12 +138,14 @@ export class OpenIDApiClient {
    * Authenticate with Web3 wallet and get OpenID tokens
    * Main entry point: Web3 signature → OpenID Connect tokens
    */
-  async authenticateWithWeb3(request: Web3AuthRequest): Promise<OpenIDTokenResponse> {
+  async authenticateWithWeb3(
+    request: Web3AuthRequest
+  ): Promise<OpenIDTokenResponse> {
     const url = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/web3/token`;
-    
+
     logger.info('Authenticating with Web3 wallet for OpenID tokens', {
       wallet_address: request.wallet_address,
-      client_id: request.client_id
+      client_id: request.client_id,
     });
 
     const response = await fetch(url, {
@@ -154,25 +158,25 @@ export class OpenIDApiClient {
 
     if (!response.ok) {
       const errorData: OpenIDErrorResponse = await response.json();
-      logger.error('Web3 OpenID authentication failed', { 
+      logger.error('Web3 OpenID authentication failed', {
         error: errorData.error,
-        description: errorData.error_description
+        description: errorData.error_description,
       });
       throw new Error(`Authentication failed: ${errorData.error_description}`);
     }
 
     const tokenResponse: OpenIDTokenResponse = await response.json();
-    
+
     // Store tokens securely
     this.accessToken = tokenResponse.access_token;
     this.refreshToken = tokenResponse.refresh_token;
-    this.tokenExpiry = Date.now() + (tokenResponse.expires_in * 1000);
+    this.tokenExpiry = Date.now() + tokenResponse.expires_in * 1000;
     this.saveTokensToStorage();
 
     logger.info('OpenID tokens received successfully', {
       token_type: tokenResponse.token_type,
       expires_in: tokenResponse.expires_in,
-      scope: tokenResponse.scope
+      scope: tokenResponse.scope,
     });
 
     return tokenResponse;
@@ -204,27 +208,26 @@ export class OpenIDApiClient {
 
       if (!response.ok) {
         const errorData: OpenIDErrorResponse = await response.json();
-        logger.error('Token refresh failed', { 
+        logger.error('Token refresh failed', {
           error: errorData.error,
-          description: errorData.error_description
+          description: errorData.error_description,
         });
-        
+
         // If refresh fails, clear tokens and require re-authentication
         this.clearTokens();
         return false;
       }
 
       const tokenResponse: OpenIDTokenResponse = await response.json();
-      
+
       // Update tokens
       this.accessToken = tokenResponse.access_token;
       this.refreshToken = tokenResponse.refresh_token;
-      this.tokenExpiry = Date.now() + (tokenResponse.expires_in * 1000);
+      this.tokenExpiry = Date.now() + tokenResponse.expires_in * 1000;
       this.saveTokensToStorage();
 
       logger.info('Tokens refreshed successfully');
       return true;
-
     } catch (error) {
       logger.error('Token refresh request failed', { error });
       this.clearTokens();
@@ -279,7 +282,11 @@ export class OpenIDApiClient {
    * Check if we have valid access token
    */
   isAuthenticated(): boolean {
-    return !!(this.accessToken && this.tokenExpiry && this.tokenExpiry > Date.now());
+    return !!(
+      this.accessToken &&
+      this.tokenExpiry &&
+      this.tokenExpiry > Date.now()
+    );
   }
 
   /**
@@ -287,7 +294,7 @@ export class OpenIDApiClient {
    */
   needsRefresh(): boolean {
     if (!this.tokenExpiry) return false;
-    const fiveMinutesFromNow = Date.now() + (5 * 60 * 1000);
+    const fiveMinutesFromNow = Date.now() + 5 * 60 * 1000;
     return this.tokenExpiry <= fiveMinutesFromNow;
   }
 
@@ -309,14 +316,14 @@ export class OpenIDApiClient {
   ): Promise<ApiResponse<T>> {
     // Ensure we have valid tokens
     if (!this.isAuthenticated()) {
-      if (this.refreshToken && await this.refreshTokens()) {
+      if (this.refreshToken && (await this.refreshTokens())) {
         // Token refreshed successfully, continue
       } else {
         // No valid tokens, require re-authentication
         return {
           success: false,
           error: 'Authentication required',
-          status: 401
+          status: 401,
         };
       }
     }
@@ -326,28 +333,28 @@ export class OpenIDApiClient {
       await this.refreshTokens();
     }
 
-    const url = endpoint.startsWith('http') 
-      ? endpoint 
+    const url = endpoint.startsWith('http')
+      ? endpoint
       : `${process.env.NEXT_PUBLIC_BACKEND_URL}${endpoint}`;
 
     const response = await fetch(url, {
       ...options,
       headers: {
         ...options.headers,
-        'Authorization': `Bearer ${this.accessToken}`,
+        Authorization: `Bearer ${this.accessToken}`,
         'Content-Type': 'application/json',
       },
     });
 
     if (response.status === 401) {
       // Token might be invalid, try refreshing once
-      if (this.refreshToken && await this.refreshTokens()) {
+      if (this.refreshToken && (await this.refreshTokens())) {
         // Retry with new token
         const retryResponse = await fetch(url, {
           ...options,
           headers: {
             ...options.headers,
-            'Authorization': `Bearer ${this.accessToken}`,
+            Authorization: `Bearer ${this.accessToken}`,
             'Content-Type': 'application/json',
           },
         });
@@ -359,7 +366,7 @@ export class OpenIDApiClient {
         return {
           success: false,
           error: 'Authentication expired',
-          status: 401
+          status: 401,
         };
       }
     }
@@ -367,7 +374,9 @@ export class OpenIDApiClient {
     return this.handleApiResponse(response);
   }
 
-  private async handleApiResponse<T>(response: Response): Promise<ApiResponse<T>> {
+  private async handleApiResponse<T>(
+    response: Response
+  ): Promise<ApiResponse<T>> {
     try {
       const data = await response.json();
 
@@ -375,20 +384,20 @@ export class OpenIDApiClient {
         return {
           success: true,
           data,
-          status: response.status
+          status: response.status,
         };
       } else {
         return {
           success: false,
           error: data.error_description || data.message || 'Request failed',
-          status: response.status
+          status: response.status,
         };
       }
     } catch (error) {
       return {
         success: false,
         error: `Request failed: ${error}`,
-        status: response.status
+        status: response.status,
       };
     }
   }

@@ -2,8 +2,9 @@ import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   output: 'standalone',
-  outputFileTracingRoot:
-    process.env.NODE_ENV === 'production' ? '/app' : process.cwd(),
+  turbopack: {
+    // ...
+  },
   experimental: {
     // Fix WebSocket connection issues in Next.js 15
     webpackBuildWorker: true,

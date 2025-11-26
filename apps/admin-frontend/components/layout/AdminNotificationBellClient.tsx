@@ -39,8 +39,15 @@ export function AdminNotificationBell() {
         read: false,
       }
 
-      setNotifications(prev => [newNotification, ...prev])
-      setCount(prev => prev + 1)
+      setNotifications(prev => {
+        // Prevent duplicate notifications
+        if (prev.some(n => n.id === newNotification.id)) {
+          return prev
+        }
+        // Only increment count when actually adding a new notification
+        setCount(c => c + 1)
+        return [newNotification, ...prev]
+      })
     },
     onError: (error) => {
       console.warn('Admin SSE connection error:', error)
@@ -96,6 +103,23 @@ export function AdminNotificationBell() {
 
   const handleCloseDropdown = () => {
     setShowNotifications(false)
+  }
+
+  const handleDeleteNotification = async (e: React.MouseEvent, notificationId: string) => {
+    e.stopPropagation()
+    try {
+      const client = createNotificationsClient(createAdminApiClient())
+      await client.deleteAdminNotification(notificationId)
+
+      // Remove from local state
+      setNotifications(prev => prev.filter(n => n.id !== notificationId))
+      setCount(prev => Math.max(0, prev - 1))
+
+      toast.success('Notification deleted')
+    } catch (error) {
+      console.error('Failed to delete notification:', error)
+      toast.error('Failed to delete notification')
+    }
   }
 
   return (
@@ -165,6 +189,13 @@ export function AdminNotificationBell() {
                             )}
                           </div>
                         </div>
+                        <button
+                          onClick={(e) => handleDeleteNotification(e, notification.id)}
+                          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 flex-shrink-0"
+                          title="Delete notification"
+                        >
+                          ✕
+                        </button>
                       </div>
                     </div>
                   ))}

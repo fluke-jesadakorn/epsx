@@ -9,7 +9,8 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
-use sqlx::Row;
+use diesel::prelude::*;
+use diesel_async::{AsyncConnection, RunQueryDsl};
 
 use crate::web::auth::AppState;
 use crate::web::responses::{AdminResponse, create_pagination};
@@ -87,72 +88,88 @@ pub async fn create_assignment(
         Err(_) => return AdminResponse::bad_request("Invalid group ID format").into_response(),
     };
 
-    // Begin transaction
-    let mut tx = match app_state.db_pool.begin().await {
-        Ok(tx) => tx,
+    // Get database connection
+    let mut conn = match app_state.db_pool.get().await {
+        Ok(conn) => conn,
         Err(e) => {
-            tracing::error!("Failed to begin transaction: {}", e);
-            return AdminResponse::server_error("Database transaction failed").into_response();
+            tracing::error!("Failed to get database connection: {}", e);
+            return AdminResponse::server_error("Database connection failed").into_response();
         }
     };
 
-    // Insert or update assignment
-    let assignment_metadata = req.assignment_metadata.clone().unwrap_or(serde_json::json!({}));
+    #[derive(QueryableByName)]
+    struct AssignmentId {
+        #[diesel(sql_type = diesel::sql_types::Uuid)]
+        id: Uuid,
+    }
 
-    let assignment_id = match sqlx::query_scalar::<_, Uuid>(
-        r#"
-        INSERT INTO wallet_group_assignments (
-            wallet_address, group_id, assigned_at, expires_at, is_active,
-            assignment_source, assignment_reason, payment_reference, subscription_id,
-            auto_renew, next_billing_date, assignment_metadata
-        )
-        VALUES ($1, $2, NOW(), $3, true, $4, $5, $6, $7, $8, $9, $10)
-        ON CONFLICT (wallet_address, group_id) DO UPDATE
-        SET is_active = true, expires_at = EXCLUDED.expires_at, updated_at = NOW()
-        RETURNING id
-        "#
-    )
-    .bind(&wallet)
-    .bind(group_uuid)
-    .bind(req.expires_at)
-    .bind(&req.assignment_source)
-    .bind(&req.assignment_reason)
-    .bind(&req.payment_reference)
-    .bind(&req.subscription_id)
-    .bind(req.auto_renew.unwrap_or(false))
-    .bind(req.expires_at)
-    .bind(&assignment_metadata)
-    .fetch_one(&mut *tx)
-    .await
-    {
-        Ok(id) => id,
+    #[derive(QueryableByName)]
+    struct GroupDetails {
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        name: String,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        group_type: String,
+    }
+
+    // Run transaction
+    let assignment_metadata = req.assignment_metadata.clone().unwrap_or(serde_json::json!({}));
+    let wallet_clone = wallet.clone();
+    let assignment_source_clone = req.assignment_source.clone();
+    let assignment_reason_clone = req.assignment_reason.clone();
+    let payment_reference_clone = req.payment_reference.clone();
+    let subscription_id_clone = req.subscription_id.clone();
+
+    let result = conn.transaction::<_, diesel::result::Error, _>(|conn| {
+        Box::pin(async move {
+            // Insert or update assignment
+            let assignment_id = diesel::sql_query(
+                r#"
+                INSERT INTO wallet_group_assignments (
+                    wallet_address, group_id, assigned_at, expires_at, is_active,
+                    assignment_source, assignment_reason, payment_reference, subscription_id,
+                    auto_renew, next_billing_date, assignment_metadata
+                )
+                VALUES ($1, $2, NOW(), $3, true, $4, $5, $6, $7, $8, $9, $10)
+                ON CONFLICT (wallet_address, group_id) DO UPDATE
+                SET is_active = true, expires_at = EXCLUDED.expires_at, updated_at = NOW()
+                RETURNING id
+                "#
+            )
+            .bind::<diesel::sql_types::Text, _>(&wallet_clone)
+            .bind::<diesel::sql_types::Uuid, _>(group_uuid)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(req.expires_at)
+            .bind::<diesel::sql_types::Text, _>(&assignment_source_clone)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&assignment_reason_clone)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&payment_reference_clone)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&subscription_id_clone)
+            .bind::<diesel::sql_types::Bool, _>(req.auto_renew.unwrap_or(false))
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(req.expires_at)
+            .bind::<diesel::sql_types::Jsonb, _>(&assignment_metadata)
+            .get_result::<AssignmentId>(conn)
+            .await?
+            .id;
+
+            // Fetch group details
+            let group = diesel::sql_query(
+                "SELECT name, group_type FROM permission_groups WHERE id = $1"
+            )
+            .bind::<diesel::sql_types::Uuid, _>(group_uuid)
+            .get_result::<GroupDetails>(conn)
+            .await
+            .optional()?;
+
+            Ok((assignment_id, group))
+        })
+    }).await;
+
+    let (assignment_id, group) = match result {
+        Ok((id, Some(g))) => (id, g),
+        Ok((_, None)) => return AdminResponse::not_found("Permission group").into_response(),
         Err(e) => {
-            tracing::error!("Failed to create assignment: {}", e);
+            tracing::error!("Transaction failed: {}", e);
             return AdminResponse::server_error("Failed to create assignment").into_response();
         }
     };
-
-    // Fetch group details
-    let group = match sqlx::query!(
-        "SELECT name, group_type FROM permission_groups WHERE id = $1",
-        group_uuid
-    )
-    .fetch_optional(&mut *tx)
-    .await
-    {
-        Ok(Some(group)) => group,
-        Ok(None) => return AdminResponse::not_found("Permission group").into_response(),
-        Err(e) => {
-            tracing::error!("Failed to fetch group details: {}", e);
-            return AdminResponse::server_error("Database query failed").into_response();
-        }
-    };
-
-    // Commit transaction
-    if let Err(e) = tx.commit().await {
-        tracing::error!("Failed to commit transaction: {}", e);
-        return AdminResponse::server_error("Failed to save assignment").into_response();
-    }
 
     // Build response
     let response = AssignmentResponse {
@@ -237,30 +254,144 @@ pub async fn list_assignments(
 
     sql.push_str(" ORDER BY wga.assigned_at DESC LIMIT $1 OFFSET $2");
 
-    // Get total count
-    let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM wallet_group_assignments")
-        .fetch_one(&*app_state.db_pool)
-        .await
-        .unwrap_or(0);
-
-    // Execute query
-    let mut query_builder = sqlx::query(&sql)
-        .bind(limit as i32)
-        .bind(offset as i32);
-
-    if let Some(wallet) = &query.wallet_address {
-        query_builder = query_builder.bind(wallet.to_lowercase());
-    }
-    if let Some(group_id) = &query.group_id {
-        if let Ok(uuid) = Uuid::parse_str(group_id) {
-            query_builder = query_builder.bind(uuid);
+    let mut conn = match app_state.db_pool.get().await {
+        Ok(conn) => conn,
+        Err(e) => {
+            tracing::error!("Failed to get database connection: {}", e);
+            return AdminResponse::server_error("Database connection failed").into_response();
         }
-    }
-    if let Some(is_active) = query.is_active {
-        query_builder = query_builder.bind(is_active);
+    };
+
+    #[derive(QueryableByName)]
+    struct CountRow {
+        #[diesel(sql_type = diesel::sql_types::BigInt)]
+        count: i64,
     }
 
-    let rows = match query_builder.fetch_all(&*app_state.db_pool).await {
+    #[derive(QueryableByName)]
+    struct AssignmentRow {
+        #[diesel(sql_type = diesel::sql_types::Uuid)]
+        id: Uuid,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        wallet_address: String,
+        #[diesel(sql_type = diesel::sql_types::Uuid)]
+        group_id: Uuid,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        group_name: String,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        group_type: String,
+        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+        assigned_at: DateTime<Utc>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+        expires_at: Option<DateTime<Utc>>,
+        #[diesel(sql_type = diesel::sql_types::Bool)]
+        is_active: bool,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        assignment_source: String,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        assignment_reason: Option<String>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        assigned_by: Option<String>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        payment_reference: Option<String>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        subscription_id: Option<String>,
+        #[diesel(sql_type = diesel::sql_types::Bool)]
+        auto_renew: bool,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+        next_billing_date: Option<DateTime<Utc>>,
+        #[diesel(sql_type = diesel::sql_types::Jsonb)]
+        assignment_metadata: serde_json::Value,
+    }
+
+    // Get total count
+    let total: i64 = match diesel::sql_query(
+        "SELECT COUNT(*)::bigint as count FROM wallet_group_assignments"
+    )
+    .get_result::<CountRow>(&mut conn)
+    .await
+    {
+        Ok(row) => row.count,
+        Err(_) => 0,
+    };
+
+    // Build and execute query with all binds inline
+    let result = match (
+        &query.wallet_address,
+        &query.group_id.as_ref().and_then(|g| Uuid::parse_str(g).ok()),
+        query.is_active,
+    ) {
+        (Some(wallet), Some(group_uuid), Some(is_active)) => {
+            diesel::sql_query(&sql)
+                .bind::<diesel::sql_types::Integer, _>(limit as i32)
+                .bind::<diesel::sql_types::Integer, _>(offset as i32)
+                .bind::<diesel::sql_types::Text, _>(wallet.to_lowercase())
+                .bind::<diesel::sql_types::Uuid, _>(*group_uuid)
+                .bind::<diesel::sql_types::Bool, _>(is_active)
+                .load::<AssignmentRow>(&mut conn)
+                .await
+        }
+        (Some(wallet), Some(group_uuid), None) => {
+            diesel::sql_query(&sql)
+                .bind::<diesel::sql_types::Integer, _>(limit as i32)
+                .bind::<diesel::sql_types::Integer, _>(offset as i32)
+                .bind::<diesel::sql_types::Text, _>(wallet.to_lowercase())
+                .bind::<diesel::sql_types::Uuid, _>(*group_uuid)
+                .load::<AssignmentRow>(&mut conn)
+                .await
+        }
+        (Some(wallet), None, Some(is_active)) => {
+            diesel::sql_query(&sql)
+                .bind::<diesel::sql_types::Integer, _>(limit as i32)
+                .bind::<diesel::sql_types::Integer, _>(offset as i32)
+                .bind::<diesel::sql_types::Text, _>(wallet.to_lowercase())
+                .bind::<diesel::sql_types::Bool, _>(is_active)
+                .load::<AssignmentRow>(&mut conn)
+                .await
+        }
+        (Some(wallet), None, None) => {
+            diesel::sql_query(&sql)
+                .bind::<diesel::sql_types::Integer, _>(limit as i32)
+                .bind::<diesel::sql_types::Integer, _>(offset as i32)
+                .bind::<diesel::sql_types::Text, _>(wallet.to_lowercase())
+                .load::<AssignmentRow>(&mut conn)
+                .await
+        }
+        (None, Some(group_uuid), Some(is_active)) => {
+            diesel::sql_query(&sql)
+                .bind::<diesel::sql_types::Integer, _>(limit as i32)
+                .bind::<diesel::sql_types::Integer, _>(offset as i32)
+                .bind::<diesel::sql_types::Uuid, _>(*group_uuid)
+                .bind::<diesel::sql_types::Bool, _>(is_active)
+                .load::<AssignmentRow>(&mut conn)
+                .await
+        }
+        (None, Some(group_uuid), None) => {
+            diesel::sql_query(&sql)
+                .bind::<diesel::sql_types::Integer, _>(limit as i32)
+                .bind::<diesel::sql_types::Integer, _>(offset as i32)
+                .bind::<diesel::sql_types::Uuid, _>(*group_uuid)
+                .load::<AssignmentRow>(&mut conn)
+                .await
+        }
+        (None, None, Some(is_active)) => {
+            diesel::sql_query(&sql)
+                .bind::<diesel::sql_types::Integer, _>(limit as i32)
+                .bind::<diesel::sql_types::Integer, _>(offset as i32)
+                .bind::<diesel::sql_types::Bool, _>(is_active)
+                .load::<AssignmentRow>(&mut conn)
+                .await
+        }
+        (None, None, None) => {
+            diesel::sql_query(&sql)
+                .bind::<diesel::sql_types::Integer, _>(limit as i32)
+                .bind::<diesel::sql_types::Integer, _>(offset as i32)
+                .load::<AssignmentRow>(&mut conn)
+                .await
+        }
+    };
+
+    let rows = match result {
         Ok(rows) => rows,
         Err(e) => {
             tracing::error!("Failed to list assignments: {}", e);
@@ -268,24 +399,24 @@ pub async fn list_assignments(
         }
     };
 
-    let assignments: Vec<AssignmentResponse> = rows.iter().map(|row| {
+    let assignments: Vec<AssignmentResponse> = rows.into_iter().map(|row| {
         AssignmentResponse {
-            id: row.get::<Uuid, _>("id").to_string(),
-            wallet_address: row.get("wallet_address"),
-            group_id: row.get::<Uuid, _>("group_id").to_string(),
-            group_name: row.get("group_name"),
-            group_type: row.get("group_type"),
-            assigned_at: row.get("assigned_at"),
-            expires_at: row.get("expires_at"),
-            is_active: row.get("is_active"),
-            assignment_source: row.get("assignment_source"),
-            assignment_reason: row.get("assignment_reason"),
-            assigned_by: row.get("assigned_by"),
-            payment_reference: row.get("payment_reference"),
-            subscription_id: row.get("subscription_id"),
-            auto_renew: row.get("auto_renew"),
-            next_billing_date: row.get("next_billing_date"),
-            assignment_metadata: row.get("assignment_metadata"),
+            id: row.id.to_string(),
+            wallet_address: row.wallet_address,
+            group_id: row.group_id.to_string(),
+            group_name: row.group_name,
+            group_type: row.group_type,
+            assigned_at: row.assigned_at,
+            expires_at: row.expires_at,
+            is_active: row.is_active,
+            assignment_source: row.assignment_source,
+            assignment_reason: row.assignment_reason,
+            assigned_by: row.assigned_by,
+            payment_reference: row.payment_reference,
+            subscription_id: row.subscription_id,
+            auto_renew: row.auto_renew,
+            next_billing_date: row.next_billing_date,
+            assignment_metadata: row.assignment_metadata,
         }
     }).collect();
 
@@ -304,14 +435,22 @@ pub async fn remove_assignment(
         Err(_) => return AdminResponse::bad_request("Invalid assignment ID format").into_response(),
     };
 
-    match sqlx::query(
+    let mut conn = match app_state.db_pool.get().await {
+        Ok(conn) => conn,
+        Err(e) => {
+            tracing::error!("Failed to get database connection: {}", e);
+            return AdminResponse::server_error("Database connection failed").into_response();
+        }
+    };
+
+    match diesel::sql_query(
         "UPDATE wallet_group_assignments SET is_active = false, updated_at = NOW() WHERE id = $1"
     )
-    .bind(assignment_uuid)
-    .execute(&*app_state.db_pool)
+    .bind::<diesel::sql_types::Uuid, _>(assignment_uuid)
+    .execute(&mut conn)
     .await
     {
-        Ok(result) if result.rows_affected() > 0 => {
+        Ok(rows) if rows > 0 => {
             AdminResponse::success_with_message(
                 serde_json::json!({"deleted": true}),
                 "Assignment removed successfully"
@@ -333,7 +472,31 @@ pub async fn get_expiring_assignments(
 ) -> impl IntoResponse {
     let days = query.days.unwrap_or(7);
 
-    let rows = match sqlx::query(
+    let mut conn = match app_state.db_pool.get().await {
+        Ok(conn) => conn,
+        Err(e) => {
+            tracing::error!("Failed to get database connection: {}", e);
+            return AdminResponse::server_error("Database connection failed").into_response();
+        }
+    };
+
+    #[derive(QueryableByName)]
+    struct ExpiringRow {
+        #[diesel(sql_type = diesel::sql_types::Uuid)]
+        id: Uuid,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        wallet_address: String,
+        #[diesel(sql_type = diesel::sql_types::Uuid)]
+        group_id: Uuid,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        group_name: String,
+        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+        assigned_at: DateTime<Utc>,
+        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+        expires_at: DateTime<Utc>,
+    }
+
+    let rows = match diesel::sql_query(
         r#"
         SELECT
             wga.id,
@@ -350,8 +513,8 @@ pub async fn get_expiring_assignments(
         ORDER BY wga.expires_at ASC
         "#
     )
-    .bind(days)
-    .fetch_all(&*app_state.db_pool)
+    .bind::<diesel::sql_types::BigInt, _>(days)
+    .load::<ExpiringRow>(&mut conn)
     .await
     {
         Ok(rows) => rows,
@@ -361,14 +524,14 @@ pub async fn get_expiring_assignments(
         }
     };
 
-    let expiring: Vec<serde_json::Value> = rows.iter().map(|row| {
+    let expiring: Vec<serde_json::Value> = rows.into_iter().map(|row| {
         serde_json::json!({
-            "id": row.get::<Uuid, _>("id").to_string(),
-            "wallet_address": row.get::<String, _>("wallet_address"),
-            "group_id": row.get::<Uuid, _>("group_id").to_string(),
-            "group_name": row.get::<String, _>("group_name"),
-            "assigned_at": row.get::<DateTime<Utc>, _>("assigned_at"),
-            "expires_at": row.get::<DateTime<Utc>, _>("expires_at"),
+            "id": row.id.to_string(),
+            "wallet_address": row.wallet_address,
+            "group_id": row.group_id.to_string(),
+            "group_name": row.group_name,
+            "assigned_at": row.assigned_at,
+            "expires_at": row.expires_at,
         })
     }).collect();
 
@@ -387,7 +550,51 @@ pub async fn get_assignment_history(
 ) -> impl IntoResponse {
     let wallet = wallet.to_lowercase();
 
-    let rows = match sqlx::query(
+    let mut conn = match app_state.db_pool.get().await {
+        Ok(conn) => conn,
+        Err(e) => {
+            tracing::error!("Failed to get database connection: {}", e);
+            return AdminResponse::server_error("Database connection failed").into_response();
+        }
+    };
+
+    #[derive(QueryableByName)]
+    struct HistoryRow {
+        #[diesel(sql_type = diesel::sql_types::Uuid)]
+        id: Uuid,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        wallet_address: String,
+        #[diesel(sql_type = diesel::sql_types::Uuid)]
+        group_id: Uuid,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        group_name: String,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        group_type: String,
+        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+        assigned_at: DateTime<Utc>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+        expires_at: Option<DateTime<Utc>>,
+        #[diesel(sql_type = diesel::sql_types::Bool)]
+        is_active: bool,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        assignment_source: String,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        assignment_reason: Option<String>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        assigned_by: Option<String>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        payment_reference: Option<String>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        subscription_id: Option<String>,
+        #[diesel(sql_type = diesel::sql_types::Bool)]
+        auto_renew: bool,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+        next_billing_date: Option<DateTime<Utc>>,
+        #[diesel(sql_type = diesel::sql_types::Jsonb)]
+        assignment_metadata: serde_json::Value,
+    }
+
+    let rows = match diesel::sql_query(
         r#"
         SELECT
             wga.id,
@@ -405,16 +612,15 @@ pub async fn get_assignment_history(
             wga.subscription_id,
             wga.auto_renew,
             wga.next_billing_date,
-            wga.assignment_metadata,
-            wga.updated_at
+            wga.assignment_metadata
         FROM wallet_group_assignments wga
         JOIN permission_groups pg ON wga.group_id = pg.id
         WHERE wga.wallet_address = $1
         ORDER BY wga.assigned_at DESC
         "#
     )
-    .bind(&wallet)
-    .fetch_all(&*app_state.db_pool)
+    .bind::<diesel::sql_types::Text, _>(&wallet)
+    .load::<HistoryRow>(&mut conn)
     .await
     {
         Ok(rows) => rows,
@@ -424,24 +630,24 @@ pub async fn get_assignment_history(
         }
     };
 
-    let history: Vec<AssignmentResponse> = rows.iter().map(|row| {
+    let history: Vec<AssignmentResponse> = rows.into_iter().map(|row| {
         AssignmentResponse {
-            id: row.get::<Uuid, _>("id").to_string(),
-            wallet_address: row.get("wallet_address"),
-            group_id: row.get::<Uuid, _>("group_id").to_string(),
-            group_name: row.get("group_name"),
-            group_type: row.get("group_type"),
-            assigned_at: row.get("assigned_at"),
-            expires_at: row.get("expires_at"),
-            is_active: row.get("is_active"),
-            assignment_source: row.get("assignment_source"),
-            assignment_reason: row.get("assignment_reason"),
-            assigned_by: row.get("assigned_by"),
-            payment_reference: row.get("payment_reference"),
-            subscription_id: row.get("subscription_id"),
-            auto_renew: row.get("auto_renew"),
-            next_billing_date: row.get("next_billing_date"),
-            assignment_metadata: row.get("assignment_metadata"),
+            id: row.id.to_string(),
+            wallet_address: row.wallet_address,
+            group_id: row.group_id.to_string(),
+            group_name: row.group_name,
+            group_type: row.group_type,
+            assigned_at: row.assigned_at,
+            expires_at: row.expires_at,
+            is_active: row.is_active,
+            assignment_source: row.assignment_source,
+            assignment_reason: row.assignment_reason,
+            assigned_by: row.assigned_by,
+            payment_reference: row.payment_reference,
+            subscription_id: row.subscription_id,
+            auto_renew: row.auto_renew,
+            next_billing_date: row.next_billing_date,
+            assignment_metadata: row.assignment_metadata,
         }
     }).collect();
 
@@ -460,7 +666,35 @@ pub async fn get_wallet_groups(
 ) -> impl IntoResponse {
     let wallet = wallet.to_lowercase();
 
-    let rows = match sqlx::query(
+    let mut conn = match app_state.db_pool.get().await {
+        Ok(conn) => conn,
+        Err(e) => {
+            tracing::error!("Failed to get database connection: {}", e);
+            return AdminResponse::server_error("Database connection failed").into_response();
+        }
+    };
+
+    #[derive(QueryableByName)]
+    struct GroupRow {
+        #[diesel(sql_type = diesel::sql_types::Uuid)]
+        id: Uuid,
+        #[diesel(sql_type = diesel::sql_types::Uuid)]
+        group_id: Uuid,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        group_name: String,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        group_slug: String,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        group_type: String,
+        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+        assigned_at: DateTime<Utc>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+        expires_at: Option<DateTime<Utc>>,
+        #[diesel(sql_type = diesel::sql_types::Bool)]
+        is_active: bool,
+    }
+
+    let rows = match diesel::sql_query(
         r#"
         SELECT
             wga.id, wga.group_id, wga.assigned_at, wga.expires_at, wga.is_active,
@@ -471,8 +705,8 @@ pub async fn get_wallet_groups(
         ORDER BY wga.assigned_at DESC
         "#
     )
-    .bind(&wallet)
-    .fetch_all(&*app_state.db_pool)
+    .bind::<diesel::sql_types::Text, _>(&wallet)
+    .load::<GroupRow>(&mut conn)
     .await
     {
         Ok(rows) => rows,
@@ -482,16 +716,16 @@ pub async fn get_wallet_groups(
         }
     };
 
-    let groups: Vec<serde_json::Value> = rows.iter().map(|row| {
+    let groups: Vec<serde_json::Value> = rows.into_iter().map(|row| {
         serde_json::json!({
-            "id": row.get::<Uuid, _>("id").to_string(),
-            "group_id": row.get::<Uuid, _>("group_id").to_string(),
-            "group_name": row.get::<String, _>("group_name"),
-            "group_slug": row.get::<String, _>("group_slug"),
-            "group_type": row.get::<String, _>("group_type"),
-            "assigned_at": row.get::<DateTime<Utc>, _>("assigned_at"),
-            "expires_at": row.get::<Option<DateTime<Utc>>, _>("expires_at"),
-            "is_active": row.get::<bool, _>("is_active"),
+            "id": row.id.to_string(),
+            "group_id": row.group_id.to_string(),
+            "group_name": row.group_name,
+            "group_slug": row.group_slug,
+            "group_type": row.group_type,
+            "assigned_at": row.assigned_at,
+            "expires_at": row.expires_at,
+            "is_active": row.is_active,
         })
     }).collect();
 

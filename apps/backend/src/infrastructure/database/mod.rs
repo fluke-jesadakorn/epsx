@@ -1,14 +1,13 @@
 // Database Infrastructure Module
-// Provides serverless-optimized database connection management
+// Diesel async connection manager for serverless-optimized database access
 
-pub mod serverless_connection_manager;
+pub mod diesel_connection_manager;
 
-// Re-export commonly used types
-pub use serverless_connection_manager::{
-    ServerlessConnectionManager,
-    ServerlessConnectionConfig,
-    DatabaseExecutor,
-    PoolStats,
-    get_db_pool,
-    db_health_check,
+// Re-export Diesel types
+pub use diesel_connection_manager::{
+    DieselConnectionManager,
+    DieselServerlessConfig,
+    DieselPoolStats,
+    get_diesel_pool,
+    diesel_health_check,
 };

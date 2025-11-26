@@ -23,7 +23,7 @@ impl CommandHandler<MarkEventFailedCommand> for MarkEventFailedCommandHandler {
         let mut event = self.event_repository
             .find_by_id(&command.event_id)
             .await
-            .map_err(|e| ApplicationError::infrastructure(e))?
+            .map_err(ApplicationError::infrastructure)?
             .ok_or_else(|| ApplicationError::not_found("event", command.event_id.to_string()))?;
 
         // 2. Mark as failed (will retry if attempts < max)
@@ -42,7 +42,7 @@ impl CommandHandler<MarkEventFailedCommand> for MarkEventFailedCommandHandler {
         self.event_repository
             .save(&event)
             .await
-            .map_err(|e| ApplicationError::infrastructure(e))?;
+            .map_err(ApplicationError::infrastructure)?;
 
         // 4. Return response
         Ok(MarkEventFailedResponse {

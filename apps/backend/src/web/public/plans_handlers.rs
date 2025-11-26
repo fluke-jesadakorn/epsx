@@ -7,10 +7,10 @@ use serde_json::{json, Value};
 use crate::web::auth::AppState;
 
 /// Get public pricing plans (no authentication required)
-/// GET /api/public/plans
+/// GET /api/v1/public/plans
 #[utoipa::path(
     get,
-    path = "/api/public/plans",
+    path = "/api/v1/public/plans",
     tag = "public",
     responses(
         (status = 200, description = "Successfully retrieved subscription plans"),
@@ -47,7 +47,7 @@ pub async fn get_public_plans(State(app_state): State<AppState>) -> Result<Json<
         use crate::domain::subscription_management::Promotion;
 
         // Extract permissions array from JSONB
-        let permissions = plan.permissions.as_array()
+        let permissions = plan.permissions().as_array()
             .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
             .unwrap_or_default();
 

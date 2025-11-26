@@ -151,7 +151,10 @@ export function useSSENotifications(
       // Reset state on connection failure
       connectionStateRef.current = ConnectionState.DISCONNECTED
       const errorMsg = err instanceof Error ? err.message : 'Failed to connect to notification stream'
-      setError(errorMsg)
+
+      if (isMounted.current) {
+        setError(errorMsg)
+      }
       onErrorRef.current?.(errorMsg)
       console.error(`❌ SSE: Connection #${currentConnectionId} failed:`, errorMsg)
     }

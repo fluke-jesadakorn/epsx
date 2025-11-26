@@ -3,5 +3,5 @@
 pub mod plan;
 pub mod subscription;
 
-pub use plan::{Plan, CreatePlanParams};
+pub use plan::{Plan, CreatePlanParams, UpdatePlanParams};
 pub use subscription::{Subscription, CreateSubscriptionParams};

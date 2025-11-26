@@ -90,6 +90,7 @@ declare global {
 
 import { apiFetch } from '../api-fetch'
 import { env } from '@/config/env'
+import { ROUTES } from '../route-compatibility'
 
 const BACKEND_URL = env.BACKEND_URL
 
@@ -124,7 +125,7 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
       setError: (error) => set({ error }),
 
       // Generate authentication challenge from backend
-      generateChallenge: async (endpoint = '/api/auth/web3/verify') => {
+      generateChallenge: async (endpoint = ROUTES.AUTH.WEB3_VERIFY) => {
         const state = get();
 
         if (!state.walletAddress) {
@@ -132,7 +133,7 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
         }
 
         try {
-          const challenge = await apiFetch('/api/auth/web3/challenge', {
+          const challenge = await apiFetch(ROUTES.AUTH.WEB3_CHALLENGE, {
             method: 'POST',
             body: JSON.stringify({
               wallet_address: state.walletAddress,
@@ -172,7 +173,7 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
           set({ isAuthenticating: true, error: undefined });
           
           // Generate challenge
-          const challenge = await get().generateChallenge('/api/auth/web3/verify');
+          const challenge = await get().generateChallenge(ROUTES.AUTH.WEB3_VERIFY);
           
           // Sign the message
           const signature = await window.__pureWeb3_signMessage(challenge.message);
@@ -187,7 +188,7 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
             'X-Nonce': challenge.nonce
           };
 
-          const response = await fetch(`${BACKEND_URL}/api/auth/web3/verify`, {
+          const response = await fetch(`${BACKEND_URL}${ROUTES.AUTH.WEB3_VERIFY}`, {
             method: 'GET',
             headers: headers as any,
           });
@@ -270,9 +271,9 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
         try {
           if (state.walletAddress && state.currentNonce) {
             // Clear nonces on backend
-            const signedHeaders = await get().signRequest('/api/auth/web3/logout', 'DELETE');
-            
-            await fetch(`${BACKEND_URL}/api/auth/web3/logout`, {
+            const signedHeaders = await get().signRequest(ROUTES.AUTH.WEB3_LOGOUT, 'DELETE');
+
+            await fetch(`${BACKEND_URL}${ROUTES.AUTH.WEB3_LOGOUT}`, {
               method: 'DELETE',
               headers: signedHeaders as any,
               body: JSON.stringify({ clear_all_sessions: true }),

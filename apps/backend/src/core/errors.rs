@@ -310,13 +310,22 @@ impl From<crate::domain::shared_kernel::value_object::ValueObjectError> for AppE
     }
 }
 
-impl From<sqlx::Error> for AppError {
-    fn from(err: sqlx::Error) -> Self {
+// Diesel error conversions for core::errors::AppError
+impl From<diesel::result::Error> for AppError {
+    fn from(err: diesel::result::Error) -> Self {
         match err {
-            sqlx::Error::RowNotFound => AppError::not_found("Record not found"),
-            sqlx::Error::Database(db_err) => AppError::database_error(db_err.message()),
+            diesel::result::Error::NotFound => AppError::not_found("Record not found"),
+            diesel::result::Error::DatabaseError(_, info) => AppError::database_error(info.message().to_string()),
             _ => AppError::database_error(format!("Database error: {}", err)),
         }
+    }
+}
+
+// Deadpool error conversion for connection pool errors
+// Using the re-exported types from diesel_async
+impl From<diesel_async::pooled_connection::PoolError> for AppError {
+    fn from(err: diesel_async::pooled_connection::PoolError) -> Self {
+        AppError::database_error(format!("Connection pool error: {}", err))
     }
 }
 

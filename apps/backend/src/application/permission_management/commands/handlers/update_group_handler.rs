@@ -4,7 +4,7 @@ use crate::application::permission_management::commands::{
     UpdatePermissionGroupCommand, UpdatePermissionGroupResponse
 };
 use crate::domain::permission_management::{
-    PermissionGroupRepositoryPort, GroupId, PermissionString
+    PermissionGroupRepositoryPort, GroupId, PermissionString, UpdatePermissionGroupParams
 };
 use crate::domain::shared_kernel::DomainEventBus;
 
@@ -42,7 +42,7 @@ impl CommandHandler<UpdatePermissionGroupCommand> for UpdatePermissionGroupComma
         let permissions = if let Some(perms) = command.permissions {
             let parsed: Result<Vec<PermissionString>, _> = perms
                 .iter()
-                .map(|p| PermissionString::new(p))
+                .map(PermissionString::new)
                 .collect();
             Some(parsed.map_err(|e| ApplicationError::validation("permissions", e.to_string()))?)
         } else {
@@ -50,20 +50,20 @@ impl CommandHandler<UpdatePermissionGroupCommand> for UpdatePermissionGroupComma
         };
 
         // 4. Update group
-        group.update(
-            command.name,
-            command.description,
+        group.update(UpdatePermissionGroupParams {
+            name: command.name,
+            description: command.description,
             permissions,
-            command.price,
-            command.currency,
-            command.billing_cycle,
-            command.is_active,
-            command.is_promoted,
-            command.display_order,
-            command.max_members,
-            command.auto_assign_enabled,
-            command.metadata,
-        ).map_err(ApplicationError::from)?;
+            price: command.price,
+            currency: command.currency,
+            billing_cycle: command.billing_cycle,
+            is_active: command.is_active,
+            is_promoted: command.is_promoted,
+            display_order: command.display_order,
+            max_members: command.max_members,
+            auto_assign_enabled: command.auto_assign_enabled,
+            metadata: command.metadata,
+        }).map_err(ApplicationError::from)?;
 
         // 5. Save group
         self.group_repository.save(&group).await

@@ -56,7 +56,7 @@ components/
 ├── auth/
 │   ├── WalletConnectAuth.tsx      # Updated imports
 │   ├── WalletDisconnectModal.tsx  # Updated imports
-│   ├── Web3PermissionsDisplay.tsx # Updated imports
+│   ├── PermissionsDisplay.tsx     # Updated imports
 │   └── LogoutForm.tsx             # Updated imports
 └── nav/
     ├── WalletProviderIcon.tsx     # Updated imports

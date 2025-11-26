@@ -9,7 +9,8 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
-use sqlx::Row;
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 
 use crate::web::auth::AppState;
 use crate::web::responses::AdminResponse;
@@ -110,38 +111,72 @@ pub struct ListRoutesQuery {
 pub async fn get_health(
     State(app_state): State<AppState>,
 ) -> impl IntoResponse {
+    let mut conn = match app_state.db_pool.get().await {
+        Ok(conn) => conn,
+        Err(e) => {
+            tracing::error!("Failed to get database connection: {}", e);
+            return AdminResponse::server_error("Database connection failed").into_response();
+        }
+    };
+
+    #[derive(QueryableByName)]
+    struct CountRow {
+        #[diesel(sql_type = diesel::sql_types::BigInt)]
+        count: i64,
+    }
+
+    #[derive(QueryableByName)]
+    struct HealthCheck {
+        #[diesel(sql_type = diesel::sql_types::Integer)]
+        check: i32,
+    }
+
     // Check database connection
-    let db_connected = sqlx::query("SELECT 1")
-        .fetch_optional(&*app_state.db_pool)
+    let db_connected = diesel::sql_query("SELECT 1 as check")
+        .get_result::<HealthCheck>(&mut conn)
         .await
         .is_ok();
 
     // Get system statistics
-    let total_groups = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM permission_groups")
-        .fetch_one(&*app_state.db_pool)
-        .await
-        .unwrap_or(0);
-
-    let active_assignments = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM wallet_group_assignments WHERE is_active = true"
+    let total_groups = match diesel::sql_query(
+        "SELECT COUNT(*)::bigint as count FROM permission_groups"
     )
-        .fetch_one(&*app_state.db_pool)
-        .await
-        .unwrap_or(0);
+    .get_result::<CountRow>(&mut conn)
+    .await
+    {
+        Ok(row) => row.count,
+        Err(_) => 0,
+    };
 
-    let total_wallets = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(DISTINCT wallet_address) FROM wallet_group_assignments WHERE is_active = true"
+    let active_assignments = match diesel::sql_query(
+        "SELECT COUNT(*)::bigint as count FROM wallet_group_assignments WHERE is_active = true"
     )
-        .fetch_one(&*app_state.db_pool)
-        .await
-        .unwrap_or(0);
+    .get_result::<CountRow>(&mut conn)
+    .await
+    {
+        Ok(row) => row.count,
+        Err(_) => 0,
+    };
 
-    let total_permissions = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM permissions WHERE is_active = true"
+    let total_wallets = match diesel::sql_query(
+        "SELECT COUNT(DISTINCT wallet_address)::bigint as count FROM wallet_group_assignments WHERE is_active = true"
     )
-        .fetch_one(&*app_state.db_pool)
-        .await
-        .unwrap_or(0);
+    .get_result::<CountRow>(&mut conn)
+    .await
+    {
+        Ok(row) => row.count,
+        Err(_) => 0,
+    };
+
+    let total_permissions = match diesel::sql_query(
+        "SELECT COUNT(*)::bigint as count FROM permissions WHERE is_active = true"
+    )
+    .get_result::<CountRow>(&mut conn)
+    .await
+    {
+        Ok(row) => row.count,
+        Err(_) => 0,
+    };
 
     let status = if db_connected { "healthy" } else { "degraded" };
 
@@ -164,68 +199,137 @@ pub async fn get_health(
 pub async fn get_statistics(
     State(app_state): State<AppState>,
 ) -> impl IntoResponse {
-    // Total groups
-    let total_groups = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM permission_groups")
-        .fetch_one(&*app_state.db_pool)
-        .await
-        .unwrap_or(0);
+    let mut conn = match app_state.db_pool.get().await {
+        Ok(conn) => conn,
+        Err(e) => {
+            tracing::error!("Failed to get database connection: {}", e);
+            return AdminResponse::server_error("Database connection failed").into_response();
+        }
+    };
 
-    let active_groups = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM permission_groups WHERE is_active = true"
+    #[derive(QueryableByName)]
+    struct CountRow {
+        #[diesel(sql_type = diesel::sql_types::BigInt)]
+        count: i64,
+    }
+
+    #[derive(QueryableByName)]
+    struct TopGroupRow {
+        #[diesel(sql_type = diesel::sql_types::Uuid)]
+        id: Uuid,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        name: String,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        group_type: String,
+        #[diesel(sql_type = diesel::sql_types::BigInt)]
+        member_count: i64,
+        #[diesel(sql_type = diesel::sql_types::BigInt)]
+        permission_count: i64,
+    }
+
+    #[derive(QueryableByName)]
+    struct PlatformRow {
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        platform: String,
+        #[diesel(sql_type = diesel::sql_types::BigInt)]
+        count: i64,
+    }
+
+    #[derive(QueryableByName)]
+    struct TypeRow {
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        permission_type: String,
+        #[diesel(sql_type = diesel::sql_types::BigInt)]
+        count: i64,
+    }
+
+    // Total groups
+    let total_groups = match diesel::sql_query(
+        "SELECT COUNT(*)::bigint as count FROM permission_groups"
     )
-        .fetch_one(&*app_state.db_pool)
-        .await
-        .unwrap_or(0);
+    .get_result::<CountRow>(&mut conn)
+    .await
+    {
+        Ok(row) => row.count,
+        Err(_) => 0,
+    };
+
+    let active_groups = match diesel::sql_query(
+        "SELECT COUNT(*)::bigint as count FROM permission_groups WHERE is_active = true"
+    )
+    .get_result::<CountRow>(&mut conn)
+    .await
+    {
+        Ok(row) => row.count,
+        Err(_) => 0,
+    };
 
     // Total permissions
-    let total_permissions = sqlx::query_scalar::<_, i64>("SELECT COUNT(*) FROM permissions")
-        .fetch_one(&*app_state.db_pool)
-        .await
-        .unwrap_or(0);
+    let total_permissions = match diesel::sql_query(
+        "SELECT COUNT(*)::bigint as count FROM permissions"
+    )
+    .get_result::<CountRow>(&mut conn)
+    .await
+    {
+        Ok(row) => row.count,
+        Err(_) => 0,
+    };
 
     // Wallet assignments
-    let total_assignments = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM wallet_group_assignments"
+    let total_assignments = match diesel::sql_query(
+        "SELECT COUNT(*)::bigint as count FROM wallet_group_assignments"
     )
-        .fetch_one(&*app_state.db_pool)
-        .await
-        .unwrap_or(0);
+    .get_result::<CountRow>(&mut conn)
+    .await
+    {
+        Ok(row) => row.count,
+        Err(_) => 0,
+    };
 
-    let active_assignments = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM wallet_group_assignments WHERE is_active = true"
+    let active_assignments = match diesel::sql_query(
+        "SELECT COUNT(*)::bigint as count FROM wallet_group_assignments WHERE is_active = true"
     )
-        .fetch_one(&*app_state.db_pool)
-        .await
-        .unwrap_or(0);
+    .get_result::<CountRow>(&mut conn)
+    .await
+    {
+        Ok(row) => row.count,
+        Err(_) => 0,
+    };
 
     // Expiring assignments (7 days)
-    let expiring_7d = sqlx::query_scalar::<_, i64>(
+    let expiring_7d = match diesel::sql_query(
         r#"
-        SELECT COUNT(*) FROM wallet_group_assignments
+        SELECT COUNT(*)::bigint as count FROM wallet_group_assignments
         WHERE is_active = true
           AND expires_at IS NOT NULL
           AND expires_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'
         "#
     )
-        .fetch_one(&*app_state.db_pool)
-        .await
-        .unwrap_or(0);
+    .get_result::<CountRow>(&mut conn)
+    .await
+    {
+        Ok(row) => row.count,
+        Err(_) => 0,
+    };
 
     // Direct permissions
-    let total_direct = sqlx::query_scalar::<_, i64>(
-        "SELECT COUNT(*) FROM wallet_direct_permissions WHERE is_active = true"
+    let total_direct = match diesel::sql_query(
+        "SELECT COUNT(*)::bigint as count FROM wallet_direct_permissions WHERE is_active = true"
     )
-        .fetch_one(&*app_state.db_pool)
-        .await
-        .unwrap_or(0);
+    .get_result::<CountRow>(&mut conn)
+    .await
+    {
+        Ok(row) => row.count,
+        Err(_) => 0,
+    };
 
     // Top groups by member count
-    let top_groups_rows = sqlx::query(
+    let top_groups_rows = diesel::sql_query(
         r#"
         SELECT
             pg.id, pg.name, pg.group_type,
-            COUNT(DISTINCT wga.wallet_address) as member_count,
-            COUNT(DISTINCT pgm.permission_id) as permission_count
+            COUNT(DISTINCT wga.wallet_address)::bigint as member_count,
+            COUNT(DISTINCT pgm.permission_id)::bigint as permission_count
         FROM permission_groups pg
         LEFT JOIN wallet_group_assignments wga ON pg.id = wga.group_id AND wga.is_active = true
         LEFT JOIN permission_group_memberships pgm ON pg.id = pgm.group_id
@@ -235,47 +339,47 @@ pub async fn get_statistics(
         LIMIT 10
         "#
     )
-        .fetch_all(&*app_state.db_pool)
-        .await
-        .unwrap_or_default();
+    .load::<TopGroupRow>(&mut conn)
+    .await
+    .unwrap_or_default();
 
-    let top_groups: Vec<TopGroupStats> = top_groups_rows.iter().map(|row| {
+    let top_groups: Vec<TopGroupStats> = top_groups_rows.into_iter().map(|row| {
         TopGroupStats {
-            id: row.get::<Uuid, _>("id").to_string(),
-            name: row.get("name"),
-            group_type: row.get("group_type"),
-            member_count: row.get("member_count"),
-            permission_count: row.get("permission_count"),
+            id: row.id.to_string(),
+            name: row.name,
+            group_type: row.group_type,
+            member_count: row.member_count,
+            permission_count: row.permission_count,
         }
     }).collect();
 
     // Permission breakdown by platform
-    let platform_rows = sqlx::query(
-        "SELECT platform, COUNT(*) as count FROM permissions GROUP BY platform ORDER BY count DESC"
+    let platform_rows = diesel::sql_query(
+        "SELECT platform, COUNT(*)::bigint as count FROM permissions GROUP BY platform ORDER BY count DESC"
     )
-        .fetch_all(&*app_state.db_pool)
-        .await
-        .unwrap_or_default();
+    .load::<PlatformRow>(&mut conn)
+    .await
+    .unwrap_or_default();
 
-    let by_platform: Vec<PlatformStats> = platform_rows.iter().map(|row| {
+    let by_platform: Vec<PlatformStats> = platform_rows.into_iter().map(|row| {
         PlatformStats {
-            platform: row.get("platform"),
-            count: row.get("count"),
+            platform: row.platform,
+            count: row.count,
         }
     }).collect();
 
     // Permission breakdown by type
-    let type_rows = sqlx::query(
-        "SELECT permission_type, COUNT(*) as count FROM permissions GROUP BY permission_type ORDER BY count DESC"
+    let type_rows = diesel::sql_query(
+        "SELECT permission_type, COUNT(*)::bigint as count FROM permissions GROUP BY permission_type ORDER BY count DESC"
     )
-        .fetch_all(&*app_state.db_pool)
-        .await
-        .unwrap_or_default();
+    .load::<TypeRow>(&mut conn)
+    .await
+    .unwrap_or_default();
 
-    let by_type: Vec<TypeStats> = type_rows.iter().map(|row| {
+    let by_type: Vec<TypeStats> = type_rows.into_iter().map(|row| {
         TypeStats {
-            permission_type: row.get("permission_type"),
-            count: row.get("count"),
+            permission_type: row.permission_type,
+            count: row.count,
         }
     }).collect();
 

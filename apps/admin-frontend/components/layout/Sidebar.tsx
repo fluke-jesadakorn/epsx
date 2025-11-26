@@ -37,9 +37,9 @@ const navigationItems: NavItem[] = [
     requiresAuth: true,
   },
   {
-    id: 'permissions',
-    label: 'Web3 Permissions',
-    href: '/permissions/web3',
+    id: 'web3-permissions',
+    label: 'Permissions',
+    href: '/web3-permissions',
     icon: '🔑',
     requiresAuth: true,
   },

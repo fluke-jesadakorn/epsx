@@ -4,16 +4,16 @@ use crate::application::trading_analytics::queries::{
     GetSystemMetricsQuery, GetSystemMetricsResponse, CacheMetrics, DatabaseMetrics, ApiMetrics,
 };
 use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
-use sqlx::PgPool;
+use diesel_async::{AsyncPgConnection, pooled_connection::deadpool::Pool};
 
 /// Query handler for getting multi-source system metrics
 pub struct GetSystemMetricsQueryHandler {
     tradingview_service: Arc<TradingViewApiService>,
-    db_pool: Arc<PgPool>,
+    db_pool: Arc<&'static Pool<AsyncPgConnection>>,
 }
 
 impl GetSystemMetricsQueryHandler {
-    pub fn new(tradingview_service: Arc<TradingViewApiService>, db_pool: Arc<PgPool>) -> Self {
+    pub fn new(tradingview_service: Arc<TradingViewApiService>, db_pool: Arc<&'static Pool<AsyncPgConnection>>) -> Self {
         Self {
             tradingview_service,
             db_pool,
@@ -34,15 +34,16 @@ impl GetSystemMetricsQueryHandler {
 
     /// Collect database metrics from connection pool
     async fn collect_database_metrics(&self) -> Option<DatabaseMetrics> {
-        let pool_size = self.db_pool.size();
-        let idle = self.db_pool.num_idle() as u32;
-        let active = pool_size.saturating_sub(idle);
+        let status = self.db_pool.status();
+        let pool_size = status.max_size;
+        let available = status.available as usize;
+        let active = pool_size.saturating_sub(available);
 
         Some(DatabaseMetrics {
             status: "healthy".to_string(),
             connection_pool_size: pool_size as i32,
             active_connections: active as i32,
-            idle_connections: idle as i32,
+            idle_connections: available as i32,
             avg_query_time_ms: 5.0, // Placeholder - would need query monitoring
         })
     }

@@ -61,6 +61,12 @@ export function NotificationBellClient() {
     router.push(`/notifications?id=${notificationId}`)
   }
 
+  const handleDeleteNotification = async (e: React.MouseEvent, notificationId: string) => {
+    e.stopPropagation()
+    await deleteNotification(notificationId)
+    toast.success('Notification deleted')
+  }
+
   return (
     <div className="relative">
       <button
@@ -118,13 +124,15 @@ export function NotificationBellClient() {
                   {notifications.map((notification) => (
                     <div
                       key={notification.id}
-                      className="flex items-start gap-3 px-4 py-3 border-b border-orange-50 dark:border-slate-800 cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
-                      onClick={() => handleNotificationClick(notification.id)}
+                      className="flex items-start gap-3 px-4 py-3 border-b border-orange-50 dark:border-slate-800 group"
                     >
                       <div className={`w-8 h-8 rounded-full ${getPriorityColor(notification.priority)} flex items-center justify-center flex-shrink-0`}>
                         <span className="text-sm">{getNotificationIcon(notification.type)}</span>
                       </div>
-                      <div className="flex-1 min-w-0">
+                      <div
+                        className="flex-1 min-w-0 cursor-pointer"
+                        onClick={() => handleNotificationClick(notification.id)}
+                      >
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-medium text-slate-900 dark:text-slate-100 line-clamp-1">
                             {notification.title}
@@ -140,6 +148,13 @@ export function NotificationBellClient() {
                           {formatTimestamp(notification.timestamp)}
                         </p>
                       </div>
+                      <button
+                        onClick={(e) => handleDeleteNotification(e, notification.id)}
+                        className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 flex-shrink-0"
+                        title="Delete notification"
+                      >
+                        ✕
+                      </button>
                     </div>
                   ))}
                 </div>

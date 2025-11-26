@@ -6,38 +6,40 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 /// Standard API response wrapper
+/// Used consistently across all API endpoints for uniform response format
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ApiResponse<T> {
     /// Indicates if the request was successful
     #[schema(example = true)]
     pub success: bool,
-    
+
     /// Response data (only present on success)
     pub data: Option<T>,
-    
-    /// Human-readable message
+
+    /// Human-readable message describing the result
     #[schema(example = "Operation completed successfully")]
     pub message: Option<String>,
-    
+
     /// Pagination information (for paginated responses)
     pub pagination: Option<PaginationInfo>,
 }
 
 /// Error response structure
+/// Standardized error format used across all API endpoints
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ErrorResponse {
     /// Always false for error responses
     #[schema(example = false)]
     pub success: bool,
-    
-    /// Error code for programmatic handling
+
+    /// Machine-readable error code for programmatic handling
     #[schema(example = "invalid_wallet_address")]
     pub error: String,
-    
-    /// Human-readable error message
+
+    /// Human-readable error message explaining what went wrong
     #[schema(example = "The provided wallet address format is invalid")]
     pub message: String,
-    
+
     /// Additional error details (optional)
     pub details: Option<serde_json::Value>,
 }
@@ -58,66 +60,70 @@ pub struct HealthResponse {
 }
 
 /// Pagination information for list responses
+/// Provides complete pagination metadata for navigating large result sets
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct PaginationInfo {
-    /// Current page number (1-based)
+    /// Current page number (1-based indexing)
     #[schema(example = 1)]
     pub page: u32,
-    
+
     /// Number of items per page
     #[schema(example = 20)]
     pub limit: u32,
-    
-    /// Total number of items
+
+    /// Total number of items across all pages
     #[schema(example = 150)]
     pub total: u64,
-    
-    /// Total number of pages
+
+    /// Total number of pages available
     #[schema(example = 8)]
     pub total_pages: u32,
-    
-    /// Whether there is a next page
+
+    /// Whether there is a next page available
     #[schema(example = true)]
     pub has_next: bool,
-    
-    /// Whether there is a previous page
+
+    /// Whether there is a previous page available
     #[schema(example = false)]
     pub has_prev: bool,
 }
 
 /// Web3 Challenge response
+/// SIWE (Sign-In with Ethereum) challenge for Web3 wallet authentication
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct ChallengeResponse {
-    /// Unique nonce for this challenge
+    /// Cryptographic nonce used to prevent replay attacks
     #[schema(example = "abc123def456")]
     pub nonce: String,
-    
-    /// SIWE message to be signed
-    #[schema(example = "epsx.io wants you to sign in with your Ethereum account:\\n0x1234...\\n\\nPlease sign this message to verify your ownership of this wallet.\\n\\nURI: https://epsx.io\\nVersion: 1\\nChain ID: 1\\nNonce: abc123def456")]
+
+    /// Complete SIWE message that must be signed by the wallet
+    #[schema(example = "epsx.io wants you to sign in with your Ethereum account:\n0x1234567890123456789012345678901234567890\n\nPlease sign this message to verify your ownership of this wallet.\n\nURI: https://epsx.io\nVersion: 1\nChain ID: 1\nNonce: abc123def456\nIssued At: 2024-01-01T12:00:00.000Z")]
     pub message: String,
-    
-    /// Challenge expiration timestamp
+
+    /// When this challenge expires and becomes invalid
     pub expires_at: chrono::DateTime<chrono::Utc>,
-    
-    /// Wallet address for this challenge
+
+    /// The wallet address that must sign this challenge
     #[schema(example = "0x1234567890123456789012345678901234567890")]
     pub wallet_address: String,
 }
 
 /// Web3 Verification response
+/// Returned after successful SIWE signature verification
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct VerificationResponse {
-    /// Authentication token
+    /// JWT authentication token for API access
+    #[schema(example = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...")]
     pub token: String,
-    
-    /// Token expiration timestamp
+
+    /// When the authentication token expires
     pub expires_at: chrono::DateTime<chrono::Utc>,
-    
-    /// User wallet address
+
+    /// The authenticated wallet address
     #[schema(example = "0x1234567890123456789012345678901234567890")]
     pub wallet_address: String,
-    
-    /// User permissions
+
+    /// List of permissions granted to this wallet
     pub permissions: Vec<String>,
 }
 
@@ -178,28 +184,28 @@ pub struct SessionInfo {
 }
 
 /// Permission group structure
+/// Logical grouping of permissions that can be assigned to users
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct PermissionGroup {
-    /// Group unique identifier
+    /// Group unique identifier (UUID v4 format)
     #[schema(example = "550e8400-e29b-41d4-a716-446655440000")]
     pub id: String,
 
-    /// Group name
+    /// Human-readable group name
     #[schema(example = "Premium Users")]
     pub name: String,
 
-    /// Group description
-    #[schema(example = "Users with premium access permissions")]
+    /// Optional description of the group's purpose
+    #[schema(example = "Users with premium access permissions and advanced features")]
     pub description: Option<String>,
 
-    /// Permissions included in this group
-    #[schema(example = json!(["epsx:rankings:view:50", "epsx:trading:premium"]))]
+    /// List of permissions granted to members of this group
     pub permissions: Vec<String>,
 
-    /// Group creation timestamp
+    /// When this permission group was created
     pub created_at: chrono::DateTime<chrono::Utc>,
 
-    /// Group update timestamp
+    /// When this permission group was last updated
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 

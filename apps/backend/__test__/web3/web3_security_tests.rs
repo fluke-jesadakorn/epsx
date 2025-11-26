@@ -1,49 +1,47 @@
 use anyhow::Result;
 use chrono::{Duration, Utc};
 use serde_json::json;
-use sqlx::PgPool;
+use diesel_async::pooled_connection::deadpool::Pool;
+use diesel_async::AsyncPgConnection;
 use std::env;
 use uuid::Uuid;
 
 use crate::auth::web3_auth_service::{Web3AuthService, VerifyRequest};
 use crate::auth::web3_permission_service::Web3PermissionService;
+use crate::infrastructure::database::diesel_connection_manager::get_diesel_pool;
 
 #[cfg(test)]
 mod security_tests {
     use super::*;
-    use sqlx::postgres::PgPoolOptions;
+    use diesel_async::RunQueryDsl;
+    use diesel::sql_query;
 
-    async fn setup_test_db() -> PgPool {
-        let database_url = env::var("DATABASE_URL")
-            .unwrap_or_else(|_| "postgresql://postgres:password@localhost:5432/epsx_test".to_string());
-        
-        PgPoolOptions::new()
-            .max_connections(5)
-            .connect(&database_url)
-            .await
-            .expect("Failed to connect to test database")
+    async fn setup_test_db() -> Result<&'static Pool<AsyncPgConnection>> {
+        get_diesel_pool().await
     }
 
-    async fn cleanup_test_data(pool: &PgPool) -> Result<()> {
-        sqlx::query!("DELETE FROM web3_auth_nonces WHERE wallet_address LIKE '0xtest%'")
-            .execute(pool)
+    async fn cleanup_test_data(pool: &Pool<AsyncPgConnection>) -> Result<()> {
+        let mut conn = pool.get().await?;
+
+        sql_query("DELETE FROM web3_auth_nonces WHERE wallet_address LIKE '0xtest%'")
+            .execute(&mut conn)
             .await?;
-        
-        sqlx::query!("DELETE FROM wallet_permissions WHERE wallet_address LIKE '0xtest%'")
-            .execute(pool)
+
+        sql_query("DELETE FROM wallet_permissions WHERE wallet_address LIKE '0xtest%'")
+            .execute(&mut conn)
             .await?;
-        
-        sqlx::query!("DELETE FROM wallet_migrations WHERE wallet_address LIKE '0xtest%'")
-            .execute(pool)
+
+        sql_query("DELETE FROM wallet_migrations WHERE wallet_address LIKE '0xtest%'")
+            .execute(&mut conn)
             .await?;
-        
+
         Ok(())
     }
 
     #[tokio::test]
-    async fn test_nonce_replay_attack_prevention() {
-        let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
+    async fn test_nonce_replay_attack_prevention() -> Result<()> {
+        let pool = setup_test_db().await?;
+        let service = Web3AuthService::new("epsx.io".to_string(), 97);
         
         let wallet = "0xtest742d35Cc6634C0532925a3b8D369D7763F3c45c6";
         
@@ -73,40 +71,45 @@ mod security_tests {
         assert!(!second_result.is_valid);
         
         // Verify nonce is marked as used
-        let nonce_used = sqlx::query_scalar!(
-            "SELECT is_used FROM web3_auth_nonces WHERE nonce = $1",
-            challenge.nonce
-        )
-        .fetch_optional(&pool)
-        .await
-        .unwrap()
-        .unwrap_or(Some(false))
-        .unwrap_or(false);
+        let mut conn = pool.get().await?;
+
+        #[derive(QueryableByName)]
+        struct NonceCheck {
+            #[diesel(sql_type = diesel::sql_types::Bool)]
+            is_used: bool,
+        }
+
+        let nonce_used = sql_query("SELECT is_used FROM web3_auth_nonces WHERE nonce = $1")
+            .bind::<diesel::sql_types::Text, _>(&challenge.nonce)
+            .get_result::<NonceCheck>(&mut conn)
+            .await
+            .map(|r| r.is_used)
+            .unwrap_or(false);
         
         assert!(nonce_used);
         
-        cleanup_test_data(&pool).await.unwrap();
+        cleanup_test_data(pool).await.unwrap();
     }
 
     #[tokio::test]
-    async fn test_expired_nonce_rejection() {
-        let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
-        
+    async fn test_expired_nonce_rejection() -> Result<()> {
+        let pool = setup_test_db().await?;
+        let service = Web3AuthService::new("epsx.io".to_string(), 97);
+
         let wallet = "0xtest742d35Cc6634C0532925a3b8D369D7763F3c45c6";
         let nonce = "expired_test_nonce";
-        
+
         // Insert expired nonce manually
         let expired_time = Utc::now() - Duration::hours(1);
-        sqlx::query!(
-            "INSERT INTO web3_auth_nonces (wallet_address, nonce, expires_at, is_used) VALUES ($1, $2, $3, false)",
-            wallet.to_lowercase(),
-            nonce,
-            expired_time
-        )
-        .execute(&pool)
-        .await
-        .unwrap();
+        let mut conn = pool.get().await?;
+
+        sql_query("INSERT INTO web3_auth_nonces (wallet_address, nonce, expires_at, is_used) VALUES ($1, $2, $3, false)")
+            .bind::<diesel::sql_types::Text, _>(&wallet.to_lowercase())
+            .bind::<diesel::sql_types::Text, _>(nonce)
+            .bind::<diesel::sql_types::Timestamp, _>(expired_time)
+            .execute(&mut conn)
+            .await
+            .unwrap();
         
         let message = format!(
             "epsx.io wants you to sign in with your Ethereum account:\n{}\n\nSign in to EPSX trading platform\n\nURI: https://epsx.io\nVersion: 1\nChain ID: 1\nNonce: {}\nIssued At: {}",
@@ -124,13 +127,13 @@ mod security_tests {
         let result = service.verify_signature(verify_request).await.unwrap();
         assert!(!result.is_valid);
         
-        cleanup_test_data(&pool).await.unwrap();
+        cleanup_test_data(pool).await.unwrap();
     }
 
     #[tokio::test]
-    async fn test_domain_validation_security() {
-        let pool = setup_test_db().await;
-        let service = Web3AuthService::new(pool.clone(), "epsx.io".to_string(), 97);
+    async fn test_domain_validation_security() -> Result<()> {
+        let pool = setup_test_db().await?;
+        let service = Web3AuthService::new("epsx.io".to_string(), 97);
         
         let wallet = "0xtest742d35Cc6634C0532925a3b8D369D7763F3c45c6";
         
@@ -154,7 +157,7 @@ mod security_tests {
         let result = service.verify_signature(verify_request).await.unwrap();
         assert!(!result.is_valid);
         
-        cleanup_test_data(&pool).await.unwrap();
+        cleanup_test_data(pool).await.unwrap();
     }
 
     #[tokio::test]
@@ -185,7 +188,7 @@ mod security_tests {
         let result = service.verify_signature(verify_request).await.unwrap();
         assert!(!result.is_valid);
         
-        cleanup_test_data(&pool).await.unwrap();
+        cleanup_test_data(pool).await.unwrap();
     }
 
     #[tokio::test]
@@ -212,17 +215,23 @@ mod security_tests {
         assert!(permission_result.is_err());
         
         // Verify tables still exist
-        let table_exists = sqlx::query_scalar!(
-            "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'wallet_permissions')"
-        )
-        .fetch_one(&pool)
-        .await
-        .unwrap()
-        .unwrap_or(false);
+        let mut conn = pool.get().await?;
+
+        #[derive(QueryableByName)]
+        struct TableExists {
+            #[diesel(sql_type = diesel::sql_types::Bool)]
+            exists: bool,
+        }
+
+        let table_exists = sql_query("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'wallet_permissions')")
+            .get_result::<TableExists>(&mut conn)
+            .await
+            .map(|r| r.exists)
+            .unwrap_or(false);
         
         assert!(table_exists);
         
-        cleanup_test_data(&pool).await.unwrap();
+        cleanup_test_data(pool).await.unwrap();
     }
 
     #[tokio::test]
@@ -250,7 +259,7 @@ mod security_tests {
         assert_eq!(permissions.len(), 1);
         assert_eq!(permissions[0].permission, low_permission);
         
-        cleanup_test_data(&pool).await.unwrap();
+        cleanup_test_data(pool).await.unwrap();
     }
 
     #[tokio::test]
@@ -276,7 +285,7 @@ mod security_tests {
         // Verify we have 20 unique nonces
         assert_eq!(nonces.len(), 20);
         
-        cleanup_test_data(&pool).await.unwrap();
+        cleanup_test_data(pool).await.unwrap();
     }
 
     #[tokio::test]
@@ -308,7 +317,7 @@ mod security_tests {
         let result = service.verify_signature(verify_request).await.unwrap();
         assert!(!result.is_valid);
         
-        cleanup_test_data(&pool).await.unwrap();
+        cleanup_test_data(pool).await.unwrap();
     }
 
     #[tokio::test]
@@ -340,7 +349,7 @@ mod security_tests {
         let cached_after = permission_service.get_cached_verification(wallet, contract, "ethereum", "nft_gated").await.unwrap();
         assert_eq!(cached_after, Some(true)); // Updated to true
         
-        cleanup_test_data(&pool).await.unwrap();
+        cleanup_test_data(pool).await.unwrap();
     }
 
     #[tokio::test]
@@ -374,7 +383,7 @@ mod security_tests {
         // All nonces should be unique even with concurrent generation
         assert_eq!(nonces.len(), 5);
         
-        cleanup_test_data(&pool).await.unwrap();
+        cleanup_test_data(pool).await.unwrap();
     }
 
     #[tokio::test]
@@ -404,7 +413,7 @@ mod security_tests {
         let has_permission_after = permission_service.has_permission(wallet, permission).await.unwrap();
         assert!(!has_permission_after);
         
-        cleanup_test_data(&pool).await.unwrap();
+        cleanup_test_data(pool).await.unwrap();
     }
 
     #[tokio::test]
@@ -433,6 +442,6 @@ mod security_tests {
             assert!(!result.is_valid, "Malformed message should be rejected: {}", malformed_message);
         }
         
-        cleanup_test_data(&pool).await.unwrap();
+        cleanup_test_data(pool).await.unwrap();
     }
 }

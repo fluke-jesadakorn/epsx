@@ -9,7 +9,8 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
-use sqlx::Row;
+use diesel::prelude::*;
+use diesel_async::{AsyncConnection, RunQueryDsl};
 
 use crate::web::auth::AppState;
 use crate::web::responses::AdminResponse;
@@ -128,6 +129,20 @@ pub async fn bulk_grant(
         return AdminResponse::bad_request("No permissions provided").into_response();
     }
 
+    let mut conn = match app_state.db_pool.get().await {
+        Ok(conn) => conn,
+        Err(e) => {
+            tracing::error!("Failed to get database connection: {}", e);
+            return AdminResponse::server_error("Database connection failed").into_response();
+        }
+    };
+
+    #[derive(QueryableByName)]
+    struct PermId {
+        #[diesel(sql_type = diesel::sql_types::Uuid)]
+        id: Uuid,
+    }
+
     let mut successful = Vec::new();
     let mut failed = Vec::new();
     let mut total_granted = 0;
@@ -145,89 +160,89 @@ pub async fn bulk_grant(
             continue;
         }
 
-        let mut added_permissions = Vec::new();
+        let perm_strings_clone = req.permission_strings.clone();
+        let expires_at = req.expires_at;
+        let wallet_clone = wallet.clone();
 
-        // Begin transaction for this wallet
-        let mut tx = match app_state.db_pool.begin().await {
-            Ok(tx) => tx,
+        // Run transaction for this wallet
+        let result = conn.transaction::<_, diesel::result::Error, _>(|conn| {
+            Box::pin(async move {
+                let mut added = Vec::new();
+                let mut granted_count = 0;
+
+                // Grant each permission
+                for perm_string in &perm_strings_clone {
+                    let parts: Vec<&str> = perm_string.split(':').collect();
+                    if parts.len() < 3 {
+                        continue;
+                    }
+
+                    // Get or create permission
+                    let perm_id = match diesel::sql_query(
+                        r#"
+                        INSERT INTO permissions (permission_string, platform, resource, action, permission_type)
+                        VALUES ($1, $2, $3, $4, 'manual')
+                        ON CONFLICT (permission_string) DO UPDATE SET permission_string = EXCLUDED.permission_string
+                        RETURNING id
+                        "#
+                    )
+                    .bind::<diesel::sql_types::Text, _>(perm_string)
+                    .bind::<diesel::sql_types::Text, _>(parts[0])
+                    .bind::<diesel::sql_types::Text, _>(parts[1])
+                    .bind::<diesel::sql_types::Text, _>(parts[2])
+                    .get_result::<PermId>(conn)
+                    .await
+                    {
+                        Ok(result) => result.id,
+                        Err(_) => continue,
+                    };
+
+                    // Grant direct permission
+                    match diesel::sql_query(
+                        r#"
+                        INSERT INTO wallet_direct_permissions (wallet_address, permission_id, expires_at)
+                        VALUES ($1, $2, $3)
+                        ON CONFLICT (wallet_address, permission_id) DO UPDATE
+                        SET expires_at = EXCLUDED.expires_at, is_active = true
+                        "#
+                    )
+                    .bind::<diesel::sql_types::Text, _>(&wallet_clone)
+                    .bind::<diesel::sql_types::Uuid, _>(perm_id)
+                    .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(expires_at)
+                    .execute(conn)
+                    .await
+                    {
+                        Ok(_) => {
+                            added.push(perm_string.clone());
+                            granted_count += 1;
+                        }
+                        Err(_) => continue,
+                    }
+                }
+
+                Ok((added, granted_count))
+            })
+        }).await;
+
+        match result {
+            Ok((added_permissions, granted_count)) => {
+                total_granted += granted_count;
+                successful.push(BulkWalletResult {
+                    wallet_address: wallet,
+                    permissions_added: added_permissions,
+                    permissions_removed: vec![],
+                    groups_assigned: vec![],
+                });
+            }
             Err(e) => {
-                tracing::error!("Failed to begin transaction: {}", e);
+                tracing::error!("Transaction failed for wallet {}: {}", wallet, e);
                 failed.push(BulkWalletError {
                     wallet_address: wallet.clone(),
-                    error: "Database transaction failed".to_string(),
-                    error_code: "DB_ERROR".to_string(),
+                    error: "Failed to save permissions".to_string(),
+                    error_code: "COMMIT_FAILED".to_string(),
                 });
-                continue;
-            }
-        };
-
-        // Grant each permission
-        for perm_string in &req.permission_strings {
-            let parts: Vec<&str> = perm_string.split(':').collect();
-            if parts.len() < 3 {
-                continue;
-            }
-
-            // Get or create permission
-            let perm_id = match sqlx::query_scalar::<_, Uuid>(
-                r#"
-                INSERT INTO permissions (permission_string, platform, resource, action, permission_type)
-                VALUES ($1, $2, $3, $4, 'manual')
-                ON CONFLICT (permission_string) DO UPDATE SET permission_string = EXCLUDED.permission_string
-                RETURNING id
-                "#
-            )
-            .bind(perm_string)
-            .bind(parts[0])
-            .bind(parts[1])
-            .bind(parts[2])
-            .fetch_one(&mut *tx)
-            .await
-            {
-                Ok(id) => id,
-                Err(_) => continue,
-            };
-
-            // Grant direct permission
-            match sqlx::query(
-                r#"
-                INSERT INTO wallet_direct_permissions (wallet_address, permission_id, expires_at)
-                VALUES ($1, $2, $3)
-                ON CONFLICT (wallet_address, permission_id) DO UPDATE
-                SET expires_at = EXCLUDED.expires_at, is_active = true
-                "#
-            )
-            .bind(&wallet)
-            .bind(perm_id)
-            .bind(req.expires_at)
-            .execute(&mut *tx)
-            .await
-            {
-                Ok(_) => {
-                    added_permissions.push(perm_string.clone());
-                    total_granted += 1;
-                }
-                Err(_) => continue,
             }
         }
-
-        // Commit transaction
-        if let Err(e) = tx.commit().await {
-            tracing::error!("Failed to commit transaction: {}", e);
-            failed.push(BulkWalletError {
-                wallet_address: wallet.clone(),
-                error: "Failed to save permissions".to_string(),
-                error_code: "COMMIT_FAILED".to_string(),
-            });
-            continue;
-        }
-
-        successful.push(BulkWalletResult {
-            wallet_address: wallet,
-            permissions_added: added_permissions,
-            permissions_removed: vec![],
-            groups_assigned: vec![],
-        });
     }
 
     let summary = BulkSummary {
@@ -268,6 +283,20 @@ pub async fn bulk_revoke(
         return AdminResponse::bad_request("No permissions provided").into_response();
     }
 
+    let mut conn = match app_state.db_pool.get().await {
+        Ok(conn) => conn,
+        Err(e) => {
+            tracing::error!("Failed to get database connection: {}", e);
+            return AdminResponse::server_error("Database connection failed").into_response();
+        }
+    };
+
+    #[derive(QueryableByName)]
+    struct PermId {
+        #[diesel(sql_type = diesel::sql_types::Uuid)]
+        id: Uuid,
+    }
+
     let mut successful = Vec::new();
     let failed = Vec::new();
     let mut total_revoked = 0;
@@ -280,27 +309,24 @@ pub async fn bulk_revoke(
         // Revoke each permission
         for perm_string in &req.permission_strings {
             // Get permission ID
-            let perm_id = match sqlx::query_scalar::<_, Uuid>(
-                "SELECT id FROM permissions WHERE permission_string = $1"
-            )
-            .bind(perm_string)
-            .fetch_optional(&*app_state.db_pool)
-            .await
+            let perm_id = match diesel::sql_query("SELECT id FROM permissions WHERE permission_string = $1")
+                .bind::<diesel::sql_types::Text, _>(perm_string)
+                .get_result::<PermId>(&mut conn)
+                .await
+                .optional()
             {
-                Ok(Some(id)) => id,
+                Ok(Some(result)) => result.id,
                 _ => continue,
             };
 
             // Revoke direct permission
-            match sqlx::query(
-                "DELETE FROM wallet_direct_permissions WHERE wallet_address = $1 AND permission_id = $2"
-            )
-            .bind(&wallet)
-            .bind(perm_id)
-            .execute(&*app_state.db_pool)
-            .await
+            match diesel::sql_query("DELETE FROM wallet_direct_permissions WHERE wallet_address = $1 AND permission_id = $2")
+                .bind::<diesel::sql_types::Text, _>(&wallet)
+                .bind::<diesel::sql_types::Uuid, _>(perm_id)
+                .execute(&mut conn)
+                .await
             {
-                Ok(result) if result.rows_affected() > 0 => {
+                Ok(rows) if rows > 0 => {
                     removed_permissions.push(perm_string.clone());
                     total_revoked += 1;
                 }
@@ -355,6 +381,14 @@ pub async fn bulk_assign_roles(
         return AdminResponse::bad_request("No wallet addresses provided").into_response();
     }
 
+    let mut conn = match app_state.db_pool.get().await {
+        Ok(conn) => conn,
+        Err(e) => {
+            tracing::error!("Failed to get database connection: {}", e);
+            return AdminResponse::server_error("Database connection failed").into_response();
+        }
+    };
+
     let mut successful = Vec::new();
     let mut failed = Vec::new();
 
@@ -372,7 +406,7 @@ pub async fn bulk_assign_roles(
         }
 
         // Assign wallet to group
-        match sqlx::query(
+        match diesel::sql_query(
             r#"
             INSERT INTO wallet_group_assignments (
                 wallet_address, group_id, assigned_at, expires_at, is_active, assignment_source
@@ -382,11 +416,11 @@ pub async fn bulk_assign_roles(
             SET is_active = true, expires_at = EXCLUDED.expires_at, updated_at = NOW()
             "#
         )
-        .bind(&wallet)
-        .bind(group_uuid)
-        .bind(req.expires_at)
-        .bind(req.assignment_source.as_deref().unwrap_or("bulk_assignment"))
-        .execute(&*app_state.db_pool)
+        .bind::<diesel::sql_types::Text, _>(&wallet)
+        .bind::<diesel::sql_types::Uuid, _>(group_uuid)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(req.expires_at)
+        .bind::<diesel::sql_types::Text, _>(req.assignment_source.as_deref().unwrap_or("bulk_assignment"))
+        .execute(&mut conn)
         .await
         {
             Ok(_) => {
@@ -482,6 +516,22 @@ pub async fn bulk_validate(
         return AdminResponse::bad_request("No wallet addresses provided").into_response();
     }
 
+    let mut conn = match app_state.db_pool.get().await {
+        Ok(conn) => conn,
+        Err(e) => {
+            tracing::error!("Failed to get database connection: {}", e);
+            return AdminResponse::server_error("Database connection failed").into_response();
+        }
+    };
+
+    #[derive(QueryableByName)]
+    struct PermissionRow {
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        permission_string: String,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+        direct_expires: Option<DateTime<Utc>>,
+    }
+
     let mut wallet_validations = Vec::new();
     let mut total_permissions = 0;
     let mut total_valid = 0;
@@ -491,7 +541,7 @@ pub async fn bulk_validate(
         let wallet = wallet_address.to_lowercase();
 
         // Get all permissions (direct + groups)
-        let permissions = match sqlx::query(
+        let permissions = match diesel::sql_query(
             r#"
             SELECT DISTINCT p.permission_string, wdp.expires_at as direct_expires
             FROM permissions p
@@ -501,8 +551,8 @@ pub async fn bulk_validate(
             WHERE (wdp.is_active = true OR wga.is_active = true)
             "#
         )
-        .bind(&wallet)
-        .fetch_all(&*app_state.db_pool)
+        .bind::<diesel::sql_types::Text, _>(&wallet)
+        .load::<PermissionRow>(&mut conn)
         .await
         {
             Ok(rows) => rows,
@@ -513,8 +563,8 @@ pub async fn bulk_validate(
         let mut expired_permissions = Vec::new();
 
         for row in permissions {
-            let perm_string: String = row.get("permission_string");
-            let expires_at: Option<DateTime<Utc>> = row.get("direct_expires");
+            let perm_string = row.permission_string;
+            let expires_at = row.direct_expires;
 
             if let Some(expiry) = expires_at {
                 if expiry < Utc::now() {

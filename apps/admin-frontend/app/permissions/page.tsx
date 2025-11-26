@@ -10,16 +10,15 @@ interface PermissionsPageProps {
   }>
 }
 
-// Redirect to Web3 permissions page
 /**
- *
- * @param props
+ * Redirect to permissions page
+ * @deprecated Use /web3-permissions directly
  */
 export default async function AdminPermissionsPage(props: PermissionsPageProps) {
   // Preserve search params when redirecting
   const params = props.searchParams ? await props.searchParams : {}
   const searchParamsString = new URLSearchParams(params as Record<string, string>).toString()
-  const redirectUrl = `/permissions/web3${searchParamsString ? `?${searchParamsString}` : ''}`
-  
+  const redirectUrl = `/web3-permissions${searchParamsString ? `?${searchParamsString}` : ''}`
+
   redirect(redirectUrl)
 }

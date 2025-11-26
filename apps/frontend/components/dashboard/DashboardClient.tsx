@@ -266,15 +266,14 @@ export function DashboardClient({ user, permissions, dashboardData: _dashboardDa
               🚪 Sign Out
             </Button>
           ) : (
-            <Link href="/login">
-              <Button
-                variant="default"
-                className="px-8 py-3 text-lg font-semibold"
-              >
-                <Lock className="mr-2 h-5 w-5" />
-                🚪 Log In
-              </Button>
-            </Link>
+            <Button
+              variant="default"
+              className="px-8 py-3 text-lg font-semibold"
+              onClick={() => alert('Please use the wallet button in the navigation menu to connect')}
+            >
+              <Lock className="mr-2 h-5 w-5" />
+              🚪 Connect Wallet
+            </Button>
           )}
 
           {/* Decorative elements */}

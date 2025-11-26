@@ -294,7 +294,5 @@ pub struct DispatcherHealth {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     // Integration tests will be added when test database is available
 }
