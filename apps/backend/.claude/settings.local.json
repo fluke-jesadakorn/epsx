@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo clippy:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(tokei:*)",
+      "Bash(xargs:*)",
+      "Bash(tree:*)",
+      "Bash(cargo tree:*)",
+      "Read(//Users/fluke/Desktop/Work/epsx/apps/**)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -2,7 +2,7 @@ import { StreamingWrapper } from '@/components/common/StreamingWrapper';
 import DynamicPricingSection from '@/components/home/DynamicPricingSection';
 import ServerTopPerformers from '@/components/home/ServerTopPerformers';
 
-// DISABLE ISR caching to show real TradingView data immediately
+// DISABLE ISR caching to show real Data Analytics data immediately
 export const revalidate = 0;
 
 import type { StockFinancialData } from '@/types/financialChartData';

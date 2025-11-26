@@ -29,7 +29,6 @@ import {
 import {
   COOKIES,
   COOKIE_OPTIONS,
-  clearClientSideCookies,
   getClientCookie,
   getClientCookieJSON,
   setClientCookie,
@@ -172,9 +171,7 @@ export function SharedOpenIDWeb3Provider({
         let hasStoredAuth = false;
         if (typeof window !== 'undefined') {
           try {
-            const storedUser = getClientCookieJSON<UserInfoResponse>(
-              COOKIES.user
-            );
+            const storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user);
             const authTime = getClientCookie(COOKIES.auth_time);
             const accessToken = getClientCookie(COOKIES.access); // This will be null (HttpOnly) but we check other cookies
             const tokenExpiry = getClientCookie(COOKIES.expires_at);
@@ -186,7 +183,7 @@ export function SharedOpenIDWeb3Provider({
               hasTokenExpiry: !!tokenExpiry,
               tokenExpiryValue: tokenExpiry,
               storedUserPermissions: storedUser?.permissions,
-              isPermissionsArray: Array.isArray(storedUser?.permissions),
+              isPermissionsArray: Array.isArray(storedUser?.permissions)
             });
 
             if (storedUser && authTime) {
@@ -206,6 +203,14 @@ export function SharedOpenIDWeb3Provider({
                 now: new Date().toISOString(),
               });
 
+              console.log('🔍 Auth validation check', {
+                authAge: Math.round(authAge / 1000 / 60) + 'min',
+                maxAge: '24h',
+                isTokenValid,
+                tokenExpiry: tokenExpiry ? new Date(parseInt(tokenExpiry)).toISOString() : 'none',
+                now: new Date().toISOString()
+              });
+
               if (authAge < maxAge && isTokenValid) {
                 console.log('✅ Restoring auth from cookies', {
                   clientId,
@@ -221,7 +226,7 @@ export function SharedOpenIDWeb3Provider({
                   clientId,
                   authAge: Math.round(authAge / 1000 / 60) + 'min',
                   tokenValid: isTokenValid,
-                  reason: authAge >= maxAge ? 'auth too old' : 'token expired',
+                  reason: authAge >= maxAge ? 'auth too old' : 'token expired'
                 });
                 // Clear expired or invalid authentication
                 clearClientSideCookies();
@@ -229,14 +234,11 @@ export function SharedOpenIDWeb3Provider({
             } else {
               console.log('⚠️ Missing required cookies', {
                 hasStoredUser: !!storedUser,
-                hasAuthTime: !!authTime,
+                hasAuthTime: !!authTime
               });
             }
           } catch (error) {
-            console.warn(
-              'Failed to restore authentication from cookies',
-              error
-            );
+            console.warn('Failed to restore authentication from cookies', error);
           }
         }
 
@@ -367,64 +369,55 @@ export function SharedOpenIDWeb3Provider({
   );
 
   // Authenticate with direct API result (bypass OpenID flow)
-  const authenticateWithDirectApi = useCallback(
-    async (result: {
-      wallet_address: string;
-      permissions: string[];
-      is_new_user: boolean;
-      access_token?: string;
-    }) => {
-      try {
-        setError(null);
-        setIsLoading(true);
+  const authenticateWithDirectApi = useCallback(async (result: {
+    wallet_address: string;
+    permissions: string[];
+    tier_level: string;
+    is_new_user: boolean;
+    access_token?: string;
+  }) => {
+    try {
+      setError(null);
+      setIsLoading(true);
+      
+      console.log('🔄 Processing direct API authentication result', {
+        wallet: result.wallet_address,
+        tier: result.tier_level,
+        permissions: result.permissions.length,
+        isNew: result.is_new_user
+      });
+      
+      // Create user info compatible with UserInfoResponse
+      const user: UserInfoResponse = {
+        sub: result.wallet_address,
+        wallet_address: result.wallet_address,
+        tier_level: result.tier_level,
+        auth_method: 'web3_siwe',
+        permissions: result.permissions,
+        packageTier: result.tier_level, // For compatibility
+        access: result.access_token, // JWT for SSE authentication
+      };
+      
+      // Persist user data to cookies for page refresh survival
+      if (typeof window !== 'undefined') {
+        try {
+          setClientCookieJSON(COOKIES.user, user);
+          setClientCookie(COOKIES.auth_time, Date.now().toString(), COOKIE_OPTIONS.maxAge.auth_time);
 
-        console.log('🔄 Processing direct API authentication result', {
-          wallet: result.wallet_address,
-          permissions: result.permissions.length,
-          isNew: result.is_new_user,
-        });
+          // Set token expiry (same as access token)
+          const expiryTime = Date.now() + (COOKIE_OPTIONS.maxAge.access * 1000);
+          setClientCookie(COOKIES.expires_at, expiryTime.toString(), COOKIE_OPTIONS.maxAge.expires_at);
 
-        // Create user info compatible with UserInfoResponse
-        const user: UserInfoResponse = {
-          sub: result.wallet_address,
-          wallet_address: result.wallet_address,
-          auth_method: 'web3_siwe',
-          permissions: result.permissions,
-          access: result.access_token, // JWT for SSE authentication
-        };
-
-        // Persist user data to cookies for page refresh survival
-        if (typeof window !== 'undefined') {
-          try {
-            setClientCookieJSON(COOKIES.user, user);
-            setClientCookie(
-              COOKIES.auth_time,
-              Date.now().toString(),
-              COOKIE_OPTIONS.maxAge.auth_time
-            );
-
-            // Set token expiry (same as access token)
-            const expiryTime = Date.now() + COOKIE_OPTIONS.maxAge.access * 1000;
-            setClientCookie(
-              COOKIES.expires_at,
-              expiryTime.toString(),
-              COOKIE_OPTIONS.maxAge.expires_at
-            );
-
-            console.log('💾 Persisted Web3 authentication to cookies', {
-              clientId,
-              keys: {
-                user: COOKIES.user,
-                authTime: COOKIES.auth_time,
-                expiresAt: COOKIES.expires_at,
-              },
-            });
-          } catch (error) {
-            console.warn(
-              '⚠️ Failed to persist authentication data to cookies:',
-              error
-            );
-          }
+          console.log('💾 Persisted Web3 authentication to cookies', {
+            clientId,
+            keys: {
+              user: COOKIES.user,
+              authTime: COOKIES.auth_time,
+              expiresAt: COOKIES.expires_at
+            }
+          });
+        } catch (error) {
+          console.warn('⚠️ Failed to persist authentication data to cookies:', error);
         }
 
         // Update user state directly
@@ -469,6 +462,7 @@ export function SharedOpenIDWeb3Provider({
       await client.logout();
 
       console.log('Logout successful');
+
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Logout failed';
       console.error('Logout error', { error: errorMessage });
@@ -554,6 +548,19 @@ export function SharedOpenIDWeb3Provider({
     wallet: user?.wallet_address?.slice(0, 8),
     permissionsLength: user?.permissions?.length || 0,
     isLoading,
+  });
+
+  // Context value - Backend handles ALL validation (tokens, permissions, expiry)
+  // Frontend only checks: "Do I have a user object?"
+  const isAuthenticated = !!user;
+
+  console.log('🔍 Provider: isAuthenticated calculation', {
+    clientId,
+    isAuthenticated,
+    hasUser: !!user,
+    wallet: user?.wallet_address?.slice(0, 8),
+    permissionsLength: user?.permissions?.length || 0,
+    isLoading
   });
 
   const contextValue: SharedAuthContextValue = {

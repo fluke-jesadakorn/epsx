@@ -141,41 +141,40 @@ pub async fn mark_as_acknowledged(
 ///
 /// This function is designed to be called by a cron job (not implemented)
 pub async fn cleanup_old_notifications(
-    db_pool: &Pool<AsyncPgConnection>,
+    db_pool: &PgPool,
     _days: i64,
 ) -> Result<u64, AppError> {
-    let mut conn = db_pool.get().await
-        .map_err(|e| AppError::database_error(format!("Connection pool error: {}", e)))?;
-
     // Delete soft-deleted notifications after grace period (7 days)
-    let soft_deleted_count = diesel::sql_query(
+    let soft_deleted_result = sqlx::query!(
         "DELETE FROM wallet_notifications WHERE deleted_at IS NOT NULL AND deleted_at < NOW() - INTERVAL '7 days'"
     )
     .execute(&mut conn)
     .await? as u64;
 
     // Delete old read notifications (90 days)
-    let read_count = diesel::sql_query(
+    let read_result = sqlx::query!(
         "DELETE FROM wallet_notifications WHERE read_at IS NOT NULL AND deleted_at IS NULL AND created_at < NOW() - INTERVAL '90 days'"
     )
-    .execute(&mut conn)
-    .await? as u64;
+    .execute(db_pool)
+    .await?;
 
     // Delete expired notifications immediately
-    let expired_count = diesel::sql_query(
+    let expired_result = sqlx::query!(
         "DELETE FROM wallet_notifications WHERE expires_at IS NOT NULL AND expires_at < NOW()"
     )
-    .execute(&mut conn)
-    .await? as u64;
+    .execute(db_pool)
+    .await?;
 
-    let total_cleaned = soft_deleted_count + read_count + expired_count;
+    let total_cleaned = soft_deleted_result.rows_affected()
+        + read_result.rows_affected()
+        + expired_result.rows_affected();
 
     tracing::info!(
         "🧹 Cleaned up {} notifications (soft-deleted: {}, read: {}, expired: {})",
         total_cleaned,
-        soft_deleted_count,
-        read_count,
-        expired_count
+        soft_deleted_result.rows_affected(),
+        read_result.rows_affected(),
+        expired_result.rows_affected()
     );
 
     Ok(total_cleaned)
@@ -185,34 +184,21 @@ pub async fn cleanup_old_notifications(
 pub async fn get_notification_stats(
     db_pool: &Pool<AsyncPgConnection>,
 ) -> Result<NotificationStats, AppError> {
-    let mut conn = db_pool.get().await
-        .map_err(|e| AppError::database_error(format!("Connection pool error: {}", e)))?;
+    let total: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM wallet_notifications WHERE deleted_at IS NULL")
+        .fetch_one(db_pool)
+        .await?;
 
-    #[derive(QueryableByName)]
-    struct CountRow {
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
-        count: i64,
-    }
+    let queued: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM wallet_notifications WHERE delivered_at IS NULL AND deleted_at IS NULL")
+        .fetch_one(db_pool)
+        .await?;
 
-    let total = diesel::sql_query("SELECT COUNT(*) as count FROM wallet_notifications WHERE deleted_at IS NULL")
-        .get_result::<CountRow>(&mut conn)
-        .await?
-        .count;
+    let delivered: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM wallet_notifications WHERE delivered_at IS NOT NULL AND deleted_at IS NULL")
+        .fetch_one(db_pool)
+        .await?;
 
-    let queued = diesel::sql_query("SELECT COUNT(*) as count FROM wallet_notifications WHERE delivered_at IS NULL AND deleted_at IS NULL")
-        .get_result::<CountRow>(&mut conn)
-        .await?
-        .count;
-
-    let delivered = diesel::sql_query("SELECT COUNT(*) as count FROM wallet_notifications WHERE delivered_at IS NOT NULL AND deleted_at IS NULL")
-        .get_result::<CountRow>(&mut conn)
-        .await?
-        .count;
-
-    let acknowledged = diesel::sql_query("SELECT COUNT(*) as count FROM wallet_notifications WHERE acknowledged_at IS NOT NULL AND deleted_at IS NULL")
-        .get_result::<CountRow>(&mut conn)
-        .await?
-        .count;
+    let acknowledged: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM wallet_notifications WHERE acknowledged_at IS NOT NULL AND deleted_at IS NULL")
+        .fetch_one(db_pool)
+        .await?;
 
     Ok(NotificationStats {
         total: total as usize,

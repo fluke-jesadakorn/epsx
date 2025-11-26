@@ -497,19 +497,7 @@ impl UnifiedPermissionService {
         );
 
         // Insert into wallet_group_memberships
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| {
-                error!("Pool error: {}", e);
-                AppError::database_error(format!("Pool error: {}", e))
-            })?;
-
-        #[derive(QueryableByName)]
-        struct AssignmentResult {
-            #[diesel(sql_type = diesel::sql_types::Uuid)]
-            id: Uuid,
-        }
-
-        let assignment_id = diesel::sql_query(
+        let assignment_id: Uuid = sqlx::query_scalar(
             r#"
             INSERT INTO wallet_group_memberships (
                 wallet_address,
@@ -564,13 +552,7 @@ impl UnifiedPermissionService {
         );
 
         // Delete from wallet_group_memberships
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| {
-                error!("Pool error: {}", e);
-                AppError::database_error(format!("Pool error: {}", e))
-            })?;
-
-        let rows_affected = diesel::sql_query(
+        let rows_affected = sqlx::query(
             r#"
             DELETE FROM wallet_group_memberships
             WHERE wallet_address = $1

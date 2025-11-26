@@ -256,7 +256,35 @@ pub async fn sse_notifications_handler(
 // HEALTH CHECK
 // ============================================================================
 
-/// Scalar notifications endpoint - HTTP alternative to SSE
+/// SSE health check endpoint
+pub async fn sse_health_handler(
+    State(app_state): State<AppState>,
+) -> Result<impl IntoResponse, AppError> {
+    // Check Redis health (if available)
+    let redis_healthy = if let Some(redis_pool) = &app_state.redis_pool {
+        redis_pool.health_check().await
+    } else {
+        false
+    };
+
+    // Get notification stats
+    let stats = crate::web::notifications::get_notification_stats(&app_state.db_pool)
+        .await
+        .ok();
+
+    Ok(axum::response::Json(serde_json::json!({
+        "status": if redis_healthy { "healthy" } else { "degraded" },
+        "redis_healthy": redis_healthy,
+        "timestamp": Utc::now(),
+        "stats": stats,
+    })))
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/// Helper function to filter notifications
 fn should_send_notification(
     notification: &SSENotification,
     allowed_types: &Option<Vec<NotificationType>>,

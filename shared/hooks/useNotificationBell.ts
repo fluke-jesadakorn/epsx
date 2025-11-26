@@ -34,7 +34,6 @@ interface UseNotificationBellReturn {
   fetchNotifications: () => Promise<void>
   markAsRead: (notificationId: string) => Promise<void>
   markAllAsRead: () => Promise<void>
-  deleteNotification: (notificationId: string) => Promise<void>
   reconnectSSE: () => void
 }
 
@@ -76,12 +75,7 @@ export function useNotificationBell(
           read: false,
         }
 
-        // Add notification and deduplicate by ID
-        setNotifications((prev) => {
-          const exists = prev.some((n) => n.id === newNotification.id)
-          if (exists) return prev
-          return [newNotification, ...prev]
-        })
+        setNotifications((prev) => [newNotification, ...prev])
         setCount((prev) => prev + 1)
 
         // Show browser notification for high priority
@@ -137,7 +131,7 @@ export function useNotificationBell(
       const data = await client.getNotifications({
         page: 1,
         limit: MAX_DROPDOWN_NOTIFICATIONS,
-        // Show all notifications (both read and unread)
+        status: 'unread',
       })
 
       const mappedNotifications: Notification[] = data.data.notifications.map((n) => ({
@@ -154,12 +148,7 @@ export function useNotificationBell(
         read: !!n.read_at,
       }))
 
-      // Deduplicate notifications by ID
-      setNotifications((prev) => {
-        const newIds = new Set(mappedNotifications.map((n) => n.id))
-        const filtered = prev.filter((n) => !newIds.has(n.id))
-        return [...mappedNotifications, ...filtered]
-      })
+      setNotifications(mappedNotifications)
       setCount(data.data.unread_count)
     } catch (err) {
       // Silently fail if not authenticated - this is expected
@@ -178,16 +167,11 @@ export function useNotificationBell(
   // Mark notification as read
   const markAsRead = useCallback(
     async (notificationId: string) => {
-      if (!isAuthenticated || !walletAddress) {
-        console.warn('Cannot mark notification as read: not authenticated')
-        return
-      }
-
       try {
         const client = createNotificationsClient(apiClient)
         await client.markAsRead(notificationId)
 
-        // Update notification as read in local state
+        // Update local state
         setNotifications((prev) =>
           prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
         )
@@ -196,55 +180,27 @@ export function useNotificationBell(
         console.error('Failed to mark notification as read:', err)
       }
     },
-    [apiClient, isAuthenticated, walletAddress]
+    [apiClient]
   )
 
   // Mark all notifications as read
   const markAllAsRead = useCallback(async () => {
-    if (!isAuthenticated || !walletAddress) {
-      console.warn('Cannot mark all notifications as read: not authenticated')
-      return
-    }
-
     try {
       const client = createNotificationsClient(apiClient)
       await client.markAllAsRead()
 
-      // Mark all notifications as read in local state
+      // Update local state
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })))
       setCount(0)
     } catch (err) {
       console.error('Failed to mark all notifications as read:', err)
     }
-  }, [apiClient, isAuthenticated, walletAddress])
-
-  // Delete notification
-  const deleteNotification = useCallback(
-    async (notificationId: string) => {
-      if (!isAuthenticated || !walletAddress) {
-        console.warn('Cannot delete notification: not authenticated')
-        return
-      }
-
-      try {
-        const client = createNotificationsClient(apiClient)
-        await client.deleteNotification(notificationId)
-
-        // Remove from local state
-        setNotifications((prev) => prev.filter((n) => n.id !== notificationId))
-        setCount((prev) => Math.max(0, prev - 1))
-      } catch (err) {
-        console.error('Failed to delete notification:', err)
-      }
-    },
-    [apiClient, isAuthenticated, walletAddress]
-  )
+  }, [apiClient])
 
   // Fetch notifications when authentication state changes
   useEffect(() => {
     fetchNotifications()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, walletAddress])
+  }, [fetchNotifications])
 
   // Connect SSE when authenticated and enabled
   useEffect(() => {
@@ -252,8 +208,7 @@ export function useNotificationBell(
       console.log('🔌 Connecting SSE for authenticated user:', walletAddress)
       reconnectSSE()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enableSSE, isAuthenticated, walletAddress, isSSEConnected])
+  }, [enableSSE, isAuthenticated, walletAddress, isSSEConnected, reconnectSSE])
 
   return {
     notifications,
@@ -264,7 +219,6 @@ export function useNotificationBell(
     fetchNotifications,
     markAsRead,
     markAllAsRead,
-    deleteNotification,
     reconnectSSE,
   }
 }

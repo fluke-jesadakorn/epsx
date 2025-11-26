@@ -9,7 +9,6 @@ import { useNotificationBell } from '@/shared/hooks/useNotificationBell'
 import { useBrowserNotifications } from './BrowserNotifications'
 import { useSharedAuth } from '@/shared/components/auth/Provider'
 import { getNotificationIcon, formatTimestamp, getPriorityColor } from '@/shared/components/notifications/utils'
-import { toast } from 'sonner'
 
 export function NotificationBellClient() {
   const router = useRouter()
@@ -31,9 +30,8 @@ export function NotificationBellClient() {
     fetchNotifications,
     markAsRead,
     markAllAsRead,
-    deleteNotification,
   } = useNotificationBell({
-    apiClient: createFrontendApiClient({ token: user?.access }),
+    apiClient: createFrontendApiClient(),
     walletAddress: user?.wallet_address,
     isAuthenticated,
     enableSSE: true,

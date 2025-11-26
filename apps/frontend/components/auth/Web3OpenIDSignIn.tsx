@@ -49,7 +49,7 @@ interface Web3OpenIDSignInProps {
 
 export function Web3OpenIDSignIn({
   onSuccess,
-  className = '',
+  className = ''
 }: Web3OpenIDSignInProps) {
   const { authenticateWithDirectApi } = useSharedAuth();
 
@@ -57,11 +57,7 @@ export function Web3OpenIDSignIn({
   const [walletAddress, setWalletAddress] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [challenge, setChallenge] = useState<{
-    nonce: string;
-    message: string;
-    wallet_address: string;
-  } | null>(null);
+  const [challenge, setChallenge] = useState<{ nonce: string; message: string; wallet_address: string } | null>(null);
 
   // Connect wallet and request challenge
   const handleConnectWallet = useCallback(async () => {
@@ -93,9 +89,7 @@ export function Web3OpenIDSignIn({
       const address = accounts[0];
       setWalletAddress(address);
 
-      logger.info('Wallet connected, requesting challenge', {
-        wallet_address: address,
-      });
+      logger.info('Wallet connected, requesting challenge', { wallet_address: address });
 
       // Request SIWE challenge from backend
       setCurrentStep('challenge');
@@ -111,6 +105,7 @@ export function Web3OpenIDSignIn({
 
       // Automatically proceed to signing
       await handleSignMessage(challengeResponse, address);
+
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to connect wallet';
@@ -122,38 +117,55 @@ export function Web3OpenIDSignIn({
   }, []);
 
   // Sign the challenge message
-  const handleSignMessage = useCallback(
-    async (
-      challengeData: { nonce: string; message: string; wallet_address: string },
-      address: string
-    ) => {
-      try {
-        setCurrentStep('signing');
-        setError('');
+  const handleSignMessage = useCallback(async (
+    challengeData: { nonce: string; message: string; wallet_address: string },
+    address: string
+  ) => {
+    try {
+      setCurrentStep('signing');
 
-        logger.info('Requesting message signature', {
-          wallet_address: address,
+      logger.info('Requesting message signature', { wallet_address: address });
+
+      // Request signature from wallet
+      const signature = await window.ethereum.request({
+        method: 'personal_sign',
+        params: [challengeData.message, address],
+      });
+
+      logger.info('Signature received, authenticating with backend');
+
+      // Authenticate with backend using direct API
+      setCurrentStep('authenticating');
+      const result = await verifyWalletSignature({
+        wallet_address: address,
+        signature,
+        message: challengeData.message,
+        nonce: challengeData.nonce
+      });
+
+      if (result.success) {
+        logger.info('🎉 Authentication successful!', {
+          wallet: result.wallet_address,
+          tier: result.tier_level,
+          permissions: result.permissions?.length || 0,
+          isNewUser: result.is_new_user
         });
 
-        // Request signature from wallet with timeout
-        const signature = (await Promise.race([
-          window.ethereum.request({
-            method: 'personal_sign',
-            params: [challengeData.message, address],
-          }),
-          new Promise((_, reject) =>
-            setTimeout(
-              () =>
-                reject(
-                  new Error('Signature request timed out after 60 seconds')
-                ),
-              60000
-            )
-          ),
-        ])) as string;
+        // Update SharedOpenIDWeb3Provider with authenticated user
+        await authenticateWithDirectApi({
+          wallet_address: result.wallet_address,
+          permissions: result.permissions,
+          tier_level: result.tier_level,
+          is_new_user: result.is_new_user,
+          access_token: result.access_token
+        });
 
-        if (!signature) {
-          throw new Error('No signature received from wallet');
+        setCurrentStep('success');
+        setIsLoading(false);
+
+        // Call onSuccess callback if provided (no redirect)
+        if (onSuccess) {
+          onSuccess();
         }
 
         logger.info('Signature received, authenticating with backend');
@@ -213,9 +225,15 @@ export function Web3OpenIDSignIn({
         setCurrentStep('error');
         setIsLoading(false);
       }
-    },
-    [authenticateWithDirectApi, onSuccess]
-  );
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Signature or authentication failed';
+      logger.error('Authentication process failed', { error: errorMessage });
+      setError(errorMessage);
+      setCurrentStep('error');
+      setIsLoading(false);
+    }
+  }, [authenticateWithDirectApi, onSuccess]);
 
   // Retry authentication
   const handleRetry = useCallback(() => {

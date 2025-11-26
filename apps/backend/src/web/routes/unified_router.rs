@@ -147,6 +147,10 @@ impl UnifiedRouteBuilder {
         let redis_pool = self.container.get_redis_pool();
         let redis_broadcaster = self.container.get_redis_broadcaster();
 
+        // Get Redis services - optional, log warning if not available
+        let redis_pool = self.container.get_redis_pool();
+        let redis_broadcaster = self.container.get_redis_broadcaster();
+
         if redis_pool.is_none() || redis_broadcaster.is_none() {
             tracing::warn!("⚠️ Redis not configured - notifications and real-time features will not work");
         }
@@ -175,7 +179,18 @@ impl UnifiedRouteBuilder {
     fn create_admin_routes(&self) -> Router {
         let app_state = self.create_app_state();
 
-        // Create admin routes with Web3 authentication middleware (original)
+        let redis_pool = self.container.get_redis_pool();
+        let redis_broadcaster = self.container.get_redis_broadcaster();
+
+        let app_state = crate::web::auth::AppState::new(
+            self.container.db_pool(),
+            cache,
+            Arc::new((*self.container).clone()),
+            redis_pool,
+            redis_broadcaster,
+        );
+
+        // Create admin routes with permission validation middleware
         let admin_routes = crate::web::admin::routes::create_admin_routes()
             .with_state(app_state.clone())
             .layer(axum_middleware::from_fn_with_state(
@@ -229,7 +244,22 @@ impl UnifiedRouteBuilder {
     // ============================================================================
 
     fn create_public_routes(&self) -> Router {
-        let app_state = self.create_app_state();
+        let cache = self.container.cache.clone()
+            .unwrap_or_else(|| {
+                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
+                    as Arc<dyn crate::infrastructure::cache::Cache>
+            });
+
+        let redis_pool = self.container.get_redis_pool();
+        let redis_broadcaster = self.container.get_redis_broadcaster();
+
+        let app_state = crate::web::auth::AppState::new(
+            self.container.db_pool(),
+            cache,
+            Arc::new((*self.container).clone()),
+            redis_pool,
+            redis_broadcaster,
+        );
 
         // Create TradingView service and EPS ranking service for public analytics
         let config = Arc::new(crate::config::get_fallback_config());
@@ -320,7 +350,32 @@ impl UnifiedRouteBuilder {
     // ============================================================================
 
     fn create_notification_routes(&self) -> Router {
-        let app_state = self.create_app_state();
+        use crate::web::admin::notification_handlers::{
+            get_user_notifications_handler,
+            mark_notification_read_handler,
+            mark_all_notifications_read_handler,
+            delete_notification_handler,
+            clear_all_notifications_handler,
+            get_unread_count_handler,
+            acknowledge_notification_handler,
+        };
+
+        let cache = self.container.cache.clone()
+            .unwrap_or_else(|| {
+                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
+                    as Arc<dyn crate::infrastructure::cache::Cache>
+            });
+
+        let redis_pool = self.container.get_redis_pool();
+        let redis_broadcaster = self.container.get_redis_broadcaster();
+
+        let app_state = crate::web::auth::AppState::new(
+            self.container.db_pool(),
+            cache,
+            Arc::new((*self.container).clone()),
+            redis_pool,
+            redis_broadcaster,
+        );
 
         // Create SSE route with permissive CORS (EventSource cannot send credentials)
         let sse_route = Router::new()
@@ -350,8 +405,13 @@ impl UnifiedRouteBuilder {
 
         // Combine all notification routes
         let notification_routes = Router::new()
-            .merge(auth_routes)
-            .merge(admin_routes)
+            .route("/", get(get_user_notifications_handler))
+            .route("/unread-count", get(get_unread_count_handler))
+            .route("/mark-all-read", put(mark_all_notifications_read_handler))
+            .route("/clear-all", delete(clear_all_notifications_handler))
+            .route("/:id/read", put(mark_notification_read_handler))
+            .route("/:id/acknowledge", put(acknowledge_notification_handler))
+            .route("/:id", delete(delete_notification_handler))
             .with_state(app_state);
 
         // Merge SSE and notification routes
@@ -387,7 +447,22 @@ impl UnifiedRouteBuilder {
     // ============================================================================
 
     fn create_permission_authority_routes(&self) -> Router {
-        let app_state = self.create_app_state();
+        let cache = self.container.cache.clone()
+            .unwrap_or_else(|| {
+                Arc::new(crate::infrastructure::cache::memory_cache::MemoryCache::new())
+                    as Arc<dyn crate::infrastructure::cache::Cache>
+            });
+
+        let redis_pool = self.container.get_redis_pool();
+        let redis_broadcaster = self.container.get_redis_broadcaster();
+
+        let app_state = crate::web::auth::AppState::new(
+            self.container.db_pool(),
+            cache,
+            Arc::new((*self.container).clone()),
+            redis_pool,
+            redis_broadcaster,
+        );
 
         crate::web::admin::routes::create_permission_authority_routes()
             .with_state(app_state.clone())
