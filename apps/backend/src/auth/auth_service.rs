@@ -351,7 +351,7 @@ impl UnifiedWeb3AuthService {
         let message = Message {
             domain,
             address: (*address).into(),
-            statement: Some("Sign in to EPSX with your wallet".to_string()),
+            statement: Some("Sign in to EPSX Data Analytics Platform".to_string()),
             uri,
             version: siwe::Version::V1,
             chain_id: 1, // Ethereum mainnet (could be configurable)
@@ -433,18 +433,23 @@ impl UnifiedWeb3AuthService {
 
         // Create new user in wallet_users table with enhanced metadata
         // NOTE: Permissions managed separately via wallet_group_memberships and wallet_direct_permissions
-        let now = Utc::now();
-        diesel::insert_into(wallet_users::table)
-            .values((
-                wallet_users::wallet_address.eq(wallet_address),
-                wallet_users::wallet_metadata.eq(&connection_metadata),
-                wallet_users::created_at.eq(&now),
-                wallet_users::updated_at.eq(&now),
-                wallet_users::last_auth_at.eq(&now),
-            ))
-            .execute(&mut conn)
-            .await
-            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
+        sqlx::query!(
+            r#"
+            INSERT INTO wallet_users (
+                wallet_address,
+                wallet_metadata,
+                created_at,
+                updated_at,
+                last_auth_at
+            )
+            VALUES ($1, $2, NOW(), NOW(), NOW())
+            "#,
+            wallet_address,
+            connection_metadata
+        )
+        .execute(&self.db_pool)
+        .await
+        .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
         // Structured logging for new wallet creation with rich metadata
         info!(

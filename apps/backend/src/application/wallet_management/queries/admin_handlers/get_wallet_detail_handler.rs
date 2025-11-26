@@ -45,14 +45,46 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
             })?
             .ok_or_else(|| ApplicationError::not_found("Wallet", &query.wallet_address))?;
 
-        // 4. Get wallet permissions using repository
-        let permissions_result = repo
-            .get_wallet_permissions(&query.wallet_address)
-            .await
-            .map_err(|e| {
-                error!("❌ Failed to fetch permissions for {}: {}", query.wallet_address, e);
-                ApplicationError::infrastructure(e.to_string())
-            })?;
+        // 3. Get wallet permissions (from groups + direct)
+        let permissions_result = sqlx::query!(
+            r#"
+            -- Permissions from groups
+            SELECT
+                p.permission_string as permission,
+                'group' as source,
+                pgm.granted_at,
+                wgm.expires_at,
+                wgm.is_active
+            FROM wallet_group_memberships wgm
+            JOIN permission_group_memberships pgm ON wgm.group_id = pgm.group_id
+            JOIN permissions p ON pgm.permission_id = p.id
+            WHERE wgm.wallet_address = $1
+              AND p.is_active = true
+
+            UNION ALL
+
+            -- Direct permissions
+            SELECT
+                p.permission_string as permission,
+                'direct' as source,
+                wdp.granted_at,
+                wdp.expires_at,
+                wdp.is_active
+            FROM wallet_direct_permissions wdp
+            JOIN permissions p ON wdp.permission_id = p.id
+            WHERE wdp.wallet_address = $1
+              AND p.is_active = true
+
+            ORDER BY permission
+            "#,
+            query.wallet_address
+        )
+        .fetch_all(self.db_pool.as_ref())
+        .await
+        .map_err(|e| {
+            error!("❌ Failed to fetch permissions for {}: {}", query.wallet_address, e);
+            ApplicationError::infrastructure(format!("Failed to fetch permissions: {}", e))
+        })?;
 
         // Convert permissions to DTOs
         let permissions: Vec<WalletPermissionDto> = permissions_result

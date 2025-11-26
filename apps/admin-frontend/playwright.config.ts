@@ -119,16 +119,6 @@ export default defineConfig({
       },
     },
 
-    // Notification Delete with Toast Tests
-    {
-      name: 'notification-delete-toast',
-      testMatch: '**/notification-delete-with-toast.spec.ts',
-      use: {
-        ...devices['Desktop Chrome'],
-        testIdAttribute: 'data-testid',
-      },
-    },
-
     // Stock Ranking and Policies Tests
     {
       name: 'stock-ranking-policies',

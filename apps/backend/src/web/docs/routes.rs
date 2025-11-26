@@ -80,13 +80,13 @@ pub async fn docs_scalar_handler() -> Html<String> {
 </head>
 <body>
     <div class="header">
-        <h1>EPSX Trading Platform API</h1>
+        <h1>EPSX Data Analytics Platform API</h1>
         <p>Interactive API documentation with real-time testing</p>
         <div class="feature-badges">
             <span class="badge">🚀 Interactive Testing</span>
             <span class="badge">🔐 Web3 Authentication</span>
             <span class="badge">📊 Real-time Analytics</span>
-            <span class="badge">💼 Trading Platform</span>
+            <span class="badge">💼 Data Analytics Platform</span>
         </div>
         <div style="margin-top: 15px; font-size: 0.9em; opacity: 0.9;">
             <strong>🦄 Web3 Authentication Flow:</strong>

@@ -15,7 +15,6 @@ import {
 } from '@/shared/components/notifications/utils'
 import type { Notification } from '@/shared/components/notifications/types'
 import { MAX_DROPDOWN_NOTIFICATIONS } from '@/shared/components/notifications/constants'
-import toast from 'react-hot-toast'
 
 export function AdminNotificationBell() {
   const [count, setCount] = useState(0)
@@ -172,7 +171,7 @@ export function AdminNotificationBell() {
                   {notifications.map((notification) => (
                     <div
                       key={notification.id}
-                      className={`rounded-2xl border bg-gradient-to-r p-4 group ${getPriorityBorderColor(notification.priority)} ${getPriorityBgGradient(notification.priority)}`}
+                      className={`rounded-2xl border bg-gradient-to-r p-4 ${getPriorityBorderColor(notification.priority)} ${getPriorityBgGradient(notification.priority)}`}
                     >
                       <div className="flex items-start gap-3">
                         <span className="text-xl">{getNotificationIcon(notification.type)}</span>

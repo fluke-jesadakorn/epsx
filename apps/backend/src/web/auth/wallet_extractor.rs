@@ -41,6 +41,40 @@ struct TokenClaims {
     exp: i64,
 }
 
+#[async_trait]
+impl<S> FromRequestParts<S> for AuthAdmin
+where
+    S: Send + Sync,
+{
+    type Rejection = (StatusCode, String);
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        let wallet = AuthWallet::from_request_parts(parts, state).await?;
+
+        // Check admin permissions
+        if !wallet.permissions.iter().any(|p| p.starts_with("admin:")) {
+            return Err((StatusCode::FORBIDDEN, "Admin access required".to_string()));
+        }
+
+        Ok(AuthAdmin { wallet })
+    }
+}
+
+// JWT decoding implementation
+
+#[derive(Debug, Serialize, Deserialize)]
+struct TokenClaims {
+    #[serde(default)]
+    wallet_address: String,
+    #[serde(default)]
+    sub: String,
+    #[serde(default)]
+    permissions: Vec<String>,
+    #[serde(default)]
+    jti: Option<String>,
+    exp: i64,
+}
+
 fn decode_jwt_wallet_id(token: &str) -> Result<Uuid, String> {
     // Try to parse JTI as UUID, or generate a deterministic one from wallet address
     let claims = decode_token(token)?;

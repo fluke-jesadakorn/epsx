@@ -106,8 +106,8 @@ export function useSSENotifications(
             return
           }
 
-          // Only update state if we're still in CONNECTED state and component is mounted
-          if (connectionStateRef.current === ConnectionState.CONNECTED && isMounted.current) {
+          // Only update state if we're still in CONNECTED state
+          if (connectionStateRef.current === ConnectionState.CONNECTED) {
             connectionStateRef.current = ConnectionState.DISCONNECTED
             setIsConnected(false)
             const errorMsg = 'Connection lost. Reconnecting...'
@@ -125,9 +125,7 @@ export function useSSENotifications(
                 }
               }, delay)
             } else {
-              if (isMounted.current) {
-                setError('Failed to connect after multiple attempts')
-              }
+              setError('Failed to connect after multiple attempts')
               onErrorRef.current?.('Failed to connect after multiple attempts')
             }
           }
@@ -141,11 +139,8 @@ export function useSSENotifications(
 
           console.log(`✅ SSE: Connection #${currentConnectionId} established`)
           connectionStateRef.current = ConnectionState.CONNECTED
-
-          if (isMounted.current) {
-            setIsConnected(true)
-            setError(null)
-          }
+          setIsConnected(true)
+          setError(null)
           reconnectAttempts.current = 0
           onConnectRef.current?.()
         }
@@ -190,11 +185,7 @@ export function useSSENotifications(
 
     // Final state transition
     connectionStateRef.current = ConnectionState.DISCONNECTED
-
-    // Only update state if component is still mounted
-    if (isMounted.current) {
-      setIsConnected(false)
-    }
+    setIsConnected(false)
     console.log('✅ SSE: Disconnected successfully')
   }, [])
 
@@ -216,7 +207,7 @@ export function useSSENotifications(
       disconnect()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoConnect])
+  }, [autoConnect, connect, disconnect])
 
   return {
     notifications,

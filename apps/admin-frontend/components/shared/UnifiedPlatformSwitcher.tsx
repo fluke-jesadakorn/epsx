@@ -6,7 +6,7 @@
 
 'use client';
 
-import { ChevronDown, Globe, Coins, Vote, Shield, Settings, Check } from 'lucide-react';
+import { Check, ChevronDown, Coins, Globe, Settings, Shield, Vote } from 'lucide-react';
 import { useState } from 'react';
 
 import { useAuth } from '@/lib/auth';
@@ -66,7 +66,7 @@ const platformColors: Record<string, string> = {
 };
 
 const platformDescriptions: Record<string, string> = {
-  'epsx': 'Trading platform management',
+  'epsx': 'Data analytics platform management',
   'epsx-pay': 'Payment system administration', 
   'epsx-token': 'Token governance oversight',
 };

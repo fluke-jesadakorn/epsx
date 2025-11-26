@@ -15,7 +15,6 @@
 
 import { UnifiedApiClient, ApiResponse, PaginatedResponse } from '../utils/api-client';
 import { COOKIES } from '../auth/cookies';
-import { API_ROUTES } from '../config/route-constants';
 import {
   NotificationSchema,
   NotificationsResponseSchema,
@@ -664,7 +663,7 @@ export class NotificationsAPIClient {
       }
 
       const response = await this.client.post<SendNotificationResponse>(
-        API_ROUTES.ADMIN.NOTIFICATIONS + '/send',
+        '/api/admin/notifications/send',
         requestValidation.data,
         {
           headers: {
@@ -693,7 +692,7 @@ export class NotificationsAPIClient {
   async getNotificationStats(): Promise<NotificationStatsResponse> {
     try {
       const response = await this.client.get<NotificationStatsResponse>(
-        API_ROUTES.ADMIN.NOTIFICATIONS + '/stats',
+        '/api/admin/notifications/stats',
         undefined,
         {
           headers: {
@@ -722,7 +721,7 @@ export class NotificationsAPIClient {
   async getAllNotifications(filters: NotificationFilters = {}): Promise<NotificationsResponse> {
     try {
       const response = await this.client.get<NotificationsResponse>(
-        API_ROUTES.ADMIN.NOTIFICATIONS,
+        '/api/admin/notifications',
         filters,
         {
           headers: {
@@ -742,129 +741,6 @@ export class NotificationsAPIClient {
       if (error instanceof NotificationAPIError) throw error;
       handleNotificationError(error, 'fetch all notifications (admin)', { filters });
     }
-  }
-
-  /**
-   * Delete notification (admin only - hard delete)
-   * Route: DELETE /api/v1/admin/notifications/{id}
-   */
-  async deleteAdminNotification(notificationId: string): Promise<{ success: boolean; message: string }> {
-    try {
-      const response = await this.client.delete<{ success: boolean; message: string }>(
-        `${API_ROUTES.ADMIN.NOTIFICATIONS}/${notificationId}`,
-        {
-          headers: {
-            'X-API-Version': 'v1',
-            'X-Access-Level': 'admin',
-            'X-Admin-Context': 'true',
-          },
-        }
-      );
-
-      if (!this.client.isApiSuccess(response)) {
-        handleNotificationError(response, 'delete notification (admin)', { notificationId });
-      }
-
-      return response.data;
-    } catch (error) {
-      if (error instanceof NotificationAPIError) throw error;
-      handleNotificationError(error, 'delete notification (admin)', { notificationId });
-    }
-  }
-
-  /**
-   * Validate SSE connection before establishing EventSource
-   * @param baseURL - Backend base URL
-   * @param platform - Platform identifier (admin/frontend)
-   * @param token - Authentication token
-   */
-  private async validateSSEConnection(
-    baseURL: string,
-    platform: string | undefined,
-    token: string | null
-  ): Promise<void> {
-    console.log('🔍 SSE Connection Validation Started');
-
-    // Check EventSource support
-    if (typeof EventSource === 'undefined') {
-      const error = 'EventSource not supported in this browser';
-      console.error('❌ SSE Validation Failed:', error);
-      throw new Error(error);
-    }
-
-    // Check online status
-    if (!navigator.onLine) {
-      console.warn('⚠️ Browser is offline, SSE connection may fail');
-    }
-
-    // Check cookie support
-    if (!navigator.cookieEnabled) {
-      console.warn('⚠️ Cookies are disabled, authentication may fail');
-    }
-
-    // Validate authentication context
-    if (!token && platform === 'admin') {
-      console.warn('⚠️ Admin platform requires authentication, but no token found');
-    }
-
-    // Test SSE endpoint availability (without streaming)
-    try {
-      console.log('📡 Testing SSE endpoint availability...');
-      const sseTestUrl = `${baseURL}${API_ROUTES.NOTIFICATIONS.STREAM}`;
-      const testResponse = await fetch(sseTestUrl, {
-        method: 'HEAD', // Just check headers, don't stream
-        headers: {
-          'Accept': 'text/event-stream',
-          'Cache-Control': 'no-cache'
-        }
-      });
-
-      if (testResponse.status === 401) {
-        console.warn('⚠️ SSE endpoint requires authentication');
-      } else if (testResponse.status === 405 || testResponse.status === 400) {
-        // HEAD method not supported, try GET with timeout
-        console.log('🔄 Testing SSE endpoint with GET request...');
-        const abortController = new AbortController();
-        const timeoutId = setTimeout(() => abortController.abort(), 3000);
-
-        try {
-          const getResponse = await fetch(sseTestUrl, {
-            method: 'GET',
-            headers: {
-              'Accept': 'text/event-stream',
-              'Cache-Control': 'no-cache'
-            },
-            signal: abortController.signal
-          });
-
-          clearTimeout(timeoutId);
-          console.log('✅ SSE endpoint is reachable');
-        } catch (fetchError) {
-          clearTimeout(timeoutId);
-          if (fetchError.name === 'AbortError') {
-            console.log('✅ SSE endpoint responded (timeout expected for streaming)');
-          } else {
-            console.warn('⚠️ SSE endpoint test failed:', fetchError);
-          }
-        }
-      } else {
-        console.log('✅ SSE endpoint is reachable');
-      }
-    } catch (error) {
-      console.warn('⚠️ SSE endpoint availability test failed:', error);
-      // Don't throw here - allow connection attempt to proceed
-    }
-
-    // Log connection details for debugging
-    console.log('📋 SSE Connection Summary:', {
-      platform,
-      hasToken: !!token,
-      baseURL,
-      userAgent: navigator.userAgent.substring(0, 50),
-      timestamp: new Date().toISOString()
-    });
-
-    console.log('✅ SSE Connection Validation Completed');
   }
 
   // ============================================================================
@@ -1255,34 +1131,15 @@ export class NotificationsAPIClient {
         return acc;
       }, {} as Record<string, string>);
 
-      let token: string | null = null;
-      let tokenSource = '';
-
-      // Try multiple authentication cookie sources
-      const userCookie = cookies[COOKIES.user];
-      if (userCookie) {
-        try {
-          const user = JSON.parse(decodeURIComponent(userCookie));
-          if (user.access && typeof user.access === 'string' && user.access.length > 10) {
-            token = user.access;
-            tokenSource = 'user.access (JWT)';
-          } else if (user.wallet_address && typeof user.wallet_address === 'string') {
-            // Fallback for Web3 sessions - create legacy format token
-            token = `web3_token_${user.wallet_address}`;
-            tokenSource = 'user.wallet_address (Web3 legacy)';
-          }
-        } catch (error) {
-          console.warn('⚠️ Failed to parse user cookie:', error);
-        }
-      }
-
-      // Fallback: try direct session cookies (admin platform)
-      if (!token && platform === 'admin') {
-        const sessionCookie = cookies[COOKIES.session];
-        if (sessionCookie && sessionCookie.length > 10) {
-          token = sessionCookie;
-          tokenSource = 'admin.session';
-        }
+    // Get user data from accessible client-side cookies
+    const userCookie = cookies[COOKIES.user];
+    if (userCookie) {
+      try {
+        const user = JSON.parse(decodeURIComponent(userCookie));
+        // Return JWT access token for backend verification
+        token = user.access;
+      } catch (error) {
+        console.warn('Failed to parse user cookie:', error);
       }
 
       // Additional fallback: check for any JWT-like tokens

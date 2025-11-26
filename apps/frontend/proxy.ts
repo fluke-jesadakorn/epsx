@@ -5,7 +5,6 @@
  */
 import { enterpriseUrls } from '@/config/env';
 import { COOKIES } from '@/shared/auth/cookies';
-import { NextRequest, NextResponse } from 'next/server';
 
 // Middleware validation cache (5 seconds TTL)
 const validationCache = new Map<string, { valid: boolean; user: any; timestamp: number }>();

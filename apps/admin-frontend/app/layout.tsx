@@ -4,8 +4,9 @@
  * Enhanced dark mode, spacing consistency, and accessibility
  */
 
-import './globals.css';
 import { Metadata, Viewport } from 'next';
+import { Toaster } from 'react-hot-toast';
+import './globals.css';
 
 import { LayoutWrapper } from '@/components/layout/LayoutWrapper';
 import { ClientProviders } from '@/components/providers/ClientProviders';
@@ -15,8 +16,8 @@ import { ToastProvider } from '@/components/providers/ToastProvider';
 
 export const metadata: Metadata = {
   title: 'EPSX Admin',
-  description: 'Administrative interface for EPSX trading platform - User management and system monitoring',
-  keywords: 'EPSX, admin, trading, user management, dashboard',
+  description: 'Administrative interface for EPSX data analytics platform - User management and system monitoring',
+  keywords: 'EPSX, admin, analytics, user management, dashboard',
   authors: [{ name: 'EPSX Team' }],
   creator: 'EPSX',
   publisher: 'EPSX',
