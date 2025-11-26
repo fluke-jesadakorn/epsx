@@ -1,8 +1,8 @@
 // Import browser polyfills first to handle SSR issues
-import { NavigationClient } from '@/components/nav/NavigationClient';
-import { ClientProviders } from '@/components/providers/ClientProviders';
-import { MinimalWeb3Provider } from '@/components/providers/AuthProvider';
 import { GlobalErrorBoundary } from '@/components/error-boundaries/GlobalErrorBoundary';
+import { NavigationClient } from '@/components/nav/NavigationClient';
+import { MinimalWeb3Provider } from '@/components/providers/AuthProvider';
+import { ClientProviders } from '@/components/providers/ClientProviders';
 import '@/lib/browser-polyfills';
 import { SharedOpenIDWeb3Provider } from '@/shared/components/auth/Provider';
 import { Kanit } from 'next/font/google';
@@ -24,9 +24,9 @@ const kanit = Kanit({
 });
 
 export const metadata = {
-  title: 'EPSX - Stock Trading Platform',
-  description: 'Advanced stock trading and analytics platform',
-  keywords: ['stock trading', 'analytics', 'EPSX', 'financial data'],
+  title: 'EPSX - Stock Analytics Platform',
+  description: 'Advanced stock data analytics platform',
+  keywords: ['stock analytics', 'financial data', 'EPSX', 'market insights'],
   authors: [{ name: 'EPSX Team' }],
   robots: {
     index: true,

@@ -371,24 +371,8 @@ impl PermissionGroupRepositoryPort for PermissionGroupRepositoryAdapter {
             FROM permission_groups
         "#;
 
-        #[derive(diesel::QueryableByName)]
-        struct StatsRow {
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
-            total_groups: i64,
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
-            active_groups: i64,
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
-            promoted_groups: i64,
-        }
-
-        let row = diesel::sql_query(query)
-            .get_result::<StatsRow>(&mut conn)
-            .await
-            .map_err(|e| AppError::database_error(e.to_string()))?;
-
-        // Get total members count
-        let total_members = diesel::sql_query(
-            "SELECT COUNT(DISTINCT wallet_address) as count FROM wallet_group_memberships"
+        let total_members: i64 = sqlx::query_scalar(
+            "SELECT COUNT(DISTINCT wallet_address) FROM wallet_group_memberships"
         )
         .get_result::<CountResult>(&mut conn)
         .await

@@ -47,7 +47,7 @@ export function ProtectedRoute({
 
       if (requireAuth && !isAuthenticated) {
         console.log('User not authenticated - page will handle auth UI', {
-          current_path: pathname,
+          current_path: pathname
         });
         // No redirect - let page handle authentication UI
         return;

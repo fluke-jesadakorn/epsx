@@ -1,6 +1,6 @@
 //! Main OpenAPI Specification
 //!
-//! Defines the complete OpenAPI 3.0 specification for the EPSX trading platform API.
+//! Defines the complete OpenAPI 3.0 specification for the EPSX data analytics platform API.
 
 use utoipa::{
     OpenApi,
@@ -13,9 +13,9 @@ use utoipa::{
 #[derive(OpenApi)]
 #[openapi(
     info(
-        title = "EPSX Trading Platform API",
+        title = "EPSX Data Analytics Platform API",
         version = "1.0.0",
-        description = "EPSX is a comprehensive trading analytics platform with Web3 authentication and permission management.",
+        description = "EPSX is a comprehensive data analytics platform providing real-time market data, EPS rankings, and advanced financial analysis tools.",
         contact(
             name = "EPSX Team",
             url = "https://epsx.io",

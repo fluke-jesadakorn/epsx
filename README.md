@@ -140,7 +140,7 @@ bun dev:all       # All applications including backend
 
 EPSX uses custom *.epsx.io domains for production-like development:
 
-- **Frontend**: https://epsx.io (trading platform)
+- **Frontend**: https://epsx.io (data analytics platform)
 - **Admin**: https://admin.epsx.io (dashboard)
 - **API**: https://api.epsx.io (backend)
 
@@ -502,7 +502,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## 🙏 Acknowledgments
 
-Built with modern technologies for enterprise-grade trading platforms:
+Built with modern technologies for enterprise-grade data analytics platforms:
 
 - [Next.js 15](https://nextjs.org/) - React framework with App Router
 - [React 19](https://react.dev/) - Latest React with concurrent features
@@ -515,4 +515,4 @@ Built with modern technologies for enterprise-grade trading platforms:
 
 ---
 
-_🔥 Built with ❤️ for modern trading platforms_
+_🔥 Built with ❤️ for modern data analytics platforms_

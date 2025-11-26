@@ -520,16 +520,10 @@ export default function PermissionsPage() {
         <Card>
           <CardContent className="p-6">
             <div className="text-center">
-              <Shield className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-              <h2 className="mb-2 text-xl font-semibold text-gray-900">
-                Authentication Required
-              </h2>
-              <p className="mb-4 text-gray-600">
-                Please sign in to view your permissions.
-              </p>
-              <p className="text-sm text-gray-500">
-                Please connect your wallet using the navigation menu.
-              </p>
+              <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">Authentication Required</h2>
+              <p className="text-gray-600 mb-4">Please sign in to view your permissions.</p>
+              <p className="text-sm text-gray-500">Please connect your wallet using the navigation menu.</p>
             </div>
           </CardContent>
         </Card>

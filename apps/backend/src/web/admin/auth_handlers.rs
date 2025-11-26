@@ -606,9 +606,7 @@ pub async fn get_recent_wallets(
       wu.last_auth_at,
       wu.is_active,
       (
-      SELECT COALESCE(group_perms, 0) + COALESCE(direct_perms, 0)::int
-      FROM (
-        SELECT COUNT(DISTINCT p.id)::int as group_perms
+        SELECT COUNT(DISTINCT p.id)::int
         FROM wallet_group_memberships wga
         JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
         JOIN permissions p ON pgm.permission_id = p.id

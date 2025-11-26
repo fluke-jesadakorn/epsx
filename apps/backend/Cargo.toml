@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 default-run = "epsx"
 license = "MIT OR Apache-2.0"
-description = "EPSX trading platform backend with clean architecture"
+description = "EPSX data analytics platform backend with clean architecture"
 authors = ["EPSX Team"]
 repository = "https://github.com/your-org/epsx"
 keywords = ["trading", "finance", "api", "backend"]
@@ -99,6 +99,9 @@ siwe = "0.6"
 # Optional HTTP client with TLS choice
 reqwest = { version = "0.11", features = ["json"], optional = true, default-features = false }
 
+# Redis for notification pub/sub and event bus
+# TLS support with rustls for production use
+redis = { version = "0.24", features = ["tokio-comp", "connection-manager", "streams", "tokio-rustls-comp"], optional = true }
 
 # Redis for notification pub/sub and event bus
 # TLS support with rustls for production use
