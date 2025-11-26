@@ -4,7 +4,6 @@ use axum::{
     extract::FromRequestParts,
     http::{request::Parts, StatusCode},
 };
-use async_trait::async_trait;
 use uuid::Uuid;
 use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
 use serde::{Deserialize, Serialize};
@@ -23,8 +22,45 @@ pub struct AuthAdmin {
     pub wallet: AuthWallet,
 }
 
-// AuthWallet and AuthAdmin extractors temporarily commented out
-// due to trait lifetime issues. Manual authentication is used instead.
+// AuthWallet and AuthAdmin extractors
+// Using FromRequestParts trait for automatic extraction
+
+impl<S> FromRequestParts<S> for AuthWallet
+where
+    S: Send + Sync,
+{
+    type Rejection = (StatusCode, String);
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
+        // Extract Authorization header
+        let auth_header = parts
+            .headers
+            .get("authorization")
+            .and_then(|header| header.to_str().ok())
+            .ok_or_else(|| (StatusCode::UNAUTHORIZED, "Missing authorization header".to_string()))?;
+
+        // Check Bearer token format
+        let token = auth_header
+            .strip_prefix("Bearer ")
+            .ok_or_else(|| (StatusCode::UNAUTHORIZED, "Invalid authorization header format".to_string()))?;
+
+        // Decode and validate the token
+        let wallet_id = decode_jwt_wallet_id(token)
+            .map_err(|e| (StatusCode::UNAUTHORIZED, format!("Invalid token: {}", e)))?;
+
+        let wallet_address = decode_jwt_wallet_address(token)
+            .map_err(|e| (StatusCode::UNAUTHORIZED, format!("Invalid token: {}", e)))?;
+
+        let permissions = decode_jwt_permissions(token)
+            .map_err(|e| (StatusCode::UNAUTHORIZED, format!("Invalid token: {}", e)))?;
+
+        Ok(AuthWallet {
+            id: wallet_id,
+            address: wallet_address,
+            permissions,
+        })
+    }
+}
 
 // JWT decoding implementation
 
@@ -41,7 +77,6 @@ struct TokenClaims {
     exp: i64,
 }
 
-#[async_trait]
 impl<S> FromRequestParts<S> for AuthAdmin
 where
     S: Send + Sync,
@@ -61,19 +96,6 @@ where
 }
 
 // JWT decoding implementation
-
-#[derive(Debug, Serialize, Deserialize)]
-struct TokenClaims {
-    #[serde(default)]
-    wallet_address: String,
-    #[serde(default)]
-    sub: String,
-    #[serde(default)]
-    permissions: Vec<String>,
-    #[serde(default)]
-    jti: Option<String>,
-    exp: i64,
-}
 
 fn decode_jwt_wallet_id(token: &str) -> Result<Uuid, String> {
     // Try to parse JTI as UUID, or generate a deterministic one from wallet address

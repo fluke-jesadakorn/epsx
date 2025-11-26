@@ -550,7 +550,7 @@ export const useWeb3AuthStore = create<EnhancedWeb3AuthStore>()(
           throw new Error('Enterprise API access not available for current tier');
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/enterprise/billing/api-keys`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin/notifications/send`, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',

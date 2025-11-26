@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
 use diesel::prelude::*;
 use std::sync::Arc;
+use crate::schema::{wallet_group_memberships};
 use tracing::{debug, info, warn, error};
 use uuid::Uuid;
 
@@ -496,9 +497,12 @@ impl UnifiedPermissionService {
             request.group_id, wallet_lower, request.assigned_by
         );
 
-        // Insert into wallet_group_memberships
-        let assignment_id: Uuid = sqlx::query_scalar(
-            r#"
+        let mut conn = self.db_pool.get().await.map_err(|e| {
+            AppError::database_error(format!("Failed to get database connection: {}", e))
+        })?;
+
+        // Use raw SQL for complex ON CONFLICT operation
+        let query = format!(r#"
             INSERT INTO wallet_group_memberships (
                 wallet_address,
                 group_id,
@@ -507,7 +511,7 @@ impl UnifiedPermissionService {
                 assigned_by,
                 assignment_reason,
                 is_active
-            ) VALUES ($1, $2, NOW(), $3, $4, $5, TRUE)
+            ) VALUES ('{}', '{}', NOW(), '{}', '{}', '{}', TRUE)
             ON CONFLICT (wallet_address, group_id)
             DO UPDATE SET
                 is_active = TRUE,
@@ -516,20 +520,28 @@ impl UnifiedPermissionService {
                 assigned_by = EXCLUDED.assigned_by,
                 assignment_reason = EXCLUDED.assignment_reason
             RETURNING id
-            "#
-        )
-        .bind::<diesel::sql_types::Text, _>(&wallet_lower)
-        .bind::<diesel::sql_types::Uuid, _>(request.group_id)
-        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(request.expires_at)
-        .bind::<diesel::sql_types::Text, _>(&request.assigned_by)
-        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&request.reason)
-        .get_result::<AssignmentResult>(&mut conn)
-        .await
-        .map_err(|e| {
-            error!("Database error assigning group: {}", e);
-            AppError::database_error(format!("Failed to assign group: {}", e))
-        })?
-        .id;
+            "#,
+            wallet_lower.replace("'", "''"),
+            request.group_id,
+            request.expires_at.map(|dt| dt.to_rfc3339()).unwrap_or("NULL".to_string()).replace("'", "''"),
+            request.assigned_by.replace("'", "''"),
+            request.reason.unwrap_or_default().replace("'", "''")
+        );
+
+        #[derive(diesel::QueryableByName)]
+        struct AssignmentResult {
+            #[diesel(sql_type = diesel::sql_types::Uuid)]
+            id: Uuid,
+        }
+
+        let assignment_id = diesel::sql_query(query)
+            .get_result::<AssignmentResult>(&mut conn)
+            .await
+            .map_err(|e| {
+                error!("Database error assigning group: {}", e);
+                AppError::database_error(format!("Failed to assign group: {}", e))
+            })?
+            .id;
 
         // Invalidate cache
         self.cache.invalidate_wallet(&wallet_lower).await;
@@ -551,23 +563,29 @@ impl UnifiedPermissionService {
             request.group_id, wallet_lower, request.removed_by
         );
 
-        // Delete from wallet_group_memberships
-        let rows_affected = sqlx::query(
-            r#"
+        // Get database connection
+        let mut conn = self.db_pool.get().await.map_err(|e| {
+            AppError::database_error(format!("Failed to get database connection: {}", e))
+        })?;
+
+        // Use raw SQL for DELETE operation
+        let query = format!(r#"
             DELETE FROM wallet_group_memberships
-            WHERE wallet_address = $1
-              AND group_id = $2
+            WHERE wallet_address = '{}'
+              AND group_id = '{}'
               AND is_active = TRUE
-            "#
-        )
-        .bind::<diesel::sql_types::Text, _>(&wallet_lower)
-        .bind::<diesel::sql_types::Uuid, _>(request.group_id)
-        .execute(&mut conn)
-        .await
-        .map_err(|e| {
-            error!("Database error removing group: {}", e);
-            AppError::database_error(format!("Failed to remove group: {}", e))
-        })? as u64;
+            "#,
+            wallet_lower.replace("'", "''"),
+            request.group_id
+        );
+
+        let rows_affected = diesel::sql_query(query)
+            .execute(&mut conn)
+            .await
+            .map_err(|e| {
+                error!("Database error removing group: {}", e);
+                AppError::database_error(format!("Failed to remove group: {}", e))
+            })?;
 
         if rows_affected == 0 {
             warn!("Group {} was not found for wallet: {}", request.group_id, wallet_lower);

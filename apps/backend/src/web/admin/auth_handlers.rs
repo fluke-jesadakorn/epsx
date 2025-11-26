@@ -605,26 +605,27 @@ pub async fn get_recent_wallets(
       wu.created_at,
       wu.last_auth_at,
       wu.is_active,
-      (
-        SELECT COUNT(DISTINCT p.id)::int
-        FROM wallet_group_memberships wga
-        JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
-        JOIN permissions p ON pgm.permission_id = p.id
-        WHERE wga.wallet_address = wu.wallet_address
-          AND wga.is_active = true
-          AND p.is_active = true
-          AND (wga.expires_at IS NULL OR wga.expires_at > NOW())
-      ) group_counts
-      CROSS JOIN (
-        SELECT COUNT(DISTINCT p.id)::int as direct_perms
-        FROM wallet_direct_permissions wdp
-        JOIN permissions p ON wdp.permission_id = p.id
-        WHERE wdp.wallet_address = wu.wallet_address
-          AND wdp.is_active = true
-          AND p.is_active = true
-          AND (wdp.expires_at IS NULL OR wdp.expires_at > NOW())
-      ) direct_counts
-    ) as active_permissions_count
+      COALESCE(
+        (
+          SELECT COUNT(DISTINCT p.id)::int
+          FROM wallet_group_memberships wga
+          JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
+          JOIN permissions p ON pgm.permission_id = p.id
+          WHERE wga.wallet_address = wu.wallet_address
+            AND wga.is_active = true
+            AND p.is_active = true
+            AND (wga.expires_at IS NULL OR wga.expires_at > NOW())
+        ) + (
+          SELECT COUNT(DISTINCT p.id)::int
+          FROM wallet_direct_permissions wdp
+          JOIN permissions p ON wdp.permission_id = p.id
+          WHERE wdp.wallet_address = wu.wallet_address
+            AND wdp.is_active = true
+            AND p.is_active = true
+            AND (wdp.expires_at IS NULL OR wdp.expires_at > NOW())
+        ),
+        0
+      ) as active_permissions_count
     FROM wallet_users wu
     WHERE wu.created_at >= NOW() - make_interval(days => $2)
     ORDER BY wu.created_at DESC

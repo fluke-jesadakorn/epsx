@@ -22,6 +22,16 @@ struct IdResult {
 }
 
 #[derive(diesel::QueryableByName)]
+struct GroupStatsRow {
+    #[diesel(sql_type = diesel::sql_types::BigInt)]
+    pub total_groups: i64,
+    #[diesel(sql_type = diesel::sql_types::BigInt)]
+    pub active_groups: i64,
+    #[diesel(sql_type = diesel::sql_types::BigInt)]
+    pub promoted_groups: i64,
+}
+
+#[derive(diesel::QueryableByName)]
 struct CountResult {
     #[diesel(sql_type = diesel::sql_types::BigInt)]
     count: i64,
@@ -362,7 +372,7 @@ impl PermissionGroupRepositoryPort for PermissionGroupRepositoryAdapter {
         let mut conn = self.db_pool.get().await
             .map_err(|e| AppError::database_error(e.to_string()))?;
 
-        // Use raw SQL for FILTER clause
+        // Use diesel::sql_query for FILTER clause compatibility
         let query = r#"
             SELECT
                 COUNT(*) as total_groups,
@@ -371,8 +381,15 @@ impl PermissionGroupRepositoryPort for PermissionGroupRepositoryAdapter {
             FROM permission_groups
         "#;
 
-        let total_members: i64 = sqlx::query_scalar(
-            "SELECT COUNT(DISTINCT wallet_address) FROM wallet_group_memberships"
+        let row = diesel::sql_query(query)
+            .get_result::<GroupStatsRow>(&mut conn)
+            .await
+            .map_err(|e| {
+                AppError::database_error(format!("Failed to get group statistics: {}", e))
+            })?;
+
+        let total_members: i64 = diesel::sql_query(
+            "SELECT COUNT(DISTINCT wallet_address) as count FROM wallet_group_memberships"
         )
         .get_result::<CountResult>(&mut conn)
         .await

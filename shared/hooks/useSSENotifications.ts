@@ -198,7 +198,16 @@ export function useSSENotifications(
 
     if (autoConnect && connectionStateRef.current === ConnectionState.DISCONNECTED) {
       console.log('🎬 SSE: Auto-connect triggered')
-      connect()
+      // Add a small delay to prevent race conditions during component mounting
+      const connectTimer = setTimeout(() => {
+        if (isMounted.current && connectionStateRef.current === ConnectionState.DISCONNECTED) {
+          connect()
+        }
+      }, 100)
+
+      return () => {
+        clearTimeout(connectTimer)
+      }
     }
 
     return () => {

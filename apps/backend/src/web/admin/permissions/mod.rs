@@ -34,36 +34,36 @@ pub fn create_permission_routes() -> Router<AppState> {
         // ============================================================================
         .route("/groups", post(groups::create_group))
         .route("/groups", get(groups::list_groups))
-        .route("/groups/:group_id", get(groups::get_group))
-        .route("/groups/:group_id", put(groups::update_group))
-        .route("/groups/:group_id", delete(groups::delete_group))
-        .route("/groups/:group_id/members", get(groups::get_group_members))
+        .route("/groups/{group_id}", get(groups::get_group))
+        .route("/groups/{group_id}", put(groups::update_group))
+        .route("/groups/{group_id}", delete(groups::delete_group))
+        .route("/groups/{group_id}/members", get(groups::get_group_members))
 
         // ============================================================================
         // WALLET-GROUP ASSIGNMENTS
         // ============================================================================
         .route("/assignments", post(assignments::create_assignment))
         .route("/assignments", get(assignments::list_assignments))
-        .route("/assignments/:assignment_id", delete(assignments::remove_assignment))
+        .route("/assignments/{assignment_id}", delete(assignments::remove_assignment))
         .route("/assignments/expiring", get(assignments::get_expiring_assignments))
-        .route("/assignments/history/:wallet", get(assignments::get_assignment_history))
-        .route("/wallets/:wallet/groups", get(assignments::get_wallet_groups))
+        .route("/assignments/history/{wallet}", get(assignments::get_assignment_history))
+        .route("/wallets/{wallet}/groups", get(assignments::get_wallet_groups))
 
         // ============================================================================
         // DIRECT PERMISSIONS
         // ============================================================================
         .route("/direct", post(direct::grant_permission))
         .route("/direct", delete(direct::revoke_permission))
-        .route("/direct/:wallet", get(direct::list_wallet_permissions))
-        .route("/groups/:group_id/permissions", post(direct::add_permission_to_group))
-        .route("/groups/:group_id/permissions/:permission_id", delete(direct::remove_permission_from_group))
+        .route("/direct/{wallet}", get(direct::list_wallet_permissions))
+        .route("/groups/{group_id}/permissions", post(direct::add_permission_to_group))
+        .route("/groups/{group_id}/permissions/{permission_id}", delete(direct::remove_permission_from_group))
 
         // ============================================================================
         // VALIDATION
         // ============================================================================
         .route("/validate", post(validation::validate_permission))
         .route("/validate/bulk", post(validation::validate_bulk_permissions))
-        .route("/wallets/:wallet/permissions", get(validation::get_wallet_permissions))
+        .route("/wallets/{wallet}/permissions", get(validation::get_wallet_permissions))
 
         // ============================================================================
         // BULK OPERATIONS

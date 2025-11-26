@@ -390,10 +390,9 @@ impl UnifiedWeb3AuthService {
             .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
 
         // Check if user exists in wallet_users table
-        let user_exists = wallet_users::table
+        let user_exists: Option<String> = diesel_async::RunQueryDsl::first(wallet_users::table
             .filter(wallet_users::wallet_address.eq(wallet_address))
-            .select(wallet_users::wallet_address)
-            .first::<String>(&mut conn)
+            .select(wallet_users::wallet_address), &mut conn)
             .await
             .optional()
             .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
@@ -401,13 +400,12 @@ impl UnifiedWeb3AuthService {
         if user_exists.is_some() {
             // Update last_auth_at for existing user
             let now = Utc::now();
-            diesel::update(wallet_users::table)
+            diesel_async::RunQueryDsl::execute(diesel::update(wallet_users::table)
                 .filter(wallet_users::wallet_address.eq(wallet_address))
                 .set((
                     wallet_users::last_auth_at.eq(&now),
                     wallet_users::updated_at.eq(&now),
-                ))
-                .execute(&mut conn)
+                )), &mut conn)
                 .await
                 .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
@@ -433,23 +431,24 @@ impl UnifiedWeb3AuthService {
 
         // Create new user in wallet_users table with enhanced metadata
         // NOTE: Permissions managed separately via wallet_group_memberships and wallet_direct_permissions
-        sqlx::query!(
-            r#"
-            INSERT INTO wallet_users (
-                wallet_address,
-                wallet_metadata,
-                created_at,
-                updated_at,
-                last_auth_at
-            )
-            VALUES ($1, $2, NOW(), NOW(), NOW())
-            "#,
-            wallet_address,
-            connection_metadata
-        )
-        .execute(&self.db_pool)
-        .await
-        .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
+        use diesel::prelude::*;
+
+        let now = chrono::Utc::now();
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
+
+        diesel_async::RunQueryDsl::execute(diesel::insert_into(wallet_users::table)
+            .values((
+                wallet_users::wallet_address.eq(wallet_address),
+                wallet_users::is_active.eq(true),
+                wallet_users::tier_level.eq("Bronze"),
+                wallet_users::wallet_metadata.eq(connection_metadata.clone()),
+                wallet_users::created_at.eq(&now),
+                wallet_users::updated_at.eq(&now),
+                wallet_users::last_auth_at.eq(&now),
+            )), &mut conn)
+            .await
+            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
         // Structured logging for new wallet creation with rich metadata
         info!(

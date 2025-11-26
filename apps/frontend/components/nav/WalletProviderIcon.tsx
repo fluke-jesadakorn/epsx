@@ -63,6 +63,8 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   const [copied, setCopied] = useState(false);
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [authRetryCount, setAuthRetryCount] = useState(0);
+  const [lastAuthError, setLastAuthError] = useState<string | null>(null);
   const { address, isConnected, connector } = useAccount();
   const { disconnect } = useDisconnect();
   const { isInitialized } = useWeb3Context();
@@ -105,11 +107,13 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
       setWeb3Connected(false);
       setWeb3Authenticated(false);
       setWeb3WalletAddress(undefined);
+      setAuthRetryCount(0); // Reset retry count
+      setLastAuthError(null); // Clear last error
       console.log('🔌 Wallet disconnected - cleared web3 auth store');
     }
   }, [isConnected, address, setWeb3Connected, setWeb3Authenticated, setWeb3WalletAddress]);
 
-  // Auto-authenticate when wallet connects
+  // Auto-authenticate when wallet connects (with retry limits)
   useEffect(() => {
     const autoAuthenticate = async () => {
       // Only trigger if:
@@ -119,10 +123,11 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
       // 4. Not currently authenticating
       // 5. Not disconnecting (prevent race condition)
       // 6. Component is hydrated
-      if (isConnected && address && !isAuthenticated && !isAuthenticating && !isDisconnecting && isHydrated) {
+      // 7. Haven't exceeded retry limit (prevent infinite loops)
+      if (isConnected && address && !isAuthenticated && !isAuthenticating && !isDisconnecting && isHydrated && authRetryCount < 3) {
         try {
           setIsAuthenticating(true);
-          console.log('🔐 Auto-authenticating wallet:', address);
+          console.log('🔐 Auto-authenticating wallet:', address, `(attempt ${authRetryCount + 1}/3)`);
 
           // Step 1: Request challenge from backend
           const challenge = await requestChallenge(address);
@@ -145,28 +150,41 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
           if (result.success) {
             console.log('✅ Auto-authentication successful!');
 
+            // Reset retry count and clear last error on success
+            setAuthRetryCount(0);
+            setLastAuthError(null);
+
             // ✅ SYNC: Update web3 auth store to match SharedAuth state
             setWeb3Authenticated(true);
             setWeb3WalletAddress(address.toLowerCase());
             console.log('✅ Synced authentication to web3 auth store for SSE notifications');
           } else {
             console.error('❌ Auto-authentication failed:', result.error);
+            setAuthRetryCount(prev => prev + 1);
+            setLastAuthError(result.error);
           }
         } catch (error: any) {
+          console.error('❌ Auto-authentication error:', error);
+          setAuthRetryCount(prev => prev + 1);
+          setLastAuthError(error?.message || 'Authentication failed');
+
           // User rejected signature or other error
           if (error?.code === 4001 || error?.message?.includes('User rejected')) {
             console.log('ℹ️ User rejected signature request');
-          } else {
-            console.error('❌ Auto-authentication error:', error);
+            // Don't retry for user rejection
+            setAuthRetryCount(10); // Exceed limit to prevent further retries
           }
         } finally {
           setIsAuthenticating(false);
         }
+      } else if (authRetryCount >= 3 && lastAuthError) {
+        // Show error state when max retries reached
+        console.warn('⚠️ Auto-authentication stopped after 3 attempts. Last error:', lastAuthError);
       }
     };
 
     autoAuthenticate();
-  }, [isConnected, address, isAuthenticated, isAuthenticating, isDisconnecting, isHydrated, requestChallenge, authenticateWithWallet, signMessageAsync, setWeb3Authenticated, setWeb3WalletAddress]);
+  }, [isConnected, address, isAuthenticated, isAuthenticating, isDisconnecting, isHydrated, authRetryCount, lastAuthError, requestChallenge, authenticateWithWallet, signMessageAsync, setWeb3Authenticated, setWeb3WalletAddress]);
 
   const handleCopyAddress = async () => {
     if (!address) return;
@@ -227,6 +245,28 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   const providerInfo = walletProviders[connectorId] || walletProviders.injected;
 
   const getTriggerContent = () => {
+    // Show error state when max retries reached
+    if (authRetryCount >= 3 && lastAuthError) {
+      if (compact) {
+        return (
+          <div className="flex items-center gap-2">
+            <Wallet className="h-4 w-4 text-red-500" />
+            <span className="text-xs font-medium text-red-600 dark:text-red-400">
+              Auth Failed
+            </span>
+          </div>
+        );
+      }
+      return (
+        <div className="flex items-center gap-2">
+          <Wallet className="h-5 w-5 text-red-500" />
+          <span className="text-sm font-medium text-red-600 dark:text-red-400">
+            Authentication Failed
+          </span>
+        </div>
+      );
+    }
+
     // Show authenticating state
     if (isAuthenticating) {
       if (compact) {
@@ -234,7 +274,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
           <div className="flex items-center gap-2">
             <Wallet className="h-4 w-4 text-orange-500" />
             <span className="text-xs font-medium text-orange-600 dark:text-orange-400">
-              Signing...
+              Signing... ({authRetryCount + 1}/3)
             </span>
           </div>
         );
@@ -243,7 +283,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
         <div className="flex items-center gap-2">
           <Wallet className="h-5 w-5 text-orange-500" />
           <span className="text-sm font-medium text-orange-600 dark:text-orange-400">
-            Signing...
+            Signing... ({authRetryCount + 1}/3)
           </span>
         </div>
       );
@@ -293,7 +333,13 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
                 {providerInfo.name}
               </div>
               <div className="text-xs text-slate-500 dark:text-slate-400">
-                {isAuthenticating ? 'Signing...' : isAuthenticated ? 'Authenticated' : 'Connected'}
+                {authRetryCount >= 3 && lastAuthError
+                  ? `Authentication Failed (${authRetryCount} attempts)`
+                  : isAuthenticating
+                    ? `Signing... (${authRetryCount + 1}/3)`
+                    : isAuthenticated
+                      ? 'Authenticated'
+                      : 'Connected'}
               </div>
             </div>
           </div>
@@ -322,6 +368,26 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
             </div>
           </div>
         </DropdownMenuItem>
+
+        {/* Retry Authentication - only show when auth failed */}
+        {authRetryCount >= 3 && lastAuthError && (
+          <DropdownMenuItem
+            onClick={() => {
+              setAuthRetryCount(0);
+              setLastAuthError(null);
+              console.log('🔄 Manually retrying authentication...');
+            }}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-orange-50/80 dark:hover:bg-slate-800/40"
+          >
+            <Wallet className="h-4 w-4 text-orange-500" />
+            <div>
+              <div className="text-sm font-medium">Retry Authentication</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                Attempt to sign in again
+              </div>
+            </div>
+          </DropdownMenuItem>
+        )}
 
         {/* View on Explorer */}
         <DropdownMenuItem

@@ -18,5 +18,5 @@ filter = { except_tables = ["_sqlx_migrations", "__diesel_schema_migrations", "s
 with_docs = true
 
 [migrations_directory]
-# Location of Diesel migrations (we're using fresh schema.rs approach)
-dir = "migrations/"
+# Location of Diesel migrations (using dedicated Diesel directory)
+dir = "diesel_migrations/"

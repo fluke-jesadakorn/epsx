@@ -29,6 +29,7 @@ import {
 import {
   COOKIES,
   COOKIE_OPTIONS,
+  clearClientSideCookies,
   getClientCookie,
   getClientCookieJSON,
   setClientCookie,
@@ -302,9 +303,40 @@ export function SharedOpenIDWeb3Provider({
         console.log('Challenge received successfully');
         return challenge;
       } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : 'Failed to request challenge';
-        console.error('Challenge request failed', { error: errorMessage });
+        // Enhanced error handling and logging
+        let errorMessage = 'Challenge request failed';
+
+        if (err instanceof Error) {
+          errorMessage = err.message || errorMessage;
+          console.error('Challenge request failed:', {
+            type: 'Error',
+            name: err.name,
+            message: err.message,
+            backendUrl: client.backendUrl,
+            clientId: client.clientId,
+            isNetworkError: err instanceof TypeError,
+            isFetchError: err.name === 'FetchError',
+          });
+
+          // Log stack trace for debugging
+          if (err.stack && process.env.NODE_ENV === 'development') {
+            console.error('Stack trace:', err.stack);
+          }
+        } else {
+          errorMessage = String(err) || errorMessage;
+          console.error('Challenge request failed with non-Error object:', {
+            type: typeof err,
+            value: err,
+            backendUrl: client.backendUrl,
+            clientId: client.clientId,
+          });
+        }
+
+        // Ensure error message is meaningful
+        if (!errorMessage || errorMessage.trim() === '') {
+          errorMessage = 'Challenge request failed: Unknown error';
+        }
+
         setError(errorMessage);
         onAuthError?.(errorMessage);
         throw new Error(errorMessage);
@@ -345,9 +377,16 @@ export function SharedOpenIDWeb3Provider({
           // Backend already stored the session when it authenticated the signature
           // No need to store session on frontend
         } else {
-          console.error('Web3 authentication failed', { error: result.error });
-          setError(result.error || 'Authentication failed');
-          onAuthError?.(result.error || 'Authentication failed');
+          const errorMsg = result.error || 'Authentication failed';
+          console.error('Web3 authentication failed', {
+            error: errorMsg,
+            wallet_address: walletAddress,
+            signature: signature.substring(0, 20) + '...',
+            message: message.substring(0, 50) + '...',
+            nonce: nonce
+          });
+          setError(errorMsg);
+          onAuthError?.(errorMsg);
         }
 
         return result;
@@ -419,29 +458,30 @@ export function SharedOpenIDWeb3Provider({
         } catch (error) {
           console.warn('⚠️ Failed to persist authentication data to cookies:', error);
         }
-
-        // Update user state directly
-        setUser(user);
-
-        console.log('✅ Direct API authentication processed successfully');
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error
-            ? error.message
-            : 'Failed to process authentication result';
-        console.error(
-          '❌ Direct API authentication processing failed:',
-          errorMessage
-        );
-        setError(errorMessage);
-        onAuthError?.(errorMessage);
-        throw new Error(errorMessage);
-      } finally {
-        setIsLoading(false);
       }
-    },
-    [onAuthError]
-  );
+
+      // Update user state directly
+      setUser(user);
+
+      console.log('✅ Direct API authentication processed successfully');
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : 'Failed to process authentication result';
+      console.error(
+        '❌ Direct API authentication processing failed:',
+        errorMessage
+      );
+      setError(errorMessage);
+      onAuthError?.(errorMessage);
+      throw new Error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  },
+  [onAuthError]
+);
 
   // Logout user
   const logout = useCallback(async () => {
@@ -548,19 +588,6 @@ export function SharedOpenIDWeb3Provider({
     wallet: user?.wallet_address?.slice(0, 8),
     permissionsLength: user?.permissions?.length || 0,
     isLoading,
-  });
-
-  // Context value - Backend handles ALL validation (tokens, permissions, expiry)
-  // Frontend only checks: "Do I have a user object?"
-  const isAuthenticated = !!user;
-
-  console.log('🔍 Provider: isAuthenticated calculation', {
-    clientId,
-    isAuthenticated,
-    hasUser: !!user,
-    wallet: user?.wallet_address?.slice(0, 8),
-    permissionsLength: user?.permissions?.length || 0,
-    isLoading
   });
 
   const contextValue: SharedAuthContextValue = {

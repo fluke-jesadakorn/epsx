@@ -206,10 +206,10 @@ mod permission_api_endpoint_tests {
         }
         
         Router::new()
-            .route("/api/v1/admin/users/:user_id/embedded-permissions", post(mock_grant_permission))
-            .route("/api/v1/admin/users/:user_id/embedded-permissions/revoke", post(mock_revoke_permission))
-            .route("/api/v1/admin/users/:user_id/embedded-permissions/validate", post(mock_validate_permissions))
-            .route("/api/v1/admin/users/:user_id/embedded-permissions/extend", post(mock_extend_permission))
+            .route("/api/v1/admin/users/{user_id}/embedded-permissions", post(mock_grant_permission))
+            .route("/api/v1/admin/users/{user_id}/embedded-permissions/revoke", post(mock_revoke_permission))
+            .route("/api/v1/admin/users/{user_id}/embedded-permissions/validate", post(mock_validate_permissions))
+            .route("/api/v1/admin/users/{user_id}/embedded-permissions/extend", post(mock_extend_permission))
             .route("/api/v1/admin/users/bulk/embedded-permissions", post(mock_bulk_grant))
             .route("/api/v1/admin/embedded-permissions/cleanup-expired", post(mock_cleanup_expired))
     }

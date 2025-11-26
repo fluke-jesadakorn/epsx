@@ -167,40 +167,6 @@ export function Web3OpenIDSignIn({
         if (onSuccess) {
           onSuccess();
         }
-
-        logger.info('Signature received, authenticating with backend');
-
-        // Authenticate with backend using direct API
-        setCurrentStep('authenticating');
-        const result = await verifyWalletSignature({
-          wallet_address: address,
-          signature,
-          message: challengeData.message,
-          nonce: challengeData.nonce,
-        });
-
-        if (result.success) {
-          logger.info('🎉 Authentication successful!', {
-            wallet: result.wallet_address,
-            permissions: result.permissions?.length || 0,
-            isNewUser: result.is_new_user,
-          });
-
-          // Update SharedOpenIDWeb3Provider with authenticated user
-          await authenticateWithDirectApi({
-            wallet_address: result.wallet_address,
-            permissions: result.permissions,
-            is_new_user: result.is_new_user,
-            access_token: result.access_token,
-          });
-
-          setCurrentStep('success');
-          setIsLoading(false);
-
-          // Call onSuccess callback if provided (no redirect)
-          if (onSuccess) {
-            onSuccess();
-          }
         } else {
           throw new Error(result.error || 'Authentication failed');
         }
@@ -225,14 +191,6 @@ export function Web3OpenIDSignIn({
         setCurrentStep('error');
         setIsLoading(false);
       }
-
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Signature or authentication failed';
-      logger.error('Authentication process failed', { error: errorMessage });
-      setError(errorMessage);
-      setCurrentStep('error');
-      setIsLoading(false);
-    }
   }, [authenticateWithDirectApi, onSuccess]);
 
   // Retry authentication

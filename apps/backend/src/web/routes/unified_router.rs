@@ -75,7 +75,8 @@ impl UnifiedRouteBuilder {
             // API documentation (public, no auth)
             .merge(docs_routes)
 
-            // Authentication routes (Web3-first auth) - under /api/v1/auth/* (standardized)
+            // Authentication routes (Web3-first auth) - support both /api/auth and /api/v1/auth
+            .nest("/api/auth", auth_routes.clone())
             .nest("/api/v1/auth", auth_routes)
 
             // All routes under standardized /api/v1/ prefix
@@ -179,11 +180,14 @@ impl UnifiedRouteBuilder {
     fn create_admin_routes(&self) -> Router {
         let app_state = self.create_app_state();
 
-        let redis_pool = self.container.get_redis_pool();
-        let redis_broadcaster = self.container.get_redis_broadcaster();
+        let redis_pool = self.container.redis_pool.clone();
+        let redis_broadcaster = self.container.redis_broadcaster.clone();
+        let cache = self.container.cache.clone().ok_or_else(|| {
+            std::io::Error::new(std::io::ErrorKind::Other, "Cache not configured")
+        }).unwrap();
 
         let app_state = crate::web::auth::AppState::new(
-            self.container.db_pool(),
+            self.container.db_pool.clone(),
             cache,
             Arc::new((*self.container).clone()),
             redis_pool,
@@ -299,12 +303,12 @@ impl UnifiedRouteBuilder {
             // Watchlist management (watchlist_handlers not implemented yet)
             // .route("/watchlist", get(crate::web::user::watchlist_handlers::get_watchlist))
             // .route("/watchlist", post(crate::web::user::watchlist_handlers::add_to_watchlist))
-            // .route("/watchlist/:symbol", delete(crate::web::user::watchlist_handlers::remove_from_watchlist))
+            // .route("/watchlist/{symbol}", delete(crate::web::user::watchlist_handlers::remove_from_watchlist))
 
             // Alert management (alert_handlers not implemented yet)
             // .route("/alerts", get(crate::web::user::alert_handlers::get_alerts))
             // .route("/alerts", post(crate::web::user::alert_handlers::create_alert))
-            // .route("/alerts/:id", delete(crate::web::user::alert_handlers::delete_alert))
+            // .route("/alerts/{id}", delete(crate::web::user::alert_handlers::delete_alert))
 
             // Push subscription management (push_handlers not implemented yet)
             // .route("/push-subscription", post(crate::web::user::push_handlers::register_push_subscription))
@@ -384,7 +388,7 @@ impl UnifiedRouteBuilder {
             .with_state(app_state.clone());
 
         // Create authenticated user notification routes
-        let auth_routes = Router::new()
+        let auth_routes: Router<()> = Router::new()
             // User notification routes (authenticated)
             .route("/unread-count", get(crate::web::admin::notification_handlers::get_unread_count_handler))
             .route("/mark-all-read", put(crate::web::admin::notification_handlers::mark_all_notifications_read_handler))
@@ -396,7 +400,7 @@ impl UnifiedRouteBuilder {
             .with_state(app_state.clone());
 
         // Create admin notification routes (admin-only)
-        let admin_routes = Router::new()
+        let admin_routes: Router<()> = Router::new()
             .route("/send", post(crate::web::admin::notification_handlers::send_notification_handler))
             .route("/stats", get(crate::web::admin::notification_handlers::get_notification_stats_handler))
             .route("/admin/{id}", delete(crate::web::admin::notification_handlers::delete_admin_notification_handler))
@@ -409,9 +413,9 @@ impl UnifiedRouteBuilder {
             .route("/unread-count", get(get_unread_count_handler))
             .route("/mark-all-read", put(mark_all_notifications_read_handler))
             .route("/clear-all", delete(clear_all_notifications_handler))
-            .route("/:id/read", put(mark_notification_read_handler))
-            .route("/:id/acknowledge", put(acknowledge_notification_handler))
-            .route("/:id", delete(delete_notification_handler))
+            .route("/{id}/read", put(mark_notification_read_handler))
+            .route("/{id}/acknowledge", put(acknowledge_notification_handler))
+            .route("/{id}", delete(delete_notification_handler))
             .with_state(app_state);
 
         // Merge SSE and notification routes

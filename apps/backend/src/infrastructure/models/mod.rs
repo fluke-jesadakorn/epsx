@@ -26,7 +26,7 @@ pub use permission_group::{
 
 pub use permission::{
     PermissionDb, NewPermissionDb, UpdatePermissionDb,
-    WalletPermissionsViewDb, CreatePermissionRequest, UpdatePermissionRequest,
+    CreatePermissionRequest, UpdatePermissionRequest,
     BulkPermissionRequest, PermissionStats, PermissionValidationResult,
     PermissionAssignmentResult, PermissionSearchFilters, PermissionSummary,
     PlatformPermissionStats

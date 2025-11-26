@@ -1,26 +1,25 @@
 -- ================================================================================================
--- EPSX CONSOLIDATED INITIAL SCHEMA
+-- EPSX CONSOLIDATED DEVELOPMENT SCHEMA
 -- ================================================================================================
--- Version: 2.0.0
--- Created: 2025-10-14
--- Consolidates: Migrations 001-037 (excludes cleanup migrations 038-044)
+-- Version: 3.0.0 (Consolidated for Development)
+-- Created: 2025-11-26
+-- Consolidates: All individual migrations into single comprehensive schema
 --
--- Description: Complete production-ready schema for EPSX Web3-first platform
+-- Description: Complete production-ready schema for EPSX Web3-first platform with all
+-- November 2025 enhancements for simplified development setup.
 --
 -- Core Components:
 -- - Web3-first wallet authentication system (SIWE compliant)
--- - Normalized permission management with groups
+-- - Unified permission management with wallet-specific fields
 -- - OpenID Connect token management
--- - Route-based permission protection
+-- - Enhanced route-based permission protection
 -- - Event sourcing infrastructure (CQRS)
 -- - Read model schema for optimized queries
--- - Notification system with SSE support
+-- - Notification system with SSE support and performance indexes
 -- - Stock ranking package assignments
 -- - Permission audit logging
+-- - Pay-per-use billing model
 -- - Performance optimization functions
---
--- Excluded Migrations:
--- - 038-044: Cleanup operations (drop tables, legacy migrations)
 --
 -- Database Requirements:
 -- - PostgreSQL 14+
@@ -44,7 +43,7 @@ CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA public;
 COMMENT ON EXTENSION btree_gist IS 'support for indexing common datatypes in GiST';
 
 -- ================================================================================================
--- SECTION 2: CORE TABLES (from migration 001)
+-- SECTION 2: CORE TABLES (from migration 001 + enhancements)
 -- ================================================================================================
 
 -- ------------------------------------------------------------------------------------------------
@@ -80,7 +79,7 @@ CREATE INDEX idx_wallet_users_metadata_gin ON wallet_users USING gin(wallet_meta
 COMMENT ON TABLE wallet_users IS 'Wallet user accounts - permissions granted via wallet_group_assignments and wallet_direct_permissions';
 
 -- ------------------------------------------------------------------------------------------------
--- PERMISSIONS TABLE - Normalized permission definitions
+-- PERMISSIONS TABLE - Enhanced unified permission definitions
 -- ------------------------------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS permissions (
@@ -101,6 +100,15 @@ CREATE TABLE IF NOT EXISTS permissions (
     web3_token_ids JSONB DEFAULT '[]',
     web3_metadata JSONB DEFAULT '{}',
 
+    -- UNIFIED PERMISSION FIELDS (from 20251118_005 and 20251126)
+    wallet_address VARCHAR(42),
+    source_type VARCHAR(20) CHECK (source_type IN ('direct', 'group', 'route')),
+    source_id UUID,
+    granted_at TIMESTAMPTZ DEFAULT NOW(),
+    expires_at TIMESTAMPTZ,
+    granted_by VARCHAR(255),
+    grant_reason TEXT,
+
     -- Status and audit
     is_active BOOLEAN DEFAULT TRUE NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
@@ -113,9 +121,13 @@ CREATE TABLE IF NOT EXISTS permissions (
     ),
     CONSTRAINT permissions_platform_not_empty CHECK (LENGTH(TRIM(platform)) > 0),
     CONSTRAINT permissions_resource_not_empty CHECK (LENGTH(TRIM(resource)) > 0),
-    CONSTRAINT permissions_action_not_empty CHECK (LENGTH(TRIM(action)) > 0)
+    CONSTRAINT permissions_action_not_empty CHECK (LENGTH(TRIM(action)) > 0),
+    CONSTRAINT permissions_valid_wallet CHECK (wallet_address IS NULL OR wallet_address ~ '^0x[a-fA-F0-9]{40}$'),
+    CONSTRAINT permissions_valid_dates CHECK (expires_at IS NULL OR expires_at > granted_at),
+    CONSTRAINT permissions_active_expires CHECK (is_active = false OR expires_at IS NULL OR expires_at > NOW())
 );
 
+-- Enhanced permission indexes (from 20251118_005)
 CREATE INDEX idx_permissions_lookup ON permissions(permission_string) WHERE is_active = TRUE;
 CREATE INDEX idx_permissions_platform ON permissions(platform, resource, action);
 CREATE INDEX idx_permissions_type ON permissions(permission_type, is_active);
@@ -123,12 +135,27 @@ CREATE INDEX idx_permissions_web3 ON permissions(permission_type, web3_chain_id,
     WHERE permission_type != 'manual';
 CREATE INDEX idx_permissions_audit ON permissions(created_at, updated_at);
 
-COMMENT ON TABLE permissions IS 'Normalized permission definitions - single source of truth for all available permissions';
+-- Strategic indexes for unified permissions
+CREATE INDEX idx_permissions_wallet_lookup ON permissions (wallet_address, is_active, expires_at) WHERE wallet_address IS NOT NULL;
+CREATE INDEX idx_permissions_platform_lookup ON permissions (platform, resource, action, is_active) WHERE is_active = true;
+CREATE INDEX idx_permissions_source_lookup ON permissions (source_type, source_id, is_active) WHERE is_active = true AND source_type IS NOT NULL;
+CREATE INDEX idx_permissions_expiry ON permissions (expires_at, is_active) WHERE expires_at IS NOT NULL;
+CREATE INDEX idx_permissions_active_time ON permissions (is_active, granted_at, expires_at) WHERE is_active = true;
+CREATE INDEX idx_permissions_full_search ON permissions (permission_string, wallet_address, is_active) WHERE is_active = true;
+
+COMMENT ON TABLE permissions IS 'Enhanced unified permissions table with Web3-first support and direct wallet assignments';
 COMMENT ON COLUMN permissions.permission_string IS 'Full permission string in format platform:resource:action';
 COMMENT ON COLUMN permissions.permission_type IS 'How permission is validated: manual, nft_gated, token_gated, or dao_governance';
+COMMENT ON COLUMN permissions.wallet_address IS 'Wallet address that has this permission (for unified permissions table)';
+COMMENT ON COLUMN permissions.source_type IS 'Source type: direct, group, or route (for unified permissions table)';
+COMMENT ON COLUMN permissions.source_id IS 'Source ID for group-based permissions (for unified permissions table)';
+COMMENT ON COLUMN permissions.granted_at IS 'When this permission was granted (for unified permissions table)';
+COMMENT ON COLUMN permissions.expires_at IS 'When this permission expires (NULL for permanent)';
+COMMENT ON COLUMN permissions.granted_by IS 'Who granted this permission (admin wallet address)';
+COMMENT ON COLUMN permissions.grant_reason IS 'Reason for granting this permission';
 
 -- ------------------------------------------------------------------------------------------------
--- PERMISSION GROUPS TABLE - Group definitions
+-- PERMISSION GROUPS TABLE - Enhanced with pay-per-use billing
 -- ------------------------------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS permission_groups (
@@ -139,10 +166,10 @@ CREATE TABLE IF NOT EXISTS permission_groups (
     group_type VARCHAR(20) DEFAULT 'manual' NOT NULL,
     group_metadata JSONB DEFAULT '{}' NOT NULL,
 
-    -- Subscription pricing
+    -- Subscription pricing (Enhanced with pay-per-use)
     price NUMERIC(10,2) DEFAULT 0.00,
     currency VARCHAR(3) DEFAULT 'USD',
-    billing_cycle VARCHAR(20) DEFAULT 'monthly',
+    billing_cycle VARCHAR(20) DEFAULT 'pay_per_use',
 
     -- Status and display
     is_active BOOLEAN DEFAULT TRUE NOT NULL,
@@ -160,7 +187,7 @@ CREATE TABLE IF NOT EXISTS permission_groups (
     created_by VARCHAR(42),
     last_modified_by VARCHAR(42),
 
-    -- Constraints
+    -- Constraints (Updated for pay-per-use)
     CONSTRAINT valid_group_type CHECK (
         group_type IN ('manual', 'subscription', 'web3_asset', 'dao_membership', 'admin')
     ),
@@ -168,7 +195,7 @@ CREATE TABLE IF NOT EXISTS permission_groups (
         currency IN ('USD', 'EUR', 'BTC', 'ETH', 'BNB')
     ),
     CONSTRAINT valid_billing_cycle CHECK (
-        billing_cycle IN ('monthly', 'yearly', 'one_time', 'lifetime')
+        billing_cycle IN ('monthly', 'yearly', 'one_time', 'lifetime', 'pay_per_use')
     ),
     CONSTRAINT valid_wallet_addresses CHECK (
         (created_by IS NULL OR (created_by ~ '^0x[a-fA-F0-9]{40}$' AND LENGTH(created_by) = 42))
@@ -184,7 +211,7 @@ CREATE INDEX idx_permission_groups_created ON permission_groups(created_at DESC)
 CREATE INDEX idx_permission_groups_metadata_gin ON permission_groups USING gin(group_metadata);
 CREATE INDEX idx_permission_groups_assignment_rules_gin ON permission_groups USING gin(assignment_rules);
 
-COMMENT ON TABLE permission_groups IS 'Permission group definitions - groups are composed of permissions via permission_group_memberships';
+COMMENT ON TABLE permission_groups IS 'Enhanced permission group definitions with pay-per-use billing support';
 
 -- ------------------------------------------------------------------------------------------------
 -- PERMISSION GROUP MEMBERSHIPS TABLE - Group to Permission mapping
@@ -316,7 +343,7 @@ CREATE INDEX idx_openid_refresh_tokens_active ON openid_refresh_tokens(wallet_ad
 COMMENT ON TABLE openid_refresh_tokens IS 'OpenID Connect refresh tokens for Web3-authenticated users';
 
 -- ------------------------------------------------------------------------------------------------
--- ROUTE PERMISSIONS TABLE - API route protection
+-- ENHANCED ROUTE PERMISSIONS TABLE - API route protection
 -- ------------------------------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS route_permissions (
@@ -352,10 +379,10 @@ CREATE INDEX idx_route_permissions_patterns ON route_permissions USING gin(route
 CREATE INDEX idx_route_permissions_audit ON route_permissions(created_at, updated_at);
 CREATE UNIQUE INDEX idx_route_permissions_unique_route ON route_permissions(route_pattern, http_method) WHERE is_active = TRUE;
 
-COMMENT ON TABLE route_permissions IS 'API route protection with permission requirements';
+COMMENT ON TABLE route_permissions IS 'Enhanced API route protection with permission requirements and category support';
 
 -- ================================================================================================
--- SECTION 3: SESSIONS TABLE (from migration 002)
+-- SECTION 3: SESSIONS TABLE
 -- ================================================================================================
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -410,7 +437,7 @@ CREATE INDEX idx_sessions_ip_address ON sessions(ip_address, wallet_address)
 COMMENT ON TABLE sessions IS 'Active user sessions for Web3-authenticated wallets with token management and security tracking';
 
 -- ================================================================================================
--- SECTION 4: STOCK RANKINGS (from migration 026)
+-- SECTION 4: STOCK RANKINGS
 -- ================================================================================================
 
 CREATE TABLE IF NOT EXISTS stock_ranking_assignments (
@@ -454,7 +481,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_performed_at ON assignment_audit_log(perfor
 COMMENT ON TABLE assignment_audit_log IS 'Audit trail for all assignment modifications (extend, revoke, etc.)';
 
 -- ================================================================================================
--- SECTION 5: EVENT SOURCING INFRASTRUCTURE (from migration 027)
+-- SECTION 5: EVENT SOURCING INFRASTRUCTURE
 -- ================================================================================================
 
 CREATE TABLE IF NOT EXISTS event_store (
@@ -547,7 +574,7 @@ CREATE INDEX idx_snapshots_created_at ON aggregate_snapshots(created_at DESC);
 COMMENT ON TABLE aggregate_snapshots IS 'Aggregate snapshots for performance optimization';
 
 -- ================================================================================================
--- SECTION 6: READ MODEL SCHEMA (from migration 028)
+-- SECTION 6: READ MODEL SCHEMA
 -- ================================================================================================
 
 CREATE SCHEMA IF NOT EXISTS read_model;
@@ -712,7 +739,7 @@ CREATE INDEX idx_checkpoint_processed_at ON read_model.projection_checkpoints(pr
 COMMENT ON TABLE read_model.projection_checkpoints IS 'Tracks projection progress for resumability';
 
 -- ================================================================================================
--- SECTION 7: NOTIFICATIONS SYSTEM (from migrations 031, 035, 037 - merged)
+-- SECTION 7: NOTIFICATIONS SYSTEM WITH PERFORMANCE INDEXES
 -- ================================================================================================
 
 CREATE TABLE IF NOT EXISTS wallet_notifications (
@@ -733,14 +760,14 @@ CREATE TABLE IF NOT EXISTS wallet_notifications (
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
 
-    -- Delivery tracking columns (from migration 035)
+    -- Delivery tracking columns
     queued_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     delivery_attempts INTEGER DEFAULT 0,
     last_delivery_attempt_at TIMESTAMP WITH TIME ZONE,
     delivery_error TEXT,
     acknowledged_at TIMESTAMP WITH TIME ZONE,
 
-    -- Soft delete column (from migration 037)
+    -- Soft delete column
     deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL,
 
     -- Constraints
@@ -752,7 +779,21 @@ CREATE TABLE IF NOT EXISTS wallet_notifications (
     )
 );
 
--- Indexes for notifications
+-- Enhanced notification performance indexes (from 001_notification_indexes.sql)
+CREATE INDEX idx_wallet_notifications_queue_fetch ON wallet_notifications (wallet_address, deleted_at, created_at, timestamp DESC) WHERE deleted_at IS NULL;
+CREATE INDEX idx_wallet_notifications_user_query ON wallet_notifications (deleted_at, wallet_address, read_at, timestamp DESC);
+CREATE INDEX idx_wallet_notifications_admin_query ON wallet_notifications (deleted_at, notification_type, priority, timestamp DESC);
+CREATE INDEX idx_wallet_notifications_expiry ON wallet_notifications (expires_at) WHERE expires_at IS NOT NULL;
+CREATE INDEX idx_wallet_notifications_soft_deleted ON wallet_notifications (deleted_at) WHERE deleted_at IS NOT NULL;
+CREATE INDEX idx_wallet_notifications_read_cleanup ON wallet_notifications (read_at, deleted_at, created_at) WHERE read_at IS NOT NULL AND deleted_at IS NULL;
+CREATE INDEX idx_wallet_notifications_timestamp_stats ON wallet_notifications (timestamp, deleted_at) WHERE deleted_at IS NULL;
+CREATE INDEX idx_wallet_notifications_type_stats ON wallet_notifications (notification_type, deleted_at) WHERE deleted_at IS NULL;
+CREATE INDEX idx_wallet_notifications_priority_stats ON wallet_notifications (priority, deleted_at) WHERE deleted_at IS NULL;
+CREATE INDEX idx_wallet_notifications_read_rate ON wallet_notifications (read_at, deleted_at) WHERE read_at IS NOT NULL AND deleted_at IS NULL;
+CREATE INDEX idx_wallet_notifications_click_rate ON wallet_notifications (clicked_at, deleted_at) WHERE clicked_at IS NOT NULL AND deleted_at IS NULL;
+CREATE INDEX idx_wallet_notifications_delivery_rate ON wallet_notifications (delivered_at, deleted_at) WHERE delivered_at IS NOT NULL AND deleted_at IS NULL;
+CREATE INDEX idx_wallet_notifications_acknowledgement ON wallet_notifications (acknowledged_at, deleted_at) WHERE acknowledged_at IS NOT NULL AND deleted_at IS NULL;
+CREATE INDEX idx_wallet_notifications_unread_count ON wallet_notifications (wallet_address, read_at, deleted_at) WHERE read_at IS NULL AND deleted_at IS NULL;
 CREATE INDEX idx_wallet_notifications_wallet ON wallet_notifications(wallet_address);
 CREATE INDEX idx_wallet_notifications_timestamp ON wallet_notifications(timestamp DESC);
 CREATE INDEX idx_wallet_notifications_read_at ON wallet_notifications(read_at) WHERE read_at IS NULL;
@@ -769,10 +810,10 @@ CREATE INDEX idx_wallet_notifications_deleted ON wallet_notifications(deleted_at
 CREATE INDEX idx_wallet_notifications_offline_queue ON wallet_notifications(wallet_address, created_at DESC, deleted_at, expires_at) WHERE deleted_at IS NULL;
 CREATE INDEX idx_wallet_notifications_unread_active ON wallet_notifications(wallet_address, read_at, deleted_at) WHERE read_at IS NULL AND deleted_at IS NULL;
 
-COMMENT ON TABLE wallet_notifications IS 'Stores notifications for wallet users in Web3-first system with delivery tracking and soft delete';
+COMMENT ON TABLE wallet_notifications IS 'Enhanced notifications system with performance indexes and delivery tracking';
 
 -- ================================================================================================
--- SECTION 8: NOTIFICATION SUBSCRIPTIONS (from migration 036)
+-- SECTION 8: NOTIFICATION SUBSCRIPTIONS
 -- ================================================================================================
 
 CREATE TABLE IF NOT EXISTS notification_subscriptions (
@@ -803,7 +844,7 @@ CREATE INDEX idx_subscriptions_stale ON notification_subscriptions(last_ping_at,
 COMMENT ON TABLE notification_subscriptions IS 'Tracks active SSE connections across multiple backend instances for Redis pub/sub';
 
 -- ================================================================================================
--- SECTION 9: PERMISSION AUDIT SYSTEM (from migration 033)
+-- SECTION 9: PERMISSION AUDIT SYSTEM
 -- ================================================================================================
 
 CREATE TABLE IF NOT EXISTS permission_audit_log (
@@ -877,10 +918,10 @@ CREATE INDEX idx_audit_log_timestamp_month ON permission_audit_log((date_trunc('
 COMMENT ON TABLE permission_audit_log IS 'Complete audit trail of all permission-related events';
 
 -- ================================================================================================
--- SECTION 10: MATERIALIZED VIEWS
+-- SECTION 10: ENHANCED MATERIALIZED VIEWS
 -- ================================================================================================
 
--- User effective permissions view (from migration 001)
+-- User effective permissions view
 CREATE MATERIALIZED VIEW IF NOT EXISTS user_effective_permissions AS
 -- Permissions from groups
 SELECT DISTINCT
@@ -928,7 +969,73 @@ CREATE INDEX IF NOT EXISTS idx_user_eff_perms_platform ON user_effective_permiss
 
 COMMENT ON MATERIALIZED VIEW user_effective_permissions IS 'Pre-computed effective permissions for each wallet';
 
--- Event store statistics (from migration 027)
+-- ENHANCED: Wallet permissions view for unified permissions (from 20251118_005)
+DROP MATERIALIZED VIEW IF EXISTS wallet_permissions_view;
+CREATE MATERIALIZED VIEW wallet_permissions_view AS
+SELECT
+    -- Wallet information
+    wu.wallet_address,
+    wu.is_active as wallet_active,
+    wu.wallet_metadata,
+    wu.created_at as wallet_created,
+    wu.updated_at as wallet_updated,
+    wu.last_auth_at,
+
+    -- Permission aggregation (JSON)
+    COALESCE(
+        JSON_AGG(
+            JSON_BUILD_OBJECT(
+                'id', p.id,
+                'permission_string', p.permission_string,
+                'platform', p.platform,
+                'resource', p.resource,
+                'action', p.action,
+                'source_type', p.source_type,
+                'source_id', p.source_id,
+                'granted_at', COALESCE(p.granted_at, p.created_at),
+                'expires_at', p.expires_at,
+                'granted_by', p.granted_by,
+                'grant_reason', p.grant_reason
+            )
+        ) FILTER (WHERE p.id IS NOT NULL AND p.wallet_address IS NOT NULL),
+        '[]'::json
+    ) as permissions,
+
+    -- Permission counts for quick stats
+    COUNT(p.id) FILTER (WHERE p.id IS NOT NULL AND p.wallet_address IS NOT NULL) as total_permissions,
+    COUNT(p.id) FILTER (WHERE p.source_type = 'direct' AND p.wallet_address IS NOT NULL) as direct_permissions,
+    COUNT(p.id) FILTER (WHERE p.source_type = 'group' AND p.wallet_address IS NOT NULL) as group_permissions,
+    COUNT(p.id) FILTER (WHERE p.expires_at IS NOT NULL AND p.wallet_address IS NOT NULL) as temporary_permissions,
+
+    -- Wallet activity metrics
+    CASE
+        WHEN wu.last_auth_at IS NOT NULL THEN 'active'
+        WHEN wu.created_at > NOW() - INTERVAL '30 days' THEN 'new'
+        ELSE 'inactive'
+    END as activity_status,
+
+    -- Creation timestamp (for view refresh)
+    NOW() as view_refreshed_at
+
+FROM wallet_users wu
+LEFT JOIN permissions p ON wu.wallet_address = p.wallet_address
+    AND p.is_active = true
+    AND (p.expires_at IS NULL OR p.expires_at > NOW())
+GROUP BY
+    wu.wallet_address, wu.is_active, wu.wallet_metadata,
+    wu.created_at, wu.updated_at, wu.last_auth_at;
+
+-- Create indexes for the materialized view
+CREATE UNIQUE INDEX IF NOT EXISTS idx_wallet_permissions_view_address
+ON wallet_permissions_view (wallet_address);
+
+CREATE INDEX IF NOT EXISTS idx_wallet_permissions_view_activity
+ON wallet_permissions_view (activity_status, wallet_created DESC);
+
+CREATE INDEX IF NOT EXISTS idx_wallet_permissions_view_stats
+ON wallet_permissions_view (total_permissions DESC, direct_permissions DESC);
+
+-- Event store statistics
 CREATE MATERIALIZED VIEW IF NOT EXISTS event_store_stats AS
 SELECT
     aggregate_type,
@@ -943,7 +1050,7 @@ GROUP BY aggregate_type, event_type;
 CREATE UNIQUE INDEX idx_event_store_stats_pk ON event_store_stats(aggregate_type, event_type);
 COMMENT ON MATERIALIZED VIEW event_store_stats IS 'Statistics for monitoring event store health';
 
--- Active wallets summary (from migration 028)
+-- Active wallets summary
 CREATE MATERIALIZED VIEW IF NOT EXISTS read_model.mv_active_wallets_summary AS
 SELECT
     COUNT(*) as total_wallets,
@@ -958,7 +1065,7 @@ FROM read_model.wallet_details;
 CREATE UNIQUE INDEX idx_mv_active_wallets_summary ON read_model.mv_active_wallets_summary((1));
 COMMENT ON MATERIALIZED VIEW read_model.mv_active_wallets_summary IS 'Summary statistics for active wallets dashboard';
 
--- Wallet permission counts (from migration 034)
+-- Wallet permission counts
 CREATE MATERIALIZED VIEW IF NOT EXISTS mv_wallet_permission_counts AS
 SELECT
     wu.wallet_address,
@@ -975,7 +1082,7 @@ CREATE INDEX idx_mv_wallet_perm_counts_tier ON mv_wallet_permission_counts(tier_
 COMMENT ON MATERIALIZED VIEW mv_wallet_permission_counts IS 'Materialized view for fast permission count queries';
 
 -- ================================================================================================
--- SECTION 11: FUNCTIONS
+-- SECTION 11: ENHANCED FUNCTIONS
 -- ================================================================================================
 
 -- Update timestamp trigger functions
@@ -1043,7 +1150,77 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Read model helper function (from migration 028)
+-- ENHANCED: Wallet permissions view functions (from 20251118_005)
+CREATE OR REPLACE FUNCTION refresh_wallet_permissions_view()
+RETURNS void AS $$
+BEGIN
+    REFRESH MATERIALIZED VIEW CONCURRENTLY wallet_permissions_view;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function: Check if wallet has specific permission (unified)
+CREATE OR REPLACE FUNCTION wallet_has_permission(
+    p_wallet_address VARCHAR(42),
+    p_permission_string VARCHAR(255)
+) RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1 FROM permissions
+        WHERE wallet_address = p_wallet_address
+          AND permission_string = p_permission_string
+          AND is_active = true
+          AND (expires_at IS NULL OR expires_at > NOW())
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function: Get all permissions for wallet (unified)
+CREATE OR REPLACE FUNCTION get_wallet_permissions(
+    p_wallet_address VARCHAR(42)
+) RETURNS JSON AS $$
+BEGIN
+    RETURN COALESCE(
+        (
+            SELECT JSON_AGG(
+                JSON_BUILD_OBJECT(
+                    'permission_string', permission_string,
+                    'platform', platform,
+                    'resource', resource,
+                    'action', action,
+                    'source_type', source_type,
+                    'granted_at', COALESCE(granted_at, created_at),
+                    'expires_at', expires_at
+                )
+            )
+            FROM permissions
+            WHERE wallet_address = p_wallet_address
+              AND is_active = true
+              AND (expires_at IS NULL OR expires_at > NOW())
+        ),
+        '[]'::json
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+-- Function: Count active permissions by platform (unified)
+CREATE OR REPLACE FUNCTION get_permission_stats_by_platform()
+RETURNS TABLE(platform VARCHAR(50), permission_count BIGINT, wallet_count BIGINT) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        p.platform,
+        COUNT(*)::BIGINT as permission_count,
+        COUNT(DISTINCT p.wallet_address)::BIGINT as wallet_count
+    FROM permissions p
+    WHERE p.is_active = true
+      AND p.wallet_address IS NOT NULL
+      AND (p.expires_at IS NULL OR p.expires_at > NOW())
+    GROUP BY p.platform
+    ORDER BY permission_count DESC;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Read model helper function
 CREATE OR REPLACE FUNCTION read_model.get_wallet_full_details(p_wallet_address VARCHAR(42))
 RETURNS JSONB AS $$
 DECLARE
@@ -1079,263 +1256,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE;
 
--- Audit logging functions (from migration 033)
-CREATE OR REPLACE FUNCTION log_permission_granted(
-    p_wallet_address VARCHAR,
-    p_permission_string VARCHAR,
-    p_permission_id UUID,
-    p_granted_by VARCHAR,
-    p_reason TEXT DEFAULT NULL,
-    p_expires_at TIMESTAMPTZ DEFAULT NULL,
-    p_metadata JSONB DEFAULT '{}'
-) RETURNS UUID AS $$
-DECLARE
-    v_audit_id UUID;
-BEGIN
-    INSERT INTO permission_audit_log (
-        event_type,
-        wallet_address,
-        permission_string,
-        permission_id,
-        performed_by,
-        reason,
-        expires_at,
-        valid_from,
-        new_state,
-        metadata
-    ) VALUES (
-        'direct_permission_granted',
-        p_wallet_address,
-        p_permission_string,
-        p_permission_id,
-        p_granted_by,
-        p_reason,
-        p_expires_at,
-        NOW(),
-        jsonb_build_object(
-            'permission', p_permission_string,
-            'expires_at', p_expires_at
-        ),
-        p_metadata
-    )
-    RETURNING id INTO v_audit_id;
-
-    RETURN v_audit_id;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION log_permission_revoked(
-    p_wallet_address VARCHAR,
-    p_permission_string VARCHAR,
-    p_permission_id UUID,
-    p_revoked_by VARCHAR,
-    p_reason TEXT DEFAULT NULL,
-    p_metadata JSONB DEFAULT '{}'
-) RETURNS UUID AS $$
-DECLARE
-    v_audit_id UUID;
-BEGIN
-    INSERT INTO permission_audit_log (
-        event_type,
-        wallet_address,
-        permission_string,
-        permission_id,
-        performed_by,
-        reason,
-        valid_until,
-        previous_state,
-        metadata
-    ) VALUES (
-        'direct_permission_revoked',
-        p_wallet_address,
-        p_permission_string,
-        p_permission_id,
-        p_revoked_by,
-        p_reason,
-        NOW(),
-        jsonb_build_object(
-            'permission', p_permission_string
-        ),
-        p_metadata
-    )
-    RETURNING id INTO v_audit_id;
-
-    RETURN v_audit_id;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION log_group_assigned(
-    p_wallet_address VARCHAR,
-    p_group_id UUID,
-    p_group_name VARCHAR,
-    p_assigned_by VARCHAR,
-    p_reason TEXT DEFAULT NULL,
-    p_expires_at TIMESTAMPTZ DEFAULT NULL,
-    p_metadata JSONB DEFAULT '{}'
-) RETURNS UUID AS $$
-DECLARE
-    v_audit_id UUID;
-    v_group_permissions JSONB;
-BEGIN
-    SELECT jsonb_agg(p.permission_string)
-    INTO v_group_permissions
-    FROM permission_group_memberships pgm
-    JOIN permissions p ON pgm.permission_id = p.id
-    WHERE pgm.group_id = p_group_id
-      AND p.is_active = TRUE;
-
-    INSERT INTO permission_audit_log (
-        event_type,
-        wallet_address,
-        group_id,
-        group_name,
-        performed_by,
-        reason,
-        expires_at,
-        valid_from,
-        new_state,
-        metadata
-    ) VALUES (
-        'group_assigned',
-        p_wallet_address,
-        p_group_id,
-        p_group_name,
-        p_assigned_by,
-        p_reason,
-        p_expires_at,
-        NOW(),
-        jsonb_build_object(
-            'group_id', p_group_id,
-            'group_name', p_group_name,
-            'permissions', v_group_permissions,
-            'expires_at', p_expires_at
-        ),
-        p_metadata
-    )
-    RETURNING id INTO v_audit_id;
-
-    RETURN v_audit_id;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION log_group_removed(
-    p_wallet_address VARCHAR,
-    p_group_id UUID,
-    p_group_name VARCHAR,
-    p_removed_by VARCHAR,
-    p_reason TEXT DEFAULT NULL,
-    p_metadata JSONB DEFAULT '{}'
-) RETURNS UUID AS $$
-DECLARE
-    v_audit_id UUID;
-    v_group_permissions JSONB;
-BEGIN
-    SELECT jsonb_agg(p.permission_string)
-    INTO v_group_permissions
-    FROM permission_group_memberships pgm
-    JOIN permissions p ON pgm.permission_id = p.id
-    WHERE pgm.group_id = p_group_id
-      AND p.is_active = TRUE;
-
-    INSERT INTO permission_audit_log (
-        event_type,
-        wallet_address,
-        group_id,
-        group_name,
-        performed_by,
-        reason,
-        valid_until,
-        previous_state,
-        metadata
-    ) VALUES (
-        'group_removed',
-        p_wallet_address,
-        p_group_id,
-        p_group_name,
-        p_removed_by,
-        p_reason,
-        NOW(),
-        jsonb_build_object(
-            'group_id', p_group_id,
-            'group_name', p_group_name,
-            'permissions', v_group_permissions
-        ),
-        p_metadata
-    )
-    RETURNING id INTO v_audit_id;
-
-    RETURN v_audit_id;
-END;
-$$ LANGUAGE plpgsql;
-
--- Audit trigger functions (from migration 033)
-CREATE OR REPLACE FUNCTION audit_wallet_direct_permissions()
-RETURNS TRIGGER AS $$
-DECLARE
-    v_permission_string VARCHAR;
-BEGIN
-    SELECT permission_string INTO v_permission_string
-    FROM permissions WHERE id = COALESCE(NEW.permission_id, OLD.permission_id);
-
-    IF TG_OP = 'INSERT' THEN
-        PERFORM log_permission_granted(
-            NEW.wallet_address,
-            v_permission_string,
-            NEW.permission_id,
-            NEW.granted_by,
-            NEW.grant_reason,
-            NEW.expires_at,
-            jsonb_build_object('source', 'trigger')
-        );
-    ELSIF TG_OP = 'DELETE' THEN
-        PERFORM log_permission_revoked(
-            OLD.wallet_address,
-            v_permission_string,
-            OLD.permission_id,
-            CURRENT_SETTING('app.current_user', TRUE),
-            NULL,
-            jsonb_build_object('source', 'trigger')
-        );
-    END IF;
-
-    RETURN COALESCE(NEW, OLD);
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION audit_wallet_group_assignments()
-RETURNS TRIGGER AS $$
-DECLARE
-    v_group_name VARCHAR;
-BEGIN
-    SELECT name INTO v_group_name
-    FROM permission_groups WHERE id = COALESCE(NEW.group_id, OLD.group_id);
-
-    IF TG_OP = 'INSERT' THEN
-        PERFORM log_group_assigned(
-            NEW.wallet_address,
-            NEW.group_id,
-            v_group_name,
-            NEW.assigned_by,
-            NEW.assignment_reason,
-            NEW.expires_at,
-            jsonb_build_object('source', 'trigger')
-        );
-    ELSIF TG_OP = 'DELETE' THEN
-        PERFORM log_group_removed(
-            OLD.wallet_address,
-            OLD.group_id,
-            v_group_name,
-            CURRENT_SETTING('app.current_user', TRUE),
-            NULL,
-            jsonb_build_object('source', 'trigger')
-        );
-    END IF;
-
-    RETURN COALESCE(NEW, OLD);
-END;
-$$ LANGUAGE plpgsql;
-
--- Permission optimization functions (from migration 034)
+-- Permission optimization functions
 CREATE OR REPLACE FUNCTION get_wallet_permissions_detailed(p_wallet_address VARCHAR)
 RETURNS TABLE (
     permission_string VARCHAR,
@@ -1428,175 +1349,50 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE;
 
-CREATE OR REPLACE FUNCTION wallet_has_permission(
+-- Audit logging functions
+CREATE OR REPLACE FUNCTION log_permission_granted(
     p_wallet_address VARCHAR,
-    p_permission_string VARCHAR
-) RETURNS BOOLEAN AS $$
+    p_permission_string VARCHAR,
+    p_permission_id UUID,
+    p_granted_by VARCHAR,
+    p_reason TEXT DEFAULT NULL,
+    p_expires_at TIMESTAMPTZ DEFAULT NULL,
+    p_metadata JSONB DEFAULT '{}'
+) RETURNS UUID AS $$
 DECLARE
-    v_has_permission BOOLEAN;
-    v_permission_parts TEXT[];
-    v_platform TEXT;
-    v_resource TEXT;
-    v_action TEXT;
+    v_audit_id UUID;
 BEGIN
-    v_permission_parts := string_to_array(p_permission_string, ':');
-
-    IF array_length(v_permission_parts, 1) != 3 THEN
-        RETURN FALSE;
-    END IF;
-
-    v_platform := v_permission_parts[1];
-    v_resource := v_permission_parts[2];
-    v_action := v_permission_parts[3];
-
-    SELECT EXISTS (
-        SELECT 1
-        FROM (
-            -- Group permissions
-            SELECT p.permission_string
-            FROM wallet_group_assignments wga
-            JOIN permission_groups pg ON wga.group_id = pg.id
-            JOIN permission_group_memberships pgm ON pg.id = pgm.group_id
-            JOIN permissions p ON pgm.permission_id = p.id
-            WHERE wga.wallet_address = LOWER(p_wallet_address)
-              AND wga.is_active = TRUE
-              AND (wga.expires_at IS NULL OR wga.expires_at > NOW())
-              AND pg.is_active = TRUE
-              AND p.is_active = TRUE
-
-            UNION
-
-            -- Direct permissions
-            SELECT p.permission_string
-            FROM wallet_direct_permissions wdp
-            JOIN permissions p ON wdp.permission_id = p.id
-            WHERE wdp.wallet_address = LOWER(p_wallet_address)
-              AND wdp.is_active = TRUE
-              AND (wdp.expires_at IS NULL OR wdp.expires_at > NOW())
-              AND p.is_active = TRUE
-        ) AS all_permissions
-        WHERE
-            permission_string = p_permission_string
-            OR permission_string = v_platform || ':*:*'
-            OR permission_string = v_platform || ':' || v_resource || ':*'
-    ) INTO v_has_permission;
-
-    RETURN v_has_permission;
-END;
-$$ LANGUAGE plpgsql STABLE;
-
-CREATE OR REPLACE FUNCTION get_wallet_permission_stats(p_wallet_address VARCHAR)
-RETURNS TABLE (
-    total_permissions BIGINT,
-    direct_permissions BIGINT,
-    group_permissions BIGINT,
-    permanent_permissions BIGINT,
-    temporary_permissions BIGINT,
-    groups_count BIGINT,
-    expiring_soon_count BIGINT
-) AS $$
-BEGIN
-    RETURN QUERY
-    WITH wallet_perms AS (
-        SELECT * FROM get_wallet_permissions_detailed(p_wallet_address)
+    INSERT INTO permission_audit_log (
+        event_type,
+        wallet_address,
+        permission_string,
+        permission_id,
+        performed_by,
+        reason,
+        expires_at,
+        valid_from,
+        new_state,
+        metadata
+    ) VALUES (
+        'direct_permission_granted',
+        p_wallet_address,
+        p_permission_string,
+        p_permission_id,
+        p_granted_by,
+        p_reason,
+        p_expires_at,
+        NOW(),
+        jsonb_build_object(
+            'permission', p_permission_string,
+            'expires_at', p_expires_at
+        ),
+        p_metadata
     )
-    SELECT
-        COUNT(*)::BIGINT AS total_permissions,
-        COUNT(*) FILTER (WHERE source_type = 'direct')::BIGINT AS direct_permissions,
-        COUNT(*) FILTER (WHERE source_type = 'group')::BIGINT AS group_permissions,
-        COUNT(*) FILTER (WHERE is_permanent = TRUE)::BIGINT AS permanent_permissions,
-        COUNT(*) FILTER (WHERE is_permanent = FALSE)::BIGINT AS temporary_permissions,
-        COUNT(DISTINCT source_id) FILTER (WHERE source_type = 'group')::BIGINT AS groups_count,
-        COUNT(*) FILTER (WHERE expires_at IS NOT NULL AND expires_at <= NOW() + INTERVAL '7 days')::BIGINT AS expiring_soon_count
-    FROM wallet_perms;
+    RETURNING id INTO v_audit_id;
+
+    RETURN v_audit_id;
 END;
-$$ LANGUAGE plpgsql STABLE;
-
-CREATE OR REPLACE FUNCTION get_wallet_permission_cache_key(p_wallet_address VARCHAR)
-RETURNS TABLE (
-    cache_key VARCHAR,
-    version_hash VARCHAR,
-    last_modified TIMESTAMPTZ
-) AS $$
-DECLARE
-    v_cache_key VARCHAR;
-    v_version_hash VARCHAR;
-    v_last_modified TIMESTAMPTZ;
-BEGIN
-    SELECT
-        'permissions:' || LOWER(p_wallet_address) AS cache_key,
-        md5(jsonb_agg(permission_string ORDER BY permission_string)::TEXT) AS version_hash,
-        MAX(granted_at) AS last_modified
-    INTO v_cache_key, v_version_hash, v_last_modified
-    FROM get_wallet_permissions_detailed(p_wallet_address);
-
-    RETURN QUERY SELECT v_cache_key, v_version_hash, v_last_modified;
-END;
-$$ LANGUAGE plpgsql STABLE;
-
-CREATE OR REPLACE FUNCTION wallet_has_permissions_batch(
-    p_wallet_address VARCHAR,
-    p_permissions VARCHAR[]
-) RETURNS TABLE (
-    permission_string VARCHAR,
-    has_permission BOOLEAN
-) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT
-        perm AS permission_string,
-        wallet_has_permission(p_wallet_address, perm) AS has_permission
-    FROM unnest(p_permissions) AS perm;
-END;
-$$ LANGUAGE plpgsql STABLE;
-
-CREATE OR REPLACE FUNCTION get_expiring_permissions(
-    p_days INTEGER DEFAULT 7
-) RETURNS TABLE (
-    wallet_address VARCHAR,
-    permission_string VARCHAR,
-    source_type VARCHAR,
-    source_name VARCHAR,
-    expires_at TIMESTAMPTZ,
-    hours_until_expiry INTEGER
-) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT
-        wdp.wallet_address,
-        p.permission_string,
-        'direct'::VARCHAR AS source_type,
-        'Direct Grant'::VARCHAR AS source_name,
-        wdp.expires_at,
-        EXTRACT(EPOCH FROM (wdp.expires_at - NOW())) / 3600 AS hours_until_expiry
-    FROM wallet_direct_permissions wdp
-    JOIN permissions p ON wdp.permission_id = p.id
-    WHERE wdp.is_active = TRUE
-      AND wdp.expires_at IS NOT NULL
-      AND wdp.expires_at > NOW()
-      AND wdp.expires_at <= NOW() + (p_days || ' days')::INTERVAL
-      AND p.is_active = TRUE
-
-    UNION ALL
-
-    SELECT
-        wga.wallet_address,
-        pg.name || ' (group)' AS permission_string,
-        'group'::VARCHAR AS source_type,
-        pg.name AS source_name,
-        wga.expires_at,
-        EXTRACT(EPOCH FROM (wga.expires_at - NOW())) / 3600 AS hours_until_expiry
-    FROM wallet_group_assignments wga
-    JOIN permission_groups pg ON wga.group_id = pg.id
-    WHERE wga.is_active = TRUE
-      AND wga.expires_at IS NOT NULL
-      AND wga.expires_at > NOW()
-      AND wga.expires_at <= NOW() + (p_days || ' days')::INTERVAL
-      AND pg.is_active = TRUE
-
-    ORDER BY expires_at;
-END;
-$$ LANGUAGE plpgsql STABLE;
+$$ LANGUAGE plpgsql;
 
 -- ================================================================================================
 -- SECTION 12: TRIGGERS
@@ -1633,19 +1429,15 @@ CREATE TRIGGER update_wallet_notifications_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
--- Audit triggers (from migration 033)
-DROP TRIGGER IF EXISTS trg_audit_wallet_direct_permissions ON wallet_direct_permissions;
-CREATE TRIGGER trg_audit_wallet_direct_permissions
-AFTER INSERT OR DELETE ON wallet_direct_permissions
-FOR EACH ROW EXECUTE FUNCTION audit_wallet_direct_permissions();
-
-DROP TRIGGER IF EXISTS trg_audit_wallet_group_assignments ON wallet_group_assignments;
-CREATE TRIGGER trg_audit_wallet_group_assignments
-AFTER INSERT OR DELETE ON wallet_group_assignments
-FOR EACH ROW EXECUTE FUNCTION audit_wallet_group_assignments();
+-- ENHANCED: Permissions table update trigger (from 20251118_005)
+DROP TRIGGER IF EXISTS update_permissions_updated_at ON permissions;
+CREATE TRIGGER update_permissions_updated_at
+    BEFORE UPDATE ON permissions
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
 
 -- ================================================================================================
--- SECTION 13: FOREIGN KEY CONSTRAINTS (from migrations 001 and 032)
+-- SECTION 13: FOREIGN KEY CONSTRAINTS
 -- ================================================================================================
 
 -- Sessions foreign key
@@ -1693,7 +1485,7 @@ ALTER TABLE openid_refresh_tokens
     ADD CONSTRAINT fk_openid_refresh_tokens_wallet_address
     FOREIGN KEY (wallet_address) REFERENCES wallet_users(wallet_address) ON DELETE CASCADE;
 
--- Additional validation constraints (from migration 032)
+-- Additional validation constraints
 ALTER TABLE permission_group_memberships
 DROP CONSTRAINT IF EXISTS valid_granted_by_format,
 ADD CONSTRAINT valid_granted_by_format CHECK (
@@ -1715,7 +1507,7 @@ ADD CONSTRAINT valid_granted_by_format_wdp CHECK (
     (granted_by ~ '^0x[a-fA-F0-9]{40}$' AND LENGTH(granted_by) = 42)
 );
 
--- Additional performance indexes (from migration 032)
+-- Performance indexes
 CREATE INDEX IF NOT EXISTS idx_pgm_group_fk ON permission_group_memberships(group_id);
 CREATE INDEX IF NOT EXISTS idx_pgm_permission_fk ON permission_group_memberships(permission_id);
 CREATE INDEX IF NOT EXISTS idx_wga_wallet_fk ON wallet_group_assignments(wallet_address);
@@ -1723,7 +1515,7 @@ CREATE INDEX IF NOT EXISTS idx_wga_group_fk ON wallet_group_assignments(group_id
 CREATE INDEX IF NOT EXISTS idx_wdp_wallet_fk ON wallet_direct_permissions(wallet_address);
 CREATE INDEX IF NOT EXISTS idx_wdp_permission_fk ON wallet_direct_permissions(permission_id);
 
--- Performance indexes (from migration 034)
+-- Enhanced performance indexes
 CREATE INDEX IF NOT EXISTS idx_wga_active_lookup
 ON wallet_group_assignments(wallet_address, is_active)
 WHERE is_active = TRUE;
@@ -1745,7 +1537,7 @@ CREATE INDEX IF NOT EXISTS idx_permissions_active ON permissions(is_active) WHER
 CREATE INDEX IF NOT EXISTS idx_permissions_string_pattern ON permissions(permission_string varchar_pattern_ops);
 
 -- ================================================================================================
--- SECTION 14: VIEWS (from migration 033)
+-- SECTION 14: VIEWS
 -- ================================================================================================
 
 CREATE OR REPLACE VIEW v_recent_permission_changes AS
@@ -1779,7 +1571,7 @@ COMMENT ON VIEW v_recent_permission_changes IS 'Recent permission changes (last 
 COMMENT ON VIEW v_wallet_permission_history IS 'Permission change statistics per wallet';
 
 -- ================================================================================================
--- SECTION 15: SEED DATA - SUBSCRIPTION PLANS (from migration 030)
+-- SECTION 15: ESSENTIAL SEED DATA - SUBSCRIPTION PLANS
 -- ================================================================================================
 
 -- Free Plan
@@ -2025,6 +1817,34 @@ INSERT INTO permission_groups (
     '0x0000000000000000000000000000000000000000'
 ) ON CONFLICT (slug) DO NOTHING;
 
+-- ENHANCED: Default route permissions from 20251118_003
+INSERT INTO route_permissions (route_pattern, http_method, required_permission, priority, is_public) VALUES
+    ('/api/auth/login', 'POST', 'auth:login', 10, false),
+    ('/api/auth/logout', 'POST', 'auth:logout', 10, false),
+    ('/api/auth/refresh', 'POST', 'auth:refresh', 10, false),
+    ('/api/auth/register', 'POST', 'auth:register', 10, false),
+    ('/api/auth/profile', 'GET', 'auth:profile', 10, false),
+    ('/api/users/profile', 'GET', 'users:profile', 10, false),
+    ('/api/users/profile', 'PUT', 'users:profile', 10, false),
+    ('/api/users/profile', 'PATCH', 'users:profile', 10, false),
+    ('/api/admin/auth/login', 'POST', 'admin:auth:login', 20, false),
+    ('/api/admin/auth/logout', 'POST', 'admin:auth:logout', 20, false),
+    ('/api/admin/users/list', 'GET', 'admin:users:list', 30, false),
+    ('/api/admin/users/{wallet_address}', 'GET', 'admin:users:get', 30, false),
+    ('/api/admin/users/{wallet_address}', 'PUT', 'admin:users:update', 30, false),
+    ('/api/admin/permissions/validate', 'POST', 'admin:permissions:validate', 30, false),
+    ('/api/admin/permissions/validate-bulk', 'POST', 'admin:permissions:validate_bulk', 30, false),
+    ('/api/admin/permissions/wallet/{wallet_address}', 'GET', 'admin:permissions:wallet', 30, false),
+    ('/api/admin/permissions/groups/list', 'GET', 'admin:permissions:groups', 30, false),
+    ('/api/admin/permissions/groups/{group_id}', 'GET', 'admin:permissions:group', 30, false),
+    ('/api/admin/permissions/grant', 'POST', 'admin:permissions:grant', 30, false),
+    ('/api/admin/permissions/revoke', 'DELETE', 'admin:permissions:revoke', 30, false),
+    ('/api/admin/permissions/bulk-grant', 'POST', 'admin:permissions:bulk_grant', 30, false),
+    ('/api/admin/permissions/bulk-revoke', 'POST', 'admin:permissions:bulk_revoke', 30, false),
+    ('/api/admin/permissions/register-route', 'POST', 'admin:permissions:register', 30, false),
+    ('/api/admin/permissions/routes', 'GET', 'admin:permissions:routes', 30, false)
+ON CONFLICT (route_pattern, http_method) DO NOTHING;
+
 -- ================================================================================================
 -- COMPLETION MESSAGE
 -- ================================================================================================
@@ -2032,44 +1852,45 @@ INSERT INTO permission_groups (
 DO $$
 BEGIN
     RAISE NOTICE '=================================================================================';
-    RAISE NOTICE 'EPSX CONSOLIDATED SCHEMA CREATED SUCCESSFULLY! 🎉';
+    RAISE NOTICE 'EPSX CONSOLIDATED DEVELOPMENT SCHEMA CREATED SUCCESSFULLY! 🎉';
     RAISE NOTICE '=================================================================================';
     RAISE NOTICE 'Core Tables Created:';
     RAISE NOTICE '  ✅ wallet_users (Web3 user accounts)';
-    RAISE NOTICE '  ✅ permissions (normalized permission definitions)';
-    RAISE NOTICE '  ✅ permission_groups (permission group definitions)';
+    RAISE NOTICE '  ✅ permissions (enhanced unified permissions)';
+    RAISE NOTICE '  ✅ permission_groups (with pay-per-use billing)';
     RAISE NOTICE '  ✅ permission_group_memberships (group → permission mapping)';
     RAISE NOTICE '  ✅ wallet_group_assignments (wallet → group mapping)';
     RAISE NOTICE '  ✅ wallet_direct_permissions (direct permission grants)';
     RAISE NOTICE '  ✅ web3_auth_nonces (SIWE authentication)';
     RAISE NOTICE '  ✅ openid_refresh_tokens (token management)';
-    RAISE NOTICE '  ✅ route_permissions (API route protection)';
+    RAISE NOTICE '  ✅ route_permissions (enhanced API route protection)';
     RAISE NOTICE '  ✅ sessions (Web3 session management)';
+    RAISE NOTICE '';
+    RAISE NOTICE 'Enhanced Features:';
+    RAISE NOTICE '  ✅ Unified permission fields (wallet_address, source_type, etc.)';
+    RAISE NOTICE '  ✅ Pay-per-use billing support';
+    RAISE NOTICE '  ✅ Enhanced route permissions with categories';
+    RAISE NOTICE '  ✅ Optimized notification performance indexes';
+    RAISE NOTICE '  ✅ Materialized view for wallet permissions';
     RAISE NOTICE '';
     RAISE NOTICE 'Additional Tables:';
     RAISE NOTICE '  ✅ stock_ranking_assignments, assignment_audit_log (stock rankings)';
     RAISE NOTICE '  ✅ event_store, outbox_events, aggregate_snapshots (event sourcing)';
     RAISE NOTICE '  ✅ read_model.* tables (CQRS read models)';
-    RAISE NOTICE '  ✅ wallet_notifications (notification system)';
+    RAISE NOTICE '  ✅ wallet_notifications (enhanced notification system)';
     RAISE NOTICE '  ✅ notification_subscriptions (SSE tracking)';
     RAISE NOTICE '  ✅ permission_audit_log (audit trail)';
     RAISE NOTICE '';
-    RAISE NOTICE 'Materialized Views:';
-    RAISE NOTICE '  ✅ user_effective_permissions';
-    RAISE NOTICE '  ✅ event_store_stats';
-    RAISE NOTICE '  ✅ read_model.mv_active_wallets_summary';
-    RAISE NOTICE '  ✅ mv_wallet_permission_counts';
-    RAISE NOTICE '';
-    RAISE NOTICE 'Functions & Triggers:';
-    RAISE NOTICE '  ✅ Update timestamp triggers';
-    RAISE NOTICE '  ✅ Audit logging functions & triggers';
-    RAISE NOTICE '  ✅ Permission optimization functions';
-    RAISE NOTICE '  ✅ Read model helper functions';
-    RAISE NOTICE '';
-    RAISE NOTICE 'Seed Data:';
+    RAISE NOTICE 'Essential Seed Data:';
     RAISE NOTICE '  ✅ 5 subscription plans (Free, Starter, Pro, Enterprise, API Developer)';
+    RAISE NOTICE '  ✅ Default API route permissions';
     RAISE NOTICE '';
-    RAISE NOTICE '🎯 Database ready for EPSX Web3-First Platform!';
-    RAISE NOTICE 'Consolidated from migrations: 001-037';
+    RAISE NOTICE '🚀 Development database ready for EPSX Web3-First Platform!';
+    RAISE NOTICE 'Consolidated from 15+ individual migrations';
+    RAISE NOTICE 'Single migration for ultra-fast development setup';
     RAISE NOTICE '=================================================================================';
 END $$;
+
+-- Final refresh of materialized views
+SELECT refresh_wallet_permissions_view();
+SELECT refresh_user_effective_permissions();

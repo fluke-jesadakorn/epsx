@@ -55,7 +55,7 @@ pub struct PermissionDb {
     /// Source ID for group-based permissions (new unified field)
     pub source_id: Option<Uuid>,
     /// When this permission was granted (new unified field)
-    pub granted_at: Option<DateTime<Utc>>,
+    pub granted_at: DateTime<Utc>,
     /// When this permission expires (NULL for permanent) (new unified field)
     pub expires_at: Option<DateTime<Utc>>,
     /// Who granted this permission (admin wallet address) (new unified field)
@@ -116,7 +116,8 @@ pub struct UpdatePermissionDb {
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-/// Diesel Queryable model for the wallet_permissions_view materialized view
+// Temporarily commented out due to Diesel schema generation issues
+/*
 #[derive(Debug, Clone, Queryable, Selectable, Serialize, Deserialize)]
 #[diesel(table_name = crate::schema::wallet_permissions_view)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
@@ -134,6 +135,7 @@ pub struct WalletPermissionsViewDb {
     /// Last authentication timestamp
     pub last_auth_at: Option<DateTime<Utc>>,
     /// All permissions for this wallet as JSON array
+    #[diesel(sql_type = diesel::sql_types::Json)]
     pub permissions: Option<serde_json::Value>,
     /// Total number of active permissions
     pub total_permissions: i64,
@@ -148,6 +150,7 @@ pub struct WalletPermissionsViewDb {
     /// When this view was last refreshed
     pub view_refreshed_at: DateTime<Utc>,
 }
+*/
 
 /// Form data for creating permissions from API requests
 #[derive(Debug, Deserialize)]
@@ -364,7 +367,7 @@ impl PermissionDb {
         let mut result = self.clone();
         result.wallet_address = Some(wallet_address);
         result.source_type = Some(source_type);
-        result.granted_at = Some(Utc::now());
+        result.granted_at = Utc::now();
         result
     }
 }
@@ -442,6 +445,8 @@ impl NewPermissionDb {
     }
 }
 
+// Temporarily commented out due to Diesel schema generation issues
+/*
 /// Helper functions for wallet permissions view
 impl WalletPermissionsViewDb {
     /// Get permissions as a structured list
@@ -485,6 +490,7 @@ impl WalletPermissionsViewDb {
         (direct_pct, group_pct, temp_pct)
     }
 }
+*/
 
 #[cfg(test)]
 mod tests {

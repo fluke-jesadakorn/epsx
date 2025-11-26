@@ -17,6 +17,9 @@ pub mod infrastructure; // Infrastructure layer with adapters and DDD patterns
 pub mod web; // Web/API layer (maintains same endpoints, uses DDD internally)
 pub mod config; // Configuration
 pub mod auth; // Web3 wallet-first authentication system
+
+#[cfg(test)]
+pub mod __test__; // Test utilities and test modules
 // permissions module removed - replaced by auth/roles.rs
 
 // Selective re-exports for clean namespace

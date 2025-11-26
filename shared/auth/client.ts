@@ -198,12 +198,11 @@ export class SharedWeb3AuthClient {
       return cached.promise;
     }
 
-    const challengeUrl = `${this.backendUrl}/api/auth/web3/challenge`;
+    const challengeUrl = `${this.backendUrl}/api/v1/auth/web3/challenge`;
 
     console.log('🔑 Requesting Web3 challenge', {
       url: challengeUrl,
       wallet_address: walletAddress,
-      client_id: this.clientId,
       backend_url: this.backendUrl,
     });
 
@@ -217,7 +216,6 @@ export class SharedWeb3AuthClient {
           },
           body: JSON.stringify({
             wallet_address: walletAddress,
-            client_id: this.clientId,
           }),
         });
 
@@ -230,23 +228,63 @@ export class SharedWeb3AuthClient {
 
       if (!response.ok) {
         let errorMessage = `Challenge request failed: ${response.status} ${response.statusText}`;
+        let errorData: any = null;
 
+        // Read the response body only once
+        const contentType = response.headers.get('content-type');
         try {
-          const errorData = await response.json();
-          errorMessage = `Challenge request failed: ${errorData.message || errorMessage}`;
-        } catch {
-          const errorText = await response.text();
-          errorMessage = `Challenge request failed: ${response.status} ${response.statusText}. ${errorText}`;
+          if (response.status === 404) {
+            // Specific error for 404 - endpoint not found
+            errorMessage = `Authentication endpoint not found. The backend may need to be updated with Web3 authentication routes.`;
+          } else if (contentType && contentType.includes('application/json')) {
+            errorData = await response.json();
+            errorMessage = errorData.message || errorMessage;
+          } else {
+            const errorText = await response.text();
+            errorMessage = `Challenge request failed: ${response.status} ${response.statusText}. ${errorText}`;
+            errorData = { text: errorText };
+          }
+        } catch (bodyReadError) {
+          console.warn('Failed to read error response body:', bodyReadError);
+          // Use only status information if body reading fails
+          if (response.status === 404) {
+            errorMessage = `Authentication endpoint not found. The backend may need to be updated with Web3 authentication routes.`;
+          }
         }
 
-        // Enhanced error logging with troubleshooting hints
-        console.error('❌ Challenge request failed', {
-          url: challengeUrl,
-          status: response.status,
-          ok: response.ok,
-          statusText: response.statusText,
-          troubleshooting: this.getTroubleshootingHints(response.status),
-        });
+        // Special handling for 404 - likely route configuration issue
+        let errorDetails: any;
+        if (response.status === 404) {
+          errorDetails = {
+            url: challengeUrl,
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries()),
+            errorData,
+            troubleshooting: 'Authentication endpoint not found. The backend may need to be updated with the correct Web3 authentication routes (/api/auth/web3/*).',
+            requestBody: {
+              wallet_address: walletAddress,
+            },
+            backendUrl: this.backendUrl,
+          };
+
+          console.error('❌ Web3 challenge endpoint not found (404)', errorDetails);
+        } else {
+          errorDetails = {
+            url: challengeUrl,
+            status: response.status,
+            statusText: response.statusText,
+            headers: Object.fromEntries(response.headers.entries()),
+            errorData,
+            troubleshooting: this.getTroubleshootingHints(response.status),
+            requestBody: {
+              wallet_address: walletAddress,
+            },
+            backendUrl: this.backendUrl,
+          };
+
+          console.error('❌ Challenge request failed with full details:', errorDetails);
+        }
 
         throw new Error(errorMessage);
       }
@@ -262,21 +300,26 @@ export class SharedWeb3AuthClient {
         // Clear cache on error
         this.challengeCache.delete(cacheKey);
 
+        let errorMessage = 'Challenge request failed';
+
         if (error instanceof TypeError && error.message.includes('fetch')) {
-          const enhancedError = new Error(
-            `Network error: Cannot connect to backend at ${challengeUrl}. ` +
-              `Please ensure the backend server is running on port 8080. ` +
-              `Original error: ${error.message}`
-          );
-          console.error('🌐 Network connectivity error', {
-            url: challengeUrl,
-            backend_url: this.backendUrl,
-            error: error.message,
-            hint: 'Backend server may not be running or CORS may be misconfigured',
-          });
-          throw enhancedError;
+          errorMessage = `Network error: Cannot connect to backend at ${this.backendUrl}. Please check your internet connection and ensure the backend service is running.`;
+        } else if (error instanceof Error) {
+          errorMessage = error.message;
+        } else {
+          errorMessage = String(error);
         }
-        throw error;
+
+        const enhancedError = new Error(errorMessage);
+        console.error('🌐 Challenge request error', {
+          url: challengeUrl,
+          backend_url: this.backendUrl,
+          original_error: error,
+          wallet_address: walletAddress,
+          error_type: typeof error
+        });
+
+        throw enhancedError;
       }
     })();
 
@@ -333,15 +376,51 @@ export class SharedWeb3AuthClient {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Verification failed');
+        let errorData: any = null;
+        let errorMessage = 'Verification failed';
+
+        try {
+          errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || `Verification failed: ${response.status} ${response.statusText}`;
+        } catch (parseError) {
+          errorMessage = `Verification failed: ${response.status} ${response.statusText}`;
+        }
+
+        // Special handling for 404 - likely route configuration issue
+        if (response.status === 404) {
+          errorMessage = `Authentication endpoint not found. The backend may need to be updated with the correct Web3 authentication routes.`;
+          console.error('❌ Web3 authentication endpoint not found (404)', {
+            status: response.status,
+            statusText: response.statusText,
+            url: `${this.backendUrl}/api/auth/web3/verify`,
+            wallet_address: request.wallet_address,
+            troubleshooting: 'Check if backend has correct Web3 authentication routes deployed'
+          });
+        } else {
+          console.error('Web3 verification HTTP error', {
+            status: response.status,
+            statusText: response.statusText,
+            errorData,
+            wallet_address: request.wallet_address
+          });
+        }
+
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
 
       // Check if authentication was successful
       if (!result.success || !result.authenticated) {
-        throw new Error(result.message || 'Authentication failed');
+        const errorMsg = result.message || result.error || 'Authentication failed';
+        console.error('Web3 authentication failed in backend', {
+          success: result.success,
+          authenticated: result.authenticated,
+          message: result.message,
+          error: result.error,
+          wallet_address: request.wallet_address
+        });
+        throw new Error(errorMsg);
       }
 
       // Store access token
@@ -353,6 +432,7 @@ export class SharedWeb3AuthClient {
       const user: UserInfoResponse = {
         sub: result.wallet_address,
         wallet_address: result.wallet_address,
+        tier_level: result.tier_level || 'free', // Default tier if not provided
         auth_method: 'web3_siwe',
         permissions: result.permissions || [],
         access: result.access_token,
@@ -364,9 +444,31 @@ export class SharedWeb3AuthClient {
 
       return { success: true, user };
     } catch (error) {
+      let errorMessage = 'Authentication failed';
+
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        errorMessage = `Network error: Cannot connect to backend at ${this.backendUrl}. Please check your internet connection and ensure the backend service is running.`;
+        console.error('Web3 authentication network error', {
+          backend_url: this.backendUrl,
+          wallet_address: request.wallet_address,
+          error: error.message
+        });
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+        console.error('Web3 authentication error', {
+          error: error.message,
+          wallet_address: request.wallet_address
+        });
+      } else {
+        console.error('Web3 authentication unknown error', {
+          error: String(error),
+          wallet_address: request.wallet_address
+        });
+      }
+
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Authentication failed',
+        error: errorMessage,
       };
     } finally {
       this.authInProgress = false;
@@ -376,7 +478,7 @@ export class SharedWeb3AuthClient {
   private async getWeb3Tokens(
     request: Web3AuthRequest
   ): Promise<Web3TokenResponse> {
-    const response = await fetch(`${this.backendUrl}/api/auth/web3/verify`, {
+    const response = await fetch(`${this.backendUrl}/api/v1/auth/web3/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -531,7 +633,7 @@ export class SharedWeb3AuthClient {
       permissions: string[];
       is_admin: boolean;
       expires: string;
-    }>('/api/auth/session/verify', {
+    }>('/api/v1/auth/web3/session', {
       method: 'POST',
       body: JSON.stringify({ admin_context: false }),
     });

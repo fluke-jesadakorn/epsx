@@ -29,10 +29,10 @@ export const API_ROUTES = {
   // Authentication endpoints
   AUTH: {
     // Web3 Authentication
-    WEB3_CHALLENGE: '/api/v1/auth/web3/challenge',
-    WEB3_VERIFY: '/api/v1/auth/web3/verify',
-    WEB3_SESSION: '/api/v1/auth/web3/session',
-    WEB3_LOGOUT: '/api/v1/auth/web3/logout',
+    WEB3_CHALLENGE: '/api/auth/web3/challenge',
+    WEB3_VERIFY: '/api/auth/web3/verify',
+    WEB3_SESSION: '/api/auth/web3/session',
+    WEB3_LOGOUT: '/api/auth/web3/logout',
 
     // Session Management
     SESSION_VERIFY: '/api/v1/auth/session/verify',

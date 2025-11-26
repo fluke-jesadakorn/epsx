@@ -348,15 +348,15 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
               AND (pg.name = '{}' OR pg.slug = '{}')
             ORDER BY wu.created_at DESC
             "#,
-            permission_group.replace("'", "''"),
-            permission_group.replace("'", "''")
+            type_filter.replace("'", "''"),
+            type_filter.replace("'", "''")
         );
 
         let rows = diesel::sql_query(query)
             .load::<WalletUserQueryResult>(&mut conn)
             .await
             .map_err(|e| {
-                error!("Failed to find users by permission group {}: {}", permission_group, e);
+                error!("Failed to find users by permission group {}: {}", type_filter, e);
                 AppError::database_error(e.to_string())
                     .with_component("wallet_user_repository")
             })?;
@@ -377,6 +377,63 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 permissions,
                 permission_groups: permission_group_set,
                 wallet_metadata,
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+                last_auth_at: row.last_auth_at,
+                version: 1,
+            });
+            users.push(wallet);
+        }
+        Ok(users)
+    }
+
+    async fn find_by_permission_group(&self, permission_group: &str) -> AppResult<Vec<WalletUser>> {
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation("find_by_permission_group"))?;
+
+        // Use raw SQL to find users who belong to a specific permission group
+        let query = format!(r#"
+            SELECT DISTINCT
+                wu.wallet_address,
+                wu.is_active,
+                wu.tier_level,
+                wu.wallet_metadata,
+                wu.created_at,
+                wu.updated_at,
+                wu.last_auth_at
+            FROM wallet_users wu
+            INNER JOIN wallet_group_memberships wga ON wu.wallet_address = wga.wallet_address
+            INNER JOIN permission_groups pg ON wga.group_id = pg.id
+            WHERE wu.is_active = true
+              AND wga.is_active = true
+              AND pg.is_active = true
+              AND (pg.name = '{}' OR pg.slug = '{}')
+            ORDER BY wu.created_at DESC
+            "#,
+            permission_group.replace("'", "''"),
+            permission_group.replace("'", "''")
+        );
+
+        let rows = diesel::sql_query(query)
+            .load::<WalletUserQueryResult>(&mut conn)
+            .await
+            .map_err(|e| {
+                error!("Failed to find users by permission group {}: {}", permission_group, e);
+                AppError::database_error(e.to_string())
+                    .with_component("wallet_user_repository")
+                    .with_operation("find_by_permission_group")
+            })?;
+
+        let mut users = Vec::new();
+        for row in rows {
+            let wallet = WalletUser::load(crate::domain::wallet_management::aggregates::wallet_user::WalletUserLoadParams {
+                wallet_address: WalletAddress::new(row.wallet_address).expect("Invalid wallet address"),
+                is_active: row.is_active,
+                permissions: HashSet::new(),
+                permission_groups: HashSet::new(),
+                wallet_metadata: WalletMetadata::from_json(row.wallet_metadata).expect("Invalid wallet metadata"),
                 created_at: row.created_at,
                 updated_at: row.updated_at,
                 last_auth_at: row.last_auth_at,

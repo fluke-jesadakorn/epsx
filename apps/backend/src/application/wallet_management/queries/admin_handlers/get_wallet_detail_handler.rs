@@ -13,6 +13,20 @@ use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::
 use std::sync::Arc;
 use tracing::{error, info};
 
+#[derive(diesel::QueryableByName)]
+struct PermissionDetailRow {
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    pub permission: String,
+    #[diesel(sql_type = diesel::sql_types::Text)]
+    pub source: String,
+    #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+    pub granted_at: chrono::DateTime<chrono::Utc>,
+    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+    pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
+    #[diesel(sql_type = diesel::sql_types::Bool)]
+    pub is_active: bool,
+}
+
 pub struct GetWalletDetailQueryHandler {
     db_pool: Arc<&'static Pool<AsyncPgConnection>>,
 }
@@ -46,8 +60,10 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
             .ok_or_else(|| ApplicationError::not_found("Wallet", &query.wallet_address))?;
 
         // 3. Get wallet permissions (from groups + direct)
-        let permissions_result = sqlx::query!(
-            r#"
+        use diesel::sql_query;
+        use diesel::sql_types::{Text, Timestamp, Nullable, Bool, Timestamptz};
+
+        let permissions_result = diesel::sql_query(r#"
             -- Permissions from groups
             SELECT
                 p.permission_string as permission,
@@ -76,15 +92,37 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
               AND p.is_active = true
 
             ORDER BY permission
+            "#)
+        .bind::<Text, _>(&query.wallet_address);
+
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| ApplicationError::infrastructure(format!("Failed to get database connection: {}", e)))?;
+
+        // Use diesel::sql_query with the final query string
+        let final_query = format!(r#"
+            SELECT
+                wdp.id as permission_id,
+                p.permission_string,
+                'direct' as source,
+                wdp.granted_at,
+                wdp.expires_at,
+                wdp.is_active
+            FROM wallet_direct_permissions wdp
+            JOIN permissions p ON wdp.permission_id = p.id
+            WHERE wdp.wallet_address = '{}'
+              AND p.is_active = true
+            ORDER BY p.permission_string
             "#,
-            query.wallet_address
-        )
-        .fetch_all(self.db_pool.as_ref())
-        .await
-        .map_err(|e| {
-            error!("❌ Failed to fetch permissions for {}: {}", query.wallet_address, e);
-            ApplicationError::infrastructure(format!("Failed to fetch permissions: {}", e))
-        })?;
+            query.wallet_address.replace("'", "''")
+        );
+
+        let permissions_result = diesel::sql_query(final_query)
+            .load::<PermissionDetailRow>(&mut conn)
+            .await
+            .map_err(|e| {
+                error!("❌ Failed to fetch permissions for {}: {}", query.wallet_address, e);
+                ApplicationError::infrastructure(format!("Failed to fetch permissions: {}", e))
+            })?;
 
         // Convert permissions to DTOs
         let permissions: Vec<WalletPermissionDto> = permissions_result

@@ -65,18 +65,22 @@ export const serverConfig = {
  * Web3 Enterprise API URLs
  */
 export const enterpriseUrls = {
-  // Enterprise API endpoints
-  authenticate: `${env.BACKEND_URL}/api/enterprise/auth/verify`,
-  challenge: `${env.BACKEND_URL}/api/enterprise/auth/challenge`,
-  permissions: `${env.BACKEND_URL}/api/enterprise/auth/permissions`,
+  // Web3 Authentication endpoints
+  authenticate: `${env.BACKEND_URL}/api/auth/web3/verify`,
+  challenge: `${env.BACKEND_URL}/api/auth/web3/challenge`,
+  permissions: `${env.BACKEND_URL}/api/permissions/validate`,
+  session: `${env.BACKEND_URL}/api/auth/web3/session`,
+  logout: `${env.BACKEND_URL}/api/auth/web3/logout`,
+
+  // Enterprise API endpoints (when backend supports them)
   marketplace: `${env.BACKEND_URL}/api/enterprise/marketplace`,
   billing: `${env.BACKEND_URL}/api/enterprise/billing`,
-  analytics: `${env.BACKEND_URL}/api/enterprise/analytics`,
-  
+  analytics: `${env.BACKEND_URL}/api/v1/analytics`,
+
   // Health and status
-  health: `${env.BACKEND_URL}/api/enterprise/health`,
+  health: `${env.BACKEND_URL}/health`,
   status: `${env.BACKEND_URL}/api/enterprise/status`,
-  tiers: `${env.BACKEND_URL}/api/enterprise/tiers`,
+  tiers: `${env.BACKEND_URL}/api/plans`,
 } as const;
 
 /**

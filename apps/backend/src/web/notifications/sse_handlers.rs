@@ -79,7 +79,7 @@ pub struct ScalarListQuery {
 /// Supports wallet-specific notifications + broadcast notifications
 #[utoipa::path(
     get,
-    path = "/api/notifications/stream",
+    path = "/api/v1/notifications/stream",
     tag = "notifications",
     responses(
         (status = 200, description = "Successfully established SSE connection"),

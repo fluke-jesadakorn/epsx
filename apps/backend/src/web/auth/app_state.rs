@@ -19,7 +19,7 @@ pub struct AppState {
     pub domain_container: Arc<DomainContainer>,
     pub redis_pool: Option<Arc<RedisPool>>,
     pub redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
-    pub permission_group_repo: PermissionGroupRepository,
+    pub permission_group_repo: Arc<PermissionGroupRepositoryAdapter>,
     // Stub for backwards compatibility with admin handlers
     pub user_repo: Option<String>,
 }

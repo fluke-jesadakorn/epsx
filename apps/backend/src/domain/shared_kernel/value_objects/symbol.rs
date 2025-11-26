@@ -28,7 +28,7 @@ impl Symbol {
     if
       !value
         .chars()
-        .all(|c| (c.is_ascii_alphanumeric() || c == '.' || c == '-'))
+        .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-')
     {
       return Err(
         AppError::validation_error("Symbol contains invalid characters".to_string())

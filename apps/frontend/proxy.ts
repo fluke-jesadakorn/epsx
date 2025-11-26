@@ -3,6 +3,7 @@
  * Validates Web3 wallet authentication and enterprise tier access
  * Provides comprehensive security logging and performance monitoring
  */
+import { NextRequest, NextResponse } from 'next/server';
 import { enterpriseUrls } from '@/config/env';
 import { COOKIES } from '@/shared/auth/cookies';
 

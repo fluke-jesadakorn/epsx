@@ -14,6 +14,7 @@
  */
 
 import { UnifiedApiClient, ApiResponse, PaginatedResponse } from '../utils/api-client';
+import { API_ROUTES } from '../config/route-constants';
 import { COOKIES } from '../auth/cookies';
 import {
   NotificationSchema,
@@ -305,6 +306,7 @@ export class NotificationsAPIClient {
     notification?: (event: MessageEvent) => void;
     ping?: (event: MessageEvent) => void;
   } = {};
+  private isReconnecting = false; // Prevent reconnection race conditions
 
   constructor(private client: UnifiedApiClient) {}
 
@@ -757,6 +759,12 @@ export class NotificationsAPIClient {
     onError?: (error: Event) => void,
     onOpen?: (event: Event) => void
   ): () => void {
+    // Prevent multiple connection attempts
+    if (this.sseConnection && this.sseConnection.readyState === EventSource.CONNECTING) {
+      console.log('⏭️ SSE: Connection already in progress, skipping duplicate request');
+      return () => {};
+    }
+
     // Close existing connection if any with proper cleanup
     if (this.sseConnection) {
       console.log('🔄 Closing existing SSE connection before creating new one');
@@ -764,6 +772,9 @@ export class NotificationsAPIClient {
       this.sseConnection.close();
       this.sseConnection = undefined;
     }
+
+    // Reset reconnection flag
+    this.isReconnecting = false;
 
     // Check EventSource support
     if (typeof EventSource === 'undefined') {
@@ -818,10 +829,12 @@ export class NotificationsAPIClient {
       throw new Error(error);
     }
 
-    // Pre-connection validation and health check (fire-and-forget)
-    this.validateSSEConnection(baseURL, platform, token).catch(error => {
-      console.warn('⚠️ SSE validation failed:', error);
-    });
+    // Pre-connection health check - simple connectivity test
+    if (baseURL && token) {
+      console.log(`🔍 SSE [${platform}]: Pre-connection check - baseURL: ${baseURL}, hasToken: true`);
+    } else {
+      console.warn(`⚠️ SSE [${platform}]: Pre-connection check - baseURL: ${baseURL ? 'valid' : 'missing'}, hasToken: ${!!token}`);
+    }
 
     // Create SSE connection with timestamp for error tracking
     const connectionStartTime = Date.now();
@@ -835,6 +848,7 @@ export class NotificationsAPIClient {
     // Handle SSE events - store handlers for proper cleanup
     const openHandler = (event: Event) => {
       console.log('✅ SSE connection opened');
+      this.isReconnecting = false; // Reset reconnection flag on successful connection
       if (onOpen) onOpen(event);
     };
     this.sseEventHandlers.onopen = openHandler;
@@ -886,6 +900,7 @@ export class NotificationsAPIClient {
         stateName: stateNames[currentState as 0 | 1 | 2] || 'UNKNOWN',
         url: sseUrl,
         timestamp: new Date().toISOString(),
+        isReconnecting: this.isReconnecting,
 
         // EventSource details
         lastEventId: this.sseConnection?.lastEventId,
@@ -935,14 +950,15 @@ export class NotificationsAPIClient {
         }
       });
 
-      // Only reconnect if connection is actually closed
-      if (currentState === EventSource.CLOSED) {
+      // Only reconnect if connection is actually closed and not already reconnecting
+      if (currentState === EventSource.CLOSED && !this.isReconnecting) {
         console.log('🔴 Connection is CLOSED, triggering cleanup and reconnect logic');
 
         if (onError) onError(event);
 
         // Auto-reconnect if enabled (but not immediately to avoid tight loops)
         if (options.auto_reconnect !== false) {
+          this.isReconnecting = true; // Prevent multiple reconnect attempts
           const interval = options.reconnect_interval || 5000;
           console.log(`🔄 Scheduling reconnection in ${interval}ms...`);
 
@@ -953,6 +969,7 @@ export class NotificationsAPIClient {
               this.connectToSSE(options, onNotification, onError, onOpen);
             } else {
               console.log('⏭️ Skipping reconnection, connection already exists:', this.sseConnection.readyState);
+              this.isReconnecting = false;
             }
           }, interval);
         }
@@ -960,6 +977,8 @@ export class NotificationsAPIClient {
         console.log('⏳ Connection is still CONNECTING, waiting...');
       } else if (currentState === EventSource.OPEN) {
         console.log('⚠️ Connection is OPEN but error event fired (transient error)');
+      } else if (this.isReconnecting) {
+        console.log('⏭️ Already reconnecting, skipping additional reconnect attempts');
       }
     };
     this.sseEventHandlers.onerror = errorHandler;
@@ -984,6 +1003,7 @@ export class NotificationsAPIClient {
 
     // Return disconnect function with proper cleanup
     return () => {
+      this.isReconnecting = false; // Reset reconnection flag
       this.sseListeners.delete(listenerId);
       if (this.sseListeners.size === 0 && this.sseConnection) {
         this.cleanupSSEListeners();
@@ -1028,6 +1048,7 @@ export class NotificationsAPIClient {
    * Disconnect from SSE with proper cleanup
    */
   disconnectFromSSE(): void {
+    this.isReconnecting = false; // Reset reconnection flag
     if (this.sseConnection) {
       this.cleanupSSEListeners();
       this.sseConnection.close();
@@ -1131,52 +1152,57 @@ export class NotificationsAPIClient {
         return acc;
       }, {} as Record<string, string>);
 
-    // Get user data from accessible client-side cookies
-    const userCookie = cookies[COOKIES.user];
-    if (userCookie) {
-      try {
-        const user = JSON.parse(decodeURIComponent(userCookie));
-        // Return JWT access token for backend verification
-        token = user.access;
-      } catch (error) {
-        console.warn('Failed to parse user cookie:', error);
-      }
+      // Declare token variables
+      let token: string | null = null;
+      let tokenSource = 'unknown';
 
-      // Additional fallback: check for any JWT-like tokens
-      if (!token) {
-        const cookieNames = Object.keys(cookies);
-        for (const cookieName of cookieNames) {
-          const value = cookies[cookieName];
-          if (value && value.length > 50 && value.startsWith('eyJ')) { // JWT header
-            token = value;
-            tokenSource = `${cookieName} (JWT-like)`;
-            break;
+      // Get user data from accessible client-side cookies
+      const userCookie = cookies[COOKIES.user];
+      if (userCookie) {
+        try {
+          const user = JSON.parse(decodeURIComponent(userCookie));
+          // Return JWT access token for backend verification
+          token = user.access;
+        } catch (error) {
+          console.warn('Failed to parse user cookie:', error);
+        }
+
+        // Additional fallback: check for any JWT-like tokens
+        if (!token) {
+          const cookieNames = Object.keys(cookies);
+          for (const cookieName of cookieNames) {
+            const value = cookies[cookieName];
+            if (value && value.length > 50 && value.startsWith('eyJ')) { // JWT header
+              token = value;
+              tokenSource = `${cookieName} (JWT-like)`;
+              break;
+            }
           }
         }
-      }
 
-      // Validate token format
-      if (token) {
-        if (token.startsWith('web3_token_')) {
-          const wallet = token.substring(12); // Remove 'web3_token_' prefix
-          if (wallet.length >= 20 && wallet.startsWith('0x')) {
-            console.log(`🔑 Authentication token extracted from ${tokenSource}: ${wallet.substring(0, 8)}...${wallet.substring(wallet.length - 6)}`);
+        // Validate token format
+        if (token) {
+          if (token.startsWith('web3_token_')) {
+            const wallet = token.substring(12); // Remove 'web3_token_' prefix
+            if (wallet.length >= 20 && wallet.startsWith('0x')) {
+              console.log(`🔑 Authentication token extracted from ${tokenSource}: ${wallet.substring(0, 8)}...${wallet.substring(wallet.length - 6)}`);
+              return token;
+            } else {
+              console.warn('⚠️ Invalid Web3 token format in cookies');
+              return null;
+            }
+          } else if (token.length > 20) {
+            console.log(`🔑 JWT token extracted from ${tokenSource}: ${token.substring(0, 20)}...`);
             return token;
           } else {
-            console.warn('⚠️ Invalid Web3 token format in cookies');
+            console.warn('⚠️ Token too short or invalid format');
             return null;
           }
-        } else if (token.length > 20) {
-          console.log(`🔑 JWT token extracted from ${tokenSource}: ${token.substring(0, 20)}...`);
-          return token;
         } else {
-          console.warn('⚠️ Token too short or invalid format');
+          console.warn(`⚠️ No authentication token found in cookies for platform: ${platform}`);
+          console.warn(`🔍 Available cookie names: ${Object.keys(cookies).join(', ')}`);
           return null;
         }
-      } else {
-        console.warn(`⚠️ No authentication token found in cookies for platform: ${platform}`);
-        console.warn(`🔍 Available cookie names: ${Object.keys(cookies).join(', ')}`);
-        return null;
       }
 
     } catch (error) {
