@@ -331,7 +331,7 @@ impl UnifiedWeb3AuthService {
         let message = Message {
             domain,
             address: (*address).into(),
-            statement: Some("Sign in to EPSX with your wallet".to_string()),
+            statement: Some("Sign in to EPSX Data Analytics Platform".to_string()),
             uri,
             version: siwe::Version::V1,
             chain_id: 1, // Ethereum mainnet (could be configurable)
@@ -394,7 +394,7 @@ impl UnifiedWeb3AuthService {
         });
 
         // Create new user in wallet_users table with enhanced metadata
-        // NOTE: Permissions managed separately via wallet_group_assignments and wallet_direct_permissions
+        // NOTE: Permissions managed separately via wallet_group_memberships and wallet_direct_permissions
         sqlx::query!(
             r#"
             INSERT INTO wallet_users (
@@ -464,7 +464,7 @@ impl UnifiedWeb3AuthService {
             r#"
             -- Manual permissions from groups (extract name from JSON VARCHAR)
             SELECT DISTINCT (p.permission_string::jsonb)->>'name' as permission
-            FROM wallet_group_assignments wga
+            FROM wallet_group_memberships wga
             JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
             JOIN permissions p ON pgm.permission_id = p.id
             WHERE wga.wallet_address = $1

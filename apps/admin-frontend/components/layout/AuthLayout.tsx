@@ -46,42 +46,49 @@ export function AuthLayout({ children, user: serverUser }: AuthLayoutProps) {
   const [mounted, setMounted] = useState(false)
   const [authChecked, setAuthChecked] = useState(false)
   const [redirecting, setRedirecting] = useState(false) // Prevent redirect loops
-  const [authTimeout, setAuthTimeout] = useState(false) // Handle auth timeout
   const { user: authUser, isAuthenticated, hasPermissionForDisplay, isLoading } = useSharedAuth()
   
   useEffect(() => {
     setMounted(true)
-    
-    // Set a timeout to prevent infinite loading state
-    const timeoutId = setTimeout(() => {
-      if (isLoading && !isAuthenticated && !authChecked) {
-        // eslint-disable-next-line no-console
-        console.warn('🔄 ConditionalAdminLayout: Auth timeout - forcing redirect to auth page');
-        setAuthTimeout(true);
-        setAuthChecked(true);
-      }
-    }, 5000); // 5 second timeout
-    
-    return () => clearTimeout(timeoutId);
   }, [])
   
   // Handle authentication redirects
   useEffect(() => {
-    if (!mounted || (isLoading && !authTimeout) || redirecting) {return}
-    
+    console.log('🔍 AuthLayout: Auth check triggered', {
+      mounted,
+      isLoading,
+      isAuthenticated,
+      redirecting,
+      authChecked,
+      pathname,
+      hasUser: !!authUser
+    });
+
+    if (!mounted || isLoading || redirecting) {
+      console.log('⏸️ AuthLayout: Skipping auth check (waiting for provider)');
+      return;
+    }
+
     const isPublicPath = PUBLIC_PATHS.some(path => pathname === path || pathname.startsWith(path))
-    
+
     // Skip auth check for public paths
     if (isPublicPath) {
+      console.log('✅ AuthLayout: Public path, no auth required', { pathname });
       setAuthChecked(true)
       setRedirecting(false) // Reset redirecting flag for public paths
       return
     }
-    
+
     // Auth check for protected routes
     const checkAuth = async () => {
-      // Handle timeout case or clear non-authenticated state
-      if ((!isAuthenticated && mounted && (!isLoading || authTimeout) && authChecked === false)) {
+      // Redirect to auth if not authenticated
+      if (!isAuthenticated && mounted && !isLoading && !authChecked) {
+        console.warn('❌ AuthLayout: Not authenticated - redirecting to auth page', {
+          pathname,
+          isAuthenticated,
+          hasUser: !!authUser,
+          authChecked
+        });
         setRedirecting(true);
         const authUrl = new URL('/auth', window.location.origin)
         authUrl.searchParams.set('return_url', pathname)
@@ -89,11 +96,12 @@ export function AuthLayout({ children, user: serverUser }: AuthLayoutProps) {
         router.push(authUrl.toString())
         return
       }
-      
+
       // Backend validates all permissions - frontend just checks if authenticated
       // No need to check permissions here - let backend return 403 if no access
 
       // If we reach here, auth is valid
+      console.log('✅ AuthLayout: Auth valid, allowing access', { pathname });
       setAuthChecked(true)
       setRedirecting(false)
     }
@@ -101,7 +109,7 @@ export function AuthLayout({ children, user: serverUser }: AuthLayoutProps) {
     // No delay needed - SharedOpenIDWeb3Provider now ensures permissions are loaded
     // before setting isAuthenticated=true
     checkAuth()
-  }, [mounted, isLoading, isAuthenticated, hasPermissionForDisplay, pathname, router, redirecting, authChecked, authTimeout])
+  }, [mounted, isLoading, isAuthenticated, hasPermissionForDisplay, pathname, router, redirecting, authChecked, authUser])
   
   // Wait for client-side hydration and auth check
   if (!mounted || (!authChecked && !PUBLIC_PATHS.some(path => pathname === path || pathname.startsWith(path)))) {

@@ -29,37 +29,36 @@ import { requestWalletChallenge, verifyWalletSignature } from '@/lib/auth/api-di
 type AuthStep = 'connect' | 'challenge' | 'signing' | 'authenticating' | 'success' | 'error';
 
 interface Web3OpenIDSignInProps {
-  redirectTo?: string;
   onSuccess?: () => void;
   className?: string;
 }
 
-export function Web3OpenIDSignIn({ 
-  redirectTo = '/dashboard', 
+export function Web3OpenIDSignIn({
   onSuccess,
-  className = '' 
+  className = ''
 }: Web3OpenIDSignInProps) {
-  const router = useRouter();
-  const { authenticateWithWallet } = useSharedAuth();
-  
+  const { authenticateWithDirectApi } = useSharedAuth();
+
   const [currentStep, setCurrentStep] = useState<AuthStep>('connect');
   const [walletAddress, setWalletAddress] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [challenge, setChallenge] = useState<{ nonce: string; message: string; wallet_address: string } | null>(null);
 
   // Connect wallet and request challenge
   const handleConnectWallet = useCallback(async () => {
     try {
       setError('');
+      setIsLoading(true);
       setCurrentStep('connect');
-      
+
       // Check if MetaMask is available
       if (typeof window.ethereum === 'undefined') {
         throw new Error('MetaMask is not installed. Please install MetaMask to continue.');
       }
 
       logger.info('Requesting wallet connection');
-      
+
       // Request account access
       const accounts = await window.ethereum.request({
         method: 'eth_requestAccounts'
@@ -71,29 +70,30 @@ export function Web3OpenIDSignIn({
 
       const address = accounts[0];
       setWalletAddress(address);
-      
+
       logger.info('Wallet connected, requesting challenge', { wallet_address: address });
-      
+
       // Request SIWE challenge from backend
       setCurrentStep('challenge');
       const challengeResponse = await requestWalletChallenge(address);
-      
+
       setChallenge({
         nonce: challengeResponse.nonce,
         message: challengeResponse.message,
         wallet_address: challengeResponse.wallet_address
       });
-      
+
       logger.info('Challenge received, ready for signing');
-      
+
       // Automatically proceed to signing
       await handleSignMessage(challengeResponse, address);
-      
+
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to connect wallet';
       logger.error('Wallet connection failed', { error: errorMessage });
       setError(errorMessage);
       setCurrentStep('error');
+      setIsLoading(false);
     }
   }, []);
 
@@ -104,9 +104,9 @@ export function Web3OpenIDSignIn({
   ) => {
     try {
       setCurrentStep('signing');
-      
+
       logger.info('Requesting message signature', { wallet_address: address });
-      
+
       // Request signature from wallet
       const signature = await window.ethereum.request({
         method: 'personal_sign',
@@ -114,7 +114,7 @@ export function Web3OpenIDSignIn({
       });
 
       logger.info('Signature received, authenticating with backend');
-      
+
       // Authenticate with backend using direct API
       setCurrentStep('authenticating');
       const result = await verifyWalletSignature({
@@ -131,37 +131,35 @@ export function Web3OpenIDSignIn({
           permissions: result.permissions?.length || 0,
           isNewUser: result.is_new_user
         });
-        
+
         // Update SharedOpenIDWeb3Provider with authenticated user
         await authenticateWithDirectApi({
           wallet_address: result.wallet_address,
           permissions: result.permissions,
           tier_level: result.tier_level,
-          is_new_user: result.is_new_user
+          is_new_user: result.is_new_user,
+          access_token: result.access_token
         });
 
         setCurrentStep('success');
-        
-        // Call onSuccess callback if provided
+        setIsLoading(false);
+
+        // Call onSuccess callback if provided (no redirect)
         if (onSuccess) {
           onSuccess();
-        } else {
-          // Navigate to redirect URL
-          setTimeout(() => {
-            router.push(redirectTo);
-          }, 1500);
         }
       } else {
         throw new Error(result.error || 'Authentication failed');
       }
-      
+
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Signature or authentication failed';
       logger.error('Authentication process failed', { error: errorMessage });
       setError(errorMessage);
       setCurrentStep('error');
+      setIsLoading(false);
     }
-  }, [authenticateWithDirectApi, router, redirectTo, onSuccess]);
+  }, [authenticateWithDirectApi, onSuccess]);
 
   // Retry authentication
   const handleRetry = useCallback(() => {

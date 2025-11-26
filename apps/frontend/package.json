@@ -2,7 +2,7 @@
   "name": "epsx-frontend",
   "version": "1.0.0",
   "private": true,
-  "description": "EPSX Trading Platform Frontend - Standalone Application",
+  "description": "EPSX Data Analytics Platform Frontend - Standalone Application",
   "homepage": "https://epsx.io",
   "repository": {
     "type": "git",

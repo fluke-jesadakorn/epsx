@@ -54,8 +54,8 @@ export async function getJWTFromCookies(): Promise<string | null> {
     // Debug: Log all cookies to see what's available
     const allCookies = cookieStore.getAll();
 
-    // Get access token from OpenID-compliant cookies
-    const jwtCookie = cookieStore.get(COOKIES.admin.access);
+    // Get access token from unified cookies (no context separation)
+    const jwtCookie = cookieStore.get(COOKIES.access);
 
     return jwtCookie?.value || null;
   } catch (_error) {

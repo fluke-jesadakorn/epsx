@@ -15,6 +15,98 @@
 
 import { UnifiedApiClient, ApiResponse, PaginatedResponse } from '../utils/api-client';
 import { COOKIES } from '../auth/cookies';
+import {
+  NotificationSchema,
+  NotificationsResponseSchema,
+  SSENotificationSchema,
+  NotificationFiltersSchema,
+  SendNotificationRequestSchema,
+  validateNotification,
+  validateSSENotification,
+  validateNotificationFilters,
+  validateSendNotificationRequest,
+} from '../components/notifications/schemas';
+
+// ============================================================================
+// ERROR HANDLING
+// ============================================================================
+
+export class NotificationAPIError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string,
+    public readonly status?: number,
+    public readonly details?: any
+  ) {
+    super(message);
+    this.name = 'NotificationAPIError';
+    Object.setPrototypeOf(this, NotificationAPIError.prototype);
+  }
+}
+
+export class NotificationNotFoundError extends NotificationAPIError {
+  constructor(notificationId: string, details?: any) {
+    super(
+      `Notification not found: ${notificationId}`,
+      'NOTIFICATION_NOT_FOUND',
+      404,
+      details
+    );
+    this.name = 'NotificationNotFoundError';
+  }
+}
+
+export class NotificationPermissionError extends NotificationAPIError {
+  constructor(operation: string, details?: any) {
+    super(
+      `Permission denied for operation: ${operation}`,
+      'NOTIFICATION_PERMISSION_DENIED',
+      403,
+      details
+    );
+    this.name = 'NotificationPermissionError';
+  }
+}
+
+export class NotificationValidationError extends NotificationAPIError {
+  constructor(message: string, details?: any) {
+    super(message, 'NOTIFICATION_VALIDATION_ERROR', 400, details);
+    this.name = 'NotificationValidationError';
+  }
+}
+
+function handleNotificationError(error: any, operation: string, details?: any): never {
+  const status = error?.status || error?.response?.status;
+  const errorMessage = error?.error || error?.message || 'Unknown error occurred';
+
+  if (status === 404) {
+    throw new NotificationNotFoundError(
+      details?.notificationId || 'unknown',
+      { operation, originalError: errorMessage }
+    );
+  }
+
+  if (status === 403) {
+    throw new NotificationPermissionError(operation, {
+      originalError: errorMessage,
+      ...details
+    });
+  }
+
+  if (status === 400) {
+    throw new NotificationValidationError(
+      `Failed to ${operation}: ${errorMessage}`,
+      { originalError: errorMessage, ...details }
+    );
+  }
+
+  throw new NotificationAPIError(
+    `Failed to ${operation}: ${errorMessage}`,
+    'NOTIFICATION_API_ERROR',
+    status,
+    { operation, originalError: errorMessage, ...details }
+  );
+}
 
 // ============================================================================
 // NOTIFICATION TYPES
@@ -205,6 +297,14 @@ export interface SSEConnectionOptions {
 export class NotificationsAPIClient {
   private sseConnection?: EventSource;
   private sseListeners: Map<string, (notification: SSENotification) => void> = new Map();
+  // Track event listeners for proper cleanup
+  private sseEventHandlers: {
+    onmessage?: (event: MessageEvent) => void;
+    onerror?: (event: Event) => void;
+    onopen?: (event: Event) => void;
+    notification?: (event: MessageEvent) => void;
+    ping?: (event: MessageEvent) => void;
+  } = {};
 
   constructor(private client: UnifiedApiClient) {}
 
@@ -217,22 +317,43 @@ export class NotificationsAPIClient {
    * Route: GET /api/notifications
    */
   async getNotifications(filters: NotificationFilters = {}): Promise<NotificationsResponse> {
-    const response = await this.client.get<NotificationsResponse>(
-      '/api/notifications',
-      filters,
-      {
-        headers: {
-          'X-API-Version': 'v1',
-          'X-Access-Level': 'auth',
-        },
+    try {
+      // Validate input filters
+      const filterValidation = validateNotificationFilters(filters);
+      if (!filterValidation.success) {
+        throw new NotificationValidationError(
+          'Invalid notification filters',
+          filterValidation.errors.format()
+        );
       }
-    );
 
-    if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch notifications: ${response.error}`);
+      const response = await this.client.get<NotificationsResponse>(
+        '/api/notifications',
+        filterValidation.data,
+        {
+          headers: {
+            'X-API-Version': 'v1',
+            'X-Access-Level': 'auth',
+          },
+        }
+      );
+
+      if (!this.client.isApiSuccess(response)) {
+        handleNotificationError(response, 'fetch notifications', { filters });
+      }
+
+      // Validate response schema
+      const validatedResponse = NotificationsResponseSchema.safeParse(response.data);
+      if (!validatedResponse.success) {
+        console.warn('API response validation failed:', validatedResponse.error);
+        // Continue with unvalidated data but log the issue
+      }
+
+      return response.data;
+    } catch (error) {
+      if (error instanceof NotificationAPIError) throw error;
+      handleNotificationError(error, 'fetch notifications', { filters });
     }
-
-    return response.data;
   }
 
   /**
@@ -263,22 +384,27 @@ export class NotificationsAPIClient {
    * Route: PUT /api/notifications/{id}/read
    */
   async markAsRead(notificationId: string): Promise<{ success: boolean; message: string }> {
-    const response = await this.client.put<{ success: boolean; message: string }>(
-      `/api/notifications/${notificationId}/read`,
-      {},
-      {
-        headers: {
-          'X-API-Version': 'v1',
-          'X-Access-Level': 'auth',
-        },
+    try {
+      const response = await this.client.put<{ success: boolean; message: string }>(
+        `/api/notifications/${notificationId}/read`,
+        {},
+        {
+          headers: {
+            'X-API-Version': 'v1',
+            'X-Access-Level': 'auth',
+          },
+        }
+      );
+
+      if (!this.client.isApiSuccess(response)) {
+        handleNotificationError(response, 'mark notification as read', { notificationId });
       }
-    );
 
-    if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to mark notification as read: ${response.error}`);
+      return response.data;
+    } catch (error) {
+      if (error instanceof NotificationAPIError) throw error;
+      handleNotificationError(error, 'mark notification as read', { notificationId });
     }
-
-    return response.data;
   }
 
   /**
@@ -286,22 +412,27 @@ export class NotificationsAPIClient {
    * Route: PUT /api/v1/auth/notifications/mark-all-read
    */
   async markAllAsRead(): Promise<{ success: boolean; updated_count: number }> {
-    const response = await this.client.put<{ success: boolean; updated_count: number }>(
-      '/api/notifications/mark-all-read',
-      {},
-      {
-        headers: {
-          'X-API-Version': 'v1',
-          'X-Access-Level': 'auth',
-        },
+    try {
+      const response = await this.client.put<{ success: boolean; updated_count: number }>(
+        '/api/notifications/mark-all-read',
+        {},
+        {
+          headers: {
+            'X-API-Version': 'v1',
+            'X-Access-Level': 'auth',
+          },
+        }
+      );
+
+      if (!this.client.isApiSuccess(response)) {
+        handleNotificationError(response, 'mark all notifications as read');
       }
-    );
 
-    if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to mark all notifications as read: ${response.error}`);
+      return response.data;
+    } catch (error) {
+      if (error instanceof NotificationAPIError) throw error;
+      handleNotificationError(error, 'mark all notifications as read');
     }
-
-    return response.data;
   }
 
   /**
@@ -334,21 +465,26 @@ export class NotificationsAPIClient {
    * Route: DELETE /api/v1/auth/notifications/{id}
    */
   async deleteNotification(notificationId: string): Promise<{ success: boolean; message: string }> {
-    const response = await this.client.delete<{ success: boolean; message: string }>(
-      `/api/notifications/${notificationId}`,
-      {
-        headers: {
-          'X-API-Version': 'v1',
-          'X-Access-Level': 'auth',
-        },
+    try {
+      const response = await this.client.delete<{ success: boolean; message: string }>(
+        `/api/notifications/${notificationId}`,
+        {
+          headers: {
+            'X-API-Version': 'v1',
+            'X-Access-Level': 'auth',
+          },
+        }
+      );
+
+      if (!this.client.isApiSuccess(response)) {
+        handleNotificationError(response, 'delete notification', { notificationId });
       }
-    );
 
-    if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to delete notification: ${response.error}`);
+      return response.data;
+    } catch (error) {
+      if (error instanceof NotificationAPIError) throw error;
+      handleNotificationError(error, 'delete notification', { notificationId });
     }
-
-    return response.data;
   }
 
   /**
@@ -356,21 +492,26 @@ export class NotificationsAPIClient {
    * Route: DELETE /api/v1/auth/notifications/clear-all
    */
   async clearAllNotifications(): Promise<{ success: boolean; deleted_count: number }> {
-    const response = await this.client.delete<{ success: boolean; deleted_count: number }>(
-      '/api/notifications/clear-all',
-      {
-        headers: {
-          'X-API-Version': 'v1',
-          'X-Access-Level': 'auth',
-        },
+    try {
+      const response = await this.client.delete<{ success: boolean; deleted_count: number }>(
+        '/api/notifications/clear-all',
+        {
+          headers: {
+            'X-API-Version': 'v1',
+            'X-Access-Level': 'auth',
+          },
+        }
+      );
+
+      if (!this.client.isApiSuccess(response)) {
+        handleNotificationError(response, 'clear all notifications');
       }
-    );
 
-    if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to clear all notifications: ${response.error}`);
+      return response.data;
+    } catch (error) {
+      if (error instanceof NotificationAPIError) throw error;
+      handleNotificationError(error, 'clear all notifications');
     }
-
-    return response.data;
   }
 
   // ============================================================================
@@ -511,23 +652,37 @@ export class NotificationsAPIClient {
    * Route: POST /api/admin/notifications/send
    */
   async sendNotification(request: SendNotificationRequest): Promise<SendNotificationResponse> {
-    const response = await this.client.post<SendNotificationResponse>(
-      '/api/admin/notifications/send',
-      request,
-      {
-        headers: {
-          'X-API-Version': 'v1',
-          'X-Access-Level': 'admin',
-          'X-Admin-Context': 'true',
-        },
+    try {
+      // Validate request payload
+      const requestValidation = validateSendNotificationRequest(request);
+      if (!requestValidation.success) {
+        throw new NotificationValidationError(
+          'Invalid send notification request',
+          requestValidation.errors.format()
+        );
       }
-    );
 
-    if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to send notification: ${response.error}`);
+      const response = await this.client.post<SendNotificationResponse>(
+        '/api/admin/notifications/send',
+        requestValidation.data,
+        {
+          headers: {
+            'X-API-Version': 'v1',
+            'X-Access-Level': 'admin',
+            'X-Admin-Context': 'true',
+          },
+        }
+      );
+
+      if (!this.client.isApiSuccess(response)) {
+        handleNotificationError(response, 'send notification', { request });
+      }
+
+      return response.data;
+    } catch (error) {
+      if (error instanceof NotificationAPIError) throw error;
+      handleNotificationError(error, 'send notification', { request });
     }
-
-    return response.data;
   }
 
   /**
@@ -535,23 +690,28 @@ export class NotificationsAPIClient {
    * Route: GET /api/admin/notifications/stats
    */
   async getNotificationStats(): Promise<NotificationStatsResponse> {
-    const response = await this.client.get<NotificationStatsResponse>(
-      '/api/admin/notifications/stats',
-      undefined,
-      {
-        headers: {
-          'X-API-Version': 'v1',
-          'X-Access-Level': 'admin',
-          'X-Admin-Context': 'true',
-        },
+    try {
+      const response = await this.client.get<NotificationStatsResponse>(
+        '/api/admin/notifications/stats',
+        undefined,
+        {
+          headers: {
+            'X-API-Version': 'v1',
+            'X-Access-Level': 'admin',
+            'X-Admin-Context': 'true',
+          },
+        }
+      );
+
+      if (!this.client.isApiSuccess(response)) {
+        handleNotificationError(response, 'fetch notification stats');
       }
-    );
 
-    if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch notification stats: ${response.error}`);
+      return response.data;
+    } catch (error) {
+      if (error instanceof NotificationAPIError) throw error;
+      handleNotificationError(error, 'fetch notification stats');
     }
-
-    return response.data;
   }
 
   /**
@@ -559,23 +719,28 @@ export class NotificationsAPIClient {
    * Route: GET /api/admin/notifications
    */
   async getAllNotifications(filters: NotificationFilters = {}): Promise<NotificationsResponse> {
-    const response = await this.client.get<NotificationsResponse>(
-      '/api/admin/notifications',
-      filters,
-      {
-        headers: {
-          'X-API-Version': 'v1',
-          'X-Access-Level': 'admin',
-          'X-Admin-Context': 'true',
-        },
+    try {
+      const response = await this.client.get<NotificationsResponse>(
+        '/api/admin/notifications',
+        filters,
+        {
+          headers: {
+            'X-API-Version': 'v1',
+            'X-Access-Level': 'admin',
+            'X-Admin-Context': 'true',
+          },
+        }
+      );
+
+      if (!this.client.isApiSuccess(response)) {
+        handleNotificationError(response, 'fetch all notifications (admin)', { filters });
       }
-    );
 
-    if (!this.client.isApiSuccess(response)) {
-      throw new Error(`Failed to fetch all notifications: ${response.error}`);
+      return response.data;
+    } catch (error) {
+      if (error instanceof NotificationAPIError) throw error;
+      handleNotificationError(error, 'fetch all notifications (admin)', { filters });
     }
-
-    return response.data;
   }
 
   // ============================================================================
@@ -592,9 +757,10 @@ export class NotificationsAPIClient {
     onError?: (error: Event) => void,
     onOpen?: (event: Event) => void
   ): () => void {
-    // Close existing connection if any
+    // Close existing connection if any with proper cleanup
     if (this.sseConnection) {
       console.log('🔄 Closing existing SSE connection before creating new one');
+      this.cleanupSSEListeners();
       this.sseConnection.close();
       this.sseConnection = undefined;
     }
@@ -617,7 +783,7 @@ export class NotificationsAPIClient {
     const platform = this.client['platform'] as 'admin' | 'frontend' | undefined;
 
     if (token) {
-      params.append('wallet_address', token);
+      params.append('token', token);
       console.log(`🔑 SSE [${platform}]: User wallet found and added to connection URL: ${token}`);
     } else {
       console.warn(`⚠️ SSE [${platform}]: No authenticated user found in cookies, only broadcast notifications will be received`);
@@ -660,32 +826,46 @@ export class NotificationsAPIClient {
     const listenerId = Math.random().toString(36).substring(7);
     this.sseListeners.set(listenerId, onNotification);
 
-    // Handle SSE events
-    this.sseConnection.onopen = (event) => {
+    // Handle SSE events - store handlers for proper cleanup
+    const openHandler = (event: Event) => {
       console.log('✅ SSE connection opened');
       if (onOpen) onOpen(event);
     };
+    this.sseEventHandlers.onopen = openHandler;
+    this.sseConnection.onopen = openHandler;
 
-    this.sseConnection.onmessage = (event) => {
+    const messageHandler = (event: MessageEvent) => {
       try {
-        const notification: SSENotification = JSON.parse(event.data);
-        onNotification(notification);
+        const rawData = JSON.parse(event.data);
+
+        // Validate SSE notification with Zod schema
+        const validatedNotification = validateSSENotification(rawData);
+        if (!validatedNotification) {
+          console.warn('Invalid SSE notification received, skipping:', rawData);
+          return;
+        }
+
+        onNotification(validatedNotification as SSENotification);
 
         // Auto-acknowledge notification in background
-        this.acknowledgeNotification(notification.id).catch(err => {
-          console.debug(`Background acknowledgement failed for notification ${notification.id}:`, err);
+        this.acknowledgeNotification(validatedNotification.id).catch(err => {
+          console.debug(`Background acknowledgement failed for notification ${validatedNotification.id}:`, err);
         });
       } catch (error) {
         console.error('Failed to parse SSE notification:', error);
       }
     };
+    this.sseEventHandlers.onmessage = messageHandler;
+    this.sseConnection.onmessage = messageHandler;
 
     // Handle ping events (connection establishment)
-    this.sseConnection.addEventListener('ping', (event) => {
+    const pingHandler = (event: MessageEvent) => {
       console.log('🏓 SSE ping received:', event.data);
-    });
+    };
+    this.sseEventHandlers.ping = pingHandler;
+    this.sseConnection.addEventListener('ping', pingHandler);
 
-    this.sseConnection.onerror = (event) => {
+    const errorHandler = (event: Event) => {
       const currentState = this.sseConnection?.readyState;
       const stateNames = {
         0: 'CONNECTING',
@@ -734,9 +914,11 @@ export class NotificationsAPIClient {
         console.log('⚠️ Connection is OPEN but error event fired (transient error)');
       }
     };
+    this.sseEventHandlers.onerror = errorHandler;
+    this.sseConnection.onerror = errorHandler;
 
     // Handle specific notification types (with event name as notification type)
-    this.sseConnection.addEventListener('notification', (event: any) => {
+    const notificationHandler = (event: MessageEvent) => {
       try {
         const notification: SSENotification = JSON.parse(event.data);
         onNotification(notification);
@@ -748,12 +930,15 @@ export class NotificationsAPIClient {
       } catch (error) {
         console.error('Failed to parse notification event:', error);
       }
-    });
+    };
+    this.sseEventHandlers.notification = notificationHandler;
+    this.sseConnection.addEventListener('notification', notificationHandler);
 
-    // Return disconnect function
+    // Return disconnect function with proper cleanup
     return () => {
       this.sseListeners.delete(listenerId);
       if (this.sseListeners.size === 0 && this.sseConnection) {
+        this.cleanupSSEListeners();
         this.sseConnection.close();
         this.sseConnection = undefined;
       }
@@ -761,10 +946,42 @@ export class NotificationsAPIClient {
   }
 
   /**
-   * Disconnect from SSE
+   * Clean up all SSE event listeners to prevent memory leaks
+   */
+  private cleanupSSEListeners(): void {
+    if (!this.sseConnection) return;
+
+    console.log('🧹 Cleaning up SSE event listeners');
+
+    // Remove addEventListener handlers
+    if (this.sseEventHandlers.ping) {
+      this.sseConnection.removeEventListener('ping', this.sseEventHandlers.ping);
+    }
+    if (this.sseEventHandlers.notification) {
+      this.sseConnection.removeEventListener('notification', this.sseEventHandlers.notification);
+    }
+
+    // Clear direct assignment handlers by setting to null
+    if (this.sseEventHandlers.onopen) {
+      this.sseConnection.onopen = null;
+    }
+    if (this.sseEventHandlers.onmessage) {
+      this.sseConnection.onmessage = null;
+    }
+    if (this.sseEventHandlers.onerror) {
+      this.sseConnection.onerror = null;
+    }
+
+    // Clear all tracked handlers
+    this.sseEventHandlers = {};
+  }
+
+  /**
+   * Disconnect from SSE with proper cleanup
    */
   disconnectFromSSE(): void {
     if (this.sseConnection) {
+      this.cleanupSSEListeners();
       this.sseConnection.close();
       this.sseConnection = undefined;
     }
@@ -863,27 +1080,14 @@ export class NotificationsAPIClient {
     let token: string | null = null;
 
     // Get user data from accessible client-side cookies
-    if (platform === 'admin') {
-      const userCookie = cookies[COOKIES.admin.user];
-      if (userCookie) {
-        try {
-          const user = JSON.parse(decodeURIComponent(userCookie));
-          // Return wallet address as token identifier (backend will verify via server-side cookies)
-          token = user.wallet_address || user.sub;
-        } catch (error) {
-          console.warn('Failed to parse admin user cookie:', error);
-        }
-      }
-    } else {
-      const userCookie = cookies[COOKIES.user.user];
-      if (userCookie) {
-        try {
-          const user = JSON.parse(decodeURIComponent(userCookie));
-          // Return wallet address as token identifier (backend will verify via server-side cookies)
-          token = user.wallet_address || user.sub;
-        } catch (error) {
-          console.warn('Failed to parse user cookie:', error);
-        }
+    const userCookie = cookies[COOKIES.user];
+    if (userCookie) {
+      try {
+        const user = JSON.parse(decodeURIComponent(userCookie));
+        // Return JWT access token for backend verification
+        token = user.access;
+      } catch (error) {
+        console.warn('Failed to parse user cookie:', error);
       }
     }
 

@@ -1,20 +1,19 @@
 'use client';
 
-import { 
-  Shield, 
-  Crown, 
-  Clock, 
-  AlertTriangle, 
-  CheckCircle, 
-  RefreshCcw,
-  Eye,
-  Settings,
-  Users,
-  Database,
-  BarChart3,
-  Wallet
+import {
+    AlertTriangle,
+    BarChart3,
+    CheckCircle,
+    Clock,
+    Crown,
+    Eye,
+    RefreshCcw,
+    Settings,
+    Shield,
+    Users,
+    Wallet
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { useAccount } from 'wagmi';
 
@@ -176,8 +175,8 @@ export function AdminWalletPermissions({
       'admin:analytics:view': 'View analytics and reports',
       'admin:system:configure': 'Configure system settings',
       'admin:web3:manage': 'Manage Web3 and wallet integrations',
-      'epsx:trading:access': 'Access trading platform features',
-      'epsx:analytics:view': 'View trading analytics'
+      'epsx:trading:access': 'Access analytics platform features',
+      'epsx:analytics:view': 'View data analytics'
     };
 
     return descriptions[permission] || `${action} access to ${resource} on ${platform}`;

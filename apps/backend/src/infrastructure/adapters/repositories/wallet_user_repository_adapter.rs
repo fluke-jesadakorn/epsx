@@ -61,7 +61,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
 
             // NOTE: Permissions now stored in normalized tables
             // Use Web3PermissionService or query normalized tables directly:
-            // - wallet_group_assignments + permission_group_memberships (group permissions)
+            // - wallet_group_memberships + permission_group_memberships (group permissions)
             // - wallet_direct_permissions (direct permissions)
             let permission_set: HashSet<Permission> = HashSet::new();
             let permission_group_set: HashSet<String> = HashSet::new();
@@ -147,7 +147,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
     async fn save(&self, user: &WalletUser) -> AppResult<()> {
         // NOTE: Permissions now stored in normalized tables
         // Use separate APIs to manage permissions:
-        // - wallet_group_assignments (assign wallet to groups)
+        // - wallet_group_memberships (assign wallet to groups)
         // - wallet_direct_permissions (grant direct permissions)
 
         // Serialize wallet metadata to JSON
@@ -219,7 +219,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 wu.wallet_address, wu.is_active, wu.wallet_metadata,
                 wu.created_at, wu.updated_at, wu.last_auth_at
             FROM wallet_users wu
-            LEFT JOIN wallet_group_assignments wga ON wu.wallet_address = wga.wallet_address
+            LEFT JOIN wallet_group_memberships wga ON wu.wallet_address = wga.wallet_address
             LEFT JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
             LEFT JOIN permissions p1 ON pgm.permission_id = p1.id
             LEFT JOIN wallet_direct_permissions wdp ON wu.wallet_address = wdp.wallet_address
@@ -283,7 +283,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 wu.wallet_address, wu.is_active, wu.wallet_metadata,
                 wu.created_at, wu.updated_at, wu.last_auth_at
             FROM wallet_users wu
-            INNER JOIN wallet_group_assignments wga ON wu.wallet_address = wga.wallet_address
+            INNER JOIN wallet_group_memberships wga ON wu.wallet_address = wga.wallet_address
             INNER JOIN permission_groups pg ON wga.group_id = pg.id
             WHERE wu.is_active = true
               AND wga.is_active = true

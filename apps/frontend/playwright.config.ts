@@ -134,7 +134,23 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
       dependencies: ['setup'],
     },
-    
+
+    // Notification System Tests - Complete Coverage
+    {
+      name: 'notifications',
+      testMatch: '**/notifications-complete.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+    },
+
+    // Notification Integration Tests - Cross-App
+    {
+      name: 'notifications-integration',
+      testMatch: '**/notifications-integration.spec.ts',
+      use: { ...devices['Desktop Chrome'] },
+      dependencies: ['setup'],
+    },
+
     // Cross-browser Web3 testing
     {
       name: 'web3-firefox',

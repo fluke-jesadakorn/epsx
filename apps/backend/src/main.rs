@@ -18,7 +18,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Initialize basic tracing
     tracing_subscriber::fmt::init();
 
-    info!("🚀 Starting EPSX Backend Server with UNIFIED ROUTER architecture...");
+    info!("🚀 Starting EPSX Backend Server - Data Analytics Platform...");
 
     // Create database pool
     let database_url = std::env::var("DATABASE_URL")

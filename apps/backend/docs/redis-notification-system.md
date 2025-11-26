@@ -188,8 +188,13 @@ REDIS_URL=redis://localhost:6379  # Required for notifications
 **Before deployment:**
 
 ```bash
-# Apply database migrations
+# Using helper script (recommended - loads .env automatically)
 cd apps/backend
+./scripts/migrate.sh
+
+# Or manually with sqlx
+cd apps/backend
+export DATABASE_URL="postgresql://user:pass@host:5432/db"
 sqlx migrate run
 
 # Or direct SQL
@@ -206,6 +211,23 @@ cargo build
 # Without database (offline mode)
 SQLX_OFFLINE=true cargo build
 ```
+
+## Helper Scripts
+
+The backend includes helper scripts that automatically load environment variables from `.env`:
+
+```bash
+# Check environment configuration
+./scripts/check-env.sh
+
+# Run migrations with .env loaded
+./scripts/migrate.sh
+
+# Start backend with .env loaded
+./scripts/run.sh
+```
+
+See `scripts/README.md` for detailed documentation.
 
 ## Scalability
 

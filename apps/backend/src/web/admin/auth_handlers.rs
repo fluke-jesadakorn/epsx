@@ -161,7 +161,7 @@ pub async fn get_user_permissions(
             AND (wdp.expires_at IS NULL OR wdp.expires_at > NOW())
           THEN p.id END), 0) as active_permissions_count
      FROM wallet_users wu
-     LEFT JOIN wallet_group_assignments wga ON wu.wallet_address = wga.wallet_address
+     LEFT JOIN wallet_group_memberships wga ON wu.wallet_address = wga.wallet_address
      LEFT JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
      LEFT JOIN permissions p ON pgm.permission_id = p.id
      LEFT JOIN wallet_direct_permissions wdp ON wu.wallet_address = wdp.wallet_address
@@ -193,7 +193,7 @@ pub async fn get_user_permissions(
     let primary_perm_query = sqlx::query!(
       r#"
       SELECT DISTINCT p.permission_string, 'group' as source
-      FROM wallet_group_assignments wga
+      FROM wallet_group_memberships wga
       JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
       JOIN permissions p ON pgm.permission_id = p.id
       WHERE wga.wallet_address = $1
@@ -517,7 +517,7 @@ pub async fn get_recent_wallets(
       wu.is_active,
       (
         SELECT COUNT(DISTINCT p.id)::int
-        FROM wallet_group_assignments wga
+        FROM wallet_group_memberships wga
         JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
         JOIN permissions p ON pgm.permission_id = p.id
         WHERE wga.wallet_address = wu.wallet_address
@@ -701,7 +701,7 @@ pub async fn search_wallets(
       wu.is_active,
       COALESCE((
         SELECT COUNT(DISTINCT p.id)::int
-        FROM wallet_group_assignments wga
+        FROM wallet_group_memberships wga
         JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
         JOIN permissions p ON pgm.permission_id = p.id
         WHERE wga.wallet_address = wu.wallet_address
@@ -737,7 +737,7 @@ pub async fn search_wallets(
       wu.is_active,
       COALESCE((
         SELECT COUNT(DISTINCT p.id)::int
-        FROM wallet_group_assignments wga
+        FROM wallet_group_memberships wga
         JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
         JOIN permissions p ON pgm.permission_id = p.id
         WHERE wga.wallet_address = wu.wallet_address
