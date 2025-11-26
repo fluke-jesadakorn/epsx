@@ -60,7 +60,7 @@ impl ScheduleInfo {
     /// Create with expiry only (immediate delivery but expires)
     pub fn with_expiry(expires_at: DateTime<Utc>) -> Result<Self, String> {
         let now = Utc::now();
-        
+
         if expires_at <= now {
             return Err("Expiry time must be in the future".to_string());
         }
@@ -70,6 +70,22 @@ impl ScheduleInfo {
             expires_at: Some(expires_at),
             created_at: now,
             schedule_type: ScheduleType::Immediate,
+            timezone_hint: None,
+        })
+    }
+
+    /// Reconstruct schedule info from persistence (used by repository)
+    /// Does not validate times since they may be in the past after loading from database
+    pub fn from_persistence(
+        schedule_type: ScheduleType,
+        scheduled_at: Option<DateTime<Utc>>,
+        expires_at: Option<DateTime<Utc>>,
+    ) -> Result<Self, String> {
+        Ok(Self {
+            scheduled_at,
+            expires_at,
+            created_at: scheduled_at.unwrap_or_else(Utc::now),
+            schedule_type,
             timezone_hint: None,
         })
     }
@@ -310,6 +326,14 @@ impl ScheduleType {
             ScheduleType::Scheduled => "scheduled",
         }
     }
+
+    pub fn from_str(s: &str) -> Result<Self, String> {
+        match s.to_lowercase().as_str() {
+            "immediate" => Ok(ScheduleType::Immediate),
+            "scheduled" | "delayed" => Ok(ScheduleType::Scheduled),
+            _ => Err(format!("Invalid schedule type: {}", s)),
+        }
+    }
 }
 
 /// Current schedule status
@@ -380,7 +404,6 @@ impl Display for ScheduleInfo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
 
     #[test]
     fn test_immediate_schedule() {
@@ -454,7 +477,7 @@ mod tests {
     #[test]
     fn test_expired_notification() {
         let past_expiry = Utc::now() - Duration::minutes(1);
-        let schedule = ScheduleInfo::immediate();
+        let mut schedule = ScheduleInfo::immediate();
         
         // Set expiry in the past (bypassing validation for testing)
         schedule.expires_at = Some(past_expiry);

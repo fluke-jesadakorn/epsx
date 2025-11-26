@@ -41,6 +41,11 @@ pub struct StockScreeningResult {
     pub trend_direction: Option<String>,   // "UP", "DOWN", "FLAT"
     pub avg_growth_rate: Option<f64>,      // Average growth rate across available quarters
     pub consistency_score: Option<String>, // "HIGH", "MEDIUM", "LOW" - earnings consistency
+    pub currency: Option<String>,          // Stock currency ("USD", "EUR", etc.)
+    
+    // Real TradingView earnings announcement dates
+    pub last_earnings_date: Option<f64>,   // earnings_release_date timestamp
+    pub next_earnings_date: Option<f64>,   // earnings_release_next_date timestamp
 }
 
 impl StockScreeningResult {
@@ -77,6 +82,10 @@ impl StockScreeningResult {
             trend_direction: None,
             avg_growth_rate: None,
             consistency_score: None,
+            currency: None,
+            // Initialize real TradingView earnings dates
+            last_earnings_date: None,
+            next_earnings_date: None,
         }
     }
 

@@ -12,6 +12,10 @@
  */
 
 import { cva, type VariantProps } from 'class-variance-authority';
+import { cn } from '@/lib/utils';
+
+// Re-export cn utility
+export { cn };
 
 // ============================================================================
 // BUTTON VARIANTS
@@ -22,7 +26,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
  */
 export const adminButtonVariants = cva([
   'inline-flex items-center justify-center whitespace-nowrap',
-  'rounded-lg font-semibold text-sm transition-all duration-300',
+  'rounded-lg font-semibold text-sm',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
   'disabled:pointer-events-none disabled:opacity-50',
   'relative overflow-hidden',
@@ -33,7 +37,6 @@ export const adminButtonVariants = cva([
       primary: [
         'bg-gradient-to-r from-orange-500 to-yellow-500',
         'text-white shadow-lg hover:shadow-xl',
-        'hover:scale-105 active:scale-95',
         'focus-visible:ring-orange-500',
       ],
       
@@ -41,7 +44,6 @@ export const adminButtonVariants = cva([
       secondary: [
         'bg-gradient-to-r from-blue-500 to-purple-500',
         'text-white shadow-lg hover:shadow-xl',
-        'hover:scale-105 active:scale-95',
         'focus-visible:ring-blue-500',
       ],
       
@@ -49,7 +51,6 @@ export const adminButtonVariants = cva([
       success: [
         'bg-gradient-to-r from-green-500 to-emerald-500',
         'text-white shadow-lg hover:shadow-xl',
-        'hover:scale-105 active:scale-95',
         'focus-visible:ring-green-500',
       ],
       
@@ -57,7 +58,6 @@ export const adminButtonVariants = cva([
       destructive: [
         'bg-gradient-to-r from-red-500 to-rose-500',
         'text-white shadow-lg hover:shadow-xl',
-        'hover:scale-105 active:scale-95',
         'focus-visible:ring-red-500',
       ],
       
@@ -65,7 +65,6 @@ export const adminButtonVariants = cva([
       warning: [
         'bg-gradient-to-r from-amber-500 to-orange-500',
         'text-white shadow-lg hover:shadow-xl',
-        'hover:scale-105 active:scale-95',
         'focus-visible:ring-amber-500',
       ],
       
@@ -129,7 +128,7 @@ export type AdminButtonVariants = VariantProps<typeof adminButtonVariants>;
  * Features live tile animations, gradients, and selection patterns
  */
 export const adminCardVariants = cva([
-  'rounded-2xl border backdrop-blur-sm transition-all duration-300',
+  'rounded-2xl border backdrop-blur-sm',
   'relative overflow-hidden group',
 ], {
   variants: {
@@ -149,7 +148,7 @@ export const adminCardVariants = cva([
         'before:absolute before:top-0 before:right-0 before:w-6 before:h-6',
         'before:bg-gradient-to-bl before:from-yellow-400/60 before:to-transparent',
         'after:absolute after:bottom-2 after:right-2 after:w-1.5 after:h-1.5',
-        'after:bg-yellow-400/80 after:rounded-full after:animate-pulse',
+        'after:bg-yellow-400/80 after:rounded-full ',
       ],
       
       // User management card with Windows Phone styling
@@ -197,7 +196,7 @@ export const adminCardVariants = cva([
         'before:absolute before:top-0 before:right-0 before:w-6 before:h-6',
         'before:bg-gradient-to-bl before:from-indigo-400/60 before:to-transparent',
         'after:absolute after:bottom-2 after:right-2 after:w-1.5 after:h-1.5',
-        'after:bg-indigo-400/80 after:rounded-full after:animate-pulse',
+        'after:bg-indigo-400/80 after:rounded-full ',
       ],
       
       // Live tile variant for Windows Phone style
@@ -243,21 +242,21 @@ export const adminCardVariants = cva([
     
     hover: {
       none: '',
-      lift: 'hover:-translate-y-2 hover:rotate-[0.5deg] active:scale-[0.98]',
+      lift: 'hover:shadow-lg',
       glow: 'hover:shadow-2xl hover:shadow-current/10',
-      both: 'hover:-translate-y-2 hover:scale-[1.02] hover:shadow-2xl hover:rotate-[0.5deg] active:scale-[0.98] active:rotate-0',
-      flip: 'hover:perspective-1000 hover:transform-style-preserve-3d hover:rotate-y-3 active:rotate-y-0',
-      scale: 'hover:scale-[1.05] active:scale-[0.95] hover:rotate-1 active:rotate-0',
-      intense: 'hover:-translate-y-3 hover:scale-[1.03] hover:shadow-2xl hover:rotate-1 hover:brightness-105 active:scale-[0.97] active:rotate-0 active:brightness-100',
+      both: 'hover:shadow-2xl',
+      flip: 'hover:shadow-xl',
+      scale: 'hover:shadow-lg',
+      intense: 'hover:shadow-2xl hover:brightness-105',
     },
     
-    animation: {
+    state: {
       none: '',
-      subtle: 'animate-in fade-in-50 slide-in-from-bottom-4 duration-300',
-      bounce: 'animate-in fade-in-0 zoom-in-95 duration-500',
-      slide: 'animate-in fade-in-0 slide-in-from-left-8 duration-400',
-      flip: 'animate-in fade-in-0 duration-500 [animation-fill-mode:both]',
-      pulse: 'animate-pulse-subtle',
+      visible: 'opacity-100',
+      loading: 'opacity-75',
+      disabled: 'opacity-50',
+      highlighted: 'opacity-100',
+      inactive: 'opacity-80',
     },
     
     padding: {
@@ -276,7 +275,7 @@ export const adminCardVariants = cva([
     },
     
     selectable: {
-      true: 'group-hover:ring-2 group-hover:ring-yellow-300/50 group-hover:ring-offset-1 transition-all',
+      true: 'group-hover:ring-2 group-hover:ring-yellow-300/50 group-hover:ring-offset-1',
       false: '',
     },
     
@@ -293,7 +292,7 @@ export const adminCardVariants = cva([
   defaultVariants: {
     variant: 'default',
     hover: 'both',
-    animation: 'subtle',
+    state: 'visible',
     padding: 'default',
     interactive: false,
     selectable: false,
@@ -313,8 +312,8 @@ export type AdminCardVariants = VariantProps<typeof adminCardVariants>;
  */
 export const adminBadgeVariants = cva([
   'inline-flex items-center rounded-xl px-3 py-1.5 relative overflow-hidden',
-  'text-xs font-light uppercase tracking-wider transition-all duration-300',
-  'shadow-sm hover:shadow-md hover:scale-105 active:scale-95',
+  'text-xs font-light uppercase tracking-wider',
+  'shadow-sm hover:shadow-md',
   'border border-transparent min-h-[28px]',
 ], {
   variants: {
@@ -324,7 +323,7 @@ export const adminBadgeVariants = cva([
         'bg-gradient-to-r from-green-400 to-emerald-400',
         'text-white shadow-green-200/50',
         'after:absolute after:bottom-1 after:right-1 after:w-1 after:h-1',
-        'after:bg-white/80 after:rounded-full after:animate-pulse',
+        'after:bg-white/80 after:rounded-full',
       ],
       inactive: [
         'bg-gradient-to-r from-gray-300 to-slate-300',
@@ -336,7 +335,7 @@ export const adminBadgeVariants = cva([
         'bg-gradient-to-r from-yellow-400 to-orange-400',
         'text-black shadow-yellow-200/50',
         'after:absolute after:bottom-1 after:right-1 after:w-1 after:h-1',
-        'after:bg-black/60 after:rounded-full after:animate-pulse',
+        'after:bg-black/60 after:rounded-full',
       ],
       suspended: [
         'bg-gradient-to-r from-red-400 to-orange-500',
@@ -348,7 +347,7 @@ export const adminBadgeVariants = cva([
         'bg-gradient-to-r from-purple-400 to-pink-400',
         'text-white shadow-purple-200/50',
         'after:absolute after:bottom-1 after:right-1 after:w-1 after:h-1',
-        'after:bg-white/80 after:rounded-full after:animate-pulse',
+        'after:bg-white/80 after:rounded-full ',
         'before:absolute before:top-0 before:right-0 before:w-3 before:h-3',
         'before:bg-gradient-to-bl before:from-white/30 before:to-transparent',
       ],
@@ -358,7 +357,7 @@ export const adminBadgeVariants = cva([
         'bg-gradient-to-r from-green-400 to-teal-400',
         'text-white shadow-green-200/50',
         'after:absolute after:bottom-1 after:right-1 after:w-1 after:h-1',
-        'after:bg-white/80 after:rounded-full after:animate-pulse',
+        'after:bg-white/80 after:rounded-full ',
       ],
       denied: [
         'bg-gradient-to-r from-red-400 to-pink-400',
@@ -370,13 +369,13 @@ export const adminBadgeVariants = cva([
         'bg-gradient-to-r from-blue-400 to-cyan-400',
         'text-white shadow-blue-200/50',
         'after:absolute after:bottom-1 after:right-1 after:w-1 after:h-1',
-        'after:bg-white/80 after:rounded-full after:animate-pulse',
+        'after:bg-white/80 after:rounded-full ',
       ],
       temporary: [
         'bg-gradient-to-r from-yellow-400 to-amber-400',
         'text-black shadow-yellow-200/50',
         'after:absolute after:bottom-1 after:right-1 after:w-1 after:h-1',
-        'after:bg-black/60 after:rounded-full after:animate-pulse',
+        'after:bg-black/60 after:rounded-full ',
       ],
       expired: [
         'bg-gradient-to-r from-gray-400 to-red-400',
@@ -391,25 +390,25 @@ export const adminBadgeVariants = cva([
         'bg-gradient-to-r from-green-400 to-emerald-500',
         'text-white shadow-green-200/50',
         'after:absolute after:bottom-1 after:right-1 after:w-1 after:h-1',
-        'after:bg-white/80 after:rounded-full after:animate-pulse',
+        'after:bg-white/80 after:rounded-full ',
       ],
       overdue: [
         'bg-gradient-to-r from-red-500 to-orange-500',
         'text-white shadow-red-200/50',
         'after:absolute after:top-1 after:right-1 after:w-1.5 after:h-1.5',
-        'after:bg-white/80 after:rounded-full after:animate-pulse',
+        'after:bg-white/80 after:rounded-full ',
       ],
       trial: [
         'bg-gradient-to-r from-blue-400 to-indigo-400',
         'text-white shadow-blue-200/50',
         'after:absolute after:bottom-1 after:right-1 after:w-1 after:h-1',
-        'after:bg-white/80 after:rounded-full after:animate-pulse',
+        'after:bg-white/80 after:rounded-full ',
       ],
       enterprise: [
         'bg-gradient-to-r from-purple-500 to-indigo-500',
         'text-white shadow-purple-200/50',
         'after:absolute after:bottom-1 after:right-1 after:w-1.5 after:h-1.5',
-        'after:bg-white/80 after:rounded-full after:animate-pulse',
+        'after:bg-white/80 after:rounded-full ',
         'before:absolute before:top-0 before:right-0 before:w-4 before:h-4',
         'before:bg-gradient-to-bl before:from-white/30 before:to-transparent',
       ],
@@ -419,13 +418,13 @@ export const adminBadgeVariants = cva([
         'bg-gradient-to-r from-green-500 to-lime-400',
         'text-white shadow-green-200/50',
         'after:absolute after:bottom-1 after:right-1 after:w-1.5 after:h-1.5',
-        'after:bg-white/90 after:rounded-full after:animate-pulse',
+        'after:bg-white/90 after:rounded-full ',
       ],
       warning: [
         'bg-gradient-to-r from-amber-400 to-yellow-400',
         'text-black shadow-amber-200/50',
         'after:absolute after:bottom-1 after:right-1 after:w-1 after:h-1',
-        'after:bg-black/70 after:rounded-full after:animate-pulse',
+        'after:bg-black/70 after:rounded-full ',
       ],
       error: [
         'bg-gradient-to-r from-red-500 to-rose-400',
@@ -437,7 +436,7 @@ export const adminBadgeVariants = cva([
         'bg-gradient-to-r from-blue-400 to-sky-400',
         'text-white shadow-blue-200/50',
         'after:absolute after:bottom-1 after:right-1 after:w-1 after:h-1',
-        'after:bg-white/80 after:rounded-full after:animate-pulse',
+        'after:bg-white/80 after:rounded-full ',
       ],
       
       // Neutral badge with Windows Phone style
@@ -462,15 +461,15 @@ export const adminBadgeVariants = cva([
       false: '',
     },
     
-    animation: {
+    state: {
       none: '',
-      pulse: 'animate-pulse',
-      bounce: 'animate-bounce',
-      subtle: 'hover:animate-pulse',
+      active: 'opacity-100',
+      inactive: 'opacity-75',
+      disabled: 'opacity-50',
     },
     
     interactive: {
-      true: 'cursor-pointer hover:scale-110 active:scale-90',
+      true: 'cursor-pointer hover:brightness-110',
       false: '',
     },
   },
@@ -479,7 +478,7 @@ export const adminBadgeVariants = cva([
     variant: 'default',
     size: 'default',
     dot: false,
-    animation: 'none',
+    state: 'none',
     interactive: false,
   },
 });
@@ -510,7 +509,7 @@ export const adminTableVariants = cva([
     },
     
     hover: {
-      true: '[&_tbody_tr]:hover:bg-gray-50 [&_tbody_tr]:dark:hover:bg-gray-800/50 [&_tbody_tr]:transition-colors',
+      true: '[&_tbody_tr]:hover:bg-gray-50 [&_tbody_tr]:dark:hover:bg-gray-800/50',
       false: '',
     },
   },
@@ -532,7 +531,7 @@ export type AdminTableVariants = VariantProps<typeof adminTableVariants>;
  * Form input variants for admin interfaces
  */
 export const adminInputVariants = cva([
-  'flex w-full rounded-lg border transition-colors',
+  'flex w-full rounded-lg border',
   'bg-white dark:bg-gray-800',
   'placeholder:text-gray-500 dark:placeholder:text-gray-400',
   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
@@ -630,7 +629,7 @@ export type AdminModalVariants = VariantProps<typeof adminModalVariants>;
  * Loading state variants for admin components
  */
 export const adminLoadingVariants = cva([
-  'animate-pulse bg-gray-200 dark:bg-gray-700 rounded',
+  'bg-gray-200 dark:bg-gray-700 rounded opacity-75',
 ], {
   variants: {
     variant: {
@@ -663,12 +662,6 @@ export type AdminLoadingVariants = VariantProps<typeof adminLoadingVariants>;
 // UTILITY FUNCTIONS
 // ============================================================================
 
-/**
- * Helper function to combine multiple variant classes
- */
-export function cn(...classes: (string | undefined | null | false)[]): string {
-  return classes.filter(Boolean).join(' ');
-}
 
 /**
  * Generate status-specific badge variant

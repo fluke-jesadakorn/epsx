@@ -1,471 +1,499 @@
-'use client';
+/**
+ * User Permission Inheritance Component
+ * Displays and manages permission inheritance hierarchies for users
+ */
 
-import React, { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
+'use client'
+
 import { 
-  UserIcon, 
-  CheckCircleIcon, 
-  ClockIcon,
-  TreePineIcon,
-  RefreshCwIcon,
-  PlusIcon,
-  XIcon,
-  ArrowRightIcon,
-  LinkIcon,
-  BarChart3Icon,
-  AlertTriangleIcon,
-} from 'lucide-react';
+  GitBranch, Shield, User, Clock, AlertTriangle, CheckCircle, 
+  Eye, EyeOff, ChevronDown, ChevronRight, Star, Crown, Key
+} from 'lucide-react'
+import React, { useState, useCallback, useMemo } from 'react'
 
-interface User {
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { 
+  Collapsible, CollapsibleContent, CollapsibleTrigger 
+} from '@/components/ui/collapsible'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs'
+import { adminCardVariants } from '@/design-system'
+import { cn } from '@/lib/shared'
+
+export interface PermissionSource {
   id: string;
-  email: string;
-  display_name?: string;
-  tier: string;
-  is_active: boolean;
-  last_login_at?: string;
+  type: 'direct' | 'group' | 'role' | 'inherited';
+  name: string;
+  description?: string;
+  permissions: string[];
+  priority: number;
+  expiresAt?: string;
+  grantedBy?: string;
+  grantedAt: string;
 }
 
-interface InheritanceChain {
-  final_permission: string;
-  source_permission: string;
-  inheritance_path: string[];
-  inheritance_type: 'automatic' | 'conditional';
-}
-
-interface HierarchyResolution {
-  direct_permissions: string[];
-  inherited_permissions: string[];
-  all_permissions: string[];
-  resolution_time_ms: number;
-  cache_hit: boolean;
-  inheritance_chain: InheritanceChain[];
-}
-
-interface PermissionWithStatus {
-  permission: string;
-  is_direct: boolean;
-  is_inherited: boolean;
-  source?: string;
-  expires_at?: string;
-  usage_count?: number;
-}
-
-interface Props {
+export interface UserPermissionInheritanceData {
   userId: string;
-  user?: User;
+  userName: string;
+  email: string;
+  sources: PermissionSource[];
+  effectivePermissions: string[];
+  conflictingPermissions: string[];
+  expiredPermissions: string[];
 }
 
-export default function UserPermissionInheritance({ userId, user }: Props) {
-  const [resolution, setResolution] = useState<HierarchyResolution | null>(null);
-  const [permissions, setPermissions] = useState<PermissionWithStatus[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showAddPermission, setShowAddPermission] = useState(false);
-  const [newPermission, setNewPermission] = useState('');
-  const [selectedChain, setSelectedChain] = useState<InheritanceChain | null>(null);
-  const { toast } = useToast();
+interface UserPermissionInheritanceProps {
+  data: UserPermissionInheritanceData;
+  onRefresh?: () => void;
+  className?: string;
+}
 
-  useEffect(() => {
-    if (userId) {
-      loadUserPermissions();
-    }
-  }, [userId]);
+/**
+ *
+ * @param root0
+ * @param root0.data
+ * @param root0.onRefresh
+ * @param root0.className
+ */
+export function UserPermissionInheritance({ 
+  data, 
+  onRefresh, 
+  className 
+}: UserPermissionInheritanceProps) {
+  const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set())
+  const [showExpired, setShowExpired] = useState(false)
+  const [activeTab, setActiveTab] = useState('overview')
 
-  const loadUserPermissions = async () => {
-    try {
-      setLoading(true);
-      
-      // Get user's current direct permissions first
-      const userResponse = await fetch(`/api/v1/admin/users/${userId}`);
-      if (!userResponse.ok) throw new Error('Failed to fetch user data');
-      
-      const userData = await userResponse.json();
-      const directPermissions = userData.user?.permissions || [];
-      
-      // Resolve permissions with inheritance
-      const resolutionResponse = await fetch('/api/v1/admin/permissions/hierarchy/resolve', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          user_id: userId,
-          direct_permissions: directPermissions,
-        }),
-      });
-
-      if (resolutionResponse.ok) {
-        const resolutionData = await resolutionResponse.json();
-        setResolution(resolutionData.resolution);
-        
-        // Build permission status list
-        buildPermissionStatusList(resolutionData.resolution);
+  const toggleSourceExpansion = useCallback((sourceId: string) => {
+    setExpandedSources(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(sourceId)) {
+        newSet.delete(sourceId)
       } else {
-        throw new Error('Failed to resolve permissions');
+        newSet.add(sourceId)
       }
-    } catch (error) {
-      console.error('Error loading user permissions:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load user permission data",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+      return newSet
+    })
+  }, [])
+
+  // Group permissions by type
+  const groupedSources = useMemo(() => {
+    const groups = {
+      direct: [] as PermissionSource[],
+      group: [] as PermissionSource[],
+      role: [] as PermissionSource[],
+      inherited: [] as PermissionSource[]
     }
-  };
 
-  const buildPermissionStatusList = (resolution: HierarchyResolution) => {
-    const permissionMap = new Map<string, PermissionWithStatus>();
-    
-    // Add direct permissions
-    resolution.direct_permissions.forEach(perm => {
-      permissionMap.set(perm, {
-        permission: perm,
-        is_direct: true,
-        is_inherited: false,
-      });
-    });
-    
-    // Add inherited permissions
-    resolution.inherited_permissions.forEach(perm => {
-      const chain = resolution.inheritance_chain.find(c => c.final_permission === perm);
-      permissionMap.set(perm, {
-        permission: perm,
-        is_direct: false,
-        is_inherited: true,
-        source: chain?.source_permission,
-      });
-    });
-    
-    setPermissions(Array.from(permissionMap.values()).sort((a, b) => 
-      a.permission.localeCompare(b.permission)
-    ));
-  };
+    data.sources.forEach(source => {
+      groups[source.type].push(source)
+    })
 
-  const handleInvalidateCache = async () => {
-    try {
-      const response = await fetch(`/api/v1/admin/users/${userId}/permissions/cache/invalidate`, {
-        method: 'DELETE',
-      });
+    // Sort by priority (higher first)
+    Object.values(groups).forEach(group => {
+      group.sort((a, b) => b.priority - a.priority)
+    })
 
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Permission cache invalidated and refreshed",
-        });
-        loadUserPermissions();
-      } else {
-        throw new Error('Failed to invalidate cache');
+    return groups
+  }, [data.sources])
+
+  // Calculate permission conflicts
+  const permissionConflicts = useMemo(() => {
+    const permissionMap = new Map<string, PermissionSource[]>()
+    
+    data.sources.forEach(source => {
+      source.permissions.forEach(permission => {
+        if (!permissionMap.has(permission)) {
+          permissionMap.set(permission, [])
+        }
+        permissionMap.get(permission)!.push(source)
+      })
+    })
+
+    const conflicts: Array<{
+      permission: string;
+      sources: PermissionSource[];
+      resolution: 'highest_priority' | 'most_recent' | 'direct_override';
+    }> = []
+
+    permissionMap.forEach((sources, permission) => {
+      if (sources.length > 1) {
+        // Determine conflict resolution strategy
+        const hasDirectSource = sources.some(s => s.type === 'direct')
+        const resolution = hasDirectSource 
+          ? 'direct_override' 
+          : sources[0].priority > sources[1].priority 
+            ? 'highest_priority' 
+            : 'most_recent'
+
+        conflicts.push({
+          permission,
+          sources,
+          resolution
+        })
       }
-    } catch (error) {
-      console.error('Error invalidating cache:', error);
-      toast({
-        title: "Error",
-        description: "Failed to invalidate permission cache",
-        variant: "destructive",
-      });
-    }
-  };
+    })
 
-  const getPermissionIcon = (permission: PermissionWithStatus) => {
-    if (permission.is_direct && permission.is_inherited) {
-      return <CheckCircleIcon className="h-4 w-4 text-green-600" />;
-    } else if (permission.is_direct) {
-      return <UserIcon className="h-4 w-4 text-blue-600" />;
-    } else {
-      return <TreePineIcon className="h-4 w-4 text-purple-600" />;
-    }
-  };
+    return conflicts
+  }, [data.sources])
 
-  const getPermissionBadge = (permission: PermissionWithStatus) => {
-    if (permission.is_direct && permission.is_inherited) {
-      return <Badge variant="default" className="text-xs">Direct + Inherited</Badge>;
-    } else if (permission.is_direct) {
-      return <Badge variant="secondary" className="text-xs">Direct</Badge>;
-    } else {
-      return <Badge variant="outline" className="text-xs">Inherited</Badge>;
+  const getSourceIcon = (type: PermissionSource['type']) => {
+    switch (type) {
+      case 'direct': return <User className="h-4 w-4 text-blue-600" />
+      case 'group': return <Shield className="h-4 w-4 text-green-600" />
+      case 'role': return <Crown className="h-4 w-4 text-purple-600" />
+      case 'inherited': return <GitBranch className="h-4 w-4 text-orange-600" />
+      default: return <Key className="h-4 w-4 text-gray-600" />
     }
-  };
-
-  if (loading) {
-    return (
-      <Card className="p-6">
-        <div className="flex items-center justify-center h-48">
-          <RefreshCwIcon className="h-6 w-6 animate-spin text-gray-400" />
-          <span className="ml-2 text-gray-600">Loading permission data...</span>
-        </div>
-      </Card>
-    );
   }
 
-  if (!resolution) {
+  const getSourceBadgeVariant = (type: PermissionSource['type']) => {
+    switch (type) {
+      case 'direct': return 'default'
+      case 'group': return 'secondary'
+      case 'role': return 'outline'
+      case 'inherited': return 'destructive'
+      default: return 'secondary'
+    }
+  }
+
+  const isExpired = (source: PermissionSource) => {
+    return source.expiresAt && new Date(source.expiresAt) < new Date()
+  }
+
+  const renderPermissionSource = (source: PermissionSource) => {
+    const isExpanded = expandedSources.has(source.id)
+    const expired = isExpired(source)
+    
+    if (expired && !showExpired) {return null}
+
     return (
-      <Card className="p-6">
-        <div className="text-center py-8 text-gray-500">
-          <AlertTriangleIcon className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-          <p className="text-lg font-medium">No permission data available</p>
-          <p className="text-sm">Unable to load user permissions</p>
-        </div>
+      <Card 
+        key={source.id} 
+        className={cn(
+          adminCardVariants({ variant: 'default' }),
+          expired ? 'opacity-60 border-red-200' : ''
+        )}
+      >
+        <Collapsible>
+          <CollapsibleTrigger asChild>
+            <CardHeader 
+              className="cursor-pointer hover:bg-gray-50 transition-colors"
+              onClick={() => toggleSourceExpansion(source.id)}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {getSourceIcon(source.type)}
+                  <div>
+                    <CardTitle className="text-base">{source.name}</CardTitle>
+                    {source.description && (
+                      <p className="text-sm text-gray-600 mt-1">{source.description}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge variant={getSourceBadgeVariant(source.type)}>
+                    {source.type}
+                  </Badge>
+                  <Badge variant="outline">
+                    Priority: {source.priority}
+                  </Badge>
+                  <Badge variant="outline">
+                    {source.permissions.length} perms
+                  </Badge>
+                  {expired && (
+                    <Badge variant="destructive">Expired</Badge>
+                  )}
+                  {isExpanded ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <CardContent className="pt-0">
+              <div className="space-y-4">
+                {/* Source Metadata */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <p className="text-xs font-medium text-gray-600">Granted By</p>
+                    <p className="text-sm">{source.grantedBy || 'System'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-600">Granted At</p>
+                    <p className="text-sm">
+                      {new Date(source.grantedAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-600">Expires At</p>
+                    <p className="text-sm">
+                      {source.expiresAt 
+                        ? new Date(source.expiresAt).toLocaleDateString()
+                        : 'Never'
+                      }
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-600">Status</p>
+                    <div className="flex items-center gap-1">
+                      {expired ? (
+                        <>
+                          <AlertTriangle className="h-3 w-3 text-red-600" />
+                          <span className="text-sm text-red-600">Expired</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle className="h-3 w-3 text-green-600" />
+                          <span className="text-sm text-green-600">Active</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Permissions List */}
+                <div>
+                  <h4 className="font-medium text-sm mb-2">Permissions</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    {source.permissions.map((permission, index) => (
+                      <div 
+                        key={index}
+                        className="flex items-center justify-between p-2 bg-white border rounded text-sm"
+                      >
+                        <span>{permission}</span>
+                        {data.conflictingPermissions.includes(permission) && (
+                          <Badge variant="destructive" className="text-xs">
+                            Conflict
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </CollapsibleContent>
+        </Collapsible>
       </Card>
-    );
+    )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header with User Info */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <UserIcon className="h-6 w-6 text-blue-600" />
-          <div>
-            <h2 className="text-xl font-semibold">
-              {user?.display_name || user?.email || 'User Permissions'}
-            </h2>
-            <p className="text-sm text-gray-600">
-              {user?.email} • {user?.tier} • {resolution.all_permissions.length} total permissions
-            </p>
-          </div>
+    <div className={cn('space-y-6', className)}>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h2 className="text-xl font-semibold text-gray-900">Permission Inheritance</h2>
+          <p className="text-sm text-gray-600 mt-1">
+            {data.userName} ({data.email})
+          </p>
         </div>
-        
-        <div className="flex items-center gap-3">
+        <div className="flex gap-2">
           <Button 
             variant="outline" 
             size="sm"
-            onClick={handleInvalidateCache}
+            onClick={() => setShowExpired(!showExpired)}
           >
-            <RefreshCwIcon className="h-4 w-4 mr-2" />
-            Refresh Cache
+            {showExpired ? <EyeOff className="h-4 w-4 mr-2" /> : <Eye className="h-4 w-4 mr-2" />}
+            {showExpired ? 'Hide' : 'Show'} Expired
           </Button>
-          
-          <Button 
-            size="sm"
-            onClick={() => setShowAddPermission(true)}
-            disabled
-          >
-            <PlusIcon className="h-4 w-4 mr-2" />
-            Add Permission
-          </Button>
-        </div>
-      </div>
-
-      {/* Resolution Performance Stats */}
-      <Card className="p-4 bg-gray-50">
-        <div className="grid grid-cols-2 lg:grid-cols-6 gap-4">
-          <div className="flex items-center gap-2">
-            <UserIcon className="h-4 w-4 text-blue-600" />
-            <div>
-              <p className="text-sm text-gray-600">Direct</p>
-              <p className="text-lg font-semibold">{resolution.direct_permissions.length}</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <TreePineIcon className="h-4 w-4 text-purple-600" />
-            <div>
-              <p className="text-sm text-gray-600">Inherited</p>
-              <p className="text-lg font-semibold">{resolution.inherited_permissions.length}</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <CheckCircleIcon className="h-4 w-4 text-green-600" />
-            <div>
-              <p className="text-sm text-gray-600">Total</p>
-              <p className="text-lg font-semibold">{resolution.all_permissions.length}</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <ClockIcon className="h-4 w-4 text-orange-600" />
-            <div>
-              <p className="text-sm text-gray-600">Resolution</p>
-              <p className="text-lg font-semibold">{resolution.resolution_time_ms}ms</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <BarChart3Icon className="h-4 w-4 text-green-600" />
-            <div>
-              <p className="text-sm text-gray-600">Cache</p>
-              <p className="text-lg font-semibold">{resolution.cache_hit ? 'Hit' : 'Miss'}</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <LinkIcon className="h-4 w-4 text-blue-600" />
-            <div>
-              <p className="text-sm text-gray-600">Chains</p>
-              <p className="text-lg font-semibold">{resolution.inheritance_chain.length}</p>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      {/* Permission List */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Direct Permissions */}
-        <Card className="p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <UserIcon className="h-5 w-5 text-blue-600" />
-            <h3 className="text-lg font-medium">Direct Assignments</h3>
-            <Badge variant="secondary" className="ml-auto">
-              {resolution.direct_permissions.length}
-            </Badge>
-          </div>
-          
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {resolution.direct_permissions.map((permission, index) => (
-              <div 
-                key={index}
-                className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg"
-              >
-                <CheckCircleIcon className="h-4 w-4 text-blue-600" />
-                <span className="font-mono text-sm flex-1">{permission}</span>
-                <Badge variant="secondary" className="text-xs">Permanent</Badge>
-              </div>
-            ))}
-            
-            {resolution.direct_permissions.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <UserIcon className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                <p className="text-sm">No direct permissions assigned</p>
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* Inherited Permissions */}
-        <Card className="p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <TreePineIcon className="h-5 w-5 text-purple-600" />
-            <h3 className="text-lg font-medium">Inherited Permissions</h3>
-            <Badge variant="outline" className="ml-auto">
-              {resolution.inherited_permissions.length}
-            </Badge>
-          </div>
-          
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {resolution.inherited_permissions.map((permission, index) => {
-              const chain = resolution.inheritance_chain.find(c => c.final_permission === permission);
-              return (
-                <div 
-                  key={index}
-                  className="p-3 bg-purple-50 rounded-lg cursor-pointer hover:bg-purple-100 transition-colors"
-                  onClick={() => setSelectedChain(chain || null)}
-                >
-                  <div className="flex items-center gap-3">
-                    <TreePineIcon className="h-4 w-4 text-purple-600" />
-                    <span className="font-mono text-sm flex-1">{permission}</span>
-                    <ArrowRightIcon className="h-3 w-3 text-gray-400" />
-                  </div>
-                  
-                  {chain && (
-                    <div className="mt-2 pl-7">
-                      <p className="text-xs text-gray-600">
-                        From: <span className="font-mono">{chain.source_permission}</span>
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        Type: {chain.inheritance_type}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            
-            {resolution.inherited_permissions.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <TreePineIcon className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-                <p className="text-sm">No inherited permissions</p>
-              </div>
-            )}
-          </div>
-        </Card>
-      </div>
-
-      {/* Inheritance Chain Detail Modal */}
-      {selectedChain && (
-        <Card className="p-6 border-purple-200 bg-purple-50">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <LinkIcon className="h-5 w-5 text-purple-600" />
-              <h3 className="text-lg font-medium">Inheritance Chain</h3>
-            </div>
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={() => setSelectedChain(null)}
-            >
-              <XIcon className="h-4 w-4" />
+          {onRefresh && (
+            <Button variant="outline" size="sm" onClick={onRefresh}>
+              Refresh
             </Button>
-          </div>
-          
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm text-gray-600 mb-1">Final Permission:</p>
-              <Badge variant="default" className="font-mono">
-                {selectedChain.final_permission}
-              </Badge>
-            </div>
-            
-            <div>
-              <p className="text-sm text-gray-600 mb-1">Source Permission:</p>
-              <Badge variant="secondary" className="font-mono">
-                {selectedChain.source_permission}
-              </Badge>
-            </div>
-            
-            <div>
-              <p className="text-sm text-gray-600 mb-2">Inheritance Path:</p>
-              <div className="flex items-center gap-2 flex-wrap">
-                {selectedChain.inheritance_path.map((step, index) => (
-                  <React.Fragment key={index}>
-                    <Badge variant="outline" className="font-mono text-xs">
-                      {step}
-                    </Badge>
-                    {index < selectedChain.inheritance_path.length - 1 && (
-                      <ArrowRightIcon className="h-3 w-3 text-gray-400" />
-                    )}
-                  </React.Fragment>
-                ))}
+          )}
+        </div>
+      </div>
+
+      {/* Summary Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card className={adminCardVariants({ variant: 'default' })}>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Effective Permissions</p>
+                <p className="text-2xl font-bold text-gray-900">{data.effectivePermissions.length}</p>
               </div>
+              <CheckCircle className="h-8 w-8 text-green-600" />
             </div>
-            
-            <div>
-              <p className="text-sm text-gray-600 mb-1">Inheritance Type:</p>
-              <Badge 
-                variant={selectedChain.inheritance_type === 'automatic' ? 'default' : 'secondary'}
-                className="capitalize"
-              >
-                {selectedChain.inheritance_type}
-              </Badge>
-            </div>
-          </div>
+          </CardContent>
         </Card>
+
+        <Card className={adminCardVariants({ variant: 'default' })}>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Permission Sources</p>
+                <p className="text-2xl font-bold text-gray-900">{data.sources.length}</p>
+              </div>
+              <GitBranch className="h-8 w-8 text-blue-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className={adminCardVariants({ variant: 'default' })}>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Conflicts</p>
+                <p className="text-2xl font-bold text-gray-900">{permissionConflicts.length}</p>
+              </div>
+              <AlertTriangle className="h-8 w-8 text-orange-600" />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className={adminCardVariants({ variant: 'default' })}>
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-600">Expired</p>
+                <p className="text-2xl font-bold text-gray-900">{data.expiredPermissions.length}</p>
+              </div>
+              <Clock className="h-8 w-8 text-red-600" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Alerts */}
+      {data.conflictingPermissions.length > 0 && (
+        <Alert variant="destructive">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription>
+            {data.conflictingPermissions.length} permission conflicts detected. 
+            Review the conflicts tab for resolution details.
+          </AlertDescription>
+        </Alert>
       )}
 
-      {/* Inheritance Impact Analysis */}
-      <Card className="p-6 bg-gray-50">
-        <h3 className="text-lg font-medium mb-4">Inheritance Impact Analysis</h3>
-        
-        <div className="space-y-3">
-          <div className="p-4 bg-blue-50 rounded-lg">
-            <h4 className="font-medium text-blue-900 mb-2">Permission Changes Impact</h4>
-            <ul className="text-sm text-blue-800 space-y-1">
-              <li>• Adding "epsx:analytics:*" would grant {Math.floor(Math.random() * 8) + 1} additional permissions</li>
-              <li>• Removing "epsx:trading:*" would revoke {Math.floor(Math.random() * 4) + 1} permissions</li>
-              <li>• Estimated performance impact: +{Math.floor(Math.random() * 5) + 1}ms query time</li>
-            </ul>
+      {data.expiredPermissions.length > 0 && (
+        <Alert>
+          <Clock className="h-4 w-4" />
+          <AlertDescription>
+            {data.expiredPermissions.length} permissions have expired and should be cleaned up.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Main Content */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="sources">Sources</TabsTrigger>
+          <TabsTrigger value="conflicts">Conflicts</TabsTrigger>
+          <TabsTrigger value="effective">Effective</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {Object.entries(groupedSources).map(([type, sources]) => (
+              <Card key={type} className={adminCardVariants({ variant: 'default' })}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 capitalize">
+                    {getSourceIcon(type as PermissionSource['type'])}
+                    {type} Sources ({sources.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {sources.length === 0 ? (
+                    <p className="text-sm text-gray-500">No {type} sources</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {sources.map(source => (
+                        <div key={source.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                          <span className="text-sm font-medium">{source.name}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {source.permissions.length} perms
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
           </div>
-          
-          <div className="p-4 bg-green-50 rounded-lg">
-            <h4 className="font-medium text-green-900 mb-2">✅ Conflict Warnings</h4>
-            <p className="text-sm text-green-800">No conflicts detected</p>
+        </TabsContent>
+
+        <TabsContent value="sources" className="space-y-4">
+          <div className="space-y-4">
+            {data.sources.map(renderPermissionSource)}
           </div>
-        </div>
-      </Card>
+        </TabsContent>
+
+        <TabsContent value="conflicts" className="space-y-4">
+          {permissionConflicts.length === 0 ? (
+            <Card className={adminCardVariants({ variant: 'default' })}>
+              <CardContent className="py-8 text-center">
+                <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Conflicts</h3>
+                <p className="text-gray-600">All permissions are resolved without conflicts.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            permissionConflicts.map((conflict, index) => (
+              <Card key={index} className={adminCardVariants({ variant: 'default' })}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-orange-600" />
+                    {conflict.permission}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Conflicting Sources:</p>
+                      <div className="space-y-2 mt-1">
+                        {conflict.sources.map(source => (
+                          <div key={source.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                            <div className="flex items-center gap-2">
+                              {getSourceIcon(source.type)}
+                              <span className="text-sm">{source.name}</span>
+                            </div>
+                            <Badge variant="outline">Priority: {source.priority}</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">Resolution Strategy:</p>
+                      <Badge variant="secondary" className="mt-1">
+                        {conflict.resolution.replace('_', ' ').toUpperCase()}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </TabsContent>
+
+        <TabsContent value="effective" className="space-y-4">
+          <Card className={adminCardVariants({ variant: 'default' })}>
+            <CardHeader>
+              <CardTitle>Effective Permissions ({data.effectivePermissions.length})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                {data.effectivePermissions.map((permission, index) => (
+                  <div key={index} className="p-2 bg-green-50 border border-green-200 rounded text-sm">
+                    {permission}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
-  );
+  )
 }
+
+export default UserPermissionInheritance

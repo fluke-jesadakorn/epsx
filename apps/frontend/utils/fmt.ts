@@ -1,5 +1,10 @@
-// Import base formatting utilities
-import { fmtCurrency } from '@/lib/utils';
+// Define currency formatting function directly to avoid import issues
+const fmtCurrency = (amount: number, currency: string = 'USD'): string => {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency
+  }).format(amount);
+};
 
 // Specialized financial formatting utilities
 // Use shared utility with legacy naming

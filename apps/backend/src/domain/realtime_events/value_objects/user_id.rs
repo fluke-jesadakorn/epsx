@@ -42,12 +42,7 @@ impl UserId {
     pub fn as_str(&self) -> &str {
         &self.0
     }
-    
-    /// Get the user ID as string (owned)
-    pub fn to_string(&self) -> String {
-        self.0.clone()
-    }
-    
+
     /// Check if this is a numeric user ID
     pub fn is_numeric(&self) -> bool {
         self.0.parse::<i32>().is_ok()
@@ -80,9 +75,9 @@ impl Display for UserId {
     }
 }
 
-impl From<crate::domain::user_management::value_objects::UserId> for UserId {
-    fn from(user_id: crate::domain::user_management::value_objects::UserId) -> Self {
-        Self(user_id.to_string())
+impl From<crate::domain::wallet_management::value_objects::UserId> for UserId {
+    fn from(wallet_address: crate::domain::wallet_management::value_objects::UserId) -> Self {
+        Self(wallet_address.to_string())
     }
 }
 
@@ -105,19 +100,19 @@ mod tests {
     
     #[test]
     fn test_numericuser_id() {
-        let user_id = UserId::from_numeric(123);
-        assert_eq!(user_id.as_str(), "123");
-        assert!(user_id.is_numeric());
-        assert!(!user_id.is_firebase_uid());
+        let wallet_address = UserId::from_numeric(123);
+        assert_eq!(wallet_address.as_str(), "123");
+        assert!(wallet_address.is_numeric());
+        assert!(!wallet_address.is_firebase_uid());
     }
     
     #[test]
     fn test_firebase_uid() {
         let uid = "abcd1234efgh5678ijkl9012mnop3456qrst7890";
-        let user_id = UserId::from_firebase_uid(uid.to_string()).unwrap();
-        assert_eq!(user_id.as_str(), uid);
-        assert!(!user_id.is_numeric());
-        assert!(user_id.is_firebase_uid());
+        let wallet_address = UserId::from_firebase_uid(uid.to_string()).unwrap();
+        assert_eq!(wallet_address.as_str(), uid);
+        assert!(!wallet_address.is_numeric());
+        assert!(wallet_address.is_firebase_uid());
     }
     
     #[test]

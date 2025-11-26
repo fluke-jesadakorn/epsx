@@ -54,7 +54,7 @@ export const MemoizedCard = memo<CardProps>(
     return (
       prevProps.className === nextProps.className &&
       JSON.stringify(prevProps.children) === JSON.stringify(nextProps.children) &&
-      Object.keys(prevProps).every(key => prevProps[key] === nextProps[key])
+      Object.keys(prevProps).every(key => (prevProps as any)[key] === (nextProps as any)[key])
     );
   }
 );
@@ -126,7 +126,7 @@ export const MemoizedList = memo(<T extends any>(props: MemoizedListProps<T>) =>
   );
 }) as <T>(props: MemoizedListProps<T>) => JSX.Element;
 
-MemoizedList.displayName = 'MemoizedList';
+(MemoizedList as any).displayName = 'MemoizedList';
 
 // Memoized analytics card for stock rankings
 interface StockCardData {
@@ -136,6 +136,7 @@ interface StockCardData {
   change: number;
   changePercent: number;
   rank: number;
+  currency?: string;
 }
 
 interface MemoizedStockCardProps {
@@ -178,11 +179,23 @@ export const MemoizedStockCard = memo<MemoizedStockCardProps>(
         
         <div className="flex justify-between items-end">
           <div>
-            <p className="text-xl font-bold">${data.price.toFixed(2)}</p>
+            <p className="text-xl font-bold">
+              {new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: data.currency || 'USD',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }).format(data.price)}
+            </p>
           </div>
           <div className={`text-right ${changeColor}`}>
             <p className="text-sm font-medium">
-              {data.change >= 0 ? '+' : ''}${data.change.toFixed(2)}
+              {data.change >= 0 ? '+' : ''}{new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: data.currency || 'USD',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }).format(Math.abs(data.change))}
             </p>
             <p className="text-xs">
               ({data.changePercent >= 0 ? '+' : ''}{data.changePercent.toFixed(2)}%)
@@ -236,6 +249,6 @@ export function withPerformanceMonitoring<T extends Record<string, any>>(
 ) {
   // Just return the memoized component without performance monitoring
   return memo(forwardRef<any, T>((props, ref) => {
-    return <Component {...props} ref={ref} />;
+    return <Component {...(props as any)} ref={ref} />;
   }));
 }

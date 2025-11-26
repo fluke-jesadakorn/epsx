@@ -1,16 +1,24 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { PancakeCard } from '@/components/ui/PancakeCard'
-import { adminClient, SubscriptionResponse, isApiSuccess } from '@/lib/api/unified-admin-client'
+
 import { CreateSubscriptionForm } from './CreateSubscriptionForm'
 import { SubscriptionDetailsModal } from './SubscriptionDetailsModal'
+
+import { PancakeCard } from '@/components/ui/PancakeCard'
 import { toast } from '@/hooks/use-toast'
+import { createPlansClient, type SubscriptionResponse, isApiSuccess } from '@/shared/api/plans'
+import { createAdminApiClient } from '@/shared/utils/api-client'
 
 interface SubscriptionManagementProps {
   currentUser: any
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.currentUser
+ */
 export function SubscriptionManagement({ currentUser }: SubscriptionManagementProps) {
   const [subscriptions, setSubscriptions] = useState<SubscriptionResponse[]>([])
   const [loading, setLoading] = useState(true)
@@ -25,6 +33,7 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
   }, [])
 
   const loadSubscriptions = async () => {
+    const adminClient = createPlansClient(createAdminApiClient())
     try {
       setLoading(true)
       const response = await adminClient.getSubscriptions({
@@ -34,7 +43,7 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
       })
 
       if (isApiSuccess(response)) {
-        setSubscriptions(response.data?.subscriptions || [])
+        setSubscriptions((response.data as any)?.subscriptions || response.data as any || [])
       } else {
         toast({
           title: "Error",
@@ -42,7 +51,7 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
           variant: "destructive"
         })
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "Error",
         description: "Failed to load subscriptions",
@@ -67,6 +76,7 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
       return
     }
 
+    const adminClient = createPlansClient(createAdminApiClient())
     try {
       const response = await adminClient.cancelSubscription(subscriptionId)
       
@@ -83,7 +93,7 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
           variant: "destructive"
         })
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "Error",
         description: "Failed to cancel subscription",
@@ -98,7 +108,7 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
     const searchMatch = searchTerm === '' || 
       sub.plan_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       sub.user_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (sub.api_key_name && sub.api_key_name.toLowerCase().includes(searchTerm.toLowerCase()))
+      (sub.api_key_name?.toLowerCase().includes(searchTerm.toLowerCase()))
     
     return statusMatch && contextMatch && searchMatch
   })
@@ -113,7 +123,7 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
 
   if (loading) {
     return (
-      <div className="max-w-7xl mx-auto space-y-8 animate-pulse">
+      <div className="max-w-7xl mx-auto space-y-8 ">
         <div className="text-center mb-12">
           <div className="h-16 bg-gradient-to-r from-emerald-400 to-green-500 rounded-2xl w-96 mx-auto mb-6"></div>
           <div className="h-6 bg-gray-300 rounded-full w-64 mx-auto"></div>
@@ -145,6 +155,7 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
       {/* Subscription Details Modal */}
       {selectedSubscription && (
         <SubscriptionDetailsModal 
+          isOpen={true}
           subscription={selectedSubscription}
           onClose={() => setSelectedSubscription(null)}
           onUpdate={loadSubscriptions}
@@ -166,7 +177,7 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
         {/* Action Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <PancakeCard 
-            className="bg-gradient-to-br from-emerald-400 via-green-500 to-teal-500 text-white cursor-pointer hover:scale-105 transition-transform"
+            className="bg-gradient-to-br from-emerald-400 via-green-500 to-teal-500 text-white cursor-pointer  transition-transform"
             onClick={() => setIsCreating(true)}
           >
             <div className="p-8">
@@ -182,7 +193,7 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
           </PancakeCard>
 
           <PancakeCard 
-            className="bg-gradient-to-br from-blue-400 via-purple-500 to-pink-500 text-white cursor-pointer hover:scale-105 transition-transform"
+            className="bg-gradient-to-br from-blue-400 via-purple-500 to-pink-500 text-white cursor-pointer  transition-transform"
             onClick={() => loadSubscriptions()}
           >
             <div className="p-8">
@@ -321,7 +332,7 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
               {filteredSubscriptions.map(subscription => (
                 <div
                   key={subscription.id}
-                  className="flex items-center justify-between p-6 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-2xl hover:from-emerald-50 hover:to-green-50 dark:hover:from-gray-600 dark:hover:to-gray-700 transition-all cursor-pointer"
+                  className="flex items-center justify-between p-6 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-2xl hover:from-emerald-50 hover:to-green-50 dark:hover:from-gray-600 dark:hover:to-gray-700  cursor-pointer"
                   onClick={() => setSelectedSubscription(subscription)}
                 >
                   <div className="flex items-center gap-6 flex-1">
@@ -378,14 +389,14 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
                           e.stopPropagation()
                           handleCancelSubscription(subscription.id)
                         }}
-                        className="px-4 py-2 rounded-xl font-semibold bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/40 transition-all"
+                        className="px-4 py-2 rounded-xl font-semibold bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/40 "
                       >
                         Cancel
                       </button>
                     )}
                     
                     <button
-                      className="px-4 py-2 rounded-xl font-semibold bg-gradient-to-r from-blue-400 to-blue-500 text-white transition-all hover:from-blue-500 hover:to-blue-600"
+                      className="px-4 py-2 rounded-xl font-semibold bg-gradient-to-r from-blue-400 to-blue-500 text-white  hover:from-blue-500 hover:to-blue-600"
                     >
                       View Details
                     </button>

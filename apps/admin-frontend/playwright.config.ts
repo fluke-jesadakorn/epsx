@@ -23,131 +23,192 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:3001',
     trace: 'on-first-retry',
-    screenshot: 'on-failure',
+    screenshot: { mode: 'only-on-failure' },
     video: 'retain-on-failure',
     actionTimeout: 15000,
     navigationTimeout: 30000,
   },
   projects: [
-    // Setup project for admin authentication
+    // Core Authentication and Authorization Tests
     {
-      name: 'admin-setup',
-      testMatch: /admin\.setup\.ts/,
+      name: 'auth-flows',
+      testMatch: '**/auth-flows.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        testIdAttribute: 'data-testid',
+      },
     },
-    
-    // Analytics Command Center Admin Complete Flow Tests - 100% Coverage
+
+    // Wallet Management Tests
     {
-      name: 'analytics-admin-complete',
-      testMatch: '**/analytics-admin-complete-flow.spec.ts',
-      use: { ...devices['Desktop Chrome'] },
-      dependencies: ['admin-setup'],
+      name: 'wallet-management',
+      testMatch: '**/wallet-management.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        testIdAttribute: 'data-testid',
+      },
     },
-    
-    // Core admin functionality tests
+
+    // Group Management Tests
     {
-      name: 'admin-core',
+      name: 'group-management',
+      testMatch: '**/group-management.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        testIdAttribute: 'data-testid',
+      },
+    },
+
+    // Permission Management Tests
+    {
+      name: 'permission-management',
+      testMatch: '**/permission-management-comprehensive.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        testIdAttribute: 'data-testid',
+      },
+    },
+
+    // Navigation and Layout Tests
+    {
+      name: 'navigation-layout',
+      testMatch: '**/navigation-layout.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        testIdAttribute: 'data-testid',
+      },
+    },
+
+    // API Documentation Tests
+    {
+      name: 'api-documentation',
+      testMatch: '**/api-documentation.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        testIdAttribute: 'data-testid',
+      },
+    },
+
+    // Analytics and Monitoring Tests
+    {
+      name: 'analytics-monitoring',
+      testMatch: '**/analytics-monitoring.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        testIdAttribute: 'data-testid',
+      },
+    },
+
+    // Subscription and Plan Management Tests
+    {
+      name: 'subscription-plan-management',
+      testMatch: '**/subscription-plan-management.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        testIdAttribute: 'data-testid',
+      },
+    },
+
+    // Notification System Tests - Admin Complete Coverage
+    {
+      name: 'notifications-admin',
+      testMatch: '**/notifications-admin-complete.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        testIdAttribute: 'data-testid',
+      },
+    },
+
+    // Notification Delete with Toast Tests
+    {
+      name: 'notification-delete-toast',
+      testMatch: '**/notification-delete-with-toast.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        testIdAttribute: 'data-testid',
+      },
+    },
+
+    // Stock Ranking and Policies Tests
+    {
+      name: 'stock-ranking-policies',
+      testMatch: '**/stock-ranking-policies.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        testIdAttribute: 'data-testid',
+      },
+    },
+
+    // Profile and Settings Tests
+    {
+      name: 'profile-settings',
+      testMatch: '**/profile-settings.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        testIdAttribute: 'data-testid',
+      },
+    },
+
+    // Error Handling and Edge Cases Tests
+    {
+      name: 'error-edge-cases',
+      testMatch: '**/error-edge-cases.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        testIdAttribute: 'data-testid',
+      },
+    },
+
+    // Legacy Tests
+    {
+      name: 'admin-login',
+      testMatch: '**/admin-login-test.spec.ts',
+      use: {
+        ...devices['Desktop Chrome'],
+        testIdAttribute: 'data-testid',
+      },
+    },
+
+    // Cross-browser Testing - Firefox
+    {
+      name: 'firefox',
       testMatch: [
-        '**/admin.spec.ts',
-        '**/auth-comprehensive-test.spec.ts'
+        '**/auth-flows.spec.ts',
+        '**/wallet-management.spec.ts',
+        '**/navigation-layout.spec.ts',
       ],
-      use: { ...devices['Desktop Chrome'] },
-      dependencies: ['admin-setup'],
-    },
-    
-    // Complete admin coverage tests
-    {
-      name: 'admin-coverage',
-      testMatch: '**/complete-admin-coverage.spec.ts',
-      use: { ...devices['Desktop Chrome'] },
-      dependencies: ['admin-setup'],
-    },
-    
-    // Enhanced user management tests (new advanced features)
-    {
-      name: 'enhanced-user-management',
-      testMatch: '**/enhanced-user-management.spec.ts',
-      use: { 
-        ...devices['Desktop Chrome'],
-        testIdAttribute: 'data-testid',
-      },
-      dependencies: ['admin-setup'],
-    },
-    
-    // User management module tests
-    {
-      name: 'user-management',
-      testMatch: '**/complete-admin-coverage.spec.ts',
-      use: { 
-        ...devices['Desktop Chrome'],
-        testIdAttribute: 'data-testid',
-      },
-      dependencies: ['admin-setup'],
-      grep: /@user-management/,
-    },
-    
-    // Permission management tests
-    {
-      name: 'permission-management', 
-      testMatch: '**/complete-admin-coverage.spec.ts',
-      use: { 
-        ...devices['Desktop Chrome'],
-        testIdAttribute: 'data-testid',
-      },
-      dependencies: ['admin-setup'],
-      grep: /@permission/,
-    },
-    
-    // System administration tests
-    {
-      name: 'system-admin',
-      testMatch: '**/complete-admin-coverage.spec.ts',
-      use: { 
-        ...devices['Desktop Chrome'],
-        testIdAttribute: 'data-testid',
-      },
-      dependencies: ['admin-setup'],
-      grep: /@system/,
-    },
-    
-    // Cross-browser admin testing
-    {
-      name: 'admin-firefox',
-      testMatch: '**/complete-admin-coverage.spec.ts',
       use: { ...devices['Desktop Firefox'] },
-      dependencies: ['admin-setup'],
     },
-    
+
+    // Cross-browser Testing - Safari
     {
-      name: 'admin-webkit',
-      testMatch: '**/complete-admin-coverage.spec.ts',
+      name: 'webkit',
+      testMatch: [
+        '**/auth-flows.spec.ts',
+        '**/wallet-management.spec.ts',
+        '**/navigation-layout.spec.ts',
+      ],
       use: { ...devices['Desktop Safari'] },
-      dependencies: ['admin-setup'],
     },
-    
-    // Mobile admin testing
+
+    // Mobile Testing - Chrome
     {
-      name: 'admin-mobile-chrome',
-      testMatch: '**/complete-admin-coverage.spec.ts',
+      name: 'mobile-chrome',
+      testMatch: [
+        '**/navigation-layout.spec.ts',
+        '**/auth-flows.spec.ts',
+      ],
       use: { ...devices['Pixel 5'] },
-      dependencies: ['admin-setup'],
     },
-    
+
+    // Mobile Testing - Safari
     {
-      name: 'admin-mobile-safari',
-      testMatch: '**/complete-admin-coverage.spec.ts',
+      name: 'mobile-safari',
+      testMatch: [
+        '**/navigation-layout.spec.ts',
+        '**/auth-flows.spec.ts',
+      ],
       use: { ...devices['iPhone 12'] },
-      dependencies: ['admin-setup'],
-    },
-    
-    // Enhanced user management mobile testing
-    {
-      name: 'enhanced-user-management-mobile',
-      testMatch: '**/enhanced-user-management.spec.ts',
-      use: { 
-        ...devices['Pixel 5'],
-        testIdAttribute: 'data-testid',
-      },
-      dependencies: ['admin-setup'],
     },
   ],
   // webServer: {

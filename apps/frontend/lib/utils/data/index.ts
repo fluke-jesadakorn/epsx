@@ -169,11 +169,12 @@ export function aggregateByPeriod(
       case 'day':
         key = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
         break;
-      case 'week':
+      case 'week': {
         const weekStart = new Date(date);
         weekStart.setDate(date.getDate() - date.getDay());
         key = `${weekStart.getFullYear()}-${weekStart.getMonth()}-${weekStart.getDate()}`;
         break;
+      }
       case 'month':
         key = `${date.getFullYear()}-${date.getMonth()}`;
         break;
@@ -341,7 +342,7 @@ export function validateJSON(jsonString: string): boolean {
 
 export function sanitizeFilename(filename: string): string {
   return filename
-    .replace(/[^\w\s\-\.]/g, '') // Remove special characters except dash, dot, underscore
+    .replace(/[^\w\s\-.]/g, '') // Remove special characters except dash, dot, underscore
     .replace(/\s+/g, '_') // Replace spaces with underscores
     .toLowerCase();
 }

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { CheckCircle, Crown, Zap, Shield, TrendingUp, AlertCircle, Star } from 'lucide-react'
 import Link from 'next/link'
+import { API_ROUTES } from '../../../../shared/config/route-constants'
 
 interface PlanFeature {
   id: number
@@ -17,24 +18,25 @@ interface PlanFeature {
 }
 
 interface Plan {
-  id: number
+  id: number | string // Support both number and UUID string
   name: string
   description?: string
   plan_type: string
-  current_price: number
+  current_price: number | string // Support both number and decimal string
   currency: string
   target_audience: string
   billing_model: string
   plan_category: string
   is_active: boolean
   features: PlanFeature[]
+  permissions?: string[] // Add permissions support from backend
   subscriber_count: number
-  revenue_last_30_days: number
+  revenue_last_30_days: number | string // Support both number and decimal string
 }
 
 interface UserSubscription {
   id: string
-  plan_id: number
+  plan_id: number | string // Support both number and UUID string
   plan_name: string
   status: string
 }
@@ -60,17 +62,24 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
   const loadPlans = async () => {
     try {
       setLoading(true)
-      const response = await fetch('/api/v1/plans')
-      
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
+      const response = await fetch(`${backendUrl}${API_ROUTES.PUBLIC.PLANS}`)
+
       if (response.ok) {
         const data = await response.json()
-        setPlans(data.plans?.filter((plan: Plan) => plan.is_active) || [])
+        if (data.success && Array.isArray(data.data)) {
+          // Data is already array of plans
+          setPlans(data.data.filter((plan: Plan) => plan.is_active))
+        } else {
+          throw new Error('Invalid API response structure')
+        }
       } else {
         throw new Error('Failed to load plans')
       }
     } catch (error) {
       console.error('Error loading plans:', error)
-      setError('Unable to load available plans')
+      setError('Failed to load subscription plans. Please try again later.')
+      setPlans([])
     } finally {
       setLoading(false)
     }
@@ -78,7 +87,7 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
 
   const loadUserSubscriptions = async () => {
     try {
-      const response = await fetch('/api/v1/user/subscriptions')
+      const response = await fetch('/api/user/subscriptions')
       
       if (response.ok) {
         const data = await response.json()
@@ -115,23 +124,23 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
     }
   }
 
-  const isUserSubscribed = (planId: number) => {
+  const isUserSubscribed = (planId: number | string) => {
     return userSubscriptions.some(sub => sub.plan_id === planId && sub.status === 'active')
   }
 
-  const getUserCurrentPlan = (planId: number) => {
+  const getUserCurrentPlan = (planId: number | string) => {
     return userSubscriptions.find(sub => sub.plan_id === planId && sub.status === 'active')
   }
 
   const handleSubscribe = async (plan: Plan) => {
     if (!currentUser) {
-      window.location.href = '/auth/login'
+      alert('Please connect your wallet to subscribe to a plan');
       return
     }
 
     // This would integrate with your subscription creation API
     try {
-      const response = await fetch('/api/v1/user/subscribe', {
+      const response = await fetch('/api/user/subscribe', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -267,19 +276,19 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
                 </div>
               )}
 
-              <CardHeader>
-                <div className="flex items-center gap-3 mb-2">
-                  <div className={`p-2 rounded-xl bg-gradient-to-r ${getPlanColor(plan.plan_category)}`}>
+              <CardHeader className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className={`p-2 rounded-xl bg-gradient-to-r ${getPlanColor(plan.plan_category)} flex-shrink-0`}>
                     <PlanIcon className="h-6 w-6 text-white" />
                   </div>
-                  <div>
-                    <CardTitle className="text-xl">{plan.name}</CardTitle>
+                  <div className="flex-1">
+                    <CardTitle className="text-lg leading-tight whitespace-nowrap">{plan.name}</CardTitle>
                     <Badge variant="outline" className="text-xs mt-1">
                       {plan.plan_category.charAt(0).toUpperCase() + plan.plan_category.slice(1)}
                     </Badge>
                   </div>
                 </div>
-                
+
                 {plan.description && (
                   <p className="text-gray-600 dark:text-gray-400 text-sm">
                     {plan.description}
@@ -288,10 +297,10 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
 
                 <div className="flex items-baseline gap-2">
                   <span className="text-3xl font-bold text-gray-900 dark:text-white">
-                    ${plan.current_price}
+                    ${typeof plan.current_price === 'string' ? parseFloat(plan.current_price).toFixed(2) : plan.current_price}
                   </span>
                   <span className="text-gray-500 dark:text-gray-400">
-                    /{plan.billing_model === 'subscription' ? 'month' : 'use'}
+                    /use
                   </span>
                 </div>
               </CardHeader>
@@ -333,11 +342,12 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
                   {/* Action Button */}
                   <div className="pt-4">
                     {!currentUser ? (
-                      <Link href="/auth/login">
-                        <Button className="w-full bg-gradient-to-r from-emerald-400 to-green-500 text-white">
-                          Sign in to Subscribe
-                        </Button>
-                      </Link>
+                      <Button
+                        className="w-full bg-gradient-to-r from-emerald-400 to-green-500 text-white"
+                        onClick={() => alert('Please connect your wallet using the navigation menu to subscribe')}
+                      >
+                        Connect Wallet to Subscribe
+                      </Button>
                     ) : isSubscribed ? (
                       <div className="space-y-2">
                         <Button disabled className="w-full bg-emerald-100 text-emerald-800 cursor-not-allowed">

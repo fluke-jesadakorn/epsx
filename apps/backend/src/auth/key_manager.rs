@@ -294,7 +294,7 @@ mod tests {
     
     #[test]
     fn test_key_rotation() {
-        let manager = KeyManager::new().unwrap();
+        let mut manager = KeyManager::new().unwrap();
         let original_kid = manager.current_key.kid.clone();
         
         let new_kid = manager.rotate_keys().unwrap();

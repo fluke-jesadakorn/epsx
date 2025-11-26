@@ -2,8 +2,18 @@
 
 import type { StockFinancialData } from '@/types/financialChartData';
 import { getStockFinancialData } from '@/lib/services/stock.service';
-import { extractRankingLimitFromPermissions, deriveTierFromPermissions, convertTierToPermissions } from '@/lib/permission-utils';
-import type { UserLevelType } from '@/app/constants/packages';
+import { getRankingLimitFromPermissions, getDisplayTierFromPermissions } from '@/app/constants/packages';
+import { MarketCountry } from '@/types/market';
+
+// Helper function to extract ranking limit from permissions
+function extractRankingLimitFromPermissions(permissions: string[]): number {
+  return getRankingLimitFromPermissions(permissions);
+}
+
+// Helper function to derive tier from permissions
+function deriveTierFromPermissions(permissions: string[]): string {
+  return getDisplayTierFromPermissions(permissions);
+}
 
 /**
  * Reusable server action for fetching stock financial data
@@ -13,7 +23,7 @@ import type { UserLevelType } from '@/app/constants/packages';
 export async function fetchStockRankingData(
   page = 1,
   limit = 10,
-  country?: any,
+  country?: typeof MarketCountry,
   quarters = 2,
 ): Promise<StockFinancialData[]> {
   // Use the same service as analytics page to leverage caching
@@ -28,36 +38,20 @@ export async function fetchStockRankingDataWithPermissions(
   userPermissions: string[],
   isExpired: boolean = true,
   page = 1,
-  country?: any,
+  country?: typeof MarketCountry,
   quarters = 2,
 ): Promise<StockFinancialData[]> {
   const maxLimit = isExpired ? 5 : extractRankingLimitFromPermissions(userPermissions);
-  
+
   // Determine tier for additional logic
   const derivedTier = deriveTierFromPermissions(userPermissions);
-  
+
   // Always fetch a bit more for premium users to show locked items
   const fetchLimit = derivedTier === 'BRONZE' ? maxLimit : Math.min((maxLimit === -1 ? 100 : maxLimit) + 10, 100);
-  
+
   return getStockFinancialData(page, fetchLimit, country, quarters);
 }
 
-/**
- * Fetch data with user access control (LEGACY - Backward compatibility)
- * Respects user subscription level for ranking limits
- * @deprecated Use fetchStockRankingDataWithPermissions instead
- */
-export async function fetchStockRankingDataForUser(
-  userLevel: UserLevelType = 'BRONZE',
-  isExpired: boolean = true,
-  page = 1,
-  country?: any,
-  quarters = 2,
-): Promise<StockFinancialData[]> {
-  // Convert userLevel to permissions for backward compatibility
-  const userPermissions = convertTierToPermissions(userLevel);
-  return fetchStockRankingDataWithPermissions(userPermissions, isExpired, page, country, quarters);
-}
 
 /**
  * Fetch data with rank offset for different zones
@@ -67,11 +61,11 @@ export async function fetchStockRankingDataWithOffset(
   rankOffset = 0,
   page = 1,
   limit = 10,
-  country?: any,
+  country?: typeof MarketCountry,
   quarters = 2,
 ): Promise<{ data: StockFinancialData[]; rankOffset: number }> {
   const data = await getStockFinancialData(page, limit, country, quarters);
-  
+
   return {
     data,
     rankOffset,

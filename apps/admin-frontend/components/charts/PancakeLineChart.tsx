@@ -17,6 +17,7 @@ import {
   ResponsiveContainer,
   TooltipProps
 } from 'recharts'
+
 import { PancakeSwapColors, getChartColor, getThemeColors } from './chartColors'
 import { ChartContainer } from './ChartContainer'
 
@@ -56,8 +57,8 @@ const CustomTooltip = ({
   payload, 
   label, 
   formatTooltip 
-}: TooltipProps<any, any> & { formatTooltip?: (value: any, name: string) => [string, string] }) => {
-  if (!active || !payload || !payload.length) return null
+}: any) => {
+  if (!active || !payload?.length) {return null}
 
   return (
     <div className="bg-card/95 backdrop-blur-sm border border-yellow-400/30 rounded-lg p-3 shadow-xl">
@@ -65,7 +66,7 @@ const CustomTooltip = ({
         {label}
       </div>
       <div className="space-y-1">
-        {payload.map((entry, index) => {
+        {payload.map((entry: any, index: number) => {
           const [formattedValue, formattedName] = formatTooltip 
             ? formatTooltip(entry.value, entry.name || '') 
             : [entry.value, entry.name || '']
@@ -90,6 +91,26 @@ const CustomTooltip = ({
   )
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.data
+ * @param root0.lines
+ * @param root0.title
+ * @param root0.subtitle
+ * @param root0.height
+ * @param root0.showGrid
+ * @param root0.showLegend
+ * @param root0.showTooltip
+ * @param root0.xAxisDataKey
+ * @param root0.formatTooltip
+ * @param root0.formatXAxis
+ * @param root0.formatYAxis
+ * @param root0.className
+ * @param root0.variant
+ * @param root0.showLiveDot
+ * @param root0.isDark
+ */
 export function PancakeLineChart({
   data,
   lines,

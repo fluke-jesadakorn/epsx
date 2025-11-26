@@ -390,7 +390,7 @@ test.describe('Admin Permission Management - Comprehensive E2E Tests', () => {
 
     test('should handle API errors gracefully', async ({ page }) => {
       // Mock API failure
-      await page.route('**/api/v1/admin/**', route => {
+      await page.route('**/api/admin/**', route => {
         route.fulfill({ status: 500, body: JSON.stringify({ error: 'Server Error' }) });
       });
       
@@ -431,7 +431,6 @@ test.describe('Admin Permission Management - Comprehensive E2E Tests', () => {
           };
         });
         
-        console.log('🔐 Embedded Permission Creation Test:', results);
         (window as any).embeddedPermissionTest = {
           allPassed: results.every(r => r.passed),
           results
@@ -482,7 +481,6 @@ test.describe('Admin Permission Management - Comprehensive E2E Tests', () => {
           return { test, parsed, passed };
         });
         
-        console.log('📝 Permission Parsing Test:', results);
         (window as any).permissionParsingTest = {
           allPassed: results.every(r => r.passed),
           results

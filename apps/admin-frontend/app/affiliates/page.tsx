@@ -1,8 +1,9 @@
-import { Suspense } from 'react'
-import { AffiliateManagement, type Affiliate } from '@/components/affiliates/AffiliateManagement'
-import { UnifiedAuth } from '@/lib/auth/unified-auth'
-import { ServerAuth } from '@/lib/server/auth-helpers'
 import { notFound } from 'next/navigation'
+import { Suspense } from 'react'
+
+import { AffiliateManagement, type Affiliate } from '@/components/affiliates/AffiliateManagement'
+import { UnifiedAuth } from '@/lib/auth/auth'
+import { ServerAuth } from '@/lib/server/auth-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -221,6 +222,9 @@ async function AffiliatesDataWrapper() {
   )
 }
 
+/**
+ *
+ */
 export default function AdminAffiliatesPage() {
   return (
     <Suspense fallback={<AffiliatesHubSkeleton />}>

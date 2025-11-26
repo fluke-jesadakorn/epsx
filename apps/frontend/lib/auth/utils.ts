@@ -3,26 +3,8 @@
  * JWT parsing, permission validation, token refresh, and user helpers
  */
 
-import { JWTPayload, jwtVerify, SignJWT } from 'jose';
-import {
-  UserSessionData,
-  UserProfile,
-  UserJWTPayload,
-  PackageTier,
-  UserPermissionCheck,
-  PermissionValidation,
-  UserAnalyticsAccess,
-  UserTradingAccess,
-  hasValidSubscription,
-  canAccessFeature,
-  isPremiumTier,
-  isTrialUser
-} from '@/types/auth-separation';
-import {
-  derivePackageTierFromPermissions,
-  deriveAccessiblePlatformsFromPermissions,
-  derivePrimaryPlatformFromPermissions 
-} from '../../../../shared/permissions/utils/platform';
+import { JWTPayload } from 'jose';
+import { getDisplayTierFromPermissions, getRankingLimitFromPermissions } from '@/app/constants/packages';
 import { authLogger, safeError } from '@/lib/utils/logging';
 
 // ============================================================================
@@ -82,14 +64,6 @@ interface RefreshConfig {
   monitoringEnabled: boolean;       // Enable security monitoring
 }
 
-interface TokenPayload {
-  sub: string;
-  exp: number;
-  iat: number;
-  permissions?: string[];
-  device_fingerprint?: string;
-  jti?: string;
-}
 
 interface RefreshResponse {
   access_token: string;
@@ -114,21 +88,43 @@ interface SecurityMetrics {
  * Derive accessible platforms from permissions
  */
 export function getAccessiblePlatforms(permissions: string[]): string[] {
-  return deriveAccessiblePlatformsFromPermissions(permissions);
+  const platforms = new Set<string>();
+  
+  for (const permission of permissions) {
+    const platform = permission.split(':')[0];
+    if (platform) {
+      platforms.add(platform);
+    }
+  }
+  
+  return Array.from(platforms);
 }
 
 /**
- * Derive package tier from permissions
+ * Get display tier from permissions (replaces package tier)
  */
-export function getPackageTier(permissions: string[]): string {
-  return derivePackageTierFromPermissions(permissions);
+export function getDisplayTier(permissions: string[]): string {
+  return getDisplayTierFromPermissions(permissions);
 }
 
 /**
- * Derive primary platform from permissions
+ * Get primary platform from permissions
  */
 export function getPrimaryPlatform(permissions: string[]): string {
-  return derivePrimaryPlatformFromPermissions(permissions);
+  const platforms = getAccessiblePlatforms(permissions);
+  
+  // Priority order: admin > epsx > others
+  if (platforms.includes('admin')) return 'admin';
+  if (platforms.includes('epsx')) return 'epsx';
+  
+  return platforms[0] || 'epsx';
+}
+
+/**
+ * Get ranking limit from permissions
+ */
+export function getRankingLimit(permissions: string[]): number {
+  return getRankingLimitFromPermissions(permissions);
 }
 
 /**
@@ -395,139 +391,6 @@ class SecureTokenRefreshManager {
 // Export singleton instance
 export const secureTokenRefreshManager = new SecureTokenRefreshManager();
 
-// ============================================================================
-// User Permission Helpers
-// ============================================================================
 
-/**
- * Check if user has specific permission with subscription validation
- */
-export function hasUserPermission(
-  user: UserSessionData | null,
-  permission: string,
-  options: UserPermissionCheck = {}
-): PermissionValidation {
-  if (!user) {
-    return {
-      hasPermission: false,
-      reason: 'User not authenticated',
-      requiresUpgrade: false
-    };
-  }
-
-  // Check subscription status first
-  if (options.requiresSubscription && !hasValidSubscription(user)) {
-    return {
-      hasPermission: false,
-      reason: 'Valid subscription required',
-      requiresUpgrade: true,
-      upgradeUrl: '/upgrade'
-    };
-  }
-
-  // Check permission
-  const hasPermission = user.permissions.includes(permission);
-
-  if (!hasPermission) {
-    // Check if this is a premium feature
-    const isPremiumFeature = permission.includes('premium') || permission.includes('pro');
-    
-    return {
-      hasPermission: false,
-      reason: isPremiumFeature ? 'Premium feature requires upgrade' : 'Permission denied',
-      requiresUpgrade: isPremiumFeature,
-      upgradeUrl: isPremiumFeature ? '/upgrade' : undefined
-    };
-  }
-
-  return {
-    hasPermission: true,
-    reason: 'Permission granted'
-  };
-}
-
-/**
- * Check if user can access analytics features
- */
-export function canAccessAnalytics(user: UserSessionData | null): UserAnalyticsAccess {
-  if (!user) {
-    return {
-      canAccess: false,
-      level: 'none',
-      features: [],
-      reason: 'Authentication required'
-    };
-  }
-
-  const permissions = user.permissions;
-  const features: string[] = [];
-  let level: 'none' | 'basic' | 'premium' | 'professional' = 'none';
-
-  // Basic analytics
-  if (permissions.includes('epsx:analytics:view')) {
-    level = 'basic';
-    features.push('view-rankings', 'basic-filters');
-  }
-
-  // Premium analytics
-  if (permissions.includes('epsx:analytics:premium')) {
-    level = 'premium';
-    features.push('advanced-filters', 'export-data', 'historical-data');
-  }
-
-  // Professional analytics
-  if (permissions.includes('epsx:analytics:professional')) {
-    level = 'professional';
-    features.push('real-time-data', 'api-access', 'custom-reports');
-  }
-
-  return {
-    canAccess: level !== 'none',
-    level,
-    features,
-    reason: level !== 'none' ? 'Access granted' : 'No analytics permissions'
-  };
-}
-
-/**
- * Check if user can access trading features
- */
-export function canAccessTrading(user: UserSessionData | null): UserTradingAccess {
-  if (!user) {
-    return {
-      canAccess: false,
-      level: 'none',
-      features: [],
-      reason: 'Authentication required'
-    };
-  }
-
-  const permissions = user.permissions;
-  const features: string[] = [];
-  let level: 'none' | 'basic' | 'premium' | 'professional' = 'none';
-
-  // Basic trading
-  if (permissions.includes('epsx:trading:view')) {
-    level = 'basic';
-    features.push('view-prices', 'basic-charts');
-  }
-
-  // Premium trading
-  if (permissions.includes('epsx:trading:premium')) {
-    level = 'premium';
-    features.push('advanced-charts', 'indicators', 'alerts');
-  }
-
-  // Professional trading
-  if (permissions.includes('epsx:trading:professional')) {
-    level = 'professional';
-    features.push('real-time-trading', 'api-access', 'advanced-tools');
-  }
-
-  return {
-    canAccess: level !== 'none',
-    level,
-    features,
-    reason: level !== 'none' ? 'Access granted' : 'No trading permissions'
-  };
-}
+// Export functions that are used in other modules
+export { getRankingLimitFromPermissions } from '@/app/constants/packages';

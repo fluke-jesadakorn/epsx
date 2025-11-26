@@ -65,13 +65,13 @@ impl EventPayload {
     /// Create payment event payloads
     pub fn payment_started(
         payment_id: String,
-        user_id: UserId,
+        wallet_address: UserId,
         amount: f64,
         currency: String,
     ) -> Self {
         let data = serde_json::json!({
             "payment_id": payment_id,
-            "user_id": user_id.to_string(),
+            "user_id": wallet_address.to_string(),
             "amount": amount,
             "currency": currency,
             "timestamp": Utc::now()
@@ -83,14 +83,14 @@ impl EventPayload {
     
     pub fn payment_completed(
         payment_id: String,
-        user_id: UserId,
+        wallet_address: UserId,
         amount: f64,
         currency: String,
         transaction_id: String,
     ) -> Self {
         let data = serde_json::json!({
             "payment_id": payment_id,
-            "user_id": user_id.to_string(),
+            "user_id": wallet_address.to_string(),
             "amount": amount,
             "currency": currency,
             "transaction_id": transaction_id,
@@ -103,7 +103,7 @@ impl EventPayload {
     
     pub fn payment_failed(
         payment_id: String,
-        user_id: UserId,
+        wallet_address: UserId,
         amount: f64,
         currency: String,
         error_code: String,
@@ -111,7 +111,7 @@ impl EventPayload {
     ) -> Self {
         let data = serde_json::json!({
             "payment_id": payment_id,
-            "user_id": user_id.to_string(),
+            "user_id": wallet_address.to_string(),
             "amount": amount,
             "currency": currency,
             "error_code": error_code,
@@ -254,10 +254,10 @@ mod tests {
     
     #[test]
     fn test_payment_event_creation() {
-        let user_id = UserId::from_numeric(123);
+        let wallet_address = UserId::from_numeric(123);
         let payload = EventPayload::payment_started(
             "pay_123".to_string(),
-            user_id,
+            wallet_address,
             100.0,
             "USD".to_string(),
         );

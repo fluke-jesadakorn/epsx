@@ -107,7 +107,7 @@ fn validate_permissions_list(permissions: &[String]) -> Result<(), ValidationErr
 #[derive(Debug, Deserialize, Validate)]
 pub struct ValidatedPermissionAssignRequest {
     #[validate(length(min = 1))]
-    pub user_id: String,
+    pub wallet_address: String,
     
     #[validate(custom(function = "validate_permissions_list"))]
     pub permissions: Vec<String>,

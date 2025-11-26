@@ -1,19 +1,31 @@
-import * as React from "react"
+/**
+ * FRONTEND CARD COMPONENT
+ * Migrated to use shared BaseCard with backward compatibility
+ */
 
+import * as React from "react"
+import { BaseCard, type BaseCardProps } from "../../../../shared/components"
 import { cn } from "@/lib/utils"
+
+// ============================================================================
+// LEGACY COMPATIBILITY LAYER
+// ============================================================================
 
 export type CardProps = React.HTMLAttributes<HTMLDivElement>
 
 const Card = React.forwardRef<
   HTMLDivElement,
   React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-  <div
-    ref={ref}
-    className={cn(
-      "rounded-lg border bg-card text-card-foreground shadow-sm",
-      className
-    )}
+>(({ className, children, onClick, onDoubleClick, onMouseEnter, onMouseLeave, ...props }, ref) => (
+  <BaseCard
+    ref={ref as any}
+    variant="default" // Use default variant for standard styling
+    className={cn("rounded-lg", className)}
+    children={children || null}
+    onClick={onClick ? () => onClick({} as React.MouseEvent<HTMLDivElement>) : undefined}
+    onDoubleClick={onDoubleClick ? () => onDoubleClick({} as React.MouseEvent<HTMLDivElement>) : undefined}
+    onMouseEnter={onMouseEnter ? () => onMouseEnter({} as React.MouseEvent<HTMLDivElement>) : undefined}
+    onMouseLeave={onMouseLeave ? () => onMouseLeave({} as React.MouseEvent<HTMLDivElement>) : undefined}
     {...props}
   />
 ))

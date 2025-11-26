@@ -1,15 +1,17 @@
 /**
- * Unified Authentication Provider
- * Consolidates AdminAuthWrapper and ServerAuthProvider into a single component
- * Uses OIDC authentication with structured permissions
+ * Unified Authentication Provider - Wallet Authentication
+ * Uses wallet-based authentication with SIWE instead of OIDC
+ * Maintains same interface for compatibility with existing code
  */
 
-import { ReactNode } from 'react';
 import { headers } from 'next/headers';
-import { UnifiedAuth } from '@/lib/auth/unified-auth';
 import { redirect } from 'next/navigation';
-import { PancakeAdminLayout } from '@/components/layout/PancakeAdminLayout';
+import { ReactNode } from 'react';
+
 import { ClientProviders } from './ClientProviders';
+
+import { MainLayout } from '@/components/layout/MainLayout';
+import { UnifiedAuth } from '@/lib/auth/auth';
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -22,6 +24,11 @@ interface AuthProviderProps {
  * Unified Authentication Provider
  * Handles both server-side authentication and client-side auth context
  * Supports both layout-wrapped and standalone authentication
+ * @param root0
+ * @param root0.children
+ * @param root0.requireAuth
+ * @param root0.requireAdmin
+ * @param root0.layout
  */
 export async function AuthProvider({ 
   children, 
@@ -59,46 +66,29 @@ export async function AuthProvider({
   
   // Check authentication if required
   if (requireAuth) {
-    // OIDC Migration: Validate authentication using OIDC tokens
+    // Wallet Authentication: Validate authentication using wallet signatures
     const session = await UnifiedAuth.getSession();
     
     if (!session?.user) {
-      console.log('❌ AuthProvider: No valid session found');
       redirect('/login');
     }
     
-    // Check admin access if required
-    if (requireAdmin) {
-      const hasAdminAccess = UnifiedAuth.hasAdminAccess(session.user);
-      
-      if (!hasAdminAccess) {
-        console.warn('⚠️ AuthProvider: User lacks admin permissions', {
-          user: session.user?.email,
-          permissions: session.user?.permissions,
-          required: 'admin:*:* or admin:{resource}:{action}'
-        });
-        redirect('/access-denied?reason=insufficient_admin_permissions');
-      }
-      
-      console.log('✅ AuthProvider: Admin authentication successful', {
-        user: session.user?.email,
-        permissions: session.user?.permissions?.filter(p => p.startsWith('admin:')).length || 0,
-        hasAdminAccess
-      });
-    }
+    // Backend validates all permissions - don't check on frontend
+    // Just let authenticated users through - backend will return 403 if no access
     
     // Render with layout if requested
     if (layout && session.user) {
       try {
         return (
           <ClientProviders>
-            <PancakeAdminLayout user={session.user}>
+            <MainLayout user={session.user as any}>
               {children}
-            </PancakeAdminLayout>
+            </MainLayout>
           </ClientProviders>
         );
-      } catch (error) {
-        console.error('Critical AuthProvider error:', error);
+      } catch (_error) {
+        // eslint-disable-next-line no-console
+        console.error('Critical AuthProvider error:', _error);
         return <AuthError />;
       }
     } else {
@@ -140,7 +130,7 @@ function AuthError() {
           <p className="text-gray-600">Failed to load admin interface</p>
           <a 
             href="/login" 
-            className="inline-block bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-6 py-3 rounded-2xl font-semibold hover:from-yellow-500 hover:to-orange-600 transition-all duration-200 shadow-lg"
+          className="inline-block bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-6 py-3 rounded-2xl font-semibold shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow-500"
           >
             Return to Login
           </a>
@@ -152,6 +142,7 @@ function AuthError() {
 
 /**
  * Higher-order component for protecting routes with admin access
+ * @param Component
  * @deprecated Use AuthProvider with requireAdmin=true instead
  */
 export function withAdminAuth<T extends {}>(Component: React.ComponentType<T>) {
@@ -166,6 +157,7 @@ export function withAdminAuth<T extends {}>(Component: React.ComponentType<T>) {
 
 /**
  * Higher-order component for protecting routes with basic auth
+ * @param Component
  * @deprecated Use AuthProvider with requireAuth=true instead  
  */
 export function withAuth<T extends {}>(Component: React.ComponentType<T>) {

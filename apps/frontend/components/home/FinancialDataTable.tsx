@@ -92,7 +92,6 @@ function FinancialDataTable({
         relative overflow-hidden
         ${className || ''}
       `}
-      style={style}
     >
       {/* PancakeSwap-style floating decorative elements */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">

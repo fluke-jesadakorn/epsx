@@ -10,10 +10,19 @@ use tracing::{debug, info};
 
 use crate::core::errors::AppError;
 use crate::domain::shared_kernel::services::eps_ranking_service::EPSRankingService;
-use super::dto::*;
+use super::types::*;
 
 /// GET /api/analytics/eps-rankings/countries
 /// Returns list of available countries for TradingView API
+#[utoipa::path(
+    get,
+    path = "/api/analytics/eps-rankings/countries",
+    tag = "analytics",
+    responses(
+        (status = 200, description = "Successfully retrieved available countries", body = CountriesResponse),
+        (status = 500, description = "Internal server error")
+    )
+)]
 pub async fn get_available_countries(
     Extension(_service): Extension<Arc<EPSRankingService>>,
 ) -> Result<Json<CountriesResponse>, AppError> {
@@ -33,6 +42,15 @@ pub async fn get_available_countries(
 
 /// GET /api/analytics/eps-rankings/countries/all
 /// Returns complete list of valid countries for TradingView API
+#[utoipa::path(
+    get,
+    path = "/api/analytics/eps-rankings/countries/all",
+    tag = "analytics",
+    responses(
+        (status = 200, description = "Successfully retrieved all valid countries", body = CountriesResponse),
+        (status = 500, description = "Internal server error")
+    )
+)]
 pub async fn get_all_valid_countries() -> Result<Json<CountriesResponse>, AppError> {
     debug!("Getting all valid countries for TradingView API");
 
@@ -50,6 +68,18 @@ pub async fn get_all_valid_countries() -> Result<Json<CountriesResponse>, AppErr
 
 /// GET /api/analytics/eps-rankings/sectors?country=america
 /// Returns list of available sectors, optionally filtered by country
+#[utoipa::path(
+    get,
+    path = "/api/analytics/eps-rankings/sectors",
+    tag = "analytics",
+    responses(
+        (status = 200, description = "Successfully retrieved available sectors", body = SectorsResponse),
+        (status = 500, description = "Internal server error")
+    ),
+    params(
+        ("country" = Option<String>, Query, description = "Filter sectors by country code (e.g., 'america', 'uk')")
+    )
+)]
 pub async fn get_sectors_by_country(
     Query(params): Query<EPSRankingQueryParams>,
     Extension(service): Extension<Arc<EPSRankingService>>,
@@ -70,8 +100,17 @@ pub async fn get_sectors_by_country(
     Ok(Json(response))
 }
 
-/// GET /api/v1/analytics/filters
+/// GET /api/analytics/filters
 /// Returns combined filter options for the frontend
+#[utoipa::path(
+    get,
+    path = "/api/analytics/filters",
+    tag = "analytics",
+    responses(
+        (status = 200, description = "Successfully retrieved filter options", body = FiltersResponse),
+        (status = 500, description = "Internal server error")
+    )
+)]
 pub async fn get_filter_options(
     Extension(_service): Extension<Arc<EPSRankingService>>,
 ) -> Result<Json<FiltersResponse>, AppError> {

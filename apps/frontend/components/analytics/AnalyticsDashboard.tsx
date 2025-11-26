@@ -12,7 +12,7 @@ import FilterPanel from './FilterPanel';
 import Pagination from './Pagination';
 import StockCard from './StockCard';
 import { CardDashboardView } from './CardDashboardView';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { LayoutGrid, List } from 'lucide-react';
 
 interface RichFilterOptions {
@@ -53,8 +53,8 @@ export default function AnalyticsDashboard({
     updateFilters,
     resetFilters,
     changePage,
-    hasActiveFilters,
-    activeFilterCount,
+    hasActiveFilters: _hasActiveFilters,
+    activeFilterCount: _activeFilterCount,
     isLoading: filtersLoading,
     setIsLoading: setFiltersLoading,
   } = useAnalyticsFilters();
@@ -233,7 +233,7 @@ function ErrorDisplay({ error, onRetry }: ErrorDisplayProps) {
 
 // QoQ Leaders display component
 interface QoQLeadersDisplayProps {
-  qoqLeaders: { epsLeaders: any[]; priceLeaders: any[] };
+  qoqLeaders: { epsLeaders: unknown[]; priceLeaders: unknown[] };
   isLoading: boolean;
 }
 
@@ -270,13 +270,13 @@ function QoQLeadersDisplay({ qoqLeaders, isLoading }: QoQLeadersDisplayProps) {
 // Leader Category Component
 interface LeaderCategoryProps {
   title: string;
-  leaders: any[];
+  leaders: Array<Record<string, unknown>>;
   colorScheme: 'green' | 'blue';
   valueKey: string;
 }
 
 function LeaderCategory({ title, leaders, colorScheme, valueKey }: LeaderCategoryProps) {
-  const colorClasses = colorScheme === 'green' 
+  const colorClasses = colorScheme === 'green'
     ? {
         bg: 'bg-green-50 dark:bg-green-900/20',
         text: 'text-green-600 dark:text-green-400'
@@ -294,19 +294,22 @@ function LeaderCategory({ title, leaders, colorScheme, valueKey }: LeaderCategor
       <div className="space-y-2">
         {leaders.map((leader) => {
           let displayValue = '0.0%';
-          
+
           if (valueKey === 'analytics.growth_factor') {
-            displayValue = `${leader.analytics.growth_factor?.toFixed(1) || 0}%`;
+            const analytics = leader.analytics as Record<string, unknown> | undefined;
+            const growthFactor = analytics?.growth_factor as number | undefined;
+            displayValue = `${growthFactor?.toFixed(1) || 0}%`;
           } else if (valueKey === 'quarterly_data') {
-            const latestGrowth = leader.quarterly_data?.[0]?.price_growth || 0;
-            const previousGrowth = leader.quarterly_data?.[1]?.price_growth || 0;
+            const quarterlyData = leader.quarterly_data as Array<Record<string, unknown>> | undefined;
+            const latestGrowth = (quarterlyData?.[0]?.price_growth as number) || 0;
+            const previousGrowth = (quarterlyData?.[1]?.price_growth as number) || 0;
             const growth = latestGrowth === 0 ? previousGrowth : latestGrowth;
             displayValue = `${growth?.toFixed(1) || 0}%`;
           }
-          
+
           return (
-            <div key={leader.symbol} className={`flex items-center justify-between p-2 rounded-lg ${colorClasses.bg}`}>
-              <span className="font-medium">{leader.symbol}</span>
+            <div key={leader.symbol as string} className={`flex items-center justify-between p-2 rounded-lg ${colorClasses.bg}`}>
+              <span className="font-medium">{leader.symbol as string}</span>
               <span className={`${colorClasses.text} font-bold`}>
                 {displayValue}
               </span>
@@ -335,9 +338,9 @@ function QoQLeadersSkeleton() {
 
 // Rankings list component
 interface RankingsListProps {
-  data: any;
+  data: { data: Array<Record<string, unknown>>; pagination: unknown } | null;
   isLoading: boolean;
-  onPageChange: (page: number) => void;
+  onPageChange: (_page: number) => void;
   onReset: () => void;
 }
 
@@ -356,11 +359,11 @@ function RankingsList({ data, isLoading, onPageChange, onReset }: RankingsListPr
       <div className="sm:hidden">
         <div className="overflow-x-auto">
           <div className="flex gap-4 pb-4" style={{ width: 'max-content' }}>
-            {data.data.map((ranking: any, index: number) => (
-              <div key={ranking.symbol} className="w-80 flex-shrink-0">
+            {data.data.map((ranking, index: number) => (
+              <div key={ranking.symbol as string} className="w-80 flex-shrink-0">
                 <StockCard
                   ranking={ranking}
-                  rank={ranking.ranking_position || index + 1}
+                  rank={(ranking.ranking_position as number) || index + 1}
                 />
               </div>
             ))}
@@ -376,11 +379,11 @@ function RankingsList({ data, isLoading, onPageChange, onReset }: RankingsListPr
 
       {/* Desktop: Grid layout */}
       <div className="mb-6 hidden sm:grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {data.data.map((ranking: any) => (
+        {data.data.map((ranking) => (
           <StockCard
-            key={ranking.symbol}
+            key={ranking.symbol as string}
             ranking={ranking}
-            rank={ranking.ranking_position || 0}
+            rank={(ranking.ranking_position as number) || 0}
           />
         ))}
       </div>

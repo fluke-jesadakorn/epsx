@@ -24,7 +24,7 @@ pub struct AdminAssignmentRequest {
 pub struct AdminAssignmentResponse {
     pub success: bool,
     pub message: String,
-    pub user_id: String,
+    pub wallet_address: String,
     pub assigned_role: String,
     pub custom_claims: HashMap<String, Value>,
 }
@@ -102,7 +102,7 @@ async fn get_google_access_token() -> Result<String, Box<dyn std::error::Error>>
 
 /// Set custom claims for a Firebase user using proper Admin SDK
 async fn set_firebase_custom_claims(
-    user_id: &str,
+    wallet_address: &str,
     custom_claims: &HashMap<String, Value>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let project_id = get_env_var("FIREBASE_PROJECT_ID")?;
@@ -115,11 +115,11 @@ async fn set_firebase_custom_claims(
     );
     
     let request_body = json!({
-        "localId": user_id,
+        "localId": wallet_address,
         "customClaims": serde_json::to_string(custom_claims)?
     });
     
-    tracing::info!("Setting custom claims for user {} with access token", user_id);
+    tracing::info!("Setting custom claims for user {} with access token", wallet_address);
     
     let response = client
         .post(&url)
@@ -129,7 +129,7 @@ async fn set_firebase_custom_claims(
         .await?;
     
     if response.status().is_success() {
-        tracing::info!("Successfully set custom claims for user {}", user_id);
+        tracing::info!("Successfully set custom claims for user {}", wallet_address);
         Ok(())
     } else {
         let error_text = response.text().await?;
@@ -141,10 +141,10 @@ async fn set_firebase_custom_claims(
 /// Assign admin role to a Firebase user
 pub async fn assign_admin_role_handler(
     State(_app_state): State<AppState>,
-    Path(user_id): Path<String>,
+    Path(wallet_address): Path<String>,
     Json(request): Json<AdminAssignmentRequest>,
 ) -> Result<Json<AdminAssignmentResponse>, StatusCode> {
-    tracing::info!("Admin assignment request for user {} with role {}", user_id, request.role);
+    tracing::info!("Admin assignment request for user {} with role {}", wallet_address, request.role);
     
     // Create admin custom claims - using structured permissions
     let mut custom_claims = HashMap::new();
@@ -167,14 +167,14 @@ pub async fn assign_admin_role_handler(
     }
     
     // Set the custom claims via Firebase Admin SDK
-    match set_firebase_custom_claims(&user_id, &custom_claims).await {
+    match set_firebase_custom_claims(&wallet_address, &custom_claims).await {
         Ok(()) => {
-            tracing::info!("Successfully assigned admin role to user {}", user_id);
+            tracing::info!("Successfully assigned admin role to user {}", wallet_address);
             
             let response = AdminAssignmentResponse {
                 success: true,
                 message: "Admin role assigned successfully".to_string(),
-                user_id: user_id.clone(),
+                wallet_address: wallet_address.clone(),
                 assigned_role: request.role,
                 custom_claims,
             };
@@ -182,7 +182,7 @@ pub async fn assign_admin_role_handler(
             Ok(Json(response))
         },
         Err(e) => {
-            tracing::error!("Failed to assign admin role to user {}: {}", user_id, e);
+            tracing::error!("Failed to assign admin role to user {}: {}", wallet_address, e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
@@ -191,7 +191,7 @@ pub async fn assign_admin_role_handler(
 /// Get user's current custom claims
 pub async fn get_user_claims_handler(
     State(_app_state): State<AppState>,
-    Path(user_id): Path<String>,
+    Path(wallet_address): Path<String>,
 ) -> Result<Json<HashMap<String, Value>>, StatusCode> {
     let api_key = get_env_var("FIREBASE_API_KEY")
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
@@ -203,7 +203,7 @@ pub async fn get_user_claims_handler(
     );
     
     let request_body = json!({
-        "localId": [user_id]
+        "localId": [wallet_address]
     });
     
     let response = client
@@ -231,7 +231,7 @@ pub async fn get_user_claims_handler(
         // Return empty claims if none found
         Ok(Json(HashMap::new()))
     } else {
-        tracing::error!("Failed to get user claims for {}", user_id);
+        tracing::error!("Failed to get user claims for {}", wallet_address);
         Err(StatusCode::INTERNAL_SERVER_ERROR)
     }
 }

@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditLogEntry {
     pub id: String,
-    pub user_id: Option<UserId>,
+    pub wallet_address: Option<UserId>,
     pub action: AuditAction,
     pub resource_type: ResourceType,
     pub resource_id: Option<String>,
@@ -54,14 +54,14 @@ pub enum AuditResult {
 
 impl AuditLogEntry {
     pub fn new(
-        user_id: Option<UserId>,
+        wallet_address: Option<UserId>,
         action: AuditAction,
         resource_type: ResourceType,
         result: AuditResult,
     ) -> Self {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
-            user_id,
+            wallet_address,
             action,
             resource_type,
             resource_id: None,
@@ -105,6 +105,12 @@ pub struct AuditMetadata {
     pub timestamp: DateTime<Utc>,
 }
 
+impl Default for AuditMetadata {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AuditMetadata {
     pub fn new() -> Self {
         Self {
@@ -126,7 +132,7 @@ impl AuditMetadata {
 /// Query parameters for audit log searches
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuditQuery {
-    pub user_id: Option<UserId>,
+    pub wallet_address: Option<UserId>,
     pub action: Option<AuditAction>,
     pub resource_type: Option<ResourceType>,
     pub result: Option<AuditResult>,
@@ -139,7 +145,7 @@ pub struct AuditQuery {
 impl Default for AuditQuery {
     fn default() -> Self {
         Self {
-            user_id: None,
+            wallet_address: None,
             action: None,
             resource_type: None,
             result: None,

@@ -23,37 +23,8 @@ pub trait CommandHandler<C: Command>: Send + Sync {
     async fn handle(&self, command: C) -> ApplicationResult<C::Response>;
 }
 
-/// Command bus interface for dispatching commands
-#[async_trait]
-pub trait CommandBus: Send + Sync {
-    /// Execute a command and return its response
-    async fn execute<C: Command>(&self, command: C) -> ApplicationResult<C::Response>;
-}
-
-/// Simple in-memory command bus implementation
-pub struct InMemoryCommandBus {
-    // In a real implementation, this would contain a registry of handlers
-    // For now, we'll use direct handler injection in the application services
-}
-
-impl InMemoryCommandBus {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
-#[async_trait]
-impl CommandBus for InMemoryCommandBus {
-    async fn execute<C: Command>(&self, command: C) -> ApplicationResult<C::Response> {
-        // Validate command first
-        command.validate()?;
-        
-        // In a real implementation, this would look up the appropriate handler
-        // and execute it. For now, this is a placeholder that will be
-        // implemented by the application services directly.
-        todo!("Command bus handler lookup not implemented yet")
-    }
-}
+// CommandBus trait and InMemoryCommandBus removed - unused abstraction
+// Handlers are called directly in application services, no bus dispatch needed
 
 /// Command metadata for audit and tracing
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,8 +47,8 @@ impl CommandMetadata {
         }
     }
     
-    pub fn with_user(mut self, user_id: impl Into<String>) -> Self {
-        self.initiated_by = Some(user_id.into());
+    pub fn with_user(mut self, wallet_address: impl Into<String>) -> Self {
+        self.initiated_by = Some(wallet_address.into());
         self
     }
     

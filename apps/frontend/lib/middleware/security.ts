@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSecurityHeaders } from '../security';
+import { generateSecurityHeaders } from '../utils/security';
 
 // Security middleware for Next.js middleware
 export function securityMiddleware(request: NextRequest): NextResponse | null {
   const response = NextResponse.next();
   
   // Apply security headers
-  const securityHeaders = getSecurityHeaders();
+  const securityHeaders = generateSecurityHeaders();
   Object.entries(securityHeaders).forEach(([key, value]) => {
     response.headers.set(key, value);
   });
@@ -44,7 +44,7 @@ export function securityMiddleware(request: NextRequest): NextResponse | null {
   }
   
   // Rate limiting for login/register endpoints
-  const sensitiveEndpoints = ['/login', '/register', '/api/v1/auth'];
+  const sensitiveEndpoints = ['/login', '/register', '/api/auth'];
   const isSensitiveEndpoint = sensitiveEndpoints.some(endpoint => 
     request.nextUrl.pathname.startsWith(endpoint)
   );

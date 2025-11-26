@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { Badge } from '@/components/ui/badge';
-import type { User } from '@/lib/server-actions';
+import type { AuthUser } from '@/lib/server-actions';
 
 interface UsageMonitorProps {
-  currentUser: User;
+  currentUser: AuthUser;
 }
 
 interface UsageStats {
@@ -59,9 +59,9 @@ export function UsageMonitor({ currentUser }: UsageMonitorProps) {
         errors: 150
       },
       endpoints: [
-        { endpoint: '/api/v1/analytics/rankings', requests: 4200, avg_response_time: 145 },
-        { endpoint: '/api/v1/analytics/stock/{symbol}', requests: 2800, avg_response_time: 89 },
-        { endpoint: '/api/v1/webhooks/rankings-update', requests: 1250, avg_response_time: 203 }
+        { endpoint: '/api/analytics/rankings', requests: 4200, avg_response_time: 145 },
+        { endpoint: '/api/analytics/stock/{symbol}', requests: 2800, avg_response_time: 89 },
+        { endpoint: '/api/webhooks/rankings-update', requests: 1250, avg_response_time: 203 }
       ]
     };
 

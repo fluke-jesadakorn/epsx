@@ -1,31 +1,20 @@
 // Admin module for user management endpoints
 
-pub mod handlers;
 pub mod routes;
-// casbin_handlers removed - using modern JWT auth
-pub mod unified_user_handlers;
 pub mod setup_handlers;
-// Removed: permission handlers
-pub mod analytics_handlers;
-pub mod firebase_user_management;
-// pub mod database_role_management; // Removed - using permissions-based system
-// Removed admin_role_management - using simple roles
-pub mod search_handlers;
-// Embedded timestamp permission management
-pub mod embedded_permission_handlers;
-// Bulk permission management
-pub mod bulk_permission_handlers;
-// V1 Granular permission management API
-pub mod granular_permissions;
-// Admin notification handlers
-pub mod notification_handlers;
-// Security monitoring handlers
 pub mod security_monitoring_handlers;
-// Permission hierarchy handlers (DISABLED during refactoring)
-// pub mod hierarchy_handlers;
-// Dynamic policy handlers
-pub mod policy_handlers;
-// Dynamic plan management handlers (simplified for compilation)
-pub mod plan_management_handlers_simple;
+pub mod plan_handlers;
+pub mod promotion_handlers;
+pub mod performance_handlers;
+pub mod auth_handlers;
+pub mod responses;
+pub mod wallet_management_handlers;
+pub mod analytics_handlers;
+pub mod notification_handlers;
+pub mod notification_query_helper;
+pub mod wallet_notification_repository;
 
-pub use routes::{create_admin_routes, create_admin_public_routes};
+// Consolidated permission module (v3.0) - replaces 5 handler files (3,743 lines)
+pub mod permissions;
+
+pub use routes::{create_admin_routes, create_admin_public_routes, create_permission_authority_routes};

@@ -2,7 +2,6 @@
 
 import { createApiClient, isApiError } from '@/lib/api-client';
 import { requireAuth, requirePermission } from '../auth';
-import { safeError } from '@/lib/utils/logging';
 
 // ============================================================================
 // Permission Management Server Actions
@@ -21,7 +20,7 @@ export async function grantPermission(userId: string, permission: string, expire
     const result = await client.serverGrantPermission(userId, permission, expiresAt);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to grant permission');
+      throw new Error(result.message || 'Failed to grant permission');
     }
   } catch (error) {
     console.error('Grant permission error:', error);
@@ -40,7 +39,7 @@ export async function revokePermission(userId: string, permission: string): Prom
     const result = await client.serverRevokePermission(userId, permission);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to revoke permission');
+      throw new Error(result.message || 'Failed to revoke permission');
     }
   } catch (error) {
     console.error('Revoke permission error:', error);
@@ -59,7 +58,7 @@ export async function getUserPermissionsList(userId: string): Promise<string[]> 
     const result = await client.serverGetUserPermissions(userId);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to get user permissions');
+      throw new Error(result.message || 'Failed to get user permissions');
     }
     
     return result.data!;
@@ -80,7 +79,7 @@ export async function setUserPermissions(userId: string, permissions: string[]):
     const result = await client.serverSetUserPermissions(userId, permissions);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to set user permissions');
+      throw new Error(result.message || 'Failed to set user permissions');
     }
   } catch (error) {
     console.error('Set user permissions error:', error);
@@ -99,7 +98,7 @@ export async function getAvailablePermissions(): Promise<string[]> {
     const result = await client.serverGetAvailablePermissions();
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to get available permissions');
+      throw new Error(result.message || 'Failed to get available permissions');
     }
     
     return result.data!;
@@ -120,7 +119,7 @@ export async function validateUserPermission(userId: string, permission: string)
     const result = await client.serverValidateUserPermission(userId, permission);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to validate user permission');
+      throw new Error(result.message || 'Failed to validate user permission');
     }
     
     return result.data!;
@@ -146,7 +145,7 @@ export async function grantEmbeddedPermission(
     const result = await client.serverGrantEmbeddedPermission(userId, permission, expiresAt, metadata);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to grant embedded permission');
+      throw new Error(result.message || 'Failed to grant embedded permission');
     }
   } catch (error) {
     console.error('Grant embedded permission error:', error);
@@ -165,7 +164,7 @@ export async function getPermissionHealth(): Promise<any> {
     const result = await client.serverGetPermissionHealth();
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to get permission health');
+      throw new Error(result.message || 'Failed to get permission health');
     }
     
     return result.data!;
@@ -194,7 +193,7 @@ export async function refreshUserPermissions(userId?: string): Promise<string[]>
     const result = await client.serverRefreshUserPermissions(userId);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to refresh user permissions');
+      throw new Error(result.message || 'Failed to refresh user permissions');
     }
     
     return result.data!;
@@ -215,7 +214,7 @@ export async function getPermissionAuditLog(userId?: string, limit: number = 50)
     const result = await client.serverGetPermissionAuditLog(userId, limit);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to get permission audit log');
+      throw new Error(result.message || 'Failed to get permission audit log');
     }
     
     return result.data!;

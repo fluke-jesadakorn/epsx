@@ -1,6 +1,9 @@
 'use client';
 import { useEffect } from 'react';
 
+/**
+ *
+ */
 export function ThemeTransition() {
   useEffect(() => {
     // Remove preload class after initial page load to enable transitions

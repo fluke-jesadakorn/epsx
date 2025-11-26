@@ -51,8 +51,8 @@ export async function getAssetInfo(currency: string): Promise<AssetInfo | undefi
   return assets.find(asset => asset.currency === currency)
 }
 
-import type { PaymentStatus } from '@/types/api';
-import { logger, safeError } from '@/lib/utils/logging';
+import type { PaymentStatus } from '../../../../shared/types/api';
+import { logger } from '@/lib/utils/logging';
 
 // Get payment status from backend
 export async function getPaymentStatus(): Promise<PaymentStatus | null> {

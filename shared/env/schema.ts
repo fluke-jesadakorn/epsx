@@ -1,6 +1,7 @@
-// Unified Environment Schema for EPSX Platform
+// Unified Environment Schema for EPSX Platform - WEB3-FIRST ARCHITECTURE
 // Single source of truth for all environment variables across services
-// Created as part of environment refactor to reduce complexity from 80+ to 15 essential vars
+// Phase 4.1: Updated to remove OIDC/Firebase auth vars and add Web3 configuration
+// Reduced from 80+ legacy vars to 12 essential Web3-first variables
 
 import { z } from 'zod';
 
@@ -30,23 +31,26 @@ const getDefaultAdminUrl = () => {
   return undefined; // Force explicit configuration in production
 };
 
-// OAuth Client ID defaults
-const getDefaultFrontendClientId = () => {
-  if (isDev) return 'epsx-frontend';
-  if (isStaging) return 'epsx-frontend-staging';
-  return 'epsx-frontend-prod'; // Sensible default for production
+// Web3 Configuration Defaults
+const getDefaultBlockchainNetwork = () => {
+  if (isDev) return 'testnet';
+  if (isStaging) return 'testnet';
+  return 'mainnet'; // Production uses BSC mainnet
 };
 
-const getDefaultAdminClientId = () => {
-  if (isDev) return 'epsx-admin';
-  if (isStaging) return 'epsx-admin-staging'; 
-  return 'epsx-admin-prod'; // Sensible default for production
+const getDefaultWalletConnectProjectId = () => {
+  if (isDev) return 'epsx-web3-dev';
+  if (isStaging) return 'epsx-web3-staging';
+  return 'epsx-web3-prod'; // Production WalletConnect project
 };
 
 /**
- * Server-Only Environment Variables (15 total)
+ * Server-Only Environment Variables (8 total) - WEB3-FIRST ARCHITECTURE
  * These variables are only available on the server-side and contain sensitive data
  * NEVER expose these to the client-side
+ * 
+ * ⚠️  PHASE 4.1 MIGRATION: Removed OIDC/Firebase auth variables
+ * ✅ Added Web3-specific configuration variables
  */
 export const serverEnvSchema = z.object({
   // Core Infrastructure (4 variables) - Required for all services
@@ -84,48 +88,19 @@ export const serverEnvSchema = z.object({
     })
     .describe('Admin frontend URL for CORS and admin-specific redirects'),
 
-  // Authentication (5 variables) - Critical for security
-  NEXTAUTH_SECRET: z.string()
-    .min(32, 'JWT secret must be at least 32 characters for security')
-    .describe('JWT token signing secret shared across all applications'),
+  // Web3 Authentication (2 variables) - Critical for Web3 security
+  WEB3_APP_SECRET: z.string()
+    .min(32, 'Web3 app secret must be at least 32 characters for cryptographic security')
+    .optional()
+    .default('web3-default-secret-for-development-only-change-in-production')
+    .describe('Web3 application secret for wallet signature validation and session management'),
     
-  OIDC_CLIENT_ID: z.string()
-    .default(getDefaultFrontendClientId())
-    .describe('OIDC client identifier for frontend application authentication'),
-    
-  OIDC_CLIENT_SECRET: z.string()
-    .min(1)
-    .describe('OIDC client secret for secure frontend authentication'),
-    
-  OIDC_ADMIN_CLIENT_ID: z.string()
-    .default(getDefaultAdminClientId())
-    .describe('OIDC client identifier for admin application authentication'),
-    
-  OIDC_ADMIN_CLIENT_SECRET: z.string()
-    .min(1)
-    .describe('OIDC client secret for secure admin authentication'),
+  WALLET_SIGNATURE_SECRET: z.string()
+    .min(32, 'Wallet signature secret must be at least 32 characters for security')
+    .optional()
+    .default('wallet-signature-secret-development-change-in-production')
+    .describe('Secret key for validating and signing wallet-based authentication tokens'),
 
-  // Firebase (3 variables) - Reduced from 15+ variables
-  FIREBASE_PROJECT_ID: z.string()
-    .min(1)
-    .describe('Firebase project identifier for authentication services'),
-    
-  FIREBASE_PRIVATE_KEY: z.string()
-    .refine(key => key.includes('-----BEGIN PRIVATE KEY-----'), {
-      message: 'FIREBASE_PRIVATE_KEY must be a valid private key in PEM format'
-    })
-    .describe('Firebase service account private key for server-side operations'),
-    
-  FIREBASE_CLIENT_EMAIL: z.string()
-    .email()
-    .describe('Firebase service account email for authentication'),
-
-  // Payment (2 variables) - Optional for payment processing
-  MUSEPAY_PARTNER_ID: z.string().optional()
-    .describe('MusePay partner identifier for payment processing integration'),
-    
-  MUSEPAY_PRIVATE_KEY: z.string().optional()
-    .describe('MusePay private key for secure payment transaction signing'),
 
   // Infrastructure (1 variable) - Optional performance optimization
   REDIS_URL: z.string().url().optional()
@@ -185,32 +160,43 @@ export const clientEnvSchema = z.object({
     })
     .describe('Admin frontend URL for client navigation'),
 
-  // Authentication (1 variable)
-  NEXT_PUBLIC_OAUTH_CLIENT_ID: z.string()
-    .default(getDefaultFrontendClientId())
-    .describe('OIDC client identifier exposed to browser'),
-
-  // Firebase Client Configuration (7 variables)
-  NEXT_PUBLIC_FIREBASE_API_KEY: z.string().optional()
-    .describe('Firebase API key for client-side Firebase SDK'),
+  // Web3 Configuration (3 variables)
+  NEXT_PUBLIC_BLOCKCHAIN_NETWORK: z.enum(['mainnet', 'testnet'])
+    .default(getDefaultBlockchainNetwork())
+    .describe('Blockchain network: mainnet (BSC 56) or testnet (BSC 97)'),
     
-  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: z.string().optional()
-    .describe('Firebase auth domain for client-side authentication'),
+  NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: z.string()
+    .default(getDefaultWalletConnectProjectId())
+    .describe('WalletConnect project ID for Web3 wallet connections'),
+    
+  NEXT_PUBLIC_CHAIN_ID: z.string()
+    .optional()
+    .default('97') // BSC Testnet default for development
+    .describe('Blockchain chain ID - automatically determined by network setting'),
+
+  // Payment Configuration (2 variables) - Company wallet addresses for receiving payments
+  NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: z.string()
+    .optional()
+    .default('0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7')
+    .describe('Company wallet address for mainnet payments (BSC mainnet)'),
+
+  NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: z.string()
+    .optional()
+    .default('0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7')
+    .describe('Company wallet address for testnet payments (BSC testnet)'),
+
+  // Firebase Analytics Configuration (4 variables) - Minimal config for frontend analytics only
+  NEXT_PUBLIC_FIREBASE_API_KEY: z.string().optional()
+    .describe('Firebase API key for client-side analytics (frontend only)'),
     
   NEXT_PUBLIC_FIREBASE_PROJECT_ID: z.string().optional()
-    .describe('Firebase project ID for client-side Firebase SDK'),
-    
-  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: z.string().optional()
-    .describe('Firebase storage bucket for client-side file operations'),
-    
-  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: z.string().optional()
-    .describe('Firebase messaging sender ID for push notifications'),
+    .describe('Firebase project ID for client-side analytics (frontend only)'),
     
   NEXT_PUBLIC_FIREBASE_APP_ID: z.string().optional()
-    .describe('Firebase app ID for client-side app identification'),
+    .describe('Firebase app ID for client-side analytics (frontend only)'),
     
   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: z.string().optional()
-    .describe('Firebase measurement ID for analytics tracking')
+    .describe('Firebase measurement ID for analytics tracking (frontend only)')
 });
 
 /**
@@ -257,13 +243,15 @@ export const clientEnv = new Proxy({} as ClientEnv, {
             NEXT_PUBLIC_BACKEND_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BACKEND_URL) || getDefaultBackendUrl(),
             NEXT_PUBLIC_APP_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_APP_URL) || getDefaultFrontendUrl(),
             NEXT_PUBLIC_ADMIN_URL: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_ADMIN_URL) || getDefaultAdminUrl(),
-            NEXT_PUBLIC_OAUTH_CLIENT_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_OAUTH_CLIENT_ID) || getDefaultFrontendClientId(),
-            // Firebase fallbacks - prevent undefined values
+            NEXT_PUBLIC_BLOCKCHAIN_NETWORK: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_BLOCKCHAIN_NETWORK) || getDefaultBlockchainNetwork(),
+            NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID) || getDefaultWalletConnectProjectId(),
+            NEXT_PUBLIC_CHAIN_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_CHAIN_ID) || '97',
+            // Payment addresses
+            NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS) || '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7',
+            NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS) || '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7',
+            // Firebase Analytics fallbacks - minimal config (frontend only)
             NEXT_PUBLIC_FIREBASE_API_KEY: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_API_KEY) || undefined,
-            NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN) || undefined,
             NEXT_PUBLIC_FIREBASE_PROJECT_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_PROJECT_ID) || undefined,
-            NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET) || undefined,
-            NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID) || undefined,
             NEXT_PUBLIC_FIREBASE_APP_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_APP_ID) || undefined,
             NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID) || undefined
           } as ClientEnv;
@@ -274,7 +262,11 @@ export const clientEnv = new Proxy({} as ClientEnv, {
             NEXT_PUBLIC_BACKEND_URL: getDefaultBackendUrl() || 'http://localhost:8080',
             NEXT_PUBLIC_APP_URL: getDefaultFrontendUrl() || 'http://localhost:3000',
             NEXT_PUBLIC_ADMIN_URL: getDefaultAdminUrl() || 'http://localhost:3001',
-            NEXT_PUBLIC_OAUTH_CLIENT_ID: getDefaultFrontendClientId()
+            NEXT_PUBLIC_BLOCKCHAIN_NETWORK: getDefaultBlockchainNetwork(),
+            NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: getDefaultWalletConnectProjectId(),
+            NEXT_PUBLIC_CHAIN_ID: '97', // BSC Testnet default
+            NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS: '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7',
+            NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS: '0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7'
           } as ClientEnv;
         }
       }
@@ -297,28 +289,30 @@ export const env = {
   get ADMIN_URL() {
     return clientEnv.NEXT_PUBLIC_ADMIN_URL;
   },
-  get CLIENT_ID() {
-    return clientEnv.NEXT_PUBLIC_OAUTH_CLIENT_ID;
+  get BLOCKCHAIN_NETWORK() {
+    return clientEnv.NEXT_PUBLIC_BLOCKCHAIN_NETWORK;
   },
-  get ADMIN_CLIENT_ID() {
-    return serverEnv.OIDC_ADMIN_CLIENT_ID;
+  get WALLETCONNECT_PROJECT_ID() {
+    return clientEnv.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
   },
-  
-  // Firebase Configuration
+  get CHAIN_ID() {
+    return clientEnv.NEXT_PUBLIC_CHAIN_ID;
+  },
+
+  // Payment Configuration - Company wallet addresses
+  get PAYMENT_MAINNET_ADDRESS() {
+    return clientEnv.NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS;
+  },
+  get PAYMENT_TESTNET_ADDRESS() {
+    return clientEnv.NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS;
+  },
+
+  // Firebase Analytics Configuration (minimal - frontend only)
   get FIREBASE_API_KEY() {
     return clientEnv.NEXT_PUBLIC_FIREBASE_API_KEY;
   },
-  get FIREBASE_AUTH_DOMAIN() {
-    return clientEnv.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
-  },
   get FIREBASE_PROJECT_ID() {
     return clientEnv.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  },
-  get FIREBASE_STORAGE_BUCKET() {
-    return clientEnv.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
-  },
-  get FIREBASE_MESSAGING_SENDER_ID() {
-    return clientEnv.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID;
   },
   get FIREBASE_APP_ID() {
     return clientEnv.NEXT_PUBLIC_FIREBASE_APP_ID;
@@ -338,55 +332,26 @@ export const env = {
     return serverEnv.DATABASE_URL;
   },
   
-  get JWT_SECRET() {
+  get WEB3_APP_SECRET() {
     if (!isServer) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('NEXTAUTH_SECRET is server-only - returning undefined for client');
+        console.warn('WEB3_APP_SECRET is server-only - returning undefined for client');
       }
       return undefined;
     }
-    return serverEnv.NEXTAUTH_SECRET;
+    return serverEnv.WEB3_APP_SECRET;
   },
   
-  get OIDC_CLIENT_SECRET() {
+  get WALLET_SIGNATURE_SECRET() {
     if (!isServer) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn('OIDC_CLIENT_SECRET is server-only - returning undefined for client');
+        console.warn('WALLET_SIGNATURE_SECRET is server-only - returning undefined for client');
       }
       return undefined;
     }
-    return serverEnv.OIDC_CLIENT_SECRET;
+    return serverEnv.WALLET_SIGNATURE_SECRET;
   },
   
-  get OIDC_ADMIN_CLIENT_SECRET() {
-    if (!isServer) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('OIDC_ADMIN_CLIENT_SECRET is server-only - returning undefined for client');
-      }
-      return undefined;
-    }
-    return serverEnv.OIDC_ADMIN_CLIENT_SECRET;
-  },
-  
-  get FIREBASE_PRIVATE_KEY() {
-    if (!isServer) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('FIREBASE_PRIVATE_KEY is server-only - returning undefined for client');
-      }
-      return undefined;
-    }
-    return serverEnv.FIREBASE_PRIVATE_KEY;
-  },
-  
-  get FIREBASE_CLIENT_EMAIL() {
-    if (!isServer) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('FIREBASE_CLIENT_EMAIL is server-only - returning undefined for client');
-      }
-      return undefined;
-    }
-    return serverEnv.FIREBASE_CLIENT_EMAIL;
-  },
   
   get REDIS_URL() {
     if (!isServer) {
@@ -408,10 +373,9 @@ export const env = {
 export { urls, getBackendUrl, getFrontendUrl, getAdminUrl, oidcUrls, callbackUrls, apiUrls } from '../utils/url-resolver';
 
 /**
- * @deprecated Legacy URL helpers - use imported functions from url-resolver instead
- * These are kept for backward compatibility during migration
+ * Web3 URL helpers for wallet authentication
  */
-export const legacyUrls = {
+export const web3Urls = {
   get backend() {
     return env.BACKEND_URL;
   },
@@ -422,29 +386,29 @@ export const legacyUrls = {
     return env.ADMIN_URL;
   },
   
-  // OIDC endpoints
-  oauth: {
-    get authorize() {
-      return `${env.BACKEND_URL}/oauth/authorize`;
+  // Web3 authentication endpoints
+  auth: {
+    get challenge() {
+      return `${env.BACKEND_URL}/api/v1/auth/web3/challenge`;
     },
-    get token() {
-      return `${env.BACKEND_URL}/oauth/token`;
+    get verify() {
+      return `${env.BACKEND_URL}/api/v1/auth/web3/verify`;
     },
-    get userinfo() {
-      return `${env.BACKEND_URL}/oauth/userinfo`;
+    get permissions() {
+      return `${env.BACKEND_URL}/api/v1/auth/web3/permissions`;
     },
-    get jwks() {
-      return `${env.BACKEND_URL}/oauth/jwks`;
+    get logout() {
+      return `${env.BACKEND_URL}/api/v1/auth/web3/logout`;
     }
   },
   
-  // Callback URLs
+  // Wallet authentication callbacks
   callbacks: {
     get frontend() {
-      return `${env.APP_URL}/api/auth/callback/epsx-backend`;
+      return `${env.APP_URL}/api/v1/auth/web3/verify`;
     },
     get admin() {
-      return `${env.ADMIN_URL}/api/auth/callback/epsx-backend`;
+      return `${env.ADMIN_URL}/api/v1/auth/web3/verify`;
     }
   }
 };
@@ -455,12 +419,14 @@ export const legacyUrls = {
  */
 export function logEnvironmentDebugInfo() {
   if (typeof window !== 'undefined' && isDev) {
-    console.log('✅ EPSX Environment Schema Loaded');
+    console.log('✅ EPSX Environment Schema Loaded (Web3-First)');
     console.log('🔧 Client Environment Variables:', {
       BACKEND_URL: env.BACKEND_URL,
       APP_URL: env.APP_URL,
       ADMIN_URL: env.ADMIN_URL,
-      CLIENT_ID: env.CLIENT_ID
+      BLOCKCHAIN_NETWORK: env.BLOCKCHAIN_NETWORK,
+      WALLETCONNECT_PROJECT_ID: env.WALLETCONNECT_PROJECT_ID,
+      CHAIN_ID: env.CHAIN_ID
     });
   }
 }

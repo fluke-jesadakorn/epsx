@@ -27,7 +27,7 @@ export function UnifiedThemeToggle({
   size = 'md',
   className
 }: UnifiedThemeToggleProps) {
-  const { theme, setTheme } = useTheme();
+  const { theme, resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -82,7 +82,7 @@ export function UnifiedThemeToggle({
   const sizeStyle = sizes[size];
 
   const getIcon = () => {
-    const isDark = theme === 'dark';
+    const isDark = (resolvedTheme ?? theme) === 'dark';
     
     switch (iconType) {
       case 'emoji':
@@ -119,14 +119,14 @@ export function UnifiedThemeToggle({
     if (!showLabel) return null;
     return (
       <span className={cn(sizeStyle.text, 'hidden sm:inline font-medium')}>
-        {theme === 'dark' ? 'Light' : 'Dark'}
+        {(resolvedTheme ?? theme) === 'dark' ? 'Light' : 'Dark'}
       </span>
     );
   };
 
   const buttonContent = (
     <button
-      onClick={mounted ? () => setTheme(theme === 'light' ? 'dark' : 'light') : undefined}
+      onClick={mounted ? () => setTheme((resolvedTheme ?? theme) === 'light' ? 'dark' : 'light') : undefined}
       disabled={!mounted}
       className={cn(
         'relative rounded-2xl font-semibold flex items-center justify-center gap-2',
@@ -136,7 +136,7 @@ export function UnifiedThemeToggle({
         'transition-all duration-200',
         className
       )}
-      aria-label={mounted ? `Switch to ${theme === 'light' ? 'dark' : 'light'} theme` : 'Toggle theme (loading)'}
+      aria-label={mounted ? `Switch to ${(resolvedTheme ?? theme) === 'light' ? 'dark' : 'light'} theme` : 'Toggle theme (loading)'}
     >
       {getIcon()}
       {getLabel()}

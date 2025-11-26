@@ -1,10 +1,11 @@
-use crate::domain::shared_kernel::value_objects::{UserId, SessionId};
+use crate::domain::shared_kernel::value_objects::SessionId;
+use crate::domain::wallet_management::value_objects::WalletAddress;
 use uuid::Uuid;
 use std::str::FromStr;
 use sha2::{Sha256, Digest};
 
-use crate::domain::shared_kernel::DomainResult;
-use crate::domain::user_management::{
+use crate::core::errors::AppResult;
+use crate::domain::wallet_management::{
     Session
 };
 use crate::infrastructure::adapters::repositories::database_types::{Session as DbSession, NewSession as NewDbSession, UpdateSession as UpdateDbSession, IpAddr as DbIpAddr};
@@ -38,31 +39,31 @@ impl SessionMapper {
     }
     
     /// Convert database model to domain aggregate
-    pub fn to_domain(db_session: DbSession) -> DomainResult<Session> {
+    pub fn to_domain(db_session: DbSession) -> AppResult<Session> {
         let session_id = SessionId::from_string(db_session.id.to_string());
-        let user_id = UserId::from_string(db_session.user_id.to_string())?;
-        
+        let wallet_address = WalletAddress::new(db_session.wallet_address.to_string())?;
+
         // Create session from existing data using new schema fields
-        let session = Session::load(
-            session_id,
-            user_id,
-            db_session.access_token,
-            db_session.session_token, // This can be refresh_token
-            db_session.created_at,
-            db_session.created_at, // updated_at (using created_at as proxy)
-            db_session.expires_at,
-            db_session.created_at, // last_accessed_at (using created_at as proxy)
-            db_session.ip_address.map(|ip| ip.0.to_string()),
-            db_session.user_agent,
-            !db_session.is_active, // is_revoked is opposite of is_active
-            1, // version
-        );
-        
+        let session = Session::load(crate::domain::wallet_management::aggregates::session::SessionLoadParams {
+            id: session_id,
+            wallet_address,
+            access_token: db_session.access_token,
+            refresh_token: db_session.session_token, // This can be refresh_token
+            created_at: db_session.created_at,
+            updated_at: db_session.created_at, // updated_at (using created_at as proxy)
+            expires_at: db_session.expires_at,
+            last_accessed_at: db_session.created_at, // last_accessed_at (using created_at as proxy)
+            ip_address: db_session.ip_address.map(|ip| ip.0.to_string()),
+            user_agent: db_session.user_agent,
+            is_revoked: !db_session.is_active, // is_revoked is opposite of is_active
+            version: 1, // version
+        });
+
         Ok(session)
     }
     
     /// Convert domain aggregate to new database model
-    pub fn to_new_diesel(session: &Session) -> DomainResult<NewDbSession> {
+    pub fn to_new_db(session: &Session) -> AppResult<NewDbSession> {
         let session_uuid = Self::session_id_to_uuid(&session.id().to_string());
         let user_uuid = Self::session_id_to_uuid(&session.user_id().to_string());
         
@@ -70,8 +71,8 @@ impl SessionMapper {
         let ip_address = match session.ip_address() {
             Some(ip_str) if !ip_str.is_empty() => {
                 // Validate the IP address format, but store as String
-                let _: std::net::IpAddr = ip_str.parse().map_err(|e| crate::domain::shared_kernel::DomainError::validation_error(
-                        "ip_address", &format!("Invalid IP address: {}", e)
+                let _: std::net::IpAddr = ip_str.parse().map_err(|e| crate::core::errors::AppError::validation_error(
+                        format!("Invalid IP address for ip_address: {}", e)
                     ))?;
                 Some(DbIpAddr(ip_str.to_string()))
             }
@@ -80,7 +81,7 @@ impl SessionMapper {
         
         Ok(NewDbSession {
             id: session_uuid,
-            user_id: user_uuid,
+            wallet_address: user_uuid,
             access_token: session.access_token().to_string(),
             expires_at: session.expires_at(),
             provider: Some("oauth".to_string()),
@@ -92,7 +93,7 @@ impl SessionMapper {
     }
     
     /// Convert domain aggregate to update database model
-    pub fn to_update_diesel(session: &Session) -> UpdateDbSession {
+    pub fn to_update_db(session: &Session) -> UpdateDbSession {
         UpdateDbSession {
             access_token: Some(session.access_token().to_string()),
             expires_at: Some(session.expires_at()),

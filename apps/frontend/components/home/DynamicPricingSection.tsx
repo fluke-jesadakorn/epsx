@@ -58,13 +58,19 @@ const DynamicPricingSection = () => {
     const refCode = searchParams.get('ref') || searchParams.get('affiliate') || searchParams.get('aff');
     if (refCode) {
       setAffiliateCode(refCode);
-      // Store in localStorage for persistence
-      localStorage.setItem('affiliateCode', refCode);
+      // Store in cookie for persistence
+      document.cookie = `affiliate_code=${encodeURIComponent(refCode)}; path=/; max-age=2592000; SameSite=lax`; // 30 days
     } else {
-      // Check localStorage for existing affiliate code
-      const storedCode = localStorage.getItem('affiliateCode');
+      // Check cookies for existing affiliate code, fallback to localStorage for migration
+      const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+        const [key, value] = cookie.trim().split('=');
+        if (key && value) acc[key] = value;
+        return acc;
+      }, {} as Record<string, string>);
+      
+      const storedCode = cookies.affiliate_code || localStorage.getItem('affiliateCode');
       if (storedCode) {
-        setAffiliateCode(storedCode);
+        setAffiliateCode(decodeURIComponent(storedCode));
       }
     }
   }, [searchParams]);
@@ -74,64 +80,99 @@ const DynamicPricingSection = () => {
     const fetchPlans = async () => {
       try {
         setLoading(true);
-        
+
         // Build API URL with affiliate tracking
         const baseUrl = env.BACKEND_URL;
-        let apiUrl = `${baseUrl}/api/v1/plans`;
-        
+        let apiUrl = `${baseUrl}/api/v1/public/plans`;
+
         // Add affiliate code if available
         if (affiliateCode) {
           apiUrl += `?affiliate_code=${encodeURIComponent(affiliateCode)}`;
         }
 
-        const response = await fetch(apiUrl);
-        
+        console.log('[DynamicPricing] Fetching plans from:', apiUrl);
+
+        const response = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+        });
+
+        console.log('[DynamicPricing] Response status:', response.status);
+
         if (!response.ok) {
-          throw new Error('Failed to fetch plans');
+          const errorText = await response.text();
+          console.error('[DynamicPricing] Failed to fetch plans:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText
+          });
+          throw new Error(`Failed to fetch plans: ${response.status} ${response.statusText}`);
         }
-        
+
         const result = await response.json();
-        
-        if (result.success && result.data) {
-          const planData = result.data.map((item: any) => ({
-            ...item.plan,
-            planType: item.plan.plan_type,
-            basePrice: parseFloat(item.plan.base_price),
-            currentPrice: parseFloat(item.plan.current_price),
-            effectivePrice: parseFloat(item.effective_price),
-            displayOrder: item.plan.display_order,
-            isActive: item.plan.is_active,
-            isHighlighted: item.plan.is_highlighted,
-            features: Array.isArray(item.plan.features) ? item.plan.features : [],
-            activePromotions: item.active_promotions || [],
-            promotionalBadges: item.promotional_badges || [],
-            campaignSummary: item.campaign_summary,
-            affiliateCommissionRate: parseFloat(item.plan.affiliate_commission_rate || '0')
-          }));
-          
+        console.log('[DynamicPricing] Plans received:', result);
+
+        if (result.success && result.data && Array.isArray(result.data)) {
+          const planData = result.data
+            .map((item: any) => ({
+              id: item.id,
+              name: item.name,
+              planType: item.plan_type,
+              basePrice: parseFloat(item.current_price) || 0,
+              currentPrice: parseFloat(item.current_price) || 0,
+              effectivePrice: parseFloat(item.current_price) || 0,
+              currency: item.currency || 'USD',
+              displayOrder: item.display_order || 0,
+              isActive: item.is_active,
+              isHighlighted: item.is_highlighted || item.is_promoted || false,
+              features: Array.isArray(item.features) ? item.features : [],
+              activePromotions: [],
+              promotionalBadges: [],
+              campaignSummary: item.description,
+              affiliateCommissionRate: 0
+            }));
+
           // Separate personal and API plans
           const personal = planData
-            .filter(plan => plan.planType === 'personal' && plan.isActive)
-            .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+            .filter((plan: any) => plan.isActive)
+            .filter((plan: any) => {
+              const type = plan.planType?.toLowerCase();
+              return !type || !type.includes('api');
+            })
+            .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
             .map(transformToPricingCard);
-            
+
           const api = planData
-            .filter(plan => plan.planType === 'api' && plan.isActive)
-            .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+            .filter((plan: any) => plan.isActive)
+            .filter((plan: any) => {
+              const type = plan.planType?.toLowerCase();
+              return type && type.includes('api');
+            })
+            .sort((a: any, b: any) => (a.displayOrder || 0) - (b.displayOrder || 0))
             .map(transformToPricingCard);
-          
+
           setPersonalPlans(personal);
           setApiPlans(api);
 
-          // If affiliate code provided, try to fetch affiliate info
-          if (affiliateCode && planData.length > 0) {
-            fetchAffiliateInfo(affiliateCode);
-          }
+          console.log('[DynamicPricing] Plans loaded from API:', {
+            total: planData.length,
+            personal: personal.length,
+            api: api.length
+          });
+
+          // TODO: Implement affiliate info fetching when backend endpoint is available
+          // if (affiliateCode && planData.length > 0) {
+          //   fetchAffiliateInfo(affiliateCode);
+          // }
+        } else {
+          throw new Error('No valid plan data received');
         }
       } catch (error) {
-        console.error('Error fetching dynamic plans:', error);
-        // Fallback to static plans if API fails
-        loadFallbackPlans();
+        console.error('[DynamicPricing] Error fetching plans:', error);
+        setPersonalPlans([]);
+        setApiPlans([]);
       } finally {
         setLoading(false);
       }
@@ -144,7 +185,7 @@ const DynamicPricingSection = () => {
   const fetchAffiliateInfo = async (code: string) => {
     try {
       const baseUrl = env.BACKEND_URL;
-      const response = await fetch(`${baseUrl}/api/v1/plans/calculate-price/1?affiliate_code=${code}`);
+      const response = await fetch(`${baseUrl}/api/v1/public/plans/calculate-price/1?affiliate_code=${code}`);
       
       if (response.ok) {
         const result = await response.json();
@@ -167,8 +208,8 @@ const DynamicPricingSection = () => {
     return {
       id: plan.id,
       title: plan.name,
-      price: `${plan.effectivePrice} ${plan.currency}`,
-      originalPrice: hasDiscount ? `${plan.basePrice} ${plan.currency}` : undefined,
+      price: `$${plan.effectivePrice.toFixed(2)} ${plan.currency}`,
+      originalPrice: hasDiscount ? `$${plan.basePrice.toFixed(2)} ${plan.currency}` : undefined,
       features: plan.features.map(feature => ({ text: feature, included: true })),
       highlight: plan.isHighlighted,
       buttonText: plan.effectivePrice === 0 ? 'Start Free' : 'Get Started',
@@ -179,60 +220,6 @@ const DynamicPricingSection = () => {
     };
   };
 
-  // Fallback to static plans if API is unavailable
-  const loadFallbackPlans = () => {
-    const fallbackPersonal: DynamicPricingCard[] = [
-      {
-        id: 1,
-        title: 'Basic Plan',
-        price: '19.99 USD',
-        features: [
-          { text: 'Basic Analytics', included: true },
-          { text: 'Email Support', included: true },
-          { text: '5 Ranking Limit', included: true },
-        ],
-        buttonText: 'Get Started',
-        promotions: [],
-        badges: [],
-      },
-      {
-        id: 2,
-        title: 'Professional Plan',
-        price: '49.99 USD',
-        originalPrice: '59.99 USD',
-        features: [
-          { text: 'Advanced Analytics', included: true },
-          { text: 'Priority Support', included: true },
-          { text: '50 Ranking Limit', included: true },
-          { text: 'Custom Reports', included: true },
-        ],
-        highlight: true,
-        buttonText: 'Most Popular',
-        promotions: ['Limited Time Offer'],
-        badges: ['POPULAR'],
-        savings: 'Save USD 10.00',
-      },
-    ];
-
-    const fallbackApi: DynamicPricingCard[] = [
-      {
-        id: 3,
-        title: 'API Starter',
-        price: '99.99 USD',
-        features: [
-          { text: '1000 API calls/month', included: true },
-          { text: 'Basic endpoints', included: true },
-          { text: 'Documentation access', included: true },
-        ],
-        buttonText: 'Get Started',
-        promotions: [],
-        badges: [],
-      },
-    ];
-
-    setPersonalPlans(fallbackPersonal);
-    setApiPlans(fallbackApi);
-  };
 
   const handlePlanClick = (plan: DynamicPricingCard) => {
     // Build payment URL with affiliate tracking
@@ -284,36 +271,36 @@ const DynamicPricingSection = () => {
           {/* Card Content - Normal padding */}
           <div className="relative px-6 sm:px-8 pt-6 sm:pt-8 pb-6 sm:pb-8 flex flex-col h-full">
             {/* Enhanced Title Section - Exact height for perfect alignment */}
-            <div className="mb-4 h-[160px] flex flex-col">
-              <div className={`${card.highlight ? 'h-[80px]' : 'h-[40px]'} flex flex-col justify-start mb-2`}>
-                <h3 className={`text-xl sm:text-2xl font-bold leading-tight ${
-                  card.highlight 
-                    ? 'bg-gradient-to-r from-orange-600 to-yellow-600 bg-clip-text text-transparent' 
+            <div className="mb-4 h-[160px] flex flex-col items-center text-center">
+              <div className={`${card.highlight ? 'h-[80px]' : 'h-[40px]'} flex flex-col justify-start items-center mb-2`}>
+                <h3 className={`text-xl sm:text-2xl font-bold leading-tight whitespace-nowrap ${
+                  card.highlight
+                    ? 'bg-gradient-to-r from-orange-600 to-yellow-600 bg-clip-text text-transparent'
                     : 'text-foreground'
                 } uppercase`}>
                   {card.title}
                 </h3>
                 {card.highlight && (
-                  <div className="mt-2 inline-flex">
+                  <div className="mt-2">
                     <div className="bg-gradient-to-r from-orange-500 to-yellow-500 text-white px-3 py-1 rounded-full text-xs font-bold tracking-wide border-2 border-orange-300/50 shadow-lg shadow-orange-500/30">
                       ⭐ MOST POPULAR ⭐
                     </div>
                   </div>
                 )}
               </div>
-              
+
               {/* Enhanced Price Display - Exact height for perfect alignment */}
-              <div className={`${card.highlight ? 'h-[58px]' : 'h-[78px]'} flex flex-col justify-center`}>
-                <div className="flex items-baseline gap-3">
-                  <span className={`text-4xl sm:text-5xl font-bold leading-none ${
-                    card.highlight 
+              <div className={`${card.highlight ? 'h-[58px]' : 'h-[78px]'} flex flex-col justify-center items-center`}>
+                <div className="flex items-baseline gap-3 flex-wrap justify-center">
+                  <span className={`text-4xl sm:text-5xl font-bold leading-none whitespace-nowrap ${
+                    card.highlight
                       ? 'bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent'
                       : 'insight-gradient-text'
                   }`}>
                     {card.price}
                   </span>
                   {card.originalPrice && (
-                    <span className="text-lg text-gray-400 line-through decoration-2">
+                    <span className="text-lg text-gray-400 line-through decoration-2 whitespace-nowrap">
                       {card.originalPrice}
                     </span>
                   )}

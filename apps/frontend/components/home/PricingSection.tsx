@@ -2,8 +2,7 @@
 
 import { Check, Sparkles } from 'lucide-react';
 import React from 'react';
-import { PACKAGES, LEVEL_BENEFITS } from '@/app/constants/packages';
-import type { Package } from '@/app/constants/packages';
+import { PACKAGES } from '@/app/constants/packages';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 
@@ -67,21 +66,21 @@ const apiPlans: ApiPlan[] = [
   },
 ];
 
-const packageToPricingCard = (pkg: Package): PricingCard => ({
+const packageToPricingCard = (pkg: any): PricingCard => ({
   title: pkg.name,
   price: `${pkg.price} ${pkg.currency}`,
-  features: LEVEL_BENEFITS[pkg.level].map((benefit) => ({
-    text: benefit,
+  features: pkg.features.map((feature: string) => ({
+    text: feature,
     included: true,
   })),
-  highlight: pkg.level === 'GOLD',
+  highlight: pkg.displayTier === 'GOLD',
   buttonText: pkg.price === 0 ? 'Start Trial' : 'Subscribe Now',
   buttonVariant: pkg.price === 0 ? 'outline' : 'default',
 });
 
 const PricingSection = () => {
   const personalPlans = PACKAGES.filter((pkg) =>
-    ['BRONZE', 'SILVER', 'GOLD', 'DIAMOND', 'VIP'].includes(pkg.level),
+    ['BRONZE', 'SILVER', 'GOLD', 'PLATINUM', 'ENTERPRISE'].includes(pkg.displayTier),
   ).map(packageToPricingCard);
 
 

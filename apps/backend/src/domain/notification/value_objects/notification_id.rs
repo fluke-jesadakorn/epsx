@@ -31,6 +31,11 @@ impl NotificationId {
     pub fn as_str(&self) -> String {
         self.id.to_string()
     }
+
+    /// Create from string (convenience method)
+    pub fn from_string(s: String) -> Self {
+        Self::try_from(s).unwrap_or_else(|_| Self::new())
+    }
 }
 
 impl Default for NotificationId {
@@ -87,7 +92,7 @@ mod tests {
         let id2 = NotificationId::new();
         
         assert_ne!(id1, id2);
-        assert_eq!(id1.value().version(), Some(uuid::Version::Random));
+        assert_eq!(id1.value().get_version(), Some(uuid::Version::Random));
     }
 
     #[test]

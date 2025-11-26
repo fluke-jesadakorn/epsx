@@ -2,7 +2,7 @@
 export * from './card'
 export * from './button'
 export * from './badge'
-export * from './tabs'
+export * from './Tabs'
 export * from './alert'
 export * from './dialog'
 export * from './input'
@@ -10,12 +10,12 @@ export * from './select'
 export * from './switch'
 export * from './checkbox'
 export * from './table'
-export * from './form-components'
+export * from './FormComponents'
 export * from './separator'
 export * from './progress'
 export * from './skeleton'
 export * from './toast'
-export * from './use-toast'
+// export * from './use-toast' // Commented out to avoid conflicts
 
 // Admin-specific components
 export * from './PancakeCard'

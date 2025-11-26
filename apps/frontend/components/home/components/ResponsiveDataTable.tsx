@@ -55,8 +55,8 @@ export function ResponsiveDataTable({ data, className = '' }: ResponsiveDataTabl
         bValue = b.symbol;
         break;
       case 'price':
-        aValue = a.price || 0;
-        bValue = b.price || 0;
+        aValue = a.currentPrice || 0;
+        bValue = b.currentPrice || 0;
         break;
       case 'eps':
         aValue = a.quarters?.[0]?.eps || 0;
@@ -249,7 +249,7 @@ export function ResponsiveDataTable({ data, className = '' }: ResponsiveDataTabl
                     <span className="font-semibold">{item.symbol}</span>
                   </div>
                   <span className="font-bold text-primary">
-                    {item.price ? formatPrice(item.price) : 'N/A'}
+                    {item.currentPrice ? formatPrice(item.currentPrice) : 'N/A'}
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-4 text-sm">
@@ -334,7 +334,7 @@ export function ResponsiveDataTable({ data, className = '' }: ResponsiveDataTabl
                       {item.symbol}
                     </TableCell>
                     <TableCell className="text-right font-semibold">
-                      {item.price ? formatPrice(item.price) : 'N/A'}
+                      {item.currentPrice ? formatPrice(item.currentPrice) : 'N/A'}
                     </TableCell>
                     <TableCell className="text-right">
                       {item.quarters?.[0]?.eps?.toFixed(4) || 'N/A'}

@@ -23,7 +23,38 @@ export {
   SelectScrollDownButton,
 } from './select';
 export { Collapsible, CollapsibleTrigger, CollapsibleContent } from './collapsible';
-export { Tabs, TabsList, TabsTrigger, TabsContent } from './tabs';
+export { Tabs, TabsList, TabsTrigger, TabsContent } from './Tabs';
+
+// Navigation and overlay components
+export {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuCheckboxItem,
+  DropdownMenuRadioItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuGroup,
+  DropdownMenuPortal,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuRadioGroup,
+} from './dropdown-menu';
+export {
+  Sheet,
+  SheetPortal,
+  SheetOverlay,
+  SheetTrigger,
+  SheetClose,
+  SheetContent,
+  SheetHeader,
+  SheetFooter,
+  SheetTitle,
+  SheetDescription,
+} from './sheet';
 
 // Form components
 export {
@@ -97,14 +128,3 @@ export {
   ProfessionalNotification,
   ProfessionalAlert
 } from './UnifiedNotification';
-
-// Additional specialized components
-export { WindowsPhoneTile } from './WindowsPhoneTile';
-export { 
-  ProfessionalTile, 
-  ProfessionalDashboard,
-  AnalyticsTile,
-  PremiumTile,
-  ProfessionalStatsTile,
-  ProfessionalActionTile
-} from './ProfessionalTile';

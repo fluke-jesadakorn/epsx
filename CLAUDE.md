@@ -8,37 +8,39 @@ EPSX is a production analytics platform with modern architecture:
 
 - **Frontend** (Port 3000): Next.js 15.5.0 + React 19.1.0 analytics dashboard
 - **Admin Frontend** (Port 3001): Administrative dashboard with OIDC authentication
-- **Backend** (Port 8080): Rust API server with Diesel ORM and OIDC Bearer token validation
+- **Backend** (Port 8080): Rust API server with SQLx and OIDC Bearer token validation
 
 ## Major Completed Migrations
 
-### ✅ Complete OIDC Migration (100% Complete)
+### ✅ Complete Web3-First Authentication Migration (100% Complete)
 
-The EPSX platform has successfully completed comprehensive OIDC migration:
+The EPSX platform has successfully completed comprehensive Web3-first authentication migration:
 
-**Authentication System:**
-- **OIDC Compliant**: OpenID Connect standard with Bearer token authentication  
-- **RS256 JWT**: RSA public key validation for production security
-- **Firebase Integration**: Hybrid Firebase + OIDC token exchange
-- **HttpOnly Cookies**: Secure OIDC token storage (access_token, id_token, refresh_token)
-- **PKCE Flow**: Proof Key for Code Exchange for OAuth security
+**Web3 Authentication System:**
+- **SIWE Compliant**: Sign-In with Ethereum standard for wallet authentication
+- **Wallet-First**: No email/password authentication - wallets only
+- **Multi-Chain Support**: BSC mainnet (56) and testnet (97) compatibility  
+- **Session Management**: Secure Web3 session tokens with proper expiry
+- **Challenge/Verify Flow**: Cryptographic signature-based authentication
 
 **Backend (Rust):**
-- **Bearer Token API**: Pure Bearer token validation with no cookie dependencies
-- **RS256 Validation**: RSA public key JWT verification
-- **OIDC Endpoints**: `/oauth/authorize`, `/oauth/token`, `/oauth/userinfo`
-- **Diesel ORM**: Complete PostgreSQL integration with type safety
+- **Unified Web3 Services**: UnifiedWeb3AuthService and UnifiedWeb3PermissionService
+- **Bearer Token API**: Web3 session tokens for API authentication
+- **Permission Groups**: Backend-driven permission validation and group management
+- **Multi-Chain Permission Service**: Cross-chain wallet permission handling
+- **SQLx**: Complete PostgreSQL integration with wallet-based user management
 
 **Frontend Applications:**
-- **Hybrid Data Strategy**: Client-side initial load + Server Actions post-hydration
-- **OIDC Cookie Management**: Standard access_token/id_token/refresh_token cookies
-- **Server Component Auth**: Proper SSR with OIDC token validation
+- **Web3AuthProvider**: Complete wallet-first authentication for users
+- **WAGMI Integration**: Modern Web3 wallet connectivity with RainbowKit
+- **Error-Only Permissions**: Backend handles validation, frontend shows errors only
+- **Challenge/Verify Flow**: Secure SIWE signature authentication
 
 **Admin Frontend:**
-- **OIDC Authentication**: Complete migration from legacy JWT to OIDC tokens
-- **Admin Permissions**: Structured admin:*:* permission validation
-- **Session Management**: OIDC token refresh and validation
-- **Zero Animation Policy**: Complete adherence to no animation/transition rules
+- **AdminWeb3AuthProvider**: Admin-specific wallet authentication with permission verification
+- **Wallet Management UI**: Complete interface for managing wallet users and permissions
+- **Group Assignment**: Permission group management through admin interface
+- **Admin Session Security**: Enhanced security for administrative wallet access
 
 ### ✅ Structured Permissions System (100% Complete)
 
@@ -47,13 +49,13 @@ Migrated from legacy admin_modules to structured permissions:
 - **Multi-Platform**: epsx:*, admin:*, epsx-pay:*, epsx-token:* scoping
 - **Performance**: 50% faster queries with GIN indexes
 
-### ✅ Diesel ORM Migration (100% Complete)
+### ✅ SQLx Database Layer (100% Complete)
 
-Complete migration from SQLx to Diesel ORM:
-- **Type Safety**: Compile-time SQL validation
-- **Performance**: bb8 connection pooling
-- **Schema Management**: Automated migrations
-- **Repository Pattern**: Clean architecture implementation
+Native async PostgreSQL integration with SQLx:
+- **Type Safety**: Compile-time SQL validation with macro-based queries
+- **Performance**: Built-in connection pooling optimized for async workloads
+- **Schema Management**: Automated migrations with sqlx-migrate
+- **Repository Pattern**: Clean architecture implementation with async/await
 
 ### ✅ Embedded Timestamp Permissions System (100% Complete)
 
@@ -75,11 +77,68 @@ Complete transformation to local Docker builds with Cloud Run deployment:
 - **Development Workflow**: Build → Test locally → Push → Deploy
 - **Platform Optimized**: Linux/amd64 builds for Cloud Run compatibility
 
+### ✅ Standardized RESTful API Routing System (100% Complete)
+
+Complete transformation to standardized `/api/v1/` routing convention across all EPSX applications:
+
+**Centralized Route Constants:**
+- **Single Source of Truth**: All routes defined in `/shared/config/route-constants.ts`
+- **Type Safety**: TypeScript route constants with compile-time validation
+- **Version Control**: Consistent `/api/v1/` prefix for all backend endpoints
+- **RESTful Convention**: Standard `{resource}/{action}` pattern throughout
+
+**Backend API Structure:**
+```
+/api/v1/public/*          # Public endpoints (no auth required)
+/api/v1/auth/*           # Web3 authentication (SIWE challenge/verify)
+/api/v1/users/*          # User management (profile, watchlist, alerts)
+/api/v1/analytics/*      # Analytics data and market insights
+/api/v1/notifications/* # Real-time notifications and preferences
+/api/v1/admin/*          # Admin-only endpoints (requires permissions)
+/api/v1/permissions/*    # Permission authority (ALL applications use this)
+/api/v1/plans/*          # Subscription and billing management
+```
+
+**Frontend Route Alignment:**
+- **Direct Mapping**: Frontend routes align with backend endpoints without conflicts
+- **Consistent Naming**: Lowercase route names match backend patterns
+- **No Conflicts**: Eliminated duplicate `/analytics` routes between frontend and backend
+- **Server-Side API**: Optional `/app/api/` for Next.js server-side proxy routes
+
+**Admin Frontend Structure:**
+```
+/auth                    # Admin authentication
+/admin/users            # User management
+/admin/permissions      # Permission management
+/admin/wallets          # Wallet management
+/admin/analytics        # Admin analytics
+/admin/system           # System monitoring
+/admin/plans            # Plan management
+/admin/notifications    # Notification management
+```
+
+**Route Constant Examples:**
+```typescript
+// Centralized route management
+API_ROUTES.AUTH.WEB3_CHALLENGE        // '/api/v1/auth/web3/challenge'
+API_ROUTES.ANALYTICS.RANKINGS         // '/api/v1/analytics/rankings'
+API_ROUTES.USERS.PROFILE             // '/api/v1/users/profile'
+API_ROUTES.PERMISSIONS.VALIDATE      // '/api/v1/permissions/validate'
+API_ROUTES.ADMIN.WALLET_MANAGEMENT   // '/api/v1/admin/wallets'
+```
+
+**Benefits:**
+- **Consistency**: Single routing pattern across all applications
+- **Maintainability**: Centralized route changes propagate automatically
+- **Type Safety**: Compile-time route validation eliminates runtime errors
+- **Performance**: Eliminated duplicate routes and improved caching
+- **Developer Experience**: Predictable URL patterns and easier debugging
+
 ## Architecture
 
 ### Technology Stack
 - **Frontend**: Next.js 15 + React 19 + Tailwind CSS
-- **Backend**: Rust + Axum + Diesel ORM + PostgreSQL
+- **Backend**: Rust + Axum + SQLx + PostgreSQL
 - **Authentication**: OIDC + Firebase + RS256 JWT
 - **Deployment**: Local Docker builds + Google Cloud Run
 - **Cache**: Redis for sessions and performance
@@ -108,33 +167,33 @@ OIDC_CLIENT_SECRET=dev-client-secret
 OIDC_ADMIN_CLIENT_SECRET=dev-admin-secret
 
 # Verify environment setup
-pnpm env:validate     # Check all required variables
+bun env:validate     # Check all required variables
 ```
 
 ### Quick Start
 ```bash
 # Install dependencies
-pnpm install
+bun install
 
 # Start all services
-pnpm dev              # Frontend + Admin + Backend
+bun dev              # Frontend + Admin + Backend
 
 # Individual services
-pnpm dev:frontend     # Port 3000
-pnpm dev:admin        # Port 3001  
-pnpm dev:backend      # Port 8080
+bun dev:frontend     # Port 3000
+bun dev:admin        # Port 3001
+bun dev:backend      # Port 8080
 ```
 
 ### Build & Test
 ```bash
 # Build
-pnpm build           # All applications
-pnpm build:frontend  # Frontend only
-pnpm build:admin     # Admin only
+bun build           # All applications
+bun build:frontend  # Frontend only
+bun build:admin     # Admin only
 
 # Test
-pnpm test           # All tests
-pnpm test:e2e       # End-to-end tests
+bun test           # All tests
+bun test:e2e       # End-to-end tests
 ```
 
 ### Backend (Rust)
@@ -142,7 +201,7 @@ pnpm test:e2e       # End-to-end tests
 # From apps/backend/
 cargo run           # Start server
 cargo test          # Run tests
-diesel migration run # Apply migrations
+cargo run --bin migrate up # Apply migrations
 
 # Local Docker build and deploy
 ./scripts/build/local-backend.sh   # Build Docker image locally
@@ -151,9 +210,9 @@ diesel migration run # Apply migrations
 
 ### Quality Assurance
 ```bash
-pnpm lint           # ESLint
-pnpm type-check     # TypeScript
-pnpm format         # Prettier
+bun lint           # ESLint
+bun type-check     # TypeScript
+bun format         # Prettier
 ```
 
 ## File Structure
@@ -178,7 +237,7 @@ pnpm format         # Prettier
 
 ### Backend Stack  
 - **Language**: Rust with Axum framework
-- **Database**: PostgreSQL with Diesel ORM
+- **Database**: PostgreSQL with SQLx
 - **Authentication**: OIDC with RS256 JWT validation
 - **Cache**: Redis for sessions and performance
 - **Architecture**: Clean architecture with repository pattern
@@ -205,6 +264,14 @@ pnpm format         # Prettier
 - **Admin Permissions**: admin:*:* for full access
 - **Platform Scoped**: epsx:*, admin:*, epsx-pay:*, etc.
 - **Database**: PostgreSQL with GIN indexes for performance
+
+### Web3 Integration
+- **Chain Support**: BSC Mainnet (56) and BSC Testnet (97)
+- **Environment Controlled**: `NEXT_PUBLIC_BLOCKCHAIN_NETWORK=mainnet|testnet`
+- **SIWE Authentication**: Sign-In with Ethereum standard
+- **Dynamic Configuration**: Auto-switches between mainnet/testnet
+- **Wallet Support**: MetaMask, WalletConnect, and RainbowKit
+- **Network Detection**: Automatic chain ID detection and switching
 
 ## Performance & Animation Policy
 
@@ -249,6 +316,13 @@ pnpm format         # Prettier
 - **Performance**: Optimize for mobile and desktop
 - **No Animations**: Follow zero animation policy strictly
 
+### VS Code SSH Development
+- **Process Preservation**: NEVER kill processes that could break VS Code SSH connections
+- **Safe Commands**: Use `Ctrl+C` instead of `kill` commands when stopping services
+- **Background Processes**: Avoid force-killing background processes that may affect SSH tunneling
+- **Connection Stability**: Process termination can cause SSH connection drops and VS Code disconnection
+- **Recommended**: Use graceful shutdown methods and avoid SIGKILL signals
+
 ### Debug and Test Files
 - **Debug Location**: All test/debug files should be created in `.debug/` folder
 - **Temporary Files**: Use `.debug/` for experimental code and debugging scripts
@@ -267,13 +341,32 @@ pnpm format         # Prettier
 
 ## API Patterns
 
-### REST Endpoints
+### Standardized REST Endpoints
+- **Consistent Versioning**: All endpoints use `/api/v1/` prefix
+- **Route Constants**: Centralized in `/shared/config/route-constants.ts`
 - **Authentication**: Bearer token in Authorization header
-- **Error Handling**: Structured error responses
-- **Validation**: Request/response validation
+- **Error Handling**: Structured error responses with proper HTTP status codes
+- **Validation**: Request/response validation with TypeScript types
 - **Rate Limiting**: API rate limiting implemented
+- **CORS**: Configured for cross-origin requests with proper security
 
-### Server Actions
+**Endpoint Categories:**
+- **Public**: `/api/v1/public/*` - No authentication required
+- **Auth**: `/api/v1/auth/*` - Web3 authentication and session management
+- **Users**: `/api/v1/users/*` - User management and preferences
+- **Analytics**: `/api/v1/analytics/*` - Market data and insights
+- **Notifications**: `/api/v1/notifications/*` - Real-time notifications
+- **Admin**: `/api/v1/admin/*` - Admin-only endpoints with permission validation
+- **Permissions**: `/api/v1/permissions/*` - Permission authority (all applications)
+- **Plans**: `/api/v1/plans/*` - Subscription and billing management
+
+### Client Integration
+- **Type-Safe Clients**: Shared API clients with centralized route constants
+- **Error Boundaries**: Graceful error handling across all applications
+- **Request/Response Types**: Consistent TypeScript interfaces
+- **Authentication Flow**: Automatic token management and refresh
+
+### Server Actions (Next.js)
 - **Forms**: Next.js Server Actions for mutations
 - **Validation**: Zod schema validation
 - **Error Handling**: Graceful error boundaries
@@ -382,11 +475,11 @@ gcloud run services update-traffic frontend \
 
 ### Local Development (No Docker)
 ```bash
-# Use existing Node.js/Rust development workflow
-pnpm dev                    # All services
-pnpm dev:frontend          # Frontend only
-pnpm dev:admin             # Admin only
-pnpm dev:backend           # Backend only
+# Use existing Bun/Rust development workflow
+bun dev                    # All services
+bun dev:frontend          # Frontend only
+bun dev:admin             # Admin only
+bun dev:backend           # Backend only
 ```
 
 ### Alternative: Portainer for Container Management
@@ -489,6 +582,10 @@ NEXT_PUBLIC_ADMIN_URL=http://localhost:3001
 NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-frontend
 NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+
+# Web3/Blockchain Configuration
+NEXT_PUBLIC_BLOCKCHAIN_NETWORK=testnet  # mainnet or testnet
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=epsx-web3-frontend
 ```
 
 **Complexity Reduction:**
@@ -517,7 +614,7 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
 ### ✅ Completed Migrations
 1. **OIDC Authentication**: 100% complete with Bearer token API
 2. **Structured Permissions**: 100% complete with performance improvements  
-3. **Diesel ORM**: 100% complete with type safety and performance
+3. **SQLx Database**: 100% complete with async support and type safety
 4. **Admin OIDC**: 100% complete with proper token management
 5. **Embedded Timestamp Permissions**: 100% complete with temporal control
 6. **Zero Animation Policy**: 100% complete - all animations removed for performance
@@ -602,9 +699,9 @@ For local development, use the credentials from your `.env` file or create test 
 ## Troubleshooting
 
 ### Common Issues
-- **Build Errors**: Clear cache with `pnpm clean`
+- **Build Errors**: Clear cache with `bun clean`
 - **Auth Issues**: Check OIDC configuration and token validation
-- **Database**: Ensure PostgreSQL running and Diesel migrations applied
+- **Database**: Ensure PostgreSQL running and SQLx migrations applied
 - **Environment**: Verify all required environment variables set
 
 ### Cloud Run Deployment Issues
@@ -661,9 +758,9 @@ For local development, use the credentials from your `.env` file or create test 
 ### Debug Commands
 ```bash
 # Check services
-pnpm dev              # All services with logs
-cargo run --backend   # Backend with detailed logs  
-pnpm test:e2e:debug   # E2E tests in debug mode
+bun dev              # All services with logs
+cargo run --backend   # Backend with detailed logs
+bun test:e2e:debug   # E2E tests in debug mode
 
 # Cloud Run troubleshooting
 gcloud logging read "resource.type=cloud_run_revision" --limit=20
@@ -684,11 +781,11 @@ gcloud logging read "resource.type=cloud_run_revision" --limit=20
 - **Multi-Platform Ready**: Support for multiple business units
 - **Developer Experience**: Clear permission structure
 
-### Diesel ORM Benefits
-- **Compile-time Safety**: Catch SQL errors at compile time
-- **Type Safety**: Strong typing prevents runtime errors
-- **Performance**: Connection pooling and optimized queries
-- **Maintainability**: Schema management and migrations
+### SQLx Database Benefits
+- **Async Performance**: Native async/await support for Cloud Run environments
+- **Type Safety**: Compile-time SQL validation with macro-based queries
+- **Connection Pooling**: Built-in async connection management
+- **Schema Management**: Automated migrations with sqlx-migrate
 
 ### Embedded Timestamp Benefits
 - **Temporal Control**: Set exact expiry times for permissions
@@ -725,7 +822,7 @@ gcloud logging read "resource.type=cloud_run_revision" --limit=20
 
 ---
 
-**🎉 EPSX has successfully completed all major migrations and is production-ready with OIDC compliance, structured permissions, Diesel ORM, embedded timestamp permissions, CORS "allow any origin" configuration, and optimized local Docker builds with deployment testing for Google Cloud Run!**
+**🎉 EPSX has successfully completed all major migrations and is production-ready with Web3-first authentication, permissions, SQLx database layer, embedded timestamp permissions, admin wallet management UI, and optimized local Docker builds with deployment testing for Google Cloud Run!**
 
 ## Latest Backend Deployment
 

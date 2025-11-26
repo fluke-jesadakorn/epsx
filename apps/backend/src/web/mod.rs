@@ -1,63 +1,38 @@
 // Web layer implementation
 
-pub mod api;
+// pub mod api; // Removed - unused progressive_auth routes
 pub mod auth;
-pub mod oidc;
 pub mod admin;
 pub mod routes; // New contextual route architecture
 // Removed: permission_profile, permissions - replaced by auth/roles.rs
 pub mod user;
 pub mod middleware;
-pub mod modules;
+// pub mod modules; // Removed - empty placeholder routers, all stub implementations
 pub mod validation;
 pub mod health;
 pub mod analytics;
-pub mod settings;
-pub mod templates;
+// pub mod settings; // Removed - unused settings management routes
 pub mod admin_assignment;
-pub mod realtime;
-pub mod session_management_handlers;
-pub mod session_management_routes;
 pub mod notifications;
+// ⚡ CRITICAL: Comprehensive Error System (Phase 1.3)
+pub mod errors;
+pub mod responses; // Unified API response format
+pub mod public;
 
-use axum::{ routing::{ get, post }, Router, response::Json, http::Method };
-use serde_json::{ json, Value };
+// API documentation (always available)
+pub mod docs;
+
+use axum::{ routing::get, Router, http::Method };
+use serde_json::json;
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
-use axum::middleware as axum_middleware;
 
-use crate::infrastructure::container::AppContainer;
+use crate::infrastructure::container::DomainContainer;
 
-/// Health check handler
-pub async fn health_handler() -> Json<Value> {
-  Json(
-    json!({
-        "status": "healthy",
-        "timestamp": chrono::Utc::now(),
-        "service": "epsx-backend"
-    })
-  )
-}
-
-/// Cache handler (placeholder)
-pub async fn cache_handler() -> Json<Value> {
-  Json(
-    json!({
-        "status": "cache_cleared",
-        "timestamp": chrono::Utc::now()
-    })
-  )
-}
-
-/// Premium rankings handler (placeholder)
-pub async fn premium_rankings_handler() -> Json<Value> {
-  Json(
-    json!({
-        "rankings": [],
-        "last_updated": chrono::Utc::now()
-    })
-  )
-}
+// Legacy handlers removed - replaced by unified health module and analytics handlers
+// health_handler -> health::health_check_handler  
+// cache_handler -> analytics::eps_handlers::force_cache_refresh
+// premium_rankings_handler -> analytics::eps_handlers::get_unified_analytics_rankings_cached
 
 
 /// Configure CORS for frontend applications - Allow any origin with Next.js headers
@@ -99,6 +74,13 @@ fn configure_cors_for_frontend() -> CorsLayer {
       HeaderName::from_static("purpose"),
       HeaderName::from_static("x-middleware-prefetch"),
       HeaderName::from_static("x-nextjs-data"),
+      // Pure Web3 authentication headers (CRITICAL FOR WALLET AUTH)
+      HeaderName::from_static("x-wallet-address"),   // Keep lowercase for CORS compatibility
+      HeaderName::from_static("x-chain-id"),         // Keep lowercase for CORS compatibility
+      HeaderName::from_static("x-web3-signature"),   // Standardized naming
+      HeaderName::from_static("x-signed-message"),   // Standardized naming  
+      HeaderName::from_static("x-timestamp"),
+      HeaderName::from_static("x-nonce"),
     ])
     .expose_headers([
       HeaderName::from_static("x-request-id"),
@@ -109,232 +91,15 @@ fn configure_cors_for_frontend() -> CorsLayer {
     .max_age(Duration::from_secs(86400)) // 24 hours
 }
 
-/// Create standalone analytics routes without AppState dependency
-async fn create_standalone_analytics_routes(
-  _infra_factory: &crate::infrastructure::InfraFactory
-) -> Router {
-  use axum::Extension;
+// create_standalone_analytics_routes function removed
+// Analytics routes are now handled by UnifiedRouteBuilder
 
-  // Create services for analytics
-
-  // Create cache-based EPS service with TradingView integration
-  let config = match crate::config::Config::from_env() {
-    Ok(config) => std::sync::Arc::new(config),
-    Err(e) => {
-      tracing::warn!("Failed to load config, using fallback: {:?}", e);
-      // Use a minimal simplified config that should work for basic operation
-      std::sync::Arc::new(crate::config::Config {
-        database_url: "postgresql://localhost/epsx".to_string(),
-        backend_url: "http://localhost:8080".to_string(),
-        frontend_url: "http://localhost:3000".to_string(),
-        admin_frontend_url: "http://localhost:3001".to_string(),
-        jwt_secret: "default-jwt-secret".to_string(),
-        oidc_client_id: "epsx-frontend".to_string(),
-        oidc_client_secret: "default-secret".to_string(),
-        oidc_admin_client_id: "epsx-admin".to_string(),
-        oidc_admin_client_secret: "default-secret".to_string(),
-        firebase_project_id: "epsx-dev".to_string(),
-        firebase_private_key: "-----BEGIN PRIVATE KEY-----\ndefault\n-----END PRIVATE KEY-----".to_string(),
-        firebase_client_email: "firebase-adminsdk@epsx-dev.iam.gserviceaccount.com".to_string(),
-        musepay_partner_id: None,
-        musepay_private_key: None,
-        redis_url: None,
-        log_level: "info".to_string(),
-      })
-    }
-  };
-  let _tradingview_service = std::sync::Arc::new(
-    crate::infrastructure::adapters::services::tradingview::TradingViewApiService::new(
-      config.clone()
-    )
-  );
-
-  // Create unified cache service (automatically selects InMemory or Redis)
-  let cache_box = crate::infrastructure::cache::CacheFactory::with_fallback().await;
-  let unified_cache_service: std::sync::Arc<dyn crate::infrastructure::cache::Cache> = 
-    std::sync::Arc::from(cache_box);
-
-  // Background cache refresh removed - using on-demand loading instead
-
-  Router::new()
-    // Primary analytics ranking endpoints (using corrected FQ field logic)
-    .route(
-      "/api/v1/analytics/rankings",
-      get(analytics::eps_handlers::get_unified_analytics_rankings_cached)
-    )
-    .route(
-      "/api/v1/analytics/eps-rankings",
-      get(analytics::eps_handlers::get_unified_analytics_rankings_cached)
-    )
-    .route(
-      "/api/v1/analytics/eps-rankings/countries",
-      get(analytics::eps_handlers::get_available_countries)
-    )
-    .route(
-      "/api/v1/analytics/eps-rankings/countries/all",
-      get(analytics::eps_handlers::get_all_valid_countries)
-    )
-    .route(
-      "/api/v1/analytics/eps-rankings/sectors",
-      get(analytics::eps_handlers::get_sectors_by_country)
-    )
-    .route(
-      "/api/v1/analytics/eps-rankings/health",
-      get(analytics::eps_handlers::eps_health_check)
-    )
-    .route(
-      "/api/v1/analytics/eps-rankings/sync",
-      post(analytics::eps_handlers::trigger_eps_sync)
-    )
-    .route(
-      "/api/v1/analytics/eps-rankings/websocket-debug",
-      post(analytics::eps_handlers::debug_websocket_eps)
-    )
-    .route(
-      "/api/v1/analytics/eps-rankings/debug-eps-correction",
-      post(analytics::eps_handlers::debug_eps_correction)
-    )
-    .route(
-      "/api/v1/analytics/eps-rankings/debug-ranking-data",
-      post(analytics::eps_handlers::debug_ranking_data)
-    )
-    // Add cache endpoints
-    .route(
-      "/api/v1/analytics/cache/stats",
-      get(analytics::eps_handlers::get_cache_stats)
-    )
-    .route(
-      "/api/v1/analytics/cache/refresh",
-      post(analytics::eps_handlers::force_cache_refresh)
-    )
-    .route(
-      "/api/v1/analytics/cache/health",
-      get(analytics::eps_handlers::cache_health_check)
-    )
-    // Add services as extensions
-    .layer(Extension(unified_cache_service))
-}
-
-/// Create the main application router with analytics support
-pub async fn create_router(container: Arc<AppContainer>) -> Result<Router, Box<dyn std::error::Error + Send + Sync>> {
-  // Create config for email service
-  let _config = match crate::config::Config::from_env() {
-    Ok(config) => std::sync::Arc::new(config),
-    Err(_) => {
-      // Use minimal config for DDD migration
-      std::sync::Arc::new(crate::config::get_fallback_config())
-    }
-  };
-
-  // Create OIDC routes with full functionality including POST handlers  
-  let app_state = container.create_app_state().await
-    .map_err(|e| {
-      tracing::error!("Failed to create app state: {}", e);
-      e
-    })?;
-  let oidc_routes = oidc::routes::oidc_routes().with_state(app_state.clone());
-  
-  // Create new contextual route architecture
-  let internal_routes = routes::ContextualRouterBuilder::new(
-    routes::AccessContext::Internal,
-    container.clone()
-  ).build().await?;
-
-  let external_routes = routes::ContextualRouterBuilder::new(
-    routes::AccessContext::External,
-    container.clone()
-  ).build().await?;
-
-  let admin_routes_new = routes::ContextualRouterBuilder::new(
-    routes::AccessContext::Admin,
-    container.clone()
-  ).build().await?;
-
-  // Keep legacy admin routes for backward compatibility
-  let admin_routes = admin::routes::create_admin_routes().with_state(app_state.clone());
-  let admin_public_routes = admin::routes::create_admin_public_routes().with_state(app_state.clone());
-
-  // Create realtime routes for SSE
-  let realtime_routes = realtime::routes::create_realtime_routes().with_state(app_state.clone());
-
-  // Create analytics routes with permission middleware
-  let analytics_routes = analytics::create_analytics_router(&container.infra).await;
-  
-  // Create marketing API routes (plans, promotions, affiliates)
-  let marketing_routes = api::v1::create_plans_router(container.db_pool());
-
-  // Create core routes
-  let core_routes = Router::new()
-    .route("/health", get(health_handler))
-    .route("/cache", get(cache_handler))
-    .with_state(container.clone());
-
-  // Configure CORS for all routes
-  let cors = configure_cors_for_frontend();
-
-  // Merge routes with new contextual architecture
-  Ok(core_routes
-    .merge(oidc_routes)
-    .merge(realtime_routes)
-    .merge(analytics_routes)
-    // New contextual routes with proper prefixes
-    .nest("/web", internal_routes)
-    .nest("/api/external", external_routes) 
-    .nest("/admin", admin_routes_new)
-    // Legacy routes for backward compatibility
-    .nest("/api/v1/plans", marketing_routes)
-    .nest("/api/v1/notifications", notifications::notification_routes()
-      // DDD Notification infrastructure adapter - bridges legacy services with DDD bounded context
-      .layer(axum::Extension(Arc::new(crate::infrastructure::adapters::repositories::NotificationRepositoryAdapter::new(
-        Arc::new(crate::infrastructure::adapters::services::fcm_service::FcmService::new(container.infra.firebase_admin.clone())),
-        // Create stub email service for DDD migration - will be replaced with proper service
-        Arc::new(crate::infrastructure::adapters::services::email_service::SendGridEmailService::new(
-          std::env::var("SENDGRID_API_KEY").unwrap_or_default(),
-        )),
-      ))))
-      // Keep legacy services for endpoints that haven't been migrated yet
-      .layer(axum::Extension(container.fcm_topic_service.clone()))
-      .layer(axum::Extension(container.user_notification_repo.clone()))
-      .layer(axum_middleware::from_fn_with_state(
-        app_state.clone(),
-        crate::web::middleware::clean_auth_middleware
-      ))
-    )
-    .nest("/api/v1/admin", admin_routes
-      .layer(axum::Extension(container.fcm_service.clone()))
-      .layer(axum::Extension(container.fcm_topic_service.clone()))
-      .layer(axum::Extension(container.user_notification_repo.clone()))
-    )
-    .merge(admin_public_routes)
-    // Add comprehensive security middleware stack
-    // TODO: Fix middleware state type compatibility
-    // .layer(axum_middleware::from_fn_with_state(
-    //   container.clone(),
-    //   crate::web::middleware::security_event_logging_middleware
-    // ))
-    // .layer(axum_middleware::from_fn_with_state(
-    //   container.clone(),
-    //   crate::web::middleware::unified_rate_limit_middleware
-    // ))
-    // .layer(axum_middleware::from_fn_with_state(
-    //   container.clone(),
-    //   crate::web::middleware::enhanced_security_monitoring_middleware
-    // ))
-    // .layer(axum_middleware::from_fn_with_state(
-    //   container.clone(),
-    //   crate::web::middleware::csp_middleware
-    // ))
-    .layer(axum_middleware::from_fn(
-      crate::web::middleware::security_headers_middleware
-    ))
-    .layer(axum_middleware::from_fn(
-      crate::web::middleware::request_id_middleware
-    ))
-    .layer(axum_middleware::from_fn(
-      crate::web::middleware::performance_headers_middleware
-    ))
-    // Removed enhanced_cors_middleware as it conflicts with proper CORS layer
-    .layer(cors))
+/// Create the main application router with unified architecture
+/// Single source of truth - eliminates all route duplication and competing router systems
+pub fn create_router(container: Arc<DomainContainer>) -> Router {
+  // Use unified route builder - consolidates all 3 previous router systems
+  routes::UnifiedRouteBuilder::new(container.clone())
+    .build()
 }
 
 /// Create a demo router for Cloud Run demonstration without database dependencies
@@ -343,7 +108,21 @@ pub async fn create_demo_router() -> Router {
   use serde_json::json;
 
   Router::new()
-    .route("/health", get(health_handler))
+    // Health endpoint (demo mode - no external service checks)
+    .route("/health", get(|| async {
+      Json(
+        json!({
+          "status": "healthy",
+          "service": "epsx-backend",
+          "mode": "demo",
+          "timestamp": chrono::Utc::now(),
+          "services": {
+            "postgres": {"status": "not_configured", "latency_ms": null},
+            "redis": {"status": "not_configured", "latency_ms": null}
+          }
+        })
+      )
+    }))
     .route(
       "/",
       get(|| async {
@@ -358,4 +137,5 @@ pub async fn create_demo_router() -> Router {
         )
       })
     )
+    .layer(configure_cors_for_frontend())
 }

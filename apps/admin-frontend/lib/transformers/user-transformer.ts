@@ -9,8 +9,8 @@ import type { User } from '@/types/core';
 export interface BackendUserSummary {
   // Identity fields
   id: string;
-  firebase_uid?: string;
-  email: string;
+  wallet_address: string; // Primary identifier for wallet authentication
+  email?: string; // Optional for wallet authentication
   display_name?: string;
   
   // Status and role fields
@@ -19,10 +19,9 @@ export interface BackendUserSummary {
   is_active: boolean;
   email_verified?: boolean;
   
-  // Permission and tier fields
+  // Permission fields (tier derived from permissions)
   permissions: string[];
-  package_tier?: string;
-  subscription_tier?: string; // Alternative field name from API
+  subscription_tier?: string; // Legacy field name from API (deprecated)
   
   // Timestamp fields
   created_at: string;
@@ -38,6 +37,7 @@ export interface BackendUsersResponse {
 
 /**
  * Transform backend user data to frontend User interface
+ * @param backendUser
  */
 export function transformBackendUser(backendUser: BackendUserSummary): User {
   // Derive platforms from permissions
@@ -46,14 +46,15 @@ export function transformBackendUser(backendUser: BackendUserSummary): User {
   return {
     // Identity mapping
     id: backendUser.id,
-    email: backendUser.email || `user-${backendUser.id}@unknown.com`,
+    wallet_address: backendUser.wallet_address,
+    email: backendUser.email || undefined,
     displayName: backendUser.display_name || undefined,
     name: backendUser.display_name || undefined,
     firstName: backendUser.display_name?.split(' ')[0] || undefined,
     lastName: backendUser.display_name?.split(' ').slice(1).join(' ') || undefined,
     
-    // Role and status mapping
-    role: mapBackendRole(backendUser.role || backendUser.subscription_tier || 'user'),
+    // Role and status mapping (permission-based role derivation)
+    role: mapBackendRole(backendUser.role || deriveRoleFromPermissions(backendUser.permissions || [])),
     status: mapBackendStatus(backendUser.status, backendUser.is_active),
     isActive: backendUser.is_active,
     
@@ -64,12 +65,12 @@ export function transformBackendUser(backendUser: BackendUserSummary): User {
     
     // Authentication context
     sub: backendUser.id, // Use ID as sub
-    firebaseUid: backendUser.firebase_uid,
     
-    // Permissions and tier  
+    // Permissions and tier (permission-based derivation)
     permissions: backendUser.permissions || [],
-    packageTier: backendUser.package_tier || backendUser.subscription_tier || 'free',
-    
+    permissionGroup: derivePermissionGroup(backendUser.permissions || []),
+    packageTier: derivePackageTierFromPermissions(backendUser.permissions || []),
+
     // Platform context
     platforms,
     primaryPlatform: platforms[0] || 'epsx',
@@ -79,6 +80,7 @@ export function transformBackendUser(backendUser: BackendUserSummary): User {
 
 /**
  * Transform backend users response to frontend format
+ * @param backendResponse
  */
 export function transformBackendUsersResponse(
   backendResponse: BackendUsersResponse
@@ -91,6 +93,7 @@ export function transformBackendUsersResponse(
 
 /**
  * Map backend role to frontend role enum
+ * @param backendRole
  */
 function mapBackendRole(backendRole: string): 'admin' | 'user' | 'premium_user' {
   switch (backendRole.toLowerCase()) {
@@ -106,6 +109,8 @@ function mapBackendRole(backendRole: string): 'admin' | 'user' | 'premium_user' 
 
 /**
  * Map backend status to frontend status enum
+ * @param backendStatus
+ * @param isActive
  */
 function mapBackendStatus(backendStatus?: string, isActive?: boolean): 'active' | 'inactive' | 'suspended' | 'deleted' {
   // If we have explicit status, use it
@@ -129,7 +134,93 @@ function mapBackendStatus(backendStatus?: string, isActive?: boolean): 'active' 
 }
 
 /**
+ * Derive package tier from user permissions
+ * Replaces hardcoded tier logic with permission-based derivation
+ * @param permissions
+ */
+function derivePackageTierFromPermissions(permissions: string[]): string {
+  // Admin tier - highest priority
+  if (permissions.some(p => p === "admin:*:*" || p.startsWith("admin:"))) {
+    return "admin";
+  }
+  
+  // Premium tiers based on analytics permissions
+  if (permissions.some(p => p === "epsx:analytics:premium")) {
+    return "premium";
+  }
+  
+  if (permissions.some(p => p === "epsx:analytics:professional")) {
+    return "professional";
+  }
+  
+  // Basic tier
+  if (permissions.some(p => 
+    p === "epsx:analytics:basic" || 
+    p === "epsx:analytics:view" || 
+    p.startsWith("epsx:")
+  )) {
+    return "basic";
+  }
+  
+  // Default free tier
+  return "free";
+}
+
+/**
+ * Derive role from user permissions  
+ * Replaces hardcoded role logic with permission-based derivation
+ * @param permissions
+ */
+function deriveRoleFromPermissions(permissions: string[]): string {
+  // Admin role - highest priority
+  if (permissions.some(p => p === "admin:*:*" || p.startsWith("admin:"))) {
+    return "admin";
+  }
+  
+  // Premium user role
+  if (permissions.some(p => 
+    p === "epsx:analytics:premium" || 
+    p === "epsx:analytics:professional"
+  )) {
+    return "premium";
+  }
+  
+  // Default user role
+  return "user";
+}
+
+/**
+ * Derive permission group from user permissions
+ * @param permissions
+ */
+function derivePermissionGroup(permissions: string[]): 'Basic Access Group' | 'Standard Access Group' | 'Premium Access Group' | 'Professional Access Group' | 'Enterprise Access Group' {
+  // Admin/Enterprise - highest priority
+  if (permissions.some(p => p === "admin:*:*" || p.startsWith("admin:") || p === "epsx:*:*")) {
+    return "Enterprise Access Group";
+  }
+
+  // Professional tier
+  if (permissions.some(p => p === "epsx:analytics:professional")) {
+    return "Professional Access Group";
+  }
+
+  // Premium tier
+  if (permissions.some(p => p === "epsx:analytics:premium")) {
+    return "Premium Access Group";
+  }
+
+  // Standard tier
+  if (permissions.some(p => p === "epsx:analytics:basic" || p === "epsx:analytics:view")) {
+    return "Standard Access Group";
+  }
+
+  // Default basic tier
+  return "Basic Access Group";
+}
+
+/**
  * Derive platforms from user permissions
+ * @param permissions
  */
 function derivePlatforms(permissions: string[]): string[] {
   const platformSet = new Set<string>();
@@ -150,11 +241,12 @@ function derivePlatforms(permissions: string[]): string[] {
 
 /**
  * Create mock user data for development/testing
+ * @param overrides
  */
 export function createMockUser(overrides: Partial<BackendUserSummary> = {}): User {
   const mockBackendUser: BackendUserSummary = {
     id: 'mock-user-id',
-    firebase_uid: 'mock-firebase-uid',
+    wallet_address: '0x1234567890123456789012345678901234567890',
     email: 'user@example.com',
     display_name: 'Mock User',
     role: 'user',
@@ -162,7 +254,6 @@ export function createMockUser(overrides: Partial<BackendUserSummary> = {}): Use
     is_active: true,
     email_verified: true,
     permissions: ['epsx:analytics:view'],
-    package_tier: 'free',
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     last_login_at: new Date().toISOString(),
@@ -174,6 +265,7 @@ export function createMockUser(overrides: Partial<BackendUserSummary> = {}): Use
 
 /**
  * Validate backend user data
+ * @param data
  */
 export function validateBackendUser(data: any): data is BackendUserSummary {
   // Basic required fields
@@ -181,7 +273,7 @@ export function validateBackendUser(data: any): data is BackendUserSummary {
     typeof data === 'object' &&
     data !== null &&
     typeof data.id === 'string' &&
-    typeof data.email === 'string' &&
+    typeof data.wallet_address === 'string' &&
     typeof data.is_active === 'boolean' &&
     Array.isArray(data.permissions) &&
     typeof data.created_at === 'string' &&
@@ -194,13 +286,11 @@ export function validateBackendUser(data: any): data is BackendUserSummary {
   
   // Allow optional fields to be missing or have correct types
   const optionalFieldsValid = (
-    (data.firebase_uid === undefined || typeof data.firebase_uid === 'string') &&
+    (data.email === undefined || typeof data.email === 'string') &&
     (data.display_name === undefined || typeof data.display_name === 'string') &&
     (data.role === undefined || typeof data.role === 'string') &&
     (data.status === undefined || typeof data.status === 'string') &&
     (data.email_verified === undefined || typeof data.email_verified === 'boolean') &&
-    (data.package_tier === undefined || typeof data.package_tier === 'string') &&
-    (data.subscription_tier === undefined || typeof data.subscription_tier === 'string') &&
     (data.last_login_at === undefined || typeof data.last_login_at === 'string')
   );
   

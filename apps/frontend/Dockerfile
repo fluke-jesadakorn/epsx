@@ -1,17 +1,14 @@
 # EPSX Frontend - Next.js Standalone Build
 # Optimized Docker build for Next.js frontend with proper standalone mode
 
-FROM node:22-alpine AS builder
+FROM oven/bun:1-alpine AS builder
 WORKDIR /app
 
 # Install system dependencies
 RUN apk add --no-cache libc6-compat dumb-init
 
-# Install pnpm
-RUN npm install -g pnpm@10.14.0
-
 # Copy monorepo workspace files
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+COPY package.json bun.lock ./
 
 # Copy frontend app and shared dependencies
 COPY apps/frontend/ ./apps/frontend/
@@ -21,7 +18,7 @@ COPY shared/ ./shared/
 RUN cp -r ./shared ./apps/frontend/
 
 # Install all monorepo dependencies
-RUN pnpm install --frozen-lockfile
+RUN bun install --frozen-lockfile
 
 # Build the frontend app with Next.js standalone output
 WORKDIR /app/apps/frontend
@@ -31,7 +28,7 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Create build-time environment for Next.js validation
-# Note: Firebase environment variables are set at runtime via Cloud Run to avoid placeholder values
+# Note: Web3 and optional environment variables are set at runtime via Cloud Run to avoid placeholder values
 RUN echo "NODE_ENV=production" > .env && \
     echo "NEXT_PUBLIC_BACKEND_URL=https://api.epsx.io" >> .env && \
     echo "NEXT_PUBLIC_APP_URL=https://epsx.io" >> .env && \
@@ -39,7 +36,7 @@ RUN echo "NODE_ENV=production" > .env && \
     echo "NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-frontend" >> .env
 
 # Build Next.js app (generates .next/standalone with optimized server.js)
-RUN pnpm build
+RUN bun run build
 
 # Production runtime stage
 FROM node:22-alpine AS runtime
@@ -59,7 +56,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/.next/static ./apps
 COPY --from=builder --chown=nextjs:nodejs /app/apps/frontend/public ./apps/frontend/public
 
 # Copy missing @swc/helpers from the build node_modules
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/.pnpm/node_modules/@swc/helpers ./node_modules/@swc/helpers
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@swc/helpers ./node_modules/@swc/helpers
 
 # Set working directory to where server.js is located in standalone output
 WORKDIR /app/apps/frontend

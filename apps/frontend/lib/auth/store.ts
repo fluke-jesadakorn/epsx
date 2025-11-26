@@ -1,392 +1,758 @@
-'use client'
+'use client';
 
-import { create } from 'zustand'
-import { 
-  User, 
-  AuthState
-} from '../../../../shared/types/auth'
-import { authLogger, devLog, safeError } from '@/lib/utils/logging'
-import { getBackendUrl, getFrontendUrl, oidcUrls, callbackUrls } from '../../../../shared/utils/url-resolver'
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import { toast } from 'sonner';
+import { createWeb3FrontendClient } from '@/shared/utils/web3-api-client';
+import type {
+  WalletAuthState,
+  PermissionInfo,
+  GroupMembership,
+  PermissionStats,
+  Web3Permission,
+  Web3AuthError,
+  BatchPermissionResult
+} from '@/shared/types/wallet-auth';
+import { Web3PermissionType } from '@/shared/types/wallet-auth';
+import { COOKIES, clearClientSideCookies } from '@/shared/auth/cookies';
 
-// Re-export types for compatibility
-export type { User, AuthState } from '../../../../shared/types/auth'
-
-// Create auth store with enhanced features
-export const useAuth = create<AuthState>((set, get) => ({
-  user: null,
-  isLoading: false,
-  isAuthenticated: false,
-  error: null,
-  expiresAt: null,
+// Enhanced Web3 Auth State using comprehensive backend types
+export interface EnhancedWeb3AuthState {
+  // Connection state
+  isConnected: boolean;
+  isAuthenticated: boolean;
+  isAuthenticating: boolean;
+  isLoading: boolean;
+  hasInitialized: boolean;
   
-  // Auto-refresh state
-  autoRefreshEnabled: true,
-  refreshInProgress: false,
-  lastRefreshTime: null,
+  // User data
+  walletAddress?: string;
+  permissions: string[]; // Simple permission strings
+  permissionInfo: PermissionInfo[]; // Detailed permission info
+  groupMemberships: GroupMembership[]; // Permission group memberships
+  permissionStats?: PermissionStats; // Permission statistics
+  web3Permissions: Web3Permission[]; // Web3-specific permissions
+  
+  // Tier/Plan info
+  tier?: string;
+  userTier?: string;
+  
+  // Legacy enterprise fields (for backward compatibility)
+  enterpriseTier: 'Starter' | 'Business' | 'Enterprise' | 'Whale';
+  hasApiAccess: boolean;
+  verifiedTokensUsd: number;
+  nftCollections: string[];
+  daoMemberships: string[];
+  
+  // Error handling
+  error?: string | Web3AuthError;
+  
+  // Session management
+  expiresAt?: number;
+  accessToken?: string;
+  isNewUser?: boolean;
+}
 
-  // Permission check methods
-  can: (permission: string): boolean => {
-    const state = get()
-    return state.user?.permissions.includes(permission) || false
-  },
+export interface EnhancedWeb3AuthActions {
+  // State management
+  setConnected: (connected: boolean) => void;
+  setAuthenticated: (authenticated: boolean) => void;
+  setAuthenticating: (authenticating: boolean) => void;
+  setLoading: (loading: boolean) => void;
+  setInitialized: (initialized: boolean) => void;
+  setWalletAddress: (address?: string) => void;
+  setPermissions: (permissions: string[]) => void;
+  setPermissionInfo: (permissionInfo: PermissionInfo[]) => void;
+  setGroupMemberships: (memberships: GroupMembership[]) => void;
+  setPermissionStats: (stats?: PermissionStats) => void;
+  setWeb3Permissions: (permissions: Web3Permission[]) => void;
+  setTier: (tier?: string) => void;
+  setEnterpriseTier: (tier: EnhancedWeb3AuthState['enterpriseTier']) => void;
+  setApiAccess: (hasAccess: boolean) => void;
+  setVerifiedTokensUsd: (amount: number) => void;
+  setNftCollections: (collections: string[]) => void;
+  setDaoMemberships: (memberships: string[]) => void;
+  setError: (error?: string | Web3AuthError) => void;
+  setAccessToken: (token?: string) => void;
+  setExpiresAt: (expiresAt?: number) => void;
+  setIsNewUser: (isNewUser?: boolean) => void;
+  
+  // Core authentication actions
+  authenticate: () => Promise<void>;
+  disconnect: () => Promise<void>;
+  logout: () => Promise<void>;
+  checkAuthStatus: () => Promise<boolean>;
+  
+  // Permission management actions
+  refreshPermissions: () => Promise<void>;
+  getPermissionStats: () => Promise<PermissionStats>;
+  getGroupMemberships: () => Promise<GroupMembership[]>;
+  checkPermissions: (permissions: string[]) => Promise<BatchPermissionResult>;
+  hasPermission: (permission: string) => boolean;
+  hasAnyPermission: (permissions: string[]) => boolean;
+  hasAllPermissions: (permissions: string[]) => boolean;
+  
+  // Legacy enterprise actions (for backward compatibility)
+  refreshEnterpriseData: () => Promise<boolean>;
+  generateApiKey: (name: string) => Promise<string>;
+  
+  // Internal state management
+  initializeAuth: () => Promise<void>;
+  resetAuthState: () => void;
+}
 
-  hasAnyPermission: (permissions: string[]): boolean => {
-    const state = get()
-    if (!state.user?.permissions) return false
-    return permissions.some(perm => state.user!.permissions.includes(perm))
-  },
+export type EnhancedWeb3AuthStore = EnhancedWeb3AuthState & EnhancedWeb3AuthActions;
 
-  hasAllPermissions: (permissions: string[]): boolean => {
-    const state = get()
-    if (!state.user?.permissions) return false
-    return permissions.every(perm => state.user!.permissions.includes(perm))
-  },
+// Initialize Web3 API client
+const web3ApiClient = createWeb3FrontendClient();
 
-  hasTier: (tier: string): boolean => {
-    const state = get()
-    return state.user?.tier === tier || false
-  },
+// Debounce helper
+let initAuthTimeout: NodeJS.Timeout | null = null;
 
-  // Platform management
-  switchPlatform: async (platform: string): Promise<void> => {
-    try {
-      const response = await fetch('/api/auth/switch-platform', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ platform })
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to switch platform')
-      }
-
-      const userData = await response.json()
-      set({ user: userData })
-    } catch (error) {
-      authLogger.error('Platform switch failed', { error: safeError(error).message })
-      throw error
-    }
-  },
-
-  getCurrentPlatform: (): string => {
-    const state = get()
-    return state.user?.platform_context || 'epsx'
-  },
-
-  getAvailablePlatforms: (): string[] => {
-    const state = get()
-    if (!state.user?.permissions) return ['epsx']
-    
-    const platforms = new Set(['epsx'])
-    state.user.permissions.forEach(perm => {
-      const [platform] = perm.split(':')
-      if (platform && platform !== 'epsx') {
-        platforms.add(platform)
-      }
-    })
-    return Array.from(platforms)
-  },
-
-  canAccessPlatform: (platform: string): boolean => {
-    const state = get()
-    if (!state.user?.permissions) return false
-    return state.user.permissions.some(perm => perm.startsWith(`${platform}:`))
-  },
-
-  login: async () => {
-    try {
-      const currentUrl = window.location.href
+// Enhanced Store
+export const useWeb3AuthStore = create<EnhancedWeb3AuthStore>()(
+  persist(
+    (set, get) => ({
+      // Initial state
+      isConnected: false,
+      isAuthenticated: false,
+      isAuthenticating: false,
+      isLoading: true,
+      hasInitialized: false,
       
-      devLog('Initiating OAuth login with PKCE...')
+      // User data
+      walletAddress: undefined,
+      permissions: [],
+      permissionInfo: [],
+      groupMemberships: [],
+      permissionStats: undefined,
+      web3Permissions: [],
       
-      // Get CSRF token first
-      const csrfResponse = await fetch('/api/auth/csrf', {
-        credentials: 'include'
-      })
-      const { csrfToken } = await csrfResponse.json()
+      // Tier/Plan info
+      tier: undefined,
+      userTier: undefined,
       
-      const response = await fetch('/api/auth/initiate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
-        },
-        body: JSON.stringify({
-          redirectTo: currentUrl
-        }),
-        credentials: 'include'
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to initiate authentication')
-      }
-
-      authLogger.info('OAuth PKCE flow initiated', { 
-        authUrl: data.authUrl,
-        state: data.state?.substring(0, 8) + '...'
-      })
-
-      // Redirect to authorization server
-      window.location.href = data.authUrl
-
-    } catch (error) {
-      const errorMsg = safeError(error).message
-      authLogger.error('Login failed', { error: errorMsg })
+      // Legacy enterprise fields
+      enterpriseTier: 'Starter',
+      hasApiAccess: false,
+      verifiedTokensUsd: 0,
+      nftCollections: [],
+      daoMemberships: [],
       
-      set({ 
-        error: errorMsg, 
-        isLoading: false 
-      })
-    }
-  },
+      // Error and session
+      error: undefined,
+      expiresAt: undefined,
+      accessToken: undefined,
+      isNewUser: undefined,
 
-  logout: async () => {
-    try {
-      set({ isLoading: true, error: null })
+      // Enhanced state setters
+      setConnected: (connected) => set({ isConnected: connected }),
+      setAuthenticated: (authenticated) => set({ isAuthenticated: authenticated }),
+      setAuthenticating: (authenticating) => set({ isAuthenticating: authenticating }),
+      setLoading: (loading) => set({ isLoading: loading }),
+      setInitialized: (initialized) => set({ hasInitialized: initialized }),
+      setWalletAddress: (address) => set({ walletAddress: address }),
+      setPermissions: (permissions) => set({ permissions }),
+      setPermissionInfo: (permissionInfo) => set({ permissionInfo }),
+      setGroupMemberships: (memberships) => set({ groupMemberships: memberships }),
+      setPermissionStats: (stats) => set({ permissionStats: stats }),
+      setWeb3Permissions: (permissions) => set({ web3Permissions: permissions }),
+      setTier: (tier) => set({ tier }),
+      setEnterpriseTier: (tier) => set({ enterpriseTier: tier }),
+      setApiAccess: (hasAccess) => set({ hasApiAccess: hasAccess }),
+      setVerifiedTokensUsd: (amount) => set({ verifiedTokensUsd: amount }),
+      setNftCollections: (collections) => set({ nftCollections: collections }),
+      setDaoMemberships: (memberships) => set({ daoMemberships: memberships }),
+      setError: (error) => set({ error }),
+      setAccessToken: (token) => set({ accessToken: token }),
+      setExpiresAt: (expiresAt) => set({ expiresAt }),
+      setIsNewUser: (isNewUser) => set({ isNewUser }),
 
-      devLog('Initiating logout...')
-      
-      // Get CSRF token first
-      const csrfResponse = await fetch('/api/auth/csrf', {
-        credentials: 'include'
-      })
-      const { csrfToken } = await csrfResponse.json()
-      
-      // Call backend logout first to invalidate tokens
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': csrfToken,
+      // Initialize authentication state
+      initializeAuth: async () => {
+        const state = get();
+
+        // Prevent multiple initialization attempts
+        if (state.hasInitialized) return;
+
+        // Debounce: Cancel previous pending initialization
+        if (initAuthTimeout) {
+          clearTimeout(initAuthTimeout);
         }
-      })
 
-      // Clear local state
-      set({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: null,
-        expiresAt: null,
-        refreshInProgress: false,
-        lastRefreshTime: null
-      })
+        // Debounce initialization to prevent rapid calls
+        return new Promise<void>((resolve) => {
+          initAuthTimeout = setTimeout(async () => {
+            try {
+              set({ isLoading: true, error: undefined });
 
-      authLogger.info('User logged out successfully')
+              // Check authentication status
+              await get().checkAuthStatus();
 
-      // Redirect to home
-      window.location.href = '/'
+              set({ hasInitialized: true });
+              resolve();
+            } catch (error) {
+              console.error('❌ Failed to initialize Web3 enterprise auth store:', error);
+              set({ error: error instanceof Error ? error.message : 'Initialization failed' });
+              resolve();
+            } finally {
+              set({ isLoading: false });
+              initAuthTimeout = null;
+            }
+          }, 500); // 500ms debounce
+        });
+      },
 
-    } catch (error) {
-      const errorMsg = safeError(error).message
-      authLogger.error('Logout failed', { error: errorMsg })
-      
-      set({ 
-        error: errorMsg,
-        isLoading: false 
-      })
-    }
-  },
+      // Check current authentication status
+      checkAuthStatus: async () => {
+        const state = get();
+        if (!state.walletAddress) return false;
 
-  getUser: async (): Promise<User | null> => {
-    try {
-      const response = await fetch('/api/auth/user', {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
+        // Session check cache (5 seconds TTL)
+        const cacheKey = `session_check_${state.walletAddress}`;
+        const now = Date.now();
+        const cached = sessionStorage.getItem(cacheKey);
+
+        if (cached) {
+          const { result, timestamp } = JSON.parse(cached);
+          if (now - timestamp < 5000) { // 5 second cache
+            console.log('Using cached session check result');
+            return result;
+          }
         }
-      })
 
-      if (!response.ok) {
-        return null
-      }
+        try {
+          const response = await fetch('/api/auth/session', {
+            credentials: 'include',
+            cache: 'no-cache',
+          });
 
-      const userData = await response.json()
-      return userData
-    } catch (error) {
-      authLogger.error('Failed to get user', { error: safeError(error).message })
-      return null
-    }
-  },
+          let result = false;
 
-  loadUser: async () => {
-    try {
-      set({ isLoading: true, error: null })
+          if (response.ok) {
+            const session = await response.json();
+            if (
+              session.isAuthenticated &&
+              session.user?.wallet_address === state.walletAddress
+            ) {
+              set({
+                isAuthenticated: true,
+                error: undefined,
+              });
 
-      const response = await fetch('/api/auth/user', {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
+              // Refresh enterprise data
+              await get().refreshEnterpriseData();
+              result = true;
+            }
+          }
+
+          if (!result) {
+            set({ isAuthenticated: false, error: undefined });
+          }
+
+          // Cache the result
+          sessionStorage.setItem(cacheKey, JSON.stringify({ result, timestamp: now }));
+
+          return result;
+        } catch (error) {
+          console.warn('Auth status check failed:', error);
+          return false;
         }
-      })
+      },
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          // User not authenticated
+      // Refresh enterprise data and permissions
+      refreshEnterpriseData: async () => {
+        const state = get();
+        if (!state.walletAddress) return false;
+
+        try {
+          const response = await fetch(
+            `/api/auth/web3/permissions?wallet_address=${encodeURIComponent(state.walletAddress)}`,
+            {
+              method: 'GET',
+              credentials: 'include',
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            set({
+              permissions: data.permissions || [],
+              enterpriseTier: data.enterprise_tier || 'Starter',
+              hasApiAccess: data.has_api_access || false,
+              verifiedTokensUsd: data.verified_tokens_usd || 0,
+              nftCollections: data.nft_collections || [],
+              daoMemberships: data.dao_memberships || []
+            });
+            return true;
+          } else if (response.status === 405) {
+            // Set default values when endpoint is not available
+            set({
+              permissions: [],
+              enterpriseTier: 'Starter',
+              hasApiAccess: false,
+              verifiedTokensUsd: 0,
+              nftCollections: [],
+              daoMemberships: []
+            });
+            return true;
+          }
+          return false;
+        } catch (error) {
+          console.warn('Failed to fetch enterprise data:', error);
           set({
-            user: null,
+            permissions: [],
+            enterpriseTier: 'Starter',
+            hasApiAccess: false,
+            verifiedTokensUsd: 0,
+            nftCollections: [],
+            daoMemberships: []
+          });
+          return false;
+        }
+      },
+
+      // Authenticate with wallet
+      authenticate: async () => {
+        const state = get();
+        if (!state.walletAddress) {
+          toast.error('Please connect your wallet first');
+          return;
+        }
+
+        if (state.isAuthenticating) {
+          toast.error('Authentication already in progress. Please wait.');
+          return;
+        }
+
+        set({ isAuthenticating: true, error: undefined });
+
+        try {
+          // Get challenge from Web3 auth API
+          const challengeResponse = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/web3/challenge`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                wallet_address: state.walletAddress,
+              }),
+            }
+          );
+
+          if (!challengeResponse.ok) {
+            throw new Error(
+              `Failed to get authentication challenge: ${challengeResponse.status}`
+            );
+          }
+
+          const challenge = await challengeResponse.json();
+          const messageString = challenge.message;
+
+          // Note: signMessageAsync needs to be passed from component using Wagmi hooks
+          // This will be handled by the useWeb3Auth hook that wraps this store
+          const signResult = await (window as any).__web3Auth_signMessage?.(messageString);
+          if (!signResult) {
+            throw new Error('Wallet signing function not available');
+          }
+
+          // Verify signature with Web3 auth API
+          const authResponse = await fetch(
+            `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/web3/verify`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                wallet_address: state.walletAddress,
+                signature: signResult,
+                message: messageString,
+                nonce: challenge.nonce,
+              }),
+            }
+          );
+
+          if (!authResponse.ok) {
+            const errorText = await authResponse.text();
+            let errorData;
+            try {
+              errorData = JSON.parse(errorText);
+            } catch {
+              errorData = { error: `Authentication failed: ${authResponse.status}` };
+            }
+            throw new Error(errorData.error || 'Authentication failed');
+          }
+
+          // Success - extract enterprise data and token
+          const authData = await authResponse.json();
+          const accessToken = authData.access_token || authData.token || authData.session_token;
+
+          set({
+            isAuthenticated: true,
+            isAuthenticating: false,
+            enterpriseTier: authData.enterprise_tier || 'Starter',
+            hasApiAccess: authData.has_api_access || false,
+            verifiedTokensUsd: authData.verified_tokens_usd || 0,
+            permissions: authData.permissions || [],
+            accessToken: accessToken,
+          });
+
+          // Store actual JWT token in cookie for SSE authentication
+          if (typeof window !== 'undefined' && accessToken) {
+            try {
+              // Store token in accessible cookie for SSE (not httpOnly)
+              document.cookie = `${COOKIES.expires_at}=${Date.now() + 3600000}; path=/; SameSite=Lax; max-age=86400`;
+            } catch (_error) {
+              console.warn('Failed to store authentication token:', _error);
+            }
+          }
+
+          // Refresh enterprise data after successful authentication
+          await get().refreshEnterpriseData();
+          toast.success('Successfully authenticated with Web3 enterprise wallet');
+        } catch (error: any) {
+          let errorMessage = 'Authentication failed';
+          if (
+            error.message?.includes('User rejected') ||
+            error.message?.includes('cancelled')
+          ) {
+            errorMessage = 'Wallet signature was cancelled';
+          } else if (error.message?.includes('timeout')) {
+            errorMessage = 'Request timeout. Please try again.';
+          } else if (error.message?.includes('expired')) {
+            errorMessage = 'Authentication expired - please try again';
+          } else if (error.message) {
+            errorMessage = error.message;
+          }
+
+          set({
+            isAuthenticating: false,
             isAuthenticated: false,
+            error: errorMessage,
+          });
+
+          toast.error(errorMessage);
+        }
+      },
+
+      // Disconnect wallet
+      disconnect: async () => {
+
+        try {
+          const state = get();
+
+          // Server-side session invalidation
+          if (state.isAuthenticated && state.walletAddress) {
+            try {
+              await fetch('/api/auth/web3/logout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                  wallet_address: state.walletAddress,
+                  logout_reason: 'user_initiated_disconnect',
+                }),
+              });
+            } catch (error) {
+              console.warn('⚠️ Server-side session invalidation failed:', error);
+            }
+          }
+
+          // Clear storage
+          if (typeof window !== 'undefined') {
+            try {
+              const keysToRemove = [];
+              for (let i = 0; i < window.localStorage.length; i++) {
+                const key = window.localStorage.key(i);
+                if (
+                  key &&
+                  (key.startsWith('wagmi.') ||
+                    key.startsWith('rk-') ||
+                    key.startsWith('rainbow') ||
+                    key.includes('wallet') ||
+                    key.includes('auth') ||
+                    key.includes('web3'))
+                ) {
+                  keysToRemove.push(key);
+                }
+              }
+
+              keysToRemove.forEach(key => {
+                window.localStorage.removeItem(key);
+              });
+
+              // Clear enterprise session cookies and tokens
+              const cookiesToClear = [COOKIES.access, COOKIES.id, COOKIES.refresh];
+              cookiesToClear.forEach(cookieName => {
+                document.cookie = `${cookieName}=; Max-Age=0; path=/; SameSite=Lax`;
+                document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+              });
+
+              // Clear client-side cookies
+              clearClientSideCookies();
+            } catch (error) {
+              console.error('Storage cleanup error:', error);
+            }
+          }
+
+          // Reset store state completely to enterprise defaults
+          set({
+            isConnected: false,
+            isAuthenticated: false,
+            isAuthenticating: false,
             isLoading: false,
-            error: null
-          })
-          return
+            hasInitialized: false, // Reset initialization flag
+            permissions: [],
+            enterpriseTier: 'Starter',
+            hasApiAccess: false,
+            verifiedTokensUsd: 0,
+            nftCollections: [],
+            daoMemberships: [],
+            walletAddress: undefined,
+            error: undefined,
+          });
+
+          // Clear any persisted storage to prevent conflicts
+          if (typeof window !== 'undefined') {
+            try {
+              window.localStorage.removeItem('web3-auth-storage');
+            } catch (error) {
+              console.warn('Failed to clear persisted storage:', error);
+            }
+          }
+
+          toast.success('Enterprise wallet disconnected successfully');
+
+          // Broadcast disconnect to other tabs
+          if (typeof window !== 'undefined' && window.BroadcastChannel) {
+            try {
+              const channel = new BroadcastChannel('auth_session');
+              channel.postMessage({
+                type: 'SESSION_INVALIDATED',
+                source: 'web3_enterprise_disconnect',
+                walletAddress: state.walletAddress,
+                timestamp: Date.now(),
+              });
+              channel.close();
+            } catch (broadcastError) {
+              console.warn('Failed to broadcast disconnect:', broadcastError);
+            }
+          }
+        } catch (error) {
+          console.error('❌ Error during enterprise wallet disconnect:', error);
+          toast.error('Enterprise wallet disconnected with errors');
         }
-        throw new Error('Failed to load user data')
-      }
+      },
 
-      const userData = await response.json()
-
-      set({
-        user: userData,
-        isAuthenticated: true,
-        isLoading: false,
-        error: null,
-        expiresAt: userData.expiresAt,
-        lastRefreshTime: Date.now()
-      })
-
-      authLogger.info('User data loaded successfully', { 
-        userId: userData.id,
-        email: userData.email 
-      })
-
-    } catch (error) {
-      const errorMsg = safeError(error).message
-      authLogger.error('Failed to load user', { error: errorMsg })
-      
-      set({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: errorMsg
-      })
-    }
-  },
-
-  refreshSession: async (): Promise<void> => {
-    await get().refreshToken()
-  },
-
-  refreshToken: async () => {
-    const state = get()
-    
-    if (state.refreshInProgress) {
-      devLog('Token refresh already in progress, skipping...')
-      return false
-    }
-
-    try {
-      set({ refreshInProgress: true, error: null })
-
-      const response = await fetch('/api/auth/refresh', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
+      // Generate enterprise API key
+      generateApiKey: async (name: string): Promise<string> => {
+        const state = get();
+        if (!state.walletAddress || !state.hasApiAccess) {
+          throw new Error('Enterprise API access not available for current tier');
         }
-      })
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          // Refresh token expired, logout user
-          devLog('Refresh token expired, logging out...')
-          get().logout()
-          return false
+        const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/enterprise/billing/api-keys`, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.walletAddress}` // Temporary - should use proper Bearer token
+          },
+          body: JSON.stringify({
+            wallet_address: state.walletAddress,
+            name,
+            enterprise_tier: state.enterpriseTier,
+          }),
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Failed to generate enterprise API key');
         }
-        throw new Error('Token refresh failed')
-      }
 
-      const userData = await response.json()
+        const { api_key } = await response.json();
+        toast.success('Enterprise API key generated successfully');
+        return api_key;
+      },
 
-      set({
-        user: userData,
-        isAuthenticated: true,
-        refreshInProgress: false,
-        error: null,
-        expiresAt: userData.expiresAt,
-        lastRefreshTime: Date.now()
-      })
+      // Core authentication actions (already implemented above)
 
-      authLogger.info('Token refreshed successfully')
-      return true
+      logout: async () => {
+        try {
+          await fetch('/api/auth/logout', {
+            method: 'POST',
+            credentials: 'include',
+          });
+        } catch (error) {
+          console.error('Logout failed:', error);
+        } finally {
+          get().resetAuthState();
+        }
+      },
 
-    } catch (error) {
-      const errorMsg = safeError(error).message
-      authLogger.error('Token refresh failed', { error: errorMsg })
-      
-      set({
-        refreshInProgress: false,
-        error: errorMsg
-      })
-      
-      return false
+      // Permission management actions
+      refreshPermissions: async () => {
+        const state = get();
+        if (!state.walletAddress) return;
+        
+        try {
+          const response = await web3ApiClient.getPermissions();
+          const permissions = response.permissions?.map(p => p.permission) || [];
+          set({ permissions });
+        } catch (error) {
+          console.error('Failed to refresh permissions:', error);
+        }
+      },
+
+      getPermissionStats: async () => {
+        const state = get();
+        return state.permissionStats || {
+          total_permissions: 0,
+          permanent_permissions: 0,
+          temporary_permissions: 0,
+          expired_permissions: 0
+        };
+      },
+
+      getGroupMemberships: async () => {
+        const state = get();
+        return state.groupMemberships;
+      },
+
+      checkPermissions: async (permissions: string[]) => {
+        const state = get();
+        const result: BatchPermissionResult = {};
+        
+        permissions.forEach(permission => {
+          result[permission] = state.permissions.includes(permission);
+        });
+        
+        return result;
+      },
+
+      hasPermission: (permission: string) => {
+        const state = get();
+        return state.permissions.includes(permission);
+      },
+
+      hasAnyPermission: (permissions: string[]) => {
+        const state = get();
+        return permissions.some(p => state.permissions.includes(p));
+      },
+
+      hasAllPermissions: (permissions: string[]) => {
+        const state = get();
+        return permissions.every(p => state.permissions.includes(p));
+      },
+
+      // Legacy enterprise actions (already implemented above)
+
+      // Reset authentication state to enterprise defaults
+      resetAuthState: () => {
+        set({
+          isAuthenticated: false,
+          isAuthenticating: false,
+          isLoading: false,
+          hasInitialized: false, // Reset to allow fresh initialization
+          permissions: [],
+          enterpriseTier: 'Starter',
+          hasApiAccess: false,
+          verifiedTokensUsd: 0,
+          nftCollections: [],
+          daoMemberships: [],
+          error: undefined,
+        });
+      },
+    }),
+    {
+      name: 'web3-auth-storage',
+      partialize: (state) => ({
+        // Don't persist connection-related state to prevent conflicts
+        // Only persist non-connection preferences if needed
+        // walletAddress and hasInitialized removed to fix reconnection issues
+      }),
     }
-  },
+  )
+);
 
-  clearError: () => set({ error: null }),
+// Selector hooks for better performance
+export const useWeb3ConnectedState = () => useWeb3AuthStore(state => ({
+  isConnected: state.isConnected,
+  walletAddress: state.walletAddress,
+}));
 
-  setAutoRefresh: (enabled: boolean) => set({ autoRefreshEnabled: enabled }),
+export const useWeb3AuthenticatedState = () => useWeb3AuthStore(state => ({
+  isAuthenticated: state.isAuthenticated,
+  isAuthenticating: state.isAuthenticating,
+  permissions: state.permissions,
+  enterpriseTier: state.enterpriseTier,
+  hasApiAccess: state.hasApiAccess,
+  verifiedTokensUsd: state.verifiedTokensUsd,
+  nftCollections: state.nftCollections,
+  daoMemberships: state.daoMemberships,
+}));
 
-  // Auto-refresh management methods
-  enableAutoRefresh: () => set({ autoRefreshEnabled: true }),
-  
-  disableAutoRefresh: () => set({ autoRefreshEnabled: false }),
+export const useWeb3LoadingState = () => useWeb3AuthStore(state => ({
+  isLoading: state.isLoading,
+  hasInitialized: state.hasInitialized,
+  error: state.error,
+}));
 
-  checkTokenHealth: (): boolean => {
-    const state = get()
-    if (!state.isAuthenticated || !state.expiresAt) return false
-    
-    const timeUntilExpiry = state.expiresAt - Date.now()
-    return timeUntilExpiry > 5 * 60 * 1000 // Token is healthy if > 5 minutes left
+// Utility functions
+export function getPermissionIcon(permissionType: Web3PermissionType): string {
+  switch (permissionType) {
+    case Web3PermissionType.NFT: return '🎨';
+    case Web3PermissionType.Token: return '🪙';
+    case Web3PermissionType.DAO: return '🗳️';
+    case Web3PermissionType.Manual: return '👤';
+    default: return '🔑';
   }
-}))
-
-// Auto-refresh functionality
-let refreshInterval: NodeJS.Timeout | null = null
-
-const startAutoRefresh = () => {
-  if (refreshInterval) return
-
-  refreshInterval = setInterval(() => {
-    const state = useAuth.getState()
-    
-    if (!state.isAuthenticated || !state.autoRefreshEnabled || !state.expiresAt) {
-      return
-    }
-
-    // Refresh 5 minutes before expiry
-    const timeUntilExpiry = state.expiresAt - Date.now()
-    const shouldRefresh = timeUntilExpiry < 5 * 60 * 1000 // 5 minutes
-
-    if (shouldRefresh && !state.refreshInProgress) {
-      devLog('Auto-refreshing token...')
-      state.refreshToken()
-    }
-  }, 60000) // Check every minute
 }
 
-const stopAutoRefresh = () => {
-  if (refreshInterval) {
-    clearInterval(refreshInterval)
-    refreshInterval = null
+export function getPermissionBadgeColor(permissionType: Web3PermissionType): string {
+  switch (permissionType) {
+    case Web3PermissionType.NFT: return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300';
+    case Web3PermissionType.Token: return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-300';
+    case Web3PermissionType.DAO: return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300';
+    case Web3PermissionType.Manual: return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300';
+    default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300';
   }
 }
 
-// Subscribe to auth state changes to manage auto-refresh
-useAuth.subscribe((state) => {
-  if (state.isAuthenticated && state.autoRefreshEnabled) {
-    startAutoRefresh()
-  } else {
-    stopAutoRefresh()
+export function getEnterpriseTierDescription(tier: EnhancedWeb3AuthState['enterpriseTier']): string {
+  switch (tier) {
+    case 'Starter': return 'Basic enterprise features - $1,000+ in verified tokens';
+    case 'Business': return 'Advanced features - $10,000+ in tokens OR enterprise NFT';
+    case 'Enterprise': return 'Full enterprise features - $100,000+ in tokens OR DAO membership';
+    case 'Whale': return 'Unlimited access - $1,000,000+ in tokens with custom infrastructure';
+    default: return 'Enterprise user access';
   }
-})
+}
 
-// Export helper hooks
-export const useAuthUser = () => useAuth(state => state.user)
-export const useAuthLoading = () => useAuth(state => state.isLoading)
-export const useAuthError = () => useAuth(state => state.error)
-export const useIsAuthenticated = () => useAuth(state => state.isAuthenticated)
+export function getEnterpriseTierColor(tier: EnhancedWeb3AuthState['enterpriseTier']): string {
+  switch (tier) {
+    case 'Starter': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300';
+    case 'Business': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300';
+    case 'Enterprise': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-300';
+    case 'Whale': return 'bg-gold-100 text-gold-800 dark:bg-gold-900/20 dark:text-gold-300';
+    default: return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-300';
+  }
+}
+
+export function getEnterpriseTierIcon(tier: EnhancedWeb3AuthState['enterpriseTier']): string {
+  switch (tier) {
+    case 'Starter': return '🚀';
+    case 'Business': return '💼';
+    case 'Enterprise': return '🏢';
+    case 'Whale': return '🐋';
+    default: return '⭐';
+  }
+}
+
+export function isPermissionExpired(permission: Web3Permission): boolean {
+  if (!permission.expires_at) return false;
+  return new Date(permission.expires_at) < new Date();
+}
+
+export function formatAddress(address: string): string {
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+}

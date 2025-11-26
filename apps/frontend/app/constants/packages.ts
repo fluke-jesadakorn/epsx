@@ -1,192 +1,69 @@
-import { PaymentPlan, PaymentTier } from '@/types/payment-types';
+// Permission Template System - Simplified Configuration
+export type PermissionTemplateName = 
+  | 'Free Template'
+  | 'Bronze Template' 
+  | 'Silver Template'
+  | 'Gold Template'
+  | 'Platinum Template'
+  | 'Enterprise Template';
 
-// Updated Types - Aligned with admin-frontend
-export type UserLevelType =
-  | 'BRONZE'
-  | 'SILVER'
-  | 'GOLD'
-  | 'PLATINUM'
-  | 'DIAMOND'
-  | 'VIP'
-  | 'API_PERSONAL'
-  | 'API_COMPANY'
-  | 'API_PARTNER';
-
-// Legacy Level Configuration - Keep for backward compatibility
-export interface LevelConfig {
-  name: string;
-  level: UserLevelType;
-  numericLevel: number;
-  rankingLimit: number;
-  minPayments: number;
+// Permission Template Configuration
+export interface PermissionTemplate {
+  name: PermissionTemplateName;
+  displayTier: string;
   color: string;
   features: string[];
+  permissions: string[];
 }
 
-// New Payment Plans Configuration
-export const PAYMENT_PLANS: Record<PaymentTier, PaymentPlan> = {
-  [PaymentTier.BRONZE]: {
-    id: 'bronze',
-    tier: PaymentTier.BRONZE,
-    name: 'Bronze',
-    price: 0,
-    currency: 'USDT',
-    features: ['Limited access', 'Basic features', 'Community support'],
-    apiLimits: {
-      requestsPerMinute: 10,
-      requestsPerDay: 100,
-      maxRankings: 5,
-      maxFileSize: 1024 * 1024 // 1MB
-    },
-    duration: 1,
-    numericLevel: 0,
-    color: 'amber-600'
+// Permission Templates - Matches backend templates
+export const PERMISSION_TEMPLATES: Record<PermissionTemplateName, PermissionTemplate> = {
+  'Free Template': {
+    name: 'Free Template',
+    displayTier: 'FREE',
+    color: 'gray-500',
+    features: ['Basic access', 'View 3 rankings', 'Community support'],
+    permissions: ['epsx:rankings:view:3', 'epsx:trading:basic', 'epsx:portfolio:view']
   },
-  [PaymentTier.SILVER]: {
-    id: 'silver',
-    tier: PaymentTier.SILVER,
-    name: 'Silver',
-    price: 9.9,
-    currency: 'USDT',
-    features: ['Full access for 1 month', 'Priority support', 'Advanced features'],
-    apiLimits: {
-      requestsPerMinute: 50,
-      requestsPerDay: 5000,
-      maxRankings: 25,
-      maxFileSize: 10 * 1024 * 1024 // 10MB
-    },
-    duration: 1,
-    numericLevel: 1,
-    color: 'slate-400'
+  'Bronze Template': {
+    name: 'Bronze Template', 
+    displayTier: 'BRONZE',
+    color: 'amber-600',
+    features: ['Enhanced access', 'View 5 rankings', 'Basic features'],
+    permissions: ['epsx:rankings:view:5', 'epsx:trading:basic', 'epsx:portfolio:view', 'epsx:portfolio:history']
   },
-  [PaymentTier.GOLD]: {
-    id: 'gold',
-    tier: PaymentTier.GOLD,
-    name: 'Gold',
-    price: 19.9,
-    currency: 'USDT',
-    features: ['Extended access', 'Premium features', 'Priority support', 'Early access to new features'],
-    apiLimits: {
-      requestsPerMinute: 100,
-      requestsPerDay: 10000,
-      maxRankings: 50,
-      maxFileSize: 50 * 1024 * 1024 // 50MB
-    },
-    duration: 1,
-    numericLevel: 2,
-    color: 'yellow-500'
+  'Silver Template': {
+    name: 'Silver Template',
+    displayTier: 'SILVER', 
+    color: 'slate-400',
+    features: ['Premium access', 'View 25 rankings', 'Advanced analytics'],
+    permissions: ['epsx:rankings:view:25', 'epsx:trading:basic', 'epsx:trading:advanced', 'epsx:portfolio:view', 'epsx:analytics:basic']
   },
-  [PaymentTier.PLATINUM]: {
-    id: 'platinum',
-    tier: PaymentTier.PLATINUM,
-    name: 'Platinum',
-    price: 29.9,
-    currency: 'USDT',
-    features: ['Unlimited access', 'All premium features', 'VIP support', 'Early access to new features', 'Custom analytics'],
-    apiLimits: {
-      requestsPerMinute: 500,
-      requestsPerDay: 100000,
-      maxRankings: 100,
-      maxFileSize: 100 * 1024 * 1024 // 100MB
-    },
-    duration: 1,
-    numericLevel: 3,
-    color: 'purple-500'
+  'Gold Template': {
+    name: 'Gold Template',
+    displayTier: 'GOLD',
+    color: 'yellow-500', 
+    features: ['Professional access', 'View 50 rankings', 'Premium tools'],
+    permissions: ['epsx:rankings:view:50', 'epsx:trading:premium', 'epsx:portfolio:tools', 'epsx:analytics:advanced']
+  },
+  'Platinum Template': {
+    name: 'Platinum Template',
+    displayTier: 'PLATINUM',
+    color: 'purple-500',
+    features: ['VIP access', 'View 100 rankings', 'Advanced features'],
+    permissions: ['epsx:rankings:view:100', 'epsx:trading:premium', 'epsx:analytics:premium', 'epsx:research:reports', 'epsx:dashboards:custom']
+  },
+  'Enterprise Template': {
+    name: 'Enterprise Template',
+    displayTier: 'ENTERPRISE',
+    color: 'red-500',
+    features: ['Unlimited access', 'All platform features', 'Priority support'],
+    permissions: ['epsx:rankings:view:unlimited', 'epsx:*:*', 'epsx-pay:*:*', 'epsx-token:*:*']
   }
 };
+// Payment System Types (Essential only)
+export type CurrencyType = 'USDT' | 'USDT_TRC20' | 'USDT_BSC' | 'USDT_ERC20' | 'USDT_ARB';
 
-// Updated Level Configurations - Aligned with admin-frontend
-export const LEVEL_CONFIGS: Record<UserLevelType, LevelConfig> = {
-  BRONZE: {
-    name: 'Bronze',
-    level: 'BRONZE',
-    numericLevel: 0,
-    rankingLimit: 5,
-    minPayments: 0,
-    color: 'amber-600',
-    features: ['Limited access', 'Basic features', 'Community support'],
-  },
-  SILVER: {
-    name: 'Silver',
-    level: 'SILVER',
-    numericLevel: 1,
-    rankingLimit: 25,
-    minPayments: 1,
-    color: 'slate-400',
-    features: ['Full access for 1 month', 'Priority support', 'Advanced features'],
-  },
-  GOLD: {
-    name: 'Gold',
-    level: 'GOLD',
-    numericLevel: 2,
-    rankingLimit: 50,
-    minPayments: 3,
-    color: 'yellow-500',
-    features: ['Extended access', 'Premium features', 'Priority support', 'Early access to new features'],
-  },
-  PLATINUM: {
-    name: 'Platinum',
-    level: 'PLATINUM',
-    numericLevel: 3,
-    rankingLimit: 100,
-    minPayments: 6,
-    color: 'purple-500',
-    features: ['Unlimited access', 'All premium features', 'VIP support', 'Early access to new features', 'Custom analytics'],
-  },
-  DIAMOND: {
-    name: 'Diamond',
-    level: 'DIAMOND',
-    numericLevel: 4,
-    rankingLimit: 200,
-    minPayments: 12,
-    color: 'blue-500',
-    features: ['Enterprise features', '24/7 support', 'White-label options', 'Custom integrations', 'Bulk operations'],
-  },
-  VIP: {
-    name: 'VIP',
-    level: 'VIP',
-    numericLevel: 5,
-    rankingLimit: -1, // Unlimited
-    minPayments: 24,
-    color: 'red-500',
-    features: ['Unlimited features', 'Personal account manager', 'Custom solutions', 'Priority development', 'Dedicated infrastructure'],
-  },
-  API_PERSONAL: {
-    name: 'API Personal',
-    level: 'API_PERSONAL',
-    numericLevel: 6,
-    rankingLimit: 25,
-    minPayments: 1,
-    color: 'indigo-500',
-    features: ['25 Data sets', 'Country Selection', 'Unlimited Accounts'],
-  },
-  API_COMPANY: {
-    name: 'API Company',
-    level: 'API_COMPANY',
-    numericLevel: 7,
-    rankingLimit: 100,
-    minPayments: 1,
-    color: 'blue-600',
-    features: ['100 Data sets', 'Country Selection', 'Unlimited Accounts', 'Priority Support'],
-  },
-  API_PARTNER: {
-    name: 'API Partner',
-    level: 'API_PARTNER',
-    numericLevel: 6,
-    rankingLimit: 100,
-    minPayments: 0,
-    color: 'purple-600',
-    features: ['100 Data sets', 'Country Selection', 'Industry Selection', '15% Revenue Share', 'Unlimited Accounts', 'Custom Integration'],
-  },
-} as const;
-export type CurrencyType =
-  | 'USDT'
-  | 'USDT_TRC20'
-  | 'USDT_BSC'
-  | 'USDT_ERC20'
-  | 'USDT_ARB';
-
-// Price validation
 export const MIN_AMOUNT = {
   USDT: 1,
   USDT_TRC20: 1,
@@ -195,293 +72,95 @@ export const MIN_AMOUNT = {
   USDT_ARB: 1,
 } as const;
 
-// Payment error types
 export type PaymentError =
   | { type: 'INSUFFICIENT_AMOUNT'; minAmount: number; currency: CurrencyType }
   | { type: 'INVALID_CURRENCY' }
   | { type: 'NETWORK_ERROR' }
   | { type: 'TRANSACTION_FAILED'; reason: string };
 
-// Package Configuration
-export interface Package {
-  id: string;
-  name: string;
-  level: UserLevelType;
-  numericLevel: number; // numeric user level for access control
-  rankingLimit: number; // max ranking stocks user can see
-  price: number;
-  currency: string;
-  features: string[];
-  minPayments: number;
-  duration: number; // in months
-  color: string; // for UI theming
-  icon: string; // path to icon
-}
-
-// Helper Functions for Level-based Logic
-export const getLevelConfig = (level: UserLevelType): LevelConfig => {
-  return LEVEL_CONFIGS[level];
+// Permission Template Helper Functions
+export const getTemplateByName = (name: PermissionTemplateName): PermissionTemplate => {
+  return PERMISSION_TEMPLATES[name];
 };
 
-export const getRankingLimitByLevel = (level: UserLevelType): number => {
-  return LEVEL_CONFIGS[level].rankingLimit;
+export const getDisplayTierColor = (displayTier: string): string => {
+  const template = Object.values(PERMISSION_TEMPLATES).find(t => t.displayTier === displayTier);
+  return template ? `text-${template.color}` : 'text-gray-600';
 };
 
-export const getNumericLevelByLevel = (level: UserLevelType): number => {
-  return LEVEL_CONFIGS[level].numericLevel;
+export const getRankingLimitFromPermissions = (permissions: string[]): number => {
+  for (const permission of permissions) {
+    if (permission.startsWith('epsx:rankings:view:')) {
+      const limitStr = permission.split(':')[3];
+      if (limitStr === 'unlimited') return -1;
+      const limit = parseInt(limitStr, 10);
+      if (!isNaN(limit)) return limit;
+    }
+  }
+  return 3; // Default free limit
 };
 
-export const getLevelByNumeric = (numericLevel: number): UserLevelType => {
-  const level = Object.values(LEVEL_CONFIGS).find(config => config.numericLevel === numericLevel);
-  return level?.level || 'BRONZE';
-};
-
-export const canAccessLevel = (currentLevel: UserLevelType, requiredLevel: UserLevelType): boolean => {
-  return LEVEL_CONFIGS[currentLevel].numericLevel >= LEVEL_CONFIGS[requiredLevel].numericLevel;
-};
-
-export const getLevelColor = (level: UserLevelType): string => {
-  const colorMap: Record<UserLevelType, string> = {
-    BRONZE: 'text-amber-600',
-    SILVER: 'text-slate-400',
-    GOLD: 'text-yellow-500',
-    PLATINUM: 'text-purple-500',
-    DIAMOND: 'text-blue-500',
-    VIP: 'text-red-500',
-    API_PERSONAL: 'text-indigo-500',
-    API_COMPANY: 'text-blue-600',
-    API_PARTNER: 'text-purple-700',
-  };
-  return colorMap[level] || 'text-gray-600';
-};
-
-export const getNextLevelLimit = (currentLevel: UserLevelType): number => {
-  const currentNumeric = LEVEL_CONFIGS[currentLevel].numericLevel;
-  const nextLevel = Object.values(LEVEL_CONFIGS).find(
-    config => config.numericLevel === currentNumeric + 1
-  );
-  return nextLevel?.rankingLimit || LEVEL_CONFIGS.PLATINUM.rankingLimit;
-};
-
-export const getLockedRankings = (userLevel: UserLevelType): number => {
-  // Calculate how many rankings should appear locked/blurred
-  const maxRankings = getRankingLimitByLevel(userLevel);
-  const nextLevelLimit = getNextLevelLimit(userLevel);
-  return Math.min(nextLevelLimit - maxRankings, 50); // Cap at 50 locked rankings
-};
-
-// Level Requirements - Now derived from LEVEL_CONFIGS
-export const LEVEL_REQUIREMENTS = Object.fromEntries(
-  Object.entries(LEVEL_CONFIGS).map(([key, config]) => [
-    key,
-    { minPayments: config.minPayments, color: config.color.split('-')[0] }
-  ])
-) as Record<UserLevelType, { minPayments: number; color: string }>;
-
-// Available Packages
-export const PACKAGES: Package[] = [
-  // Personal Plans
-  {
-    id: 'bronze',
-    name: 'Bronze Plan',
-    level: 'BRONZE',
-    numericLevel: LEVEL_CONFIGS.BRONZE.numericLevel,
-    rankingLimit: LEVEL_CONFIGS.BRONZE.rankingLimit,
-    price: 0,
-    currency: 'USDT',
-    features: LEVEL_CONFIGS.BRONZE.features,
-    minPayments: LEVEL_CONFIGS.BRONZE.minPayments,
-    duration: 1,
-    color: LEVEL_CONFIGS.BRONZE.color,
-    icon: '/icons/bronze.svg',
-  },
-  {
-    id: 'silver',
-    name: 'Silver Plan',
-    level: 'SILVER',
-    numericLevel: LEVEL_CONFIGS.SILVER.numericLevel,
-    rankingLimit: LEVEL_CONFIGS.SILVER.rankingLimit,
-    price: 1,
-    currency: 'USDT',
-    features: LEVEL_CONFIGS.SILVER.features,
-    minPayments: LEVEL_CONFIGS.SILVER.minPayments,
-    duration: 1,
-    color: LEVEL_CONFIGS.SILVER.color,
-    icon: '/icons/silver.svg',
-  },
-  {
-    id: 'gold',
-    name: 'Gold Plan',
-    level: 'GOLD',
-    numericLevel: LEVEL_CONFIGS.GOLD.numericLevel,
-    rankingLimit: LEVEL_CONFIGS.GOLD.rankingLimit,
-    price: 9.9,
-    currency: 'USDT',
-    features: LEVEL_CONFIGS.GOLD.features,
-    minPayments: LEVEL_CONFIGS.GOLD.minPayments,
-    duration: 1,
-    color: LEVEL_CONFIGS.GOLD.color,
-    icon: '/icons/gold.svg',
-  },
-  {
-    id: 'diamond',
-    name: 'Diamond Plan',
-    level: 'DIAMOND',
-    numericLevel: LEVEL_CONFIGS.DIAMOND.numericLevel,
-    rankingLimit: LEVEL_CONFIGS.DIAMOND.rankingLimit,
-    price: 99.9,
-    currency: 'USDT',
-    features: LEVEL_CONFIGS.DIAMOND.features,
-    minPayments: LEVEL_CONFIGS.DIAMOND.minPayments,
-    duration: 1,
-    color: LEVEL_CONFIGS.DIAMOND.color,
-    icon: '/icons/diamond.svg',
-  },
-  {
-    id: 'vip',
-    name: 'VIP Plan',
-    level: 'VIP',
-    numericLevel: LEVEL_CONFIGS.VIP.numericLevel,
-    rankingLimit: LEVEL_CONFIGS.VIP.rankingLimit,
-    price: 499.9,
-    currency: 'USDT',
-    features: LEVEL_CONFIGS.VIP.features,
-    minPayments: LEVEL_CONFIGS.VIP.minPayments,
-    duration: 1,
-    color: LEVEL_CONFIGS.VIP.color,
-    icon: '/icons/vip.svg',
-  },
-  // API Plans
-  {
-    id: 'api_personal',
-    name: 'API Personal',
-    level: 'API_PERSONAL',
-    numericLevel: LEVEL_CONFIGS.API_PERSONAL.numericLevel,
-    rankingLimit: LEVEL_CONFIGS.API_PERSONAL.rankingLimit,
-    price: 999,
-    currency: 'USDT',
-    features: LEVEL_CONFIGS.API_PERSONAL.features,
-    minPayments: LEVEL_CONFIGS.API_PERSONAL.minPayments,
-    duration: 1,
-    color: LEVEL_CONFIGS.API_PERSONAL.color,
-    icon: '/icons/api.svg',
-  },
-  {
-    id: 'api_company',
-    name: 'API Company',
-    level: 'API_COMPANY',
-    numericLevel: LEVEL_CONFIGS.API_COMPANY.numericLevel,
-    rankingLimit: LEVEL_CONFIGS.API_COMPANY.rankingLimit,
-    price: 2999,
-    currency: 'USDT',
-    features: LEVEL_CONFIGS.API_COMPANY.features,
-    minPayments: LEVEL_CONFIGS.API_COMPANY.minPayments,
-    duration: 1,
-    color: LEVEL_CONFIGS.API_COMPANY.color,
-    icon: '/icons/enterprise.svg',
-  },
-  {
-    id: 'api_partner',
-    name: 'API Partner',
-    level: 'API_PARTNER',
-    numericLevel: LEVEL_CONFIGS.API_PARTNER.numericLevel,
-    rankingLimit: LEVEL_CONFIGS.API_PARTNER.rankingLimit,
-    price: 0,
-    currency: 'USDT',
-    features: LEVEL_CONFIGS.API_PARTNER.features,
-    minPayments: LEVEL_CONFIGS.API_PARTNER.minPayments,
-    duration: 1,
-    color: LEVEL_CONFIGS.API_PARTNER.color,
-    icon: '/icons/partner.svg',
-  },
-] as const;
-
-// Helper Functions
-export const getUserLevel = (paymentCount: number): UserLevelType => {
-  // Sort levels by minPayments descending to check highest levels first
-  const sortedLevels = Object.entries(LEVEL_CONFIGS)
-    .sort(([, a], [, b]) => b.minPayments - a.minPayments);
-  
-  for (const [, config] of sortedLevels) {
-    if (paymentCount >= config.minPayments) {
-      return config.level;
+export const getDisplayTierFromPermissions = (permissions: string[]): string => {
+  // Find the highest tier based on permissions
+  for (const [_templateName, template] of Object.entries(PERMISSION_TEMPLATES)) {
+    const hasRequiredPermissions = template.permissions.some(perm => 
+      permissions.some(userPerm => {
+        // Simple match for now - could be more sophisticated
+        return userPerm === perm || userPerm.startsWith(perm.split(':').slice(0, 2).join(':'));
+      })
+    );
+    
+    if (hasRequiredPermissions) {
+      return template.displayTier;
     }
   }
   
-  return 'BRONZE';
+  return 'FREE'; // Default tier
 };
 
-export const getPackageById = (id: string): Package | undefined => {
-  return PACKAGES.find((pkg) => pkg.id === id);
-};
-
-export const getPackageByLevel = (
-  level: UserLevelType,
-): Package | undefined => {
-  return PACKAGES.find((pkg) => pkg.level === level);
-};
-
-// Transaction Related Constants
+// Payment Transaction Constants
 export const TRANSACTION_STATUSES = {
   PENDING: 'pending',
   COMPLETED: 'completed',
   FAILED: 'failed',
 } as const;
 
-export const BSC_EXPLORER_URL = 'https://bscscan.com/tx/';
+// Get network from environment variable
+const isMainnet = process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === 'mainnet';
 
-// Payment Duration Constants
-export const PAYMENT_DURATION = {
-  MONTHS: 1,
-  MILLISECONDS: 30 * 24 * 60 * 60 * 1000, // 30 days in milliseconds
-} as const;
-
-// Blockchain Network Configuration
 export const BLOCKCHAIN_CONFIG = {
   BSC: {
-    name: 'BSC',
+    name: isMainnet ? 'BSC Mainnet' : 'BSC Testnet',
     currency: 'USDT_BSC',
-    explorerUrl: 'https://bscscan.com/tx/',
-    networkId: '56',
+    explorerUrl: isMainnet ? 'https://bscscan.com/tx/' : 'https://testnet.bscscan.com/tx/',
+    networkId: isMainnet ? '56' : '97',
   },
 } as const;
 
-// Validation function for payment amount
-export const validatePayment = (
-  amount: number,
-  currency: CurrencyType,
-): PaymentError | null => {
+export const validatePayment = (amount: number, currency: CurrencyType): PaymentError | null => {
   if (!Object.keys(MIN_AMOUNT).includes(currency)) {
     return { type: 'INVALID_CURRENCY' };
   }
-
   if (amount < MIN_AMOUNT[currency as keyof typeof MIN_AMOUNT]) {
-    return {
-      type: 'INSUFFICIENT_AMOUNT',
-      minAmount: MIN_AMOUNT[currency as keyof typeof MIN_AMOUNT],
-      currency,
-    };
+    return { type: 'INSUFFICIENT_AMOUNT', minAmount: MIN_AMOUNT[currency as keyof typeof MIN_AMOUNT], currency };
   }
-
   return null;
 };
 
-// Loading states for components
 export type PaymentLoadingState =
   | { state: 'idle' }
-  | { state: 'loading' }
+  | { state: 'loading' } 
   | { state: 'success' }
   | { state: 'error'; error: PaymentError };
 
-// User Level Benefits - Now derived from LEVEL_CONFIGS
-export const LEVEL_BENEFITS: Record<UserLevelType, readonly string[]> = {
-  BRONZE: LEVEL_CONFIGS.BRONZE.features,
-  SILVER: LEVEL_CONFIGS.SILVER.features,
-  GOLD: LEVEL_CONFIGS.GOLD.features,
-  PLATINUM: LEVEL_CONFIGS.PLATINUM.features,
-  DIAMOND: LEVEL_CONFIGS.DIAMOND.features,
-  VIP: LEVEL_CONFIGS.VIP.features,
-  API_PERSONAL: LEVEL_CONFIGS.API_PERSONAL.features,
-  API_COMPANY: LEVEL_CONFIGS.API_COMPANY.features,
-  API_PARTNER: LEVEL_CONFIGS.API_PARTNER.features,
-} as const;
+// Legacy compatibility exports to maintain existing functionality
+export const PACKAGES = Object.values(PERMISSION_TEMPLATES).map(template => ({
+  id: template.name.toLowerCase().replace(' ', '_'),
+  name: template.name,
+  displayTier: template.displayTier,
+  color: template.color,
+  features: template.features,
+  price: 0, // Templates don't have pricing, would need separate pricing logic
+  currency: 'USD',
+  permissions: template.permissions
+}));

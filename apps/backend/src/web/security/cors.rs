@@ -4,6 +4,16 @@ use tower_http::cors::{CorsLayer, Any};
 use std::time::Duration;
 
 use crate::config::env::{get_env_var, is_production};
+use crate::core::constants::*;
+
+/// Get the appropriate CORS layer based on environment
+pub fn get_cors_layer() -> CorsLayer {
+    if is_production() {
+        production_cors_layer()
+    } else {
+        development_cors()
+    }
+}
 
 /// Create production-ready CORS layer with any origin allowed
 pub fn production_cors_layer() -> CorsLayer {
@@ -38,6 +48,8 @@ pub fn production_cors_layer() -> CorsLayer {
             HeaderValue::from_static("purpose"),
             HeaderValue::from_static("x-middleware-prefetch"),
             HeaderValue::from_static("x-nextjs-data"),
+            // Common HTTP headers needed by browsers and clients
+            HeaderValue::from_static("cache-control"),
         ])
         .expose_headers([
             HeaderValue::from_static("x-request-id"),
@@ -45,7 +57,7 @@ pub fn production_cors_layer() -> CorsLayer {
             HeaderValue::from_static("x-rate-limit-reset"),
         ])
         .allow_credentials(false) // Must be false when using Any origin
-        .max_age(Duration::from_secs(86400)) // 24 hours
+        .max_age(ONE_DAY) // 24 hours
 }
 
 /// Production CORS configuration with explicit origin validation
@@ -82,6 +94,8 @@ fn production_cors_with_origins(allowed_origins: Vec<String>) -> CorsLayer {
                     HeaderValue::from_static("next-router-state-tree"),
                     HeaderValue::from_static("next-url"),
                     HeaderValue::from_static("referer"),
+                    // Common HTTP headers needed by browsers and clients
+                    HeaderValue::from_static("cache-control"),
                 ])
                 .expose_headers([
                     HeaderValue::from_static("x-request-id"),
@@ -89,7 +103,7 @@ fn production_cors_with_origins(allowed_origins: Vec<String>) -> CorsLayer {
                     HeaderValue::from_static("x-rate-limit-reset"),
                 ])
                 .allow_credentials(true)
-                .max_age(Duration::from_secs(86400)) // 24 hours
+                .max_age(ONE_DAY) // 24 hours
         }
         Err(e) => {
             tracing::error!("Failed to parse CORS origins: {:?}", e);
@@ -105,9 +119,9 @@ fn production_cors_fallback() -> CorsLayer {
         .allow_origin(Any) // This should be avoided in production
         .allow_methods([Method::GET, Method::POST, Method::OPTIONS])
         .allow_headers([
-            ACCEPT, 
-            AUTHORIZATION, 
-            CONTENT_TYPE, 
+            ACCEPT,
+            AUTHORIZATION,
+            CONTENT_TYPE,
             HeaderValue::from_static("rsc"),
             HeaderValue::from_static("next-router-prefetch"),
             HeaderValue::from_static("next-router-state-tree"),
@@ -116,6 +130,8 @@ fn production_cors_fallback() -> CorsLayer {
             HeaderValue::from_static("purpose"),
             HeaderValue::from_static("x-middleware-prefetch"),
             HeaderValue::from_static("x-nextjs-data"),
+            // Common HTTP headers needed by browsers and clients
+            HeaderValue::from_static("cache-control"),
         ])
         .allow_credentials(false) // Safer default
         .max_age(Duration::from_secs(300)) // 5 minutes
@@ -123,8 +139,16 @@ fn production_cors_fallback() -> CorsLayer {
 
 /// Development CORS configuration - more permissive for local development
 fn development_cors() -> CorsLayer {
+    // For development, use specific origins to allow credentials
+    let origins: Vec<HeaderValue> = vec![
+        "http://localhost:3000".parse().unwrap(),
+        "http://localhost:3001".parse().unwrap(),
+        "http://127.0.0.1:3000".parse().unwrap(),
+        "http://127.0.0.1:3001".parse().unwrap(),
+    ];
+    
     CorsLayer::new()
-        .allow_origin(Any)
+        .allow_origin(origins)
         .allow_methods([
             Method::GET,
             Method::POST,
@@ -151,14 +175,16 @@ fn development_cors() -> CorsLayer {
             HeaderValue::from_static("purpose"),
             HeaderValue::from_static("x-middleware-prefetch"),
             HeaderValue::from_static("x-nextjs-data"),
+            // Common HTTP headers needed by browsers and clients
+            HeaderValue::from_static("cache-control"),
         ])
         .expose_headers([
             HeaderValue::from_static("x-request-id"),
             HeaderValue::from_static("x-rate-limit-remaining"),
             HeaderValue::from_static("x-rate-limit-reset"),
         ])
-        .allow_credentials(false) // Must be false when using Any origin
-        .max_age(Duration::from_secs(3600)) // 1 hour
+        .allow_credentials(true) // Now we can allow credentials with specific origins
+        .max_age(ONE_HOUR) // 1 hour
 }
 
 /// CORS configuration for OIDC endpoints - Allow any origin
@@ -184,49 +210,96 @@ pub fn oidc_cors_layer() -> CorsLayer {
             HeaderValue::from_static("purpose"),
             HeaderValue::from_static("x-middleware-prefetch"),
             HeaderValue::from_static("x-nextjs-data"),
+            // Common HTTP headers needed by browsers and clients
+            HeaderValue::from_static("cache-control"),
         ])
         .expose_headers([
             HeaderValue::from_static("x-request-id"),
         ])
         .allow_credentials(false) // Must be false when using Any origin
-        .max_age(Duration::from_secs(86400)) // 24 hours
+        .max_age(ONE_DAY) // 24 hours
 }
 
-/// CORS configuration for admin endpoints - Allow any origin
+/// CORS configuration for admin endpoints
 pub fn admin_cors_layer() -> CorsLayer {
-    CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods([
-            Method::GET,
-            Method::POST,
-            Method::PUT,
-            Method::PATCH,
-            Method::DELETE,
-            Method::OPTIONS,
-        ])
-        .allow_headers([
-            ACCEPT,
-            AUTHORIZATION,
-            CONTENT_TYPE,
-            HeaderValue::from_static("x-admin-session"),
-            HeaderValue::from_static("x-request-id"),
-            // Next.js React Server Components header
-            HeaderValue::from_static("rsc"),
-            // Next.js Router headers for prefetching
-            HeaderValue::from_static("next-router-prefetch"),
-            HeaderValue::from_static("next-router-state-tree"),
-            HeaderValue::from_static("next-url"),
-            HeaderValue::from_static("referer"),
-            HeaderValue::from_static("purpose"),
-            HeaderValue::from_static("x-middleware-prefetch"),
-            HeaderValue::from_static("x-nextjs-data"),
-        ])
-        .expose_headers([
-            HeaderValue::from_static("x-request-id"),
-            HeaderValue::from_static("x-rate-limit-remaining"),
-        ])
-        .allow_credentials(false) // Must be false when using Any origin
-        .max_age(Duration::from_secs(3600)) // 1 hour
+    if is_production() {
+        // Production: Use Any origin without credentials
+        CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods([
+                Method::GET,
+                Method::POST,
+                Method::PUT,
+                Method::PATCH,
+                Method::DELETE,
+                Method::OPTIONS,
+            ])
+            .allow_headers([
+                ACCEPT,
+                AUTHORIZATION,
+                CONTENT_TYPE,
+                HeaderValue::from_static("x-admin-session"),
+                HeaderValue::from_static("x-request-id"),
+                HeaderValue::from_static("rsc"),
+                HeaderValue::from_static("next-router-prefetch"),
+                HeaderValue::from_static("next-router-state-tree"),
+                HeaderValue::from_static("next-url"),
+                HeaderValue::from_static("referer"),
+                HeaderValue::from_static("purpose"),
+                HeaderValue::from_static("x-middleware-prefetch"),
+                HeaderValue::from_static("x-nextjs-data"),
+                // Common HTTP headers needed by browsers and clients
+                HeaderValue::from_static("cache-control"),
+            ])
+            .expose_headers([
+                HeaderValue::from_static("x-request-id"),
+                HeaderValue::from_static("x-rate-limit-remaining"),
+            ])
+            .allow_credentials(false)
+            .max_age(ONE_DAY)
+    } else {
+        // Development: Use specific origins with credentials
+        let origins: Vec<HeaderValue> = vec![
+            "http://localhost:3000".parse().unwrap(),
+            "http://localhost:3001".parse().unwrap(),
+            "http://127.0.0.1:3000".parse().unwrap(),
+            "http://127.0.0.1:3001".parse().unwrap(),
+        ];
+
+        CorsLayer::new()
+            .allow_origin(origins)
+            .allow_methods([
+                Method::GET,
+                Method::POST,
+                Method::PUT,
+                Method::PATCH,
+                Method::DELETE,
+                Method::OPTIONS,
+            ])
+            .allow_headers([
+                ACCEPT,
+                AUTHORIZATION,
+                CONTENT_TYPE,
+                HeaderValue::from_static("x-admin-session"),
+                HeaderValue::from_static("x-request-id"),
+                HeaderValue::from_static("rsc"),
+                HeaderValue::from_static("next-router-prefetch"),
+                HeaderValue::from_static("next-router-state-tree"),
+                HeaderValue::from_static("next-url"),
+                HeaderValue::from_static("referer"),
+                HeaderValue::from_static("purpose"),
+                HeaderValue::from_static("x-middleware-prefetch"),
+                HeaderValue::from_static("x-nextjs-data"),
+                // Common HTTP headers needed by browsers and clients
+                HeaderValue::from_static("cache-control"),
+            ])
+            .expose_headers([
+                HeaderValue::from_static("x-request-id"),
+                HeaderValue::from_static("x-rate-limit-remaining"),
+            ])
+            .allow_credentials(true) // Can allow credentials with specific origins
+            .max_age(ONE_HOUR)
+    }
 }
 
 /// Get allowed origins specifically for admin endpoints
@@ -296,7 +369,7 @@ pub fn get_cors_config_summary() -> CorsConfigSummary {
         admin_origins: admin_origins.len(),
         production_mode: is_production(),
         credentials_allowed: true,
-        max_age_seconds: if is_production() { 86400 } else { 3600 },
+        max_age_seconds: if is_production() { CORS_MAX_AGE_PRODUCTION } else { CORS_MAX_AGE_DEVELOPMENT },
     }
 }
 

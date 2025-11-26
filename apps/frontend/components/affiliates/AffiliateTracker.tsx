@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Star, Gift, Users, TrendingUp } from 'lucide-react';
 import { env } from '../../../../shared/env/schema';
+import { API_ROUTES } from '../../../../shared/config/route-constants';
 
 interface AffiliateInfo {
   code: string;
@@ -22,7 +23,7 @@ interface AffiliateStats {
 
 interface AffiliateTrackerProps {
   children?: React.ReactNode;
-  onAffiliateDetected?: (affiliateInfo: AffiliateInfo) => void;
+  onAffiliateDetected?: (_affiliateInfo: AffiliateInfo) => void;
 }
 
 export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTrackerProps) {
@@ -31,7 +32,7 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
   const [isLoading, setIsLoading] = useState(false);
   
   const searchParams = useSearchParams();
-  const router = useRouter();
+  const _router = useRouter();
 
   // Track affiliate attribution
   const trackAffiliate = useCallback(async (code: string) => {
@@ -40,14 +41,14 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
     setIsLoading(true);
     try {
       const baseUrl = env.BACKEND_URL;
-      const response = await fetch(`${baseUrl}/api/v1/plans?affiliate_code=${code}`);
+      const response = await fetch(`${baseUrl}${API_ROUTES.PUBLIC.PLANS}?affiliate_code=${code}`);
       
       if (response.ok) {
         const result = await response.json();
         if (result.success) {
           // Simulate affiliate validation (normally would come from backend)
           const mockAffiliateInfo: AffiliateInfo = {
-            code: code,
+            code,
             name: getAffiliateDisplayName(code),
             commissionRate: 15, // This would come from the backend
             tier: getAffiliateTier(code),
@@ -56,12 +57,12 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
           
           setAffiliateInfo(mockAffiliateInfo);
           
-          // Store in localStorage for persistence
-          localStorage.setItem('affiliateAttribution', JSON.stringify({
+          // Store in cookies for persistence
+          document.cookie = `affiliate_attribution=${encodeURIComponent(JSON.stringify({
             code,
             timestamp: Date.now(),
             info: mockAffiliateInfo
-          }));
+          }))}; path=/; max-age=2592000; SameSite=lax`; // 30 days
 
           // Load affiliate stats
           loadAffiliateStats(code);
@@ -94,8 +95,14 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
         return;
       }
 
-      // Check localStorage for existing attribution
-      const storedAttribution = localStorage.getItem('affiliateAttribution');
+      // Check cookies for existing attribution, fallback to localStorage for migration
+      const cookies = document.cookie.split(';').reduce((acc, cookie) => {
+        const [key, value] = cookie.trim().split('=');
+        if (key && value) acc[key] = value;
+        return acc;
+      }, {} as Record<string, string>);
+      
+      const storedAttribution = cookies.affiliate_attribution || localStorage.getItem('affiliateAttribution');
       if (storedAttribution) {
         try {
           const attribution = JSON.parse(storedAttribution);
@@ -109,6 +116,8 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
           }
         } catch (error) {
           console.error('Error parsing stored affiliate attribution:', error);
+          // Remove from both cookie and localStorage
+          document.cookie = 'affiliate_attribution=; max-age=0; path=/; SameSite=lax';
           localStorage.removeItem('affiliateAttribution');
         }
       }
@@ -132,7 +141,7 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
       };
 
       // Fire and forget - don't wait for response
-      fetch(`${baseUrl}/api/v1/plans/details/1?affiliate_code=${code}`, {
+      fetch(`${baseUrl}${API_ROUTES.PUBLIC.PLANS}/details/1?affiliate_code=${code}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'

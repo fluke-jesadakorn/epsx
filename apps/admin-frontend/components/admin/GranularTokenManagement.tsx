@@ -1,16 +1,17 @@
 'use client'
 
+import { AlertTriangle, Clock, Eye, Shield, Trash2, RefreshCcw } from 'lucide-react'
 import React, { useState, useEffect } from 'react'
+
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { AlertTriangle, Clock, Eye, Shield, Trash2, RefreshCcw } from 'lucide-react'
 import { toast } from '@/components/ui/use-toast'
-import { URL, URLContext, OIDCEndpoint } from '../../../../shared/utils/url-resolver';
+// Legacy OIDC imports removed - now using Web3 authentication
 
 interface TokenIntrospectionResult {
   active: boolean
@@ -38,6 +39,12 @@ interface GranularTokenManagementProps {
   className?: string
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.userId
+ * @param root0.className
+ */
 export function GranularTokenManagement({ userId, className }: GranularTokenManagementProps) {
   const [activeTab, setActiveTab] = useState<'introspect' | 'revoke'>('introspect')
   const [token, setToken] = useState('')
@@ -58,7 +65,7 @@ export function GranularTokenManagement({ userId, className }: GranularTokenMana
     setError(null)
 
     try {
-      const introspectEndpoint = URL.oidc(OIDCEndpoint.INTROSPECT, URLContext.CLIENT);
+      const introspectEndpoint = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/web3/verify`;
       const response = await fetch(introspectEndpoint, {
         method: 'POST',
         headers: {
@@ -83,8 +90,8 @@ export function GranularTokenManagement({ userId, className }: GranularTokenMana
         description: `Token is ${result.active ? 'active' : 'inactive'}`,
       })
 
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Introspection failed'
+    } catch (_error) {
+      const errorMessage = _error instanceof Error ? _error.message : 'Introspection failed'
       setError(errorMessage)
       toast({
         title: "Introspection Error",
@@ -112,7 +119,7 @@ export function GranularTokenManagement({ userId, className }: GranularTokenMana
     setError(null)
 
     try {
-      const introspectEndpoint = URL.oidc(OIDCEndpoint.INTROSPECT, URLContext.CLIENT);
+      const introspectEndpoint = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/web3/verify`;
       
       const params: Record<string, string> = {
         token: token.trim(),
@@ -124,7 +131,7 @@ export function GranularTokenManagement({ userId, className }: GranularTokenMana
         params.revoke_type = 'granular'
       }
 
-      const revokeEndpoint = URL.oidc(OIDCEndpoint.REVOKE, URLContext.CLIENT);
+      const revokeEndpoint = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/web3/logout`;
       const response = await fetch(revokeEndpoint, {
         method: 'POST',
         headers: {
@@ -150,8 +157,8 @@ export function GranularTokenManagement({ userId, className }: GranularTokenMana
       setPermission('')
       setIntrospectionResult(null)
 
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Revocation failed'
+    } catch (_error) {
+      const errorMessage = _error instanceof Error ? _error.message : 'Revocation failed'
       setError(errorMessage)
       toast({
         title: "Revocation Error",
@@ -165,8 +172,8 @@ export function GranularTokenManagement({ userId, className }: GranularTokenMana
 
   // Format time until expiry
   const formatTimeUntilExpiry = (hours?: number) => {
-    if (!hours) return 'Never'
-    if (hours <= 0) return 'Expired'
+    if (!hours) {return 'Never'}
+    if (hours <= 0) {return 'Expired'}
     
     if (hours < 1) {
       const minutes = Math.round(hours * 60)

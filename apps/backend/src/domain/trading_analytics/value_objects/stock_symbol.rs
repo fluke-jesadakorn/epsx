@@ -34,12 +34,7 @@ impl StockSymbol {
     pub fn as_str(&self) -> &str {
         &self.symbol
     }
-    
-    /// Convert to string
-    pub fn to_string(&self) -> String {
-        self.symbol.clone()
-    }
-    
+
     /// Check if this is a valid US market symbol format
     pub fn is_us_market(&self) -> bool {
         // US symbols are typically 1-5 characters, all letters
@@ -101,7 +96,7 @@ mod tests {
     
     #[test]
     fn test_invalid_symbols() {
-        let invalid_symbols = ["", "A" * 25, "AAPL@", "TEST!", " "];
+        let invalid_symbols = ["", &"A".repeat(25), "AAPL@", "TEST!", " "];
         
         for symbol in &invalid_symbols {
             let stock_symbol = StockSymbol::new(symbol.to_string());

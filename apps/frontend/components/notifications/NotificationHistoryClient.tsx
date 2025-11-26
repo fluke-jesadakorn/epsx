@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { Search, Filter, Settings, RefreshCw } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { markNotificationRead, markAllNotificationsRead, deleteNotification } from '@/lib/actions/notifications'
+import { markNotificationRead, markAllNotificationsRead, deleteNotification } from '@/lib/actions/notification-client-actions'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -24,12 +24,13 @@ interface NotificationHistoryClientProps {
   unreadCount: number
 }
 
-function NotificationCard({ notification, onMarkAsRead }: { 
+function NotificationCard({ notification, onMarkAsRead, onCardClick }: {
   notification: Notification
-  onMarkAsRead?: (id: string) => void 
+  onMarkAsRead?: (id: string) => void
+  onCardClick?: (id: string) => void
 }) {
   const priorityColors = {
-    urgent: 'border-red-500 bg-red-50 dark:bg-red-950 text-red-900 dark:text-red-100',
+    critical: 'border-red-500 bg-red-50 dark:bg-red-950 text-red-900 dark:text-red-100',
     high: 'border-orange-500 bg-orange-50 dark:bg-orange-950 text-orange-900 dark:text-orange-100',
     normal: 'border-blue-500 bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-100',
     low: 'border-gray-500 bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100'
@@ -44,7 +45,7 @@ function NotificationCard({ notification, onMarkAsRead }: {
   }
 
   const priorityLabels = {
-    urgent: '🔴 URGENT',
+    critical: '🔴 CRITICAL',
     high: '🟡 HIGH',
     normal: '🔵 NORMAL',
     low: '⚪ LOW'
@@ -65,8 +66,17 @@ function NotificationCard({ notification, onMarkAsRead }: {
     return date.toLocaleDateString()
   }
 
+  const handleCardClick = () => {
+    if (!notification.readAt && onCardClick) {
+      onCardClick(notification.id)
+    }
+  }
+
   return (
-    <div className={`p-4 rounded-lg border-l-4 ${priorityColors[notification.priority]} transition-all duration-200 hover:shadow-md hover:scale-[1.01]`}>
+    <div
+      className={`p-4 rounded-lg border-l-4 ${priorityColors[notification.priority]} hover:shadow-md cursor-pointer`}
+      onClick={handleCardClick}
+    >
       <div className="flex items-start gap-3">
         <span className="text-2xl flex-shrink-0">{typeIcons[notification.type]}</span>
         
@@ -99,16 +109,20 @@ function NotificationCard({ notification, onMarkAsRead }: {
             {notification.actionUrl && (
               <Link
                 href={notification.actionUrl}
-                className="text-sm bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700 transition-colors"
+                onClick={(e) => e.stopPropagation()}
+                className="text-sm bg-blue-600 text-white px-3 py-1 rounded-md hover:bg-blue-700"
               >
                 View Details
               </Link>
             )}
-            
+
             {!notification.readAt && onMarkAsRead && (
-              <button 
-                onClick={() => onMarkAsRead(notification.id)}
-                className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onMarkAsRead(notification.id)
+                }}
+                className="text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
               >
                 Mark as Read
               </button>
@@ -135,11 +149,11 @@ export function NotificationHistoryClient({
 
   const handleMarkAllAsRead = async () => {
     startTransition(async () => {
-      const result = await markAllNotificationsAsRead()
-      if (result.success) {
+      try {
+        await markAllNotificationsRead()
         toast.success('All notifications marked as read')
         router.refresh()
-      } else {
+      } catch (error) {
         toast.error('Failed to mark all notifications as read')
       }
     })
@@ -269,7 +283,7 @@ export function NotificationHistoryClient({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Priorities</SelectItem>
-                <SelectItem value="urgent">🔴 Urgent</SelectItem>
+                <SelectItem value="critical">🔴 Critical</SelectItem>
                 <SelectItem value="high">🟡 High</SelectItem>
                 <SelectItem value="normal">🔵 Normal</SelectItem>
                 <SelectItem value="low">⚪ Low</SelectItem>
@@ -342,10 +356,11 @@ export function NotificationHistoryClient({
               
               <div className="space-y-3">
                 {notifications.map((notification) => (
-                  <NotificationCard 
-                    key={notification.id} 
+                  <NotificationCard
+                    key={notification.id}
                     notification={notification}
                     onMarkAsRead={handleMarkAsRead}
+                    onCardClick={handleMarkAsRead}
                   />
                 ))}
               </div>

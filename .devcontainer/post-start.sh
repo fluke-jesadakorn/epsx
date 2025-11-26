@@ -41,12 +41,12 @@ for i in {1..30}; do
 done
 
 # Check if migrations need to be run
-if command -v diesel &> /dev/null && [[ -d apps/backend/diesel_migrations ]]; then
+if [[ -d apps/backend/migrations ]]; then
     echo -e "${BLUE}🗄️  Checking database migrations...${NC}"
     cd apps/backend
     
-    # Try to run pending migrations
-    if diesel migration run --database-url="postgresql://epsx_user:epsx_password@database:5432/epsx_db" 2>/dev/null; then
+    # Try to run pending migrations using SQLx
+    if DATABASE_URL="postgresql://epsx_user:epsx_password@database:5432/epsx_db" cargo run --bin migrate up 2>/dev/null; then
         echo -e "${GREEN}✅ Database migrations up to date${NC}"
     else
         echo -e "${YELLOW}⚠️  Could not run migrations (may need manual setup)${NC}"

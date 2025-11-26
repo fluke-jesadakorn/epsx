@@ -8,7 +8,7 @@ use super::{
     Payment, PaymentId, PaymentStatus, PaymentAmount,
     TransactionHash, CryptoAddress, PaymentReference
 };
-use crate::domain::shared_kernel::value_objects::UserId;
+use crate::domain::wallet_management::value_objects::WalletAddress;
 
 /// Port for payment repository operations
 #[async_trait]
@@ -20,7 +20,7 @@ pub trait PaymentRepositoryPort: Send + Sync {
     async fn find_by_id(&self, payment_id: &PaymentId) -> Result<Option<Payment>, String>;
     
     /// Find payments by user
-    async fn find_by_user(&self, user_id: &UserId) -> Result<Vec<Payment>, String>;
+    async fn find_by_user(&self, wallet_address: &WalletAddress) -> Result<Vec<Payment>, String>;
     
     /// Find payments by status
     async fn find_by_status(&self, status: PaymentStatus) -> Result<Vec<Payment>, String>;
@@ -45,7 +45,7 @@ pub trait PaymentRepositoryPort: Send + Sync {
     async fn delete(&self, payment_id: &PaymentId) -> Result<(), String>;
     
     /// Get payment statistics for user
-    async fn get_user_payment_stats(&self, user_id: &UserId) -> Result<PaymentStats, String>;
+    async fn get_user_payment_stats(&self, wallet_address: &WalletAddress) -> Result<PaymentStats, String>;
 }
 
 /// Port for transaction monitoring and blockchain operations
@@ -83,7 +83,7 @@ pub trait CryptoAddressRepositoryPort: Send + Sync {
     async fn get_address_balance(&self, address: &CryptoAddress) -> Result<PaymentAmount, String>;
     
     /// Find addresses by user for reuse
-    async fn find_user_addresses(&self, user_id: &UserId, network: &str) -> Result<Vec<CryptoAddress>, String>;
+    async fn find_user_addresses(&self, wallet_address: &WalletAddress, network: &str) -> Result<Vec<CryptoAddress>, String>;
 }
 
 /// Port for payment method configuration

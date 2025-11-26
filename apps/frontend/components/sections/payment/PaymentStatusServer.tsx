@@ -1,8 +1,7 @@
 import { 
   getPaymentStatus as _getPaymentStatusAction,
-  getTransactionHistory
+  getPaymentHistory
 } from '@/lib/server-actions';
-import type { PaymentTransaction as PaymentTx } from '@/lib/server-actions';
 import { PaymentStatusSection } from './PaymentStatusSection';
 
 // Transaction interface that matches what TransactionHistory expects
@@ -24,29 +23,51 @@ interface PaymentStatusServerProps {
   showTitle?: boolean;
 }
 
-export async function PaymentStatusServer({ 
+export async function PaymentStatusServer({
   className = '',
-  showTitle = true 
+  showTitle = true
 }: PaymentStatusServerProps) {
   let transactions: Transaction[] = [];
   let error: string | null = null;
 
   try {
-    // Fetch transaction history server-side
-    const userTransactions = await getTransactionHistory();
-    
-    // Map PaymentTx to Transaction format expected by TransactionHistory
-    transactions = userTransactions.map((tx: PaymentTx) => ({
-      ...tx,
-      actualAmount: tx.amount, // Map amount to actualAmount
+    // Fetch payment history server-side
+    const userTransactions = await getPaymentHistory();
+
+    // Map payment history to Transaction format expected by TransactionHistory
+    transactions = userTransactions.map((tx: any) => ({
+      orderNo: tx.id || tx.orderNo || '',
+      actualAmount: tx.amount || 0,
+      currency: tx.currency || 'USD',
+      status: tx.status || 'pending',
+      finishTime: tx.finishTime || tx.createdAt || new Date().toISOString(),
+      blockchainData: tx.blockchainData || {
+        txHash: '',
+        network: 'BSC'
+      },
+      blockExplorerUrl: tx.blockExplorerUrl || ''
     }));
   } catch (err) {
-    console.error('Failed to fetch transactions server-side:', err);
-    error = 'Failed to load transaction history';
+    // Check if this is a redirect error (user not authenticated)
+    if (
+      err &&
+      typeof err === 'object' &&
+      'digest' in err &&
+      typeof err.digest === 'string' &&
+      err.digest.startsWith('NEXT_REDIRECT')
+    ) {
+      // User not authenticated - show empty state instead of redirecting
+      // This allows viewing pricing plans without login
+      transactions = [];
+      error = null; // No error - just empty state for unauthenticated users
+    } else {
+      console.error('Failed to fetch transactions server-side:', err);
+      error = 'Failed to load transaction history';
+    }
   }
 
   return (
-    <PaymentStatusSection 
+    <PaymentStatusSection
       className={className}
       showTitle={showTitle}
       transactions={transactions}

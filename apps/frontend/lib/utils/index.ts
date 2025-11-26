@@ -3,9 +3,6 @@
  * Domain-organized utility functions and classes
  */
 
-// Firebase utilities
-export * from './firebase';
-
 // Logging and monitoring
 export * from './logging';
 
@@ -116,7 +113,7 @@ export function deepClone<T>(obj: T): T {
   
   const cloned = {} as T;
   for (const key in obj) {
-    if (obj.hasOwnProperty(key)) {
+    if (Object.prototype.hasOwnProperty.call(obj, key)) {
       cloned[key] = deepClone(obj[key]);
     }
   }
@@ -207,6 +204,16 @@ export function formatFileSize(bytes: number): string {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+/**
+ * Utility function to format currency
+ */
+export function fmtCurrency(amount: number, currency: string = 'USD'): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency
+  }).format(amount);
 }
 
 /**

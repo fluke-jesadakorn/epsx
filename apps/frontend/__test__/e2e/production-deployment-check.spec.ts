@@ -31,13 +31,13 @@ test.describe('Production Deployment Check', () => {
     // Wait for page to load
     await page.waitForLoadState('networkidle');
 
-    // Check Firebase configuration in browser by inspecting actual config objects
-    const firebaseAnalysis = await page.evaluate(() => {
+    // Check Web3 configuration and app initialization
+    const web3Analysis = await page.evaluate(() => {
       let results = {
         clientConfigAvailable: false,
-        firebaseConfigValues: {},
-        firebaseAppInitialized: false,
-        firebaseErrors: [],
+        web3ConfigValues: {},
+        web3Initialized: false,
+        web3Errors: [],
         configSource: 'unknown'
       };
 
@@ -45,70 +45,55 @@ test.describe('Production Deployment Check', () => {
         // Check if clientConfig is available globally
         if (typeof window !== 'undefined' && (window as any).clientConfig) {
           results.clientConfigAvailable = true;
-          results.firebaseConfigValues = (window as any).clientConfig.firebase || {};
+          results.web3ConfigValues = (window as any).clientConfig.web3 || {};
           results.configSource = 'window.clientConfig';
         }
 
-        // Check if Firebase app is initialized
-        if (typeof window !== 'undefined' && (window as any).firebase) {
+        // Check if Web3 providers are available
+        if (typeof window !== 'undefined') {
           try {
-            const apps = (window as any).firebase.apps || [];
-            results.firebaseAppInitialized = apps.length > 0;
+            results.web3Initialized = !!(window as any).ethereum || !!(window as any).web3;
           } catch (e) {
-            results.firebaseErrors.push(`Firebase apps check failed: ${e.message}`);
+            results.web3Errors.push(`Web3 provider check failed: ${e.message}`);
           }
         }
 
-        // Look for Firebase config in common locations
-        const possibleConfigPaths = [
-          'window.__FIREBASE_CONFIG__',
-          'window.firebaseConfig',
-          'window.__NEXT_DATA__'
-        ];
-
-        possibleConfigPaths.forEach(path => {
-          try {
-            const parts = path.split('.');
-            let obj = window as any;
-            for (const part of parts.slice(1)) {
-              obj = obj[part];
-              if (!obj) break;
-            }
-            if (obj && typeof obj === 'object') {
-              results.firebaseConfigValues = { ...results.firebaseConfigValues, ...obj };
-              results.configSource = path;
-            }
-          } catch (e) {
-            // Ignore path not found
+        // Look for environment variables in Next.js data
+        try {
+          const nextData = (window as any).__NEXT_DATA__;
+          if (nextData?.runtimeConfig || nextData?.buildId) {
+            results.configSource = 'window.__NEXT_DATA__';
           }
-        });
+        } catch (e) {
+          // Ignore if not found
+        }
 
       } catch (error) {
-        results.firebaseErrors.push(`Config analysis failed: ${error.message}`);
+        results.web3Errors.push(`Config analysis failed: ${error.message}`);
       }
 
       return results;
     });
 
-    console.log('\n🔧 Firebase Configuration Analysis:');
-    console.log(`📋 Client Config Available: ${firebaseAnalysis.clientConfigAvailable ? '✅' : '❌'}`);
-    console.log(`🔥 Firebase App Initialized: ${firebaseAnalysis.firebaseAppInitialized ? '✅' : '❌'}`);
-    console.log(`📍 Config Source: ${firebaseAnalysis.configSource}`);
+    console.log('\n🔧 Web3 Configuration Analysis:');
+    console.log(`📋 Client Config Available: ${web3Analysis.clientConfigAvailable ? '✅' : '❌'}`);
+    console.log(`⛓️ Web3 Provider Available: ${web3Analysis.web3Initialized ? '✅' : '❌'}`);
+    console.log(`📍 Config Source: ${web3Analysis.configSource}`);
     
-    if (Object.keys(firebaseAnalysis.firebaseConfigValues).length > 0) {
-      console.log('\n🔑 Firebase Config Values Found:');
-      Object.entries(firebaseAnalysis.firebaseConfigValues).forEach(([key, value]) => {
+    if (Object.keys(web3Analysis.web3ConfigValues).length > 0) {
+      console.log('\n🔑 Web3 Config Values Found:');
+      Object.entries(web3Analysis.web3ConfigValues).forEach(([key, value]) => {
         const status = value ? '✅' : '❌';
         const displayValue = value ? (typeof value === 'string' && value.length > 20 ? 'SET (truncated)' : 'SET') : 'NOT_SET';
         console.log(`${status} ${key}: ${displayValue}`);
       });
     } else {
-      console.log('❌ No Firebase configuration values found');
+      console.log('❌ No Web3 configuration values found');
     }
 
-    if (firebaseAnalysis.firebaseErrors.length > 0) {
-      console.log('\n🚨 Firebase Configuration Errors:');
-      firebaseAnalysis.firebaseErrors.forEach(error => console.log(`  - ${error}`));
+    if (web3Analysis.web3Errors.length > 0) {
+      console.log('\n🚨 Web3 Configuration Errors:');
+      web3Analysis.web3Errors.forEach(error => console.log(`  - ${error}`));
     }
 
     // Take a screenshot
@@ -122,8 +107,8 @@ test.describe('Production Deployment Check', () => {
       error.includes('ADMIN_FRONTEND_URL is required in production environment')
     );
 
-    const firebaseApiKeyError = consoleErrors.find(error => 
-      error.includes('Firebase: Error (auth/invalid-api-key)')
+    const web3ConnectionError = consoleErrors.find(error => 
+      error.includes('Web3') || error.includes('MetaMask') || error.includes('wallet')
     );
 
     // Log all console messages for debugging
@@ -161,10 +146,10 @@ test.describe('Production Deployment Check', () => {
       console.log('\n✅ No ADMIN_FRONTEND_URL error found');
     }
 
-    if (firebaseApiKeyError) {
-      console.log('\n🔍 Found Firebase API key error:', firebaseApiKeyError);
+    if (web3ConnectionError) {
+      console.log('\n🔍 Found Web3 connection error:', web3ConnectionError);
     } else {
-      console.log('\n✅ No Firebase API key error found');
+      console.log('\n✅ No Web3 connection errors found');
     }
 
     // Check if page title loaded properly
@@ -183,13 +168,13 @@ test.describe('Production Deployment Check', () => {
     console.log('\n🎯 Test Results:');
     console.log(`- Page loaded: ✅`);
     console.log(`- ADMIN_FRONTEND_URL error: ${adminUrlError ? '❌ Found' : '✅ Not found'}`);
-    console.log(`- Firebase API key error: ${firebaseApiKeyError ? '❌ Found' : '✅ Not found'}`);
+    console.log(`- Web3 connection error: ${web3ConnectionError ? '❌ Found' : '✅ Not found'}`);
     console.log(`- Total console errors: ${consoleErrors.length}`);
     console.log(`- Screenshot saved: .playwright-mcp/production-deployment-check.png`);
 
     // Fail test if critical errors are found
-    if (adminUrlError || firebaseApiKeyError) {
-      throw new Error(`Critical errors found: ${adminUrlError ? 'ADMIN_FRONTEND_URL error; ' : ''}${firebaseApiKeyError ? 'Firebase API key error' : ''}`);
+    if (adminUrlError || web3ConnectionError) {
+      throw new Error(`Critical errors found: ${adminUrlError ? 'ADMIN_FRONTEND_URL error; ' : ''}${web3ConnectionError ? 'Web3 connection error' : ''}`);
     }
   });
 });

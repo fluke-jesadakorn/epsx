@@ -214,7 +214,7 @@ impl RealtimeEvent {
         match self.status {
             EventStatus::Pending => true,
             EventStatus::Scheduled | EventStatus::Retrying => {
-                self.scheduled_for.map_or(true, |time| time <= Utc::now())
+                self.scheduled_for.is_none_or(|time| time <= Utc::now())
             },
             _ => false,
         }
@@ -401,7 +401,7 @@ mod tests {
             None,
         );
         
-        let event = RealtimeEvent::create_broadcast(payload, "notifications".to_string()).unwrap();
+        let mut event = RealtimeEvent::create_broadcast(payload, "notifications".to_string()).unwrap();
         
         // Start delivery
         event.start_delivery().unwrap();
@@ -423,7 +423,7 @@ mod tests {
             None,
         );
         
-        let event = RealtimeEvent::create_broadcast(payload, "notifications".to_string()).unwrap();
+        let mut event = RealtimeEvent::create_broadcast(payload, "notifications".to_string()).unwrap();
         
         // Start and fail delivery
         event.start_delivery().unwrap();

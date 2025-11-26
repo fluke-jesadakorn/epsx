@@ -20,7 +20,7 @@ export function validateAdminOIDCEnvironment(): ValidationResult {
   const required = {
     NEXTAUTH_SECRET: process.env.NEXTAUTH_SECRET,
     ADMIN_URL: process.env.ADMIN_URL,
-    NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL,
+    NEXT_PUBLIC_BACKEND_URL: process.env.BACKEND_URL,
     NEXT_PUBLIC_ADMIN_URL: process.env.NEXT_PUBLIC_ADMIN_URL,
   };
 
@@ -73,7 +73,7 @@ export function validateAdminOIDCEnvironment(): ValidationResult {
   }
 
   // Check for admin-specific client configuration
-  if (!recommended.NEXT_PUBLIC_OAUTH_CLIENT_ID || !recommended.NEXT_PUBLIC_OAUTH_CLIENT_ID.includes('admin')) {
+  if (!recommended.NEXT_PUBLIC_OAUTH_CLIENT_ID?.includes('admin')) {
     warnings.push('NEXT_PUBLIC_OAUTH_CLIENT_ID should include "admin" for admin frontend (e.g., "epsx-admin")');
   }
 
@@ -86,6 +86,7 @@ export function validateAdminOIDCEnvironment(): ValidationResult {
 
 /**
  * Helper function to validate URL format
+ * @param url
  */
 function isValidUrl(url: string): boolean {
   try {
@@ -98,17 +99,21 @@ function isValidUrl(url: string): boolean {
 
 /**
  * Log validation results
+ * @param results
+ * @param context
  */
-export function logValidationResults(results: ValidationResult, context: string = 'Environment'): void {
-  if (results.isValid) {
-    console.log(`✅ ${context} validation passed`);
-  } else {
+export function logValidationResults(results: ValidationResult, context = 'Environment'): void {
+  if (!results.isValid) {
+    // eslint-disable-next-line no-console
     console.error(`❌ ${context} validation failed:`);
+    // eslint-disable-next-line no-console
     results.errors.forEach(error => console.error(`  - ${error}`));
   }
 
   if (results.warnings.length > 0) {
+    // eslint-disable-next-line no-console
     console.warn(`⚠️ ${context} warnings:`);
+    // eslint-disable-next-line no-console
     results.warnings.forEach(warning => console.warn(`  - ${warning}`));
   }
 }
@@ -117,30 +122,32 @@ export function logValidationResults(results: ValidationResult, context: string 
  * Development-only admin environment validation
  */
 export function validateAdminDevelopmentEnvironment(): void {
-  if (process.env.NODE_ENV !== 'development') return;
-
-  console.log('🔍 Validating admin development environment configuration...');
+  if (process.env.NODE_ENV !== 'development') {return;}
 
   const adminResults = validateAdminOIDCEnvironment();
   logValidationResults(adminResults, 'Admin OIDC Environment');
 
   // Additional development checks
-  if (!process.env.NEXT_PUBLIC_BACKEND_URL?.includes('localhost')) {
+  if (!process.env.BACKEND_URL?.includes('localhost')) {
+    // eslint-disable-next-line no-console
     console.warn('⚠️ Admin Development: NEXT_PUBLIC_BACKEND_URL should point to localhost for local development');
   }
 
   if (!process.env.ADMIN_URL?.includes('localhost')) {
+    // eslint-disable-next-line no-console
     console.warn('⚠️ Admin Development: ADMIN_URL should point to localhost for local development');
   }
 
   // Check that admin port is different from frontend port
   const adminUrl = process.env.NEXT_PUBLIC_ADMIN_URL || process.env.ADMIN_URL;
   if (adminUrl && !adminUrl.includes(':3001')) {
+    // eslint-disable-next-line no-console
     console.warn('⚠️ Admin Development: Admin should typically run on port 3001');
   }
 
   // Validate admin module configuration
   if (!process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID?.includes('admin')) {
+    // eslint-disable-next-line no-console
     console.warn('⚠️ Admin Development: OAuth client ID should be admin-specific (e.g., "epsx-admin")');
   }
 }

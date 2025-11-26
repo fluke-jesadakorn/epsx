@@ -74,6 +74,7 @@ export type PancakeSwapColorKey = keyof typeof PancakeSwapColors.chartPalette
 
 /**
  * Get color from palette by index
+ * @param index
  */
 export function getChartColor(index: number): string {
   return PancakeSwapColors.chartPalette[index % PancakeSwapColors.chartPalette.length]
@@ -81,15 +82,17 @@ export function getChartColor(index: number): string {
 
 /**
  * Get gradient colors for Windows Phone tiles
+ * @param type
  */
 export function getGradientColors(type: keyof typeof PancakeSwapColors.gradients): [string, string] {
-  return PancakeSwapColors.gradients[type]
+  return PancakeSwapColors.gradients[type] as [string, string]
 }
 
 /**
  * Get theme-aware colors
+ * @param isDark
  */
-export function getThemeColors(isDark: boolean = false) {
+export function getThemeColors(isDark = false) {
   return {
     background: isDark ? PancakeSwapColors.backgrounds.dark : PancakeSwapColors.backgrounds.light,
     card: isDark ? PancakeSwapColors.backgrounds.cardDark : PancakeSwapColors.backgrounds.cardLight,

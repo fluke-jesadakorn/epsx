@@ -122,9 +122,10 @@ export function UIProvider({ children }: UIProviderProps) {
   }, [ui.loading]);
 
   // SSR-safe responsive values
-  const isMobile = useClientOnly(ui.responsive.isMobile, false);
-  const isTablet = useClientOnly(ui.responsive.isTablet, false);
-  const isDesktop = useClientOnly(!ui.responsive.isMobile && !ui.responsive.isTablet, true);
+  const hasMounted = useClientOnly();
+  const isMobile = hasMounted ? ui.responsive.isMobile : false;
+  const isTablet = hasMounted ? ui.responsive.isTablet : false;
+  const isDesktop = hasMounted ? (!ui.responsive.isMobile && !ui.responsive.isTablet) : true;
 
   const contextValue = useMemo(() => ({
     // Theme

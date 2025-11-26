@@ -8,10 +8,9 @@ pub mod outbound;
 pub use outbound::*;
 
 // Convenience re-exports for specific modules
-pub mod repositories {
-    pub use super::outbound::{UserRepository, SessionRepository, AuditRepository, UserPermissionRepository, UserSearchFilters};
-}
+// Repository exports removed - use domain layer repository ports directly
 
 pub mod services {
-    pub use super::outbound::{EmailServicePort, EmailServiceError, EmailSvc, NotificationServicePort};
+    // Email service exports removed - Web3-first system uses direct wallet notifications
+    pub use super::outbound::{NotificationServicePort};
 }

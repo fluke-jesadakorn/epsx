@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@/components/ui';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import type { User } from '@/lib/server-actions';
+import type { AuthUser } from '@/lib/server-actions';
 
 interface APIKey {
   id: string;
@@ -17,7 +17,7 @@ interface APIKey {
 }
 
 interface APIKeyManagerProps {
-  currentUser: User;
+  currentUser: AuthUser;
 }
 
 export function APIKeyManager({ currentUser }: APIKeyManagerProps) {

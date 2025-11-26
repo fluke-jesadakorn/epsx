@@ -2,15 +2,15 @@
 
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { getBackendUrl, getFrontendUrl, oidcUrls, callbackUrls } from '../../../../../shared/utils/url-resolver';
-import { verifyJWT, type JWTUser } from '../../../../../shared/auth/jwt';
-import { logger, safeError } from '@/lib/utils/logging';
+import { getBackendUrl, getFrontendUrl, oidcUrls, callbackUrls } from '@/lib/server-shared';
+import { verifyJWT, type JWTUser } from '@/lib/shared';
+import { logger, safeError } from '@/lib/shared';
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export interface User extends JWTUser {
+export interface AuthUser extends JWTUser {
   id: string;
   name?: string;
   image?: string;
@@ -44,7 +44,7 @@ export async function handleSignOut() {
 /**
  * Get current authenticated user from OIDC session
  */
-export async function getCurrentUser(): Promise<User | null> {
+export async function getCurrentUser(): Promise<AuthUser | null> {
   try {
     const cookieStore = await cookies();
     const accessToken = cookieStore.get('access_token')?.value;
@@ -56,13 +56,17 @@ export async function getCurrentUser(): Promise<User | null> {
     // Verify the JWT token
     const decoded = await verifyJWT(accessToken);
     
+    if (!decoded) {
+      return null;
+    }
+    
     return {
       id: decoded.sub,
       uid: decoded.sub,
       email: decoded.email,
       name: decoded.name,
       permissions: decoded.permissions || [],
-      emailVerified: decoded.email_verified || false,
+      emailVerified: Boolean(decoded.email_verified),
     };
   } catch (error) {
     logger.error('Failed to get current user', { error: safeError(error).message });
@@ -113,7 +117,7 @@ export async function hasAllPermissions(requiredPermissions: string[]): Promise<
 /**
  * Require authentication - redirect to login if not authenticated
  */
-export async function requireAuth(): Promise<User> {
+export async function requireAuth(): Promise<AuthUser> {
   const user = await getCurrentUser();
   
   if (!user) {
@@ -126,7 +130,7 @@ export async function requireAuth(): Promise<User> {
 /**
  * Require specific permission - redirect if not authorized
  */
-export async function requirePermission(permission: string, redirectPath: string = '/unauthorized'): Promise<User> {
+export async function requirePermission(permission: string, redirectPath: string = '/unauthorized'): Promise<AuthUser> {
   const user = await requireAuth();
   const hasPerms = await hasPermission(permission);
   
@@ -135,4 +139,86 @@ export async function requirePermission(permission: string, redirectPath: string
   }
   
   return user;
+}
+
+/**
+ * Check feature access for server components
+ */
+export async function checkFeatureAccess(feature: string): Promise<{ hasAccess: boolean; reason: string }> {
+  try {
+    const user = await getCurrentUser();
+    
+    if (!user) {
+      return { hasAccess: false, reason: 'Authentication required' };
+    }
+    
+    // Basic feature access logic - can be expanded based on actual requirements
+    switch (feature) {
+      case 'api':
+        return { hasAccess: true, reason: 'API access granted' };
+      case 'analytics':
+        return { hasAccess: user.permissions.some(p => p.includes('epsx:')), reason: 'Analytics access granted' };
+      case 'admin':
+        return { hasAccess: user.permissions.some(p => p.includes('admin:')), reason: 'Admin access granted' };
+      default:
+        return { hasAccess: true, reason: 'Default access granted' };
+    }
+  } catch (error) {
+    logger.error('Failed to check feature access', { feature, error: safeError(error).message });
+    return { hasAccess: false, reason: 'Feature access check failed' };
+  }
+}
+
+// ============================================================================
+// Payment Server Actions
+// ============================================================================
+
+export interface PaymentTransaction {
+  orderNo: string;
+  amount: number;
+  currency: string;
+  status: string;
+  finishTime: string;
+  blockchainData: {
+    txHash: string;
+    network: string;
+  };
+  blockExplorerUrl: string;
+}
+
+/**
+ * Get transaction history for current user
+ */
+export async function getTransactionHistory(excludePending = false): Promise<PaymentTransaction[]> {
+  try {
+    const user = await getCurrentUser();
+    if (!user) {
+      return [];
+    }
+
+    // Mock transaction data for now - TODO: implement real API call
+    const mockTransactions: PaymentTransaction[] = [
+      {
+        orderNo: 'ORDER_001',
+        amount: 29.99,
+        currency: 'USDT',
+        status: 'completed',
+        finishTime: new Date().toISOString(),
+        blockchainData: {
+          txHash: '0x1234567890abcdef1234567890abcdef12345678',
+          network: 'ethereum'
+        },
+        blockExplorerUrl: 'https://etherscan.io/tx/0x1234567890abcdef1234567890abcdef12345678'
+      }
+    ];
+
+    if (excludePending) {
+      return mockTransactions.filter(tx => tx.status === 'completed');
+    }
+
+    return mockTransactions;
+  } catch (error) {
+    logger.error('Failed to get transaction history', { error: safeError(error).message });
+    return [];
+  }
 }

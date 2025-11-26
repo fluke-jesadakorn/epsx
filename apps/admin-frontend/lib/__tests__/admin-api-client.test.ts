@@ -1,5 +1,5 @@
-// Admin Frontend Lib Tests - Infrastructure Layer (External Dependencies)
-// Tests for admin API clients and external service integrations
+// Admin Frontend Lib Tests - Web3 Infrastructure Layer
+// Tests for Web3 admin API clients and wallet-based user management
 // Clean Architecture: Infrastructure Layer - Tests external integrations with mocked responses
 
 import { 
@@ -14,29 +14,33 @@ import {
 global.fetch = jest.fn()
 const mockFetch = fetch as jest.MockedFunction<typeof fetch>
 
-describe('Admin API Client', () => {
+describe('Admin API Client - Web3 Users', () => {
   beforeEach(() => {
     mockFetch.mockClear()
     
-    // Mock admin token
-    Storage.prototype.getItem = jest.fn(() => 'mock-admin-jwt-token')
+    // Mock wallet-based admin session
+    Storage.prototype.getItem = jest.fn(() => 'mock-wallet-admin-token')
   })
 
-  describe('User Management API', () => {
-    test('fetchUsers should return paginated user data', async () => {
+  describe('Web3 User Management API', () => {
+    test('fetchUsers should return paginated Web3 user data', async () => {
       const mockUsersResponse = {
         users: [
           {
-            id: '123',
+            id: '0x742d35Cc6634C0532925a3b8D369D7763F3c45c6',
+            wallet_address: '0x742d35Cc6634C0532925a3b8D369D7763F3c45c6',
             email: 'user1@example.com',
-            permissionProfile: 'user-basic-001',
+            permissions: ['epsx:analytics:view', 'epsx:trading:basic'],
+            tier: 'nft',
             createdAt: '2024-01-01T00:00:00Z',
             lastLoginAt: '2024-08-01T10:00:00Z'
           },
           {
-            id: '456',
+            id: '0x8f42C5A9F7FaE8D8C3A5e9B2F3c8F9E6A7B8C9D0',
+            wallet_address: '0x8f42C5A9F7FaE8D8C3A5e9B2F3c8F9E6A7B8C9D0',
             email: 'user2@example.com',
-            permissionProfile: 'user-premium-002',
+            permissions: ['epsx:*:*', 'admin:users:view'],
+            tier: 'enterprise',
             createdAt: '2024-01-02T00:00:00Z',
             lastLoginAt: '2024-08-02T11:00:00Z'
           }
@@ -57,7 +61,7 @@ describe('Admin API Client', () => {
       const result = await fetchUsers({ page: 1, pageSize: 10 })
       
       expect(result).toEqual(mockUsersResponse)
-      expect(mockFetch).toHaveBeenCalledWith('/api/admin/users?page=1&pageSize=10', {
+      expect(mockFetch).toHaveBeenCalledWith('/api/admin/wallets?page=1&pageSize=10', {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer mock-admin-jwt-token'
@@ -79,7 +83,7 @@ describe('Admin API Client', () => {
       })
 
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/admin/users?page=1&pageSize=10&search=john%40example.com&permissionProfile=user-premium-002',
+        '/api/admin/wallets?page=1&pageSize=10&search=john%40example.com&permissionProfile=user-premium-002',
         expect.objectContaining({
           headers: expect.objectContaining({
             'Authorization': 'Bearer mock-admin-jwt-token'
@@ -109,7 +113,7 @@ describe('Admin API Client', () => {
       const result = await createUser(newUserData)
 
       expect(result).toEqual(mockResponse)
-      expect(mockFetch).toHaveBeenCalledWith('/api/admin/users', {
+      expect(mockFetch).toHaveBeenCalledWith('/api/admin/wallets', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -135,7 +139,7 @@ describe('Admin API Client', () => {
 
       await updateUserPermissions(permissionUpdate)
 
-      expect(mockFetch).toHaveBeenCalledWith('/api/admin/users/123/permissions', {
+      expect(mockFetch).toHaveBeenCalledWith('/api/admin/permissions/wallets/123/permissions', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -168,7 +172,7 @@ describe('Admin API Client', () => {
       const result = await bulkUpdatePermissions(bulkUpdate)
 
       expect(result.updated).toBe(3)
-      expect(mockFetch).toHaveBeenCalledWith('/api/admin/users/permissions/bulk', {
+      expect(mockFetch).toHaveBeenCalledWith('/api/admin/wallets/permissions/bulk', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -279,7 +283,7 @@ describe('Admin API Client', () => {
         dateTo: '2024-08-01'
       })
 
-      const expectedUrl = '/api/admin/users?page=3&pageSize=25&search=premium%20users&permissionProfile=user-premium-002&sortBy=createdAt&sortOrder=desc&dateFrom=2024-01-01&dateTo=2024-08-01'
+      const expectedUrl = '/api/admin/wallets?page=3&pageSize=25&search=premium%20users&permissionProfile=user-premium-002&sortBy=createdAt&sortOrder=desc&dateFrom=2024-01-01&dateTo=2024-08-01'
       
       expect(mockFetch).toHaveBeenCalledWith(
         expectedUrl,

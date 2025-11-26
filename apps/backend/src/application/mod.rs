@@ -3,24 +3,23 @@
 // It depends on the domain layer but is independent of infrastructure concerns
 
 pub mod shared;
-pub mod user_management; 
-pub mod payment;
-pub mod marketing;
+pub mod wallet_management; // Web3-first: wallet-based operations
+pub mod permission_management; // Permission groups, policies, and assignments
+pub mod subscription_management; // Plans, subscriptions, and billing
+pub mod trading_analytics; // Stock analysis and EPS rankings
+pub mod notification; // Multi-channel notification system with scheduling
+pub mod realtime_events; // Real-time event delivery and retry system
+pub mod resource_management; // Resource usage tracking and billing
+// pub mod payment; // Temporarily disabled due to aggregate implementation issues
 pub mod ports;
-pub mod services;
-pub mod authentication;
-
-// Convenience re-exports for legacy compatibility
-pub mod auth;
-pub mod user;
 
 // Re-export commonly used types
 pub use shared::{
-    ApplicationError, 
+    ApplicationError,
     ApplicationResult,
-    Command, 
-    CommandHandler, 
-    Query, 
+    Command,
+    CommandHandler,
+    Query,
     QueryHandler,
     PaginationParams,
     SortParams,

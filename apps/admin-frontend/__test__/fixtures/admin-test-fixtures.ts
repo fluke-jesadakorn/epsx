@@ -212,7 +212,7 @@ export interface TestSession {
 export const TEST_SESSIONS: Record<string, TestSession> = {
   VALID_ADMIN: {
     sessionId: 'sess-admin-001',
-    userId: TEST_USERS.ADMIN.id,
+    userId: TEST_USERS['ADMIN']?.id || 'admin-001',
     token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZG1pbi0wMDEiLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MTcwMDAwMzYwMH0.test_token_admin',
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     createdAt: new Date().toISOString(),
@@ -223,7 +223,7 @@ export const TEST_SESSIONS: Record<string, TestSession> = {
   
   VALID_USER_MANAGER: {
     sessionId: 'sess-user-mgr-002',
-    userId: TEST_USERS.USER_MANAGER.id,
+    userId: TEST_USERS['USER_MANAGER']?.id || 'user-mgr-002',
     token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyLW1nci0wMDIiLCJpYXQiOjE3MDAwMDAwMDAsImV4cCI6MTcwMDAwMzYwMH0.test_token_user_mgr',
     expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     createdAt: new Date().toISOString(),
@@ -278,8 +278,8 @@ export const SECURITY_EVENT_FIXTURES: Record<string, SecurityEvent> = {
     id: 'evt-login-001',
     eventType: 'LOGIN_SUCCESS',
     severity: 'LOW',
-    userId: TEST_USERS.ADMIN.id,
-    endpoint: '/api/v1/admin/auth/login',
+    userId: TEST_USERS['ADMIN']?.id || 'admin-001',
+    endpoint: '/api/admin/auth/login',
     method: 'POST',
     statusCode: 200,
     ipAddress: '192.168.1.100',
@@ -292,8 +292,8 @@ export const SECURITY_EVENT_FIXTURES: Record<string, SecurityEvent> = {
     id: 'evt-unauth-002',
     eventType: 'UNAUTHORIZED_ACCESS',
     severity: 'HIGH',
-    userId: TEST_USERS.RESTRICTED_USER.id,
-    endpoint: '/api/v1/admin/admin-modules',
+    userId: TEST_USERS['RESTRICTED_USER']?.id || 'restricted-003',
+    endpoint: '/api/admin/admin-modules',
     method: 'GET',
     statusCode: 403,
     ipAddress: '192.168.1.200',
@@ -307,7 +307,7 @@ export const SECURITY_EVENT_FIXTURES: Record<string, SecurityEvent> = {
     eventType: 'SQL_INJECTION_ATTEMPT',
     severity: 'CRITICAL',
     userId: 'unknown',
-    endpoint: '/api/v1/admin/users/search',
+    endpoint: '/api/admin/users/search',
     method: 'GET',
     statusCode: 400,
     ipAddress: '192.168.1.300',
@@ -320,8 +320,8 @@ export const SECURITY_EVENT_FIXTURES: Record<string, SecurityEvent> = {
     id: 'evt-rate-004',
     eventType: 'RATE_LIMIT_EXCEEDED',
     severity: 'MEDIUM',
-    userId: TEST_USERS.USER_MANAGER.id,
-    endpoint: '/api/v1/admin/users',
+    userId: TEST_USERS['USER_MANAGER']?.id || 'user-mgr-002',
+    endpoint: '/api/admin/users',
     method: 'GET',
     statusCode: 429,
     ipAddress: '192.168.1.101',
@@ -334,8 +334,8 @@ export const SECURITY_EVENT_FIXTURES: Record<string, SecurityEvent> = {
     id: 'evt-priv-005',
     eventType: 'PRIVILEGE_ESCALATION_ATTEMPT',
     severity: 'CRITICAL',
-    userId: TEST_USERS.USER_MANAGER.id,
-    endpoint: '/api/v1/admin/admin-modules/assign',
+    userId: TEST_USERS['USER_MANAGER']?.id || 'user-mgr-002',
+    endpoint: '/api/admin/admin-modules/assign',
     method: 'POST',
     statusCode: 403,
     ipAddress: '192.168.1.101',
@@ -470,7 +470,7 @@ export const PERFORMANCE_TEST_DATA = {
   })),
   
   CONCURRENT_REQUESTS: Array.from({ length: 50 }, (_, index) => ({
-    endpoint: '/api/v1/admin/users',
+    endpoint: '/api/admin/users',
     method: 'GET',
     userId: `concurrent-user-${index}`,
     timestamp: new Date(Date.now() + index * 100).toISOString()
@@ -495,53 +495,43 @@ export class TestDatabaseUtilities {
    * Seed database with test users
    */
   async seedTestUsers(): Promise<void> {
-    console.log('🌱 Seeding test users...');
     
     // This would interact with your actual database
     // Implementation depends on your database client
-    for (const [key, user] of Object.entries(TEST_USERS)) {
-      console.log(`Creating test user: ${user.name} (${user.email})`);
-      // await this.createUser(user);
+    for (const [_key, _user] of Object.entries(TEST_USERS)) {
+      // await this.createUser(_user);
     }
     
-    console.log('✅ Test users seeded successfully');
   }
   
   /**
    * Seed database with role profiles
    */
   async seedRoleProfiles(): Promise<void> {
-    console.log('🌱 Seeding role profiles...');
     
-    for (const [key, profile] of Object.entries(ROLE_PROFILES)) {
-      console.log(`Creating role profile: ${profile.name}`);
+    for (const [_key, _profile] of Object.entries(ROLE_PROFILES)) {
       // await this.createRoleProfile(profile);
     }
     
-    console.log('✅ Role profiles seeded successfully');
   }
   
   /**
    * Create test sessions
    */
   async seedTestSessions(): Promise<void> {
-    console.log('🌱 Creating test sessions...');
     
-    for (const [key, session] of Object.entries(TEST_SESSIONS)) {
+    for (const [_key, session] of Object.entries(TEST_SESSIONS)) {
       if (session.isActive) {
-        console.log(`Creating session for user: ${session.userId}`);
         // await this.createSession(session);
       }
     }
     
-    console.log('✅ Test sessions created successfully');
   }
   
   /**
    * Clean up all test data
    */
   async cleanupTestData(): Promise<void> {
-    console.log('🧹 Cleaning up test data...');
     
     // Clean up in reverse order to handle dependencies
     await this.cleanupSessions();
@@ -549,26 +539,21 @@ export class TestDatabaseUtilities {
     await this.cleanupUsers();
     await this.cleanupSecurityEvents();
     
-    console.log('✅ Test data cleanup completed');
   }
   
   private async cleanupUsers(): Promise<void> {
-    console.log('Cleaning up test users...');
     // Implementation: Delete test users from database
   }
   
   private async cleanupRoleProfiles(): Promise<void> {
-    console.log('Cleaning up role profiles...');
     // Implementation: Delete test role profiles
   }
   
   private async cleanupSessions(): Promise<void> {
-    console.log('Cleaning up test sessions...');
     // Implementation: Delete test sessions
   }
   
   private async cleanupSecurityEvents(): Promise<void> {
-    console.log('Cleaning up security events...');
     // Implementation: Delete test security events
   }
   
@@ -576,7 +561,6 @@ export class TestDatabaseUtilities {
    * Verify database integrity
    */
   async verifyDatabaseIntegrity(): Promise<boolean> {
-    console.log('🔍 Verifying database integrity...');
     
     try {
       // Check foreign key constraints
@@ -588,10 +572,10 @@ export class TestDatabaseUtilities {
       // Check indexes
       await this.checkIndexes();
       
-      console.log('✅ Database integrity verified');
       return true;
-    } catch (error) {
-      console.error('❌ Database integrity check failed:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('❌ Database integrity check failed:', _error);
       return false;
     }
   }
@@ -612,20 +596,16 @@ export class TestDatabaseUtilities {
    * Create performance test dataset
    */
   async seedPerformanceTestData(): Promise<void> {
-    console.log('🚀 Seeding performance test data...');
     
     // Seed large dataset for performance testing
-    console.log(`Creating ${PERFORMANCE_TEST_DATA.LARGE_USER_DATASET.length} performance test users`);
     // Implementation: Batch insert performance test users
     
-    console.log('✅ Performance test data seeded');
   }
   
   /**
    * Get database statistics
    */
   async getDatabaseStats(): Promise<any> {
-    console.log('📊 Gathering database statistics...');
     
     const stats = {
       totalUsers: 0,
@@ -635,7 +615,6 @@ export class TestDatabaseUtilities {
       // Implementation: Query actual counts from database
     };
     
-    console.log('Database statistics:', stats);
     return stats;
   }
 }
@@ -669,10 +648,10 @@ export interface TestEnvironmentConfig {
 
 export const TEST_ENVIRONMENT_CONFIG: TestEnvironmentConfig = {
   database: {
-    host: process.env.TEST_DB_HOST || 'localhost',
-    port: parseInt(process.env.TEST_DB_PORT || '5432'),
-    name: process.env.TEST_DB_NAME || 'epsx_test',
-    user: process.env.TEST_DB_USER || 'test_user',
+    host: (process.env.TEST_DB_HOST as string | undefined) || 'localhost',
+    port: parseInt((process.env.TEST_DB_PORT as string | undefined) || '5432'),
+    name: (process.env.TEST_DB_NAME as string | undefined) || 'epsx_test',
+    user: (process.env.TEST_DB_USER as string | undefined) || 'test_user',
     password: process.env.TEST_DB_PASSWORD || 'test_password'
   },
   api: {
@@ -706,7 +685,6 @@ export class MockAPIClient {
    * Mock successful API responses
    */
   mockSuccessResponse(endpoint: string, response: any): void {
-    console.log(`🎭 Mocking successful response for ${endpoint}`);
     // Implementation: Set up mock response
   }
   
@@ -714,7 +692,6 @@ export class MockAPIClient {
    * Mock error API responses
    */
   mockErrorResponse(endpoint: string, status: number, error: any): void {
-    console.log(`🎭 Mocking error response for ${endpoint} (${status})`);
     // Implementation: Set up mock error response
   }
   
@@ -722,7 +699,6 @@ export class MockAPIClient {
    * Mock rate limited responses
    */
   mockRateLimitedResponse(endpoint: string, retryAfter: number = 60): void {
-    console.log(`🎭 Mocking rate limited response for ${endpoint}`);
     this.mockErrorResponse(endpoint, 429, API_RESPONSE_FIXTURES.ERROR.RATE_LIMITED);
   }
   
@@ -730,7 +706,6 @@ export class MockAPIClient {
    * Clear all mocks
    */
   clearMocks(): void {
-    console.log('🧹 Clearing all API mocks');
     // Implementation: Clear all mock responses
   }
 }

@@ -4,7 +4,8 @@
  */
 
 import { apiClient } from './client';
-import type { PaginatedResponse, CountResponse, StockFinancialData } from './client';
+import type { CountResponse, StockFinancialData } from './client';
+import type { PaginatedResponse } from '../../../../shared/types/api';
 import type { StockFinancialData as LocalStockFinancialData } from '@/types/financialChartData';
 import { apiLogger, safeError } from '@/lib/utils/logging';
 
@@ -67,10 +68,10 @@ export class MarketApiClient {
     } else if (typeof window === 'undefined') {
       // Server-side: use absolute URL
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      this.baseUrl = `${frontendUrl}/api/v1/market-data/stocks`;
+      this.baseUrl = `${frontendUrl}/api/market-data/stocks`;
     } else {
       // Client-side: use relative URL
-      this.baseUrl = '/api/v1/market-data/stocks';
+      this.baseUrl = '/api/market-data/stocks';
     }
   }
 
@@ -220,7 +221,7 @@ export class MarketApiClient {
    */
   async getStockPrice(symbol: string): Promise<StockPrice> {
     try {
-      const url = `/api/v1/market-data/prices/${symbol}`;
+      const url = `/api/market-data/prices/${symbol}`;
       
       const response = await fetch(url, {
         credentials: 'include',
@@ -248,7 +249,7 @@ export class MarketApiClient {
    */
   async getStockChart(symbol: string, timeframe: StockChart['timeframe'] = '1d'): Promise<StockChart> {
     try {
-      const url = `/api/v1/market-data/charts/${symbol}?timeframe=${timeframe}`;
+      const url = `/api/market-data/charts/${symbol}?timeframe=${timeframe}`;
       
       const response = await fetch(url, {
         credentials: 'include',
@@ -282,7 +283,7 @@ export class MarketApiClient {
     country: string;
   }>> {
     try {
-      const url = `/api/v1/market-data/search?q=${encodeURIComponent(query)}&limit=${limit}`;
+      const url = `/api/market-data/search?q=${encodeURIComponent(query)}&limit=${limit}`;
       
       const response = await fetch(url, {
         credentials: 'include',
@@ -311,7 +312,7 @@ export class MarketApiClient {
    */
   async getSectors(): Promise<string[]> {
     try {
-      const url = `/api/v1/market-data/sectors`;
+      const url = `/api/market-data/sectors`;
       
       const response = await fetch(url, {
         credentials: 'include',
@@ -338,7 +339,7 @@ export class MarketApiClient {
    */
   async getCountries(): Promise<string[]> {
     try {
-      const url = `/api/v1/market-data/countries`;
+      const url = `/api/market-data/countries`;
       
       const response = await fetch(url, {
         credentials: 'include',
@@ -425,12 +426,4 @@ export const marketApiClient = new MarketApiClient();
 // Legacy export for backward compatibility
 export const StockApiClient = MarketApiClient;
 
-// Export types
-export type {
-  StockApiParams,
-  MarketSummary,
-  StockPrice,
-  StockChart,
-  StockFinancialData,
-  LocalStockFinancialData
-};
+// Types are available from their respective modules

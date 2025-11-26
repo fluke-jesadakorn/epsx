@@ -1,4 +1,5 @@
 use rust_decimal::Decimal;
+use rust_decimal_macros::dec;
 use std::collections::HashMap;
 use std::fmt::{self, Display};
 use serde::{Serialize, Deserialize};
@@ -10,6 +11,19 @@ pub use crate::domain::shared_kernel::value_objects::Network as SharedNetwork;
 // For compatibility, also re-export with original names
 pub use SharedCurrency as Currency;
 pub use SharedNetwork as Network;
+
+// Compile-time decimal constants to avoid runtime parsing
+const ETH_MIN: Decimal = dec!(0.01);
+const BTC_MIN: Decimal = dec!(0.001);
+const BNB_MIN: Decimal = dec!(0.1);
+
+// Fee rate constants
+const FEE_USD: Decimal = dec!(0.03);
+const FEE_STABLE: Decimal = dec!(0.02);
+const FEE_ETH: Decimal = dec!(0.025);
+const FEE_BTC: Decimal = dec!(0.015);
+const FEE_BNB: Decimal = dec!(0.02);
+const FEE_TRX: Decimal = dec!(0.03);
 
 /// Payment Amount Value Object
 /// Represents an amount with currency and validation rules
@@ -131,18 +145,18 @@ impl PaymentAmount {
     /// Get minimum amount for currency
     pub fn minimum_amount_for_currency(currency: &Currency) -> Decimal {
         match currency {
-            Currency::USD => Decimal::from(10),        // $10 minimum
-            Currency::USDT => Decimal::from(10),       // $10 minimum
-            Currency::USDC => Decimal::from(10),       // $10 minimum
-            Currency::ETH => "0.01".parse().unwrap(),  // 0.01 ETH minimum
-            Currency::BTC => "0.001".parse().unwrap(), // 0.001 BTC minimum
-            Currency::BNB => "0.1".parse().unwrap(),   // 0.1 BNB minimum
-            Currency::TRX => Decimal::from(100),       // 100 TRX minimum
-            Currency::Bitcoin => "0.001".parse().unwrap(), // 0.001 BTC minimum (alias)
-            Currency::Ethereum => "0.01".parse().unwrap(),  // 0.01 ETH minimum (alias)
-            Currency::Usdt => Decimal::from(10),       // $10 minimum (alias)
-            Currency::Usdc => Decimal::from(10),       // $10 minimum (alias)
-            Currency::Bnb => "0.1".parse().unwrap(),   // 0.1 BNB minimum (alias)
+            Currency::USD => dec!(10),        // $10 minimum
+            Currency::USDT => dec!(10),       // $10 minimum
+            Currency::USDC => dec!(10),       // $10 minimum
+            Currency::ETH => ETH_MIN,         // 0.01 ETH minimum
+            Currency::BTC => BTC_MIN,         // 0.001 BTC minimum
+            Currency::BNB => BNB_MIN,         // 0.1 BNB minimum
+            Currency::TRX => dec!(100),       // 100 TRX minimum
+            Currency::Bitcoin => BTC_MIN,     // 0.001 BTC minimum (alias)
+            Currency::Ethereum => ETH_MIN,    // 0.01 ETH minimum (alias)
+            Currency::Usdt => dec!(10),       // $10 minimum (alias)
+            Currency::Usdc => dec!(10),       // $10 minimum (alias)
+            Currency::Bnb => BNB_MIN,         // 0.1 BNB minimum (alias)
         }
     }
 
@@ -211,19 +225,21 @@ impl PaymentAmount {
     /// Check if amount is within processing fee range
     pub fn processing_fee(&self) -> PaymentAmount {
         let fee_rate = match self.currency {
-            Currency::USD => "0.03".parse::<Decimal>().unwrap(),  // 3% for USD
-            Currency::USDT | Currency::USDC => "0.02".parse::<Decimal>().unwrap(), // 2% for stablecoins
-            Currency::ETH => "0.025".parse::<Decimal>().unwrap(), // 2.5% for ETH
-            Currency::BTC => "0.015".parse::<Decimal>().unwrap(), // 1.5% for BTC
-            Currency::BNB => "0.02".parse::<Decimal>().unwrap(),  // 2% for BNB
-            Currency::TRX => "0.03".parse::<Decimal>().unwrap(),  // 3% for TRX
-            Currency::Bitcoin => "0.015".parse::<Decimal>().unwrap(), // 1.5% for BTC (alias)
-            Currency::Ethereum => "0.025".parse::<Decimal>().unwrap(), // 2.5% for ETH (alias)
-            Currency::Usdt | Currency::Usdc => "0.02".parse::<Decimal>().unwrap(), // 2% for stablecoins (aliases)
-            Currency::Bnb => "0.02".parse::<Decimal>().unwrap(),  // 2% for BNB (alias)
+            Currency::USD => FEE_USD,         // 3% for USD
+            Currency::USDT | Currency::USDC => FEE_STABLE,  // 2% for stablecoins
+            Currency::ETH => FEE_ETH,         // 2.5% for ETH
+            Currency::BTC => FEE_BTC,         // 1.5% for BTC
+            Currency::BNB => FEE_BNB,         // 2% for BNB
+            Currency::TRX => FEE_TRX,         // 3% for TRX
+            Currency::Bitcoin => FEE_BTC,     // 1.5% for BTC (alias)
+            Currency::Ethereum => FEE_ETH,    // 2.5% for ETH (alias)
+            Currency::Usdt | Currency::Usdc => FEE_STABLE, // 2% for stablecoins (aliases)
+            Currency::Bnb => FEE_BNB,         // 2% for BNB (alias)
         };
 
         let fee_amount = self.amount * fee_rate;
+        // Fee should always be valid since it's derived from a positive amount
+        // If fee calculation fails (edge case), return zero fee rather than panic
         PaymentAmount::new(fee_amount, self.currency.clone()).unwrap_or_else(|_| {
             PaymentAmount::zero(self.currency.clone())
         })

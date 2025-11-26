@@ -2,7 +2,6 @@
 
 import { createApiClient, isApiError } from '@/lib/api-client';
 import { requirePermission } from '../auth';
-import { safeError } from '@/lib/utils/logging';
 
 // ============================================================================
 // Admin Server Actions
@@ -22,7 +21,7 @@ export async function getAdminConfig(): Promise<{ adminUrl: string }> {
     const result = await client.serverGetAdminConfig();
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to get admin config');
+      throw new Error(result.message || 'Failed to get admin config');
     }
     
     return result.data!;
@@ -44,7 +43,7 @@ export async function getVapidKey(): Promise<{ vapidPublicKey: string }> {
     const result = await client.serverGetVapidKey();
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to get VAPID key');
+      throw new Error(result.message || 'Failed to get VAPID key');
     }
     
     return result.data!;
@@ -66,7 +65,7 @@ export async function getSystemHealth(): Promise<any> {
     const result = await client.serverGetSystemHealth();
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to get system health');
+      throw new Error(result.message || 'Failed to get system health');
     }
     
     return result.data!;
@@ -88,7 +87,7 @@ export async function manageUserPermissions(userId: string, permissions: string[
     const result = await client.serverManageUserPermissions(userId, permissions);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to manage user permissions');
+      throw new Error(result.message || 'Failed to manage user permissions');
     }
   } catch (error) {
     console.error('Manage user permissions error:', error);
@@ -108,7 +107,7 @@ export async function getAllUsers(): Promise<any[]> {
     const result = await client.serverGetAllUsers();
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to get all users');
+      throw new Error(result.message || 'Failed to get all users');
     }
     
     return result.data!;
@@ -130,7 +129,7 @@ export async function getSystemMetrics(): Promise<any> {
     const result = await client.serverGetSystemMetrics();
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to get system metrics');
+      throw new Error(result.message || 'Failed to get system metrics');
     }
     
     return result.data!;

@@ -1,803 +1,573 @@
 /**
- * Permission Forms - All Grant/Request/Bulk Operations
- * Consolidates: GrantPermissionForm, GrantPermissionModal, PermissionRequestForm,
- * RequestPermissionModal, BulkPermissionAssignment, BulkPermissionManager,
- * BulkRoleManager, TemporaryPermissionForm, TemporaryPermissionManager
+ * Permission Forms Component
+ * Forms for permission management and assignment
  */
 
-'use client';
+'use client'
 
-import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { 
-  Users, 
-  Shield, 
-  Calendar, 
-  Plus, 
-  Trash2, 
-  Clock,
-  CheckCircle,
-  XCircle,
-  AlertCircle
-} from 'lucide-react';
+  Shield, User, Clock, AlertTriangle, CheckCircle, Plus, Minus,
+  Search, Filter, Save, X, Info, Calendar
+} from 'lucide-react'
+import React, { useState, useCallback, useMemo } from 'react'
 
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/FormComponents'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import { useToast } from '@/components/ui/use-toast'
+import { adminCardVariants, adminButtonVariants } from '@/design-system'
+import { cn } from '@/lib/shared'
 
-import type { User, Permission, Platform } from '@/types/core';
-import { adminClient } from '@/lib/api/unified-admin-client';
+export interface PermissionAssignmentRequest {
+  userId: string;
+  permissions: string[];
+  expiryDate?: string;
+  reason?: string;
+  priority: number;
+}
 
-// Form validation schemas
-const grantPermissionSchema = z.object({
-  userId: z.string().min(1, 'User is required'),
-  permissions: z.array(z.string()).min(1, 'At least one permission is required'),
-  expiresAt: z.string().optional(),
-  reason: z.string().min(3, 'Reason must be at least 3 characters').optional()
-});
+export interface BulkPermissionRequest {
+  userIds: string[];
+  permissions: string[];
+  operation: 'grant' | 'revoke';
+  expiryDate?: string;
+  reason?: string;
+}
 
-const bulkPermissionSchema = z.object({
-  userIds: z.array(z.string()).min(1, 'At least one user is required'),
-  permissions: z.array(z.string()).min(1, 'At least one permission is required'),
-  expiresAt: z.string().optional(),
-  reason: z.string().min(3, 'Reason must be at least 3 characters').optional()
-});
-
-const requestPermissionSchema = z.object({
-  permissions: z.array(z.string()).min(1, 'At least one permission is required'),
-  justification: z.string().min(10, 'Justification must be at least 10 characters'),
-  urgency: z.enum(['low', 'medium', 'high', 'critical']),
-  duration: z.enum(['temporary', 'permanent']),
-  expiresAt: z.string().optional()
-});
-
-type GrantPermissionForm = z.infer<typeof grantPermissionSchema>;
-type BulkPermissionForm = z.infer<typeof bulkPermissionSchema>;
-type RequestPermissionForm = z.infer<typeof requestPermissionSchema>;
-
-interface PermissionFormsProps {
-  users?: User[];
-  availablePermissions?: Array<{
-    id: string;
-    name: string;
-    description: string;
-    platform: Platform;
-    category: string;
-  }>;
-  onPermissionGranted?: (data: any) => void;
-  onPermissionRequested?: (data: any) => void;
-  onBulkOperationComplete?: (result: any) => void;
+interface PermissionFormProps {
+  userId?: string;
+  currentPermissions?: string[];
+  onSubmit: (request: PermissionAssignmentRequest) => Promise<void>;
   className?: string;
 }
 
-interface PermissionSelectorProps {
-  permissions: Array<{
-    id: string;
-    name: string;
-    description: string;
-    platform: Platform;
-    category: string;
-  }>;
-  selectedPermissions: string[];
-  onSelectionChange: (permissions: string[]) => void;
-  onFormUpdate: (permissions: string[]) => void;
-  searchQuery: string;
-  onSearchChange: (query: string) => void;
-  filterPlatform: string;
-  onFilterChange: (platform: string) => void;
-}
+/**
+ *
+ * @param root0
+ * @param root0.userId
+ * @param root0.currentPermissions
+ * @param root0.onSubmit
+ * @param root0.className
+ */
+export function PermissionAssignmentForm({ 
+  userId, 
+  currentPermissions = [], 
+  onSubmit,
+  className 
+}: PermissionFormProps) {
+  const { toast } = useToast()
+  const [loading, setLoading] = useState(false)
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([])
+  const [expiryDate, setExpiryDate] = useState('')
+  const [reason, setReason] = useState('')
+  const [priority, setPriority] = useState(1)
+  const [searchTerm, setSearchTerm] = useState('')
 
-export function PermissionForms({
-  users = [],
-  availablePermissions = [],
-  onPermissionGranted,
-  onPermissionRequested,
-  onBulkOperationComplete,
-  className = ''
-}: PermissionFormsProps) {
-  const [activeTab, setActiveTab] = useState('grant');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
-  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [filterPlatform, setFilterPlatform] = useState<string>('all');
-  
-  // Grant Permission Form
-  const grantForm = useForm<GrantPermissionForm>({
-    resolver: zodResolver(grantPermissionSchema),
-    defaultValues: {
-      userId: '',
-      permissions: [],
-      expiresAt: '',
-      reason: ''
+  // Available permissions
+  const availablePermissions = useMemo(() => [
+    'admin:*:*',
+    'admin:users:view',
+    'admin:users:manage',
+    'admin:users:create',
+    'admin:users:delete',
+    'admin:permissions:view',
+    'admin:permissions:manage',
+    'admin:analytics:view',
+    'admin:analytics:manage',
+    'admin:system:view',
+    'admin:system:manage',
+    'epsx:*:*',
+    'epsx:analytics:view',
+    'epsx:analytics:premium',
+    'epsx:analytics:professional',
+    'epsx:api:access',
+    'epsx:data:export',
+    'web3:*:*',
+    'web3:wallet:connect',
+    'web3:transactions:view',
+    'web3:permissions:manage'
+  ], [])
+
+  // Filter permissions based on search
+  const filteredPermissions = useMemo(() => {
+    if (!searchTerm) {return availablePermissions}
+    return availablePermissions.filter(p => 
+      p.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  }, [availablePermissions, searchTerm])
+
+  const handlePermissionToggle = useCallback((permission: string) => {
+    setSelectedPermissions(prev => 
+      prev.includes(permission)
+        ? prev.filter(p => p !== permission)
+        : [...prev, permission]
+    )
+  }, [])
+
+  const handleSubmit = useCallback(async () => {
+    if (!userId || selectedPermissions.length === 0) {
+      toast({
+        title: 'Invalid Request',
+        description: 'User ID and at least one permission are required',
+        variant: 'destructive'
+      })
+      return
     }
-  });
 
-  // Bulk Permission Form
-  const bulkForm = useForm<BulkPermissionForm>({
-    resolver: zodResolver(bulkPermissionSchema),
-    defaultValues: {
-      userIds: [],
-      permissions: [],
-      expiresAt: '',
-      reason: ''
-    }
-  });
-
-  // Request Permission Form
-  const requestForm = useForm<RequestPermissionForm>({
-    resolver: zodResolver(requestPermissionSchema),
-    defaultValues: {
-      permissions: [],
-      justification: '',
-      urgency: 'medium',
-      duration: 'temporary',
-      expiresAt: ''
-    }
-  });
-
-  // Filtered permissions based on search and platform
-  const filteredPermissions = availablePermissions.filter(permission => {
-    const matchesSearch = searchQuery === '' || 
-      permission.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      permission.description.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesPlatform = filterPlatform === 'all' || 
-      permission.platform === filterPlatform;
-    
-    return matchesSearch && matchesPlatform;
-  });
-
-  // Grouped permissions by category
-  const permissionsByCategory = filteredPermissions.reduce((acc, permission) => {
-    if (!acc[permission.category]) {
-      acc[permission.category] = [];
-    }
-    acc[permission.category].push(permission);
-    return acc;
-  }, {} as Record<string, typeof availablePermissions>);
-
-  // Grant permission handler
-  const handleGrantPermission = async (data: GrantPermissionForm) => {
-    setIsSubmitting(true);
+    setLoading(true)
     try {
-      for (const permission of data.permissions) {
-        const response = await adminClient.grantPermission(
-          data.userId,
-          permission,
-          data.expiresAt
-        );
-        
-        if (!response.success) {
-          throw new Error(response.error || 'Failed to grant permission');
-        }
-      }
-      
-      onPermissionGranted?.({
-        userId: data.userId,
-        permissions: data.permissions,
-        expiresAt: data.expiresAt,
-        reason: data.reason
-      });
-      
-      grantForm.reset();
-      setSelectedPermissions([]);
-      
-    } catch (error) {
-      console.error('Grant permission error:', error);
+      await onSubmit({
+        userId,
+        permissions: selectedPermissions,
+        expiryDate: expiryDate || undefined,
+        reason: reason || undefined,
+        priority
+      })
+
+      // Reset form
+      setSelectedPermissions([])
+      setExpiryDate('')
+      setReason('')
+      setPriority(1)
+
+      toast({
+        title: 'Permissions Assigned',
+        description: `Successfully assigned ${selectedPermissions.length} permissions`
+      })
+    } catch (_error) {
+      toast({
+        title: 'Assignment Failed',
+        description: _error instanceof Error ? _error.message : 'Failed to assign permissions',
+        variant: 'destructive'
+      })
     } finally {
-      setIsSubmitting(false);
+      setLoading(false)
     }
-  };
-
-  // Bulk grant permission handler
-  const handleBulkGrantPermission = async (data: BulkPermissionForm) => {
-    setIsSubmitting(true);
-    try {
-      const response = await adminClient.bulkGrantPermissions(
-        data.userIds,
-        data.permissions,
-        data.expiresAt
-      );
-      
-      if (!response.success) {
-        throw new Error(response.error || 'Bulk operation failed');
-      }
-      
-      onBulkOperationComplete?.(response.data);
-      
-      bulkForm.reset();
-      setSelectedUsers([]);
-      setSelectedPermissions([]);
-      
-    } catch (error) {
-      console.error('Bulk grant error:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Request permission handler
-  const handleRequestPermission = async (data: RequestPermissionForm) => {
-    setIsSubmitting(true);
-    try {
-      // In a real implementation, this would create a permission request
-      // that admins can approve/deny
-      const requestData = {
-        permissions: data.permissions,
-        justification: data.justification,
-        urgency: data.urgency,
-        duration: data.duration,
-        expiresAt: data.expiresAt,
-        requestedAt: new Date().toISOString()
-      };
-      
-      onPermissionRequested?.(requestData);
-      
-      requestForm.reset();
-      setSelectedPermissions([]);
-      
-    } catch (error) {
-      console.error('Request permission error:', error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Permission Selector Component
-  function PermissionSelector({
-    permissions,
-    selectedPermissions,
-    onSelectionChange,
-    onFormUpdate,
-    searchQuery,
-    onSearchChange,
-    filterPlatform,
-    onFilterChange
-  }: PermissionSelectorProps) {
-    const handlePermissionToggle = (permissionId: string) => {
-      const updated = selectedPermissions.includes(permissionId)
-        ? selectedPermissions.filter(id => id !== permissionId)
-        : [...selectedPermissions, permissionId];
-      
-      onSelectionChange(updated);
-      onFormUpdate(updated);
-    };
-
-    const permissionsByCategory = permissions.reduce((acc, permission) => {
-      if (!acc[permission.category]) {
-        acc[permission.category] = [];
-      }
-      acc[permission.category].push(permission);
-      return acc;
-    }, {} as Record<string, typeof permissions>);
-
-    return (
-      <div className="space-y-4">
-        <div>
-          <Label>Select Permissions</Label>
-          <p className="text-sm text-gray-500">Choose which permissions to grant</p>
-        </div>
-
-        {/* Permission Filters */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <Input
-            placeholder="Search permissions..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="flex-1"
-          />
-          <Select value={filterPlatform} onValueChange={onFilterChange}>
-            <SelectTrigger className="w-full sm:w-48">
-              <SelectValue placeholder="All Platforms" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Platforms</SelectItem>
-              <SelectItem value="admin">Admin</SelectItem>
-              <SelectItem value="epsx">EPSX</SelectItem>
-              <SelectItem value="epsx-pay">EPSX Pay</SelectItem>
-              <SelectItem value="epsx-token">EPSX Token</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Permission Categories */}
-        <div className="space-y-4 max-h-64 overflow-y-auto">
-          {Object.entries(permissionsByCategory).map(([category, categoryPermissions]) => {
-            const filteredPermissions = categoryPermissions.filter(permission => {
-              const matchesSearch = permission.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                                  permission.description.toLowerCase().includes(searchQuery.toLowerCase());
-              const matchesPlatform = filterPlatform === 'all' || permission.platform === filterPlatform;
-              return matchesSearch && matchesPlatform;
-            });
-
-            if (filteredPermissions.length === 0) return null;
-
-            return (
-              <div key={category} className="space-y-2">
-                <h4 className="font-semibold text-sm text-gray-700 dark:text-gray-300 capitalize">
-                  {category.replace(/([A-Z])/g, ' $1').trim()}
-                </h4>
-                <div className="grid grid-cols-1 gap-2">
-                  {filteredPermissions.map(permission => (
-                    <div
-                      key={permission.id}
-                      className="flex items-center space-x-3 p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-                    >
-                      <Checkbox
-                        id={permission.id}
-                        checked={selectedPermissions.includes(permission.id)}
-                        onCheckedChange={() => handlePermissionToggle(permission.id)}
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <Label htmlFor={permission.id} className="font-medium cursor-pointer">
-                            {permission.name}
-                          </Label>
-                          <Badge variant="outline" className="text-xs">
-                            {permission.platform}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                          {permission.description}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {Object.keys(permissionsByCategory).length === 0 && (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            No permissions found matching your criteria.
-          </div>
-        )}
-
-        {selectedPermissions.length > 0 && (
-          <div className="bg-blue-500/10 border border-blue-500/20 rounded-md p-3">
-            <p className="text-sm text-blue-400">
-              {selectedPermissions.length} permission(s) selected
-            </p>
-          </div>
-        )}
-      </div>
-    );
-  }
+  }, [userId, selectedPermissions, expiryDate, reason, priority, onSubmit, toast])
 
   return (
-    <div className={`space-y-6 sm:space-y-8 ${className}`}>
-      {/* Background Decorations */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-full blur-xl"></div>
-        <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-purple-500/20 rounded-full blur-lg"></div>
-        <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-orange-400/15 to-yellow-500/15 rounded-full blur-xl"></div>
-      </div>
-
-      {/* Header */}
-      <div className="relative text-center mb-8 sm:mb-12">
-        <div className="relative inline-block">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-yellow-600 via-orange-600 via-pink-600 to-purple-600 bg-clip-text text-transparent mb-4">
-            🔍 Permission Operations
-          </h1>
-          <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full"></div>
-        </div>
-        <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-          Grant, request, and manage permissions across the EPSX platform
-        </p>
-      </div>
-
-      {/* Main Form Tabs */}
-      <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-purple-400/20 via-blue-400/20 to-green-400/20 p-0.5">
-        <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-2xl">
-              <TabsTrigger value="grant" className="rounded-xl min-h-[44px] text-sm font-medium">Grant Permissions</TabsTrigger>
-              <TabsTrigger value="bulk" className="rounded-xl min-h-[44px] text-sm font-medium">Bulk Operations</TabsTrigger>
-              <TabsTrigger value="request" className="rounded-xl min-h-[44px] text-sm font-medium">Request Permissions</TabsTrigger>
-            </TabsList>
-
-            {/* Grant Permissions Tab */}
-            <TabsContent value="grant" className="space-y-4 sm:space-y-6 mt-6">
-              <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-blue-400/20 via-indigo-400/20 to-purple-400/20 p-0.5">
-                <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6">
-                  <form onSubmit={grantForm.handleSubmit(handleGrantPermission)} className="space-y-4 sm:space-y-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-2xl flex items-center justify-center">
-                        <Shield className="w-5 h-5 text-white" />
-                      </div>
-                      <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">Grant Permissions to User</h3>
-                    </div>
-
-                    {/* User Selection */}
-                    <div className="space-y-2">
-                      <Label htmlFor="userId" className="text-sm font-semibold text-gray-700 dark:text-gray-300">Select User</Label>
-                      <Select
-                        value={grantForm.watch('userId')}
-                        onValueChange={(value) => grantForm.setValue('userId', value)}
-                      >
-                        <SelectTrigger className="min-h-[44px] rounded-2xl border-2">
-                          <SelectValue placeholder="Choose a user..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {users.map(user => (
-                            <SelectItem key={user.id} value={user.id}>
-                              <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-blue-500/20 flex items-center justify-center text-xs">
-                                  {user.email[0].toUpperCase()}
-                                </div>
-                                <div>
-                                  <div className="font-medium">{user.email}</div>
-                                  <div className="text-xs text-gray-500">{user.name}</div>
-                                </div>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {grantForm.formState.errors.userId && (
-                        <p className="text-sm text-red-500">{grantForm.formState.errors.userId.message}</p>
-                      )}
-                    </div>
-
-              {/* Permission Selection */}
-              <PermissionSelector
-                permissions={filteredPermissions}
-                selectedPermissions={selectedPermissions}
-                onSelectionChange={setSelectedPermissions}
-                onFormUpdate={(permissions) => grantForm.setValue('permissions', permissions)}
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                filterPlatform={filterPlatform}
-                onFilterChange={setFilterPlatform}
-              />
-              
-              {grantForm.formState.errors.permissions && (
-                <p className="text-sm text-red-500">{grantForm.formState.errors.permissions.message}</p>
-              )}
-
-                    {/* Expiry Date */}
-                    <div className="space-y-2">
-                      <Label htmlFor="expiresAt" className="text-sm font-semibold text-gray-700 dark:text-gray-300">Expiry Date (Optional)</Label>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <Input
-                          type="datetime-local"
-                          {...grantForm.register('expiresAt')}
-                          min={new Date().toISOString().slice(0, 16)}
-                          className="rounded-2xl border-2 min-h-[44px]"
-                        />
-                      </div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Leave empty for permanent permissions
-                      </p>
-                    </div>
-
-                    {/* Reason */}
-                    <div className="space-y-2">
-                      <Label htmlFor="reason" className="text-sm font-semibold text-gray-700 dark:text-gray-300">Reason (Optional)</Label>
-                      <Textarea
-                        placeholder="Reason for granting these permissions..."
-                        {...grantForm.register('reason')}
-                        rows={3}
-                        className="rounded-2xl border-2"
-                      />
-                      {grantForm.formState.errors.reason && (
-                        <p className="text-sm text-red-500">{grantForm.formState.errors.reason.message}</p>
-                      )}
-                    </div>
-
-                    {/* Submit Button */}
-                    <div className="flex flex-col sm:flex-row justify-end gap-3">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          grantForm.reset();
-                          setSelectedPermissions([]);
-                        }}
-                        className="min-h-[44px] rounded-2xl border-2"
-                      >
-                        Reset
-                      </Button>
-                      <Button
-                        type="submit"
-                        disabled={isSubmitting || selectedPermissions.length === 0}
-                        className="min-h-[44px] rounded-2xl bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <Clock className="w-4 h-4 mr-2" />
-                            Granting...
-                          </>
-                        ) : (
-                          <>
-                            <Plus className="w-4 h-4 mr-2" />
-                            Grant Permissions
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            </TabsContent>
-
-            {/* Bulk Operations Tab */}
-            <TabsContent value="bulk" className="space-y-4 sm:space-y-6 mt-6">
-              <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-green-400/20 via-emerald-400/20 to-teal-400/20 p-0.5">
-                <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6">
-                  <form onSubmit={bulkForm.handleSubmit(handleBulkGrantPermission)} className="space-y-4 sm:space-y-6">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="h-10 w-10 bg-gradient-to-br from-green-500 to-emerald-500 rounded-2xl flex items-center justify-center">
-                        <Users className="w-5 h-5 text-white" />
-                      </div>
-                      <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent">Bulk Permission Operations</h3>
-                    </div>
-
-                    {/* Multiple User Selection */}
-                    <div className="space-y-2">
-                      <Label className="text-sm font-semibold text-gray-700 dark:text-gray-300">Select Users</Label>
-                      <div className="border-2 border-gray-300 dark:border-gray-600 rounded-2xl p-3 max-h-64 overflow-y-auto bg-gray-50 dark:bg-gray-800">
-                        <div className="space-y-3">
-                          {users.map(user => (
-                            <label key={user.id} className="flex items-center gap-3 p-3 hover:bg-white dark:hover:bg-gray-700 rounded-xl cursor-pointer">
-                              <Checkbox
-                                checked={selectedUsers.includes(user.id)}
-                                onCheckedChange={(checked) => {
-                                  if (checked) {
-                                    setSelectedUsers([...selectedUsers, user.id]);
-                                    bulkForm.setValue('userIds', [...selectedUsers, user.id]);
-                                  } else {
-                                    const updated = selectedUsers.filter(id => id !== user.id);
-                                    setSelectedUsers(updated);
-                                    bulkForm.setValue('userIds', updated);
-                                  }
-                                }}
-                                className="h-5 w-5 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                              />
-                              <div className="flex items-center gap-3 flex-1">
-                                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center text-xs text-white font-semibold">
-                                  {user.email[0].toUpperCase()}
-                                </div>
-                                <div className="flex-1">
-                                  <div className="text-sm font-semibold text-gray-900 dark:text-white">{user.email}</div>
-                                  <div className="text-xs text-gray-500 dark:text-gray-400">{user.name || 'No name'}</div>
-                                </div>
-                              </div>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                      {selectedUsers.length > 0 && (
-                        <p className="text-sm text-green-600 dark:text-green-400 font-medium">
-                          ✓ {selectedUsers.length} user(s) selected
-                        </p>
-                      )}
-                      {bulkForm.formState.errors.userIds && (
-                        <p className="text-sm text-red-500">{bulkForm.formState.errors.userIds.message}</p>
-                      )}
-                    </div>
-
-              {/* Permission Selection for Bulk */}
-              <PermissionSelector
-                permissions={filteredPermissions}
-                selectedPermissions={selectedPermissions}
-                onSelectionChange={setSelectedPermissions}
-                onFormUpdate={(permissions) => bulkForm.setValue('permissions', permissions)}
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                filterPlatform={filterPlatform}
-                onFilterChange={setFilterPlatform}
-              />
-              
-              {bulkForm.formState.errors.permissions && (
-                <p className="text-sm text-red-500">{bulkForm.formState.errors.permissions.message}</p>
-              )}
-
-                    {/* Bulk Expiry Date */}
-                    <div className="space-y-2">
-                      <Label htmlFor="bulkExpiresAt" className="text-sm font-semibold text-gray-700 dark:text-gray-300">Expiry Date (Optional)</Label>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <Input
-                          type="datetime-local"
-                          {...bulkForm.register('expiresAt')}
-                          min={new Date().toISOString().slice(0, 16)}
-                          className="rounded-2xl border-2 min-h-[44px]"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Bulk Reason */}
-                    <div className="space-y-2">
-                      <Label htmlFor="bulkReason" className="text-sm font-semibold text-gray-700 dark:text-gray-300">Reason</Label>
-                      <Textarea
-                        placeholder="Reason for bulk permission grant..."
-                        {...bulkForm.register('reason')}
-                        rows={3}
-                        className="rounded-2xl border-2"
-                      />
-                      {bulkForm.formState.errors.reason && (
-                        <p className="text-sm text-red-500">{bulkForm.formState.errors.reason.message}</p>
-                      )}
-                    </div>
-
-                    {/* Submit Button */}
-                    <div className="flex flex-col sm:flex-row justify-end gap-3">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => {
-                          bulkForm.reset();
-                          setSelectedUsers([]);
-                          setSelectedPermissions([]);
-                        }}
-                        className="min-h-[44px] rounded-2xl border-2"
-                      >
-                        Reset
-                      </Button>
-                      <Button
-                        type="submit"
-                        disabled={isSubmitting || selectedUsers.length === 0 || selectedPermissions.length === 0}
-                        className="min-h-[44px] rounded-2xl bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <Clock className="w-4 h-4 mr-2" />
-                            Processing...
-                          </>
-                        ) : (
-                          <>
-                            <Users className="w-4 h-4 mr-2" />
-                            Grant to {selectedUsers.length} User(s)
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  </form>
-                </div>
-              </div>
-            </TabsContent>
-
-            {/* Request Permissions Tab */}
-            <TabsContent value="request" className="space-y-4">
-              <Card className="p-6">
-                <form onSubmit={requestForm.handleSubmit(handleRequestPermission)} className="space-y-6">
-              <div className="flex items-center gap-2 mb-4">
-                <AlertCircle className="w-5 h-5 text-yellow-500" />
-                <h3 className="text-lg font-medium text-white">Request Permissions</h3>
-              </div>
-
-              {/* Permission Selection for Request */}
-              <PermissionSelector
-                permissions={filteredPermissions}
-                selectedPermissions={selectedPermissions}
-                onSelectionChange={setSelectedPermissions}
-                onFormUpdate={(permissions) => requestForm.setValue('permissions', permissions)}
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                filterPlatform={filterPlatform}
-                onFilterChange={setFilterPlatform}
-              />
-              
-              {requestForm.formState.errors.permissions && (
-                <p className="text-sm text-red-500">{requestForm.formState.errors.permissions.message}</p>
-              )}
-
-              {/* Justification */}
-              <div className="space-y-2">
-                <Label htmlFor="justification">Justification <span className="text-red-500">*</span></Label>
-                <Textarea
-                  placeholder="Please explain why you need these permissions..."
-                  {...requestForm.register('justification')}
-                  rows={4}
+    <div className={cn('space-y-6', className)}>
+      <Card className={adminCardVariants({ variant: 'default' })}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Assign Permissions
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Permission Selection */}
+          <div>
+            <Label>Select Permissions *</Label>
+            <div className="mt-2 space-y-3">
+              <div className="relative">
+                <Search className="h-4 w-4 absolute left-3 top-3 text-gray-400" />
+                <Input
+                  placeholder="Search permissions..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
                 />
-                {requestForm.formState.errors.justification && (
-                  <p className="text-sm text-red-500">{requestForm.formState.errors.justification.message}</p>
-                )}
               </div>
 
-              {/* Urgency and Duration */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="urgency">Urgency</Label>
-                  <Select
-                    value={requestForm.watch('urgency')}
-                    onValueChange={(value: any) => requestForm.setValue('urgency', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="critical">Critical</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="duration">Duration</Label>
-                  <Select
-                    value={requestForm.watch('duration')}
-                    onValueChange={(value: any) => requestForm.setValue('duration', value)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="temporary">Temporary</SelectItem>
-                      <SelectItem value="permanent">Permanent</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-64 overflow-y-auto border rounded-lg p-3">
+                {filteredPermissions.map((permission) => {
+                  const isSelected = selectedPermissions.includes(permission)
+                  const isCurrent = currentPermissions.includes(permission)
+                  
+                  return (
+                    <div
+                      key={permission}
+                      className={cn(
+                        'flex items-center p-2 rounded cursor-pointer',
+                        isSelected ? 'bg-blue-50 border border-blue-200' : 'hover:bg-gray-50',
+                        isCurrent ? 'bg-green-50 border border-green-200' : ''
+                      )}
+                      onClick={() => handlePermissionToggle(permission)}
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        onChange={() => handlePermissionToggle(permission)}
+                        className="mr-3"
+                      />
+                      <div className="flex-1">
+                        <span className="text-sm">{permission}</span>
+                        {isCurrent && (
+                          <Badge variant="outline" className="ml-2 text-xs">
+                            Current
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
 
-              {/* Conditional Expiry Date */}
-              {requestForm.watch('duration') === 'temporary' && (
-                <div className="space-y-2">
-                  <Label htmlFor="requestExpiresAt">Requested Expiry Date</Label>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-gray-400" />
-                    <Input
-                      type="datetime-local"
-                      {...requestForm.register('expiresAt')}
-                      min={new Date().toISOString().slice(0, 16)}
-                    />
+              {selectedPermissions.length > 0 && (
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <h4 className="font-medium text-blue-900 mb-2">
+                    Selected Permissions ({selectedPermissions.length})
+                  </h4>
+                  <div className="flex flex-wrap gap-1">
+                    {selectedPermissions.map((permission) => (
+                      <Badge 
+                        key={permission}
+                        variant="secondary"
+                        className="cursor-pointer hover:bg-red-100"
+                        onClick={() => handlePermissionToggle(permission)}
+                      >
+                        {permission}
+                        <X className="h-3 w-3 ml-1" />
+                      </Badge>
+                    ))}
                   </div>
                 </div>
               )}
+            </div>
+          </div>
 
-              {/* Submit Button */}
-              <div className="flex justify-end gap-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    requestForm.reset();
-                    setSelectedPermissions([]);
-                  }}
-                >
-                  Reset
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={isSubmitting || selectedPermissions.length === 0}
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Clock className="w-4 h-4 mr-2" />
-                      Submitting...
-                    </>
-                  ) : (
-                    <>
-                      <AlertCircle className="w-4 h-4 mr-2" />
-                      Submit Request
-                    </>
-                  )}
-                </Button>
-              </div>
-                </form>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </div>
+          {/* Assignment Options */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="expiry">Expiry Date (optional)</Label>
+              <Input
+                id="expiry"
+                type="datetime-local"
+                value={expiryDate}
+                onChange={(e) => setExpiryDate(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="priority">Priority Level</Label>
+              <Select value={priority.toString()} onValueChange={(value) => setPriority(parseInt(value))}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[...Array(10)].map((_, i) => (
+                    <SelectItem key={i + 1} value={(i + 1).toString()}>
+                      {i + 1} - {i + 1 >= 8 ? 'Critical' : i + 1 >= 5 ? 'High' : i + 1 >= 3 ? 'Medium' : 'Low'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="reason">Reason (optional)</Label>
+            <Textarea
+              id="reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Reason for permission assignment"
+              rows={3}
+            />
+          </div>
+
+          <div className="flex justify-end">
+            <Button 
+              onClick={handleSubmit}
+              disabled={loading || selectedPermissions.length === 0}
+              className={adminButtonVariants({ variant: 'primary' })}
+            >
+              {loading ? 'Assigning...' : 'Assign Permissions'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
-  );
+  )
 }
 
-export default PermissionForms;
+// Bulk Permission Form
+interface BulkPermissionFormProps {
+  userIds: string[];
+  onSubmit: (request: BulkPermissionRequest) => Promise<void>;
+  className?: string;
+}
+
+/**
+ *
+ * @param root0
+ * @param root0.userIds
+ * @param root0.onSubmit
+ * @param root0.className
+ */
+export function BulkPermissionForm({ 
+  userIds, 
+  onSubmit, 
+  className 
+}: BulkPermissionFormProps) {
+  const { toast } = useToast()
+  const [loading, setLoading] = useState(false)
+  const [operation, setOperation] = useState<'grant' | 'revoke'>('grant')
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([])
+  const [expiryDate, setExpiryDate] = useState('')
+  const [reason, setReason] = useState('')
+
+  const availablePermissions = [
+    'admin:users:view',
+    'admin:analytics:view',
+    'epsx:analytics:view',
+    'epsx:analytics:premium',
+    'web3:wallet:connect'
+  ]
+
+  const handleSubmit = useCallback(async () => {
+    if (userIds.length === 0 || selectedPermissions.length === 0) {
+      toast({
+        title: 'Invalid Request',
+        description: 'Users and permissions are required',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    setLoading(true)
+    try {
+      await onSubmit({
+        userIds,
+        permissions: selectedPermissions,
+        operation,
+        expiryDate: expiryDate || undefined,
+        reason: reason || undefined
+      })
+
+      toast({
+        title: 'Bulk Operation Complete',
+        description: `Successfully ${operation === 'grant' ? 'granted' : 'revoked'} permissions for ${userIds.length} users`
+      })
+    } catch (_error) {
+      toast({
+        title: 'Bulk Operation Failed',
+        description: _error instanceof Error ? _error.message : 'Failed to process bulk operation',
+        variant: 'destructive'
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [userIds, selectedPermissions, operation, expiryDate, reason, onSubmit, toast])
+
+  return (
+    <div className={cn('space-y-6', className)}>
+      <Card className={adminCardVariants({ variant: 'default' })}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            Bulk Permission Operation
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              This operation will affect {userIds.length} users. Please review carefully before proceeding.
+            </AlertDescription>
+          </Alert>
+
+          <div>
+            <Label>Operation Type</Label>
+            <Select value={operation} onValueChange={(value: 'grant' | 'revoke') => setOperation(value)}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="grant">Grant Permissions</SelectItem>
+                <SelectItem value="revoke">Revoke Permissions</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <Label>Select Permissions</Label>
+            <div className="space-y-2 mt-2">
+              {availablePermissions.map((permission) => (
+                <div key={permission} className="flex items-center space-x-2">
+                  <Checkbox
+                    checked={selectedPermissions.includes(permission)}
+                    onChange={(checked) => {
+                      if (checked) {
+                        setSelectedPermissions(prev => [...prev, permission])
+                      } else {
+                        setSelectedPermissions(prev => prev.filter(p => p !== permission))
+                      }
+                    }}
+                  />
+                  <Label className="text-sm">{permission}</Label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {operation === 'grant' && (
+            <div>
+              <Label htmlFor="bulkExpiry">Expiry Date (optional)</Label>
+              <Input
+                id="bulkExpiry"
+                type="datetime-local"
+                value={expiryDate}
+                onChange={(e) => setExpiryDate(e.target.value)}
+              />
+            </div>
+          )}
+
+          <div>
+            <Label htmlFor="bulkReason">Reason</Label>
+            <Textarea
+              id="bulkReason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Reason for bulk permission operation"
+              rows={3}
+            />
+          </div>
+
+          <div className="flex justify-end">
+            <Button 
+              onClick={handleSubmit}
+              disabled={loading || selectedPermissions.length === 0}
+              className={adminButtonVariants({ 
+                variant: operation === 'revoke' ? 'destructive' : 'primary' 
+              })}
+            >
+              {loading ? 'Processing...' : `${operation === 'grant' ? 'Grant' : 'Revoke'} Permissions`}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// Permission Request Form (for users requesting permissions)
+interface PermissionRequestFormProps {
+  onSubmit: (request: { permissions: string[]; justification: string }) => Promise<void>;
+  className?: string;
+}
+
+/**
+ *
+ * @param root0
+ * @param root0.onSubmit
+ * @param root0.className
+ */
+export function PermissionRequestForm({ onSubmit, className }: PermissionRequestFormProps) {
+  const { toast } = useToast()
+  const [loading, setLoading] = useState(false)
+  const [requestedPermissions, setRequestedPermissions] = useState<string[]>([])
+  const [justification, setJustification] = useState('')
+
+  const requestablePermissions = [
+    'epsx:analytics:premium',
+    'epsx:data:export',
+    'admin:analytics:view',
+    'web3:permissions:manage'
+  ]
+
+  const handleSubmit = useCallback(async () => {
+    if (requestedPermissions.length === 0 || !justification.trim()) {
+      toast({
+        title: 'Incomplete Request',
+        description: 'Please select permissions and provide justification',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    setLoading(true)
+    try {
+      await onSubmit({
+        permissions: requestedPermissions,
+        justification: justification.trim()
+      })
+
+      setRequestedPermissions([])
+      setJustification('')
+
+      toast({
+        title: 'Request Submitted',
+        description: 'Your permission request has been submitted for review'
+      })
+    } catch (_error) {
+      toast({
+        title: 'Request Failed',
+        description: _error instanceof Error ? _error.message : 'Failed to submit request',
+        variant: 'destructive'
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [requestedPermissions, justification, onSubmit, toast])
+
+  return (
+    <div className={cn('space-y-6', className)}>
+      <Card className={adminCardVariants({ variant: 'default' })}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="h-5 w-5" />
+            Request Permissions
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div>
+            <Label>Select Permissions to Request</Label>
+            <div className="space-y-2 mt-2">
+              {requestablePermissions.map((permission) => (
+                <div key={permission} className="flex items-center space-x-2">
+                  <Checkbox
+                    checked={requestedPermissions.includes(permission)}
+                    onChange={(checked) => {
+                      if (checked) {
+                        setRequestedPermissions(prev => [...prev, permission])
+                      } else {
+                        setRequestedPermissions(prev => prev.filter(p => p !== permission))
+                      }
+                    }}
+                  />
+                  <Label className="text-sm">{permission}</Label>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="justification">Justification *</Label>
+            <Textarea
+              id="justification"
+              value={justification}
+              onChange={(e) => setJustification(e.target.value)}
+              placeholder="Please explain why you need these permissions"
+              rows={4}
+            />
+          </div>
+
+          <div className="flex justify-end">
+            <Button 
+              onClick={handleSubmit}
+              disabled={loading || requestedPermissions.length === 0 || !justification.trim()}
+              className={adminButtonVariants({ variant: 'primary' })}
+            >
+              {loading ? 'Submitting...' : 'Submit Request'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+// Combined export for compatibility
+export const PermissionForms = {
+  PermissionAssignmentForm,
+  BulkPermissionForm,
+  PermissionRequestForm
+}
+
+export default PermissionForms

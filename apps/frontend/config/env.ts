@@ -1,6 +1,6 @@
-// Frontend Environment Configuration - Using Unified Schema
-// Now uses /shared/env/schema.ts for consistent validation across all services
-// Root .env file loaded via next.config.ts
+// Frontend Environment Configuration - Web3 Enterprise System  
+// Pure Web3 authentication with shared configuration system
+// Migrated to use shared/config compatibility layers
 
 import { 
   serverEnv, 
@@ -14,26 +14,24 @@ import {
 } from '../../../shared/env/schema';
 
 /**
- * Type-safe environment configuration
- * Uses unified schema with proper client/server separation
+ * Type-safe Web3 enterprise configuration
+ * Client-safe configuration for Web3 authentication
  */
 export const config = {
-  // Always available (client-safe URLs)
+  // Enterprise API URLs
   backendUrl: env.BACKEND_URL,
   appUrl: env.APP_URL,
   adminUrl: env.ADMIN_URL,
-  clientId: env.CLIENT_ID,
   
-  // Firebase client configuration
-  firebase: {
-    apiKey: env.FIREBASE_API_KEY,
-    projectId: env.FIREBASE_PROJECT_ID,
-    authDomain: env.FIREBASE_AUTH_DOMAIN,
-    storageBucket: env.FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: env.FIREBASE_MESSAGING_SENDER_ID,
-    appId: env.FIREBASE_APP_ID,
-    measurementId: env.FIREBASE_MEASUREMENT_ID,
+  // Web3 configuration (use shared auth config for full Web3 setup)
+  web3: {
+    networkId: process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK || 'testnet',
+    walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'epsx-web3-frontend',
   },
+  
+  // Web3 blockchain configuration
+  blockchainNetwork: env.BLOCKCHAIN_NETWORK,
+  walletConnectProjectId: env.WALLETCONNECT_PROJECT_ID,
   
   // Environment flags
   isDev,
@@ -42,59 +40,55 @@ export const config = {
 } as const;
 
 /**
- * Server-only configuration
+ * Server-only configuration for Web3 enterprise backend
  * Uses unified schema's server-only getters that throw errors if accessed on client
  */
 export const serverConfig = {
   get backendUrl() {
-    return env.BACKEND_URL; // Uses unified schema's server-only access
+    return env.BACKEND_URL;
   },
   
   get siteUrl() {
-    return env.APP_URL; // Frontend site URL for redirects
-  },
-  
-  get jwtSecret() {
-    return env.JWT_SECRET; // Uses unified schema's server-only getter
-  },
-  
-  get oidcClientSecret() {
-    return env.OIDC_CLIENT_SECRET; // Uses unified schema's server-only getter
+    return env.APP_URL;
   },
   
   get databaseUrl() {
-    return env.DATABASE_URL; // Uses unified schema's server-only getter
+    return env.DATABASE_URL;
   },
   
   get redisUrl() {
-    return env.REDIS_URL; // Uses unified schema's server-only getter
+    return env.REDIS_URL;
   }
 } as const;
 
 /**
- * OAuth/OIDC URLs - Uses unified URL helpers
+ * Web3 Enterprise API URLs
  */
-export const oauthUrls = {
-  authorize: urls.oidc.authorize,
-  token: urls.oidc.token,
-  userinfo: urls.oidc.userinfo,
-  jwks: urls.oidc.jwks,
+export const enterpriseUrls = {
+  // Enterprise API endpoints
+  authenticate: `${env.BACKEND_URL}/api/enterprise/auth/verify`,
+  challenge: `${env.BACKEND_URL}/api/enterprise/auth/challenge`,
+  permissions: `${env.BACKEND_URL}/api/enterprise/auth/permissions`,
+  marketplace: `${env.BACKEND_URL}/api/enterprise/marketplace`,
+  billing: `${env.BACKEND_URL}/api/enterprise/billing`,
+  analytics: `${env.BACKEND_URL}/api/enterprise/analytics`,
   
-  // Callback URLs
-  callback: urls.callbacks.frontend,
-  adminCallback: urls.callbacks.admin,
+  // Health and status
+  health: `${env.BACKEND_URL}/api/enterprise/health`,
+  status: `${env.BACKEND_URL}/api/enterprise/status`,
+  tiers: `${env.BACKEND_URL}/api/enterprise/tiers`,
 } as const;
 
 /**
  * Validation and debugging (development only)
  */
 if (typeof window !== 'undefined' && isDev) {
-  console.log('✅ Frontend Environment Configuration Loaded (Unified Schema)');
+  console.log('✅ Web3 Enterprise Frontend Configuration Loaded');
   console.log('🔧 Client Configuration:', {
     backendUrl: config.backendUrl,
     appUrl: config.appUrl,
     adminUrl: config.adminUrl,
-    clientId: config.clientId,
+    web3Network: config.web3.networkId,
     environment: process.env.NODE_ENV
   });
 }
@@ -102,8 +96,8 @@ if (typeof window !== 'undefined' && isDev) {
 // Export unified schema components for direct access if needed
 export { serverEnv, clientEnv, env, urls };
 
-// Export for backward compatibility
+// Export for Web3 enterprise system
 export { env as environment };
 export { config as clientConfig };
-export { oauthUrls as authConfig };
+export { enterpriseUrls as apiUrls };
 export default config;

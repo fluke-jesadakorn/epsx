@@ -2,25 +2,30 @@
 
 import { z } from 'zod';
 
-// Common validation schemas
+// Import shared validation schemas
+import {
+  emailSchema,
+  passwordSchema,
+  nameSchema,
+  reasonSchema,
+  signInSchema,
+  signUpSchema,
+  passwordResetSchema,
+  passwordChangeSchema,
+  contactFormSchema
+} from '../../../shared/validators/schemas';
+
+// Legacy compatibility schemas (will be migrated to shared)
 export const commonSchemas = {
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string()
-    .min(8, 'Password must be at least 8 characters long')
-    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
-    .regex(/[0-9]/, 'Password must contain at least one number'),
+  email: emailSchema,
+  password: passwordSchema,
   confirmPassword: z.string(),
   amount: z.string()
     .regex(/^\d+(\.\d{1,2})?$/, 'Please enter a valid amount'),
   phone: z.string()
     .regex(/^\+?[1-9]\d{1,14}$/, 'Please enter a valid phone number'),
-  name: z.string()
-    .min(2, 'Name must be at least 2 characters long')
-    .max(50, 'Name must be less than 50 characters'),
-  message: z.string()
-    .min(10, 'Message must be at least 10 characters long')
-    .max(1000, 'Message must be less than 1000 characters')
+  name: nameSchema,
+  message: reasonSchema // Use shared reason schema for messages
 };
 
 // Form validation helper
@@ -39,7 +44,14 @@ export async function validateFormData<T>(
     const result = schema.safeParse(data);
     
     if (!result.success) {
-      const fieldErrors = result.error.flatten().fieldErrors;
+      const flattenedErrors = result.error.flatten().fieldErrors;
+      // Filter out undefined values to match Record<string, string[]> type
+      const fieldErrors: Record<string, string[]> = {};
+      for (const [key, value] of Object.entries(flattenedErrors)) {
+        if (value !== undefined && value !== null && Array.isArray(value)) {
+          fieldErrors[key] = value;
+        }
+      }
       return {
         success: false,
         fieldErrors,
@@ -102,35 +114,12 @@ export function checkRateLimit(identifier: string, maxAttempts: number = 5, wind
   return true;
 }
 
-// Common form schemas
+// Use shared form schemas with legacy aliases
 export const authSchemas = {
-  login: z.object({
-    email: commonSchemas.email,
-    password: z.string().min(1, 'Password is required')
-  }),
-  
-  register: z.object({
-    email: commonSchemas.email,
-    password: commonSchemas.password,
-    confirmPassword: commonSchemas.confirmPassword,
-    name: commonSchemas.name.optional()
-  }).refine(data => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ["confirmPassword"]
-  }),
-  
-  forgotPassword: z.object({
-    email: commonSchemas.email
-  }),
-  
-  resetPassword: z.object({
-    token: z.string().min(1, 'Reset token is required'),
-    password: commonSchemas.password,
-    confirmPassword: commonSchemas.confirmPassword
-  }).refine(data => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ["confirmPassword"]
-  })
+  login: signInSchema, // Use shared sign-in schema
+  register: signUpSchema, // Use shared sign-up schema  
+  forgotPassword: passwordResetSchema, // Use shared password reset schema
+  resetPassword: passwordChangeSchema // Use shared password change schema
 };
 
 export const paymentSchemas = {
@@ -148,10 +137,5 @@ export const paymentSchemas = {
 };
 
 export const contactSchemas = {
-  contact: z.object({
-    name: commonSchemas.name,
-    email: commonSchemas.email,
-    phone: commonSchemas.phone.optional(),
-    message: commonSchemas.message
-  })
+  contact: contactFormSchema.omit({ category: true }) // Use shared contact form schema, remove category field
 };

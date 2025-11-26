@@ -33,6 +33,7 @@ pub struct TradingViewApiService {
     scanner: TradingViewScanner,
     websocket_handler: TradingViewWebSocketHandler,
     cache: RwLock<TradingViewCache>,
+    #[allow(dead_code)]
     config: TradingViewConfig,
 }
 
@@ -434,7 +435,7 @@ mod tests {
     #[test]
     fn test_module_structure() {
         // Test that all modules are accessible and core types are available
-        let config = Config::default();
+        let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         
         // Test focused modules can be created
@@ -451,7 +452,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_service_creation() {
-        let config = Config::default();
+        let config = Config::from_env().unwrap();
         let service = TradingViewApiService::new(Arc::new(config));
         
         let stats = service.get_cache_stats();
@@ -460,7 +461,7 @@ mod tests {
 
     #[test]
     fn test_cache_integration() {
-        let config = Config::default();
+        let config = Config::from_env().unwrap();
         let service = TradingViewApiService::with_cache_settings(
             Arc::new(config),
             Duration::from_secs(600),
@@ -478,7 +479,7 @@ mod tests {
     #[tokio::test]
     #[ignore] // Ignore in CI/CD to avoid external API calls
     async fn test_real_api_connections_integration() {
-        let config = Config::default();
+        let config = Config::from_env().unwrap();
         let service = TradingViewApiService::new(Arc::new(config));
         
         // This test requires actual TradingView API/WebSocket access
@@ -491,7 +492,7 @@ mod tests {
 
     #[test]
     fn test_focused_modules_integration() {
-        let config = Config::default();
+        let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         
         // Test that focused modules work together correctly
@@ -508,7 +509,7 @@ mod tests {
     #[test] 
     fn test_real_api_backward_compatibility() {
         // Ensure all original TradingView service functionality is still accessible with REAL APIs
-        let config = Config::default();
+        let config = Config::from_env().unwrap();
         let service = TradingViewApiService::new(Arc::new(config));
         
         let stats = service.get_cache_stats();

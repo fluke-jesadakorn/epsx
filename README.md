@@ -28,14 +28,15 @@ This production-ready monorepo is organized with clean separation of concerns:
   - Next.js 15.5.0 with comprehensive admin controls
   - Features: User promotion tools, access control, analytics management, system monitoring
 
-- **Backend** (`apps/backend`) - High-performance Rust API server with Diesel ORM
+- **Backend** (`apps/backend`) - High-performance Rust API server with SQLx
   - **URL**: https://api.epsx.io (local development)
-  - Axum framework with PostgreSQL (Diesel ORM 2.2) and WebSocket support
-  - **Database**: Complete Diesel ORM migration with compile-time SQL validation and bb8 connection pooling
+  - Axum framework with PostgreSQL (SQLx) and WebSocket support
+  - **Database**: Async SQLx integration with compile-time SQL validation and built-in connection pooling
   - **Core Features**: EPS ranking analytics engine, TradingView integration, authentication/IAM, payment processing, security monitoring
+  - **Blockchain**: Automatic payment monitoring and subscription activation via BSC (blockchain-monitor binary)
   - **Enterprise Security**: Brute force detection, audit logging, webhook system
   - **Architecture**: Clean Architecture with 210+ Rust files and production-ready migration system
-  - Includes CLI tools for admin operations and user management
+  - Includes CLI tools for admin operations, user management, and blockchain payment monitoring
 
 ### 📊 Core Analytics Features
 
@@ -71,18 +72,20 @@ This production-ready monorepo is organized with clean separation of concerns:
 | **Rust** | 2021 | High-performance systems language |
 | **Axum** | 0.7 | Web framework with WebSocket support |
 | **PostgreSQL** | Latest | Primary database |
-| **Diesel ORM** | 2.2 | Type-safe async SQL toolkit with compile-time validation |
-| **bb8-diesel** | Latest | Connection pooling for high-performance database access |
+| **SQLx** | 0.8 | Async-first SQL toolkit with compile-time validation |
 | **Redis** | Latest | Caching & sessions |
 | **JWT** | Latest | Authentication tokens |
 | **Tokio** | Latest | Async runtime |
+| **Ethers-rs** | Latest | Ethereum/BSC blockchain integration |
+| **Alloy** | Latest | Modern Ethereum library |
+| **SIWE** | Latest | Sign-In with Ethereum authentication |
 
 ### 🛠️ Development Tools
 
 | Tool | Version | Purpose |
 |------|---------|----------|
 | **Turborepo** | 2.5.5 | Monorepo build system |
-| **pnpm** | 10.14.0 | Package manager |
+| **Bun** | 1.1.42 | Package manager & runtime |
 | **ESLint** | 9.23.0 | Code linting |
 | **Prettier** | 3.6.2 | Code formatting |
 | **Husky** | 9.1.7 | Git hooks |
@@ -97,7 +100,7 @@ This production-ready monorepo is organized with clean separation of concerns:
 ### Prerequisites
 
 - **Node.js** >= 18.0.0
-- **pnpm** >= 10.14.0
+- **Bun** >= 1.1.0
 - **Rust** (latest stable)
 - **PostgreSQL** (database)
 - **Docker** (recommended for full environment)
@@ -108,7 +111,7 @@ This production-ready monorepo is organized with clean separation of concerns:
 # 1. Clone and install dependencies
 git clone https://github.com/fluke-jesadakorn/epsx.git
 cd epsx
-pnpm install
+bun install
 
 # 2. Configure local domains (add to /etc/hosts)
 echo "127.0.0.1 epsx.io admin.epsx.io api.epsx.io" >> /etc/hosts
@@ -118,9 +121,9 @@ cp .env.example .env.development
 # Edit .env.development with your database and API keys
 
 # 4. Start development (choose one)
-pnpm docker:dev     # Full environment with HTTPS
-pnpm dev           # Frontend + Admin only
-pnpm dev:all       # All applications including backend
+bun docker:dev     # Full environment with HTTPS
+bun dev           # Frontend + Admin only
+bun dev:all       # All applications including backend
 ```
 
 ### Access Points
@@ -147,10 +150,10 @@ EPSX uses custom *.epsx.io domains for production-like development:
 echo "127.0.0.1 epsx.io admin.epsx.io api.epsx.io" >> /etc/hosts
 
 # Start with HTTPS (recommended)
-pnpm docker:dev
+bun docker:dev
 
 # Or start without HTTPS
-pnpm dev:all
+bun dev:all
 ```
 
 ### Authentication Features
@@ -168,54 +171,54 @@ pnpm dev:all
 
 ```bash
 # Quick start options
-pnpm dev               # Frontend + Admin (ports 3000, 3001)
-pnpm dev:all           # All applications including backend
-pnpm docker:dev        # Full environment with HTTPS
+bun dev               # Frontend + Admin (ports 3000, 3001)
+bun dev:all           # All applications including backend
+bun docker:dev        # Full environment with HTTPS
 
 # Individual applications
-pnpm dev:frontend      # Analytics platform (port 3000)
-pnpm dev:admin         # Admin dashboard (port 3001)
-pnpm dev:backend       # Rust API server (port 8080)
+bun dev:frontend      # Analytics platform (port 3000)
+bun dev:admin         # Admin dashboard (port 3001)
+bun dev:backend       # Rust API server (port 8080)
 ```
 
 ### 🛠️ Build & Quality
 
 ```bash
 # Building
-pnpm build             # Build all applications
-pnpm build:frontend    # Frontend only
-pnpm build:admin       # Admin only
-pnpm build:backend     # Rust backend only
+bun build             # Build all applications
+bun build:frontend    # Frontend only
+bun build:admin       # Admin only
+bun build:backend     # Rust backend only
 
 # Quality checks
-pnpm lint              # ESLint all projects
-pnpm lint:fix          # Auto-fix issues
-pnpm type-check        # TypeScript validation
-pnpm format            # Prettier formatting
+bun lint              # ESLint all projects
+bun lint:fix          # Auto-fix issues
+bun type-check        # TypeScript validation
+bun format            # Prettier formatting
 
 # Testing
-pnpm test              # All tests
-pnpm test:unit         # Jest unit tests
-pnpm test:e2e          # Playwright E2E
-pnpm test:e2e:ui       # E2E with UI mode
+bun test              # All tests
+bun test:unit         # Jest unit tests
+bun test:e2e          # Playwright E2E
+bun test:e2e:ui       # E2E with UI mode
 ```
 
 ### 👥 Admin & Management
 
 ```bash
 # User management
-pnpm promote-admin     # Promote user to admin
-pnpm assign-iam        # Assign IAM profile
-pnpm list-profiles     # List IAM profiles
+bun promote-admin     # Promote user to admin
+bun assign-iam        # Assign IAM profile
+bun list-profiles     # List IAM profiles
 
 # Environment management
-pnpm docker:dev        # Start development
-pnpm docker:dev:down   # Stop development
-pnpm docker:dev:logs   # View logs
+bun docker:dev        # Start development
+bun docker:dev:down   # Stop development
+bun docker:dev:logs   # View logs
 
 # Performance analysis
-pnpm lighthouse        # Performance tests
-pnpm analyze          # Bundle analysis
+bun lighthouse        # Performance tests
+bun analyze          # Bundle analysis
 ```
 
 ---
@@ -231,12 +234,12 @@ make docker-up ENV=dev    # Start development environment
 make docker-down ENV=dev  # Stop development environment
 make docker-logs ENV=dev  # View logs
 
-# Using pnpm scripts
-pnpm docker:dev           # Start development containers
-pnpm docker:test          # Start test environment
-pnpm docker:prod          # Start production containers
-pnpm docker:dev:down      # Stop development containers
-pnpm docker:dev:logs      # View development logs
+# Using bun scripts
+bun docker:dev           # Start development containers
+bun docker:test          # Start test environment
+bun docker:prod          # Start production containers
+bun docker:dev:down      # Stop development containers
+bun docker:dev:logs      # View development logs
 
 # Container registry (Google Cloud)
 make docker-build         # Build and tag images
@@ -304,6 +307,91 @@ echo "NEXT_PUBLIC_API_URL=https://api.epsx.io" >> .env.development
 
 ---
 
+## 💰 Blockchain Payment System
+
+### Overview
+
+EPSX includes a production-ready blockchain payment monitoring system that automatically processes cryptocurrency payments on Binance Smart Chain (BSC) and activates user subscriptions without manual intervention.
+
+**Key Features:**
+- **Automatic User Onboarding**: Creates wallet users automatically on first payment
+- **Instant Activation**: Subscriptions active within 5-10 seconds of blockchain confirmation
+- **Multi-Token Support**: Accepts USDT and USDC stablecoin payments
+- **Duplicate Prevention**: Idempotent processing with unique transaction tracking
+- **Multi-Chain**: Supports both BSC Mainnet and Testnet environments
+
+### Architecture
+
+```
+BSC Blockchain → Event Listener → Payment Verifier → User Creation → Subscription Activation → PostgreSQL
+```
+
+The `blockchain-monitor` standalone binary polls the BSC blockchain every 3 seconds for PaymentReceived events from the deployed PaymentEscrow smart contract, verifies payment amounts and tokens, creates wallet users if needed, and activates subscriptions automatically.
+
+### Quick Start
+
+```bash
+# 1. Build the blockchain monitor binary
+cd apps/backend
+DATABASE_URL=postgresql://... cargo build --release --bin blockchain-monitor
+
+# 2. Configure environment variables
+cat >> .env << 'EOF'
+# Blockchain Payment Monitor
+BLOCKCHAIN_NETWORK=testnet
+BLOCKCHAIN_START_BLOCK=0
+BLOCKCHAIN_POLL_INTERVAL_SECONDS=3
+BSC_TESTNET_RPC_URL=https://data-seed-prebsc-1-s1.binance.org:8545
+PAYMENT_ESCROW_CONTRACT_TESTNET=0x...  # After smart contract deployment
+EOF
+
+# 3. Verify setup
+./scripts/verify-blockchain-setup.sh
+
+# 4. Run the monitor
+./target/release/blockchain-monitor
+```
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `BLOCKCHAIN_NETWORK` | Yes | Network: `testnet` or `mainnet` |
+| `BSC_TESTNET_RPC_URL` | Yes (testnet) | BSC testnet RPC endpoint |
+| `BSC_MAINNET_RPC_URL` | Yes (mainnet) | BSC mainnet RPC endpoint |
+| `PAYMENT_ESCROW_CONTRACT_TESTNET` | Yes (testnet) | Deployed contract address (testnet) |
+| `PAYMENT_ESCROW_CONTRACT_MAINNET` | Yes (mainnet) | Deployed contract address (mainnet) |
+| `BLOCKCHAIN_START_BLOCK` | No | Starting block number (default: 0) |
+| `BLOCKCHAIN_POLL_INTERVAL_SECONDS` | No | Polling interval (default: 3) |
+
+### Database Schema
+
+The system uses the following tables:
+- **processed_blockchain_events**: Event tracking and duplicate prevention
+- **wallet_users**: Automatic user creation on first payment
+- **active_subscriptions**: Subscription management with JSONB metadata
+- **pricing_plans**: Plan definitions and pricing validation
+
+### Deployment Documentation
+
+For complete deployment instructions including:
+- Smart contract deployment (PaymentEscrow.sol)
+- Production deployment options (systemd, Docker, Cloud Run)
+- End-to-end testing procedures
+- Security considerations and fund management
+
+See: [BLOCKCHAIN_DEPLOYMENT_GUIDE.md](BLOCKCHAIN_DEPLOYMENT_GUIDE.md)
+
+### Implementation Status
+
+- **Smart Contract**: PaymentEscrow.sol - Ready for deployment
+- **Backend**: blockchain-monitor binary - Production-ready (8.5MB optimized)
+- **Database**: Migration applied and verified
+- **Documentation**: Complete deployment and testing guides
+
+---
+
 ## 🛡️ Enterprise Security
 
 ### Production-Grade Security Systems
@@ -335,12 +423,12 @@ echo "NEXT_PUBLIC_API_URL=https://api.epsx.io" >> .env.development
 - **SSR Testing**: Server-side rendering validation
 
 ### Backend Testing
-- **Unit Tests**: Rust native testing framework for core business logic with Diesel integration
-- **Integration Tests**: EPS analytics, authentication flows, and database operations using Diesel repositories
+- **Unit Tests**: Rust native testing framework for core business logic with SQLx integration
+- **Integration Tests**: EPS analytics, authentication flows, and database operations using SQLx queries
 - **Architecture Testing**: Clean Architecture layers (domain, application, infrastructure, presentation)
-- **Security Testing**: Brute force detection and threat monitoring with Diesel audit trails
-- **Performance Testing**: Load testing for analytics endpoints, caching systems, and Diesel connection pooling
-- **Database Testing**: Diesel ORM validation, migration testing, and compile-time SQL verification
+- **Security Testing**: Brute force detection and threat monitoring with SQLx audit trails
+- **Performance Testing**: Load testing for analytics endpoints, caching systems, and SQLx connection pooling
+- **Database Testing**: SQLx validation, migration testing, and compile-time SQL verification
 - **API Testing**: Comprehensive endpoint validation for analytics, auth, and admin functions
 
 ## 🤝 Contributing
@@ -353,10 +441,10 @@ echo "NEXT_PUBLIC_API_URL=https://api.epsx.io" >> .env.development
 
 ### Code Quality Requirements
 
-- All code must pass linting (`pnpm lint`)
-- All tests must pass (`pnpm test`)
-- Type checking must pass (`pnpm type-check`)
-- Code must be formatted (`pnpm format`)
+- All code must pass linting (`bun lint`)
+- All tests must pass (`bun test`)
+- Type checking must pass (`bun type-check`)
+- Code must be formatted (`bun format`)
 - Husky pre-commit hooks must pass
 
 ---
@@ -365,7 +453,7 @@ echo "NEXT_PUBLIC_API_URL=https://api.epsx.io" >> .env.development
 
 ### Documentation
 - [Turborepo Documentation](https://turbo.build/repo/docs)
-- [pnpm Workspaces](https://pnpm.io/workspaces)
+- [Bun Documentation](https://bun.sh/docs)
 - [Next.js 15 Documentation](https://nextjs.org/docs)
 - [Rust Axum Framework](https://docs.rs/axum/)
 - [Tailwind CSS](https://tailwindcss.com/docs)

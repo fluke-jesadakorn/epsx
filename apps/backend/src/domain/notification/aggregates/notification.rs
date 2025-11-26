@@ -1,14 +1,15 @@
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use crate::domain::shared_kernel::aggregate_root::{AggregateRoot, AggregateBase};
-use crate::domain::shared_kernel::domain_event::{DomainEvent, EventMetadata};
+use crate::domain::shared_kernel::domain_event::DomainEvent;
 use crate::domain::notification::value_objects::*;
 use crate::domain::notification::value_objects::user_preferences::NotificationType;
+use super::super::events::notification_events::*;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 /// Notification Priority - pure domain enum
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum NotificationPriority {
     #[serde(rename = "urgent")]
     Urgent,
@@ -35,12 +36,35 @@ impl std::fmt::Display for NotificationPriority {
     }
 }
 
+impl NotificationPriority {
+    pub fn from_str(s: &str) -> Result<Self, String> {
+        match s.to_lowercase().as_str() {
+            "urgent" => Ok(NotificationPriority::Urgent),
+            "critical" => Ok(NotificationPriority::Critical),
+            "high" => Ok(NotificationPriority::High),
+            "normal" => Ok(NotificationPriority::Normal),
+            "low" => Ok(NotificationPriority::Low),
+            _ => Err(format!("Invalid notification priority: {}", s)),
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            NotificationPriority::Urgent => "urgent",
+            NotificationPriority::Critical => "critical",
+            NotificationPriority::High => "high",
+            NotificationPriority::Normal => "normal",
+            NotificationPriority::Low => "low",
+        }
+    }
+}
+
 /// Notification Aggregate Root
 /// Manages the lifecycle of a notification from creation to delivery
 #[derive(Debug, Clone)]
 pub struct Notification {
     id: NotificationId,
-    recipientuser_id: Option<Uuid>,
+    recipientwallet_address: Option<Uuid>,
     topic: Option<NotificationTopic>,
     content: NotificationContent,
     notification_type: NotificationType,
@@ -56,7 +80,7 @@ pub struct Notification {
 impl Notification {
     /// Create new notification for specific user
     pub fn create_for_user(
-        recipientuser_id: Uuid,
+        recipientwallet_address: Uuid,
         content: NotificationContent,
         notification_type: NotificationType,
         priority: NotificationPriority,
@@ -69,11 +93,11 @@ impl Notification {
         
         let mut notification = Self {
             id: id.clone(),
-            recipientuser_id: Some(recipientuser_id),
+            recipientwallet_address: Some(recipientwallet_address),
             topic: None,
             content,
-            notification_type: notification_type.clone(),
-            priority: priority.clone(),
+            notification_type,
+            priority,
             channels,
             schedule,
             metadata: NotificationMetadata::new(),
@@ -86,11 +110,11 @@ impl Notification {
         notification.base.add_event(Box::new(NotificationCreated::new(
             id.as_str(),
             notification.base.version,
-            recipientuser_id,
+            recipientwallet_address,
             None,
-            notification_type,
-            priority,
-            notification.status.clone(),
+            notification.notification_type.clone(),
+            notification.priority,
+            notification.status,
         )));
 
         Ok(notification)
@@ -122,11 +146,11 @@ impl Notification {
 
         let mut notification = Self {
             id: id.clone(),
-            recipientuser_id: None,
+            recipientwallet_address: None,
             topic: Some(topic.clone()),
             content,
-            notification_type: notification_type.clone(),
-            priority: priority.clone(),
+            notification_type,
+            priority,
             channels,
             schedule,
             metadata: NotificationMetadata::with_creator(created_by),
@@ -141,12 +165,47 @@ impl Notification {
             notification.base.version,
             Uuid::nil(), // No specific recipient for topic notifications
             Some(topic.name().to_string()),
-            notification_type,
-            priority,
-            notification.status.clone(),
+            notification.notification_type.clone(),
+            notification.priority,
+            notification.status,
         )));
 
         Ok(notification)
+    }
+
+    /// Reconstruct notification aggregate from persistence
+    /// Used by repository to hydrate domain models from database
+    #[allow(clippy::too_many_arguments)]
+    pub fn from_persistence(
+        id: NotificationId,
+        recipient_wallet_id: Option<Uuid>,
+        topic: Option<NotificationTopic>,
+        content: NotificationContent,
+        notification_type: NotificationType,
+        priority: NotificationPriority,
+        channels: MultiChannelConfig,
+        schedule: ScheduleInfo,
+        metadata: NotificationMetadata,
+        delivery_tracking: DeliveryTracking,
+        status: NotificationStatus,
+        version: u64,
+        created_at: DateTime<Utc>,
+        updated_at: DateTime<Utc>,
+    ) -> Self {
+        Self {
+            id,
+            recipientwallet_address: recipient_wallet_id,
+            topic,
+            content,
+            notification_type,
+            priority,
+            channels,
+            schedule,
+            metadata,
+            delivery_tracking,
+            status,
+            base: AggregateBase::from_persistence(version, created_at, updated_at),
+        }
     }
 
     /// Schedule the notification for delivery
@@ -171,7 +230,7 @@ impl Notification {
             self.id.as_str(),
             self.base.version,
             self.schedule.scheduled_at(),
-            self.status.clone(),
+            self.status,
         )));
 
         self.base.touch();
@@ -245,7 +304,7 @@ impl Notification {
             self.base.add_event(Box::new(NotificationDeliveryCompleted::new(
                 self.id.as_str(),
                 self.base.version,
-                self.status.clone(),
+                self.status,
                 self.delivery_tracking.successful_channels(),
                 self.delivery_tracking.failed_channels(),
             )));
@@ -280,8 +339,8 @@ impl Notification {
             return Err("Cannot update priority of notification that has been sent".to_string());
         }
 
-        let old_priority = self.priority.clone();
-        self.priority = new_priority.clone();
+        let old_priority = self.priority;
+        self.priority = new_priority;
 
         // Publish priority update event
         self.base.add_event(Box::new(NotificationPriorityUpdated::new(
@@ -376,7 +435,7 @@ impl Notification {
 
     // Getters
     pub fn id(&self) -> &NotificationId { &self.id }
-    pub fn recipientuser_id(&self) -> Option<Uuid> { self.recipientuser_id }
+    pub fn recipientwallet_address(&self) -> Option<Uuid> { self.recipientwallet_address }
     pub fn topic(&self) -> Option<&NotificationTopic> { self.topic.as_ref() }
     pub fn content(&self) -> &NotificationContent { &self.content }
     pub fn notification_type(&self) -> &NotificationType { &self.notification_type }
@@ -384,8 +443,14 @@ impl Notification {
     pub fn channels(&self) -> &MultiChannelConfig { &self.channels }
     pub fn schedule(&self) -> &ScheduleInfo { &self.schedule }
     pub fn metadata(&self) -> &NotificationMetadata { &self.metadata }
+    pub fn metadata_mut(&mut self) -> &mut NotificationMetadata { &mut self.metadata }
     pub fn delivery_tracking(&self) -> &DeliveryTracking { &self.delivery_tracking }
     pub fn status(&self) -> &NotificationStatus { &self.status }
+
+    // Aggregate base getters (convenience methods)
+    pub fn version(&self) -> u64 { self.base.version }
+    pub fn created_at(&self) -> DateTime<Utc> { self.base.created_at }
+    pub fn updated_at(&self) -> DateTime<Utc> { self.base.updated_at }
 }
 
 impl AggregateRoot for Notification {
@@ -433,6 +498,12 @@ pub struct NotificationMetadata {
     data_payload: Option<serde_json::Value>,
     tags: Vec<String>,
     notes: Vec<String>,
+}
+
+impl Default for NotificationMetadata {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl NotificationMetadata {
@@ -494,6 +565,12 @@ pub struct DeliveryTracking {
     send_started_at: Option<DateTime<Utc>>,
     channel_status: HashMap<String, ChannelDeliveryStatus>,
     total_attempts: u32,
+}
+
+impl Default for DeliveryTracking {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DeliveryTracking {
@@ -598,7 +675,7 @@ pub enum DeliveryResult {
 }
 
 /// Notification status
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NotificationStatus {
     Created,              // Just created
     Scheduled,            // Scheduled for future delivery
@@ -625,240 +702,19 @@ impl NotificationStatus {
             NotificationStatus::Cancelled => "cancelled",
         }
     }
-}
 
-// Domain Events are defined inline for now
-
-// Placeholder for the events module - will be implemented next
-mod placeholder {
-    use super::*;
-    
-    #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct NotificationCreated {
-        pub metadata: EventMetadata,
-        pub recipientuser_id: Uuid,
-        pub topic_name: Option<String>,
-        pub notification_type: NotificationType,
-        pub priority: NotificationPriority,
-        pub status: NotificationStatus,
-    }
-    
-    impl NotificationCreated {
-        pub fn new(
-            aggregate_id: String,
-            aggregate_version: u64,
-            recipientuser_id: Uuid,
-            topic_name: Option<String>,
-            notification_type: NotificationType,
-            priority: NotificationPriority,
-            status: NotificationStatus,
-        ) -> Self {
-            Self {
-                metadata: EventMetadata::new(aggregate_id, aggregate_version),
-                recipientuser_id,
-                topic_name,
-                notification_type,
-                priority,
-                status,
-            }
+    pub fn from_str(s: &str) -> Result<Self, String> {
+        match s.to_lowercase().replace("_", "").as_str() {
+            "created" => Ok(NotificationStatus::Created),
+            "scheduled" => Ok(NotificationStatus::Scheduled),
+            "queued" => Ok(NotificationStatus::Queued),
+            "sending" => Ok(NotificationStatus::Sending),
+            "delivered" => Ok(NotificationStatus::Delivered),
+            "partiallydelivered" => Ok(NotificationStatus::PartiallyDelivered),
+            "failed" => Ok(NotificationStatus::Failed),
+            "expired" => Ok(NotificationStatus::Expired),
+            "cancelled" | "canceled" => Ok(NotificationStatus::Cancelled),
+            _ => Err(format!("Invalid notification status: {}", s)),
         }
-    }
-
-    impl DomainEvent for NotificationCreated {
-        fn event_id(&self) -> Uuid { self.metadata.event_id }
-        fn event_type(&self) -> &'static str { "NotificationCreated" }
-        fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
-        fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
-        fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
-        fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
-            Ok(serde_json::to_string(self)?)
-        }
-    }
-}
-
-// Temporarily use placeholder events until events module is created
-pub use placeholder::*;
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NotificationScheduled {
-    pub metadata: EventMetadata,
-    pub scheduled_at: Option<DateTime<Utc>>,
-    pub status: NotificationStatus,
-}
-
-impl NotificationScheduled {
-    pub fn new(
-        aggregate_id: String,
-        aggregate_version: u64,
-        scheduled_at: Option<DateTime<Utc>>,
-        status: NotificationStatus,
-    ) -> Self {
-        Self {
-            metadata: EventMetadata::new(aggregate_id, aggregate_version),
-            scheduled_at,
-            status,
-        }
-    }
-}
-
-impl DomainEvent for NotificationScheduled {
-    fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "NotificationScheduled" }
-    fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
-    fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
-    fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
-    fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
-        Ok(serde_json::to_string(self)?)
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NotificationSending {
-    pub metadata: EventMetadata,
-    pub channel_count: u32,
-}
-
-impl NotificationSending {
-    pub fn new(aggregate_id: String, aggregate_version: u64, channel_count: u32) -> Self {
-        Self {
-            metadata: EventMetadata::new(aggregate_id, aggregate_version),
-            channel_count,
-        }
-    }
-}
-
-impl DomainEvent for NotificationSending {
-    fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "NotificationSending" }
-    fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
-    fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
-    fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
-    fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
-        Ok(serde_json::to_string(self)?)
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NotificationDeliveryCompleted {
-    pub metadata: EventMetadata,
-    pub status: NotificationStatus,
-    pub successful_channels: Vec<String>,
-    pub failed_channels: Vec<String>,
-}
-
-impl NotificationDeliveryCompleted {
-    pub fn new(
-        aggregate_id: String,
-        aggregate_version: u64,
-        status: NotificationStatus,
-        successful_channels: Vec<String>,
-        failed_channels: Vec<String>,
-    ) -> Self {
-        Self {
-            metadata: EventMetadata::new(aggregate_id, aggregate_version),
-            status,
-            successful_channels,
-            failed_channels,
-        }
-    }
-}
-
-impl DomainEvent for NotificationDeliveryCompleted {
-    fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "NotificationDeliveryCompleted" }
-    fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
-    fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
-    fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
-    fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
-        Ok(serde_json::to_string(self)?)
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NotificationExpired {
-    pub metadata: EventMetadata,
-    pub expired_at: Option<DateTime<Utc>>,
-}
-
-impl NotificationExpired {
-    pub fn new(
-        aggregate_id: String,
-        aggregate_version: u64,
-        expired_at: Option<DateTime<Utc>>,
-    ) -> Self {
-        Self {
-            metadata: EventMetadata::new(aggregate_id, aggregate_version),
-            expired_at,
-        }
-    }
-}
-
-impl DomainEvent for NotificationExpired {
-    fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "NotificationExpired" }
-    fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
-    fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
-    fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
-    fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
-        Ok(serde_json::to_string(self)?)
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NotificationPriorityUpdated {
-    pub metadata: EventMetadata,
-    pub old_priority: NotificationPriority,
-    pub new_priority: NotificationPriority,
-}
-
-impl NotificationPriorityUpdated {
-    pub fn new(
-        aggregate_id: String,
-        aggregate_version: u64,
-        old_priority: NotificationPriority,
-        new_priority: NotificationPriority,
-    ) -> Self {
-        Self {
-            metadata: EventMetadata::new(aggregate_id, aggregate_version),
-            old_priority,
-            new_priority,
-        }
-    }
-}
-
-impl DomainEvent for NotificationPriorityUpdated {
-    fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "NotificationPriorityUpdated" }
-    fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
-    fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
-    fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
-    fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
-        Ok(serde_json::to_string(self)?)
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NotificationCancelled {
-    pub metadata: EventMetadata,
-    pub reason: String,
-}
-
-impl NotificationCancelled {
-    pub fn new(aggregate_id: String, aggregate_version: u64, reason: String) -> Self {
-        Self {
-            metadata: EventMetadata::new(aggregate_id, aggregate_version),
-            reason,
-        }
-    }
-}
-
-impl DomainEvent for NotificationCancelled {
-    fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "NotificationCancelled" }
-    fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
-    fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
-    fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
-    fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
-        Ok(serde_json::to_string(self)?)
     }
 }

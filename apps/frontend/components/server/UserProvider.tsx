@@ -1,4 +1,4 @@
-import { auth } from '@/lib/auth';
+import { getCurrentUser } from '@/lib/actions/auth';
 import { ReactNode } from 'react';
 
 interface UserProviderProps {
@@ -16,21 +16,21 @@ interface UserData {
 
 /**
  * Server component that provides user data to child components
- * Uses custom JWT session for server-side user data access
+ * Uses getCurrentUser for server-side user data access
  */
 export async function UserProvider({ children }: UserProviderProps) {
-  const session = await auth();
+  const user = await getCurrentUser();
   
-  const user: UserData | null = session?.user ? {
-    user_id: session.user.firebase_uid || session.user.id || '',
-    email: session.user.email || '',
-    role: session.user.role || 'user',
-    permissions: session.user.permissions || ['user:read'],
-    package_tier: session.user.package_tier || 'FREE',
-    name: session.user.name || session.user.email || '',
+  const userData: UserData | null = user ? {
+    user_id: user.id || '',
+    email: user.email || '',
+    role: user.role || 'user',
+    permissions: user.permissions ? Object.keys(user.permissions) : ['user:read'],
+    package_tier: (user as any).package_tier || 'FREE',
+    name: user.name || user.email || '',
   } : null;
   
-  return <>{children(user)}</>;
+  return <>{children(userData)}</>;
 }
 
 export default UserProvider;

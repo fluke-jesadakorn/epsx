@@ -4,13 +4,17 @@
  * Replaces: auth-separation.ts, admin-types.ts, iam.ts, unified-user.ts
  */
 
+import { PermissionGroup } from '../../../shared/types/domain/User';
+import type { PaginatedResponse } from '../../../shared/types/api';
+
 // ============================================================================
 // Authentication & User Types
 // ============================================================================
 
 export interface User {
-  id: string;
-  email: string;
+  id: string; // wallet_address as primary identifier
+  wallet_address: string; // Primary identifier for wallet authentication
+  email?: string; // Optional linked email
   name?: string;
   firstName?: string;
   lastName?: string;
@@ -22,32 +26,47 @@ export interface User {
   updatedAt: string;
   lastLoginAt?: string;
   
-  // Authentication context
-  sub?: string; // OIDC subject
-  firebaseUid?: string;
+  // Wallet authentication context
+  sub?: string; // wallet_address as subject
   
   // Permission system
   permissions?: string[];
-  packageTier: string;
+  permissionGroup: PermissionGroup;
+  // @deprecated Use permissionGroup instead
+  packageTier?: string;
   
   // Platform context
   platforms?: string[];
   primaryPlatform?: string;
   platformContext?: string;
+  
+  // Wallet-specific fields
+  walletConnectedAt?: string;
+  lastSignatureAt?: string;
+  nftHoldings?: number;
+  tokenBalance?: string;
 }
 
-export interface OIDCUser {
-  sub: string;
-  email: string;
+export interface WalletUser {
+  sub: string; // wallet_address as subject
+  wallet_address: string;
+  email?: string; // Optional linked email
   name?: string;
   permissions: string[];
   platform_context?: string;
 }
 
+// Standard authenticated admin user interface
+export interface AuthenticatedAdminUser extends WalletUser {
+  email?: string; // Optional linked email
+  adminPermissions: string[];
+  adminLevel: 'super' | 'manager' | 'moderator';
+}
+
 export interface AdminSession {
   isAuthenticated: boolean;
   isLoggedIn: boolean; // Alias for backwards compatibility
-  user: OIDCUser | null;
+  user: WalletUser | null;
   hasAdminAccess: boolean;
   expiresAt?: number;
   error?: string;
@@ -159,10 +178,11 @@ export interface TokenPair {
   token_type?: string;
 }
 
-export interface OIDCTokens {
+export interface Web3AuthTokens {
   accessToken: string | null;
-  idToken: string | null;
-  refreshToken: string | null;
+  sessionToken: string | null;
+  signatureHash: string | null;
+  expiresAt?: number;
 }
 
 // ============================================================================
@@ -234,10 +254,7 @@ export interface PaginationInfo {
   hasPrevPage: boolean;
 }
 
-export interface PaginatedResponse<T> {
-  data: T[];
-  pagination: PaginationInfo;
-}
+// Using shared PaginatedResponse type instead of local definition
 
 // ============================================================================
 // System Configuration Types
@@ -290,7 +307,7 @@ export interface ActivityLog {
 // ============================================================================
 
 export function isAdminUser(user: User): boolean {
-  return user.role === 'admin' || user.permissions.some(p => 
+  return user.role === 'admin' || (user.permissions || []).some(p => 
     p === 'admin:*:*' || p.startsWith('admin:')
   );
 }

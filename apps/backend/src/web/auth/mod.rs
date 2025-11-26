@@ -1,15 +1,11 @@
-// Unified Authentication module
+// Web3-First Authentication module
 
-// Core authentication components
-pub mod routes;
-pub mod password;
-pub mod providers;
-pub mod token_broker;
-pub mod modern_routes;
+// Active authentication components
+pub mod app_state;
+pub mod handlers;
+pub mod session_handlers;
+pub mod wallet_extractor;
 
 // Main exports
-pub use routes::AppState;
-pub use password::{PasswordValidator, PasswordHasher, PasswordError, PasswordStrength};
-// API key service moved to crate::infrastructure::adapters::services::api_key_service
-pub use providers::*;
-pub use token_broker::*;
+pub use app_state::AppState;
+pub use wallet_extractor::{AuthWallet, AuthAdmin};

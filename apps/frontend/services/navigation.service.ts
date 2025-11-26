@@ -3,21 +3,31 @@ interface NavItem {
   href: string;
   key: string;
   icon?: React.ReactNode;
-  requireAuth?: boolean;
+  hasDropdown?: boolean;
+  children?: NavItem[];
 }
 
 class NavigationService {
-  getNavItems(isLoggedIn: boolean): NavItem[] {
-    const items: NavItem[] = [
-      // {
-      //   label: 'Docs',
-      //   href: 'https://your-gitbook-url.com',
-      //   key: 'docs',
-      // },
+  // Simplified navigation items - no permission filtering
+  private getAllNavigationItems(): NavItem[] {
+    return [
       {
         label: 'Analytics',
         href: '/analytics',
         key: 'analytics',
+        hasDropdown: true,
+        children: [
+          {
+            label: 'EPS Ranking',
+            href: '/analytics',
+            key: 'ranking',
+          },
+          {
+            label: 'Portfolio',
+            href: '/portfolio',
+            key: 'portfolio',
+          },
+        ],
       },
       {
         label: 'About Us',
@@ -25,8 +35,16 @@ class NavigationService {
         key: 'about',
       },
     ];
+  }
 
-    return items;
+  // Simplified method - just return all navigation items without filtering
+  getNavItems(): NavItem[] {
+    return this.getAllNavigationItems();
+  }
+
+  // Get all navigation items (same as getNavItems now)
+  getAllNavItems(): NavItem[] {
+    return this.getAllNavigationItems();
   }
 
   getFooterLinks(): NavItem[] {

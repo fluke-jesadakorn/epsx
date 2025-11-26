@@ -4,36 +4,41 @@
 pub mod adapters;
 pub mod event_bus;
 pub mod container;
-pub mod integration;
+// pub mod integration; // Removed - empty module with only commented-out payment service
 pub mod cache;
-pub mod models;
-pub mod oidc;
+pub mod models; // Re-added - contains Diesel database models
 pub mod security;
 pub mod config;
+pub mod database;
+pub mod cqrs; // NEW: Event sourcing and CQRS infrastructure
+pub mod repositories; // NEW: DDD repositories
+pub mod redis; // Redis connection pool for notification pub/sub
+pub mod blockchain; // Blockchain payment infrastructure
+pub mod services; // Background services
 
 // Re-export infrastructure components with explicit imports to avoid conflicts
 pub use adapters::{
-    repositories, services, cache as adapter_cache
+    repositories as adapter_repositories, services as adapter_services
 };
 
 // Re-export commonly needed services for backward compatibility
-pub use adapters::services::firebase as firebase_admin;
 pub use event_bus::{SimpleEventBus};
-pub use container::{AppContainer, DDDContainer};
-pub use integration::{
-    AuthenticationServiceIntegration, PaymentServiceIntegration, 
-    RealtimeEventsServiceIntegration
-};
+pub use container::DomainContainer;
+// pub use integration::{ PaymentServiceIntegration }; // Temporarily disabled
 pub use cache::{
-    MemoryCache, RedisCache, UnifiedCache, AffiliateCache, 
-    PlanCache, PromotionCache, PermissionCache
+    MemoryCache, RedisCache, UnifiedPermissionCache
 };
-pub use models::{MarketingModels};
-pub use oidc::granular_service as GranularService;
 pub use security::{
     key_management as KeyManagement, threat_detection as ThreatDetection
 };
 pub use config::{FeatureFlags};
+pub use cqrs::{
+    EventStore, PostgresEventStore, TransactionalOutbox,
+    EventDispatcher, EventDispatcherConfig,
+    ProjectionManager, WalletReadModelProjection
+};
+pub use blockchain::{
+    BscEventListener, PaymentEvent, PaymentVerifier
+};
+pub use services::BlockchainMonitor;
 
-// Additional exports for backward compatibility
-pub use container::{AppContainer as InfraFactory};

@@ -11,7 +11,7 @@ use std::time::Duration;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LogContext {
     /// User ID if available
-    pub user_id: Option<String>,
+    pub wallet_address: Option<String>,
     /// Request ID for correlation
     pub request_id: String,
     /// Operation being performed
@@ -29,7 +29,7 @@ pub struct LogContext {
 impl LogContext {
     pub fn new(operation: impl Into<String>, service: impl Into<String>) -> Self {
         Self {
-            user_id: None,
+            wallet_address: None,
             request_id: Uuid::new_v4().to_string(),
             operation: operation.into(),
             service: service.into(),
@@ -39,8 +39,8 @@ impl LogContext {
         }
     }
     
-    pub fn with_user_id(mut self, user_id: String) -> Self {
-        self.user_id = Some(user_id);
+    pub fn with_user_id(mut self, wallet_address: String) -> Self {
+        self.wallet_address = Some(wallet_address);
         self
     }
     

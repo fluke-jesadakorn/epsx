@@ -16,7 +16,7 @@ impl EPSValue {
         }
         
         // Allow reasonable range for EPS (can be negative for losses)
-        if value < -10000.0 || value > 10000.0 {
+        if !(-10000.0..=10000.0).contains(&value) {
             return Err("EPS value is outside reasonable range (-10000 to 10000)".to_string());
         }
         

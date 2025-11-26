@@ -1,85 +1,69 @@
-// Web layer middleware implementations
+// Web layer middleware implementations - Web3-first and minimal
+// Phase 7.2: Pure Web3 authentication only, OIDC/JWT removed
 
-// Security headers and enhanced monitoring
+// Essential security middleware (core functionality)
 pub mod security_headers;
 
-// Stateless authentication with RS256 JWT and granular permissions
-pub mod stateless_auth;
+// Web3 wallet authentication middleware (pure SIWE - improved implementation)
+pub mod auth_middleware;
 
-// Clean authentication with granular permissions
-pub mod clean_auth;
+// OpenID Connect Bearer token authentication middleware
+pub mod bearer_middleware;
 
-// Enhanced security validation middleware (RS256-only, comprehensive security)
-pub mod enhanced_security_middleware;
-
-
-// Contextual middleware for different access patterns
-pub mod contextual_middleware;
-
-// Core middleware modules
+// Rate limiting for API protection
 pub mod rate_limiter;
-pub mod error_handling;
-pub mod auth_monitoring;
-pub mod policy_validator;
+pub mod rate_limit_middleware;
 
-// Security headers and monitoring exports
+// ⚡ CRITICAL: Bulletproof Permission Validation Middleware (Phase 1.2)
+// THE SINGLE SOURCE OF TRUTH for all permission enforcement
+pub mod permission_validation_middleware;
+
+// Security headers exports (only functions actually used)
 pub use security_headers::{
   security_headers_middleware,
-  csp_middleware,
   request_id_middleware,
-  performance_headers_middleware,
-  enhanced_cors_middleware,
-  enhanced_security_monitoring_middleware,
 };
 
-// Clean auth exports
-pub use clean_auth::{
-  clean_auth_middleware,
-  require_permission,
-  AuthenticatedUser,
-  PlatformContext,
+// Web3 auth exports (improved wallet-first authentication)
+pub use auth_middleware::{
+    web3_auth_middleware,
+    Web3AuthContext,
+    Web3AuthError,
+    get_web3_context,
+    require_web3_auth,
+    require_permission,
+    require_admin,
+    has_any_permission,
+    AuthMethod,
 };
 
-// Enhanced security middleware exports
-pub use enhanced_security_middleware::{
-  enhanced_security_middleware,
-  SecurityContext,
-  SecurityMiddlewareConfig,
-  SecurityEvent,
-  extract_security_context,
-  check_permission,
-  create_secure_config,
+// OpenID Bearer auth exports (standard OpenID Connect)
+pub use bearer_middleware::{
+  bearer_middleware,
+  optional_bearer_middleware,
+  OpenIDUserContext,
+  UnifiedErrorResponse,
+  ErrorDetails,
+  extract_user_context,
+  require_user_context,
+  check_user_permission,
+  create_permission_denied_error,
 };
 
-
+// Rate limiter exports (used in validation)
 pub use rate_limiter::{
   UnifiedRateLimiter,
-  RateLimiter,
   RateLimitConfig,
-  RateLimitResult,
-  RateLimitError,
   ClientId,
-  RateLimitStatus,
 };
 
-// Contextual middleware exports for different access patterns
-pub use contextual_middleware::{
-  internal_middleware_stack,
-  external_middleware_stack,
-  admin_middleware_stack,
-  ResourceTracker,
-};
-pub use error_handling::{
-  error_handling_middleware,
-  error_recovery_middleware,
-  app_error_to_response,
-  extract_error_context_from_request,
-  ErrorCircuitBreaker,
-  ErrorResponseFormat,
+// Web3 rate limiting exports (used for Web3 API protection)
+pub use rate_limit_middleware::{
+  web3_rate_limit_middleware,
+  unified_rate_limit_middleware,
 };
 
-// Stateless auth exports
-pub use stateless_auth::{
-  stateless_auth_middleware,
-  AuthenticationError,
+// ⚡ CRITICAL: Permission validation exports (THE SINGLE SOURCE OF TRUTH)
+pub use permission_validation_middleware::{
+  permission_validation_middleware,
 };

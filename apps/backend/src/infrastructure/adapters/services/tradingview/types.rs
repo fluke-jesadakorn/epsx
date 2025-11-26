@@ -13,6 +13,8 @@ use crate::domain::shared_kernel::entities::eps_growth::EPSGrowthData;
 pub enum MarketDataError {
     #[error("Network error: {0}")]
     NetworkError(String),
+    #[error("Connection error: {0}")]
+    ConnectionError(String),
     #[error("Parsing error: {0}")]
     ParsingError(String),
     #[error("External API error: {0}")]
@@ -89,6 +91,11 @@ pub struct FrontendEPSData {
     pub country: String,
     pub sector: String,
     pub ranking_score: f64,
+    pub currency: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_earnings_date: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_earnings_date: Option<String>,
 }
 
 /// Frontend pagination structure
@@ -124,14 +131,14 @@ pub struct TradingViewConfig {
 }
 
 impl From<&Config> for TradingViewConfig {
-    fn from(config: &Config) -> Self {
+    fn from(_config: &Config) -> Self {
         Self {
             scanner_api_url: "https://scanner.tradingview.com/global/scan?label-product=screener-stock".to_string(),
             websocket_url: "wss://data.tradingview.com/socket.io/websocket".to_string(),
             origin_url: "https://www.tradingview.com".to_string(),
             referer_url: "https://www.tradingview.com/".to_string(),
             http_timeout_seconds: 30,
-            auth_token: config.firebase_project_id.clone(),
+            auth_token: "tradingview-api-token".to_string(), // TODO: Replace with proper TradingView API token
         }
     }
 }
@@ -217,6 +224,9 @@ mod tests {
             country: "america".to_string(),
             sector: "Technology".to_string(),
             ranking_score: 85.5,
+            currency: "USD".to_string(),
+            next_earnings_date: None,
+            last_earnings_date: None,
         };
 
         assert_eq!(data.symbol, "AAPL");
@@ -245,7 +255,7 @@ mod tests {
     fn test_tradingview_config_defaults() {
         use crate::config::*;
         
-        let config = Config::default();
+        let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
         
         assert!(tv_config.scanner_api_url.contains("scanner.tradingview.com"));

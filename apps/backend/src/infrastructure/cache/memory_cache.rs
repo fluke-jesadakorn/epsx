@@ -4,7 +4,14 @@ use super::{Cache, CacheConfig};
 /// In-memory cache implementation
 pub struct MemoryCache {
     data: Arc<RwLock<HashMap<String, String>>>,
+    #[allow(dead_code)]
     config: CacheConfig,
+}
+
+impl Default for MemoryCache {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MemoryCache {

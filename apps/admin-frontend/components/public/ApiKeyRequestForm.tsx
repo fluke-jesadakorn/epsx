@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { FormField, Input, Select, Textarea } from '@/components/ui/form-components';
-import { toast } from 'react-hot-toast';
 import { Send, CheckCircle, Building, Mail, Globe, Code } from 'lucide-react';
+import React, { useState } from 'react';
+import { toast } from 'react-hot-toast';
+
+import { Button } from '@/components/ui/button';
+import { FormField, Input, Select, Textarea } from '@/components/ui/FormComponents';
 
 interface ApiKeyRequest {
   company_name: string;
@@ -48,6 +49,9 @@ const AVAILABLE_MODULES = [
   { id: 'trading-signals', name: 'Trading Signals', description: 'AI-powered trading signals' },
 ];
 
+/**
+ *
+ */
 export const ApiKeyRequestForm: React.FC = () => {
   const [formData, setFormData] = useState<ApiKeyRequest>({
     company_name: '',
@@ -94,11 +98,11 @@ export const ApiKeyRequestForm: React.FC = () => {
       // Simulate API call - in real implementation, this would send to your backend
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      
       setIsSubmitted(true);
       toast.success('Your API key request has been submitted successfully!');
-    } catch (error) {
-      console.error('Failed to submit request:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to submit request:', _error);
       toast.error('Failed to submit request. Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -172,7 +176,7 @@ export const ApiKeyRequestForm: React.FC = () => {
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField label="Company Name" required>
+            <FormField id="company_name" label="Company Name" required>
               <Input
                 value={formData.company_name}
                 onChange={(e) => handleInputChange('company_name', e.target.value)}
@@ -180,7 +184,7 @@ export const ApiKeyRequestForm: React.FC = () => {
               />
             </FormField>
             
-            <FormField label="Company Size">
+            <FormField id="company_size" label="Company Size">
               <Select
                 value={formData.company_size}
                 onChange={(e) => handleInputChange('company_size', e.target.value)}
@@ -192,7 +196,7 @@ export const ApiKeyRequestForm: React.FC = () => {
               </Select>
             </FormField>
             
-            <FormField label="Website">
+            <FormField id="website" label="Website">
               <Input
                 type="url"
                 value={formData.website}
@@ -211,7 +215,7 @@ export const ApiKeyRequestForm: React.FC = () => {
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField label="Contact Name" required>
+            <FormField id="contact_name" label="Contact Name" required>
               <Input
                 value={formData.contact_name}
                 onChange={(e) => handleInputChange('contact_name', e.target.value)}
@@ -219,7 +223,7 @@ export const ApiKeyRequestForm: React.FC = () => {
               />
             </FormField>
             
-            <FormField label="Email Address" required>
+            <FormField id="email" label="Email Address" required>
               <Input
                 type="email"
                 value={formData.email}
@@ -228,7 +232,7 @@ export const ApiKeyRequestForm: React.FC = () => {
               />
             </FormField>
             
-            <FormField label="Phone Number">
+            <FormField id="phone" label="Phone Number">
               <Input
                 type="tel"
                 value={formData.phone}
@@ -247,7 +251,7 @@ export const ApiKeyRequestForm: React.FC = () => {
           </h2>
           
           <div className="space-y-4">
-            <FormField label="Use Case Description" required>
+            <FormField id="use_case" label="Use Case Description" required>
               <Textarea
                 value={formData.use_case}
                 onChange={(e) => handleInputChange('use_case', e.target.value)}
@@ -257,7 +261,7 @@ export const ApiKeyRequestForm: React.FC = () => {
             </FormField>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField label="Expected API Volume">
+              <FormField id="api_volume" label="Expected API Volume">
                 <Select
                   value={formData.expected_volume}
                   onChange={(e) => handleInputChange('expected_volume', e.target.value)}
@@ -269,7 +273,7 @@ export const ApiKeyRequestForm: React.FC = () => {
                 </Select>
               </FormField>
               
-              <FormField label="Integration Timeline">
+              <FormField id="timeline" label="Integration Timeline">
                 <Select
                   value={formData.integration_timeline}
                   onChange={(e) => handleInputChange('integration_timeline', e.target.value)}
@@ -316,7 +320,7 @@ export const ApiKeyRequestForm: React.FC = () => {
         <div className="bg-white border rounded-lg p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-4">Additional Information</h2>
           
-          <FormField label="Additional Details">
+          <FormField id="details" label="Additional Details">
             <Textarea
               value={formData.additional_info}
               onChange={(e) => handleInputChange('additional_info', e.target.value)}

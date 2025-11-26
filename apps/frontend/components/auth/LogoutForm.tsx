@@ -4,7 +4,7 @@ import { LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { logger, devLog, safeError } from '@/lib/utils/logging';
+import { useWeb3Auth } from '@/lib/auth/use-web3-auth';
 
 interface LogoutFormProps {
   className?: string;
@@ -14,31 +14,20 @@ interface LogoutFormProps {
 export function LogoutForm({ className, variant = 'outline' }: LogoutFormProps) {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const router = useRouter();
+  const { disconnect, isAuthenticated } = useWeb3Auth();
 
   const handleLogout = async () => {
     try {
       setIsLoggingOut(true);
       
-      // Call the logout API endpoint
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        // Clear any client-side auth state and redirect to home
-        router.push('/');
-        router.refresh();
-      } else {
-        logger.error('Logout failed', { status: response.status, statusText: response.statusText });
-        // Still redirect even if logout API fails
-        router.push('/');
-        router.refresh();
-      }
+      // Use Web3 disconnect for all users (Web3-first approach)
+      await disconnect();
+      
+      // Redirect to home
+      router.push('/');
+      router.refresh();
     } catch (error) {
-      logger.error('Logout error', error);
+      console.error('Logout error', error);
       // Still redirect even if there's an error
       router.push('/');
       router.refresh();

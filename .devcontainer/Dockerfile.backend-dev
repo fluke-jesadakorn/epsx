@@ -32,8 +32,7 @@ RUN apt-get update && \
 
 # Install development Rust tools
 RUN rustup component add rustfmt clippy rust-analyzer
-# Note: Rust tools will be installed during container startup to save build time
-# RUN cargo install diesel_cli@2.2.12 --no-default-features --features postgres
+# Note: Additional Rust tools will be installed during container startup to save build time
 # RUN cargo install cargo-watch cargo-edit cargo-audit  
 # RUN cargo install sqlx-cli --no-default-features --features rustls,postgres
 

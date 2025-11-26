@@ -1,5 +1,5 @@
-import { getCurrentUser } from '@/app/actions/auth';
-import { Alert, AlertDescription } from '@/packages/ui';
+import { getCurrentUser } from '@/lib/actions/auth';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export async function AuthProvidersServer() {
   const user = await getCurrentUser();

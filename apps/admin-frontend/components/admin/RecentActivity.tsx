@@ -1,10 +1,17 @@
 /**
  * Recent Activity Component
- * Shows recent system activities and events
+ * Shows recent system activities and events from real API
  */
 
-import { Clock, User, Settings, AlertTriangle, CheckCircle } from 'lucide-react'
-import { adminCardVariants, adminBadgeVariants, cn } from '@/design-system'
+import { Clock, User, Settings, AlertTriangle, CheckCircle, RefreshCw } from 'lucide-react'
+import { useState, useEffect } from 'react'
+
+import { adminCardVariants } from '@/design-system'
+import { NoActivityState } from '@/components/ui/EmptyState'
+import { ErrorDisplay } from '@/components/ui/ErrorDisplay'
+import { ListSkeleton } from '@/components/ui/AdminSkeleton'
+import { createAdminApiClient } from '@/shared/utils/api-client'
+import { cn } from '@/lib/utils'
 
 interface ActivityItem {
   id: string
@@ -15,54 +22,41 @@ interface ActivityItem {
   status: 'success' | 'warning' | 'error'
 }
 
+/**
+ * Recent Activity component with real API integration
+ */
 export function RecentActivity() {
-  // Mock data - in real implementation, this would come from props or server data
-  const activities: ActivityItem[] = [
-    {
-      id: '1',
-      type: 'user',
-      action: 'User created',
-      details: 'john.doe@example.com registered',
-      timestamp: '2 minutes ago',
-      status: 'success'
-    },
-    {
-      id: '2',
-      type: 'security',
-      action: 'Failed login',
-      details: 'Invalid credentials for admin@test.com',
-      timestamp: '15 minutes ago',
-      status: 'warning'
-    },
-    {
-      id: '3',
-      type: 'system',
-      action: 'Module updated',
-      details: 'Analytics module v2.1.3 deployed',
-      timestamp: '1 hour ago',
-      status: 'success'
-    },
-    {
-      id: '4',
-      type: 'billing',
-      action: 'Subscription upgraded',
-      details: 'Premium plan activated for user_456',
-      timestamp: '2 hours ago',
-      status: 'success'
-    },
-    {
-      id: '5',
-      type: 'system',
-      action: 'Database backup',
-      details: 'Daily backup completed successfully',
-      timestamp: '3 hours ago',
-      status: 'success'
+  const [activities, setActivities] = useState<ActivityItem[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const loadActivities = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const client = createAdminApiClient()
+      const response = await client.get('/api/admin/activity/recent', { limit: '5' })
+
+      if (response.success && response.data) {
+        setActivities(response.data)
+      } else {
+        setActivities([])
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load recent activity')
+      setActivities([])
+    } finally {
+      setLoading(false)
     }
-  ]
+  }
+
+  useEffect(() => {
+    loadActivities()
+  }, [])
 
   const getIcon = (type: string, status: string) => {
-    if (status === 'error') return AlertTriangle
-    if (status === 'warning') return AlertTriangle
+    if (status === 'error') {return AlertTriangle}
+    if (status === 'warning') {return AlertTriangle}
     
     switch (type) {
       case 'user': return User
@@ -111,6 +105,40 @@ export function RecentActivity() {
     }
   }
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className={cn(adminCardVariants({ variant: 'pancake', hover: 'both' }))}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <Clock className="h-5 w-5" />
+            Recent Activity
+          </h2>
+        </div>
+        <ListSkeleton items={5} />
+      </div>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className={cn(adminCardVariants({ variant: 'pancake', hover: 'both' }))}>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold flex items-center gap-2">
+            <Clock className="h-5 w-5" />
+            Recent Activity
+          </h2>
+        </div>
+        <ErrorDisplay
+          error={error}
+          context="loading"
+          onRetry={loadActivities}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className={cn(adminCardVariants({ variant: 'pancake', hover: 'both' }))}>
       <div className="flex items-center justify-between mb-4">
@@ -118,40 +146,53 @@ export function RecentActivity() {
           <Clock className="h-5 w-5" />
           Recent Activity
         </h2>
-      </div>
-      
-      <div className="space-y-3">
-        {activities.map((activity) => {
-          const Icon = getIcon(activity.type, activity.status)
-          return (
-            <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
-              <div className={`p-2 rounded-lg ${getTypeColor(activity.type)}`}>
-                <Icon className="h-4 w-4" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="font-medium text-sm">{activity.action}</span>
-                  <span className={`text-xs ${getStatusColor(activity.status)}`}>
-                    ●
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground mb-1">
-                  {activity.details}
-                </p>
-                <span className="text-xs text-muted-foreground">
-                  {activity.timestamp}
-                </span>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-      
-      <div className="mt-4 pt-3 border-t border-muted">
-        <button className="text-sm text-info-600 hover:text-info-700">
-          View all activity
+        <button
+          onClick={loadActivities}
+          className="p-1.5 rounded-lg hover:bg-muted"
+          aria-label="Refresh activity"
+        >
+          <RefreshCw className="h-4 w-4" />
         </button>
       </div>
+
+      {activities.length === 0 ? (
+        <NoActivityState />
+      ) : (
+        <>
+          <div className="space-y-3">
+            {activities.map((activity) => {
+              const Icon = getIcon(activity.type, activity.status)
+              return (
+                <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/30">
+                  <div className={`p-2 rounded-lg ${getTypeColor(activity.type)}`}>
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-sm">{activity.action}</span>
+                      <span className={`text-xs ${getStatusColor(activity.status)}`}>
+                        ●
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-1">
+                      {activity.details}
+                    </p>
+                    <span className="text-xs text-muted-foreground">
+                      {activity.timestamp}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-muted">
+            <button className="text-sm text-info-600 hover:text-info-700">
+              View all activity
+            </button>
+          </div>
+        </>
+      )}
     </div>
   )
 }

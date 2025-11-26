@@ -10,6 +10,13 @@ interface ThemeToggleProps {
   className?: string;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.variant
+ * @param root0.size
+ * @param root0.className
+ */
 export function ThemeToggle({ 
   variant = 'default', 
   size = 'md',
@@ -60,13 +67,16 @@ export function ThemeToggle({
     if (variant === 'simple') {
       // Manual implementation for simple variant
       const html = document.documentElement;
-      if (html.classList.contains('dark')) {
+      const newTheme = html.classList.contains('dark') ? 'light' : 'dark';
+      
+      if (newTheme === 'light') {
         html.classList.remove('dark');
-        localStorage.setItem('theme', 'light');
       } else {
         html.classList.add('dark');
-        localStorage.setItem('theme', 'dark');
       }
+      
+      // Save theme preference to cookie instead of localStorage
+      document.cookie = `theme=${newTheme}; path=/; max-age=31536000; SameSite=lax`;
     } else {
       // Use next-themes for other variants
       setTheme(resolvedTheme === 'dark' ? 'light' : 'dark');

@@ -2,7 +2,7 @@
 import Link from 'next/link';
 
 interface AnalyticsNavigationProps {
-  currentPage: 'analytics' | 'my-data';
+  currentPage: 'analytics' | 'portfolio';
 }
 
 export function AnalyticsNavigation({ currentPage }: AnalyticsNavigationProps) {
@@ -23,9 +23,9 @@ export function AnalyticsNavigation({ currentPage }: AnalyticsNavigationProps) {
           Analytics Dashboard
         </Link>
         <Link 
-          href="/my-data"
+          href="/portfolio"
           className={`rounded-full px-4 py-2 text-sm font-medium transition-all duration-300 ${
-            currentPage === 'my-data' 
+            currentPage === 'portfolio' 
               ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg' 
               : 'text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-700'
           }`}
@@ -33,7 +33,7 @@ export function AnalyticsNavigation({ currentPage }: AnalyticsNavigationProps) {
           <svg className="mr-2 inline h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
           </svg>
-          My Portfolio
+          Portfolio
         </Link>
       </div>
     </div>

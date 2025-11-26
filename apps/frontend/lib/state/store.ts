@@ -52,26 +52,26 @@ export interface AppState {
       open: boolean;
       collapsed: boolean;
     };
-    modals: Record<string, any>;
-    toasts: any[];
+    modals: Record<string, unknown>;
+    toasts: unknown[];
     loading: Record<string, boolean>;
     errors: Record<string, string>;
   };
-  user: AsyncState<any>;
+  user: AsyncState<Record<string, unknown>>;
   analytics: {
     data: {
-      rankings: any[];
-      metrics: any[];
+      rankings: unknown[];
+      metrics: unknown[];
     };
-    filters: any;
+    filters: Record<string, unknown>;
     pagination: {
       page: number;
       per_page: number;
       total: number;
     };
   };
-  notifications: AsyncState<any[]>;
-  preferences: Record<string, any>;
+  notifications: AsyncState<unknown[]>;
+  preferences: Record<string, unknown>;
 }
 
 // ============================================================================
@@ -89,7 +89,7 @@ export const storage = {
     }
   },
   
-  set: (key: string, value: any, storageType: 'localStorage' | 'sessionStorage' = 'localStorage') => {
+  set: (key: string, value: unknown, storageType: 'localStorage' | 'sessionStorage' = 'localStorage') => {
     if (typeof window === 'undefined') return;
     try {
       window[storageType].setItem(key, JSON.stringify(value));
@@ -210,14 +210,19 @@ export function useStateManager<T>(initialState: T, config: StateConfig = {}) {
 function stateReducer<T>(state: T, action: StateAction): T {
   switch (action.type) {
     case 'SET_STATE':
-      return { ...state, ...action.payload };
+      // Ensure both state and payload are objects before spreading
+      if (typeof state === 'object' && state !== null && 
+          typeof action.payload === 'object' && action.payload !== null) {
+        return { ...state, ...action.payload } as T;
+      }
+      return action.payload as T;
     
     case 'RESET_STATE':
-      return action.payload;
+      return action.payload as T;
 
     case 'UPDATE_NESTED':
       if (typeof action.payload === 'object' && action.payload && 'path' in action.payload && 'value' in action.payload) {
-        const { path, value } = action.payload as { path: string; value: any };
+        const { path, value } = action.payload as { path: string; value: unknown };
         return updateNestedState(state, path, value);
       }
       return state;
@@ -231,19 +236,19 @@ function stateReducer<T>(state: T, action: StateAction): T {
 // Utility Functions
 // ============================================================================
 
-function updateNestedState<T>(state: T, path: string, value: any): T {
+function updateNestedState<T>(state: T, path: string, value: unknown): T {
   const keys = path.split('.');
-  const newState = { ...state } as any;
-  
-  let current = newState;
+  const newState = { ...state } as Record<string, unknown>;
+
+  let current: Record<string, unknown> = newState;
   for (let i = 0; i < keys.length - 1; i++) {
     const key = keys[i];
-    current[key] = { ...current[key] };
-    current = current[key];
+    current[key] = { ...current[key] as object };
+    current = current[key] as Record<string, unknown>;
   }
-  
+
   current[keys[keys.length - 1]] = value;
-  return newState;
+  return newState as T;
 }
 
 // ============================================================================
@@ -317,26 +322,31 @@ export async function getServerState(options: SSRStateOptions = {}): Promise<Par
 // ============================================================================
 
 export const validateState = {
-  ui: (state: any) => {
-    return state && 
-           typeof state.theme === 'string' &&
-           typeof state.sidebar === 'object' &&
-           Array.isArray(state.toasts);
+  ui: (state: unknown): boolean => {
+    if (!state || typeof state !== 'object') return false;
+    const s = state as Record<string, unknown>;
+    return typeof s.theme === 'string' &&
+           typeof s.sidebar === 'object' &&
+           Array.isArray(s.toasts);
   },
-  
-  user: (state: any) => {
-    return state && 
-           (state.data === null || typeof state.data === 'object') &&
-           typeof state.loading === 'boolean' &&
-           Array.isArray(state.optimisticUpdates);
+
+  user: (state: unknown): boolean => {
+    if (!state || typeof state !== 'object') return false;
+    const s = state as Record<string, unknown>;
+    return (s.data === null || typeof s.data === 'object') &&
+           typeof s.loading === 'boolean' &&
+           Array.isArray(s.optimisticUpdates);
   },
-  
-  analytics: (state: any) => {
-    return state &&
-           state.data &&
-           Array.isArray(state.data.rankings) &&
-           Array.isArray(state.data.metrics) &&
-           typeof state.filters === 'object';
+
+  analytics: (state: unknown): boolean => {
+    if (!state || typeof state !== 'object') return false;
+    const s = state as Record<string, unknown>;
+    return s.data !== undefined &&
+           typeof s.data === 'object' &&
+           s.data !== null &&
+           Array.isArray((s.data as Record<string, unknown>).rankings) &&
+           Array.isArray((s.data as Record<string, unknown>).metrics) &&
+           typeof s.filters === 'object';
   }
 };
 
@@ -344,27 +354,29 @@ export const validateState = {
 // Action Creators
 // ============================================================================
 
+type DispatchFn = (action: StateAction) => void;
+
 export const createActions = {
-  ui: (dispatch: any) => ({
-    setTheme: (theme: 'light' | 'dark' | 'system') => 
+  ui: (dispatch: DispatchFn) => ({
+    setTheme: (theme: 'light' | 'dark' | 'system') =>
       dispatch({ type: 'SET_THEME', payload: theme }),
-    addToast: (toast: any) => 
+    addToast: (toast: unknown) =>
       dispatch({ type: 'ADD_TOAST', payload: toast }),
-    openModal: (key: string, data?: any) => 
+    openModal: (key: string, data?: unknown) =>
       dispatch({ type: 'OPEN_MODAL', payload: { key, data } })
   }),
-  
-  analytics: (dispatch: any) => ({
-    addToAnalytics: (item: any) => 
+
+  analytics: (dispatch: DispatchFn) => ({
+    addToAnalytics: (item: unknown) =>
       dispatch({ type: 'ADD_TO_ANALYTICS', payload: item }),
-    updateMetrics: (id: string, data: any) => 
+    updateMetrics: (id: string, data: unknown) =>
       dispatch({ type: 'UPDATE_METRICS', payload: { id, data } })
   }),
-  
-  notifications: (dispatch: any) => ({
-    addNotification: (notification: any) => 
+
+  notifications: (dispatch: DispatchFn) => ({
+    addNotification: (notification: unknown) =>
       dispatch({ type: 'ADD_NOTIFICATION', payload: notification }),
-    markRead: (id: string) => 
+    markRead: (id: string) =>
       dispatch({ type: 'MARK_READ', payload: id })
   })
 };

@@ -6,9 +6,9 @@ import type {
   SymbolCardData,
 } from '@/types/analytics';
 import {
-  EPSGrowthTrend,
+  // EPSGrowthTrend,
   formatPercentage,
-  getGrowthTrend,
+  // getGrowthTrend,
 } from '@/types/analytics';
 import { memo } from 'react';
 
@@ -56,7 +56,7 @@ const StockCard = memo<StockCardAllProps>(props => {
 
     // Convert to card format
     cardData = {
-      rank: rank,
+      rank,
       symbol: ranking.symbol,
       latest_date: new Date().toLocaleDateString('en-US', {
         year: 'numeric',
@@ -169,7 +169,12 @@ const StockCard = memo<StockCardAllProps>(props => {
         <div className="text-center flex flex-col justify-center">
           <div className="text-white/80 font-medium text-sm mb-1">Price</div>
           <div className="text-white font-bold text-xl">
-            ${cardData.value.toFixed(2)}
+            {new Intl.NumberFormat('en-US', {
+              style: 'currency',
+              currency: cardData.currency || 'USD',
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }).format(cardData.value)}
           </div>
         </div>
       </div>

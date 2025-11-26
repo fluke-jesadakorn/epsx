@@ -22,25 +22,33 @@ impl DomainEvent for EventCreated {
     fn event_type(&self) -> &'static str {
         "EventCreated"
     }
-    
+
+    fn aggregate_type(&self) -> &'static str {
+        "RealtimeEvent"
+    }
+
     fn aggregate_id(&self) -> String {
         self.event_id.to_string()
     }
-    
+
     fn occurred_at(&self) -> DateTime<Utc> {
         self.created_at
     }
-    
+
     fn event_id(&self) -> Uuid {
         self.domain_event_id
     }
-    
+
     fn aggregate_version(&self) -> u64 {
         self.aggregate_version
     }
-    
+
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -58,25 +66,33 @@ impl DomainEvent for EventDelivered {
     fn event_type(&self) -> &'static str {
         "EventDelivered"
     }
-    
+
+    fn aggregate_type(&self) -> &'static str {
+        "RealtimeEvent"
+    }
+
     fn aggregate_id(&self) -> String {
         self.event_id.to_string()
     }
-    
+
     fn occurred_at(&self) -> DateTime<Utc> {
         self.delivered_at
     }
-    
+
     fn event_id(&self) -> Uuid {
         self.domain_event_id
     }
-    
+
     fn aggregate_version(&self) -> u64 {
         self.aggregate_version
     }
-    
+
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -95,25 +111,33 @@ impl DomainEvent for EventFailed {
     fn event_type(&self) -> &'static str {
         "EventFailed"
     }
-    
+
+    fn aggregate_type(&self) -> &'static str {
+        "RealtimeEvent"
+    }
+
     fn aggregate_id(&self) -> String {
         self.event_id.to_string()
     }
-    
+
     fn occurred_at(&self) -> DateTime<Utc> {
         self.failed_at
     }
-    
+
     fn event_id(&self) -> Uuid {
         self.domain_event_id
     }
-    
+
     fn aggregate_version(&self) -> u64 {
         self.aggregate_version
     }
-    
+
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -132,25 +156,33 @@ impl DomainEvent for EventRetryScheduled {
     fn event_type(&self) -> &'static str {
         "EventRetryScheduled"
     }
-    
+
+    fn aggregate_type(&self) -> &'static str {
+        "RealtimeEvent"
+    }
+
     fn aggregate_id(&self) -> String {
         self.event_id.to_string()
     }
-    
+
     fn occurred_at(&self) -> DateTime<Utc> {
         self.retry_at
     }
-    
+
     fn event_id(&self) -> Uuid {
         self.domain_event_id
     }
-    
+
     fn aggregate_version(&self) -> u64 {
         self.aggregate_version
     }
-    
+
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -158,7 +190,7 @@ impl DomainEvent for EventRetryScheduled {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConnectionEstablished {
     pub connection_id: super::value_objects::ConnectionId,
-    pub user_id: super::value_objects::UserId,
+    pub wallet_address: super::value_objects::UserId,
     pub established_at: DateTime<Utc>,
     pub domain_event_id: Uuid,
     pub aggregate_version: u64,
@@ -168,25 +200,33 @@ impl DomainEvent for ConnectionEstablished {
     fn event_type(&self) -> &'static str {
         "ConnectionEstablished"
     }
-    
+
+    fn aggregate_type(&self) -> &'static str {
+        "Connection"
+    }
+
     fn aggregate_id(&self) -> String {
         self.connection_id.to_string()
     }
-    
+
     fn occurred_at(&self) -> DateTime<Utc> {
         self.established_at
     }
-    
+
     fn event_id(&self) -> Uuid {
         self.domain_event_id
     }
-    
+
     fn aggregate_version(&self) -> u64 {
         self.aggregate_version
     }
-    
+
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -203,25 +243,33 @@ impl DomainEvent for ConnectionClosed {
     fn event_type(&self) -> &'static str {
         "ConnectionClosed"
     }
-    
+
+    fn aggregate_type(&self) -> &'static str {
+        "Connection"
+    }
+
     fn aggregate_id(&self) -> String {
         self.connection_id.to_string()
     }
-    
+
     fn occurred_at(&self) -> DateTime<Utc> {
         self.closed_at
     }
-    
+
     fn event_id(&self) -> Uuid {
         self.domain_event_id
     }
-    
+
     fn aggregate_version(&self) -> u64 {
         self.aggregate_version
     }
-    
+
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -229,7 +277,7 @@ impl DomainEvent for ConnectionClosed {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubscriptionCreated {
     pub subscription_id: Uuid,
-    pub user_id: super::value_objects::UserId,
+    pub wallet_address: super::value_objects::UserId,
     pub topic: String,
     pub created_at: DateTime<Utc>,
     pub domain_event_id: Uuid,
@@ -240,25 +288,33 @@ impl DomainEvent for SubscriptionCreated {
     fn event_type(&self) -> &'static str {
         "SubscriptionCreated"
     }
-    
+
+    fn aggregate_type(&self) -> &'static str {
+        "EventSubscription"
+    }
+
     fn aggregate_id(&self) -> String {
         self.subscription_id.to_string()
     }
-    
+
     fn occurred_at(&self) -> DateTime<Utc> {
         self.created_at
     }
-    
+
     fn event_id(&self) -> Uuid {
         self.domain_event_id
     }
-    
+
     fn aggregate_version(&self) -> u64 {
         self.aggregate_version
     }
-    
+
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 

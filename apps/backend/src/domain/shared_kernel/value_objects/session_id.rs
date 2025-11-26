@@ -7,11 +7,17 @@ use crate::domain::shared_kernel::value_object::{ValueObject, ValueObjectError};
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SessionId(String);
 
+impl Default for SessionId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SessionId {
     pub fn new() -> Self {
         Self(Uuid::new_v4().to_string())
     }
-    
+
     pub fn generate() -> Self {
         Self::new()
     }
@@ -22,10 +28,6 @@ impl SessionId {
 
     pub fn as_str(&self) -> &str {
         &self.0
-    }
-
-    pub fn to_string(&self) -> String {
-        self.0.clone()
     }
 }
 
@@ -43,10 +45,8 @@ impl ValueObject for SessionId {
         }
         
         // If it's not a prefixed format, validate as UUID
-        if !self.0.contains(':') {
-            if let Err(_) = uuid::Uuid::parse_str(&self.0) {
-                return Err(ValueObjectError::InvalidFormat("Session ID must be a valid UUID or prefixed format".to_string()));
-            }
+        if !self.0.contains(':') && uuid::Uuid::parse_str(&self.0).is_err() {
+            return Err(ValueObjectError::InvalidFormat("Session ID must be a valid UUID or prefixed format".to_string()));
         }
         
         Ok(())

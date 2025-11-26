@@ -2,7 +2,6 @@
 
 import { createApiClient, isApiError } from '@/lib/api-client';
 import { requireAuth, requirePermission } from '../auth';
-import { safeError } from '@/lib/utils/logging';
 import { redirect } from 'next/navigation';
 
 // ============================================================================
@@ -33,7 +32,7 @@ export async function getSystemStatus(): Promise<any> {
     const result = await client.serverGetSystemStatus();
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to get system status');
+      throw new Error(result.message || 'Failed to get system status');
     }
     
     return result.data!;
@@ -52,7 +51,7 @@ export async function getFeatureFlags(): Promise<Record<string, boolean>> {
     const result = await client.serverGetFeatureFlags();
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to get feature flags');
+      throw new Error(result.message || 'Failed to get feature flags');
     }
     
     return result.data!;
@@ -65,7 +64,7 @@ export async function getFeatureFlags(): Promise<Record<string, boolean>> {
 /**
  * Check feature access for user
  */
-export async function checkFeatureAccess(feature: string): Promise<{
+export async function checkSystemFeatureAccess(feature: string): Promise<{
   hasAccess: boolean;
   tier: string;
   feature: string;
@@ -78,7 +77,7 @@ export async function checkFeatureAccess(feature: string): Promise<{
     const result = await client.serverCheckFeatureAccess(feature);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to check feature access');
+      throw new Error(result.message || 'Failed to check feature access');
     }
     
     return result.data!;
@@ -102,7 +101,7 @@ export async function logClientError(error: {
     const result = await client.serverLogClientError(error);
     
     if (isApiError(result)) {
-      console.error('Failed to log client error to server:', result.error);
+      console.error('Failed to log client error to server:', result.message);
     }
   } catch (serverError) {
     console.error('Server error logging failed:', serverError);
@@ -119,7 +118,7 @@ export async function getAppConfig(): Promise<any> {
     const result = await client.serverGetAppConfig();
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to get app config');
+      throw new Error(result.message || 'Failed to get app config');
     }
     
     return result.data!;
@@ -140,7 +139,7 @@ export async function updateAppSettings(settings: Record<string, any>): Promise<
     const result = await client.serverUpdateAppSettings(settings);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to update app settings');
+      throw new Error(result.message || 'Failed to update app settings');
     }
   } catch (error) {
     console.error('Update app settings error:', error);
@@ -159,7 +158,7 @@ export async function clearAppCache(cacheType?: string): Promise<void> {
     const result = await client.serverClearAppCache(cacheType);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to clear app cache');
+      throw new Error(result.message || 'Failed to clear app cache');
     }
   } catch (error) {
     console.error('Clear app cache error:', error);
@@ -184,7 +183,7 @@ export async function getSystemLogs(params?: {
     const result = await client.serverGetSystemLogs(params);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to get system logs');
+      throw new Error(result.message || 'Failed to get system logs');
     }
     
     return result.data!;
@@ -205,7 +204,7 @@ export async function exportSystemData(dataType: string, format: 'json' | 'csv' 
     const result = await client.serverExportSystemData(dataType, format);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to export system data');
+      throw new Error(result.message || 'Failed to export system data');
     }
     
     return result.data!;
@@ -226,7 +225,7 @@ export async function sendTestNotification(userId: string, type: string = 'test'
     const result = await client.serverSendTestNotification(userId, type);
     
     if (isApiError(result)) {
-      throw new Error(result.error || 'Failed to send test notification');
+      throw new Error(result.message || 'Failed to send test notification');
     }
   } catch (error) {
     console.error('Send test notification error:', error);

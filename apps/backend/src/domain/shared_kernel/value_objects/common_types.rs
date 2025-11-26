@@ -26,40 +26,6 @@ impl ValueObject for PayId {
     }
 }
 
-/// Subscription tier enumeration
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum SubscriptionTier {
-    Free,
-    Basic,
-    Premium,
-    Enterprise,
-}
-
-impl ValueObject for SubscriptionTier {
-    type Error = ValueObjectError;
-    
-    fn validate(&self) -> Result<(), Self::Error> {
-        // All enum variants are valid by definition
-        Ok(())
-    }
-}
-
-/// Subscription details
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Subscription {
-    pub tier: SubscriptionTier,
-    pub active: bool,
-}
-
-impl ValueObject for Subscription {
-    type Error = ValueObjectError;
-    
-    fn validate(&self) -> Result<(), Self::Error> {
-        // Basic validation - subscription tier must be valid (it is by type safety)
-        self.tier.validate()?;
-        Ok(())
-    }
-}
 
 /// Currency enumeration
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

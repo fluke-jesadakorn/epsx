@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import RoleBasedFinancialTable from '@/components/shared/RoleBasedFinancialTable';
+import StockRankingTable from '@/components/shared/StockRankingTable';
 import type { StockFinancialData } from '@/types/financialChartData';
 
 interface StockRankingClientProps {
@@ -61,10 +61,11 @@ export default function StockRankingClient({
       )}
       
       {/* Role-based financial table */}
-      <RoleBasedFinancialTable
-        data={processedData}
-        className="min-h-screen"
-      />
+      <div className="min-h-screen">
+        <StockRankingTable
+          data={processedData}
+        />
+      </div>
     </div>
   );
 }

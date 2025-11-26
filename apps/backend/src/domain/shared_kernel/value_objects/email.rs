@@ -1,17 +1,22 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use crate::domain::shared_kernel::{value_object::{ValueObject, ValueObjectError}, domain_error::DomainError};
+use crate::domain::shared_kernel::value_object::{ValueObject, ValueObjectError};
+use crate::core::errors::AppError;
 
 /// Email address value object with validation
+///
+/// **IMPORTANT**: This is used ONLY for notification delivery (email topics, sending emails).
+/// It is NOT used for user identity or authentication in the Web3-first system.
+/// User identity is based on wallet_address only.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Email(String);
 
 impl Email {
-    pub fn new(email: String) -> Result<Self, DomainError> {
+    pub fn new(email: String) -> Result<Self, AppError> {
         if Self::is_valid(&email) {
             Ok(Self(email.to_lowercase()))
         } else {
-            Err(DomainError::validation_error("email", format!("Invalid email format: {}", email)))
+            Err(AppError::validation_error(format!("Invalid email format: {}", email)))
         }
     }
 
@@ -21,10 +26,6 @@ impl Email {
 
     pub fn as_str(&self) -> &str {
         &self.0
-    }
-
-    pub fn to_string(&self) -> String {
-        self.0.clone()
     }
 
     fn is_valid(email: &str) -> bool {
@@ -51,7 +52,7 @@ impl fmt::Display for Email {
 }
 
 impl TryFrom<String> for Email {
-    type Error = DomainError;
+    type Error = AppError;
 
     fn try_from(email: String) -> Result<Self, Self::Error> {
         Self::new(email)
@@ -59,7 +60,7 @@ impl TryFrom<String> for Email {
 }
 
 impl TryFrom<&str> for Email {
-    type Error = DomainError;
+    type Error = AppError;
 
     fn try_from(email: &str) -> Result<Self, Self::Error> {
         Self::new(email.to_string())

@@ -23,6 +23,13 @@ interface AnalyticsIconProps {
   size?: number;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.name
+ * @param root0.className
+ * @param root0.size
+ */
 export function AnalyticsIcon({ name, className = '', size = 24 }: AnalyticsIconProps) {
   const icons = {
     users: Users,
@@ -65,6 +72,21 @@ interface AnalyticsStatsCardProps {
   rank?: number;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.title
+ * @param root0.value
+ * @param root0.subtitle
+ * @param root0.iconName
+ * @param root0.trend
+ * @param root0.trendValue
+ * @param root0.onClick
+ * @param root0.isLoading
+ * @param root0.error
+ * @param root0.statusColor
+ * @param root0.rank
+ */
 export function AnalyticsStatsCard({
   title,
   value,
@@ -223,6 +245,14 @@ interface AnalyticsSummaryCardProps {
   className?: string;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.title
+ * @param root0.value
+ * @param root0.subtitle
+ * @param root0.className
+ */
 export function AnalyticsSummaryCard({
   title,
   value,

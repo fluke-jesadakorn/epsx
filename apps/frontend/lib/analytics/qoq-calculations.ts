@@ -10,27 +10,29 @@ export interface QoQLeaders {
  * Uses rich UnifiedRankingItem data with quarterly information
  */
 export function calculateQoQLeaders(data: UnifiedAnalyticsRankingsResponse | null): QoQLeaders {
-  if (!data?.data || data.data.length === 0) {
+  // Handle both data and rankings properties with type assertion
+  const items = (data as any)?.data || (data as any)?.rankings || [];
+  if (items.length === 0) {
     return { epsLeaders: [], priceLeaders: [] };
   }
 
   // Filter companies with quarterly data
-  const companiesWithQoQ = data.data.filter(ranking => 
+  const companiesWithQoQ = items.filter((ranking: any) => 
     ranking.quarterly_data && ranking.quarterly_data.length >= 2
   );
 
   // Calculate EPS QoQ leaders using analytics.growth_factor for better accuracy
   const epsLeaders = companiesWithQoQ
-    .filter(ranking => 
+    .filter((ranking: any) => 
       ranking.analytics.growth_factor !== null && 
       ranking.analytics.growth_factor !== undefined
     )
-    .sort((a, b) => b.analytics.growth_factor - a.analytics.growth_factor)
+    .sort((a: any, b: any) => b.analytics.growth_factor - a.analytics.growth_factor)
     .slice(0, 3);
 
   // Calculate Price QoQ leaders using quarterly_data
   const priceLeaders = companiesWithQoQ
-    .filter(ranking => {
+    .filter((ranking: any) => {
       const latestQuarter = ranking.quarterly_data?.[0];
       const previousQuarter = ranking.quarterly_data?.[1];
       const latestGrowth = latestQuarter?.price_growth || 0;
@@ -38,7 +40,7 @@ export function calculateQoQLeaders(data: UnifiedAnalyticsRankingsResponse | nul
       const displayGrowth = latestGrowth === 0 ? previousGrowth : latestGrowth;
       return displayGrowth !== null && displayGrowth !== undefined && displayGrowth !== 0;
     })
-    .sort((a, b) => {
+    .sort((a: any, b: any) => {
       const aLatest = a.quarterly_data?.[0]?.price_growth || 0;
       const aPrevious = a.quarterly_data?.[1]?.price_growth || 0;
       const aGrowth = aLatest === 0 ? aPrevious : aLatest;
@@ -59,12 +61,13 @@ export function calculateQoQLeaders(data: UnifiedAnalyticsRankingsResponse | nul
  * Falls back to previous quarter if current quarter is 0
  */
 export function getDisplayGrowthPercentage(ranking: UnifiedRankingItem): number {
-  if (!ranking.quarterly_data || ranking.quarterly_data.length === 0) {
-    return ranking.analytics.growth_factor || 0;
+  const rankingData = ranking as any;
+  if (!rankingData.quarterly_data || rankingData.quarterly_data.length === 0) {
+    return rankingData.analytics.growth_factor || 0;
   }
 
-  const latestQuarter = ranking.quarterly_data[0];
-  const previousQuarter = ranking.quarterly_data[1];
+  const latestQuarter = rankingData.quarterly_data[0];
+  const previousQuarter = rankingData.quarterly_data[1];
   
   const latestGrowth = latestQuarter?.price_growth || 0;
   const previousGrowth = previousQuarter?.price_growth || 0;

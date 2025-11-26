@@ -22,7 +22,7 @@ export const config = {
   adminUrl: env.ADMIN_URL,
   backendUrl: env.BACKEND_URL,
   frontendUrl: env.APP_URL,  // Called frontendUrl in admin context
-  clientId: env.ADMIN_CLIENT_ID,   // Uses the admin client ID from unified schema
+  clientId: 'epsx-admin',   // Fixed client ID for Web3 wallet-first authentication
   
   // Environment flags
   isDev,
@@ -40,7 +40,7 @@ export const config = {
 export const authConfig = {
   appUrl: env.ADMIN_URL,
   apiUrl: env.BACKEND_URL,
-  clientId: env.ADMIN_CLIENT_ID,
+  clientId: 'epsx-admin',  // Fixed client ID for Web3 wallet-first authentication
   callbackPath: '/api/auth/callback/epsx-backend',
   
   get callbackUrl() {
@@ -48,27 +48,35 @@ export const authConfig = {
   },
   
   get authorizationEndpoint() {
-    return urls.oauth.authorize;  // Uses unified URL helper
+    return urls.oidc.authorize();  // Uses unified URL helper
   },
-  
+
   get tokenEndpoint() {
-    return urls.oauth.token;      // Uses unified URL helper
+    return urls.oidc.token();      // Uses unified URL helper
   },
-  
+
   get userinfoEndpoint() {
-    return urls.oauth.userinfo;   // Uses unified URL helper
+    return urls.oidc.userinfo();   // Uses unified URL helper
   }
 } as const;
 
 /**
- * Feature Flags
- * Admin-specific feature flags for experimental features
+ * Feature Flags (Legacy)
+ * @deprecated Use shared/config/feature-flags.ts through compatibility layer instead
+ * Kept for backward compatibility during migration
  */
 export const featureFlags = {
   UNIFIED_USER_MANAGEMENT: process.env.NEXT_PUBLIC_ENABLE_UNIFIED_USERS === 'true',
   SERVER_COMPONENTS: process.env.NEXT_PUBLIC_ENABLE_SERVER_COMPONENTS === 'true', 
   NEW_NAVIGATION: process.env.NEXT_PUBLIC_ENABLE_NEW_NAV === 'true',
   DEV_MODE: isDev,
+  
+  // Legacy rollout percentages (for compatibility)
+  rolloutPercentages: {
+    UNIFIED_USER_MANAGEMENT: 100,
+    SERVER_COMPONENTS: 50,
+    NEW_NAVIGATION: 75,
+  } as const,
 } as const;
 
 /**
@@ -77,11 +85,11 @@ export const featureFlags = {
  */
 export const serverConfig = {
   get jwtSecret() {
-    return env.JWT_SECRET; // Uses unified schema's server-only getter
+    return env.WEB3_APP_SECRET; // Uses unified schema's Web3 app secret
   },
   
   get oidcClientSecret() {
-    return env.OIDC_ADMIN_CLIENT_SECRET; // Admin-specific client secret
+    return env.WEB3_APP_SECRET; // Uses Web3 app secret for authentication
   },
   
   get databaseUrl() {
@@ -97,8 +105,7 @@ export const serverConfig = {
  * Development validation
  */
 if (typeof window !== 'undefined' && isDev) {
-  console.log('✅ Admin Frontend Environment Configuration Loaded (Unified Schema)');
-  console.log('🔧 Admin Configuration:', {
+  console.log('Environment Configuration:', {
     adminUrl: config.adminUrl,
     backendUrl: config.backendUrl,
     clientId: config.clientId,

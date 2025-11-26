@@ -1,0 +1,45 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: epsx-development
+
+bases:
+  - ../../base
+
+namespace: epsx-development
+
+patchesStrategicMerge:
+  - patches/backend-replicas.yaml
+  - patches/frontend-replicas.yaml
+  - patches/resource-limits.yaml
+  - patches/ingress-config.yaml
+
+configMapGenerator:
+  - name: epsx-env
+    envs:
+      - ../../../environments/development.env
+
+secretGenerator:
+  - name: epsx-secrets
+    envs:
+      - ../../../environments/.secrets.development
+
+images:
+  - name: epsx-backend
+    newName: epsx-backend
+    newTag: develop
+  - name: epsx-frontend
+    newName: epsx-frontend
+    newTag: develop
+  - name: epsx-admin-frontend
+    newName: epsx-admin-frontend
+    newTag: develop
+
+replicas:
+  - name: backend
+    count: 1
+  - name: frontend
+    count: 1
+  - name: admin-frontend
+    count: 1

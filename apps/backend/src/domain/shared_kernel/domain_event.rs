@@ -8,21 +8,29 @@ use uuid::Uuid;
 pub trait DomainEvent: Send + Sync + Debug {
     /// Unique identifier for this event instance
     fn event_id(&self) -> Uuid;
-    
+
     /// The type of event (used for routing and serialization)
     fn event_type(&self) -> &'static str;
-    
+
+    /// The type of aggregate that raised this event
+    /// Used for event store partitioning and routing
+    /// Examples: "WalletUser", "Subscription", "PermissionGroup"
+    fn aggregate_type(&self) -> &'static str;
+
     /// When this event occurred
     fn occurred_at(&self) -> DateTime<Utc>;
-    
+
     /// Version of the aggregate when this event was raised
     fn aggregate_version(&self) -> u64;
-    
+
     /// The aggregate ID that raised this event
     fn aggregate_id(&self) -> String;
-    
+
     /// Serialize event to JSON for storage/transport
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>>;
+
+    /// Downcast to Any for type introspection
+    fn as_any(&self) -> &dyn std::any::Any;
 }
 
 /// Base event data that all events should include
@@ -48,12 +56,12 @@ impl EventMetadata {
 /// Simple event bus interface for domain events
 pub trait DomainEventBus: Send + Sync {
     /// Publish a domain event
-    fn publish(&self, event: &Box<dyn DomainEvent>);
-    
+    fn publish(&self, event: &dyn DomainEvent);
+
     /// Publish multiple events as a batch
     fn publish_batch(&self, events: &[Box<dyn DomainEvent>]) {
         for event in events {
-            self.publish(event);
+            self.publish(&**event);
         }
     }
 }
@@ -82,7 +90,7 @@ impl InMemoryEventBus {
 }
 
 impl DomainEventBus for InMemoryEventBus {
-    fn publish(&self, event: &Box<dyn DomainEvent>) {
+    fn publish(&self, event: &dyn DomainEvent) {
         let mut events = self.events.write().unwrap();
         events.push(event.event_type().to_string());
     }

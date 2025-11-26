@@ -1,35 +1,62 @@
 // Repository Adapters
-// Modern repository implementations with unified database access
+// Web3-first repository implementations with comprehensive blockchain integration
 
 pub mod base_repository;
-pub mod user_repository_adapter;
-pub mod realtime_event_repository_adapter;
-pub mod connection_repository_adapter;
-pub mod user_permission_repository_adapter;
-pub mod direct_db_client;
 pub mod database_types;
+pub mod database_utils; // NEW: Shared database utilities and error handling macros
 pub mod notification_repository_adapter;
-pub mod eps_repository_adapter;
 pub mod stock_analysis_repository_adapter;
-pub mod session_repository_adapter;
 pub mod market_data_repository_adapter;
-pub mod payment_repository_adapter;
-pub mod transaction_repository_adapter;
-pub mod crypto_address_repository_adapter;
-pub mod payment_method_repository_adapter;
-pub mod plan_repository_adapter;
+pub mod tradingview_eps_repository; // TradingView EPS data adapter
+// pub mod payment_repository_adapter; // Temporarily disabled
 pub mod mappers;
 
-pub use base_repository::{BaseRepository, SqlxBaseRepository};
-pub use user_repository_adapter::UserRepositoryAdapter;
-pub use realtime_event_repository_adapter::RealtimeEventRepositoryAdapter;
-pub use connection_repository_adapter::ConnectionRepositoryAdapter;
-pub use user_permission_repository_adapter::UserPermissionRepositoryAdapter;
-pub use direct_db_client::DirectDbClient;
+pub mod wallet_user_repository_adapter;
+pub mod session_repository_adapter;
+pub mod permission_group_repository_adapter;
+
+
+pub use base_repository::{ BaseRepository, DieselBaseRepository };
 pub use database_types::*;
 pub use notification_repository_adapter::NotificationRepositoryAdapter;
-pub use eps_repository_adapter::EPSRepositoryAdapter;
 pub use stock_analysis_repository_adapter::StockAnalysisRepositoryAdapter;
+pub use tradingview_eps_repository::TradingViewEPSRepository;
 
-// Database connection pool type - SQLx PostgreSQL pool
-pub type DbPool = sqlx::PgPool;
+pub use wallet_user_repository_adapter::WalletUserRepositoryAdapter;
+
+use diesel_async::{AsyncPgConnection, pooled_connection::AsyncDieselConnectionManager, pooled_connection::deadpool::Pool};
+
+// Database connection pool type - Diesel async PostgreSQL pool
+pub type DbPool = &'static Pool<AsyncPgConnection>;
+
+/// Create a database connection pool for production use
+pub async fn create_pool() -> Result<&'static Pool<AsyncPgConnection>, Box<dyn std::error::Error>> {
+  let database_url = std::env
+    ::var("DATABASE_URL")
+    .expect("DATABASE_URL must be set");
+
+  let config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(&database_url);
+  let pool = Pool::builder(config)
+    .max_size(10)
+    .build()?;
+
+  // Leak pool to make it 'static
+  Ok(Box::leak(Box::new(pool)))
+}
+
+/// Create a test database connection pool
+pub async fn create_test_pool() -> Result<&'static Pool<AsyncPgConnection>, Box<dyn std::error::Error>> {
+  let database_url = std::env
+    ::var("DATABASE_URL")
+    .unwrap_or_else(|_|
+      "postgresql://postgres:password@localhost:5432/epsx_test_db".to_string()
+    );
+
+  let config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(&database_url);
+  let pool = Pool::builder(config)
+    .max_size(5)
+    .build()?;
+
+  // Leak pool to make it 'static
+  Ok(Box::leak(Box::new(pool)))
+}

@@ -110,6 +110,54 @@ impl StockAnalysis {
         Ok(())
     }
 
+    /// Update sector and recalculate score
+    pub fn update_sector(&mut self, sector: MarketSector) -> Result<(), String> {
+        let old_score = self.analysis_score.clone();
+
+        self.sector = sector;
+
+        // Recalculate analysis score
+        self.analysis_score = Self::calculate_analysis_score(&self.current_eps, &self.eps_growth, &self.sector, &self.country);
+        self.last_updated = Utc::now();
+
+        // Publish event if score changed significantly
+        if (self.analysis_score.overall_score as i32 - old_score.overall_score as i32).abs() >= 5 {
+            self.base.add_event(Box::new(StockAnalysisUpdated::new(
+                self.id.clone(),
+                self.base.version,
+                self.symbol.clone(),
+                old_score.overall_score,
+                self.analysis_score.overall_score,
+            )));
+        }
+
+        Ok(())
+    }
+
+    /// Update country and recalculate score
+    pub fn update_country(&mut self, country: Country) -> Result<(), String> {
+        let old_score = self.analysis_score.clone();
+
+        self.country = country;
+
+        // Recalculate analysis score
+        self.analysis_score = Self::calculate_analysis_score(&self.current_eps, &self.eps_growth, &self.sector, &self.country);
+        self.last_updated = Utc::now();
+
+        // Publish event if score changed significantly
+        if (self.analysis_score.overall_score as i32 - old_score.overall_score as i32).abs() >= 5 {
+            self.base.add_event(Box::new(StockAnalysisUpdated::new(
+                self.id.clone(),
+                self.base.version,
+                self.symbol.clone(),
+                old_score.overall_score,
+                self.analysis_score.overall_score,
+            )));
+        }
+
+        Ok(())
+    }
+
     /// Set ranking for a specific category
     pub fn set_ranking(&mut self, category: RankingCategory, rank: u32, total_stocks: u32, percentile: f64) -> Result<(), String> {
         if rank == 0 || total_stocks == 0 {
@@ -298,11 +346,17 @@ impl RankingCategory {
     pub fn as_str(&self) -> &'static str {
         match self {
             RankingCategory::EPSGrowth => "eps_growth",
-            RankingCategory::EPSValue => "eps_value", 
+            RankingCategory::EPSValue => "eps_value",
             RankingCategory::OverallScore => "overall_score",
             RankingCategory::SectorRanking => "sector_ranking",
             RankingCategory::MarketCapGrowth => "market_cap_growth",
         }
+    }
+}
+
+impl std::fmt::Display for RankingCategory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.as_str())
     }
 }
 
@@ -379,6 +433,10 @@ impl DomainEvent for StockAnalysisCreated {
         "StockAnalysisCreated"
     }
 
+    fn aggregate_type(&self) -> &'static str {
+        "StockAnalysis"
+    }
+
     fn occurred_at(&self) -> DateTime<Utc> {
         self.metadata.occurred_at
     }
@@ -393,6 +451,10 @@ impl DomainEvent for StockAnalysisCreated {
 
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -430,6 +492,10 @@ impl DomainEvent for StockAnalysisUpdated {
         "StockAnalysisUpdated"
     }
 
+    fn aggregate_type(&self) -> &'static str {
+        "StockAnalysis"
+    }
+
     fn occurred_at(&self) -> DateTime<Utc> {
         self.metadata.occurred_at
     }
@@ -444,6 +510,10 @@ impl DomainEvent for StockAnalysisUpdated {
 
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }
 
@@ -484,6 +554,10 @@ impl DomainEvent for StockRankingUpdated {
         "StockRankingUpdated"
     }
 
+    fn aggregate_type(&self) -> &'static str {
+        "StockAnalysis"
+    }
+
     fn occurred_at(&self) -> DateTime<Utc> {
         self.metadata.occurred_at
     }
@@ -498,5 +572,9 @@ impl DomainEvent for StockRankingUpdated {
 
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 }

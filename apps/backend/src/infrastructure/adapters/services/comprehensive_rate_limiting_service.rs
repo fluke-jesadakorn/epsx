@@ -16,7 +16,7 @@ use tracing::{info, warn, error, debug};
 use uuid::Uuid;
 
 use crate::infrastructure::cache::Cache;
-use sqlx::PgPool;
+use diesel_async::{AsyncPgConnection, pooled_connection::deadpool::Pool};
 
 /// Rate limiting configuration for different client types
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -255,13 +255,14 @@ pub struct RateLimitResult {
 /// Comprehensive rate limiting service
 pub struct ComprehensiveRateLimitingService {
     cache: Arc<dyn Cache>,
-    database: Arc<PgPool>,
+    #[allow(dead_code)]
+    database: Arc<&'static Pool<AsyncPgConnection>>,
     default_tiers: HashMap<String, RateLimitTier>,
 }
 
 impl ComprehensiveRateLimitingService {
     /// Create new rate limiting service
-    pub fn new(cache: Arc<dyn Cache>, database: Arc<PgPool>) -> Self {
+    pub fn new(cache: Arc<dyn Cache>, database: Arc<&'static Pool<AsyncPgConnection>>) -> Self {
         let mut default_tiers = HashMap::new();
         default_tiers.insert("FREE".to_string(), RateLimitTier::free_tier());
         default_tiers.insert("PREMIUM".to_string(), RateLimitTier::premium_tier());

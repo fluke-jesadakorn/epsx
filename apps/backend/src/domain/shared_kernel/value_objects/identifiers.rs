@@ -50,6 +50,12 @@ impl From<&str> for StockSymbol {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct NotificationId(String);
 
+impl Default for NotificationId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NotificationId {
     pub fn new() -> Self {
         Self(uuid::Uuid::new_v4().to_string())
@@ -84,6 +90,12 @@ impl ValueObject for NotificationId {
 /// Connection identifier for real-time connections
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ConnectionId(String);
+
+impl Default for ConnectionId {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl ConnectionId {
     pub fn new() -> Self {

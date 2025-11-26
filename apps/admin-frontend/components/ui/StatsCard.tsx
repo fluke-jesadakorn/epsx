@@ -7,10 +7,7 @@
 
 import { LucideIcon } from 'lucide-react';
 
-// Simple className utility to replace design system cn function
-function cn(...classes: (string | undefined | null | false)[]): string {
-  return classes.filter(Boolean).join(' ');
-}
+import { cn } from '@/lib/utils';
 
 export interface StatsCardProps {
   title: string;
@@ -29,6 +26,22 @@ export interface StatsCardProps {
   trend?: 'up' | 'down' | 'neutral';
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.title
+ * @param root0.value
+ * @param root0.description
+ * @param root0.icon
+ * @param root0.variant
+ * @param root0.gradient
+ * @param root0.textColor
+ * @param root0.color
+ * @param root0.className
+ * @param root0.change
+ * @param root0.cardVariant
+ * @param root0.trend
+ */
 export function StatsCard({
   title,
   value,
@@ -48,7 +61,7 @@ export function StatsCard({
   
   // Map legacy variants to card variants
   const getCardVariant = () => {
-    if (cardVariant) return cardVariant;
+    if (cardVariant) {return cardVariant;}
     
     // Legacy mapping
     switch (variant) {
@@ -233,6 +246,14 @@ export interface StatsGridProps {
   className?: string;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.stats
+ * @param root0.variant
+ * @param root0.columns
+ * @param root0.className
+ */
 export function StatsGrid({ 
   stats, 
   variant = 'default', 

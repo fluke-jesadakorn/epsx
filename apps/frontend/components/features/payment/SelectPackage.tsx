@@ -24,7 +24,7 @@ export function SelectPackage({
 }: SelectPackageProps) {
   const [isLoading, setIsLoading] = useState(false);
 
-  // Filter out free packages and API packages for standard plans display
+  // Filter out free packages and API packages for standard plans display  
   const standardPackages = PACKAGES.filter(pkg => 
     pkg.price > 0 && !pkg.id.startsWith('api_')
   );
@@ -80,7 +80,7 @@ export function SelectPackage({
               >
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="font-semibold text-gray-900 dark:text-white">{pkg.name}</h4>
-                  {pkg.level === 'GOLD' && (
+                  {pkg.displayTier === 'GOLD' && (
                     <div className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-200 text-xs px-2 py-0.5 rounded-full">
                       Popular
                     </div>

@@ -1,595 +1,612 @@
-'use client';
+/**
+ * Hierarchy Builder Component
+ * Visual tool for building and managing permission hierarchies
+ */
 
-import React, { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
+'use client'
+
 import { 
-  FolderIcon, 
-  FileIcon, 
-  PlusIcon, 
-  TrashIcon, 
-  RefreshCwIcon,
-  TreePineIcon,
-  LinkIcon,
-  CheckCircleIcon,
-  AlertCircleIcon,
-} from 'lucide-react';
+  GitBranch, Plus, Trash2, Edit, Save, X, ChevronDown, ChevronRight,
+  Shield, Users, Key, AlertTriangle, CheckCircle, Info
+} from 'lucide-react'
+import React, { useState, useCallback, useMemo } from 'react'
 
-interface PermissionHierarchy {
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { 
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter 
+} from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Textarea } from '@/components/ui/textarea'
+import { useToast } from '@/components/ui/use-toast'
+import { adminCardVariants, adminButtonVariants } from '@/design-system'
+import { cn } from '@/lib/shared'
+
+export interface PermissionNode {
   id: string;
-  parent_permission: string;
-  child_permission: string;
-  inheritance_type: 'automatic' | 'conditional';
-  is_active: boolean;
-  created_at: string;
-}
-
-interface HierarchyNode {
-  permission: string;
-  children: HierarchyNode[];
+  name: string;
+  description?: string;
+  permissions: string[];
+  children: PermissionNode[];
   parent?: string;
-  type: 'folder' | 'permission';
-  level: number;
+  priority: number;
+  isSystemNode: boolean;
 }
 
-interface HierarchyStats {
-  total_hierarchies: number;
-  unique_parents: number;
-  unique_children: number;
-  automatic_count: number;
-  conditional_count: number;
+interface HierarchyBuilderProps {
+  initialHierarchy?: PermissionNode[];
+  onSave?: (hierarchy: PermissionNode[]) => void;
+  className?: string;
 }
 
-export default function HierarchyBuilder() {
-  const [hierarchies, setHierarchies] = useState<PermissionHierarchy[]>([]);
-  const [hierarchyTree, setHierarchyTree] = useState<HierarchyNode[]>([]);
-  const [stats, setStats] = useState<HierarchyStats | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [showAddForm, setShowAddForm] = useState(false);
-  const [newHierarchy, setNewHierarchy] = useState({
-    parent_permission: '',
-    child_permission: '',
-    inheritance_type: 'automatic' as 'automatic' | 'conditional'
-  });
-  const { toast } = useToast();
+/**
+ *
+ * @param root0
+ * @param root0.initialHierarchy
+ * @param root0.onSave
+ * @param root0.className
+ */
+export function HierarchyBuilder({ 
+  initialHierarchy = [], 
+  onSave,
+  className 
+}: HierarchyBuilderProps) {
+  const { toast } = useToast()
+  const [hierarchy, setHierarchy] = useState<PermissionNode[]>(initialHierarchy)
+  const [selectedNode, setSelectedNode] = useState<PermissionNode | null>(null)
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
+  const [editingNode, setEditingNode] = useState<PermissionNode | null>(null)
+  const [showNodeEditor, setShowNodeEditor] = useState(false)
 
-  useEffect(() => {
-    loadHierarchyData();
-  }, []);
+  // Available permissions for assignment
+  const availablePermissions = useMemo(() => [
+    'admin:*:*',
+    'admin:users:view',
+    'admin:users:manage',
+    'admin:users:create',
+    'admin:users:delete',
+    'admin:permissions:view',
+    'admin:permissions:manage',
+    'admin:analytics:view',
+    'admin:analytics:manage',
+    'admin:system:view',
+    'admin:system:manage',
+    'epsx:*:*',
+    'epsx:analytics:view',
+    'epsx:analytics:premium',
+    'epsx:api:access',
+    'epsx:data:export',
+    'web3:*:*',
+    'web3:wallet:connect',
+    'web3:transactions:view',
+    'web3:permissions:manage'
+  ], [])
 
-  const loadHierarchyData = async () => {
-    try {
-      setLoading(true);
-      
-      // Load hierarchy tree and stats in parallel
-      const [treeResponse, statsResponse] = await Promise.all([
-        fetch('/api/v1/admin/permissions/hierarchy/tree'),
-        fetch('/api/v1/admin/permissions/hierarchy/stats')
-      ]);
-
-      if (treeResponse.ok && statsResponse.ok) {
-        const treeData = await treeResponse.json();
-        const statsData = await statsResponse.json();
-        
-        setHierarchies(treeData.hierarchies || []);
-        setStats(statsData.stats);
-        buildHierarchyTree(treeData.hierarchies || []);
+  const toggleNodeExpansion = useCallback((nodeId: string) => {
+    setExpandedNodes(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(nodeId)) {
+        newSet.delete(nodeId)
       } else {
-        throw new Error('Failed to load hierarchy data');
+        newSet.add(nodeId)
       }
-    } catch (error) {
-      console.error('Error loading hierarchy data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load permission hierarchy data",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
+      return newSet
+    })
+  }, [])
+
+  const createNewNode = useCallback((): PermissionNode => ({
+    id: crypto.randomUUID(),
+    name: '',
+    description: '',
+    permissions: [],
+    children: [],
+    priority: 1,
+    isSystemNode: false
+  }), [])
+
+  const addRootNode = useCallback(() => {
+    const newNode = createNewNode()
+    setEditingNode(newNode)
+    setShowNodeEditor(true)
+  }, [createNewNode])
+
+  const addChildNode = useCallback((parentNode: PermissionNode) => {
+    const newNode = createNewNode()
+    newNode.parent = parentNode.id
+    setEditingNode(newNode)
+    setShowNodeEditor(true)
+  }, [createNewNode])
+
+  const editNode = useCallback((node: PermissionNode) => {
+    setEditingNode({ ...node })
+    setShowNodeEditor(true)
+  }, [])
+
+  const deleteNode = useCallback((nodeToDelete: PermissionNode) => {
+    const deleteFromHierarchy = (nodes: PermissionNode[]): PermissionNode[] => {
+      return nodes
+        .filter(node => node.id !== nodeToDelete.id)
+        .map(node => ({
+          ...node,
+          children: deleteFromHierarchy(node.children)
+        }))
     }
-  };
 
-  const buildHierarchyTree = (hierarchies: PermissionHierarchy[]) => {
-    const nodes = new Map<string, HierarchyNode>();
-    const roots: HierarchyNode[] = [];
-
-    // Create all nodes
-    const allPermissions = new Set<string>();
-    hierarchies.forEach(h => {
-      allPermissions.add(h.parent_permission);
-      allPermissions.add(h.child_permission);
-    });
-
-    allPermissions.forEach(permission => {
-      nodes.set(permission, {
-        permission,
-        children: [],
-        type: permission.includes('*') ? 'folder' : 'permission',
-        level: 0
-      });
-    });
-
-    // Build relationships
-    hierarchies.forEach(h => {
-      const parent = nodes.get(h.parent_permission);
-      const child = nodes.get(h.child_permission);
-      
-      if (parent && child) {
-        parent.children.push(child);
-        child.parent = h.parent_permission;
-      }
-    });
-
-    // Find roots and calculate levels
-    nodes.forEach(node => {
-      if (!node.parent) {
-        roots.push(node);
-        calculateLevels(node, 0);
-      }
-    });
-
-    setHierarchyTree(roots.sort((a, b) => a.permission.localeCompare(b.permission)));
-  };
-
-  const calculateLevels = (node: HierarchyNode, level: number) => {
-    node.level = level;
-    node.children.forEach(child => calculateLevels(child, level + 1));
-  };
-
-  const handleAddHierarchy = async () => {
-    try {
-      if (!newHierarchy.parent_permission || !newHierarchy.child_permission) {
-        toast({
-          title: "Validation Error",
-          description: "Both parent and child permissions are required",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const response = await fetch('/api/v1/admin/permissions/hierarchy', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newHierarchy),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        toast({
-          title: "Success",
-          description: result.message,
-        });
-        
-        setNewHierarchy({
-          parent_permission: '',
-          child_permission: '',
-          inheritance_type: 'automatic'
-        });
-        setShowAddForm(false);
-        loadHierarchyData();
-      } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create hierarchy');
-      }
-    } catch (error) {
-      console.error('Error creating hierarchy:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to create hierarchy",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleDeleteHierarchy = async (hierarchyId: string, parentPerm: string, childPerm: string) => {
-    try {
-      const response = await fetch(`/api/v1/admin/permissions/hierarchy/${hierarchyId}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: `Removed hierarchy: ${parentPerm} → ${childPerm}`,
-        });
-        loadHierarchyData();
-      } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to delete hierarchy');
-      }
-    } catch (error) {
-      console.error('Error deleting hierarchy:', error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to delete hierarchy",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const renderHierarchyNode = (node: HierarchyNode): React.ReactNode => {
-    const indent = node.level * 16; // Reduced indent for mobile
-    const isFolder = node.type === 'folder';
+    setHierarchy(deleteFromHierarchy(hierarchy))
     
-    return (
-      <div key={node.permission} className="mb-1">
-        <div 
-          className="flex items-center gap-2 p-2 sm:p-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 group"
-          style={{ paddingLeft: `${Math.max(indent + 8, 8)}px` }}
-        >
-          {isFolder ? (
-            <FolderIcon className="h-4 w-4 text-blue-600 flex-shrink-0" />
-          ) : (
-            <FileIcon className="h-4 w-4 text-gray-600 dark:text-gray-400 flex-shrink-0" />
-          )}
-          
-          <span className={`font-mono text-xs sm:text-sm flex-1 min-w-0 truncate ${isFolder ? 'font-semibold text-blue-800 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'}`}>
-            {node.permission}
-          </span>
-          
-          {isFolder && (
-            <Badge variant="secondary" className="text-xs rounded-xl flex-shrink-0 hidden sm:inline-flex">
-              {node.children.length} children
-            </Badge>
-          )}
-          
-          <div className="ml-auto opacity-60 group-hover:opacity-100 flex-shrink-0">
-            {/* Find hierarchy entry for delete action */}
-            {node.parent && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  const hierarchy = hierarchies.find(h => 
-                    h.parent_permission === node.parent && 
-                    h.child_permission === node.permission
-                  );
-                  if (hierarchy) {
-                    handleDeleteHierarchy(hierarchy.id, node.parent, node.permission);
-                  }
-                }}
-                className="h-6 w-6 p-0 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 rounded-lg"
-              >
-                <TrashIcon className="h-3 w-3" />
-              </Button>
-            )}
-          </div>
-        </div>
-        
-        {node.children.map(child => renderHierarchyNode(child))}
-      </div>
-    );
-  };
+    if (selectedNode?.id === nodeToDelete.id) {
+      setSelectedNode(null)
+    }
+    
+    toast({
+      title: 'Node Deleted',
+      description: `Permission node "${nodeToDelete.name}" has been deleted.`
+    })
+  }, [hierarchy, selectedNode, toast])
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-3 sm:p-6">
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-400/20 via-purple-400/20 to-pink-400/20 p-0.5">
-          <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-3xl p-6 sm:p-8">
-            <div className="flex items-center justify-center h-48">
-              <RefreshCwIcon className="h-6 w-6 text-gray-400" />
-              <span className="ml-2 text-gray-600">Loading hierarchy data...</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  const saveNode = useCallback((savedNode: PermissionNode) => {
+    if (!savedNode.name.trim()) {
+      toast({
+        title: 'Invalid Node',
+        description: 'Node name is required',
+        variant: 'destructive'
+      })
+      return
+    }
+
+    const updateHierarchy = (nodes: PermissionNode[]): PermissionNode[] => {
+      // If this is a new node (no existing node with this ID)
+      const existingNode = findNodeInHierarchy(nodes, savedNode.id)
+      if (!existingNode) {
+        if (savedNode.parent) {
+          // Add as child to parent
+          return nodes.map(node => ({
+            ...node,
+            children: addChildToNode(node, savedNode)
+          }))
+        } else {
+          // Add as root node
+          return [...nodes, savedNode]
+        }
+      }
+
+      // Update existing node
+      return nodes.map(node => {
+        if (node.id === savedNode.id) {
+          return { ...savedNode }
+        }
+        return {
+          ...node,
+          children: updateHierarchy(node.children)
+        }
+      })
+    }
+
+    const addChildToNode = (node: PermissionNode, childNode: PermissionNode): PermissionNode[] => {
+      if (node.id === childNode.parent) {
+        return [...node.children, childNode]
+      }
+      return node.children.map(child => ({
+        ...child,
+        children: addChildToNode(child, childNode)
+      }))
+    }
+
+    setHierarchy(updateHierarchy(hierarchy))
+    setShowNodeEditor(false)
+    setEditingNode(null)
+    
+    toast({
+      title: 'Node Saved',
+      description: `Permission node "${savedNode.name}" has been saved.`
+    })
+  }, [hierarchy, toast])
+
+  const findNodeInHierarchy = (nodes: PermissionNode[], nodeId: string): PermissionNode | null => {
+    for (const node of nodes) {
+      if (node.id === nodeId) {return node}
+      const found = findNodeInHierarchy(node.children, nodeId)
+      if (found) {return found}
+    }
+    return null
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-3 sm:p-6">
-      {/* Background Decorations */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-20 left-20 w-32 h-32 bg-gradient-to-r from-yellow-400/20 to-orange-500/20 rounded-full blur-xl"></div>
-        <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-purple-500/20 rounded-full blur-lg"></div>
-        <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-orange-400/15 to-yellow-500/15 rounded-full blur-xl"></div>
-      </div>
+  const handleSaveHierarchy = useCallback(() => {
+    onSave?.(hierarchy)
+    toast({
+      title: 'Hierarchy Saved',
+      description: 'Permission hierarchy has been saved successfully.'
+    })
+  }, [hierarchy, onSave, toast])
 
-      <div className="relative space-y-4 sm:space-y-6">
-        {/* Page Header */}
-        <div className="text-center mb-6 sm:mb-8">
-          <div className="relative inline-block">
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-yellow-600 via-orange-600 via-pink-600 to-purple-600 bg-clip-text text-transparent mb-4">
-              🌳 Permission Hierarchy Builder
-            </h1>
-            <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full"></div>
+  const getNodeDepth = useCallback((nodeId: string, nodes: PermissionNode[] = hierarchy, depth = 0): number => {
+    for (const node of nodes) {
+      if (node.id === nodeId) {return depth}
+      const childDepth = getNodeDepth(nodeId, node.children, depth + 1)
+      if (childDepth !== -1) {return childDepth}
+    }
+    return -1
+  }, [hierarchy])
+
+  const renderNode = useCallback((node: PermissionNode, depth = 0) => {
+    const isExpanded = expandedNodes.has(node.id)
+    const hasChildren = node.children.length > 0
+    const isSelected = selectedNode?.id === node.id
+
+    return (
+      <div key={node.id} className="space-y-2">
+        <Card 
+          className={cn(
+            adminCardVariants({ variant: 'default' }),
+            'cursor-pointer border-l-4',
+            isSelected ? 'border-l-blue-500 bg-blue-50' : 'border-l-gray-300',
+            node.isSystemNode ? 'border-l-yellow-500' : ''
+          )}
+          style={{ marginLeft: `${depth * 24}px` }}
+          onClick={() => setSelectedNode(node)}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 flex-1">
+                {hasChildren ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      toggleNodeExpansion(node.id)
+                    }}
+                  >
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </Button>
+                ) : (
+                  <div className="w-6" />
+                )}
+                
+                <Shield className="h-4 w-4 text-blue-600" />
+                
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <h4 className="font-medium text-sm truncate">{node.name}</h4>
+                    {node.isSystemNode && (
+                      <Badge variant="secondary" className="text-xs">System</Badge>
+                    )}
+                    <Badge variant="outline" className="text-xs">
+                      {node.permissions.length} perms
+                    </Badge>
+                  </div>
+                  {node.description && (
+                    <p className="text-xs text-gray-600 truncate mt-1">
+                      {node.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    addChildNode(node)
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    editNode(node)
+                  }}
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
+                {!node.isSystemNode && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      deleteNode(node)
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {isExpanded && hasChildren && (
+          <div className="space-y-2">
+            {node.children.map(child => renderNode(child, depth + 1))}
           </div>
-          <p className="text-sm sm:text-base lg:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            Manage permission inheritance relationships across the EPSX platform
+        )}
+      </div>
+    )
+  }, [expandedNodes, selectedNode, toggleNodeExpansion, addChildNode, editNode, deleteNode])
+
+  return (
+    <div className={cn('space-y-6', className)}>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Permission Hierarchy</h1>
+          <p className="text-sm text-gray-600 mt-1">
+            Build and manage permission inheritance structures
           </p>
         </div>
-
-        {/* Header Actions */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4 sm:mb-6">
-          <div className="flex items-center gap-3">
-            <TreePineIcon className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-gray-200">Hierarchy Management</h2>
-          </div>
-          
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={loadHierarchyData}
-              disabled={loading}
-              className="rounded-2xl border-2 border-blue-200 dark:border-blue-700 h-10 sm:h-auto"
-            >
-              <RefreshCwIcon className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-            
-            <Button 
-              size="sm"
-              onClick={() => setShowAddForm(!showAddForm)}
-              className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-2xl h-10 sm:h-auto"
-            >
-              <PlusIcon className="h-4 w-4 mr-2" />
-              Add Hierarchy
-            </Button>
-          </div>
-        </div>
-
-        {/* Statistics Cards */}
-        {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-            <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-blue-400/20 via-cyan-400/20 to-teal-400/20 p-0.5">
-              <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-3 sm:p-4">
-                <div className="absolute top-2 right-2 w-3 h-3 bg-gradient-to-br from-blue-300/30 to-cyan-400/30 rounded-full blur-sm"></div>
-                <div className="flex items-center gap-2 mb-2">
-                  <LinkIcon className="h-4 w-4 text-blue-600" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">Total</p>
-                    <p className="text-lg sm:text-xl lg:text-2xl font-bold text-blue-600">{stats.total_hierarchies}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Hierarchies</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-green-400/20 via-emerald-400/20 to-teal-400/20 p-0.5">
-              <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-3 sm:p-4">
-                <div className="absolute top-2 right-2 w-3 h-3 bg-gradient-to-br from-green-300/30 to-emerald-400/30 rounded-full blur-sm"></div>
-                <div className="flex items-center gap-2 mb-2">
-                  <FolderIcon className="h-4 w-4 text-green-600" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">Parents</p>
-                    <p className="text-lg sm:text-xl lg:text-2xl font-bold text-green-600">{stats.unique_parents}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Permissions</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-purple-400/20 via-pink-400/20 to-rose-400/20 p-0.5">
-              <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-3 sm:p-4">
-                <div className="absolute top-2 right-2 w-3 h-3 bg-gradient-to-br from-purple-300/30 to-pink-400/30 rounded-full blur-sm"></div>
-                <div className="flex items-center gap-2 mb-2">
-                  <FileIcon className="h-4 w-4 text-purple-600" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">Children</p>
-                    <p className="text-lg sm:text-xl lg:text-2xl font-bold text-purple-600">{stats.unique_children}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Permissions</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-emerald-400/20 via-green-400/20 to-lime-400/20 p-0.5">
-              <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-3 sm:p-4">
-                <div className="absolute top-2 right-2 w-3 h-3 bg-gradient-to-br from-emerald-300/30 to-green-400/30 rounded-full blur-sm"></div>
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircleIcon className="h-4 w-4 text-green-600" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">Automatic</p>
-                    <p className="text-lg sm:text-xl lg:text-2xl font-bold text-green-600">{stats.automatic_count}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Rules</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-yellow-400/20 via-amber-400/20 to-orange-400/20 p-0.5 col-span-2 sm:col-span-1">
-              <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-3 sm:p-4">
-                <div className="absolute top-2 right-2 w-3 h-3 bg-gradient-to-br from-yellow-300/30 to-amber-400/30 rounded-full blur-sm"></div>
-                <div className="flex items-center gap-2 mb-2">
-                  <AlertCircleIcon className="h-4 w-4 text-yellow-600" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">Conditional</p>
-                    <p className="text-lg sm:text-xl lg:text-2xl font-bold text-yellow-600">{stats.conditional_count}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Rules</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Add Hierarchy Form */}
-        {showAddForm && (
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-400/20 via-purple-400/20 to-pink-400/20 p-0.5">
-            <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-3xl p-4 sm:p-6">
-              <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full blur-sm"></div>
-              
-              <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
-                ➕ Add New Permission Hierarchy
-              </h3>
-              
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Parent Permission</label>
-                    <Input
-                      placeholder="e.g., epsx:trading:*"
-                      value={newHierarchy.parent_permission}
-                      onChange={(e) => setNewHierarchy(prev => ({
-                        ...prev,
-                        parent_permission: e.target.value
-                      }))}
-                      className="rounded-2xl border-2 border-blue-200 dark:border-blue-700 h-11"
-                    />
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      Use * for wildcard permissions
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Child Permission</label>
-                    <Input
-                      placeholder="e.g., epsx:trading:basic"
-                      value={newHierarchy.child_permission}
-                      onChange={(e) => setNewHierarchy(prev => ({
-                        ...prev,
-                        child_permission: e.target.value
-                      }))}
-                      className="rounded-2xl border-2 border-purple-200 dark:border-purple-700 h-11"
-                    />
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      Specific permission to inherit
-                    </p>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Inheritance Type</label>
-                    <select
-                      className="w-full px-3 py-2 border-2 border-orange-200 dark:border-orange-700 rounded-2xl h-11 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                      value={newHierarchy.inheritance_type}
-                      onChange={(e) => setNewHierarchy(prev => ({
-                        ...prev,
-                        inheritance_type: e.target.value as 'automatic' | 'conditional'
-                      }))}
-                    >
-                      <option value="automatic">⚡ Automatic</option>
-                      <option value="conditional">🔄 Conditional</option>
-                    </select>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      How inheritance is applied
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 pt-4">
-                  <Button 
-                    onClick={handleAddHierarchy}
-                    className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 rounded-2xl h-11"
-                  >
-                    <PlusIcon className="h-4 w-4 mr-2" />
-                    Create Hierarchy
-                  </Button>
-                  
-                  <Button 
-                    variant="outline" 
-                    onClick={() => setShowAddForm(false)}
-                    className="rounded-2xl border-2 border-gray-200 dark:border-gray-700 h-11"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Hierarchy Tree */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-green-400/20 via-emerald-400/20 to-teal-400/20 p-0.5">
-          <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-3xl p-4 sm:p-6">
-            <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full blur-sm"></div>
-            
-            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 mb-4">
-              <div className="flex items-center gap-2">
-                <TreePineIcon className="h-5 w-5 text-green-600" />
-                <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent">
-                  Permission Inheritance Tree
-                </h3>
-              </div>
-              <Badge variant="outline" className="ml-auto rounded-2xl border-2 border-green-200 dark:border-green-700">
-                {hierarchyTree.length} root permissions
-              </Badge>
-            </div>
-            
-            {hierarchyTree.length === 0 ? (
-              <div className="text-center py-8 sm:py-12 text-gray-500 dark:text-gray-400">
-                <TreePineIcon className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-4 text-gray-300 dark:text-gray-600" />
-                <p className="text-base sm:text-lg font-medium mb-2">No permission hierarchies found</p>
-                <p className="text-sm">Create your first hierarchy to see the tree structure</p>
-              </div>
-            ) : (
-              <div className="max-h-64 sm:max-h-96 overflow-y-auto border-2 border-gray-200 dark:border-gray-700 rounded-2xl bg-gray-50 dark:bg-gray-800 p-3 sm:p-4">
-                {hierarchyTree.map(node => renderHierarchyNode(node))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Quick Actions Panel */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-orange-400/20 via-yellow-400/20 to-amber-400/20 p-0.5">
-          <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-3xl p-4 sm:p-6">
-            <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-orange-400 to-yellow-500 rounded-full blur-sm"></div>
-            
-            <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-orange-600 via-yellow-600 to-amber-600 bg-clip-text text-transparent mb-4">
-              ⚡ Quick Actions
-            </h3>
-            
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-4">
-              <Button 
-                variant="outline" 
-                disabled
-                className="h-auto p-3 sm:p-4 flex flex-col items-center gap-2 bg-gradient-to-r from-blue-400/10 to-cyan-400/10 border-2 border-blue-200 dark:border-blue-700 rounded-2xl text-gray-700 dark:text-gray-300"
-              >
-                <LinkIcon className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span className="text-xs sm:text-sm font-medium text-center">Test Inheritance</span>
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                disabled
-                className="h-auto p-3 sm:p-4 flex flex-col items-center gap-2 bg-gradient-to-r from-purple-400/10 to-pink-400/10 border-2 border-purple-200 dark:border-purple-700 rounded-2xl text-gray-700 dark:text-gray-300"
-              >
-                <RefreshCwIcon className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span className="text-xs sm:text-sm font-medium text-center">Bulk Assign</span>
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                disabled
-                className="h-auto p-3 sm:p-4 flex flex-col items-center gap-2 bg-gradient-to-r from-green-400/10 to-emerald-400/10 border-2 border-green-200 dark:border-green-700 rounded-2xl text-gray-700 dark:text-gray-300"
-              >
-                <FileIcon className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span className="text-xs sm:text-sm font-medium text-center">Generate Report</span>
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                disabled
-                className="h-auto p-3 sm:p-4 flex flex-col items-center gap-2 bg-gradient-to-r from-yellow-400/10 to-orange-400/10 border-2 border-yellow-200 dark:border-yellow-700 rounded-2xl text-gray-700 dark:text-gray-300"
-              >
-                <AlertCircleIcon className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span className="text-xs sm:text-sm font-medium text-center">Conflict Check</span>
-              </Button>
-            </div>
-            
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-blue-400/10 to-purple-400/10 p-0.5">
-              <div className="relative bg-blue-50 dark:bg-blue-900/50 backdrop-blur-xl rounded-2xl p-3 sm:p-4">
-                <h4 className="font-bold text-blue-900 dark:text-blue-100 mb-3 text-sm sm:text-base">⚡ Inheritance Performance</h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-sm">
-                  <div className="flex justify-between items-center">
-                    <span className="text-blue-700 dark:text-blue-300">Cache Hit Rate:</span>
-                    <span className="font-bold text-blue-900 dark:text-blue-100">94%</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-blue-700 dark:text-blue-300">Avg Resolution:</span>
-                    <span className="font-bold text-blue-900 dark:text-blue-100">+12ms</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+        <div className="flex gap-2">
+          <Button 
+            onClick={addRootNode}
+            className={adminButtonVariants({ variant: 'secondary', size: 'sm' })}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Add Root Node
+          </Button>
+          <Button 
+            onClick={handleSaveHierarchy}
+            className={adminButtonVariants({ variant: 'primary', size: 'sm' })}
+          >
+            <Save className="h-4 w-4 mr-2" />
+            Save Hierarchy
+          </Button>
         </div>
       </div>
+
+      {/* Hierarchy Tree */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 space-y-4">
+          <Card className={adminCardVariants({ variant: 'default' })}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <GitBranch className="h-5 w-5" />
+                Hierarchy Tree
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {hierarchy.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <GitBranch className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No permission nodes created yet.</p>
+                  <p className="text-sm">Click "Add Root Node" to get started.</p>
+                </div>
+              ) : (
+                hierarchy.map(node => renderNode(node))
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Node Details Panel */}
+        <div className="space-y-4">
+          <Card className={adminCardVariants({ variant: 'default' })}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Info className="h-5 w-5" />
+                Node Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {selectedNode ? (
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-sm font-medium">Name</Label>
+                    <p className="text-sm text-gray-900">{selectedNode.name}</p>
+                  </div>
+                  
+                  {selectedNode.description && (
+                    <div>
+                      <Label className="text-sm font-medium">Description</Label>
+                      <p className="text-sm text-gray-600">{selectedNode.description}</p>
+                    </div>
+                  )}
+                  
+                  <div>
+                    <Label className="text-sm font-medium">Priority</Label>
+                    <p className="text-sm text-gray-900">{selectedNode.priority}</p>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm font-medium">Permissions ({selectedNode.permissions.length})</Label>
+                    <div className="space-y-1 mt-2">
+                      {selectedNode.permissions.map((permission, index) => (
+                        <Badge key={index} variant="outline" className="text-xs">
+                          {permission}
+                        </Badge>
+                      ))}
+                      {selectedNode.permissions.length === 0 && (
+                        <p className="text-xs text-gray-500">No permissions assigned</p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <Label className="text-sm font-medium">Children</Label>
+                    <p className="text-sm text-gray-900">{selectedNode.children.length} child nodes</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">Select a node to view details</p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Node Editor Dialog */}
+      <Dialog open={showNodeEditor} onOpenChange={setShowNodeEditor}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {editingNode?.name ? 'Edit Permission Node' : 'Create Permission Node'}
+            </DialogTitle>
+          </DialogHeader>
+          {editingNode && (
+            <NodeEditor
+              node={editingNode}
+              availablePermissions={availablePermissions}
+              onSave={saveNode}
+              onCancel={() => {
+                setShowNodeEditor(false)
+                setEditingNode(null)
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
-  );
+  )
 }
+
+// Node Editor Component
+interface NodeEditorProps {
+  node: PermissionNode;
+  availablePermissions: string[];
+  onSave: (node: PermissionNode) => void;
+  onCancel: () => void;
+}
+
+function NodeEditor({ node, availablePermissions, onSave, onCancel }: NodeEditorProps) {
+  const [formData, setFormData] = useState(node)
+  const [selectedPermission, setSelectedPermission] = useState('')
+
+  const addPermission = useCallback(() => {
+    if (selectedPermission && !formData.permissions.includes(selectedPermission)) {
+      setFormData(prev => ({
+        ...prev,
+        permissions: [...prev.permissions, selectedPermission]
+      }))
+      setSelectedPermission('')
+    }
+  }, [selectedPermission, formData.permissions])
+
+  const removePermission = useCallback((permission: string) => {
+    setFormData(prev => ({
+      ...prev,
+      permissions: prev.permissions.filter(p => p !== permission)
+    }))
+  }, [])
+
+  const handleSave = useCallback(() => {
+    if (!formData.name.trim()) {return}
+    onSave(formData)
+  }, [formData, onSave])
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="name">Node Name *</Label>
+        <Input
+          id="name"
+          value={formData.name}
+          onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+          placeholder="Enter node name"
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="description">Description</Label>
+        <Textarea
+          id="description"
+          value={formData.description || ''}
+          onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+          placeholder="Optional description"
+          rows={3}
+        />
+      </div>
+
+      <div>
+        <Label htmlFor="priority">Priority Level</Label>
+        <Select
+          value={formData.priority.toString()}
+          onValueChange={(value) => setFormData(prev => ({ ...prev, priority: parseInt(value) }))}
+        >
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {[...Array(10)].map((_, i) => (
+              <SelectItem key={i + 1} value={(i + 1).toString()}>
+                {i + 1}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div>
+        <Label>Permissions</Label>
+        <div className="flex gap-2 mt-2">
+          <Select value={selectedPermission} onValueChange={setSelectedPermission}>
+            <SelectTrigger className="flex-1">
+              <SelectValue placeholder="Select permission to add" />
+            </SelectTrigger>
+            <SelectContent>
+              {availablePermissions
+                .filter(p => !formData.permissions.includes(p))
+                .map(permission => (
+                  <SelectItem key={permission} value={permission}>
+                    {permission}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+          <Button 
+            onClick={addPermission} 
+            disabled={!selectedPermission}
+            size="sm"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
+        
+        <div className="space-y-1 mt-3">
+          {formData.permissions.map((permission, index) => (
+            <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+              <span className="text-sm">{permission}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 text-red-600"
+                onClick={() => removePermission(permission)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+          {formData.permissions.length === 0 && (
+            <p className="text-sm text-gray-500">No permissions assigned</p>
+          )}
+        </div>
+      </div>
+
+      <DialogFooter>
+        <Button variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button onClick={handleSave} disabled={!formData.name.trim()}>
+          Save Node
+        </Button>
+      </DialogFooter>
+    </div>
+  )
+}
+
+export default HierarchyBuilder

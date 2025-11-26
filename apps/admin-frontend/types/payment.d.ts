@@ -1,45 +1,29 @@
-import { PaymentTier, UserSubscription } from './index';
+/**
+ * ADMIN FRONTEND PAYMENT TYPES - MIGRATED TO SHARED
+ * All payment types moved to shared/types/payment with compatibility layer
+ * This file now re-exports shared types for backward compatibility
+ */
 
-export interface CreatePaymentRequest {
-  currency: string;
-  amount: string;
-  payment_method: 'on_line' | 'on_chain';
-  product_name: string;
-  notify_url?: string;
-}
+// Re-export everything from shared payment types
+export * from '../../../shared/types/payment';
 
-export interface CreatePaymentResponse extends PaymentResponse {
-  payment_method: 'on_line' | 'on_chain';
-  product_name: string;
-  order_no: string;
-  order_amount: number;
-  receive_address?: string;
-  checkout_url?: string;
-}
+// Import for local re-export with legacy names
+import type { 
+  CreatePaymentRequest as SharedCreatePaymentRequest,
+  CreatePaymentResponse as SharedCreatePaymentResponse,
+  PaymentResponse as SharedPaymentResponse,
+  AssetInfo as SharedAssetInfo,
+  UserSubscription as SharedUserSubscription,
+  PermissionTemplateName as SharedPermissionTemplateName
+} from '../../../shared/types/payment';
 
-export interface AssetInfo {
-  currency: string;
-  name: string;
-  symbol: string;
-  decimals: number;
-  contract_address?: string;
-  chain?: string;
-  depositThreshold?: number;
-  addressFormat?: string;
-}
+// Re-export with exact same names for backward compatibility
+export type CreatePaymentRequest = SharedCreatePaymentRequest;
+export type CreatePaymentResponse = SharedCreatePaymentResponse; 
+export type PaymentResponse = SharedPaymentResponse;
+export type AssetInfo = SharedAssetInfo;
+export type UserSubscription = SharedUserSubscription;
+export type PermissionTemplateName = SharedPermissionTemplateName;
 
-export interface PaymentResponse {
-  id: string;
-  amount: number;
-  currency: string;
-  status: "Pending" | "Processing" | "Succeeded" | "Failed" | "Cancelled" | "Expired" | "RequiresAction";
-  created_at: string;
-  updated_at: string;
-  expiration_date: string;
-  payment_tier: PaymentTier; // Changed from user_level to payment_tier
-  qr_code?: string;
-  checkout_url?: string;
-  payment_method: string;
-  retry_count: number;
-  error_message?: string;
-}
+// Legacy compatibility (admin-frontend was importing PermissionTemplateName from permission-templates)
+export type { PermissionTemplateName } from '../permission-templates';

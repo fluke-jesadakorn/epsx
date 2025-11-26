@@ -4,16 +4,13 @@ import {
   Button,
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
+  CardHeader
 } from '@/components/ui';
 import type { StockFinancialData } from '@/types/financialChartData';
 import {
   ArrowRight,
   Crown,
-  Lock,
-  TrendingDown,
-  TrendingUp,
+  Lock
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
@@ -27,16 +24,27 @@ export function PublicRankingPreview({
   className,
   initialData,
 }: PublicRankingPreviewProps) {
-  const [data] = useState<StockFinancialData[]>(initialData || []);
-  const [isLoading, setIsLoading] = useState(!initialData);
+  const [data, setData] = useState<StockFinancialData[]>(initialData || []);
+  const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    // If no initial data provided, show empty state
-    if (!initialData) {
-      setIsLoading(false);
+    async function fetchData() {
+      try {
+        const response = await fetch('/api/public/rankings?type=preview&limit=6');
+        if (response.ok) {
+          const result = await response.json();
+          setData(result);
+        }
+      } catch (error) {
+        console.error('Failed to fetch public rankings:', error);
+      } finally {
+        setIsLoading(false);
+      }
     }
-  }, [initialData]);
+
+    fetchData();
+  }, []);
 
   const handleUpgrade = () => {
     router.push('/payment');
@@ -200,9 +208,6 @@ export function PublicRankingPreview({
                 </Button>
               </div>
 
-              <div className="text-muted-foreground text-xs">
-                Starting from $1/month • 30-day money-back guarantee
-              </div>
             </div>
           </CardContent>
         </Card>

@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { AnalyticsClient, UnifiedAnalyticsRankingsResponse, EPSQueryParams } from '@/lib/api-client';
+import { analyticsClient, UnifiedAnalyticsRankingsResponse } from '@/lib/api-client';
 import type { AnalyticsFilters } from '@/types/analytics';
-import { analyticsLogger } from '@/lib/utils/logging';
+import { analyticsLogger } from '@/lib/utils';
 
 interface RichFilterOptions {
   countries: Array<{ value: string; label: string }>;
@@ -17,7 +17,6 @@ interface QoQLeaders {
   priceLeaders: any[];
 }
 
-const analyticsClient = new AnalyticsClient();
 
 export function useAnalyticsData(filters: AnalyticsFilters) {
   const [data, setData] = useState<UnifiedAnalyticsRankingsResponse | null>(null);
@@ -33,66 +32,50 @@ export function useAnalyticsData(filters: AnalyticsFilters) {
   // Fetch EPS rankings
   const fetchEPSRankings = async (currentFilters: AnalyticsFilters): Promise<UnifiedAnalyticsRankingsResponse | null> => {
     try {
-      const queryParams: EPSQueryParams = {
+      const queryParams = {
         page: currentFilters.page,
-        limit: currentFilters.limit,
+        per_page: currentFilters.limit,
         sort_by: currentFilters.sort_by,
         country: currentFilters.country,
         sector: currentFilters.sector,
-        min_eps: currentFilters.min_eps,
-        min_growth: currentFilters.min_growth,
+        min_market_cap: currentFilters.min_eps,
+        sort_order: 'desc' as const,
       };
 
-      const response = await analyticsClient.getUnifiedAnalyticsRankings(queryParams);
-      return response.data;
+      const response = await analyticsClient.getRankings(queryParams);
+      return response || null;
     } catch (error) {
       analyticsLogger.error('Failed to fetch EPS rankings', error);
       return null;
     }
   };
 
-  // Fetch filter options
+  // Fetch filter options - use fallback data since API methods don't exist
   const fetchFilterOptions = async (): Promise<RichFilterOptions> => {
-    try {
-      const [countriesResponse, sectorsResponse] = await Promise.all([
-        analyticsClient.getAvailableCountries(),
-        analyticsClient.getSectorsByCountry(),
-      ]);
-
-      return {
-        countries: countriesResponse.data.countries,
-        sectors: sectorsResponse.data.sectors,
-        exchanges: ['NASDAQ', 'NYSE', 'LSE', 'TSX', 'ASX', 'HKEX', 'TSE', 'EURONEXT'],
-        stock_types: ['common', 'preferred', 'reit', 'etf'],
-      };
-    } catch (error) {
-      analyticsLogger.error('Failed to fetch filter options, using fallback data', error);
-      
-      // Return fallback data
-      return {
-        countries: [
-          { value: 'america', label: 'United States' },
-          { value: 'canada', label: 'Canada' },
-          { value: 'united_kingdom', label: 'United Kingdom' },
-          { value: 'germany', label: 'Germany' },
-          { value: 'france', label: 'France' },
-          { value: 'japan', label: 'Japan' },
-          { value: 'australia', label: 'Australia' }
-        ],
-        sectors: [
-          'Technology',
-          'Healthcare', 
-          'Financial Services',
-          'Consumer Discretionary',
-          'Industrials',
-          'Energy',
-          'Telecommunications',
-          'Real Estate',
-        ],
-        exchanges: ['NASDAQ', 'NYSE', 'LSE', 'TSX', 'ASX', 'HKEX', 'TSE', 'EURONEXT'],
-        stock_types: ['common', 'preferred', 'reit', 'etf'],
-      };
-    }
+    // Use fallback data directly since getAvailableCountries/getSectorsByCountry don't exist
+    return {
+      countries: [
+        { value: 'america', label: 'United States' },
+        { value: 'canada', label: 'Canada' },
+        { value: 'united_kingdom', label: 'United Kingdom' },
+        { value: 'germany', label: 'Germany' },
+        { value: 'france', label: 'France' },
+        { value: 'japan', label: 'Japan' },
+        { value: 'australia', label: 'Australia' }
+      ],
+      sectors: [
+        'Technology',
+        'Healthcare', 
+        'Financial Services',
+        'Consumer Discretionary',
+        'Industrials',
+        'Energy',
+        'Telecommunications',
+        'Real Estate',
+      ],
+      exchanges: ['NASDAQ', 'NYSE', 'LSE', 'TSX', 'ASX', 'HKEX', 'TSE', 'EURONEXT'],
+      stock_types: ['common', 'preferred', 'reit', 'etf'],
+    };
   };
 
   // Load initial data

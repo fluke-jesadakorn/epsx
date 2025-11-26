@@ -1,193 +1,188 @@
 'use client'
 
+import { Bell, ExternalLink } from 'lucide-react'
 import { useState } from 'react'
 import Link from 'next/link'
-import { Bell, X } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { 
-  Sheet, 
-  SheetContent, 
-  SheetHeader, 
-  SheetTitle, 
-  SheetTrigger 
-} from '@/components/ui/sheet'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
-import { Notification } from '@/lib/api'
+import { useRouter } from 'next/navigation'
+import { createFrontendApiClient } from '@/shared/utils/api-client'
+import { useNotificationBell } from '@/shared/hooks/useNotificationBell'
+import { useBrowserNotifications } from './BrowserNotifications'
+import { useSharedAuth } from '@/shared/components/auth/Provider'
+import { getNotificationIcon, formatTimestamp, getPriorityColor } from '@/shared/components/notifications/utils'
+import { toast } from 'sonner'
 
-interface NotificationBellClientProps {
-  count: number
-  recentNotifications: Notification[]
-}
-
-function NotificationCard({ notification }: { notification: Notification }) {
-  const priorityColors = {
-    urgent: 'border-red-500 bg-red-50 dark:bg-red-950',
-    high: 'border-orange-500 bg-orange-50 dark:bg-orange-950', 
-    normal: 'border-blue-500 bg-blue-50 dark:bg-blue-950',
-    low: 'border-gray-500 bg-gray-50 dark:bg-gray-950'
-  }
-
-  const typeIcons = {
-    system: '🔧',
-    admin: '👨‍💼',
-    data: '📊', 
-    feature: '✨',
-    security: '🔒'
-  }
-
-  const timeAgo = (dateString: string) => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffMins = Math.floor(diffMs / 60000)
-    const diffHours = Math.floor(diffMs / 3600000)
-    
-    if (diffMins < 1) return 'Just now'
-    if (diffMins < 60) return `${diffMins}m ago`
-    if (diffHours < 24) return `${diffHours}h ago`
-    return date.toLocaleDateString()
-  }
-
-  return (
-    <div className={`p-3 rounded-lg border-l-4 ${priorityColors[notification.priority]} transition-colors hover:bg-opacity-80`}>
-      <div className="flex items-start gap-2">
-        <span className="text-lg">{typeIcons[notification.type]}</span>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <h4 className="font-medium text-sm line-clamp-2 text-gray-900 dark:text-gray-100">
-              {notification.title}
-            </h4>
-            <span className="text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
-              {timeAgo(notification.createdAt)}
-            </span>
-          </div>
-          <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 mt-1">
-            {notification.body}
-          </p>
-          {notification.actionUrl && (
-            <Link 
-              href={notification.actionUrl}
-              className="text-xs text-blue-600 dark:text-blue-400 hover:underline mt-2 inline-block"
-            >
-              View Details →
-            </Link>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-export function NotificationBellClient({ count, recentNotifications }: NotificationBellClientProps) {
+export function NotificationBellClient() {
+  const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
 
-  // Mobile: Sheet, Desktop: Popover
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+  // Get authentication state
+  const { isAuthenticated, user } = useSharedAuth()
 
-  const NotificationContent = () => (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-lg">Notifications</h3>
-        {count > 0 && (
-          <Badge variant="secondary" className="text-xs">
-            {count} new
-          </Badge>
-        )}
-      </div>
+  // Browser notifications integration
+  const { showNotification: showBrowserNotification } = useBrowserNotifications()
 
-      {recentNotifications.length === 0 ? (
-        <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-          <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p className="text-sm">No new notifications</p>
-        </div>
-      ) : (
-        <div className="space-y-3 max-h-80 overflow-y-auto">
-          {recentNotifications.map((notification) => (
-            <NotificationCard key={notification.id} notification={notification} />
-          ))}
-        </div>
-      )}
+  // Use shared notification bell hook
+  const {
+    notifications,
+    count,
+    loading,
+    error,
+    isSSEConnected,
+    fetchNotifications,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification,
+  } = useNotificationBell({
+    apiClient: createFrontendApiClient({ token: user?.access }),
+    walletAddress: user?.wallet_address,
+    isAuthenticated,
+    enableSSE: true,
+    browserNotifications: {
+      showNotification: (type, title, message) => {
+        const notifType = type === 'security' ? 'security' :
+                         type === 'permission' ? 'permissions' :
+                         type === 'wallet' ? 'trading' : 'system'
+        showBrowserNotification(notifType, title, message)
+      }
+    },
+  })
 
-      <div className="border-t pt-3 flex justify-between items-center">
-        <Link 
-          href="/notifications"
-          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-          onClick={() => setIsOpen(false)}
-        >
-          View All Notifications
-        </Link>
-        <Link 
-          href="/notifications/preferences"
-          className="text-sm text-gray-600 dark:text-gray-400 hover:underline"
-          onClick={() => setIsOpen(false)}
-        >
-          ⚙️ Settings
-        </Link>
-      </div>
-    </div>
-  )
-
-  // Mobile view with Sheet
-  if (isMobile) {
-    return (
-      <Sheet open={isOpen} onOpenChange={setIsOpen}>
-        <SheetTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="relative h-10 w-10 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-          >
-            <Bell className="h-5 w-5" />
-            {count > 0 && (
-              <Badge 
-                className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs min-w-[20px]"
-                variant="destructive"
-              >
-                {count > 99 ? '99+' : count}
-              </Badge>
-            )}
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="right" className="w-full sm:w-96">
-          <SheetHeader>
-            <SheetTitle>Notifications</SheetTitle>
-          </SheetHeader>
-          <div className="mt-4">
-            <NotificationContent />
-          </div>
-        </SheetContent>
-      </Sheet>
-    )
+  const handleToggleDropdown = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setIsOpen(!isOpen)
   }
 
-  // Desktop view with Popover
+  const handleCloseDropdown = () => {
+    setIsOpen(false)
+  }
+
+  const handleNotificationClick = async (notificationId: string) => {
+    handleCloseDropdown()
+    // Auto-mark as read when clicked
+    await markAsRead(notificationId)
+    router.push(`/notifications?id=${notificationId}`)
+  }
+
+  const handleDeleteNotification = async (e: React.MouseEvent, notificationId: string) => {
+    e.stopPropagation()
+    await deleteNotification(notificationId)
+    toast.success('Notification deleted')
+  }
+
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative h-10 w-10 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
-        >
-          <Bell className="h-5 w-5" />
-          {count > 0 && (
-            <Badge 
-              className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs min-w-[20px]"
-              variant="destructive"
-            >
-              {count > 99 ? '99+' : count}
-            </Badge>
-          )}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent align="end" className="w-96 p-4">
-        <NotificationContent />
-      </PopoverContent>
-    </Popover>
+    <div className="relative">
+      <button
+        onClick={handleToggleDropdown}
+        className="relative flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200"
+      >
+        <Bell className="h-5 w-5 text-orange-500" />
+        {count > 0 && (
+          <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs text-white">
+            {count > 9 ? '9+' : count}
+          </span>
+        )}
+      </button>
+
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={handleCloseDropdown}
+          />
+
+          {/* Dropdown */}
+          <div className="absolute top-full right-0 z-50 mt-2 w-96 rounded-2xl border border-orange-100/50 bg-white/95 backdrop-blur-xl shadow-2xl dark:border-slate-700/50 dark:bg-slate-900/95">
+            {loading ? (
+              <div className="px-4 py-8 text-center">
+                <Bell className="h-12 w-12 mx-auto mb-3 text-slate-300 dark:text-slate-600 animate-pulse" />
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  Loading notifications...
+                </p>
+              </div>
+            ) : notifications.length === 0 ? (
+              <div className="px-4 py-8 text-center">
+                <Bell className="h-12 w-12 mx-auto mb-3 text-slate-300 dark:text-slate-600" />
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  No notifications yet
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="px-4 py-3 border-b border-orange-100 dark:border-slate-700">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                      Notifications
+                    </h3>
+                    {count > 0 && (
+                      <span className="text-xs text-orange-600 dark:text-orange-400">
+                        {count} unread
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="max-h-96 overflow-y-auto">
+                  {notifications.map((notification) => (
+                    <div
+                      key={notification.id}
+                      className="flex items-start gap-3 px-4 py-3 border-b border-orange-50 dark:border-slate-800 group"
+                    >
+                      <div className={`w-8 h-8 rounded-full ${getPriorityColor(notification.priority)} flex items-center justify-center flex-shrink-0`}>
+                        <span className="text-sm">{getNotificationIcon(notification.type)}</span>
+                      </div>
+                      <div
+                        className="flex-1 min-w-0 cursor-pointer"
+                        onClick={() => handleNotificationClick(notification.id)}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm font-medium text-slate-900 dark:text-slate-100 line-clamp-1">
+                            {notification.title}
+                          </p>
+                          {!notification.read && (
+                            <div className="w-2 h-2 rounded-full bg-orange-500 flex-shrink-0 mt-1.5" />
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-2 mt-0.5">
+                          {notification.message}
+                        </p>
+                        <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                          {formatTimestamp(notification.timestamp)}
+                        </p>
+                      </div>
+                      <button
+                        onClick={(e) => handleDeleteNotification(e, notification.id)}
+                        className="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400 flex-shrink-0"
+                        title="Delete notification"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="px-4 py-3 border-t border-orange-100 dark:border-slate-700 space-y-2">
+                  <button
+                    onClick={markAllAsRead}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-orange-600 hover:bg-orange-50 dark:text-orange-400 dark:hover:bg-orange-900/20"
+                  >
+                    <Bell className="h-4 w-4" />
+                    Mark All as Read
+                  </button>
+                  <Link
+                    href="/notifications"
+                    onClick={handleCloseDropdown}
+                    className="w-full flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800/40"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    View All Notifications
+                  </Link>
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      )}
+    </div>
   )
 }

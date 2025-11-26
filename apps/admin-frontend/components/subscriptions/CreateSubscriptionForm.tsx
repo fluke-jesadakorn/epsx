@@ -1,16 +1,24 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+
 import { PancakeCard } from '@/components/ui/PancakeCard'
-import { adminClient, CreateSubscriptionRequest, isApiSuccess } from '@/lib/api/unified-admin-client'
 import { toast } from '@/hooks/use-toast'
 import { logger } from '@/lib/logger'
+import { createPlansClient, type CreateSubscriptionRequest, isApiSuccess } from '@/shared/api/plans'
+import { createAdminApiClient } from '@/shared/utils/api-client'
 
 interface CreateSubscriptionFormProps {
   onClose: () => void
   onSuccess: () => void
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.onClose
+ * @param root0.onSuccess
+ */
 export function CreateSubscriptionForm({ onClose, onSuccess }: CreateSubscriptionFormProps) {
   const [loading, setLoading] = useState(false)
   const [plans, setPlans] = useState<any[]>([])
@@ -30,13 +38,14 @@ export function CreateSubscriptionForm({ onClose, onSuccess }: CreateSubscriptio
   }, [])
 
   const loadPlans = async () => {
+    const adminClient = createPlansClient(createAdminApiClient())
     try {
       const response = await adminClient.getPlans({ is_active: true })
       if (isApiSuccess(response)) {
-        setPlans(response.data?.plans || [])
+        setPlans((response.data as any)?.plans || response.data as any || [])
       }
-    } catch (error) {
-      logger.error('Failed to load plans', { error })
+    } catch (_error) {
+      logger.error('Failed to load plans', { _error })
     }
   }
 
@@ -70,6 +79,7 @@ export function CreateSubscriptionForm({ onClose, onSuccess }: CreateSubscriptio
       return
     }
 
+    const adminClient = createPlansClient(createAdminApiClient())
     try {
       setLoading(true)
       const subscriptionData: CreateSubscriptionRequest = {
@@ -93,7 +103,7 @@ export function CreateSubscriptionForm({ onClose, onSuccess }: CreateSubscriptio
           variant: "destructive"
         })
       }
-    } catch (error) {
+    } catch (_error) {
       toast({
         title: "Error",
         description: "Failed to create subscription",
@@ -146,7 +156,7 @@ export function CreateSubscriptionForm({ onClose, onSuccess }: CreateSubscriptio
                   required
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  The Firebase UID or email of the user
+                  The wallet address or email of the user
                 </p>
               </div>
 

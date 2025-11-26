@@ -34,7 +34,7 @@ export function AnalyticsMetadataDisplay({ data, isLoading }: AnalyticsMetadataD
             <MetricCard
               icon={<ProcessingTimeIcon />}
               label="Processing Time"
-              value={`${data.processing_time_ms}ms`}
+              value={`${data.metadata.query_time}ms`}
               bgColor="green"
             />
             
@@ -48,14 +48,14 @@ export function AnalyticsMetadataDisplay({ data, isLoading }: AnalyticsMetadataD
             <MetricCard
               icon={<DatabaseIcon />}
               label="Data Source"
-              value={data.metadata.data_source}
+              value="Analytics API"
               bgColor="orange"
             />
             
             <MetricCard
               icon={<MarketsIcon />}
               label="Markets"
-              value={`${data.metadata.available_countries.length} Countries`}
+              value="Global Markets"
               bgColor="purple"
             />
           </div>

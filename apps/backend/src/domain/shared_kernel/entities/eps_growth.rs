@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use tracing::{debug, warn};
-use crate::infrastructure::adapters::services::tradingview_websocket::QuarterlyEPSData;
+use crate::domain::shared_kernel::value_objects::QuarterlyEPSData;
 
 /// EPS Growth data entity for analytics
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,6 +26,7 @@ pub struct EPSGrowthData {
 
 /// EPS Ranking result for API responses
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Default)]
 pub struct EPSRanking {
     pub symbol: String,
     pub name: String,
@@ -78,33 +79,36 @@ pub enum EPSGrowthTrend {
     Unknown,
 }
 
+/// Parameters for creating EPSGrowthData
+pub struct EPSGrowthParams {
+    pub symbol: String,
+    pub name: String,
+    pub country: String,
+    pub sector: String,
+    pub exchange: String,
+    pub current_eps: Option<f64>,
+    pub growth_factor: Option<f64>,
+    pub price_current: Option<f64>,
+    pub market_cap: Option<i64>,
+    pub volume: Option<i64>,
+}
+
 impl EPSGrowthData {
     /// Create new EPS growth data with validation
-    pub fn new(
-        symbol: String,
-        name: String,
-        country: String,
-        sector: String,
-        exchange: String,
-        current_eps: Option<f64>,
-        growth_factor: Option<f64>,
-        price_current: Option<f64>,
-        market_cap: Option<i64>,
-        volume: Option<i64>,
-    ) -> Self {
-        debug!("Creating new EPS growth data for symbol: {}", symbol);
-        
+    pub fn new(params: EPSGrowthParams) -> Self {
+        debug!("Creating new EPS growth data for symbol: {}", params.symbol);
+
         Self {
-            symbol,
-            name,
-            country,
-            sector,
-            exchange,
-            current_eps,
-            growth_factor,
-            price_current,
-            market_cap,
-            volume,
+            symbol: params.symbol,
+            name: params.name,
+            country: params.country,
+            sector: params.sector,
+            exchange: params.exchange,
+            current_eps: params.current_eps,
+            growth_factor: params.growth_factor,
+            price_current: params.price_current,
+            market_cap: params.market_cap,
+            volume: params.volume,
             ranking_score: None,
             created_at: Some(Utc::now()),
             updated_at: Some(Utc::now()),
@@ -129,14 +133,14 @@ impl EPSGrowthData {
 
         // Validate EPS values are reasonable
         if let Some(eps) = self.current_eps {
-            if eps < -1000.0 || eps > 1000.0 {
+            if !(-1000.0..=1000.0).contains(&eps) {
                 warn!("EPS validation warning: unusual EPS value {} for symbol {}", eps, self.symbol);
             }
         }
 
         // Validate QoQ growth is reasonable
         if let Some(growth) = self.growth_factor {
-            if growth < -500.0 || growth > 1000.0 {
+            if !(-500.0..=1000.0).contains(&growth) {
                 warn!("EPS validation warning: extreme QoQ growth {} for symbol {}", growth, self.symbol);
             }
         }
@@ -226,6 +230,7 @@ impl EPSRanking {
     }
 }
 
+
 impl EPSPagination {
     /// Create pagination info
     pub fn new(page: i32, limit: i32, total: i64) -> Self {
@@ -248,18 +253,18 @@ mod tests {
 
     #[test]
     fn test_eps_data_validation() {
-        let eps_data = EPSGrowthData::new(
-            "AAPL".to_string(),
-            "Apple Inc.".to_string(),
-            "america".to_string(),
-            "Technology".to_string(),
-            "NASDAQ".to_string(),
-            Some(1.52),
-            Some(15.2),
-            Some(150.25),
-            Some(2500000000000),
-            Some(45678900),
-        );
+        let eps_data = EPSGrowthData::new(EPSGrowthParams {
+            symbol: "AAPL".to_string(),
+            name: "Apple Inc.".to_string(),
+            country: "america".to_string(),
+            sector: "Technology".to_string(),
+            exchange: "NASDAQ".to_string(),
+            current_eps: Some(1.52),
+            growth_factor: Some(15.2),
+            price_current: Some(150.25),
+            market_cap: Some(2500000000000),
+            volume: Some(45678900),
+        });
 
         assert!(eps_data.validate().is_ok());
         assert!(eps_data.has_quality_data());
@@ -267,18 +272,18 @@ mod tests {
 
     #[test]
     fn test_ranking_score_calculation() {
-        let eps_data = EPSGrowthData::new(
-            "AAPL".to_string(),
-            "Apple Inc.".to_string(),
-            "america".to_string(),
-            "Technology".to_string(),
-            "NASDAQ".to_string(),
-            Some(1.52),
-            Some(15.2),
-            Some(150.25),
-            Some(2500000000000),
-            Some(45678900),
-        );
+        let mut eps_data = EPSGrowthData::new(EPSGrowthParams {
+            symbol: "AAPL".to_string(),
+            name: "Apple Inc.".to_string(),
+            country: "america".to_string(),
+            sector: "Technology".to_string(),
+            exchange: "NASDAQ".to_string(),
+            current_eps: Some(1.52),
+            growth_factor: Some(15.2),
+            price_current: Some(150.25),
+            market_cap: Some(2500000000000),
+            volume: Some(45678900),
+        });
 
         eps_data.calculate_ranking_score();
         assert!(eps_data.ranking_score.is_some());

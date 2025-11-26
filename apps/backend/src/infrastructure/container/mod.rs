@@ -1,15 +1,24 @@
-// Unified Container Module
-// Dependency injection containers for clean architecture
-// Phase 3 Refactoring: Consolidating into ServiceContainer
+// Unified Container Module following DDD and Clean Architecture
+// Single unified dependency injection container for domain-driven design
 
-// NEW UNIFIED CONTAINER (Phase 3 Refactoring)
-pub mod service_container;
+// SIMPLE CONTAINER (Legacy stateful architecture)
+pub mod simple_container;
 
-// LEGACY CONTAINERS (to be phased out)
-pub mod ddd_container;
-pub mod app_container;
+// STATELESS SERVICE FACTORY (New serverless architecture)
+pub mod stateless_service_factory;
 
-// Exports - prioritize new unified container
-pub use service_container::*;
-pub use ddd_container::*;
-pub use app_container::*;
+// Exports - minimal container for compilation
+pub use simple_container::{
+    SimpleContainer,
+    DomainContainer,
+};
+
+// New serverless exports
+pub use stateless_service_factory::{
+    StatelessServiceFactory,
+    StatelessConfig,
+    RequestServices,
+    HealthServices,
+    ServiceFactory,
+    StatelessHealthStatus,
+};

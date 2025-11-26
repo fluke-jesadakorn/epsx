@@ -1,22 +1,22 @@
-/// Notification Bounded Context
+/// Web3-first Notification Bounded Context
 /// 
 /// This bounded context handles all aspects of notification delivery, user preferences,
-/// scheduling, and multi-channel communication for the EPSX platform.
+/// scheduling, and wallet-based communication for the EPSX platform using serverless architecture.
 /// 
 /// ## Core Concepts
 /// 
 /// - **Notification**: Main aggregate managing notification lifecycle from creation to delivery
-/// - **NotificationTopic**: FCM topics for broadcasting notifications to user groups
+/// - **NotificationTopic**: Wallet-based topics for broadcasting notifications to user groups
 /// - **UserNotificationPreferences**: User preferences, quiet hours, and channel settings
 /// - **DeliveryChannel**: Multi-channel delivery with retry logic and content adaptation
 /// - **ScheduleInfo**: Scheduling, expiry, and timing management for notifications
 /// 
-/// ## Supported Channels
+/// ## Supported Channels (Web3-first)
 /// 
-/// - **FCM Push**: Real-time push notifications with rich content support
-/// - **In-App**: Instant in-app notifications with no content limits
-/// - **Email**: Rich HTML emails with attachment support
-/// - **SMS**: Text messages with character limits and high delivery cost
+/// - **Wallet Notifications**: Primary notification channel for connected wallets
+/// - **Web Push**: Browser-native push notifications via Web Push API
+/// - **In-App**: Database-stored notifications for wallet-based app display
+/// - **WebSocket**: Real-time notifications for active wallet connections
 /// 
 /// ## Domain Events
 /// 
@@ -26,12 +26,13 @@
 /// ## Integration
 /// 
 /// This bounded context integrates with:
-/// - User Management (for user identification and permissions)
+/// - User Management (for wallet identification and permissions)
 /// - Trading Analytics (for market alert notifications)
-/// - External services (FCM, email providers, SMS gateways)
-
+/// - Web3 Services (for wallet-based delivery and blockchain events)
 pub mod value_objects;
 pub mod aggregates;
+pub mod events;
+pub mod repository_ports;
 
 // Public exports from value objects
 pub use value_objects::{
@@ -41,14 +42,21 @@ pub use value_objects::{
     NotificationTopic, TopicCategory, AccessLevel, SubscriberScale,
     ScheduleInfo, ScheduleType, ScheduleStatus, DeliveryWindow,
     UserNotificationPreferences, ChannelSettings, ContentPreferences,
-    QuietHours, FrequencyLimits, PreferenceSummary
+    QuietHours, FrequencyLimits, PreferenceSummary, NotificationType
 };
 
 // Public exports from aggregates
 pub use aggregates::{
     Notification, NotificationMetadata, DeliveryTracking, ChannelDeliveryStatus,
-    DeliveryError, DeliveryResult, NotificationStatus,
+    DeliveryError, DeliveryResult, NotificationStatus, NotificationPriority
+};
+
+// Public exports from events
+pub use events::notification_events::{
     NotificationCreated, NotificationScheduled, NotificationSending,
     NotificationDeliveryCompleted, NotificationExpired, NotificationPriorityUpdated,
     NotificationCancelled
 };
+
+// Public exports from repository ports
+pub use repository_ports::{NotificationRepositoryPort, NotificationSearchCriteria};

@@ -3,6 +3,7 @@
 
 use axum::{
     extract::{Query, Extension},
+    http::HeaderMap,
     response::Json,
 };
 use std::sync::Arc;
@@ -10,16 +11,35 @@ use tracing::{debug, info, warn};
 
 use crate::core::errors::AppError;
 use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRankingService, EPSRankingParams};
-use super::{dto::*, enhancement::enhance_with_websocket_data};
+use crate::auth::permission_authority::{CentralizedPermissionAuthority, PermissionValidator};
+use super::{types::*, enhancement::enhance_with_websocket_data};
 
 /// GET /api/analytics/eps-rankings
 /// Returns top EPS growth stocks with filtering and pagination
 pub async fn get_eps_rankings(
+    headers: HeaderMap,
     Query(params): Query<EPSRankingQueryParams>,
     Extension(service): Extension<Arc<EPSRankingService>>,
+    Extension(permission_authority): Extension<Arc<CentralizedPermissionAuthority>>,
 ) -> Result<Json<EPSRankingsApiResponse>, AppError> {
     debug!("EPS Rankings API called with params: {:?}", params);
-    
+
+    // Extract wallet address from headers
+    let wallet_address = headers
+        .get("x-wallet-address")
+        .or_else(|| headers.get("X-Wallet-Address"))
+        .and_then(|h| h.to_str().ok())
+        .map(|addr| addr.to_lowercase());
+
+    // Calculate rank_offset based on user permissions
+    let rank_offset = if let Some(ref wallet) = wallet_address {
+        calculate_rank_offset_from_permissions(&permission_authority, wallet).await
+    } else {
+        100 // Default free tier offset for anonymous users
+    };
+
+    debug!("Calculated rank_offset: {} for wallet: {:?}", rank_offset, wallet_address);
+
     // Convert query params to service params with defaults - FIXED: Use correct parameter structure
     let service_params = EPSRankingParams {
         country: params.country.clone(),
@@ -29,11 +49,12 @@ pub async fn get_eps_rankings(
         limit: params.limit.unwrap_or(50), // FIXED: Use correct i32 type
         min_eps: params.min_eps, // FIXED: Use correct field name (not market_cap_min)
         min_growth: params.min_growth, // FIXED: Add missing min_growth parameter
+        rank_offset, // SECURITY: Enforced from user permissions
     };
 
     debug!("Converted to service params: {:?}", service_params);
 
-    // TODO: Implement parameter validation in EPSRankingService if needed
+    // Note: Additional parameter validation could be added in EPSRankingService if needed
 
     // Log request details for debugging
     info!("Processing EPS rankings request - Country: {:?}, Sort: {:?}, Page: {}, Limit: {}", 
@@ -44,7 +65,7 @@ pub async fn get_eps_rankings(
     let mut result = service.get_eps_rankings(service_params).await.map_err(|e| AppError {
         kind: crate::core::errors::ErrorKind::InternalError,
         message: format!("Failed to get EPS rankings: {}", e),
-        context: crate::core::errors::ErrorContext::default(),
+        context: Box::new(crate::core::errors::ErrorContext::default()),
         correlation_id: uuid::Uuid::new_v4().to_string(),
         timestamp: chrono::Utc::now(),
         stack_trace: None,
@@ -53,7 +74,8 @@ pub async fn get_eps_rankings(
     
     // TEMPORARILY DISABLED: WebSocket enhancement causes 50+ second response times
     // The TradingView data is already real (not hardcoded), so WebSocket enhancement is optional
-    if false && result.rankings.len() <= 20 && result.rankings.len() > 0 {
+    #[allow(clippy::overly_complex_bool_expr)]
+    if false && result.rankings.len() <= 20 && !result.rankings.is_empty() {
         debug!("Enhancing {} rankings with WebSocket EPS data", result.rankings.len());
         
         // Extract symbols for WebSocket enhancement
@@ -84,7 +106,7 @@ pub async fn get_eps_rankings(
     let limit = params.limit.unwrap_or(50);
     let total = result.pagination.total;
     let total_pages = ((total as f64 / limit as f64).ceil() as i32).max(1);
-    
+
     let api_response = EPSRankingsApiResponse {
         data: result.rankings,
         pagination: EPSPaginationResponse {
@@ -94,6 +116,10 @@ pub async fn get_eps_rankings(
             total_pages,
             has_next: page < total_pages,
             has_prev: page > 1,
+        },
+        access_info: super::types::AccessInfo {
+            min_accessible_rank: rank_offset,
+            locked_ranks_count: rank_offset - 1,  // Ranks 1 to (offset-1) are locked
         },
     };
 
@@ -116,7 +142,7 @@ pub fn convert_screening_result_to_eps_ranking(
             None // Don't use fake default values
         }
     });
-    let growth_factor = result.eps_growth_yoy.or_else(|| {
+    let growth_factor = result.eps_growth_yoy.or({
         // Fallback: use price change as growth proxy if EPS growth not available
         Some(result.change_percent)
     });
@@ -127,28 +153,28 @@ pub fn convert_screening_result_to_eps_ranking(
     // Calculate price from available metrics (if available)
     let price_current = Some(result.price); // Use actual price field
     
-    EPSRanking {
-        symbol: result.symbol,
-        name: result.name,
-        country: "US".to_string(), // Default country - not available in StockScreeningResult
-        sector: result.sector.unwrap_or("Unknown".to_string()),
-        exchange: "NASDAQ".to_string(), // Default exchange
-        current_eps,
-        growth_factor,
-        price_current,
-        market_cap: market_cap.map(|mc| mc as i64),
-        volume: Some(result.volume as i64),
-        ranking_position,
-        quarterly_data: None,
-        next_earnings_date: None,
-        last_earnings_date: None,
-    }
+    EPSRanking::from_eps_data(
+        crate::domain::shared_kernel::entities::eps_growth::EPSGrowthData {
+            symbol: result.symbol,
+            name: result.name,
+            country: "US".to_string(), // Default country - not available in StockScreeningResult
+            sector: result.sector.unwrap_or("Unknown".to_string()),
+            exchange: "NASDAQ".to_string(), // Default exchange
+            current_eps,
+            growth_factor,
+            price_current,
+            market_cap: market_cap.map(|mc| mc as i64),
+            volume: Some(result.volume as i64),
+            ranking_score: ranking_position.map(|rp| rp as f64),
+            created_at: None,
+            updated_at: None,
+            next_earnings_date: None,
+            last_earnings_date: None,
+        },
+        ranking_position
+    )
 }
 
-/// Helper function to parse f64 from string fields with fallback handling
-fn parse_f64_from_string(value: &str) -> Option<f64> {
-    value.parse::<f64>().ok().filter(|f| f.is_finite() && !f.is_nan())
-}
 
 /// Dynamic EPS validation for ranking updates - no hardcoded country/stock limits
 pub fn is_valid_eps_for_ranking(eps: f64) -> bool {
@@ -176,6 +202,48 @@ pub fn is_valid_eps_for_ranking(eps: f64) -> bool {
     true
 }
 
+/// Calculate rank offset based on user permissions
+/// Premium users get access to top-ranked stocks, free users see lower ranks
+async fn calculate_rank_offset_from_permissions(
+    permission_authority: &Arc<CentralizedPermissionAuthority>,
+    wallet_address: &str,
+) -> i32 {
+    // Check permission tiers (from highest to lowest)
+    // Premium tier: Full access to all ranks (offset = 1)
+    if permission_authority
+        .has_permission(wallet_address, "epsx:analytics:premium")
+        .await
+        .unwrap_or(false)
+    {
+        debug!("User {} has premium access - full ranking access", wallet_address);
+        return 1; // Access to ranks 1+
+    }
+
+    // Pro tier: Access to top 50 ranks (offset = 1)
+    if permission_authority
+        .has_permission(wallet_address, "epsx:analytics:pro")
+        .await
+        .unwrap_or(false)
+    {
+        debug!("User {} has pro access - top 50 ranking access", wallet_address);
+        return 1; // Access to ranks 1+
+    }
+
+    // Basic tier: Access from rank 25+ (offset = 25)
+    if permission_authority
+        .has_permission(wallet_address, "epsx:analytics:basic")
+        .await
+        .unwrap_or(false)
+    {
+        debug!("User {} has basic access - rank 25+ access", wallet_address);
+        return 25; // Access to ranks 25+
+    }
+
+    // Free tier: Access from rank 100+ (default)
+    debug!("User {} has free tier access - rank 100+ access", wallet_address);
+    100 // Free tier offset
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -201,6 +269,7 @@ mod tests {
             limit: params.limit.unwrap_or(50),
             min_eps: params.min_eps,
             min_growth: params.min_growth,
+            rank_offset: 0,  // No rank restriction for test
         };
 
         assert_eq!(service_params.page, 1);

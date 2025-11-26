@@ -5,8 +5,8 @@
 
 'use server'
 
-import { getJWTFromCookies } from '@/lib/server/jwt';
 import { getAuthUser } from '@/lib/server/auth';
+import { getJWTFromCookies } from '@/lib/server/jwt';
 
 /**
  * Get JWT bearer token for authenticated API requests
@@ -14,8 +14,9 @@ import { getAuthUser } from '@/lib/server/auth';
 export async function getBearerToken(): Promise<string | null> {
   try {
     return await getJWTFromCookies();
-  } catch (error) {
-    console.error('❌ Failed to get bearer token:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Failed to get bearer token:', _error);
     return null;
   }
 }
@@ -26,8 +27,9 @@ export async function getBearerToken(): Promise<string | null> {
 export async function getCurrentUser() {
   try {
     return await getAuthUser();
-  } catch (error) {
-    console.error('❌ Failed to get current user:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Failed to get current user:', _error);
     return null;
   }
 }
@@ -53,33 +55,35 @@ export async function validateAdminAccess(): Promise<boolean> {
 
     // No valid admin permissions found
     return false;
-  } catch (error) {
-    console.error('❌ Failed to validate admin access:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Failed to validate admin access:', _error);
     return false;
   }
 }
 
 /**
  * Check if user has specific permission using structured permission system
+ * @param permission
  */
 export async function hasPermission(permission: string): Promise<boolean> {
   try {
     const user = await getCurrentUser();
     
-    if (!user || !user.permissions) {
+    if (!user?.permissions) {
       return false;
     }
 
     const permissions = Array.isArray(user.permissions) ? user.permissions : [];
     
     // Check for exact permission match
-    if (permissions.includes(permission)) return true;
+    if (permissions.includes(permission)) {return true;}
     
     // Check for admin wildcard permission
-    if (permissions.includes('admin:*:*')) return true;
+    if (permissions.includes('admin:*:*')) {return true;}
     
     // Check for legacy wildcard permission
-    if (permissions.includes('*')) return true;
+    if (permissions.includes('*')) {return true;}
     
     // Check for broader permissions (e.g., admin:users:* covers admin:users:view)
     if (permission.includes(':')) {
@@ -91,14 +95,18 @@ export async function hasPermission(permission: string): Promise<boolean> {
     }
 
     return false;
-  } catch (error) {
-    console.error('❌ Failed to check permission:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Failed to check permission:', _error);
     return false;
   }
 }
 
 /**
  * Check if user has platform-specific permission
+ * @param resource
+ * @param action
+ * @param platform
  */
 export async function hasPlatformPermission(
   resource: string, 
@@ -112,12 +120,13 @@ export async function hasPlatformPermission(
       return false;
     }
 
-    const targetPlatform = platform || user.platform_context || user.primary_platform || 'epsx';
+    const targetPlatform = platform || (user as any).platform_context || (user as any).primary_platform || 'epsx';
     const permission = `${targetPlatform}:${resource}:${action}`;
 
     return hasPermission(permission);
-  } catch (error) {
-    console.error('❌ Failed to check platform permission:', error);
+  } catch (_error) {
+    // eslint-disable-next-line no-console
+    console.error('❌ Failed to check platform permission:', _error);
     return false;
   }
 }

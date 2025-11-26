@@ -207,7 +207,7 @@ class RuntimeConfigValidator {
       devLog('API endpoints validation passed');
     } catch (error) {
       if (error instanceof z.ZodError) {
-        this.validationErrors.push(`API endpoints validation failed: ${error.errors.map(e => e.message).join(', ')}`);
+        this.validationErrors.push(`API endpoints validation failed: ${error.issues.map((e: any) => e.message).join(', ')}`);
       }
     }
   }
@@ -230,7 +230,7 @@ class RuntimeConfigValidator {
       devLog('Feature flags validation passed');
     } catch (error) {
       if (error instanceof z.ZodError) {
-        this.validationErrors.push(`Feature flags validation failed: ${error.errors.map(e => e.message).join(', ')}`);
+        this.validationErrors.push(`Feature flags validation failed: ${error.issues.map((e: any) => e.message).join(', ')}`);
       }
     }
   }
@@ -249,7 +249,7 @@ class RuntimeConfigValidator {
       devLog('Performance configuration validation passed');
     } catch (error) {
       if (error instanceof z.ZodError) {
-        this.validationErrors.push(`Performance config validation failed: ${error.errors.map(e => e.message).join(', ')}`);
+        this.validationErrors.push(`Performance config validation failed: ${error.issues.map((e: any) => e.message).join(', ')}`);
       }
     }
   }
@@ -267,7 +267,7 @@ class RuntimeConfigValidator {
       devLog('Security configuration validation passed');
     } catch (error) {
       if (error instanceof z.ZodError) {
-        this.validationErrors.push(`Security config validation failed: ${error.errors.map(e => e.message).join(', ')}`);
+        this.validationErrors.push(`Security config validation failed: ${error.issues.map((e: any) => e.message).join(', ')}`);
       }
     }
   }
@@ -374,7 +374,7 @@ export function getConfig<T>(path: string): T {
   
   for (const part of pathParts) {
     if (current && typeof current === 'object' && part in current) {
-      current = current[part];
+      current = (current as Record<string, unknown>)[part];
     } else {
       throw new Error(`Configuration path '${path}' not found`);
     }
@@ -418,7 +418,7 @@ export function updateConfig(path: string, value: unknown) {
   for (let i = 0; i < pathParts.length - 1; i++) {
     const part = pathParts[i];
     if (current && typeof current === 'object' && part in current) {
-      current = current[part];
+      current = (current as Record<string, unknown>)[part];
     } else {
       throw new Error(`Configuration path '${path}' not found`);
     }
@@ -426,7 +426,7 @@ export function updateConfig(path: string, value: unknown) {
   
   const lastPart = pathParts[pathParts.length - 1];
   if (current && typeof current === 'object') {
-    current[lastPart] = value;
+    (current as Record<string, unknown>)[lastPart] = value;
     devLog(`Configuration updated: ${path} = ${JSON.stringify(value)}`);
   } else {
     throw new Error(`Cannot update configuration at '${path}'`);

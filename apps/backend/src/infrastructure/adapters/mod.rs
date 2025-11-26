@@ -3,21 +3,14 @@
 
 pub mod repositories;
 pub mod services;
-pub mod cache;
+// pub mod cache; // Removed - empty module with only a comment
 
 // Re-export with explicit imports to avoid conflicts
-// TODO: Re-export repository adapters as they are migrated to SQLx
-// diesel as repositories_diesel,  // Removed during SQLx migration
-// Add other repository modules as needed
+// Repository adapters use SQLx for database operations
 pub use services::{
-    SecurityMonitoringServiceAdapter, TokenValidationServiceAdapter, 
-    UserIdentityServiceAdapter, FcmService, FcmTopicService, FcmNotification,
-    SendGridEmailService, TradingViewRestClient, TradingViewWebSocketService, 
+    SecurityMonitoringServiceAdapter,
+    TradingViewRestClient, TradingViewWebSocketService, 
     TradingViewCache, tradingview_types,
     TradingViewWebSocketClient, WebSocketFrontendEPSData,
-    FirebaseAdmin, FirebaseUser, FirebaseError,
-    OIDCService, OidcTokenValidationResult
-};
-pub use cache::{
-    RealTimeCacheAdapter
+    // SendGridEmailService removed - Web3-first system doesn't use traditional email
 };

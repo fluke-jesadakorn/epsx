@@ -41,22 +41,21 @@ export const Z_INDEX_LAYERS = {
 
 /**
  * Files updated with standardized z-index values:
- * 
+ *
  * Modal Components (z-60):
  * - Modals converted to pages/inline forms (UserCreate, Permissions)
  * - ModuleManagementClient.tsx (was z-50)
- * - ConfirmDialog.tsx (was z-50)  
+ * - ConfirmDialog.tsx (was z-50)
  * - DeveloperPortal.tsx (was z-50)
  * - UserManagement.tsx (was z-[9999])
- * 
+ *
  * Toast Components (z-80):
  * - toast.tsx in admin-frontend (was z-[9998])
  * - toast.tsx in frontend (was z-[100])
- * 
+ *
  * Navigation Components:
- * - AdminLayout.tsx sidebar backdrop (z-40, was z-30)
- * - AdminLayout.tsx sidebar panel (z-50, was z-40)
- * - nav.tsx navigation bars (z-50, unchanged)
+ * - Sidebar.tsx sidebar panel (z-50)
+ * - nav.tsx navigation bars (z-50)
  */
 
 /**

@@ -1,31 +1,20 @@
-import { ServiceWorkerInitializer } from '@/components/ServiceWorkerInitializer';
+// Import browser polyfills first to handle SSR issues
 import { NavigationClient } from '@/components/nav/NavigationClient';
 import { ClientProviders } from '@/components/providers/ClientProviders';
-import { type EPSXJWTPayload } from '../../../shared/auth/jwt';
-import { getAuthUser } from '@/lib/server/auth';
-import { getUserNotifications, type NotificationData } from '@/lib/actions/notifications';
-import { initializeRuntimeEnvironment } from '../../../shared/utils/runtime-env-validator';
+import { MinimalWeb3Provider } from '@/components/providers/AuthProvider';
+import { GlobalErrorBoundary } from '@/components/error-boundaries/GlobalErrorBoundary';
+import '@/lib/browser-polyfills';
+import { SharedOpenIDWeb3Provider } from '@/shared/components/auth/Provider';
 import { Kanit } from 'next/font/google';
 import { Toaster } from 'sonner';
+import { initializeRuntimeEnvironment } from '../../../shared/utils/runtime-env-validator';
 import './globals.css';
 
 // Initialize runtime environment validation
 initializeRuntimeEnvironment();
 
+// Pure Web3 layout - no server-side session checking required
 export const dynamic = 'force-dynamic';
-
-// Convert EPSXJWTPayload to AuthUser format
-function mapToAuthUser(payload: EPSXJWTPayload | null) {
-  if (!payload) return null;
-
-  return {
-    user_id: payload.sub,
-    email: payload.email,
-    role: String(payload.role || 'user'),
-    permissions: payload.permissions || [],
-    package_tier: String(payload.package_tier || 'basic'),
-  };
-}
 
 const kanit = Kanit({
   subsets: ['latin'],
@@ -70,28 +59,11 @@ export const viewport = {
   ],
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  let jwtPayload: EPSXJWTPayload | null = null;
-  let notificationData: NotificationData | null = null;
-
-  try {
-    jwtPayload = await getAuthUser();
-    
-    // Fetch notifications if user is authenticated
-    if (jwtPayload) {
-      notificationData = await getUserNotifications();
-    }
-  } catch (error) {
-    // Gracefully handle auth failures for static generation
-    console.warn('Failed to get auth user in layout:', error);
-  }
-
-  const user = mapToAuthUser(jwtPayload);
-
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -118,30 +90,34 @@ export default async function RootLayout({
       <body
         className={`${kanit.variable} bg-background text-foreground overflow-x-hidden font-sans antialiased`}
       >
-        <ClientProviders>
-          {/* Service Worker Registration */}
-          <ServiceWorkerInitializer />
+        <GlobalErrorBoundary level="global">
+          <ClientProviders>
+            <MinimalWeb3Provider>
+              <SharedOpenIDWeb3Provider 
+                clientId="epsx-frontend"
+                backendUrl={process.env.NEXT_PUBLIC_BACKEND_URL}
+              >
+                {/* Mobile navigation optimized for touch */}
+                <NavigationClient />
 
-          {/* Notifications now handled in NavigationClient with server components */}
+                {/* Main content with mobile scroll optimization */}
+                <main className="relative min-h-screen">{children}</main>
 
-          {/* Mobile navigation optimized for touch */}
-          <NavigationClient user={user} initialNotificationData={notificationData} />
-
-          {/* Main content with mobile scroll optimization */}
-          <main className="relative min-h-screen">{children}</main>
-
-          {/* Toast notifications */}
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              style: {
-                background: 'hsl(var(--background))',
-                color: 'hsl(var(--foreground))',
-                border: '1px solid hsl(var(--border))',
-              },
-            }}
-          />
-        </ClientProviders>
+                {/* Toast notifications */}
+                <Toaster
+                  position="top-right"
+                  toastOptions={{
+                    style: {
+                      background: 'hsl(var(--background))',
+                      color: 'hsl(var(--foreground))',
+                      border: '1px solid hsl(var(--border))',
+                    },
+                  }}
+                />
+              </SharedOpenIDWeb3Provider>
+            </MinimalWeb3Provider>
+          </ClientProviders>
+        </GlobalErrorBoundary>
       </body>
     </html>
   );

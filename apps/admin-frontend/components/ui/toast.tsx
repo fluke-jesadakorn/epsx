@@ -19,6 +19,9 @@ interface ToastContextType {
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
+/**
+ *
+ */
 export const useToast = () => {
   const context = useContext(ToastContext);
   if (!context) {
@@ -54,6 +57,11 @@ export const toast = {
   }
 };
 
+/**
+ *
+ * @param root0
+ * @param root0.children
+ */
 export const ToastProvider: React.FC<{ children: React.ReactNode }> =
   function ToastProvider({ children }) {
     const [toasts, setToasts] = useState<Toast[]>([]);
@@ -102,7 +110,7 @@ const ToastContainer: React.FC<{
   toasts: Toast[];
   removeToast: (id: string) => void;
 }> = ({ toasts, removeToast }) => {
-  if (toasts.length === 0) return null;
+  if (toasts.length === 0) {return null;}
 
   return (
     <div className="fixed bottom-4 right-4 z-80 flex flex-col gap-2 max-w-sm w-full" role="region" aria-label="Notifications">
@@ -153,7 +161,7 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: () => void }> = ({
 
   return (
     <div
-      className={`card w-full border-l-4 p-4 animate-in slide-in-from-right duration-300 shadow-lg ${getBorderColor()}`}
+      className={`card w-full border-l-4 p-4 shadow-lg ${getBorderColor()}`}
       role="alert"
       aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
     >
@@ -173,7 +181,7 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: () => void }> = ({
         </div>
         <div className="ml-4 flex-shrink-0">
           <button
-            className="min-h-[32px] min-w-[32px] inline-flex items-center justify-center text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded transition-colors"
+            className="min-h-[32px] min-w-[32px] inline-flex items-center justify-center text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 rounded"
             onClick={onRemove}
             aria-label="Close notification"
           >

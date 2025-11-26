@@ -1,6 +1,7 @@
 // Server-side configuration utility - Modernized with centralized URL resolver
-import { env } from '@/config/env';
 import { URL, URLContext, Service, APIPath } from '../../../shared/utils/url-resolver';
+
+import { env } from '@/config/env';
 
 export const config = {
   // Backend API URL - modernized with centralized URL resolver
@@ -36,6 +37,6 @@ export const config = {
 
   // Get port from environment
   getPort(): number {
-    return env.PORT;
+    return process.env.PORT ? parseInt(process.env.PORT) : 3001;
   }
 };

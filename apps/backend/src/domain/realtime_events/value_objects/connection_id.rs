@@ -31,11 +31,6 @@ impl ConnectionId {
     pub fn as_str(&self) -> &str {
         &self.0
     }
-    
-    /// Get the ID as string (owned)
-    pub fn to_string(&self) -> String {
-        self.0.clone()
-    }
 }
 
 impl Default for ConnectionId {

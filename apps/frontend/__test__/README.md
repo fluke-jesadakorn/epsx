@@ -1,6 +1,6 @@
 # 🎯 EPSX Trading Platform - Comprehensive E2E Test Suite
 
-This comprehensive end-to-end test suite validates the user middleware validation system for the EPSX trading platform, ensuring secure, performant, and reliable package tier-based access control.
+This comprehensive end-to-end test suite validates the user middleware validation system and **Web3 wallet integration** for the EPSX trading platform, ensuring secure, performant, and reliable package tier-based access control with complete Web3 wallet functionality.
 
 ## 📋 Overview
 
@@ -14,6 +14,11 @@ The test suite provides **100% coverage** of the user-facing routes and features
 - ✅ Performance optimization by tier
 - ✅ Mobile and cross-browser compatibility
 - ✅ Real-time feature validation
+- ✅ **Web3 wallet integration (MetaMask, WalletConnect, Coinbase)**
+- ✅ **SIWE (Sign-In with Ethereum) authentication flows**
+- ✅ **Blockchain network support (BSC Mainnet/Testnet)**
+- ✅ **Permission-based access control (NFT, Token, DAO, Enterprise)**
+- ✅ **Web3 session management and persistence**
 
 ## 🏗️ Test Architecture
 
@@ -40,14 +45,25 @@ The test suite validates 6 distinct package tiers with specific feature access:
 │   ├── middleware-validation.spec.ts         # Next.js middleware testing
 │   ├── trading-platform-security.spec.ts    # Financial data protection
 │   └── subscription-flows.spec.ts            # Tier management UX
+├── 🔗 Web3 Integration Tests (100% Coverage)
+│   ├── web3-wallet-comprehensive.spec.ts     # Complete wallet integration
+│   ├── web3-complete-coverage.spec.ts        # 100% coverage test suite
+│   ├── web3-authentication-flows.spec.ts     # SIWE and auth flows
+│   └── web3-coverage-setup.ts                # Coverage tracking setup
 ├── ⚡ Performance & Compatibility
 │   ├── performance-testing.spec.ts           # Tier-based performance
-│   └── mobile-cross-browser.spec.ts         # Multi-platform validation
+│   ├── mobile-cross-browser.spec.ts         # Multi-platform validation
+│   └── web3-auth-load-testing.spec.ts       # Web3 performance testing
 ├── 🛠️ Test Infrastructure
 │   ├── fixtures/user-fixtures.ts            # Comprehensive user data
 │   ├── utils/test-helpers.ts                # Testing utilities
 │   ├── config/test-config.ts                # Centralized configuration
-│   └── scripts/run-comprehensive-tests.sh   # Test execution orchestration
+│   ├── scripts/run-comprehensive-tests.sh   # Test execution orchestration
+│   └── scripts/run-web3-coverage.sh         # Web3 coverage runner
+├── 🧪 Unit & Integration Tests
+│   ├── unit/web3/                          # Web3 component unit tests
+│   ├── integration/web3/                    # Web3 integration tests
+│   └── performance/web3-auth-load-testing.spec.ts
 └── 📊 Global Setup
     └── e2e/global.setup.ts                  # Environment validation
 ```
@@ -102,6 +118,25 @@ npx playwright test performance-testing.spec.ts
 
 # Mobile & cross-browser
 npx playwright test mobile-cross-browser.spec.ts
+```
+
+### Run Web3 Test Suites (100% Coverage)
+
+```bash
+# Complete Web3 wallet coverage
+npm run test:web3:coverage
+
+# Individual Web3 test suites
+npm run test:web3              # Comprehensive wallet tests
+npm run test:web3:complete     # Complete coverage suite
+npm run test:web3:auth         # Authentication flows
+npm run test:web3:mobile       # Mobile wallet testing
+npm run test:web3:cross-browser # Cross-browser wallet testing
+
+# Or run directly with Playwright
+npx playwright test web3-wallet-comprehensive.spec.ts
+npx playwright test web3-complete-coverage.spec.ts
+npx playwright test web3-authentication-flows.spec.ts
 ```
 
 ### Run with Options

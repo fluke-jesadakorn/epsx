@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
+
 import { cn } from '@/lib/utils';
 
 interface PancakeCardProps {
@@ -13,6 +14,17 @@ interface PancakeCardProps {
   onClick?: () => void;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.children
+ * @param root0.className
+ * @param root0.variant
+ * @param root0.hover
+ * @param root0.glow
+ * @param root0.clickable
+ * @param root0.onClick
+ */
 export function PancakeCard({
   children,
   className,
@@ -113,6 +125,19 @@ interface PancakeStatsCardProps {
   error?: boolean;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.title
+ * @param root0.value
+ * @param root0.subtitle
+ * @param root0.icon
+ * @param root0.trend
+ * @param root0.trendValue
+ * @param root0.onClick
+ * @param root0.isLoading
+ * @param root0.error
+ */
 export function PancakeStatsCard({
   title,
   value,
@@ -164,38 +189,38 @@ export function PancakeStatsCard({
 
   // Map icons to colors for permissions-style theming
   const getIconColor = (iconStr: string) => {
-    if (iconStr.includes('🎯')) return 'text-yellow-500'
-    if (iconStr.includes('⚡')) return 'text-blue-500'
-    if (iconStr.includes('📈')) return 'text-green-500'
-    if (iconStr.includes('🔥')) return 'text-orange-500'
-    if (iconStr.includes('🧠')) return 'text-purple-500'
-    if (iconStr.includes('💾')) return 'text-gray-500'
+    if (iconStr.includes('🎯')) {return 'text-yellow-500'}
+    if (iconStr.includes('⚡')) {return 'text-blue-500'}
+    if (iconStr.includes('📈')) {return 'text-green-500'}
+    if (iconStr.includes('🔥')) {return 'text-orange-500'}
+    if (iconStr.includes('🧠')) {return 'text-purple-500'}
+    if (iconStr.includes('💾')) {return 'text-gray-500'}
     return 'text-blue-500'
   }
 
   const getStatusLabel = (iconStr: string) => {
-    if (iconStr.includes('🎯')) return 'Health'
-    if (iconStr.includes('⚡')) return 'Speed'
-    if (iconStr.includes('📈')) return 'Growth'
-    if (iconStr.includes('🔥')) return 'Activity'
-    if (iconStr.includes('🧠')) return 'AI'
-    if (iconStr.includes('💾')) return 'Memory'
+    if (iconStr.includes('🎯')) {return 'Health'}
+    if (iconStr.includes('⚡')) {return 'Speed'}
+    if (iconStr.includes('📈')) {return 'Growth'}
+    if (iconStr.includes('🔥')) {return 'Activity'}
+    if (iconStr.includes('🧠')) {return 'AI'}
+    if (iconStr.includes('💾')) {return 'Memory'}
     return 'Status'
   }
 
   const getBorderColor = (iconStr: string | undefined) => {
-    if (!iconStr) return 'border-blue-300 dark:border-blue-700'
-    if (iconStr.includes('🎯')) return 'border-yellow-300 dark:border-yellow-700'
-    if (iconStr.includes('⚡')) return 'border-blue-300 dark:border-blue-700'
-    if (iconStr.includes('📈')) return 'border-green-300 dark:border-green-700'
-    if (iconStr.includes('🔥')) return 'border-orange-300 dark:border-orange-700'
-    if (iconStr.includes('🧠')) return 'border-purple-300 dark:border-purple-700'
-    if (iconStr.includes('💾')) return 'border-gray-300 dark:border-gray-700'
+    if (!iconStr) {return 'border-blue-300 dark:border-blue-700'}
+    if (iconStr.includes('🎯')) {return 'border-yellow-300 dark:border-yellow-700'}
+    if (iconStr.includes('⚡')) {return 'border-blue-300 dark:border-blue-700'}
+    if (iconStr.includes('📈')) {return 'border-green-300 dark:border-green-700'}
+    if (iconStr.includes('🔥')) {return 'border-orange-300 dark:border-orange-700'}
+    if (iconStr.includes('🧠')) {return 'border-purple-300 dark:border-purple-700'}
+    if (iconStr.includes('💾')) {return 'border-gray-300 dark:border-gray-700'}
     return 'border-blue-300 dark:border-blue-700'
   }
 
   return (
-    <div className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl p-6 shadow-xl border-2 hover:shadow-2xl transition-shadow cursor-pointer ${getBorderColor(icon)}`} onClick={onClick}>
+    <div className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl p-6 shadow-xl border-2 hover:shadow-2xl cursor-pointer ${getBorderColor(icon)}`} onClick={onClick}>
       <div className="flex items-center justify-between mb-4">
         {icon && (
           <span className={`text-2xl ${getIconColor(icon)}`}>{icon}</span>
@@ -231,6 +256,16 @@ interface PancakeFeatureCardProps {
   children?: ReactNode;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.title
+ * @param root0.description
+ * @param root0.icon
+ * @param root0.badge
+ * @param root0.onClick
+ * @param root0.children
+ */
 export function PancakeFeatureCard({
   title,
   description,
@@ -288,6 +323,18 @@ interface PancakeUserCardProps {
   actions?: ReactNode;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.name
+ * @param root0.email
+ * @param root0.role
+ * @param root0.avatar
+ * @param root0.status
+ * @param root0.permissions
+ * @param root0.onClick
+ * @param root0.actions
+ */
 export function PancakeUserCard({
   name,
   email,
@@ -316,6 +363,7 @@ export function PancakeUserCard({
         <div className="flex items-center gap-4">
           <div className="relative">
             {avatar ? (
+              // eslint-disable-next-line @next/next/no-img-element -- External avatar URLs
               <img src={avatar} alt={name} className="w-12 h-12 rounded-full object-cover" />
             ) : (
               <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-yellow-400 rounded-full flex items-center justify-center text-white font-bold text-lg">

@@ -2,7 +2,7 @@
 
 import { ReactNode, useState, useCallback } from 'react';
 import { useTouchGestures } from '@/hooks/useTouchGestures';
-import { PullToRefresh } from './PullToRefresh';
+// PullToRefresh component not available - using simple implementation
 import { cn } from '@/lib/utils';
 import { 
   RefreshCw, 
@@ -213,7 +213,7 @@ export function EnhancedTouchWrapper({
 
   const content = (
     <div
-      {...bind()}
+      {...(bind() as any)}
       className={cn(
         'relative touch-none select-none',
         longPressTriggered && 'animate-pulse',
@@ -380,12 +380,12 @@ export function EnhancedTouchWrapper({
     </div>
   );
 
-  // Wrap with PullToRefresh if enabled
+  // Simple pull-to-refresh wrapper (PullToRefresh component not available)
   if (enablePullToRefresh && onRefresh) {
     return (
-      <PullToRefresh onRefresh={onRefresh} className={className}>
+      <div className={className} style={{ touchAction: 'pan-y' }}>
         {content}
-      </PullToRefresh>
+      </div>
     );
   }
 

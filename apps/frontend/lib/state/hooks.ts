@@ -74,7 +74,7 @@ export function useOptimisticState<T>(options: OptimisticStateOptions<T>) {
   const { initialState, key = 'optimistic', rollbackDelay = 5000 } = options;
   const [state, setState] = useState<T>(initialState);
   const [isOptimistic, setIsOptimistic] = useState(false);
-  const rollbackTimeoutRef = useRef<NodeJS.Timeout>();
+  const rollbackTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   const setOptimistic = useCallback(async (
     optimisticState: T,

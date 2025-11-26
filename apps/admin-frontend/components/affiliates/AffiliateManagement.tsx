@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+
 import { PancakeCard } from '@/components/ui/PancakeCard'
 
 export interface Affiliate {
@@ -31,6 +32,12 @@ interface AffiliateManagementProps {
   currentUser: any
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.affiliates
+ * @param root0.currentUser
+ */
 export function AffiliateManagement({ affiliates, currentUser }: AffiliateManagementProps) {
   const [selectedAffiliate, setSelectedAffiliate] = useState<Affiliate | null>(null)
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'pending' | 'inactive'>('all')
@@ -77,10 +84,10 @@ export function AffiliateManagement({ affiliates, currentUser }: AffiliateManage
   }
 
   const getPerformanceRating = (conversionRate: number) => {
-    if (conversionRate >= 20) return { rating: 'Excellent', color: 'text-green-600 dark:text-green-400' }
-    if (conversionRate >= 15) return { rating: 'Great', color: 'text-blue-600 dark:text-blue-400' }
-    if (conversionRate >= 10) return { rating: 'Good', color: 'text-yellow-600 dark:text-yellow-400' }
-    if (conversionRate > 0) return { rating: 'Average', color: 'text-orange-600 dark:text-orange-400' }
+    if (conversionRate >= 20) {return { rating: 'Excellent', color: 'text-green-600 dark:text-green-400' }}
+    if (conversionRate >= 15) {return { rating: 'Great', color: 'text-blue-600 dark:text-blue-400' }}
+    if (conversionRate >= 10) {return { rating: 'Good', color: 'text-yellow-600 dark:text-yellow-400' }}
+    if (conversionRate > 0) {return { rating: 'Average', color: 'text-orange-600 dark:text-orange-400' }}
     return { rating: 'New', color: 'text-gray-600 dark:text-gray-400' }
   }
 

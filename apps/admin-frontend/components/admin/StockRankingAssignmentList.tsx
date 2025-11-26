@@ -1,11 +1,20 @@
 'use client';
 
-import {
-  PackageTier,
-  StockRankingPackageAssignment,
-} from '@/types';
 import { useEffect, useState } from 'react';
-import { adminCardVariants, adminButtonVariants, adminBadgeVariants, cn } from '@/design-system';
+
+import { adminCardVariants, adminButtonVariants, adminBadgeVariants } from '@/design-system';
+import { cn } from '@/lib/utils';
+
+enum PackageTier {
+  FREE = 'free',
+  BRONZE = 'bronze', 
+  SILVER = 'silver',
+  GOLD = 'gold',
+  PLATINUM = 'platinum',
+  ENTERPRISE = 'enterprise',
+  PREMIUM = 'premium'
+}
+type StockRankingPackageAssignment = any;
 
 interface User {
   id: string;
@@ -21,6 +30,11 @@ interface StockRankingAssignmentListProps {
   refreshTrigger?: number;
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.refreshTrigger
+ */
 export default function StockRankingAssignmentList({
   refreshTrigger,
 }: StockRankingAssignmentListProps) {
@@ -44,9 +58,10 @@ export default function StockRankingAssignmentList({
   const loadAssignments = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/v1/admin/stock-ranking/assignments');
+      const response = await fetch('/api/admin/stock-ranking/assignments');
       
       if (!response.ok) {
+        // eslint-disable-next-line no-console
         console.error('Assignment API error:', response.status, response.statusText);
         setAssignments([]);
         return;
@@ -54,6 +69,7 @@ export default function StockRankingAssignmentList({
       
       const contentType = response.headers.get('content-type');
       if (!contentType?.includes('application/json')) {
+        // eslint-disable-next-line no-console
         console.error('Invalid response type:', contentType);
         setAssignments([]);
         return;
@@ -61,8 +77,9 @@ export default function StockRankingAssignmentList({
       
       const data = await response.json();
       setAssignments(data.assignments || []);
-    } catch (error) {
-      console.error('Failed to load assignments:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to load assignments:', _error);
       setAssignments([]);
     } finally {
       setIsLoading(false);
@@ -76,7 +93,7 @@ export default function StockRankingAssignmentList({
 
     try {
       const response = await fetch(
-        `/api/v1/admin/stock-ranking/assignments/${assignmentId}/revoke`,
+        `/api/admin/stock-ranking/assignments/${assignmentId}/revoke`,
         {
           method: 'POST',
         }
@@ -88,8 +105,9 @@ export default function StockRankingAssignmentList({
       } else {
         throw new Error('Failed to revoke assignment');
       }
-    } catch (error) {
-      console.error('Error revoking assignment:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Error revoking assignment:', _error);
       alert('Failed to revoke assignment');
     }
   };
@@ -100,7 +118,7 @@ export default function StockRankingAssignmentList({
   ) => {
     try {
       const response = await fetch(
-        `/api/v1/admin/stock-ranking/assignments/${assignmentId}/extend`,
+        `/api/admin/stock-ranking/assignments/${assignmentId}/extend`,
         {
           method: 'POST',
           headers: {
@@ -118,8 +136,9 @@ export default function StockRankingAssignmentList({
       } else {
         throw new Error('Failed to extend assignment');
       }
-    } catch (error) {
-      console.error('Error extending assignment:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Error extending assignment:', _error);
       alert('Failed to extend assignment');
     }
   };
@@ -187,13 +206,14 @@ export default function StockRankingAssignmentList({
       [PackageTier.GOLD]: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300',
       [PackageTier.PLATINUM]: 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300',
       [PackageTier.ENTERPRISE]: 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300',
+      [PackageTier.PREMIUM]: 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300',
     };
 
     return colors[tier] || 'bg-muted text-muted-foreground';
   };
 
   const isExpiringSoon = (assignment: AssignmentWithUser) => {
-    if (!assignment.expiresAt) return false;
+    if (!assignment.expiresAt) {return false;}
     const expirationDate = new Date(assignment.expiresAt);
     const now = new Date();
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);

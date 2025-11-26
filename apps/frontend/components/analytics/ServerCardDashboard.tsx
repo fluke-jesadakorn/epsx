@@ -1,8 +1,9 @@
 import {
   getAnalyticsData,
+  getPortfolioData,
   type EPSQueryParams,
   type SymbolCardData,
-} from '@/lib/server-data';
+} from '@/lib/unified-server-data';
 import { Suspense } from 'react';
 import ServerFilters from './ServerFilters';
 import ServerPagination from './ServerPagination';
@@ -19,6 +20,7 @@ interface ServerCardDashboardProps {
     showFilters?: string;
     search?: string;
   };
+  isPortfolio?: boolean;
 }
 
 function parseSearchParams(
@@ -40,17 +42,13 @@ function parseSearchParams(
   };
 }
 
-const formatCurrency = (value: number) => {
+const _formatCurrency = (value: number, currency: string = 'USD') => {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
+    currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
-};
-
-const formatPercentage = (value: number) => {
-  return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
 };
 
 const SymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
@@ -61,10 +59,10 @@ const SymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
     return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
   };
 
-  const formatCurrency = (value: number) => {
+  const formatCurrencyLocal = (value: number, currency: string = 'USD') => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);
@@ -211,7 +209,7 @@ const SymbolCard = ({ cardData }: { cardData: SymbolCardData }) => {
               <span className="text-sm font-medium text-slate-600 dark:text-slate-400">Price</span>
             </div>
             <div className="text-center text-base leading-tight font-bold text-slate-800 dark:text-slate-200 sm:text-xl">
-              {formatCurrency(latestQuarter?.price || 0)}
+              {formatCurrencyLocal(latestQuarter?.price || 0, cardData.currency)}
             </div>
           </div>
         </div>
@@ -225,10 +223,10 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
     return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
   };
 
-  const formatCurrency = (value: number) => {
+  const formatCurrencyTop5 = (value: number, currency: string = 'USD') => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);
@@ -251,7 +249,7 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
     return { avgGrowth, activeCount, totalValue };
   };
 
-  const insights = getLeaderInsights(top5Data);
+  const _insights = getLeaderInsights(top5Data);
 
   return (
     <div className="mb-8">
@@ -512,7 +510,7 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
                       </div>
                     </div>
                     <div className="mb-2 text-center text-lg leading-tight font-black text-slate-800 dark:text-slate-200 sm:text-2xl">
-                      {formatCurrency(latestQuarter?.price || 0)}
+                      {formatCurrencyTop5(latestQuarter?.price || 0, cardData.currency)}
                     </div>
                     <div className="h-px flex-shrink-0 bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-500 to-transparent"></div>
                   </div>
@@ -526,8 +524,16 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
   );
 };
 
-async function CardGrid({ params }: { params: EPSQueryParams }) {
-  const data = await getAnalyticsData(params);
+async function CardGrid({ params, isPortfolio }: { params: EPSQueryParams; isPortfolio?: boolean }) {
+  // On the first page, fetch extra items to account for Top 5 special section
+  const adjustedParams = {
+    ...params,
+    limit: params.page === 1 ? params.limit + 5 : params.limit
+  };
+  
+  const data = isPortfolio 
+    ? await getPortfolioData(adjustedParams)
+    : await getAnalyticsData(adjustedParams);
 
   if (!data || !data.rankings || data.rankings.length === 0) {
     return (
@@ -536,6 +542,7 @@ async function CardGrid({ params }: { params: EPSQueryParams }) {
       </div>
     );
   }
+
 
   const isFirstPage = params.page === 1;
   const hasTopRanks = data.rankings.some(card => card.rank <= 5);
@@ -561,7 +568,12 @@ async function CardGrid({ params }: { params: EPSQueryParams }) {
       {data.pagination && data.pagination.totalPages > 1 && (
         <div className="mt-8">
           <ServerPagination
-            pagination={data.pagination}
+            pagination={{
+              ...data.pagination,
+              // Adjust pagination for original limit, not the adjusted one
+              limit: params.limit,
+              totalPages: Math.ceil(data.pagination.total / params.limit)
+            }}
             currentParams={new URLSearchParams({
               page: String(params.page),
               limit: String(params.limit),
@@ -618,6 +630,7 @@ function LoadingGrid() {
 
 export default async function ServerCardDashboard({
   searchParams,
+  isPortfolio,
 }: ServerCardDashboardProps) {
   const resolvedSearchParams = await searchParams;
   const params = parseSearchParams(resolvedSearchParams);
@@ -627,21 +640,22 @@ export default async function ServerCardDashboard({
   return (
     <div className="space-y-6">
 
-      {/* Filters - Show by default but not permanently adjustable */}
-      <Suspense
-        fallback={
-          <div className="text-slate-600 dark:text-slate-200">
-            Loading filters...
-          </div>
-        }
-      >
-        <ServerFilters currentParams={params} />
-      </Suspense>
-
+      {/* Filters - Show conditionally based on showFilters parameter */}
+      {showFilters && (
+        <Suspense
+          fallback={
+            <div className="text-slate-600 dark:text-slate-200">
+              Loading filters...
+            </div>
+          }
+        >
+          <ServerFilters currentParams={params} />
+        </Suspense>
+      )}
 
       {/* Cards grid */}
       <Suspense fallback={<LoadingGrid />}>
-        <CardGrid params={params} />
+        <CardGrid params={params} isPortfolio={isPortfolio} />
       </Suspense>
     </div>
   );

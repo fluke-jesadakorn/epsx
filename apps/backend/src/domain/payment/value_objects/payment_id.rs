@@ -1,6 +1,7 @@
 use std::fmt::{self, Display};
 use uuid::Uuid;
 use serde::{Serialize, Deserialize};
+use crate::domain::shared_kernel::aggregate_root::Identity;
 
 /// Payment ID Value Object
 /// Unique identifier for payments with validation and formatting
@@ -78,6 +79,24 @@ impl std::str::FromStr for PaymentId {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Self::from_string(s)
+    }
+}
+
+impl Identity for PaymentId {
+    fn new() -> Self {
+        Self::generate()
+    }
+
+    fn from_uuid(uuid: Uuid) -> Self {
+        Self::from_uuid(uuid)
+    }
+
+    fn to_uuid(&self) -> Uuid {
+        self.value
+    }
+
+    fn to_string(&self) -> String {
+        self.value.to_string()
     }
 }
 

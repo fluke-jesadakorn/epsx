@@ -11,13 +11,14 @@ pub trait EPSRepository: Send + Sync {
     async fn store_eps_data(&self, eps_data: EPSGrowthData) -> Result<(), AppError>;
     async fn get_rankings_filtered(
         &self,
+        rank_offset: i32,  // Minimum accessible rank
         country: Option<String>,
         sector: Option<String>,
         sort_by: Option<String>,
         page: i32,
         limit: i32,
     ) -> Result<Vec<EPSRanking>, AppError>;
-    async fn get_total_count(&self, country: Option<String>, sector: Option<String>) -> Result<i64, AppError>;
+    async fn get_total_count(&self, rank_offset: i32, country: Option<String>, sector: Option<String>) -> Result<i64, AppError>;
     async fn batch_store_eps_data(&self, eps_data_list: Vec<EPSGrowthData>) -> Result<usize, AppError>;
     async fn get_countries(&self) -> Result<Vec<String>, AppError>;
     async fn get_sectors_by_country(&self, country: Option<String>) -> Result<Vec<String>, AppError>;
@@ -38,6 +39,7 @@ pub struct EPSRankingParams {
     pub limit: i32,
     pub min_eps: Option<f64>,
     pub min_growth: Option<f64>,
+    pub rank_offset: i32,  // Minimum accessible rank (from permissions)
 }
 
 impl Default for EPSRankingParams {
@@ -50,6 +52,7 @@ impl Default for EPSRankingParams {
             limit: 50,
             min_eps: None,
             min_growth: None,
+            rank_offset: 100,  // Default: free tier
         }
     }
 }
@@ -60,24 +63,24 @@ pub struct CountryValidator;
 impl CountryValidator {
     /// Valid countries from MarketCountry enum
     const VALID_COUNTRIES: &'static [&'static str] = &[
-        "america", "argentina", "australia", "austria", "bahrain", "bangladesh", 
-        "belgium", "brazil", "canada", "chile", "china", "colombia", "cyprus", 
-        "czech", "denmark", "egypt", "estonia", "finland", "france", "germany", 
-        "greece", "hongkong", "hungary", "iceland", "india", "indonesia", 
-        "ireland", "israel", "italy", "japan", "kenya", "kuwait", "latvia", 
-        "lithuania", "luxembourg", "malaysia", "mexico", "morocco", "netherlands", 
-        "newzealand", "nigeria", "norway", "pakistan", "peru", "philippines", 
-        "poland", "portugal", "qatar", "romania", "russia", "ksa", "serbia", 
-        "singapore", "slovakia", "rsa", "korea", "spain", "srilanka", "sweden", 
-        "switzerland", "taiwan", "thailand", "tunisia", "turkey", "uae", "uk", 
+        "america", "argentina", "australia", "austria", "bahrain", "bangladesh",
+        "belgium", "brazil", "canada", "chile", "china", "colombia", "cyprus",
+        "czech", "denmark", "egypt", "estonia", "finland", "france", "germany",
+        "greece", "hongkong", "hungary", "iceland", "india", "indonesia",
+        "ireland", "israel", "italy", "japan", "kenya", "kuwait", "latvia",
+        "lithuania", "luxembourg", "malaysia", "mexico", "morocco", "netherlands",
+        "newzealand", "nigeria", "norway", "pakistan", "peru", "philippines",
+        "poland", "portugal", "qatar", "romania", "russia", "ksa", "serbia",
+        "singapore", "slovakia", "rsa", "korea", "spain", "srilanka", "sweden",
+        "switzerland", "taiwan", "thailand", "tunisia", "turkey", "uae", "uk",
         "venezuela", "vietnam"
     ];
 
     pub fn validate_country(country: &str) -> Result<String, String> {
         debug!("Validating country filter: {}", country);
-        
+
         let normalized = country.to_lowercase();
-        
+
         if Self::VALID_COUNTRIES.contains(&normalized.as_str()) {
             debug!("Country validation passed: {}", country);
             Ok(normalized)
@@ -89,6 +92,39 @@ impl CountryValidator {
 
     pub fn get_valid_countries() -> Vec<String> {
         Self::VALID_COUNTRIES.iter().map(|&s| s.to_string()).collect()
+    }
+}
+
+/// Permission parser for extracting rank offset from permissions
+pub struct PermissionParser;
+
+impl PermissionParser {
+    /// Extract minimum rank offset from permissions
+    /// Format: "epsx:rankings:offset:{number}"
+    /// Returns the LOWEST offset = best access
+    pub fn extract_rank_offset(permissions: &[String]) -> i32 {
+        debug!("Extracting rank offset from {} permissions", permissions.len());
+
+        let offset = permissions
+            .iter()
+            .filter_map(|perm| {
+                // Parse: "epsx:rankings:offset:50"
+                if perm.starts_with("epsx:rankings:offset:") {
+                    let parts: Vec<&str> = perm.split(':').collect();
+                    if parts.len() >= 4 {
+                        if let Ok(offset) = parts[3].parse::<i32>() {
+                            debug!("Found rank offset: {} from permission: {}", offset, perm);
+                            return Some(offset);
+                        }
+                    }
+                }
+                None
+            })
+            .min() // Take minimum = best access
+            .unwrap_or(100); // Default: free tier offset
+
+        info!("Calculated rank offset: {}", offset);
+        offset
     }
 }
 
@@ -116,11 +152,12 @@ impl EPSRankingService {
         let page = params.page.max(1);
         let limit = params.limit.clamp(1, 100); // Max 100 items per page
 
-        debug!("Validated params - Country: {:?}, Page: {}, Limit: {}", 
-               validated_country, page, limit);
+        debug!("Validated params - Country: {:?}, Page: {}, Limit: {}, Rank Offset: {}",
+               validated_country, page, limit, params.rank_offset);
 
-        // Get rankings from repository
+        // Get rankings from repository with rank offset enforcement
         let rankings = self.eps_repo.get_rankings_filtered(
+            params.rank_offset,  // SECURITY: Enforced minimum rank
             validated_country.clone(),
             params.sector.clone(),
             params.sort_by.clone(),
@@ -128,11 +165,11 @@ impl EPSRankingService {
             limit,
         ).await?;
 
-        debug!("Found {} rankings from repository", rankings.len());
+        debug!("Found {} rankings from repository (offset: {})", rankings.len(), params.rank_offset);
 
-        // Get total count for pagination
-        let total_count = self.eps_repo.get_total_count(validated_country.clone(), params.sector.clone()).await?;
-        debug!("Total count for pagination: {}", total_count);
+        // Get total count for pagination (from offset onwards)
+        let total_count = self.eps_repo.get_total_count(params.rank_offset, validated_country.clone(), params.sector.clone()).await?;
+        debug!("Total count for pagination: {} (from rank {} onwards)", total_count, params.rank_offset);
 
         // Create pagination info
         let pagination = EPSPagination::new(page, limit, total_count);
@@ -264,9 +301,9 @@ impl EPSRankingService {
             None
         };
 
-        let count = self.eps_repo.get_total_count(validated_country, params.sector.clone()).await?;
-        debug!("Total count for parameters: {}", count);
-        
+        let count = self.eps_repo.get_total_count(params.rank_offset, validated_country, params.sector.clone()).await?;
+        debug!("Total count for parameters: {} (from rank {} onwards)", count, params.rank_offset);
+
         Ok(count)
     }
 
@@ -301,13 +338,13 @@ impl EPSRankingService {
 
         // Validate numeric filters
         if let Some(min_eps) = params.min_eps {
-            if min_eps < -1000.0 || min_eps > 1000.0 {
+            if !(-1000.0..=1000.0).contains(&min_eps) {
                 return Err(AppError::new(crate::core::errors::ErrorKind::ValidationError, "min_eps must be between -1000 and 1000"));
             }
         }
 
         if let Some(min_growth) = params.min_growth {
-            if min_growth < -500.0 || min_growth > 1000.0 {
+            if !(-500.0..=1000.0).contains(&min_growth) {
                 return Err(AppError::new(crate::core::errors::ErrorKind::ValidationError, "min_growth must be between -500 and 1000"));
             }
         }

@@ -11,9 +11,7 @@ use uuid::Uuid;
 use crate::auth::permissions::PermissionError;
 
 /// Dynamic policy evaluation engine
-pub struct PolicyEngine {
-    disabled: bool,
-}
+pub struct PolicyEngine;
 
 /// Dynamic policy definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -115,7 +113,7 @@ pub enum LogicalOperator {
 /// Policy evaluation context
 #[derive(Debug, Clone)]
 pub struct PolicyEvaluationContext {
-    pub user_id: String,
+    pub wallet_address: String,
     pub user_email: String,
     pub action: String,
     pub resource: Option<HashMap<String, serde_json::Value>>,
@@ -164,9 +162,7 @@ pub struct PolicyTemplate {
 impl PolicyEngine {
     /// Create new policy engine
     pub fn new() -> Self {
-        Self {
-            disabled: true,
-        }
+        Self
     }
 
     /// DISABLED: Evaluate user action against all active policies

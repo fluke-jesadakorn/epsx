@@ -1,4 +1,6 @@
-use std::collections::HashMap;use chrono::{DateTime, Utc};// Enhanced error handling system with context and correlation
+use std::collections::HashMap;
+use chrono::{DateTime, Utc};
+// Enhanced unified error handling system with context and correlation
 
 use serde::{Serialize, Deserialize};
 use std::fmt::{Debug, Display, Formatter};
@@ -17,7 +19,7 @@ pub struct AppError {
     /// Human-readable error message
     pub message: String,
     /// Additional error context
-    pub context: ErrorContext,
+    pub context: Box<ErrorContext>,
     /// Correlation ID for distributed tracing
     pub correlation_id: String,
     /// When the error occurred
@@ -84,7 +86,7 @@ impl Display for ErrorKind {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ErrorContext {
     /// User ID if available
-    pub user_id: Option<String>,
+    pub wallet_address: Option<String>,
     /// Request ID for tracing
     pub request_id: Option<String>,
     /// Operation being performed
@@ -100,7 +102,7 @@ impl AppError {
         Self {
             kind,
             message: message.into(),
-            context: ErrorContext::default(),
+            context: Box::new(ErrorContext::default()),
             correlation_id: Uuid::new_v4().to_string(),
             timestamp: Utc::now(),
             stack_trace: None,
@@ -113,6 +115,10 @@ impl AppError {
     }
 
     pub fn unauthorized(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::AuthenticationError, message)
+    }
+
+    pub fn forbidden(message: impl Into<String>) -> Self {
         Self::new(ErrorKind::AuthorizationError, message)
     }
 
@@ -159,9 +165,25 @@ impl AppError {
     pub fn cache_error(message: impl Into<String>) -> Self {
         Self::new(ErrorKind::ExternalServiceError, message)
     }
+
+    pub fn conflict(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::ConcurrencyConflict, message)
+    }
+
+    pub fn entity_not_found(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::AggregateNotFound, message)
+    }
+
+    pub fn invalid_operation(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::BusinessRuleViolation, message)
+    }
+
+    pub fn blockchain_rpc_error(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::ExternalServiceError, message)
+    }
     
     pub fn with_context(mut self, context: ErrorContext) -> Self {
-        self.context = context;
+        self.context = Box::new(context);
         self
     }
     
@@ -172,6 +194,16 @@ impl AppError {
     
     pub fn with_stack_trace(mut self, stack_trace: String) -> Self {
         self.stack_trace = Some(stack_trace);
+        self
+    }
+    
+    pub fn with_component(mut self, component: impl Into<String>) -> Self {
+        self.context.service = component.into();
+        self
+    }
+    
+    pub fn with_operation(mut self, operation: impl Into<String>) -> Self {
+        self.context.operation = operation.into();
         self
     }
     
@@ -225,10 +257,140 @@ impl IntoResponse for AppError {
     }
 }
 
+// Unified error conversions - standardize all domain errors to AppError
+impl From<crate::application::shared::error::ApplicationError> for AppError {
+    fn from(err: crate::application::shared::error::ApplicationError) -> Self {
+        use crate::application::shared::error::ApplicationError;
+        match err {
+            ApplicationError::Validation { field, message } => 
+                AppError::validation_error(format!("Validation failed for {}: {}", field, message)),
+            ApplicationError::Authorization { action } => 
+                AppError::unauthorized(format!("Authorization failed: {} not allowed", action)),
+            ApplicationError::Domain(domain_err) => 
+                AppError::business_rule_violation(domain_err.to_string()),
+            ApplicationError::NotFound { resource_type, id } => 
+                AppError::not_found(format!("{} with id {} not found", resource_type, id)),
+            ApplicationError::Infrastructure { message } => 
+                AppError::external_service_error(message),
+            ApplicationError::Conflict { resource } => 
+                AppError::conflict(format!("Conflict: {} already exists", resource)),
+            ApplicationError::ExternalService { service, message } => 
+                AppError::external_service_error(format!("{}: {}", service, message)),
+            ApplicationError::Concurrency { message } => 
+                AppError::conflict(format!("Concurrency error: {}", message)),
+            ApplicationError::BusinessRule { rule } => 
+                AppError::business_rule_violation(format!("Business rule violation: {}", rule)),
+            ApplicationError::NotImplemented { feature } => 
+                AppError::internal_error(format!("Feature not implemented: {}", feature)),
+            ApplicationError::BusinessLogic { message } => 
+                AppError::business_rule_violation(format!("Business logic error: {}", message)),
+            ApplicationError::Security { message } => 
+                AppError::unauthorized(format!("Security error: {}", message)),
+            ApplicationError::WalletAddress(wallet_err) =>
+                AppError::validation_error(format!("Invalid wallet address: {}", wallet_err)),
+            ApplicationError::ValueObject(value_err) =>
+                AppError::validation_error(format!("Value object error: {}", value_err)),
+        }
+    }
+}
+
+impl From<crate::domain::shared_kernel::value_object::ValueObjectError> for AppError {
+    fn from(err: crate::domain::shared_kernel::value_object::ValueObjectError) -> Self {
+        use crate::domain::shared_kernel::value_object::ValueObjectError;
+        match err {
+            ValueObjectError::InvalidFormat(msg) => 
+                AppError::validation_error(format!("Invalid format: {}", msg)),
+            ValueObjectError::OutOfRange(msg) => 
+                AppError::validation_error(format!("Value out of range: {}", msg)),
+            ValueObjectError::Required(field) => 
+                AppError::validation_error(format!("Required field missing: {}", field)),
+            ValueObjectError::ValidationFailed(msg) => 
+                AppError::validation_error(format!("Validation failed: {}", msg)),
+        }
+    }
+}
+
+// Diesel error conversions for core::errors::AppError
+impl From<diesel::result::Error> for AppError {
+    fn from(err: diesel::result::Error) -> Self {
+        match err {
+            diesel::result::Error::NotFound => AppError::not_found("Record not found"),
+            diesel::result::Error::DatabaseError(_, info) => AppError::database_error(info.message().to_string()),
+            _ => AppError::database_error(format!("Database error: {}", err)),
+        }
+    }
+}
+
+// Deadpool error conversion for connection pool errors
+// Using the re-exported types from diesel_async
+impl From<diesel_async::pooled_connection::PoolError> for AppError {
+    fn from(err: diesel_async::pooled_connection::PoolError) -> Self {
+        AppError::database_error(format!("Connection pool error: {}", err))
+    }
+}
+
+// Additional domain-specific error conversions
+// Note: WalletAddressError -> AppError conversion is implemented in wallet_address.rs to avoid conflicts
+
+// Note: EPSError -> AppError conversion already exists in web::analytics::eps::errors
+// Removed duplicate implementation to avoid conflicts
+
+// Generic string error conversion (for cases where we're still using String errors)
+impl From<String> for AppError {
+    fn from(err: String) -> Self {
+        AppError::internal_error(err)
+    }
+}
+
+impl From<&str> for AppError {
+    fn from(err: &str) -> Self {
+        AppError::internal_error(err.to_string())
+    }
+}
+
+// Standard library error conversions
+impl From<std::io::Error> for AppError {
+    fn from(err: std::io::Error) -> Self {
+        AppError::external_service_error(format!("IO error: {}", err))
+    }
+}
+
+impl From<serde_json::Error> for AppError {
+    fn from(err: serde_json::Error) -> Self {
+        AppError::validation_error(format!("JSON parsing error: {}", err))
+    }
+}
+
+impl AppError {
+    pub fn business_rule_violation(message: impl Into<String>) -> Self {
+        Self::new(ErrorKind::BusinessRuleViolation, message)
+    }
+    
+    /// Create AppError with full context
+    pub fn with_full_context(
+        kind: ErrorKind,
+        message: impl Into<String>,
+        wallet_address: Option<String>,
+        request_id: Option<String>,
+        operation: impl Into<String>,
+        service: impl Into<String>,
+    ) -> Self {
+        let context = ErrorContext {
+            wallet_address,
+            request_id,
+            operation: operation.into(),
+            service: service.into(),
+            metadata: std::collections::HashMap::new(),
+        };
+        
+        Self::new(kind, message).with_context(context)
+    }
+}
+
 impl Default for ErrorContext {
     fn default() -> Self {
         Self {
-            user_id: None,
+            wallet_address: None,
             request_id: None,
             operation: "unknown".to_string(),
             service: "epsx".to_string(),
@@ -237,14 +399,34 @@ impl Default for ErrorContext {
     }
 }
 
+// ============================================================================
+// UNIFIED RESULT TYPES - Standardize all Result types to use AppError
+// ============================================================================
+
+/// Standard result type for all operations that can fail
+/// This replaces inconsistent Result<T, various_error_types> across the codebase
+pub type AppResult<T> = std::result::Result<T, AppError>;
+
+/// Result type for async operations
+pub type AsyncResult<T> = std::result::Result<T, AppError>;
+
+/// Result type for web/API handlers - all handlers should return this
+pub type ApiResult<T> = std::result::Result<T, AppError>;
+
+/// Result type for application layer operations
+pub type ApplicationResult<T> = std::result::Result<T, AppError>;
+
+/// Result type for infrastructure operations  
+pub type InfrastructureResult<T> = std::result::Result<T, AppError>;
+
+/// Convenience type alias for operations that don't return data
+pub type EmptyResult = AppResult<()>;
+
 /// Error recovery strategy trait
 #[async_trait::async_trait]
 pub trait ErrorRecovery<T>: Send + Sync {
-    async fn recover(&self, error: &AppError) -> Result<Option<T>, AppError>;
+    async fn recover(&self, error: &AppError) -> AppResult<Option<T>>;
 }
-
-/// Result type alias for convenience
-pub type AppResult<T> = Result<T, AppError>;
 
 /// Enhanced error context builder
 pub struct ErrorContextBuilder {
@@ -262,8 +444,8 @@ impl ErrorContextBuilder {
         }
     }
     
-    pub fn user_id(mut self, user_id: impl Into<String>) -> Self {
-        self.context.user_id = Some(user_id.into());
+    pub fn user_id(mut self, wallet_address: impl Into<String>) -> Self {
+        self.context.wallet_address = Some(wallet_address.into());
         self
     }
     
@@ -287,6 +469,12 @@ impl ErrorContextBuilder {
 pub struct ErrorCollection {
     pub errors: Vec<AppError>,
     pub summary: String,
+}
+
+impl Default for ErrorCollection {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl ErrorCollection {
@@ -340,7 +528,7 @@ impl ErrorLogger {
             correlation_id = %error.correlation_id,
             error_kind = %error.kind,
             timestamp = %error.timestamp,
-            user_id = ?error.context.user_id,
+            wallet_address = ?error.context.wallet_address,
             request_id = ?error.context.request_id,
             operation = %error.context.operation,
             service = %error.context.service,
@@ -354,7 +542,7 @@ impl ErrorLogger {
         tracing::warn!(
             correlation_id = %error.correlation_id,
             error_kind = %error.kind,
-            user_id = ?error.context.user_id,
+            wallet_address = ?error.context.wallet_address,
             operation = %error.context.operation,
             service = %error.context.service,
             "Warning: {}", error.message
@@ -395,11 +583,18 @@ impl ErrorSanitizer {
             r"\b\d{3,4}-\d{2}-\d{4}\b", // SSN pattern
             r"\b\d{4}[\s-]\d{4}[\s-]\d{4}[\s-]\d{4}\b", // Credit card pattern
         ];
-        
+
         let mut sanitized = message.to_string();
         for pattern in &sensitive_patterns {
-            let regex = regex::Regex::new(pattern).unwrap();
-            sanitized = regex.replace_all(&sanitized, "[REDACTED]").to_string();
+            match regex::Regex::new(pattern) {
+                Ok(regex) => {
+                    sanitized = regex.replace_all(&sanitized, "[REDACTED]").to_string();
+                }
+                Err(e) => {
+                    // This should never happen with hardcoded patterns, but log if it does
+                    tracing::warn!("Failed to compile sanitization regex {}: {}", pattern, e);
+                }
+            }
         }
         sanitized
     }
@@ -498,9 +693,9 @@ macro_rules! error_context {
     ($operation:expr, $service:expr) => {
         ErrorContextBuilder::new($operation, $service).build()
     };
-    ($operation:expr, $service:expr, user_id = $user_id:expr) => {
+    ($operation:expr, $service:expr, user_id = $wallet_address:expr) => {
         ErrorContextBuilder::new($operation, $service)
-            .user_id($user_id)
+            .wallet_address($user_id)
             .build()
     };
     ($operation:expr, $service:expr, request_id = $request_id:expr) => {
@@ -508,10 +703,35 @@ macro_rules! error_context {
             .request_id($request_id)
             .build()  
     };
-    ($operation:expr, $service:expr, user_id = $user_id:expr, request_id = $request_id:expr) => {
+    ($operation:expr, $service:expr, user_id = $wallet_address:expr, request_id = $request_id:expr) => {
         ErrorContextBuilder::new($operation, $service)
-            .user_id($user_id)
+            .wallet_address($user_id)
             .request_id($request_id)
             .build()
     };
+}
+
+// ============================================================================
+// WEB3 TYPES - Wallet validation and permission types for Web3-first architecture
+// ============================================================================
+
+/// Wallet validation types for Web3 authentication
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum WalletValidationType {
+    AddressFormat,
+    SignatureVerification, 
+    NonceValidation,
+    ChainMismatch,
+    InsufficientBalance,
+    ContractInteraction,
+}
+
+/// Web3 permission types for blockchain-based access control
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum Web3PermissionType {
+    Manual,
+    NftGated,
+    TokenGated,
+    DaoGovernance,
+    CrossChain,
 }

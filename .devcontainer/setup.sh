@@ -36,12 +36,7 @@ fi
 echo -e "${BLUE}🦀 Checking Rust environment in backend container...${NC}"
 if docker compose exec backend cargo --version &> /dev/null; then
     echo -e "${GREEN}✅ Rust available in backend container${NC}"
-    if docker compose exec backend diesel --version &> /dev/null; then
-        echo -e "${GREEN}✅ Diesel CLI available in backend container${NC}"
-    else
-        echo -e "${YELLOW}⚠️  Installing Diesel CLI in backend container...${NC}"
-        docker compose exec backend cargo install diesel_cli --no-default-features --features postgres
-    fi
+    echo -e "${GREEN}✅ Using SQLx for database operations${NC}"
 else
     echo -e "${YELLOW}⚠️  Backend container not available yet${NC}"
 fi
@@ -75,12 +70,12 @@ echo -e "${BLUE}🗄️  Setting up database...${NC}"
 if pg_isready -h database -p 5432 -U epsx_user 2>/dev/null; then
     echo -e "${GREEN}✅ Database is available${NC}"
     
-    # Run migrations via backend container
-    if [[ -d apps/backend/diesel_migrations ]]; then
+    # Run migrations via backend container using SQLx
+    if [[ -d apps/backend/migrations ]]; then
         echo -e "${BLUE}🔄 Running database migrations via backend container...${NC}"
         docker compose exec backend bash -c "
             cd /workspace/apps/backend && 
-            diesel migration run --database-url='postgresql://epsx_user:epsx_password@database:5432/epsx_db'
+            DATABASE_URL='postgresql://epsx_user:epsx_password@database:5432/epsx_db' cargo run --bin migrate up
         " || {
             echo -e "${YELLOW}⚠️  Migrations failed (expected on first run)${NC}"
         }
@@ -122,8 +117,8 @@ alias rs-fmt="docker compose exec backend bash -c 'cd /workspace/apps/backend &&
 alias rs-watch="docker compose exec backend bash -c 'cd /workspace/apps/backend && cargo watch -x run'"
 
 # Database aliases for container environment
-alias db-migrate="docker compose exec backend bash -c 'cd /workspace/apps/backend && diesel migration run'"
-alias db-reset="docker compose exec backend bash -c 'cd /workspace/apps/backend && diesel database reset'"
+alias db-migrate="docker compose exec backend bash -c 'cd /workspace/apps/backend && DATABASE_URL=\"postgresql://epsx_user:epsx_password@database:5432/epsx_db\" cargo run --bin migrate up'"
+alias db-status="docker compose exec backend bash -c 'cd /workspace/apps/backend && DATABASE_URL=\"postgresql://epsx_user:epsx_password@database:5432/epsx_db\" cargo run --bin migrate status'"
 alias psql-dev="docker compose exec database psql postgresql://epsx_user:epsx_password@localhost:5432/epsx_db"
 
 # Docker compose aliases for multi-service development

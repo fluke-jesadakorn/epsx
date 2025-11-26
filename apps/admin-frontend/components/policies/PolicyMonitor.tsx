@@ -1,10 +1,5 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
 import { 
   ActivityIcon, 
   ShieldIcon, 
@@ -22,6 +17,12 @@ import {
   TrendingDownIcon,
   ZapIcon,
 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
 
 interface PolicyEvaluation {
   id: string;
@@ -71,6 +72,9 @@ const DECISION_ICONS = {
   restricted_access: FilterIcon,
 };
 
+/**
+ *
+ */
 export default function PolicyMonitor() {
   const [liveEvaluations, setLiveEvaluations] = useState<PolicyEvaluation[]>([]);
   const [stats, setStats] = useState<PolicyStats | null>(null);
@@ -89,7 +93,7 @@ export default function PolicyMonitor() {
     }
     
     return () => {
-      if (interval) clearInterval(interval);
+      if (interval) {clearInterval(interval);}
     };
   }, [isLiveMode]);
 
@@ -100,8 +104,9 @@ export default function PolicyMonitor() {
         loadPolicyStats(),
         loadRecentEvaluations(),
       ]);
-    } catch (error) {
-      console.error('Error loading initial data:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Error loading initial data:', _error);
       toast({
         title: "Error",
         description: "Failed to load monitoring data",
@@ -114,13 +119,14 @@ export default function PolicyMonitor() {
 
   const loadPolicyStats = async () => {
     try {
-      const response = await fetch('/api/v1/admin/policies/stats');
+      const response = await fetch('/api/admin/policies/stats');
       if (response.ok) {
         const data = await response.json();
         setStats(data.stats);
       }
-    } catch (error) {
-      console.error('Error loading policy stats:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Error loading policy stats:', _error);
     }
   };
 
@@ -164,8 +170,9 @@ export default function PolicyMonitor() {
       ];
       
       setLiveEvaluations(mockEvaluations);
-    } catch (error) {
-      console.error('Error loading recent evaluations:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Error loading recent evaluations:', _error);
     }
   };
 
@@ -189,8 +196,9 @@ export default function PolicyMonitor() {
       }
       
       setLastUpdate(new Date());
-    } catch (error) {
-      console.error('Error refreshing live data:', error);
+    } catch (_error) {
+      // eslint-disable-next-line no-console
+      console.error('Error refreshing live data:', _error);
     }
   };
 
@@ -209,9 +217,9 @@ export default function PolicyMonitor() {
     const Icon = DECISION_ICONS[decision as keyof typeof DECISION_ICONS] || ActivityIcon;
     
     let variant: "default" | "destructive" | "outline" | "secondary" = "outline";
-    if (decision === 'allow') variant = 'default';
-    if (decision === 'deny') variant = 'destructive';
-    if (decision === 'require_mfa') variant = 'secondary';
+    if (decision === 'allow') {variant = 'default';}
+    if (decision === 'deny') {variant = 'destructive';}
+    if (decision === 'require_mfa') {variant = 'secondary';}
     
     return (
       <Badge variant={variant} className="flex items-center gap-1 text-xs">

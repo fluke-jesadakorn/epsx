@@ -3,23 +3,20 @@
 // It has no dependencies on external concerns (infrastructure, application, web layers)
 
 pub mod shared_kernel;
-pub mod user_management;
+pub mod wallet_management; // Web3-first: wallet-based user management
+pub mod permission_management; // Permission groups, policies, and assignments
+pub mod subscription_management; // Plans, subscriptions, and billing
 pub mod trading_analytics;
 pub mod notification;
-pub mod payment;
-pub mod authentication;
-pub mod authorization;
-pub mod session_management;
+
 pub mod realtime_events;
 pub mod resource_management; // New domain for resource tracking and billing
 
 // Re-export shared kernel for easy access
 pub use shared_kernel::{
-    AggregateRoot, 
-    DomainEvent, 
-    DomainEventBus, 
-    Specification, 
-    ValueObject, 
-    DomainError,
-    DomainResult
+  AggregateRoot,
+  DomainEvent,
+  DomainEventBus,
+  Specification,
+  ValueObject,
 };

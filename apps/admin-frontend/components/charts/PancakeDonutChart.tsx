@@ -15,6 +15,7 @@ import {
   Legend,
   TooltipProps
 } from 'recharts'
+
 import { PancakeSwapColors, getChartColor, getThemeColors } from './chartColors'
 import { ChartContainer } from './ChartContainer'
 
@@ -52,8 +53,8 @@ const CustomTooltip = ({
   active, 
   payload, 
   formatTooltip 
-}: TooltipProps<any, any> & { formatTooltip?: (value: any, name: string) => [string, string] }) => {
-  if (!active || !payload || !payload.length) return null
+}: any) => {
+  if (!active || !payload?.length) {return null}
 
   const data = payload[0]
   const [formattedValue, formattedName] = formatTooltip 
@@ -105,6 +106,30 @@ const renderCustomLabel = (entry: any, formatLabel?: (entry: DataPoint) => strin
   )
 }
 
+/**
+ *
+ * @param root0
+ * @param root0.data
+ * @param root0.title
+ * @param root0.subtitle
+ * @param root0.height
+ * @param root0.showTooltip
+ * @param root0.showLegend
+ * @param root0.innerRadius
+ * @param root0.outerRadius
+ * @param root0.showLabels
+ * @param root0.showValues
+ * @param root0.formatTooltip
+ * @param root0.formatLabel
+ * @param root0.className
+ * @param root0.variant
+ * @param root0.showLiveDot
+ * @param root0.isDark
+ * @param root0.customColors
+ * @param root0.centerContent
+ * @param root0.animationBegin
+ * @param root0.animationDuration
+ */
 export function PancakeDonutChart({
   data,
   title,

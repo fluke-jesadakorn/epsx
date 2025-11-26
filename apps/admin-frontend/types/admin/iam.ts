@@ -1,8 +1,11 @@
 // IAM Types for AWS-style permission system
-import { PermissionSource } from '@/shared/permissions/types'
+import { PermissionSource } from '../../../../shared/types/domain/Permission'
+import { PermissionGroup } from '../../../../shared/types/domain/User'
 
 export interface UserWithPermissions extends User {
-  packageTier: PackageTier;
+  permissionGroup: PermissionGroup;
+  // @deprecated Use permissionGroup instead
+  packageTier?: PackageTier;
   customPermissions: CustomPermission[];
   effectivePermissions: EffectivePermission[];
   packagePermissions: PackagePermission[];
@@ -22,6 +25,15 @@ export interface CustomPermission {
   isActive: boolean;
 }
 
+export interface PermissionGroupPermission {
+  id: string;
+  permissionGroup: PermissionGroup;
+  featureId: string;
+  permission: Permission;
+  isDefault: boolean;
+}
+
+/** @deprecated Use PermissionGroupPermission instead */
 export interface PackagePermission {
   id: string;
   packageTier: PackageTier;
@@ -42,6 +54,7 @@ export interface EffectivePermission {
 
 // PermissionSource imported from shared system
 
+/** @deprecated Use PermissionGroup from shared types instead */
 export enum PackageTier {
   FREE = 'free',
   BRONZE = 'bronze',
@@ -92,6 +105,8 @@ export interface Feature {
   description: string;
   category: FeatureCategory;
   permissions: Permission[];
+  requiredPermissionGroup?: PermissionGroup;
+  // @deprecated Use requiredPermissionGroup instead
   requiredTier?: PackageTier;
   isAdmin?: boolean;
 }
