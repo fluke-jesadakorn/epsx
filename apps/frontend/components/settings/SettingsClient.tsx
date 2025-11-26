@@ -69,8 +69,13 @@ export function SettingsClient() {
   };
 
   const handleSignOut = async () => {
-    // Redirect to Web3 logout endpoint
-    router.push('/auth/logout');
+    // Call logout from auth provider
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
   };
 
   const updateNotificationPrefs = async (prefs: NotificationPreferences) => {

@@ -343,7 +343,7 @@ impl PermissionGroupRepositoryPort for PermissionGroupRepositoryAdapter {
         .map_err(|e| AppError::database_error(e.to_string()))?;
 
         let total_members: i64 = sqlx::query_scalar(
-            "SELECT COUNT(DISTINCT wallet_address) FROM wallet_group_assignments"
+            "SELECT COUNT(DISTINCT wallet_address) FROM wallet_group_memberships"
         )
         .fetch_one(self.db_pool.as_ref())
         .await

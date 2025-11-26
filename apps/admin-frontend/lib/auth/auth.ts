@@ -60,22 +60,22 @@ export interface AuthenticationResult {
 export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | null> {
   try {
     const cookieStore = await cookies();
-    
-    // Use EPSX cookie naming convention for admin authentication
-    const walletAddress = cookieStore.get('epsx.admin.user')?.value;
+
+    // Use unified EPSX cookie naming (no context separation)
+    const walletAddress = cookieStore.get('epsx.user')?.value;
     // Note: signature and other auth data are HttpOnly and handled by backend
     // We can extract user info from the user cookie
-    
+
     if (!walletAddress) {
       return null;
     }
-    
+
     // Parse user data from cookie
     let userData = null;
     try {
       userData = JSON.parse(decodeURIComponent(walletAddress));
     } catch (parseError) {
-      console.warn('Failed to parse admin user cookie:', parseError);
+      console.warn('Failed to parse user cookie:', parseError);
       return null;
     }
     
@@ -87,23 +87,15 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
       nonce: '',     // Not accessible (HttpOnly)
       chainId: 56,    // BSC Mainnet - default for consistency
       expiresAt: userData.auth_time ? parseInt(userData.auth_time) + 86400000 : now + 3600000, // 24 hours default
-    
-    const sessionData: Web3SessionData = {
-      walletAddress,
-      signature,
-      message,
-      nonce,
-      chainId: parseInt(chainId, 10),
-      expiresAt: parseInt(expiresAt, 10)
     };
-    
+
     // Check if session has expired using new expiresAt calculation
     if (Date.now() > sessionData.expiresAt) {
       console.warn('Admin session expired, clearing...');
       await clearWeb3Session();
       return null;
     }
-    
+
     return sessionData;
     
   } catch (_error) {
@@ -119,12 +111,12 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
  */
 export async function validateWeb3Session(_sessionData: Web3SessionData): Promise<Web3AdminUser | null> {
   try {
-    // Note: Since we don't have access to signature and message (HttpOnly), 
+    // Note: Since we don't have access to signature and message (HttpOnly),
     // we'll rely on the backend validation through HttpOnly cookies
     // Create basic Web3AdminUser from available data
     const cookieStore = await cookies();
-    const userCookie = cookieStore.get('epsx.admin.user')?.value;
-    
+    const userCookie = cookieStore.get('epsx.user')?.value;
+
     if (!userCookie) {
       return null;
     }
@@ -133,7 +125,7 @@ export async function validateWeb3Session(_sessionData: Web3SessionData): Promis
     try {
       userData = JSON.parse(decodeURIComponent(userCookie));
     } catch (parseError) {
-      console.warn('Failed to parse admin user cookie:', parseError);
+      console.warn('Failed to parse user cookie:', parseError);
       return null;
     }
 
@@ -174,15 +166,15 @@ export async function setWeb3Session(sessionData: Web3SessionData): Promise<void
 
   // Note: sessionData only contains accessible data
   // HttpOnly auth cookies are set by backend during authentication
-  
-  cookieStore.set('epsx.admin.user', JSON.stringify({
+
+  cookieStore.set('epsx.user', JSON.stringify({
     wallet_address: sessionData.walletAddress,
     sub: sessionData.walletAddress,
     auth_time: Date.now(),
     permissions: [],
     groups: ['admin'],
     isAdmin: true,
-    expirest_at: sessionData.expiresAt
+    expires_at: sessionData.expiresAt
   }), cookieOptions);
 }
 
@@ -191,18 +183,22 @@ export async function setWeb3Session(sessionData: Web3SessionData): Promise<void
  */
 export async function clearWeb3Session(): Promise<void> {
   const cookieStore = await cookies();
-  
-  // Clear EPSX admin session cookie
+
+  // Clear unified EPSX session cookie
+  cookieStore.delete('epsx.user');
+  cookieStore.delete('epsx.access');
+  cookieStore.delete('epsx.id');
+  cookieStore.delete('epsx.refresh');
+
+  // Clear old cookie names (backward compatibility)
   cookieStore.delete('epsx.admin.user');
-  
-  // Clear old cookie names
   cookieStore.delete('wallet_address');
   cookieStore.delete('wallet_signature');
   cookieStore.delete('wallet_message');
   cookieStore.delete('wallet_nonce');
   cookieStore.delete('wallet_chain_id');
   cookieStore.delete('wallet_expires_at');
-  
+
   // Clear any legacy tokens
   cookieStore.delete('admin_jwt_token');
   cookieStore.delete('session_token');

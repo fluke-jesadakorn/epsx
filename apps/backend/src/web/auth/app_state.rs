@@ -17,8 +17,8 @@ pub struct AppState {
     pub db_pool: Arc<DbPool>,
     pub cache: Arc<dyn Cache>,
     pub domain_container: Arc<DomainContainer>,
-    pub redis_pool: Arc<RedisPool>,
-    pub redis_broadcaster: Arc<RedisNotificationBroadcaster>,
+    pub redis_pool: Option<Arc<RedisPool>>,
+    pub redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
     pub permission_group_repo: PermissionGroupRepository,
     // Stub for backwards compatibility with admin handlers
     pub user_repo: Option<String>,
@@ -26,12 +26,13 @@ pub struct AppState {
 
 impl AppState {
     /// Create new AppState with required dependencies
+    /// Redis pool and broadcaster are optional - if not provided, notifications won't work
     pub fn new(
         db_pool: Arc<DbPool>,
         cache: Arc<dyn Cache>,
         domain_container: Arc<DomainContainer>,
-        redis_pool: Arc<RedisPool>,
-        redis_broadcaster: Arc<RedisNotificationBroadcaster>,
+        redis_pool: Option<Arc<RedisPool>>,
+        redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
     ) -> Self {
         let permission_group_repo = PermissionGroupRepository::new(db_pool.clone());
         Self {

@@ -55,7 +55,7 @@ mod tests {
     }
         assert!(!challenge.nonce.is_empty());
         assert!(challenge.message.contains("epsx.io"));
-        assert!(challenge.message.contains("Sign in to EPSX trading platform"));
+        assert!(challenge.message.contains("Sign in to EPSX Data Analytics Platform"));
         assert!(challenge.expires_at > Utc::now());
         assert!(challenge.expires_at < Utc::now() + Duration::minutes(20));
         
@@ -123,7 +123,7 @@ mod tests {
         let service = Web3AuthService::new(pool, "epsx.io".to_string(), 97);
         
         // Create a valid SIWE message but for wrong domain
-        let message = "example.com wants you to sign in with your Ethereum account:\n0x742d35Cc6634C0532925a3b8D369D7763F3c45c6\n\nSign in to EPSX trading platform\n\nURI: https://example.com\nVersion: 1\nChain ID: 1\nNonce: test_nonce\nIssued At: 2024-01-01T00:00:00.000Z";
+        let message = "example.com wants you to sign in with your Ethereum account:\n0x742d35Cc6634C0532925a3b8D369D7763F3c45c6\n\nSign in to EPSX Data Analytics Platform\n\nURI: https://example.com\nVersion: 1\nChain ID: 1\nNonce: test_nonce\nIssued At: 2024-01-01T00:00:00.000Z";
         
         let request = VerifyRequest {
             message: message.to_string(),
@@ -142,7 +142,7 @@ mod tests {
         let service = Web3AuthService::new(pool, "epsx.io".to_string(), 97);
         
         // Create a valid SIWE message but for different wallet
-        let message = "epsx.io wants you to sign in with your Ethereum account:\n0x742d35Cc6634C0532925a3b8D369D7763F3c45c6\n\nSign in to EPSX trading platform\n\nURI: https://epsx.io\nVersion: 1\nChain ID: 1\nNonce: test_nonce\nIssued At: 2024-01-01T00:00:00.000Z";
+        let message = "epsx.io wants you to sign in with your Ethereum account:\n0x742d35Cc6634C0532925a3b8D369D7763F3c45c6\n\nSign in to EPSX Data Analytics Platform\n\nURI: https://epsx.io\nVersion: 1\nChain ID: 1\nNonce: test_nonce\nIssued At: 2024-01-01T00:00:00.000Z";
         
         let request = VerifyRequest {
             message: message.to_string(),

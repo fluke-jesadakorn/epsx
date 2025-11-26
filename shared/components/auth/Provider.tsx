@@ -22,6 +22,7 @@ import {
 } from '../../auth/client';
 import {
   COOKIES,
+  COOKIE_OPTIONS,
   getClientCookie,
  getClientCookieJSON,
   setClientCookie,
@@ -128,15 +129,33 @@ export function SharedOpenIDWeb3Provider({
         let hasStoredAuth = false;
         if (typeof window !== 'undefined') {
           try {
-            const storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user.user);
-            const authTime = getClientCookie(COOKIES.user.auth_time);
-            const accessToken = getClientCookie(COOKIES.user.access); // This will be null (HttpOnly) but we check other cookies
-            const tokenExpiry = getClientCookie(COOKIES.user.expires_at);
+            const storedUser = getClientCookieJSON<UserInfoResponse>(COOKIES.user);
+            const authTime = getClientCookie(COOKIES.auth_time);
+            const accessToken = getClientCookie(COOKIES.access); // This will be null (HttpOnly) but we check other cookies
+            const tokenExpiry = getClientCookie(COOKIES.expires_at);
+
+            console.log('🔍 Cookie restoration check', {
+              clientId,
+              hasStoredUser: !!storedUser,
+              hasAuthTime: !!authTime,
+              hasTokenExpiry: !!tokenExpiry,
+              tokenExpiryValue: tokenExpiry,
+              storedUserPermissions: storedUser?.permissions,
+              isPermissionsArray: Array.isArray(storedUser?.permissions)
+            });
 
             if (storedUser && authTime) {
               const authAge = Date.now() - parseInt(authTime);
               const maxAge = 24 * 60 * 60 * 1000; // 24 hours
               const isTokenValid = tokenExpiry ? parseInt(tokenExpiry) > Date.now() : false;
+
+              console.log('🔍 Auth validation check', {
+                authAge: Math.round(authAge / 1000 / 60) + 'min',
+                maxAge: '24h',
+                isTokenValid,
+                tokenExpiry: tokenExpiry ? new Date(parseInt(tokenExpiry)).toISOString() : 'none',
+                now: new Date().toISOString()
+              });
 
               if (authAge < maxAge && isTokenValid) {
                 console.log('✅ Restoring auth from cookies', {
@@ -153,14 +172,20 @@ export function SharedOpenIDWeb3Provider({
                 console.log('🗑️ Clearing expired auth from cookies', {
                   clientId,
                   authAge: Math.round(authAge / 1000 / 60) + 'min',
-                  tokenValid: isTokenValid
+                  tokenValid: isTokenValid,
+                  reason: authAge >= maxAge ? 'auth too old' : 'token expired'
                 });
                 // Clear expired or invalid authentication
-                clearClientSideCookies('user');
+                clearClientSideCookies();
               }
+            } else {
+              console.log('⚠️ Missing required cookies', {
+                hasStoredUser: !!storedUser,
+                hasAuthTime: !!authTime
+              });
             }
           } catch (error) {
-            console.warn('Failed to restore authentication from cookies');
+            console.warn('Failed to restore authentication from cookies', error);
           }
         }
         
@@ -305,24 +330,25 @@ export function SharedOpenIDWeb3Provider({
         auth_method: 'web3_siwe',
         permissions: result.permissions,
         packageTier: result.tier_level, // For compatibility
+        access: result.access_token, // JWT for SSE authentication
       };
       
       // Persist user data to cookies for page refresh survival
       if (typeof window !== 'undefined') {
         try {
-          setClientCookieJSON(COOKIES.user.user, user);
-          setClientCookie(COOKIES.user.auth_time, Date.now().toString(), COOKIE_OPTIONS.maxAge.auth_time);
+          setClientCookieJSON(COOKIES.user, user);
+          setClientCookie(COOKIES.auth_time, Date.now().toString(), COOKIE_OPTIONS.maxAge.auth_time);
 
           // Set token expiry (same as access token)
           const expiryTime = Date.now() + (COOKIE_OPTIONS.maxAge.access * 1000);
-          setClientCookie(COOKIES.user.expires_at, expiryTime.toString(), COOKIE_OPTIONS.maxAge.expires_at);
+          setClientCookie(COOKIES.expires_at, expiryTime.toString(), COOKIE_OPTIONS.maxAge.expires_at);
 
           console.log('💾 Persisted Web3 authentication to cookies', {
             clientId,
             keys: {
-              user: COOKIES.user.user,
-              authTime: COOKIES.user.auth_time,
-              expiresAt: COOKIES.user.expires_at
+              user: COOKIES.user,
+              authTime: COOKIES.auth_time,
+              expiresAt: COOKIES.expires_at
             }
           });
         } catch (error) {
@@ -351,21 +377,21 @@ export function SharedOpenIDWeb3Provider({
     try {
       setError(null);
       console.log('Logging out user');
-      
+
       // Clear all client-side cookies
       if (typeof window !== 'undefined') {
         try {
-          clearClientSideCookies('user');
+          clearClientSideCookies();
           console.log('🗑️ Cleared authentication from cookies', { clientId });
         } catch (error) {
           console.warn('⚠️ Failed to clear authentication cookies:', error);
         }
       }
-      
+
       await client.logout();
-      
+
       console.log('Logout successful');
-      
+
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Logout failed';
       console.error('Logout error', { error: errorMessage });
@@ -430,17 +456,24 @@ export function SharedOpenIDWeb3Provider({
     }
   }, [client]);
 
-  // Context value
+  // Context value - Backend handles ALL validation (tokens, permissions, expiry)
+  // Frontend only checks: "Do I have a user object?"
+  const isAuthenticated = !!user;
+
+  console.log('🔍 Provider: isAuthenticated calculation', {
+    clientId,
+    isAuthenticated,
+    hasUser: !!user,
+    wallet: user?.wallet_address?.slice(0, 8),
+    permissionsLength: user?.permissions?.length || 0,
+    isLoading
+  });
+
   const contextValue: SharedAuthContextValue = {
     user,
-    // ✅ FIX: Only mark as authenticated when user AND permissions are loaded
-    // This prevents race conditions where isAuthenticated=true but permissions=[]
-    // Cookie-based authentication - check user state and cookies
-    isAuthenticated: !!user &&
-      Array.isArray(user?.permissions) && // Ensure permissions array exists
-      (typeof window !== 'undefined' &&
-      !!getClientCookie(COOKIES.user.expires_at) &&
-      parseInt(getClientCookie(COOKIES.user.expires_at) || '0') > Date.now()),
+    // Backend-authoritative auth: Frontend only checks if user exists
+    // Backend validates tokens, permissions, and expiry on every API request
+    isAuthenticated,
     isLoading,
     isSigningChallenge,
     error,

@@ -106,10 +106,8 @@ export class UnifiedApiClient {
             const { cookies } = await import('next/headers');
             const cookieStore = await cookies();
 
-            // Get access token from OpenID-compliant cookies
-            const tokenCookie = this.platform === 'admin'
-              ? cookieStore.get(COOKIES.admin.access)
-              : cookieStore.get(COOKIES.user.access);
+            // Get access token from unified cookies (no context separation)
+            const tokenCookie = cookieStore.get(COOKIES.access);
 
             if (tokenCookie?.value) {
               headers['Authorization'] = `Bearer ${tokenCookie.value}`;
