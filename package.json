@@ -158,6 +158,7 @@
     "@playwright/test": "^1.57.0",
     "@types/react": "19.0.0",
     "@types/react-dom": "19.0.0",
+    "baseline-browser-mapping": "^2.8.32",
     "critters": "^0.0.25",
     "dotenv-cli": "^11.0.0",
     "eslint": "9.23.0",
