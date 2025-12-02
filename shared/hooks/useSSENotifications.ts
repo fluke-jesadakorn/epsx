@@ -54,17 +54,9 @@ export function useSSENotifications(
   const isMounted = useRef(true)
   const connectionIdRef = useRef(0) // Track connection attempts to identify stale ones
 
-  // Store callbacks in refs to avoid dependency changes
-  const onNotificationRef = useRef(onNotification)
-  const onErrorRef = useRef(onError)
-  const onConnectRef = useRef(onConnect)
-
-  // Update refs when callbacks change
-  useEffect(() => {
-    onNotificationRef.current = onNotification
-    onErrorRef.current = onError
-    onConnectRef.current = onConnect
-  }, [onNotification, onError, onConnect])
+  // Store options in refs to avoid dependency changes
+  const optionsRef = useRef(options)
+  optionsRef.current = options
 
   const connect = useCallback(() => {
     // Atomic state check - prevent race conditions
@@ -79,6 +71,7 @@ export function useSSENotifications(
     console.log(`🔌 SSE: Initiating connection #${currentConnectionId}...`)
 
     try {
+      const { apiClient, walletAddress, types } = optionsRef.current
       const client = createNotificationsClient(apiClient)
 
       const disconnectFn = client.connectToSSE(
@@ -95,8 +88,14 @@ export function useSSENotifications(
             return
           }
 
-          setNotifications((prev) => [notification, ...prev].slice(0, 100))
-          onNotificationRef.current?.(notification)
+          if (isMounted.current) {
+            setNotifications((prev) => {
+              const newArray = [notification, ...prev]
+              // Keep only last 50 notifications to prevent memory issues
+              return newArray.slice(0, 50)
+            })
+          }
+          optionsRef.current.onNotification?.(notification)
           reconnectAttempts.current = 0
         },
         (err) => {
@@ -109,10 +108,12 @@ export function useSSENotifications(
           // Only update state if we're still in CONNECTED state
           if (connectionStateRef.current === ConnectionState.CONNECTED) {
             connectionStateRef.current = ConnectionState.DISCONNECTED
-            setIsConnected(false)
-            const errorMsg = 'Connection lost. Reconnecting...'
-            setError(errorMsg)
-            onErrorRef.current?.(errorMsg)
+            if (isMounted.current) {
+              setIsConnected(false)
+              const errorMsg = 'Connection lost. Reconnecting...'
+              setError(errorMsg)
+            }
+            optionsRef.current.onError?.('Connection lost. Reconnecting...')
 
             reconnectAttempts.current++
             if (reconnectAttempts.current < maxReconnectAttempts) {
@@ -125,9 +126,11 @@ export function useSSENotifications(
                 }
               }, delay)
             } else {
+            if (isMounted.current) {
               setError('Failed to connect after multiple attempts')
-              onErrorRef.current?.('Failed to connect after multiple attempts')
             }
+            optionsRef.current.onError?.('Failed to connect after multiple attempts')
+          }
           }
         },
         () => {
@@ -139,10 +142,12 @@ export function useSSENotifications(
 
           console.log(`✅ SSE: Connection #${currentConnectionId} established`)
           connectionStateRef.current = ConnectionState.CONNECTED
-          setIsConnected(true)
-          setError(null)
+          if (isMounted.current) {
+            setIsConnected(true)
+            setError(null)
+          }
           reconnectAttempts.current = 0
-          onConnectRef.current?.()
+          optionsRef.current.onConnect?.()
         }
       )
 
@@ -155,10 +160,10 @@ export function useSSENotifications(
       if (isMounted.current) {
         setError(errorMsg)
       }
-      onErrorRef.current?.(errorMsg)
+      optionsRef.current.onError?.(errorMsg)
       console.error(`❌ SSE: Connection #${currentConnectionId} failed:`, errorMsg)
     }
-  }, [apiClient, walletAddress, types])
+  }, []) // Empty dependency array since we use refs for all values
 
   const disconnect = useCallback(() => {
     // Atomic state transition to DISCONNECTING
@@ -190,7 +195,11 @@ export function useSSENotifications(
   }, [])
 
   const addNotification = useCallback((notification: SSENotification) => {
-    setNotifications((prev) => [notification, ...prev].slice(0, 100))
+    setNotifications((prev) => {
+      const newArray = [notification, ...prev]
+      // Keep only last 50 notifications to prevent memory issues
+      return newArray.slice(0, 50)
+    })
   }, [])
 
   useEffect(() => {
@@ -212,11 +221,28 @@ export function useSSENotifications(
 
     return () => {
       console.log('🧹 SSE: Cleanup triggered')
+
+      // Cancel any pending operations without setting state
+      if (connectionStateRef.current !== ConnectionState.DISCONNECTED) {
+        connectionIdRef.current++ // Invalidate any pending callbacks
+
+        if (disconnectRef.current) {
+          try {
+            disconnectRef.current()
+          } catch (err) {
+            console.error('❌ SSE: Error during disconnect:', err)
+          }
+          disconnectRef.current = null
+        }
+
+        connectionStateRef.current = ConnectionState.DISCONNECTED
+        // Remove setIsConnected call to prevent state updates during cleanup
+        console.log('✅ SSE: Disconnected successfully')
+      }
+
       isMounted.current = false
-      disconnect()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoConnect, connect, disconnect])
+  }, [autoConnect, connect])
 
   return {
     notifications,

@@ -256,31 +256,32 @@ export const groupMgmt = {
 
   async getPlatformOverview(period?: string): Promise<any> {
     return apiGet(
-      `/api/admin/analytics/overview${period ? `?period=${period}` : ''}`
+      `${API_ROUTES.ADMIN.ANALYTICS_OVERVIEW}${period ? `?period=${period}` : ''}`
     );
   },
 
   async getUserAnalytics(period?: string): Promise<any> {
     return apiGet(
-      `/api/admin/analytics/users${period ? `?period=${period}` : ''}`
+      `${API_ROUTES.ADMIN.ANALYTICS_USERS}${period ? `?period=${period}` : ''}`
     );
   },
 
   async getPermissionAnalytics(): Promise<any> {
-    return apiGet('/api/admin/analytics/permissions');
+    return apiGet(API_ROUTES.ADMIN.ANALYTICS_PERMISSIONS);
   },
 
   async getRevenueAnalytics(period?: string): Promise<any> {
     return apiGet(
-      `/api/admin/analytics/revenue${period ? `?period=${period}` : ''}`
+      `${API_ROUTES.ADMIN.ANALYTICS_REVENUE}${period ? `?period=${period}` : ''}`
     );
   },
 
   async getGroupAnalytics(): Promise<GroupAnalytics> {
-    const data = await apiGet<any>('/api/admin/analytics/permissions');
+    const response = await apiGet<any>(API_ROUTES.ADMIN.ANALYTICS_PERMISSIONS);
+    const data = response.data || response; // Handle both nested and direct response formats
     return {
-      total_groups: data.permission_usage?.length || 0,
-      total_active_memberships: data.total_permissions || 0,
+      total_groups: data.total_groups || 0,
+      total_active_memberships: data.active_permissions || data.total_permissions || 0,
       expiring_soon_count: data.expiring_permissions?.length || 0,
       most_popular_groups:
         data.group_membership?.slice(0, 3).map((g: any) => ({

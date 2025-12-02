@@ -126,7 +126,7 @@ pub async fn bearer_middleware(
 }
 
 /// Validate Bearer JWT token and extract user context
-async fn validate_bearer_token(
+pub async fn validate_bearer_token(
     token: &str,
     app_state: &AppState,
 ) -> Result<OpenIDUserContext, OpenIDTokenError> {

@@ -162,7 +162,7 @@ pub async fn get_user_permissions(
             AND (wdp.expires_at IS NULL OR wdp.expires_at > NOW())
           THEN p.id END), 0) as active_permissions_count
      FROM wallet_users wu
-     LEFT JOIN wallet_group_memberships wga ON wu.wallet_address = wga.wallet_address
+     LEFT JOIN wallet_group_assignments wga ON wu.wallet_address = wga.wallet_address
      LEFT JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
      LEFT JOIN permissions p ON pgm.permission_id = p.id
      LEFT JOIN wallet_direct_permissions wdp ON wu.wallet_address = wdp.wallet_address
@@ -224,7 +224,7 @@ pub async fn get_user_permissions(
     let primary_perm_query = diesel::sql_query(
       r#"
       SELECT DISTINCT p.permission_string, 'group' as source
-      FROM wallet_group_memberships wga
+      FROM wallet_group_assignments wga
       JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
       JOIN permissions p ON pgm.permission_id = p.id
       WHERE wga.wallet_address = $1
@@ -475,7 +475,8 @@ pub async fn get_nft_gates(State(app_state): State<AppState>) -> Result<
 > {
   info!("🎨 Admin: Fetching NFT gates from database");
 
-  use crate::schema::nft_permission_configs::dsl::*;
+  // Note: NFT permission configs table not implemented yet
+  // use crate::schema::nft_permission_configs::dsl::*;
   use diesel::prelude::*;
   use diesel_async::RunQueryDsl;
 
@@ -504,7 +505,8 @@ pub async fn get_token_gates(State(app_state): State<AppState>) -> Result<
 > {
   info!("🪙 Admin: Fetching token gates from database");
 
-  use crate::schema::token_permission_configs::dsl::*;
+  // Note: Token permission configs table not implemented yet
+  // use crate::schema::token_permission_configs::dsl::*;
   use diesel::prelude::*;
   use diesel_async::RunQueryDsl;
 
@@ -533,7 +535,8 @@ pub async fn get_dao_proposals(State(app_state): State<AppState>) -> Result<
 > {
   info!("🗳️ Admin: Fetching DAO proposals from database");
 
-  use crate::schema::dao_proposals::dsl::*;
+  // Note: DAO proposals table not implemented yet
+  // use crate::schema::dao_proposals::dsl::*;
   use diesel::prelude::*;
   use diesel_async::RunQueryDsl;
 
@@ -608,7 +611,7 @@ pub async fn get_recent_wallets(
       COALESCE(
         (
           SELECT COUNT(DISTINCT p.id)::int
-          FROM wallet_group_memberships wga
+          FROM wallet_group_assignments wga
           JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
           JOIN permissions p ON pgm.permission_id = p.id
           WHERE wga.wallet_address = wu.wallet_address
@@ -812,7 +815,7 @@ pub async fn search_wallets(
       wu.is_active,
       COALESCE((
         SELECT COUNT(DISTINCT p.id)::int
-        FROM wallet_group_memberships wga
+        FROM wallet_group_assignments wga
         JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
         JOIN permissions p ON pgm.permission_id = p.id
         WHERE wga.wallet_address = wu.wallet_address
@@ -864,7 +867,7 @@ pub async fn search_wallets(
       wu.is_active,
       COALESCE((
         SELECT COUNT(DISTINCT p.id)::int
-        FROM wallet_group_memberships wga
+        FROM wallet_group_assignments wga
         JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
         JOIN permissions p ON pgm.permission_id = p.id
         WHERE wga.wallet_address = wu.wallet_address
@@ -939,7 +942,7 @@ pub async fn search_wallets(
     let groups = match diesel::sql_query(
       r#"
       SELECT pg.name as group_name, pg.slug, wga.assigned_at, wga.expires_at, wga.is_active
-      FROM wallet_group_memberships wga
+      FROM wallet_group_assignments wga
       JOIN permission_groups pg ON wga.group_id = pg.id
       WHERE wga.wallet_address = $1
       ORDER BY wga.assigned_at DESC

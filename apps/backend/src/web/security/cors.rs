@@ -139,14 +139,29 @@ fn production_cors_fallback() -> CorsLayer {
 
 /// Development CORS configuration - more permissive for local development
 fn development_cors() -> CorsLayer {
-    // For development, use specific origins to allow credentials
-    let origins: Vec<HeaderValue> = vec![
-        "http://localhost:3000".parse().unwrap(),
-        "http://localhost:3001".parse().unwrap(),
-        "http://127.0.0.1:3000".parse().unwrap(),
-        "http://127.0.0.1:3001".parse().unwrap(),
+    // For development, use dynamic origins to allow credentials
+    // This supports local network development (e.g. 192.168.x.x)
+    let mut allowed_origins = super::get_allowed_origins();
+    
+    // Add hardcoded defaults just in case env vars are missing
+    let defaults = vec![
+        "http://localhost:3000",
+        "http://localhost:3001", 
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
     ];
     
+    for origin in defaults {
+        if !allowed_origins.contains(&origin.to_string()) {
+            allowed_origins.push(origin.to_string());
+        }
+    }
+    
+    let origins: Vec<HeaderValue> = allowed_origins
+        .iter()
+        .filter_map(|origin| origin.parse::<HeaderValue>().ok())
+        .collect();
+
     CorsLayer::new()
         .allow_origin(origins)
         .allow_methods([
@@ -259,12 +274,26 @@ pub fn admin_cors_layer() -> CorsLayer {
             .max_age(ONE_DAY)
     } else {
         // Development: Use specific origins with credentials
-        let origins: Vec<HeaderValue> = vec![
-            "http://localhost:3000".parse().unwrap(),
-            "http://localhost:3001".parse().unwrap(),
-            "http://127.0.0.1:3000".parse().unwrap(),
-            "http://127.0.0.1:3001".parse().unwrap(),
+        let mut allowed_origins = get_admin_origins();
+        
+        // Add hardcoded defaults just in case
+        let defaults = vec![
+            "http://localhost:3000",
+            "http://localhost:3001",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:3001",
         ];
+
+        for origin in defaults {
+            if !allowed_origins.contains(&origin.to_string()) {
+                allowed_origins.push(origin.to_string());
+            }
+        }
+
+        let origins: Vec<HeaderValue> = allowed_origins
+            .iter()
+            .filter_map(|origin| origin.parse::<HeaderValue>().ok())
+            .collect();
 
         CorsLayer::new()
             .allow_origin(origins)

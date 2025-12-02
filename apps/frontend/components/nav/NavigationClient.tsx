@@ -1,53 +1,49 @@
 'use client';
 
-import { ProgressiveAuthStatus } from '@/components/auth/ProgressiveAuthStatus';
 import {
-  Bell,
-  ChartNoAxesColumnIncreasing,
-  ChevronDown,
-  Code,
-  Database,
-  TrendingUp,
-  File,
-  Info,
-  LineChart,
-  LogIn,
-  LogOut,
-  Menu,
-  Moon,
-  Settings,
-  Sun,
-  User,
-  Wallet,
-  BarChart3,
-  Link as LinkIcon,
+    BarChart3,
+    Bell,
+    ChartNoAxesColumnIncreasing,
+    ChevronDown,
+    Code,
+    Database,
+    File,
+    Info,
+    LineChart,
+    Link as LinkIcon,
+    LogIn,
+    LogOut,
+    Menu,
+    Moon,
+    Settings,
+    Sun,
+    TrendingUp,
+    User
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import { useChainId, useSwitchChain, useAccount } from 'wagmi';
+import { useEffect, useState } from 'react';
+import { useAccount, useChainId, useSwitchChain } from 'wagmi';
 import { bsc, bscTestnet } from 'wagmi/chains';
 
-import { NavbarSkeleton } from '@/components/nav/NavbarSkeleton';
 import { ChainSelector } from '@/components/nav/ChainSelector';
 import { WalletProviderIcon } from '@/components/nav/WalletProviderIcon';
 import { NotificationBellClient } from '@/components/notifications/NotificationBellClient';
-import { UserManagementDropdown } from '@/components/nav/UserManagementDropdown';
 import {
-  NavbarProvider,
-  useNavbarContext,
+    NavbarProvider,
+    useNavbarContext,
 } from '@/components/providers/NavbarProvider';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+    Sheet,
+    SheetContent,
+    SheetHeader,
+    SheetTitle,
+    SheetTrigger,
 } from '@/components/ui';
 import { navigationService } from '@/services/navigation.service';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
@@ -130,6 +126,7 @@ function NavigationContent() {
     if (!isHydrated) return 'Chain';
     if (chainId === bsc.id) return 'BSC Mainnet';
     if (chainId === bscTestnet.id) return 'BSC Testnet';
+    if (chainId === 31337) return 'Hardhat Local';
     return 'Unknown Chain';
   };
 
@@ -387,6 +384,23 @@ function NavigationContent() {
                 </div>
                 BSC Testnet
                 {chainId === bscTestnet.id && (
+                  <LinkIcon className="h-4 w-4 text-orange-500 ml-auto" />
+                )}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => handleChainSwitch(31337)}
+                disabled={isSwitching || chainId === 31337}
+                className={`flex items-center gap-3 px-3 py-2 text-sm cursor-pointer ${
+                  chainId === 31337
+                    ? 'bg-orange-50/80 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300'
+                    : 'text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                <div className="w-5 h-5 rounded-full bg-slate-500 flex items-center justify-center">
+                  <span className="text-xs font-bold text-white">🔧</span>
+                </div>
+                Hardhat Local
+                {chainId === 31337 && (
                   <LinkIcon className="h-4 w-4 text-orange-500 ml-auto" />
                 )}
               </DropdownMenuItem>

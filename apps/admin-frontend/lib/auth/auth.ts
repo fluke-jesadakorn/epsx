@@ -7,8 +7,6 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
-import { apiFetch } from '@/lib/api-fetch';
-import { getWeb3AdminSession, Web3AdminSessionData } from '@/lib/web3-admin-session';
 
 // ============================================================================
 // Core Types - Web3-First
@@ -78,14 +76,14 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
       console.warn('Failed to parse user cookie:', parseError);
       return null;
     }
-    
+
     const now = Date.now();
     const sessionData: Web3SessionData = {
       walletAddress: userData.wallet_address || userData.sub,
       signature: '', // Not accessible (HttpOnly)
       message: '',   // Not accessible (HttpOnly)
       nonce: '',     // Not accessible (HttpOnly)
-      chainId: 56,    // BSC Mainnet - default for consistency
+      chainId: process.env['NEXT_PUBLIC_DEFAULT_CHAIN_ID'] ? parseInt(process.env['NEXT_PUBLIC_DEFAULT_CHAIN_ID']) : 56,    // BSC Mainnet - default for consistency
       expiresAt: userData.auth_time ? parseInt(userData.auth_time) + 86400000 : now + 3600000, // 24 hours default
     };
 
@@ -97,7 +95,7 @@ export async function getWeb3SessionFromCookies(): Promise<Web3SessionData | nul
     }
 
     return sessionData;
-    
+
   } catch (_error) {
     // eslint-disable-next-line no-console
     console.error('❌ Failed to get Web3 session from cookies:', _error);
@@ -155,7 +153,7 @@ export async function validateWeb3Session(_sessionData: Web3SessionData): Promis
  */
 export async function setWeb3Session(sessionData: Web3SessionData): Promise<void> {
   const cookieStore = await cookies();
-  
+
   const cookieOptions = {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
@@ -219,31 +217,31 @@ export function hasAdminAccess(user: Web3AdminUser | undefined): boolean {
   if (!user) {
     return false;
   }
-  
+
   // Direct admin flag check (fastest)
   if (user.isAdmin) {
     return true;
   }
-  
+
   // Check permissions array
   if (user.permissions && Array.isArray(user.permissions)) {
-    return user.permissions.some(permission => 
-      permission === 'admin:*:*' || 
+    return user.permissions.some(permission =>
+      permission === 'admin:*:*' ||
       permission.startsWith('admin:') ||
       permission === 'epsx:admin:*'
     );
   }
-  
+
   // Check admin groups
   if (user.groups && Array.isArray(user.groups)) {
-    return user.groups.some(group => 
-      group.includes('admin') || 
+    return user.groups.some(group =>
+      group.includes('admin') ||
       group.includes('Admin') ||
       group === 'admin-users' ||
       group === 'admin-full'
     );
   }
-  
+
   return false;
 }
 
@@ -255,9 +253,9 @@ export function checkAdminPermissions(permissions: string[]): boolean {
   if (!permissions || !Array.isArray(permissions)) {
     return false;
   }
-  
-  return permissions.some(permission => 
-    permission === 'admin:*:*' || 
+
+  return permissions.some(permission =>
+    permission === 'admin:*:*' ||
     permission.startsWith('admin:') ||
     permission === 'epsx:admin:*'
   );
@@ -310,8 +308,8 @@ export function checkPermission(userPermissions: string[], requiredPermission: s
  * @param platform
  */
 export function getPermissionsByPlatform(permissions: string[], platform: string): string[] {
-  return permissions.filter(permission => 
-    permission.startsWith(`${platform}:`) || 
+  return permissions.filter(permission =>
+    permission.startsWith(`${platform}:`) ||
     permission === 'admin:*:*'
   );
 }
@@ -324,8 +322,9 @@ export function getPermissionsByPlatform(permissions: string[], platform: string
 export function getExpiringPermissions(permissions: string[], withinDays = 7): string[] {
   const now = Date.now() / 1000;
   const threshold = now + (withinDays * 24 * 60 * 60);
-  
+
   return permissions.filter(permission => {
+    if (!permission) return false;
     const parts = permission.split(':');
     if (parts.length === 4) {
       const expiryTimestamp = parseInt(parts[3], 10);
@@ -345,10 +344,10 @@ export function getExpiringPermissions(permissions: string[], withinDays = 7): s
  */
 export async function getAdminSession(): Promise<AdminSession> {
   try {
-    
+
     // Get Web3 session data from cookies
     const sessionData = await getWeb3SessionFromCookies();
-    
+
     if (!sessionData) {
       return {
         isAuthenticated: false,
@@ -358,10 +357,10 @@ export async function getAdminSession(): Promise<AdminSession> {
         error: 'No Web3 session found'
       };
     }
-    
+
     // Validate session with backend
     const web3User = await validateWeb3Session(sessionData);
-    
+
     if (!web3User) {
       await clearWeb3Session(); // Clear invalid session
       return {
@@ -372,10 +371,10 @@ export async function getAdminSession(): Promise<AdminSession> {
         error: 'Session validation failed'
       };
     }
-    
+
     // Check admin permissions
     const adminAccess = hasAdminAccess(web3User);
-    
+
     if (!adminAccess) {
       return {
         isAuthenticated: true,
@@ -385,7 +384,7 @@ export async function getAdminSession(): Promise<AdminSession> {
         error: 'Insufficient admin permissions'
       };
     }
-    
+
     return {
       isAuthenticated: true,
       isLoggedIn: true,
@@ -393,7 +392,7 @@ export async function getAdminSession(): Promise<AdminSession> {
       hasAdminAccess: true,
       expiresAt: sessionData.expiresAt
     };
-    
+
   } catch (_error) {
     // eslint-disable-next-line no-console
     console.error('❌ Session validation error:', _error);
@@ -412,15 +411,15 @@ export async function getAdminSession(): Promise<AdminSession> {
  */
 export async function requireAdminSession(): Promise<AdminSession> {
   const session = await getAdminSession();
-  
+
   if (!session.isAuthenticated) {
     redirect('/login');
   }
-  
+
   if (!session.hasAdminAccess) {
     redirect('/access-denied');
   }
-  
+
   return session;
 }
 
@@ -448,20 +447,20 @@ export const Web3AdminAuth = {
   getSession: getAdminSession,
   requireSession: requireAdminSession,
   isValid: isValidSession,
-  
+
   // Web3 session management
   getWeb3Session: getWeb3SessionFromCookies,
   setWeb3Session,
   clearWeb3Session,
   validateWeb3Session,
-  
+
   // Permission checking
   hasPermission,
   hasAdminAccess,
   checkAdminPermissions,
   getPermissionsByPlatform,
   getExpiringPermissions,
-  
+
   // Authentication flows
   logout
 };

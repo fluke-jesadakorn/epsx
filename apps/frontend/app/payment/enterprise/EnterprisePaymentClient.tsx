@@ -5,12 +5,16 @@ import { Suspense } from 'react';
 import { PaymentStatusSection } from '@/components/sections/payment/PaymentStatusSection';
 import { SelectPackageSection } from '@/components/sections/payment/SelectPackageSection';
 import { Card, CardHeader, CardContent } from '@/components/ui';
+import { withPaymentAuth } from '@/components/sections/payment/withPaymentAuth';
 
 // Dynamically import a payment component for enterprise (placeholder for now)
 const EnterprisePayment = dynamic(
   () => import('@/components/features/payment/OneClickPayment'),
   { ssr: false }
 );
+
+// Wrap EnterprisePayment with authentication check
+const AuthenticatedEnterprisePayment = withPaymentAuth(EnterprisePayment);
 
 export function EnterprisePaymentClient() {
   return (
@@ -46,7 +50,7 @@ export function EnterprisePaymentClient() {
             </div>
           </div>
         }>
-          <EnterprisePayment className="mb-12" />
+          <AuthenticatedEnterprisePayment className="mb-12" />
         </Suspense>
 
         {/* Payment Status Section */}

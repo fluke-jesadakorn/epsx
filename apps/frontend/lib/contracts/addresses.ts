@@ -12,8 +12,7 @@ export const PAYMENT_ESCROW_ADDRESS = {
   // BSC Mainnet (ChainID: 56)
   56: process.env.NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET || '',
 
-  // BSC Testnet (ChainID: 97)
-  // Development fallback: Use mock address for testing
+  // BSC Testnet (ChainID: 97) - Primary development network
   97: process.env.NEXT_PUBLIC_PAYMENT_ESCROW_TESTNET || '0x5FbDB2315678afecb367f032d93F642f64180aa3',
 } as const;
 

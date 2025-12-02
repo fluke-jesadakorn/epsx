@@ -67,7 +67,7 @@ export async function grantBatchPermissions(request: BatchPermissionRequest): Pr
     const result = await response.json();
 
     // Revalidate admin pages
-    revalidatePath('/web3-permissions');
+    revalidatePath('/permissions');
     revalidatePath('/wallet-management');
 
     return result;
@@ -121,7 +121,7 @@ export async function revokeBatchPermissions(
     const result = await response.json();
 
     // Revalidate admin pages
-    revalidatePath('/web3-permissions');
+    revalidatePath('/permissions');
     revalidatePath('/wallet-management');
 
     return result;
@@ -166,7 +166,7 @@ export async function createPermissionTemplate(template: Omit<PermissionTemplate
     const result = await response.json();
 
     // Revalidate admin pages
-    revalidatePath('/web3-permissions');
+    revalidatePath('/permissions');
 
     return result;
   } catch (error) {
@@ -277,7 +277,7 @@ export async function applyPermissionTemplate(
     const result = await response.json();
 
     // Revalidate admin pages
-    revalidatePath('/web3-permissions');
+    revalidatePath('/permissions');
     revalidatePath('/wallet-management');
 
     return result;

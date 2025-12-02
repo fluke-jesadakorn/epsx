@@ -330,7 +330,7 @@ export class NotificationsAPIClient {
       }
 
       const response = await this.client.get<NotificationsResponse>(
-        '/api/notifications',
+        API_ROUTES.USERS.NOTIFICATIONS,
         filterValidation.data,
         {
           headers: {
@@ -364,7 +364,7 @@ export class NotificationsAPIClient {
    */
   async getUnreadCount(): Promise<{ unread_count: number }> {
     const response = await this.client.get<{ unread_count: number }>(
-      '/api/notifications/unread-count',
+      `${API_ROUTES.USERS.NOTIFICATIONS}/unread-count`,
       undefined,
       {
         headers: {
@@ -388,7 +388,7 @@ export class NotificationsAPIClient {
   async markAsRead(notificationId: string): Promise<{ success: boolean; message: string }> {
     try {
       const response = await this.client.put<{ success: boolean; message: string }>(
-        `/api/notifications/${notificationId}/read`,
+        `${API_ROUTES.USERS.NOTIFICATIONS}/${notificationId}/read`,
         {},
         {
           headers: {
@@ -416,7 +416,7 @@ export class NotificationsAPIClient {
   async markAllAsRead(): Promise<{ success: boolean; updated_count: number }> {
     try {
       const response = await this.client.put<{ success: boolean; updated_count: number }>(
-        '/api/notifications/mark-all-read',
+        `${API_ROUTES.USERS.NOTIFICATIONS}/mark-all-read`,
         {},
         {
           headers: {
@@ -443,7 +443,7 @@ export class NotificationsAPIClient {
    */
   async acknowledgeNotification(notificationId: string): Promise<{ success: boolean; message: string }> {
     const response = await this.client.put<{ success: boolean; message: string }>(
-      `/api/notifications/${notificationId}/acknowledge`,
+      `${API_ROUTES.USERS.NOTIFICATIONS}/${notificationId}/acknowledge`,
       {},
       {
         headers: {
@@ -469,7 +469,7 @@ export class NotificationsAPIClient {
   async deleteNotification(notificationId: string): Promise<{ success: boolean; message: string }> {
     try {
       const response = await this.client.delete<{ success: boolean; message: string }>(
-        `/api/notifications/${notificationId}`,
+        `${API_ROUTES.USERS.NOTIFICATIONS}/${notificationId}`,
         {
           headers: {
             'X-API-Version': 'v1',
@@ -496,7 +496,7 @@ export class NotificationsAPIClient {
   async clearAllNotifications(): Promise<{ success: boolean; deleted_count: number }> {
     try {
       const response = await this.client.delete<{ success: boolean; deleted_count: number }>(
-        '/api/notifications/clear-all',
+        `${API_ROUTES.USERS.NOTIFICATIONS}/clear-all`,
         {
           headers: {
             'X-API-Version': 'v1',
@@ -526,7 +526,7 @@ export class NotificationsAPIClient {
    */
   async getPreferences(): Promise<NotificationPreferencesResponse> {
     const response = await this.client.get<NotificationPreferencesResponse>(
-      '/api/notifications/preferences',
+      `${API_ROUTES.USERS.NOTIFICATIONS}/preferences`,
       undefined,
       {
         headers: {
@@ -552,7 +552,7 @@ export class NotificationsAPIClient {
     message: string;
   }> {
     const response = await this.client.put<{ success: boolean; message: string }>(
-      '/api/notifications/preferences',
+      `${API_ROUTES.USERS.NOTIFICATIONS}/preferences`,
       preferences,
       {
         headers: {
@@ -579,7 +579,7 @@ export class NotificationsAPIClient {
    */
   async subscribeToPush(subscription: PushSubscription): Promise<PushSubscriptionResponse> {
     const response = await this.client.post<PushSubscriptionResponse>(
-      '/api/notifications/push/subscribe',
+      `${API_ROUTES.USERS.NOTIFICATIONS}/push/subscribe`,
       subscription,
       {
         headers: {
@@ -602,7 +602,7 @@ export class NotificationsAPIClient {
    */
   async unsubscribeFromPush(): Promise<{ success: boolean; message: string }> {
     const response = await this.client.delete<{ success: boolean; message: string }>(
-      '/api/notifications/push/unsubscribe',
+      `${API_ROUTES.USERS.NOTIFICATIONS}/push/unsubscribe`,
       {
         headers: {
           'X-API-Version': 'v1',
@@ -628,7 +628,7 @@ export class NotificationsAPIClient {
     created_at?: string;
   }> {
     const response = await this.client.get(
-      '/api/notifications/push/status',
+      `${API_ROUTES.USERS.NOTIFICATIONS}/push/status`,
       undefined,
       {
         headers: {
@@ -665,7 +665,7 @@ export class NotificationsAPIClient {
       }
 
       const response = await this.client.post<SendNotificationResponse>(
-        '/api/admin/notifications/send',
+        `${API_ROUTES.ADMIN.NOTIFICATIONS}/send`,
         requestValidation.data,
         {
           headers: {
@@ -694,7 +694,7 @@ export class NotificationsAPIClient {
   async getNotificationStats(): Promise<NotificationStatsResponse> {
     try {
       const response = await this.client.get<NotificationStatsResponse>(
-        '/api/admin/notifications/stats',
+        `${API_ROUTES.ADMIN.NOTIFICATIONS}/stats`,
         undefined,
         {
           headers: {
@@ -723,7 +723,7 @@ export class NotificationsAPIClient {
   async getAllNotifications(filters: NotificationFilters = {}): Promise<NotificationsResponse> {
     try {
       const response = await this.client.get<NotificationsResponse>(
-        '/api/admin/notifications',
+        API_ROUTES.ADMIN.NOTIFICATIONS,
         filters,
         {
           headers: {
@@ -742,6 +742,34 @@ export class NotificationsAPIClient {
     } catch (error) {
       if (error instanceof NotificationAPIError) throw error;
       handleNotificationError(error, 'fetch all notifications (admin)', { filters });
+    }
+  }
+
+  /**
+   * Delete notification (admin only)
+   * Route: DELETE /api/v1/admin/notifications/{id}
+   */
+  async deleteAdminNotification(notificationId: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await this.client.delete<{ success: boolean; message: string }>(
+        `${API_ROUTES.ADMIN.NOTIFICATIONS}/${notificationId}`,
+        {
+          headers: {
+            'X-API-Version': 'v1',
+            'X-Access-Level': 'admin',
+            'X-Admin-Context': 'true',
+          },
+        }
+      );
+
+      if (!this.client.isApiSuccess(response)) {
+        handleNotificationError(response, 'delete admin notification', { notificationId });
+      }
+
+      return response.data;
+    } catch (error) {
+      if (error instanceof NotificationAPIError) throw error;
+      handleNotificationError(error, 'delete admin notification', { notificationId });
     }
   }
 
@@ -856,6 +884,14 @@ export class NotificationsAPIClient {
 
     const messageHandler = (event: MessageEvent) => {
       try {
+        // Check payload size to prevent WebSocket errors
+        const payloadSize = event.data.length;
+        const MAX_PAYLOAD_SIZE = 64 * 1024; // 64KB limit
+        if (payloadSize > MAX_PAYLOAD_SIZE) {
+          console.error(`SSE payload too large: ${payloadSize} bytes (max: ${MAX_PAYLOAD_SIZE})`);
+          return;
+        }
+
         const rawData = JSON.parse(event.data);
 
         // Validate SSE notification with Zod schema
@@ -987,6 +1023,14 @@ export class NotificationsAPIClient {
     // Handle specific notification types (with event name as notification type)
     const notificationHandler = (event: MessageEvent) => {
       try {
+        // Check payload size to prevent WebSocket errors
+        const payloadSize = event.data.length;
+        const MAX_PAYLOAD_SIZE = 64 * 1024; // 64KB limit
+        if (payloadSize > MAX_PAYLOAD_SIZE) {
+          console.error(`SSE notification payload too large: ${payloadSize} bytes (max: ${MAX_PAYLOAD_SIZE})`);
+          return;
+        }
+
         const notification: SSENotification = JSON.parse(event.data);
         onNotification(notification);
 

@@ -4,8 +4,6 @@
 pub mod app_state;
 pub mod handlers;
 pub mod session_handlers;
-pub mod wallet_extractor;
 
 // Main exports
 pub use app_state::AppState;
-pub use wallet_extractor::{AuthWallet, AuthAdmin};

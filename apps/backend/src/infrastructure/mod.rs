@@ -24,7 +24,7 @@ pub use adapters::{
 // Re-export commonly needed services for backward compatibility
 pub use event_bus::{SimpleEventBus};
 pub use container::DomainContainer;
-// pub use integration::{ PaymentServiceIntegration }; // Temporarily disabled
+// pub use integration::{ PaymentServiceIntegration }; // Removed - integration module doesn't exist
 pub use cache::{
     MemoryCache, RedisCache, UnifiedPermissionCache
 };

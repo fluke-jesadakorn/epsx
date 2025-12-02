@@ -411,13 +411,10 @@ impl SessionRepositoryPort for SessionRepositoryAdapter {
                 .with_component("session_repository")
                 .with_operation("invalidate_all_for_wallet"))?;
 
-        let wallet_uuid = uuid::Uuid::parse_str(wallet_address.to_string().as_str())
-            .map_err(|e| AppError::validation_error(format!("Invalid wallet ID: {}", e)))?;
-
         let rows_affected = diesel::update(sessions::table)
-            .filter(sessions::user_id.eq(wallet_uuid))
-            .filter(sessions::is_active.eq(true))
-            .set(sessions::is_active.eq(false))
+            .filter(sessions::wallet_address.eq(wallet_address.to_string()))
+            .filter(sessions::is_revoked.eq(false))
+            .set(sessions::is_revoked.eq(true))
             .execute(&mut conn)
             .await
             .map_err(|e| AppError::database_error(e.to_string())
@@ -530,18 +527,14 @@ impl SessionRepositoryPort for SessionRepositoryAdapter {
         let mut query = sessions::table.into_boxed();
 
         if let Some(ref wallet) = criteria.wallet_address {
-            if let Ok(wallet_uuid) = uuid::Uuid::parse_str(wallet.to_string().as_str()) {
-                query = query.filter(sessions::user_id.eq(wallet_uuid));
-            }
+            query = query.filter(sessions::wallet_address.eq(wallet.to_string()));
         }
 
         if let Some(active) = criteria.is_active {
             if active {
-                query = query.filter(sessions::is_active.eq(true)).filter(sessions::expires_at.gt(diesel::dsl::now));
+                query = query.filter(sessions::is_revoked.eq(false)).filter(sessions::expires_at.gt(diesel::dsl::now));
             } else {
-                // Complex OR condition - use raw SQL
-                // For simplicity in migration, count inactive as is_active=false only
-                query = query.filter(sessions::is_active.eq(false));
+                query = query.filter(sessions::is_revoked.eq(true));
             }
         }
 

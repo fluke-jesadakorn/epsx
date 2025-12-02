@@ -165,7 +165,7 @@ impl WebSocketEarningsService {
 
     match
       tokio::time::timeout(
-        std::time::Duration::from_secs(15),
+        std::time::Duration::from_secs(crate::core::constants::MINUTE as u64 / 4), // 15 seconds = 1/4 minute
         fetch_future
       ).await
     {

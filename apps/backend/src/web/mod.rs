@@ -14,6 +14,7 @@ pub mod analytics;
 // pub mod settings; // Removed - unused settings management routes
 pub mod admin_assignment;
 pub mod notifications;
+pub mod payments;
 // ⚡ CRITICAL: Comprehensive Error System (Phase 1.3)
 pub mod errors;
 pub mod responses; // Unified API response format

@@ -141,18 +141,31 @@ export function getAdminUrl(context: URLContext | URLContextLegacy = URLContext.
  */
 
 function getDefaultBackendUrl(): string {
+  // check process.env first to respect dynamic config
+  if (typeof process !== 'undefined') {
+    if (process.env.BACKEND_URL) return process.env.BACKEND_URL;
+    if (process.env.NEXT_PUBLIC_BACKEND_URL) return process.env.NEXT_PUBLIC_BACKEND_URL;
+  }
   if (isDev) return 'http://localhost:8080';
   if (isStaging) return 'https://staging-api.epsx.io';
   return 'https://api.epsx.io'; // Production default
 }
 
 function getDefaultFrontendUrl(): string {
+  if (typeof process !== 'undefined') {
+    if (process.env.FRONTEND_URL) return process.env.FRONTEND_URL;
+    if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL;
+  }
   if (isDev) return 'http://localhost:3000';
   if (isStaging) return 'https://staging.epsx.io';
   return 'https://epsx.io'; // Production default
 }
 
 function getDefaultAdminUrl(): string {
+  if (typeof process !== 'undefined') {
+    if (process.env.ADMIN_FRONTEND_URL) return process.env.ADMIN_FRONTEND_URL;
+    if (process.env.NEXT_PUBLIC_ADMIN_URL) return process.env.NEXT_PUBLIC_ADMIN_URL;
+  }
   if (isDev) return 'http://localhost:3001';
   if (isStaging) return 'https://staging-admin.epsx.io';
   return 'https://admin.epsx.io'; // Production default

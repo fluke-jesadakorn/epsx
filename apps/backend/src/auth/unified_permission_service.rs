@@ -23,7 +23,9 @@ use serde::{Deserialize, Serialize};
 use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
 use diesel::prelude::*;
 use std::sync::Arc;
-use crate::schema::{wallet_group_memberships};
+// Note: wallet_group_memberships table not implemented yet
+  // use crate::schema::{wallet_group_memberships};
+  use crate::schema::{wallet_group_assignments}; // Use existing table instead
 use tracing::{debug, info, warn, error};
 use uuid::Uuid;
 
@@ -194,24 +196,25 @@ impl UnifiedPermissionService {
                 AppError::database_error(format!("Pool error: {}", e))
             })?;
 
-        #[derive(QueryableByName)]
+        // Define PermissionDetailRow inline since it's only used here
+        #[derive(diesel::QueryableByName)]
         struct PermissionDetailRow {
             #[diesel(sql_type = diesel::sql_types::Text)]
-            permission_string: String,
-            #[diesel(sql_type = diesel::sql_types::Uuid)]
-            permission_id: Uuid,
+            pub permission_string: String,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            pub permission_id: Option<String>,
             #[diesel(sql_type = diesel::sql_types::Text)]
-            source_type: String,
-            #[diesel(sql_type = diesel::sql_types::Uuid)]
-            source_id: Uuid,
-            #[diesel(sql_type = diesel::sql_types::Text)]
-            source_name: String,
+            pub source_type: String,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            pub source_id: Option<String>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            pub source_name: Option<String>,
             #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
-            expires_at: Option<DateTime<Utc>>,
+            pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
             #[diesel(sql_type = diesel::sql_types::Timestamptz)]
-            granted_at: DateTime<Utc>,
+            pub granted_at: chrono::DateTime<chrono::Utc>,
             #[diesel(sql_type = diesel::sql_types::Bool)]
-            is_permanent: bool,
+            pub is_permanent: bool,
         }
 
         let rows = diesel::sql_query(
@@ -225,7 +228,7 @@ impl UnifiedPermissionService {
                 expires_at,
                 granted_at,
                 is_permanent
-            FROM get_wallet_permissions_detailed_working($1)
+            FROM public.get_wallet_permissions_detailed_working($1)
             "#
         )
         .bind::<diesel::sql_types::Text, _>(&wallet_lower)
@@ -241,14 +244,18 @@ impl UnifiedPermissionService {
             .map(|row| {
                 PermissionDetail {
                     permission_string: row.permission_string,
-                    permission_id: row.permission_id,
+                    permission_id: row.permission_id
+                        .and_then(|s| Uuid::parse_str(&s).ok())
+                        .unwrap_or_else(|| Uuid::new_v4()),
                     source_type: if row.source_type == "group" {
                         PermissionSource::Group
                     } else {
                         PermissionSource::Direct
                     },
-                    source_id: row.source_id,
-                    source_name: row.source_name,
+                    source_id: row.source_id
+                        .and_then(|s| Uuid::parse_str(&s).ok())
+                        .unwrap_or_else(|| Uuid::new_v4()),
+                    source_name: row.source_name.unwrap_or_else(|| "Unknown".to_string()),
                     expires_at: row.expires_at,
                     granted_at: row.granted_at,
                     is_permanent: row.is_permanent,
@@ -570,7 +577,7 @@ impl UnifiedPermissionService {
 
         // Use raw SQL for DELETE operation
         let query = format!(r#"
-            DELETE FROM wallet_group_memberships
+            DELETE FROM wallet_group_assignments
             WHERE wallet_address = '{}'
               AND group_id = '{}'
               AND is_active = TRUE

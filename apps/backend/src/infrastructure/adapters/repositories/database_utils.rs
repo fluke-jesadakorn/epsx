@@ -277,9 +277,25 @@ pub mod testing {
 
     /// Create a mock connection pool for testing
     pub async fn create_test_pool() -> Arc<Pool<AsyncPgConnection>> {
-        // This would integrate with your test database setup
-        // For now, this is a placeholder that would need implementation
-        panic!("Test pool creation not implemented - integrate with test database setup");
+        // Use in-memory SQLite for testing or connect to test database
+        // For this implementation, we'll create a simple test configuration
+
+        // Get test database URL from environment or use default test configuration
+        let database_url = std::env::var("TEST_DATABASE_URL")
+            .unwrap_or_else(|_| "postgresql://postgres:password@localhost:5432/epsx_test_db".to_string());
+
+        // Create connection pool configuration for testing
+        let manager = deadpool::managed::Manager::from_config(
+            deadpool::managed::Config::from_url(&database_url),
+            deadpool::diesel::AsyncDieselConnectionManager::<AsyncPgConnection>::new(database_url),
+        );
+
+        let pool = deadpool::managed::Pool::builder(manager)
+            .max_size(5) // Small pool for testing
+            .build()
+            .expect("Failed to create test database pool");
+
+        Arc::new(pool)
     }
 
     /// Create test database utilities
@@ -295,17 +311,43 @@ pub mod testing {
         }
 
         pub async fn cleanup(&self) -> Result<(), AppError> {
-            // Clean up test data
+            // Clean up test data from all relevant tables
             let mut conn = self.pool.get().await
                 .map_err(|e| AppError::database_error(e.to_string()))?;
 
-            // Add cleanup logic here - placeholder
-            use diesel::dsl::sql;
-            let _: i32 = diesel::select(sql::<diesel::sql_types::Integer>("SELECT 1"))
-                .get_result(&mut conn)
-                .await
-                .map_err(|e| AppError::database_error(e.to_string()))?;
+            // Execute cleanup operations in a transaction
+            conn.transaction::<_, AppError, _>(|conn| {
+                // Clean up test data in dependency order
+                use diesel::prelude::*;
 
+                // Clean up sessions first (foreign key dependencies)
+                diesel::sql_query("DELETE FROM user_sessions WHERE wallet_address LIKE 'test_%'")
+                    .execute(conn)
+                    .await
+                    .map_err(|e| AppError::database_error(e.to_string()))?;
+
+                // Clean up permission assignments
+                diesel::sql_query("DELETE FROM user_permissions WHERE user_id LIKE 'test_%'")
+                    .execute(conn)
+                    .await
+                    .map_err(|e| AppError::database_error(e.to_string()))?;
+
+                // Clean up test users
+                diesel::sql_query("DELETE FROM users WHERE wallet_address LIKE 'test_%'")
+                    .execute(conn)
+                    .await
+                    .map_err(|e| AppError::database_error(e.to_string()))?;
+
+                // Clean up test permission groups
+                diesel::sql_query("DELETE FROM permission_groups WHERE group_name LIKE 'test_%'")
+                    .execute(conn)
+                    .await
+                    .map_err(|e| AppError::database_error(e.to_string()))?;
+
+                Ok(())
+            }).await?;
+
+            info!("Test database cleanup completed successfully");
             Ok(())
         }
     }

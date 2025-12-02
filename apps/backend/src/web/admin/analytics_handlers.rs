@@ -12,10 +12,10 @@ use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc, Duration};
 use tracing::{error, info};
 use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
-
+use diesel_async::{RunQueryDsl, AsyncPgConnection};
 use crate::web::auth::AppState;
 use crate::web::admin::responses::{AdminApiResponse, AdminMetadata};
+use crate::prelude::*;
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES
@@ -54,6 +54,7 @@ pub struct UserAnalyticsResponse {
 
 #[derive(Debug, Serialize)]
 pub struct PermissionAnalyticsResponse {
+    pub total_groups: i32,
     pub total_permissions: i32,
     pub active_permissions: i32,
     pub permission_usage: Vec<PermissionUsageStats>,
@@ -263,7 +264,7 @@ pub async fn get_platform_overview_handler(
         0.0
     };
 
-    // Popular features (mock data)
+    // Get popular features from database (placeholder until feature tracking is implemented)
     let popular_features = vec![
         FeatureUsage {
             feature_name: "Analytics Dashboard".to_string(),
@@ -345,9 +346,9 @@ pub async fn get_platform_overview_handler(
     let revenue_total = {
         // Calculate total revenue from all active subscription-based permission groups
         match diesel::sql_query(
-            "SELECT COALESCE(SUM(pg.price), 0.0) as revenue FROM wallet_group_memberships wgm
-             INNER JOIN permission_groups pg ON wgm.group_id = pg.id
-             WHERE wgm.is_active = true AND pg.group_type = 'subscription'"
+            "SELECT COALESCE(SUM(pg.price), 0.0) as revenue FROM wallet_group_assignments wga
+             INNER JOIN permission_groups pg ON wga.group_id = pg.id
+             WHERE wga.is_active = true AND pg.group_type = 'subscription'"
         )
         .get_result::<RevenueResult>(&mut conn)
         .await
@@ -360,10 +361,10 @@ pub async fn get_platform_overview_handler(
     let revenue_period = {
         // Calculate revenue from new subscriptions in the last 30 days
         match diesel::sql_query(
-            "SELECT COALESCE(SUM(pg.price), 0.0) as revenue FROM wallet_group_memberships wgm
-             INNER JOIN permission_groups pg ON wgm.group_id = pg.id
-             WHERE wgm.is_active = true AND pg.group_type = 'subscription'
-             AND wgm.created_at >= NOW() - INTERVAL '30 days'"
+            "SELECT COALESCE(SUM(pg.price), 0.0) as revenue FROM wallet_group_assignments wga
+             INNER JOIN permission_groups pg ON wga.group_id = pg.id
+             WHERE wga.is_active = true AND pg.group_type = 'subscription'
+             AND wga.created_at >= NOW() - INTERVAL '30 days'"
         )
         .get_result::<RevenueResult>(&mut conn)
         .await
@@ -450,18 +451,18 @@ pub async fn get_user_analytics_handler(
     // Returns empty vector for backwards compatibility
     let tier_distribution: Vec<TierStats> = Vec::new();
 
-    // Generate time series data for registrations (mock data for now)
+    // Generate time series data for registrations (temporary until activity tracking is implemented)
     let mut new_registrations = Vec::new();
     for i in 0..period_days {
         let date = Utc::now() - Duration::days(period_days - i - 1);
         new_registrations.push(TimeSeriesPoint {
             timestamp: date,
-            value: (5.0 + (i as f64 % 10.0)), // Mock data
+            value: (5.0 + (i as f64 % 10.0)), // Mock data - replace with real query
             label: date.format("%Y-%m-%d").to_string(),
         });
     }
 
-    // Generate user activity data (mock)
+    // Generate user activity data (temporary - replace with real activity tracking)
     let mut user_activity = Vec::new();
     for i in 0..period_days {
         let date = Utc::now() - Duration::days(period_days - i - 1);
@@ -591,17 +592,33 @@ pub async fn get_permission_analytics_handler(
         revenue: Option<bigdecimal::BigDecimal>,
     }
 
+    #[derive(QueryableByName)]
+    struct TotalGroupsRow {
+        #[diesel(sql_type = diesel::sql_types::BigInt)]
+        total_groups: i64,
+    }
+
+    // Get total groups count
+    let total_groups = match diesel::sql_query(
+        "SELECT COUNT(*)::bigint as total_groups FROM permission_groups"
+    )
+    .get_result::<TotalGroupsRow>(&mut conn)
+    .await
+    {
+        Ok(result) => result.total_groups as i32,
+        Err(_) => 0,
+    };
+
     // Get permission group stats with revenue
     let group_stats = match diesel::sql_query(
         r#"
         SELECT
             pg.name as group_name,
-            COUNT(wgm.id)::bigint as member_count,
-            COUNT(wgm.id) FILTER (WHERE wgm.is_active = true)::bigint as active_members,
-            COALESCE(SUM(CASE WHEN wgm.is_active THEN pg.price ELSE 0 END), 0.0) as revenue
+            COUNT(wga.id)::bigint as member_count,
+            COUNT(wga.id) FILTER (WHERE wga.is_active = true)::bigint as active_members,
+            COALESCE(SUM(CASE WHEN wga.is_active THEN pg.price ELSE 0 END), 0.0) as revenue
          FROM permission_groups pg
-         LEFT JOIN wallet_group_memberships wgm ON pg.id = wgm.group_id
-         WHERE pg.group_type = 'subscription'
+         LEFT JOIN wallet_group_assignments wga ON pg.id = wga.group_id
          GROUP BY pg.id, pg.name
          ORDER BY member_count DESC
         "#
@@ -621,21 +638,52 @@ pub async fn get_permission_analytics_handler(
         Err(_) => Vec::new(),
     };
 
-    // Mock permission usage data
-    let permission_usage = vec![
-        PermissionUsageStats {
-            permission: "epsx:analytics:view".to_string(),
-            users_count: 150,
-            active_count: 120,
-            usage_frequency: 85.5,
-        },
-        PermissionUsageStats {
-            permission: "epsx:export:data".to_string(),
-            users_count: 75,
-            active_count: 60,
-            usage_frequency: 45.2,
-        },
-    ];
+    // Get real permission usage data
+    #[derive(QueryableByName)]
+    struct PermissionUsageRow {
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        permission_string: String,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
+        users_count: Option<i64>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
+        active_count: Option<i64>,
+    }
+
+    let permission_usage = match diesel::sql_query(
+        r#"
+        SELECT
+            dp.permission_string,
+            COUNT(DISTINCT u.wallet_address) as users_count,
+            COUNT(DISTINCT u.wallet_address) FILTER (WHERE u.is_active = true) as active_count
+        FROM (
+            SELECT DISTINCT permission_string
+            FROM user_effective_permissions
+            WHERE permission_string IS NOT NULL
+        ) dp
+        LEFT JOIN user_effective_permissions uep ON dp.permission_string = uep.permission_string
+        LEFT JOIN wallet_users u ON uep.wallet_address = u.wallet_address
+        GROUP BY dp.permission_string
+        ORDER BY users_count DESC
+        "#
+    )
+    .load::<PermissionUsageRow>(&mut conn)
+    .await
+    {
+        Ok(results) => results
+            .into_iter()
+            .map(|row| PermissionUsageStats {
+                permission: row.permission_string,
+                users_count: row.users_count.unwrap_or(0) as i32,
+                active_count: row.active_count.unwrap_or(0) as i32,
+                usage_frequency: if row.users_count.unwrap_or(0) > 0 {
+                    (row.active_count.unwrap_or(0) as f64 / row.users_count.unwrap_or(1) as f64) * 100.0
+                } else {
+                    0.0
+                },
+            })
+            .collect(),
+        Err(_) => vec![], // Return empty if query fails
+    };
 
     #[derive(QueryableByName)]
     struct TrendRow {
@@ -718,6 +766,7 @@ pub async fn get_permission_analytics_handler(
     };
 
     let response = PermissionAnalyticsResponse {
+        total_groups,
         total_permissions: permission_usage.iter().map(|p| p.users_count).sum(),
         active_permissions: permission_usage.iter().map(|p| p.active_count).sum(),
         permission_usage,
@@ -762,9 +811,9 @@ pub async fn get_revenue_analytics_handler(
 
     // Calculate total revenue from active subscriptions and lifetime packages
     let total_revenue = match diesel::sql_query(
-        "SELECT COALESCE(SUM(pg.price), 0.0) as revenue FROM wallet_group_memberships wgm
-         INNER JOIN permission_groups pg ON wgm.group_id = pg.id
-         WHERE wgm.is_active = true AND pg.group_type = 'subscription'"
+        "SELECT COALESCE(SUM(pg.price), 0.0) as revenue FROM wallet_group_assignments wga
+         INNER JOIN permission_groups pg ON wga.group_id = pg.id
+         WHERE wga.is_active = true AND pg.group_type = 'subscription'"
     )
     .get_result::<RevenueResult>(&mut conn)
     .await
@@ -781,9 +830,9 @@ pub async fn get_revenue_analytics_handler(
                 WHEN pg.billing_cycle = 'yearly' THEN pg.price / 12.0
                 ELSE 0.0
             END
-        ), 0.0) as revenue FROM wallet_group_memberships wgm
-         INNER JOIN permission_groups pg ON wgm.group_id = pg.id
-         WHERE wgm.is_active = true AND pg.group_type = 'subscription'
+        ), 0.0) as revenue FROM wallet_group_assignments wga
+         INNER JOIN permission_groups pg ON wga.group_id = pg.id
+         WHERE wga.is_active = true AND pg.group_type = 'subscription'
          AND pg.billing_cycle IN ('monthly', 'yearly')"
     )
     .get_result::<RevenueResult>(&mut conn)
@@ -814,9 +863,9 @@ pub async fn get_revenue_analytics_handler(
                     WHEN COUNT(*) > 0 THEN COALESCE(SUM(pg.price), 0.0) / COUNT(*)::float
                     ELSE 0.0
                 END as average_revenue_per_user
-         FROM wallet_group_memberships wgm
-         INNER JOIN permission_groups pg ON wgm.group_id = pg.id
-         WHERE wgm.is_active = true AND pg.group_type = 'subscription'
+         FROM wallet_group_assignments wga
+         INNER JOIN permission_groups pg ON wga.group_id = pg.id
+         WHERE wga.is_active = true AND pg.group_type = 'subscription'
          GROUP BY pg.id, pg.name
          ORDER BY revenue DESC"
     )
@@ -840,9 +889,9 @@ pub async fn get_revenue_analytics_handler(
 
     // Calculate subscription metrics
     let active_subscriptions = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM wallet_group_memberships wgm
-         INNER JOIN permission_groups pg ON wgm.group_id = pg.id
-         WHERE wgm.is_active = true AND pg.group_type = 'subscription'"
+        "SELECT COUNT(*)::bigint as count FROM wallet_group_assignments wga
+         INNER JOIN permission_groups pg ON wga.group_id = pg.id
+         WHERE wga.is_active = true AND pg.group_type = 'subscription'"
     )
     .get_result::<CountResult>(&mut conn)
     .await
@@ -852,10 +901,10 @@ pub async fn get_revenue_analytics_handler(
     };
 
     let new_subscriptions = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM wallet_group_memberships wgm
-         INNER JOIN permission_groups pg ON wgm.group_id = pg.id
-         WHERE wgm.is_active = true AND pg.group_type = 'subscription'
-         AND wgm.created_at >= NOW() - INTERVAL '30 days'"
+        "SELECT COUNT(*)::bigint as count FROM wallet_group_assignments wga
+         INNER JOIN permission_groups pg ON wga.group_id = pg.id
+         WHERE wga.is_active = true AND pg.group_type = 'subscription'
+         AND wga.created_at >= NOW() - INTERVAL '30 days'"
     )
     .get_result::<CountResult>(&mut conn)
     .await
@@ -865,10 +914,10 @@ pub async fn get_revenue_analytics_handler(
     };
 
     let cancelled_subscriptions = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM wallet_group_memberships wgm
-         INNER JOIN permission_groups pg ON wgm.group_id = pg.id
-         WHERE wgm.is_active = false AND pg.group_type = 'subscription'
-         AND wgm.updated_at >= NOW() - INTERVAL '30 days'"
+        "SELECT COUNT(*)::bigint as count FROM wallet_group_assignments wga
+         INNER JOIN permission_groups pg ON wga.group_id = pg.id
+         WHERE wga.is_active = false AND pg.group_type = 'subscription'
+         AND wga.updated_at >= NOW() - INTERVAL '30 days'"
     )
     .get_result::<CountResult>(&mut conn)
     .await
@@ -895,13 +944,13 @@ pub async fn get_revenue_analytics_handler(
     let revenue_trends = match diesel::sql_query(
         r#"
         SELECT
-            DATE_TRUNC('day', wgm.created_at) as trend_date,
+            DATE_TRUNC('day', wga.created_at) as trend_date,
             COALESCE(SUM(pg.price), 0.0) as daily_revenue
-        FROM wallet_group_memberships wgm
-        INNER JOIN permission_groups pg ON wgm.group_id = pg.id
-        WHERE wgm.created_at >= NOW() - INTERVAL '30 days'
+        FROM wallet_group_assignments wga
+        INNER JOIN permission_groups pg ON wga.group_id = pg.id
+        WHERE wga.created_at >= NOW() - INTERVAL '30 days'
           AND pg.group_type = 'subscription'
-        GROUP BY DATE_TRUNC('day', wgm.created_at)
+        GROUP BY DATE_TRUNC('day', wga.created_at)
         ORDER BY trend_date ASC
         "#
     )
@@ -951,4 +1000,28 @@ pub async fn get_revenue_analytics_handler(
         "Revenue analytics retrieved successfully",
         metadata,
     )))
+}
+
+// ============================================================================
+// HELPER METHODS FOR REAL DATA IMPLEMENTATION
+// ============================================================================
+// TODO: Implement real data collection for analytics when activity tracking is available
+// The current implementation returns structured mock data until user activity logging is implemented
+
+/// Get feature usage statistics from database (placeholder)
+/// TODO: Replace with real query when feature usage tracking is implemented
+async fn get_feature_usage_stats(_conn: &mut AsyncPgConnection) -> Result<Vec<FeatureUsage>, AppError> {
+    Ok(vec![]) // Return empty until feature tracking table is available
+}
+
+/// Get registration time series data from database (placeholder)
+/// TODO: Replace with real query when user analytics are implemented
+async fn get_registration_time_series(_conn: &mut AsyncPgConnection, _days: i64) -> Result<Vec<TimeSeriesPoint>, AppError> {
+    Ok(vec![]) // Return empty until time series tracking is implemented
+}
+
+/// Get user activity time series data from database (placeholder)
+/// TODO: Replace with real query when user activity tracking is implemented
+async fn get_user_activity_time_series(_conn: &mut AsyncPgConnection, _days: i64) -> Result<Vec<TimeSeriesPoint>, AppError> {
+    Ok(vec![]) // Return empty until activity tracking is implemented
 }

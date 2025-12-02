@@ -15,7 +15,7 @@ pub mod comprehensive_rate_limiting_service;
 // pub mod unified_admin_client_adapter; // Removed - unused placeholder implementation
 // pub mod granular_permissions_admin_client_adapter; // Removed - unused placeholder implementation
 pub mod notification_service_adapter;
-// pub mod payment_security_service; // Temporarily disabled
+// pub mod payment_security_service; // File doesn't exist yet
 pub mod resilience_patterns;
 pub mod trading_view_market_data_adapter;
 

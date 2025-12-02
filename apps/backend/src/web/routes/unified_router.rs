@@ -64,6 +64,7 @@ impl UnifiedRouteBuilder {
         let public_routes = self.create_public_routes();
         let user_routes = self.create_user_routes();
         let notification_routes = self.create_notification_routes();
+        let payment_routes = self.create_payment_routes();
         let docs_routes = crate::web::docs::create_docs_routes();
         let permission_authority_routes = self.create_permission_authority_routes();
 
@@ -98,6 +99,9 @@ impl UnifiedRouteBuilder {
 
                 // Notifications routes (authenticated)
                 .nest("/notifications", notification_routes)
+
+                // Payment validation and management routes (authenticated)
+                .nest("/payments", payment_routes)
 
                 // Plan and billing routes (authenticated)
                 .nest("/plans", self.create_plan_routes())
@@ -444,6 +448,63 @@ impl UnifiedRouteBuilder {
             ])
             .allow_credentials(false)
             .max_age(Duration::from_secs(3600))
+    }
+
+    // ============================================================================
+    // PAYMENT ROUTES
+    // ============================================================================
+
+    fn create_payment_routes(&self) -> Router {
+        use crate::web::payments::{
+            validate_payment_handler,
+            activate_subscription_handler,
+            get_payment_details_handler,
+            get_user_subscriptions_handler,
+            get_subscription_details_handler,
+            cancel_subscription_handler,
+            renew_subscription_handler,
+            check_subscription_status_handler,
+            // Admin payment handlers
+            admin_list_payments_handler,
+            admin_get_payment_details_handler,
+            admin_update_payment_status_handler,
+            admin_process_refund_handler,
+            admin_list_subscriptions_handler,
+            admin_get_payment_analytics_handler,
+        };
+
+        let app_state = self.create_app_state();
+
+        // Core payment validation routes (authenticated users)
+        let core_routes = Router::new()
+            .route("/validate", post(validate_payment_handler))
+            .route("/activate", post(activate_subscription_handler))
+            .route("/details", get(get_payment_details_handler))
+            .with_state(app_state.clone());
+
+        // Subscription management routes (authenticated users)
+        let subscription_routes = Router::new()
+            .route("/subscriptions", get(get_user_subscriptions_handler))
+            .route("/subscriptions/{id}", get(get_subscription_details_handler))
+            .route("/subscriptions/{id}/cancel", post(cancel_subscription_handler))
+            .route("/subscriptions/{id}/renew", post(renew_subscription_handler))
+            .route("/subscriptions/check/{plan_id}", get(check_subscription_status_handler))
+            .with_state(app_state.clone());
+
+        // Admin payment management routes (admin permissions required)
+        let admin_routes = Router::new()
+            .route("/admin/list", get(admin_list_payments_handler))
+            .route("/admin/{id}", get(admin_get_payment_details_handler))
+            .route("/admin/{id}/status", put(admin_update_payment_status_handler))
+            .route("/admin/{id}/refund", post(admin_process_refund_handler))
+            .route("/admin/subscriptions", get(admin_list_subscriptions_handler))
+            .route("/admin/analytics", get(admin_get_payment_analytics_handler))
+            .with_state(app_state.clone());
+
+        // Combine all payment routes
+        core_routes
+            .merge(subscription_routes)
+            .merge(admin_routes)
     }
 
     // ============================================================================

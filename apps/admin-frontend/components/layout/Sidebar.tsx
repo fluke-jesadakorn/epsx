@@ -37,9 +37,9 @@ const navigationItems: NavItem[] = [
     requiresAuth: true,
   },
   {
-    id: 'web3-permissions',
+    id: 'permissions',
     label: 'Permissions',
-    href: '/web3-permissions',
+    href: '/permissions',
     icon: '🔑',
     requiresAuth: true,
   },
@@ -92,10 +92,10 @@ export function Sidebar() {
   };
 
   return (
-    <div className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 h-screen flex flex-col">
+    <div className="w-64 min-w-0 max-w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 h-screen flex flex-col">
       {/* Header */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-        <h1 className="text-xl font-bold text-gray-900 dark:text-white">Admin</h1>
+        <h1 className="text-xl font-bold text-gray-900 dark:text-white truncate">Admin</h1>
       </div>
 
       {/* Navigation */}
@@ -121,22 +121,25 @@ export function Sidebar() {
               {/* Main Item */}
               <div className="relative">
                 {isDisabled ? (
-                  <div className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-not-allowed opacity-50 ${
+                  <div className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-not-allowed opacity-50 min-w-0 overflow-hidden ${
                     'text-gray-400 dark:text-gray-500'
                   }`}>
-                    <span className="text-lg">{item.icon}</span>
-                    <span className="font-medium">{item.label}</span>
-                    <span className="text-xs ml-auto bg-orange-100 text-orange-600 px-2 py-1 rounded dark:bg-orange-900 dark:text-orange-300">🔒 Auth Required</span>
+                    <span className="text-lg flex-shrink-0">{item.icon}</span>
+                    <span className="font-medium text-ellipsis whitespace-nowrap overflow-hidden hidden sm:inline" style={{textOverflow: 'ellipsis'}}>{item.label}</span>
+                    <span className="font-medium text-ellipsis whitespace-nowrap overflow-hidden sm:hidden" style={{textOverflow: 'ellipsis'}}>{item.label.replace(/\s+(?:Management|Promotions|Analytics|Notifications)$/, '')}</span>
+                    <span className="text-xs flex-shrink-0 bg-orange-100 text-orange-600 px-2 py-1 rounded dark:bg-orange-900 dark:text-orange-300 hidden sm:inline">🔒</span>
+                    <span className="text-xs flex-shrink-0 bg-orange-100 text-orange-600 px-1 py-1 rounded dark:bg-orange-900 dark:text-orange-300 sm:hidden">🔒</span>
                   </div>
                 ) : (
                   <Link href={item.href}>
-                    <div className={`flex items-center gap-3 px-3 py-2 rounded-lg ${
+                    <div className={`flex items-center gap-3 px-3 py-2 rounded-lg min-w-0 overflow-hidden ${
                       isActive || hasActiveChild
                         ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
                         : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
                     }`}>
-                      <span className="text-lg">{item.icon}</span>
-                      <span className="font-medium">{item.label}</span>
+                      <span className="text-lg flex-shrink-0">{item.icon}</span>
+                      <span className="font-medium text-ellipsis whitespace-nowrap overflow-hidden hidden sm:inline" style={{textOverflow: 'ellipsis'}}>{item.label}</span>
+                      <span className="font-medium text-ellipsis whitespace-nowrap overflow-hidden sm:hidden" style={{textOverflow: 'ellipsis'}}>{item.label.replace(/\s+(?:Management|Promotions|Analytics|Notifications)$/, '')}</span>
                     </div>
                   </Link>
                 )}
@@ -166,20 +169,22 @@ export function Sidebar() {
                     return (
                       <div key={child.id}>
                         {childIsDisabled ? (
-                          <div className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-not-allowed opacity-50 text-gray-400 dark:text-gray-500">
-                            <span className="text-sm">{child.icon}</span>
-                            <span className="text-sm font-medium">{child.label}</span>
-                            <span className="text-xs ml-auto bg-orange-100 text-orange-600 px-1 py-0.5 rounded dark:bg-orange-900 dark:text-orange-300">🔒</span>
+                          <div className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-not-allowed opacity-50 text-gray-400 dark:text-gray-500 min-w-0 overflow-hidden">
+                            <span className="text-sm flex-shrink-0">{child.icon}</span>
+                            <span className="text-sm font-medium text-ellipsis whitespace-nowrap overflow-hidden hidden sm:inline" style={{textOverflow: 'ellipsis'}}>{child.label}</span>
+                            <span className="text-sm font-medium text-ellipsis whitespace-nowrap overflow-hidden sm:hidden" style={{textOverflow: 'ellipsis'}}>{child.label.replace(/\s+(?:Management|Promotions|Analytics|Notifications)$/, '')}</span>
+                            <span className="text-xs flex-shrink-0 bg-orange-100 text-orange-600 px-1 py-0.5 rounded dark:bg-orange-900 dark:text-orange-300">🔒</span>
                           </div>
                         ) : (
                           <Link href={child.href}>
-                            <div className={`flex items-center gap-3 px-3 py-2 rounded-lg ${
+                            <div className={`flex items-center gap-3 px-3 py-2 rounded-lg min-w-0 overflow-hidden ${
                               childIsActive
                                 ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300'
                                 : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
                             }`}>
-                              <span className="text-sm">{child.icon}</span>
-                              <span className="text-sm font-medium">{child.label}</span>
+                              <span className="text-sm flex-shrink-0">{child.icon}</span>
+                              <span className="text-sm font-medium text-ellipsis whitespace-nowrap overflow-hidden hidden sm:inline" style={{textOverflow: 'ellipsis'}}>{child.label}</span>
+                              <span className="text-sm font-medium text-ellipsis whitespace-nowrap overflow-hidden sm:hidden" style={{textOverflow: 'ellipsis'}}>{child.label.replace(/\s+(?:Management|Promotions|Analytics|Notifications)$/, '')}</span>
                             </div>
                           </Link>
                         )}

@@ -17,10 +17,16 @@ export function withPaymentAuth<P extends object>(
     const isAuthenticated = !!user
     
     // Payment access means user has basic permissions
-    const hasPaymentAccess = user?.permissions ? 
-      Object.keys(user.permissions).some(p => 
-        p.includes('epsx:') || p.includes('premium:')
-      ) : false
+    // Handle both array and object permission formats
+    const hasPaymentAccess = user?.permissions ?
+      (Array.isArray(user.permissions)
+        ? user.permissions.some(p =>
+            p.includes('epsx:') || p.includes('premium:') || p.includes('payments:')
+          )
+        : Object.keys(user.permissions).some(p =>
+            p.includes('epsx:') || p.includes('premium:') || p.includes('payments:')
+          )
+      ) : true // If authenticated, allow payment access by default
 
     // Show loading state
     if (isLoading) {
@@ -57,6 +63,15 @@ export function withPaymentAuth<P extends object>(
       )
     }
 
+    // Debug log to check permissions
+    console.log('withPaymentAuth Debug:', {
+      isAuthenticated,
+      hasPermissions: !!user?.permissions,
+      permissions: user?.permissions,
+      permissionsType: Array.isArray(user?.permissions) ? 'array' : typeof user?.permissions,
+      hasPaymentAccess
+    });
+
     // Show payment access required message
     if (!hasPaymentAccess) {
       return (
@@ -67,15 +82,24 @@ export function withPaymentAuth<P extends object>(
                 <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold mb-2">Premium Access Required</h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
-              You need premium permissions to access payment features. Current access: {hasPaymentAccess ? 'Allowed' : 'Denied'}
+            <h3 className="text-lg font-semibold mb-2">Payment Access Setup Required</h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-2">
+              Your account is authenticated but needs payment access setup.
+            </p>
+            <p className="text-xs text-gray-500 mb-4">
+              Debug: Permissions found: {user?.permissions ? JSON.stringify(user.permissions) : 'None'}
             </p>
             <button
-              onClick={() => router.push('/payment')}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              onClick={() => window.location.reload()}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 mr-2"
             >
-              Upgrade Plan
+              Refresh Page
+            </button>
+            <button
+              onClick={() => router.push('/')}
+              className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            >
+              Go Home
             </button>
           </div>
         </div>

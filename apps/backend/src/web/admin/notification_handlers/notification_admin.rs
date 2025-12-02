@@ -73,9 +73,9 @@ pub async fn send_notification_handler(
         let group_members = diesel::sql_query(
             r#"
             SELECT wallet_address
-            FROM wallet_group_memberships wgm
-            INNER JOIN permission_groups pg ON wgm.group_id = pg.id
-            WHERE pg.slug = $1 AND wgm.is_active = true
+            FROM wallet_group_assignments wga
+            INNER JOIN permission_groups pg ON wga.group_id = pg.id
+            WHERE pg.slug = $1 AND wga.is_active = true
             "#
         )
         .bind::<diesel::sql_types::Text, _>(&group)

@@ -201,9 +201,12 @@ impl Config {
 
 /// Load environment from .env file
 pub fn load_env() {
-    if let Err(e) = dotenv::dotenv() {
-        eprintln!("Warning: Failed to load .env file: {}", e);
-    }
+    // In a monorepo setup with TurboRepo, environment variables are injected via dotenv-cli
+    // before the process starts. We don't need to manually load the .env file here.
+    // However, we keep this as a no-op or fallback if needed in the future.
+    // if let Err(e) = dotenv::dotenv() {
+    //     eprintln!("Warning: Failed to load .env file: {}", e);
+    // }
 }
 
 /// Initialize and validate configuration

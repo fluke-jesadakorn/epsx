@@ -1,16 +1,17 @@
 'use client';
 
 import '@/lib/browser-polyfills';
-import '@rainbow-me/rainbowkit/styles.css';
 import {
-  getDefaultConfig,
-  darkTheme,
-  RainbowKitProvider,
+    darkTheme,
+    getDefaultConfig,
+    RainbowKitProvider,
 } from '@rainbow-me/rainbowkit';
+import '@rainbow-me/rainbowkit/styles.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { type ReactNode, useState, useEffect, createContext, useContext } from 'react';
+import { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
 import { WagmiProvider } from 'wagmi';
 import { bsc, bscTestnet } from 'wagmi/chains';
+import type { Chain } from 'wagmi/chains';
 
 // Query client factory function
 const createQueryClient = () => new QueryClient({
@@ -36,9 +37,33 @@ const createQueryClient = () => new QueryClient({
   },
 });
 
+// Define Hardhat Localhost chain
+const hardhatLocalhost = {
+  id: 31337,
+  name: 'Hardhat Local',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'Ether',
+    symbol: 'ETH',
+  },
+  rpcUrls: {
+    default: { http: ['http://127.0.0.1:8545'] },
+    public: { http: ['http://127.0.0.1:8545'] },
+  },
+  blockExplorers: {
+    default: { name: 'Hardhat', url: 'http://127.0.0.1:8545' },
+  },
+  testnet: true,
+} as const satisfies Chain;
+
 // Get the blockchain network from environment
 const isMainnet = process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === 'mainnet';
-const chains = isMainnet ? [bsc] as const : [bscTestnet, bsc] as const;
+const isLocal = process.env.NEXT_PUBLIC_CHAIN_ID === '31337';
+const chains = isLocal
+  ? [hardhatLocalhost, bscTestnet, bsc] as const
+  : isMainnet
+    ? [bsc] as const
+    : [bscTestnet, bsc] as const;
 
 // Singleton wagmi config to prevent multiple WalletConnect initializations
 let wagmiConfig: ReturnType<typeof getDefaultConfig> | null = null;

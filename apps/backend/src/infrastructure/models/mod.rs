@@ -9,6 +9,7 @@ pub mod wallet_user;
 pub mod session;
 pub mod permission_group;
 pub mod permission;
+pub mod payment;
 
 // Re-export common model structs for convenience
 pub use wallet_user::{
@@ -30,6 +31,15 @@ pub use permission::{
     BulkPermissionRequest, PermissionStats, PermissionValidationResult,
     PermissionAssignmentResult, PermissionSearchFilters, PermissionSummary,
     PlatformPermissionStats
+};
+
+pub use payment::{
+    PaymentDb, NewPaymentDb, UpdatePaymentDb,
+    SubscriptionDb, NewSubscriptionDb, UpdateSubscriptionDb,
+    PaymentAuditLogDb, NewPaymentAuditLogDb,
+    CreatePaymentRequest, UpdatePaymentRequest,
+    CreateSubscriptionRequest, UpdateSubscriptionRequest,
+    PaymentStatsDb, PaymentSummaryDb
 };
 
 

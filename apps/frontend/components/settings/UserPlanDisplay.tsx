@@ -38,32 +38,48 @@ export function UserPlanDisplay({ userId }: UserPlanDisplayProps) {
     try {
       setLoading(true)
       // Fetch user permissions from the new permission-based API
-      const response = await fetch(`/api/user/permissions`)
+      const response = await fetch(`http://localhost:8080/api/v1/users/permissions`, {
+        method: 'GET',
+        credentials: 'include', // Include cookies for authentication
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
       
       if (response.ok) {
-        const data = await response.json()
-        if (data.permissions && data.permissions.length > 0) {
-          // Convert backend data to our interface
-          const permissionInfo: UserPermissionInfo = {
-            id: data.id || userId,
-            permissionTemplate: data.permissionTemplate || getTemplateFromPermissions(data.permissions),
-            permissions: data.permissions,
-            displayTier: getDisplayTierFromPermissions(data.permissions),
-            status: data.status || 'active',
-            current_usage: data.current_usage || {},
-            quota_limits: generateQuotaFromPermissions(data.permissions),
-            granted_at: data.granted_at || new Date().toISOString(),
-            expires_at: data.expires_at,
-            auto_renew: data.auto_renew || false
+        const apiResponse = await response.json()
+
+        if (apiResponse.success && apiResponse.data) {
+          const permissionData = apiResponse.data
+
+          if (permissionData.permissions && permissionData.permissions.length > 0) {
+            // Extract permission strings from the backend response
+            const permissionStrings = permissionData.permissions.map((p: any) => p.permission)
+
+            // Convert backend data to our interface
+            const permissionInfo: UserPermissionInfo = {
+              id: permissionData.wallet_address || userId,
+              permissionTemplate: getTemplateFromPermissions(permissionStrings),
+              permissions: permissionStrings,
+              displayTier: getDisplayTierFromPermissions(permissionStrings),
+              status: 'active', // Backend doesn't provide status, assume active
+              current_usage: {}, // Backend doesn't provide usage data yet
+              quota_limits: generateQuotaFromPermissions(permissionStrings),
+              granted_at: new Date().toISOString(), // Use current time
+              expires_at: undefined, // Backend doesn't provide expiry for UI display
+              auto_renew: false // Backend doesn't provide auto_renew info
+            }
+            setUserPermissions(permissionInfo)
+          } else {
+            setUserPermissions(null) // Free tier - no permissions
           }
-          setUserPermissions(permissionInfo)
         } else {
-          setUserPermissions(null) // Free tier - no permissions
+          setUserPermissions(null) // Free tier
         }
-      } else if (response.status === 404) {
-        setUserPermissions(null) // Free tier
+      } else if (response.status === 404 || response.status === 401) {
+        setUserPermissions(null) // Free tier or not authenticated
       } else {
-        throw new Error('Failed to load permission data')
+        throw new Error(`Failed to load permission data: ${response.status}`)
       }
     } catch (error) {
       console.error('Error loading permissions:', error)

@@ -5,13 +5,14 @@
  * It defines how to interact with the contract functions and events.
  *
  * Generated from: apps/contracts/contracts/PaymentEscrow.sol
+ * Updated: 2025-11-29 - Added payWithAmountDisplay function
  */
 
 export const PAYMENT_ESCROW_ABI = [
   {
     type: 'constructor',
     inputs: [
-      { name: 'initialOwner', type: 'address', internalType: 'address' }
+      { name: 'initialAdmin', type: 'address', internalType: 'address' }
     ],
     stateMutability: 'nonpayable',
   },
@@ -28,13 +29,25 @@ export const PAYMENT_ESCROW_ABI = [
   },
   {
     type: 'function',
-    name: 'setPlanPrice',
+    name: 'payWithTransfer',
     inputs: [
       { name: 'planId', type: 'uint256', internalType: 'uint256' },
-      { name: 'price', type: 'uint256', internalType: 'uint256' }
+      { name: 'token', type: 'address', internalType: 'address' },
+      { name: 'amount', type: 'uint256', internalType: 'uint256' }
     ],
     outputs: [],
     stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'payWithAmountDisplay',
+    inputs: [
+      { name: 'planId', type: 'uint256', internalType: 'uint256' },
+      { name: 'token', type: 'address', internalType: 'address' },
+      { name: 'amount', type: 'uint256', internalType: 'uint256' }
+    ],
+    outputs: [],
+    stateMutability: 'payable',
   },
   {
     type: 'function',
@@ -73,17 +86,6 @@ export const PAYMENT_ESCROW_ABI = [
   },
   {
     type: 'function',
-    name: 'getPlanPrice',
-    inputs: [
-      { name: 'planId', type: 'uint256', internalType: 'uint256' }
-    ],
-    outputs: [
-      { name: '', type: 'uint256', internalType: 'uint256' }
-    ],
-    stateMutability: 'view',
-  },
-  {
-    type: 'function',
     name: 'isTokenSupported',
     inputs: [
       { name: 'token', type: 'address', internalType: 'address' }
@@ -115,10 +117,33 @@ export const PAYMENT_ESCROW_ABI = [
   },
   {
     type: 'function',
-    name: 'owner',
+    name: 'hasRole',
+    inputs: [
+      { name: 'role', type: 'bytes32', internalType: 'bytes32' },
+      { name: 'account', type: 'address', internalType: 'address' }
+    ],
+    outputs: [
+      { name: '', type: 'bool', internalType: 'bool' }
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'supportedTokens',
+    inputs: [
+      { name: '', type: 'address', internalType: 'address' }
+    ],
+    outputs: [
+      { name: '', type: 'bool', internalType: 'bool' }
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'totalPayments',
     inputs: [],
     outputs: [
-      { name: '', type: 'address', internalType: 'address' }
+      { name: '', type: 'uint256', internalType: 'uint256' }
     ],
     stateMutability: 'view',
   },
@@ -132,6 +157,24 @@ export const PAYMENT_ESCROW_ABI = [
     stateMutability: 'view',
   },
   {
+    type: 'function',
+    name: 'MANAGER_ROLE',
+    inputs: [],
+    outputs: [
+      { name: '', type: 'bytes32', internalType: 'bytes32' }
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'DEFAULT_ADMIN_ROLE',
+    inputs: [],
+    outputs: [
+      { name: '', type: 'bytes32', internalType: 'bytes32' }
+    ],
+    stateMutability: 'view',
+  },
+  {
     type: 'event',
     name: 'PaymentReceived',
     inputs: [
@@ -141,16 +184,6 @@ export const PAYMENT_ESCROW_ABI = [
       { name: 'amount', type: 'uint256', indexed: false, internalType: 'uint256' },
       { name: 'timestamp', type: 'uint256', indexed: false, internalType: 'uint256' },
       { name: 'paymentId', type: 'uint256', indexed: false, internalType: 'uint256' }
-    ],
-    anonymous: false,
-  },
-  {
-    type: 'event',
-    name: 'PlanPriceUpdated',
-    inputs: [
-      { name: 'planId', type: 'uint256', indexed: true, internalType: 'uint256' },
-      { name: 'oldPrice', type: 'uint256', indexed: false, internalType: 'uint256' },
-      { name: 'newPrice', type: 'uint256', indexed: false, internalType: 'uint256' }
     ],
     anonymous: false,
   },
@@ -201,12 +234,6 @@ export interface PaymentReceivedEvent {
   amount: bigint;
   timestamp: bigint;
   paymentId: bigint;
-}
-
-export interface PlanPriceUpdatedEvent {
-  planId: bigint;
-  oldPrice: bigint;
-  newPrice: bigint;
 }
 
 export interface TokenStatusUpdatedEvent {

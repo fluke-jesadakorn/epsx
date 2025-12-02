@@ -1,6 +1,5 @@
 'use client';
 
-import { JustInTimeAuth } from '@/components/auth/JustInTimeAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -18,8 +17,8 @@ import {
   Zap,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { env } from '../../../../../shared/env/schema';
 import { API_ROUTES } from '../../../../../shared/config/route-constants';
+import { env } from '../../../../../shared/env/schema';
 import MetaMaskPayment from './MetaMaskPayment';
 
 interface OneClickPaymentProps {
@@ -58,7 +57,8 @@ interface ApiPaymentPlan {
 // UI-enhanced payment package interface
 interface PaymentPackage
   extends Omit<ApiPaymentPlan, 'features' | 'current_price' | 'id'> {
-  id: number; // Always number in UI (parsed from backend)
+  id: number | string; // Allow string for UUIDs
+  original_plan_id: number | string; // Original plan ID from backend (for contract calls)
   features: string[]; // Always array in UI
   current_price: number; // Always number in UI (parsed from backend string)
   base_price: number; // Always number in UI
@@ -110,11 +110,66 @@ const fetchPlans = async (): Promise<PaymentPackage[]> => {
 
     // Transform API response to include UI-specific fields
     return plans.map((plan: ApiPaymentPlan, index: number): PaymentPackage => {
-      // Parse prices (backend returns strings)
-      const currentPrice =
-        typeof plan.current_price === 'string'
-          ? parseFloat(plan.current_price)
-          : plan.current_price;
+      console.log('🚨 fetchPlans Plan Debug:', {
+        plan,
+        current_price: plan.current_price,
+        effective_price: plan.effective_price,
+        priceType: typeof plan.current_price,
+        index
+      });
+
+      // Parse prices (backend returns strings) with comprehensive validation
+      let currentPrice: number;
+      if (typeof plan.current_price === 'string') {
+        currentPrice = parseFloat(plan.current_price);
+      } else if (typeof plan.current_price === 'number') {
+        currentPrice = plan.current_price;
+      } else {
+        currentPrice = 0;
+      }
+
+      // Validate parsed price - if invalid (NaN or negative), try effective_price as fallback
+      // Note: Price of 0 is valid for free plans
+      if (!currentPrice || isNaN(currentPrice) || currentPrice < 0) {
+        console.warn('⚠️ Invalid current_price, trying effective_price as fallback:', {
+          plan_id: plan.id,
+          plan_name: plan.name,
+          current_price: plan.current_price,
+          effective_price: plan.effective_price
+        });
+
+        // Try effective_price as fallback
+        if (typeof plan.effective_price === 'number' && plan.effective_price >= 0) {
+          currentPrice = plan.effective_price;
+        } else if (typeof plan.effective_price === 'string') {
+          const parsed = parseFloat(plan.effective_price);
+          if (!isNaN(parsed) && parsed >= 0) {
+            currentPrice = parsed;
+          }
+        }
+      }
+
+      // Final validation - if still invalid, log error
+      // Price of 0 is valid for free plans, only flag if NaN or negative
+      if (!currentPrice || isNaN(currentPrice) || currentPrice < 0) {
+        console.error('❌ CRITICAL: Plan has invalid price after all fallbacks:', {
+          plan_id: plan.id,
+          plan_name: plan.name,
+          plan_type: plan.plan_type,
+          current_price: plan.current_price,
+          effective_price: plan.effective_price,
+          parsed_current: currentPrice
+        });
+      }
+
+      console.log('🚨 fetchPlans Price Conversion:', {
+        plan_id: plan.id,
+        original: plan.current_price,
+        parsed: currentPrice,
+        isNaN: isNaN(currentPrice),
+        isZero: currentPrice === 0,
+        isValid: currentPrice >= 0 && !isNaN(currentPrice)
+      });
 
       const basePrice = plan.base_price
         ? typeof plan.base_price === 'string'
@@ -124,27 +179,22 @@ const fetchPlans = async (): Promise<PaymentPackage[]> => {
 
       const effectivePrice = plan.effective_price ?? currentPrice;
 
-      // Generate unique ID that maintains connection to original plan ID
-      // Format: {originalId}_{index} or just index+1 if original ID is invalid
-      let originalId: string | number;
-      if (typeof plan.id === 'string') {
-        const parsed = parseInt(plan.id, 10);
-        originalId = isNaN(parsed) ? index + 1 : parsed;
-      } else if (typeof plan.id === 'number') {
-        originalId = isNaN(plan.id) ? index + 1 : plan.id;
+      // Parse original plan ID from backend
+      let originalPlanId: number | string;
+      if (typeof plan.id === 'number' && !isNaN(plan.id)) {
+        originalPlanId = plan.id;
       } else {
-        originalId = index + 1;
+        // Keep as string if it's a UUID or other string ID
+        originalPlanId = plan.id;
       }
 
-      // Use composite key: originalId * 1000 + index to ensure uniqueness
-      // This maintains some connection to the original ID while preventing duplicates
-      const parsedId = typeof originalId === 'number'
-        ? originalId * 1000 + index
-        : parseInt(originalId.toString(), 10) * 1000 + index;
+      // Use composite key or original ID
+      const parsedId = originalPlanId;
 
       return {
         ...plan,
         id: parsedId,
+        original_plan_id: originalPlanId, // Store original ID for contract calls
         current_price: currentPrice,
         base_price: basePrice,
         effective_price: effectivePrice,
@@ -241,11 +291,12 @@ const getDefaultFeaturesForPlan = (planType: string): string[] => {
 
 const getFallbackPlans = (): PaymentPackage[] => [
   {
-    id: 1,
+    id: 'adc7bfb7-16ea-4758-8717-ed5c899f36af', // UUID matching MetaMaskPayment mapping
+    original_plan_id: 'adc7bfb7-16ea-4758-8717-ed5c899f36af', // Actual contract plan ID
     name: 'Starter',
     plan_type: 'starter',
-    base_price: 49,
-    current_price: 29,
+    base_price: 14.99,
+    current_price: 14.99,
     currency: 'USD',
     is_active: true,
     is_highlighted: false,
@@ -262,11 +313,12 @@ const getFallbackPlans = (): PaymentPackage[] => [
     ],
   },
   {
-    id: 2,
+    id: 'a5b20d50-6616-41a3-b130-4ed2c28f3063', // UUID matching MetaMaskPayment mapping
+    original_plan_id: 'a5b20d50-6616-41a3-b130-4ed2c28f3063', // Actual contract plan ID
     name: 'Professional',
     plan_type: 'professional',
-    base_price: 99,
-    current_price: 59,
+    base_price: 29.99,
+    current_price: 29.99,
     currency: 'USD',
     is_active: true,
     is_highlighted: true,
@@ -286,11 +338,12 @@ const getFallbackPlans = (): PaymentPackage[] => [
     ],
   },
   {
-    id: 3,
+    id: '3a6ec235-6a7e-4fbd-aa8a-178ad86b5b35', // UUID matching MetaMaskPayment mapping
+    original_plan_id: '3a6ec235-6a7e-4fbd-aa8a-178ad86b5b35', // Actual contract plan ID
     name: 'Enterprise',
     plan_type: 'enterprise',
-    base_price: 149,
-    current_price: 99,
+    base_price: 99.99,
+    current_price: 99.99,
     currency: 'USD',
     is_active: true,
     is_highlighted: false,
@@ -327,7 +380,7 @@ export default function OneClickPayment({
   const [packages, setPackages] = useState<PaymentPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPackage, setSelectedPackage] = useState<number | null>(null);
+  const [selectedPackage, setSelectedPackage] = useState<number | string | null>(null);
   const [currentStep, setCurrentStep] = useState<PaymentStep>('package');
   const [selectedPaymentMethod, setSelectedPaymentMethod] =
     useState('metamask');
@@ -345,15 +398,26 @@ export default function OneClickPayment({
 
         // Set default selected package
         if (preselectedPackage) {
+          console.log('🚨 PreselectedPackage Debug:', {
+            preselectedPackage,
+            plans: plans.map(p => ({ id: p.id, plan_type: p.plan_type, name: p.name }))
+          });
+
           const selectedPlan = plans.find(
             p =>
+              p.id === preselectedPackage || // Direct ID match (UUID)
               p.plan_type.toLowerCase() === preselectedPackage.toLowerCase() ||
               p.name.toLowerCase() === preselectedPackage.toLowerCase()
           );
+          console.log('🚨 SelectedPlan Result:', {
+            selectedPlan,
+            found: !!selectedPlan,
+            fallbackTo: plans[0]?.id || null
+          });
           setSelectedPackage(selectedPlan?.id || plans[0]?.id || null);
         } else {
-          // Default to professional plan or first plan
-          const defaultPlan = plans.find(p => p.popular) || plans[0];
+          // Default to first plan (Starter at $14.99)
+          const defaultPlan = plans[0];
           setSelectedPackage(defaultPlan?.id || null);
         }
       } catch (err) {
@@ -363,7 +427,7 @@ export default function OneClickPayment({
         const fallbackPlans = getFallbackPlans();
         setPackages(fallbackPlans);
         setSelectedPackage(
-          fallbackPlans[1]?.id || fallbackPlans[0]?.id || null
+          fallbackPlans[0]?.id || null
         );
       } finally {
         setLoading(false);
@@ -410,11 +474,11 @@ export default function OneClickPayment({
           },
           credentials: 'include',
           body: JSON.stringify({
-            plan_id: selectedPkg.id,
+            plan_id: selectedPkg.original_plan_id, // Use original plan ID for backend
             transaction_hash: txHash,
             amount: selectedPkg.current_price,
             currency: selectedPkg.currency,
-            network: 'ethereum', // Default to Ethereum for now
+            network: 'localhost', // Use localhost for Hardhat local development
           }),
         });
 
@@ -445,6 +509,25 @@ export default function OneClickPayment({
   };
 
   const selectedPkg = packages.find(pkg => pkg.id === selectedPackage);
+
+  console.log('🚨 selectedPkg Debug:', {
+    packages: packages.map(p => ({ id: p.id, name: p.name, current_price: p.current_price })),
+    selectedPackage,
+    selectedPkg,
+    found: !!selectedPkg,
+    packageCount: packages.length,
+    selectedPkgPrice: selectedPkg?.current_price,
+    priceIsValid: selectedPkg?.current_price !== undefined && selectedPkg.current_price >= 0 && !isNaN(selectedPkg.current_price)
+  });
+
+  // Validate selected package has valid price
+  // Price of 0 is valid for free plans
+  if (selectedPkg && (selectedPkg.current_price === undefined || isNaN(selectedPkg.current_price) || selectedPkg.current_price < 0)) {
+    console.error('❌ CRITICAL ERROR: Selected package has invalid price!', {
+      selectedPkg,
+      price: selectedPkg.current_price
+    });
+  }
 
   // Loading state
   if (loading) {
@@ -961,14 +1044,22 @@ export default function OneClickPayment({
 
               {/* MetaMask Payment Component */}
               {selectedPaymentMethod === 'metamask' && selectedPkg && (
-                <MetaMaskPayment
-                  planId={selectedPkg.id}
-                  planName={selectedPkg.name}
-                  amount={selectedPkg.current_price}
-                  currency={selectedPkg.currency}
-                  onSuccess={handleMetaMaskSuccess}
-                  onError={handleMetaMaskError}
-                />
+                <>
+                  {console.log('🚨 OneClickPayment MetaMask Debug:', {
+                    selectedPkg,
+                    current_price: selectedPkg.current_price,
+                    priceType: typeof selectedPkg.current_price,
+                    planId: selectedPkg.original_plan_id
+                  })}
+                  <MetaMaskPayment
+                    planId={selectedPkg.original_plan_id}
+                    planName={selectedPkg.name}
+                    amount={selectedPkg.current_price}
+                    currency={selectedPkg.currency}
+                    onSuccess={handleMetaMaskSuccess}
+                    onError={handleMetaMaskError}
+                  />
+                </>
               )}
 
               {/* Security Info */}
@@ -1022,11 +1113,11 @@ export default function OneClickPayment({
                     </div>
                   </div>
 
-                  <JustInTimeAuth onAuthenticated={handlePayment}>
-                    <Button
+                  <Button
                       disabled={isProcessing}
                       className="w-full"
                       size="lg"
+                      onClick={handlePayment}
                     >
                       {isProcessing ? (
                         <>
@@ -1040,7 +1131,6 @@ export default function OneClickPayment({
                         </>
                       )}
                     </Button>
-                  </JustInTimeAuth>
 
                   <p className="text-muted-foreground text-center text-xs">
                     By continuing, you agree to our Terms of Service and Privacy

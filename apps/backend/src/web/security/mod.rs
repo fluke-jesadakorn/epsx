@@ -105,9 +105,6 @@ pub fn validate_security_config() -> Result<(), Vec<String>> {
     
     if is_production() {
         // Check for production-required security variables
-        if get_env_var("OIDC_PRIVATE_KEY").is_err() {
-            errors.push("OIDC_PRIVATE_KEY is required in production".to_string());
-        }
         
         if get_env_var("COOKIE_SIGNING_KEY").is_err() {
             errors.push("COOKIE_SIGNING_KEY is required in production".to_string());
@@ -143,7 +140,6 @@ pub fn validate_security_config() -> Result<(), Vec<String>> {
 pub fn get_security_config_summary() -> SecurityConfigSummary {
     SecurityConfigSummary {
         environment: get_env_var("RUST_ENV").unwrap_or_else(|_| "unknown".to_string()),
-        oidc_configured: get_env_var("OIDC_PRIVATE_KEY").is_ok(),
         cookie_security_configured: get_env_var("COOKIE_SIGNING_KEY").is_ok() && get_env_var("COOKIE_ENCRYPTION_KEY").is_ok(),
         cors_origins: get_allowed_origins(),
         ip_allowlisting_enabled: !get_env_var("SECURITY_IP_ALLOWLIST").unwrap_or_default().is_empty(),
@@ -156,7 +152,6 @@ pub fn get_security_config_summary() -> SecurityConfigSummary {
 #[derive(Debug)]
 pub struct SecurityConfigSummary {
     pub environment: String,
-    pub oidc_configured: bool,
     pub cookie_security_configured: bool,
     pub cors_origins: Vec<String>,
     pub ip_allowlisting_enabled: bool,
@@ -169,7 +164,6 @@ impl std::fmt::Display for SecurityConfigSummary {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Security Configuration Summary:")?;
         writeln!(f, "  Environment: {}", self.environment)?;
-        writeln!(f, "  OIDC Configured: {}", self.oidc_configured)?;
         writeln!(f, "  Cookie Security: {}", self.cookie_security_configured)?;
         writeln!(f, "  CORS Origins: {:?}", self.cors_origins)?;
         writeln!(f, "  IP Allowlisting: {}", self.ip_allowlisting_enabled)?;

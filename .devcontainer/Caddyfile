@@ -29,7 +29,7 @@ epsx.io {
     tls internal
     
     # Reverse proxy to dev container frontend service
-    reverse_proxy devcontainer:3000 {
+    reverse_proxy frontend:3000 {
         # Pass original host header
         header_up Host {host}
         header_up X-Real-IP {remote}
@@ -71,7 +71,7 @@ api.epsx.io {
     tls internal
     
     # Reverse proxy to dev container backend service
-    reverse_proxy devcontainer:8080 {
+    reverse_proxy backend:8080 {
         # Pass original host header
         header_up Host {host}
         header_up X-Real-IP {remote}
@@ -129,7 +129,7 @@ admin.epsx.io {
     tls internal
     
     # Reverse proxy to dev container admin service
-    reverse_proxy devcontainer:3001 {
+    reverse_proxy frontend:3001 {
         # Pass original host header
         header_up Host {host}
         header_up X-Real-IP {remote}

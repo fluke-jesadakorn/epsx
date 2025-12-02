@@ -55,7 +55,7 @@ pub struct PermissionDb {
     /// Source ID for group-based permissions (new unified field)
     pub source_id: Option<Uuid>,
     /// When this permission was granted (new unified field)
-    pub granted_at: DateTime<Utc>,
+    pub granted_at: Option<DateTime<Utc>>,
     /// When this permission expires (NULL for permanent) (new unified field)
     pub expires_at: Option<DateTime<Utc>>,
     /// Who granted this permission (admin wallet address) (new unified field)
@@ -367,7 +367,7 @@ impl PermissionDb {
         let mut result = self.clone();
         result.wallet_address = Some(wallet_address);
         result.source_type = Some(source_type);
-        result.granted_at = Utc::now();
+        result.granted_at = Some(Utc::now());
         result
     }
 }

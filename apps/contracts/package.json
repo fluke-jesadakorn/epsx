@@ -3,30 +3,13 @@
   "version": "1.0.0",
   "description": "EPSX Payment Escrow Smart Contracts for BSC",
   "scripts": {
-    "compile": "hardhat compile",
-    "test": "hardhat test",
-    "deploy:testnet": "hardhat run scripts/deploy.ts --network bscTestnet",
-    "deploy:mainnet": "hardhat run scripts/deploy.ts --network bscMainnet",
-    "verify:testnet": "hardhat run scripts/verify.ts --network bscTestnet",
-    "verify:mainnet": "hardhat run scripts/verify.ts --network bscMainnet"
+    "build": "forge build",
+    "test": "forge test",
+    "deploy:testnet": "forge script script/Deploy.s.sol --rpc-url $BSC_TESTNET_RPC --broadcast",
+    "deploy:mainnet": "forge script script/Deploy.s.sol --rpc-url $BSC_MAINNET_RPC --broadcast",
+    "clean": "forge clean"
   },
-  "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
-    "@nomicfoundation/hardhat-verify": "^2.0.0",
-    "@nomiclabs/hardhat-ethers": "^2.2.3",
-    "@typechain/ethers-v6": "^0.5.1",
-    "@typechain/hardhat": "^9.1.0",
-    "@types/chai": "^4.3.11",
-    "@types/mocha": "^10.0.6",
-    "@types/node": "^20.10.6",
-    "chai": "^4.3.10",
-    "hardhat": "^2.19.4",
-    "hardhat-gas-reporter": "^1.0.9",
-    "solidity-coverage": "^0.8.5",
-    "ts-node": "^10.9.2",
-    "typechain": "^8.3.2",
-    "typescript": "^5.3.3"
-  },
+  "devDependencies": {},
   "dependencies": {
     "@openzeppelin/contracts": "^5.0.1",
     "dotenv": "^16.3.1",

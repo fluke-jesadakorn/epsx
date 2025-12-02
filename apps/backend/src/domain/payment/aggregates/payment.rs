@@ -33,6 +33,39 @@ pub struct Payment {
 }
 
 impl Payment {
+    /// Create new payment from existing data (for repository reconstruction)
+    pub fn new(
+        id: PaymentId,
+        reference: PaymentReference,
+        wallet_address: WalletAddress,
+        amount: PaymentAmount,
+        status: PaymentStatus,
+        transaction_hash: Option<TransactionHash>,
+        plan_id: String,
+        created_at: DateTime<Utc>,
+        metadata: serde_json::Value,
+    ) -> Result<Self, PaymentError> {
+        let payment_metadata = PaymentMetadata::new(created_at);
+        let method = PaymentMethod::new(
+            crate::domain::payment::value_objects::PaymentMethodType::Crypto,
+            crate::domain::payment::value_objects::Currency::USDT,
+            Some(crate::domain::payment::value_objects::Network::BinanceSmartChain)
+        ).map_err(|_| PaymentError::PaymentMethodUnavailable)?;
+
+        Ok(Self {
+            id,
+            wallet_address,
+            reference,
+            amount,
+            method,
+            status,
+            metadata: payment_metadata,
+            crypto_details: None,
+            fiat_details: None,
+            base: AggregateBase::new(),
+        })
+    }
+
     /// Create new payment
     pub fn create(
         wallet_address: WalletAddress,
@@ -91,13 +124,8 @@ impl Payment {
         match self.method.method_type() {
             crate::domain::payment::value_objects::PaymentMethodType::Crypto => {
                 self.crypto_details = Some(CryptoPaymentDetails::new(
-                    self.method.currency(),
-                    self.method.network().expect("Crypto method must have network"),
-                ));
-            }
-            crate::domain::payment::value_objects::PaymentMethodType::Fiat => {
-                self.fiat_details = Some(FiatPaymentDetails::new(
-                    self.method.method_type(),
+                    self.method.currency().clone(),
+                    self.method.network().expect("Crypto method must have network").clone(),
                 ));
             }
         }
@@ -114,6 +142,13 @@ impl Payment {
     pub fn metadata(&self) -> &PaymentMetadata { &self.metadata }
     pub fn crypto_details(&self) -> Option<&CryptoPaymentDetails> { self.crypto_details.as_ref() }
     pub fn fiat_details(&self) -> Option<&FiatPaymentDetails> { self.fiat_details.as_ref() }
+
+    /// Get plan ID (subscription/permission group ID)
+    pub fn plan_id(&self) -> String {
+        // For now, return empty string - this should be stored in metadata or as a field
+        // This is a placeholder to satisfy the repository adapter
+        String::new()
+    }
 
     /// Check if payment is in a final state
     pub fn is_final(&self) -> bool {
@@ -134,25 +169,48 @@ impl Payment {
         }
     }
 
+    /// Get expiry time if set
+    pub fn expires_at(&self) -> Option<DateTime<Utc>> {
+        self.metadata.expires_at
+    }
+
     // Additional payment methods would go here...
     // (For brevity, including just core methods)
 }
 
 impl AggregateRoot for Payment {
-    fn aggregate_id(&self) -> String {
-        self.id.to_string()
+    type Id = PaymentId;
+
+    fn id(&self) -> &Self::Id {
+        &self.id
     }
 
     fn version(&self) -> u64 {
         self.base.version()
     }
 
-    fn domain_events(&self) -> &[Box<dyn DomainEvent>] {
-        self.base.domain_events()
+    fn increment_version(&mut self) {
+        self.base.increment_version()
     }
 
-    fn clear_domain_events(&mut self) {
-        self.base.clear_domain_events()
+    fn uncommitted_events(&self) -> &[Box<dyn DomainEvent>] {
+        &self.base.events
+    }
+
+    fn mark_events_as_committed(&mut self) {
+        self.base.clear_events()
+    }
+
+    fn created_at(&self) -> DateTime<Utc> {
+        self.base.created_at
+    }
+
+    fn updated_at(&self) -> DateTime<Utc> {
+        self.base.updated_at
+    }
+
+    fn touch(&mut self) {
+        self.base.touch()
     }
 }
 
@@ -220,6 +278,10 @@ impl DomainEvent for PaymentCreated {
 
     fn aggregate_version(&self) -> u64 {
         1
+    }
+
+    fn aggregate_type(&self) -> &'static str {
+        "payment"
     }
 
     fn event_type(&self) -> &'static str {

@@ -5,7 +5,7 @@
  * Handles fetching, state management, and actions for both frontend and admin.
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { UnifiedApiClient } from '../utils/api-client'
 import { createNotificationsClient } from '../api/notifications'
 import { useSSENotifications } from './useSSENotifications'
@@ -54,6 +54,10 @@ export function useNotificationBell(
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Use refs to stabilize dependencies
+  const optionsRef = useRef(options)
+  optionsRef.current = options
+
   // SSE real-time notifications
   const { isConnected: isSSEConnected, reconnect: reconnectSSE } = useSSENotifications({
     apiClient,
@@ -75,8 +79,12 @@ export function useNotificationBell(
           read: false,
         }
 
-        setNotifications((prev) => [newNotification, ...prev])
-        setCount((prev) => prev + 1)
+        setNotifications((prev) => {
+          const newArray = [newNotification, ...prev]
+          // Keep only last 50 notifications to prevent memory issues
+          return newArray.slice(0, 50)
+        })
+        setCount((prev) => Math.min(prev + 1, 50)) // Cap count at 50
 
         // Show browser notification for high priority
         if (
@@ -199,8 +207,72 @@ export function useNotificationBell(
 
   // Fetch notifications when authentication state changes
   useEffect(() => {
+    const { isAuthenticated, walletAddress } = optionsRef.current
+
+    if (!isAuthenticated || !walletAddress) {
+      setNotifications([])
+      setCount(0)
+      setLoading(false)
+      setError(null)
+      return
+    }
+
+    let isMounted = true
+    setLoading(true)
+    setError(null)
+
+    const fetchNotifications = async () => {
+      try {
+        const { apiClient } = optionsRef.current
+        const client = createNotificationsClient(apiClient)
+        const data = await client.getNotifications({
+          page: 1,
+          limit: MAX_DROPDOWN_NOTIFICATIONS,
+          status: 'unread',
+        })
+
+        if (!isMounted) return
+
+        const mappedNotifications: Notification[] = data.data.notifications.map((n) => ({
+          id: n.id,
+          title: n.title,
+          message: n.message,
+          type: n.notification_type as any,
+          priority: n.priority as any,
+          timestamp: n.timestamp,
+          expires_at: n.expires_at,
+          action_url: n.action_url,
+          wallet_address: n.wallet_address,
+          data: n.data,
+          read: !!n.read_at,
+        }))
+
+        setNotifications(mappedNotifications)
+        setCount(data.data.unread_count)
+      } catch (err) {
+        if (!isMounted) return
+
+        // Silently fail if not authenticated - this is expected
+        const apiError = err as any
+        if (apiError?.status !== 401) {
+          console.warn('Failed to fetch notifications:', err)
+          setError('Failed to load notifications')
+        }
+        setNotifications([])
+        setCount(0)
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
+    }
+
     fetchNotifications()
-  }, [fetchNotifications])
+
+    return () => {
+      isMounted = false
+    }
+  }, [isAuthenticated, walletAddress]) // Only depend on primitive values
 
   // Connect SSE when authenticated and enabled
   useEffect(() => {

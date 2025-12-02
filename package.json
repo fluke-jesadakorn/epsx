@@ -149,16 +149,17 @@
     "k8s:monitoring:access": "./scripts/k8s/monitoring/access-monitoring.sh"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.29.7",
+    "@changesets/cli": "^2.29.8",
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",
     "@eslint/compat": "^1.4.1",
-    "@eslint/eslintrc": "^3.3.1",
-    "@eslint/js": "^9.38.0",
-    "@playwright/test": "^1.56.1",
+    "@eslint/eslintrc": "^3.3.3",
+    "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.57.0",
     "@types/react": "19.0.0",
     "@types/react-dom": "19.0.0",
     "critters": "^0.0.25",
+    "dotenv-cli": "^11.0.0",
     "eslint": "9.23.0",
     "eslint-config-next": "15.2.3",
     "eslint-config-prettier": "10.1.1",
@@ -169,8 +170,8 @@
     "eslint-plugin-react-hooks": "5.2.0",
     "husky": "^9.1.7",
     "jsrsasign": "^11.1.0",
-    "playwright": "^1.56.1",
-    "prettier": "^3.6.2",
+    "playwright": "^1.57.0",
+    "prettier": "^3.7.3",
     "query-string": "^9.3.1",
     "tslib": "^2.8.1",
     "turbo": "2.5.6",
@@ -181,7 +182,7 @@
     "apps/*"
   ],
   "dependencies": {
-    "@anthropic-ai/claude-code": "^2.0.54",
+    "@anthropic-ai/claude-code": "^2.0.55",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "dotenv": "^17.2.3",
@@ -194,7 +195,7 @@
     "siwe": "^2.3.2",
     "tailwind-merge": "^3.4.0",
     "zod": "4.0.15",
-    "zustand": "^5.0.8"
+    "zustand": "^5.0.9"
   },
   "main": "oauth-test-server.js",
   "directories": {

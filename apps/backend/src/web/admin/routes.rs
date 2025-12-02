@@ -98,7 +98,7 @@ use super::notification_handlers::{
   send_notification_handler,
   get_all_notifications_handler,
   get_notification_stats_handler,
-  // acknowledge_notification_handler, // Temporarily disabled due to trait issues
+  acknowledge_notification_handler,
   delete_admin_notification_handler,
 };
 use crate::web::auth::AppState;
@@ -221,7 +221,7 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/notifications/send", post(send_notification_handler))
     .route("/notifications", get(get_all_notifications_handler))
     .route("/notifications/stats", get(get_notification_stats_handler))
-    // .route("/notifications/{id}/acknowledge", put(acknowledge_notification_handler)) // Temporarily disabled
+    .route("/notifications/{id}/acknowledge", put(acknowledge_notification_handler))
     .route("/notifications/{id}", delete(delete_admin_notification_handler))
 
     }

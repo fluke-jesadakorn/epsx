@@ -15,11 +15,11 @@
     "bun": ">=1.1.0"
   },
   "scripts": {
-    "dev": "next dev -p ${PORT:-3000}",
-    "build": "next build",
-    "start": "next start -p ${PORT:-3000}",
-    "lint": "next lint",
-    "lint:fix": "next lint --fix",
+    "dev": "dotenv -e ../../.env -- next dev -H 0.0.0.0 -p ${PORT:-3000}",
+    "build": "dotenv -e ../../.env -- next build",
+    "start": "dotenv -e ../../.env -- next start -p ${PORT:-3000}",
+    "lint": "dotenv -e ../../.env -- next lint",
+    "lint:fix": "dotenv -e ../../.env -- next lint --fix",
     "type-check": "tsc --noEmit",
     "test": "jest",
     "test:watch": "jest --watch",

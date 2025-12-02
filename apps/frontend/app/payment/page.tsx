@@ -6,16 +6,23 @@ import { Suspense } from 'react';
 export const dynamic = 'force-dynamic';
 
 interface PaymentPageProps {
-  searchParams: Promise<{ package?: string }>;
+  searchParams: Promise<{ package?: string; plan?: string }>;
 }
 
 export default async function PaymentPage({ searchParams }: PaymentPageProps) {
   // Get user data but don't redirect on failure - allow viewing pricing plans
   const _user = await getCurrentUser();
   
-  // Extract package parameter from search params
+  // Extract package parameter from search params (support both 'package' and 'plan' for compatibility)
   const resolvedSearchParams = await searchParams;
-  const selectedPackageId = resolvedSearchParams.package || '';
+  const selectedPackageId = resolvedSearchParams.package || resolvedSearchParams.plan || '';
+
+  console.log('🚨 Payment Page Debug:', {
+    searchParams: resolvedSearchParams,
+    selectedPackageId,
+    packageParam: resolvedSearchParams.package,
+    planParam: resolvedSearchParams.plan
+  });
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-orange-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-gray-800 py-12 px-4 relative overflow-hidden">

@@ -1,16 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useChainId, useSwitchChain, useAccount } from 'wagmi';
-import { bsc, bscTestnet } from 'wagmi/chains';
-import { ChevronDown, Wifi, WifiOff, AlertCircle, Link } from 'lucide-react';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  Button,
+    Button,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
 } from '@/components/ui';
+import { AlertCircle, Link, Wifi, WifiOff } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useAccount, useChainId, useSwitchChain } from 'wagmi';
+import { bsc, bscTestnet } from 'wagmi/chains';
 
 interface ChainSelectorProps {
   className?: string;
@@ -38,6 +38,13 @@ const supportedChains: ChainInfo[] = [
     name: bscTestnet.name,
     displayName: 'BSC Testnet',
     icon: '🟠',
+    testnet: true,
+  },
+  {
+    id: 31337,
+    name: 'Hardhat Local',
+    displayName: 'Hardhat Local',
+    icon: '🔧',
     testnet: true,
   },
 ];

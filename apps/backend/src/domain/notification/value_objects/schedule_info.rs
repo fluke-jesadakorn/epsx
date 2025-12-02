@@ -234,7 +234,7 @@ impl ScheduleInfo {
             }
             ScheduleType::Scheduled => {
                 if let Some(time_until) = self.time_until_scheduled() {
-                    if time_until <= Duration::minutes(5) {
+                    if time_until <= Duration::minutes(5) { // TODO: Use constants for notification priority thresholds
                         // High priority for notifications due very soon
                         2
                     } else if time_until <= Duration::hours(1) {
@@ -269,18 +269,18 @@ impl ScheduleInfo {
         match self.schedule_type {
             ScheduleType::Immediate => DeliveryWindow {
                 start: now,
-                end: now + Duration::minutes(5), // 5 minute window for immediate
+                end: now + Duration::minutes(5), // TODO: Configure: IMMEDIATE_NOTIFICATION_WINDOW_MINUTES
             },
             ScheduleType::Scheduled => {
                 if let Some(scheduled) = self.scheduled_at {
                     DeliveryWindow {
                         start: scheduled,
-                        end: scheduled + Duration::minutes(15), // 15 minute window for scheduled
+                        end: scheduled + Duration::minutes(15), // TODO: Configure: SCHEDULED_NOTIFICATION_WINDOW_MINUTES
                     }
                 } else {
                     DeliveryWindow {
                         start: now,
-                        end: now + Duration::minutes(5),
+                        end: now + Duration::minutes(5), // TODO: Configure: FALLBACK_NOTIFICATION_WINDOW_MINUTES
                     }
                 }
             }

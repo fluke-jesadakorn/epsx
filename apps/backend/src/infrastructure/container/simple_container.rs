@@ -10,6 +10,7 @@ use crate::infrastructure::adapters::repositories::{
     wallet_user_repository_adapter::WalletUserRepositoryAdapter,
     session_repository_adapter::SessionRepositoryAdapter,
     permission_group_repository_adapter::PermissionGroupRepositoryAdapter,
+    // payment_repository_adapter::PaymentRepositoryAdapter, // Temporarily disabled
 };
 use crate::infrastructure::adapters::services::{
     permission_adapter::{Web3PermissionServiceAdapter, BlockchainConfig},
@@ -19,6 +20,7 @@ use crate::domain::wallet_management::{
     WalletUserRepositoryPort,
     WalletUserAnalyticsPort,
 };
+use crate::domain::payment::repository_ports::PaymentRepositoryPort;
 use crate::auth::auth_service::UnifiedWeb3AuthService;
 use crate::auth::token_service::OpenIDTokenService;
 use crate::auth::key_manager::KeyManager;
@@ -34,6 +36,7 @@ pub struct SimpleContainer {
     pub wallet_user_repository: Option<Arc<WalletUserRepositoryAdapter>>,
     pub session_repository: Option<Arc<SessionRepositoryAdapter>>,
     pub permission_group_repository: Option<Arc<PermissionGroupRepositoryAdapter>>,
+    // pub payment_repository: Option<Arc<PaymentRepositoryAdapter>>, // Temporarily disabled
     pub wallet_permission_service: Option<Arc<WalletPermissionService>>,
     pub web3_permission_adapter: Option<Arc<Web3PermissionServiceAdapter>>,
     pub auth_service: Option<Arc<UnifiedWeb3AuthService>>,
@@ -64,6 +67,7 @@ impl SimpleContainer {
             wallet_user_repository: None,
             session_repository: None,
             permission_group_repository: None,
+            // payment_repository: None, // Temporarily disabled - field removed from struct
             wallet_permission_service: None,
             web3_permission_adapter: None,
             auth_service: None,
@@ -129,6 +133,7 @@ impl SimpleContainer {
         let wallet_user_repository = Arc::new(WalletUserRepositoryAdapter::new(diesel_pool));
         let session_repository = Arc::new(SessionRepositoryAdapter::new(diesel_pool));
         let permission_group_repository = Arc::new(PermissionGroupRepositoryAdapter::new(diesel_pool));
+        // let payment_repository = Arc::new(PaymentRepositoryAdapter::new(diesel_pool)); // Temporarily disabled
 
         // Create domain services
         let wallet_permission_service = Arc::new(WalletPermissionService::new());
@@ -233,6 +238,7 @@ impl SimpleContainer {
             wallet_user_repository: Some(wallet_user_repository),
             session_repository: Some(session_repository),
             permission_group_repository: Some(permission_group_repository),
+            // // payment_repository: None, // Temporarily disabled - field removed from struct // Temporarily disabled - field removed from struct
             wallet_permission_service: Some(wallet_permission_service),
             web3_permission_adapter: Some(web3_permission_adapter),
             auth_service: Some(auth_service),
@@ -260,6 +266,7 @@ impl SimpleContainer {
             wallet_user_repository: None,
             session_repository: None,
             permission_group_repository: None,
+            // payment_repository: None, // Temporarily disabled - field removed from struct
             wallet_permission_service: None,
             web3_permission_adapter: None,
             auth_service: None,
@@ -314,7 +321,13 @@ impl SimpleContainer {
         self.wallet_user_repository.as_ref().map(|repo| Arc::clone(repo) as Arc<dyn WalletUserAnalyticsPort>)
     }
 
-    pub fn get_wallet_permission_service(&self) -> Option<Arc<WalletPermissionService>> {
+    // pub fn get_payment_repository(&self) -> Option<Arc<PaymentRepositoryAdapter>> {
+    //     self.payment_repository.as_ref().map(Arc::clone)
+    // }
+
+    // pub fn get_payment_repository_port(&self) -> Option<Arc<dyn PaymentRepositoryPort>> {
+    //     self.payment_repository.as_ref().map(|repo| Arc::clone(repo) as Arc<dyn PaymentRepositoryPort>)
+  pub fn get_wallet_permission_service(&self) -> Option<Arc<WalletPermissionService>> {
         self.wallet_permission_service.as_ref().map(Arc::clone)
     }
 
@@ -343,6 +356,7 @@ impl SimpleContainer {
         Web3AppState {
             wallet_user_repository: self.get_wallet_user_repository_port(),
             wallet_user_analytics: self.get_wallet_user_analytics_port(),
+            payment_repository: None, // Temporarily disabled
             wallet_permission_service: self.get_wallet_permission_service(),
             web3_permission_adapter: self.get_web3_permission_adapter(),
             auth_service: self.get_auth_service(),
@@ -429,6 +443,7 @@ impl SimpleContainer {
 pub struct Web3AppState {
     pub wallet_user_repository: Option<Arc<dyn WalletUserRepositoryPort>>,
     pub wallet_user_analytics: Option<Arc<dyn WalletUserAnalyticsPort>>,
+    pub payment_repository: Option<Arc<dyn PaymentRepositoryPort>>,
     pub wallet_permission_service: Option<Arc<WalletPermissionService>>,
     pub web3_permission_adapter: Option<Arc<Web3PermissionServiceAdapter>>,
     pub auth_service: Option<Arc<UnifiedWeb3AuthService>>,
@@ -443,6 +458,10 @@ impl Web3AppState {
         
         if self.wallet_user_repository.is_none() {
             errors.push("WalletUserRepository is required".to_string());
+        }
+
+        if self.payment_repository.is_none() {
+            errors.push("PaymentRepository is required".to_string());
         }
         
         if self.wallet_permission_service.is_none() {
@@ -471,6 +490,7 @@ impl Web3AppState {
         Ok(Web3Services {
             wallet_user_repository: Arc::clone(self.wallet_user_repository.as_ref().unwrap()),
             wallet_user_analytics: Arc::clone(self.wallet_user_analytics.as_ref().unwrap()),
+            payment_repository: Arc::clone(self.payment_repository.as_ref().unwrap()),
             wallet_permission_service: Arc::clone(self.wallet_permission_service.as_ref().unwrap()),
             web3_permission_adapter: Arc::clone(self.web3_permission_adapter.as_ref().unwrap()),
             auth_service: Arc::clone(self.auth_service.as_ref().unwrap()),
@@ -483,6 +503,7 @@ impl Web3AppState {
 pub struct Web3Services {
     pub wallet_user_repository: Arc<dyn WalletUserRepositoryPort>,
     pub wallet_user_analytics: Arc<dyn WalletUserAnalyticsPort>,
+    pub payment_repository: Arc<dyn PaymentRepositoryPort>,
     pub wallet_permission_service: Arc<WalletPermissionService>,
     pub web3_permission_adapter: Arc<Web3PermissionServiceAdapter>,
     pub auth_service: Arc<UnifiedWeb3AuthService>,

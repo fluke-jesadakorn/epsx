@@ -326,7 +326,8 @@ export function EnhancedWalletSearch() {
                 placeholder="0x... or wallet address"
                 value={filters.search}
                 onChange={e => handleFilterChange('search', e.target.value)}
-                className="mt-1.5 h-10 font-mono text-sm"
+                variant="default"
+                className="mt-1.5 h-10 font-mono text-sm bg-white dark:bg-gray-800"
               />
             </div>
 
@@ -337,10 +338,10 @@ export function EnhancedWalletSearch() {
                 value={filters.tier}
                 onValueChange={value => handleFilterChange('tier', value)}
               >
-                <SelectTrigger className="mt-1.5 h-10">
+                <SelectTrigger className="mt-1.5 h-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
                   <SelectValue placeholder="All Tiers" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600">
                   {tiers.map(option => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
@@ -357,10 +358,10 @@ export function EnhancedWalletSearch() {
                 value={filters.status}
                 onValueChange={value => handleFilterChange('status', value)}
               >
-                <SelectTrigger className="mt-1.5 h-10">
+                <SelectTrigger className="mt-1.5 h-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600">
                   {STATUS_OPTIONS.map(option => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
@@ -377,10 +378,10 @@ export function EnhancedWalletSearch() {
                 value={filters.dateRange}
                 onValueChange={value => handleFilterChange('dateRange', value)}
               >
-                <SelectTrigger className="mt-1.5 h-10">
+                <SelectTrigger className="mt-1.5 h-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
                   <SelectValue placeholder="All Time" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600">
                   {DATE_RANGE_OPTIONS.map(option => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
@@ -397,10 +398,10 @@ export function EnhancedWalletSearch() {
                 value={filters.sortBy}
                 onValueChange={value => handleFilterChange('sortBy', value)}
               >
-                <SelectTrigger className="mt-1.5 h-10">
+                <SelectTrigger className="mt-1.5 h-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600">
                   {SORT_OPTIONS.map(option => (
                     <SelectItem key={option.value} value={option.value}>
                       {option.label}
@@ -419,10 +420,10 @@ export function EnhancedWalletSearch() {
                   handleFilterChange('sortOrder', value as 'asc' | 'desc')
                 }
               >
-                <SelectTrigger className="mt-1.5 h-10">
+                <SelectTrigger className="mt-1.5 h-10 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600">
                   <SelectItem value="desc">
                     <div className="flex items-center gap-2">
                       <SortDesc className="h-4 w-4" />

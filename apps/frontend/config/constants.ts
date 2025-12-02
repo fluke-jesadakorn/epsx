@@ -5,27 +5,23 @@
  */
 
 import {
-  // Permission templates
-  PERMISSION_TEMPLATES,
-  
-  // Asset definitions (using correct export names)
-  SUPPORTED_ASSETS,
-  
-  // Payment configurations
-  MIN_AMOUNT,
-  TRANSACTION_STATUSES,
-  
   // Blockchain configurations
   BLOCKCHAIN_NETWORKS,
-  
+  // Payment configurations
+  MIN_AMOUNT,
+  // Permission templates
+  PERMISSION_TEMPLATES,
+
+  // Asset definitions (using correct export names)
+  SUPPORTED_ASSETS,
+  TRANSACTION_STATUSES,
   // UI constants
   Z_INDEX_LAYERS,
-  
+  getAssetInfo,
   // Utility functions
   getPermissionTemplate,
-  getAssetInfo,
-  validatePayment,
-  isFeatureEnabled
+  isFeatureEnabled,
+  validatePayment
 } from '../../../shared/config/constants';
 
 import type { PermissionTemplateName } from '../../../shared/types/payment';
@@ -35,16 +31,8 @@ export type { PermissionTemplateName };
 
 // Re-export from shared constants for direct use
 export {
-  PERMISSION_TEMPLATES,
-  SUPPORTED_ASSETS,
-  MIN_AMOUNT,
-  TRANSACTION_STATUSES,
-  BLOCKCHAIN_NETWORKS,
-  Z_INDEX_LAYERS,
-  getPermissionTemplate,
-  getAssetInfo,
-  validatePayment,
-  isFeatureEnabled
+  BLOCKCHAIN_NETWORKS, MIN_AMOUNT, PERMISSION_TEMPLATES,
+  SUPPORTED_ASSETS, TRANSACTION_STATUSES, Z_INDEX_LAYERS, getAssetInfo, getPermissionTemplate, isFeatureEnabled, validatePayment
 };
 
 /**
@@ -57,22 +45,22 @@ export const FRONTEND_CONSTANTS = {
     // Navigation
     HEADER_HEIGHT: '60px',
     MOBILE_HEADER_HEIGHT: '56px',
-    
+
     // Content
     CONTENT_MAX_WIDTH: '1200px',
     SIDEBAR_WIDTH: '300px',
-    
+
     // Cards and layouts
     CARD_PADDING: '1.5rem',
     SECTION_SPACING: '2rem',
-    
+
     // Animations (keeping as static values per zero-animation policy)
     TRANSITIONS: {
       NONE: 'transition-none',
       INSTANT: 'transition-none',
     },
   },
-  
+
   // User operation limits
   LIMITS: {
     MAX_WATCHLIST_ITEMS: 100,
@@ -81,7 +69,7 @@ export const FRONTEND_CONSTANTS = {
     MAX_EXPORT_RECORDS: 10000,
     MAX_SEARCH_RESULTS: 100,
   },
-  
+
   // User notification types
   NOTIFICATION_TYPES: [
     'price_alert',
@@ -93,7 +81,7 @@ export const FRONTEND_CONSTANTS = {
     'security_notification',
     'welcome_message'
   ] as const,
-  
+
   // User dashboard metrics
   DASHBOARD_METRICS: {
     PORTFOLIO_STATS: [
@@ -105,14 +93,14 @@ export const FRONTEND_CONSTANTS = {
       'all_time_high',
       'all_time_low'
     ],
-    
+
     ANALYTICS_STATS: [
       'views_today',
       'exports_month',
       'alerts_active',
       'watchlist_size'
     ],
-    
+
     USAGE_STATS: [
       'sessions_this_week',
       'time_spent_today',
@@ -120,19 +108,19 @@ export const FRONTEND_CONSTANTS = {
       'last_login'
     ]
   } as const,
-  
+
   // Progressive authentication levels
   PROGRESSIVE_AUTH: {
     PUBLIC: 'public',
-    CONNECTED: 'connected', 
+    CONNECTED: 'connected',
     AUTHENTICATED: 'authenticated'
   } as const,
-  
+
   // Web3 specific constants
   WEB3: {
     SUPPORTED_CHAINS: [56, 97], // BSC Mainnet, BSC Testnet
     DEFAULT_CHAIN: 56, // BSC Mainnet
-    
+
     WALLET_TYPES: [
       'metamask',
       'walletconnect',
@@ -140,20 +128,20 @@ export const FRONTEND_CONSTANTS = {
       'trust',
       'binance'
     ],
-    
+
     CONNECTION_TIMEOUT: 30000, // 30 seconds
     TRANSACTION_TIMEOUT: 120000, // 2 minutes
   } as const,
-  
+
   // User subscription tiers
   SUBSCRIPTION_TIERS: [
     'free',
-    'trial', 
+    'trial',
     'basic',
     'premium',
     'enterprise'
   ] as const,
-  
+
   // Payment methods for users
   USER_PAYMENT_METHODS: [
     'crypto',
@@ -178,7 +166,7 @@ export function getSubscriptionTierDisplayName(tier: typeof FRONTEND_CONSTANTS.S
     premium: 'Premium',
     enterprise: 'Enterprise',
   };
-  
+
   return tierDisplayNames[tier] || tier;
 }
 
@@ -190,13 +178,13 @@ export function getNotificationTypeDisplayName(type: typeof FRONTEND_CONSTANTS.N
     price_alert: 'Price Alert',
     portfolio_update: 'Portfolio Update',
     system_maintenance: 'System Maintenance',
-    feature_announcement: 'Feature Announcement', 
+    feature_announcement: 'Feature Announcement',
     payment_confirmation: 'Payment Confirmation',
     subscription_update: 'Subscription Update',
     security_notification: 'Security Notification',
     welcome_message: 'Welcome Message',
   };
-  
+
   return typeDisplayNames[type] || type;
 }
 
@@ -218,7 +206,7 @@ export function getUserOperationLimit(operation: string): number {
     export: FRONTEND_CONSTANTS.LIMITS.MAX_EXPORT_RECORDS,
     search: FRONTEND_CONSTANTS.LIMITS.MAX_SEARCH_RESULTS,
   };
-  
+
   return limits[operation] || 10; // Default limit
 }
 
@@ -244,7 +232,7 @@ export function getChainName(chainId: number): string {
     56: 'BSC Mainnet',
     97: 'BSC Testnet',
   };
-  
+
   return chainNames[chainId] || `Chain ${chainId}`;
 }
 
@@ -264,7 +252,7 @@ export function getAuthLevelPriority(level: string): number {
     connected: 1,
     authenticated: 2,
   };
-  
+
   return priorities[level] || 0;
 }
 
@@ -293,7 +281,7 @@ export const CONSTANTS = {
   MIN_AMOUNT,
   TRANSACTION_STATUSES,
   BLOCKCHAIN_NETWORKS,
-  
+
   // Frontend-specific constants
   ...FRONTEND_CONSTANTS,
   FRONTEND_ERROR_MESSAGES,

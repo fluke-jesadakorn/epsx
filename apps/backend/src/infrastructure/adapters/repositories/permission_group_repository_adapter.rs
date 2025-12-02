@@ -389,7 +389,7 @@ impl PermissionGroupRepositoryPort for PermissionGroupRepositoryAdapter {
             })?;
 
         let total_members: i64 = diesel::sql_query(
-            "SELECT COUNT(DISTINCT wallet_address) as count FROM wallet_group_memberships"
+            "SELECT COUNT(DISTINCT wallet_address) as count FROM wallet_group_assignments"
         )
         .get_result::<CountResult>(&mut conn)
         .await

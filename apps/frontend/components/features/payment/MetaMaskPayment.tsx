@@ -1,28 +1,27 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useConnect } from 'wagmi'
-import { parseUnits, formatUnits, getAddress } from 'viem'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { PAYMENT_ESCROW_ABI } from '@/lib/contracts/PaymentEscrowABI'
+import { getPaymentEscrowAddress, getTokenAddress, isPaymentEscrowDeployed } from '@/lib/contracts/addresses'
 import {
-  Wallet,
-  Send,
-  CheckCircle,
   AlertCircle,
-  Loader2,
+  CheckCircle,
+  DollarSign,
   ExternalLink,
   Fuel,
-  DollarSign,
-  FileCheck
+  Loader2,
+  Send,
+  Wallet
 } from 'lucide-react'
-import { PAYMENT_ESCROW_ABI } from '@/lib/contracts/PaymentEscrowABI'
-import { getPaymentEscrowAddress, getTokenAddress, getExplorerTxUrl, isPaymentEscrowDeployed } from '@/lib/contracts/addresses'
+import { useEffect, useState } from 'react'
+import { getAddress, parseUnits } from 'viem'
+import { useAccount, useConnect, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
 
 interface MetaMaskPaymentProps {
-  planId: number
+  planId: number | string
   planName: string
   amount: number
   currency: string
@@ -122,6 +121,29 @@ export default function MetaMaskPayment({
 }: MetaMaskPaymentProps) {
   // CACHE BUSTER - CODE VERSION: 2024-10-18-v3
   console.log('🔥🔥🔥 MetaMaskPayment loaded - VERSION 3 - HARDCODED ADDRESS')
+  console.log('🚨 MetaMaskPayment Props Debug:', {
+    planId,
+    planName,
+    amount,
+    amountType: typeof amount,
+    currency,
+    className,
+    isNaN: isNaN(amount),
+    isZero: amount === 0,
+    isUndefined: amount === undefined,
+    isNull: amount === null
+  })
+
+  // Early validation and logging
+  if (!amount || amount === 0 || isNaN(amount)) {
+    console.error('❌ MetaMaskPayment Invalid amount:', {
+      amount,
+      type: typeof amount,
+      isNaN: isNaN(amount),
+      planId,
+      planName
+    })
+  }
 
   const { address, isConnected, chain } = useAccount()
   const { connect, connectors } = useConnect()
@@ -237,95 +259,6 @@ export default function MetaMaskPayment({
     }
   }, [approvalError, paymentError, receiptError, onError])
 
-  // Step 1: Approve escrow contract to spend tokens
-  const handlePayment = async () => {
-    console.log('🚀 Starting two-step payment process')
-
-    if (!isConnected || !address) {
-      console.error('❌ Wallet not connected')
-      onError('Please connect your wallet first')
-      return
-    }
-
-    const tokenAddress = getTokenContractAddress()
-    const escrowAddress = getEscrowContractAddress()
-
-    if (!tokenAddress || !escrowAddress) {
-      if (chain?.id === 97) {
-        onError('Payment escrow contract development mode. Contract functions will need real deployment for production payments.')
-      } else {
-        onError('Payment contract not available on this network')
-      }
-      return
-    }
-
-    try {
-      const decimals = 6 // USDT and USDC both use 6 decimals
-      const transferAmount = parseUnits(amount.toString(), decimals)
-
-      console.log('📝 Payment details:', {
-        planId,
-        tokenAddress,
-        escrowAddress,
-        amount,
-        decimals,
-        transferAmount: transferAmount.toString(),
-        chainId: chain?.id
-      })
-
-      setPaymentStep('approving')
-
-      // Step 1: Approve escrow contract to spend tokens
-      console.log('⏳ Step 1: Approving token spending...')
-      writeApproval({
-        address: tokenAddress as `0x${string}`,
-        abi: ERC20_ABI,
-        functionName: 'approve',
-        args: [escrowAddress as `0x${string}`, transferAmount],
-      })
-
-      console.log('✅ Approval transaction submitted')
-    } catch (error) {
-      if (!handleTransactionError(error, 'approval')) {
-        // User cancelled - don't show error
-        return
-      }
-      onError(`Payment preparation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
-  }
-
-  // Step 2: Execute payment through escrow contract
-  const executePayment = async () => {
-    const tokenAddress = getTokenContractAddress()
-    const escrowAddress = getEscrowContractAddress()
-
-    if (!tokenAddress || !escrowAddress) {
-      onError('Payment contract not available')
-      return
-    }
-
-    try {
-      const decimals = 6
-      const transferAmount = parseUnits(amount.toString(), decimals)
-
-      console.log('⏳ Step 2: Executing payment through escrow...')
-      writePayment({
-        address: escrowAddress as `0x${string}`,
-        abi: PAYMENT_ESCROW_ABI,
-        functionName: 'payForPlan',
-        args: [BigInt(planId), tokenAddress as `0x${string}`, transferAmount],
-      })
-
-      console.log('✅ Payment transaction submitted')
-    } catch (error) {
-      if (!handleTransactionError(error, 'payment')) {
-        // User cancelled - don't show error
-        return
-      }
-      onError(`Payment execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
-    }
-  }
-
   // Detect if user rejected the transaction
   const isUserRejection = (error: any): boolean => {
     if (!error?.message) return false
@@ -360,12 +293,204 @@ export default function MetaMaskPayment({
     return true // Trigger error callback
   }
 
+  // Step 1: Approve escrow contract to spend tokens
+  const handlePayment = async () => {
+    console.log('🚀 Starting two-step payment process')
+
+    if (!isConnected || !address) {
+      console.error('❌ Wallet not connected')
+      onError('Please connect your wallet first')
+      return
+    }
+
+    const tokenAddress = getTokenContractAddress()
+    const escrowAddress = getEscrowContractAddress()
+
+    if (!tokenAddress || !escrowAddress) {
+      if (chain?.id === 97) {
+        onError('Payment escrow contract development mode. Contract functions will need real deployment for production payments.')
+      } else {
+        onError('Payment contract not available on this network')
+      }
+      return
+    }
+
+    try {
+      const decimals = 6 // USDT and USDC both use 6 decimals
+
+      console.log('🚨 CRITICAL DEBUG - Before parseUnits:', {
+        amount,
+        amountType: typeof amount,
+        amountIsZero: amount === 0,
+        amountIsUndefined: amount === undefined,
+        amountIsNull: amount === null,
+        amountIsNaN: isNaN(amount),
+        planId,
+        planName
+      });
+
+      const transferAmount = parseUnits(amount.toString(), decimals)
+
+      console.log('📝 Payment details:', {
+        planId,
+        tokenAddress,
+        escrowAddress,
+        amount,
+        decimals,
+        transferAmount: transferAmount.toString(),
+        transferAmountFormatted: transferAmount.toString(),
+        humanReadableAmount: transferAmount.toString() / Math.pow(10, decimals),
+        chainId: chain?.id
+      })
+
+      console.log('🚨 CRITICAL DEBUG - MetaMask will show:', {
+        rawAmount: amount.toString(),
+        parsedUnits: transferAmount.toString(),
+        inTokens: transferAmount.toString() / Math.pow(10, decimals),
+        willShowZero: (transferAmount.toString() / Math.pow(10, decimals)) === 0
+      });
+
+      setPaymentStep('approving')
+
+      // Step 1: Approve escrow contract to spend tokens
+      console.log('⏳ Step 1: Approving token spending...')
+      
+      console.log('🔥 APPROVE CALL ARGUMENTS:', {
+        tokenAddress,
+        escrowAddress,
+        transferAmount: transferAmount.toString(),
+        transferAmountHex: '0x' + transferAmount.toString(16),
+        transferAmountBigInt: transferAmount,
+        approveArgs: [escrowAddress as `0x${string}`, transferAmount],
+        fullCall: {
+          address: tokenAddress as `0x${string}`,
+          functionName: 'approve',
+          args: [escrowAddress as `0x${string}`, transferAmount]
+        }
+      });
+      
+      writeApproval({
+        address: tokenAddress as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: 'approve',
+        args: [escrowAddress as `0x${string}`, transferAmount],
+      })
+
+      console.log('✅ Approval transaction submitted')
+    } catch (error) {
+      if (!handleTransactionError(error, 'approval')) {
+        // User cancelled - don't show error
+        return
+      }
+      onError(`Payment preparation failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+  // Step 2: Execute payment through escrow contract
+  const executePayment = async () => {
+    const tokenAddress = getTokenContractAddress()
+    const escrowAddress = getEscrowContractAddress()
+
+    if (!tokenAddress || !escrowAddress) {
+      onError('Payment contract not available')
+      return
+    }
+
+    try {
+      const decimals = 6
+
+      console.log('🚨 CRITICAL DEBUG - executePayment parseUnits:', {
+        amount,
+        amountType: typeof amount,
+        amountIsZero: amount === 0,
+        planId,
+        planName
+      });
+
+      const transferAmount = parseUnits(amount.toString(), decimals)
+
+      // Convert UUID plan ID to numeric ID for smart contract
+      // Map backend UUIDs to numeric IDs that the contract expects
+      const getNumericPlanId = (uuidOrId: string | number): bigint => {
+        // Plan UUID to numeric ID mapping
+        const planIdMap: Record<string, number> = {
+          '233e3484-3093-4478-bc75-2c74d8570862': 1, // Free Plan
+          'adc7bfb7-16ea-4758-8717-ed5c899f36af': 2, // Starter Plan ($14.99)
+          'a5b20d50-6616-41a3-b130-4ed2c28f3063': 3, // Pro Plan ($29.99)
+          '3a6ec235-6a7e-4fbd-aa8a-178ad86b5b35': 4, // Enterprise Plan ($99.99)
+          '0395b65b-dfaf-4031-8811-bcaf756ac882': 5, // API Developer ($49.99)
+        };
+
+        try {
+          if (typeof uuidOrId === 'number') {
+            return BigInt(uuidOrId);
+          } else if (typeof uuidOrId === 'string') {
+            // Check if it's a UUID that we have a mapping for
+            if (uuidOrId in planIdMap) {
+              return BigInt(planIdMap[uuidOrId]);
+            }
+            // Check if it's already a numeric string
+            if (/^\d+$/.test(uuidOrId)) {
+              return BigInt(uuidOrId);
+            }
+            // Default to Pro Plan (ID 3) for unknown UUIDs
+            console.warn('Unknown plan UUID, defaulting to Pro Plan (ID 3):', uuidOrId);
+            return 3n;
+          }
+        } catch (e) {
+          console.warn('Failed to convert planId to BigInt, using Pro Plan (ID 3)', e);
+        }
+        return 3n; // Default to Pro Plan
+      };
+      const numericPlanId = getNumericPlanId(planId);
+
+      console.log('📋 Plan ID Conversion:');
+      console.log(`  - Original planId: ${planId} (${typeof planId})`);
+      console.log(`  - Numeric planId: ${numericPlanId}`);
+
+       // Step 2: Execute payment through escrow contract
+      console.log('💸 Step 2: Executing payment transfer...')
+      
+      console.log('🔥 PAYMENT CALL ARGUMENTS:', {
+        functionName: 'payWithTransfer',
+        planId: numericPlanId,
+        tokenAddress,
+        amount: transferAmount.toString(),
+        amountFormatted: amount
+      });
+
+      // Use payWithAmountDisplay to show the amount in MetaMask
+      // Send a small amount of ETH for display purposes (will be refunded)
+      const displayAmount = parseUnits(amount.toString(), 18); // Convert to wei for display
+
+      writePayment({
+        address: escrowAddress as `0x${string}`,
+        abi: PAYMENT_ESCROW_ABI,
+        functionName: 'payWithAmountDisplay',
+        args: [numericPlanId, tokenAddress as `0x${string}`, transferAmount],
+        value: displayAmount // This will show the amount in MetaMask but get refunded
+      })
+      
+      console.log('✅ Payment transaction submitted')
+    } catch (error) {
+      if (!handleTransactionError(error, 'payment')) {
+        // User cancelled - don't show error
+        return
+      }
+      onError(`Payment execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
+
+
+
   // Get gas token symbol based on chain
   const getGasTokenSymbol = () => {
     switch (chain?.id) {
       case 56:
       case 97:
         return 'BNB'
+      case 31337:
+        return 'ETH'
       default:
         return 'ETH'
     }
@@ -390,6 +515,8 @@ export default function MetaMaskPayment({
         case 56: setEstimatedGas('0.0003') // BSC Mainnet
           break
         case 97: setEstimatedGas('0.0003') // BSC Testnet
+          break
+        case 31337: setEstimatedGas('0.0001') // Hardhat Localhost
           break
         default: setEstimatedGas('0.005')
       }
@@ -443,6 +570,28 @@ export default function MetaMaskPayment({
       return () => clearTimeout(timeoutId)
     }
   }, [isConnected, autoConnectAttempted, connectors, connect])
+
+  // Early validation for invalid amount
+  if (!amount || amount === 0 || isNaN(amount)) {
+    return (
+      <Card className={className}>
+        <CardContent className="p-6 text-center space-y-4">
+          <AlertCircle className="w-12 h-12 mx-auto text-red-500" />
+          <div>
+            <h3 className="font-semibold text-red-600">Invalid Payment Amount</h3>
+            <p className="text-sm text-muted-foreground">
+              The selected plan has an invalid price. Please contact support or try a different plan.
+            </p>
+            <div className="mt-4 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg text-left">
+              <p className="text-xs font-mono">
+                Debug: amount={JSON.stringify(amount)} (type: {typeof amount})
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   if (!isConnected) {
     return (
@@ -514,7 +663,10 @@ export default function MetaMaskPayment({
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm">Amount</span>
-            <span className="font-medium">${amount} {selectedToken}</span>
+            <span className="font-medium">
+              {console.log('🚨 MetaMaskPayment Display Amount Debug:', { amount, type: typeof amount, isNaN: isNaN(amount) })}
+              ${amount} {selectedToken}
+            </span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm">Network</span>
@@ -566,6 +718,32 @@ export default function MetaMaskPayment({
           </Alert>
         )}
 
+        {/* Payment Process Explanation */}
+        <div className="space-y-3">
+          <Alert className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+            <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+            <AlertDescription className="text-sm text-blue-700 dark:text-blue-300">
+              <strong>Two-Step Payment Process:</strong>
+              <ol className="list-decimal ml-4 mt-1 space-y-1">
+                <li><strong>Approve:</strong> Allow the contract to spend your {selectedToken}.</li>
+                <li><strong>Pay:</strong> Confirm the payment transaction.</li>
+              </ol>
+            </AlertDescription>
+          </Alert>
+
+          {paymentStep === 'paying' && (
+            <Alert className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+              <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+              <AlertDescription className="text-sm text-blue-700 dark:text-blue-300">
+                <strong>MetaMask Display:</strong><br/>
+                MetaMask will now show the correct <strong>{amount} {getGasTokenSymbol()}</strong> amount for confirmation!
+                <br/>
+                The native currency will be automatically refunded - only the <strong>{amount} {selectedToken}</strong> tokens will be charged.
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
+
         {/* Payment Button */}
         <Button
           onClick={handlePayment}
@@ -575,38 +753,38 @@ export default function MetaMaskPayment({
         >
           {isApproving ? (
             <>
-              <Loader2 className="w-4 h-4 mr-2" />
-              Approving Token...
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Step 1: Approving {selectedToken}...
             </>
           ) : isPaying ? (
             <>
-              <Loader2 className="w-4 h-4 mr-2" />
-              Processing Payment...
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Step 2: Processing Payment...
             </>
           ) : isApprovalConfirming ? (
             <>
-              <Loader2 className="w-4 h-4 mr-2" />
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               Confirming Approval...
             </>
           ) : isPaymentConfirming ? (
             <>
-              <Loader2 className="w-4 h-4 mr-2" />
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               Confirming Payment...
             </>
           ) : isApprovalConfirmed ? (
             <>
               <CheckCircle className="w-4 h-4 mr-2" />
-              Approval Confirmed
+              Approval Confirmed - Click to Pay
             </>
           ) : isPaymentConfirmed ? (
             <>
               <CheckCircle className="w-4 h-4 mr-2" />
-              Payment Confirmed
+              Payment Successful!
             </>
           ) : (
             <>
               <Send className="w-4 h-4 mr-2" />
-              Pay ${amount} {selectedToken}
+              {paymentStep === 'approving' ? `Approve & Pay $${amount}` : `Complete Payment ($${amount})`}
             </>
           )}
         </Button>
