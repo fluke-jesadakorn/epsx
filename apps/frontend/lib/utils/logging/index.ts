@@ -78,7 +78,7 @@ export class Logger {
 
   private sanitizeMessage(message: string): string {
     if (!message) return message;
-    
+
     // Remove common sensitive patterns
     return message
       .replace(/token[=:]\s*[^\s,}]+/gi, 'token=***')
@@ -92,37 +92,71 @@ export class Logger {
 
   private sanitizeData(data: any): any {
     if (!data) return data;
-    
+
     // In production, limit data logging for security
     if (process.env.NODE_ENV === 'production') {
       // Only log error messages and basic metadata
       if (data instanceof Error) {
-        return { 
+        return {
           error: data.message,
           name: data.name
           // Stack traces excluded in production for security
         };
       }
-      
+
       if (typeof data === 'object') {
-        // Only include safe fields
-        const safeFields = ['status', 'code', 'type', 'category'];
-        const sanitized: any = {};
-        
-        for (const field of safeFields) {
-          if (field in data && typeof data[field] !== 'object') {
-            sanitized[field] = data[field];
+        // Handle BigInt values and objects
+        try {
+          // Convert BigInt values to strings to prevent serialization errors
+          const serialized = JSON.stringify(data, (key, value) =>
+            typeof value === 'bigint' ? value.toString() + 'n' : value
+          );
+          return JSON.parse(serialized);
+        } catch {
+          // Fallback to safe field extraction
+          const safeFields = ['status', 'code', 'type', 'category'];
+          const sanitized: any = {};
+
+          for (const field of safeFields) {
+            if (field in data && typeof data[field] !== 'object' && typeof data[field] !== 'bigint') {
+              sanitized[field] = data[field];
+            }
           }
+
+          return sanitized;
         }
-        
-        return sanitized;
       }
-      
+
+      // Handle BigInt primitive type
+      if (typeof data === 'bigint') {
+        return data.toString() + 'n';
+      }
+
       // For primitive types, return as-is if not sensitive
       return typeof data === 'string' ? this.sanitizeMessage(data) : data;
     }
-    
-    // In development, return full data for debugging
+
+    // In development, still need to handle BigInt for safe logging
+    // Handle BigInt primitive type
+    if (typeof data === 'bigint') {
+      return data.toString() + 'n';
+    }
+
+    // Handle objects that may contain BigInt values
+    if (typeof data === 'object' && data !== null) {
+      try {
+        // Convert BigInt values to strings to prevent serialization errors
+        const serialized = JSON.stringify(data, (key, value) =>
+          typeof value === 'bigint' ? value.toString() + 'n' : value
+        );
+        return JSON.parse(serialized);
+      } catch {
+        // If JSON serialization fails, return the original data
+        // The console will handle its own serialization
+        return data;
+      }
+    }
+
     return data;
   }
 
@@ -137,7 +171,7 @@ export class Logger {
     const consoleMethod = level === 'debug' ? 'log' : level;
     const timestamp = new Date().toLocaleTimeString();
     const prefix = `[${timestamp}] [${level.toUpperCase()}] [${this.context}]`;
-    
+
     // Safe console access with fallback to console.log
     const logFunction = console[consoleMethod as keyof Console] || console.log;
     if (typeof logFunction !== 'function') {
@@ -218,11 +252,11 @@ export const analyticsLogger = new Logger('Analytics', isDevelopment ? developme
 export const uiLogger = new Logger('UI', isDevelopment ? developmentLogLevel : productionLogLevel);
 
 // Development-only logging function
-export const devLog = isDevelopment ? logger.debug.bind(logger) : () => {};
+export const devLog = isDevelopment ? logger.debug.bind(logger) : () => { };
 
 // Production-safe logging functions (no-ops in production)
-export const devInfo = isDevelopment ? logger.info.bind(logger) : () => {};
-export const devWarn = isDevelopment ? logger.warn.bind(logger) : () => {};
+export const devInfo = isDevelopment ? logger.info.bind(logger) : () => { };
+export const devWarn = isDevelopment ? logger.warn.bind(logger) : () => { };
 
 // Environment check utilities
 export const isDevEnvironment = () => isDevelopment;

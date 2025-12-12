@@ -1,40 +1,29 @@
 'use client';
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getBackendUrl } from '@/lib/backend-url';
-import { format, parseISO, addDays, addMonths, addYears } from 'date-fns';
-import { 
-  Shield, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Users, 
-  Clock, 
-  AlertTriangle,
-  CheckCircle,
-  Search,
-  Filter,
-  Download,
-  Upload,
-  RefreshCw,
-  Settings,
-  Crown,
-  Wallet,
-  ExternalLink
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { format, parseISO } from 'date-fns';
+import {
+    Crown,
+    Download,
+    Edit,
+    RefreshCw,
+    Search,
+    Shield,
+    Trash2,
+    Users
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { useAccount } from 'wagmi';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 
 interface WalletPermission {
@@ -171,7 +160,7 @@ export function Web3PermissionManager() {
   const { data: nftGatesData, isLoading: nftGatesLoading } = useQuery({
     queryKey: ['nft-gates'],
     queryFn: async () => {
-      const response = await fetch(getBackendUrl('/api/admin/web3/nft-gates', {
+      const response = await fetch(getBackendUrl('/api/admin/web3/nft-gates'), {
         credentials: 'include',
       });
       if (!response.ok) {throw new Error('Failed to fetch NFT gates');}
@@ -183,7 +172,7 @@ export function Web3PermissionManager() {
   const { data: tokenGatesData, isLoading: tokenGatesLoading } = useQuery({
     queryKey: ['token-gates'],
     queryFn: async () => {
-      const response = await fetch(getBackendUrl('/api/admin/web3/token-gates', {
+      const response = await fetch(getBackendUrl('/api/admin/web3/token-gates'), {
         credentials: 'include',
       });
       if (!response.ok) {throw new Error('Failed to fetch token gates');}
@@ -195,7 +184,7 @@ export function Web3PermissionManager() {
   const { data: daoProposalsData, isLoading: daoProposalsLoading } = useQuery({
     queryKey: ['dao-proposals'],
     queryFn: async () => {
-      const response = await fetch(getBackendUrl('/api/admin/web3/dao-proposals', {
+      const response = await fetch(getBackendUrl('/api/admin/web3/dao-proposals'), {
         credentials: 'include',
       });
       if (!response.ok) {throw new Error('Failed to fetch DAO proposals');}
@@ -206,7 +195,7 @@ export function Web3PermissionManager() {
   // Grant manual permission mutation
   const grantManualPermission = useMutation({
     mutationFn: async (data: typeof manualForm) => {
-      const response = await fetch(getBackendUrl('/api/admin/web3/permissions/grant', {
+      const response = await fetch(getBackendUrl('/api/admin/web3/permissions/grant'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -233,7 +222,7 @@ export function Web3PermissionManager() {
   // Create NFT gate mutation
   const createNFTGate = useMutation({
     mutationFn: async (data: typeof nftForm) => {
-      const response = await fetch(getBackendUrl('/api/admin/web3/nft-gates', {
+      const response = await fetch(getBackendUrl('/api/admin/web3/nft-gates'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -255,7 +244,7 @@ export function Web3PermissionManager() {
   // Create token gate mutation
   const createTokenGate = useMutation({
     mutationFn: async (data: typeof tokenForm) => {
-      const response = await fetch(getBackendUrl('/api/admin/web3/token-gates', {
+      const response = await fetch(getBackendUrl('/api/admin/web3/token-gates'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -277,7 +266,7 @@ export function Web3PermissionManager() {
   // Create DAO proposal mutation
   const createDAOProposal = useMutation({
     mutationFn: async (data: typeof daoForm) => {
-      const response = await fetch(getBackendUrl('/api/admin/web3/dao-proposals', {
+      const response = await fetch(getBackendUrl('/api/admin/web3/dao-proposals'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

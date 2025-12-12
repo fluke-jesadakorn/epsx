@@ -12,17 +12,17 @@
  * - Reduced latency (eliminates middleware hop)
  */
 
-import { createFrontendApiClient } from '../../../shared/utils/api-client';
-import { 
-  createAnalyticsClient, 
-  AnalyticsAPIClient,
-  AnalyticsFilters 
-} from '../../../shared/api/analytics';
-import { 
-  createAuthClient,
-  AuthAPIClient 
-} from '../../../shared/api/auth';
 import { getOIDCAccessTokenFromCookies } from '@/lib/server/token';
+import {
+  AnalyticsAPIClient,
+  AnalyticsFilters,
+  createAnalyticsClient
+} from '../../../shared/api/analytics';
+import {
+  AuthAPIClient,
+  createAuthClient
+} from '../../../shared/api/auth';
+import { createFrontendApiClient } from '../../../shared/utils/api-client';
 
 // ============================================================================
 // TYPES (for compatibility with existing frontend)
@@ -139,7 +139,7 @@ async function createServerAuthClient(): Promise<AuthAPIClient> {
 export async function getServerAnalytics(filters: EPSQueryParams): Promise<ServerAnalyticsResponse> {
   try {
     const analyticsClient = await createServerAnalyticsClient();
-    
+
     // Convert EPSQueryParams to AnalyticsFilters format
     const analyticsFilters: AnalyticsFilters = {
       page: filters.page,
@@ -155,10 +155,28 @@ export async function getServerAnalytics(filters: EPSQueryParams): Promise<Serve
     try {
       // Try authenticated endpoint first
       result = await analyticsClient.getAuthenticatedRankings(analyticsFilters);
-    } catch (error) {
+    } catch (authError) {
       // If authentication failed, try public endpoint
-      console.log('Authenticated analytics failed, trying public endpoint');
-      result = await analyticsClient.getPublicRankings(analyticsFilters);
+      console.log('Authenticated analytics failed, trying public endpoint:', authError);
+      try {
+        result = await analyticsClient.getPublicRankings(analyticsFilters);
+      } catch (publicError) {
+        // If both endpoints fail, return empty data gracefully
+        console.warn('Both analytics endpoints failed, returning empty data:', publicError);
+        return {
+          success: false,
+          rankings: [],
+          message: 'Both analytics endpoints failed',
+          pagination: {
+            page: 1,
+            limit: filters.limit || 10,
+            total: 0,
+            totalPages: 0,
+            hasNext: false,
+            hasPrev: false
+          }
+        };
+      }
     }
 
     // Transform unified client response to legacy format for compatibility
@@ -186,6 +204,7 @@ export async function getServerAnalytics(filters: EPSQueryParams): Promise<Serve
           eps: q?.eps || 0,
           eps_growth: q?.eps_growth || 0,
           price_growth: q?.price_growth || 0,
+
         })),
         next_quarter_estimate: ranking?.next_quarter_estimate ? {
           quarter: ranking.next_quarter_estimate.quarter || '',
@@ -221,7 +240,7 @@ export async function getServerAnalytics(filters: EPSQueryParams): Promise<Serve
 
   } catch (error) {
     console.error('💥 Failed to fetch analytics via unified client:', error);
-    
+
     return {
       success: false,
       rankings: [],
@@ -245,7 +264,7 @@ export async function getServerAnalytics(filters: EPSQueryParams): Promise<Serve
 export async function getServerFilterOptions(): Promise<FilterOptions> {
   try {
     const analyticsClient = await createServerAnalyticsClient();
-    
+
     let result;
     try {
       // Try authenticated filters first
@@ -258,7 +277,7 @@ export async function getServerFilterOptions(): Promise<FilterOptions> {
 
     // Handle cases where result.data might be undefined
     const filterData = result?.data || {};
-    
+
     return {
       countries: filterData.countries || [],
       sectors: filterData.sectors || [],
@@ -268,7 +287,7 @@ export async function getServerFilterOptions(): Promise<FilterOptions> {
 
   } catch (error) {
     console.error('💥 Failed to fetch filter options via unified client:', error);
-    
+
     return {
       countries: [],
       sectors: [],
@@ -285,7 +304,7 @@ export async function getServerFilterOptions(): Promise<FilterOptions> {
 export async function getServerPortfolio(filters: EPSQueryParams): Promise<ServerAnalyticsResponse> {
   try {
     const analyticsClient = await createServerAnalyticsClient();
-    
+
     // Convert EPSQueryParams to AnalyticsFilters format with positive growth filter
     const analyticsFilters: AnalyticsFilters = {
       page: filters.page,
@@ -315,7 +334,7 @@ export async function getServerPortfolio(filters: EPSQueryParams): Promise<Serve
     }
 
     // Filter for positive growth only
-    const positiveGrowthRankings = portfolioData.filter(ranking => 
+    const positiveGrowthRankings = portfolioData.filter(ranking =>
       (ranking?.growth_factor || 0) > 0
     );
 
@@ -337,6 +356,7 @@ export async function getServerPortfolio(filters: EPSQueryParams): Promise<Serve
           eps: q?.eps || 0,
           eps_growth: q?.eps_growth || 0,
           price_growth: q?.price_growth || 0,
+
         })),
         next_quarter_estimate: ranking?.next_quarter_estimate ? {
           quarter: ranking.next_quarter_estimate.quarter || '',
@@ -372,7 +392,7 @@ export async function getServerPortfolio(filters: EPSQueryParams): Promise<Serve
 
   } catch (error) {
     console.error('💥 Failed to fetch portfolio via unified client:', error);
-    
+
     return {
       success: false,
       rankings: [],

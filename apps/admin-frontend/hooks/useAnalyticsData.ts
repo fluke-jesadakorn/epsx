@@ -1,9 +1,9 @@
 'use client';
 
-import useSWR from 'swr';
 import { useCallback } from 'react';
+import useSWR from 'swr';
 
-import { apiFetch } from '@/lib/api-fetch';
+import { adminApiClient } from '@/lib/api-client';
 
 // Client-side interfaces for analytics data
 interface AnalyticsDashboardData {
@@ -42,9 +42,23 @@ interface SystemMetrics {
   new_signups: number;
 }
 
-// Fetcher function for SWR - uses apiFetch
-const fetcher = async (url: string) => {
-  return await apiFetch(url);
+interface ApiKeysResponse {
+  keys: Array<{
+    id: string;
+    name: string;
+    created_at: string;
+    last_used?: string;
+    status: string;
+  }>;
+}
+
+// Fetcher function for SWR - uses adminApiClient
+const fetcher = async <T>(url: string): Promise<T> => {
+  const response = await adminApiClient.get<T>(url);
+  if (response.data === undefined) {
+    throw new Error('No data received from API');
+  }
+  return response.data;
 };
 
 // Real-time data fetching hooks
@@ -126,7 +140,7 @@ export function useAnalyticsDashboard(dateRange: string = '7d', selectedModule: 
 
 // API Key Management - Server-side data fetching
 export function useApiKeys() {
-  const { data, error, isLoading, mutate } = useSWR(
+  const { data, error, isLoading, mutate } = useSWR<ApiKeysResponse>(
     '/api/admin/api-keys',
     fetcher,
     {
@@ -162,10 +176,10 @@ export function useAnalyticsOverview() {
     permissionAnalytics,
     systemMetrics,
     dashboardData,
-    
+
     // Loading states
     isLoading: userStatsLoading || permissionLoading || systemLoading || dashboardLoading,
-    
+
     // Error states
     hasError: !!(userStatsError || permissionError || systemError || dashboardError),
     errors: {
@@ -174,7 +188,7 @@ export function useAnalyticsOverview() {
       system: systemError,
       dashboard: dashboardError,
     },
-    
+
     // Actions
     refreshAll,
   };

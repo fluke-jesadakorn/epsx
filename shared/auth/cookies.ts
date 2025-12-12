@@ -129,12 +129,12 @@ export function buildCookieString(
   const opts = { ...COOKIE_OPTIONS, ...options };
   const parts = [`${name}=${value}`];
 
-  if (opts.path) parts.push(`path=${opts.path}`);
-  if (opts.domain) parts.push(`domain=${opts.domain}`);
+  if ((opts as any).path) parts.push(`path=${(opts as any).path}`);
+  if ((opts as any).domain) parts.push(`domain=${(opts as any).domain}`);
   if (opts.maxAge) parts.push(`max-age=${opts.maxAge}`);
-  if (opts.sameSite) parts.push(`SameSite=${opts.sameSite}`);
-  if (opts.secure) parts.push('Secure');
-  if (opts.httpOnly) parts.push('HttpOnly');
+  if ((opts as any).sameSite) parts.push(`SameSite=${(opts as any).sameSite}`);
+  if ((opts as any).secure) parts.push('Secure');
+  if ((opts as any).httpOnly) parts.push('HttpOnly');
 
   return parts.join('; ');
 }
@@ -199,8 +199,8 @@ export function clearAllCookies(): void {
   const cookiesToClear = Object.values(COOKIES);
 
   cookiesToClear.forEach(cookieName => {
-    document.cookie = `${cookieName}=; Max-Age=0; path=${COOKIE_OPTIONS.path}`;
-    document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=${COOKIE_OPTIONS.path}`;
+    document.cookie = `${cookieName}=; Max-Age=0; path=${(COOKIE_OPTIONS as any).httpOnly?.path || '/'}`;
+    document.cookie = `${cookieName}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=${(COOKIE_OPTIONS as any).httpOnly?.path || '/'}`;
   });
 }
 

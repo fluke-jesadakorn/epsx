@@ -146,7 +146,7 @@ export function Web3OpenIDSignIn({
       if (result.success) {
         logger.info('🎉 Authentication successful!', {
           wallet: result.wallet_address,
-          tier: result.tier_level,
+          tier: (result as any).tier_level || 'unknown',
           permissions: result.permissions?.length || 0,
           isNewUser: result.is_new_user
         });
@@ -155,10 +155,11 @@ export function Web3OpenIDSignIn({
         await authenticateWithDirectApi({
           wallet_address: result.wallet_address,
           permissions: result.permissions,
-          tier_level: result.tier_level,
+          // tier_level: (result as any).tier_level, // Temporarily removed as it's not in the interface
           is_new_user: result.is_new_user,
-          access_token: result.access_token
-        });
+          access_token: result.access_token,
+          ...(result as any).tier_level && { tier_level: (result as any).tier_level }
+        } as any);
 
         setCurrentStep('success');
         setIsLoading(false);

@@ -17,11 +17,11 @@ export interface PureWeb3AuthState {
   isAuthenticating: boolean;
   isLoading: boolean;
   hasInitialized: boolean;
-  
+
   // Wallet data
   walletAddress?: string;
   chainId: number;
-  
+
   // Permission data (from backend)
   permissions: string[];
   groups: Array<{
@@ -29,15 +29,15 @@ export interface PureWeb3AuthState {
     name: string;
     permissions: string[];
   }>;
-  
+
   // Bearer token data (from Web3 authentication)
   bearerToken?: string;
   tokenExpiresAt?: string;
-  
+
   // Nonce management
   currentNonce?: string;
   nonceExpiry?: number;
-  
+
   // Error state
   error?: string;
 }
@@ -55,16 +55,16 @@ export interface PureWeb3AuthActions {
   setNonce: (nonce: string, expiry: number) => void;
   clearNonce: () => void;
   setError: (error?: string) => void;
-  
+
   // Core authentication
   generateChallenge: (endpoint?: string) => Promise<{ nonce: string; message: string; chainId: number }>;
   verifyConnection: () => Promise<boolean>;
   refreshPermissions: () => Promise<void>;
   signOut: () => Promise<void>;
-  
+
   // Request signing
   signRequest: (endpoint: string, method: string, body?: any) => Promise<SignedRequestHeaders>;
-  
+
   // Utility
   resetState: () => void;
 }
@@ -88,14 +88,14 @@ declare global {
   }
 }
 
-import { apiFetch } from '../api-fetch'
-import { env } from '@/config/env'
-import { ROUTES } from '../route-compatibility'
+import { env } from '@/config/env';
+import { adminApiClient } from '../api-client';
+import { ROUTES } from '../route-compatibility';
 
 const BACKEND_URL = env.BACKEND_URL
 
 // Pure Web3 Auth Store for Admin
-export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()( 
+export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
   persist(
     (set, get) => ({
       // Initial state
@@ -108,8 +108,8 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
       groups: [],
 
       // State setters
-      setConnected: (connected, address, chainId) => set({ 
-        isConnected: connected, 
+      setConnected: (connected, address, chainId) => set({
+        isConnected: connected,
         walletAddress: address,
         chainId: chainId || 1
       }),
@@ -133,14 +133,18 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
         }
 
         try {
-          const challenge = await apiFetch(ROUTES.AUTH.WEB3_CHALLENGE, {
-            method: 'POST',
-            body: JSON.stringify({
-              wallet_address: state.walletAddress,
-              chain_id: state.chainId,
-              endpoint: endpoint
-            })
+          const response = await adminApiClient.post<{
+            nonce: string;
+            message: string;
+            chain_id: number;
+            expires_at: string;
+          }>(ROUTES.AUTH.WEB3_CHALLENGE, {
+            wallet_address: state.walletAddress,
+            chain_id: state.chainId,
+            endpoint: endpoint
           });
+
+          const challenge = response.data!;
 
           // Store nonce with expiry
           const expiryTime = new Date(challenge.expires_at).getTime();
@@ -164,20 +168,20 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
       // Verify wallet connection by testing signature
       verifyConnection: async () => {
         const state = get();
-        
+
         if (!state.walletAddress || !window.__pureWeb3_signMessage) {
           return false;
         }
 
         try {
           set({ isAuthenticating: true, error: undefined });
-          
+
           // Generate challenge
           const challenge = await get().generateChallenge(ROUTES.AUTH.WEB3_VERIFY);
-          
+
           // Sign the message
           const signature = await window.__pureWeb3_signMessage(challenge.message);
-          
+
           // Verify with backend admin endpoint
           const headers: SignedRequestHeaders = {
             'X-Wallet-Address': state.walletAddress,
@@ -195,22 +199,22 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
 
           if (response.ok) {
             const verifyData = await response.json();
-            
+
             // Ensure user has admin permissions
             const adminPermissions = (verifyData.permissions || []).filter((p: string) => p.startsWith('admin:'));
             if (adminPermissions.length === 0) {
-              set({ 
-                isAuthenticating: false, 
-                error: 'No admin permissions found for this wallet' 
+              set({
+                isAuthenticating: false,
+                error: 'No admin permissions found for this wallet'
               });
               return false;
             }
-            
+
             // Store Bearer token if provided by backend
             if (verifyData.bearer_token && verifyData.token_expires_at) {
               get().setBearerToken(verifyData.bearer_token, verifyData.token_expires_at);
             }
-            
+
             set({
               isAuthenticating: false,
               permissions: verifyData.permissions || [],
@@ -231,7 +235,7 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
       // Refresh permissions from backend
       refreshPermissions: async () => {
         const state = get();
-        
+
         if (!state.walletAddress) {
           throw new Error('Admin wallet not connected');
         }
@@ -239,7 +243,7 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
         try {
           // Sign request for admin permissions endpoint
           const signedHeaders = await get().signRequest('/user/permissions', 'GET');
-          
+
           const response = await fetch(`${BACKEND_URL}/user/permissions`, {
             method: 'GET',
             headers: signedHeaders as any,
@@ -248,7 +252,7 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
           if (response.ok) {
             const data = await response.json();
             const adminPermissions = (data.unique_permissions || []).filter((p: string) => p.startsWith('admin:'));
-            
+
             set({
               permissions: data.unique_permissions || [],
               groups: data.group_permissions?.map((g: any) => ({
@@ -267,7 +271,7 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
       // Sign out (clear nonces on backend)
       signOut: async () => {
         const state = get();
-        
+
         try {
           if (state.walletAddress && state.currentNonce) {
             // Clear nonces on backend
@@ -291,7 +295,7 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
       // Sign API request with wallet signature
       signRequest: async (endpoint: string, method: string, body?: any): Promise<SignedRequestHeaders> => {
         const state = get();
-        
+
         if (!state.walletAddress) {
           throw new Error('Admin wallet not connected');
         }
@@ -305,7 +309,7 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
           const now = Date.now();
           let nonce = state.currentNonce;
           const needNewNonce = !nonce || !state.nonceExpiry || state.nonceExpiry <= now;
-          
+
           if (needNewNonce) {
             const challenge = await get().generateChallenge(endpoint);
             nonce = challenge.nonce;
@@ -318,7 +322,7 @@ export const usePureWeb3AuthStore = create<PureWeb3AuthStore>()(
           // Create signing message
           const timestamp = Math.floor(Date.now() / 1000);
           const bodyHash = body ? JSON.stringify(body) : '';
-          
+
           const message = [
             `EPSX Admin API Request`,
             `Wallet: ${state.walletAddress}`,
@@ -453,33 +457,33 @@ export const web3AdminApi = {
  */
 export function usePureWeb3Auth() {
   const store = usePureWeb3AuthStore();
-  
+
   return {
     // State
     ...store,
-    
+
     // Computed values
     isReady: store.hasInitialized && !store.isLoading,
     isAuthorized: store.isConnected && store.permissions.length > 0 && store.permissions.some(p => p.startsWith('admin:')),
-    
+
     // Actions
     connect: async (address: string, chainId: number) => {
       store.setConnected(true, address, chainId);
       store.setInitialized(true);
       await store.verifyConnection();
     },
-    
+
     disconnect: async () => {
       await store.signOut();
     },
-    
+
     // Permission helpers
     hasPermission: (permission: string) => store.permissions.includes(permission),
-    hasAnyPermission: (permissions: string[]) => 
+    hasAnyPermission: (permissions: string[]) =>
       permissions.some(p => store.permissions.includes(p)),
-    hasAllPermissions: (permissions: string[]) => 
+    hasAllPermissions: (permissions: string[]) =>
       permissions.every(p => store.permissions.includes(p)),
-    
+
     isAdmin: () => store.permissions.some(p => p.startsWith('admin:')),
 
     // API client

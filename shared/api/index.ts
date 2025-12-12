@@ -83,7 +83,7 @@ export {
 } from './compliance';
 
 export {
-  AnalyticsApi,
+  AnalyticsAPIClient as AnalyticsApi,
   createAnalyticsClient,
   type EPSRanking,
   type AnalyticsFilters,
@@ -91,7 +91,7 @@ export {
 } from './analytics';
 
 export {
-  AuthApi,
+  AuthAPIClient as AuthApi,
   createAuthClient,
   type Web3Challenge,
   type Web3VerifyRequest,
@@ -100,15 +100,15 @@ export {
 } from './auth';
 
 export {
-  NotificationsApi,
+  NotificationsAPIClient as NotificationsApi,
   createNotificationsClient,
-  type NotificationResponse,
+  type NotificationsResponse as NotificationResponse,
   type NotificationStats
 } from './notifications';
 
 export {
-  PlansApi,
+  PlansAPIClient as PlansApi,
   createPlansClient,
-  type Plan,
-  type PlanFeature
+  type PlanResponse as Plan,
+  type PlanFeatureResponse as PlanFeature
 } from './plans';

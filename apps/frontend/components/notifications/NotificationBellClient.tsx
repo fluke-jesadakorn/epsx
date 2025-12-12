@@ -1,14 +1,14 @@
 'use client'
 
+import { useSharedAuth } from '@/shared/components/auth/Provider'
+import { formatTimestamp, getNotificationIcon, getPriorityColor } from '@/shared/components/notifications/utils'
+import { useNotificationBell } from '@/shared/hooks/useNotificationBell'
+import { createFrontendApiClient } from '@/shared/utils/api-client'
 import { Bell, ExternalLink } from 'lucide-react'
-import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { createFrontendApiClient } from '@/shared/utils/api-client'
-import { useNotificationBell } from '@/shared/hooks/useNotificationBell'
+import { useState } from 'react'
 import { useBrowserNotifications } from './BrowserNotifications'
-import { useSharedAuth } from '@/shared/components/auth/Provider'
-import { getNotificationIcon, formatTimestamp, getPriorityColor } from '@/shared/components/notifications/utils'
 
 export function NotificationBellClient() {
   const router = useRouter()
@@ -61,10 +61,11 @@ export function NotificationBellClient() {
     router.push(`/notifications?id=${notificationId}`)
   }
 
-  const handleDeleteNotification = async (e: React.MouseEvent, notificationId: string) => {
+  // Delete notification functionality - to be implemented when backend supports it
+  const handleDeleteNotification = async (e: React.MouseEvent, _notificationId: string) => {
     e.stopPropagation()
-    await deleteNotification(notificationId)
-    toast.success('Notification deleted')
+    // TODO: Implement when deleteNotification API is available
+    console.log('Delete notification not yet implemented')
   }
 
   return (

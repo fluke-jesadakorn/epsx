@@ -168,8 +168,16 @@ pub fn convert_screening_result_to_eps_ranking(
             ranking_score: ranking_position.map(|rp| rp as f64),
             created_at: None,
             updated_at: None,
-            next_earnings_date: None,
-            last_earnings_date: None,
+            next_earnings_date: result.next_earnings_date.map(|ts| {
+                chrono::DateTime::from_timestamp(ts as i64, 0)
+                    .map(|dt| dt.format("%Y-%m-%d").to_string())
+                    .unwrap_or_default()
+            }),
+            last_earnings_date: result.last_earnings_date.map(|ts| {
+                chrono::DateTime::from_timestamp(ts as i64, 0)
+                    .map(|dt| dt.format("%Y-%m-%d").to_string())
+                    .unwrap_or_default()
+            }),
         },
         ranking_position
     )

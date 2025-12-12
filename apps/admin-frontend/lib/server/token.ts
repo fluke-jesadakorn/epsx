@@ -5,8 +5,8 @@
  */
 import { jwtVerify } from 'jose';
 
-import type { EPSXJWTPayload } from '../../../../shared/auth/jwt';
-import { COOKIES } from '../../../../shared/auth/cookies';
+import { COOKIES } from '@/shared/auth/cookies';
+import type { EPSXJWTPayload } from '@/shared/auth/jwt';
 
 import { env } from '@/config/env';
 
@@ -21,13 +21,13 @@ async function verifyJWT(token: string): Promise<EPSXJWTPayload | null> {
   try {
     // Use Web3 app secret with legacy fallback
     const jwtSecret = env.WEB3_APP_SECRET || env.WEB3_APP_SECRET;
-    
+
     if (!jwtSecret) {
       // eslint-disable-next-line no-console
       console.error('No WEB3_APP_SECRET or JWT_SECRET configured for JWT verification');
       return null;
     }
-    
+
     const { payload } = await jwtVerify(
       token,
       new TextEncoder().encode(jwtSecret),
@@ -50,7 +50,7 @@ export async function getJWTFromCookies(): Promise<string | null> {
   try {
     const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
-    
+
     // Debug: Log all cookies to see what's available
     const allCookies = cookieStore.getAll();
 
@@ -71,8 +71,8 @@ export async function getJWTFromCookies(): Promise<string | null> {
 export async function verifyJWTFromCookies(): Promise<EPSXJWTPayload | null> {
   try {
     const token = await getJWTFromCookies();
-    if (!token) {return null;}
-    
+    if (!token) { return null; }
+
     return await verifyJWT(token);
   } catch (_error) {
     // eslint-disable-next-line no-console
@@ -90,11 +90,11 @@ export async function getSessionFromJWT(): Promise<{
 }> {
   try {
     const payload = await verifyJWTFromCookies();
-    
+
     if (!payload) {
       return { isAuthenticated: false, user: null };
     }
-    
+
     return { isAuthenticated: true, user: payload };
   } catch (_error) {
     // eslint-disable-next-line no-console

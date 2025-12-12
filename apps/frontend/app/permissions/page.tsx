@@ -32,11 +32,19 @@ import {
   Zap,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import {
-  getPermissionAnalytics,
-  getPermissionHistory,
-  exportPermissionsData
-} from '@/lib/actions/permissions';
+// import {
+//   getPermissionAnalytics,
+//   getPermissionHistory,
+//   exportPermissionsData
+// } from '@/lib/actions/permissions';
+
+// TODO: Implement these functions when backend is ready
+const getPermissionAnalytics = async () => null;
+const getPermissionHistory = async (limit: number) => [];
+const exportPermissionsData = async (format: string) => ({
+  data: format === 'json' ? '[]' : '',
+  filename: `permissions.${format}`
+});
 
 // Simple permission parsing function
 function parsePermissionWithTimestamp(permission: string): {

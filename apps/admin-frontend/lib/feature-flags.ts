@@ -4,12 +4,11 @@
  * Provides backward compatibility for existing admin components
  */
 
-import { 
-  isFeatureEnabled as sharedIsFeatureEnabled,
+import {
   createFeatureContext,
-  featureFlags,
-  FEATURE_FLAGS as SHARED_FEATURE_FLAGS
-} from '../../../shared/config/feature-flags';
+  FEATURE_FLAGS as SHARED_FEATURE_FLAGS,
+  isFeatureEnabled as sharedIsFeatureEnabled
+} from '@/shared/config/feature-flags';
 
 import { featureFlags as legacyFeatureFlags } from '@/config/env';
 
@@ -25,7 +24,7 @@ function createAdminContext(userId?: string, userPermissions?: string[]) {
  * @param userPermissions - Optional user permissions for permission-based flags
  */
 export function isFeatureEnabled(
-  flag: keyof typeof SHARED_FEATURE_FLAGS, 
+  flag: keyof typeof SHARED_FEATURE_FLAGS,
   userId?: string,
   userPermissions?: string[]
 ): boolean {
@@ -55,16 +54,16 @@ export function shouldShowFeatureToUser(userId: string, featureName: string): bo
   if (featureName in SHARED_FEATURE_FLAGS) {
     return isFeatureEnabled(featureName, userId);
   }
-  
+
   // Fallback to legacy system for unmigrated features
   if (LEGACY_FEATURE_FLAGS.DEV_MODE) {
     return true;
   }
-  
+
   // Simple hash-based rollout (deterministic based on user ID)
   const hash = hashString(userId + featureName);
   const rolloutPercentage = getRolloutPercentage(featureName);
-  
+
   return (hash % 100) < rolloutPercentage;
 }
 
@@ -108,9 +107,6 @@ export function useFeatureFlag(
 
 // Export all consolidated feature flag utilities for admin use
 export {
-  featureFlags,
-  createFeatureContext,
-  getAllFeatureFlags,
-  getFeatureConfig,
-  canToggleFeature
-} from '../../../shared/config/feature-flags';
+  canToggleFeature, createFeatureContext, featureFlags, getAllFeatureFlags,
+  getFeatureConfig
+} from '@/shared/config/feature-flags';

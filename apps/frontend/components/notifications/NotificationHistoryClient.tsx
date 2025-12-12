@@ -1,22 +1,29 @@
 'use client'
 
-import { useState, useMemo, useTransition } from 'react'
-import Link from 'next/link'
-import { Search, Filter, Settings, RefreshCw } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-import { toast } from 'sonner'
-import { markNotificationRead, markAllNotificationsRead, deleteNotification } from '@/lib/actions/notification-client-actions'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from '@/components/ui/select'
+// TODO: Implement these functions when backend is ready
+const markAllNotificationsRead = async () => {
+  console.log('Mark all notifications as read - stub implementation');
+};
+
+const markNotificationRead = async (notificationId: string) => {
+  console.log(`Mark notification ${notificationId} as read - stub implementation`);
+};
 import { Notification } from '@/lib/api'
+import { Filter, RefreshCw, Search, Settings } from 'lucide-react'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useMemo, useState, useTransition } from 'react'
+import { toast } from 'sonner'
 
 interface NotificationHistoryClientProps {
   initialNotifications: Notification[]
@@ -29,14 +36,15 @@ function NotificationCard({ notification, onMarkAsRead, onCardClick }: {
   onMarkAsRead?: (id: string) => void
   onCardClick?: (id: string) => void
 }) {
-  const priorityColors = {
+  const priorityColors: Record<string, string> = {
     critical: 'border-red-500 bg-red-50 dark:bg-red-950 text-red-900 dark:text-red-100',
+    urgent: 'border-red-500 bg-red-50 dark:bg-red-950 text-red-900 dark:text-red-100',
     high: 'border-orange-500 bg-orange-50 dark:bg-orange-950 text-orange-900 dark:text-orange-100',
     normal: 'border-blue-500 bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-100',
     low: 'border-gray-500 bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100'
   }
 
-  const typeIcons = {
+  const typeIcons: Record<string, string> = {
     system: '🔧',
     admin: '👨‍💼',
     data: '📊',
@@ -44,8 +52,9 @@ function NotificationCard({ notification, onMarkAsRead, onCardClick }: {
     security: '🔒'
   }
 
-  const priorityLabels = {
+  const priorityLabels: Record<string, string> = {
     critical: '🔴 CRITICAL',
+    urgent: '🔴 URGENT',
     high: '🟡 HIGH',
     normal: '🔵 NORMAL',
     low: '⚪ LOW'

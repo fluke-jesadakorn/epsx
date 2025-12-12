@@ -1,0 +1,207 @@
+/**
+ * Shared Design System - Theme Configuration (Tailwind CSS v4)
+ * 
+ * Centralized configuration for both Frontend and Admin-Frontend apps.
+ * Combines standard accessible colors with "Rich" PancakeSwap aesthetics.
+ */
+
+
+@theme {
+  /* Container Configuration */
+  --breakpoint-2xl: 1400px;
+  
+  /* Border Radius Variables */
+  --radius: 1rem;
+  --radius-lg: 1rem;
+  --radius-md: calc(1rem - 2px);
+  --radius-sm: calc(1rem - 4px);
+  
+  /* ========================================================================
+     COLOR SYSTEM - Tailwind v4 Format
+     ======================================================================== */
+  
+  /* Primary Color Scale (Professional Blue) */
+  --color-primary-50: hsl(217 100% 95%);
+  --color-primary-100: hsl(217 90% 90%);
+  --color-primary-200: hsl(217 95% 85%);
+  --color-primary-300: hsl(217 95% 75%);
+  --color-primary-400: hsl(217 95% 65%);
+  --color-primary-500: hsl(217 91% 60%);
+  --color-primary-600: hsl(217 95% 45%);
+  --color-primary-700: hsl(217 90% 40%);
+  --color-primary-800: hsl(217 85% 35%);
+  --color-primary-900: hsl(217 80% 30%);
+  
+  /* Secondary Color Scale */
+  --color-secondary-50: hsl(262 100% 95%);
+  --color-secondary-100: hsl(262 95% 88%);
+  --color-secondary-200: hsl(262 90% 80%);
+  --color-secondary-300: hsl(262 95% 75%);
+  --color-secondary-400: hsl(262 100% 70%);
+  --color-secondary-500: hsl(262 83% 58%);
+  --color-secondary-600: hsl(262 95% 65%);
+  --color-secondary-700: hsl(262 90% 60%);
+  --color-secondary-800: hsl(262 85% 55%);
+  --color-secondary-900: hsl(262 80% 50%);
+  
+  /* Success Color Scale */
+  --color-success-50: hsl(142 76% 95%);
+  --color-success-500: hsl(142 71% 45%);
+  --color-success-600: hsl(142 66% 40%);
+  
+  /* Warning Color Scale (Pancake-inspired) */
+  --color-warning-50: hsl(45 98% 95%);
+  --color-warning-500: hsl(45 93% 47%);
+  --color-warning-600: hsl(45 88% 42%);
+  
+  /* Error Color Scale */
+  --color-error-50: hsl(0 90% 95%);
+  --color-error-500: hsl(0 85% 60%);
+  --color-error-600: hsl(0 80% 55%);
+  
+  /* Semantic Colors (Shadcn/System) */
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  
+  --color-chart-1: hsl(var(--chart-1));
+  --color-chart-2: hsl(var(--chart-2));
+  --color-chart-3: hsl(var(--chart-3));
+  --color-chart-4: hsl(var(--chart-4));
+  --color-chart-5: hsl(var(--chart-5));
+
+  
+  /* Custom Animations (Performance Optimized) */
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  @keyframes accordion-down {
+    from { height: 0 }
+    to { height: var(--radix-accordion-content-height) }
+  }
+  @keyframes accordion-up {
+    from { height: var(--radix-accordion-content-height) }
+    to { height: 0 }
+  }
+}
+
+/* ============================================================================
+   SHARED VARIABLES & TOKENS
+   ============================================================================ */
+
+@layer base {
+  :root {
+    /* Core colors */
+    --background: 252 100% 99%;
+    --foreground: 223 84% 10%;
+    
+    /* Card / Surface */
+    --card: 0 0% 100%;
+    --card-foreground: 223 84% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 223 84% 10%;
+    
+    /* Primary (Blue) */
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    
+    /* Secondary */
+    --secondary: 42 100% 70%;
+    --secondary-foreground: 223 84% 10%;
+    
+    /* UI States */
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
+    --accent: 217 32% 95%;
+    --accent-foreground: 217 91% 40%;
+    --destructive: 0 85% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 217 91% 60%;
+    
+    /* Charts */
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    
+    /* Radius */
+    --radius: 0.5rem;
+    
+    /* Pancake Rich Design Tokens */
+    --pancake-orange-50: hsl(31 100% 95%);
+    --pancake-yellow-50: hsl(42 100% 95%);
+    --pancake-orange-950: hsl(31 80% 10%);
+    --pancake-yellow-950: hsl(42 70% 10%);
+  }
+
+  /* Dark Theme */
+  .dark {
+    --background: 240 10% 4%;
+    --foreground: 0 0% 95%;
+    
+    --card: 240 10% 6%;
+    --card-foreground: 0 0% 95%;
+    --popover: 240 10% 6%;
+    --popover-foreground: 0 0% 95%;
+    
+    --primary: 217 91% 65%;
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 0 0% 95%;
+    
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 240 4% 16%;
+    --accent-foreground: 0 0% 95%;
+    
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 95%;
+    
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
+    --ring: 217 91% 65%;
+    
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+}
+
+/* Reset */
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}

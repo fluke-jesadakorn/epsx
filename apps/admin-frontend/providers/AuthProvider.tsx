@@ -1,13 +1,13 @@
 'use client';
 
+import '@/lib/browser-polyfills';
+import { darkTheme, getDefaultConfig, lightTheme, RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import '@rainbow-me/rainbowkit/styles.css';
-import { getDefaultConfig, RainbowKitProvider, darkTheme, lightTheme } from '@rainbow-me/rainbowkit';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useTheme } from 'next-themes';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { WagmiProvider } from 'wagmi';
 import { bscTestnet } from 'wagmi/chains';
-import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
-import { createContext, useContext, type ReactNode } from 'react';
-import { useTheme } from 'next-themes';
-import { useEffect, useState } from 'react';
 
 // Polyfill for SSR to prevent indexedDB errors
 if (typeof window === 'undefined') {

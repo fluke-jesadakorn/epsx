@@ -3,7 +3,7 @@
  * Provides types and utilities for server-side authentication
  */
 
-import type { EPSXJWTPayload } from '../../../../shared/auth/jwt';
+import type { EPSXJWTPayload } from '@/shared/auth/jwt';
 
 /**
  * Enhanced auth user type based on our JWT structure
@@ -38,17 +38,17 @@ export function createEnhancedAuthUser(payload: EPSXJWTPayload): EnhancedAuthUse
 export async function getServerSession(): Promise<ServerSession | null> {
   try {
     const { cookies } = await import('next/headers');
-    const { verifyJWT } = await import('../../../../shared/auth/jwt');
-    
+    const { verifyJWT } = await import('@/shared/auth/jwt');
+
     const cookieStore = await cookies();
     // OIDC Migration: Use only OIDC access token
     const jwt = cookieStore.get('access_token')?.value;
-    
-    if (!jwt) {return null;}
-    
+
+    if (!jwt) { return null; }
+
     const payload = await verifyJWT(jwt);
-    if (!payload) {return null;}
-    
+    if (!payload) { return null; }
+
     // Convert to proper ServerSession type
     const user = createEnhancedAuthUser(payload);
     return {
@@ -69,8 +69,8 @@ export async function getServerSession(): Promise<ServerSession | null> {
 export async function getCurrentUser(): Promise<EnhancedAuthUser | null> {
   try {
     const session = await getServerSession();
-    if (!session?.user) {return null;}
-    
+    if (!session?.user) { return null; }
+
     return createEnhancedAuthUser(session.user as EPSXJWTPayload);
   } catch (_error) {
     // eslint-disable-next-line no-console
@@ -85,7 +85,7 @@ export async function getCurrentUser(): Promise<EnhancedAuthUser | null> {
  * @param permission
  */
 export function hasPermission(user: EnhancedAuthUser | null, permission: string): boolean {
-  if (!user?.permissions) {return false;}
+  if (!user?.permissions) { return false; }
   const permissions = Array.isArray(user.permissions) ? user.permissions : [];
   return permissions.includes(permission) || permissions.includes('*');
 }
@@ -96,8 +96,8 @@ export function hasPermission(user: EnhancedAuthUser | null, permission: string)
  * @param module
  */
 export function hasAdminModule(user: EnhancedAuthUser | null, module: string): boolean {
-  if (!user) {return false;}
-  
+  if (!user) { return false; }
+
   // Convert legacy module to structured permission
   const modulePermissionMap: Record<string, string> = {
     'user_management': 'epsx:users:manage',
@@ -106,7 +106,7 @@ export function hasAdminModule(user: EnhancedAuthUser | null, module: string): b
     'notifications': 'epsx:notifications:manage',
     'billing': 'epsx:billing:manage',
   };
-  
+
   const permission = modulePermissionMap[module];
   return permission ? hasPermission(user, permission) : false;
 }
@@ -116,17 +116,17 @@ export function hasAdminModule(user: EnhancedAuthUser | null, module: string): b
  * @param user
  */
 export function isAdmin(user: EnhancedAuthUser | null): boolean {
-  if (!user) {return false;}
-  
+  if (!user) { return false; }
+
   // Check permissions system
   if (user.permissions?.length > 0) {
-    return user.permissions.some(p => 
-      p.includes(':manage') || 
-      p.includes(':admin') || 
+    return user.permissions.some(p =>
+      p.includes(':manage') ||
+      p.includes(':admin') ||
       p === '*'
     );
   }
-  
+
   return false;
 }
 
@@ -147,10 +147,10 @@ export async function requireAdminAuth(): Promise<EnhancedAuthUser> {
 export async function getUserContext() {
   try {
     const user = await getCurrentUser();
-    if (!user) {return null;}
-    
+    if (!user) { return null; }
+
     const platform = user.platform_context || user.primary_platform || 'epsx';
-    
+
     return {
       user,
       isAdmin: isAdmin(user),
@@ -172,15 +172,15 @@ export async function getUserContext() {
  * @param platform
  */
 export function hasPlatformPermission(
-  user: EnhancedAuthUser | null, 
-  resource: string, 
+  user: EnhancedAuthUser | null,
+  resource: string,
   action: string,
   platform?: string
 ): boolean {
-  if (!user) {return false;}
-  
+  if (!user) { return false; }
+
   const targetPlatform = platform || user.platform_context || user.primary_platform || 'epsx';
   const permission = `${targetPlatform}:${resource}:${action}`;
-  
+
   return hasPermission(user, permission);
 }

@@ -5,7 +5,7 @@
  * This provides a temporary bridge until backend implements /api/v1/ routes
  */
 
-import { API_ROUTES } from '../../../shared/config/route-constants';
+import { API_ROUTES } from '@/shared/config/route-constants';
 
 // Legacy routes currently implemented in backend (without /v1/)
 export const LEGACY_ROUTES = {

@@ -36,7 +36,8 @@ impl TradingViewScanner {
                 "earnings_per_share_forecast_fq", "earnings_per_share_forecast_next_fq",
                 "earnings_per_share_forecast_next_fh", "earnings_per_share_forecast_next_fy",
                 "sector.tr", "market", "sector", "AnalystRating", "AnalystRating.tr", "exchange",
-                "earnings_release_date", "earnings_release_next_date"
+                "earnings_release_date", "earnings_release_next_date", "earnings_release_trading_date_fy",
+                "earnings_per_share_diluted_qoq_growth_fq"
             ],
             "filter": [
                 {
@@ -193,8 +194,10 @@ impl TradingViewScanner {
                 "fundamental_currency_code", "price_earnings_ttm", "earnings_per_share_diluted_ttm",
                 "earnings_per_share_diluted_yoy_growth_ttm", "dividends_yield_current", 
                 "earnings_per_share_forecast_fq", "earnings_per_share_forecast_next_fq",
+                "earnings_per_share_forecast_next_fh", "earnings_per_share_forecast_next_fy",
                 "sector.tr", "market", "sector", "AnalystRating", "AnalystRating.tr", "exchange",
-                "earnings_release_date", "earnings_release_next_date"
+                "earnings_release_date", "earnings_release_next_date", "earnings_release_trading_date_fy",
+                "earnings_per_share_diluted_qoq_growth_fq"
             ],
             "filter": filters,
             "ignore_unknown_fields": false,
@@ -547,12 +550,14 @@ impl TradingViewScanner {
             // Extract real EPS data from TradingView response - Legacy fields (kept for compatibility)
             current_eps: {
                 let eps_fq = get_number(&stock.d, 14); // earnings_per_share_fq
-                let eps_ttm = get_number(&stock.d, 18); // earnings_per_share_diluted_ttm
-                if eps_fq > 0.0 { Some(eps_fq) } else if eps_ttm > 0.0 { Some(eps_ttm) } else { None }
+                let eps_ttm = get_number(&stock.d, 19); // earnings_per_share_diluted_ttm (Corrected index 19)
+                if eps_fq > 0.0 { Some(eps_fq) } else if eps_ttm != 0.0 { Some(eps_ttm) } else { None }
             },
             eps_growth_yoy: {
-                let growth = get_number(&stock.d, 19); // earnings_per_share_diluted_yoy_growth_ttm  
-                if growth != 0.0 { Some(growth) } else { None }
+                // Use QoQ growth if available (Index 35), fallback to YoY (Index 20)
+                let qoq_growth = get_number(&stock.d, 35); // earnings_per_share_diluted_qoq_growth_fq
+                let yoy_growth = get_number(&stock.d, 20); // earnings_per_share_diluted_yoy_growth_ttm
+                if qoq_growth != 0.0 { Some(qoq_growth) } else if yoy_growth != 0.0 { Some(yoy_growth) } else { None }
             },
             earnings_forecast_fq: {
                 let forecast = get_number(&stock.d, 22); // earnings_per_share_forecast_fq (index 22)
@@ -620,41 +625,56 @@ impl TradingViewScanner {
             // Initialize growth calculations (will be calculated by with_quarterly_analysis)
             qoq_growth_current: None,
             yoy_growth_current: {
-                let growth = get_number(&stock.d, 19); // earnings_per_share_diluted_yoy_growth_ttm  
+                let growth = get_number(&stock.d, 20); // earnings_per_share_diluted_yoy_growth_ttm (Corrected index 20)
                 if growth != 0.0 { Some(growth) } else { None }
             },
             trend_direction: None,
             avg_growth_rate: None,
             consistency_score: None,
             currency: {
-                let currency = get_string(&stock.d, 11, "USD"); // currency field from TradingView
+                let currency = get_string(&stock.d, 11, "USD"); // currency
                 if !currency.is_empty() { Some(currency) } else { Some("USD".to_string()) }
             },
             
             // Extract real TradingView earnings announcement dates
+            // Date logic: check if earnings_release_date (32) is in the future
             last_earnings_date: {
-                let last = get_number(&stock.d, 32); // earnings_release_date (index 32)
-                tracing::debug!("📅 [{}] last_earnings_date raw value at index 32: {:?}", symbol_str, last);
-                if last > 1_000_000_000.0 {
-                    tracing::info!("✅ [{}] last_earnings_date valid: {}", symbol_str, last);
-                    Some(last)
-                } else {
-                    tracing::warn!("⚠️ [{}] last_earnings_date invalid or missing: {:?}", symbol_str, last);
-                    None
-                }
+                let last = get_number(&stock.d, 32); 
+                // We'll keep last_earnings_date as the raw value from TradingView for reference
+                if last > 1_000_000_000.0 { Some(last) } else { None }
             },
             next_earnings_date: {
-                let next = get_number(&stock.d, 33); // earnings_release_next_date (index 33)
-                tracing::debug!("📅 [{}] next_earnings_date raw value at index 33: {:?}", symbol_str, next);
-                if next > 1_000_000_000.0 {
-                    tracing::info!("✅ [{}] next_earnings_date valid: {} ({})", symbol_str, next,
-                        chrono::DateTime::from_timestamp(next as i64, 0)
-                            .map(|dt| dt.format("%Y-%m-%d").to_string())
-                            .unwrap_or_else(|| "invalid".to_string())
-                    );
-                    Some(next)
+                let earnings_release_date = get_number(&stock.d, 32);
+                let earnings_release_next_date = get_number(&stock.d, 33);
+                let earnings_report_date_fy = get_number(&stock.d, 34); // New field: earnings_release_trading_date_fy
+                
+                let current_timestamp = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs() as f64;
+
+                // Collect all valid date candidates
+                let mut candidates = vec![];
+                if earnings_release_date > 1_000_000_000.0 { candidates.push(earnings_release_date); }
+                if earnings_release_next_date > 1_000_000_000.0 { candidates.push(earnings_release_next_date); }
+                if earnings_report_date_fy > 1_000_000_000.0 { candidates.push(earnings_report_date_fy); }
+
+                // Pick the nearest date that is in the future (or today)
+                // We use a small buffer (e.g. 1 day ago is still "next" if we haven't updated) or strictly future.
+                // Strictly > current_timestamp is safest.
+                let next_val = candidates.into_iter()
+                    .filter(|&ts| ts > current_timestamp)
+                    .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+                
+                if symbol_str == "NVDA" {
+                    println!("DEBUG [NVDA]: Idx32(rel_date)={}, Idx33(next_rel_date)={}, Idx34(fy_date)={}", 
+                        earnings_release_date, earnings_release_next_date, earnings_report_date_fy);
+                    println!("DEBUG [NVDA]: Current TS={}, Selected={:?}", current_timestamp, next_val);
+                }
+
+                if let Some(val) = next_val {
+                    Some(val)
                 } else {
-                    tracing::warn!("⚠️ [{}] next_earnings_date invalid or missing: {:?}", symbol_str, next);
                     None
                 }
             },
@@ -791,6 +811,43 @@ mod tests {
         // Test with sector filter
         let filters_with_sector = scanner.build_dynamic_filters(Some(&"Technology".to_string()));
         assert_eq!(filters_with_sector.len(), 4); // Base filters + sector filter
+    }
+
+    #[test]
+    fn test_nvda_earnings_date_selection() {
+        use super::types::StockDataField;
+        
+        let config = Config::from_env().unwrap();
+        let tv_config = TradingViewConfig::from(&config);
+        let scanner = TradingViewScanner::new(tv_config);
+        
+        // Mock data similar to NVDA response
+        // Indices:
+        // 32: earnings_release_date = 1763587200 (Nov 2025)
+        // 33: earnings_release_next_date = 1772020800 (Feb 2026)
+        // 34: earnings_release_trading_date_fy = 1740528000 (Feb 2025)
+        
+        let mut d = vec![StockDataField::Null; 35];
+        d[0] = StockDataField::String("NVDA".to_string());
+        d[32] = StockDataField::Number(1763587200.0);
+        d[33] = StockDataField::Number(1772020800.0);
+        d[34] = StockDataField::Number(1740528000.0); // The correct nearest date
+        
+        let stock = TradingViewStock {
+            s: "NASDAQ:NVDA".to_string(),
+            d
+        };
+        
+        let result = scanner.convert_to_stock_screening_result(stock);
+        
+        // Current time is approx 1733827200 (Dec 10 2024)
+        // We expect it to pick the nearest future date: 1740528000 (Feb 25 2025)
+        
+        assert!(result.next_earnings_date.is_some());
+        let selected = result.next_earnings_date.unwrap();
+        println!("Selected: {}", selected);
+        
+        assert_eq!(selected, 1740528000.0, "Should select Feb 2025 date (index 34)");
     }
 
     #[test]

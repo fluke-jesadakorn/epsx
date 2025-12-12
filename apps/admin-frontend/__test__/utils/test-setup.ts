@@ -12,18 +12,15 @@
  */
 
 import { test as base, expect, Page, APIRequestContext } from '@playwright/test';
-import { 
-  TEST_USERS, 
-  TEST_SESSIONS, 
-  ROLE_PROFILES,
-  API_RESPONSE_FIXTURES,
+import {
+  TEST_USERS,
+  TEST_SESSIONS,
   TEST_ENVIRONMENT_CONFIG,
   TestDatabaseUtilities,
   MockAPIClient,
-  TestUtilities,
   type TestUser
 } from '../fixtures/admin-test-fixtures';
-import { getBackendUrl, getAdminUrl } from '../../../../shared/utils/url-resolver';
+import { getBackendUrl } from '../../../../shared/utils/url-resolver';
 
 // ============================================================================
 // Extended Test Fixtures
@@ -63,7 +60,7 @@ export const test = base.extend<AdminTestFixtures>({
 
   testUser: async ({}, use) => {
     // Provide default test user
-    await use(TEST_USERS.ADMIN);
+    await use(TEST_USERS['ADMIN']!);
   },
 
   dbUtils: async ({}, use) => {

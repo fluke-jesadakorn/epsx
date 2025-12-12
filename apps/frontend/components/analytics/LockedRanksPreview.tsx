@@ -9,7 +9,7 @@ interface LockedRanksPreviewProps {
  * @param root0.minAccessibleRank
  * @param root0.lockedCount
  */
-export function LockedRanksPreview({ minAccessibleRank, lockedCount }: LockedRanksPreviewProps): React.JSX.Element {
+export function LockedRanksPreview({ minAccessibleRank, lockedCount }: LockedRanksPreviewProps): React.JSX.Element | null {
   if (minAccessibleRank <= 1 || lockedCount === 0) {
     return null; // User has top access, no locked ranks
   }

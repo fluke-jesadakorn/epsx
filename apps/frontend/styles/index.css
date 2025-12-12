@@ -1,10 +1,10 @@
 /**
  * EPSX Platform Styles - Main Entry Point
- * 
+ *
  * This is the new main stylesheet that replaces the massive globals.css.
  * It imports all the modular CSS files in the correct order for optimal
  * performance and maintainability.
- * 
+ *
  * Loading Order:
  * 1. Base styles (reset, variables, essential elements)
  * 2. Critical styles (above-the-fold, immediate render)
@@ -18,11 +18,18 @@
  * - Clear separation of concerns
  * - Reduced CSS bundle size
  */
+@import "tailwindcss";
 
 /* ============================================================================
    BASE STYLES - Essential foundations
    ============================================================================ */
-@import './base.css';
+/* ============================================================================
+   BASE STYLES - Essential foundations
+   ============================================================================ */
+/* Shared Design System (Unified Theme) */
+@import '../../../shared/design-system/index.css';
+/* Local base styles replaced by shared system */
+/* @import './base.css'; */
 
 /* ============================================================================
    COMPONENT STYLES - Complex component styling

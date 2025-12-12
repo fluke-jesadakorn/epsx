@@ -1,10 +1,10 @@
 # EPSX Analytics Platform 📊
 
-A production-ready stock analytics platform built with modern technologies, featuring comprehensive EPS growth analysis and mobile-first performance. Built with Next.js 15, React 19, and high-performance Rust backend, configured for seamless local development with production-like *.epsx.io domain simulation.
+A production-ready stock analytics platform built with modern technologies, featuring comprehensive EPS growth analysis, Web3-first authentication (SIWE), and mobile-first performance. Built with Next.js 15, React 19, and high-performance Rust backend, configured for seamless local development with production-like *.epsx.io domain simulation.
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.8.3-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Next.js](https://img.shields.io/badge/Next.js-15.5.0-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React-19.1.0-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9.3-007ACC?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-15.5.2-000000?style=for-the-badge&logo=next.js&logoColor=white)](https://nextjs.org/)
+[![React](https://img.shields.io/badge/React-19.2.1-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
 [![Rust](https://img.shields.io/badge/Rust-2021-000000?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![TailwindCSS](https://img.shields.io/badge/Tailwind_CSS-4.0.15-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
 
@@ -19,13 +19,13 @@ This production-ready monorepo is organized with clean separation of concerns:
 - **Frontend** (`apps/frontend`) - Main analytics platform interface
   - **URL**: https://epsx.io (local development)
   - Analytics dashboard, EPS rankings, user dashboard, subscription system
-  - Next.js 15.5.0 with React 19.1.0 and TypeScript 5.8.3
+  - Next.js 15.5.2 with React 19.2.1 and TypeScript 5.9.3
   - Features: Advanced analytics, mobile-optimized data visualization, subscription management, real-time market data
 
 - **Admin Frontend** (`apps/admin-frontend`) - Administrative dashboard
   - **URL**: https://admin.epsx.io (local development)
   - User management, IAM, role assignment, analytics administration
-  - Next.js 15.5.0 with comprehensive admin controls
+  - Next.js 15.5.2 with OIDC Auth and comprehensive admin controls
   - Features: User promotion tools, access control, analytics management, system monitoring
 
 - **Backend** (`apps/backend`) - High-performance Rust API server with SQLx
@@ -55,15 +55,17 @@ This production-ready monorepo is organized with clean separation of concerns:
 
 | Technology | Version | Purpose |
 |------------|---------|----------|
-| **Next.js** | 15.5.0 | React framework with App Router |
-| **React** | 19.1.0 | UI library with Server Components |
-| **TypeScript** | 5.8.3 | Type-safe development |
+| **Next.js** | 15.5.2 | React framework with App Router |
+| **React** | 19.2.1 | UI library with Server Components |
+| **TypeScript** | 5.9.3 | Type-safe development |
 | **Tailwind CSS** | 4.0.15 | Utility-first styling |
 | **Radix UI** | Latest | Accessible component primitives |
-| **Zustand** | Latest | State management |
+| **Zustand** | 5.x | State management |
 | **SWR** | Latest | Data fetching & caching |
-| **React Hook Form** | Latest | Form handling |
-| **Zod** | Latest | Schema validation |
+| **React Hook Form** | 7.58 | Form handling |
+| **Zod** | 4.x | Schema validation |
+| **WAGMI** | Latest | Web3 React hooks |
+| **RainbowKit** | Latest | Wallet connection UI |
 
 ### ⚙️ Backend Stack
 
@@ -84,13 +86,13 @@ This production-ready monorepo is organized with clean separation of concerns:
 
 | Tool | Version | Purpose |
 |------|---------|----------|
-| **Turborepo** | 2.5.5 | Monorepo build system |
+| **Turborepo** | 2.5.6 | Monorepo build system |
 | **Bun** | 1.1.42 | Package manager & runtime |
 | **ESLint** | 9.23.0 | Code linting |
-| **Prettier** | 3.6.2 | Code formatting |
+| **Prettier** | 3.7.3 | Code formatting |
 | **Husky** | 9.1.7 | Git hooks |
 | **Jest** | Latest | Unit testing |
-| **Playwright** | Latest | E2E testing |
+| **Playwright** | 1.57 | E2E testing |
 | **Docker** | Latest | Containerization |
 
 ---
@@ -158,10 +160,12 @@ bun dev:all
 
 ### Authentication Features
 
-- **Single Sign-On**: Seamless cross-application authentication
-- **JWT Security**: Secure token-based API access
-- **Multi-Provider**: Google OAuth, Firebase, OIDC support
+- **Web3-First (SIWE)**: Sign-In with Ethereum - wallet-only authentication
+- **Multi-Chain Support**: BSC Mainnet (56) and Testnet (97)
+- **Session Management**: Web3 tokens stored in HttpOnly cookies
+- **Structured Permissions**: Platform-scoped access control (`platform:resource:action`)
 - **Role-Based Access**: IAM profiles with granular permissions
+- **Admin OIDC**: OpenID Connect for admin dashboard authentication
 
 ---
 
@@ -266,9 +270,15 @@ epsx/
 │       ├── src/           # Rust source (web, auth, analytics)
 │       ├── migrations/    # Database migrations
 │       └── tests/         # Rust tests
+├── shared/                # Shared packages & config
+│   ├── components/        # Shared UI components
+│   ├── config/            # Route constants & configuration
+│   ├── env/               # Unified environment schema
+│   ├── types/             # Shared TypeScript definitions
+│   └── utils/             # Shared utilities & API client
+├── packages/              # NPM packages
 ├── scripts/               # Development & deployment scripts
-├── types/                 # Shared TypeScript definitions
-└── turbo.json            # Monorepo configuration
+└── turbo.json             # Monorepo configuration
 ```
 
 
@@ -304,7 +314,6 @@ echo "NEXT_PUBLIC_API_URL=https://api.epsx.io" >> .env.development
 - `apps/frontend/.env.local` - Frontend-specific
 - `apps/admin-frontend/.env.local` - Admin-specific
 - `apps/backend/.env` - Backend configuration
-
 ---
 
 ## 💰 Blockchain Payment System
@@ -467,24 +476,33 @@ See: [BLOCKCHAIN_DEPLOYMENT_GUIDE.md](BLOCKCHAIN_DEPLOYMENT_GUIDE.md)
 ---
 
 ## 🚀 Deployment
+### Hybrid Architecture (Docker Compose + Cloudflare Tunnel)
+The platform is deployed on a remote server using a shared infrastructure approach to optimize resources.
 
-### Google Cloud Registry
-- **Registry**: `us-central1-docker.pkg.dev/epsx-469400/epsx`
-- **Multi-platform**: linux/amd64, linux/arm64 support
-- **Environments**: Development, test, production configurations
+- **Infrastructure**: Remote Server (`100.109.131.15`) running Docker Compose
+- **Ingress**: Cloudflare Tunnel (Zero Trust) for `epsx.io` (Prod) and `dev.epsx.io` (Dev)
+- **Database**: Shared PostgreSQL (`epsx_prod`, `epsx_dev`) and Redis
+- **Registry**: Local Docker Registry or Manual Transfer (SCP)
 
-### Build Pipeline
+### Deployment Workflow ("Build Local, Deploy Remote")
+
+Due to server resource constraints, we build optimized images locally on Mac (cross-compiled for `linux/amd64`) and transfer them via SCP.
+
 ```bash
-# Build for production
-make build
+# 1. Build Production Images (with baked-in Prod Env)
+export DOCKER_DEFAULT_PLATFORM=linux/amd64
+docker build --build-arg NEXT_PUBLIC_... -t epsx-frontend:prod .
+docker save epsx-frontend:prod ... | gzip > deploy.tar.gz
 
-# Build and push Docker images
-make docker-build
-make docker-push
+# 2. Transfer to Server
+scp deploy.tar.gz user@server:~/epsx/
 
-# Deploy to environment
-make docker-up ENV=prod
+# 3. Deploy
+ssh user@server "gzip -d -c deploy.tar.gz | docker load"
+ssh user@server "cd ~/epsx/prod && docker compose up -d"
 ```
+
+For detailed guides, verify `GEMINI.md` or the `scripts/deploy/` directory.
 
 ---
 

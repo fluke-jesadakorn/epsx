@@ -60,6 +60,7 @@ pub async fn get_unified_analytics_rankings_cached(
   let cache_key = generate_cache_key(&params);
   debug!("Generated cache key: {}", cache_key);
 
+  /* DISABLED CACHE: Force fresh data fetch
   // FIXED: Check cache first (1-hour TTL) - restored cache functionality
   if let Some(cached_data) = cache.get(&cache_key) {
     if
@@ -71,6 +72,7 @@ pub async fn get_unified_analytics_rankings_cached(
       return Ok(Json(cached_response));
     }
   }
+  */
 
   debug!("Cache miss for analytics rankings - fetching fresh data");
 
@@ -257,11 +259,13 @@ pub async fn get_unified_analytics_rankings_cached(
     data_len
   );
 
+  /* DISABLED CACHE: Force fresh data fetch
   // Store response in cache with 1-hour TTL (3600 seconds)
   if let Ok(serialized_response) = serde_json::to_string(&card_response) {
     cache.set(&cache_key, serialized_response, Some(3600));
     debug!("Successfully cached analytics rankings with key: {}", cache_key);
   }
+  */
 
   Ok(Json(card_response))
 }

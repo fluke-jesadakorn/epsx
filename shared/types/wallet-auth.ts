@@ -124,7 +124,7 @@ export interface WalletAuthState {
   groupMemberships: GroupMembership[];
   permissionStats?: PermissionStats;
   web3Permissions: Web3Permission[]; // @deprecated Use permissions instead
-  permissions: Permission[];
+  detailedPermissions: Permission[];
 
   // Actions
   connect: () => Promise<void>;

@@ -4,7 +4,7 @@
 
 import { redirect } from 'next/navigation';
 
-import { generateCodeVerifier, generateCodeChallenge, generateRandomString } from '../../../../shared/auth/pkce';
+import { generateCodeChallenge, generateCodeVerifier, generateRandomString } from '@/shared/auth/pkce';
 
 // OAuth authorization URL generation now handled by shared utilities
 async function getAuthorizationUrl(): Promise<{ url: string; codeVerifier: string; state: string }> {
@@ -35,14 +35,14 @@ export async function getAuthUser() {
   try {
     const { verifyJWTFromCookies } = await import('./token');
     const user = await verifyJWTFromCookies();
-    
+
     // Validate admin permissions
     if (user && !user.permissions && user.role !== 'admin') {
       // eslint-disable-next-line no-console
       console.warn('⚠️  Admin: User lacks admin permissions');
       return null;
     }
-    
+
     return user;
   } catch (_error) {
     // eslint-disable-next-line no-console
@@ -59,14 +59,14 @@ export async function getAuthUser() {
  */
 export async function exchangeCodeForTokens(code: string, codeVerifier: string, state: string) {
   try {
-    
+
     // Use consolidated auth config for consistency
     const { authConfig } = await import('../../config/env');
-    
+
     const apiUrl = authConfig.apiUrl;
     const clientId = authConfig.clientId;
     const redirectUri = authConfig.callbackUrl;
-    
+
     const response = await fetch(`${apiUrl}/oauth/token`, {
       method: 'POST',
       headers: {
@@ -90,7 +90,7 @@ export async function exchangeCodeForTokens(code: string, codeVerifier: string, 
     }
 
     const tokens = await response.json()
-    
+
     return {
       accessToken: tokens.access_token,
       idToken: tokens.id_token,
@@ -112,7 +112,7 @@ export async function getUserInfo(accessToken: string) {
   // Use consolidated auth config for consistency
   const { authConfig } = await import('../../config/env');
   const apiUrl = authConfig.apiUrl;
-  
+
   const response = await fetch(`${apiUrl}/oauth/userinfo`, {
     headers: {
       'Authorization': `Bearer ${accessToken}`,
@@ -138,11 +138,11 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
   try {
     // Generate proper PKCE parameters
     const { url, codeVerifier, state } = await getAuthorizationUrl();
-    
+
     // Set PKCE cookies for callback
     const { cookies } = await import('next/headers');
     const cookieStore = await cookies();
-    
+
     // Store PKCE parameters in cookies for callback
     cookieStore.set('oauth_code_verifier', codeVerifier, {
       httpOnly: true,
@@ -151,7 +151,7 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
       maxAge: 600, // 10 minutes
       path: '/'
     });
-    
+
     cookieStore.set('oauth_state', state, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -159,7 +159,7 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
       maxAge: 600, // 10 minutes  
       path: '/'
     });
-    
+
     // Store callback URL for after authentication
     if (callbackUrl) {
       cookieStore.set('oauth_redirect_to', callbackUrl, {
@@ -170,7 +170,7 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
         path: '/'
       });
     }
-    
+
     redirect(url);
   } catch (_error) {
     // eslint-disable-next-line no-console
@@ -199,13 +199,13 @@ export async function redirectToBackendAdminLogin(callbackUrl?: string): Promise
  */
 export async function requireAuth(redirectPath?: string) {
   const user = await getAuthUser();
-  
+
   if (!user) {
     const { redirect } = await import('next/navigation');
     const loginUrl = redirectPath ? `/login?redirectTo=${encodeURIComponent(redirectPath)}` : '/login';
     redirect(loginUrl);
   }
-  
+
   return user;
 }
 
@@ -236,13 +236,13 @@ export async function clearSession(): Promise<void> {
 export async function hasAdminPermission(permission: string): Promise<boolean> {
   try {
     const user = await getAuthUser();
-    if (!user) {return false;}
-    
+    if (!user) { return false; }
+
     // Admin users have broader permissions
     const permissions = Array.isArray(user.permissions) ? user.permissions : [];
-    return permissions.includes(permission) || 
-           permissions.includes('admin:*') ||
-           permissions.includes('*');
+    return permissions.includes(permission) ||
+      permissions.includes('admin:*') ||
+      permissions.includes('*');
   } catch (_error) {
     // eslint-disable-next-line no-console
     console.error('❌ Admin: Failed to check permission:', _error);
@@ -257,13 +257,13 @@ export async function hasAdminPermission(permission: string): Promise<boolean> {
 export async function hasPermission(permission: string): Promise<boolean> {
   try {
     const user = await getAuthUser();
-    if (!user) {return false;}
-    
+    if (!user) { return false; }
+
     // Admin users have broader permissions
     const permissions = Array.isArray(user.permissions) ? user.permissions : [];
-    return permissions.includes(permission) || 
-           permissions.includes('admin:*:*') ||
-           permissions.some(p => p.startsWith('admin:'));
+    return permissions.includes(permission) ||
+      permissions.includes('admin:*:*') ||
+      permissions.some(p => p.startsWith('admin:'));
   } catch (_error) {
     // eslint-disable-next-line no-console
     console.error('❌ Admin: Failed to check permission:', _error);
@@ -279,13 +279,13 @@ export async function hasPermission(permission: string): Promise<boolean> {
 export async function requirePermission(permission: string, redirectPath?: string) {
   const { redirect } = await import('next/navigation');
   const user = await requireAuth(redirectPath);
-  
+
   const hasRequiredPermission = await hasPermission(permission);
-  
+
   if (!hasRequiredPermission) {
     const accessDeniedUrl = `/access-denied?permission=${encodeURIComponent(permission)}${redirectPath ? `&route=${encodeURIComponent(redirectPath)}` : ''}`;
     redirect(accessDeniedUrl);
   }
-  
+
   return user;
 }

@@ -316,7 +316,7 @@ export class PlansAPIClient {
     const response = await this.getPlans({ is_active: true });
     if (response.success && response.data?.plans) {
       return response.data.plans.map((plan: PlanResponse) => ({
-        value: plan.id,
+        value: Number(plan.id),
         label: `${plan.name} - ${plan.current_price} ${plan.currency}`,
         category: plan.plan_category,
         audience: plan.target_audience

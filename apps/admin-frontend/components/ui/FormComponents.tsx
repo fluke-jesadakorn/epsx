@@ -9,21 +9,15 @@
 import * as React from 'react';
 
 import {
-  PancakeFormAlias as Form,
-  PancakeInputAlias as Input,
-  PancakeLabelAlias as Label,
-  PancakeSelectAlias as Select,
-  PancakeCheckboxAlias as Checkbox,
-  PancakeTextareaAlias as Textarea,
-  PancakeFormFieldAlias as FormField,
-  PancakeButton as Button,
-  PancakeBadge as Badge,
-  type PancakeInputProps,
-  type PancakeLabelProps,
-  type PancakeButtonProps,
-  type PancakeBadgeProps,
-  type PancakeFormFieldProps
-} from '../../../../shared/components';
+    PancakeButton as Button,
+    PancakeCheckboxAlias as Checkbox,
+    PancakeFormAlias as Form,
+    PancakeFormFieldAlias as FormField,
+    PancakeInputAlias as Input,
+    PancakeLabelAlias as Label,
+    PancakeSelectAlias as Select,
+    PancakeTextareaAlias as Textarea
+} from '@/shared/components';
 
 // ============================================================================
 // LEGACY COMPATIBILITY LAYER
@@ -75,5 +69,6 @@ interface FormFieldProps {
 }
 
 // Re-export with perfect backward compatibility
-export { Form, Input, Label, Button, Select, Checkbox, Textarea, FormField };
-export type { ButtonProps, InputProps, LabelProps, FormFieldProps };
+export { Button, Checkbox, Form, FormField, Input, Label, Select, Textarea };
+export type { ButtonProps, FormFieldProps, InputProps, LabelProps };
+

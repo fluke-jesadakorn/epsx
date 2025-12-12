@@ -939,7 +939,7 @@ export class NotificationsAPIClient {
         isReconnecting: this.isReconnecting,
 
         // EventSource details
-        lastEventId: this.sseConnection?.lastEventId,
+        lastEventId: (this.sseConnection as any)?.lastEventId,
         withCredentials: this.sseConnection?.withCredentials,
 
         // Browser environment info
@@ -1118,7 +1118,7 @@ export class NotificationsAPIClient {
   async isNotificationTypeEnabled(type: NotificationType): Promise<boolean> {
     try {
       const preferences = await this.getPreferences();
-      return preferences.data.types[type] || false;
+      return (preferences.data.types as any)[type] || false;
     } catch (error) {
       console.warn(`Failed to check notification type: ${error}`);
       return false;
@@ -1135,7 +1135,7 @@ export class NotificationsAPIClient {
       high: '#f59e0b',   // amber-500
       urgent: '#ef4444', // red-500
     };
-    return colors[priority];
+    return (colors as any)[priority];
   }
 
   /**
@@ -1151,7 +1151,7 @@ export class NotificationsAPIClient {
       payment: '💳',
       general: '📬',
     };
-    return icons[type];
+    return (icons as any)[type];
   }
 
   /**
@@ -1253,6 +1253,9 @@ export class NotificationsAPIClient {
       console.error('❌ Error extracting authentication token from cookies:', error);
       return null;
     }
+
+    // Fallback return (should never reach here)
+    return null;
   }
 }
 

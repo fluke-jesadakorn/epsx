@@ -17,8 +17,8 @@ COPY shared/ ./shared/
 # Copy shared files into admin frontend app for build resolution
 RUN cp -r ./shared ./apps/admin-frontend/
 
-# Install all monorepo dependencies
-RUN bun install --frozen-lockfile
+# Install all monorepo dependencies (ignore postinstall scripts for Docker build)
+RUN bun install --ignore-scripts
 
 # Build the admin frontend app with Next.js standalone output
 WORKDIR /app/apps/admin-frontend
@@ -27,12 +27,34 @@ WORKDIR /app/apps/admin-frontend
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Define build arguments
+ARG NEXT_PUBLIC_BACKEND_URL
+ARG NEXT_PUBLIC_APP_URL
+ARG NEXT_PUBLIC_ADMIN_URL
+ARG NEXT_PUBLIC_BLOCKCHAIN_NETWORK
+ARG NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID
+ARG NEXT_PUBLIC_CHAIN_ID
+ARG NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS
+ARG NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS
+ARG NEXT_PUBLIC_FIREBASE_API_KEY
+ARG NEXT_PUBLIC_FIREBASE_PROJECT_ID
+ARG NEXT_PUBLIC_FIREBASE_APP_ID
+ARG NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+
 # Create build-time environment for Next.js validation
 RUN echo "NODE_ENV=production" > .env && \
-    echo "NEXT_PUBLIC_BACKEND_URL=https://api.epsx.io" >> .env && \
-    echo "NEXT_PUBLIC_APP_URL=https://admin.epsx.io" >> .env && \
-    echo "NEXT_PUBLIC_ADMIN_URL=https://admin.epsx.io" >> .env && \
-    echo "NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-admin" >> .env
+    echo "NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL" >> .env && \
+    echo "NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL" >> .env && \
+    echo "NEXT_PUBLIC_ADMIN_URL=$NEXT_PUBLIC_ADMIN_URL" >> .env && \
+    echo "NEXT_PUBLIC_BLOCKCHAIN_NETWORK=$NEXT_PUBLIC_BLOCKCHAIN_NETWORK" >> .env && \
+    echo "NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID" >> .env && \
+    echo "NEXT_PUBLIC_CHAIN_ID=$NEXT_PUBLIC_CHAIN_ID" >> .env && \
+    echo "NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS=$NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS" >> .env && \
+    echo "NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS=$NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS" >> .env && \
+    echo "NEXT_PUBLIC_FIREBASE_API_KEY=$NEXT_PUBLIC_FIREBASE_API_KEY" >> .env && \
+    echo "NEXT_PUBLIC_FIREBASE_PROJECT_ID=$NEXT_PUBLIC_FIREBASE_PROJECT_ID" >> .env && \
+    echo "NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID" >> .env && \
+    echo "NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=$NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID" >> .env
 
 # Build Next.js app (generates .next/standalone with optimized server.js)
 RUN bun run build
@@ -53,9 +75,6 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/admin-frontend/.next/standal
 # Copy static assets and public files
 COPY --from=builder --chown=nextjs:nodejs /app/apps/admin-frontend/.next/static ./apps/admin-frontend/.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/apps/admin-frontend/public ./apps/admin-frontend/public
-
-# Copy missing @swc/helpers from the build node_modules
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules/@swc/helpers ./node_modules/@swc/helpers
 
 # Set working directory to where server.js is located in standalone output
 WORKDIR /app/apps/admin-frontend

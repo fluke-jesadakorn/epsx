@@ -6,7 +6,7 @@
 import { Slot } from "@radix-ui/react-slot"
 import * as React from "react"
 
-import { PancakeButton, type PancakeButtonProps } from "../../../../shared/components"
+import { PancakeButton, type PancakeButtonProps } from "@/shared/components"
 
 import { cn } from "@/lib/utils"
 

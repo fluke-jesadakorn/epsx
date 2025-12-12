@@ -1,7 +1,6 @@
 // Server-side configuration utility - Modernized with centralized URL resolver
-import { URL, URLContext, Service, APIPath } from '../../../shared/utils/url-resolver';
+import { APIPath, Service, URL, URLContext } from '@/shared/utils/url-resolver';
 
-import { env } from '@/config/env';
 
 export const config = {
   // Backend API URL - modernized with centralized URL resolver

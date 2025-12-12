@@ -50,9 +50,9 @@ impl TradingViewMapper {
     // Extract symbol from full symbol (e.g., "NASDAQ:AAPL" -> "AAPL")
     let symbol = stock.s.split(':').nth(1).unwrap_or(&stock.s).to_string();
     let name = get_string(&stock.d, 0, ""); // name
-    let country = get_string(&stock.d, 25, "unknown"); // market (index 25, shifted by +2)
-    let sector = get_string(&stock.d, 24, ""); // sector.tr (index 24, shifted by +2)
-    let exchange = get_string(&stock.d, 29, ""); // exchange (index 29, shifted by +2)
+    let country = get_string(&stock.d, 27, "unknown"); // market (index 27)
+    let sector = get_string(&stock.d, 28, ""); // sector (index 28)
+    let exchange = get_string(&stock.d, 31, ""); // exchange (index 31)
 
     // EPS data extraction using dynamic detection algorithm
     let current_eps = Self::detect_quarterly_eps_dynamically(&stock.d, &symbol);
@@ -221,12 +221,12 @@ impl TradingViewMapper {
     let symbol = stock.s.split(':').nth(1).unwrap_or(&stock.s).to_string();
     let company_name = get_string(&stock.d, 0, "");
     let current_eps = get_number(&stock.d, 14); // earnings_per_share_fq
-    let qoq_growth = get_number(&stock.d, 19); // earnings_per_share_diluted_yoy_growth_ttm
+    let qoq_growth = get_number(&stock.d, 35); // earnings_per_share_diluted_qoq_growth_fq (index 35)
     let market_cap = get_number(&stock.d, 16) as i64; // market_cap_basic
     let price_current = get_number(&stock.d, 6); // close
     let volume = get_number(&stock.d, 13) as i64; // volume
-    let country = get_string(&stock.d, 25, "america"); // market
-    let sector = get_string(&stock.d, 24, "Technology"); // sector.tr
+    let country = get_string(&stock.d, 27, "america"); // market (index 27)
+    let sector = get_string(&stock.d, 28, "Technology"); // sector (index 28)
 
     // Calculate ranking score based on multiple factors
     let ranking_score = Self::calculate_ranking_score(
@@ -249,8 +249,42 @@ impl TradingViewMapper {
       sector,
       ranking_score,
       currency: "USD".to_string(), // Default to USD for TradingView data
-      next_earnings_date: None,
-      last_earnings_date: None,
+      next_earnings_date: {
+        let earnings_release_date = get_number(&stock.d, 32) as i64;
+        let earnings_release_next_date = get_number(&stock.d, 33) as i64;
+        let earnings_report_date_fy = get_number(&stock.d, 34) as i64; // New field: earnings_release_trading_date_fy
+        
+        let current_timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as i64;
+
+        // Collect all valid date candidates
+        let mut candidates = vec![];
+        if earnings_release_date > 1_000_000_000 { candidates.push(earnings_release_date); }
+        if earnings_release_next_date > 1_000_000_000 { candidates.push(earnings_release_next_date); }
+        if earnings_report_date_fy > 1_000_000_000 { candidates.push(earnings_report_date_fy); }
+
+        // Pick the nearest date that is strictly in the future
+        let selected = candidates.into_iter()
+            .filter(|&ts| ts > current_timestamp)
+            .min_by(|a, b| a.cmp(b));
+        
+        selected.map(|ts| {
+            chrono::DateTime::from_timestamp(ts, 0)
+                .map(|dt| dt.format("%Y-%m-%d").to_string())
+                .unwrap_or_default()
+        })
+      },
+      last_earnings_date: {
+         let last = get_number(&stock.d, 32) as i64;
+         if last > 0 { 
+             chrono::DateTime::from_timestamp(last, 0)
+                .map(|dt| dt.format("%Y-%m-%d").to_string())
+         } else { 
+             None 
+         }
+      },
     }
   }
 

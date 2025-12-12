@@ -1,23 +1,20 @@
 /**
- * Unified API Client
- * Consolidates analytics, notifications, payments, and core API functionality
+ * Frontend API Client
+ * 
+ * Uses shared UnifiedApiClient for core HTTP functionality.
+ * Provides domain-specific methods for frontend application.
  */
 
-import { env } from '../../../../shared/env/schema';
 import {
   ApiResponse,
-  ApiError,
+  createFrontendApiClient,
   PaginatedResponse,
-  JsonRequestBody,
-  isApiError
-} from '../../../../shared/types/api';
-import { apiLogger, safeError } from '@/lib/utils/logging';
-import { getBackendUrl } from '../../../../shared/utils/url-resolver';
-import { usePureWeb3AuthStore } from '@/lib/auth/pure-web3-service';
+  UnifiedApiClient,
+} from '../../../../shared/api';
 import { API_ROUTES } from '../../../../shared/config/route-constants';
 
 // ============================================================================
-// Core Types and Interfaces
+// Types
 // ============================================================================
 
 export interface WatchlistAddRequest {
@@ -39,7 +36,6 @@ export interface PushSubscriptionRequest {
   };
 }
 
-// Notification interfaces
 export interface NotificationListParams {
   page?: number;
   per_page?: number;
@@ -95,7 +91,6 @@ export interface NotificationStats {
   unreadCount: number;
 }
 
-// Analytics interfaces
 export interface UnifiedRankingItem {
   symbol: string;
   companyName: string;
@@ -148,8 +143,6 @@ export interface UnifiedAnalyticsRankingsResponse {
   };
 }
 
-// PaginatedResponse is imported from shared types
-
 export interface CountResponse {
   count: number;
 }
@@ -169,147 +162,16 @@ export interface StockFinancialData {
 }
 
 // ============================================================================
-// Core API Client Class
+// Frontend API Client
 // ============================================================================
 
-class ApiClient {
-  private baseUrl: string;
+class FrontendApiClient {
+  private client: UnifiedApiClient;
 
   constructor() {
-    this.baseUrl = env.BACKEND_URL || getBackendUrl('client');
-  }
-
-  private async getAuthHeaders(endpoint: string, method: string = 'GET', body?: unknown): Promise<HeadersInit> {
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-
-    // Server-side: get token from cookies
-    if (typeof window === 'undefined') {
-      try {
-        const { cookies } = await import('next/headers');
-        const cookieStore = await cookies();
-        const accessToken = cookieStore.get('access_token')?.value;
-        
-        if (accessToken) {
-          headers['Authorization'] = `Bearer ${accessToken}`;
-        }
-      } catch (error) {
-        // Cookie access might fail in some contexts
-        const safeErr = safeError(error);
-        const errorDetails = {
-          message: safeErr.message,
-          stack: safeErr.stack,
-          code: safeErr.code,
-          status: safeErr.status,
-          type: error instanceof Error ? error.constructor.name : typeof error,
-          context: 'server-side-auth-token-retrieval',
-          timestamp: new Date().toISOString()
-        };
-        
-        apiLogger.warn('Failed to get server-side auth token', errorDetails);
-      }
-    } else {
-      // Client-side: check Web3 auth store first for Bearer token
-      try {
-        const authStore = usePureWeb3AuthStore.getState();
-        
-        // Use Bearer token from Web3 auth if available and not expired
-        if (authStore.isConnected && authStore.walletAddress && authStore.bearerToken) {
-          if (authStore.tokenExpiresAt && new Date(authStore.tokenExpiresAt) > new Date()) {
-            headers['Authorization'] = `Bearer ${authStore.bearerToken}`;
-            return headers;
-          }
-        }
-        
-        // Fallback to Web3 signature-based authentication
-        if (authStore.isConnected && authStore.walletAddress) {
-          const signedHeaders = await authStore.signRequest(endpoint, method, body);
-          // Merge signed headers with base headers
-          Object.assign(headers, signedHeaders);
-        }
-      } catch (error) {
-        // Log Web3 auth errors but don't fail the request
-        apiLogger.warn('Failed to get Web3 authentication headers', error);
-      }
-    }
-
-    return headers;
-  }
-
-  private async request<T>(
-    endpoint: string, 
-    options: RequestInit = {}
-  ): Promise<ApiResponse<T>> {
-    try {
-      const url = `${this.baseUrl}${endpoint}`;
-      const method = options.method || 'GET';
-      const body = options.body;
-      const headers = await this.getAuthHeaders(endpoint, method, body);
-
-      const config: RequestInit = {
-        ...options,
-        headers: {
-          ...headers,
-          ...options.headers,
-        },
-        credentials: 'include', // Always include cookies
-      };
-
-      apiLogger.debug('API Request', { url, method: config.method || 'GET' });
-
-      const response = await fetch(url, config);
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        const apiError: ApiError = {
-          status: response.status,
-          message: errorData.message || `Request failed with status ${response.status}`,
-          code: errorData.code || 'UNKNOWN_ERROR',
-          details: errorData.details
-        };
-        throw apiError;
-      }
-
-      const data = await response.json();
-      
-      return {
-        data,
-        success: true,
-        status: response.status,
-        timestamp: new Date().toISOString()
-      };
-
-    } catch (error) {
-      const safeErr = safeError(error);
-      const errorDetails = {
-        endpoint,
-        url: `${this.baseUrl}${endpoint}`,
-        method: options.method || 'GET',
-        message: safeErr.message,
-        stack: safeErr.stack,
-        code: safeErr.code,
-        status: safeErr.status,
-        type: error instanceof Error ? error.constructor.name : typeof error,
-        isApiError: isApiError(error),
-        headers: options.headers,
-        timestamp: new Date().toISOString()
-      };
-
-      apiLogger.error('API Request failed', errorDetails);
-
-      if (isApiError(error)) {
-        throw error;
-      }
-
-      const apiError: ApiError = {
-        status: safeErr.status || 500,
-        message: safeErr.message,
-        code: safeErr.code || 'NETWORK_ERROR'
-      };
-      
-      throw apiError;
-    }
+    this.client = createFrontendApiClient({
+      serverSide: typeof window === 'undefined',
+    });
   }
 
   // ============================================================================
@@ -325,24 +187,19 @@ class ApiClient {
     sort_by?: string;
     sort_order?: 'asc' | 'desc';
   } = {}): Promise<UnifiedAnalyticsRankingsResponse | undefined> {
-    const searchParams = new URLSearchParams();
-    
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        searchParams.append(key, String(value));
-      }
-    });
-
-    const queryString = searchParams.toString();
-    const endpoint = queryString ? `/api/analytics/rankings?${queryString}` : API_ROUTES.ANALYTICS.RANKINGS;
-
-    const response = await this.request<UnifiedAnalyticsRankingsResponse>(endpoint);
-    return response?.data;
+    const filteredParams = Object.fromEntries(
+      Object.entries(params).filter(([, v]) => v !== undefined)
+    );
+    const response = await this.client.get<UnifiedAnalyticsRankingsResponse>(
+      API_ROUTES.ANALYTICS.RANKINGS,
+      filteredParams
+    );
+    return response.data;
   }
 
   async getAnalyticsHealth(): Promise<{ status: string; timestamp: string } | undefined> {
-    const response = await this.request<{ status: string; timestamp: string }>(API_ROUTES.HEALTH);
-    return response?.data;
+    const response = await this.client.get<{ status: string; timestamp: string }>(API_ROUTES.HEALTH);
+    return response.data;
   }
 
   // ============================================================================
@@ -350,59 +207,45 @@ class ApiClient {
   // ============================================================================
 
   async getNotifications(params: NotificationListParams = {}): Promise<PaginatedResponse<NotificationResponse> | undefined> {
-    const searchParams = new URLSearchParams();
-    
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        searchParams.append(key, String(value));
-      }
-    });
-
-    const queryString = searchParams.toString();
-    const endpoint = queryString ? `/api/v1/notifications?${queryString}` : '/api/v1/notifications';
-
-    const response = await this.request<PaginatedResponse<NotificationResponse>>(endpoint);
-    return response?.data;
+    const filteredParams = Object.fromEntries(
+      Object.entries(params).filter(([, v]) => v !== undefined)
+    );
+    const response = await this.client.get<PaginatedResponse<NotificationResponse>>(
+      '/api/v1/notifications',
+      filteredParams
+    );
+    return response.data;
   }
 
   async markNotificationRead(notificationId: string): Promise<void> {
-    await this.request(`/api/notifications/${notificationId}/read`, {
-      method: 'POST'
-    });
+    await this.client.post(`/api/notifications/${notificationId}/read`);
   }
 
   async markAllNotificationsRead(): Promise<void> {
-    await this.request('/api/v1/notifications/read-all', { // Simple route for read-all
-      method: 'POST'
-    });
+    await this.client.post('/api/v1/notifications/read-all');
   }
 
   async getNotificationStats(): Promise<NotificationStats | undefined> {
-    const response = await this.request<NotificationStats>('/api/v1/notifications/unread-count');
-    return response?.data;
+    const response = await this.client.get<NotificationStats>('/api/v1/notifications/unread-count');
+    return response.data;
   }
 
   async deleteNotification(notificationId: string): Promise<void> {
-    await this.request(`/api/notifications/${notificationId}`, {
-      method: 'DELETE'
-    });
+    await this.client.delete(`/api/notifications/${notificationId}`);
   }
 
-  // Server-side notifications API
   async getNotificationsServer(userId: string): Promise<Notification[] | undefined> {
-    const response = await this.request<Notification[]>(`/api/notifications/${userId}`);
-    return response?.data;
+    const response = await this.client.get<Notification[]>(`/api/notifications/${userId}`);
+    return response.data;
   }
 
   async markNotificationReadServer(userId: string, notificationId: string): Promise<void> {
-    await this.request(`/api/notifications/${userId}/${notificationId}/read`, {
-      method: 'POST'
-    });
+    await this.client.post(`/api/notifications/${userId}/${notificationId}/read`);
   }
 
   async getUnreadNotificationCount(userId: string): Promise<{ count: number } | undefined> {
-    const response = await this.request<{ count: number }>(`/api/notifications/${userId}/unread/count`);
-    return response?.data;
+    const response = await this.client.get<{ count: number }>(`/api/notifications/${userId}/unread/count`);
+    return response.data;
   }
 
   // ============================================================================
@@ -410,16 +253,13 @@ class ApiClient {
   // ============================================================================
 
   async getUserProfile(): Promise<Record<string, unknown> | undefined> {
-    const response = await this.request<Record<string, unknown>>(API_ROUTES.USERS.PROFILE);
-    return response?.data;
+    const response = await this.client.get<Record<string, unknown>>(API_ROUTES.USERS.PROFILE);
+    return response.data;
   }
 
   async updateUserProfile(data: Record<string, unknown>): Promise<Record<string, unknown> | undefined> {
-    const response = await this.request<Record<string, unknown>>(API_ROUTES.USERS.PROFILE, {
-      method: 'PUT',
-      body: JSON.stringify(data)
-    });
-    return response?.data;
+    const response = await this.client.put<Record<string, unknown>>(API_ROUTES.USERS.PROFILE, data);
+    return response.data;
   }
 
   // ============================================================================
@@ -427,21 +267,16 @@ class ApiClient {
   // ============================================================================
 
   async getWatchlist(): Promise<Array<Record<string, unknown>> | undefined> {
-    const response = await this.request<Array<Record<string, unknown>>>(API_ROUTES.USERS.WATCHLIST);
-    return response?.data;
+    const response = await this.client.get<Array<Record<string, unknown>>>(API_ROUTES.USERS.WATCHLIST);
+    return response.data;
   }
 
   async addToWatchlist(request: WatchlistAddRequest): Promise<void> {
-    await this.request(API_ROUTES.USERS.WATCHLIST, {
-      method: 'POST',
-      body: JSON.stringify(request)
-    });
+    await this.client.post(API_ROUTES.USERS.WATCHLIST, request);
   }
 
   async removeFromWatchlist(symbol: string): Promise<void> {
-    await this.request(`/api/user/watchlist/${symbol}`, {
-      method: 'DELETE'
-    });
+    await this.client.delete(`/api/user/watchlist/${symbol}`);
   }
 
   // ============================================================================
@@ -449,21 +284,16 @@ class ApiClient {
   // ============================================================================
 
   async getPriceAlerts(): Promise<Array<Record<string, unknown>> | undefined> {
-    const response = await this.request<Array<Record<string, unknown>>>(API_ROUTES.USERS.ALERTS);
-    return response?.data;
+    const response = await this.client.get<Array<Record<string, unknown>>>(API_ROUTES.USERS.ALERTS);
+    return response.data;
   }
 
   async createPriceAlert(request: PriceAlertCreateRequest): Promise<void> {
-    await this.request(API_ROUTES.USERS.ALERTS, {
-      method: 'POST',
-      body: JSON.stringify(request)
-    });
+    await this.client.post(API_ROUTES.USERS.ALERTS, request);
   }
 
   async deletePriceAlert(alertId: string): Promise<void> {
-    await this.request(`/api/user/alerts/${alertId}`, {
-      method: 'DELETE'
-    });
+    await this.client.delete(`/api/user/alerts/${alertId}`);
   }
 
   // ============================================================================
@@ -471,44 +301,31 @@ class ApiClient {
   // ============================================================================
 
   async subscribeToPushNotifications(subscription: PushSubscriptionRequest): Promise<void> {
-    await this.request(API_ROUTES.USERS.PUSH_SUBSCRIPTION, {
-      method: 'POST',
-      body: JSON.stringify(subscription)
-    });
+    await this.client.post(API_ROUTES.USERS.PUSH_SUBSCRIPTION, subscription);
   }
 
   async unsubscribeFromPushNotifications(): Promise<void> {
-    await this.request(API_ROUTES.USERS.PUSH_SUBSCRIPTION, {
-      method: 'DELETE'
-    });
+    await this.client.delete(API_ROUTES.USERS.PUSH_SUBSCRIPTION);
   }
 
   // ============================================================================
-  // Generic HTTP Methods
+  // Generic HTTP Methods (delegate to UnifiedApiClient)
   // ============================================================================
 
-  async get<T = unknown>(endpoint: string, options?: RequestInit): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { ...options, method: 'GET' });
+  async get<T = unknown>(endpoint: string, params?: Record<string, any>): Promise<ApiResponse<T>> {
+    return this.client.get<T>(endpoint, params);
   }
 
-  async post<T = unknown>(endpoint: string, data?: unknown, options?: RequestInit): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      ...options,
-      method: 'POST',
-      body: data ? JSON.stringify(data) : undefined
-    });
+  async post<T = unknown>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
+    return this.client.post<T>(endpoint, data);
   }
 
-  async put<T = unknown>(endpoint: string, data?: unknown, options?: RequestInit): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      ...options,
-      method: 'PUT',
-      body: data ? JSON.stringify(data) : undefined
-    });
+  async put<T = unknown>(endpoint: string, data?: unknown): Promise<ApiResponse<T>> {
+    return this.client.put<T>(endpoint, data);
   }
 
-  async delete<T = unknown>(endpoint: string, options?: RequestInit): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { ...options, method: 'DELETE' });
+  async delete<T = unknown>(endpoint: string): Promise<ApiResponse<T>> {
+    return this.client.delete<T>(endpoint);
   }
 }
 
@@ -517,7 +334,7 @@ class ApiClient {
 // ============================================================================
 
 export class AnalyticsClient {
-  constructor(private apiClient: ApiClient) {}
+  constructor(private frontendClient: FrontendApiClient) { }
 
   async getRankings(params?: {
     page?: number;
@@ -528,11 +345,11 @@ export class AnalyticsClient {
     sort_by?: string;
     sort_order?: 'asc' | 'desc';
   }): Promise<UnifiedAnalyticsRankingsResponse | undefined> {
-    return this.apiClient.getUnifiedAnalyticsRankings(params);
+    return this.frontendClient.getUnifiedAnalyticsRankings(params);
   }
 
   async getHealth(): Promise<{ status: string; timestamp: string } | undefined> {
-    return this.apiClient.getAnalyticsHealth();
+    return this.frontendClient.getAnalyticsHealth();
   }
 }
 
@@ -540,8 +357,9 @@ export class AnalyticsClient {
 // Exports
 // ============================================================================
 
-// Export singleton instance
-export const apiClient = new ApiClient();
+// Export singleton instances
+export const apiClient = new FrontendApiClient();
 export const analyticsClient = new AnalyticsClient(apiClient);
 
-// Types are imported from their respective modules as needed
+// Export types from shared
+export type { ApiResponse, PaginatedResponse };

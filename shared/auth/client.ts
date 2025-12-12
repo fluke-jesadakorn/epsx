@@ -644,6 +644,7 @@ export class SharedWeb3AuthClient {
         sub: response.data.wallet_address,
         wallet_address: response.data.wallet_address,
         auth_method: 'web3_siwe',
+        tier_level: 'basic', // Default tier level
         permissions: response.data.permissions || [],
       };
     }

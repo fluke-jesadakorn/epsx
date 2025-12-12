@@ -205,14 +205,6 @@ export class PermissionsApi {
   }
 
   /**
-   * Grant permission (Admin)
-   * POST /api/admin/permissions/grant
-   */
-  async grantPermission(data: GrantPermissionRequest): Promise<ApiResponse<{ granted: boolean }>> {
-    return this.client.post<{ granted: boolean }>('/api/admin/permissions/grant', data);
-  }
-
-  /**
    * @deprecated Use getPermissions instead
    */
   async getWeb3Permissions(): Promise<ApiResponse<PermissionEntry[]>> {

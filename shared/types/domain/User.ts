@@ -349,13 +349,6 @@ export function getUserTierLevel(tier: PackageTier): number {
   return levels[tier] || 0
 }
 
-/**
- * @deprecated Use hasMinimumPermissionGroup instead
- */
-export function hasMinimumPermissionGroup(user: UserProfile, requiredGroup: PermissionGroup): boolean {
-  return getPermissionGroupLevel(user.permissionGroup) >= getPermissionGroupLevel(requiredGroup)
-}
-
 // ============================================================================
 // LEGACY COMPATIBILITY ALIASES - For gradual migration
 // ============================================================================

@@ -10,7 +10,7 @@ import { AnalyticsMetadataDisplay } from './AnalyticsMetadataDisplay';
 import { AnalyticsNavigation } from '@/components/shared/AnalyticsNavigation';
 import FilterPanel from './FilterPanel';
 import Pagination from './Pagination';
-import StockCard from './StockCard';
+import { StockDataCard } from '@/shared/components/cards/StockDataCard';
 import { CardDashboardView } from './CardDashboardView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { LayoutGrid, List } from 'lucide-react';
@@ -270,7 +270,7 @@ function QoQLeadersDisplay({ qoqLeaders, isLoading }: QoQLeadersDisplayProps) {
 // Leader Category Component
 interface LeaderCategoryProps {
   title: string;
-  leaders: Array<Record<string, unknown>>;
+  leaders: any[];
   colorScheme: 'green' | 'blue';
   valueKey: string;
 }
@@ -338,7 +338,7 @@ function QoQLeadersSkeleton() {
 
 // Rankings list component
 interface RankingsListProps {
-  data: { data: Array<Record<string, unknown>>; pagination: unknown } | null;
+  data: UnifiedAnalyticsRankingsResponse | null;
   isLoading: boolean;
   onPageChange: (_page: number) => void;
   onReset: () => void;
@@ -349,7 +349,7 @@ function RankingsList({ data, isLoading, onPageChange, onReset }: RankingsListPr
     return <RankingsListSkeleton />;
   }
 
-  if (!data || !data.data || data.data.length === 0) {
+  if (!data || !data.rankings || data.rankings.length === 0) {
     return <NoResultsState onReset={onReset} />;
   }
 
@@ -359,11 +359,14 @@ function RankingsList({ data, isLoading, onPageChange, onReset }: RankingsListPr
       <div className="sm:hidden">
         <div className="overflow-x-auto">
           <div className="flex gap-4 pb-4" style={{ width: 'max-content' }}>
-            {data.data.map((ranking, index: number) => (
+            {data.rankings.map((ranking, index: number) => (
               <div key={ranking.symbol as string} className="w-80 flex-shrink-0">
-                <StockCard
-                  ranking={ranking}
-                  rank={(ranking.ranking_position as number) || index + 1}
+                <StockDataCard
+                  symbol={ranking.symbol as string}
+                  rank={(ranking.rank as number) || index + 1}
+                  epsGrowth={(ranking.epsGrowth as number) || 0}
+                  price={0} // Price not available in API
+                  currency="USD"
                 />
               </div>
             ))}
@@ -379,11 +382,14 @@ function RankingsList({ data, isLoading, onPageChange, onReset }: RankingsListPr
 
       {/* Desktop: Grid layout */}
       <div className="mb-6 hidden sm:grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {data.data.map((ranking) => (
-          <StockCard
+        {data.rankings.map((ranking) => (
+          <StockDataCard
             key={ranking.symbol as string}
-            ranking={ranking}
-            rank={(ranking.ranking_position as number) || 0}
+            symbol={ranking.symbol as string}
+            rank={(ranking.rank as number) || 0}
+            epsGrowth={(ranking.epsGrowth as number) || 0}
+            price={0} // Price not available in API
+            currency="USD"
           />
         ))}
       </div>
@@ -391,7 +397,14 @@ function RankingsList({ data, isLoading, onPageChange, onReset }: RankingsListPr
       {/* Pagination */}
       <div className="px-2 sm:px-0">
         <Pagination
-          pagination={data.pagination}
+          pagination={{
+            page: data.pagination.page,
+            limit: data.pagination.per_page,
+            total: data.pagination.total_items,
+            totalPages: data.pagination.total_pages,
+            hasNext: data.pagination.page < data.pagination.total_pages,
+            hasPrev: data.pagination.page > 1
+          }}
           onPageChange={onPageChange}
           isLoading={isLoading}
         />

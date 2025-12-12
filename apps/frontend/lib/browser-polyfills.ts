@@ -1,5 +1,26 @@
 // Browser API polyfills for SSR compatibility
 
+// Marker to track if Math.pow has been patched
+declare global {
+  interface Math {
+    __bigintSafe?: boolean;
+  }
+}
+
+// Patch Math.pow to safely handle BigInt values (fixes wagmi/viem initialization issues)
+// Only patch if not already patched (instrumentation.ts may have done this earlier)
+if (typeof globalThis !== 'undefined' && typeof globalThis.Math !== 'undefined' && !Math.__bigintSafe) {
+  const originalPow = Math.pow;
+  Math.pow = function safePow(base: number | bigint, exponent: number | bigint): number {
+    // Convert BigInt to Number if present
+    const safeBase = typeof base === 'bigint' ? Number(base) : base;
+    const safeExponent = typeof exponent === 'bigint' ? Number(exponent) : exponent;
+    return originalPow(safeBase, safeExponent);
+  };
+  // Mark as patched
+  Math.__bigintSafe = true;
+}
+
 // IndexedDB polyfill for server-side rendering
 if (typeof globalThis !== 'undefined' && typeof globalThis.indexedDB === 'undefined') {
   // Create a minimal IndexedDB mock for SSR with proper error handling
@@ -24,9 +45,9 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.indexedDB === 'undefi
           };
           return mockTransaction;
         },
-        close: () => {},
+        close: () => { },
         createObjectStore: () => ({}),
-        deleteObjectStore: () => {},
+        deleteObjectStore: () => { },
       };
 
       const mockRequest = {
@@ -35,8 +56,8 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.indexedDB === 'undefi
         result: mockDB,
         error: null,
         readyState: 'done',
-        addEventListener: () => {},
-        removeEventListener: () => {},
+        addEventListener: () => { },
+        removeEventListener: () => { },
         dispatchEvent: () => false,
       };
 
@@ -61,7 +82,7 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.indexedDB === 'undefi
 
   // @ts-ignore
   globalThis.indexedDB = mockIndexedDB;
-  
+
   // Also add to global for Node.js environments
   if (typeof global !== 'undefined') {
     // @ts-ignore
@@ -75,9 +96,9 @@ if (typeof globalThis !== 'undefined') {
     // @ts-ignore
     globalThis.localStorage = {
       getItem: () => null,
-      setItem: () => {},
-      removeItem: () => {},
-      clear: () => {},
+      setItem: () => { },
+      removeItem: () => { },
+      clear: () => { },
       length: 0,
       key: () => null,
     };
@@ -87,13 +108,13 @@ if (typeof globalThis !== 'undefined') {
     // @ts-ignore
     globalThis.sessionStorage = {
       getItem: () => null,
-      setItem: () => {},
-      removeItem: () => {},
-      clear: () => {},
+      setItem: () => { },
+      removeItem: () => { },
+      clear: () => { },
       length: 0,
       key: () => null,
     };
   }
 }
 
-export {};
+export { };

@@ -10,7 +10,7 @@ import type { AnalyticsFilters, EPSRanking } from '@/types/analytics';
 import { useEffect, useState, memo, useMemo, useCallback } from 'react';
 import FilterPanel from './FilterPanel';
 import Pagination from './Pagination';
-import StockCard from './StockCard';
+import { StockDataCard } from '@/shared/components/cards/StockDataCard';
 import { CardDashboardView } from './CardDashboardView';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/button';
@@ -80,30 +80,7 @@ function AnalyticsClientWrapper({
     setIsLoading,
   } = useAnalyticsFilters();
 
-  // Memoized helper function to convert UnifiedRankingItem to EPSRanking format
-  const convertToEPSRanking = useCallback((unified: UnifiedRankingItem): EPSRanking => {
-    return {
-      symbol: unified.symbol,
-      name: unified.companyName,
-      country: unified.country || 'Unknown',
-      sector: unified.sector || 'Unknown',
-      exchange: 'Unknown', // Not available in API response
-      current_eps: unified.eps || null,
-      growth_factor: unified.epsGrowth || null,
-      price_current: null, // Not available in API response
-      market_cap: unified.marketCap || null,
-      volume: null, // Not available in API response
-      pe_ratio: unified.pe || null,
-      dividend_yield: unified.dividend_yield || null,
-      price_change: null, // Not available in API response
-      price_change_pct: null, // Not available in API response
-      relative_volume: null, // Not available in API response
-      ranking_position: unified.rank,
-      active_status: "Active", // Default value
-      quarterly_data: [] // Not available in current API response
-    };
-  }, []);
-
+  
   // Memoized calculation of Growth leaders - expensive array operations
   const calculateGrowthLeaders = useCallback((data: UnifiedAnalyticsRankingsResponse | null) => {
     if (!data?.rankings || data.rankings.length === 0) return { growthLeaders: [], priceLeaders: [] };
@@ -862,9 +839,12 @@ function AnalyticsClientWrapper({
                     <div className="flex gap-3">
                       {data.rankings.map((ranking, index) => (
                         <div key={ranking.symbol} className="w-72 flex-shrink-0">
-                          <StockCard
-                            ranking={convertToEPSRanking(ranking)}
+                          <StockDataCard
+                            symbol={ranking.symbol}
                             rank={ranking.rank || index + 1}
+                            epsGrowth={ranking.epsGrowth || 0}
+                            price={0} // Price not available in API
+                            currency="USD"
                           />
                         </div>
                       ))}
@@ -881,10 +861,13 @@ function AnalyticsClientWrapper({
                 {/* Desktop: Grid layout */}
                 <div className="mb-6 hidden sm:grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {data.rankings.map(ranking => (
-                    <StockCard
+                    <StockDataCard
                       key={ranking.symbol}
-                      ranking={convertToEPSRanking(ranking)}
+                      symbol={ranking.symbol}
                       rank={ranking.rank || 0}
+                      epsGrowth={ranking.epsGrowth || 0}
+                      price={0} // Price not available in API
+                      currency="USD"
                     />
                   ))}
                 </div>

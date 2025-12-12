@@ -1,9 +1,9 @@
 'use client';
 
-import { Shield, Eye, AlertCircle, Clock, Filter, Search, ChevronDown, ChevronRight } from 'lucide-react';
+import { AlertCircle, ChevronDown, ChevronRight, Clock, Eye, Shield } from 'lucide-react';
 import { useState } from 'react';
 
-import { type User } from '../../../../shared/types/auth';
+import { type User } from '@/shared/types/auth';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';

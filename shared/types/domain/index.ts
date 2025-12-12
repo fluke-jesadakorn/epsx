@@ -104,35 +104,6 @@ export type {
   PermissionExpiryDetails,
   PermissionExpiryInfo,
 
-  // Claims types (removed legacy types)
-  
-  // API types (only available ones)
-  GrantPermissionRequest,
-  RevokePermissionRequest,
-  BulkPermissionRequest,
-  ExtendPermissionRequest,
-  PermissionValidationRequest,
-  PermissionValidationResponse,
-  
-  // Error types
-  PermissionError,
-  ValidationError,
-  ExpiryError,
-  CacheError,
-  SyncError,
-  ImportError,
-  ExportError,
-  PermissionErrorContext,
-  
-  // Audit types
-  PermissionAuditLog,
-  PermissionChangeEvent,
-  PermissionRevocationEvent,
-  PermissionExpiryEvent,
-  PermissionBulkEvent,
-  PermissionImportEvent,
-  PermissionSystemEvent,
-  
   // Business domain types
   EPSXPermission,
   PermissionTemplate,
@@ -146,16 +117,9 @@ export type {
   BulkPermissionOperation,
   PermissionAnalytics,
   
-  // Feature-specific permissions
-  AnalyticsPermissions,
-  TradingPermissions,
-  AdminPermissions,
-  APIPermissions,
-  
   // Permission context & inheritance
   PermissionInheritance,
   PlatformPermissionContext,
-  PermissionConstraint,
   
   // Management types
   PermissionRequest,
@@ -166,12 +130,7 @@ export type {
   isWildcardPermission,
   matchesPermissionPattern,
   resolveUserPermissions,
-  hasEffectivePermission,
-  
-  // Legacy compatibility
-  PermissionProfile,
-  PermissionResult,
-  PermissionString
+  hasEffectivePermission
 } from './Permission'
 
 // ============================================================================

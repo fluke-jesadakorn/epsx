@@ -7,30 +7,21 @@
  */
 
 // Utilities
-export { cn, logger, safeError } from '../../../shared/utils';
+export { cn, logger, safeError } from '@/shared/utils';
 
 // Auth utilities
-export { 
-  verifyJWT, 
-  isJWTExpired, 
-  getJWTTimeToExpiry,
-  type JWTUser,
-  type EPSXJWTPayload 
-} from '../../../shared/auth/jwt';
+export {
+  getJWTTimeToExpiry, isJWTExpired, verifyJWT, type EPSXJWTPayload, type JWTUser
+} from '@/shared/auth/jwt';
 
 // PKCE functions removed - migrated to Web3 authentication (no OIDC PKCE needed)
 
 // URL utilities
 export {
-  getBackendUrl,
-  getFrontendUrl,
-  getAdminUrl,
-  oidcUrls,
-  callbackUrls,
-  URL,
-  URLContext,
-  Service
-} from '../../../shared/utils/url-resolver';
+  Service, URL,
+  URLContext, callbackUrls, getAdminUrl, getBackendUrl,
+  getFrontendUrl, oidcUrls
+} from '@/shared/utils/url-resolver';
 
 // ============================================================================
 // PERMISSION SYSTEM: PURE BACKEND AUTHORITY
@@ -73,10 +64,10 @@ export function formatRelativeTime(dateString: string): string {
     const diffHours = Math.floor(diffMinutes / 60);
     const diffDays = Math.floor(diffHours / 24);
 
-    if (diffMinutes < 1) {return 'just now';}
-    if (diffMinutes < 60) {return `${diffMinutes}m ago`;}
-    if (diffHours < 24) {return `${diffHours}h ago`;}
-    if (diffDays < 7) {return `${diffDays}d ago`;}
+    if (diffMinutes < 1) { return 'just now'; }
+    if (diffMinutes < 60) { return `${diffMinutes}m ago`; }
+    if (diffHours < 24) { return `${diffHours}h ago`; }
+    if (diffDays < 7) { return `${diffDays}d ago`; }
     return formatDateTime(dateString);
   } catch {
     return dateString;

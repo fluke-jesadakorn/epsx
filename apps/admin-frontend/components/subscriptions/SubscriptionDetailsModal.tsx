@@ -1,17 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
-import { 
-  PancakeModal, 
-  PancakeCard, 
-  PancakeButton,
-  type PancakeModalProps 
-} from '../../../../shared/components'
+import {
+    PancakeButton,
+    PancakeCard,
+    PancakeModal
+} from '@/shared/components'
 
 import { toast } from '@/hooks/use-toast'
 import { logger } from '@/lib/logger'
-import { createPlansClient, type SubscriptionResponse, type UpdateSubscriptionRequest, isApiSuccess } from '@/shared/api/plans'
+import { createPlansClient, isApiSuccess, type SubscriptionResponse, type UpdateSubscriptionRequest } from '@/shared/api/plans'
 import { createAdminApiClient } from '@/shared/utils/api-client'
 
 interface SubscriptionDetailsModalProps {

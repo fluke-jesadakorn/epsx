@@ -4,14 +4,15 @@
  */
 'use client';
 
-import { useWeb3Auth } from '@/lib/auth/use-web3-auth';
+import { useWeb3Auth } from '@/lib/auth/Web3AuthProvider';
 
 interface MarketplaceCatalogProps {
   initialCategory?: string;
 }
 
 export function MarketplaceCatalog({ initialCategory = 'all' }: MarketplaceCatalogProps) {
-  const { walletAddress } = useWeb3Auth();
+  const { getWalletAddress } = useWeb3Auth();
+  const walletAddress = getWalletAddress();
   
   return (
     <div className="max-w-6xl mx-auto p-6">

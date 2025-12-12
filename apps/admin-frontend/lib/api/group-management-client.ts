@@ -1,12 +1,16 @@
 /**
  * Group Management API
- * Direct fetch to backend
+ * Uses unified admin API client
  */
 
 'use client';
 
-import { apiDelete, apiGet, apiPost, apiPut } from '../api-fetch';
-import { API_ROUTES } from '../../../../shared/config/route-constants';
+import { API_ROUTES } from '@/shared/config/route-constants';
+import { adminApiClient } from '../api-client';
+
+// ============================================================================
+// TYPES
+// ============================================================================
 
 export interface PermissionGroup {
   id: string;
@@ -36,12 +40,12 @@ export interface Web3AssignmentRule {
   id: string;
   group_id: string;
   blockchain_network:
-    | 'bsc_mainnet'
-    | 'bsc_testnet'
-    | 'ethereum_mainnet'
-    | 'polygon_mainnet'
-    | 'arbitrum_mainnet'
-    | 'optimism_mainnet';
+  | 'bsc_mainnet'
+  | 'bsc_testnet'
+  | 'ethereum_mainnet'
+  | 'polygon_mainnet'
+  | 'arbitrum_mainnet'
+  | 'optimism_mainnet';
   verification_type: 'nft_ownership' | 'token_balance' | 'dao_membership';
   contract_address?: string;
   token_id?: string;
@@ -62,10 +66,10 @@ export interface GroupAssignmentHistory {
   group_name?: string;
   operation_type: 'assign' | 'remove' | 'expire' | 'cleanup';
   operation_source:
-    | 'manual'
-    | 'web3_automatic'
-    | 'system_cleanup'
-    | 'bulk_operation';
+  | 'manual'
+  | 'web3_automatic'
+  | 'system_cleanup'
+  | 'bulk_operation';
   performed_by?: string;
   performed_by_name?: string;
   reason?: string;
@@ -83,16 +87,21 @@ export interface GroupAnalytics {
   permission_distribution: Record<string, number>;
 }
 
+// ============================================================================
+// GROUP MANAGEMENT API
+// ============================================================================
+
 export const groupMgmt = {
   async getPermissionGroups(): Promise<PermissionGroup[]> {
-    const res = await apiGet<any>(API_ROUTES.PERMISSIONS.GROUPS);
-    const groups = res.data || res;
+    const res = await adminApiClient.get<any>(API_ROUTES.PERMISSIONS.GROUPS);
+    const groups = res.data?.data || res.data;
     if (!Array.isArray(groups)) throw new Error('Invalid response');
     return groups;
   },
 
   async getPermissionGroup(groupId: string): Promise<PermissionGroup> {
-    return apiGet(`/api/admin/permissions/groups/${groupId}`);
+    const res = await adminApiClient.get<PermissionGroup>(`/api/admin/permissions/groups/${groupId}`);
+    return res.data!;
   },
 
   async createPermissionGroup(req: {
@@ -102,7 +111,8 @@ export const groupMgmt = {
     default_expiry_days?: number;
     priority_level?: number;
   }): Promise<PermissionGroup> {
-    return apiPost(API_ROUTES.PERMISSIONS.GROUPS, req);
+    const res = await adminApiClient.post<PermissionGroup>(API_ROUTES.PERMISSIONS.GROUPS, req);
+    return res.data!;
   },
 
   async updatePermissionGroup(
@@ -115,19 +125,22 @@ export const groupMgmt = {
       priority_level?: number;
     }
   ): Promise<PermissionGroup> {
-    return apiPut(`/api/admin/permissions/groups/${groupId}`, req);
+    const res = await adminApiClient.put<PermissionGroup>(`/api/admin/permissions/groups/${groupId}`, req);
+    return res.data!;
   },
 
   async deletePermissionGroup(groupId: string): Promise<void> {
-    return apiDelete(`/api/admin/permissions/groups/${groupId}`);
+    await adminApiClient.delete(`/api/admin/permissions/groups/${groupId}`);
   },
 
   async getUserGroups(userId: string): Promise<UserGroupMembership[]> {
-    return apiGet(`/api/admin/wallets/${userId}/assignments`);
+    const res = await adminApiClient.get<UserGroupMembership[]>(`/api/admin/wallets/${userId}/assignments`);
+    return res.data!;
   },
 
   async getUserPermissions(userId: string): Promise<string[]> {
-    return apiGet(`/api/auth/web3/groups/permissions/${userId}`);
+    const res = await adminApiClient.get<string[]>(`/api/auth/web3/groups/permissions/${userId}`);
+    return res.data!;
   },
 
   async assignUserToGroup(req: {
@@ -136,7 +149,7 @@ export const groupMgmt = {
     expires_at?: string | null;
     reason?: string;
   }): Promise<void> {
-    return apiPost(API_ROUTES.PERMISSIONS.ASSIGNMENTS, {
+    await adminApiClient.post(API_ROUTES.PERMISSIONS.ASSIGNMENTS, {
       wallet_address: req.user_id,
       group_id: req.group_id,
       expires_at: req.expires_at,
@@ -146,15 +159,17 @@ export const groupMgmt = {
   },
 
   async removeUserFromGroup(userId: string, groupId: string): Promise<void> {
-    return apiDelete(`/api/admin/wallet-assignments/${userId}/${groupId}`);
+    await adminApiClient.delete(`/api/admin/wallet-assignments/${userId}/${groupId}`);
   },
 
   async getGroupMemberships(groupId: string): Promise<UserGroupMembership[]> {
-    return apiGet(`/api/admin/group-memberships/${groupId}`);
+    const res = await adminApiClient.get<UserGroupMembership[]>(`/api/admin/group-memberships/${groupId}`);
+    return res.data!;
   },
 
   async getWeb3AssignmentRules(): Promise<Web3AssignmentRule[]> {
-    return apiGet('/api/auth/web3/assignment/rules');
+    const res = await adminApiClient.get<Web3AssignmentRule[]>('/api/auth/web3/assignment/rules');
+    return res.data!;
   },
 
   async createWeb3AssignmentRule(req: {
@@ -165,27 +180,31 @@ export const groupMgmt = {
     token_id?: string;
     minimum_balance?: string;
   }): Promise<Web3AssignmentRule> {
-    return apiPost('/api/auth/web3/assignment/rules', req);
+    const res = await adminApiClient.post<Web3AssignmentRule>('/api/auth/web3/assignment/rules', req);
+    return res.data!;
   },
 
   async deleteWeb3AssignmentRule(ruleId: string): Promise<void> {
-    return apiDelete(`/api/auth/web3/assignment/rules/${ruleId}`);
+    await adminApiClient.delete(`/api/auth/web3/assignment/rules/${ruleId}`);
   },
 
   async processWalletAssignment(req: {
     wallet_address: string;
   }): Promise<string[]> {
-    return apiPost('/api/auth/web3/assignment/process-wallet', req);
+    const res = await adminApiClient.post<string[]>('/api/auth/web3/assignment/process-wallet', req);
+    return res.data!;
   },
 
   async verifyWalletAssets(walletAddress: string): Promise<any> {
-    return apiPost('/api/auth/web3/assignment/verify-assets', {
+    const res = await adminApiClient.post<any>('/api/auth/web3/assignment/verify-assets', {
       wallet_address: walletAddress,
     });
+    return res.data;
   },
 
   async bulkProcessWallets(req: { wallet_addresses: string[] }): Promise<any> {
-    return apiPost('/api/auth/web3/assignment/bulk-process', req);
+    const res = await adminApiClient.post<any>('/api/auth/web3/assignment/bulk-process', req);
+    return res.data;
   },
 
   async getGroupAssignmentHistory(filters?: {
@@ -198,22 +217,21 @@ export const groupMgmt = {
     limit?: number;
     offset?: number;
   }): Promise<{ history: GroupAssignmentHistory[]; total: number }> {
-    const params = new URLSearchParams();
-    if (filters?.operation_type)
-      params.set('operation_type', filters.operation_type);
-    if (filters?.operation_source)
-      params.set('operation_source', filters.operation_source);
-    if (filters?.group_id) params.set('group_id', filters.group_id);
-    if (filters?.user_search) params.set('user_search', filters.user_search);
-    if (filters?.date_from) params.set('date_from', filters.date_from);
-    if (filters?.date_to) params.set('date_to', filters.date_to);
-    if (filters?.limit) params.set('limit', filters.limit.toString());
-    if (filters?.offset) params.set('offset', filters.offset.toString());
-    return apiGet(`/api/admin/groups/history?${params}`);
+    // Filter out undefined values
+    const params = filters
+      ? Object.fromEntries(Object.entries(filters).filter(([, v]) => v !== undefined))
+      : undefined;
+
+    const res = await adminApiClient.get<{ history: GroupAssignmentHistory[]; total: number }>(
+      '/api/admin/groups/history',
+      params
+    );
+    return res.data!;
   },
 
   async cleanupExpiredMemberships(): Promise<{ removed_count: number }> {
-    return apiPost('/api/admin/groups/cleanup-expired', {});
+    const res = await adminApiClient.post<{ removed_count: number }>('/api/admin/groups/cleanup-expired', {});
+    return res.data!;
   },
 
   async listUsers(params?: {
@@ -225,19 +243,13 @@ export const groupMgmt = {
     sort_by?: string;
     sort_order?: string;
   }): Promise<any> {
-    const q = new URLSearchParams();
-    if (params?.page) q.set('page', params.page.toString());
-    if (params?.limit) q.set('limit', params.limit.toString());
-    if (params?.search) q.set('search', params.search);
-    if (params?.tier) q.set('tier', params.tier);
-    if (params?.status) q.set('status', params.status);
-    if (params?.sort_by) q.set('sort_by', params.sort_by);
-    if (params?.sort_order) q.set('sort_order', params.sort_order);
-    return apiGet(`/api/admin/users?${q}`);
+    const res = await adminApiClient.get<any>('/api/admin/users', params);
+    return res.data;
   },
 
   async getUser(walletAddress: string): Promise<any> {
-    return apiGet(`/api/admin/users/${walletAddress}`);
+    const res = await adminApiClient.get<any>(`/api/admin/users/${walletAddress}`);
+    return res.data;
   },
 
   async updateUser(
@@ -247,38 +259,47 @@ export const groupMgmt = {
       metadata?: any;
     }
   ): Promise<any> {
-    return apiPut(`/api/admin/users/${walletAddress}`, updates);
+    const res = await adminApiClient.put<any>(`/api/admin/users/${walletAddress}`, updates);
+    return res.data;
   },
 
   async getUserStats(): Promise<any> {
-    return apiGet('/api/admin/wallets/stats');
+    const res = await adminApiClient.get<any>('/api/admin/wallets/stats');
+    return res.data;
   },
 
   async getPlatformOverview(period?: string): Promise<any> {
-    return apiGet(
-      `${API_ROUTES.ADMIN.ANALYTICS_OVERVIEW}${period ? `?period=${period}` : ''}`
+    const res = await adminApiClient.get<any>(
+      API_ROUTES.ADMIN.ANALYTICS_OVERVIEW,
+      period ? { period } : undefined
     );
+    return res.data;
   },
 
   async getUserAnalytics(period?: string): Promise<any> {
-    return apiGet(
-      `${API_ROUTES.ADMIN.ANALYTICS_USERS}${period ? `?period=${period}` : ''}`
+    const res = await adminApiClient.get<any>(
+      API_ROUTES.ADMIN.ANALYTICS_USERS,
+      period ? { period } : undefined
     );
+    return res.data;
   },
 
   async getPermissionAnalytics(): Promise<any> {
-    return apiGet(API_ROUTES.ADMIN.ANALYTICS_PERMISSIONS);
+    const res = await adminApiClient.get<any>(API_ROUTES.ADMIN.ANALYTICS_PERMISSIONS);
+    return res.data;
   },
 
   async getRevenueAnalytics(period?: string): Promise<any> {
-    return apiGet(
-      `${API_ROUTES.ADMIN.ANALYTICS_REVENUE}${period ? `?period=${period}` : ''}`
+    const res = await adminApiClient.get<any>(
+      API_ROUTES.ADMIN.ANALYTICS_REVENUE,
+      period ? { period } : undefined
     );
+    return res.data;
   },
 
   async getGroupAnalytics(): Promise<GroupAnalytics> {
-    const response = await apiGet<any>(API_ROUTES.ADMIN.ANALYTICS_PERMISSIONS);
-    const data = response.data || response; // Handle both nested and direct response formats
+    const response = await adminApiClient.get<any>(API_ROUTES.ADMIN.ANALYTICS_PERMISSIONS);
+    const data = response.data?.data || response.data;
     return {
       total_groups: data.total_groups || 0,
       total_active_memberships: data.active_permissions || data.total_permissions || 0,
@@ -297,20 +318,26 @@ export const groupMgmt = {
   },
 
   async getExpiringMemberships(days = 7): Promise<UserGroupMembership[]> {
-    return apiGet(`/api/admin/groups/expiring-memberships?days=${days}`);
+    const res = await adminApiClient.get<UserGroupMembership[]>(
+      '/api/admin/groups/expiring-memberships',
+      { days }
+    );
+    return res.data!;
   },
 
   async checkUserPermission(
     userId: string,
     permission: string
   ): Promise<boolean> {
-    const res = await apiGet<{ has_permission: boolean }>(
-      `/api/admin/users/${userId}/check-permission?permission=${permission}`
+    const res = await adminApiClient.get<{ has_permission: boolean }>(
+      `/api/admin/users/${userId}/check-permission`,
+      { permission }
     );
-    return res.has_permission;
+    return res.data!.has_permission;
   },
 
   async getAvailablePermissions(): Promise<string[]> {
-    return apiGet('/api/admin/permissions/available');
+    const res = await adminApiClient.get<string[]>('/api/admin/permissions/available');
+    return res.data!;
   },
 };

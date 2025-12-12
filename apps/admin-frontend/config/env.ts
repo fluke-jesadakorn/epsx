@@ -2,16 +2,15 @@
 // Now uses /shared/env/schema.ts for consistent validation across all services
 // Root .env file loaded via next.config.ts
 
-import { 
-  serverEnv, 
-  clientEnv, 
-  env, 
-  urls,
-  isServer,
+import {
+  clientEnv,
+  env,
   isDev,
   isProd,
-  isStaging
-} from '../../../shared/env/schema';
+  isStaging,
+  serverEnv,
+  urls
+} from '@/shared/env/schema';
 
 /**
  * Admin Configuration
@@ -23,12 +22,12 @@ export const config = {
   backendUrl: env.BACKEND_URL,
   frontendUrl: env.APP_URL,  // Called frontendUrl in admin context
   clientId: 'epsx-admin',   // Fixed client ID for Web3 wallet-first authentication
-  
+
   // Environment flags
   isDev,
   isProd,
   isStaging,
-  
+
   // Port for admin frontend (default from unified schema or environment)
   port: process.env.PORT ? parseInt(process.env.PORT) : 3001,
 } as const;
@@ -42,11 +41,11 @@ export const authConfig = {
   apiUrl: env.BACKEND_URL,
   clientId: 'epsx-admin',  // Fixed client ID for Web3 wallet-first authentication
   callbackPath: '/api/auth/callback/epsx-backend',
-  
+
   get callbackUrl() {
     return `${this.appUrl}${this.callbackPath}`;
   },
-  
+
   get authorizationEndpoint() {
     return urls.oidc.authorize();  // Uses unified URL helper
   },
@@ -67,10 +66,10 @@ export const authConfig = {
  */
 export const featureFlags = {
   UNIFIED_USER_MANAGEMENT: process.env.NEXT_PUBLIC_ENABLE_UNIFIED_USERS === 'true',
-  SERVER_COMPONENTS: process.env.NEXT_PUBLIC_ENABLE_SERVER_COMPONENTS === 'true', 
+  SERVER_COMPONENTS: process.env.NEXT_PUBLIC_ENABLE_SERVER_COMPONENTS === 'true',
   NEW_NAVIGATION: process.env.NEXT_PUBLIC_ENABLE_NEW_NAV === 'true',
   DEV_MODE: isDev,
-  
+
   // Legacy rollout percentages (for compatibility)
   rolloutPercentages: {
     UNIFIED_USER_MANAGEMENT: 100,
@@ -87,15 +86,15 @@ export const serverConfig = {
   get jwtSecret() {
     return env.WEB3_APP_SECRET; // Uses unified schema's Web3 app secret
   },
-  
+
   get oidcClientSecret() {
     return env.WEB3_APP_SECRET; // Uses Web3 app secret for authentication
   },
-  
+
   get databaseUrl() {
     return env.DATABASE_URL; // Uses unified schema's server-only getter
   },
-  
+
   get redisUrl() {
     return env.REDIS_URL; // Uses unified schema's server-only getter
   }
@@ -114,7 +113,7 @@ if (typeof window !== 'undefined' && isDev) {
 }
 
 // Export unified schema components for direct access if needed
-export { serverEnv, clientEnv, env, urls };
+export { clientEnv, env, serverEnv, urls };
 
 // Export for backward compatibility
 export { env as environment };

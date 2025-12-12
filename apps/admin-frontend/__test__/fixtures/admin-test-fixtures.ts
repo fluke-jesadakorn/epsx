@@ -648,15 +648,15 @@ export interface TestEnvironmentConfig {
 
 export const TEST_ENVIRONMENT_CONFIG: TestEnvironmentConfig = {
   database: {
-    host: (process.env.TEST_DB_HOST as string | undefined) || 'localhost',
-    port: parseInt((process.env.TEST_DB_PORT as string | undefined) || '5432'),
-    name: (process.env.TEST_DB_NAME as string | undefined) || 'epsx_test',
-    user: (process.env.TEST_DB_USER as string | undefined) || 'test_user',
-    password: process.env.TEST_DB_PASSWORD || 'test_password'
+    host: (process.env['TEST_DB_HOST'] as string | undefined) || 'localhost',
+    port: parseInt((process.env['TEST_DB_PORT'] as string | undefined) || '5432'),
+    name: (process.env['TEST_DB_NAME'] as string | undefined) || 'epsx_test',
+    user: (process.env['TEST_DB_USER'] as string | undefined) || 'test_user',
+    password: process.env['TEST_DB_PASSWORD'] || 'test_password'
   },
   api: {
-    baseUrl: process.env.TEST_API_BASE_URL || getBackendUrl('server'),
-    timeout: parseInt(process.env.TEST_API_TIMEOUT || '30000')
+    baseUrl: process.env['TEST_API_BASE_URL'] || getBackendUrl('server'),
+    timeout: parseInt(process.env['TEST_API_TIMEOUT'] || '30000')
   },
   auth: {
     // Admin user must be promoted via database script: ./scripts/promote-admin.sh jesadakorn.kirtnu@gmail.com
@@ -664,9 +664,9 @@ export const TEST_ENVIRONMENT_CONFIG: TestEnvironmentConfig = {
     testPassword: 'Aa_12345678'
   },
   performance: {
-    maxResponseTime: parseInt(process.env.TEST_MAX_RESPONSE_TIME || '1000'),
-    maxConcurrentUsers: parseInt(process.env.TEST_MAX_CONCURRENT_USERS || '100'),
-    testDuration: parseInt(process.env.TEST_DURATION || '30000')
+    maxResponseTime: parseInt(process.env['TEST_MAX_RESPONSE_TIME'] || '1000'),
+    maxConcurrentUsers: parseInt(process.env['TEST_MAX_CONCURRENT_USERS'] || '100'),
+    testDuration: parseInt(process.env['TEST_DURATION'] || '30000')
   }
 };
 
@@ -675,31 +675,35 @@ export const TEST_ENVIRONMENT_CONFIG: TestEnvironmentConfig = {
 // ============================================================================
 
 export class MockAPIClient {
-  private baseUrl: string;
+  private _baseUrl: string;
+
+  get baseUrl(): string {
+    return this._baseUrl;
+  }
   
   constructor(baseUrl: string = getBackendUrl('server')) {
-    this.baseUrl = baseUrl;
+    this._baseUrl = baseUrl;
   }
   
   /**
    * Mock successful API responses
    */
-  mockSuccessResponse(endpoint: string, response: any): void {
+  mockSuccessResponse(_endpoint: string, _response: any): void {
     // Implementation: Set up mock response
   }
   
   /**
    * Mock error API responses
    */
-  mockErrorResponse(endpoint: string, status: number, error: any): void {
+  mockErrorResponse(_endpoint: string, _status: number, _error: any): void {
     // Implementation: Set up mock error response
   }
   
   /**
    * Mock rate limited responses
    */
-  mockRateLimitedResponse(endpoint: string, retryAfter: number = 60): void {
-    this.mockErrorResponse(endpoint, 429, API_RESPONSE_FIXTURES.ERROR.RATE_LIMITED);
+  mockRateLimitedResponse(_endpoint: string, _retryAfter: number = 60): void {
+    this.mockErrorResponse(_endpoint, 429, API_RESPONSE_FIXTURES.ERROR.RATE_LIMITED);
   }
   
   /**
@@ -720,9 +724,9 @@ export class TestUtilities {
    */
   static generateRandomUser(): TestUser {
     const id = `random-${Date.now()}`;
-    const roles = Object.values(Role);
-    const randomRole = roles[Math.floor(Math.random() * roles.length)];
-    
+    const roles = Object.values(Role).filter((role): role is Role => role !== undefined);
+    const randomRole = roles[Math.floor(Math.random() * roles.length)] || Role.User;
+
     return {
       id,
       email: `random.${id}@epsx.test`,

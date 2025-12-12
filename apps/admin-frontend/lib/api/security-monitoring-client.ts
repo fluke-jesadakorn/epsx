@@ -1,11 +1,15 @@
 /**
  * Security Monitoring API
- * Direct fetch to backend
+ * Uses unified admin API client
  */
 
 'use client'
 
-import { apiGet } from '../api-fetch'
+import { adminApiClient } from '../api-client'
+
+// ============================================================================
+// TYPES
+// ============================================================================
 
 export interface SecurityEvent {
   id: string
@@ -74,6 +78,10 @@ export interface UserThreatResponse {
   last_assessed: string
 }
 
+// ============================================================================
+// SECURITY API
+// ============================================================================
+
 export const securityApi = {
   async getSecurityEvents(query: {
     limit?: number
@@ -82,21 +90,23 @@ export const securityApi = {
     resolved?: boolean
     user_id?: string
   } = {}): Promise<SecurityEventsResponse> {
-    const params = new URLSearchParams()
-    if (query.limit) params.set('limit', query.limit.toString())
-    if (query.severity) params.set('severity', query.severity)
-    if (query.event_type) params.set('event_type', query.event_type)
-    if (query.resolved !== undefined) params.set('resolved', query.resolved.toString())
-    if (query.user_id) params.set('user_id', query.user_id)
-    return apiGet(`/api/admin/security/events?${params}`)
+    // Filter out undefined values
+    const params = Object.fromEntries(
+      Object.entries(query).filter(([, v]) => v !== undefined)
+    )
+
+    const res = await adminApiClient.get<SecurityEventsResponse>('/api/admin/security/events', params)
+    return res.data!
   },
 
   async getSecurityMetrics(): Promise<SecurityMetricsResponse> {
-    return apiGet('/api/admin/security/metrics')
+    const res = await adminApiClient.get<SecurityMetricsResponse>('/api/admin/security/metrics')
+    return res.data!
   },
 
   async getUserThreatAssessment(userId: string): Promise<UserThreatResponse> {
-    return apiGet(`/api/admin/security/user-threat?user_id=${userId}`)
+    const res = await adminApiClient.get<UserThreatResponse>('/api/admin/security/user-threat', { user_id: userId })
+    return res.data!
   },
 
   async getHighSeverityEvents(limit = 10): Promise<SecurityEvent[]> {
@@ -150,6 +160,10 @@ export const securityApi = {
     }
   }
 }
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
 
 export const getSeverityColor = (severity: string): string => {
   switch (severity.toLowerCase()) {

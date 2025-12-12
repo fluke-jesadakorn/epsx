@@ -17,7 +17,7 @@ import {
   Wallet
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { getAddress, parseUnits } from 'viem'
+import { formatUnits, getAddress, parseUnits } from 'viem'
 import { useAccount, useConnect, useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
 
 interface MetaMaskPaymentProps {
@@ -339,15 +339,15 @@ export default function MetaMaskPayment({
         decimals,
         transferAmount: transferAmount.toString(),
         transferAmountFormatted: transferAmount.toString(),
-        humanReadableAmount: transferAmount.toString() / Math.pow(10, decimals),
+        humanReadableAmount: formatUnits(transferAmount, decimals),
         chainId: chain?.id
       })
 
       console.log('🚨 CRITICAL DEBUG - MetaMask will show:', {
         rawAmount: amount.toString(),
         parsedUnits: transferAmount.toString(),
-        inTokens: transferAmount.toString() / Math.pow(10, decimals),
-        willShowZero: (transferAmount.toString() / Math.pow(10, decimals)) === 0
+        inTokens: formatUnits(transferAmount, decimals),
+        willShowZero: transferAmount === 0n
       });
 
       setPaymentStep('approving')
@@ -360,7 +360,7 @@ export default function MetaMaskPayment({
         escrowAddress,
         transferAmount: transferAmount.toString(),
         transferAmountHex: '0x' + transferAmount.toString(16),
-        transferAmountBigInt: transferAmount,
+        transferAmountBigInt: transferAmount.toString(),
         approveArgs: [escrowAddress as `0x${string}`, transferAmount],
         fullCall: {
           address: tokenAddress as `0x${string}`,
@@ -664,7 +664,6 @@ export default function MetaMaskPayment({
           <div className="flex justify-between items-center">
             <span className="text-sm">Amount</span>
             <span className="font-medium">
-              {console.log('🚨 MetaMaskPayment Display Amount Debug:', { amount, type: typeof amount, isNaN: isNaN(amount) })}
               ${amount} {selectedToken}
             </span>
           </div>

@@ -1,4 +1,4 @@
-import { useWeb3Auth } from '@/lib/auth/use-web3-auth';
+import { useWeb3Auth } from '@/lib/auth/use-auth';
 
 export default function BillingDashboard() {
   const { walletAddress } = useWeb3Auth();

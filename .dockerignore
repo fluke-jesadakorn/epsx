@@ -97,3 +97,8 @@ secrets/
 # Caches
 .yarn/
 .pnpm-store/
+
+# Deployment Artifacts
+deploy.tar.gz
+deploy-prod.tar.gz
+*.tar.gz

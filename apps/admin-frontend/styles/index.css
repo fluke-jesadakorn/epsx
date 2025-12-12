@@ -1,6 +1,6 @@
 /**
  * Admin Frontend - Modular CSS Architecture
- * 
+ *
  * This file orchestrates the modular CSS structure for the admin frontend,
  * mirroring the modern architecture implemented in the main frontend app.
  * 
@@ -16,13 +16,17 @@
  * - Consistent design system across admin interfaces
  * - Enhanced admin-specific functionality
  */
+@import "tailwindcss";
 
 /* ============================================================================
    CORE FOUNDATION
    ============================================================================ */
 
 /* Import Tailwind's base styles and our enhanced theme system */
-@import './base.css';
+/* Shared Design System (Unified Theme) */
+@import '../../../shared/design-system/index.css';
+/* Local base styles replaced by shared system */
+/* @import './base.css'; */
 
 /* ============================================================================
    PERFORMANCE-CRITICAL STYLES

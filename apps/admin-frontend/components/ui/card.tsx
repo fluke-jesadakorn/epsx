@@ -5,16 +5,15 @@
 
 import * as React from "react"
 
-import { 
-  PancakeCard, 
-  PancakeCardHeader, 
-  PancakeCardTitle, 
-  PancakeCardDescription, 
-  PancakeCardContent, 
-  PancakeCardFooter 
-} from "../../../../shared/components"
+import {
+    PancakeCard,
+    PancakeCardContent,
+    PancakeCardDescription,
+    PancakeCardFooter,
+    PancakeCardHeader,
+    PancakeCardTitle
+} from "@/shared/components"
 
-import { cn } from "@/lib/utils"
 
 // ============================================================================
 // LEGACY COMPATIBILITY LAYER
@@ -97,4 +96,4 @@ const CardFooter = React.forwardRef<
 ))
 CardFooter.displayName = "CardFooter"
 
-export { Card, CardHeader, CardFooter, CardTitle, CardDescription, CardContent }
+export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }

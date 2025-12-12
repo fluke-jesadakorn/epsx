@@ -17,18 +17,16 @@ RUN apt-get update && \
 # Copy Cargo files for dependency caching
 COPY apps/backend/Cargo.toml apps/backend/Cargo.lock ./
 
-# Create src directory and dummy main.rs for dependency caching
-RUN mkdir src && echo "fn main() {}" > src/main.rs
+# Create src directory and dummy files for all binaries (for dependency caching)
+RUN mkdir -p src/bin && \
+    echo "fn main() {}" > src/main.rs && \
+    echo "fn main() {}" > src/bin/blockchain_monitor.rs
 
-# Build dependencies only (for caching)
-RUN cargo build --release && rm -rf src
+# Build dependencies only for the main binary (for caching)
+RUN cargo build --release --bin epsx && rm -rf src
 
 # Copy source code
 COPY apps/backend/src/ ./src/
-
-# Copy askama templates (required at compile time)
-COPY apps/backend/askama.toml ./
-COPY apps/backend/templates/ ./templates/
 
 # Build application with optimizations
 RUN cargo build --release --bin epsx
@@ -42,6 +40,7 @@ RUN apt-get update && \
     ca-certificates \
     libpq5 \
     libssl3 \
+    curl \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 

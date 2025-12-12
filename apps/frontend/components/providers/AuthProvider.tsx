@@ -39,7 +39,7 @@ const createQueryClient = () => new QueryClient({
 
 // Define Hardhat Localhost chain
 const hardhatLocalhost = {
-  id: 31337,
+  id: Number(31337), // Ensure this is a Number, not BigInt
   name: 'Hardhat Local',
   nativeCurrency: {
     decimals: 18,
@@ -58,7 +58,7 @@ const hardhatLocalhost = {
 
 // Get the blockchain network from environment
 const isMainnet = process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === 'mainnet';
-const isLocal = process.env.NEXT_PUBLIC_CHAIN_ID === '31337';
+const isLocal = Number(process.env.NEXT_PUBLIC_CHAIN_ID) === 31337; // Ensure number comparison
 const chains = isLocal
   ? [hardhatLocalhost, bscTestnet, bsc] as const
   : isMainnet
@@ -73,10 +73,16 @@ function getWagmiConfig() {
   if (!wagmiConfig && !isInitializing) {
     isInitializing = true;
     try {
+      // Ensure all chain IDs are numbers, not BigInt
+      const safeChains = chains.map(chain => ({
+        ...chain,
+        id: Number(chain.id)
+      }));
+
       wagmiConfig = getDefaultConfig({
         appName: 'EPSX',
         projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '04e0a500abfa1e095bf8f64b15fa2812',
-        chains,
+        chains: safeChains as any, // Type assertion to ensure compatibility
         ssr: true, // Enable SSR support
       });
     } finally {

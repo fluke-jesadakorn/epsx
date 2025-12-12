@@ -9,7 +9,7 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
-export * from '../../../shared/utils'
+export * from '@/shared/utils'
 
 /**
  * Local cn function for immediate compatibility (also available from shared utils)
@@ -24,10 +24,4 @@ export function cn(...inputs: ClassValue[]) {
 // ============================================================================
 
 // These are already available from shared utils but kept for immediate compatibility
-export { formatDate as fmtDate } from '../../../shared/utils'
-export { formatRelativeTime as fmtRelativeTime } from '../../../shared/utils'
-export { formatFileSize as formatBytes } from '../../../shared/utils'
-export { formatCurrency as fmtCurrency } from '../../../shared/utils'
-export { formatPercentage as pct } from '../../../shared/utils'
-export { formatPrice as prc } from '../../../shared/utils'
-export { formatEPSGrowth as epsGr } from '../../../shared/utils'
+export { formatEPSGrowth as epsGr, formatCurrency as fmtCurrency, formatDate as fmtDate, formatRelativeTime as fmtRelativeTime, formatFileSize as formatBytes, formatPercentage as pct, formatPrice as prc } from '@/shared/utils'

@@ -1,15 +1,15 @@
 'use client';
 
-import { User, Shield, Settings, Database, Crown } from 'lucide-react';
+import { Crown, Database, Settings, Shield, User } from 'lucide-react';
 import { useState } from 'react';
 
+import { type User as UserType } from '@/shared/types/auth';
 import { AdminPermissions } from './AdminPermissions';
-import { type User as UserType } from '../../../../shared/types/auth';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 interface AdminProfileClientProps {
   user: UserType;

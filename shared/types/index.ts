@@ -9,7 +9,7 @@
 // ============================================================================
 
 // Payment types (consolidated from both apps)
-export * from './payment';
+// export * from './payment';
 
 // Authentication and authorization types (consolidated from both apps)
 export * from './auth-separation';
@@ -23,15 +23,11 @@ export * from './progressive-auth';
 // Tier group types (unified tier and permission group system)
 export * from './tier-groups';
 
-// ============================================================================
-// EXISTING SHARED TYPES
-// ============================================================================
+// Existing shared types
+// export * from './auth';
 
-// Core auth types
-export * from './auth';
-
-// Domain types
-export * from './domain';
+// Domain types - Commented out to avoid duplicate exports with ./api and ./auth-separation
+// export * from './domain';
 
 // ============================================================================
 // MIGRATION HELPERS

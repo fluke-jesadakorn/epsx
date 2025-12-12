@@ -5,7 +5,7 @@
 
 import { cookies } from 'next/headers';
 
-import type { EPSXJWTPayload } from '../../../../shared/auth/jwt';
+import type { EPSXJWTPayload } from '@/shared/auth/jwt';
 
 import { verifyJWTFromCookies } from '@/lib/server/jwt';
 
@@ -22,7 +22,7 @@ export interface SessionData {
 export async function getSession(): Promise<SessionData> {
   try {
     const payload = await verifyJWTFromCookies();
-    
+
     if (!payload) {
       return { isLoggedIn: false };
     }
@@ -50,12 +50,12 @@ export async function getSession(): Promise<SessionData> {
 export async function clearSession(): Promise<void> {
   try {
     const cookieStore = await cookies();
-    
+
     // OIDC Migration: Clear OIDC tokens instead of legacy JWT
     cookieStore.delete('access_token');
     cookieStore.delete('id_token');
     cookieStore.delete('refresh_token');
-    
+
   } catch (_error) {
     // eslint-disable-next-line no-console
     console.error('❌ Failed to clear session:', _error);
@@ -84,8 +84,8 @@ interface OAuthUserInfo {
  * @param refreshToken
  */
 export function createUserSession(
-  userinfo: OAuthUserInfo, 
-  accessToken?: string, 
+  userinfo: OAuthUserInfo,
+  accessToken?: string,
   refreshToken?: string
 ): SessionData {
   const user: EPSXJWTPayload = {

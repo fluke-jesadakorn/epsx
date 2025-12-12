@@ -1,4 +1,4 @@
-import type { ApiClient, ApiResponse } from '../utils/api-client'
+import type { UnifiedApiClient, ApiResponse } from '../utils/api-client'
 
 export interface Promotion {
   id: number
@@ -56,7 +56,7 @@ export interface PromotionsResponse {
   has_more: boolean
 }
 
-export function createPromotionsClient(apiClient: ApiClient) {
+export function createPromotionsClient(apiClient: UnifiedApiClient) {
   return {
     async getPromotions(params?: ListPromotionsParams): Promise<ApiResponse<PromotionsResponse>> {
       const query = new URLSearchParams()
@@ -85,6 +85,6 @@ export function createPromotionsClient(apiClient: ApiClient) {
   }
 }
 
-export function isApiSuccess<T>(response: ApiResponse<T>): response is { success: true; data: T } {
+export function isApiSuccess<T>(response: ApiResponse<T>): response is ApiResponse<T> & { success: true; data: T } {
   return response.success === true
 }

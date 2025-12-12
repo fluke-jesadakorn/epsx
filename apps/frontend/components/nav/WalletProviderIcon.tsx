@@ -1,22 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
-import { Wallet, ExternalLink, Copy, Check, Settings } from 'lucide-react';
-import { ConnectButton } from '@rainbow-me/rainbowkit';
-import Link from 'next/link';
+import { useWeb3Context } from '@/components/providers/AuthProvider';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  Button,
-  UnifiedThemeToggle,
+    Button,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+    UnifiedThemeToggle,
 } from '@/components/ui';
 import { formatAddress, useWeb3AuthStore } from '@/lib/auth/store';
-import { useWeb3Context } from '@/components/providers/AuthProvider';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { Check, Copy, ExternalLink, Settings, Wallet } from 'lucide-react';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
 
 interface WalletProviderIconProps {
   className?: string;
@@ -161,7 +161,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
           } else {
             console.error('❌ Auto-authentication failed:', result.error);
             setAuthRetryCount(prev => prev + 1);
-            setLastAuthError(result.error);
+            setLastAuthError(result.error ?? null);
           }
         } catch (error: any) {
           console.error('❌ Auto-authentication error:', error);
