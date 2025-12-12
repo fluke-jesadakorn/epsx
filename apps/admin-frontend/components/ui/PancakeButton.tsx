@@ -135,7 +135,6 @@ export function PancakeButton({
   );
 }
 
-// Icon Button variant
 interface PancakeIconButtonProps {
   variant?: 'pancake' | 'admin' | 'analytics';
   icon: string;

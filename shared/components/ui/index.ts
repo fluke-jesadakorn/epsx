@@ -11,6 +11,7 @@ export { cn } from '../../utils/cn';
 export { Badge, badgeVariants, type BadgeProps } from './badge';
 export { Button, buttonVariants, type ButtonProps } from './button';
 export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './card';
+export { Input, inputVariants, type InputProps } from './input';
 
 // Alert
 export {
@@ -26,7 +27,7 @@ export {
 // Table
 export {
     Table, TableBody, TableCaption, TableCell, TableFooter,
-    TableHead, TableHeader, TableRow, type TableBodyProps, type TableCaptionProps, type TableCellProps, type TableFooterProps, type TableHeaderProps, type TableHeadProps, type TableProps, type TableRowProps
+    TableHead, TableHeader, TableRow, type TableBodyProps, type TableCaptionProps, type TableCellProps, type TableFooterProps, type TableHeadProps, type TableHeaderProps, type TableProps, type TableRowProps
 } from './table';
 
 // Skeleton
