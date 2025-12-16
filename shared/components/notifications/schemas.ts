@@ -7,10 +7,7 @@
 
 import { z } from 'zod'
 import {
-  NOTIFICATION_TYPES,
-  NOTIFICATION_PRIORITIES,
-  MAX_FETCH_LIMIT,
-  MAX_IN_MEMORY_NOTIFICATIONS,
+  MAX_FETCH_LIMIT
 } from './constants'
 
 // ============================================================================
@@ -43,20 +40,20 @@ export const NotificationStatusSchema = z.enum(['read', 'unread', 'all'])
 // ============================================================================
 
 export const NotificationSchema = z.object({
-  id: z.string().uuid('Invalid notification ID format'),
+  id: z.string().uuid({ message: 'Invalid notification ID format' }),
   title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
   message: z.string().min(1, 'Message is required').max(1000, 'Message too long'),
   type: NotificationTypeSchema,
   priority: NotificationPrioritySchema,
-  timestamp: z.string().datetime('Invalid timestamp format'),
+  timestamp: z.string().datetime({ message: 'Invalid timestamp format' }),
   expires_at: z.string().datetime().optional(),
   read_at: z.string().datetime().optional(),
   clicked_at: z.string().datetime().optional(),
   delivered_at: z.string().datetime().optional(),
-  action_url: z.string().url('Invalid action URL').optional(),
-  image_url: z.string().url('Invalid image URL').optional(),
+  action_url: z.string().url({ message: 'Invalid action URL' }).optional(),
+  image_url: z.string().url({ message: 'Invalid image URL' }).optional(),
   wallet_address: z.string().optional(),
-  data: z.record(z.any()).optional(),
+  data: z.record(z.string(), z.any()).optional(),
   read: z.boolean(),
 })
 
@@ -72,7 +69,7 @@ export const SSENotificationSchema = z.object({
   notification_type: z.string(),
   title: z.string().min(1).max(200),
   message: z.string().min(1).max(1000),
-  data: z.record(z.any()).optional(),
+  data: z.record(z.string(), z.any()).optional(),
   priority: z.string(),
   timestamp: z.string().datetime(),
   expires_at: z.string().datetime().optional(),
@@ -134,9 +131,9 @@ export const SendNotificationRequestSchema = z.object({
   priority: NotificationPrioritySchema,
   title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
   message: z.string().min(1, 'Message is required').max(1000, 'Message too long'),
-  data: z.record(z.any()).optional(),
-  action_url: z.string().url('Invalid action URL').optional(),
-  image_url: z.string().url('Invalid image URL').optional(),
+  data: z.record(z.string(), z.any()).optional(),
+  action_url: z.string().url({ message: 'Invalid action URL' }).optional(),
+  image_url: z.string().url({ message: 'Invalid image URL' }).optional(),
   expires_at: z.string().datetime().optional(),
   schedule_at: z.string().datetime().optional(),
 }).refine(

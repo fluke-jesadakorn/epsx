@@ -2,6 +2,7 @@ const js = require('@eslint/js');
 const typescript = require('@typescript-eslint/eslint-plugin');
 const typescriptParser = require('@typescript-eslint/parser');
 const nextjs = require('@next/eslint-plugin-next');
+const reactHooks = require('eslint-plugin-react-hooks');
 
 module.exports = [
   js.configs.recommended,
@@ -112,11 +113,20 @@ module.exports = [
         afterEach: 'readonly',
         beforeAll: 'readonly',
         afterAll: 'readonly',
+        // Missing globals
+        Node: 'readonly',
+        AbortController: 'readonly',
+        Touch: 'readonly',
+        TouchEvent: 'readonly',
+        PerformanceNavigationTiming: 'readonly',
+        defaultWeb3AuthState: 'readonly',
+        mockUser: 'readonly',
       },
     },
     plugins: {
       '@typescript-eslint': typescript,
       '@next/next': nextjs,
+      'react-hooks': reactHooks,
     },
     rules: {
       // TypeScript rules
@@ -151,6 +161,7 @@ module.exports = [
     ignores: [
       'node_modules/**',
       '.next/**',
+      '.debug/**',
       'out/**',
       'dist/**',
       'build/**',

@@ -14,7 +14,7 @@ import {
     Users
 } from 'lucide-react';
 import { useState } from 'react';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import { useAccount } from 'wagmi';
 
 import { Badge } from '@/components/ui/badge';

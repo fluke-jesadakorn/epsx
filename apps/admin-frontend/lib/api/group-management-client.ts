@@ -247,6 +247,57 @@ export const groupMgmt = {
     return res.data;
   },
 
+  /**
+   * Search users by wallet address or other criteria
+   * Used for autocomplete functionality
+   * Uses the same /api/v1/admin/wallets/search endpoint as Wallet Management page
+   */
+  async searchUsers(query: string, limit = 10): Promise<Array<{
+    wallet_address: string;
+    user_id?: string;
+    tier?: string;
+    permissions?: string[];
+    groups?: string[];
+  }>> {
+    const queryLower = query.toLowerCase();
+
+    // Use the wallet search endpoint that powers the Wallet Management page
+    try {
+      const searchParams = new URLSearchParams({
+        search: query,
+        limit: '50', // Fetch more to allow for client-side filtering
+      });
+
+      const res = await adminApiClient.get<any>(
+        `/api/v1/admin/wallets/search?${searchParams.toString()}`
+      );
+
+      // Handle response format from wallets/search endpoint
+      const wallets = res.data?.wallets || res.data?.data?.wallets || res.data || [];
+
+      if (Array.isArray(wallets) && wallets.length > 0) {
+        // Client-side filter: only return wallets that CONTAIN the search query (LIKE %query%)
+        return wallets
+          .filter((wallet: any) =>
+            wallet.wallet_address?.toLowerCase().includes(queryLower)
+          )
+          .slice(0, limit)
+          .map((wallet: any) => ({
+            wallet_address: wallet.wallet_address,
+            user_id: wallet.wallet_address,
+            tier: wallet.tier,
+            permissions: wallet.permissions?.map((p: any) => p.permission || p) || [],
+            groups: wallet.groups?.map((g: any) => g.group_name || g) || [],
+          }));
+      }
+
+      return [];
+    } catch (error) {
+      console.warn('Wallet search failed:', error);
+      return [];
+    }
+  },
+
   async getUser(walletAddress: string): Promise<any> {
     const res = await adminApiClient.get<any>(`/api/admin/users/${walletAddress}`);
     return res.data;

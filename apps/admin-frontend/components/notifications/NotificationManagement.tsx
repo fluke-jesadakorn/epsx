@@ -1,12 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Bell, BarChart3, Clock, AlertTriangle } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { createNotificationsClient } from '@/shared/api/notifications';
 import { createAdminApiClient } from '@/shared/utils/api-client';
-import { SendNotificationForm } from './SendNotificationForm';
+import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 type Notification = any;
 type NotificationStats = any;

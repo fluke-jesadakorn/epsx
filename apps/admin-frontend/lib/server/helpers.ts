@@ -3,6 +3,7 @@
  * OIDC token extraction and session management utilities
  */
 
+import { COOKIES } from '@/shared/auth/cookies'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 
@@ -34,11 +35,11 @@ export class ServerAuth {
     refreshToken?: string
   }> {
     const cookieStore = await cookies()
-    
+
     return {
-      accessToken: cookieStore.get('access_token')?.value,
-      idToken: cookieStore.get('id_token')?.value,
-      refreshToken: cookieStore.get('refresh_token')?.value
+      accessToken: cookieStore.get(COOKIES.access)?.value,
+      idToken: cookieStore.get(COOKIES.id)?.value,
+      refreshToken: cookieStore.get(COOKIES.refresh)?.value
     }
   }
 
@@ -49,14 +50,14 @@ export class ServerAuth {
   static async getAdminSession(): Promise<AdminSession> {
     try {
       const { accessToken, idToken } = await this.getTokens()
-      
+
       if (!accessToken || !idToken) {
         return { isLoggedIn: false }
       }
 
       // Decode ID token to get user info (basic JWT decode without verification)
       const payload = this.decodeJWT(idToken)
-      
+
       if (!payload) {
         return { isLoggedIn: false }
       }
@@ -90,13 +91,13 @@ export class ServerAuth {
    */
   static async requireAdminAuth(): Promise<AdminSession> {
     const session = await this.getAdminSession()
-    
+
     if (!session.isLoggedIn) {
       redirect('/login')
     }
 
     // Check for admin permissions
-    const hasAdminPermission = session.user?.permissions?.some(p => 
+    const hasAdminPermission = session.user?.permissions?.some(p =>
       p.startsWith('admin:') || p === 'admin:*:*'
     ) || session.user?.role === 'admin'
 
@@ -114,13 +115,13 @@ export class ServerAuth {
    */
   static async hasPermission(permission: string): Promise<boolean> {
     const session = await this.getAdminSession()
-    
+
     if (!session.isLoggedIn || !session.user) {
       return false
     }
 
     const userPermissions = session.user.permissions
-    
+
     // Check for exact permission match
     if (userPermissions.includes(permission)) {
       return true
@@ -128,11 +129,11 @@ export class ServerAuth {
 
     // Check for wildcard permissions
     const [platform, resource, action] = permission.split(':')
-    
+
     return userPermissions.some(p => {
-      if (p === 'admin:*:*') {return true} // Super admin
-      if (p === `${platform}:*:*`) {return true} // Platform admin
-      if (p === `${platform}:${resource}:*`) {return true} // Resource admin
+      if (p === 'admin:*:*') { return true } // Super admin
+      if (p === `${platform}:*:*`) { return true } // Platform admin
+      if (p === `${platform}:${resource}:*`) { return true } // Resource admin
       return false
     })
   }
@@ -144,7 +145,7 @@ export class ServerAuth {
    */
   static async requirePermission(permission: string): Promise<void> {
     const hasAccess = await this.hasPermission(permission)
-    
+
     if (!hasAccess) {
       redirect('/unauthorized')
     }
@@ -162,7 +163,7 @@ export class ServerAuth {
       // Add padding if needed
       const paddedPayload = payload + '='.repeat((4 - payload.length % 4) % 4)
       const decoded = Buffer.from(paddedPayload, 'base64').toString('utf8')
-      
+
       return JSON.parse(decoded)
     } catch (_error) {
       // eslint-disable-next-line no-console
@@ -177,11 +178,11 @@ export class ServerAuth {
    * @param token
    */
   static isTokenExpired(token?: string): boolean {
-    if (!token) {return true}
-    
+    if (!token) { return true }
+
     const payload = this.decodeJWT(token)
-    if (!payload?.exp) {return true}
-    
+    if (!payload?.exp) { return true }
+
     const now = Math.floor(Date.now() / 1000)
     return payload.exp < now
   }
@@ -192,13 +193,13 @@ export class ServerAuth {
    */
   static async getUserFromToken(): Promise<AdminSession['user'] | null> {
     const { idToken } = await this.getTokens()
-    
+
     if (!idToken || this.isTokenExpired(idToken)) {
       return null
     }
 
     const payload = this.decodeJWT(idToken)
-    if (!payload) {return null}
+    if (!payload) { return null }
 
     return {
       id: payload.sub || payload.user_id || '',
@@ -216,15 +217,15 @@ export class ServerAuth {
    */
   static async getAuthHeaders(): Promise<Record<string, string>> {
     const { accessToken } = await this.getTokens()
-    
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json'
     }
-    
+
     if (accessToken && !this.isTokenExpired(accessToken)) {
       headers['Authorization'] = `Bearer ${accessToken}`
     }
-    
+
     return headers
   }
 }
@@ -277,14 +278,14 @@ export class PermissionUtils {
    * @param pattern
    */
   static matchesPattern(permission: string, pattern: string): boolean {
-    if (pattern === '*' || pattern === permission) {return true}
-    
+    if (pattern === '*' || pattern === permission) { return true }
+
     const permParts = permission.split(':')
     const patternParts = pattern.split(':')
-    
-    if (patternParts.length !== permParts.length) {return false}
-    
-    return patternParts.every((part, index) => 
+
+    if (patternParts.length !== permParts.length) { return false }
+
+    return patternParts.every((part, index) =>
       part === '*' || part === permParts[index]
     )
   }

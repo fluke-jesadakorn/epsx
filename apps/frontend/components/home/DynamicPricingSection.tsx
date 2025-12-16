@@ -1,9 +1,8 @@
 'use client';
 
-import { Check, Sparkles, Tag, Star } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import { Check, Sparkles, Star } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
+import { useEffect, useState } from 'react';
 import { env } from '../../../../shared/env/schema';
 
 interface PlanFeature {
@@ -49,7 +48,7 @@ const DynamicPricingSection = () => {
   const [loading, setLoading] = useState(true);
   const [affiliateCode, setAffiliateCode] = useState<string | null>(null);
   const [affiliateInfo, setAffiliateInfo] = useState<any>(null);
-  
+
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -67,7 +66,7 @@ const DynamicPricingSection = () => {
         if (key && value) acc[key] = value;
         return acc;
       }, {} as Record<string, string>);
-      
+
       const storedCode = cookies.affiliate_code || localStorage.getItem('affiliateCode');
       if (storedCode) {
         setAffiliateCode(decodeURIComponent(storedCode));
@@ -186,7 +185,7 @@ const DynamicPricingSection = () => {
     try {
       const baseUrl = env.BACKEND_URL;
       const response = await fetch(`${baseUrl}/api/v1/public/plans/calculate-price/1?affiliate_code=${code}`);
-      
+
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.data?.affiliate) {
@@ -201,7 +200,7 @@ const DynamicPricingSection = () => {
   // Transform backend plan to frontend pricing card
   const transformToPricingCard = (plan: DynamicPlan): DynamicPricingCard => {
     const hasDiscount = plan.currentPrice < plan.basePrice;
-    const savings = hasDiscount 
+    const savings = hasDiscount
       ? `Save ${plan.currency} ${(plan.basePrice - plan.currentPrice).toFixed(2)}`
       : undefined;
 
@@ -225,17 +224,17 @@ const DynamicPricingSection = () => {
     // Build payment URL with affiliate tracking
     let paymentUrl = '/payment';
     const params = new URLSearchParams();
-    
+
     if (affiliateCode) {
       params.set('ref', affiliateCode);
     }
-    
+
     params.set('plan', plan.id.toString());
-    
+
     if (params.toString()) {
       paymentUrl += `?${params.toString()}`;
     }
-    
+
     router.push(paymentUrl);
   };
 
@@ -261,11 +260,10 @@ const DynamicPricingSection = () => {
 
         {/* Main Card */}
         <div
-          className={`card-insight group relative overflow-visible h-full flex flex-col ${
-            card.highlight
+          className={`card-insight group relative overflow-visible h-full flex flex-col ${card.highlight
               ? 'insight-gradient-soft-highlight ring-2 ring-orange-200/60 border-orange-200/50 dark:border-orange-400/30 shadow-2xl shadow-orange-500/25'
               : 'ring-2 ring-blue-200/60 border-blue-200/50 dark:border-blue-400/30 shadow-xl shadow-blue-500/20'
-          }`}
+            }`}
         >
 
           {/* Card Content - Normal padding */}
@@ -273,11 +271,10 @@ const DynamicPricingSection = () => {
             {/* Enhanced Title Section - Exact height for perfect alignment */}
             <div className="mb-4 h-[160px] flex flex-col items-center text-center">
               <div className={`${card.highlight ? 'h-[80px]' : 'h-[40px]'} flex flex-col justify-start items-center mb-2`}>
-                <h3 className={`text-xl sm:text-2xl font-bold leading-tight whitespace-nowrap ${
-                  card.highlight
+                <h3 className={`text-xl sm:text-2xl font-bold leading-tight whitespace-nowrap ${card.highlight
                     ? 'bg-gradient-to-r from-orange-600 to-yellow-600 bg-clip-text text-transparent'
                     : 'text-foreground'
-                } uppercase`}>
+                  } uppercase`}>
                   {card.title}
                 </h3>
                 {card.highlight && (
@@ -292,11 +289,10 @@ const DynamicPricingSection = () => {
               {/* Enhanced Price Display - Exact height for perfect alignment */}
               <div className={`${card.highlight ? 'h-[58px]' : 'h-[78px]'} flex flex-col justify-center items-center`}>
                 <div className="flex items-baseline gap-3 flex-wrap justify-center">
-                  <span className={`text-4xl sm:text-5xl font-bold leading-none whitespace-nowrap ${
-                    card.highlight
+                  <span className={`text-4xl sm:text-5xl font-bold leading-none whitespace-nowrap ${card.highlight
                       ? 'bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent'
                       : 'insight-gradient-text'
-                  }`}>
+                    }`}>
                     {card.price}
                   </span>
                   {card.originalPrice && (
@@ -312,14 +308,12 @@ const DynamicPricingSection = () => {
             <div className="space-y-4 mb-8 flex-grow min-h-[200px] flex flex-col">
               {card.features.map((feature, idx) => (
                 <div key={idx} className="flex items-start group/feature">
-                  <div className={`flex-shrink-0 p-1.5 rounded-full ${
-                    card.highlight
+                  <div className={`flex-shrink-0 p-1.5 rounded-full ${card.highlight
                       ? 'bg-orange-100 dark:bg-orange-900/30'
                       : 'bg-insight-primary/20'
-                  }`}>
-                    <Check className={`h-4 w-4 ${
-                      card.highlight ? 'text-orange-600 dark:text-orange-400' : 'text-insight-primary'
-                    }`} />
+                    }`}>
+                    <Check className={`h-4 w-4 ${card.highlight ? 'text-orange-600 dark:text-orange-400' : 'text-insight-primary'
+                      }`} />
                   </div>
                   <span className="ml-3 text-sm sm:text-base text-muted-foreground font-medium">
                     {feature.text}
@@ -342,11 +336,10 @@ const DynamicPricingSection = () => {
             {/* Enhanced Action Button - Always at bottom */}
             <div className="mt-auto">
               <button
-                className={`relative w-full rounded-xl font-semibold text-base py-4 overflow-hidden group ${
-                  card.highlight
+                className={`relative w-full rounded-xl font-semibold text-base py-4 overflow-hidden group ${card.highlight
                     ? 'bg-gradient-to-r from-orange-400 via-amber-400 via-yellow-400 via-amber-500 to-orange-500 hover:from-orange-500 hover:via-amber-500 hover:via-yellow-500 hover:via-amber-600 hover:to-orange-600 text-white shadow-xl shadow-orange-500/40 border-0'
                     : 'bg-gradient-to-r from-blue-400 via-cyan-400 via-blue-300 via-cyan-400 to-blue-400 hover:from-blue-500 hover:via-cyan-500 hover:via-blue-400 hover:via-cyan-500 hover:to-blue-500 text-white shadow-lg shadow-blue-400/30 border-0'
-                } before:absolute before:inset-0 before:bg-gradient-to-r before:from-transparent before:via-white/10 before:to-transparent before:translate-x-[-100%] hover:before:translate-x-[100%] before:transition-transform before:duration-700`}
+                  } before:absolute before:inset-0 before:bg-gradient-to-r before:from-transparent before:via-white/10 before:to-transparent before:translate-x-[-100%] hover:before:translate-x-[100%] before:transition-transform before:duration-700`}
                 onClick={() => handlePlanClick(card)}
               >
                 <span className="relative flex items-center justify-center gap-2">
@@ -393,23 +386,7 @@ const DynamicPricingSection = () => {
       )}
 
       <div className="relative container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl space-y-16 sm:space-y-20 lg:space-y-24">
-        
-        {/* Enhanced Promotional Banner */}
-        <div className="text-center space-y-6 animate-fade-in">
-          <div className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500 to-pink-500 text-white px-6 py-3 rounded-full text-sm font-bold shadow-lg">
-            <Sparkles className="h-4 w-4 animate-spin" />
-            <span>LIMITED TIME OFFER</span>
-            <Sparkles className="h-4 w-4 animate-pulse" />
-          </div>
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold">
-            <span className="bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 dark:from-orange-400 dark:via-yellow-400 dark:to-orange-500 bg-clip-text text-transparent animate-gradient-x">
-              Choose Your Plan
-            </span>
-          </h1>
-          <p className="text-xl sm:text-2xl text-gray-600 dark:text-gray-300 max-w-4xl mx-auto">
-            Unlock the power of advanced analytics with our flexible pricing options designed for every need
-          </p>
-        </div>
+
         {/* Personal Plans */}
         <div className="space-y-8 sm:space-y-12">
           <div className="text-center space-y-6 sm:space-y-8 animate-slide-up">

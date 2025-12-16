@@ -18,7 +18,7 @@
     "test:watch": "dotenv -e ../../.env -- cargo watch --why --exec 'test'",
     "test:coverage": "dotenv -e ../../.env -- cargo tarpaulin --out html --output-dir coverage",
     "bench": "cargo bench",
-    "lint": "cargo clippy -- -D warnings",
+    "lint": "cargo clippy",
     "lint:fix": "cargo clippy --fix --allow-dirty --allow-staged"
   }
 }

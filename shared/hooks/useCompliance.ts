@@ -7,14 +7,14 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useApiClient } from './useApiClient';
+import { useCallback, useEffect, useState } from 'react';
 import type {
+  ComplianceMetrics,
   KYCStatus,
   RiskAssessment,
-  SuspiciousActivity,
-  ComplianceMetrics
+  SuspiciousActivity
 } from '../api/compliance';
+import { useApiClient } from './useApiClient';
 
 // ============================================================================
 // TYPES
@@ -95,7 +95,7 @@ export function useApproveKYC(): UseMutationResult<
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const mutate = useCallback(async ({ wallet_address, verification_level, notes }) => {
+  const mutate = useCallback(async ({ wallet_address, verification_level, notes }: { wallet_address: string; verification_level?: string; notes?: string }) => {
     try {
       setLoading(true);
       setError(null);
@@ -139,7 +139,7 @@ export function useRejectKYC(): UseMutationResult<
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const mutate = useCallback(async ({ wallet_address, reason }) => {
+  const mutate = useCallback(async ({ wallet_address, reason }: { wallet_address: string; reason: string }) => {
     try {
       setLoading(true);
       setError(null);
@@ -231,7 +231,7 @@ export function useUpdateRiskAssessment(): UseMutationResult<
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const mutate = useCallback(async ({ assessment_id, ...updates }) => {
+  const mutate = useCallback(async ({ assessment_id, ...updates }: { assessment_id: string } & Partial<RiskAssessment>) => {
     try {
       setLoading(true);
       setError(null);
@@ -323,7 +323,7 @@ export function useFlagUser(): UseMutationResult<
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const mutate = useCallback(async ({ wallet_address, reason, severity }) => {
+  const mutate = useCallback(async ({ wallet_address, reason, severity }: { wallet_address: string; reason: string; severity?: string }) => {
     try {
       setLoading(true);
       setError(null);
@@ -371,7 +371,7 @@ export function useBlockUser(): UseMutationResult<
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const mutate = useCallback(async ({ wallet_address, reason, duration }) => {
+  const mutate = useCallback(async ({ wallet_address, reason, duration }: { wallet_address: string; reason: string; duration?: number }) => {
     try {
       setLoading(true);
       setError(null);

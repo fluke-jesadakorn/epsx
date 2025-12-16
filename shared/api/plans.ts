@@ -12,7 +12,7 @@
  * - Type-safe responses with proper error handling
  */
 
-import { UnifiedApiClient, ApiResponse } from '../utils/api-client';
+import { ApiResponse, UnifiedApiClient } from '../utils/api-client';
 
 // ============================================================================
 // PLAN TYPES
@@ -243,7 +243,7 @@ export interface ModuleEndpoint {
 // ============================================================================
 
 export class PlansAPIClient {
-  constructor(private client: UnifiedApiClient) {}
+  constructor(private client: UnifiedApiClient) { }
 
   // ============================================================================
   // PLAN MANAGEMENT
@@ -523,3 +523,7 @@ export function createPlatformPlansClient(): PlansAPIClient {
 export function isApiSuccess<T>(response: ApiResponse<T>): response is ApiResponse<T> & { success: true; data: T } {
   return response.success && response.data !== undefined;
 }
+
+// Type alias for backward compatibility with useApiClient
+export type PlansApi = PlansAPIClient;
+

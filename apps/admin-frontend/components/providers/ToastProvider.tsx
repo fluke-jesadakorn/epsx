@@ -1,74 +1,29 @@
 'use client'
 
-import { Toaster } from 'react-hot-toast'
+import { useTheme } from 'next-themes'
+import { Toaster } from 'sonner'
 
 export function ToastProvider() {
+  const { theme = 'system' } = useTheme()
+
   return (
     <Toaster
-      position="top-right"
-      reverseOrder={false}
-      gutter={12}
-      containerStyle={{
-        top: 24,
-        right: 24,
-        zIndex: 99999,
-      }}
+      theme={theme as 'light' | 'dark' | 'system'}
+      className="toaster group"
       toastOptions={{
+        classNames: {
+          toast: 'group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg',
+          description: 'group-[.toast]:text-muted-foreground',
+          actionButton: 'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground',
+          cancelButton: 'group-[.toast]:bg-muted group-[.toast]:text-muted-foreground',
+          error: 'group-[.toaster]:bg-red-500/10 group-[.toaster]:text-red-500 group-[.toaster]:border-red-500/20',
+          success: 'group-[.toaster]:bg-green-500/10 group-[.toaster]:text-green-500 group-[.toaster]:border-green-500/20',
+          warning: 'group-[.toaster]:bg-yellow-500/10 group-[.toaster]:text-yellow-500 group-[.toaster]:border-yellow-500/20',
+          info: 'group-[.toaster]:bg-blue-500/10 group-[.toaster]:text-blue-500 group-[.toaster]:border-blue-500/20',
+        },
         duration: 5000,
-        style: {
-          borderRadius: '12px',
-          background: 'hsl(220 26% 8%)',
-          color: 'hsl(45 100% 95%)',
-          border: '1px solid hsl(45 15% 20%)',
-          padding: '16px 20px',
-          fontSize: '14px',
-          fontWeight: '500',
-          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
-          backdropFilter: 'blur(8px)',
-          position: 'relative',
-          overflow: 'hidden',
-        },
-        success: {
-          style: {
-            background: 'linear-gradient(135deg, hsl(142 71% 45% / 0.95) 0%, hsl(142 71% 50% / 0.95) 100%)',
-            color: 'white',
-            border: '1px solid hsl(142 71% 45%)',
-          },
-          iconTheme: {
-            primary: 'white',
-            secondary: 'hsl(142 71% 45%)',
-          },
-        },
-        error: {
-          style: {
-            background: 'linear-gradient(135deg, hsl(0 85% 60% / 0.95) 0%, hsl(0 85% 65% / 0.95) 100%)',
-            color: 'white',
-            border: '1px solid hsl(0 85% 60%)',
-          },
-          iconTheme: {
-            primary: 'white',
-            secondary: 'hsl(0 85% 60%)',
-          },
-        },
-        loading: {
-          style: {
-            background: 'linear-gradient(135deg, hsl(217 91% 65% / 0.95) 0%, hsl(213 94% 73% / 0.95) 100%)',
-            color: 'white',
-            border: '1px solid hsl(217 91% 65%)',
-          },
-          iconTheme: {
-            primary: 'white',
-            secondary: 'hsl(217 91% 65%)',
-          },
-        },
-        blank: {
-          style: {
-            background: 'linear-gradient(135deg, hsl(47 100% 63% / 0.95) 0%, hsl(45 100% 58% / 0.95) 100%)',
-            color: 'hsl(220 26% 8%)',
-            border: '1px solid hsl(47 100% 63%)',
-          },
-        },
       }}
+      position="top-right"
     />
   )
 }

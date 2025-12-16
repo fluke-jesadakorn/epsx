@@ -1,8 +1,8 @@
 'use server';
 
+import { API_ROUTES } from '@/shared/config/route-constants';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
-import { API_ROUTES } from '@/shared/config/route-constants';
 
 // Batch permission operations for admin panel
 interface BatchPermissionRequest {
@@ -44,7 +44,7 @@ export async function grantBatchPermissions(request: BatchPermissionRequest): Pr
   failed: string[];
 }> {
   const cookieStore = await cookies();
-  const token = cookieStore.get('access_token')?.value;
+  const token = cookieStore.get(COOKIES.access)?.value;
 
   if (!token) {
     throw new Error('Authentication required');
@@ -94,7 +94,7 @@ export async function revokeBatchPermissions(
   failed: string[];
 }> {
   const cookieStore = await cookies();
-  const token = cookieStore.get('access_token')?.value;
+  const token = cookieStore.get(COOKIES.access)?.value;
 
   if (!token) {
     throw new Error('Authentication required');
@@ -143,7 +143,7 @@ export async function createPermissionTemplate(template: Omit<PermissionTemplate
   message: string;
 }> {
   const cookieStore = await cookies();
-  const token = cookieStore.get('access_token')?.value;
+  const token = cookieStore.get(COOKIES.access)?.value;
 
   if (!token) {
     throw new Error('Authentication required');
@@ -181,7 +181,7 @@ export async function createPermissionTemplate(template: Omit<PermissionTemplate
 // Get permission templates
 export async function getPermissionTemplates(): Promise<PermissionTemplate[]> {
   const cookieStore = await cookies();
-  const token = cookieStore.get('access_token')?.value;
+  const token = cookieStore.get(COOKIES.access)?.value;
 
   if (!token) {
     throw new Error('Authentication required');
@@ -250,7 +250,7 @@ export async function applyPermissionTemplate(
   failed: string[];
 }> {
   const cookieStore = await cookies();
-  const token = cookieStore.get('access_token')?.value;
+  const token = cookieStore.get(COOKIES.access)?.value;
 
   if (!token) {
     throw new Error('Authentication required');
@@ -308,7 +308,7 @@ export async function getPermissionAuditLog(
   hasMore: boolean;
 }> {
   const cookieStore = await cookies();
-  const token = cookieStore.get('access_token')?.value;
+  const token = cookieStore.get(COOKIES.access)?.value;
 
   if (!token) {
     throw new Error('Authentication required');
@@ -384,7 +384,7 @@ export async function exportPermissionsData(
   }
 ): Promise<{ data: string; filename: string }> {
   const cookieStore = await cookies();
-  const token = cookieStore.get('access_token')?.value;
+  const token = cookieStore.get(COOKIES.access)?.value;
 
   if (!token) {
     throw new Error('Authentication required');
@@ -425,7 +425,7 @@ export async function validatePermissions(permissions: string[]): Promise<{
   normalized: Record<string, string>;
 }> {
   const cookieStore = await cookies();
-  const token = cookieStore.get('access_token')?.value;
+  const token = cookieStore.get(COOKIES.access)?.value;
 
   if (!token) {
     throw new Error('Authentication required');
@@ -478,7 +478,7 @@ export async function getPermissionStatistics(): Promise<{
   }>;
 }> {
   const cookieStore = await cookies();
-  const token = cookieStore.get('access_token')?.value;
+  const token = cookieStore.get(COOKIES.access)?.value;
 
   if (!token) {
     throw new Error('Authentication required');

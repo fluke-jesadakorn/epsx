@@ -5,15 +5,9 @@
  */
 
 // Re-export everything from shared utils
-export * from '../../../shared/utils'
+export * from '../../../shared/utils';
 
-// Keep local cn function for immediate compatibility (also available in shared)
-import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-/**
- * Utility function to merge Tailwind CSS classes with clsx
- */
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+// Explicitly export cn from shared to override local if needed, or just let strict export handle it
+// If we remove local cn, the export * catches it if it's there.
+// But to be safe and explicit:
+export { cn } from '../../../shared/utils';

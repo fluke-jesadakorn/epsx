@@ -4,10 +4,10 @@
  */
 'use client';
 
+import { useAuthenticatedFetch } from '@/hooks/useAuthenticatedFetch';
+import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { RefreshCw, Search, SortAsc, SortDesc } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
-import { useAuthenticatedFetch } from '@/hooks/useAuthenticatedFetch';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -19,7 +19,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -29,6 +28,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import { WalletAutocomplete } from '@/components/ui/WalletAutocomplete';
 
 interface WalletSearchResult {
   wallet_address: string;
@@ -132,12 +132,12 @@ export function EnhancedWalletSearch() {
         const response = await fetchWithAuth('/api/v1/admin/tiers');
         const data = await response.json();
         setTiers([
-            { value: 'all', label: 'All Tiers' },
-            ...data.map((tier: string) => ({
-              value: tier.toLowerCase(),
-              label: tier.charAt(0).toUpperCase() + tier.slice(1),
-            })),
-          ]);
+          { value: 'all', label: 'All Tiers' },
+          ...data.map((tier: string) => ({
+            value: tier.toLowerCase(),
+            label: tier.charAt(0).toUpperCase() + tier.slice(1),
+          })),
+        ]);
       } catch (err) {
         console.error('Failed to fetch tiers:', err);
         setError(err instanceof Error ? err.message : 'Failed to load tiers');
@@ -316,18 +316,22 @@ export function EnhancedWalletSearch() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {/* Search Input */}
+            {/* Search Input with Autocomplete */}
             <div className="md:col-span-2 lg:col-span-2 xl:col-span-2">
               <Label htmlFor="search" className="text-sm font-medium">
                 Search Wallets
               </Label>
-              <Input
-                id="search"
-                placeholder="0x... or wallet address"
+              <WalletAutocomplete
                 value={filters.search}
-                onChange={e => handleFilterChange('search', e.target.value)}
-                variant="default"
-                className="mt-1.5 h-10 font-mono text-sm bg-white dark:bg-gray-800"
+                onChange={(value) => handleFilterChange('search', value)}
+                onSelect={(wallet) => {
+                  // When a wallet is selected from autocomplete, search immediately
+                  const newFilters = { ...filters, search: wallet.wallet_address };
+                  setFilters(newFilters);
+                  searchWallets(1, newFilters);
+                }}
+                placeholder="0x... or wallet address"
+                className="mt-1.5"
               />
             </div>
 

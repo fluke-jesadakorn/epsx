@@ -4,7 +4,7 @@
  * Works with Cloud Run environment variables (no build-time coupling)
  */
 
-import { getBackendUrl, getFrontendUrl, getAdminUrl } from './url-resolver';
+import { getAdminUrl, getBackendUrl, getFrontendUrl } from './url-resolver';
 
 export interface ValidationResult {
   isValid: boolean;
@@ -30,16 +30,33 @@ export interface OptionalEnvVars {
 }
 
 /**
+ * Detect if we're in the Next.js build phase
+ * During `next build`, we should skip strict validation since env vars
+ * will be provided at actual runtime (e.g., Cloud Run, Docker)
+ */
+function isBuildPhase(): boolean {
+  // NEXT_PHASE is set during build
+  return process.env['NEXT_PHASE'] === 'phase-production-build' ||
+    // Fallback: check if we're in a CI/build environment
+    process.env['CI'] === 'true' ||
+    // Another indicator: building but no server running
+    (process.env['NODE_ENV'] === 'production' && typeof window === 'undefined' && !process.env['PORT']);
+}
+
+/**
  * Validate required NEXT_PUBLIC_* environment variables
  */
 export function validateRuntimeEnvironment(isDevelopment = false): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
+  // Skip strict validation during build phase
+  const skipStrictValidation = isDevelopment || isBuildPhase();
+
   // Required variables
   const requiredVars: (keyof RequiredEnvVars)[] = [
     'NEXT_PUBLIC_BACKEND_URL',
-    'NEXT_PUBLIC_APP_URL', 
+    'NEXT_PUBLIC_APP_URL',
     'NEXT_PUBLIC_ADMIN_URL',
     'NEXT_PUBLIC_OAUTH_CLIENT_ID'
   ];
@@ -47,9 +64,9 @@ export function validateRuntimeEnvironment(isDevelopment = false): ValidationRes
   // Check required variables
   for (const varName of requiredVars) {
     const value = process.env[varName];
-    
+
     if (!value) {
-      if (isDevelopment) {
+      if (skipStrictValidation) {
         warnings.push(`${varName} is not set (using development default)`);
       } else {
         errors.push(`${varName} is required in production environment`);
@@ -63,9 +80,9 @@ export function validateRuntimeEnvironment(isDevelopment = false): ValidationRes
           errors.push(`${varName} must be a valid URL (current: ${value})`);
         }
       }
-      
-      // Validate HTTPS in production
-      if (!isDevelopment && varName.includes('URL') && !value.startsWith('https://')) {
+
+      // Validate HTTPS in production (skip during build phase)
+      if (!skipStrictValidation && varName.includes('URL') && !value.startsWith('https://')) {
         errors.push(`${varName} must use HTTPS in production (current: ${value})`);
       }
     }
@@ -83,7 +100,7 @@ export function validateRuntimeEnvironment(isDevelopment = false): ValidationRes
   ];
 
   const configuredFirebaseVars = firebaseVars.filter(varName => !!process.env[varName]);
-  
+
   if (configuredFirebaseVars.length > 0 && configuredFirebaseVars.length < 3) {
     warnings.push(`Firebase partially configured (${configuredFirebaseVars.length}/7 variables). Configure all Firebase variables or none for optimal performance.`);
   }
@@ -100,7 +117,7 @@ export function validateRuntimeEnvironment(isDevelopment = false): ValidationRes
  */
 export function getRuntimeEnvironment(isDevelopment = false): RequiredEnvVars & OptionalEnvVars {
   const validation = validateRuntimeEnvironment(isDevelopment);
-  
+
   if (!validation.isValid) {
     throw new Error(`Environment validation failed:\n${validation.errors.join('\n')}`);
   }
@@ -115,16 +132,16 @@ export function getRuntimeEnvironment(isDevelopment = false): RequiredEnvVars & 
     NEXT_PUBLIC_BACKEND_URL: getBackendUrl('client'),
     NEXT_PUBLIC_APP_URL: getFrontendUrl('client'),
     NEXT_PUBLIC_ADMIN_URL: getAdminUrl('client'),
-    NEXT_PUBLIC_OAUTH_CLIENT_ID: process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || (isDevelopment ? 'epsx-frontend' : ''),
-    
+    NEXT_PUBLIC_OAUTH_CLIENT_ID: process.env['NEXT_PUBLIC_OAUTH_CLIENT_ID'] || (isDevelopment ? 'epsx-frontend' : ''),
+
     // Optional Firebase variables
-    NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    NEXT_PUBLIC_FIREBASE_APP_ID: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-    NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+    NEXT_PUBLIC_FIREBASE_API_KEY: process.env['NEXT_PUBLIC_FIREBASE_API_KEY'],
+    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env['NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN'],
+    NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env['NEXT_PUBLIC_FIREBASE_PROJECT_ID'],
+    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: process.env['NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET'],
+    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env['NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'],
+    NEXT_PUBLIC_FIREBASE_APP_ID: process.env['NEXT_PUBLIC_FIREBASE_APP_ID'],
+    NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: process.env['NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID']
   };
 }
 
@@ -132,10 +149,10 @@ export function getRuntimeEnvironment(isDevelopment = false): RequiredEnvVars & 
  * Initialize and validate environment on app startup
  */
 export function initializeRuntimeEnvironment(): void {
-  const isDevelopment = process.env.NODE_ENV === 'development';
-  
+  const isDevelopment = process.env['NODE_ENV'] === 'development';
+
   console.log('🔍 Validating runtime environment variables...');
-  
+
   try {
     const env = getRuntimeEnvironment(isDevelopment);
     console.log('✅ Runtime environment validation passed');
@@ -143,7 +160,7 @@ export function initializeRuntimeEnvironment(): void {
     console.log(`🎯 App URL: ${env.NEXT_PUBLIC_APP_URL}`);
     console.log(`👥 Admin URL: ${env.NEXT_PUBLIC_ADMIN_URL}`);
     console.log(`🔑 OAuth Client ID: ${env.NEXT_PUBLIC_OAUTH_CLIENT_ID}`);
-    
+
     if (env.NEXT_PUBLIC_FIREBASE_API_KEY) {
       console.log('🔥 Firebase configuration detected');
     }

@@ -31,7 +31,7 @@ export const emailSchema = z.string()
 export const passwordSchema = z.string()
   .min(8, 'Password must be at least 8 characters')
   .max(128, 'Password is too long')
-  .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, 
+  .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
     'Password must contain at least one uppercase letter, one lowercase letter, and one number');
 
 // Name fields with reasonable constraints
@@ -378,7 +378,7 @@ export const createConditionalSchema = <T>(
   return z.any().superRefine((data, ctx) => {
     const targetSchema = condition(data) ? schema : fallback;
     const result = targetSchema.safeParse(data);
-    
+
     if (!result.success) {
       result.error.issues.forEach(issue => {
         ctx.addIssue({
@@ -393,7 +393,7 @@ export const createConditionalSchema = <T>(
 /**
  * Helper to validate array of unique strings
  */
-export const uniqueStringArraySchema = (minLength = 0) => 
+export const uniqueStringArraySchema = (minLength = 0) =>
   z.array(z.string())
     .min(minLength, minLength > 0 ? `At least ${minLength} item${minLength !== 1 ? 's' : ''} required` : undefined)
     .refine(arr => new Set(arr).size === arr.length, 'Duplicate values are not allowed');
@@ -405,10 +405,10 @@ export const createPlatformSchema = (platform: 'admin' | 'frontend') => {
   const baseSchema = z.object({
     platform: z.literal(platform)
   });
-  
+
   return {
     extend: <T extends z.ZodRawShape>(shape: T) => baseSchema.extend(shape),
-    merge: <T extends z.ZodTypeAny>(schema: T) => baseSchema.merge(schema)
+    merge: <T extends z.ZodObject<any, any>>(schema: T) => baseSchema.merge(schema)
   };
 };
 
@@ -429,7 +429,7 @@ export const isValidPermission = (permission: string): boolean => {
 export const isValidEmbeddedPermission = (permission: string): boolean => {
   const parts = permission.split(':');
   if (parts.length !== 4) return false;
-  
+
   const timestamp = parseInt(parts[3], 10);
   return !isNaN(timestamp) && timestamp > 1000000000; // Valid Unix timestamp
 };
@@ -466,7 +466,7 @@ export const isValidPhoneNumber = (phone: string): boolean => {
 export const getErrorMessage = (error: z.ZodError): string => {
   const firstError = error.issues[0];
   if (!firstError) return 'Validation error';
-  
+
   return firstError.message;
 };
 
@@ -475,12 +475,12 @@ export const getErrorMessage = (error: z.ZodError): string => {
  */
 export const getErrorMessages = (error: z.ZodError): Record<string, string[]> => {
   const messages: Record<string, string[]> = {};
-  
+
   error.issues.forEach(issue => {
     const path = issue.path.join('.');
     if (!messages[path]) messages[path] = [];
     messages[path].push(issue.message);
   });
-  
+
   return messages;
 };

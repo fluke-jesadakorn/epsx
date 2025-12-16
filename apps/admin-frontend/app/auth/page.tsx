@@ -3,14 +3,14 @@
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import { useAccount } from 'wagmi';
 
 import { useAdminWeb3Context } from '../../providers/AuthProvider';
 
 import {
-  requestWalletChallenge,
-  verifyWalletSignature,
+    requestWalletChallenge,
+    verifyWalletSignature,
 } from '@/shared/auth/api';
 import { OIDC_KEYS } from '@/shared/auth/storage';
 import { useSharedAuth } from '@/shared/components/auth/Provider';

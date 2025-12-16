@@ -4,7 +4,6 @@
 import { LoadingSpinner } from '@/components/common/LoadingSpinner';
 import { NavigationClient } from '@/components/nav';
 import { StateProvider } from '@/components/state/StateProvider';
-import { ToastProvider } from '@/components/ui/toaster';
 import { useLoadingState, useUI } from '@/context/ui-context';
 import { useResponsive } from '@/hooks/state/useStateSelector';
 import { ThemeProvider } from 'next-themes';
@@ -134,9 +133,8 @@ export function AppLayout({
         serverAuthState={serverAuthState}
         serverUserPreferences={serverUserPreferences}
       >
-          <ToastProvider>
-            <InnerLayout className={className}>{children}</InnerLayout>
-          </ToastProvider>
+        <InnerLayout className={className}>{children}</InnerLayout>
+
       </StateProvider>
     </ThemeProvider>
   );

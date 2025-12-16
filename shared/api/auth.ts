@@ -12,8 +12,8 @@
  * - SIWE (Sign-In with Ethereum) standard compliance
  */
 
-import { UnifiedApiClient, ApiResponse } from '../utils/api-client';
 import { API_ROUTES } from '../config/route-constants';
+import { UnifiedApiClient } from '../utils/api-client';
 
 // ============================================================================
 // AUTH TYPES
@@ -140,7 +140,7 @@ export interface PermissionsResponse {
 // ============================================================================
 
 export class AuthAPIClient {
-  constructor(private client: UnifiedApiClient) {}
+  constructor(private client: UnifiedApiClient) { }
 
   // ============================================================================
   // WEB3 AUTHENTICATION FLOW
@@ -219,7 +219,7 @@ export class AuthAPIClient {
 
       // Step 2: Sign message
       const signature = await signMessageFn(challenge.message);
-      
+
       if (!signature) {
         throw new Error('Message signing was cancelled');
       }
@@ -494,10 +494,10 @@ export class AuthAPIClient {
     try {
       const permissions = await this.getUserPermissions();
       return permissions.permissions.includes(permission) ||
-             permissions.permissions.some(p => 
-               p === 'admin:*:*' || 
-               p.startsWith(permission.split(':').slice(0, 2).join(':') + ':*')
-             );
+        permissions.permissions.some(p =>
+          p === 'admin:*:*' ||
+          p.startsWith(permission.split(':').slice(0, 2).join(':') + ':*')
+        );
     } catch (error) {
       console.warn(`Permission check failed: ${error}`);
       return false;
@@ -563,13 +563,13 @@ export class AuthAPIClient {
     } = options;
 
     let message = `${domain} wants you to sign in with your Ethereum account:\n${address}\n\n${statement}`;
-    
+
     message += `\n\nURI: ${uri}`;
     message += `\nVersion: ${version}`;
     message += `\nChain ID: ${chainId}`;
     message += `\nNonce: ${nonce}`;
     message += `\nIssued At: ${issuedAt}`;
-    
+
     if (expirationTime) {
       message += `\nExpiration Time: ${expirationTime}`;
     }
@@ -601,3 +601,6 @@ export function createPlatformAuthClient(platform: 'frontend' | 'admin' = 'front
     return new AuthAPIClient(createFrontendApiClient());
   }
 }
+
+// Type alias for backward compatibility with useApiClient
+export type AuthApi = AuthAPIClient;

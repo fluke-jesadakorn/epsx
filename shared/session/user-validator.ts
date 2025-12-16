@@ -4,10 +4,10 @@
  * Maintains backward compatibility with existing user middleware
  */
 
-import { BaseSessionValidator, type ValidationRequest, type SessionValidatorConfig } from './validator'
 import type { SessionValidationResponse } from '../types/domain/Session'
-import type { UserProfile, PermissionGroup } from '../types/domain/User'
+import type { PermissionGroup, UserProfile } from '../types/domain/User'
 import { getPermissionGroupLevel } from '../types/domain/User'
+import { BaseSessionValidator, type SessionValidatorConfig, type ValidationRequest } from './validator'
 
 // ============================================================================
 // USER-SPECIFIC CONFIGURATION
@@ -64,12 +64,12 @@ export class UserSessionValidator {
   hasFeatureAccess(user: UserProfile, feature: string): boolean {
     try {
       const role = user.role.toLowerCase()
-      
+
       // Admin users have access to all features
       if (role === 'admin') {
         return true
       }
-      
+
       // Map features to permission requirements
       switch (feature) {
         case 'view_eps':
@@ -100,17 +100,17 @@ export class UserSessionValidator {
     try {
       const userRole = user.role.toLowerCase()
       const requiredRole = role.toLowerCase()
-      
+
       // Admin role has access to everything
       if (userRole === 'admin') {
         return true
       }
-      
+
       // Exact role match
       if (userRole === requiredRole) {
         return true
       }
-      
+
       // Role hierarchy: admin > premium > user > guest
       const roleHierarchy = {
         'guest': 0,
@@ -118,10 +118,10 @@ export class UserSessionValidator {
         'premium': 2,
         'admin': 3
       }
-      
+
       const userLevel = roleHierarchy[userRole as keyof typeof roleHierarchy] || 0
       const requiredLevel = roleHierarchy[requiredRole as keyof typeof roleHierarchy] || 0
-      
+
       return userLevel >= requiredLevel
     } catch (error) {
       console.error('Failed to check role access:', error)
@@ -137,32 +137,32 @@ export class UserSessionValidator {
     if (path.startsWith('/public') || path === '/' || path.startsWith('/login') || path.startsWith('/register')) {
       return true
     }
-    
+
     // Premium features require at least BRONZE tier
     if (path.includes('/premium') || path.includes('/advanced-analytics')) {
       return getPermissionGroupLevel(user.permissionGroup) >= getPermissionGroupLevel('Standard Access Group')
     }
-    
+
     // Professional features require SILVER tier
     if (path.includes('/professional') || path.includes('/alerts')) {
       return getPermissionGroupLevel(user.permissionGroup) >= getPermissionGroupLevel('Standard Access Group')
     }
-    
+
     // VIP features require GOLD tier
     if (path.includes('/vip') || path.includes('/priority-support')) {
       return getPermissionGroupLevel(user.permissionGroup) >= getPermissionGroupLevel('Premium Access Group')
     }
-    
+
     // Elite features require PLATINUM tier
     if (path.includes('/elite') || path.includes('/custom-dashboards')) {
       return getPermissionGroupLevel(user.permissionGroup) >= getPermissionGroupLevel('Professional Access Group')
     }
-    
+
     // Enterprise features require ENTERPRISE tier
     if (path.includes('/enterprise') || path.includes('/api-access')) {
       return getPermissionGroupLevel(user.permissionGroup) >= getPermissionGroupLevel('Enterprise Access Group')
     }
-    
+
     // Default: allow access for authenticated users
     return true
   }
@@ -178,7 +178,7 @@ export class UserSessionValidator {
       'Professional Access Group': { perMinute: 300, perHour: 15000 },
       'Enterprise Access Group': { perMinute: 1000, perHour: 50000 }
     }
-    
+
     return rateLimits[user.permissionGroup] || rateLimits['Basic Access Group']
   }
 
@@ -191,7 +191,7 @@ export class UserSessionValidator {
       if (user.role.toLowerCase() === 'admin') {
         return ['view_eps', 'export_data', 'realtime', 'profile', 'notifications', 'billing', 'advanced_filters']
       }
-      
+
       // Feature mapping by package tier
       const featuresByTier: Record<string, string[]> = {
         FREE: ['view_eps', 'profile'],
@@ -201,8 +201,8 @@ export class UserSessionValidator {
         PLATINUM: ['view_eps', 'export_data', 'realtime', 'profile', 'notifications', 'billing', 'advanced_filters'],
         ENTERPRISE: ['view_eps', 'export_data', 'realtime', 'profile', 'notifications', 'billing', 'advanced_filters']
       }
-      
-      return featuresByTier[user.packageTier] || featuresByTier.FREE
+
+      return featuresByTier[user.packageTier ?? 'FREE'] ?? featuresByTier['FREE']
     } catch (error) {
       console.error('Failed to get available features:', error)
       return ['view_eps', 'profile'] // Safe fallback
@@ -219,19 +219,19 @@ export class UserSessionValidator {
       case 'dashboard.view':
       case 'analytics.view':
         return this.hasFeatureAccess(user, 'view_eps')
-      
+
       case 'analytics.export':
         return this.hasFeatureAccess(user, 'export_data')
-      
+
       case 'admin':
       case 'admin.users':
         return user.role.toLowerCase() === 'admin'
-      
+
       default:
         // Try checking as a feature first
         return this.hasFeatureAccess(user, permission) ||
-               // Fallback to permission system
-               this.baseValidator.hasPermission(user, permission)
+          // Fallback to permission system
+          this.baseValidator.hasPermission(user, permission)
     }
   }
 
@@ -278,11 +278,11 @@ export async function requireUserSession(request: {
   method?: string
 }): Promise<UserProfile> {
   const result = await validateUserSession(request)
-  
+
   if (!result.valid || !result.session?.user) {
     throw new Error(result.error || 'User session validation failed')
   }
-  
+
   return result.session.user
 }
 

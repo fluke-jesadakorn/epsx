@@ -5,12 +5,12 @@
  * Handles fetching, state management, and actions for both frontend and admin.
  */
 
-import { useState, useEffect, useCallback, useRef } from 'react'
-import type { UnifiedApiClient } from '../utils/api-client'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createNotificationsClient } from '../api/notifications'
-import { useSSENotifications } from './useSSENotifications'
-import type { Notification, NotificationFilters } from '../components/notifications/types'
 import { MAX_DROPDOWN_NOTIFICATIONS } from '../components/notifications/constants'
+import type { Notification } from '../components/notifications/types'
+import type { UnifiedApiClient } from '../utils/api-client'
+import { useSSENotifications } from './useSSENotifications'
 
 interface BrowserNotificationAPI {
   showNotification: (type: string, title: string, message: string) => void
@@ -64,7 +64,7 @@ export function useNotificationBell(
     walletAddress,
     autoConnect: false, // We'll control it manually
     onNotification: useCallback(
-      (sseNotif) => {
+      (sseNotif: { id: string; title: string; message: string; notification_type: string; priority: string; timestamp: string; expires_at?: string; wallet_address: string; data?: Record<string, any> }) => {
         // Map SSE notification to Notification format
         const newNotification: Notification = {
           id: sseNotif.id,
@@ -95,10 +95,10 @@ export function useNotificationBell(
             sseNotif.notification_type === 'security'
               ? 'security'
               : sseNotif.notification_type === 'permission'
-              ? 'permissions'
-              : sseNotif.notification_type === 'wallet'
-              ? 'trading'
-              : 'system'
+                ? 'permissions'
+                : sseNotif.notification_type === 'wallet'
+                  ? 'trading'
+                  : 'system'
 
           browserNotifications.showNotification(
             notifType as any,
@@ -112,7 +112,7 @@ export function useNotificationBell(
       },
       [browserNotifications, onNotificationReceived]
     ),
-    onError: useCallback((error) => {
+    onError: useCallback((error: string) => {
       console.warn('SSE connection error:', error)
       setError('Connection lost. Reconnecting...')
     }, []),

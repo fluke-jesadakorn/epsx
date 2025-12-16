@@ -5,7 +5,6 @@
  * Eliminates code duplication and ensures consistent behavior.
  */
 
-import type { NotificationType, NotificationPriority } from './types'
 
 // ============================================================================
 // NOTIFICATION ICONS
@@ -70,15 +69,35 @@ export function getPriorityColor(priority: string): string {
   switch (priority) {
     case 'critical':
     case 'urgent':
-      return 'bg-red-500'
+      return '#ef4444'
     case 'high':
-      return 'bg-orange-500'
+      return '#f59e0b'
     case 'normal':
-      return 'bg-blue-500'
+      return '#3b82f6'
     case 'low':
-      return 'bg-green-500'
+      return '#10b981'
     default:
-      return 'bg-gray-500'
+      return '#3b82f6'
+  }
+}
+
+/**
+ * Get Tailwind background color class for notification priority
+ * Used in: AdminNotificationBellClient
+ */
+export function getPriorityBgColor(priority: string): string {
+  switch (priority) {
+    case 'critical':
+    case 'urgent':
+      return 'bg-red-50'
+    case 'high':
+      return 'bg-amber-50'
+    case 'normal':
+      return 'bg-blue-50'
+    case 'low':
+      return 'bg-green-50'
+    default:
+      return 'bg-blue-50'
   }
 }
 

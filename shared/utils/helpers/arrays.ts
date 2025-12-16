@@ -11,7 +11,7 @@ export const arrayUtils = {
    * Remove duplicates from array
    */
   unique: <T>(arr: T[]): T[] => [...new Set(arr)],
-  
+
   /**
    * Group array by key
    */
@@ -23,7 +23,7 @@ export const arrayUtils = {
       return groups
     }, {} as Record<string, T[]>)
   },
-  
+
   /**
    * Chunk array into smaller arrays
    */
@@ -78,7 +78,7 @@ export const array = {
    * Group array by function result
    */
   groupByFn<T, K extends string | number>(
-    arr: T[], 
+    arr: T[],
     keyFn: (item: T) => K
   ): Record<K, T[]> {
     return arr.reduce((groups, item) => {
@@ -96,7 +96,7 @@ export const array = {
     return [...arr].sort((a, b) => {
       const aVal = a[key]
       const bVal = b[key]
-      
+
       if (aVal < bVal) return direction === 'asc' ? -1 : 1
       if (aVal > bVal) return direction === 'asc' ? 1 : -1
       return 0
@@ -107,14 +107,14 @@ export const array = {
    * Sort array by function result
    */
   sortByFn<T>(
-    arr: T[], 
-    keyFn: (item: T) => any, 
+    arr: T[],
+    keyFn: (item: T) => any,
     direction: 'asc' | 'desc' = 'asc'
   ): T[] {
     return [...arr].sort((a, b) => {
       const aVal = keyFn(a)
       const bVal = keyFn(b)
-      
+
       if (aVal < bVal) return direction === 'asc' ? -1 : 1
       if (aVal > bVal) return direction === 'asc' ? 1 : -1
       return 0
@@ -136,22 +136,24 @@ export const array = {
    * Flatten nested arrays
    */
   flatten<T>(arr: (T | T[])[]): T[] {
-    return arr.reduce((acc, val) => {
+    const result: T[] = [];
+    for (const val of arr) {
       if (Array.isArray(val)) {
-        return acc.concat(this.flatten(val))
+        result.push(...this.flatten(val as (T | T[])[]));
       } else {
-        return acc.concat([val])
+        result.push(val);
       }
-    }, [] as T[])
+    }
+    return result;
   },
 
   /**
    * Deep flatten arrays to specified depth
    */
   flattenDeep<T>(arr: any[], depth: number = Infinity): T[] {
-    return depth > 0 
-      ? arr.reduce((acc, val) => 
-          acc.concat(Array.isArray(val) ? this.flattenDeep(val, depth - 1) : val), [])
+    return depth > 0
+      ? arr.reduce((acc, val) =>
+        acc.concat(Array.isArray(val) ? this.flattenDeep(val, depth - 1) : val), [])
       : arr.slice()
   },
 
@@ -182,7 +184,7 @@ export const array = {
   partition<T>(arr: T[], predicate: (item: T) => boolean): [T[], T[]] {
     const pass: T[] = []
     const fail: T[] = []
-    
+
     arr.forEach(item => {
       if (predicate(item)) {
         pass.push(item)
@@ -190,7 +192,7 @@ export const array = {
         fail.push(item)
       }
     })
-    
+
     return [pass, fail]
   },
 
@@ -262,7 +264,7 @@ export const array = {
     const shuffled = [...arr]
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1))
-      ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+        ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
     }
     return shuffled
   },
@@ -272,7 +274,7 @@ export const array = {
    */
   sample<T>(arr: T[], count: number): T[] {
     if (count >= arr.length) return [...arr]
-    
+
     const shuffled = this.shuffle(arr)
     return shuffled.slice(0, count)
   },
@@ -290,17 +292,17 @@ export const array = {
    */
   transpose<T>(matrix: T[][]): T[][] {
     if (matrix.length === 0) return []
-    
+
     const result: T[][] = []
     const maxLength = Math.max(...matrix.map(row => row.length))
-    
+
     for (let i = 0; i < maxLength; i++) {
       result[i] = []
       for (let j = 0; j < matrix.length; j++) {
         result[i][j] = matrix[j][i]
       }
     }
-    
+
     return result
   },
 
@@ -309,14 +311,14 @@ export const array = {
    */
   zip<T>(...arrays: T[][]): T[][] {
     if (arrays.length === 0) return []
-    
+
     const maxLength = Math.max(...arrays.map(arr => arr.length))
     const result: T[][] = []
-    
+
     for (let i = 0; i < maxLength; i++) {
       result[i] = arrays.map(arr => arr[i])
     }
-    
+
     return result
   },
 
@@ -325,7 +327,7 @@ export const array = {
    */
   range(start: number, end: number, step: number = 1): number[] {
     const result: number[] = []
-    
+
     if (step > 0) {
       for (let i = start; i < end; i += step) {
         result.push(i)
@@ -335,7 +337,7 @@ export const array = {
         result.push(i)
       }
     }
-    
+
     return result
   },
 
@@ -351,13 +353,13 @@ export const array = {
    */
   min<T>(arr: T[], keyFn?: (item: T) => number): T | undefined {
     if (arr.length === 0) return undefined
-    
+
     if (keyFn) {
-      return arr.reduce((min, item) => 
+      return arr.reduce((min, item) =>
         keyFn(item) < keyFn(min) ? item : min
       )
     }
-    
+
     return arr.reduce((min, item) => item < min ? item : min)
   },
 
@@ -366,13 +368,13 @@ export const array = {
    */
   max<T>(arr: T[], keyFn?: (item: T) => number): T | undefined {
     if (arr.length === 0) return undefined
-    
+
     if (keyFn) {
-      return arr.reduce((max, item) => 
+      return arr.reduce((max, item) =>
         keyFn(item) > keyFn(max) ? item : max
       )
     }
-    
+
     return arr.reduce((max, item) => item > max ? item : max)
   },
 
@@ -383,7 +385,7 @@ export const array = {
     if (keyFn) {
       return arr.reduce((sum, item) => sum + keyFn(item), 0)
     }
-    
+
     return (arr as any[]).reduce((sum, item) => sum + item, 0)
   },
 

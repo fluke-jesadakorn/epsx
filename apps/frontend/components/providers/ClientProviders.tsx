@@ -1,11 +1,11 @@
 'use client';
 
+import { OptimizedSuspenseBoundary } from '@/components/common/OptimizedSuspenseBoundary';
 import { PerformanceProvider } from '@/components/common/PerformanceProvider';
-import { ToastProvider } from '@/components/ui/toaster';
+import { Toaster } from '@/components/ui/toaster';
 import { AppStateProvider } from '@/context/app-state';
 import { UIProvider } from '@/context/ui-context';
 import { ThemeProvider } from 'next-themes';
-import { OptimizedSuspenseBoundary } from '@/components/common/OptimizedSuspenseBoundary';
 
 export function ClientProviders({ children }: { children: React.ReactNode }) {
   return (
@@ -13,13 +13,11 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
       <PerformanceProvider>
         <AppStateProvider>
           <UIProvider>
-            <ToastProvider>
-              {/* <BackgroundDecorationsClient /> */}
-
-              <OptimizedSuspenseBoundary identifier="main content">
-                {children}
-              </OptimizedSuspenseBoundary>
-            </ToastProvider>
+            {/* <BackgroundDecorationsClient /> */}
+            <OptimizedSuspenseBoundary identifier="main content">
+              {children}
+            </OptimizedSuspenseBoundary>
+            <Toaster />
           </UIProvider>
         </AppStateProvider>
       </PerformanceProvider>

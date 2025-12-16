@@ -1,30 +1,27 @@
 'use client';
 
-import { 
-  Wallet, 
-  Shield, 
-  Link, 
-  Unlink, 
-  Crown, 
-  AlertTriangle, 
-  CheckCircle, 
-  Copy,
-  ExternalLink,
-  RefreshCcw
+import {
+    AlertTriangle,
+    CheckCircle,
+    Crown,
+    Link,
+    RefreshCcw,
+    Shield,
+    Unlink,
+    Wallet
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { useAccount, useDisconnect } from 'wagmi';
 
 import { AdminWalletAuth } from '@/components/auth/AdminWalletAuth';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { apiFetch } from '@/lib/api-fetch';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
-import { UserWalletDisplay, UserTierBadge, UserAuthStatus, UserPermissionsDisplay } from '@/shared/components/display/UserDisplay';
+import { UserAuthStatus, UserPermissionsDisplay, UserTierBadge, UserWalletDisplay } from '@/shared/components/display/UserDisplay';
 
 interface WalletPermission {
   permission: string;

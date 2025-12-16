@@ -1,34 +1,28 @@
 'use client';
 
 import {
-  Activity,
-  AlertTriangle,
-  BarChart3,
-  BookOpen,
-  Clock,
-  Code,
-  Copy,
-  Download,
-  Eye,
-  EyeOff,
-  Globe,
-  Key,
-  Plus,
-  Settings,
-  Shield,
-  Trash2,
+    Activity,
+    AlertTriangle,
+    BarChart3,
+    BookOpen,
+    Clock,
+    Code,
+    Copy,
+    Download,
+    Eye,
+    EyeOff,
+    Globe,
+    Key,
+    Plus,
+    Settings,
+    Shield,
+    Trash2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import React, { useCallback , useEffect, useState } from 'react';
-import { toast } from 'react-hot-toast';
+import React, { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
-import {
-  FormField,
-  Input,
-  Select,
-  Textarea,
-} from '@/components/ui/FormComponents';
 import { logger } from '@/lib/logger';
 import { createPlansClient, type ApiKeyResponse as ApiKey, type Module } from '@/shared/api/plans';
 import { createAdminApiClient } from '@/shared/utils/api-client';

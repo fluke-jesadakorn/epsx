@@ -3,6 +3,7 @@
  * Provides types and utilities for server-side authentication
  */
 
+import { COOKIES } from '@/shared/auth/cookies';
 import type { EPSXJWTPayload } from '@/shared/auth/jwt';
 
 /**
@@ -42,7 +43,7 @@ export async function getServerSession(): Promise<ServerSession | null> {
 
     const cookieStore = await cookies();
     // OIDC Migration: Use only OIDC access token
-    const jwt = cookieStore.get('access_token')?.value;
+    const jwt = cookieStore.get(COOKIES.access)?.value;
 
     if (!jwt) { return null; }
 

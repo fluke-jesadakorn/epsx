@@ -1,19 +1,19 @@
 'use client';
 
-import { 
-  Code, 
-  Shield, 
-  Globe, 
-  Key, 
-  AlertTriangle, 
-  BookOpen, 
-  ExternalLink,
-  Copy,
-  ChevronRight,
-  ChevronDown
+import {
+    AlertTriangle,
+    BookOpen,
+    ChevronDown,
+    ChevronRight,
+    Code,
+    Copy,
+    ExternalLink,
+    Globe,
+    Key,
+    Shield
 } from 'lucide-react';
 import React, { useState } from 'react';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 

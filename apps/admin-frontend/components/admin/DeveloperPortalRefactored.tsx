@@ -1,9 +1,9 @@
 'use client';
 
-import { Shield, BarChart3, Key, BookOpen, Activity } from 'lucide-react';
+import { Activity, BarChart3, BookOpen, Key, Shield } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect, useCallback, memo } from 'react';
-import { toast } from 'react-hot-toast';
+import { memo, useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 
 // Extracted tab components
 import ApiKeyManagementTab from './ApiKeyManagementTab';

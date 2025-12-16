@@ -56,6 +56,7 @@ export interface UserInfoResponse {
   permissions: string[]; // Backend-determined permissions (display only)
   email?: string; // Optional email (for compatibility)
   access?: string; // JWT access token for SSE authentication
+  packageTier?: string; // Package tier for display (alias of tier_level)
 }
 
 // Unified API Response Structure (from backend)
@@ -219,75 +220,75 @@ export class SharedWeb3AuthClient {
           }),
         });
 
-      console.log('🔑 Challenge response received', {
-        status: response.status,
-        ok: response.ok,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries()),
-      });
+        console.log('🔑 Challenge response received', {
+          status: response.status,
+          ok: response.ok,
+          statusText: response.statusText,
+          headers: Object.fromEntries(response.headers.entries()),
+        });
 
-      if (!response.ok) {
-        let errorMessage = `Challenge request failed: ${response.status} ${response.statusText}`;
-        let errorData: any = null;
+        if (!response.ok) {
+          let errorMessage = `Challenge request failed: ${response.status} ${response.statusText}`;
+          let errorData: any = null;
 
-        // Read the response body only once
-        const contentType = response.headers.get('content-type');
-        try {
+          // Read the response body only once
+          const contentType = response.headers.get('content-type');
+          try {
+            if (response.status === 404) {
+              // Specific error for 404 - endpoint not found
+              errorMessage = `Authentication endpoint not found. The backend may need to be updated with Web3 authentication routes.`;
+            } else if (contentType && contentType.includes('application/json')) {
+              errorData = await response.json();
+              errorMessage = errorData.message || errorMessage;
+            } else {
+              const errorText = await response.text();
+              errorMessage = `Challenge request failed: ${response.status} ${response.statusText}. ${errorText}`;
+              errorData = { text: errorText };
+            }
+          } catch (bodyReadError) {
+            console.warn('Failed to read error response body:', bodyReadError);
+            // Use only status information if body reading fails
+            if (response.status === 404) {
+              errorMessage = `Authentication endpoint not found. The backend may need to be updated with Web3 authentication routes.`;
+            }
+          }
+
+          // Special handling for 404 - likely route configuration issue
+          let errorDetails: any;
           if (response.status === 404) {
-            // Specific error for 404 - endpoint not found
-            errorMessage = `Authentication endpoint not found. The backend may need to be updated with Web3 authentication routes.`;
-          } else if (contentType && contentType.includes('application/json')) {
-            errorData = await response.json();
-            errorMessage = errorData.message || errorMessage;
+            errorDetails = {
+              url: challengeUrl,
+              status: response.status,
+              statusText: response.statusText,
+              headers: Object.fromEntries(response.headers.entries()),
+              errorData,
+              troubleshooting: 'Authentication endpoint not found. The backend may need to be updated with the correct Web3 authentication routes (/api/auth/web3/*).',
+              requestBody: {
+                wallet_address: walletAddress,
+              },
+              backendUrl: this.backendUrl,
+            };
+
+            console.error('❌ Web3 challenge endpoint not found (404)', errorDetails);
           } else {
-            const errorText = await response.text();
-            errorMessage = `Challenge request failed: ${response.status} ${response.statusText}. ${errorText}`;
-            errorData = { text: errorText };
+            errorDetails = {
+              url: challengeUrl,
+              status: response.status,
+              statusText: response.statusText,
+              headers: Object.fromEntries(response.headers.entries()),
+              errorData,
+              troubleshooting: this.getTroubleshootingHints(response.status),
+              requestBody: {
+                wallet_address: walletAddress,
+              },
+              backendUrl: this.backendUrl,
+            };
+
+            console.error('❌ Challenge request failed with full details:', errorDetails);
           }
-        } catch (bodyReadError) {
-          console.warn('Failed to read error response body:', bodyReadError);
-          // Use only status information if body reading fails
-          if (response.status === 404) {
-            errorMessage = `Authentication endpoint not found. The backend may need to be updated with Web3 authentication routes.`;
-          }
+
+          throw new Error(errorMessage);
         }
-
-        // Special handling for 404 - likely route configuration issue
-        let errorDetails: any;
-        if (response.status === 404) {
-          errorDetails = {
-            url: challengeUrl,
-            status: response.status,
-            statusText: response.statusText,
-            headers: Object.fromEntries(response.headers.entries()),
-            errorData,
-            troubleshooting: 'Authentication endpoint not found. The backend may need to be updated with the correct Web3 authentication routes (/api/auth/web3/*).',
-            requestBody: {
-              wallet_address: walletAddress,
-            },
-            backendUrl: this.backendUrl,
-          };
-
-          console.error('❌ Web3 challenge endpoint not found (404)', errorDetails);
-        } else {
-          errorDetails = {
-            url: challengeUrl,
-            status: response.status,
-            statusText: response.statusText,
-            headers: Object.fromEntries(response.headers.entries()),
-            errorData,
-            troubleshooting: this.getTroubleshootingHints(response.status),
-            requestBody: {
-              wallet_address: walletAddress,
-            },
-            backendUrl: this.backendUrl,
-          };
-
-          console.error('❌ Challenge request failed with full details:', errorDetails);
-        }
-
-        throw new Error(errorMessage);
-      }
 
         const challengeData = await response.json();
         console.log('✅ Challenge request successful', challengeData);
@@ -693,19 +694,32 @@ export class SharedWeb3AuthClient {
   hasPermissionForDisplay(permission: string): boolean {
     return this.user?.permissions.includes(permission) || false;
   }
+
+  // Public getters for debugging
+  getBackendUrl(): string {
+    return this.backendUrl;
+  }
+
+  getClientId(): string {
+    return this.clientId;
+  }
+
+  getUserTier(): string {
+    return this.user?.tier_level || 'free';
+  }
 }
 
 // Factory functions for creating client instances
 export function createFrontendClient(): SharedWeb3AuthClient {
   return new SharedWeb3AuthClient(
     'epsx-frontend',
-    process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
+    process.env['NEXT_PUBLIC_BACKEND_URL'] || 'http://localhost:8080'
   );
 }
 
 export function createAdminClient(): SharedWeb3AuthClient {
   return new SharedWeb3AuthClient(
     'epsx-admin',
-    process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080'
+    process.env['NEXT_PUBLIC_BACKEND_URL'] || 'http://localhost:8080'
   );
 }

@@ -74,9 +74,9 @@ function redirectToAuth(request: NextRequest): NextResponse {
   const redirect = NextResponse.redirect(authUrl.toString());
 
   // Clear authentication cookies
-  redirect.cookies.delete('access_token');
-  redirect.cookies.delete('id_token');
-  redirect.cookies.delete('refresh_token');
+  redirect.cookies.delete(COOKIES.access);
+  redirect.cookies.delete(COOKIES.id);
+  redirect.cookies.delete(COOKIES.refresh);
 
   return redirect;
 }

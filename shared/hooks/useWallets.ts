@@ -7,15 +7,15 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useApiClient } from './useApiClient';
+import { useCallback, useEffect, useState } from 'react';
 import type {
+  RecentWallet,
   WalletInfo,
   WalletSearchFilters,
-  WalletStats,
-  RecentWallet
+  WalletStats
 } from '../api/wallets';
 import type { PaginatedResponse } from '../utils/api-client';
+import { useApiClient } from './useApiClient';
 
 // ============================================================================
 // TYPES
@@ -182,7 +182,7 @@ export function useUpdateWalletStatus(): UseMutationResult<
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const mutate = useCallback(async ({ address, status, reason }) => {
+  const mutate = useCallback(async ({ address, status, reason }: { address: string; status: 'active' | 'inactive' | 'suspended'; reason?: string }) => {
     try {
       setLoading(true);
       setError(null);
@@ -226,7 +226,7 @@ export function useUpdateWalletTier(): UseMutationResult<
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
-  const mutate = useCallback(async ({ address, tier }) => {
+  const mutate = useCallback(async ({ address, tier }: { address: string; tier: string }) => {
     try {
       setLoading(true);
       setError(null);

@@ -14,7 +14,7 @@ import {
     Wallet
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { toast } from 'react-hot-toast';
+import { toast } from 'sonner';
 import { useAccount } from 'wagmi';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';

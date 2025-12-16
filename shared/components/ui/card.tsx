@@ -1,5 +1,5 @@
 import { cn } from '@/shared/utils/cn';
-import { HTMLAttributes, forwardRef } from 'react';
+import React, { HTMLAttributes, forwardRef } from 'react';
 
 const Card = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement> & { variant?: 'default' | 'pancake' }>(
   ({ className, variant = 'pancake', ...props }, ref) => {
@@ -70,4 +70,8 @@ const CardFooter = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
 CardFooter.displayName = "CardFooter";
 
 export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle };
+
+// Type export for backward compatibility
+export type CardProps = React.ComponentPropsWithoutRef<typeof Card>;
+
 

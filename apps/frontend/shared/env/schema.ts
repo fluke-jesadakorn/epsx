@@ -39,7 +39,7 @@ const getDefaultFrontendClientId = () => {
 
 const getDefaultAdminClientId = () => {
   if (isDev) return 'epsx-admin';
-  if (isStaging) return 'epsx-admin-staging'; 
+  if (isStaging) return 'epsx-admin-staging';
   return 'epsx-admin-prod'; // Sensible default for production
 };
 
@@ -56,31 +56,31 @@ export const serverEnvSchema = z.object({
       message: 'DATABASE_URL must be a valid PostgreSQL connection string'
     })
     .describe('PostgreSQL connection string for all database operations'),
-    
+
   BACKEND_URL: z.string()
     .url()
     .optional()
-    .default(getDefaultBackendUrl())
-    .refine(url => isBuild || url !== undefined, { 
-      message: 'BACKEND_URL must be explicitly set in production environment' 
+    .default(getDefaultBackendUrl() ?? '')
+    .refine(url => isBuild || url !== undefined, {
+      message: 'BACKEND_URL must be explicitly set in production environment'
     })
     .describe('Backend API URL for internal service communication and OIDC issuer'),
-    
+
   FRONTEND_URL: z.string()
     .url()
     .optional()
-    .default(getDefaultFrontendUrl())
-    .refine(url => isBuild || url !== undefined, { 
-      message: 'FRONTEND_URL must be explicitly set in production environment' 
+    .default(getDefaultFrontendUrl() ?? '')
+    .refine(url => isBuild || url !== undefined, {
+      message: 'FRONTEND_URL must be explicitly set in production environment'
     })
     .describe('Frontend application URL for CORS and redirect configuration'),
-    
+
   ADMIN_FRONTEND_URL: z.string()
     .url()
     .optional()
-    .default(getDefaultAdminUrl())
-    .refine(url => isBuild || url !== undefined, { 
-      message: 'ADMIN_FRONTEND_URL must be explicitly set in production environment' 
+    .default(getDefaultAdminUrl() ?? '')
+    .refine(url => isBuild || url !== undefined, {
+      message: 'ADMIN_FRONTEND_URL must be explicitly set in production environment'
     })
     .describe('Admin frontend URL for CORS and admin-specific redirects'),
 
@@ -93,14 +93,14 @@ export const serverEnvSchema = z.object({
   // Payment (2 variables) - Optional for payment processing
   MUSEPAY_PARTNER_ID: z.string().optional()
     .describe('MusePay partner identifier for payment processing integration'),
-    
+
   MUSEPAY_PRIVATE_KEY: z.string().optional()
     .describe('MusePay private key for secure payment transaction signing'),
 
   // Infrastructure (1 variable) - Optional performance optimization
   REDIS_URL: z.string().url().optional()
     .describe('Redis connection URL for caching and session storage'),
-    
+
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error'])
     .default('info')
     .describe('Application logging level for debug and monitoring')
@@ -116,42 +116,42 @@ export const clientEnvSchema = z.object({
   NEXT_PUBLIC_BACKEND_URL: z.string()
     .url()
     .optional()
-    .default(getDefaultBackendUrl())
+    .default(getDefaultBackendUrl() ?? '')
     .refine(url => {
       // Skip validation during build or in browser (client-side)
       if (isBuild || typeof window !== 'undefined') return true;
       // Only enforce production validation on server-side
       return url !== undefined;
-    }, { 
-      message: 'NEXT_PUBLIC_BACKEND_URL must be explicitly set in production environment' 
+    }, {
+      message: 'NEXT_PUBLIC_BACKEND_URL must be explicitly set in production environment'
     })
     .describe('Backend API URL accessible from client-side'),
-    
+
   NEXT_PUBLIC_APP_URL: z.string()
     .url()
     .optional()
-    .default(getDefaultFrontendUrl())
+    .default(getDefaultFrontendUrl() ?? '')
     .refine(url => {
       // Skip validation during build or in browser (client-side)
       if (isBuild || typeof window !== 'undefined') return true;
       // Only enforce production validation on server-side
       return url !== undefined;
-    }, { 
-      message: 'NEXT_PUBLIC_APP_URL must be explicitly set in production environment' 
+    }, {
+      message: 'NEXT_PUBLIC_APP_URL must be explicitly set in production environment'
     })
     .describe('Frontend application URL for client navigation'),
-    
+
   NEXT_PUBLIC_ADMIN_URL: z.string()
     .url()
     .optional()
-    .default(getDefaultAdminUrl())
+    .default(getDefaultAdminUrl() ?? '')
     .refine(url => {
       // Skip validation during build or in browser (client-side)
       if (isBuild || typeof window !== 'undefined') return true;
       // Only enforce production validation on server-side
       return url !== undefined;
-    }, { 
-      message: 'NEXT_PUBLIC_ADMIN_URL must be explicitly set in production environment' 
+    }, {
+      message: 'NEXT_PUBLIC_ADMIN_URL must be explicitly set in production environment'
     })
     .describe('Admin frontend URL for client navigation'),
 
@@ -159,7 +159,7 @@ export const clientEnvSchema = z.object({
   NEXT_PUBLIC_BLOCKCHAIN_NETWORK: z.enum(['mainnet', 'testnet'])
     .default('testnet')
     .describe('Web3 blockchain network configuration'),
-  
+
   NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: z.string()
     .default('epsx-web3-frontend')
     .describe('WalletConnect project ID for wallet connections'),
@@ -239,24 +239,24 @@ export const env = {
   get BLOCKCHAIN_NETWORK() {
     return clientEnv.NEXT_PUBLIC_BLOCKCHAIN_NETWORK;
   },
-  
+
   get WALLETCONNECT_PROJECT_ID() {
     return clientEnv.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
   },
-  
+
   // Server-only (throws error if accessed on client)
   get DATABASE_URL() {
     if (!isServer) throw new Error('DATABASE_URL is server-only');
     return serverEnv.DATABASE_URL;
   },
-  
+
   get JWT_SECRET() {
     if (!isServer) throw new Error('NEXTAUTH_SECRET is server-only');
     return serverEnv.NEXTAUTH_SECRET;
   },
-  
+
   // Firebase removed - Web3 wallet-first authentication migration completed
-  
+
   get REDIS_URL() {
     if (!isServer) throw new Error('REDIS_URL is server-only');
     return serverEnv.REDIS_URL;
@@ -276,7 +276,7 @@ export const urls = {
   get admin() {
     return env.ADMIN_URL;
   },
-  
+
   // OIDC endpoints
   oauth: {
     get authorize() {
@@ -292,7 +292,7 @@ export const urls = {
       return `${env.BACKEND_URL}/oauth/jwks`;
     }
   },
-  
+
   // Callback URLs
   callbacks: {
     get frontend() {

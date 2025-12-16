@@ -4,8 +4,8 @@
  * Maintains backward compatibility with existing admin middleware
  */
 
-import { BaseSessionValidator, type ValidationRequest, type SessionValidatorConfig } from './validator'
-import type { UserProfile, SessionValidationResponse } from '../types/domain/Session'
+import type { SessionValidationResponse, UserProfile } from '../types/domain/Session'
+import { BaseSessionValidator, type SessionValidatorConfig, type ValidationRequest } from './validator'
 
 // ============================================================================
 // ADMIN-SPECIFIC CONFIGURATION
@@ -74,12 +74,12 @@ export class AdminSessionValidator {
    */
   private hasAdminAccess(user: UserProfile): boolean {
     const permissions = Array.isArray(user.permissions) ? user.permissions : []
-    
+
     // Check for admin wildcard permission
     if (permissions.includes('admin:*:*')) {
       return true
     }
-    
+
     // Check if user has any admin-scoped permissions
     return permissions.some(p => p.startsWith('admin:'))
   }
@@ -89,28 +89,28 @@ export class AdminSessionValidator {
    */
   hasAdminPermission(user: UserProfile, permission: string): boolean {
     const permissions = Array.isArray(user.permissions) ? user.permissions : []
-    
+
     // Check for admin wildcard permission
     if (permissions.includes('admin:*:*')) {
       return true
     }
-    
+
     // Check if user has the specific permission
     if (permissions.includes(permission)) {
       return true
     }
-    
+
     // Check for broader permissions (e.g., admin:users:* covers admin:users:manage)
     if (permission.includes(':')) {
       const [platform, resource] = permission.split(':')
-      if (permissions.some(p => 
-        p === `${platform}:${resource}:*` || 
+      if (permissions.some(p =>
+        p === `${platform}:${resource}:*` ||
         p === `${platform}:*:*`
       )) {
         return true
       }
     }
-    
+
     return false
   }
 
@@ -119,12 +119,12 @@ export class AdminSessionValidator {
    */
   canAccessAdminPath(user: UserProfile, path: string): boolean {
     const permissions = Array.isArray(user.permissions) ? user.permissions : []
-    
+
     // Check for admin wildcard permission
     if (permissions.includes('admin:*:*')) {
       return true
     }
-    
+
     // Map paths to required permissions
     const pathPermissions: Record<string, string> = {
       '/users': 'admin:users:manage',
@@ -135,14 +135,14 @@ export class AdminSessionValidator {
       '/developer-portal': 'admin:developer:access',
       '/stock-ranking-packages': 'admin:packages:manage',
     }
-    
+
     // Check specific path permissions
     for (const [pathPrefix, permission] of Object.entries(pathPermissions)) {
       if (path.includes(pathPrefix)) {
         return this.hasAdminPermission(user, permission)
       }
     }
-    
+
     // Default: allow if user has any admin-scoped permissions
     return permissions.some(p => p.startsWith('admin:'))
   }
@@ -194,11 +194,11 @@ export async function requireAdminSession(request: {
   method?: string
 }): Promise<UserProfile> {
   const result = await validateAdminSession(request)
-  
+
   if (!result.valid || !result.session?.user) {
     throw new Error(result.error || 'Admin session validation failed')
   }
-  
+
   return result.session.user
 }
 
@@ -228,7 +228,7 @@ export function hasPackageTier(user: UserProfile, tier: string): boolean {
  * Check if user has minimum permission group
  */
 export function hasMinimumPermissionGroup(user: UserProfile, requiredGroup: string): boolean {
-  return adminSessionValidator.baseValidator.hasMinimumPermissionGroup(user, requiredGroup)
+  return adminSessionValidator.baseValidator.hasMinimumPermissionGroup(user, requiredGroup as any)
 }
 
 /**

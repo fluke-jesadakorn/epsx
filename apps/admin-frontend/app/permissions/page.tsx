@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Clock, Edit3, Plus, Shield, Trash2, UserPlus, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { toast } from 'react-hot-toast'
+import { toast } from 'sonner'
 
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { WalletAutocomplete } from '@/components/ui/WalletAutocomplete'
 import { groupMgmt, PermissionGroup } from '@/lib/api/group-management-client'
 
 export const dynamic = 'force-dynamic'
@@ -697,12 +698,10 @@ function AssignWalletSection({ onSuccess }: { onSuccess: () => void }) {
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <Label htmlFor="wallet_address">Wallet Address</Label>
-          <Input
-            id="wallet_address"
+          <WalletAutocomplete
             value={formData.wallet_address}
-            onChange={(e) => setFormData(prev => ({ ...prev, wallet_address: e.target.value }))}
-            placeholder="0x..."
-            required
+            onChange={(value) => setFormData(prev => ({ ...prev, wallet_address: value }))}
+            placeholder="Enter wallet address (0x...)"
           />
         </div>
 
@@ -977,9 +976,9 @@ function GroupMembersSection({ group, onClose }: { group: PermissionGroup; onClo
 
           {showAddMember && (
             <form onSubmit={handleAddMember} className="flex gap-2">
-              <Input
+              <WalletAutocomplete
                 value={newWalletAddress}
-                onChange={(e) => setNewWalletAddress(e.target.value)}
+                onChange={setNewWalletAddress}
                 placeholder="Enter wallet address (0x...)"
                 className="flex-1"
               />
@@ -988,7 +987,7 @@ function GroupMembersSection({ group, onClose }: { group: PermissionGroup; onClo
                 disabled={addMemberMutation.isPending}
                 size="sm"
               >
-                {addMemberMutation.isPending ? 'Adding...' : 'Add'}
+                {addMemberMutation.isPending ? 'Adding...' : 'ADD'}
               </Button>
               <Button
                 type="button"

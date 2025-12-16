@@ -12,8 +12,8 @@
  * - Type-safe responses with proper error handling
  */
 
-import { UnifiedApiClient, ApiResponse, PaginatedResponse } from '../utils/api-client';
 import { API_ROUTES } from '../config/route-constants';
+import { UnifiedApiClient } from '../utils/api-client';
 
 // ============================================================================
 // ANALYTICS TYPES
@@ -129,7 +129,7 @@ export interface ExportResponse {
 // ============================================================================
 
 export class AnalyticsAPIClient {
-  constructor(private client: UnifiedApiClient) {}
+  constructor(private client: UnifiedApiClient) { }
 
   // ============================================================================
   // PUBLIC ANALYTICS (No Authentication Required)
@@ -474,12 +474,12 @@ export class AnalyticsAPIClient {
     if (country && country === country.toLowerCase()) {
       return country;
     }
-    
+
     // Check direct mapping
     if (countryValueMap[country]) {
       return countryValueMap[country];
     }
-    
+
     // Default to lowercase if no mapping found
     return country?.toLowerCase() || '';
   }
@@ -489,7 +489,7 @@ export class AnalyticsAPIClient {
    */
   static buildAnalyticsUrl(baseUrl: string, filters: AnalyticsFilters): string {
     const params = new URLSearchParams();
-    
+
     if (filters.page) params.append('page', filters.page.toString());
     if (filters.limit) params.append('limit', filters.limit.toString());
     if (filters.sort_by) params.append('sort_by', filters.sort_by);
@@ -497,7 +497,7 @@ export class AnalyticsAPIClient {
     if (filters.sector) params.append('sector', filters.sector);
     if (filters.exchange) params.append('exchange', filters.exchange);
     if (filters.stock_type) params.append('stock_type', filters.stock_type);
-    
+
     // Financial filters (only for authenticated APIs)
     if (filters.min_eps) params.append('min_eps', filters.min_eps.toString());
     if (filters.max_eps) params.append('max_eps', filters.max_eps.toString());
@@ -542,3 +542,6 @@ export function createPlatformAnalyticsClient(platform: 'frontend' | 'admin' = '
     return new AnalyticsAPIClient(createFrontendApiClient());
   }
 }
+
+// Type alias for backward compatibility with useApiClient
+export type AnalyticsApi = AnalyticsAPIClient;

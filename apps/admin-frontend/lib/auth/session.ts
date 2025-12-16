@@ -52,9 +52,9 @@ export async function clearSession(): Promise<void> {
     const cookieStore = await cookies();
 
     // OIDC Migration: Clear OIDC tokens instead of legacy JWT
-    cookieStore.delete('access_token');
-    cookieStore.delete('id_token');
-    cookieStore.delete('refresh_token');
+    cookieStore.delete(COOKIES.access);
+    cookieStore.delete(COOKIES.id);
+    cookieStore.delete(COOKIES.refresh);
 
   } catch (_error) {
     // eslint-disable-next-line no-console

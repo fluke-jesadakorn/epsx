@@ -5,7 +5,7 @@
  */
 
 import { Metadata, Viewport } from 'next';
-import { Toaster } from 'react-hot-toast';
+
 import './globals.css';
 
 import { LayoutWrapper } from '@/components/layout/LayoutWrapper';
@@ -75,13 +75,13 @@ export default function RootLayout({
                     {children}
                   </LayoutWrapper>
                 </main>
+                <ToastProvider />
               </ClientProviders>
             </ThemeProvider>
           </ErrorBoundary>
         </div>
 
-        {/* Enhanced Windows Phone + PancakeSwap Toast Notifications */}
-        <ToastProvider />
+
       </body>
     </html>
   );

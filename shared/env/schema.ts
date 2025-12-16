@@ -60,31 +60,31 @@ export const serverEnvSchema = z.object({
       message: 'DATABASE_URL must be a valid PostgreSQL connection string'
     })
     .describe('PostgreSQL connection string for all database operations'),
-    
+
   BACKEND_URL: z.string()
     .url()
     .optional()
     .default(getDefaultBackendUrl())
-    .refine(url => isBuild || url !== undefined, { 
-      message: 'BACKEND_URL must be explicitly set in production environment' 
+    .refine(url => isBuild || url !== undefined, {
+      message: 'BACKEND_URL must be explicitly set in production environment'
     })
     .describe('Backend API URL for internal service communication and OIDC issuer'),
-    
+
   FRONTEND_URL: z.string()
     .url()
     .optional()
-    .default(getDefaultFrontendUrl())
-    .refine(url => isBuild || url !== undefined, { 
-      message: 'FRONTEND_URL must be explicitly set in production environment' 
+    .default(getDefaultFrontendUrl() ?? '')
+    .refine(url => isBuild || url !== undefined, {
+      message: 'FRONTEND_URL must be explicitly set in production environment'
     })
     .describe('Frontend application URL for CORS and redirect configuration'),
-    
+
   ADMIN_FRONTEND_URL: z.string()
     .url()
     .optional()
-    .default(getDefaultAdminUrl())
-    .refine(url => isBuild || url !== undefined, { 
-      message: 'ADMIN_FRONTEND_URL must be explicitly set in production environment' 
+    .default(getDefaultAdminUrl() ?? '')
+    .refine(url => isBuild || url !== undefined, {
+      message: 'ADMIN_FRONTEND_URL must be explicitly set in production environment'
     })
     .describe('Admin frontend URL for CORS and admin-specific redirects'),
 
@@ -94,7 +94,7 @@ export const serverEnvSchema = z.object({
     .optional()
     .default('web3-default-secret-for-development-only-change-in-production')
     .describe('Web3 application secret for wallet signature validation and session management'),
-    
+
   WALLET_SIGNATURE_SECRET: z.string()
     .min(32, 'Wallet signature secret must be at least 32 characters for security')
     .optional()
@@ -105,7 +105,7 @@ export const serverEnvSchema = z.object({
   // Infrastructure (1 variable) - Optional performance optimization
   REDIS_URL: z.string().url().optional()
     .describe('Redis connection URL for caching and session storage'),
-    
+
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error'])
     .default('info')
     .describe('Application logging level for debug and monitoring')
@@ -127,36 +127,36 @@ export const clientEnvSchema = z.object({
       if (isBuild || typeof window !== 'undefined') return true;
       // Only enforce production validation on server-side
       return url !== undefined;
-    }, { 
-      message: 'NEXT_PUBLIC_BACKEND_URL must be explicitly set in production environment' 
+    }, {
+      message: 'NEXT_PUBLIC_BACKEND_URL must be explicitly set in production environment'
     })
     .describe('Backend API URL accessible from client-side'),
-    
+
   NEXT_PUBLIC_APP_URL: z.string()
     .url()
     .optional()
-    .default(getDefaultFrontendUrl())
+    .default(getDefaultFrontendUrl() ?? '')
     .refine(url => {
       // Skip validation during build or in browser (client-side)
       if (isBuild || typeof window !== 'undefined') return true;
       // Only enforce production validation on server-side
       return url !== undefined;
-    }, { 
-      message: 'NEXT_PUBLIC_APP_URL must be explicitly set in production environment' 
+    }, {
+      message: 'NEXT_PUBLIC_APP_URL must be explicitly set in production environment'
     })
     .describe('Frontend application URL for client navigation'),
-    
+
   NEXT_PUBLIC_ADMIN_URL: z.string()
     .url()
     .optional()
-    .default(getDefaultAdminUrl())
+    .default(getDefaultAdminUrl() ?? '')
     .refine(url => {
       // Skip validation during build or in browser (client-side)
       if (isBuild || typeof window !== 'undefined') return true;
       // Only enforce production validation on server-side
       return url !== undefined;
-    }, { 
-      message: 'NEXT_PUBLIC_ADMIN_URL must be explicitly set in production environment' 
+    }, {
+      message: 'NEXT_PUBLIC_ADMIN_URL must be explicitly set in production environment'
     })
     .describe('Admin frontend URL for client navigation'),
 
@@ -164,11 +164,11 @@ export const clientEnvSchema = z.object({
   NEXT_PUBLIC_BLOCKCHAIN_NETWORK: z.enum(['mainnet', 'testnet'])
     .default(getDefaultBlockchainNetwork())
     .describe('Blockchain network: mainnet (BSC 56) or testnet (BSC 97)'),
-    
+
   NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: z.string()
     .default(getDefaultWalletConnectProjectId())
     .describe('WalletConnect project ID for Web3 wallet connections'),
-    
+
   NEXT_PUBLIC_CHAIN_ID: z.string()
     .optional()
     .default('97') // BSC Testnet default for development
@@ -188,13 +188,13 @@ export const clientEnvSchema = z.object({
   // Firebase Analytics Configuration (4 variables) - Minimal config for frontend analytics only
   NEXT_PUBLIC_FIREBASE_API_KEY: z.string().optional()
     .describe('Firebase API key for client-side analytics (frontend only)'),
-    
+
   NEXT_PUBLIC_FIREBASE_PROJECT_ID: z.string().optional()
     .describe('Firebase project ID for client-side analytics (frontend only)'),
-    
+
   NEXT_PUBLIC_FIREBASE_APP_ID: z.string().optional()
     .describe('Firebase app ID for client-side analytics (frontend only)'),
-    
+
   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: z.string().optional()
     .describe('Firebase measurement ID for analytics tracking (frontend only)')
 });
@@ -320,7 +320,7 @@ export const env = {
   get FIREBASE_MEASUREMENT_ID() {
     return clientEnv.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID;
   },
-  
+
   // Server-only (returns undefined if accessed on client)
   get DATABASE_URL() {
     if (!isServer) {
@@ -331,7 +331,7 @@ export const env = {
     }
     return serverEnv.DATABASE_URL;
   },
-  
+
   get WEB3_APP_SECRET() {
     if (!isServer) {
       if (process.env.NODE_ENV === 'development') {
@@ -341,7 +341,7 @@ export const env = {
     }
     return serverEnv.WEB3_APP_SECRET;
   },
-  
+
   get WALLET_SIGNATURE_SECRET() {
     if (!isServer) {
       if (process.env.NODE_ENV === 'development') {
@@ -351,8 +351,8 @@ export const env = {
     }
     return serverEnv.WALLET_SIGNATURE_SECRET;
   },
-  
-  
+
+
   get REDIS_URL() {
     if (!isServer) {
       if (process.env.NODE_ENV === 'development') {
@@ -370,7 +370,7 @@ export const env = {
  * Re-export centralized URL resolver for backward compatibility
  * while maintaining the same API surface
  */
-export { urls, getBackendUrl, getFrontendUrl, getAdminUrl, oidcUrls, callbackUrls, apiUrls } from '../utils/url-resolver';
+export { apiUrls, callbackUrls, getAdminUrl, getBackendUrl, getFrontendUrl, oidcUrls, urls } from '../utils/url-resolver';
 
 /**
  * Web3 URL helpers for wallet authentication
@@ -385,7 +385,7 @@ export const web3Urls = {
   get admin() {
     return env.ADMIN_URL;
   },
-  
+
   // Web3 authentication endpoints
   auth: {
     get challenge() {
@@ -401,7 +401,7 @@ export const web3Urls = {
       return `${env.BACKEND_URL}/api/v1/auth/web3/logout`;
     }
   },
-  
+
   // Wallet authentication callbacks
   callbacks: {
     get frontend() {

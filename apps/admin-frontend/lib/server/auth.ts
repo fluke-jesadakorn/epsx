@@ -215,11 +215,12 @@ export async function requireAuth(redirectPath?: string) {
 export async function clearSession(): Promise<void> {
   try {
     const { cookies } = await import('next/headers');
+    const { COOKIES } = await import('@/shared/auth/cookies');
     const cookieStore = await cookies();
     // OIDC Migration: Clear OIDC tokens instead of legacy JWT
-    cookieStore.delete('access_token');
-    cookieStore.delete('id_token');
-    cookieStore.delete('refresh_token');
+    cookieStore.delete(COOKIES.access);
+    cookieStore.delete(COOKIES.id);
+    cookieStore.delete(COOKIES.refresh);
     // Also clear legacy cookie for migration compatibility
     cookieStore.delete('epsx_admin_jwt');
   } catch (_error) {

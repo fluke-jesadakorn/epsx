@@ -1,4 +1,6 @@
-import { Shield, Home, RotateCcw } from 'lucide-react';
+'use client';
+
+import { Home, RotateCcw, Shield } from 'lucide-react';
 import Link from 'next/link';
 
 interface AccessDeniedPageProps {
@@ -20,7 +22,7 @@ export default function AccessDeniedPage({ searchParams }: AccessDeniedPageProps
   const reason = searchParams.reason || 'Access denied';
   const context = searchParams.context || 'unknown';
   const permission = searchParams.permission;
-  
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
@@ -60,7 +62,7 @@ export default function AccessDeniedPage({ searchParams }: AccessDeniedPageProps
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Login Again
               </Link>
-              
+
               <Link
                 href="/"
                 className="flex-1 flex justify-center items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
@@ -73,7 +75,7 @@ export default function AccessDeniedPage({ searchParams }: AccessDeniedPageProps
             {context === 'admin' && (
               <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
                 <p className="text-sm text-blue-800">
-                  <span className="font-medium">Admin Access Required:</span> Only authorized administrators can access this panel. 
+                  <span className="font-medium">Admin Access Required:</span> Only authorized administrators can access this panel.
                   If you believe this is an error, please contact your system administrator.
                 </p>
               </div>

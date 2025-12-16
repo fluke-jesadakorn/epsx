@@ -15,25 +15,25 @@
 'use client';
 
 import React, {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
+    createContext,
+    useCallback,
+    useContext,
+    useEffect,
+    useState,
 } from 'react';
 import {
-  SharedWeb3AuthClient,
-  UnifiedApiResponse,
-  UserInfoResponse,
+    SharedWeb3AuthClient,
+    UnifiedApiResponse,
+    UserInfoResponse,
 } from '../../auth/client';
 import {
-  COOKIES,
-  COOKIE_OPTIONS,
-  clearClientSideCookies,
-  getClientCookie,
-  getClientCookieJSON,
-  setClientCookie,
-  setClientCookieJSON,
+    COOKIES,
+    COOKIE_OPTIONS,
+    clearClientSideCookies,
+    getClientCookie,
+    getClientCookieJSON,
+    setClientCookie,
+    setClientCookieJSON,
 } from '../../auth/cookies';
 
 // Shared authentication context value
@@ -58,6 +58,7 @@ export interface SharedAuthContextValue {
   authenticateWithDirectApi: (result: {
     wallet_address: string;
     permissions: string[];
+    tier_level?: string;
     is_new_user: boolean;
     access_token?: string;
   }) => Promise<void>;
@@ -312,8 +313,8 @@ export function SharedOpenIDWeb3Provider({
             type: 'Error',
             name: err.name,
             message: err.message,
-            backendUrl: client.backendUrl,
-            clientId: client.clientId,
+            backendUrl: client.getBackendUrl(),
+            clientId: client.getClientId(),
             isNetworkError: err instanceof TypeError,
             isFetchError: err.name === 'FetchError',
           });
@@ -327,8 +328,8 @@ export function SharedOpenIDWeb3Provider({
           console.error('Challenge request failed with non-Error object:', {
             type: typeof err,
             value: err,
-            backendUrl: client.backendUrl,
-            clientId: client.clientId,
+            backendUrl: client.getBackendUrl(),
+            clientId: client.getClientId(),
           });
         }
 
@@ -411,7 +412,7 @@ export function SharedOpenIDWeb3Provider({
   const authenticateWithDirectApi = useCallback(async (result: {
     wallet_address: string;
     permissions: string[];
-    tier_level: string;
+    tier_level?: string;
     is_new_user: boolean;
     access_token?: string;
   }) => {
@@ -430,10 +431,10 @@ export function SharedOpenIDWeb3Provider({
       const user: UserInfoResponse = {
         sub: result.wallet_address,
         wallet_address: result.wallet_address,
-        tier_level: result.tier_level,
+        tier_level: result.tier_level ?? 'free',
         auth_method: 'web3_siwe',
         permissions: result.permissions,
-        packageTier: result.tier_level, // For compatibility
+        packageTier: result.tier_level ?? 'free', // For compatibility
         access: result.access_token, // JWT for SSE authentication
       };
       

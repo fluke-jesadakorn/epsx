@@ -1,23 +1,21 @@
 'use client';
 
-import { 
-  Wallet, 
-  Power, 
-  RefreshCcw, 
-  AlertTriangle, 
-  CheckCircle, 
-  Clock,
-  TrendingUp,
-  Activity,
-  Shield
+import {
+    Activity,
+    AlertTriangle,
+    CheckCircle,
+    Clock,
+    Power,
+    RefreshCcw,
+    Shield,
+    TrendingUp
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
-import { useAccount, useDisconnect, useBalance } from 'wagmi';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
+import { useAccount, useBalance, useDisconnect } from 'wagmi';
 
 import { AdminWalletAuth } from '@/components/auth/AdminWalletAuth';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';

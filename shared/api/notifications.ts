@@ -13,20 +13,15 @@
  * - Type-safe responses with proper error handling
  */
 
-import { UnifiedApiClient, ApiResponse, PaginatedResponse } from '../utils/api-client';
-import { API_ROUTES } from '../config/route-constants';
 import { COOKIES } from '../auth/cookies';
 import {
-  NotificationSchema,
   NotificationsResponseSchema,
-  SSENotificationSchema,
-  NotificationFiltersSchema,
-  SendNotificationRequestSchema,
-  validateNotification,
-  validateSSENotification,
   validateNotificationFilters,
   validateSendNotificationRequest,
+  validateSSENotification
 } from '../components/notifications/schemas';
+import { API_ROUTES } from '../config/route-constants';
+import { UnifiedApiClient } from '../utils/api-client';
 
 // ============================================================================
 // ERROR HANDLING
@@ -308,7 +303,7 @@ export class NotificationsAPIClient {
   } = {};
   private isReconnecting = false; // Prevent reconnection race conditions
 
-  constructor(private client: UnifiedApiClient) {}
+  constructor(private client: UnifiedApiClient) { }
 
   // ============================================================================
   // USER NOTIFICATIONS
@@ -790,7 +785,7 @@ export class NotificationsAPIClient {
     // Prevent multiple connection attempts
     if (this.sseConnection && this.sseConnection.readyState === EventSource.CONNECTING) {
       console.log('⏭️ SSE: Connection already in progress, skipping duplicate request');
-      return () => {};
+      return () => { };
     }
 
     // Close existing connection if any with proper cleanup
@@ -1282,3 +1277,6 @@ export function createPlatformNotificationsClient(platform: 'frontend' | 'admin'
     return new NotificationsAPIClient(createFrontendApiClient());
   }
 }
+
+// Type alias for backward compatibility with useApiClient
+export type NotificationsApi = NotificationsAPIClient;

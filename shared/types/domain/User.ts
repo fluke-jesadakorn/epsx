@@ -54,30 +54,34 @@ export interface UserProfile extends BaseUser {
   lastName?: string
   displayName?: string
   avatar?: string
-  
+
   // Account state
   status: UserStatus
   emailVerified: boolean
   lastLogin?: Date
   lastActivityAt?: Date
-  
+
   // Contact & preferences
   phoneNumber?: string
   timezone?: string
   language?: string
   twoFactorEnabled: boolean
-  
+
   // Platform context
   permissionGroup: PermissionGroup
   permissions: string[]
   platforms: string[]
   primaryPlatform: string
-  
+
   // Web3 integration
   walletAddress?: string
-  
+
   // Context tracking
   platformContext?: string
+
+  // Backward compatibility
+  /** @deprecated Use permissionGroup instead */
+  packageTier?: PackageTier
 }
 
 /**
@@ -99,7 +103,7 @@ export interface AdminUserProfile extends UserProfile {
   moduleQuotas: ModuleQuota[]
   stockRankingPackages: StockRankingPackage[]
   apiKeys: ApiKey[]
-  
+
   // Activity tracking
   recentActivity: ActivityRecord[]
   loginHistory: LoginRecord[]
@@ -311,8 +315,8 @@ export function hasValidSubscription(user: UserProfile): boolean {
 }
 
 export function canAccessFeature(user: UserProfile, feature: string): boolean {
-  return user.permissions.some(p => 
-    p.includes(feature) || 
+  return user.permissions.some(p =>
+    p.includes(feature) ||
     p.includes('*') ||
     p === 'epsx:*:*' ||
     p === 'admin:*:*'

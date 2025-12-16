@@ -16,11 +16,10 @@
 // ============================================================================
 
 import type {
-  SessionValidationResponse,
-  SessionData
-} from '../types/domain/Session'
-import type { UserProfile, AdminUserProfile, PermissionGroup } from '../types/domain/User'
-import { getPermissionGroupLevel } from '../types/domain/User'
+  SessionValidationResponse
+} from '../types/domain/Session';
+import type { AdminUserProfile, PermissionGroup, UserProfile } from '../types/domain/User';
+import { getPermissionGroupLevel } from '../types/domain/User';
 
 // JWT payload types for backward compatibility
 interface AdminJWTPayload {
@@ -119,12 +118,12 @@ export class BaseSessionValidator {
       // Dynamic import for Next.js cookies
       const { cookies } = await import('next/headers')
       const cookieStore = await cookies()
-      
+
       // Detect authentication method
       const authMethod = this.detectAuthMethod(cookieStore)
-      
+
       let result: SessionValidationResponse
-      
+
       switch (authMethod) {
         case 'wallet':
           result = await this.validateWalletSession(request, cookieStore)
@@ -285,7 +284,7 @@ export class BaseSessionValidator {
           session: {
             sessionId: `wallet_cached_${Date.now()}`,
             userId: cached.user.id,
-            user: cached.user,
+            user: cached.user as any,
             appType: 'admin' as const,
             expiresAt: cached.expires_at,
             issuedAt: cached.cached_at,
@@ -307,7 +306,7 @@ export class BaseSessionValidator {
 
     // Validate wallet permissions via database
     const permissions = await this.validateWalletPermissions(walletAddress)
-    
+
     const user: AdminUserProfile = {
       id: walletAddress,
       walletAddress: walletAddress,
@@ -315,6 +314,7 @@ export class BaseSessionValidator {
       name: walletAddress.substring(0, 8) + '...',
       role: permissions.some(p => p.startsWith('admin:')) ? 'admin' : 'user',
       permissions: permissions,
+      permissionGroup: 'Enterprise Access Group',
       packageTier: 'ENTERPRISE',
       platforms: ['admin', 'epsx'],
       primaryPlatform: 'admin',
@@ -324,7 +324,7 @@ export class BaseSessionValidator {
       createdAt: new Date(),
       updatedAt: new Date(),
       billing: {
-        tier: 'ENTERPRISE',
+        permissionGroup: 'Enterprise Access Group',
         isActive: true,
         paymentStatus: 'current'
       },
@@ -361,7 +361,7 @@ export class BaseSessionValidator {
       this.cacheSession(cacheKey, {
         user,
         permissions: user.permissions,
-        package_tier: user.packageTier,
+        package_tier: user.packageTier ?? 'ENTERPRISE',
         expires_at: expiresAt,
         cached_at: Date.now(),
         platforms: user.platforms
@@ -584,19 +584,21 @@ export class BaseSessionValidator {
     if (this.config.cacheEnabled) {
       const cached = this.getCachedSession(cacheKey)
       if (cached) {
+        const resolvedAppType = (request.appType === 'admin' ||
+          (cached.user as any).role === 'admin' ||
+          (cached.user as any).role === 'super_admin') ? 'admin' : 'user';
+
         return {
           valid: true,
           session: {
             sessionId: `oidc_cached_${Date.now()}`,
             userId: cached.user.id,
-            user: cached.user,
-            appType: (request.appType === 'admin' || 
-                      (cached.user as any).role === 'admin' || 
-                      (cached.user as any).role === 'super_admin') ? 'admin' as const : 'user' as const,
+            user: cached.user as any,
+            appType: resolvedAppType,
             expiresAt: cached.expires_at,
             issuedAt: cached.cached_at,
             lastAccessedAt: Date.now(),
-            ...(request.appType === 'admin' ? {
+            ...(resolvedAppType === 'admin' ? {
               adminContext: {
                 permissions: cached.permissions as any[],
                 accessLevel: cached.permissions.some((p: string) => p.includes('super_admin')) ? 'super_admin' as const : 'admin' as const,
@@ -609,7 +611,7 @@ export class BaseSessionValidator {
               }
             }),
             permissions: cached.permissions
-          },
+          } as any,
           performance: {
             validationTimeMs: performance.now() - startTime,
             cacheHit: true,
@@ -679,19 +681,21 @@ export class BaseSessionValidator {
         })
       }
 
+      const resolvedAppType = (request.appType === 'admin' ||
+        user.role === 'admin' ||
+        user.role === 'super_admin') ? 'admin' : 'user';
+
       return {
         valid: true,
         session: {
           sessionId: result.session_id || `oidc_${Date.now()}`,
           userId: user.id,
-          user,
-          appType: (request.appType === 'admin' || 
-                    user.role === 'admin' || 
-                    user.role === 'super_admin') ? 'admin' as const : 'user' as const,
+          user: user as any,
+          appType: resolvedAppType,
           expiresAt: result.expires_at || Date.now() + 2 * 60 * 60 * 1000,
           issuedAt: Date.now(),
           lastAccessedAt: Date.now(),
-          ...(request.appType === 'admin' ? {
+          ...(resolvedAppType === 'admin' ? {
             adminContext: {
               permissions: (result.permissions || user.permissions || []) as any[],
               accessLevel: (result.permissions || user.permissions || []).some((p: string) => p.includes('super_admin')) ? 'super_admin' as const : 'admin' as const,
@@ -704,11 +708,11 @@ export class BaseSessionValidator {
             }
           }),
           permissions: result.permissions || user.permissions || []
-        },
+        } as any,
         performance: {
           validationTimeMs: performance.now() - startTime,
           cacheHit: false,
-          source: 'database' as const
+          source: 'api' as const
         }
       }
 
@@ -773,12 +777,12 @@ export class BaseSessionValidator {
 
   private hasAdminAccess(user: UserProfile | AdminUserProfile): boolean {
     const permissions = Array.isArray(user.permissions) ? user.permissions : []
-    
+
     // Check for admin wildcard permission
     if (permissions.includes('admin:*:*')) {
       return true
     }
-    
+
     // Check if user has any admin-scoped permissions
     return permissions.some(p => p.startsWith('admin:'))
   }
@@ -788,12 +792,12 @@ export class BaseSessionValidator {
    */
   hasPermission(user: UserProfile | AdminUserProfile, permission: string): boolean {
     const permissions = Array.isArray(user.permissions) ? user.permissions : []
-    
+
     // Check exact match
     if (permissions.includes(permission)) {
       return true
     }
-    
+
     // Check wildcard permissions
     return permissions.some(p => {
       if (p.endsWith('*')) {
@@ -817,10 +821,10 @@ export class BaseSessionValidator {
       PLATINUM: 5,
       ENTERPRISE: 6
     }
-    
+
     const userLevel = tierHierarchy[(user as any).packageTier] || 0
     const requiredLevel = tierHierarchy[tier] || 1
-    
+
     return userLevel >= requiredLevel
   }
 
@@ -830,7 +834,7 @@ export class BaseSessionValidator {
   hasMinimumPermissionGroup(user: UserProfile | AdminUserProfile, requiredGroup: PermissionGroup): boolean {
     const userLevel = getPermissionGroupLevel(user.permissionGroup)
     const requiredLevel = getPermissionGroupLevel(requiredGroup)
-    
+
     return userLevel >= requiredLevel
   }
 
@@ -842,18 +846,18 @@ export class BaseSessionValidator {
     if (!this.config.cacheEnabled) return null
 
     const cached = this.cache.get(key)
-    
+
     if (!cached) {
       return null
     }
-    
+
     // Check if expired
-    if (Date.now() > cached.expires_at || 
-        Date.now() > cached.cached_at + this.config.cacheTTL) {
+    if (Date.now() > cached.expires_at ||
+      Date.now() > cached.cached_at + this.config.cacheTTL) {
       this.cache.delete(key)
       return null
     }
-    
+
     return cached
   }
 
@@ -867,7 +871,7 @@ export class BaseSessionValidator {
         this.cache.delete(firstKey)
       }
     }
-    
+
     this.cache.set(key, data)
   }
 
@@ -902,7 +906,7 @@ export class BaseSessionValidator {
   getMetrics(): CacheMetrics & { cacheSize: number; maxCacheSize: number } {
     const totalRequests = this.hitCount + this.missCount
     const hitRatio = totalRequests > 0 ? this.hitCount / totalRequests : 0
-    
+
     return {
       hitCount: this.hitCount,
       missCount: this.missCount,
@@ -941,7 +945,7 @@ export async function validateWeb3Session(
       performance: {
         validationTimeMs: 0,
         cacheHit: false,
-        source: 'validation' as const
+        source: 'api' as const
       }
     }
   }
@@ -981,11 +985,11 @@ export async function validateSession(request: ValidationRequest): Promise<Sessi
 export async function requireSession(request: ValidationRequest): Promise<UserProfile | AdminUserProfile> {
   console.warn('⚠️  DEPRECATED: requireSession supports legacy auth - use requireWeb3Session for Web3-only (Phase 3.3)')
   const result = await validateSession(request)
-  
+
   if (!result.valid || !result.session?.user) {
     throw new Error(result.error || 'Session validation failed')
   }
-  
+
   return result.session.user
 }
 
@@ -998,11 +1002,11 @@ export async function requireWeb3Session(
   request: ValidationRequest
 ): Promise<UserProfile | AdminUserProfile> {
   const result = await validateWeb3Session(walletAddress, walletSignature, request)
-  
+
   if (!result.valid || !result.session?.user) {
     throw new Error(result.error || 'Web3 session validation failed')
   }
-  
+
   return result.session.user
 }
 

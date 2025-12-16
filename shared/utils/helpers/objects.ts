@@ -10,15 +10,15 @@ export function deepClone<T>(obj: T): T {
   if (obj === null || typeof obj !== 'object') {
     return obj
   }
-  
+
   if (obj instanceof Date) {
     return new Date(obj.getTime()) as any
   }
-  
+
   if (obj instanceof Array) {
     return obj.map(item => deepClone(item)) as any
   }
-  
+
   if (typeof obj === 'object') {
     const cloned = {} as T
     for (const key in obj) {
@@ -28,7 +28,7 @@ export function deepClone<T>(obj: T): T {
     }
     return cloned
   }
-  
+
   return obj
 }
 
@@ -40,18 +40,18 @@ export const objectUtils = {
    * Check if object is empty
    */
   isEmpty: (obj: object) => Object.keys(obj).length === 0,
-  
+
   /**
    * Pick specific keys from object
    */
-  pick: <T, K extends keyof T>(obj: T, keys: K[]): Pick<T, K> => {
+  pick: <T extends object, K extends keyof T>(obj: T, keys: K[]): Pick<T, K> => {
     const result = {} as Pick<T, K>
     keys.forEach(key => {
       if (key in obj) result[key] = obj[key]
     })
     return result
   },
-  
+
   /**
    * Omit specific keys from object
    */
@@ -148,7 +148,7 @@ export const object = {
   set(obj: any, path: string, value: any): void {
     const keys = path.split('.')
     const lastKey = keys.pop()
-    
+
     if (!lastKey) return
 
     let current = obj
@@ -167,25 +167,25 @@ export const object = {
    */
   deepEqual(obj1: any, obj2: any): boolean {
     if (obj1 === obj2) return true
-    
+
     if (obj1 == null || obj2 == null) return obj1 === obj2
-    
+
     if (typeof obj1 !== typeof obj2) return false
-    
+
     if (typeof obj1 !== 'object') return obj1 === obj2
-    
+
     if (Array.isArray(obj1) !== Array.isArray(obj2)) return false
-    
+
     const keys1 = Object.keys(obj1)
     const keys2 = Object.keys(obj2)
-    
+
     if (keys1.length !== keys2.length) return false
-    
+
     for (const key of keys1) {
       if (!keys2.includes(key)) return false
       if (!this.deepEqual(obj1[key], obj2[key])) return false
     }
-    
+
     return true
   },
 
@@ -194,11 +194,11 @@ export const object = {
    */
   flatten(obj: any, prefix: string = ''): Record<string, any> {
     const result: Record<string, any> = {}
-    
+
     for (const key in obj) {
       if (obj.hasOwnProperty(key)) {
         const newKey = prefix ? `${prefix}.${key}` : key
-        
+
         if (this.isObject(obj[key]) && !Array.isArray(obj[key])) {
           Object.assign(result, this.flatten(obj[key], newKey))
         } else {
@@ -206,7 +206,7 @@ export const object = {
         }
       }
     }
-    
+
     return result
   },
 
@@ -215,11 +215,11 @@ export const object = {
    */
   unflatten(obj: Record<string, any>): any {
     const result: any = {}
-    
+
     for (const key in obj) {
       this.set(result, key, obj[key])
     }
-    
+
     return result
   },
 
@@ -231,14 +231,14 @@ export const object = {
     transformer: (key: string) => string
   ): any {
     if (!this.isObject(obj)) return obj
-    
+
     const result: any = {}
-    
+
     for (const key in obj) {
       if (obj.hasOwnProperty(key)) {
         const transformedKey = transformer(key)
         const value = obj[key]
-        
+
         if (this.isObject(value)) {
           result[transformedKey] = this.transformKeys(value, transformer)
         } else if (Array.isArray(value)) {
@@ -250,7 +250,7 @@ export const object = {
         }
       }
     }
-    
+
     return result
   },
 
@@ -262,13 +262,13 @@ export const object = {
     mapper: (value: T, key: string) => R
   ): Record<string, R> {
     const result: Record<string, R> = {}
-    
+
     for (const key in obj) {
       if (obj.hasOwnProperty(key)) {
         result[key] = mapper(obj[key], key)
       }
     }
-    
+
     return result
   },
 
@@ -280,13 +280,13 @@ export const object = {
     predicate: (value: T, key: string) => boolean
   ): Record<string, T> {
     const result: Record<string, T> = {}
-    
+
     for (const key in obj) {
       if (obj.hasOwnProperty(key) && predicate(obj[key], key)) {
         result[key] = obj[key]
       }
     }
-    
+
     return result
   },
 
@@ -295,13 +295,13 @@ export const object = {
    */
   invert<T extends string | number>(obj: Record<string, T>): Record<T, string> {
     const result = {} as Record<T, string>
-    
+
     for (const key in obj) {
       if (obj.hasOwnProperty(key)) {
         result[obj[key]] = key
       }
     }
-    
+
     return result
   },
 
@@ -313,7 +313,7 @@ export const object = {
     keyFn: (value: T, key: string) => string
   ): Record<string, Record<string, T>> {
     const result: Record<string, Record<string, T>> = {}
-    
+
     for (const key in obj) {
       if (obj.hasOwnProperty(key)) {
         const groupKey = keyFn(obj[key], key)
@@ -323,7 +323,7 @@ export const object = {
         result[groupKey][key] = obj[key]
       }
     }
-    
+
     return result
   }
 }
