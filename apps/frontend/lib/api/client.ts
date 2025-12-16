@@ -10,8 +10,8 @@ import {
   createFrontendApiClient,
   PaginatedResponse,
   UnifiedApiClient,
-} from '../../../../shared/api';
-import { API_ROUTES } from '../../../../shared/config/route-constants';
+} from '@/shared/api';
+import { API_ROUTES } from '@/shared/config/route-constants';
 
 // ============================================================================
 // Types

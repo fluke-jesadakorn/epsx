@@ -1,14 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { Mail, Edit, Check, X, AlertCircle, Bell } from 'lucide-react';
-import { type User } from '../../../../shared/types/auth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { type User } from '@/shared/types/auth';
+import { AlertCircle, Bell, Check, Edit, Mail, X } from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 interface EmailManagementProps {
@@ -87,10 +87,10 @@ export function EmailManagement({ user }: EmailManagementProps) {
     } catch (error: any) {
       console.error('Email change error:', error);
       const errorMessage = error.message || 'Failed to send verification code';
-      setEmailState(prev => ({ 
-        ...prev, 
-        isSending: false, 
-        error: errorMessage 
+      setEmailState(prev => ({
+        ...prev,
+        isSending: false,
+        error: errorMessage
       }));
       toast.error(errorMessage);
     }
@@ -108,9 +108,9 @@ export function EmailManagement({ user }: EmailManagementProps) {
       const response = await fetch('/api/auth/verify-email-change', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           new_email: emailState.newEmail,
-          verification_code: emailState.verificationCode 
+          verification_code: emailState.verificationCode
         }),
         credentials: 'include',
       });
@@ -130,17 +130,17 @@ export function EmailManagement({ user }: EmailManagementProps) {
       }));
 
       toast.success('Email address updated successfully');
-      
+
       // Refresh page to update user data
       window.location.reload();
 
     } catch (error: any) {
       console.error('Email verification error:', error);
       const errorMessage = error.message || 'Failed to verify email';
-      setEmailState(prev => ({ 
-        ...prev, 
-        isVerifying: false, 
-        error: errorMessage 
+      setEmailState(prev => ({
+        ...prev,
+        isVerifying: false,
+        error: errorMessage
       }));
       toast.error(errorMessage);
     }
@@ -173,9 +173,9 @@ export function EmailManagement({ user }: EmailManagementProps) {
               </div>
             </div>
             {!emailState.isEditing && (
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={handleStartEdit}
                 className="flex items-center gap-2"
               >
@@ -195,10 +195,10 @@ export function EmailManagement({ user }: EmailManagementProps) {
                   type="email"
                   placeholder="your.new.email@example.com"
                   value={emailState.newEmail}
-                  onChange={(e) => setEmailState(prev => ({ 
-                    ...prev, 
+                  onChange={(e) => setEmailState(prev => ({
+                    ...prev,
                     newEmail: e.target.value,
-                    error: undefined 
+                    error: undefined
                   }))}
                   disabled={emailState.isSending}
                 />
@@ -222,8 +222,8 @@ export function EmailManagement({ user }: EmailManagementProps) {
                 >
                   {emailState.isSending ? 'Sending...' : 'Send Verification Code'}
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={handleCancelEdit}
                   disabled={emailState.isSending}
                 >
@@ -249,10 +249,10 @@ export function EmailManagement({ user }: EmailManagementProps) {
                   id="verification_code"
                   placeholder="Enter 6-digit code"
                   value={emailState.verificationCode}
-                  onChange={(e) => setEmailState(prev => ({ 
-                    ...prev, 
+                  onChange={(e) => setEmailState(prev => ({
+                    ...prev,
                     verificationCode: e.target.value.replace(/\D/g, '').slice(0, 6),
-                    error: undefined 
+                    error: undefined
                   }))}
                   disabled={emailState.isVerifying}
                   maxLength={6}
@@ -275,8 +275,8 @@ export function EmailManagement({ user }: EmailManagementProps) {
                   <Check className="h-4 w-4 mr-2" />
                   {emailState.isVerifying ? 'Verifying...' : 'Verify Email'}
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={handleCancelEdit}
                   disabled={emailState.isVerifying}
                 >
@@ -353,7 +353,7 @@ export function EmailManagement({ user }: EmailManagementProps) {
 
           <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
             <p className="text-sm text-slate-600 dark:text-slate-400">
-              Email preferences are managed through your account settings. 
+              Email preferences are managed through your account settings.
               Critical security notifications cannot be disabled.
             </p>
           </div>

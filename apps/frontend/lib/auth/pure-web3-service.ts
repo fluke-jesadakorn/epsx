@@ -6,10 +6,14 @@
 
 'use client';
 
-import { PureWeb3ApiClient as BaseApiClient } from '../../../../shared/auth/web3/client';
-import { createPureWeb3AuthStore } from '../../../../shared/auth/web3/store';
+import { PureWeb3ApiClient as BaseApiClient } from '@/shared/auth/web3/client';
+import {
+  createPureWeb3Hooks,
+  createUsePureWeb3Auth
+} from '@/shared/auth/web3/factory';
+import { createPureWeb3AuthStore } from '@/shared/auth/web3/store';
 
-export type { PureWeb3AuthActions, PureWeb3AuthState, PureWeb3AuthStore, SignedRequestHeaders } from '../../../../shared/auth/web3/types';
+export type { PureWeb3AuthActions, PureWeb3AuthState, PureWeb3AuthStore, SignedRequestHeaders } from '@/shared/auth/web3/types';
 
 // Pure Web3 Auth Store
 export const usePureWeb3AuthStore = createPureWeb3AuthStore({
@@ -18,7 +22,7 @@ export const usePureWeb3AuthStore = createPureWeb3AuthStore({
   verifyMethod: 'POST'
 });
 
-// API Client for Pure Web3 Verification
+// API Client for Pure Web3 Verification (Frontend-specific extensions)
 export class PureWeb3ApiClient extends BaseApiClient {
   // Admin API methods (when user has admin permissions)
   async listWallets(params: { limit?: number; offset?: number } = {}) {
@@ -57,64 +61,16 @@ export class PureWeb3ApiClient extends BaseApiClient {
 }
 
 // Singleton API client
-// We need to adhere to the constructor signature of BaseApiClient: constructor(authStore: AuthStore)
-// usePureWeb3AuthStore is a hook, but it also has .getState() method attached to it in Zustand?
-// Yes, create() returns a hook that is also the store API.
 export const pureWeb3ApiClient = new PureWeb3ApiClient(usePureWeb3AuthStore);
 
-// Hook for using Pure Web3 auth
-export function usePureWeb3Auth() {
-  const store = usePureWeb3AuthStore();
+// Use shared hook factory for common hooks
+export const usePureWeb3Auth = createUsePureWeb3Auth(usePureWeb3AuthStore, pureWeb3ApiClient, 'frontend');
 
-  return {
-    // State
-    ...store,
+// Use shared selector hooks
+const {
+  usePureWeb3ConnectedState,
+  usePureWeb3AuthState,
+  usePureWeb3LoadingState
+} = createPureWeb3Hooks(usePureWeb3AuthStore, 'frontend');
 
-    // Computed values
-    isReady: store.hasInitialized && !store.isLoading,
-    isAuthorized: store.isConnected && store.permissions.length > 0,
-
-    // Actions
-    connect: async (address: string, chainId: number) => {
-      store.setConnected(true, address, chainId);
-      store.setInitialized(true);
-      await store.verifyConnection();
-    },
-
-    disconnect: async () => {
-      await store.signOut();
-    },
-
-    // Permission helpers
-    hasPermission: (permission: string) => store.permissions.includes(permission),
-    hasAnyPermission: (permissions: string[]) =>
-      permissions.some(p => store.permissions.includes(p)),
-    hasAllPermissions: (permissions: string[]) =>
-      permissions.every(p => store.permissions.includes(p)),
-
-    isAdmin: () => store.permissions.some(p => p.startsWith('admin:')),
-
-    // API client
-    api: pureWeb3ApiClient
-  };
-}
-
-// Selector hooks for performance
-export const usePureWeb3ConnectedState = () => usePureWeb3AuthStore(state => ({
-  isConnected: state.isConnected,
-  walletAddress: state.walletAddress,
-  chainId: state.chainId,
-}));
-
-export const usePureWeb3AuthState = () => usePureWeb3AuthStore(state => ({
-  isAuthenticated: state.isConnected && state.permissions.length > 0,
-  isAuthenticating: state.isAuthenticating,
-  permissions: state.permissions,
-  groups: state.groups,
-}));
-
-export const usePureWeb3LoadingState = () => usePureWeb3AuthStore(state => ({
-  isLoading: state.isLoading,
-  hasInitialized: state.hasInitialized,
-  error: state.error,
-}));
+export { usePureWeb3AuthState, usePureWeb3ConnectedState, usePureWeb3LoadingState };

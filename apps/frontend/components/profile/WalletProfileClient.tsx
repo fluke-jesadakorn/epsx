@@ -1,15 +1,15 @@
 'use client';
 
-import { useState } from 'react';
-import { Wallet, Settings, Database, Shield, Mail, Download } from 'lucide-react';
-import { type User as WalletType } from '../../../../shared/types/auth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { type User as WalletType } from '@/shared/types/auth';
+import { Database, Mail, Settings, Shield, Wallet } from 'lucide-react';
+import { useState } from 'react';
+import { DataManagement } from './DataManagement';
 import { EmailManagement } from './EmailManagement';
 import { Web3Integration } from './Web3Integration';
-import { DataManagement } from './DataManagement';
 
 // Simple permission group helpers (for display only)
 function derivePermissionGroupFromPermissions(permissions: string[]): string {
@@ -61,7 +61,7 @@ export function WalletProfileClient({ wallet }: WalletProfileClientProps) {
               {wallet.email}
             </p>
             <div className="flex justify-center mt-2">
-              <Badge 
+              <Badge
                 variant={wallet.verified ? "default" : "secondary"}
                 className={wallet.verified ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300" : ""}
               >
@@ -102,9 +102,9 @@ export function WalletProfileClient({ wallet }: WalletProfileClientProps) {
                 </div>
               </div>
 
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 className="w-full"
                 onClick={() => window.location.href = '/plans'}
               >
@@ -119,28 +119,28 @@ export function WalletProfileClient({ wallet }: WalletProfileClientProps) {
       <div className="lg:col-span-3">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-4 bg-slate-100 dark:bg-slate-800">
-            <TabsTrigger 
+            <TabsTrigger
               value="web3"
               className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
             >
               <Shield className="h-4 w-4" />
               <span className="hidden sm:inline">Web3</span>
             </TabsTrigger>
-            <TabsTrigger 
-              value="account" 
+            <TabsTrigger
+              value="account"
               className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
             >
               <Settings className="h-4 w-4" />
               <span className="hidden sm:inline">Account</span>
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="email"
               className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
             >
               <Mail className="h-4 w-4" />
               <span className="hidden sm:inline">Email</span>
             </TabsTrigger>
-            <TabsTrigger 
+            <TabsTrigger
               value="data"
               className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-slate-700"
             >
@@ -205,9 +205,9 @@ export function WalletProfileClient({ wallet }: WalletProfileClientProps) {
                       </label>
                       <div className="max-h-32 overflow-y-auto space-y-1">
                         {wallet.permissions.map((permission, index) => (
-                          <Badge 
-                            key={index} 
-                            variant="secondary" 
+                          <Badge
+                            key={index}
+                            variant="secondary"
                             className="mr-2 mb-1 text-xs"
                           >
                             {permission}

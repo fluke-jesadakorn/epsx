@@ -4,9 +4,9 @@
  * Ensures configuration consistency across development and production
  */
 
+import { devLog, logger } from '@/lib/utils/logging';
+import { getBackendUrl } from '@/shared/utils/url-resolver';
 import { z } from 'zod';
-import { logger, devLog, safeError } from '@/lib/utils/logging';
-import { getBackendUrl } from '../../../../shared/utils/url-resolver';
 
 // Configuration schemas for validation
 const apiEndpointsSchema = z.object({
@@ -176,13 +176,13 @@ class RuntimeConfigValidator {
 
     // Validate API endpoints
     this.validateApiEndpoints();
-    
+
     // Validate feature flags
     this.validateFeatureFlags();
-    
+
     // Validate performance settings
     this.validatePerformanceConfig();
-    
+
     // Validate security settings
     this.validateSecurityConfig();
 
@@ -274,13 +274,13 @@ class RuntimeConfigValidator {
 
   private validateEnvironmentRequirements() {
     const env = process.env.NODE_ENV;
-    
+
     if (env === 'production') {
       // Production-specific validations
       if (!process.env.NEXT_PUBLIC_BACKEND_URL) {
         this.validationErrors.push('NEXT_PUBLIC_BACKEND_URL is required in production');
       }
-      
+
       if (!process.env.NEXTAUTH_SECRET) {
         this.validationErrors.push('NEXTAUTH_SECRET is required in production');
       }
@@ -335,7 +335,7 @@ class RuntimeConfigValidator {
   private reportValidationResults() {
     if (this.validationErrors.length > 0) {
       logger.error('Configuration validation failed', { errors: this.validationErrors });
-      
+
       if (process.env.NODE_ENV === 'production') {
         // In production, throw error to prevent startup with invalid config
         throw new Error(`Configuration validation failed: ${this.validationErrors.join('; ')}`);
@@ -371,7 +371,7 @@ export const configValidator = new RuntimeConfigValidator();
 export function getConfig<T>(path: string): T {
   const pathParts = path.split('.');
   let current: unknown = CONFIG_CONSTANTS;
-  
+
   for (const part of pathParts) {
     if (current && typeof current === 'object' && part in current) {
       current = (current as Record<string, unknown>)[part];
@@ -379,7 +379,7 @@ export function getConfig<T>(path: string): T {
       throw new Error(`Configuration path '${path}' not found`);
     }
   }
-  
+
   return current as T;
 }
 
@@ -394,7 +394,7 @@ export const getBusinessConfig = () => CONFIG_CONSTANTS.BUSINESS;
 // Environment-specific configuration
 export function getEnvironmentConfig() {
   const env = process.env.NODE_ENV || 'development';
-  
+
   return {
     isDevelopment: env === 'development',
     isProduction: env === 'production',
@@ -414,7 +414,7 @@ export function isFeatureEnabled(feature: keyof typeof CONFIG_CONSTANTS.FEATURES
 export function updateConfig(path: string, value: unknown) {
   const pathParts = path.split('.');
   let current: unknown = CONFIG_CONSTANTS;
-  
+
   for (let i = 0; i < pathParts.length - 1; i++) {
     const part = pathParts[i];
     if (current && typeof current === 'object' && part in current) {
@@ -423,7 +423,7 @@ export function updateConfig(path: string, value: unknown) {
       throw new Error(`Configuration path '${path}' not found`);
     }
   }
-  
+
   const lastPart = pathParts[pathParts.length - 1];
   if (current && typeof current === 'object') {
     (current as Record<string, unknown>)[lastPart] = value;

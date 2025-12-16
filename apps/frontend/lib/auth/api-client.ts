@@ -13,7 +13,7 @@
  */
 
 import { logger } from '@/lib/shared';
-import type { ApiResponse } from '../../../../shared/types/api';
+import type { ApiResponse } from '@/shared/types/api';
 
 // OpenID Connect Token Response (from backend)
 export interface OpenIDTokenResponse {

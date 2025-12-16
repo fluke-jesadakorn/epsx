@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
-import { Download, Trash2, Shield, AlertTriangle, FileText, Database, Clock, RefreshCw } from 'lucide-react';
-import { type User } from '../../../../shared/types/auth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { type User } from '@/shared/types/auth';
+import { AlertTriangle, Clock, Database, Download, FileText, RefreshCw, Shield, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 interface DataManagementProps {
@@ -93,7 +93,7 @@ export function DataManagement({ user }: DataManagementProps) {
       }
 
       toast.success('Account deletion initiated. You will be logged out shortly.');
-      
+
       // Redirect to logout after short delay
       setTimeout(() => {
         window.location.href = '/api/auth/logout';
@@ -276,7 +276,7 @@ export function DataManagement({ user }: DataManagementProps) {
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
-              <strong>Warning:</strong> Account deletion is permanent and cannot be undone. 
+              <strong>Warning:</strong> Account deletion is permanent and cannot be undone.
               All your data, permissions, and access will be permanently removed.
             </AlertDescription>
           </Alert>
@@ -294,10 +294,10 @@ export function DataManagement({ user }: DataManagementProps) {
             </ul>
           </div>
 
-          <Dialog 
-            open={deletionState.showConfirmation} 
-            onOpenChange={(open) => setDeletionState(prev => ({ 
-              ...prev, 
+          <Dialog
+            open={deletionState.showConfirmation}
+            onOpenChange={(open) => setDeletionState(prev => ({
+              ...prev,
               showConfirmation: open,
               confirmationText: open ? prev.confirmationText : ''
             }))}
@@ -329,9 +329,9 @@ export function DataManagement({ user }: DataManagementProps) {
                   <input
                     type="text"
                     value={deletionState.confirmationText}
-                    onChange={(e) => setDeletionState(prev => ({ 
-                      ...prev, 
-                      confirmationText: e.target.value 
+                    onChange={(e) => setDeletionState(prev => ({
+                      ...prev,
+                      confirmationText: e.target.value
                     }))}
                     className="w-full mt-1 px-3 py-2 border border-red-300 dark:border-red-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-slate-800"
                     placeholder="DELETE MY ACCOUNT"
@@ -344,7 +344,7 @@ export function DataManagement({ user }: DataManagementProps) {
                     variant="destructive"
                     onClick={handleAccountDeletion}
                     disabled={
-                      deletionState.isDeleting || 
+                      deletionState.isDeleting ||
                       deletionState.confirmationText !== 'DELETE MY ACCOUNT'
                     }
                     className="flex-1 bg-red-600 hover:bg-red-700"
@@ -363,8 +363,8 @@ export function DataManagement({ user }: DataManagementProps) {
                   </Button>
                   <Button
                     variant="outline"
-                    onClick={() => setDeletionState(prev => ({ 
-                      ...prev, 
+                    onClick={() => setDeletionState(prev => ({
+                      ...prev,
                       showConfirmation: false,
                       confirmationText: ''
                     }))}

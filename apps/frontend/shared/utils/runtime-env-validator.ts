@@ -5,7 +5,7 @@
  * Modernized with centralized URL resolver for fallbacks
  */
 
-import { URLContext, getAdminUrl, getBackendUrl, getFrontendUrl } from '../../../../shared/utils/url-resolver';
+import { URLContext, getAdminUrl, getBackendUrl, getFrontendUrl } from '@/shared/utils/url-resolver';
 
 export interface ValidationResult {
   isValid: boolean;

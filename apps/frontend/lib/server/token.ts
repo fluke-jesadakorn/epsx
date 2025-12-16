@@ -2,9 +2,9 @@
  * Server-side Web3 Session Utilities for Frontend
  * Web3-First Migration: Uses Web3 wallet signatures and session management
  */
-import { cookies } from 'next/headers';
-import { type EPSXJWTPayload } from '../../../../shared/auth/jwt';
 import { clientConfig } from '@/config/env';
+import { type EPSXJWTPayload } from '@/shared/auth/jwt';
+import { cookies } from 'next/headers';
 
 /**
  * Web3-First: Get Web3 session token from cookies
@@ -52,11 +52,11 @@ export async function getUserInfoFromWeb3(): Promise<EPSXJWTPayload | null> {
   try {
     const sessionToken = await getWeb3SessionFromCookies();
     const walletAddress = await getWalletAddressFromCookies();
-    
+
     if (!sessionToken || !walletAddress) {
       return null;
     }
-    
+
     // Get user info from backend Web3 authentication endpoint
     const backendUrl = clientConfig.backendUrl || 'http://localhost:8080';
     const response = await fetch(`${backendUrl}/api/auth/web3/user`, {
@@ -73,7 +73,7 @@ export async function getUserInfoFromWeb3(): Promise<EPSXJWTPayload | null> {
     }
 
     const userInfo = await response.json();
-    
+
     // Convert to EPSXJWTPayload format for compatibility
     return {
       sub: userInfo.wallet_address || userInfo.id,
@@ -88,7 +88,7 @@ export async function getUserInfoFromWeb3(): Promise<EPSXJWTPayload | null> {
       iss: 'epsx-backend-web3',
       aud: 'epsx-frontend',
     } as EPSXJWTPayload;
-    
+
   } catch (error) {
     console.error('❌ Failed to get user info from Web3 backend:', error);
     return null;
@@ -104,11 +104,11 @@ export async function getSessionFromWeb3(): Promise<{
 }> {
   try {
     const userInfo = await getUserInfoFromWeb3();
-    
+
     if (!userInfo) {
       return { isAuthenticated: false, user: null };
     }
-    
+
     return { isAuthenticated: true, user: userInfo };
   } catch (error) {
     console.error('❌ Failed to get session from Web3 backend:', error);

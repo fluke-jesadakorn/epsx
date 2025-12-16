@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import { Star, Gift, Users, TrendingUp } from 'lucide-react';
-import { env } from '../../../../shared/env/schema';
-import { API_ROUTES } from '../../../../shared/config/route-constants';
+import { API_ROUTES } from '@/shared/config/route-constants';
+import { env } from '@/shared/env/schema';
+import { Gift, Star, TrendingUp, Users } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
 
 interface AffiliateInfo {
   code: string;
@@ -30,7 +30,7 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
   const [affiliateInfo, setAffiliateInfo] = useState<AffiliateInfo | null>(null);
   const [affiliateStats, setAffiliateStats] = useState<AffiliateStats | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const searchParams = useSearchParams();
   const _router = useRouter();
 
@@ -42,7 +42,7 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
     try {
       const baseUrl = env.BACKEND_URL;
       const response = await fetch(`${baseUrl}${API_ROUTES.PUBLIC.PLANS}?affiliate_code=${code}`);
-      
+
       if (response.ok) {
         const result = await response.json();
         if (result.success) {
@@ -54,9 +54,9 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
             tier: getAffiliateTier(code),
             isValid: true
           };
-          
+
           setAffiliateInfo(mockAffiliateInfo);
-          
+
           // Store in cookies for persistence
           document.cookie = `affiliate_attribution=${encodeURIComponent(JSON.stringify({
             code,
@@ -66,10 +66,10 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
 
           // Load affiliate stats
           loadAffiliateStats(code);
-          
+
           // Trigger callback
           onAffiliateDetected?.(mockAffiliateInfo);
-          
+
           // Track the referral click (fire and forget)
           trackReferralClick(code);
         }
@@ -85,10 +85,10 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
   useEffect(() => {
     const initializeTracking = () => {
       // Check URL parameters for affiliate codes
-      const urlAffiliateCode = searchParams.get('ref') || 
-                              searchParams.get('affiliate') || 
-                              searchParams.get('aff') ||
-                              searchParams.get('partner');
+      const urlAffiliateCode = searchParams.get('ref') ||
+        searchParams.get('affiliate') ||
+        searchParams.get('aff') ||
+        searchParams.get('partner');
 
       if (urlAffiliateCode) {
         trackAffiliate(urlAffiliateCode);
@@ -101,13 +101,13 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
         if (key && value) acc[key] = value;
         return acc;
       }, {} as Record<string, string>);
-      
+
       const storedAttribution = cookies.affiliate_attribution || localStorage.getItem('affiliateAttribution');
       if (storedAttribution) {
         try {
           const attribution = JSON.parse(storedAttribution);
           const ageHours = (Date.now() - attribution.timestamp) / (1000 * 60 * 60);
-          
+
           // Attribution valid for 30 days
           if (ageHours < 24 * 30 && attribution.info) {
             setAffiliateInfo(attribution.info);
@@ -130,7 +130,7 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
   const trackReferralClick = async (code: string) => {
     try {
       const baseUrl = env.BACKEND_URL;
-      
+
       // Get user's IP and other tracking info
       const trackingData = {
         affiliateCode: code,
@@ -166,7 +166,7 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
         avgCommission: Math.random() * 50 + 25,
         tier: getAffiliateTier(code)
       };
-      
+
       setAffiliateStats(mockStats);
     } catch (error) {
       console.error('Error loading affiliate stats:', error);
@@ -182,7 +182,7 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
       'APIDEVS': 'API Developer Community',
       'TRADEPRO': 'Trading Academy Pro'
     };
-    
+
     return nameMap[code] || 'Partner Network';
   };
 
@@ -239,7 +239,7 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
                       You're earning {affiliateInfo.commissionRate}% rewards!
                     </span>
                   </div>
-                  
+
                   <div className="hidden sm:flex items-center gap-2 text-sm">
                     {getTierDisplay(affiliateInfo.tier || 'Standard').icon}
                     <span>Referred by {affiliateInfo.name}</span>
@@ -286,7 +286,7 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
 
       {/* Tracking pixel (hidden) */}
       {affiliateInfo && (
-        <div 
+        <div
           className="hidden"
           data-affiliate-code={affiliateInfo.code}
           data-affiliate-name={affiliateInfo.name}
@@ -307,7 +307,7 @@ export function useAffiliate() {
       try {
         const attribution = JSON.parse(storedAttribution);
         const ageHours = (Date.now() - attribution.timestamp) / (1000 * 60 * 60);
-        
+
         if (ageHours < 24 * 30 && attribution.info) {
           setAffiliateInfo(attribution.info);
         }

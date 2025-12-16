@@ -1,7 +1,7 @@
 'use server';
 
-import { URL, URLContext, Service } from '../../../../shared/utils/url-resolver';
-import type { PaginatedResponse } from '../../../../shared/types/api';
+import type { PaginatedResponse } from '@/shared/types/api';
+import { Service, URL, URLContext } from '@/shared/utils/url-resolver';
 
 interface StockRanking {
   rank: number;
@@ -27,7 +27,7 @@ export async function fetchPublicRankingData(page = 1, limit = 5) {
     // Start from rank 101 (page 21 with 5 per page: (21-1)*5 + 1 = 101)
     const publicPage = Math.floor(100 / limit) + page;
     const url = `${apiUrl}/api/analytics/rankings?page=${publicPage}&limit=${limit}&sort_by=market_cap`;
-    
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -42,7 +42,7 @@ export async function fetchPublicRankingData(page = 1, limit = 5) {
     }
 
     const apiData: PaginatedResponse<StockRanking> = await response.json();
-    
+
     if (!Array.isArray(apiData.data)) {
       throw new Error('Invalid API response format');
     }
@@ -51,7 +51,7 @@ export async function fetchPublicRankingData(page = 1, limit = 5) {
     const transformedData = apiData.data.map(stock => {
       // Calculate growth from latest quarter's EPS growth, fallback to 0
       const latestGrowth = stock.quarterly_performance[0]?.eps_growth || 0;
-      
+
       return {
         symbol: stock.symbol,
         currentPrice: stock.value,
@@ -83,7 +83,7 @@ export async function fetchEpsCardData(page = 1, limit = 3) {
     // Start from rank 101 (page 34 with 3 per page: (34-1)*3 + 1 = 100, so page 35 = 103)
     const publicPage = Math.floor(100 / limit) + page;
     const url = `${apiUrl}/api/analytics/rankings?page=${publicPage}&limit=${limit}&sort_by=market_cap`;
-    
+
     const response = await fetch(url, {
       method: 'GET',
       headers: {
@@ -98,7 +98,7 @@ export async function fetchEpsCardData(page = 1, limit = 3) {
     }
 
     const apiData: PaginatedResponse<StockRanking> = await response.json();
-    
+
     if (!Array.isArray(apiData.data)) {
       throw new Error('Invalid API response format');
     }
@@ -109,7 +109,7 @@ export async function fetchEpsCardData(page = 1, limit = 3) {
       // Use latest quarter's growth data, fallback to 0
       const epsGrowth = latestQuarter?.eps_growth || 0;
       const priceGrowth = latestQuarter?.price_growth || 0;
-      
+
       return {
         symbol: stock.symbol,
         name: `Company ${stock.symbol}`, // Placeholder name

@@ -8,13 +8,13 @@
  */
 export function formatDate(date: Date | string, format: 'short' | 'medium' | 'long' = 'medium'): string {
   const d = typeof date === 'string' ? new Date(date) : date
-  
+
   const formats = {
     short: { month: 'short' as const, day: 'numeric' as const },
     medium: { month: 'short' as const, day: 'numeric' as const, year: 'numeric' as const },
     long: { month: 'long' as const, day: 'numeric' as const, year: 'numeric' as const }
   }
-  
+
   return new Intl.DateTimeFormat('en-US', formats[format]).format(d)
 }
 
@@ -40,7 +40,7 @@ export function formatRelativeTime(date: Date | string): string {
   if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)}m ago`
   if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`
   if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)}d ago`
-  
+
   return formatDate(date)
 }
 
@@ -48,6 +48,25 @@ export function formatRelativeTime(date: Date | string): string {
  * Alias for relative time formatting
  */
 export const fmtRelativeTime = formatRelativeTime
+
+/**
+ * Format date with time for display (e.g., "Dec 15, 2024, 10:30:45 AM")
+ */
+export function formatDateTime(dateString: string): string {
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  } catch {
+    return dateString;
+  }
+}
 
 /**
  * Format date for quarter display (e.g., "Dec 15, 2024")
@@ -108,7 +127,7 @@ export function getRelativeTime(dateString: string): string {
     const now = new Date()
     const diffTime = date.getTime() - now.getTime()
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    
+
     if (diffDays === 0) {
       return 'today'
     } else if (diffDays === 1) {
@@ -134,14 +153,14 @@ export function formatTimeRemaining(dateString: string): string {
     const date = new Date(dateString)
     const now = new Date()
     const diffTime = date.getTime() - now.getTime()
-    
+
     if (diffTime <= 0) {
       return 'Time passed'
     }
-    
+
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24))
     const diffHours = Math.floor((diffTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-    
+
     if (diffDays > 0) {
       return `${diffDays} days${diffHours > 0 ? `, ${diffHours} hours` : ''}`
     } else if (diffHours > 0) {
@@ -165,7 +184,7 @@ export function getQuarterLabel(dateString: string): string {
     const date = new Date(dateString)
     const month = date.getMonth() + 1 // 1-based month
     const year = date.getFullYear()
-    
+
     let quarter: number
     if (month >= 1 && month <= 3) {
       quarter = 1
@@ -176,7 +195,7 @@ export function getQuarterLabel(dateString: string): string {
     } else {
       quarter = 4
     }
-    
+
     return `Q${quarter} ${year}`
   } catch (error) {
     console.error('Error getting quarter label:', error)
@@ -203,7 +222,7 @@ export function isFutureDate(dateString: string): boolean {
  */
 export function formatCountdown(announcementDate: string): string {
   const daysRemaining = calculateDaysRemaining(announcementDate)
-  
+
   if (daysRemaining === 0) {
     return 'Today'
   } else if (daysRemaining === 1) {
@@ -220,14 +239,14 @@ export function calculateDaysRemaining(announcementDate: string): number {
   try {
     const now = new Date()
     const announcement = new Date(announcementDate)
-    
+
     // Set to start of day for accurate day counting
     now.setHours(0, 0, 0, 0)
     announcement.setHours(0, 0, 0, 0)
-    
+
     const diffTime = announcement.getTime() - now.getTime()
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-    
+
     return Math.max(0, diffDays)
   } catch (error) {
     console.error('Error calculating days remaining:', error)
@@ -242,10 +261,10 @@ export function calculateHoursRemaining(announcementDate: string): number {
   try {
     const now = new Date()
     const announcement = new Date(announcementDate)
-    
+
     const diffTime = announcement.getTime() - now.getTime()
     const diffHours = Math.ceil(diffTime / (1000 * 60 * 60))
-    
+
     return Math.max(0, diffHours)
   } catch (error) {
     console.error('Error calculating hours remaining:', error)

@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Card, CardContent, CardHeader, CardTitle, Button } from '@/components/ui'
-import { Badge } from '@/components/ui/badge'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { CheckCircle, Crown, Zap, Shield, TrendingUp, AlertCircle, Star } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { API_ROUTES } from '@/shared/config/route-constants'
+import { AlertCircle, CheckCircle, Crown, Shield, Star, TrendingUp, Zap } from 'lucide-react'
 import Link from 'next/link'
-import { API_ROUTES } from '../../../../shared/config/route-constants'
+import { useEffect, useState } from 'react'
 
 interface PlanFeature {
   id: number
@@ -88,7 +88,7 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
   const loadUserSubscriptions = async () => {
     try {
       const response = await fetch('/api/user/subscriptions')
-      
+
       if (response.ok) {
         const data = await response.json()
         setUserSubscriptions(data.subscriptions || [])
@@ -176,7 +176,7 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
       acc[feature.context_name].push(feature)
       return acc
     }, {} as Record<string, PlanFeature[]>)
-    
+
     return groups
   }
 
@@ -228,11 +228,10 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
           <button
             key={category.key}
             onClick={() => setSelectedCategory(category.key as any)}
-            className={`px-6 py-3 rounded-xl font-semibold transition-all ${
-              selectedCategory === category.key
+            className={`px-6 py-3 rounded-xl font-semibold transition-all ${selectedCategory === category.key
                 ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white shadow-lg'
                 : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600'
-            }`}
+              }`}
           >
             {category.label} ({category.count})
           </button>
@@ -248,13 +247,12 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
           const isPopular = plan.subscriber_count > 100 // Example popularity threshold
 
           return (
-            <Card 
-              key={plan.id} 
-              className={`relative overflow-hidden border-2 transition-all hover:shadow-xl ${
-                isSubscribed 
-                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' 
+            <Card
+              key={plan.id}
+              className={`relative overflow-hidden border-2 transition-all hover:shadow-xl ${isSubscribed
+                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
                   : 'border-gray-200 dark:border-gray-700 hover:border-emerald-300'
-              } ${isPopular ? 'ring-2 ring-yellow-400/50' : ''}`}
+                } ${isPopular ? 'ring-2 ring-yellow-400/50' : ''}`}
             >
               {/* Popular Badge */}
               {isPopular && (
@@ -361,7 +359,7 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
                         </Link>
                       </div>
                     ) : (
-                      <Button 
+                      <Button
                         onClick={() => handleSubscribe(plan)}
                         className={`w-full bg-gradient-to-r ${getPlanColor(plan.plan_category)} text-white`}
                       >

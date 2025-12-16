@@ -7,9 +7,13 @@
 
 'use client';
 
-import { PureWeb3ApiClient as BaseApiClient } from '../../../../shared/auth/web3/client';
-import { createPureWeb3AuthStore } from '../../../../shared/auth/web3/store';
-import { PureWeb3AuthActions, PureWeb3AuthState, PureWeb3AuthStore, SignedRequestHeaders } from '../../../../shared/auth/web3/types';
+import { PureWeb3ApiClient as BaseApiClient } from '@/shared/auth/web3/client';
+import {
+  createPureWeb3Hooks,
+  createUsePureWeb3Auth
+} from '@/shared/auth/web3/factory';
+import { createPureWeb3AuthStore } from '@/shared/auth/web3/store';
+import { PureWeb3AuthActions, PureWeb3AuthState, PureWeb3AuthStore, SignedRequestHeaders } from '@/shared/auth/web3/types';
 
 export type { PureWeb3AuthActions, PureWeb3AuthState, PureWeb3AuthStore, SignedRequestHeaders };
 
@@ -20,7 +24,7 @@ export const usePureWeb3AuthStore = createPureWeb3AuthStore({
   verifyMethod: 'GET'
 });
 
-// Admin API Client
+// Admin API Client (Admin-specific extensions)
 class AdminWeb3ApiClient extends BaseApiClient {
   async getAdminStatus() {
     return this.get('/api/admin/status');
@@ -53,62 +57,17 @@ class AdminWeb3ApiClient extends BaseApiClient {
   }
 }
 
-// Admin API methods with Web3 signing
+// Admin API singleton
 export const web3AdminApi = new AdminWeb3ApiClient(usePureWeb3AuthStore);
 
-// Hook for using Pure Web3 admin auth
-export function usePureWeb3Auth() {
-  const store = usePureWeb3AuthStore();
+// Use shared hook factory for common hooks (configured for admin)
+export const usePureWeb3Auth = createUsePureWeb3Auth(usePureWeb3AuthStore, web3AdminApi, 'admin');
 
-  return {
-    // State
-    ...store,
+// Use shared selector hooks (configured for admin)
+const {
+  usePureWeb3ConnectedState,
+  usePureWeb3AuthState,
+  usePureWeb3LoadingState
+} = createPureWeb3Hooks(usePureWeb3AuthStore, 'admin');
 
-    // Computed values
-    isReady: store.hasInitialized && !store.isLoading,
-    isAuthorized: store.isConnected && store.permissions.length > 0 && store.permissions.some(p => p.startsWith('admin:')),
-
-    // Actions
-    connect: async (address: string, chainId: number) => {
-      store.setConnected(true, address, chainId);
-      store.setInitialized(true);
-      await store.verifyConnection();
-    },
-
-    disconnect: async () => {
-      await store.signOut();
-    },
-
-    // Permission helpers
-    hasPermission: (permission: string) => store.permissions.includes(permission),
-    hasAnyPermission: (permissions: string[]) =>
-      permissions.some(p => store.permissions.includes(p)),
-    hasAllPermissions: (permissions: string[]) =>
-      permissions.every(p => store.permissions.includes(p)),
-
-    isAdmin: () => store.permissions.some(p => p.startsWith('admin:')),
-
-    // API client
-    api: web3AdminApi
-  };
-}
-
-// Selector hooks for performance
-export const usePureWeb3ConnectedState = () => usePureWeb3AuthStore(state => ({
-  isConnected: state.isConnected,
-  walletAddress: state.walletAddress,
-  chainId: state.chainId,
-}));
-
-export const usePureWeb3AuthState = () => usePureWeb3AuthStore(state => ({
-  isAuthenticated: state.isConnected && state.permissions.length > 0 && state.permissions.some(p => p.startsWith('admin:')),
-  isAuthenticating: state.isAuthenticating,
-  permissions: state.permissions,
-  groups: state.groups,
-}));
-
-export const usePureWeb3LoadingState = () => usePureWeb3AuthStore(state => ({
-  isLoading: state.isLoading,
-  hasInitialized: state.hasInitialized,
-  error: state.error,
-}));
+export { usePureWeb3AuthState, usePureWeb3ConnectedState, usePureWeb3LoadingState };

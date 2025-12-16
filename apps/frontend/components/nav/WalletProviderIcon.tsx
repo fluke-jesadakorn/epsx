@@ -2,13 +2,13 @@
 
 import { useWeb3Context } from '@/components/providers/AuthProvider';
 import {
-    Button,
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-    UnifiedThemeToggle,
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  UnifiedThemeToggle,
 } from '@/components/ui';
 import { formatAddress, useWeb3AuthStore } from '@/lib/auth/store';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
@@ -113,82 +113,15 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
     }
   }, [isConnected, address, setWeb3Connected, setWeb3Authenticated, setWeb3WalletAddress]);
 
-  // Auto-authenticate when wallet connects (with retry limits)
-  useEffect(() => {
-    const autoAuthenticate = async () => {
-      // Only trigger if:
-      // 1. Wallet is connected
-      // 2. Address exists
-      // 3. Not already authenticated
-      // 4. Not currently authenticating
-      // 5. Not disconnecting (prevent race condition)
-      // 6. Component is hydrated
-      // 7. Haven't exceeded retry limit (prevent infinite loops)
-      if (isConnected && address && !isAuthenticated && !isAuthenticating && !isDisconnecting && isHydrated && authRetryCount < 3) {
-        try {
-          setIsAuthenticating(true);
-          console.log('🔐 Auto-authenticating wallet:', address, `(attempt ${authRetryCount + 1}/3)`);
-
-          // Step 1: Request challenge from backend
-          const challenge = await requestChallenge(address);
-          console.log('✅ Challenge received, prompting user to sign...');
-
-          // Step 2: Prompt user to sign the SIWE message
-          const signature = await signMessageAsync({
-            message: challenge.message,
-          });
-          console.log('✅ Message signed by user');
-
-          // Step 3: Complete authentication with signature
-          const result = await authenticateWithWallet(
-            challenge.wallet_address,
-            signature,
-            challenge.message,
-            challenge.nonce
-          );
-
-          if (result.success) {
-            console.log('✅ Auto-authentication successful!');
-
-            // Reset retry count and clear last error on success
-            setAuthRetryCount(0);
-            setLastAuthError(null);
-
-            // ✅ SYNC: Update web3 auth store to match SharedAuth state
-            setWeb3Authenticated(true);
-            setWeb3WalletAddress(address.toLowerCase());
-            console.log('✅ Synced authentication to web3 auth store for SSE notifications');
-          } else {
-            console.error('❌ Auto-authentication failed:', result.error);
-            setAuthRetryCount(prev => prev + 1);
-            setLastAuthError(result.error ?? null);
-          }
-        } catch (error: any) {
-          console.error('❌ Auto-authentication error:', error);
-          setAuthRetryCount(prev => prev + 1);
-          setLastAuthError(error?.message || 'Authentication failed');
-
-          // User rejected signature or other error
-          if (error?.code === 4001 || error?.message?.includes('User rejected')) {
-            console.log('ℹ️ User rejected signature request');
-            // Don't retry for user rejection
-            setAuthRetryCount(10); // Exceed limit to prevent further retries
-          }
-        } finally {
-          setIsAuthenticating(false);
-        }
-      } else if (authRetryCount >= 3 && lastAuthError) {
-        // Show error state when max retries reached
-        console.warn('⚠️ Auto-authentication stopped after 3 attempts. Last error:', lastAuthError);
-      }
-    };
-
-    autoAuthenticate();
-  }, [isConnected, address, isAuthenticated, isAuthenticating, isDisconnecting, isHydrated, authRetryCount, lastAuthError, requestChallenge, authenticateWithWallet, signMessageAsync, setWeb3Authenticated, setWeb3WalletAddress]);
+  // NOTE: Auto-authentication is DISABLED
+  // Users only need to connect wallet. SIWE sign-in is triggered:
+  // 1. Manually via "Sign In" button in dropdown
+  // 2. Automatically when backend returns 401/403 on protected API calls
+  // Frontend does NOT enforce permissions - backend handles all authorization
 
   const handleCopyAddress = async () => {
     if (!address) return;
-    
+
     try {
       await navigator.clipboard.writeText(address);
       setCopied(true);
@@ -222,9 +155,9 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
           const sizeClasses = compact ? 'h-8 px-3 text-xs' : 'h-10 px-4 text-sm';
           const colorClasses = 'bg-gradient-to-r from-orange-400 to-orange-600 hover:from-orange-500 hover:to-orange-700 text-white shadow-lg hover:shadow-xl border-0';
           const extraClasses = typeof className === 'string' ? className : '';
-          
+
           const finalClassName = [baseClasses, sizeClasses, colorClasses, extraClasses].filter(Boolean).join(' ');
-          
+
           return (
             <button
               onClick={openConnectModal}
@@ -319,9 +252,9 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
           {getTriggerContent()}
         </button>
       </DropdownMenuTrigger>
-      
-      <DropdownMenuContent 
-        align="end" 
+
+      <DropdownMenuContent
+        align="end"
         className="w-64 p-2 bg-white/95 backdrop-blur-xl border border-orange-100/50 dark:bg-slate-900/95 dark:border-slate-700/50"
       >
         {/* Wallet Header */}
@@ -369,21 +302,81 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
           </div>
         </DropdownMenuItem>
 
+        {/* Sign In - only show when connected but not authenticated */}
+        {!isAuthenticated && !isAuthenticating && (
+          <DropdownMenuItem
+            onClick={async () => {
+              if (!address) return;
+              try {
+                setIsAuthenticating(true);
+                console.log('🔐 Manual sign-in started for:', address);
+
+                // Step 1: Request challenge from backend
+                const challenge = await requestChallenge(address);
+                console.log('✅ Challenge received, prompting user to sign...');
+
+                // Step 2: Prompt user to sign the SIWE message
+                const signature = await signMessageAsync({
+                  message: challenge.message,
+                });
+                console.log('✅ Message signed by user');
+
+                // Step 3: Complete authentication with signature
+                const result = await authenticateWithWallet(
+                  challenge.wallet_address,
+                  signature,
+                  challenge.message,
+                  challenge.nonce
+                );
+
+                if (result.success) {
+                  console.log('✅ Manual sign-in successful!');
+                  setAuthRetryCount(0);
+                  setLastAuthError(null);
+                  setWeb3Authenticated(true);
+                  setWeb3WalletAddress(address.toLowerCase());
+                } else {
+                  console.error('❌ Sign-in failed:', result.error);
+                  setLastAuthError(result.error ?? null);
+                }
+              } catch (error: any) {
+                console.error('❌ Sign-in error:', error);
+                if (error?.code === 4001 || error?.message?.includes('User rejected')) {
+                  console.log('ℹ️ User rejected signature request');
+                } else {
+                  setLastAuthError(error?.message || 'Sign-in failed');
+                }
+              } finally {
+                setIsAuthenticating(false);
+              }
+            }}
+            className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-green-50/80 dark:hover:bg-green-900/20 text-green-600 dark:text-green-400"
+          >
+            <Wallet className="h-4 w-4 text-green-600 dark:text-green-400" />
+            <div>
+              <div className="text-sm font-medium">Sign In</div>
+              <div className="text-xs opacity-75">
+                Authenticate with your wallet
+              </div>
+            </div>
+          </DropdownMenuItem>
+        )}
+
         {/* Retry Authentication - only show when auth failed */}
         {authRetryCount >= 3 && lastAuthError && (
           <DropdownMenuItem
             onClick={() => {
               setAuthRetryCount(0);
               setLastAuthError(null);
-              console.log('🔄 Manually retrying authentication...');
+              console.log('🔄 Cleared auth error state');
             }}
             className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-orange-50/80 dark:hover:bg-slate-800/40"
           >
             <Wallet className="h-4 w-4 text-orange-500" />
             <div>
-              <div className="text-sm font-medium">Retry Authentication</div>
+              <div className="text-sm font-medium">Clear Error</div>
               <div className="text-xs text-slate-500 dark:text-slate-400">
-                Attempt to sign in again
+                Reset authentication state
               </div>
             </div>
           </DropdownMenuItem>
@@ -424,8 +417,8 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
 
         {/* Theme Toggle */}
         <div className="px-3 py-2">
-          <UnifiedThemeToggle 
-            variant="minimal" 
+          <UnifiedThemeToggle
+            variant="minimal"
             showLabel={true}
             showTooltip={false}
             className="w-full justify-start gap-3 rounded-lg px-0 py-1 text-sm font-medium text-slate-600 hover:bg-orange-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200"
@@ -476,6 +469,6 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
           </div>
         </DropdownMenuItem>
       </DropdownMenuContent>
-    </DropdownMenu>
+    </DropdownMenu >
   );
 }

@@ -3,11 +3,9 @@
  * Stock market data, financial data, and trading information
  */
 
-import { apiClient } from './client';
-import type { CountResponse, StockFinancialData } from './client';
-import type { PaginatedResponse } from '../../../../shared/types/api';
-import type { StockFinancialData as LocalStockFinancialData } from '@/types/financialChartData';
 import { apiLogger, safeError } from '@/lib/utils/logging';
+import type { PaginatedResponse } from '@/shared/types/api';
+import type { CountResponse, StockFinancialData } from './client';
 
 // ============================================================================
 // Types and Interfaces
@@ -81,7 +79,7 @@ export class MarketApiClient {
   async getStocks(params: StockApiParams = {}): Promise<PaginatedResponse<StockFinancialData>> {
     try {
       const searchParams = new URLSearchParams();
-      
+
       // Add pagination parameters
       if (params.page) searchParams.set('page', params.page.toString());
       if (params.limit) searchParams.set('limit', params.limit.toString());
@@ -93,7 +91,7 @@ export class MarketApiClient {
       if (params.sort_order) searchParams.set('sort_order', params.sort_order);
 
       const url = `${this.baseUrl}?${searchParams.toString()}`;
-      
+
       const response = await fetch(url, {
         credentials: 'include',
         headers: {
@@ -106,17 +104,17 @@ export class MarketApiClient {
       }
 
       const data = await response.json();
-      
-      apiLogger.debug('Market data fetched', { 
-        params, 
-        totalItems: data.pagination?.total_items 
+
+      apiLogger.debug('Market data fetched', {
+        params,
+        totalItems: data.pagination?.total_items
       });
 
       return data;
     } catch (error) {
-      apiLogger.error('Failed to fetch stock data', { 
-        params, 
-        error: safeError(error).message 
+      apiLogger.error('Failed to fetch stock data', {
+        params,
+        error: safeError(error).message
       });
       throw error;
     }
@@ -128,14 +126,14 @@ export class MarketApiClient {
   async getStockCount(params: Omit<StockApiParams, 'page' | 'limit'> = {}): Promise<CountResponse> {
     try {
       const searchParams = new URLSearchParams();
-      
+
       if (params.country) searchParams.set('country', params.country);
       if (params.quarters) searchParams.set('quarters', params.quarters.toString());
       if (params.sector) searchParams.set('sector', params.sector);
       if (params.min_market_cap) searchParams.set('min_market_cap', params.min_market_cap.toString());
 
       const url = `${this.baseUrl}/count?${searchParams.toString()}`;
-      
+
       const response = await fetch(url, {
         credentials: 'include',
         headers: {
@@ -149,9 +147,9 @@ export class MarketApiClient {
 
       return await response.json();
     } catch (error) {
-      apiLogger.error('Failed to fetch stock count', { 
-        params, 
-        error: safeError(error).message 
+      apiLogger.error('Failed to fetch stock count', {
+        params,
+        error: safeError(error).message
       });
       throw error;
     }
@@ -163,7 +161,7 @@ export class MarketApiClient {
   async getStock(symbol: string): Promise<StockFinancialData> {
     try {
       const url = `${this.baseUrl}/${symbol}`;
-      
+
       const response = await fetch(url, {
         credentials: 'include',
         headers: {
@@ -176,14 +174,14 @@ export class MarketApiClient {
       }
 
       const data = await response.json();
-      
+
       apiLogger.debug('Individual stock data fetched', { symbol });
 
       return data;
     } catch (error) {
-      apiLogger.error('Failed to fetch individual stock data', { 
-        symbol, 
-        error: safeError(error).message 
+      apiLogger.error('Failed to fetch individual stock data', {
+        symbol,
+        error: safeError(error).message
       });
       throw error;
     }
@@ -195,7 +193,7 @@ export class MarketApiClient {
   async getMarketSummary(): Promise<MarketSummary> {
     try {
       const url = `${this.baseUrl}/summary`;
-      
+
       const response = await fetch(url, {
         credentials: 'include',
         headers: {
@@ -209,8 +207,8 @@ export class MarketApiClient {
 
       return await response.json();
     } catch (error) {
-      apiLogger.error('Failed to fetch market summary', { 
-        error: safeError(error).message 
+      apiLogger.error('Failed to fetch market summary', {
+        error: safeError(error).message
       });
       throw error;
     }
@@ -222,7 +220,7 @@ export class MarketApiClient {
   async getStockPrice(symbol: string): Promise<StockPrice> {
     try {
       const url = `/api/market-data/prices/${symbol}`;
-      
+
       const response = await fetch(url, {
         credentials: 'include',
         headers: {
@@ -236,9 +234,9 @@ export class MarketApiClient {
 
       return await response.json();
     } catch (error) {
-      apiLogger.error('Failed to fetch stock price', { 
-        symbol, 
-        error: safeError(error).message 
+      apiLogger.error('Failed to fetch stock price', {
+        symbol,
+        error: safeError(error).message
       });
       throw error;
     }
@@ -250,7 +248,7 @@ export class MarketApiClient {
   async getStockChart(symbol: string, timeframe: StockChart['timeframe'] = '1d'): Promise<StockChart> {
     try {
       const url = `/api/market-data/charts/${symbol}?timeframe=${timeframe}`;
-      
+
       const response = await fetch(url, {
         credentials: 'include',
         headers: {
@@ -264,10 +262,10 @@ export class MarketApiClient {
 
       return await response.json();
     } catch (error) {
-      apiLogger.error('Failed to fetch stock chart', { 
-        symbol, 
+      apiLogger.error('Failed to fetch stock chart', {
+        symbol,
         timeframe,
-        error: safeError(error).message 
+        error: safeError(error).message
       });
       throw error;
     }
@@ -284,7 +282,7 @@ export class MarketApiClient {
   }>> {
     try {
       const url = `/api/market-data/search?q=${encodeURIComponent(query)}&limit=${limit}`;
-      
+
       const response = await fetch(url, {
         credentials: 'include',
         headers: {
@@ -298,10 +296,10 @@ export class MarketApiClient {
 
       return await response.json();
     } catch (error) {
-      apiLogger.error('Failed to search stocks', { 
+      apiLogger.error('Failed to search stocks', {
         query,
         limit,
-        error: safeError(error).message 
+        error: safeError(error).message
       });
       throw error;
     }
@@ -313,7 +311,7 @@ export class MarketApiClient {
   async getSectors(): Promise<string[]> {
     try {
       const url = `/api/market-data/sectors`;
-      
+
       const response = await fetch(url, {
         credentials: 'include',
         headers: {
@@ -327,8 +325,8 @@ export class MarketApiClient {
 
       return await response.json();
     } catch (error) {
-      apiLogger.error('Failed to fetch sectors', { 
-        error: safeError(error).message 
+      apiLogger.error('Failed to fetch sectors', {
+        error: safeError(error).message
       });
       throw error;
     }
@@ -340,7 +338,7 @@ export class MarketApiClient {
   async getCountries(): Promise<string[]> {
     try {
       const url = `/api/market-data/countries`;
-      
+
       const response = await fetch(url, {
         credentials: 'include',
         headers: {
@@ -354,8 +352,8 @@ export class MarketApiClient {
 
       return await response.json();
     } catch (error) {
-      apiLogger.error('Failed to fetch countries', { 
-        error: safeError(error).message 
+      apiLogger.error('Failed to fetch countries', {
+        error: safeError(error).message
       });
       throw error;
     }
@@ -388,7 +386,7 @@ export function formatPercentageChange(change: number): string {
     maximumFractionDigits: 2,
     signDisplay: 'always',
   }).format(change / 100);
-  
+
   return formatted;
 }
 

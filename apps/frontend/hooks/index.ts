@@ -1,6 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+// Frontend auth adapter for unified auth system
+export { useFrontendAuth } from './useFrontendAuth';
+
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 // DEPRECATED: Generic data fetching hook using deprecated API client
 // Migrate to specific server actions instead of using this hook
@@ -14,7 +17,7 @@ export function useApi<T>(
 
   const fetchData = useCallback(async () => {
     if (options?.enabled === false) return;
-    
+
     console.warn('useApi hook is deprecated. Please migrate to specific server actions.');
     setError('useApi hook is deprecated. Please use specific server actions instead.');
     setLoading(false);
@@ -22,7 +25,7 @@ export function useApi<T>(
 
   useEffect(() => {
     fetchData();
-    
+
     if (options?.refresh) {
       const interval = setInterval(fetchData, options.refresh);
       return () => clearInterval(interval);
@@ -54,7 +57,7 @@ export function useForm<T extends Record<string, any>>(
     setLoading(true);
     setErrors({});
     setFormError(null);
-    
+
     try {
       await onSubmit(values);
     } catch (err) {
@@ -103,7 +106,7 @@ export function useDebounce<T>(value: T, delay: number): T {
 export function useCookieStorage<T>(key: string, initialValue: T, maxAge?: number) {
   const [storedValue, setStoredValue] = useState<T>(() => {
     if (typeof window === 'undefined') return initialValue;
-    
+
     try {
       // Try cookie first, then fallback to localStorage for migration
       const cookies = document.cookie.split(';').reduce((acc, cookie) => {
@@ -111,7 +114,7 @@ export function useCookieStorage<T>(key: string, initialValue: T, maxAge?: numbe
         if (k && v) acc[k] = v;
         return acc;
       }, {} as Record<string, string>);
-      
+
       const item = cookies[key] || window.localStorage.getItem(key);
       return item ? JSON.parse(item) : initialValue;
     } catch (_error) {
@@ -149,10 +152,10 @@ export function useMediaQuery(query: string): boolean {
   useEffect(() => {
     const media = window.matchMedia(query);
     setMatches(media.matches);
-    
+
     const listener = () => setMatches(media.matches);
     media.addEventListener('change', listener);
-    
+
     return () => media.removeEventListener('change', listener);
   }, [query]);
 

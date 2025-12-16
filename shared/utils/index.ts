@@ -8,116 +8,84 @@
 // FORMATTING UTILITIES - Import then re-export for utils object
 // ============================================================================
 import {
+  cur,
+  fmtCurrency,
+  formatBytes,
   // Currency formatting
   formatCurrency,
-  fmtCurrency,
-  cur,
   formatEPS,
-  formatPrice,
-  prc,
-  formatLargeNumber,
   formatFileSize,
-  formatBytes
+  formatLargeNumber,
+  formatPrice,
+  prc
 } from './formatting/currency'
 
 export {
-  formatCurrency,
-  fmtCurrency,
-  cur,
-  formatEPS,
-  formatPrice,
-  prc,
-  formatLargeNumber,
-  formatFileSize,
-  formatBytes
+  cur, fmtCurrency, formatBytes, formatCurrency, formatEPS, formatFileSize, formatLargeNumber, formatPrice,
+  prc
 }
 
 import {
-  // Date formatting
-  formatDate,
+  calculateDaysRemaining,
+  calculateHoursRemaining,
   dt,
   fmtDate,
-  formatRelativeTime,
   fmtRelativeTime,
-  formatQuarterDate,
   formatAnnouncementDate,
   formatCompactDate,
-  getRelativeTime,
+  formatCountdown,
+  // Date formatting
+  formatDate,
+  formatDateTime,
+  formatQuarterDate,
+  formatRelativeTime,
   formatTimeRemaining,
   getQuarterLabel,
-  isFutureDate,
-  formatCountdown,
-  calculateDaysRemaining,
-  calculateHoursRemaining
+  getRelativeTime,
+  isFutureDate
 } from './formatting/date'
 
 export {
-  formatDate,
-  dt,
-  fmtDate,
-  formatRelativeTime,
-  fmtRelativeTime,
-  formatQuarterDate,
-  formatAnnouncementDate,
-  formatCompactDate,
-  getRelativeTime,
-  formatTimeRemaining,
-  getQuarterLabel,
-  isFutureDate,
-  formatCountdown,
   calculateDaysRemaining,
-  calculateHoursRemaining
+  calculateHoursRemaining, dt,
+  fmtDate, fmtRelativeTime, formatAnnouncementDate,
+  formatCompactDate, formatCountdown, formatDate, formatDateTime,
+  formatQuarterDate, formatRelativeTime, formatTimeRemaining,
+  getQuarterLabel, getRelativeTime, isFutureDate
 }
 
 import {
+  camelCase,
+  capitalize,
+  clamp,
+  copyToClipboard as copyToClipboardDisplay,
+  epsGr,
+  formatEPSGrowth,
   // Display formatting
   formatPercentage,
-  pct,
-  formatEPSGrowth,
-  epsGr,
-  capitalize,
-  truncate,
-  truncateText,
-  slugify,
-  kebabCase,
-  camelCase,
-  isValidEmail,
-  isValidPhone,
-  getEPSPerformanceColor,
-  getGrowthIndicator,
-  parseJWT,
-  isEmpty,
   generateId,
   generateSimpleId,
-  copyToClipboard as copyToClipboardDisplay,
+  getEPSPerformanceColor,
+  getGrowthIndicator,
   isBrowser as isBrowserDisplay,
+  isEmpty,
   isMobile as isMobileDisplay,
-  clamp
+  isValidEmail,
+  isValidPhone,
+  kebabCase,
+  parseJWT,
+  pct,
+  slugify,
+  truncate,
+  truncateText
 } from './formatting/display'
 
 export {
-  formatPercentage,
-  pct,
-  formatEPSGrowth,
-  epsGr,
-  capitalize,
-  truncate,
-  truncateText,
-  slugify,
-  kebabCase,
-  camelCase,
-  isValidEmail,
-  isValidPhone,
-  getEPSPerformanceColor,
-  getGrowthIndicator,
-  parseJWT,
-  isEmpty,
-  generateId,
-  generateSimpleId,
-  copyToClipboardDisplay,
-  isBrowserDisplay,
-  isMobileDisplay,
-  clamp
+  camelCase, capitalize, clamp, copyToClipboardDisplay, epsGr, formatEPSGrowth, formatPercentage, generateId,
+  generateSimpleId, getEPSPerformanceColor,
+  getGrowthIndicator, isBrowserDisplay, isEmpty, isMobileDisplay, isValidEmail,
+  isValidPhone, kebabCase, parseJWT, pct, slugify, truncate,
+  truncateText
 }
 
 // ============================================================================
@@ -131,105 +99,68 @@ export {
 // HELPER UTILITIES
 // ============================================================================
 import {
-  // Async utilities
-  debounce,
-  throttle,
-  sleep,
-  retry,
-  timeout,
+  AsyncQueue,
   batchAsync,
   cancellable,
+  // Async utilities
+  debounce,
   memoizeAsync,
-  AsyncQueue,
   poll,
-  promises
+  promises,
+  retry,
+  sleep,
+  throttle,
+  timeout
 } from './helpers/async'
 
 export {
-  debounce,
-  throttle,
-  sleep,
-  retry,
-  timeout,
-  batchAsync,
-  cancellable,
-  memoizeAsync,
-  AsyncQueue,
-  poll,
-  promises
+  AsyncQueue, batchAsync,
+  cancellable, debounce, memoizeAsync, poll,
+  promises, retry, sleep, throttle, timeout
 }
 
 import {
   // Object utilities
   deepClone,
-  objectUtils,
-  object
+  object,
+  objectUtils
 } from './helpers/objects'
 
 export {
-  deepClone,
-  objectUtils,
-  object
+  deepClone, object, objectUtils
 }
 
 import {
-  // Browser utilities  
-  storage,
+  copyToClipboard,
   isBrowser,
   isMobile,
-  copyToClipboard
+  // Browser utilities  
+  storage
 } from './helpers/browser'
 
 export {
+  array,
   // Array utilities
-  arrayUtils,
-  array
+  arrayUtils
 } from './helpers/arrays'
 
 export {
+  addEventListener, copyToClipboard, cssVariables, downloadFile, getBrowserInfo, getColorSchemePreference, getDeviceType, getScrollPosition, getViewportSize, isAndroid, isBrowser, isElementInViewport, isIOS, isMobile, onResize, readFromClipboard, sessionStorage, smoothScrollTo,
   // Browser utilities
-  storage,
-  sessionStorage,
-  isBrowser,
-  isMobile,
-  isIOS,
-  isAndroid,
-  getDeviceType,
-  getBrowserInfo,
-  copyToClipboard,
-  readFromClipboard,
-  downloadFile,
-  getViewportSize,
-  getScrollPosition,
-  smoothScrollTo,
-  isElementInViewport,
-  addEventListener,
-  onResize,
-  cssVariables,
-  getColorSchemePreference,
-  watchColorScheme
+  storage, watchColorScheme
 } from './helpers/browser'
 
 // ============================================================================
 // CORE UTILITIES
 // ============================================================================
 export {
-  // Logging utilities
-  Logger,
-  logger,
-  apiLogger,
-  authLogger,
-  analyticsLogger,
-  uiLogger,
-  safeError,
-  devLog,
-  devInfo,
-  devWarn,
+  analyticsLogger, apiLogger,
+  authLogger, devInfo, devLog, devWarn,
   isDevEnvironment,
   isProdEnvironment,
-  type LogLevel,
-  type LogEntry,
-  type SafeErrorResult
+  // Logging utilities
+  Logger,
+  logger, safeError, uiLogger, type LogEntry, type LogLevel, type SafeErrorResult
 } from './core/logging'
 
 // ============================================================================
@@ -237,47 +168,40 @@ export {
 // ============================================================================
 
 // Import API client functions
-import { 
-  UnifiedApiClient,
+import {
   APIError,
   createAdminApiClient,
-  createFrontendApiClient,
   createApiClient as createApiClientBase,
+  createFrontendApiClient,
   handlePaginatedRequest,
   handleSimpleRequest,
-  retryRequest,
   isApiError,
   isApiResponse,
   isPaginatedResponse,
-  type ApiResponse,
+  retryRequest,
+  UnifiedApiClient,
   type ApiError,
-  type RequestConfig,
+  type ApiResponse,
   type PaginatedResponse,
-  type Platform
-} from './api-client';
+  type Platform,
+  type RequestConfig
+} from './api-client'
 
 // Re-export API client utilities
 export {
-  UnifiedApiClient,
   APIError,
   createAdminApiClient,
   createFrontendApiClient,
   handlePaginatedRequest,
-  handleSimpleRequest,
-  retryRequest,
-  isApiError,
+  handleSimpleRequest, isApiError,
   isApiResponse,
-  isPaginatedResponse,
-  type ApiResponse,
-  type ApiError,
-  type RequestConfig,
-  type PaginatedResponse,
-  type Platform
-};
+  isPaginatedResponse, retryRequest, UnifiedApiClient, type ApiError, type ApiResponse, type PaginatedResponse,
+  type Platform, type RequestConfig
+}
 
 // Legacy compatibility exports for easier migration
 export const createAdminClient = createAdminApiClient;
-export const createServerAdminClient = (baseURL?: string, token?: string) => 
+export const createServerAdminClient = (baseURL?: string, token?: string) =>
   createAdminApiClient({ baseURL, token, serverSide: true });
 export const apiClient = createFrontendApiClient();
 export const createClient = createFrontendApiClient;
@@ -289,69 +213,49 @@ export const createApiClient = createApiClientBase;
 
 // Import unified permission functions first
 import {
-  // Permission resolution
-  resolveUnifiedPermissions,
-  hasUnifiedPermission,
-  hasAnyUnifiedPermission,
-  hasAllUnifiedPermissions,
-  
-  // Tier utilities
-  isActiveTierAssignment,
-  getHighestTierGroup,
+  createCacheablePermissions,
+  generatePermissionCacheKey,
   getActiveTierGroups,
-  hasMinimumTier,
-  
+  getExpiredPermissions,
   // Expiry utilities
   getExpiringPermissions,
-  getExpiredPermissions,
-  needsRenewalWarning,
-  
-  // Legacy compatibility
-  legacyTierToPermissionCheck,
+  getHighestTierGroup,
   getTierDisplayFromPermissions,
-  
+  hasAllUnifiedPermissions,
+  hasAnyUnifiedPermission,
+  hasMinimumTier,
+  hasUnifiedPermission,
+  // Tier utilities
+  isActiveTierAssignment,
   // Cache utilities
   isPermissionCacheValid,
-  generatePermissionCacheKey,
-  createCacheablePermissions,
-  
+  // Legacy compatibility
+  legacyTierToPermissionCheck,
+  needsRenewalWarning,
+  // Permission resolution
+  resolveUnifiedPermissions,
   // Types
   type PermissionSource,
   type UserGroupMembership
-} from './unified-permissions';
+} from './unified-permissions'
 
 // Then export them
 export {
-  // Permission resolution
-  resolveUnifiedPermissions,
-  hasUnifiedPermission,
-  hasAnyUnifiedPermission,
-  hasAllUnifiedPermissions,
-  
+  createCacheablePermissions, generatePermissionCacheKey, getActiveTierGroups, getExpiredPermissions,
+  // Expiry utilities
+  getExpiringPermissions, getHighestTierGroup, getTierDisplayFromPermissions, hasAllUnifiedPermissions, hasAnyUnifiedPermission, hasMinimumTier, hasUnifiedPermission,
   // Tier utilities
   isActiveTierAssignment,
-  getHighestTierGroup,
-  getActiveTierGroups,
-  hasMinimumTier,
-  
-  // Expiry utilities
-  getExpiringPermissions,
-  getExpiredPermissions,
-  needsRenewalWarning,
-  
-  // Legacy compatibility
-  legacyTierToPermissionCheck,
-  getTierDisplayFromPermissions,
-  
   // Cache utilities
   isPermissionCacheValid,
-  generatePermissionCacheKey,
-  createCacheablePermissions,
-  
+  // Legacy compatibility
+  legacyTierToPermissionCheck, needsRenewalWarning,
+  // Permission resolution
+  resolveUnifiedPermissions,
   // Types
   type PermissionSource,
   type UserGroupMembership
-};
+}
 
 // ============================================================================
 // TAILWIND CLASS UTILITY (From both apps)
@@ -361,8 +265,8 @@ export {
  * Utility function to merge Tailwind CSS classes
  * Direct imports since dependencies are now available
  */
-import clsx from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import clsx from 'clsx'
+import { twMerge } from 'tailwind-merge'
 
 export function cn(...inputs: any[]) {
   return twMerge(clsx(inputs));
@@ -386,16 +290,14 @@ export function cnSync(...inputs: any[]) {
 // ============================================================================
 
 // Legacy aliases from admin utils.ts
-export { formatDate as formatDateAdmin } from './formatting/date'
 export { formatCurrency as formatCurrencyAdmin } from './formatting/currency'
+export { formatDate as formatDateAdmin } from './formatting/date'
 export { formatPercentage as formatPercentageAdmin } from './formatting/display'
 
 // Legacy aliases from frontend utils
-export { formatCurrency as cur_legacy } from './formatting/currency'
+export { formatCurrency as cur_legacy, formatPrice as prc_legacy } from './formatting/currency'
 export { formatDate as dt_legacy } from './formatting/date'
-export { formatPercentage as pct_legacy } from './formatting/display'
-export { formatPrice as prc_legacy } from './formatting/currency'
-export { formatEPSGrowth as epsGr_legacy } from './formatting/display'
+export { formatEPSGrowth as epsGr_legacy, formatPercentage as pct_legacy } from './formatting/display'
 
 // Re-export commonly used utilities at top level for convenience
 export const utils = {
@@ -405,7 +307,7 @@ export const utils = {
   formatPercentage,
   formatPrice,
   formatEPSGrowth,
-  
+
   // Most frequently used helpers
   debounce,
   throttle,
@@ -413,20 +315,20 @@ export const utils = {
   isEmpty,
   generateId,
   cn,
-  
+
   // Most frequently used browser utilities
   isBrowser,
   isMobile,
   copyToClipboard,
   storage,
-  
+
   // Most frequently used permission utilities
   resolveUnifiedPermissions,
   hasUnifiedPermission,
   isActiveTierAssignment,
   getHighestTierGroup,
   legacyTierToPermissionCheck,
-  
+
   // Most frequently used API client utilities
   createAdminApiClient,
   createFrontendApiClient,
