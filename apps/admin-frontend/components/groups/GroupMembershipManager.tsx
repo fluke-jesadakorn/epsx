@@ -12,23 +12,31 @@
 
 'use client'
 
-import { format, formatDistanceToNow } from 'date-fns'
-import { 
-  Users, Plus, Trash2, Calendar, Clock, AlertCircle,
-  Search, Filter, MoreHorizontal, UserPlus, UserMinus,
-  Badge as BadgeIcon, CheckCircle, XCircle, Eye, ExternalLink, Info
+import { format } from 'date-fns'
+import {
+  Badge as BadgeIcon, CheckCircle,
+  Clock,
+  Info,
+  MoreHorizontal,
+  Search,
+  UserMinus,
+  UserPlus,
+  Users,
+  XCircle
 } from 'lucide-react'
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { 
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter 
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog, DialogContent,
+  DialogFooter,
+  DialogHeader, DialogTitle
 } from '@/components/ui/dialog'
-import { 
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger 
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { Checkbox } from '@/components/ui/FormComponents'
 import { Input } from '@/components/ui/input'
@@ -36,16 +44,16 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/components/ui/use-toast'
-import { adminCardVariants, adminButtonVariants } from '@/design-system'
-import { 
+import { adminButtonVariants, adminCardVariants } from '@/design-system'
+import {
+  useGroupAssignmentHistory,
   usePermissionGroups,
-  useUserGroupMemberships,
-  useGroupAssignmentHistory 
+  useUserGroupMemberships
 } from '@/hooks/useGroupPermissions'
-import { 
-  PermissionGroup, 
-  UserGroupMembership, 
-  AssignUserToGroupRequest 
+import {
+  AssignUserToGroupRequest,
+  PermissionGroup,
+  UserGroupMembership
 } from '@/lib/api/group-management-client'
 import { cn } from '@/lib/shared'
 
@@ -62,10 +70,10 @@ interface GroupMembershipManagerProps {
  * @param root0.groupId
  * @param root0.className
  */
-export function GroupMembershipManager({ 
-  userId, 
-  groupId, 
-  className 
+export function GroupMembershipManager({
+  userId,
+  groupId,
+  className
 }: GroupMembershipManagerProps) {
   const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState('')
@@ -75,14 +83,14 @@ export function GroupMembershipManager({
 
   // Hooks
   const { groups } = usePermissionGroups()
-  const { 
-    memberships, 
-    activeMemberships, 
+  const {
+    memberships,
+    activeMemberships,
     expiringMemberships,
     isLoading,
     assignUserToGroup,
     removeUserFromGroup,
-    refreshMemberships 
+    refreshMemberships
   } = useUserGroupMemberships(userId || null)
   const { history } = useGroupAssignmentHistory()
 
@@ -98,7 +106,7 @@ export function GroupMembershipManager({
     } else if (filterStatus === 'expiring') {
       const now = Date.now()
       const sevenDaysFromNow = now + (7 * 24 * 60 * 60 * 1000)
-      filtered = filtered.filter(m => 
+      filtered = filtered.filter(m =>
         m.is_active && m.expires_at && new Date(m.expires_at).getTime() <= sevenDaysFromNow
       )
     }
@@ -106,13 +114,13 @@ export function GroupMembershipManager({
     // Filter by search term
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase()
-      filtered = filtered.filter(m => 
+      filtered = filtered.filter(m =>
         m.group?.name.toLowerCase().includes(searchLower) ||
         m.group?.description?.toLowerCase().includes(searchLower)
       )
     }
 
-    return filtered.sort((a, b) => 
+    return filtered.sort((a, b) =>
       new Date(b.granted_at).getTime() - new Date(a.granted_at).getTime()
     )
   }, [memberships, filterStatus, searchTerm])
@@ -121,6 +129,7 @@ export function GroupMembershipManager({
   const handleAssignGroup = useCallback(async (request: AssignUserToGroupRequest) => {
     try {
       await assignUserToGroup(request)
+      await refreshMemberships()
       setShowAssignDialog(false)
       toast({
         title: 'User Assigned',
@@ -133,7 +142,7 @@ export function GroupMembershipManager({
         variant: 'destructive'
       })
     }
-  }, [assignUserToGroup, toast])
+  }, [assignUserToGroup, refreshMemberships, toast])
 
   const handleRemoveFromGroup = useCallback(async (membership: UserGroupMembership) => {
     try {
@@ -152,7 +161,7 @@ export function GroupMembershipManager({
   }, [removeUserFromGroup, toast])
 
   const handleBulkRemove = useCallback(async () => {
-    if (selectedMemberships.length === 0) {return}
+    if (selectedMemberships.length === 0) { return }
 
     const promises = selectedMemberships.map(membershipId => {
       const membership = memberships.find(m => m.id === membershipId)
@@ -176,7 +185,7 @@ export function GroupMembershipManager({
   }, [selectedMemberships, memberships, removeUserFromGroup, toast])
 
   const toggleMembershipSelection = useCallback((membershipId: string) => {
-    setSelectedMemberships(prev => 
+    setSelectedMemberships(prev =>
       prev.includes(membershipId)
         ? prev.filter(id => id !== membershipId)
         : [...prev, membershipId]
@@ -240,7 +249,7 @@ export function GroupMembershipManager({
           </p>
         </div>
         {userId && (
-          <Button 
+          <Button
             onClick={() => setShowAssignDialog(true)}
             className={adminButtonVariants({ variant: 'primary', size: 'sm' })}
           >
@@ -362,7 +371,7 @@ export function GroupMembershipManager({
               <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No memberships found</h3>
               <p className="text-gray-600">
-                {searchTerm || filterStatus !== 'all' 
+                {searchTerm || filterStatus !== 'all'
                   ? 'No memberships match your search criteria.'
                   : 'This user is not assigned to any groups yet.'
                 }
@@ -380,7 +389,7 @@ export function GroupMembershipManager({
                     onChange={() => toggleMembershipSelection(membership.id)}
                     className="mr-4"
                   />
-                  
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-3 mb-2">
                       <h4 className="font-medium text-gray-900">
@@ -391,13 +400,13 @@ export function GroupMembershipManager({
                         <Badge variant="outline">System</Badge>
                       )}
                     </div>
-                    
+
                     {membership.group?.description && (
                       <p className="text-sm text-gray-600 mb-2">
                         {membership.group.description}
                       </p>
                     )}
-                    
+
                     <div className="flex items-center gap-4 text-xs text-gray-500">
                       <span>
                         Granted: {format(new Date(membership.granted_at), 'MMM d, yyyy')}
@@ -441,7 +450,7 @@ export function GroupMembershipManager({
           </DialogHeader>
           <AssignGroupForm
             userId={userId!}
-            availableGroups={groups.filter(g => 
+            availableGroups={groups.filter(g =>
               !memberships.some(m => m.group_id === g.id && m.is_active)
             )}
             onAssign={handleAssignGroup}
@@ -470,9 +479,9 @@ function AssignGroupForm({ userId, availableGroups, onAssign, onCancel }: Assign
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedGroupId) {return}
+    if (!selectedGroupId) { return }
 
-    const expiresAt = expiryDays 
+    const expiresAt = expiryDays
       ? new Date(Date.now() + parseInt(expiryDays) * 24 * 60 * 60 * 1000).toISOString()
       : null
 
@@ -528,7 +537,7 @@ function AssignGroupForm({ userId, availableGroups, onAssign, onCancel }: Assign
           type="number"
           value={expiryDays}
           onChange={(e) => setExpiryDays(e.target.value)}
-          placeholder={selectedGroup?.default_expiry_days 
+          placeholder={selectedGroup?.default_expiry_days
             ? `Default: ${selectedGroup.default_expiry_days} days`
             : 'Leave empty for no expiry'
           }
@@ -551,8 +560,8 @@ function AssignGroupForm({ userId, availableGroups, onAssign, onCancel }: Assign
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button 
-          type="submit" 
+        <Button
+          type="submit"
           disabled={!selectedGroupId}
           className={adminButtonVariants({ variant: 'primary' })}
         >

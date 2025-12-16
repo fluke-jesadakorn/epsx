@@ -763,6 +763,7 @@ pub struct WalletSearchQuery {
   pub has_permissions: Option<String>,
   pub sort_by: Option<String>,
   pub sort_order: Option<String>,
+  pub exclude_group_id: Option<String>,
 }
 
 // Handler: Search wallets with advanced filtering
@@ -857,7 +858,35 @@ pub async fn search_wallets(
     active_permissions_count: Option<i32>,
   }
 
-  let wallets = match diesel::sql_query(
+  // Build WHERE clause for search and exclude_group_id
+  let mut where_parts = Vec::new();
+  
+  if let Some(ref search_term) = query.search {
+    // Escape single quotes for SQL injection protection
+    let escaped_search = search_term.replace("'", "''");
+    where_parts.push(format!("wu.wallet_address ILIKE '%{}%'", escaped_search));
+  }
+  
+  if let Some(ref group_id) = query.exclude_group_id {
+    info!("🔍 Excluding members of group: {}", group_id);
+    let escaped_group_id = group_id.replace("'", "''");
+    // Use LOWER() to ensure case-insensitive comparison since wallet addresses in 
+    // wallet_group_assignments are stored in lowercase
+    where_parts.push(format!(
+      "LOWER(wu.wallet_address) NOT IN (SELECT LOWER(wallet_address) FROM wallet_group_assignments WHERE group_id = '{}' AND is_active = true)",
+      escaped_group_id
+    ));
+  }
+  
+  let where_clause = if where_parts.is_empty() {
+    String::new()
+  } else {
+    format!("WHERE {}", where_parts.join(" AND "))
+  };
+  
+  info!("🔍 Search query WHERE clause: {}", if where_clause.is_empty() { "(none)" } else { &where_clause });
+  
+  let search_query = format!(
     r#"
     SELECT
       wu.wallet_address,
@@ -884,11 +913,15 @@ pub async fn search_wallets(
           AND (wdp.expires_at IS NULL OR wdp.expires_at > NOW())
       ), 0) as active_permissions_count
     FROM wallet_users wu
+    {}
     ORDER BY wu.created_at DESC
     LIMIT $1
     OFFSET $2
-    "#
-  )
+    "#,
+    where_clause
+  );
+  
+  let wallets = match diesel::sql_query(&search_query)
   .bind::<diesel::sql_types::BigInt, _>(limit as i64)
   .bind::<diesel::sql_types::BigInt, _>(offset as i64)
   .load::<SearchWalletRow>(&mut conn)
@@ -907,7 +940,10 @@ pub async fn search_wallets(
     count: Option<i64>,
   }
 
-  let total_count = match diesel::sql_query("SELECT COUNT(*) as count FROM wallet_users")
+  // Build count query with same filters
+  let count_query = format!("SELECT COUNT(*) as count FROM wallet_users wu {}", where_clause);
+  
+  let total_count = match diesel::sql_query(&count_query)
     .get_result::<SearchCountRow>(&mut conn)
     .await {
     Ok(row) => row.count.unwrap_or(0),

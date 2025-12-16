@@ -66,6 +66,36 @@ pub struct ExpiringAssignmentsQuery {
     pub days: Option<i64>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct GroupHistoryQuery {
+    pub operation_type: Option<String>,
+    pub operation_source: Option<String>,
+    pub group_id: Option<String>,
+    pub user_search: Option<String>,
+    pub date_from: Option<DateTime<Utc>>,
+    pub date_to: Option<DateTime<Utc>>,
+    pub limit: Option<u32>,
+    pub offset: Option<u32>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct GroupHistoryResponse {
+    pub id: String,
+    pub user_id: String,
+    pub user_email: Option<String>, // Not available in blockchain auth, but kept for interface compat
+    pub user_name: Option<String>,
+    pub group_id: String,
+    pub group_name: Option<String>,
+    pub operation_type: String,
+    pub operation_source: String,
+    pub performed_by: Option<String>,
+    pub performed_by_name: Option<String>,
+    pub reason: Option<String>,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub metadata: Option<serde_json::Value>,
+    pub created_at: DateTime<Utc>,
+}
+
 // ============================================================================
 // HANDLERS
 // ============================================================================
@@ -114,6 +144,7 @@ pub async fn create_assignment(
     // Run transaction
     let assignment_metadata = req.assignment_metadata.clone().unwrap_or(serde_json::json!({}));
     let wallet_clone = wallet.clone();
+    let wallet_for_user_insert = wallet.clone();
     let assignment_source_clone = req.assignment_source.clone();
     let assignment_reason_clone = req.assignment_reason.clone();
     let payment_reference_clone = req.payment_reference.clone();
@@ -121,6 +152,19 @@ pub async fn create_assignment(
 
     let result = conn.transaction::<_, diesel::result::Error, _>(|conn| {
         Box::pin(async move {
+            // CRITICAL: Ensure wallet_users entry exists before assignment (FK constraint)
+            // This auto-creates a wallet user if it doesn't exist
+            diesel::sql_query(
+                r#"
+                INSERT INTO wallet_users (wallet_address, is_active, tier_level, wallet_metadata)
+                VALUES ($1, true, 'Bronze', '{}')
+                ON CONFLICT (wallet_address) DO NOTHING
+                "#
+            )
+            .bind::<diesel::sql_types::Text, _>(&wallet_for_user_insert)
+            .execute(conn)
+            .await?;
+
             // Insert or update assignment
             let assignment_id = diesel::sql_query(
                 r#"
@@ -733,5 +777,163 @@ pub async fn get_wallet_groups(
         "wallet_address": wallet,
         "groups": groups,
         "count": groups.len()
+    })).into_response()
+}
+
+/// Get group assignment history (audit log)
+/// GET /admin/groups/history
+pub async fn get_group_history(
+    State(app_state): State<AppState>,
+    Query(query): Query<GroupHistoryQuery>,
+) -> impl IntoResponse {
+    let page = query.limit.unwrap_or(20).max(1).min(100);
+    let offset = query.offset.unwrap_or(0);
+
+    let mut conn = match app_state.db_pool.get().await {
+        Ok(conn) => conn,
+        Err(e) => {
+            tracing::error!("Failed to get database connection: {}", e);
+            return AdminResponse::server_error("Database connection failed").into_response();
+        }
+    };
+
+    // Base query
+    let mut sql = String::from(
+        r#"
+        SELECT
+            id,
+            wallet_address as user_id,
+            group_id,
+            group_name,
+            event_type,
+            event_source,
+            performed_by,
+            performed_by_name,
+            reason,
+            expires_at,
+            metadata,
+            event_timestamp as created_at
+        FROM permission_audit_log
+        WHERE event_type IN ('group_assigned', 'group_removed', 'group_updated', 'expired')
+        "#
+    );
+
+    let mut where_clauses = Vec::new();
+
+    if let Some(op_type) = &query.operation_type {
+        let db_event_type = match op_type.as_str() {
+            "assign" => "group_assigned",
+            "remove" => "group_removed",
+            "expire" => "expired",
+            _ => "group_assigned", // Default fallback
+        };
+        where_clauses.push(format!("event_type = '{}'", db_event_type));
+    }
+
+    if let Some(source) = &query.operation_source {
+        // Sanitize input to prevent injection
+        let clean_source = source.replace("'", ""); 
+        where_clauses.push(format!("event_source = '{}'", clean_source));
+    }
+
+    if let Some(gid) = &query.group_id {
+        if let Ok(uuid) = Uuid::parse_str(gid) {
+            where_clauses.push(format!("group_id = '{}'", uuid));
+        }
+    }
+
+    if let Some(search) = &query.user_search {
+        let clean_search = search.replace("'", "");
+        where_clauses.push(format!("(wallet_address ILIKE '%{}%' OR performed_by_name ILIKE '%{}%')", clean_search, clean_search));
+    }
+
+    if let Some(from) = query.date_from {
+        where_clauses.push(format!("event_timestamp >= '{}'", from.to_rfc3339()));
+    }
+
+    if let Some(to) = query.date_to {
+        where_clauses.push(format!("event_timestamp <= '{}'", to.to_rfc3339()));
+    }
+
+    if !where_clauses.is_empty() {
+        sql.push_str(" AND ");
+        sql.push_str(&where_clauses.join(" AND "));
+    }
+
+    sql.push_str(" ORDER BY event_timestamp DESC LIMIT $1 OFFSET $2");
+
+    #[derive(QueryableByName)]
+    struct AuditRow {
+        #[diesel(sql_type = diesel::sql_types::Uuid)]
+        id: Uuid,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        user_id: String,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Uuid>)]
+        group_id: Option<Uuid>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        group_name: Option<String>,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        event_type: String,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        event_source: String,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        performed_by: Option<String>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        performed_by_name: Option<String>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        reason: Option<String>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+        expires_at: Option<DateTime<Utc>>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
+        metadata: Option<serde_json::Value>,
+        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+        created_at: DateTime<Utc>,
+    }
+    
+    let result = diesel::sql_query(sql)
+        .bind::<diesel::sql_types::Integer, _>(page as i32)
+        .bind::<diesel::sql_types::Integer, _>(offset as i32)
+        .load::<AuditRow>(&mut conn)
+        .await;
+
+    let rows = match result {
+        Ok(rows) => rows,
+        Err(e) => {
+            tracing::error!("Failed to fetch group history: {}", e);
+            return AdminResponse::server_error("Database query failed").into_response();
+        }
+    };
+
+    let history: Vec<GroupHistoryResponse> = rows.into_iter().map(|row| {
+        let op_type = match row.event_type.as_str() {
+            "group_assigned" => "assign",
+            "group_removed" => "remove",
+            "expired" => "expire",
+             _ => "assign",
+        };
+
+        GroupHistoryResponse {
+            id: row.id.to_string(),
+            user_id: row.user_id,
+            user_email: None,
+            user_name: None,
+            group_id: row.group_id.map(|g| g.to_string()).unwrap_or_default(),
+            group_name: row.group_name,
+            operation_type: op_type.to_string(),
+            operation_source: row.event_source,
+            performed_by: row.performed_by,
+            performed_by_name: row.performed_by_name,
+            reason: row.reason,
+            expires_at: row.expires_at,
+            metadata: row.metadata,
+            created_at: row.created_at,
+        }
+    }).collect();
+
+    let total = history.len() as u64; 
+
+    AdminResponse::success(serde_json::json!({
+        "history": history,
+        "total": total
     })).into_response()
 }

@@ -1,10 +1,10 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
 import { LineChart, Share2, TrendingUp, Users, Zap } from 'lucide-react';
 import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
 
 import { WithLoading } from '@/components/common/withLoading';
 
@@ -65,7 +65,7 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
         </div>
       </div>
 
-      <div className="relative text-center space-y-12 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 z-10">
+      <div className="relative text-center space-y-12 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 z-[1]">
         <WithLoading loading={loading} className="space-y-8">
           {/* Main heading with enhanced Analytics-style typography */}
           <div className="space-y-6">

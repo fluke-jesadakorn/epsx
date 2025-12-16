@@ -19,6 +19,7 @@ pub struct GetWalletListQuery {
     pub date_to: Option<String>,
     pub sort_by: Option<String>,
     pub sort_order: Option<String>,
+    pub exclude_group_id: Option<String>,
 }
 
 impl Query for GetWalletListQuery {

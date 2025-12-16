@@ -47,6 +47,7 @@ pub struct WalletSearchCriteria {
     pub date_to: Option<String>,
     pub sort_by: Option<String>,
     pub sort_order: Option<String>,
+    pub exclude_group_id: Option<String>,
     pub limit: i32,
     pub offset: i32,
 }
@@ -203,6 +204,10 @@ impl WalletManagementRepository {
             }
         }
 
+        if let Some(ref group_id) = criteria.exclude_group_id {
+            where_parts.push(format!("wu.wallet_address NOT IN (SELECT wallet_address FROM wallet_group_memberships WHERE group_id = '{}' AND is_active = true)", group_id.replace("'", "''")));
+        }
+
         let where_clause = if where_parts.is_empty() {
             String::new()
         } else {
@@ -307,6 +312,10 @@ impl WalletManagementRepository {
             if let Ok(parsed) = chrono::DateTime::parse_from_rfc3339(date_to) {
                 where_parts.push(format!("wu.created_at <= '{}'", parsed.to_rfc3339().replace("'", "''")));
             }
+        }
+
+        if let Some(ref group_id) = criteria.exclude_group_id {
+            where_parts.push(format!("wu.wallet_address NOT IN (SELECT wallet_address FROM wallet_group_memberships WHERE group_id = '{}' AND is_active = true)", group_id.replace("'", "''")));
         }
 
         let where_clause = if where_parts.is_empty() {

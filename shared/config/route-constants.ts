@@ -102,8 +102,8 @@ export const API_ROUTES = {
 
     // Permission management
     PERMISSIONS: '/api/v1/admin/permissions',
-    PERMISSION_GROUPS: '/api/v1/admin/permissions/groups',
-    PERMISSION_ASSIGNMENTS: '/api/v1/admin/permissions/assignments',
+    PERMISSION_GROUPS: '/api/v1/permissions/groups',
+    PERMISSION_ASSIGNMENTS: '/api/v1/permissions/assignments',
 
     // Wallet management
     WALLET_MANAGEMENT: '/api/v1/admin/wallets',

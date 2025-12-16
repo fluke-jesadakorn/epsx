@@ -48,6 +48,7 @@ impl QueryHandler<GetWalletListQuery> for GetWalletListQueryHandler {
             date_to: query.date_to,
             sort_by: query.sort_by,
             sort_order: query.sort_order,
+            exclude_group_id: query.exclude_group_id,
             limit,
             offset,
         };

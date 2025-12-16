@@ -1,24 +1,24 @@
 'use client';
 
 import {
-    BarChart3,
-    Bell,
-    ChartNoAxesColumnIncreasing,
-    ChevronDown,
-    Code,
-    Database,
-    File,
-    Info,
-    LineChart,
-    Link as LinkIcon,
-    LogIn,
-    LogOut,
-    Menu,
-    Moon,
-    Settings,
-    Sun,
-    TrendingUp,
-    User
+  BarChart3,
+  Bell,
+  ChartNoAxesColumnIncreasing,
+  ChevronDown,
+  Code,
+  Database,
+  File,
+  Info,
+  LineChart,
+  Link as LinkIcon,
+  LogIn,
+  LogOut,
+  Menu,
+  Moon,
+  Settings,
+  Sun,
+  TrendingUp,
+  User
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -30,26 +30,27 @@ import { ChainSelector } from '@/components/nav/ChainSelector';
 import { WalletProviderIcon } from '@/components/nav/WalletProviderIcon';
 import { NotificationBellClient } from '@/components/notifications/NotificationBellClient';
 import {
-    NavbarProvider,
-    useNavbarContext,
+  NavbarProvider,
+  useNavbarContext,
 } from '@/components/providers/NavbarProvider';
 import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-    Sheet,
-    SheetContent,
-    SheetHeader,
-    SheetTitle,
-    SheetTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
 } from '@/components/ui';
 import { navigationService } from '@/services/navigation.service';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { devLog, isProduction } from '@/shared/utils';
 
 // Pure Web3 Navigation - no props needed
-interface NavigationClientProps {}
+interface NavigationClientProps { }
 
 const iconMap = {
   docs: <File className="h-5 w-5 text-orange-500" />,
@@ -106,17 +107,14 @@ function NavigationContent() {
   useEffect(() => {
     if (!isHydrated) return;
 
-    console.log('🔔 Notification Bell Display Check:', {
+    devLog('Notification Bell Display Check:', {
       isConnected,
       isAuthenticated,
       authLoading,
       connectedAddress: connectedAddress?.slice(0, 8),
-      authenticatedAddress: user?.wallet_address?.slice(0, 8),
-      addressesMatch: connectedAddress?.toLowerCase() === user?.wallet_address?.toLowerCase(),
       isFullyAuthenticated,
-      shouldShowBell: isFullyAuthenticated
     });
-  }, [isConnected, isAuthenticated, authLoading, connectedAddress, user?.wallet_address, isFullyAuthenticated, isHydrated]);
+  }, [isConnected, isAuthenticated, authLoading, connectedAddress, isFullyAuthenticated, isHydrated]);
 
   // Get all nav items - no permission filtering
   const navItems = navigationService.getNavItems();
@@ -133,21 +131,21 @@ function NavigationContent() {
   // Handle chain switching with better error handling
   const handleChainSwitch = async (targetChainId: number) => {
     if (!isConnected || isSwitching || targetChainId === chainId) return;
-    
+
     try {
-      console.log(`🔄 Switching to chain ${targetChainId}...`);
+      devLog(`Switching to chain ${targetChainId}...`);
       await switchChain({ chainId: targetChainId });
-      console.log(`✅ Successfully switched to chain ${targetChainId}`);
+      devLog(`Successfully switched to chain ${targetChainId}`);
     } catch (error: any) {
-      console.error('❌ Failed to switch chain:', error);
-      
+      devLog('Failed to switch chain:', error);
+
       // Handle specific error cases
       if (error?.code === 4902) {
-        console.log('🔧 Chain not added to wallet, user needs to add it manually');
+        devLog('Chain not added to wallet, user needs to add it manually');
       } else if (error?.code === -32002) {
-        console.log('⏳ Chain switch request pending, user needs to approve in wallet');
+        devLog('Chain switch request pending, user needs to approve in wallet');
       } else if (error?.code === 4001) {
-        console.log('🚫 User rejected the chain switch request');
+        devLog('User rejected the chain switch request');
       }
     }
   };
@@ -205,21 +203,23 @@ function NavigationContent() {
                 <div className="h-4 w-20 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
                 <div className="h-3 w-3 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
               </div> */}
-            
+
             {/* About Us Skeleton */}
             <div className="flex items-center gap-2 rounded-2xl px-3 py-2">
               <Info className="h-5 w-5 text-orange-500" />
               <span className="text-sm font-medium text-slate-600 dark:text-slate-300">About Us</span>
             </div>
-            
-            
-            {/* Chain Selector Skeleton */}
-            <div className="flex items-center gap-2 rounded-2xl px-3 py-2">
-              <LinkIcon className="h-5 w-5 text-orange-500" />
-              <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Chain</span>
-              <ChevronDown className="h-3 w-3 text-slate-400" />
-            </div>
-            
+
+
+            {/* Chain Selector Skeleton - Hidden in production */}
+            {!isProduction && (
+              <div className="flex items-center gap-2 rounded-2xl px-3 py-2">
+                <LinkIcon className="h-5 w-5 text-orange-500" />
+                <span className="text-sm font-medium text-slate-600 dark:text-slate-300">Chain</span>
+                <ChevronDown className="h-3 w-3 text-slate-400" />
+              </div>
+            )}
+
             {/* Wallet Connect Skeleton */}
             <div className="flex items-center gap-2 rounded-2xl px-3 py-2 ml-2">
               <div className="h-10 w-20 bg-slate-200 dark:bg-slate-700 rounded-full animate-pulse" />
@@ -253,38 +253,40 @@ function NavigationContent() {
           {navItems.filter(item => item.key !== 'about').map(item => {
             const IconComponent = iconMap[item.key as keyof typeof iconMap];
             const isActive = pathname === item.href || item.children?.some(child => pathname === child.href);
-            
+
             if (item.hasDropdown && item.children) {
               return (
                 <DropdownMenu key={item.key}>
                   <DropdownMenuTrigger asChild>
                     <button
-                      className={`flex items-center gap-3 rounded-2xl px-4 py-2.5 text-sm font-medium ${
-                        isActive
-                          ? 'border border-orange-200/50 bg-orange-50/80 text-orange-700 dark:border-orange-700/30 dark:bg-orange-900/20 dark:text-orange-300'
-                          : 'text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200'
-                      }`}
+                      className={`flex items-center gap-3 rounded-2xl px-4 py-2.5 text-sm font-medium ${isActive
+                        ? 'border border-orange-200/50 bg-orange-50/80 text-orange-700 dark:border-orange-700/30 dark:bg-orange-900/20 dark:text-orange-300'
+                        : 'text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200'
+                        }`}
                     >
                       {IconComponent || <Info className="h-5 w-5 text-orange-500" />}
                       {item.label}
                       <ChevronDown className="h-3 w-3 ml-1 text-slate-400" />
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="w-48 bg-white/95 backdrop-blur-xl border border-orange-100/50 dark:bg-slate-900/95 dark:border-slate-700/50">
+                  <DropdownMenuContent
+                    align="start"
+                    style={{ zIndex: 99999 }}
+                    className="w-52 p-2 bg-white border border-slate-200 shadow-xl dark:bg-slate-900 dark:border-slate-700"
+                  >
                     {item.children.map(child => {
                       const ChildIconComponent = iconMap[child.key as keyof typeof iconMap];
                       return (
                         <DropdownMenuItem key={child.key} asChild>
                           <Link
                             href={child.href}
-                            className={`flex items-center gap-3 px-3 py-2 text-sm cursor-pointer ${
-                              pathname === child.href
-                                ? 'bg-orange-50/80 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300'
-                                : 'text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200'
-                            }`}
+                            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm cursor-pointer transition-colors ${pathname === child.href
+                              ? 'bg-orange-100 text-orange-800 dark:bg-orange-500/20 dark:text-orange-300'
+                              : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
+                              }`}
                           >
                             {ChildIconComponent || <Info className="h-4 w-4 text-orange-500" />}
-                            {child.label}
+                            <span className="font-medium">{child.label}</span>
                           </Link>
                         </DropdownMenuItem>
                       );
@@ -293,16 +295,15 @@ function NavigationContent() {
                 </DropdownMenu>
               );
             }
-            
+
             return (
               <Link
                 key={item.key}
                 href={item.href}
-                className={`flex items-center gap-3 rounded-2xl px-4 py-2.5 text-sm font-medium ${
-                  pathname === item.href
-                    ? 'border border-orange-200/50 bg-orange-50/80 text-orange-700 dark:border-orange-700/30 dark:bg-orange-900/20 dark:text-orange-300'
-                    : 'text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200'
-                }`}
+                className={`flex items-center gap-3 rounded-2xl px-4 py-2.5 text-sm font-medium ${pathname === item.href
+                  ? 'border border-orange-200/50 bg-orange-50/80 text-orange-700 dark:border-orange-700/30 dark:bg-orange-900/20 dark:text-orange-300'
+                  : 'text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200'
+                  }`}
               >
                 {IconComponent || (
                   <div className="flex items-center gap-2">
@@ -329,89 +330,109 @@ function NavigationContent() {
           {/* About Us Link */}
           <Link
             href="/about"
-            className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium ${
-              pathname === '/about'
-                ? 'bg-orange-50/80 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300'
-                : 'text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200'
-            }`}
+            className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium ${pathname === '/about'
+              ? 'bg-orange-50/80 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300'
+              : 'text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200'
+              }`}
           >
             <Info className="h-5 w-5 text-orange-500" />
             <span>About Us</span>
           </Link>
 
 
-          {/* Chain Selection Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button 
-                className="flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200"
-                disabled={isSwitching || !isConnected}
+          {/* Chain Selection Dropdown - Hidden in production */}
+          {!isProduction && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="flex items-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white transition-colors"
+                  disabled={isSwitching || !isConnected}
+                >
+                  <LinkIcon className="h-5 w-5 text-orange-500" />
+                  <span>{getCurrentChainName()}</span>
+                  <ChevronDown className="h-3 w-3 ml-1 text-slate-400" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                style={{ zIndex: 99999 }}
+                className="w-56 p-2 bg-white border border-slate-200 shadow-xl dark:bg-slate-900 dark:border-slate-700"
               >
-                <LinkIcon className="h-5 w-5 text-orange-500" />
-                <span>{getCurrentChainName()}</span>
-                <ChevronDown className="h-3 w-3 ml-1 text-slate-400" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-52 bg-white/95 backdrop-blur-xl border border-orange-100/50 dark:bg-slate-900/95 dark:border-slate-700/50">
-              <DropdownMenuItem 
-                onClick={() => handleChainSwitch(bsc.id)}
-                disabled={isSwitching || chainId === bsc.id}
-                className={`flex items-center gap-3 px-3 py-2 text-sm cursor-pointer ${
-                  chainId === bsc.id 
-                    ? 'bg-orange-50/80 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300' 
-                    : 'text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                <div className="w-5 h-5 rounded-full bg-yellow-500 flex items-center justify-center">
-                  <span className="text-xs font-bold text-white">56</span>
+                {/* Network Selection Header */}
+                <div className="px-2 py-1.5 mb-1">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Select Network
+                  </span>
                 </div>
-                BSC Mainnet
-                {chainId === bsc.id && (
-                  <LinkIcon className="h-4 w-4 text-orange-500 ml-auto" />
+
+                <DropdownMenuItem
+                  onClick={() => handleChainSwitch(bsc.id)}
+                  disabled={isSwitching || chainId === bsc.id}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${chainId === bsc.id
+                    ? 'bg-orange-100 text-orange-800 dark:bg-orange-500/20 dark:text-orange-300'
+                    : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-sm">
+                    <span className="text-[10px] font-bold text-white">56</span>
+                  </div>
+                  <span className="font-medium">BSC Mainnet</span>
+                  {chainId === bsc.id && (
+                    <div className="ml-auto w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                      <span className="text-white text-xs">✓</span>
+                    </div>
+                  )}
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={() => handleChainSwitch(bscTestnet.id)}
+                  disabled={isSwitching || chainId === bscTestnet.id}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${chainId === bscTestnet.id
+                    ? 'bg-orange-100 text-orange-800 dark:bg-orange-500/20 dark:text-orange-300'
+                    : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center shadow-sm">
+                    <span className="text-[10px] font-bold text-white">97</span>
+                  </div>
+                  <span className="font-medium">BSC Testnet</span>
+                  {chainId === bscTestnet.id && (
+                    <div className="ml-auto w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                      <span className="text-white text-xs">✓</span>
+                    </div>
+                  )}
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={() => handleChainSwitch(31337)}
+                  disabled={isSwitching || chainId === 31337}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${chainId === 31337
+                    ? 'bg-orange-100 text-orange-800 dark:bg-orange-500/20 dark:text-orange-300'
+                    : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center shadow-sm">
+                    <span className="text-xs">🔧</span>
+                  </div>
+                  <span className="font-medium">Hardhat Local</span>
+                  {chainId === 31337 && (
+                    <div className="ml-auto w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                      <span className="text-white text-xs">✓</span>
+                    </div>
+                  )}
+                </DropdownMenuItem>
+
+                {!isConnected && (
+                  <>
+                    <DropdownMenuSeparator className="my-2" />
+                    <div className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400 italic">
+                      Connect your wallet to switch networks
+                    </div>
+                  </>
                 )}
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={() => handleChainSwitch(bscTestnet.id)}
-                disabled={isSwitching || chainId === bscTestnet.id}
-                className={`flex items-center gap-3 px-3 py-2 text-sm cursor-pointer ${
-                  chainId === bscTestnet.id 
-                    ? 'bg-orange-50/80 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300' 
-                    : 'text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                <div className="w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center">
-                  <span className="text-xs font-bold text-white">97</span>
-                </div>
-                BSC Testnet
-                {chainId === bscTestnet.id && (
-                  <LinkIcon className="h-4 w-4 text-orange-500 ml-auto" />
-                )}
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={() => handleChainSwitch(31337)}
-                disabled={isSwitching || chainId === 31337}
-                className={`flex items-center gap-3 px-3 py-2 text-sm cursor-pointer ${
-                  chainId === 31337
-                    ? 'bg-orange-50/80 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300'
-                    : 'text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                <div className="w-5 h-5 rounded-full bg-slate-500 flex items-center justify-center">
-                  <span className="text-xs font-bold text-white">🔧</span>
-                </div>
-                Hardhat Local
-                {chainId === 31337 && (
-                  <LinkIcon className="h-4 w-4 text-orange-500 ml-auto" />
-                )}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              {!isConnected && (
-                <div className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400">
-                  Connect your wallet to switch networks
-                </div>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
           {/* PancakeSwap-style Connect/Disconnect Button */}
           <WalletProviderIcon compact={false} className="ml-2" />
@@ -445,17 +466,16 @@ function NavigationContent() {
               {navItems.map(item => {
                 const IconComponent = iconMap[item.key as keyof typeof iconMap];
                 const isActive = pathname === item.href || item.children?.some(child => pathname === child.href);
-                
+
                 return (
                   <div key={item.key}>
                     <Link
                       href={item.href}
                       onClick={() => setIsOpen(false)}
-                      className={`flex items-center gap-4 rounded-2xl px-4 py-3 text-sm font-medium ${
-                        isActive
-                          ? 'border border-orange-200/50 bg-orange-50/80 text-orange-700 dark:border-orange-700/30 dark:bg-orange-900/20 dark:text-orange-300'
-                          : 'text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200'
-                      }`}
+                      className={`flex items-center gap-4 rounded-2xl px-4 py-3 text-sm font-medium ${isActive
+                        ? 'border border-orange-200/50 bg-orange-50/80 text-orange-700 dark:border-orange-700/30 dark:bg-orange-900/20 dark:text-orange-300'
+                        : 'text-slate-600 hover:bg-slate-50/80 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800/40 dark:hover:text-slate-200'
+                        }`}
                     >
                       {IconComponent || <Info className="h-5 w-5 text-orange-500" />}
                       {item.label}
@@ -463,7 +483,7 @@ function NavigationContent() {
                         <ChevronDown className="h-3 w-3 ml-auto text-slate-400" />
                       )}
                     </Link>
-                    
+
                     {/* Mobile Submenu */}
                     {item.hasDropdown && item.children && (
                       <div className="ml-6 mt-2 space-y-1">
@@ -474,11 +494,10 @@ function NavigationContent() {
                               key={child.key}
                               href={child.href}
                               onClick={() => setIsOpen(false)}
-                              className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm ${
-                                pathname === child.href
-                                  ? 'bg-orange-50/80 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300'
-                                  : 'text-slate-500 hover:bg-slate-50/80 hover:text-slate-600 dark:text-slate-400 dark:hover:bg-slate-800/40 dark:hover:text-slate-300'
-                              }`}
+                              className={`flex items-center gap-3 rounded-xl px-3 py-2 text-sm ${pathname === child.href
+                                ? 'bg-orange-50/80 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300'
+                                : 'text-slate-500 hover:bg-slate-50/80 hover:text-slate-600 dark:text-slate-400 dark:hover:bg-slate-800/40 dark:hover:text-slate-300'
+                                }`}
                             >
                               {ChildIconComponent || <Info className="h-4 w-4 text-orange-500" />}
                               {child.label}
@@ -495,16 +514,18 @@ function NavigationContent() {
 
               {/* Web3 & User Controls in Mobile */}
               <div className="space-y-3">
-                {/* Chain Selection */}
-                <div className="rounded-2xl border border-orange-200/50 bg-gradient-to-r from-orange-50/80 to-yellow-50/80 p-3 dark:border-orange-700/40 dark:from-orange-900/20 dark:to-yellow-900/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-sm">🔗</span>
-                    <span className="text-sm font-medium text-orange-900 dark:text-orange-100">
-                      Network
-                    </span>
+                {/* Chain Selection - Hidden in production */}
+                {!isProduction && (
+                  <div className="rounded-2xl border border-orange-200/50 bg-gradient-to-r from-orange-50/80 to-yellow-50/80 p-3 dark:border-orange-700/40 dark:from-orange-900/20 dark:to-yellow-900/20">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-sm">🔗</span>
+                      <span className="text-sm font-medium text-orange-900 dark:text-orange-100">
+                        Network
+                      </span>
+                    </div>
+                    <ChainSelector compact={false} className="w-full" />
                   </div>
-                  <ChainSelector compact={false} className="w-full" />
-                </div>
+                )}
 
               </div>
 

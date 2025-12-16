@@ -36,6 +36,7 @@ use super::permissions::{
   get_expiring_assignments,
   get_assignment_history,
   get_wallet_groups,
+  get_group_history,
   // Validation operations
   validate_permission,
   validate_bulk_permissions,
@@ -167,6 +168,9 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/permissions/system/stats", get(get_statistics))
     .route("/permissions/system/cache/clear", post(clear_caches))
     .route("/permissions/system/routes", get(get_route_permissions).post(register_route_permission))
+
+    // Group Assignment History (Audit Log)
+    .route("/groups/history", get(get_group_history))
 
     // Admin-only direct permission management (elevated privileges)
     .route("/permissions/direct/grant", post(grant_permission))

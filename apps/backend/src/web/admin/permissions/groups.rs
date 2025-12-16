@@ -11,6 +11,7 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use bigdecimal::BigDecimal;
 use diesel_async::RunQueryDsl;
+use std::collections::HashMap;
 
 use crate::web::auth::AppState;
 use crate::web::responses::{AdminResponse, create_pagination};
@@ -238,6 +239,35 @@ pub async fn get_group(
         }
     };
 
+    // Fetch member count
+    let member_count = {
+        let mut conn = match app_state.db_pool.get().await {
+            Ok(conn) => conn,
+            Err(e) => {
+                tracing::error!("Failed to get database connection: {}", e);
+                return AdminResponse::server_error("Database connection failed").into_response();
+            }
+        };
+
+        #[derive(diesel::QueryableByName)]
+        struct Count {
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            count: i64,
+        }
+
+        match diesel::sql_query("SELECT COUNT(*) as count FROM wallet_group_assignments WHERE group_id = $1 AND is_active = true")
+            .bind::<diesel::sql_types::Uuid, _>(*group.id().value())
+            .get_result::<Count>(&mut conn)
+            .await 
+        {
+            Ok(c) => c.count as i32,
+            Err(e) => {
+                tracing::error!("Failed to fetch group member count: {}", e);
+                0
+            }
+        }
+    };
+
     // Build response from domain model
     let response = GroupResponse {
         id: group.id().to_string(),
@@ -257,7 +287,7 @@ pub async fn get_group(
         group_metadata: group.metadata().clone(),
         created_at: group.created_at(),
         updated_at: group.updated_at(),
-        member_count: 0, // TODO: Add member count query to repository
+        member_count,
     };
 
     AdminResponse::success(response).into_response()
@@ -330,8 +360,56 @@ pub async fn list_groups(
         }
     };
 
+    // Fetch member counts for these groups
+    let group_ids: Vec<Uuid> = domain_groups.iter().map(|g| *g.id().value()).collect();
+    
+    let member_counts: HashMap<Uuid, i64> = if !group_ids.is_empty() {
+        match app_state.db_pool.get().await {
+            Ok(mut conn) => {
+                #[derive(diesel::QueryableByName)]
+                struct CountRow {
+                    #[diesel(sql_type = diesel::sql_types::Uuid)]
+                    group_id: Uuid,
+                    #[diesel(sql_type = diesel::sql_types::BigInt)]
+                    count: i64,
+                }
+
+                // Use a simple loop for now as Diesel's `IN` with dynamic list in sql_query is tricky
+                // Optimization: For production, we should construct a single query with ANY($1)
+                // usage of string replacement is safe here as UUIDs are strictly typed
+                let id_list = group_ids.iter()
+                    .map(|id| format!("'{}'", id))
+                    .collect::<Vec<_>>()
+                    .join(",");
+                
+                let sql = format!(
+                    "SELECT group_id, COUNT(*) as count FROM wallet_group_assignments WHERE group_id IN ({}) AND is_active = true GROUP BY group_id",
+                    id_list
+                );
+
+                match diesel::sql_query(sql)
+                    .load::<CountRow>(&mut conn)
+                    .await 
+                {
+                    Ok(rows) => rows.into_iter().map(|r| (r.group_id, r.count)).collect(),
+                    Err(e) => {
+                        tracing::error!("Failed to fetch group member counts: {}", e);
+                        HashMap::new()
+                    }
+                }
+            },
+            Err(e) => {
+                tracing::error!("Failed to get database connection for counts: {}", e);
+                HashMap::new() // Fallback to 0 counts on error
+            }
+        }
+    } else {
+        HashMap::new()
+    };
+
     // Convert domain models to response DTOs
     let groups: Vec<GroupResponse> = domain_groups.iter().map(|group| {
+        let count = member_counts.get(group.id().value()).unwrap_or(&0);
         GroupResponse {
             id: group.id().to_string(),
             name: group.name().to_string(),
@@ -350,7 +428,7 @@ pub async fn list_groups(
             group_metadata: group.metadata().clone(),
             created_at: group.created_at(),
             updated_at: group.updated_at(),
-            member_count: 0, // TODO: Add member count query to repository
+            member_count: *count as i32,
         }
     }).collect();
 

@@ -1,12 +1,13 @@
 'use client';
 
 import {
-    Button,
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from '@/components/ui';
+import { isProduction } from '@/shared/utils';
 import { AlertCircle, Link, Wifi, WifiOff } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAccount, useChainId, useSwitchChain } from 'wagmi';
@@ -60,6 +61,11 @@ export function ChainSelector({ className = '', compact = false }: ChainSelector
     setIsHydrated(true);
   }, []);
 
+  // Hide chain selector in production - keep code for future multi-chain support
+  if (isProduction) {
+    return null;
+  }
+
   if (!isHydrated) {
     return (
       <Button
@@ -78,7 +84,7 @@ export function ChainSelector({ className = '', compact = false }: ChainSelector
 
   const handleChainSwitch = async (targetChainId: number) => {
     if (!isConnected || isSwitching || targetChainId === chainId) return;
-    
+
     try {
       console.log(`🔄 ChainSelector: Switching to chain ${targetChainId}...`);
       await switchChain({ chainId: targetChainId });
@@ -86,7 +92,7 @@ export function ChainSelector({ className = '', compact = false }: ChainSelector
       console.log(`✅ ChainSelector: Successfully switched to chain ${targetChainId}`);
     } catch (error: any) {
       console.error('❌ ChainSelector: Failed to switch chain:', error);
-      
+
       // Handle specific error cases
       if (error?.code === 4902) {
         console.log('🔧 Chain not added to wallet, user needs to add it manually');
@@ -95,7 +101,7 @@ export function ChainSelector({ className = '', compact = false }: ChainSelector
       } else if (error?.code === 4001) {
         console.log('🚫 User rejected the chain switch request');
       }
-      
+
       // Keep dropdown open on error so user can try again
       // setIsOpen(false); - commented out to keep dropdown open on error
     }
@@ -153,30 +159,40 @@ export function ChainSelector({ className = '', compact = false }: ChainSelector
           {getTriggerContent()}
         </Button>
       </DropdownMenuTrigger>
-      
-      <DropdownMenuContent 
-        align="end" 
-        className="w-48 p-2 bg-white/95 backdrop-blur-xl border border-orange-100/50 dark:bg-slate-900/95 dark:border-slate-700/50"
+
+      <DropdownMenuContent
+        align="end"
+        style={{ zIndex: 99999 }}
+        className="w-56 p-2 bg-white border border-slate-200 shadow-xl dark:bg-slate-900 dark:border-slate-700"
       >
-        <div className="px-2 py-1 mb-2">
-          <span className="text-xs font-medium text-slate-600 dark:text-slate-400">
+        <div className="px-2 py-1.5 mb-1">
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
             Select Network
           </span>
         </div>
-        
+
         {supportedChains.map((chain) => (
           <DropdownMenuItem
             key={chain.id}
             onClick={() => handleChainSwitch(chain.id)}
             disabled={isSwitching || chain.id === chainId}
             className={`
-              flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer
-              hover:bg-orange-50/80 dark:hover:bg-slate-800/40
-              ${chain.id === chainId ? 'bg-orange-50/80 text-orange-700 dark:bg-orange-900/20 dark:text-orange-300' : ''}
+              flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors
+              ${chain.id === chainId
+                ? 'bg-orange-100 text-orange-800 dark:bg-orange-500/20 dark:text-orange-300'
+                : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
+              }
               disabled:opacity-50 disabled:cursor-not-allowed
             `}
           >
-            <Link className="h-4 w-4 text-orange-500" />
+            <div className={`w-6 h-6 rounded-full flex items-center justify-center shadow-sm ${chain.testnet
+              ? chain.id === 31337
+                ? 'bg-gradient-to-br from-slate-400 to-slate-600'
+                : 'bg-gradient-to-br from-purple-400 to-purple-600'
+              : 'bg-gradient-to-br from-yellow-400 to-yellow-600'
+              }`}>
+              <span className="text-xs text-white">{chain.icon}</span>
+            </div>
             <div className="flex-1">
               <div className="text-sm font-medium">{chain.displayName}</div>
               <div className="text-xs text-slate-500 dark:text-slate-400">
@@ -184,21 +200,29 @@ export function ChainSelector({ className = '', compact = false }: ChainSelector
               </div>
             </div>
             {chain.id === chainId && (
-              <Wifi className="h-4 w-4 text-orange-500" />
+              <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
+                <span className="text-white text-xs">✓</span>
+              </div>
             )}
           </DropdownMenuItem>
         ))}
 
         {!isConnected && (
-          <div className="px-3 py-2 mt-2 text-xs text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-700">
-            Connect your wallet to switch networks
-          </div>
+          <>
+            <div className="my-2 border-t border-slate-200 dark:border-slate-700" />
+            <div className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400 italic">
+              Connect your wallet to switch networks
+            </div>
+          </>
         )}
 
         {isConnected && !isSupported && (
-          <div className="px-3 py-2 mt-2 text-xs text-red-500 border-t border-slate-200 dark:border-slate-700">
-            Current network not supported
-          </div>
+          <>
+            <div className="my-2 border-t border-slate-200 dark:border-slate-700" />
+            <div className="px-3 py-2 text-xs text-red-600 dark:text-red-400">
+              Current network not supported
+            </div>
+          </>
         )}
       </DropdownMenuContent>
     </DropdownMenu>

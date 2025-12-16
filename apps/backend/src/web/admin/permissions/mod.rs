@@ -47,6 +47,7 @@ pub fn create_permission_routes() -> Router<AppState> {
         .route("/assignments/{assignment_id}", delete(assignments::remove_assignment))
         .route("/assignments/expiring", get(assignments::get_expiring_assignments))
         .route("/assignments/history/{wallet}", get(assignments::get_assignment_history))
+        .route("/assignments/history", get(assignments::get_group_history))
         .route("/wallets/{wallet}/groups", get(assignments::get_wallet_groups))
 
         // ============================================================================

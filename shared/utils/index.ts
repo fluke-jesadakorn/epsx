@@ -164,6 +164,21 @@ export {
 } from './core/logging'
 
 // ============================================================================
+// BLOCKCHAIN ENVIRONMENT HELPERS
+// ============================================================================
+export {
+  getDefaultChainId,
+  getNetworkName,
+  isDev as isDevNetwork,
+  isLocal as isLocalNetwork,
+  isProduction as isProductionNetwork,
+  isTestnet as isTestnetNetwork
+} from './env-helpers'
+
+// Re-export with common names for convenience
+export { isDev, isLocal, isProduction, isTestnet } from './env-helpers'
+
+// ============================================================================
 // API CLIENT UTILITIES
 // ============================================================================
 

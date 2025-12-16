@@ -3,9 +3,8 @@
  * Provides hooks for managing permission groups and available permissions
  */
 
-import { useState, useEffect, useCallback } from 'react';
-import { GroupManagementClient, PermissionGroup, CreateGroupRequest, UpdateGroupRequest } from '@/lib/api/group-management-client';
-import { createAdminApiClient } from '@/shared/utils/api-client';
+import { CreateGroupRequest, GroupAssignmentHistory, PermissionGroup, UpdateGroupRequest, groupMgmt } from '@/lib/api/group-management-client';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 // ============================================================================
 // PERMISSION GROUPS HOOK
@@ -26,13 +25,13 @@ export function usePermissionGroups(): UsePermissionGroupsReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const client = new GroupManagementClient(createAdminApiClient());
+  // const client = new GroupManagementClient(createAdminApiClient()); // Removed
 
   const loadGroups = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const fetchedGroups = await client.getPermissionGroups();
+      const fetchedGroups = await groupMgmt.getPermissionGroups();
       setGroups(fetchedGroups);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load permission groups');
@@ -44,7 +43,7 @@ export function usePermissionGroups(): UsePermissionGroupsReturn {
   const createGroup = useCallback(async (request: CreateGroupRequest): Promise<PermissionGroup> => {
     try {
       setError(null);
-      const newGroup = await client.createPermissionGroup(request);
+      const newGroup = await groupMgmt.createPermissionGroup(request);
       // Refresh groups after creation
       await loadGroups();
       return newGroup;
@@ -58,7 +57,7 @@ export function usePermissionGroups(): UsePermissionGroupsReturn {
   const updateGroup = useCallback(async (groupId: string, request: UpdateGroupRequest): Promise<PermissionGroup> => {
     try {
       setError(null);
-      const updatedGroup = await client.updatePermissionGroup(groupId, request);
+      const updatedGroup = await groupMgmt.updatePermissionGroup(groupId, request);
       // Refresh groups after update
       await loadGroups();
       return updatedGroup;
@@ -72,7 +71,7 @@ export function usePermissionGroups(): UsePermissionGroupsReturn {
   const deleteGroup = useCallback(async (groupId: string): Promise<void> => {
     try {
       setError(null);
-      await client.deletePermissionGroup(groupId);
+      await groupMgmt.deletePermissionGroup(groupId);
       // Refresh groups after deletion
       await loadGroups();
     } catch (err) {
@@ -114,13 +113,13 @@ export function useAvailablePermissions(): UseAvailablePermissionsReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const client = new GroupManagementClient(createAdminApiClient());
+  // const client = new GroupManagementClient(createAdminApiClient()); // Removed
 
   const loadPermissions = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const fetchedPermissions = await client.getAvailablePermissions();
+      const fetchedPermissions = await groupMgmt.getAvailablePermissions();
       setPermissions(fetchedPermissions);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load available permissions');
@@ -176,20 +175,20 @@ export function useGroupAnalytics(): UseGroupAnalyticsReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const client = new GroupManagementClient(createAdminApiClient());
+  // const client = new GroupManagementClient(createAdminApiClient()); // removed
 
   const loadStats = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       // For now, provide basic analytics - can be enhanced later
-      const groups = await client.getPermissionGroups();
+      const groups = await groupMgmt.getPermissionGroups();
       const totalGroups = groups.length;
       const activeGroups = groups.filter(g => g.is_system_group === false).length;
       const systemGroups = groups.filter(g => g.is_system_group === true).length;
       const totalPermissions = groups.reduce((sum, g) => sum + g.permissions.length, 0);
-      
+
       setStats({
         totalGroups,
         activeGroups,
@@ -242,7 +241,7 @@ export function useWeb3AssignmentRules(): UseWeb3AssignmentRulesReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const client = new GroupManagementClient(createAdminApiClient());
+  // const client = new GroupManagementClient(createAdminApiClient()); // removed
 
   const loadRules = useCallback(async () => {
     try {
@@ -298,25 +297,124 @@ export function useWeb3AssignmentRules(): UseWeb3AssignmentRulesReturn {
 
 import type { UserGroupMembership } from '@/lib/api/group-management-client';
 
-interface AssignmentHistoryItem {
-  id: string;
-  user_id: string;
-  group_id: string;
-  action: 'assigned' | 'removed';
-  performed_by: string;
-  performed_at: string;
-  reason?: string;
-}
+// ============================================================================
+// USER GROUP MEMBERSHIPS HOOK
+// ============================================================================
+
+import { AssignUserToGroupRequest } from '@/lib/api/group-management-client';
 
 export function useUserGroupMemberships(userId: string | null) {
+  const [memberships, setMemberships] = useState<UserGroupMembership[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadMemberships = useCallback(async () => {
+    if (!userId) {
+      setMemberships([]);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      const data = await groupMgmt.getUserGroups(userId);
+      setMemberships(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load user memberships');
+      // setMemberships([]); // Keep existing on error?
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    loadMemberships();
+  }, [loadMemberships]);
+
+  const activeMemberships = useMemo(() =>
+    memberships.filter(m => m.is_active),
+    [memberships]
+  );
+
+  const expiringMemberships = useMemo(() => {
+    const now = Date.now();
+    const sevenDaysFromNow = now + (7 * 24 * 60 * 60 * 1000);
+    return memberships.filter(m =>
+      m.is_active &&
+      m.expires_at &&
+      new Date(m.expires_at).getTime() <= sevenDaysFromNow
+    );
+  }, [memberships]);
+
+  const assignUserToGroup = useCallback(async (request: AssignUserToGroupRequest) => {
+    try {
+      await groupMgmt.assignUserToGroup(request);
+      await loadMemberships();
+    } catch (err) {
+      throw err;
+    }
+  }, [loadMemberships]);
+
+  const removeUserFromGroup = useCallback(async (groupId: string) => {
+    if (!userId) return;
+    try {
+      await groupMgmt.removeUserFromGroup(userId, groupId);
+      await loadMemberships();
+    } catch (err) {
+      throw err;
+    }
+  }, [userId, loadMemberships]);
+
+  const refreshMemberships = loadMemberships;
+
   return {
-    memberships: [] as UserGroupMembership[],
-    activeMemberships: [] as UserGroupMembership[],
-    expiringMemberships: [] as UserGroupMembership[],
-    isLoading: false,
-    assignUserToGroup: async (request: any) => {},
-    removeUserFromGroup: async (membershipId: string) => {},
-    refreshMemberships: async () => {},
+    memberships,
+    activeMemberships,
+    expiringMemberships,
+    isLoading,
+    error,
+    assignUserToGroup,
+    removeUserFromGroup,
+    refreshMemberships,
+  };
+}
+
+// ============================================================================
+// GROUP MEMBERS HOOK
+// ============================================================================
+
+export function useGroupMembers(groupId: string | null) {
+  const [members, setMembers] = useState<UserGroupMembership[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadMembers = useCallback(async () => {
+    if (!groupId) {
+      setMembers([]);
+      return;
+    }
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      const data = await groupMgmt.getGroupMemberships(groupId);
+      setMembers(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load group members');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [groupId]);
+
+  useEffect(() => {
+    loadMembers();
+  }, [loadMembers]);
+
+  return {
+    members,
+    isLoading,
+    error,
+    refreshMembers: loadMembers,
   };
 }
 
@@ -326,9 +424,9 @@ export function useUserGroupMemberships(userId: string | null) {
 
 export function useGroupAssignmentHistory() {
   return {
-    history: [] as AssignmentHistoryItem[],
+    history: [] as GroupAssignmentHistory[],
     isLoading: false,
-    refreshHistory: async () => {},
+    refreshHistory: async () => { },
   };
 }
 
@@ -344,6 +442,7 @@ export const useGroupPermissions = {
   useWeb3AssignmentRules,
   useUserGroupMemberships,
   useGroupAssignmentHistory,
+  useGroupMembers,
 };
 
 export default useGroupPermissions;

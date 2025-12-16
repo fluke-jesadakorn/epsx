@@ -87,6 +87,13 @@ export interface GroupAnalytics {
   permission_distribution: Record<string, number>;
 }
 
+export interface AssignUserToGroupRequest {
+  user_id: string;
+  group_id: string;
+  expires_at?: string | null;
+  reason?: string;
+}
+
 // ============================================================================
 // GROUP MANAGEMENT API
 // ============================================================================
@@ -134,8 +141,16 @@ export const groupMgmt = {
   },
 
   async getUserGroups(userId: string): Promise<UserGroupMembership[]> {
-    const res = await adminApiClient.get<UserGroupMembership[]>(`/api/admin/wallets/${userId}/assignments`);
-    return res.data!;
+    const res = await adminApiClient.get<any>(API_ROUTES.ADMIN.PERMISSION_ASSIGNMENTS, {
+      wallet_address: userId,
+      limit: 100, // Reasonable limit
+    });
+
+    // Handle pagination wrapper if present
+    const assignments = res.data?.data || res.data || [];
+    if (!Array.isArray(assignments)) return [];
+
+    return assignments.map(mapAssignmentToMembership);
   },
 
   async getUserPermissions(userId: string): Promise<string[]> {
@@ -149,7 +164,7 @@ export const groupMgmt = {
     expires_at?: string | null;
     reason?: string;
   }): Promise<void> {
-    await adminApiClient.post(API_ROUTES.PERMISSIONS.ASSIGNMENTS, {
+    await adminApiClient.post(API_ROUTES.ADMIN.PERMISSION_ASSIGNMENTS, {
       wallet_address: req.user_id,
       group_id: req.group_id,
       expires_at: req.expires_at,
@@ -159,12 +174,35 @@ export const groupMgmt = {
   },
 
   async removeUserFromGroup(userId: string, groupId: string): Promise<void> {
-    await adminApiClient.delete(`/api/admin/wallet-assignments/${userId}/${groupId}`);
+    // Note: To delete properly we need the assignment ID, but the current valid interface
+    // asks for userId/groupId. We might need to find the assignment first.
+    // However, the backend doesn't seem to support DELETE by user/group pair directly, only by ID.
+    // For now, let's keep the existing call but logging a warning or implementing a lookup if needed.
+    // Actually, looking at backend, it has remove_assignment by ID.
+    // We should probably change this method signature in future refactor, but for now:
+    // We can try to find the assignment first.
+
+    const assignments = await this.getUserGroups(userId);
+    const assignment = assignments.find(a => a.group_id === groupId);
+
+    if (assignment) {
+      await adminApiClient.delete(`${API_ROUTES.ADMIN.PERMISSION_ASSIGNMENTS}/${assignment.id}`);
+    } else {
+      console.warn(`Assignment not found for user ${userId} and group ${groupId}`);
+    }
   },
 
   async getGroupMemberships(groupId: string): Promise<UserGroupMembership[]> {
-    const res = await adminApiClient.get<UserGroupMembership[]>(`/api/admin/group-memberships/${groupId}`);
-    return res.data!;
+    const res = await adminApiClient.get<any>(API_ROUTES.ADMIN.PERMISSION_ASSIGNMENTS, {
+      group_id: groupId,
+      limit: 100,
+      is_active: true
+    });
+
+    const assignments = res.data?.data || res.data || [];
+    if (!Array.isArray(assignments)) return [];
+
+    return assignments.map(mapAssignmentToMembership);
   },
 
   async getWeb3AssignmentRules(): Promise<Web3AssignmentRule[]> {
@@ -248,11 +286,10 @@ export const groupMgmt = {
   },
 
   /**
-   * Search users by wallet address or other criteria
    * Used for autocomplete functionality
    * Uses the same /api/v1/admin/wallets/search endpoint as Wallet Management page
    */
-  async searchUsers(query: string, limit = 10): Promise<Array<{
+  async searchUsers(query: string, limit = 10, excludeGroupId?: string): Promise<Array<{
     wallet_address: string;
     user_id?: string;
     tier?: string;
@@ -263,14 +300,19 @@ export const groupMgmt = {
 
     // Use the wallet search endpoint that powers the Wallet Management page
     try {
-      const searchParams = new URLSearchParams({
+      const params = new URLSearchParams({
         search: query,
         limit: '50', // Fetch more to allow for client-side filtering
       });
 
-      const res = await adminApiClient.get<any>(
-        `/api/v1/admin/wallets/search?${searchParams.toString()}`
-      );
+      if (excludeGroupId) {
+        params.append('exclude_group_id', excludeGroupId);
+      }
+
+      const apiUrl = `/api/v1/admin/wallets/search?${params.toString()}`;
+      console.log('[searchUsers] API URL:', apiUrl);
+
+      const res = await adminApiClient.get<any>(apiUrl);
 
       // Handle response format from wallets/search endpoint
       const wallets = res.data?.wallets || res.data?.data?.wallets || res.data || [];
@@ -392,3 +434,27 @@ export const groupMgmt = {
     return res.data!;
   },
 };
+
+// Start Helper Functions
+function mapAssignmentToMembership(assignment: any): UserGroupMembership {
+  return {
+    id: assignment.id,
+    user_id: assignment.wallet_address,
+    group_id: assignment.group_id,
+    granted_by: assignment.assigned_by || 'system',
+    granted_at: assignment.assigned_at,
+    expires_at: assignment.expires_at,
+    is_active: assignment.is_active,
+    group: {
+      id: assignment.group_id,
+      name: assignment.group_name,
+      permissions: [], // Assignments endpoint might not return permissions list
+      is_system_group: false, // Defaulting as not provided entirely
+      default_expiry_days: null,
+      priority_level: 0,
+      description: assignment.group_type, // Using type as description fallback
+      created_at: assignment.assigned_at, // Fallback
+      updated_at: assignment.assigned_at, // Fallback
+    } as PermissionGroup
+  };
+}

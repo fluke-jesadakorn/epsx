@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PAYMENT_ESCROW_ABI } from '@/lib/contracts/PaymentEscrowABI'
 import { getPaymentEscrowAddress, getTokenAddress, isPaymentEscrowDeployed } from '@/lib/contracts/addresses'
+import { devLog } from '@/shared/utils'
 import {
   AlertCircle,
   CheckCircle,
@@ -119,30 +120,17 @@ export default function MetaMaskPayment({
   onError,
   className = ''
 }: MetaMaskPaymentProps) {
-  // CACHE BUSTER - CODE VERSION: 2024-10-18-v3
-  console.log('🔥🔥🔥 MetaMaskPayment loaded - VERSION 3 - HARDCODED ADDRESS')
-  console.log('🚨 MetaMaskPayment Props Debug:', {
+  // Debug logging only in non-production environments
+  devLog('MetaMaskPayment loaded', {
     planId,
     planName,
     amount,
-    amountType: typeof amount,
     currency,
-    className,
-    isNaN: isNaN(amount),
-    isZero: amount === 0,
-    isUndefined: amount === undefined,
-    isNull: amount === null
   })
 
-  // Early validation and logging
+  // Early validation
   if (!amount || amount === 0 || isNaN(amount)) {
-    console.error('❌ MetaMaskPayment Invalid amount:', {
-      amount,
-      type: typeof amount,
-      isNaN: isNaN(amount),
-      planId,
-      planName
-    })
+    devLog('MetaMaskPayment Invalid amount:', { amount, type: typeof amount, planId, planName })
   }
 
   const { address, isConnected, chain } = useAccount()
@@ -219,7 +207,7 @@ export default function MetaMaskPayment({
   // Handle approval confirmation -> trigger payment
   useEffect(() => {
     if (isApprovalConfirmed && approvalHash) {
-      console.log('✅ Approval confirmed, proceeding to payment...')
+      devLog('✅ Approval confirmed, proceeding to payment...')
       setPaymentStep('paying')
       executePayment()
     }
@@ -228,7 +216,7 @@ export default function MetaMaskPayment({
   // Handle payment confirmation -> success
   useEffect(() => {
     if (isPaymentConfirmed && paymentHash) {
-      console.log('✅ Payment confirmed!')
+      devLog('✅ Payment confirmed!')
       setPaymentStep('complete')
       onSuccess(paymentHash)
     }
@@ -282,7 +270,7 @@ export default function MetaMaskPayment({
   const handleTransactionError = (error: any, transactionType: 'approval' | 'payment' | 'receipt') => {
     if (isUserRejection(error)) {
       // User cancelled - don't show as error, just reset state
-      console.log(`👤 User cancelled ${transactionType} transaction`)
+      devLog(`👤 User cancelled ${transactionType} transaction`)
       setPaymentStep('idle')
       return false // Don't trigger error callback
     }
@@ -295,7 +283,7 @@ export default function MetaMaskPayment({
 
   // Step 1: Approve escrow contract to spend tokens
   const handlePayment = async () => {
-    console.log('🚀 Starting two-step payment process')
+    devLog('🚀 Starting two-step payment process')
 
     if (!isConnected || !address) {
       console.error('❌ Wallet not connected')
@@ -318,7 +306,7 @@ export default function MetaMaskPayment({
     try {
       const decimals = 6 // USDT and USDC both use 6 decimals
 
-      console.log('🚨 CRITICAL DEBUG - Before parseUnits:', {
+      devLog('🚨 CRITICAL DEBUG - Before parseUnits:', {
         amount,
         amountType: typeof amount,
         amountIsZero: amount === 0,
@@ -331,7 +319,7 @@ export default function MetaMaskPayment({
 
       const transferAmount = parseUnits(amount.toString(), decimals)
 
-      console.log('📝 Payment details:', {
+      devLog('📝 Payment details:', {
         planId,
         tokenAddress,
         escrowAddress,
@@ -343,7 +331,7 @@ export default function MetaMaskPayment({
         chainId: chain?.id
       })
 
-      console.log('🚨 CRITICAL DEBUG - MetaMask will show:', {
+      devLog('🚨 CRITICAL DEBUG - MetaMask will show:', {
         rawAmount: amount.toString(),
         parsedUnits: transferAmount.toString(),
         inTokens: formatUnits(transferAmount, decimals),
@@ -353,9 +341,9 @@ export default function MetaMaskPayment({
       setPaymentStep('approving')
 
       // Step 1: Approve escrow contract to spend tokens
-      console.log('⏳ Step 1: Approving token spending...')
-      
-      console.log('🔥 APPROVE CALL ARGUMENTS:', {
+      devLog('⏳ Step 1: Approving token spending...')
+
+      devLog('🔥 APPROVE CALL ARGUMENTS:', {
         tokenAddress,
         escrowAddress,
         transferAmount: transferAmount.toString(),
@@ -368,7 +356,7 @@ export default function MetaMaskPayment({
           args: [escrowAddress as `0x${string}`, transferAmount]
         }
       });
-      
+
       writeApproval({
         address: tokenAddress as `0x${string}`,
         abi: ERC20_ABI,
@@ -376,7 +364,7 @@ export default function MetaMaskPayment({
         args: [escrowAddress as `0x${string}`, transferAmount],
       })
 
-      console.log('✅ Approval transaction submitted')
+      devLog('✅ Approval transaction submitted')
     } catch (error) {
       if (!handleTransactionError(error, 'approval')) {
         // User cancelled - don't show error
@@ -399,7 +387,7 @@ export default function MetaMaskPayment({
     try {
       const decimals = 6
 
-      console.log('🚨 CRITICAL DEBUG - executePayment parseUnits:', {
+      devLog('🚨 CRITICAL DEBUG - executePayment parseUnits:', {
         amount,
         amountType: typeof amount,
         amountIsZero: amount === 0,
@@ -444,14 +432,14 @@ export default function MetaMaskPayment({
       };
       const numericPlanId = getNumericPlanId(planId);
 
-      console.log('📋 Plan ID Conversion:');
-      console.log(`  - Original planId: ${planId} (${typeof planId})`);
-      console.log(`  - Numeric planId: ${numericPlanId}`);
+      devLog('📋 Plan ID Conversion:');
+      devLog(`  - Original planId: ${planId} (${typeof planId})`);
+      devLog(`  - Numeric planId: ${numericPlanId}`);
 
-       // Step 2: Execute payment through escrow contract
-      console.log('💸 Step 2: Executing payment transfer...')
-      
-      console.log('🔥 PAYMENT CALL ARGUMENTS:', {
+      // Step 2: Execute payment through escrow contract
+      devLog('💸 Step 2: Executing payment transfer...')
+
+      devLog('🔥 PAYMENT CALL ARGUMENTS:', {
         functionName: 'payWithTransfer',
         planId: numericPlanId,
         tokenAddress,
@@ -470,8 +458,8 @@ export default function MetaMaskPayment({
         args: [numericPlanId, tokenAddress as `0x${string}`, transferAmount],
         value: displayAmount // This will show the amount in MetaMask but get refunded
       })
-      
-      console.log('✅ Payment transaction submitted')
+
+      devLog('✅ Payment transaction submitted')
     } catch (error) {
       if (!handleTransactionError(error, 'payment')) {
         // User cancelled - don't show error
@@ -537,30 +525,30 @@ export default function MetaMaskPayment({
   useEffect(() => {
     if (!isConnected && !autoConnectAttempted && connectors.length > 0) {
       setAutoConnectAttempted(true)
-      
+
       const attemptAutoConnect = async () => {
         try {
           // Look for MetaMask connector first
           const metaMaskConnector = connectors.find(
-            connector => connector.name === 'MetaMask' || 
-                        connector.name === 'Injected' ||
-                        connector.id === 'metaMask'
+            connector => connector.name === 'MetaMask' ||
+              connector.name === 'Injected' ||
+              connector.id === 'metaMask'
           )
-          
+
           if (metaMaskConnector) {
-            console.log('🦊 Auto-connecting to MetaMask...')
+            devLog('Auto-connecting to MetaMask...')
             await connect({ connector: metaMaskConnector })
-            console.log('✅ MetaMask auto-connect successful')
+            devLog('MetaMask auto-connect successful')
           } else {
-            console.log('ℹ️ MetaMask connector not found, trying first available connector')
+            devLog('MetaMask connector not found, trying first available connector')
             // Fallback to first connector if MetaMask not found
             if (connectors[0]) {
               await connect({ connector: connectors[0] })
-              console.log('✅ Auto-connect to', connectors[0].name, 'successful')
+              devLog(`Auto-connect to ${connectors[0].name} successful`)
             }
           }
         } catch (error) {
-          console.log('ℹ️ Auto-connect failed (user likely hasn\'t connected before):', error)
+          devLog('Auto-connect failed (user likely hasn\'t connected before)', { error })
           // This is expected behavior if user hasn't connected before
         }
       }
@@ -640,11 +628,10 @@ export default function MetaMaskPayment({
               <button
                 key={token}
                 onClick={() => setSelectedToken(token)}
-                className={`p-4 border rounded-lg text-left transition-all ${
-                  selectedToken === token
-                    ? 'border-primary bg-primary/5'
-                    : 'border-muted hover:border-primary/50'
-                }`}
+                className={`p-4 border rounded-lg text-left transition-all ${selectedToken === token
+                  ? 'border-primary bg-primary/5'
+                  : 'border-muted hover:border-primary/50'
+                  }`}
               >
                 <div className="font-medium">{token}</div>
                 <div className="text-sm text-muted-foreground">
@@ -734,9 +721,9 @@ export default function MetaMaskPayment({
             <Alert className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
               <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400" />
               <AlertDescription className="text-sm text-blue-700 dark:text-blue-300">
-                <strong>MetaMask Display:</strong><br/>
+                <strong>MetaMask Display:</strong><br />
                 MetaMask will now show the correct <strong>{amount} {getGasTokenSymbol()}</strong> amount for confirmation!
-                <br/>
+                <br />
                 The native currency will be automatically refunded - only the <strong>{amount} {selectedToken}</strong> tokens will be charged.
               </AlertDescription>
             </Alert>

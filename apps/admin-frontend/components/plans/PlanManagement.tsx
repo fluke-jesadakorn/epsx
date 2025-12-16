@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { toast } from '@/hooks/use-toast'
-import { createPlansClient, type PlanResponse, isApiSuccess } from '@/shared/api/plans'
-import { createAdminApiClient } from '@/shared/utils/api-client'
+import { createPlansClient, isApiSuccess, type PlanResponse } from '@/shared/api/plans'
 import { useSharedAuth } from '@/shared/components/auth/Provider'
+import { createAdminApiClient } from '@/shared/utils/api-client'
 import * as Promo from '@/shared/utils/promo'
+import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { PlanSubscribersSection } from './PlanSubscribersSection'
 
 interface PlanManagementProps {
   currentUser?: any
@@ -25,6 +26,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
   const [loading, setLoading] = useState(true)
   const [selectedPlan, setSelectedPlan] = useState<PlanResponse | null>(null)
   const [filterCategory, setFilterCategory] = useState<'all' | 'standard' | 'api' | 'enterprise' | 'custom'>('all')
+  const [selectedPlanForSubscribers, setSelectedPlanForSubscribers] = useState<PlanResponse | null>(null)
 
   // Load plans on component mount
   useEffect(() => {
@@ -245,41 +247,37 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
               <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-4">
                 <button
                   onClick={() => setFilterCategory('all')}
-                  className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${
-                    filterCategory === 'all'
-                      ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white shadow-lg'
-                      : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`}
+                  className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${filterCategory === 'all'
+                    ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white shadow-lg'
+                    : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
                 >
                   All Plans ({plans.length})
                 </button>
                 <button
                   onClick={() => setFilterCategory('standard')}
-                  className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${
-                    filterCategory === 'standard'
-                      ? 'bg-gradient-to-r from-blue-400 to-purple-500 text-white shadow-lg'
-                      : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`}
+                  className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${filterCategory === 'standard'
+                    ? 'bg-gradient-to-r from-blue-400 to-purple-500 text-white shadow-lg'
+                    : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
                 >
                   Standard ({standardPlans.length})
                 </button>
                 <button
                   onClick={() => setFilterCategory('api')}
-                  className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${
-                    filterCategory === 'api'
-                      ? 'bg-gradient-to-r from-orange-400 to-red-500 text-white shadow-lg'
-                      : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`}
+                  className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${filterCategory === 'api'
+                    ? 'bg-gradient-to-r from-orange-400 to-red-500 text-white shadow-lg'
+                    : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
                 >
                   API Plans ({apiPlans.length})
                 </button>
                 <button
                   onClick={() => setFilterCategory('enterprise')}
-                  className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${
-                    filterCategory === 'enterprise'
-                      ? 'bg-gradient-to-r from-purple-400 to-pink-500 text-white shadow-lg'
-                      : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`}
+                  className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${filterCategory === 'enterprise'
+                    ? 'bg-gradient-to-r from-purple-400 to-pink-500 text-white shadow-lg'
+                    : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
                 >
                   Enterprise ({enterprisePlans.length})
                 </button>
@@ -292,9 +290,9 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
             <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
                 <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-emerald-600 via-green-600 to-teal-600 bg-clip-text text-transparent">
-                  {filterCategory === 'all' ? 'All Plans' : 
-                   filterCategory === 'standard' ? 'Standard Plans' : 
-                   filterCategory === 'api' ? 'API Plans' : 'Enterprise Plans'}
+                  {filterCategory === 'all' ? 'All Plans' :
+                    filterCategory === 'standard' ? 'Standard Plans' :
+                      filterCategory === 'api' ? 'API Plans' : 'Enterprise Plans'}
                 </h2>
                 <div className="text-sm text-gray-500 dark:text-gray-400">
                   {filteredPlans.length} plans
@@ -310,15 +308,14 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                     onClick={() => setSelectedPlan(plan)}
                   >
                     <div className="flex items-center gap-3 mb-3">
-                      <div className={`h-12 w-12 rounded-2xl flex items-center justify-center text-xl ${
-                        plan.plan_category === 'standard' 
-                          ? 'bg-gradient-to-br from-blue-400 to-purple-500'
-                          : plan.plan_category === 'api'
+                      <div className={`h-12 w-12 rounded-2xl flex items-center justify-center text-xl ${plan.plan_category === 'standard'
+                        ? 'bg-gradient-to-br from-blue-400 to-purple-500'
+                        : plan.plan_category === 'api'
                           ? 'bg-gradient-to-br from-orange-400 to-red-500'
                           : 'bg-gradient-to-br from-purple-400 to-pink-500'
-                      }`}>
-                        {plan.plan_category === 'standard' ? '👤' : 
-                         plan.plan_category === 'api' ? '🔧' : '🏢'}
+                        }`}>
+                        {plan.plan_category === 'standard' ? '👤' :
+                          plan.plan_category === 'api' ? '🔧' : '🏢'}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -347,7 +344,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="grid grid-cols-2 gap-3 mb-3">
                       <div className="bg-white/50 dark:bg-gray-600/30 rounded-xl p-3">
                         <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Subscribers</div>
@@ -358,8 +355,17 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                         <div className="text-lg font-bold text-purple-600 dark:text-purple-400">${plan.revenue_last_30_days}</div>
                       </div>
                     </div>
-                    
-                    <div className="grid grid-cols-2 gap-2">
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setSelectedPlanForSubscribers(plan)
+                        }}
+                        className="px-3 py-2 rounded-xl font-semibold bg-gradient-to-r from-emerald-400 to-green-500 text-white min-h-[44px] text-sm"
+                      >
+                        👥
+                      </button>
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
@@ -376,7 +382,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                         }}
                         className="px-3 py-2 rounded-xl font-semibold bg-gradient-to-r from-blue-400 to-blue-500 text-white min-h-[44px] text-sm"
                       >
-                        📊 Analytics
+                        📊
                       </button>
                     </div>
                   </div>
@@ -392,17 +398,16 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                     onClick={() => setSelectedPlan(plan)}
                   >
                     <div className="flex items-center gap-6 flex-1">
-                      <div className={`h-12 w-12 rounded-2xl flex items-center justify-center text-2xl ${
-                        plan.plan_category === 'standard' 
-                          ? 'bg-gradient-to-br from-blue-400 to-purple-500'
-                          : plan.plan_category === 'api'
+                      <div className={`h-12 w-12 rounded-2xl flex items-center justify-center text-2xl ${plan.plan_category === 'standard'
+                        ? 'bg-gradient-to-br from-blue-400 to-purple-500'
+                        : plan.plan_category === 'api'
                           ? 'bg-gradient-to-br from-orange-400 to-red-500'
                           : 'bg-gradient-to-br from-purple-400 to-pink-500'
-                      }`}>
-                        {plan.plan_category === 'standard' ? '👤' : 
-                         plan.plan_category === 'api' ? '🔧' : '🏢'}
+                        }`}>
+                        {plan.plan_category === 'standard' ? '👤' :
+                          plan.plan_category === 'api' ? '🔧' : '🏢'}
                       </div>
-                      
+
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2 flex-wrap">
                           <h3 className="text-lg font-bold text-gray-900 dark:text-white">
@@ -419,9 +424,8 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                             </span>
                           )}
                           {plan.promotion_status && plan.promotion_status !== 'disabled' && (
-                            <span className={`text-xs px-3 py-1 rounded-full font-semibold ${
-                              Promo.getStatusColor(plan.promotion_status)
-                            }`}>
+                            <span className={`text-xs px-3 py-1 rounded-full font-semibold ${Promo.getStatusColor(plan.promotion_status)
+                              }`}>
                               {Promo.getStatusIcon(plan.promotion_status)} {Promo.getStatusText(plan.promotion_status)}
                               {plan.promotion_status === 'active' && plan.promotion_ends_at && (
                                 <span className="ml-1">({Promo.getTimeRemaining(plan.promotion_ends_at)})</span>
@@ -463,6 +467,16 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
+                          setSelectedPlanForSubscribers(plan)
+                        }}
+                        className="px-4 py-2 rounded-xl font-semibold bg-gradient-to-r from-emerald-400 to-green-500 text-white hover:from-emerald-500 hover:to-green-600 min-h-[44px]"
+                      >
+                        👥 Subscribers
+                      </button>
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
                           router.push(`/plans/${plan.id}/edit`)
                         }}
                         className="px-4 py-2 rounded-xl font-semibold bg-gradient-to-r from-purple-400 to-purple-500 text-white hover:from-purple-500 hover:to-purple-600 min-h-[44px]"
@@ -493,7 +507,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                     No plans found
                   </h3>
                   <p className="text-gray-500 dark:text-gray-500">
-                    {filterCategory === 'all' 
+                    {filterCategory === 'all'
                       ? 'Start by creating your first plan'
                       : `No ${filterCategory} plans available. Try switching filters or create a new plan.`
                     }
@@ -504,6 +518,18 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
           </div>
         </div>
       </div>
+
+      {/* Plan Subscribers Section (overlay) */}
+      {selectedPlanForSubscribers && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <PlanSubscribersSection
+              plan={selectedPlanForSubscribers}
+              onClose={() => setSelectedPlanForSubscribers(null)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

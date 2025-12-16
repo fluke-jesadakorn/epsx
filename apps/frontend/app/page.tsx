@@ -37,7 +37,7 @@ export default function HomePage() {
         </div>
 
         {/* Main content with PancakeSwap styling */}
-        <div className="relative z-10">
+        <div className="relative z-[1]">
           {/* Hero Section */}
           <HeroSection />
 

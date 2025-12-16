@@ -331,7 +331,7 @@ export class PlansAPIClient {
 
   /**
    * Get subscriptions with filtering
-   * Route: GET /api/v1/admin/subscriptions
+   * Route: GET /api/v1/payments/admin/subscriptions
    */
   async getSubscriptions(params: {
     limit?: number;
@@ -339,15 +339,15 @@ export class PlansAPIClient {
     access_context?: string;
     plan_id?: number;
   } = {}): Promise<ApiResponse<{ subscriptions: SubscriptionResponse[] }>> {
-    return this.client.get('/api/v1/admin/subscriptions', params);
+    return this.client.get('/api/v1/payments/admin/subscriptions', params);
   }
 
   /**
    * Get single subscription
-   * Route: GET /api/v1/admin/subscriptions/:id
+   * Route: GET /api/v1/payments/subscriptions/:id
    */
   async getSubscription(subscriptionId: string): Promise<ApiResponse<SubscriptionResponse>> {
-    return this.client.get(`/api/v1/admin/subscriptions/${subscriptionId}`);
+    return this.client.get(`/api/v1/payments/subscriptions/${subscriptionId}`);
   }
 
   /**
@@ -355,7 +355,19 @@ export class PlansAPIClient {
    * Route: POST /api/v1/admin/subscriptions
    */
   async createSubscription(data: CreateSubscriptionRequest): Promise<ApiResponse<SubscriptionResponse>> {
-    return this.client.post('/api/v1/admin/subscriptions', data);
+    // Map user_id to wallet_address for backend compatibility
+    // permission_group_name is REQUIRED by backend
+    const payload = {
+      wallet_address: data.user_id,
+      plan_id: data.plan_id,
+      permission_group_name: (data as any).permission_group_name || `Plan ${data.plan_id}`,
+      access_context: data.access_context,
+      api_key_name: data.api_key_name,
+      expires_at: data.expires_at,
+      auto_renew: data.auto_renew,
+      metadata: data.metadata,
+    };
+    return this.client.post('/api/v1/admin/subscriptions', payload);
   }
 
   /**

@@ -2,7 +2,8 @@
  * Smart Contract Addresses for BSC Networks
  *
  * These addresses are populated after deployment:
- * - BSC Testnet (97): For development and testing
+ * - Local Anvil (31337): For local development
+ * - BSC Testnet (97): For staging/testing
  * - BSC Mainnet (56): For production
  *
  * Update these addresses after running deployment scripts in apps/contracts
@@ -10,23 +11,28 @@
 
 export const PAYMENT_ESCROW_ADDRESS = {
   // BSC Mainnet (ChainID: 56)
-  56: process.env.NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET || '',
+  56: process.env['NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET'] || '',
 
-  // BSC Testnet (ChainID: 97) - Primary development network
-  97: process.env.NEXT_PUBLIC_PAYMENT_ESCROW_TESTNET || '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+  // BSC Testnet (ChainID: 97) - Staging network
+  97: process.env['NEXT_PUBLIC_PAYMENT_ESCROW_TESTNET'] || '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+
+  // Local Anvil (ChainID: 31337) - Local development
+  31337: process.env['NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL'] || '0x5FbDB2315678afecb367f032d93F642f64180aa3',
 } as const;
 
 /**
- * ERC20 Token Addresses on BSC
+ * ERC20 Token Addresses on BSC and Local
  */
 export const TOKEN_ADDRESSES = {
   USDT: {
     56: '0x55d398326f99059fF775485246999027B3197955', // BSC Mainnet
     97: '0xaE7671B4199B31a37C3e6999485d4d7A28610D6A', // BSC Testnet USDT (official)
+    31337: '0x55d398326f99059fF775485246999027B3197955', // Local Anvil (forked from BSC Mainnet)
   },
   USDC: {
     56: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', // BSC Mainnet
     97: '0x2054A15C681bc0B3C9b4381b3d6C4Bd6E7c9eF7D', // BSC Testnet USDC (official)
+    31337: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', // Local Anvil (forked from BSC Mainnet)
   },
 } as const;
 
@@ -101,6 +107,12 @@ export const CHAIN_EXPLORERS = {
     url: 'https://testnet.bscscan.com',
     tx: (hash: string) => `https://testnet.bscscan.com/tx/${hash}`,
     address: (addr: string) => `https://testnet.bscscan.com/address/${addr}`,
+  },
+  31337: {
+    name: 'Local Anvil',
+    url: 'http://127.0.0.1:8545',
+    tx: (hash: string) => `http://127.0.0.1:8545/tx/${hash}`, // No real explorer for local
+    address: (addr: string) => `http://127.0.0.1:8545/address/${addr}`,
   },
 } as const;
 

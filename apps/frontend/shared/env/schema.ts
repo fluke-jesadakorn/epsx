@@ -156,9 +156,9 @@ export const clientEnvSchema = z.object({
     .describe('Admin frontend URL for client navigation'),
 
   // Web3 Configuration
-  NEXT_PUBLIC_BLOCKCHAIN_NETWORK: z.enum(['mainnet', 'testnet'])
+  NEXT_PUBLIC_BLOCKCHAIN_NETWORK: z.enum(['mainnet', 'testnet', 'local'])
     .default('testnet')
-    .describe('Web3 blockchain network configuration'),
+    .describe('Web3 blockchain network configuration (local = Anvil development)'),
 
   NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: z.string()
     .default('epsx-web3-frontend')

@@ -10,11 +10,7 @@
 // ============================================================================
 
 export {
-  useApiClient,
-  useAdminApiClient,
-  useFrontendApiClient,
-  type Platform,
-  type ApiClients
+  useAdminApiClient, useApiClient, useFrontendApiClient, type ApiClients, type Platform
 } from './useApiClient';
 
 // ============================================================================
@@ -22,15 +18,9 @@ export {
 // ============================================================================
 
 export {
-  useUserProfile,
-  useUpdateProfile,
-  useUserSettings,
-  useUpdateSettings,
-  useSubscriptions,
-  useSubscribeToPlan,
   useApiKeys,
   useCreateApiKey,
-  useDeleteApiKey
+  useDeleteApiKey, useSubscribeToPlan, useSubscriptions, useUpdateProfile, useUpdateSettings, useUserProfile, useUserSettings
 } from './useUsers';
 
 // ============================================================================
@@ -38,13 +28,7 @@ export {
 // ============================================================================
 
 export {
-  useCurrentUserPermissions,
-  useWalletPermissions,
-  usePermissionStats,
-  useGrantPermission,
-  useRevokePermission,
-  useCheckPermission,
-  usePermissionDisplay
+  useCheckPermission, useCurrentUserPermissions, useGrantPermission, usePermissionDisplay, usePermissionStats, useRevokePermission, useWalletPermissions
 } from './usePermissions';
 
 // ============================================================================
@@ -52,12 +36,10 @@ export {
 // ============================================================================
 
 export {
-  useWallet,
-  useWalletSearch,
   useRecentWallets,
   useUpdateWalletStatus,
-  useUpdateWalletTier,
-  useWalletStats
+  useUpdateWalletTier, useWallet,
+  useWalletSearch, useWalletStats
 } from './useWallets';
 
 // ============================================================================
@@ -65,15 +47,9 @@ export {
 // ============================================================================
 
 export {
-  useKYCStatuses,
-  useApproveKYC,
-  useRejectKYC,
-  useRiskAssessments,
-  useUpdateRiskAssessment,
-  useSuspiciousActivities,
-  useFlagUser,
-  useBlockUser,
-  useComplianceMetrics
+  useApproveKYC, useBlockUser,
+  useComplianceMetrics, useFlagUser, useKYCStatuses, useRejectKYC,
+  useRiskAssessments, useSuspiciousActivities, useUpdateRiskAssessment
 } from './useCompliance';
 
 // ============================================================================
@@ -82,9 +58,35 @@ export {
 
 // Most commonly used hooks for quick access
 export {
-  useUserProfile as useProfile,
-  useCurrentUserPermissions as usePermissions,
-  useWallet as useWalletInfo,
-  useWalletSearch as useSearchWallets,
-  useKYCStatuses as useKYC
+  useKYCStatuses as useKYC, useCurrentUserPermissions as usePermissions, useUserProfile as useProfile, useWalletSearch as useSearchWallets, useWallet as useWalletInfo
 } from './';
+
+// ============================================================================
+// ANALYTICS HOOKS
+// ============================================================================
+
+export {
+  // Constants
+  DEFAULT_ANALYTICS_CONFIG,
+  DEFAULT_FILTER_OPTIONS,
+  REALTIME_ANALYTICS_CONFIG,
+  SLOW_ANALYTICS_CONFIG,
+  // Utilities
+  buildQueryString,
+  combineErrorStates,
+  combineLoadingStates,
+  // Factories
+  createAnalyticsHook,
+  createParameterizedAnalyticsHook,
+  // Types
+  type AnalyticsConfig,
+  type AnalyticsDashboardData,
+  type AnalyticsPaginationParams,
+  type FetcherFunction,
+  type FilterOption,
+  type PermissionAnalytics,
+  type RichFilterOptions,
+  type SystemMetrics,
+  type UserStats
+} from './useAnalyticsData';
+

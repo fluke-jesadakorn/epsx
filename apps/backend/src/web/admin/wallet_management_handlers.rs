@@ -57,6 +57,9 @@ pub struct WalletListQuery {
     /// Sort order (asc/desc)
     #[param(example = "desc")]
     pub sort_order: Option<String>,
+    /// Exclude members of a specific group
+    #[param(example = "uuid")]
+    pub exclude_group_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, utoipa::ToSchema)]
@@ -269,7 +272,8 @@ pub struct WalletStatsResponse {
         ("date_from" = Option<String>, Query, description = "Filter by creation date from"),
         ("date_to" = Option<String>, Query, description = "Filter by creation date to"),
         ("sort_by" = Option<String>, Query, description = "Sort field"),
-        ("sort_order" = Option<String>, Query, description = "Sort order (asc/desc)")
+        ("sort_order" = Option<String>, Query, description = "Sort order (asc/desc)"),
+        ("exclude_group_id" = Option<String>, Query, description = "Exclude members of a specific group")
     ),
     security(("bearerAuth" = []))
 )]
@@ -289,6 +293,7 @@ pub async fn list_users_handler(
         date_to: params.date_to,
         sort_by: params.sort_by,
         sort_order: params.sort_order,
+        exclude_group_id: params.exclude_group_id,
     };
 
     // 2. Execute CQRS handler

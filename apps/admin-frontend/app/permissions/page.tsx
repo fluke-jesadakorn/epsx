@@ -5,7 +5,6 @@ import { ArrowLeft, Clock, Edit3, Plus, Shield, Trash2, UserPlus, Users } from '
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { WalletAutocomplete } from '@/components/ui/WalletAutocomplete'
+import { useGroupPermissions } from '@/hooks/useGroupPermissions'
 import { groupMgmt, PermissionGroup } from '@/lib/api/group-management-client'
 
 export const dynamic = 'force-dynamic'
@@ -702,6 +702,7 @@ function AssignWalletSection({ onSuccess }: { onSuccess: () => void }) {
             value={formData.wallet_address}
             onChange={(value) => setFormData(prev => ({ ...prev, wallet_address: value }))}
             placeholder="Enter wallet address (0x...)"
+            excludeGroupId={formData.group_id}
           />
         </div>
 
@@ -920,6 +921,9 @@ function GroupMembersSection({ group, onClose }: { group: PermissionGroup; onClo
   const [showAddMember, setShowAddMember] = useState(false)
   const queryClient = useQueryClient()
 
+  // Use the new hook to fetch members
+  const { members, isLoading, refreshMembers } = useGroupPermissions.useGroupMembers(group.id)
+
   const addMemberMutation = useMutation({
     mutationFn: async (walletAddress: string) => {
       return groupMgmt.assignUserToGroup({
@@ -934,9 +938,25 @@ function GroupMembersSection({ group, onClose }: { group: PermissionGroup; onClo
       setShowAddMember(false)
       queryClient.invalidateQueries({ queryKey: ['permission-groups'] })
       queryClient.invalidateQueries({ queryKey: ['group-analytics'] })
+      refreshMembers() // Refresh the local list
     },
     onError: (error: any) => {
       toast.error(error.message || 'Failed to add member')
+    }
+  })
+
+  const removeMemberMutation = useMutation({
+    mutationFn: async (walletAddress: string) => {
+      return groupMgmt.removeUserFromGroup(walletAddress, group.id)
+    },
+    onSuccess: () => {
+      toast.success('Member removed successfully')
+      queryClient.invalidateQueries({ queryKey: ['permission-groups'] })
+      queryClient.invalidateQueries({ queryKey: ['group-analytics'] })
+      refreshMembers() // Refresh the local list
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to remove member')
     }
   })
 
@@ -951,12 +971,18 @@ function GroupMembersSection({ group, onClose }: { group: PermissionGroup; onClo
 
   return (
     <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 border-indigo-300/50 dark:border-indigo-700/50">
-      <h2 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mb-2 flex items-center gap-2">
-        <Users className="w-6 h-6" />
-        Members of "{group.name}"
-      </h2>
+      <div className="flex justify-between items-start mb-2">
+        <h2 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+          <Users className="w-6 h-6" />
+          Members of "{group.name}"
+        </h2>
+        <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
+          <span className="sr-only">Close</span>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+      </div>
       <div className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-        Total members: {group.member_count ?? 0}
+        Total members: {members.length} {isLoading && '(Loading...)'}
       </div>
 
       <div className="space-y-4">
@@ -981,6 +1007,7 @@ function GroupMembersSection({ group, onClose }: { group: PermissionGroup; onClo
                 onChange={setNewWalletAddress}
                 placeholder="Enter wallet address (0x...)"
                 className="flex-1"
+                excludeGroupId={group.id}
               />
               <Button
                 type="submit"
@@ -1008,19 +1035,55 @@ function GroupMembersSection({ group, onClose }: { group: PermissionGroup; onClo
         <div className="space-y-3">
           <h3 className="font-semibold">Current Members</h3>
 
-          {group.member_count === 0 ? (
+          {isLoading ? (
+            <div className="text-center py-8">
+              <div className="h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4 animate-spin"></div>
+              <p className="text-gray-500">Loading members...</p>
+            </div>
+          ) : members.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
               <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
               <p className="text-lg font-medium">No members in this group</p>
               <p className="text-sm">Add members to grant them the group's permissions</p>
             </div>
           ) : (
-            <Alert>
-              <AlertDescription>
-                Member list display requires backend implementation of group membership endpoint.
-                Currently showing member count: {group.member_count}
-              </AlertDescription>
-            </Alert>
+            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
+              {members.map((member) => (
+                <div key={member.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 border rounded-lg hover:shadow-sm transition-shadow">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-mono text-xs">
+                      {member.user_id.substring(2, 4)}
+                    </div>
+                    <div>
+                      <div className="font-medium font-mono text-sm">
+                        {member.user_id}
+                      </div>
+                      <div className="text-xs text-gray-500 flex gap-2">
+                        <span>Added: {new Date(member.granted_at).toLocaleDateString()}</span>
+                        {member.expires_at && (
+                          <span className="text-orange-600">
+                            Expires: {new Date(member.expires_at).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/10"
+                    onClick={() => {
+                      if (confirm('Remove this user from the group?')) {
+                        removeMemberMutation.mutate(member.user_id)
+                      }
+                    }}
+                    disabled={removeMemberMutation.isPending}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
           )}
         </div>
 
