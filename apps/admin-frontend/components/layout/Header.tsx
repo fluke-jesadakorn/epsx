@@ -1,11 +1,34 @@
 'use client';
 
-import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useState, useEffect } from 'react';
-import { useAccount, useDisconnect } from 'wagmi';
+/**
+ * ADMIN HEADER
+ * Top navigation bar matching frontend design
+ * Works alongside Sidebar for admin layout
+ */
 
-import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import {
+  ChevronDown,
+  Link as LinkIcon,
+  LogOut,
+  Moon,
+  Sun,
+  Wallet
+} from 'lucide-react';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { useAccount, useChainId, useDisconnect, useSwitchChain } from 'wagmi';
+import { bsc, bscTestnet } from 'wagmi/chains';
+
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { isProduction } from '@/shared/utils';
+import { useTheme } from 'next-themes';
 import { AdminNotificationBell } from './AdminNotificationBellClient';
 
 interface User {
@@ -19,196 +42,176 @@ interface HeaderProps {
   user?: User;
 }
 
-/**
- *
- * @param root0
- * @param root0.user
- */
 export function Header({ user }: HeaderProps) {
-  const [showUserMenu, setShowUserMenu] = useState(false);
   const [mounted, setMounted] = useState(false);
   const { logout } = useSharedAuth();
-  
-  // Only use WAGMI hooks after component mounts to avoid SSR issues
-  let address: string | undefined;
-  let isConnected = false;
-  let disconnect: (() => void) | undefined;
 
-  try {
-    // eslint-disable-next-line react-hooks/rules-of-hooks -- Defensive pattern for when WAGMI is not available
-    const account = useAccount();
-    // eslint-disable-next-line react-hooks/rules-of-hooks -- Defensive pattern for when WAGMI is not available
-    const disconnectHook = useDisconnect();
-    
-    if (mounted) {
-      address = account.address;
-      isConnected = account.isConnected;
-      disconnect = disconnectHook.disconnect;
-    }
-  } catch (_error) {
-    // WAGMI hooks not available, continue with defaults
-    // eslint-disable-next-line no-console
-    console.warn('WAGMI hooks not available:', _error);
-  }
-  
+  const chainId = useChainId();
+  const { switchChain, isPending: isSwitching } = useSwitchChain();
+  const { isConnected, address } = useAccount();
+  const { disconnect } = useDisconnect();
+  const { resolvedTheme, setTheme } = useTheme();
+
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const handleWalletDisconnect = async () => {
+  const getCurrentChainName = () => {
+    if (!mounted) return 'Chain';
+    if (chainId === bsc.id) return 'BSC Mainnet';
+    if (chainId === bscTestnet.id) return 'BSC Testnet';
+    if (chainId === 31337) return 'Hardhat Local';
+    return 'Unknown Chain';
+  };
+
+  const handleChainSwitch = async (targetChainId: number) => {
+    if (!isConnected || isSwitching || targetChainId === chainId) return;
     try {
-      // Logout from backend using SharedOpenIDWeb3Provider
-      await logout();
-
-      // Disconnect wallet if available
-      if (disconnect) {
-        disconnect();
-      }
-
-      setShowUserMenu(false);
-    } catch (_error) {
-      // eslint-disable-next-line no-console
-      console.error('Disconnect error:', _error);
+      await switchChain({ chainId: targetChainId });
+    } catch (error) {
+      console.error('Failed to switch chain:', error);
     }
   };
 
-  const formatAddress = (addr: string) => {
-    return `${addr.slice(0, 3)}...${addr.slice(-3)}`;
+  const handleDisconnect = async () => {
+    try {
+      await logout();
+      disconnect();
+    } catch (error) {
+      console.error('Disconnect error:', error);
+    }
   };
 
-  return (
-    <header className="sticky top-0 z-40 border-b border-yellow-200/50 bg-gradient-to-r from-white via-yellow-50 to-orange-50 shadow-lg backdrop-blur-sm dark:border-slate-700/50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
-      <div className="flex h-16 items-center justify-between px-6">
-        {/* Search Section */}
-        <div className="flex flex-1 items-center gap-6">
-          <div className="relative w-full max-w-md">
-            <input
-              type="search"
-              placeholder="Search users, permissions..."
-              className="h-12 w-full rounded-2xl border-2 border-yellow-200/50 bg-gradient-to-r from-white to-yellow-50 pr-4 pl-12 text-gray-900 shadow-lg placeholder:text-gray-500 focus:border-orange-400 focus:ring-2 focus:ring-orange-200 focus:outline-none dark:border-slate-600/50 dark:from-slate-800 dark:to-slate-700 dark:text-slate-100 dark:placeholder:text-slate-400 dark:focus:border-slate-500 dark:focus:ring-slate-500/20"
-            />
-            <div className="absolute top-1/2 left-4 -translate-y-1/2">
-              <span className="text-xl">🔍</span>
-            </div>
-          </div>
+  const formatAddress = (addr: string) => `${addr.slice(0, 6)}...${addr.slice(-4)}`;
 
-          {/* Quick Actions */}
-          <div className="hidden items-center gap-3 md:flex">
-            <button className="h-12 rounded-2xl bg-gradient-to-r from-green-400 to-teal-500 px-4 font-semibold text-white shadow-lg">
-              <span className="mr-2">➕</span>
-              Add User
-            </button>
-            <button className="h-12 rounded-2xl bg-gradient-to-r from-blue-400 to-purple-500 px-4 font-semibold text-white shadow-lg">
-              <span className="mr-2">🔑</span>
-              Grant Access
-            </button>
+  // Skeleton during SSR
+  if (!mounted) {
+    return (
+      <header className="sticky top-0 z-40 border-b border-gray-200 dark:border-slate-700/50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl">
+        <div className="flex h-16 items-center justify-between px-6">
+          <div className="flex items-center gap-3">
+            <span className="text-xl font-bold bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">EPSX</span>
+            <span className="text-xs text-gray-500 dark:text-slate-400 font-medium uppercase tracking-wider">Admin</span>
           </div>
+          <div className="h-8 w-24 bg-gray-200 dark:bg-slate-700 rounded-lg animate-pulse" />
+        </div>
+      </header>
+    );
+  }
+
+  return (
+    <header className="sticky top-0 z-40 border-b border-gray-200 dark:border-slate-700/50 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl">
+      <div className="flex h-16 items-center justify-between px-6">
+        {/* Logo / Title */}
+        <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
+            <span className="text-xl font-bold bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">EPSX</span>
+            <span className="text-xs text-gray-500 dark:text-slate-400 font-medium uppercase tracking-wider">Admin</span>
+          </Link>
         </div>
 
-        {/* Right Section */}
-        <div className="flex items-center gap-4">
-          {/* Notifications - Real data from backend */}
+        {/* Right Actions */}
+        <div className="flex items-center gap-3">
+          {/* Notification Bell */}
           <AdminNotificationBell />
 
           {/* Theme Toggle */}
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-r from-purple-400 to-pink-500 shadow-lg">
-            <ThemeToggle />
-          </div>
-
-          {/* User Menu / Connect Wallet */}
-          <div className="relative">
-            {!mounted ? (
-              // Loading state during hydration
-              <div className="flex h-12 items-center gap-3 rounded-2xl bg-gradient-to-r from-gray-400 to-gray-500 pr-5 pl-4 font-semibold text-white shadow-lg">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20">
-                  <span className="text-lg">⏳</span>
-                </div>
-                <span className="hidden md:block">Loading...</span>
-              </div>
-            ) : isConnected ? (
-              // Show Admin User Menu when connected
-              <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex h-12 items-center gap-3 rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-500 pr-5 pl-4 font-semibold text-white shadow-lg"
-              >
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20">
-                  <span className="text-lg">👤</span>
-                </div>
-                <span className="hidden md:block">
-                  {isConnected && address ? formatAddress(address) : (user?.name || 'Admin')}
-                </span>
-                <span className="text-sm">↓</span>
-              </button>
+          <button
+            onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+            className="p-2 rounded-lg text-orange-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
+            title={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
+          >
+            {resolvedTheme === 'dark' ? (
+              <Sun className="h-5 w-5" />
             ) : (
-              // Show Connect Wallet button when disconnected
-              <ConnectButton.Custom>
-                {({ openConnectModal }) => (
-                  <button
-                    onClick={openConnectModal}
-                    className="flex h-12 items-center gap-3 rounded-2xl bg-gradient-to-r from-blue-400 to-indigo-500 pr-5 pl-4 font-semibold text-white shadow-lg"
-                  >
-                    <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/20">
-                      <span className="text-lg">🔗</span>
-                    </div>
-                    <span className="hidden md:block">Connect Wallet</span>
-                  </button>
-                )}
-              </ConnectButton.Custom>
+              <Moon className="h-5 w-5" />
             )}
+          </button>
 
-            {showUserMenu && mounted && isConnected && (
-              <div className="absolute top-14 right-0 z-50 w-64 rounded-3xl border border-yellow-200 bg-white p-4 shadow-2xl dark:border-slate-700/50 dark:bg-slate-800">
-                <div className="space-y-3">
-                  <div className="rounded-2xl bg-gradient-to-r from-yellow-50 to-orange-50 p-4 dark:from-yellow-900/20 dark:to-orange-900/20">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-500">
-                        <span className="text-lg text-white">🔗</span>
-                      </div>
-                      <div>
-                        <div className="font-semibold text-gray-900 dark:text-white">
-                          Wallet Connected
-                        </div>
-                        <div className="text-sm text-gray-600 dark:text-gray-400">
-                          {address ? formatAddress(address) : 'No address'}
-                        </div>
-                        <div className="bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-xs font-semibold text-transparent">
-                          Admin Access
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+          {/* Chain Selector - Only in dev */}
+          {!isProduction && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white transition-colors"
+                  disabled={isSwitching || !isConnected}
+                >
+                  <LinkIcon className="h-4 w-4 text-orange-500" />
+                  <span className="hidden md:inline">{getCurrentChainName()}</span>
+                  <ChevronDown className="h-3 w-3 text-slate-400" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-48 bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 p-1"
+                style={{ zIndex: 99999 }}
+              >
+                <DropdownMenuItem
+                  onClick={() => handleChainSwitch(bsc.id)}
+                  disabled={chainId === bsc.id}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer ${chainId === bsc.id ? 'bg-orange-500/20 text-orange-400' : 'text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800'
+                    }`}
+                >
+                  <div className="w-5 h-5 rounded-full bg-yellow-500 flex items-center justify-center text-[10px] font-bold text-white">56</div>
+                  BSC Mainnet
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => handleChainSwitch(bscTestnet.id)}
+                  disabled={chainId === bscTestnet.id}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer ${chainId === bscTestnet.id ? 'bg-orange-500/20 text-orange-400' : 'text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800'
+                    }`}
+                >
+                  <div className="w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center text-[10px] font-bold text-white">97</div>
+                  BSC Testnet
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
-                  <div className="space-y-1">
-                    <button className="flex w-full items-center gap-3 rounded-2xl p-3 text-left hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-600">
-                      <span>👤</span>
-                      <span>Profile Settings</span>
-                    </button>
-                    <button className="flex w-full items-center gap-3 rounded-2xl p-3 text-left hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-600">
-                      <span>🔒</span>
-                      <span>Security</span>
-                    </button>
-                    <button className="flex w-full items-center gap-3 rounded-2xl p-3 text-left hover:bg-gradient-to-r hover:from-gray-50 hover:to-gray-100 dark:hover:from-gray-700 dark:hover:to-gray-600">
-                      <span>❓</span>
-                      <span>Help & Support</span>
-                    </button>
-                  </div>
-
-                  {/* Logout Section */}
-                  <div className="border-t border-gray-200 pt-3 dark:border-gray-600">
-                    <button
-                      onClick={handleWalletDisconnect}
-                      className="flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-400 to-red-500 p-3 font-semibold text-white"
-                    >
-                      <span>🔌</span>
-                      <span>Disconnect Wallet</span>
-                    </button>
-                  </div>
+          {/* Wallet Connect */}
+          {isConnected ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-yellow-500 px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity">
+                  <Wallet className="h-4 w-4" />
+                  <span className="hidden md:inline">{formatAddress(address!)}</span>
+                  <ChevronDown className="h-3 w-3" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                className="w-52 bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 p-1"
+                style={{ zIndex: 99999 }}
+              >
+                <div className="px-3 py-2 text-xs text-gray-500 dark:text-slate-400 border-b border-gray-200 dark:border-slate-700 mb-1 font-mono">
+                  {address}
                 </div>
-              </div>
-            )}
-          </div>
+                <DropdownMenuItem
+                  onClick={handleDisconnect}
+                  className="flex items-center gap-2 px-3 py-2 rounded-md text-red-400 hover:bg-red-500/20 cursor-pointer"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Disconnect
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <ConnectButton.Custom>
+              {({ openConnectModal }) => (
+                <button
+                  onClick={openConnectModal}
+                  className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-yellow-500 px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity"
+                >
+                  <Wallet className="h-4 w-4" />
+                  <span className="hidden md:inline">Connect Wallet</span>
+                </button>
+              )}
+            </ConnectButton.Custom>
+          )}
         </div>
       </div>
     </header>
   );
 }
+
+export default Header;

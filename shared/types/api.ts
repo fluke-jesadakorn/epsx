@@ -16,6 +16,40 @@ export interface ApiResponse<T = any> {
   status: number;
   timestamp?: string;
   requestId?: string;
+  /** Admin-specific metadata for operations */
+  admin_meta?: AdminMetadata;
+}
+
+/**
+ * Admin-specific metadata for operations
+ */
+export interface AdminMetadata {
+  operation: string;
+  performed_by?: string;
+  pagination?: PaginationInfo;
+  permissions?: AdminPermissionContext;
+  metadata?: Record<string, unknown>;
+}
+
+/**
+ * Pagination information for list responses
+ */
+export interface PaginationInfo {
+  page: number;
+  limit: number;
+  total: number;
+  total_pages: number;
+  has_next_page: boolean;
+  has_previous_page: boolean;
+}
+
+/**
+ * Admin permission context for the current user
+ */
+export interface AdminPermissionContext {
+  admin_role: string;
+  available_actions: string[];
+  restricted_actions?: string[];
 }
 
 export interface ApiError {
@@ -144,15 +178,15 @@ export interface UserProfile {
   last_sign_in_at?: string;
   lastActivityAt?: string;
   metadata?: Record<string, unknown>;
-  
+
   // Permission-related fields
   permissions?: string[];
   packageTier?: string;
-  
+
   // Web3 fields
   walletAddress?: string;
   firebaseUid?: string;
-  
+
   // Platform context
   platforms?: string[];
   primaryPlatform?: string;
@@ -486,38 +520,38 @@ export interface Notification {
   expires_at?: string;
 }
 
-export type NotificationType = 
-  | 'trading' 
-  | 'system' 
-  | 'account' 
-  | 'price_alert' 
-  | 'security' 
+export type NotificationType =
+  | 'trading'
+  | 'system'
+  | 'account'
+  | 'price_alert'
+  | 'security'
   | 'compliance'
-  | 'info' 
-  | 'success' 
-  | 'warning' 
-  | 'error' 
+  | 'info'
+  | 'success'
+  | 'warning'
+  | 'error'
   | 'marketing';
 
-export type NotificationCategory = 
-  | 'trading' 
-  | 'account' 
-  | 'billing' 
-  | 'security' 
-  | 'system' 
-  | 'marketing' 
+export type NotificationCategory =
+  | 'trading'
+  | 'account'
+  | 'billing'
+  | 'security'
+  | 'system'
+  | 'marketing'
   | 'price_alert';
 
 export type NotificationPriority = 'low' | 'medium' | 'high' | 'critical' | 'normal' | 'urgent';
 
 export type NotificationChannel = 'email' | 'push' | 'in_app' | 'sms';
 
-export type NotificationStatus = 
-  | 'pending' 
-  | 'sent' 
-  | 'delivered' 
-  | 'read' 
-  | 'failed' 
+export type NotificationStatus =
+  | 'pending'
+  | 'sent'
+  | 'delivered'
+  | 'read'
+  | 'failed'
   | 'expired';
 
 export interface NotificationListParams {
@@ -624,14 +658,14 @@ export interface PaymentResponse {
   updated_at?: string;
 }
 
-export type PaymentStatus = 
-  | 'pending' 
-  | 'processing' 
-  | 'completed' 
+export type PaymentStatus =
+  | 'pending'
+  | 'processing'
+  | 'completed'
   | 'succeeded'
-  | 'failed' 
-  | 'cancelled' 
-  | 'expired' 
+  | 'failed'
+  | 'cancelled'
+  | 'expired'
   | 'refunded'
   | 'RequiresAction';
 
@@ -908,7 +942,7 @@ export interface RequestConfig extends Omit<RequestInit, 'body'> {
   retries?: number;
 }
 
-export type ApiResponseData<T extends (...args: unknown[]) => Promise<ApiResponse<unknown>>> = 
+export type ApiResponseData<T extends (...args: unknown[]) => Promise<ApiResponse<unknown>>> =
   T extends (...args: unknown[]) => Promise<ApiResponse<infer R>> ? R : never;
 
 export type ApiMethodParams<T extends (...args: unknown[]) => unknown> = Parameters<T>;

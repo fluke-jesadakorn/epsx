@@ -130,9 +130,9 @@ export function PlanSubscribersSection({ plan, onClose }: PlanSubscribersSection
 
             <div className="space-y-4">
                 {/* Add Subscriber Section */}
-                <div className="border-b pb-4">
+                <div className="border-b border-gray-200 dark:border-gray-700 pb-4">
                     <div className="flex justify-between items-center mb-3">
-                        <h3 className="font-semibold">Manage Subscribers</h3>
+                        <h3 className="font-semibold text-emerald-600 dark:text-emerald-400">Manage Subscribers</h3>
                         <Button
                             onClick={() => setShowAddSubscriber(!showAddSubscriber)}
                             variant="outline"
@@ -175,83 +175,87 @@ export function PlanSubscribersSection({ plan, onClose }: PlanSubscribersSection
 
                 {/* Subscribers List */}
                 <div className="space-y-3">
-                    <h3 className="font-semibold">Current Subscribers</h3>
+                    <h3 className="font-semibold text-emerald-600 dark:text-emerald-400">Current Subscribers</h3>
 
                     {isLoading ? (
                         <div className="text-center py-8">
                             <div className="h-8 w-8 border-b-2 border-emerald-600 mx-auto mb-4 animate-spin"></div>
-                            <p className="text-gray-500">Loading subscribers...</p>
+                            <p className="text-gray-600 dark:text-gray-300">Loading subscribers...</p>
                         </div>
                     ) : subscribers.length === 0 ? (
-                        <div className="text-center py-8 text-gray-500">
-                            <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-                            <p className="text-lg font-medium">No subscribers to this plan</p>
-                            <p className="text-sm">Add subscribers to grant them access to this plan's features</p>
+                        <div className="text-center py-8">
+                            <Users className="w-12 h-12 mx-auto mb-4 text-emerald-400" />
+                            <p className="text-lg font-medium text-gray-900 dark:text-white">No subscribers to this plan</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-300">Add subscribers to grant them access to this plan's features</p>
                         </div>
                     ) : (
                         <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
-                            {subscribers.map((subscriber: SubscriptionResponse) => (
-                                <div key={subscriber.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 border rounded-lg hover:shadow-sm transition-shadow">
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-8 w-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-mono text-xs">
-                                            {subscriber.user_id.substring(2, 4)}
-                                        </div>
-                                        <div>
-                                            <div className="font-medium font-mono text-sm">
-                                                {subscriber.user_id}
+                            {subscribers.map((subscriber: SubscriptionResponse) => {
+                                // Handle both user_id and wallet_address field names
+                                const walletAddress = (subscriber as any).wallet_address || subscriber.user_id || 'Unknown';
+                                return (
+                                    <div key={subscriber.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 border rounded-lg hover:shadow-sm transition-shadow">
+                                        <div className="flex items-center gap-3">
+                                            <div className="h-8 w-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-mono text-xs">
+                                                {walletAddress.substring(2, 4).toUpperCase()}
                                             </div>
-                                            <div className="text-xs text-gray-500 flex gap-2">
-                                                <Badge variant={subscriber.status === 'active' ? 'default' : 'secondary'} className="text-xs">
-                                                    {subscriber.status}
-                                                </Badge>
-                                                <span>Started: {new Date(subscriber.started_at).toLocaleDateString()}</span>
-                                                {subscriber.expires_at && (
-                                                    <span className="text-orange-600">
-                                                        Expires: {new Date(subscriber.expires_at).toLocaleDateString()}
-                                                    </span>
-                                                )}
+                                            <div>
+                                                <div className="font-medium font-mono text-sm">
+                                                    {walletAddress}
+                                                </div>
+                                                <div className="text-xs text-gray-500 flex gap-2">
+                                                    <Badge variant={subscriber.status === 'active' ? 'default' : 'secondary'} className="text-xs">
+                                                        {subscriber.status}
+                                                    </Badge>
+                                                    <span>Started: {new Date(subscriber.started_at).toLocaleDateString()}</span>
+                                                    {subscriber.expires_at && (
+                                                        <span className="text-orange-600">
+                                                            Expires: {new Date(subscriber.expires_at).toLocaleDateString()}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
+                                        {subscriber.status === 'active' && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/10"
+                                                onClick={() => {
+                                                    if (confirm('Cancel this subscription?')) {
+                                                        cancelSubscriptionMutation.mutate(subscriber.id)
+                                                    }
+                                                }}
+                                                disabled={cancelSubscriptionMutation.isPending}
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </Button>
+                                        )}
                                     </div>
-                                    {subscriber.status === 'active' && (
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/10"
-                                            onClick={() => {
-                                                if (confirm('Cancel this subscription?')) {
-                                                    cancelSubscriptionMutation.mutate(subscriber.id)
-                                                }
-                                            }}
-                                            disabled={cancelSubscriptionMutation.isPending}
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </Button>
-                                    )}
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>
 
                 {/* Plan Info */}
-                <div className="border-t pt-4">
-                    <h3 className="font-semibold mb-2">Plan Details</h3>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+                    <h3 className="font-semibold mb-2 text-emerald-600 dark:text-emerald-400">Plan Details</h3>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
                         <div>
-                            <span className="text-gray-500">Price:</span>
-                            <span className="ml-2 font-medium">${plan.current_price} {plan.currency}</span>
+                            <span className="text-gray-500 dark:text-gray-300">Price:</span>
+                            <span className="ml-2 font-medium text-emerald-600 dark:text-emerald-300">${plan.current_price} {plan.currency}</span>
                         </div>
                         <div>
-                            <span className="text-gray-500">Category:</span>
-                            <span className="ml-2 font-medium">{plan.plan_category}</span>
+                            <span className="text-gray-500 dark:text-gray-300">Category:</span>
+                            <span className="ml-2 font-medium text-gray-900 dark:text-white">{plan.plan_category || '—'}</span>
                         </div>
                         <div>
-                            <span className="text-gray-500">Permissions:</span>
-                            <span className="ml-2 font-medium">{plan.permissions?.length || 0}</span>
+                            <span className="text-gray-500 dark:text-gray-300">Permissions:</span>
+                            <span className="ml-2 font-medium text-emerald-600 dark:text-emerald-300">{plan.permissions?.length || 0}</span>
                         </div>
                         <div>
-                            <span className="text-gray-500">Status:</span>
+                            <span className="text-gray-500 dark:text-gray-300">Status:</span>
                             <Badge variant={plan.is_active ? 'default' : 'secondary'} className="ml-2">
                                 {plan.is_active ? 'Active' : 'Inactive'}
                             </Badge>

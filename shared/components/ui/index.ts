@@ -43,3 +43,16 @@ export {
     type TabsTriggerProps
 } from './tabs';
 
+// Theme Toggle
+export {
+    AdminThemeToggle, AnimatedThemeToggle, GradientThemeToggle,
+    MinimalThemeToggle, OptimizedThemeToggle, SimpleThemeToggle, ThemeToggle,
+    ThemeToggleCSS, UnifiedThemeToggle, type ThemeToggleIconType,
+    type ThemeToggleSize, type ThemeToggleVariant, type UnifiedThemeToggleProps
+} from './UnifiedThemeToggle';
+
+// Tooltip
+export {
+    Tooltip, TooltipContent, TooltipProvider, TooltipTrigger
+} from './tooltip';
+

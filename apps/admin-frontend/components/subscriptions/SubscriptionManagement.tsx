@@ -1,14 +1,13 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-
-import { CreateSubscriptionForm } from './CreateSubscriptionForm'
-import { SubscriptionDetailsModal } from './SubscriptionDetailsModal'
+import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 
 import { PancakeCard } from '@/components/ui/PancakeCard'
 import { toast } from '@/hooks/use-toast'
-import { createPlansClient, type SubscriptionResponse, isApiSuccess } from '@/shared/api/plans'
+import { createPlansClient, isApiSuccess, type SubscriptionResponse } from '@/shared/api/plans'
 import { createAdminApiClient } from '@/shared/utils/api-client'
+
 
 interface SubscriptionManagementProps {
   currentUser: any
@@ -19,11 +18,10 @@ interface SubscriptionManagementProps {
  * @param root0
  * @param root0.currentUser
  */
-export function SubscriptionManagement({ currentUser }: SubscriptionManagementProps) {
+export function SubscriptionManagement({ currentUser: _currentUser }: SubscriptionManagementProps) {
+  const router = useRouter()
   const [subscriptions, setSubscriptions] = useState<SubscriptionResponse[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedSubscription, setSelectedSubscription] = useState<SubscriptionResponse | null>(null)
-  const [isCreating, setIsCreating] = useState(false)
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'expired' | 'cancelled'>('all')
   const [filterContext, setFilterContext] = useState<'all' | 'internal' | 'external' | 'both'>('all')
   const [searchTerm, setSearchTerm] = useState('')
@@ -62,14 +60,7 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
     }
   }
 
-  const handleSubscriptionCreated = () => {
-    setIsCreating(false)
-    loadSubscriptions()
-    toast({
-      title: "Success",
-      description: "Subscription created successfully",
-    })
-  }
+
 
   const handleCancelSubscription = async (subscriptionId: string) => {
     if (!confirm('Are you sure you want to cancel this subscription?')) {
@@ -79,7 +70,7 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
     const adminClient = createPlansClient(createAdminApiClient())
     try {
       const response = await adminClient.cancelSubscription(subscriptionId)
-      
+
       if (isApiSuccess(response)) {
         loadSubscriptions()
         toast({
@@ -105,11 +96,11 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
   const filteredSubscriptions = subscriptions.filter(sub => {
     const statusMatch = filterStatus === 'all' || sub.status === filterStatus
     const contextMatch = filterContext === 'all' || sub.access_context === filterContext
-    const searchMatch = searchTerm === '' || 
+    const searchMatch = searchTerm === '' ||
       sub.plan_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       sub.user_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (sub.api_key_name?.toLowerCase().includes(searchTerm.toLowerCase()))
-    
+
     return statusMatch && contextMatch && searchMatch
   })
 
@@ -144,24 +135,6 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
 
   return (
     <>
-      {/* Create Subscription Form Modal */}
-      {isCreating && (
-        <CreateSubscriptionForm 
-          onClose={() => setIsCreating(false)}
-          onSuccess={handleSubscriptionCreated}
-        />
-      )}
-
-      {/* Subscription Details Modal */}
-      {selectedSubscription && (
-        <SubscriptionDetailsModal 
-          isOpen={true}
-          subscription={selectedSubscription}
-          onClose={() => setSelectedSubscription(null)}
-          onUpdate={loadSubscriptions}
-        />
-      )}
-
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Hero Section */}
         <div className="text-center mb-12">
@@ -176,9 +149,9 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
 
         {/* Action Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <PancakeCard 
+          <PancakeCard
             className="bg-gradient-to-br from-emerald-400 via-green-500 to-teal-500 text-white cursor-pointer  transition-transform"
-            onClick={() => setIsCreating(true)}
+            onClick={() => router.push('/subscriptions/new')}
           >
             <div className="p-8">
               <div className="bg-white/20 rounded-2xl w-12 h-12 flex items-center justify-center mb-6">
@@ -192,7 +165,7 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
             </div>
           </PancakeCard>
 
-          <PancakeCard 
+          <PancakeCard
             className="bg-gradient-to-br from-blue-400 via-purple-500 to-pink-500 text-white cursor-pointer  transition-transform"
             onClick={() => loadSubscriptions()}
           >
@@ -333,32 +306,30 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
                 <div
                   key={subscription.id}
                   className="flex items-center justify-between p-6 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-2xl hover:from-emerald-50 hover:to-green-50 dark:hover:from-gray-600 dark:hover:to-gray-700  cursor-pointer"
-                  onClick={() => setSelectedSubscription(subscription)}
+                  onClick={() => router.push(`/subscriptions/${subscription.id}`)}
                 >
                   <div className="flex items-center gap-6 flex-1">
-                    <div className={`h-12 w-12 rounded-2xl flex items-center justify-center text-2xl ${
-                      subscription.access_context === 'internal' 
-                        ? 'bg-gradient-to-br from-blue-400 to-purple-500'
-                        : subscription.access_context === 'external'
+                    <div className={`h-12 w-12 rounded-2xl flex items-center justify-center text-2xl ${subscription.access_context === 'internal'
+                      ? 'bg-gradient-to-br from-blue-400 to-purple-500'
+                      : subscription.access_context === 'external'
                         ? 'bg-gradient-to-br from-orange-400 to-red-500'
                         : 'bg-gradient-to-br from-purple-400 to-pink-500'
-                    }`}>
-                      {subscription.access_context === 'internal' ? '🖥️' : 
-                       subscription.access_context === 'external' ? '🔧' : '🔄'}
+                      }`}>
+                      {subscription.access_context === 'internal' ? '🖥️' :
+                        subscription.access_context === 'external' ? '🔧' : '🔄'}
                     </div>
-                    
+
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-lg font-bold text-gray-900 dark:text-white">
                           {subscription.plan_name}
                         </h3>
-                        <span className={`px-3 py-1 text-xs rounded-full font-semibold ${
-                          subscription.status === 'active' 
-                            ? 'bg-green-100 text-green-600 dark:bg-green-900/20 dark:text-green-400'
-                            : subscription.status === 'expired'
+                        <span className={`px-3 py-1 text-xs rounded-full font-semibold ${subscription.status === 'active'
+                          ? 'bg-green-100 text-green-600 dark:bg-green-900/20 dark:text-green-400'
+                          : subscription.status === 'expired'
                             ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400'
                             : 'bg-red-100 text-red-600 dark:bg-red-900/20 dark:text-red-400'
-                        }`}>
+                          }`}>
                           {subscription.status.toUpperCase()}
                         </span>
                       </div>
@@ -394,7 +365,7 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
                         Cancel
                       </button>
                     )}
-                    
+
                     <button
                       className="px-4 py-2 rounded-xl font-semibold bg-gradient-to-r from-blue-400 to-blue-500 text-white  hover:from-blue-500 hover:to-blue-600"
                     >
@@ -412,7 +383,7 @@ export function SubscriptionManagement({ currentUser }: SubscriptionManagementPr
                   No subscriptions found
                 </h3>
                 <p className="text-gray-500 dark:text-gray-500">
-                  {subscriptions.length === 0 
+                  {subscriptions.length === 0
                     ? 'Start by creating your first subscription'
                     : 'Try adjusting your filters or search terms'
                   }

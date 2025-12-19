@@ -368,6 +368,7 @@ pub struct WalletUserDb {
     pub updated_at: DateTime<Utc>,
     pub last_auth_at: Option<DateTime<Utc>>,
     pub permission_groups: Option<serde_json::Value>,
+    pub disable_info: Option<serde_json::Value>,
 }
 
 /// Diesel Insertable model for creating new wallet users

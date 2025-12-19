@@ -18,6 +18,9 @@
  */
 @import "tailwindcss";
 
+/* Tailwind v4: Enable class-based dark mode (required for next-themes) */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ============================================================================
    CORE FOUNDATION
    ============================================================================ */

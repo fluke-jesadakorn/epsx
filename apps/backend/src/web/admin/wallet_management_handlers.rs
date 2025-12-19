@@ -167,10 +167,95 @@ pub struct WalletActivitySummary {
     pub groups_count: i32,
 }
 
+// ============================================================================
+// DTO MAPPING (FROM APPLICATION TO WEB)
+// ============================================================================
+
+impl From<query_models::WalletSummaryDto> for WalletSummaryResponse {
+    fn from(dto: query_models::WalletSummaryDto) -> Self {
+        Self {
+            wallet_address: dto.wallet_address,
+            is_active: dto.is_active,
+            created_at: dto.created_at,
+            last_auth_at: dto.last_auth_at,
+            permissions_count: dto.permissions_count,
+            groups_count: dto.groups_count,
+            last_activity: dto.last_activity,
+            metadata: serde_json::json!({}), // Metadata preserved for future use
+        }
+    }
+}
+
+impl From<query_models::WalletDetailDto> for WalletDetailResponse {
+    fn from(dto: query_models::WalletDetailDto) -> Self {
+        Self {
+            wallet_address: dto.wallet_address,
+            is_active: dto.is_active,
+            created_at: dto.created_at,
+            last_auth_at: dto.last_auth_at,
+            permissions: dto.permissions.into_iter().map(Into::into).collect(),
+            groups: dto.groups.into_iter().map(Into::into).collect(),
+            activity_summary: dto.activity_summary.into(),
+            metadata: serde_json::json!({}),
+        }
+    }
+}
+
+impl From<query_models::WalletPermissionDto> for WalletPermission {
+    fn from(dto: query_models::WalletPermissionDto) -> Self {
+        Self {
+            permission: dto.permission,
+            source: dto.source,
+            granted_at: dto.granted_at,
+            expires_at: dto.expires_at,
+            is_active: dto.is_active,
+        }
+    }
+}
+
+impl From<query_models::WalletGroupDto> for WalletGroup {
+    fn from(dto: query_models::WalletGroupDto) -> Self {
+        Self {
+            group_id: dto.group_id,
+            group_name: dto.group_name,
+            group_type: dto.group_type,
+            assigned_at: dto.assigned_at,
+            expires_at: dto.expires_at,
+            is_active: dto.is_active,
+        }
+    }
+}
+
+impl From<query_models::WalletActivitySummaryDto> for WalletActivitySummary {
+    fn from(dto: query_models::WalletActivitySummaryDto) -> Self {
+        Self {
+            total_logins: dto.total_logins,
+            last_30_days_logins: dto.last_30_days_logins,
+            total_permissions: dto.total_permissions,
+            active_permissions: dto.active_permissions,
+            expired_permissions: dto.expired_permissions,
+            groups_count: dto.groups_count,
+        }
+    }
+}
+
+impl From<query_models::PaginationDto> for PaginationInfo {
+    fn from(dto: query_models::PaginationDto) -> Self {
+        Self {
+            page: dto.page,
+            limit: dto.limit,
+            total: dto.total,
+            total_pages: dto.total_pages,
+            has_next_page: dto.has_next_page,
+            has_previous_page: dto.has_previous_page,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct WalletListResponse {
-    /// List of wallet users
-    pub users: Vec<WalletSummaryResponse>,
+    /// List of wallets
+    pub wallets: Vec<WalletSummaryResponse>,
     /// Total number of wallets matching the filters
     #[schema(example = 250)]
     pub total: i32,
@@ -245,9 +330,19 @@ pub struct WalletStatsResponse {
     pub growth_rate: f64,
 }
 
-// ============================================================================
-// USER MANAGEMENT HANDLERS
-// ============================================================================
+impl From<query_models::WalletStatsDto> for WalletStatsResponse {
+    fn from(dto: query_models::WalletStatsDto) -> Self {
+        Self {
+            total_users: dto.total_users,
+            active_users: dto.active_users,
+            inactive_users: dto.inactive_users,
+            users_by_tier: serde_json::json!({}),
+            new_users_30_days: dto.new_users_30_days,
+            active_users_30_days: dto.active_users_30_days,
+            growth_rate: dto.growth_rate,
+        }
+    }
+}
 
 /**
  * List all users with filtering and pagination (CQRS-based)
@@ -303,48 +398,31 @@ pub async fn list_users_handler(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    // 3. Map DTOs to web responses
-    let users: Vec<WalletSummaryResponse> = response
+    // 3. Map DTOs to web responses using traits
+    let wallets: Vec<WalletSummaryResponse> = response
         .wallets
         .into_iter()
-        .map(|dto| WalletSummaryResponse {
-            wallet_address: dto.wallet_address,
-            is_active: dto.is_active,
-            created_at: dto.created_at,
-            last_auth_at: dto.last_auth_at,
-            permissions_count: dto.permissions_count,
-            groups_count: dto.groups_count,
-            last_activity: dto.last_activity,
-            metadata: serde_json::json!({}),
-        })
+        .map(Into::into)
         .collect();
 
-    // 4. Build pagination info
-    let pagination = PaginationInfo {
-        page: response.pagination.page,
-        limit: response.pagination.limit,
-        total: response.pagination.total,
-        total_pages: response.pagination.total_pages,
-        has_next_page: response.pagination.has_next_page,
-        has_previous_page: response.pagination.has_previous_page,
-    };
+    let pagination: PaginationInfo = response.pagination.into();
 
-    // 5. Build web response
+    // 4. Build web response
     let web_response = WalletListResponse {
-        users,
-        total: response.pagination.total,
+        wallets,
+        total: pagination.total,
         pagination: pagination.clone(),
     };
 
-    let metadata = AdminMetadata::list_operation("list_users", pagination);
+    let metadata = AdminMetadata::list_operation("list_wallets", pagination);
 
     info!(
-        "✅ Admin: Successfully listed {} users",
-        web_response.users.len()
+        "✅ Admin: Successfully listed {} wallets",
+        web_response.wallets.len()
     );
     Ok(Json(AdminApiResponse::success_with_meta(
         web_response,
-        "Users retrieved successfully",
+        "Wallets retrieved successfully",
         metadata,
     )))
 }
@@ -390,8 +468,8 @@ pub async fn get_user_handler(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    // 3. Map to web response
-    let web_response = map_wallet_detail_dto(response.wallet);
+    // 3. Map to web response using traits
+    let web_response: WalletDetailResponse = response.wallet.into();
 
     let metadata = AdminMetadata::crud_operation("get_user", Some("admin".to_string()));
 
@@ -455,8 +533,8 @@ pub async fn update_user_handler(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    // 3. Map to web response
-    let web_response = map_wallet_detail_dto(response.wallet);
+    // 3. Map to web response using traits
+    let web_response: WalletDetailResponse = response.wallet.into();
 
     let metadata = AdminMetadata::crud_operation("update_user", Some("admin".to_string()));
 
@@ -499,16 +577,8 @@ pub async fn get_user_stats_handler(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    // 3. Map to web response
-    let web_response = WalletStatsResponse {
-        total_users: response.stats.total_users,
-        active_users: response.stats.active_users,
-        inactive_users: response.stats.inactive_users,
-        users_by_tier: serde_json::json!({}), // Tier system removed
-        new_users_30_days: response.stats.new_users_30_days,
-        active_users_30_days: response.stats.active_users_30_days,
-        growth_rate: response.stats.growth_rate,
-    };
+    // 3. Map to web response using traits
+    let web_response: WalletStatsResponse = response.stats.into();
 
     let metadata = AdminMetadata::crud_operation("get_user_stats", Some("admin".to_string()));
 
@@ -520,51 +590,6 @@ pub async fn get_user_stats_handler(
     )))
 }
 
-// ============================================================================
-// DTO MAPPING HELPERS (CQRS → Web Responses)
-// ============================================================================
-
-/// Map CQRS WalletDetailDto to web WalletDetailResponse
-fn map_wallet_detail_dto(dto: query_models::WalletDetailDto) -> WalletDetailResponse {
-    WalletDetailResponse {
-        wallet_address: dto.wallet_address,
-        is_active: dto.is_active,
-        created_at: dto.created_at,
-        last_auth_at: dto.last_auth_at,
-        permissions: dto
-            .permissions
-            .into_iter()
-            .map(|p| WalletPermission {
-                permission: p.permission,
-                source: p.source,
-                granted_at: p.granted_at,
-                expires_at: p.expires_at,
-                is_active: p.is_active,
-            })
-            .collect(),
-        groups: dto
-            .groups
-            .into_iter()
-            .map(|g| WalletGroup {
-                group_id: g.group_id,
-                group_name: g.group_name,
-                group_type: g.group_type,
-                assigned_at: g.assigned_at,
-                expires_at: g.expires_at,
-                is_active: g.is_active,
-            })
-            .collect(),
-        activity_summary: WalletActivitySummary {
-            total_logins: dto.activity_summary.total_logins,
-            last_30_days_logins: dto.activity_summary.last_30_days_logins,
-            total_permissions: dto.activity_summary.total_permissions,
-            active_permissions: dto.activity_summary.active_permissions,
-            expired_permissions: dto.activity_summary.expired_permissions,
-            groups_count: dto.activity_summary.groups_count,
-        },
-        metadata: serde_json::json!({}),
-    }
-}
 
 // ============================================================================
 // ADMIN UTILITY HANDLERS

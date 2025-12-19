@@ -40,6 +40,19 @@ export {
   type StockDataCardProps
 } from './cards/StockDataCard'
 
+// Unified Card Variants (Frontend-style cards)
+export {
+  AdminCard,
+  AnalyticsCard, EPSXCard, EPSXCardContent,
+  EPSXCardFooter, EPSXCardHeader, GlassCard,
+  // Legacy aliases
+  MetroCard, MetroListCard, MetroStatsCard, PremiumCard, ProfessionalCard, ProfessionalFeatureCard, ProfessionalListCard, ProfessionalStatsCard, UnifiedCard, UnifiedCardContent,
+  UnifiedCardFooter, UnifiedCardHeader, UnifiedFeatureCard, UnifiedListCard, PancakeCard as UnifiedPancakeCard, UnifiedStatsCard, type AccentPosition, type UnifiedCardPadding,
+  // Types
+  type UnifiedCardProps,
+  type UnifiedCardSectionProps, type UnifiedCardSize, type UnifiedCardVariant, type UnifiedFeatureCardProps, type UnifiedListCardProps,
+  type UnifiedListItem, type UnifiedStatsCardProps
+} from './cards/CardVariants'
 
 // Buttons - Import for local use and re-export
 import {

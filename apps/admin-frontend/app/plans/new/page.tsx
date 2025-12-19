@@ -1,13 +1,14 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { PageLoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { PancakeCard } from '@/components/ui/PancakeCard'
 import { toast } from '@/hooks/use-toast'
 import { createPlansClient, isApiSuccess } from '@/shared/api/plans'
-import { createAdminApiClient } from '@/shared/utils/api-client'
-import { PermissionTemplateName, PERMISSION_TEMPLATE_CONFIGS } from '@/types/permission-templates'
 import { useSharedAuth } from '@/shared/components/auth/Provider'
+import { createAdminApiClient } from '@/shared/utils/api-client'
+import { PERMISSION_TEMPLATE_CONFIGS, PermissionTemplateName } from '@/types/permission-templates'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 
 interface CreatePermissionTemplateRequest {
   name: string
@@ -41,7 +42,11 @@ export default function NewPlanPage() {
   const [customPermission, setCustomPermission] = useState('')
 
   if (authLoading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900">
+        <PageLoadingSpinner label="Loading..." />
+      </div>
+    )
   }
 
   if (!isAuthenticated || !user) {

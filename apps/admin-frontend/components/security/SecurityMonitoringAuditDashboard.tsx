@@ -1,7 +1,7 @@
 'use client'
 
-import { AlertTriangle, Shield, Eye, Clock, Download, Filter, Search, TrendingUp, AlertCircle, CheckCircle, XCircle } from 'lucide-react'
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { AlertCircle, AlertTriangle, CheckCircle, Clock, Download, Eye, Filter, Search, Shield, TrendingUp, XCircle } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { Badge } from '../ui/badge'
 import { Button } from '../ui/button'
@@ -90,7 +90,7 @@ export const SecurityMonitoringAuditDashboard: React.FC<SecurityMonitoringAuditD
   const [complianceStatus, setComplianceStatus] = useState<ComplianceStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
+
   // Filtering and Search
   const [searchTerm, setSearchTerm] = useState('')
   const [severityFilter, setSeverityFilter] = useState<string>('all')
@@ -134,7 +134,7 @@ export const SecurityMonitoringAuditDashboard: React.FC<SecurityMonitoringAuditD
   // Auto-refresh functionality
   useEffect(() => {
     loadSecurityData()
-    
+
     if (autoRefresh && isRealTimeEnabled) {
       const interval = setInterval(loadSecurityData, refreshInterval)
       return () => clearInterval(interval)
@@ -144,11 +144,11 @@ export const SecurityMonitoringAuditDashboard: React.FC<SecurityMonitoringAuditD
   // Filter events based on current filters
   const filteredEvents = useMemo(() => {
     return events.filter(event => {
-      const matchesSearch = searchTerm === '' || 
+      const matchesSearch = searchTerm === '' ||
         event.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
         event.userEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         event.component.toLowerCase().includes(searchTerm.toLowerCase())
-      
+
       const matchesSeverity = severityFilter === 'all' || event.severity === severityFilter
       const matchesEventType = eventTypeFilter === 'all' || event.eventType === eventTypeFilter
       const matchesResolved = !showOnlyUnresolved || !event.remediated
@@ -179,7 +179,7 @@ export const SecurityMonitoringAuditDashboard: React.FC<SecurityMonitoringAuditD
       metrics,
       complianceStatus
     }
-    
+
     const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -191,14 +191,14 @@ export const SecurityMonitoringAuditDashboard: React.FC<SecurityMonitoringAuditD
 
   // Acknowledge alert
   const acknowledgeAlert = useCallback(async (alertId: string) => {
-    setAlerts(prev => prev.map(alert => 
+    setAlerts(prev => prev.map(alert =>
       alert.id === alertId ? { ...alert, acknowledged: true } : alert
     ))
   }, [])
 
   // Resolve alert
   const resolveAlert = useCallback(async (alertId: string) => {
-    setAlerts(prev => prev.map(alert => 
+    setAlerts(prev => prev.map(alert =>
       alert.id === alertId ? { ...alert, resolved: true, acknowledged: true } : alert
     ))
   }, [])
@@ -240,11 +240,26 @@ export const SecurityMonitoringAuditDashboard: React.FC<SecurityMonitoringAuditD
   if (error) {
     return (
       <PancakeCard className={className}>
-        <div className="flex items-center space-x-2 text-red-600">
-          <AlertTriangle className="w-5 h-5" />
-          <span>Security Dashboard Error: {error}</span>
+        <div className="p-6 space-y-4">
+          <div className="flex items-start gap-4">
+            <div className="flex-shrink-0 p-3 bg-red-100 dark:bg-red-900/20 rounded-full">
+              <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-red-800 dark:text-red-200">Security Dashboard Error</h3>
+              <p className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Unable to load security monitoring data. Please check your connection and try again.
+              </p>
+            </div>
+          </div>
+          <Button onClick={loadSecurityData} className="flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Retry
+          </Button>
         </div>
-        <Button onClick={loadSecurityData} className="mt-4">Retry</Button>
       </PancakeCard>
     )
   }
@@ -322,11 +337,10 @@ export const SecurityMonitoringAuditDashboard: React.FC<SecurityMonitoringAuditD
                 <p className="text-sm text-gray-600">Risk Score</p>
                 <p className="text-2xl font-semibold">{metrics.riskScore}/100</p>
               </div>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                metrics.riskScore > 70 ? 'bg-red-100 text-red-600' :
-                metrics.riskScore > 40 ? 'bg-yellow-100 text-yellow-600' :
-                'bg-green-100 text-green-600'
-              }`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${metrics.riskScore > 70 ? 'bg-red-100 text-red-600' :
+                  metrics.riskScore > 40 ? 'bg-yellow-100 text-yellow-600' :
+                    'bg-green-100 text-green-600'
+                }`}>
                 {metrics.riskScore}
               </div>
             </div>
@@ -337,11 +351,10 @@ export const SecurityMonitoringAuditDashboard: React.FC<SecurityMonitoringAuditD
                 <p className="text-sm text-gray-600">Compliance</p>
                 <p className="text-2xl font-semibold">{metrics.complianceScore}%</p>
               </div>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                metrics.complianceScore > 90 ? 'bg-green-100 text-green-600' :
-                metrics.complianceScore > 70 ? 'bg-yellow-100 text-yellow-600' :
-                'bg-red-100 text-red-600'
-              }`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${metrics.complianceScore > 90 ? 'bg-green-100 text-green-600' :
+                  metrics.complianceScore > 70 ? 'bg-yellow-100 text-yellow-600' :
+                    'bg-red-100 text-red-600'
+                }`}>
                 ✓
               </div>
             </div>
@@ -376,11 +389,10 @@ export const SecurityMonitoringAuditDashboard: React.FC<SecurityMonitoringAuditD
           <h3 className="text-lg font-semibold mb-4">Active Security Alerts</h3>
           <div className="space-y-3">
             {alerts.filter(alert => !alert.resolved).map(alert => (
-              <div key={alert.id} className={`p-4 border rounded-lg ${
-                alert.priority === 'urgent' ? 'border-red-200 bg-red-50' :
-                alert.priority === 'high' ? 'border-orange-200 bg-orange-50' :
-                'border-yellow-200 bg-yellow-50'
-              }`}>
+              <div key={alert.id} className={`p-4 border rounded-lg ${alert.priority === 'urgent' ? 'border-red-200 bg-red-50' :
+                  alert.priority === 'high' ? 'border-orange-200 bg-orange-50' :
+                    'border-yellow-200 bg-yellow-50'
+                }`}>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center space-x-2 mb-2">
@@ -497,7 +509,7 @@ export const SecurityMonitoringAuditDashboard: React.FC<SecurityMonitoringAuditD
             {showOnlyUnresolved ? 'Show All' : 'Unresolved Only'}
           </Button>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -541,12 +553,11 @@ export const SecurityMonitoringAuditDashboard: React.FC<SecurityMonitoringAuditD
                     {event.description}
                   </td>
                   <td className="py-3 px-4">
-                    <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                      event.riskScore > 80 ? 'bg-red-100 text-red-800' :
-                      event.riskScore > 60 ? 'bg-orange-100 text-orange-800' :
-                      event.riskScore > 40 ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-green-100 text-green-800'
-                    }`}>
+                    <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${event.riskScore > 80 ? 'bg-red-100 text-red-800' :
+                        event.riskScore > 60 ? 'bg-orange-100 text-orange-800' :
+                          event.riskScore > 40 ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-green-100 text-green-800'
+                      }`}>
                       {event.riskScore}
                     </div>
                   </td>
@@ -570,7 +581,7 @@ export const SecurityMonitoringAuditDashboard: React.FC<SecurityMonitoringAuditD
               ))}
             </tbody>
           </table>
-          
+
           {filteredEvents.length === 0 && (
             <div className="text-center py-8 text-gray-500">
               No security events found matching your filters.

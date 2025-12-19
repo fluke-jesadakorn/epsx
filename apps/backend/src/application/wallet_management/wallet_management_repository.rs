@@ -135,7 +135,7 @@ impl WalletManagementRepository {
                 pgm.granted_at,
                 wgm.expires_at,
                 wgm.is_active
-            FROM wallet_group_memberships wgm
+            FROM wallet_group_assignments wgm
             JOIN permission_group_memberships pgm ON wgm.group_id = pgm.group_id
             JOIN permissions p ON pgm.permission_id = p.id
             WHERE wgm.wallet_address = $1
@@ -205,7 +205,7 @@ impl WalletManagementRepository {
         }
 
         if let Some(ref group_id) = criteria.exclude_group_id {
-            where_parts.push(format!("wu.wallet_address NOT IN (SELECT wallet_address FROM wallet_group_memberships WHERE group_id = '{}' AND is_active = true)", group_id.replace("'", "''")));
+            where_parts.push(format!("wu.wallet_address NOT IN (SELECT wallet_address FROM wallet_group_assignments WHERE group_id = '{}' AND is_active = true)", group_id.replace("'", "''")));
         }
 
         let where_clause = if where_parts.is_empty() {
@@ -239,7 +239,7 @@ impl WalletManagementRepository {
             FROM wallet_users wu
             LEFT JOIN (
                 SELECT wallet_address, COUNT(*)::int as count
-                FROM wallet_group_memberships
+                FROM wallet_group_assignments
                 WHERE is_active = true
                 GROUP BY wallet_address
             ) perms ON wu.wallet_address = perms.wallet_address
@@ -315,7 +315,7 @@ impl WalletManagementRepository {
         }
 
         if let Some(ref group_id) = criteria.exclude_group_id {
-            where_parts.push(format!("wu.wallet_address NOT IN (SELECT wallet_address FROM wallet_group_memberships WHERE group_id = '{}' AND is_active = true)", group_id.replace("'", "''")));
+            where_parts.push(format!("wu.wallet_address NOT IN (SELECT wallet_address FROM wallet_group_assignments WHERE group_id = '{}' AND is_active = true)", group_id.replace("'", "''")));
         }
 
         let where_clause = if where_parts.is_empty() {
@@ -356,7 +356,7 @@ impl WalletManagementRepository {
             r#"
             SELECT COALESCE((
                 SELECT COUNT(DISTINCT p.id)::int
-                FROM wallet_group_memberships wgm
+                FROM wallet_group_assignments wgm
                 JOIN permission_group_memberships pgm ON wgm.group_id = pgm.group_id
                 JOIN permissions p ON pgm.permission_id = p.id
                 WHERE wgm.wallet_address = $1

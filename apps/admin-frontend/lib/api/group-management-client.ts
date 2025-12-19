@@ -118,7 +118,26 @@ export const groupMgmt = {
     default_expiry_days?: number;
     priority_level?: number;
   }): Promise<PermissionGroup> {
-    const res = await adminApiClient.post<PermissionGroup>(API_ROUTES.PERMISSIONS.GROUPS, req);
+    // Generate slug from name (backend requires slug)
+    const slug = req.name
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .trim();
+
+    // Transform frontend request to match backend's CreateGroupRequest schema
+    const backendRequest = {
+      name: req.name,
+      slug: slug,
+      description: req.description || '',
+      group_type: 'manual', // Default group type (valid: manual, subscription, web3_asset, dao_membership, admin)
+      permissions: req.permissions,
+      // These fields are optional in backend
+      display_order: req.priority_level,
+    };
+
+    const res = await adminApiClient.post<PermissionGroup>(API_ROUTES.PERMISSIONS.GROUPS, backendRequest);
     return res.data!;
   },
 
@@ -137,7 +156,7 @@ export const groupMgmt = {
   },
 
   async deletePermissionGroup(groupId: string): Promise<void> {
-    await adminApiClient.delete(`/api/admin/permissions/groups/${groupId}`);
+    await adminApiClient.delete(`/api/v1/permissions/groups/${groupId}`);
   },
 
   async getUserGroups(userId: string): Promise<UserGroupMembership[]> {
@@ -411,11 +430,14 @@ export const groupMgmt = {
   },
 
   async getExpiringMemberships(days = 7): Promise<UserGroupMembership[]> {
-    const res = await adminApiClient.get<UserGroupMembership[]>(
-      '/api/admin/groups/expiring-memberships',
+    const res = await adminApiClient.get<any>(
+      '/api/v1/permissions/assignments/expiring',
       { days }
     );
-    return res.data!;
+    // Handle response format: { assignments: [...], count: N }
+    const assignments = res.data?.assignments || res.data || [];
+    if (!Array.isArray(assignments)) return [];
+    return assignments.map(mapAssignmentToMembership);
   },
 
   async checkUserPermission(

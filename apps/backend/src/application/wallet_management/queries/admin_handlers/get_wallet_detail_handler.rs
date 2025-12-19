@@ -71,7 +71,7 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
                 pgm.granted_at,
                 wgm.expires_at,
                 wgm.is_active
-            FROM wallet_group_memberships wgm
+            FROM wallet_group_assignments wgm
             JOIN permission_group_memberships pgm ON wgm.group_id = pgm.group_id
             JOIN permissions p ON pgm.permission_id = p.id
             WHERE wgm.wallet_address = $1

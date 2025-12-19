@@ -207,7 +207,7 @@ const DynamicPricingSection = () => {
     return {
       id: plan.id,
       title: plan.name,
-      price: `$${plan.effectivePrice.toFixed(2)} ${plan.currency}`,
+      price: plan.effectivePrice === 0 ? 'Free' : `$${plan.effectivePrice.toFixed(2)} ${plan.currency}`,
       originalPrice: hasDiscount ? `$${plan.basePrice.toFixed(2)} ${plan.currency}` : undefined,
       features: plan.features.map(feature => ({ text: feature, included: true })),
       highlight: plan.isHighlighted,

@@ -1,20 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
 import { createNotificationsClient } from '@/shared/api/notifications'
-import { createAdminApiClient } from '@/shared/utils/api-client'
-import { useSSENotifications } from '@/shared/hooks/useSSENotifications'
+import { MAX_DROPDOWN_NOTIFICATIONS } from '@/shared/components/notifications/constants'
+import type { Notification } from '@/shared/components/notifications/types'
 import {
-  getNotificationIcon,
   formatTimestamp,
   formatWalletAddress,
-  getPriorityBgGradient,
-  getPriorityBorderColor,
-  getPriorityTextColor,
-  getPrioritySubTextColor
+  getNotificationIcon
 } from '@/shared/components/notifications/utils'
-import type { Notification } from '@/shared/components/notifications/types'
-import { MAX_DROPDOWN_NOTIFICATIONS } from '@/shared/components/notifications/constants'
+import { useSSENotifications } from '@/shared/hooks/useSSENotifications'
+import { createAdminApiClient } from '@/shared/utils/api-client'
+import { useEffect, useState } from 'react'
 
 export function AdminNotificationBell() {
   const [count, setCount] = useState(0)
@@ -128,14 +124,16 @@ export function AdminNotificationBell() {
       <div className="relative">
         <button
           onClick={handleToggleDropdown}
-          className="relative h-12 w-12 rounded-2xl bg-gradient-to-r from-orange-400 to-red-500 font-semibold text-white shadow-lg"
+          className="relative p-2 rounded-lg text-orange-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
         >
-          <span className="text-xl">🔔</span>
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
           {sseConnected && (
-            <div className="absolute top-1 right-1 h-2.5 w-2.5 rounded-full bg-green-400 ring-2 ring-white" title="Real-time connected" />
+            <div className="absolute top-1 right-1 h-2 w-2 rounded-full bg-green-400" title="Real-time connected" />
           )}
           {count > 0 && (
-            <div className="absolute -top-2 -right-2 flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-r from-pink-500 to-red-500 text-xs text-white shadow-lg">
+            <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
               {count > 9 ? '9+' : count}
             </div>
           )}
@@ -143,46 +141,56 @@ export function AdminNotificationBell() {
 
         {/* Notification Dropdown */}
         {showNotifications && (
-          <div className="absolute top-14 right-0 z-50 w-80 rounded-3xl border border-yellow-200 bg-white p-6 shadow-2xl dark:border-slate-700/50 dark:bg-slate-800">
+          <div className="absolute top-12 right-0 z-50 w-80 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-4 shadow-2xl">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-lg font-bold text-transparent">
-                  🔥 Recent Notifications
+                <h3 className="text-sm font-semibold text-gray-800 dark:text-slate-200">
+                  Notifications
                 </h3>
                 {count > 0 && (
-                  <span className="rounded-full bg-gradient-to-r from-orange-500 to-red-500 px-3 py-1 text-xs font-semibold text-white">
+                  <span className="rounded-full bg-orange-500/20 px-2 py-0.5 text-xs font-medium text-orange-400">
                     {count} new
                   </span>
                 )}
               </div>
 
               {loading ? (
-                <div className="py-8 text-center text-gray-500 dark:text-gray-400">
-                  <span className="text-4xl">⏳</span>
-                  <p className="mt-2 text-sm">Loading notifications...</p>
+                <div className="py-12 text-center">
+                  <svg className="mx-auto h-12 w-12 text-gray-400 dark:text-slate-600 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  <div className="mt-3 flex items-center justify-center gap-2">
+                    <svg className="h-4 w-4 animate-spin text-gray-500" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span className="text-sm text-gray-500 dark:text-slate-500">Loading notifications...</span>
+                  </div>
                 </div>
               ) : notifications.length === 0 ? (
-                <div className="py-8 text-center text-gray-500 dark:text-gray-400">
-                  <span className="text-4xl">📭</span>
-                  <p className="mt-2 text-sm">No notifications yet</p>
+                <div className="py-12 text-center">
+                  <svg className="mx-auto h-12 w-12 text-gray-400 dark:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  <p className="mt-3 text-sm text-gray-500 dark:text-slate-500">No notifications yet</p>
                 </div>
               ) : (
-                <div className="space-y-3 max-h-96 overflow-y-auto">
+                <div className="space-y-2 max-h-80 overflow-y-auto">
                   {notifications.map((notification) => (
                     <div
                       key={notification.id}
-                      className={`rounded-2xl border bg-gradient-to-r p-4 ${getPriorityBorderColor(notification.priority)} ${getPriorityBgGradient(notification.priority)}`}
+                      className="group rounded-lg border border-gray-200 dark:border-slate-700 bg-gray-50 dark:bg-slate-800/50 p-3 hover:bg-gray-100 dark:hover:bg-slate-800"
                     >
                       <div className="flex items-start gap-3">
-                        <span className="text-xl">{getNotificationIcon(notification.type)}</span>
+                        <span className="text-lg">{getNotificationIcon(notification.type)}</span>
                         <div className="flex-1 min-w-0">
-                          <div className={`font-semibold ${getPriorityTextColor(notification.priority)}`}>
+                          <div className="font-medium text-sm text-slate-200">
                             {notification.title}
                           </div>
-                          <div className={`text-sm ${getPrioritySubTextColor(notification.priority)}`}>
+                          <div className="text-xs text-slate-400 mt-0.5 line-clamp-2">
                             {notification.message}
                           </div>
-                          <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                          <div className="mt-1.5 flex items-center gap-2 text-xs text-slate-500">
                             <span>{formatTimestamp(notification.timestamp)}</span>
                             {notification.wallet_address && notification.wallet_address !== 'all' && (
                               <span className="font-mono">{formatWalletAddress(notification.wallet_address)}</span>
@@ -191,10 +199,12 @@ export function AdminNotificationBell() {
                         </div>
                         <button
                           onClick={(e) => handleDeleteNotification(e, notification.id)}
-                          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 flex-shrink-0"
-                          title="Delete notification"
+                          className="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 transition-opacity"
+                          title="Delete"
                         >
-                          ✕
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
                         </button>
                       </div>
                     </div>
@@ -202,19 +212,13 @@ export function AdminNotificationBell() {
                 </div>
               )}
 
-              <div className="space-y-2 border-t border-gray-200 pt-3 dark:border-gray-700">
-                <button
-                  onClick={handleCloseDropdown}
-                  className="w-full rounded-2xl bg-gradient-to-r from-blue-400 to-purple-500 py-2 font-semibold text-white"
-                >
-                  ➕ Send Notification
-                </button>
+              <div className="border-t border-slate-700 pt-3">
                 <button
                   onClick={() => {
                     handleCloseDropdown()
                     // TODO: Navigate to notifications page
                   }}
-                  className="w-full rounded-2xl bg-gradient-to-r from-orange-400 to-red-500 py-2 font-semibold text-white"
+                  className="w-full rounded-lg bg-slate-800 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors"
                 >
                   View All Notifications
                 </button>

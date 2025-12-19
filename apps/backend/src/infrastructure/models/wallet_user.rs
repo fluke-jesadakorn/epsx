@@ -14,11 +14,13 @@ use serde::Deserialize;
 pub struct WalletUserDb {
     pub wallet_address: String,
     pub is_active: bool,
-    pub tier_level: Option<String>,
+    pub tier_level: String,
     pub wallet_metadata: serde_json::Value,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub last_auth_at: Option<DateTime<Utc>>,
+    pub permission_groups: Option<serde_json::Value>,
+    pub disable_info: Option<serde_json::Value>,
 }
 
 /// Diesel Insertable model for creating new wallet users

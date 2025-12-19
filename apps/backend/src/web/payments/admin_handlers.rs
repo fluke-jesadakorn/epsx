@@ -441,51 +441,116 @@ pub async fn admin_process_refund_handler(
 
 /// Get all subscriptions
 pub async fn admin_list_subscriptions_handler(
-    State(_app_state): State<crate::web::auth::AppState>,
+    State(app_state): State<crate::web::auth::AppState>,
     Query(params): Query<AdminPaymentListParams>, // Reuse same params
 ) -> Result<Json<AdminSubscriptionListResponse>, Json<UnifiedErrorResponse>> {
+    use diesel::prelude::*;
+    use diesel_async::RunQueryDsl;
+    use crate::infrastructure::models::payment::SubscriptionDb;
+
     info!("Admin listing subscriptions with params: {:?}", params);
 
-    // TODO: Implement comprehensive admin subscription listing
+    let mut conn = app_state.db_pool.get().await
+        .map_err(|e| {
+            error!("Failed to get database connection: {}", e);
+            Json(create_error_response(500, "Database connection failed", "Failed to establish database connection"))
+        })?;
 
-    let subscriptions = vec![
-        AdminSubscriptionInfo {
-            id: Uuid::new_v4(),
-            wallet_address: "0x1234567890123456789012345678901234567890".to_string(),
-            plan_id: Uuid::new_v4(),
-            plan_name: "Professional Plan".to_string(),
-            status: "active".to_string(),
-            payment_id: Uuid::new_v4(),
-            started_at: Utc::now() - chrono::Duration::days(30),
-            expires_at: Utc::now() + chrono::Duration::days(30),
-            cancelled_at: None,
-            auto_renew: true,
-            metadata: serde_json::json!({"renewal_count": 2}),
-        }
-    ];
+    // Build query
+    let mut query = subscriptions::table.into_boxed();
 
+    // Apply wallet_address filter if provided
+    if let Some(ref wallet_addr) = params.wallet_address {
+        query = query.filter(subscriptions::wallet_address.eq(wallet_addr));
+    }
+
+    // Apply plan_id filter if provided
+    if let Some(ref plan_id) = params.plan_id {
+        query = query.filter(subscriptions::plan_id.eq(plan_id));
+    }
+
+    // Apply status filter if provided
+    if let Some(ref status) = params.status {
+        query = query.filter(subscriptions::status.eq(status));
+    }
+
+    // Apply pagination
+    let limit = params.limit.unwrap_or(50) as i64;
+    let page = params.page.unwrap_or(1);
+    let offset = ((page - 1) * params.limit.unwrap_or(50)) as i64;
+
+    // Get total count (before pagination)
+    let total_count: i64 = subscriptions::table
+        .count()
+        .get_result(&mut conn)
+        .await
+        .unwrap_or(0);
+
+    // Fetch subscriptions with pagination
+    let subscription_rows = query
+        .order(subscriptions::started_at.desc().nulls_last())
+        .limit(limit)
+        .offset(offset)
+        .load::<SubscriptionDb>(&mut conn)
+        .await
+        .map_err(|e| {
+            error!("Failed to query subscriptions: {}", e);
+            Json(create_error_response(500, "Query failed", &format!("Failed to load subscriptions: {}", e)))
+        })?;
+
+    // Map to response format with plan name lookup
+    let mut subscriptions_resp: Vec<AdminSubscriptionInfo> = Vec::new();
+    for sub_db in subscription_rows {
+        // Try to get plan name from permission_groups table
+        let plan_name = permission_groups::table
+            .filter(permission_groups::id.eq(sub_db.plan_id))
+            .select(permission_groups::name)
+            .first::<String>(&mut conn)
+            .await
+            .unwrap_or_else(|_| "Unknown Plan".to_string());
+
+        subscriptions_resp.push(AdminSubscriptionInfo {
+            id: sub_db.id,
+            wallet_address: sub_db.wallet_address,
+            plan_id: sub_db.plan_id,
+            plan_name,
+            status: sub_db.status,
+            payment_id: sub_db.payment_id.unwrap_or(Uuid::nil()),
+            started_at: sub_db.started_at.unwrap_or_else(|| Utc::now()),
+            expires_at: sub_db.expires_at,
+            cancelled_at: sub_db.cancelled_at,
+            auto_renew: sub_db.auto_renew.unwrap_or(false),
+            metadata: sub_db.metadata.unwrap_or(serde_json::json!({})),
+        });
+    }
+
+    let total_pages = ((total_count as f64) / (limit as f64)).ceil() as u32;
     let pagination = PaginationInfo {
-        page: params.page.unwrap_or(1),
-        limit: params.limit.unwrap_or(20),
-        total_count: subscriptions.len() as u64,
-        total_pages: 1,
-        has_next: false,
-        has_prev: false,
+        page,
+        limit: limit as u32,
+        total_count: total_count as u64,
+        total_pages,
+        has_next: page < total_pages,
+        has_prev: page > 1,
     };
 
+    // Calculate summary statistics
+    let active_count = subscriptions_resp.iter().filter(|s| s.status == "active").count() as u64;
     let summary = SubscriptionSummary {
-        total_subscriptions: subscriptions.len() as u64,
-        active_subscriptions: subscriptions.iter().filter(|s| s.status == "active").count() as u64,
-        expired_subscriptions: 0,
-        cancelled_subscriptions: 0,
-        new_subscriptions_today: 3,
-        expiring_soon: 5,
-        monthly_revenue: 1770.00,
+        total_subscriptions: total_count as u64,
+        active_subscriptions: active_count,
+        expired_subscriptions: subscriptions_resp.iter().filter(|s| s.status == "expired").count() as u64,
+        cancelled_subscriptions: subscriptions_resp.iter().filter(|s| s.status == "cancelled").count() as u64,
+        new_subscriptions_today: 0, // TODO: Calculate from timestamps
+        expiring_soon: 0, // TODO: Calculate subscriptions expiring in next 7 days
+        monthly_revenue: 0.0, // TODO: Calculate from payments
     };
+
+    info!("Found {} subscriptions (page {} of {})", subscriptions_resp.len(), page, total_pages);
 
     Ok(Json(AdminSubscriptionListResponse {
         success: true,
-        subscriptions,
+        subscriptions: subscriptions_resp,
         pagination,
         summary,
     }))

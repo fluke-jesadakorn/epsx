@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 
 interface VirtualScrollItem {
   id: string | number;
@@ -65,7 +65,7 @@ export function VirtualScroll<T extends VirtualScrollItem>({
   }, [onScroll]);
 
   const scrollToItem = useCallback((index: number, align: 'start' | 'center' | 'end' = 'start') => {
-    if (!containerRef.current) {return;}
+    if (!containerRef.current) { return; }
 
     let scrollTop: number;
     switch (align) {
@@ -97,7 +97,7 @@ export function VirtualScroll<T extends VirtualScrollItem>({
 
   if (loading && loadingComponent) {
     return (
-      <div 
+      <div
         className={`relative overflow-hidden ${className}`}
         style={{ height: containerHeight }}
       >
@@ -108,7 +108,7 @@ export function VirtualScroll<T extends VirtualScrollItem>({
 
   if (items.length === 0 && emptyComponent) {
     return (
-      <div 
+      <div
         className={`relative overflow-hidden ${className}`}
         style={{ height: containerHeight }}
       >
@@ -118,21 +118,21 @@ export function VirtualScroll<T extends VirtualScrollItem>({
   }
 
   return (
-    <div 
+    <div
       ref={containerRef}
       className={`relative overflow-auto ${className}`}
       style={{ height: containerHeight }}
       onScroll={handleScroll}
     >
       <div style={{ height: totalHeight }}>
-        <div 
-          style={{ 
+        <div
+          style={{
             transform: `translateY(${startIndex * itemHeight}px)`,
             position: 'relative'
           }}
         >
           {visibleItems.map((item, index) => (
-            <div 
+            <div
               key={item.id}
               style={{ height: item.height || itemHeight }}
             >
@@ -219,16 +219,16 @@ export function VirtualTable<T extends VirtualScrollItem>({
   onSelectionChange
 }: VirtualTableProps<T>) {
   const handleSort = (column: VirtualTableColumn<T>) => {
-    if (!column.sortable || !onSort) {return;}
-    
+    if (!column.sortable || !onSort) { return; }
+
     const key = column.key;
     const newDirection = sortBy === key && sortDirection === 'asc' ? 'desc' : 'asc';
     onSort(key, newDirection);
   };
 
   const handleSelectAll = (checked: boolean) => {
-    if (!onSelectionChange) {return;}
-    
+    if (!onSelectionChange) { return; }
+
     if (checked) {
       onSelectionChange(new Set(items.map(item => item.id)));
     } else {
@@ -237,8 +237,8 @@ export function VirtualTable<T extends VirtualScrollItem>({
   };
 
   const handleSelectItem = (itemId: string | number, checked: boolean) => {
-    if (!onSelectionChange) {return;}
-    
+    if (!onSelectionChange) { return; }
+
     const newSelected = new Set(selectedItems);
     if (checked) {
       newSelected.add(itemId);
@@ -249,10 +249,9 @@ export function VirtualTable<T extends VirtualScrollItem>({
   };
 
   const renderRow = (item: T, index: number) => (
-    <div 
-      className={`flex items-center border-b border-gray-200 hover:bg-gray-50 cursor-pointer ${
-        selectedItems.has(item.id) ? 'bg-blue-50' : ''
-      }`}
+    <div
+      className={`flex items-center border-b border-gray-200 hover:bg-gray-50 cursor-pointer ${selectedItems.has(item.id) ? 'bg-blue-50' : ''
+        }`}
       onClick={() => onRowClick?.(item, index)}
     >
       {onSelectionChange && (
@@ -269,15 +268,15 @@ export function VirtualTable<T extends VirtualScrollItem>({
         </div>
       )}
       {columns.map((column, colIndex) => {
-        const value = typeof column.key === 'string' ? 
-          (item as any)[column.key] : 
+        const value = typeof column.key === 'string' ?
+          (item as any)[column.key] :
           (item as any)[column.key];
-        
+
         return (
           <div
             key={colIndex}
             className="px-4 py-3 flex-shrink-0"
-            style={{ 
+            style={{
               width: column.width || `${100 / columns.length}%`,
               minWidth: typeof column.width === 'number' ? `${column.width}px` : undefined
             }}
@@ -311,10 +310,9 @@ export function VirtualTable<T extends VirtualScrollItem>({
         {columns.map((column, index) => (
           <div
             key={index}
-            className={`px-4 py-3 font-medium text-sm text-gray-700 flex-shrink-0 ${
-              column.sortable ? 'cursor-pointer hover:bg-gray-100' : ''
-            }`}
-            style={{ 
+            className={`px-4 py-3 font-medium text-sm text-gray-700 flex-shrink-0 ${column.sortable ? 'cursor-pointer hover:bg-gray-100' : ''
+              }`}
+            style={{
               width: column.width || `${100 / columns.length}%`,
               minWidth: typeof column.width === 'number' ? `${column.width}px` : undefined
             }}
@@ -341,7 +339,13 @@ export function VirtualTable<T extends VirtualScrollItem>({
         loading={loading}
         loadingComponent={
           <div className="flex items-center justify-center h-full">
-            <div className="text-blue-600 font-medium">Loading...</div>
+            <div className="flex items-center gap-2">
+              <svg className="h-5 w-5 animate-spin text-blue-600" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              <span className="text-blue-600 font-medium">Loading...</span>
+            </div>
           </div>
         }
         emptyComponent={

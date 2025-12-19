@@ -47,11 +47,11 @@ export function AuthLayout({ children, user: serverUser }: AuthLayoutProps) {
   const [authChecked, setAuthChecked] = useState(false)
   const [redirecting, setRedirecting] = useState(false) // Prevent redirect loops
   const { user: authUser, isAuthenticated, hasPermissionForDisplay, isLoading } = useSharedAuth()
-  
+
   useEffect(() => {
     setMounted(true)
   }, [])
-  
+
   // Handle authentication redirects
   useEffect(() => {
     console.log('🔍 AuthLayout: Auth check triggered', {
@@ -110,24 +110,33 @@ export function AuthLayout({ children, user: serverUser }: AuthLayoutProps) {
     // before setting isAuthenticated=true
     checkAuth()
   }, [mounted, isLoading, isAuthenticated, hasPermissionForDisplay, pathname, router, redirecting, authChecked, authUser])
-  
+
   // Wait for client-side hydration and auth check
   if (!mounted || (!authChecked && !PUBLIC_PATHS.some(path => pathname === path || pathname.startsWith(path)))) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-gray-600 dark:text-gray-400">
-          {!mounted ? "Loading..." : "Checking authentication..."}
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full blur opacity-30 animate-pulse" />
+            <svg className="h-8 w-8 animate-spin text-blue-600 dark:text-blue-400 relative" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+          </div>
+          <p className="text-gray-600 dark:text-gray-400 text-sm">
+            {!mounted ? "Initializing..." : "Checking authentication..."}
+          </p>
         </div>
       </div>
     )
   }
-  
+
   // Special pages that never get layout
   const isNoLayoutPage = NO_LAYOUT_PATHS.some(path => pathname === path || pathname.startsWith(path))
   if (isNoLayoutPage) {
     return <>{children}</>
   }
-  
+
   // Use client-side auth user if available, otherwise use server user
   const layoutUser = authUser ? {
     id: authUser.wallet_address || authUser.sub,
@@ -135,7 +144,7 @@ export function AuthLayout({ children, user: serverUser }: AuthLayoutProps) {
     name: authUser.wallet_address ? `Admin (${authUser.wallet_address.slice(0, 6)}...${authUser.wallet_address.slice(-4)})` : 'Admin',
     role: 'admin'
   } : serverUser
-  
+
   // Always show layout for all pages except the excluded ones
   // This ensures consistent navigation and branding regardless of auth status
   return (

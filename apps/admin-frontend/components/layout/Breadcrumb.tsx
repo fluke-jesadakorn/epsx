@@ -22,27 +22,38 @@ const routeConfig: Record<string, BreadcrumbItem> = {
   '/analytics/eps': { label: 'EPS Analytics', href: '/analytics/eps' },
   '/notifications': { label: 'Notifications', href: '/notifications', icon: '🔔' },
   '/notifications/create': { label: 'Create Notification', href: '/notifications/create' },
+  '/subscriptions': { label: 'Subscriptions', href: '/subscriptions', icon: '📋' },
+  '/subscriptions/new': { label: 'New Subscription', href: '/subscriptions/new' },
+  '/plans': { label: 'Plans', href: '/plans', icon: '💳' },
+  '/plans/new': { label: 'New Plan', href: '/plans/new' },
   '/settings': { label: 'Settings', href: '/settings', icon: '⚙️' },
   '/system': { label: 'System', href: '/system', icon: '🖥️' },
   '/bulk-permissions': { label: 'Bulk Permissions', href: '/bulk-permissions', icon: '⚡' },
   '/developer-portal': { label: 'Developer Portal', href: '/developer-portal', icon: '👨‍💻' },
   '/docs': { label: 'Documentation', href: '/docs', icon: '📚' },
   '/docs/api': { label: 'API Docs', href: '/docs/api' },
+  '/wallet-management': { label: 'Wallet Management', href: '/wallet-management', icon: '👛' },
+  '/group-management': { label: 'Group Management', href: '/group-management', icon: '👥' },
+  '/permissions/create-group': { label: 'Create Group', href: '/permissions/create-group' },
+  '/permissions/assign-wallet': { label: 'Assign Wallet', href: '/permissions/assign-wallet' },
+  '/permissions/expiring': { label: 'Expiring Assignments', href: '/permissions/expiring' },
+  '/permissions/groups': { label: 'Groups', href: '/permissions/groups' },
+  '/permissions/groups/edit': { label: 'Edit Group', href: '/permissions/groups/edit' },
 }
 
 function generateBreadcrumbs(pathname: string): BreadcrumbItem[] {
   const segments = pathname.split('/').filter(Boolean)
   const breadcrumbs: BreadcrumbItem[] = []
-  
+
   // Always start with dashboard
   breadcrumbs.push(routeConfig['/'])
-  
+
   // Build path progressively
   let currentPath = ''
   for (const segment of segments) {
     currentPath += `/${segment}`
     const config = routeConfig[currentPath]
-    
+
     if (config) {
       breadcrumbs.push(config)
     } else {
@@ -51,19 +62,19 @@ function generateBreadcrumbs(pathname: string): BreadcrumbItem[] {
         .split(' ')
         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ')
-      
+
       breadcrumbs.push({
         label,
         href: currentPath
       })
     }
   }
-  
+
   // Remove duplicate dashboard if current page is dashboard
   if (pathname === '/' && breadcrumbs.length > 1) {
     return [breadcrumbs[0]]
   }
-  
+
   return breadcrumbs
 }
 
@@ -73,7 +84,7 @@ function generateBreadcrumbs(pathname: string): BreadcrumbItem[] {
 export function Breadcrumb() {
   const pathname = usePathname()
   const breadcrumbs = generateBreadcrumbs(pathname)
-  
+
   if (breadcrumbs.length <= 1) {
     return (
       <div className="flex items-center gap-2 text-sm">
@@ -86,7 +97,7 @@ export function Breadcrumb() {
       </div>
     )
   }
-  
+
   return (
     <div className="flex items-center gap-2 text-sm">
       {breadcrumbs.map((item, index) => (
@@ -96,7 +107,7 @@ export function Breadcrumb() {
               {item.icon || '🏠'}
             </span>
           )}
-          
+
           {index < breadcrumbs.length - 1 ? (
             <>
               <Link

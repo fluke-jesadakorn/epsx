@@ -75,13 +75,13 @@ pub struct SubscriptionDb {
     pub id: Uuid,
     pub wallet_address: String,
     pub plan_id: Uuid,
-    pub payment_id: Uuid,
+    pub payment_id: Option<Uuid>,  // Nullable for admin-assigned subscriptions
     pub status: String,
-    pub started_at: DateTime<Utc>,
+    pub started_at: Option<DateTime<Utc>>,
     pub expires_at: DateTime<Utc>,
     pub cancelled_at: Option<DateTime<Utc>>,
-    pub auto_renew: bool,
-    pub metadata: serde_json::Value,
+    pub auto_renew: Option<bool>,
+    pub metadata: Option<serde_json::Value>,
 }
 
 /// Diesel Insertable model for creating new subscriptions
@@ -90,12 +90,13 @@ pub struct SubscriptionDb {
 pub struct NewSubscriptionDb {
     pub wallet_address: String,
     pub plan_id: Uuid,
-    pub payment_id: Uuid,
+    pub payment_id: Option<Uuid>,  // Nullable for admin-assigned subscriptions
     pub status: String,
+    pub started_at: Option<DateTime<Utc>>,
     pub expires_at: DateTime<Utc>,
     pub cancelled_at: Option<DateTime<Utc>>,
-    pub auto_renew: bool,
-    pub metadata: serde_json::Value,
+    pub auto_renew: Option<bool>,
+    pub metadata: Option<serde_json::Value>,
 }
 
 /// Diesel AsChangeset model for updating subscriptions
@@ -169,7 +170,7 @@ pub struct UpdatePaymentRequest {
 pub struct CreateSubscriptionRequest {
     pub wallet_address: String,
     pub plan_id: Uuid,
-    pub payment_id: Uuid,
+    pub payment_id: Option<Uuid>,  // Optional for admin-assigned free subscriptions
     pub expires_at: DateTime<Utc>,
     pub auto_renew: Option<bool>,
     pub metadata: Option<serde_json::Value>,

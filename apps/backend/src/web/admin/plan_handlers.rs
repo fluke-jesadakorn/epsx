@@ -316,6 +316,10 @@ pub async fn list_plans_handler(
     State(app_state): State<AppState>,
     Query(_query): Query<HashMap<String, String>>,
 ) -> Result<JsonResponse<serde_json::Value>, StatusCode> {
+    use diesel::prelude::*;
+    use diesel_async::RunQueryDsl;
+    use crate::schema::subscriptions;
+
     // Get plans from database instead of hardcoded data
     let db_plans = match app_state.permission_group_repo.get_subscription_plans().await {
         Ok(plans) => plans,
@@ -325,9 +329,33 @@ pub async fn list_plans_handler(
         }
     };
 
+    // Get subscriber counts for all plans
+    let mut conn = match (*app_state.db_pool).get().await {
+        Ok(c) => c,
+        Err(err) => {
+            tracing::error!(error = %err, "Failed to get database connection for subscriber count");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+
+    // Query subscriber counts per plan_id
+    let subscriber_counts: Vec<(Uuid, i64)> = subscriptions::table
+        .filter(subscriptions::status.eq("active"))
+        .group_by(subscriptions::plan_id)
+        .select((subscriptions::plan_id, diesel::dsl::count_star()))
+        .load(&mut conn)
+        .await
+        .unwrap_or_default();
+
+    // Create a map for quick lookup
+    let count_map: std::collections::HashMap<Uuid, i64> = subscriber_counts.into_iter().collect();
+
     // Convert database plans to admin format (with additional fields for admin UI)
     let plans: Vec<serde_json::Value> = db_plans.into_iter().map(|plan| {
         use crate::domain::subscription_management::Promotion;
+
+        // Get subscriber count from map
+        let subscriber_count = count_map.get(&plan.id).copied().unwrap_or(0);
 
         // Extract permissions array from JSONB
         let permissions = plan.permissions().as_array()
@@ -395,16 +423,18 @@ pub async fn list_plans_handler(
             "is_active": plan.is_active.unwrap_or(true),
             "created_at": plan.created_at.to_rfc3339(),
             "updated_at": plan.updated_at.to_rfc3339(),
-            "subscriber_count": 0,
+            "subscriber_count": subscriber_count,
             "revenue_last_30_days": "0.00"
         })
     }).collect();
+
+    let total_count = plans.len();
 
     Ok(JsonResponse(serde_json::json!({
         "success": true,
         "data": {
             "plans": plans,
-            "total_count": 3,
+            "total_count": total_count,
             "has_more": false
         },
         "message": "Permission group plans retrieved successfully"
@@ -696,10 +726,32 @@ pub async fn update_plan_handler(
 
 /// Create permission template-based subscription
 pub async fn create_subscription_handler(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     Json(request): Json<CreateSubscriptionRequest>,
 ) -> Result<JsonResponse<SubscriptionResponse>, StatusCode> {
-    let subscription_id = uuid::Uuid::new_v4().to_string();
+    use diesel::prelude::*;
+    use diesel_async::RunQueryDsl;
+    use crate::schema::{subscriptions, permission_groups};
+    use crate::infrastructure::models::payment::NewSubscriptionDb;
+
+    let subscription_id = Uuid::new_v4();
+    
+    // Get DB connection for plan lookup
+    let mut conn = (*state.db_pool).get().await.map_err(|e| {
+        tracing::error!("Failed to get database connection: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    
+    // Find plan UUID from permission_group_name
+    let plan_uuid: Uuid = permission_groups::table
+        .filter(permission_groups::name.eq(&request.permission_group_name))
+        .select(permission_groups::id)
+        .first::<Uuid>(&mut conn)
+        .await
+        .unwrap_or_else(|_| {
+            tracing::warn!("Could not find plan by name '{}', using placeholder UUID", request.permission_group_name);
+            Uuid::nil()
+        });
     
     let api_key = if request.access_context == "external" {
         Some(generate_api_key())
@@ -707,15 +759,46 @@ pub async fn create_subscription_handler(
         None
     };
     
-    // Get permissions from group template (mock implementation)
+    // Get permissions from group template
     let permissions_granted = get_permissions_from_group_template(&request.permission_group_name);
     let group_type = derive_group_from_permissions(&permissions_granted);
     
     // Generate quota limits from permissions
     let quota_limits = generate_quota_from_permissions(&permissions_granted);
     
+    // Calculate expiry (default 1 year for admin-assigned subscriptions)
+    let expires_at = request.expires_at.unwrap_or_else(|| Utc::now() + chrono::Duration::days(365));
+    
+    // Create database record
+    let new_subscription = NewSubscriptionDb {
+        wallet_address: request.wallet_address.clone(),
+        plan_id: plan_uuid,
+        payment_id: None, // Admin-assigned subscriptions don't require payment
+        status: "active".to_string(),
+        started_at: Some(Utc::now()),
+        expires_at,
+        cancelled_at: None,
+        auto_renew: Some(request.auto_renew),
+        metadata: Some(serde_json::json!({
+            "permission_group_name": request.permission_group_name,
+            "access_context": request.access_context,
+            "api_key_name": request.api_key_name,
+            "created_by": "admin",
+        })),
+    };
+    
+    // Insert into database (reusing connection from plan lookup)
+    diesel::insert_into(subscriptions::table)
+        .values(&new_subscription)
+        .execute(&mut conn)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to insert subscription: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
+    
     let response = SubscriptionResponse {
-        id: subscription_id,
+        id: subscription_id.to_string(),
         wallet_address: request.wallet_address,
         plan_id: request.plan_id,
         permission_group_name: request.permission_group_name,
@@ -725,7 +808,7 @@ pub async fn create_subscription_handler(
         api_key,
         api_key_name: request.api_key_name,
         status: "active".to_string(),
-        expires_at: request.expires_at,
+        expires_at: Some(expires_at),
         auto_renew: request.auto_renew,
         created_at: Utc::now(),
         updated_at: Utc::now(),
@@ -739,7 +822,7 @@ pub async fn create_subscription_handler(
         wallet_address = %response.wallet_address,
         group = %response.permission_group_name,
         group_type = %response.group_type,
-        "Permission group subscription created"
+        "Permission group subscription created and persisted to database"
     );
     
     Ok(JsonResponse(response))

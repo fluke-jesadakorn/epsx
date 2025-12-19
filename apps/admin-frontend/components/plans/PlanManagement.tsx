@@ -7,7 +7,6 @@ import { createAdminApiClient } from '@/shared/utils/api-client'
 import * as Promo from '@/shared/utils/promo'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { PlanSubscribersSection } from './PlanSubscribersSection'
 
 interface PlanManagementProps {
   currentUser?: any
@@ -20,13 +19,13 @@ interface PlanManagementProps {
  */
 export function PlanManagement({ currentUser }: PlanManagementProps) {
   const { user: authUser } = useSharedAuth()
-  const user = currentUser || authUser
+  // Note: currentUser and authUser available for future permission checks
+  const _user = currentUser || authUser
   const router = useRouter()
   const [plans, setPlans] = useState<PlanResponse[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedPlan, setSelectedPlan] = useState<PlanResponse | null>(null)
+  const [_selectedPlan, setSelectedPlan] = useState<PlanResponse | null>(null)
   const [filterCategory, setFilterCategory] = useState<'all' | 'standard' | 'api' | 'enterprise' | 'custom'>('all')
-  const [selectedPlanForSubscribers, setSelectedPlanForSubscribers] = useState<PlanResponse | null>(null)
 
   // Load plans on component mount
   useEffect(() => {
@@ -332,7 +331,9 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                           )}
                         </div>
                         <div className="flex items-center gap-2">
-                          {plan.promotion_active && plan.effective_price !== undefined ? (
+                          {Number(plan.current_price) === 0 ? (
+                            <span className="text-sm font-bold bg-gradient-to-r from-emerald-500 to-green-500 bg-clip-text text-transparent">Free</span>
+                          ) : plan.promotion_active && plan.effective_price !== undefined ? (
                             <>
                               <span className="text-sm line-through text-gray-500">${plan.current_price}</span>
                               <span className="text-sm font-bold text-rose-600 dark:text-rose-400">${plan.effective_price.toFixed(2)}</span>
@@ -360,7 +361,7 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          setSelectedPlanForSubscribers(plan)
+                          router.push(`/plans/${plan.id}/subscribers`)
                         }}
                         className="px-3 py-2 rounded-xl font-semibold bg-gradient-to-r from-emerald-400 to-green-500 text-white min-h-[44px] text-sm"
                       >
@@ -394,105 +395,174 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
                 {filteredPlans.map(plan => (
                   <div
                     key={plan.id}
-                    className="flex items-center justify-between p-6 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-2xl hover:from-emerald-50 hover:to-green-50 dark:hover:from-gray-600 dark:hover:to-gray-700 cursor-pointer"
+                    className="group relative overflow-hidden bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-emerald-300 dark:hover:border-emerald-600 hover:shadow-lg hover:shadow-emerald-500/10 transition-all duration-300 cursor-pointer"
                     onClick={() => setSelectedPlan(plan)}
                   >
-                    <div className="flex items-center gap-6 flex-1">
-                      <div className={`h-12 w-12 rounded-2xl flex items-center justify-center text-2xl ${plan.plan_category === 'standard'
-                        ? 'bg-gradient-to-br from-blue-400 to-purple-500'
-                        : plan.plan_category === 'api'
-                          ? 'bg-gradient-to-br from-orange-400 to-red-500'
-                          : 'bg-gradient-to-br from-purple-400 to-pink-500'
-                        }`}>
-                        {plan.plan_category === 'standard' ? '👤' :
-                          plan.plan_category === 'api' ? '🔧' : '🏢'}
-                      </div>
+                    {/* Status indicator bar */}
+                    <div className={`absolute top-0 left-0 right-0 h-1 ${!plan.is_active
+                      ? 'bg-gray-400'
+                      : plan.promotion_active
+                        ? 'bg-gradient-to-r from-rose-500 to-pink-500'
+                        : 'bg-gradient-to-r from-emerald-400 to-green-500'
+                      }`} />
 
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2 flex-wrap">
-                          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                            {plan.name}
-                          </h3>
-                          {plan.plan_category === 'enterprise' && (
-                            <span className="bg-gradient-to-r from-purple-400 to-pink-500 text-white text-xs px-3 py-1 rounded-full font-semibold">
-                              ENTERPRISE
-                            </span>
-                          )}
-                          {!plan.is_active && (
-                            <span className="bg-gray-400 text-white text-xs px-3 py-1 rounded-full font-semibold">
-                              INACTIVE
-                            </span>
-                          )}
-                          {plan.promotion_status && plan.promotion_status !== 'disabled' && (
-                            <span className={`text-xs px-3 py-1 rounded-full font-semibold ${Promo.getStatusColor(plan.promotion_status)
-                              }`}>
-                              {Promo.getStatusIcon(plan.promotion_status)} {Promo.getStatusText(plan.promotion_status)}
-                              {plan.promotion_status === 'active' && plan.promotion_ends_at && (
-                                <span className="ml-1">({Promo.getTimeRemaining(plan.promotion_ends_at)})</span>
-                              )}
-                            </span>
-                          )}
+                    <div className="p-6">
+                      {/* Top Row: Icon, Plan Info, Action Buttons */}
+                      <div className="flex items-start gap-5">
+                        {/* Plan Icon */}
+                        <div className={`h-14 w-14 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0 shadow-lg ${plan.plan_category === 'standard'
+                          ? 'bg-gradient-to-br from-blue-400 to-purple-500'
+                          : plan.plan_category === 'api'
+                            ? 'bg-gradient-to-br from-orange-400 to-red-500'
+                            : 'bg-gradient-to-br from-purple-400 to-pink-500'
+                          }`}>
+                          {plan.plan_category === 'standard' ? '👤' :
+                            plan.plan_category === 'api' ? '🔧' : '🏢'}
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 flex-wrap">
-                          {plan.promotion_active && plan.effective_price !== undefined ? (
-                            <>
-                              <span className="line-through text-gray-500">${plan.current_price}</span>
-                              <span className="font-bold text-rose-600 dark:text-rose-400">
-                                ${plan.effective_price.toFixed(2)} {plan.currency}
+
+                        {/* Plan Info - Title & Price */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white truncate">
+                              {plan.name}
+                            </h3>
+                            {plan.plan_category === 'enterprise' && (
+                              <span className="bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide">
+                                Enterprise
                               </span>
-                              <span className="bg-rose-100 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 px-2 py-0.5 rounded-full font-semibold">
-                                {Math.round(plan.promotion_discount || 0)}% OFF
+                            )}
+                            {!plan.is_active && (
+                              <span className="bg-gray-500 text-white text-xs px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide">
+                                Inactive
                               </span>
-                            </>
-                          ) : (
-                            <span className="font-semibold">
-                              ${plan.current_price} {plan.currency}
-                            </span>
-                          )}
-                          <span>•</span>
-                          <span>{plan.permissions?.length || 0} permissions</span>
-                          <span>•</span>
-                          <span>{plan.target_audience.replace('_', ' ')}</span>
-                          <span>•</span>
-                          <span>${plan.revenue_last_30_days} revenue</span>
+                            )}
+                            {plan.promotion_status && plan.promotion_status !== 'disabled' && (
+                              <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${Promo.getStatusColor(plan.promotion_status)}`}>
+                                {Promo.getStatusIcon(plan.promotion_status)} {Promo.getStatusText(plan.promotion_status)}
+                                {plan.promotion_status === 'active' && plan.promotion_ends_at && (
+                                  <span className="ml-1 font-normal opacity-80">({Promo.getTimeRemaining(plan.promotion_ends_at)})</span>
+                                )}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Price Display */}
+                          <div className="flex items-baseline gap-2">
+                            {Number(plan.current_price) === 0 ? (
+                              <span className="text-2xl font-bold bg-gradient-to-r from-emerald-500 to-green-500 bg-clip-text text-transparent">
+                                Free
+                              </span>
+                            ) : plan.promotion_active && plan.effective_price !== undefined ? (
+                              <>
+                                <span className="text-2xl font-bold text-rose-600 dark:text-rose-400">
+                                  ${plan.effective_price.toFixed(2)}
+                                </span>
+                                <span className="text-sm text-gray-400 line-through">${plan.current_price}</span>
+                                <span className="text-sm text-gray-500 dark:text-gray-400">{plan.currency}</span>
+                                <span className="bg-rose-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">
+                                  {Math.round(plan.promotion_discount || 0)}% OFF
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-2xl font-bold text-gray-900 dark:text-white">
+                                  ${plan.current_price}
+                                </span>
+                                <span className="text-sm text-gray-500 dark:text-gray-400">{plan.currency}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Action Buttons - Now in a compact group */}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              router.push(`/plans/${plan.id}/subscribers`)
+                            }}
+                            className="group/btn flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 border border-emerald-200 dark:border-emerald-700 transition-all duration-200"
+                            title="View Subscribers"
+                          >
+                            <span className="text-lg">👥</span>
+                            <span className="hidden lg:inline">Subscribers</span>
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              router.push(`/plans/${plan.id}/edit`)
+                            }}
+                            className="group/btn flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 border border-purple-200 dark:border-purple-700 transition-all duration-200"
+                            title="Edit Plan"
+                          >
+                            <span className="text-lg">✏️</span>
+                            <span className="hidden lg:inline">Edit</span>
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              router.push(`/plans/${plan.id}/analytics`)
+                            }}
+                            className="group/btn flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 border border-blue-200 dark:border-blue-700 transition-all duration-200"
+                            title="View Analytics"
+                          >
+                            <span className="text-lg">📊</span>
+                            <span className="hidden lg:inline">Analytics</span>
+                          </button>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-3">
-                      <div className="text-xs bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 px-3 py-1 rounded-full">
-                        {plan.subscriber_count} subscribers
+                      {/* Divider */}
+                      <div className="h-px bg-gray-100 dark:bg-gray-700 my-4" />
+
+                      {/* Bottom Row: Stats Grid */}
+                      <div className="grid grid-cols-4 gap-4">
+                        {/* Subscribers */}
+                        <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-3">
+                          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 mb-1">
+                            <span className="text-sm">👥</span>
+                            <span className="text-xs font-medium uppercase tracking-wide">Subscribers</span>
+                          </div>
+                          <div className="text-xl font-bold text-emerald-700 dark:text-emerald-300">
+                            {plan.subscriber_count}
+                          </div>
+                        </div>
+
+                        {/* Permissions */}
+                        <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-3">
+                          <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 mb-1">
+                            <span className="text-sm">🔐</span>
+                            <span className="text-xs font-medium uppercase tracking-wide">Permissions</span>
+                          </div>
+                          <div className="text-xl font-bold text-purple-700 dark:text-purple-300">
+                            {plan.permissions?.length || 0}
+                          </div>
+                        </div>
+
+                        {/* Target Audience */}
+                        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3">
+                          <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-1">
+                            <span className="text-sm">🎯</span>
+                            <span className="text-xs font-medium uppercase tracking-wide">Target</span>
+                          </div>
+                          <div className="text-sm font-bold text-blue-700 dark:text-blue-300 capitalize">
+                            {plan.target_audience.replace('_', ' ')}
+                          </div>
+                        </div>
+
+                        {/* Revenue */}
+                        <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3">
+                          <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 mb-1">
+                            <span className="text-sm">💰</span>
+                            <span className="text-xs font-medium uppercase tracking-wide">Revenue (30d)</span>
+                          </div>
+                          <div className="text-xl font-bold text-amber-700 dark:text-amber-300">
+                            ${plan.revenue_last_30_days}
+                          </div>
+                        </div>
                       </div>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setSelectedPlanForSubscribers(plan)
-                        }}
-                        className="px-4 py-2 rounded-xl font-semibold bg-gradient-to-r from-emerald-400 to-green-500 text-white hover:from-emerald-500 hover:to-green-600 min-h-[44px]"
-                      >
-                        👥 Subscribers
-                      </button>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          router.push(`/plans/${plan.id}/edit`)
-                        }}
-                        className="px-4 py-2 rounded-xl font-semibold bg-gradient-to-r from-purple-400 to-purple-500 text-white hover:from-purple-500 hover:to-purple-600 min-h-[44px]"
-                      >
-                        ✏️ Edit
-                      </button>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          router.push(`/plans/${plan.id}/analytics`)
-                        }}
-                        className="px-4 py-2 rounded-xl font-semibold bg-gradient-to-r from-blue-400 to-blue-500 text-white hover:from-blue-500 hover:to-blue-600 min-h-[44px]"
-                      >
-                        📊 Analytics
-                      </button>
                     </div>
                   </div>
                 ))}
@@ -518,18 +588,6 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
           </div>
         </div>
       </div>
-
-      {/* Plan Subscribers Section (overlay) */}
-      {selectedPlanForSubscribers && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <PlanSubscribersSection
-              plan={selectedPlanForSubscribers}
-              onClose={() => setSelectedPlanForSubscribers(null)}
-            />
-          </div>
-        </div>
-      )}
     </div>
   )
 }

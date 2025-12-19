@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Clock, Edit3, Plus, Shield, Trash2, UserPlus, Users } from 'lucide-react'
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
@@ -30,6 +31,8 @@ export default function Web3AdminPermissionsPage() {
   const [recentActivity, setRecentActivity] = useState<any[]>([])
   const [isLoadingActivity, setIsLoadingActivity] = useState(false)
   const [expiringAssignments, setExpiringAssignments] = useState<any[]>([])
+  // Delete confirmation modal state
+  const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; groupId: string; groupName: string } | null>(null)
   const queryClient = useQueryClient()
 
   // Fetch permission groups
@@ -81,15 +84,21 @@ export default function Web3AdminPermissionsPage() {
   }
 
   const handleDeleteGroup = (groupId: string, groupName: string) => {
-    if (confirm(`Are you sure you want to delete the "${groupName}" group? This action cannot be undone.`)) {
-      deleteGroupMutation.mutate(groupId)
+    setDeleteConfirm({ isOpen: true, groupId, groupName })
+  }
+
+  const confirmDelete = () => {
+    if (deleteConfirm) {
+      deleteGroupMutation.mutate(deleteConfirm.groupId)
+      setDeleteConfirm(null)
     }
   }
 
-  const handleEditGroup = (group: PermissionGroup) => {
-    setEditingGroup(group)
-    setActiveView('edit-group')
+  const cancelDelete = () => {
+    setDeleteConfirm(null)
   }
+
+
 
   const handleGroupUpdated = () => {
     queryClient.invalidateQueries({ queryKey: ['permission-groups'] })
@@ -289,54 +298,76 @@ export default function Web3AdminPermissionsPage() {
 
             {/* Quick Actions Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
-              {[
-                {
-                  title: '👥 Create Group',
-                  description: 'Create a new permission group',
-                  gradient: 'from-blue-400 to-cyan-500',
-                  bgGradient: 'from-blue-400/20 via-cyan-400/20 to-blue-400/20',
-                  onClick: () => setActiveView('create-group')
-                },
-                {
-                  title: '💼 Assign Wallet',
-                  description: 'Assign wallet to a group',
-                  gradient: 'from-green-400 to-emerald-500',
-                  bgGradient: 'from-green-400/20 via-emerald-400/20 to-green-400/20',
-                  onClick: () => setActiveView('assign-wallet')
-                },
-                {
-                  title: '⏰ Expiring Soon',
-                  description: 'View expiring assignments',
-                  gradient: 'from-orange-400 to-pink-500',
-                  bgGradient: 'from-orange-400/20 via-pink-400/20 to-orange-400/20',
-                  onClick: () => setActiveView('expiring')
-                }
-              ].map((action, index) => (
-                <button key={index} onClick={action.onClick} className="block group text-left">
-                  <div className={`relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r ${action.bgGradient} p-0.5 hover:scale-105 transition-all duration-300`}>
-                    <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl">
-                      <div className={`absolute top-4 right-4 w-4 h-4 bg-gradient-to-r ${action.gradient} rounded-full blur-sm opacity-60`}></div>
-
-                      <div className="p-4 sm:p-6">
-                        <h3 className={`text-lg sm:text-xl font-bold bg-gradient-to-r ${action.gradient} bg-clip-text text-transparent mb-2`}>
-                          {action.title}
-                        </h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                          {action.description}
-                        </p>
-
-                        <div className="flex items-center justify-between">
-                          <div className={`px-3 py-1 bg-gradient-to-r ${action.gradient} text-white rounded-full text-xs font-medium`}>
-                            Open
-                          </div>
-                          <div className="text-gray-400 group-hover:translate-x-1 transition-transform duration-200">→</div>
+              {/* Create Group - Links to page */}
+              <Link href="/permissions/create-group" className="block group text-left">
+                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-blue-400/20 via-cyan-400/20 to-blue-400/20 p-0.5 hover:scale-105 transition-all duration-300">
+                  <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl">
+                    <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-blue-400 to-cyan-500 rounded-full blur-sm opacity-60"></div>
+                    <div className="p-4 sm:p-6">
+                      <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-500 bg-clip-text text-transparent mb-2">
+                        👥 Create Group
+                      </h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                        Create a new permission group
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <div className="px-3 py-1 bg-gradient-to-r from-blue-400 to-cyan-500 text-white rounded-full text-xs font-medium">
+                          Open
                         </div>
+                        <div className="text-gray-400 group-hover:translate-x-1 transition-transform duration-200">→</div>
                       </div>
                     </div>
                   </div>
-                </button>
-              ))}
+                </div>
+              </Link>
+
+              {/* Assign Wallet - Links to page */}
+              <Link href="/permissions/assign-wallet" className="block group text-left">
+                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-green-400/20 via-emerald-400/20 to-green-400/20 p-0.5 hover:scale-105 transition-all duration-300">
+                  <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl">
+                    <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full blur-sm opacity-60"></div>
+                    <div className="p-4 sm:p-6">
+                      <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent mb-2">
+                        💼 Assign Wallet
+                      </h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                        Assign wallet to a group
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <div className="px-3 py-1 bg-gradient-to-r from-green-400 to-emerald-500 text-white rounded-full text-xs font-medium">
+                          Open
+                        </div>
+                        <div className="text-gray-400 group-hover:translate-x-1 transition-transform duration-200">→</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+
+              {/* Expiring Soon - Links to page */}
+              <Link href="/permissions/expiring" className="block group text-left">
+                <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-orange-400/20 via-pink-400/20 to-orange-400/20 p-0.5 hover:scale-105 transition-all duration-300">
+                  <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl">
+                    <div className="absolute top-4 right-4 w-4 h-4 bg-gradient-to-r from-orange-400 to-pink-500 rounded-full blur-sm opacity-60"></div>
+                    <div className="p-4 sm:p-6">
+                      <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-orange-400 to-pink-500 bg-clip-text text-transparent mb-2">
+                        ⏰ Expiring Soon
+                      </h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                        View expiring assignments
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <div className="px-3 py-1 bg-gradient-to-r from-orange-400 to-pink-500 text-white rounded-full text-xs font-medium">
+                          Open
+                        </div>
+                        <div className="text-gray-400 group-hover:translate-x-1 transition-transform duration-200">→</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Link>
             </div>
+
 
             {/* Permission Groups Grid */}
             <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl border-2 border-indigo-300/50 dark:border-indigo-700/50">
@@ -400,33 +431,36 @@ export default function Web3AdminPermissionsPage() {
                           </div>
 
                           <div className="flex flex-wrap gap-2 pt-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleEditGroup(group)}
-                              className="flex-1"
-                            >
-                              <Edit3 className="w-3 h-3 mr-1" />
-                              Edit
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleViewMembers(group)}
-                              className="flex-1"
-                            >
-                              <Users className="w-3 h-3 mr-1" />
-                              Members
-                            </Button>
+                            <Link href={`/permissions/groups/${group.id}/edit`} className="flex-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full"
+                              >
+                                <Edit3 className="w-3 h-3 mr-1" />
+                                Edit
+                              </Button>
+                            </Link>
+                            <Link href={`/permissions/groups/${group.id}/members`} className="flex-1">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full"
+                              >
+                                <Users className="w-3 h-3 mr-1" />
+                                Members
+                              </Button>
+                            </Link>
                             {!group.is_system_group && (
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleDeleteGroup(group.id, group.name)}
                                 disabled={deleteGroupMutation.isPending}
-                                className="text-red-600 hover:text-red-700"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
                               >
-                                <Trash2 className="w-3 h-3" />
+                                <Trash2 className="w-3 h-3 mr-1" />
+                                Delete
                               </Button>
                             )}
                           </div>
@@ -473,6 +507,43 @@ export default function Web3AdminPermissionsPage() {
                 .finally(() => setIsLoadingActivity(false))
             }}
           />
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {deleteConfirm && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl border border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-red-100 dark:bg-red-900/30 rounded-full">
+                  <Trash2 className="w-6 h-6 text-red-600 dark:text-red-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  Delete Permission Group
+                </h3>
+              </div>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                Are you sure you want to delete <strong>"{deleteConfirm.groupName}"</strong>?
+                This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={cancelDelete}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={confirmDelete}
+                  disabled={deleteGroupMutation.isPending}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                >
+                  {deleteGroupMutation.isPending ? 'Deleting...' : 'Delete'}
+                </Button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

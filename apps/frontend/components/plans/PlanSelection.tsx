@@ -229,8 +229,8 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
             key={category.key}
             onClick={() => setSelectedCategory(category.key as any)}
             className={`px-6 py-3 rounded-xl font-semibold transition-all ${selectedCategory === category.key
-                ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white shadow-lg'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600'
+              ? 'bg-gradient-to-r from-emerald-400 to-green-500 text-white shadow-lg'
+              : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600'
               }`}
           >
             {category.label} ({category.count})
@@ -250,8 +250,8 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
             <Card
               key={plan.id}
               className={`relative overflow-hidden border-2 transition-all hover:shadow-xl ${isSubscribed
-                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-emerald-300'
+                ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
+                : 'border-gray-200 dark:border-gray-700 hover:border-emerald-300'
                 } ${isPopular ? 'ring-2 ring-yellow-400/50' : ''}`}
             >
               {/* Popular Badge */}
@@ -294,12 +294,23 @@ export function PlanSelection({ currentUser }: PlanSelectionProps) {
                 )}
 
                 <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-bold text-gray-900 dark:text-white">
-                    ${typeof plan.current_price === 'string' ? parseFloat(plan.current_price).toFixed(2) : plan.current_price}
-                  </span>
-                  <span className="text-gray-500 dark:text-gray-400">
-                    /use
-                  </span>
+                  {(() => {
+                    const price = typeof plan.current_price === 'string' ? parseFloat(plan.current_price) : plan.current_price;
+                    return price === 0 ? (
+                      <span className="text-3xl font-bold bg-gradient-to-r from-emerald-500 to-green-500 bg-clip-text text-transparent">
+                        Free
+                      </span>
+                    ) : (
+                      <>
+                        <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                          ${price.toFixed(2)}
+                        </span>
+                        <span className="text-gray-500 dark:text-gray-400">
+                          /use
+                        </span>
+                      </>
+                    );
+                  })()}
                 </div>
               </CardHeader>
 

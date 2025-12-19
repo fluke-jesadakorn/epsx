@@ -169,7 +169,19 @@ pub async fn create_group(
 
     // Save to database using Diesel repository
     if let Err(e) = app_state.permission_group_repo.save(&group).await {
-        tracing::error!("Failed to save permission group: {}", e);
+        let error_string = e.to_string();
+        tracing::error!("Failed to save permission group: {}", error_string);
+        
+        // Check for duplicate key constraint violation
+        if error_string.contains("duplicate key") || error_string.contains("unique constraint") {
+            if error_string.contains("permission_groups_name_key") {
+                return AdminResponse::conflict(&format!("A permission group with the name '{}' already exists", req.name)).into_response();
+            } else if error_string.contains("permission_groups_slug_key") {
+                return AdminResponse::conflict(&format!("A permission group with the slug '{}' already exists", req.slug)).into_response();
+            }
+            return AdminResponse::conflict("A permission group with this name or slug already exists").into_response();
+        }
+        
         return AdminResponse::server_error("Failed to create group").into_response();
     }
 

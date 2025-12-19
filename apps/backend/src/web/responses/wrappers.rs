@@ -66,6 +66,11 @@ impl AdminResponse {
     pub fn server_error(reason: &str) -> impl IntoResponse {
         UnifiedApiResponse::<()>::server_error(reason)
     }
+
+    /// Conflict error (409) - for duplicate resources
+    pub fn conflict(reason: &str) -> impl IntoResponse {
+        UnifiedApiResponse::<()>::error(409, "Conflict", reason)
+    }
 }
 
 // ============================================================================

@@ -14,6 +14,7 @@ pub mod mappers;
 pub mod wallet_user_repository_adapter;
 pub mod session_repository_adapter;
 pub mod permission_group_repository_adapter;
+pub mod subscription_repository_adapter; // NEW: Subscription persistence
 
 
 pub use base_repository::{ BaseRepository, DieselBaseRepository };
@@ -24,6 +25,7 @@ pub use tradingview_eps_repository::TradingViewEPSRepository;
 // pub use payment_repository_adapter::PaymentRepositoryAdapter; // Temporarily disabled
 
 pub use wallet_user_repository_adapter::WalletUserRepositoryAdapter;
+pub use subscription_repository_adapter::SubscriptionRepositoryAdapter;
 
 use diesel_async::{AsyncPgConnection, pooled_connection::AsyncDieselConnectionManager, pooled_connection::deadpool::Pool};
 

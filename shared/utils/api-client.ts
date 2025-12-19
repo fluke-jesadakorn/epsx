@@ -13,12 +13,14 @@
  * - Configurable request options and timeouts
  */
 
-import { getBackendUrl } from './url-resolver';
 import { COOKIES } from '../auth/cookies';
+import { getBackendUrl } from './url-resolver';
 
 // ============================================================================
 // CORE TYPES AND INTERFACES
 // ============================================================================
+
+import type { AdminMetadata } from '../types/api';
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -27,6 +29,8 @@ export interface ApiResponse<T = any> {
   message?: string;
   status: number;
   timestamp?: string;
+  /** Admin-specific metadata for operations */
+  admin_meta?: AdminMetadata;
 }
 
 export interface ApiError {
@@ -101,7 +105,7 @@ export class UnifiedApiClient {
     if (this.isServerSide) {
       try {
         // Check if we're in a Next.js environment and headers module is available
-        if (typeof process !== 'undefined' && process.env.NEXT_RUNTIME) {
+        if (typeof process !== 'undefined' && process.env['NEXT_RUNTIME']) {
           try {
             const { cookies } = await import('next/headers');
             const cookieStore = await cookies();
@@ -217,10 +221,10 @@ export class UnifiedApiClient {
         return acc;
       }, {} as Record<string, string>)
     ).toString() : '';
-    
-    return this.request<T>(`${endpoint}${queryString}`, { 
-      method: 'GET', 
-      ...config 
+
+    return this.request<T>(`${endpoint}${queryString}`, {
+      method: 'GET',
+      ...config
     });
   }
 
@@ -241,9 +245,9 @@ export class UnifiedApiClient {
   }
 
   async delete<T = any>(endpoint: string, config?: RequestConfig): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { 
-      method: 'DELETE', 
-      ...config 
+    return this.request<T>(endpoint, {
+      method: 'DELETE',
+      ...config
     });
   }
 
@@ -276,9 +280,9 @@ export class UnifiedApiClient {
   // ============================================================================
 
   isApiError(error: any): error is ApiError {
-    return error && 
-           typeof error.status === 'number' && 
-           typeof error.message === 'string';
+    return error &&
+      typeof error.status === 'number' &&
+      typeof error.message === 'string';
   }
 
   isApiSuccess<T>(response: ApiResponse<T>): response is ApiResponse<T> & { success: true; data: T } {
@@ -382,11 +386,11 @@ export async function handlePaginatedRequest<T>(
   params: Record<string, any> = {}
 ): Promise<PaginatedResponse<T>> {
   const response = await client.get<PaginatedResponse<T>>(endpoint, params);
-  
+
   if (!client.isApiSuccess(response)) {
     throw new APIError(response.status, response.error || 'Failed to fetch data');
   }
-  
+
   return response.data;
 }
 
@@ -400,11 +404,11 @@ export async function handleSimpleRequest<T>(
   data?: any
 ): Promise<T> {
   const response = await client[method]<T>(endpoint, data);
-  
+
   if (!client.isApiSuccess(response)) {
     throw new APIError(response.status, response.error || 'Request failed');
   }
-  
+
   return response.data;
 }
 
@@ -417,29 +421,29 @@ export async function retryRequest<T>(
   baseDelay: number = 1000
 ): Promise<ApiResponse<T>> {
   let lastError: ApiError;
-  
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
       return await requestFn();
     } catch (error) {
       lastError = error as ApiError;
-      
+
       // Don't retry client errors (4xx) except 429 (rate limit)
       if (lastError.status >= 400 && lastError.status < 500 && lastError.status !== 429) {
         throw lastError;
       }
-      
+
       // Don't retry on last attempt
       if (attempt === maxRetries) {
         throw lastError;
       }
-      
+
       // Wait with exponential backoff
       const delay = baseDelay * Math.pow(2, attempt);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
-  
+
   throw lastError!;
 }
 
@@ -448,23 +452,23 @@ export async function retryRequest<T>(
 // ============================================================================
 
 export function isApiError(error: any): error is ApiError {
-  return error && 
-         typeof error.status === 'number' && 
-         typeof error.message === 'string';
+  return error &&
+    typeof error.status === 'number' &&
+    typeof error.message === 'string';
 }
 
 export function isApiResponse<T>(response: any): response is ApiResponse<T> {
-  return response && 
-         typeof response.success === 'boolean' && 
-         typeof response.status === 'number';
+  return response &&
+    typeof response.success === 'boolean' &&
+    typeof response.status === 'number';
 }
 
 export function isPaginatedResponse<T>(response: any): response is PaginatedResponse<T> {
-  return response && 
-         Array.isArray(response.data) && 
-         response.pagination &&
-         typeof response.pagination.page === 'number' &&
-         typeof response.pagination.total_items === 'number';
+  return response &&
+    Array.isArray(response.data) &&
+    response.pagination &&
+    typeof response.pagination.page === 'number' &&
+    typeof response.pagination.total_items === 'number';
 }
 
 // ============================================================================

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 import { PancakeCard } from '@/components/ui/PancakeCard'
 import { toast } from '@/hooks/use-toast'
@@ -51,7 +51,7 @@ export function CreateSubscriptionForm({ onClose, onSuccess }: CreateSubscriptio
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!formData.user_id.trim()) {
       toast({
         title: "Error",
@@ -89,7 +89,7 @@ export function CreateSubscriptionForm({ onClose, onSuccess }: CreateSubscriptio
       }
 
       const response = await adminClient.createSubscription(subscriptionData)
-      
+
       if (isApiSuccess(response)) {
         onSuccess()
         toast({
@@ -173,7 +173,7 @@ export function CreateSubscriptionForm({ onClose, onSuccess }: CreateSubscriptio
                   <option value={0}>Select a plan</option>
                   {plans.map(plan => (
                     <option key={plan.id} value={plan.id}>
-                      {plan.name} - ${plan.current_price} {plan.currency} ({plan.plan_category})
+                      {plan.name} - {Number(plan.current_price) === 0 ? 'Free' : `$${plan.current_price} ${plan.currency}`} ({plan.plan_category})
                     </option>
                   ))}
                 </select>
@@ -193,11 +193,10 @@ export function CreateSubscriptionForm({ onClose, onSuccess }: CreateSubscriptio
                 ].map(option => (
                   <label
                     key={option.value}
-                    className={`relative flex flex-col p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                      formData.access_context === option.value
+                    className={`relative flex flex-col p-4 rounded-xl border-2 cursor-pointer transition-all ${formData.access_context === option.value
                         ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
                         : 'border-gray-200 dark:border-gray-600 hover:border-gray-300'
-                    }`}
+                      }`}
                   >
                     <input
                       type="radio"

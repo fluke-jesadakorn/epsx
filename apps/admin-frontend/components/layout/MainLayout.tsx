@@ -19,10 +19,7 @@ interface MainLayoutProps {
 }
 
 /**
- *
- * @param root0
- * @param root0.children
- * @param root0.user
+ * Main Layout with Sidebar + Header
  */
 export function MainLayout({ children, user }: MainLayoutProps) {
   return (

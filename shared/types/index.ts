@@ -22,6 +22,8 @@ export * from './progressive-auth';
 
 // Tier group types (unified tier and permission group system)
 export * from './tier-groups';
+// Wallet types
+export * from './wallet';
 
 // Existing shared types
 // export * from './auth';
@@ -43,7 +45,7 @@ export const TYPE_MIGRATION_MAP = {
   'PaymentResponse': 'PaymentResponse', // Same name, consolidated location
   'AssetInfo': 'AssetInfo', // Same name, consolidated location
   'UserSubscription': 'UserSubscription', // Same name, consolidated location
-  
+
   // Auth types
   'AdminJWTPayload': 'AdminJWTPayload', // Same name, consolidated location
   'UserJWTPayload': 'UserJWTPayload', // Same name, consolidated location
@@ -72,66 +74,42 @@ export function isTypeConsolidated(typeName: string): boolean {
 // ============================================================================
 
 // Most commonly used types for quick access
-export type { 
+export type {
   // Payment
   CreatePaymentRequest,
-  PaymentResponse,
-  UserSubscription,
-  PaymentStatusType,
+  PaymentResponse, PaymentStatusType, UserSubscription
 } from './payment';
 
 export type {
-  // Auth
-  UserProfile,
-  AdminUserProfile,
-  UserSessionData,
-  AdminSessionData,
-  SessionData,
+  AdminJWTPayload, AdminSessionData, AdminUserProfile, PermissionCheck,
+  SecurityContext, SessionData,
   UserJWTPayload,
-  AdminJWTPayload,
-  PermissionCheck,
-  SecurityContext,
+  // Auth
+  UserProfile, UserSessionData
 } from './auth-separation';
 
 export type {
+  AnalyticsRankingItem, ApiError,
   // API
-  ApiResponse,
-  ApiError,
-  PaginatedResponse,
-  LoginRequest,
-  AuthTokens,
-  NotificationWSMessage,
-  AnalyticsRankingItem,
+  ApiResponse, AuthTokens, LoginRequest, NotificationWSMessage, PaginatedResponse
 } from './api';
 
 export type {
+  AuthGateProps,
   // Progressive Auth
   AuthLevel,
   AuthState,
-  ProgressiveAuthProps,
-  AuthGateProps
+  ProgressiveAuthProps
 } from './progressive-auth';
 
 export type {
+  CreateTierAssignmentRequest, LegacyTierMappings,
   // Tier Groups
-  TierGroup,
-  TierGroupRequest,
-  UpdateTierGroupRequest,
-  UserTierAssignment,
-  CreateTierAssignmentRequest,
-  UnifiedUserPermissions,
-  TierGroupListResponse,
-  TierGroupAnalytics,
-  LegacyTierMappings
+  TierGroup, TierGroupAnalytics, TierGroupListResponse, TierGroupRequest, UnifiedUserPermissions, UpdateTierGroupRequest,
+  UserTierAssignment
 } from './tier-groups';
 
 export type {
-  BaseJWTPayload,
-  AuthenticatedUserProfile,
-  SessionValidationResult,
-  PermissionValidation,
-  AuthConfig,
-  TokenValidationOptions,
-  LegacyJWTPayload,
-  MigrationResult
+  AuthConfig, AuthenticatedUserProfile, BaseJWTPayload, LegacyJWTPayload,
+  MigrationResult, PermissionValidation, SessionValidationResult, TokenValidationOptions
 } from './auth-separation';

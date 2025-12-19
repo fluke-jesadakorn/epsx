@@ -87,6 +87,12 @@ use super::wallet_management_handlers::{
   update_user_handler,
   get_user_stats_handler,
 };
+// Wallet disable/enable and activity handlers
+use super::wallet_disable_handlers::{
+  disable_wallet_handler,
+  enable_wallet_handler,
+  get_wallet_activity_handler,
+};
 // Analytics and business intelligence handlers
 use super::analytics_handlers::{
   get_platform_overview_handler,
@@ -199,6 +205,10 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/wallets/stats", get(get_user_stats_handler))
     .route("/wallets/{wallet_address}", get(get_user_handler))
     .route("/wallets/{wallet_address}", put(update_user_handler))
+    // Wallet disable/enable operations
+    .route("/wallets/{wallet_address}/disable", post(disable_wallet_handler))
+    .route("/wallets/{wallet_address}/enable", post(enable_wallet_handler))
+    .route("/wallets/{wallet_address}/activity", get(get_wallet_activity_handler))
 
     // ============================================================================
     // ANALYTICS AND BUSINESS INTELLIGENCE SYSTEM
