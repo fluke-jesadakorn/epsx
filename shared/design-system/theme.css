@@ -158,6 +158,10 @@
     --pancake-yellow-50: hsl(42 100% 95%);
     --pancake-orange-950: hsl(31 80% 10%);
     --pancake-yellow-950: hsl(42 70% 10%);
+    
+    /* Dynamic Accent Color (set by SettingsProvider) */
+    --accent-color: #00ff33;
+    --accent-color-rgb: 0, 255, 51;
   }
 
   /* Dark Theme */

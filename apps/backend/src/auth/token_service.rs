@@ -276,6 +276,26 @@ impl OpenIDTokenService {
         Ok(())
     }
 
+    /// Validate Access Token
+    pub async fn validate_access_token(&self, token: &str) -> Result<AccessTokenClaims, OpenIDTokenError> {
+        let mut validation = jsonwebtoken::Validation::new(Algorithm::RS256);
+        validation.set_audience(&self.audiences);
+        validation.set_issuer(&[self.issuer.clone()]);
+        
+        // Allow some leeway for clock skew
+        validation.leeway = 60; 
+
+        // Decode and verify
+        let key_manager = &self.key_manager;
+        let token_data = jsonwebtoken::decode::<AccessTokenClaims>(
+            token,
+            &key_manager.current_key().decoding_key,
+            &validation
+        ).map_err(|e| OpenIDTokenError::Web3AuthenticationFailed(format!("Token validation failed: {}", e)))?;
+        
+        Ok(token_data.claims)
+    }
+
     // Private helper methods
 
     /// Verify Web3 authentication using SIWE cryptographic signature verification
@@ -320,7 +340,7 @@ impl OpenIDTokenService {
     /// All permissions from permission groups are expanded here and stored in JWT
     async fn get_wallet_user_profile(&self, wallet_address: &str) -> Result<WalletUserProfile, OpenIDTokenError> {
         // Expand permission groups into individual permissions
-        let expanded_permissions = self.expand_permission_groups(wallet_address).await?;
+        let expanded_permissions = self.expand_groups(wallet_address).await?;
 
         Ok(WalletUserProfile {
             wallet_address: wallet_address.to_string(),
@@ -329,8 +349,8 @@ impl OpenIDTokenService {
     }
 
     /// Get permissions from normalized permission tables
-    /// Queries: wallet_group_memberships + permission_group_memberships + wallet_direct_permissions
-    async fn expand_permission_groups(
+    /// Queries: wallet_group_memberships + group_permissions + wallet_direct_permissions
+    async fn expand_groups(
         &self,
         wallet_address: &str,
     ) -> Result<Vec<String>, OpenIDTokenError> {
@@ -369,7 +389,7 @@ impl OpenIDTokenService {
             -- Permissions from groups (extract name from JSON VARCHAR)
             SELECT DISTINCT (p.permission_string::jsonb)->>'name' as permission_string
             FROM wallet_group_assignments wga
-            JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
+            JOIN group_permissions pgm ON wga.group_id = pgm.group_id
             JOIN permissions p ON pgm.permission_id = p.id
             WHERE wga.wallet_address = $1
               AND wga.is_active = true

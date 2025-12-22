@@ -4,24 +4,42 @@
  */
 'use client';
 
-import { ArrowLeft, Clock, Copy, ExternalLink, Package, RefreshCw, Shield } from 'lucide-react';
+import { ArrowLeft, Clock, Copy, ExternalLink, Package, RefreshCw, Save, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
+import { PermissionTransferList } from '@/components/groups/PermissionTransferList';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AssignPermissionForm, type AssignPermissionData } from '@/components/wallet/AssignPermissionForm';
 import { DisableWalletModal, type DisableWalletData } from '@/components/wallet/DisableWalletModal';
 import { ReenableWalletModal, type ReenableWalletData } from '@/components/wallet/ReenableWalletModal';
 import { WalletActivityTimeline } from '@/components/wallet/WalletActivityTimeline';
-import { WalletPermissionTable } from '@/components/wallet/WalletPermissionTable';
 import type { WalletActivityEvent, WalletData, WalletStatus } from '@/components/wallet/types';
 import { walletMgmt } from '@/lib/api/wallet-management-client';
 import { cn } from '@/lib/utils';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
+
+// All available permissions in the system
+const ALL_AVAILABLE_PERMISSIONS = [
+    'epsx:analytics:view',
+    'epsx:analytics:advanced',
+    'epsx:trading:basic',
+    'epsx:trading:advanced',
+    'epsx:trading:pro',
+    'epsx:data:export',
+    'epsx:api:read',
+    'epsx:api:write',
+    'epsx:notifications:manage',
+    'epsx:markets:view',
+    'epsx:markets:alerts',
+    'epsx:pay:basic',
+    'epsx:pay:advanced',
+    'epsx:token:view',
+    'epsx:token:transfer',
+];
 
 const STATUS_CONFIG: Record<WalletStatus, { label: string; emoji: string; className: string }> = {
     active: {
@@ -80,7 +98,11 @@ export default function WalletDetailPage() {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [activityEvents, setActivityEvents] = useState<WalletActivityEvent[]>([]);
     const [copied, setCopied] = useState(false);
-    const [isAssigning, setIsAssigning] = useState(false);
+    const [isSavingPermissions, setIsSavingPermissions] = useState(false);
+
+    // Permission management state
+    const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+    const [hasPermissionChanges, setHasPermissionChanges] = useState(false);
 
     // Modals
     const [showDisableModal, setShowDisableModal] = useState(false);
@@ -99,6 +121,10 @@ export default function WalletDetailPage() {
             ]);
             setWallet(walletData);
             setActivityEvents(events);
+            // Initialize selected permissions from wallet data
+            const currentPermissions = walletData.permissions.map(p => p.permission);
+            setSelectedPermissions(currentPermissions);
+            setHasPermissionChanges(false);
         } catch (err) {
             console.error('Failed to load wallet:', err);
             toast.error('Failed to load wallet details');
@@ -123,33 +149,42 @@ export default function WalletDetailPage() {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const handleAssignPermission = async (data: AssignPermissionData) => {
-        setIsAssigning(true);
-        try {
-            // TODO: Call API to assign permission
-            console.log('Assign permission:', data);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            toast.success('Permission assigned successfully');
-            await loadWallet();
-        } catch (err) {
-            toast.error('Failed to assign permission');
-        } finally {
-            setIsAssigning(false);
-        }
-    };
+    // Handle permission changes from PermissionTransferList
+    const handlePermissionsChange = useCallback((newPermissions: string[]) => {
+        setSelectedPermissions(newPermissions);
+        // Check if permissions have changed from original
+        const originalPermissions = wallet?.permissions.map(p => p.permission) ?? [];
+        const hasChanged =
+            newPermissions.length !== originalPermissions.length ||
+            newPermissions.some(p => !originalPermissions.includes(p)) ||
+            originalPermissions.some(p => !newPermissions.includes(p));
+        setHasPermissionChanges(hasChanged);
+    }, [wallet]);
 
-    const handleRevokePermission = async (permissionId: string) => {
-        setIsActionLoading(true);
+    // Save permission changes
+    const handleSavePermissions = async () => {
+        if (!wallet || !hasPermissionChanges) return;
+
+        setIsSavingPermissions(true);
         try {
-            // TODO: Call API to revoke permission
-            console.log('Revoke permission:', permissionId);
+            const originalPermissions = wallet.permissions.map(p => p.permission);
+            const toAdd = selectedPermissions.filter(p => !originalPermissions.includes(p));
+            const toRemove = originalPermissions.filter(p => !selectedPermissions.includes(p));
+
+            // TODO: Call API to update permissions
+            console.log('Permissions to add:', toAdd);
+            console.log('Permissions to remove:', toRemove);
+
+            // Simulate API call
             await new Promise(resolve => setTimeout(resolve, 1000));
-            toast.success('Permission revoked successfully');
+
+            toast.success(`Permissions updated: +${toAdd.length} / -${toRemove.length}`);
+            setHasPermissionChanges(false);
             await loadWallet();
         } catch (err) {
-            toast.error('Failed to revoke permission');
+            toast.error('Failed to save permission changes');
         } finally {
-            setIsActionLoading(false);
+            setIsSavingPermissions(false);
         }
     };
 
@@ -402,25 +437,32 @@ export default function WalletDetailPage() {
                     </div>
                 )}
 
-                {/* Permissions */}
+                {/* Permissions - Drag and Drop Transfer List */}
                 <div className="rounded-xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 p-5">
-                    <h3 className="font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                        <Shield className="h-5 w-5 text-blue-600" />
-                        Permissions
-                    </h3>
-                    <WalletPermissionTable
-                        permissions={wallet.permissions}
-                        showActions={true}
-                        onRevoke={handleRevokePermission}
-                    />
-                </div>
-
-                {/* Assign Permission Form */}
-                <div className="rounded-xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 p-5">
-                    <AssignPermissionForm
-                        walletAddress={wallet.walletAddress}
-                        onAssign={handleAssignPermission}
-                        isLoading={isAssigning}
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                            <Shield className="h-5 w-5 text-blue-600" />
+                            Access Permissions
+                        </h3>
+                        {hasPermissionChanges && (
+                            <Button
+                                onClick={handleSavePermissions}
+                                disabled={isSavingPermissions}
+                                className="gap-2 bg-green-600 hover:bg-green-700 text-white"
+                            >
+                                {isSavingPermissions ? (
+                                    <RefreshCw className="h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Save className="h-4 w-4" />
+                                )}
+                                Save Changes
+                            </Button>
+                        )}
+                    </div>
+                    <PermissionTransferList
+                        available={ALL_AVAILABLE_PERMISSIONS}
+                        selected={selectedPermissions}
+                        onChange={handlePermissionsChange}
                     />
                 </div>
 

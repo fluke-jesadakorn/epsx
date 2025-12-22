@@ -33,8 +33,8 @@ impl CreatePlanCommandHandler {
 impl CommandHandler<CreatePlanCommand> for CreatePlanCommandHandler {
     async fn handle(&self, command: CreatePlanCommand) -> ApplicationResult<CreatePlanResponse> {
         // 1. Parse permission group ID
-        let permission_group_id = GroupId::from_str(&command.permission_group_id)
-            .map_err(|e| ApplicationError::validation("permission_group_id", e.to_string()))?;
+        let group_id = GroupId::from_str(&command.group_id)
+            .map_err(|e| ApplicationError::validation("group_id", e.to_string()))?;
 
         // 2. Create price value object - convert f64 to Decimal
         let price_decimal = Decimal::from_str(&command.price.to_string())
@@ -61,7 +61,7 @@ impl CommandHandler<CreatePlanCommand> for CreatePlanCommandHandler {
         let plan = Plan::create(plan_id.clone(), CreatePlanParams {
             name: command.name.clone(),
             description: command.description,
-            permission_group_id,
+            group_id,
             price,
             billing_cycle,
             features,

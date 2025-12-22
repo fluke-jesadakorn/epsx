@@ -11,7 +11,7 @@ use crate::auth::granular_permissions::{
   GranularPermissionClaim,
   PermissionSource,
 };
-use crate::infrastructure::container::AuthenticatedUser;
+use crate::web::analytics::AuthenticatedUser;
 use crate::web::auth::AppState;
 
 /// Query parameters for permission check
@@ -120,14 +120,14 @@ pub async fn get_user_permissions(
   let (permissions_map, permission_version) = {
     // Fall back to JWT permissions (convert to expected format)
     let mut permissions_map = HashMap::new();
-    for perm in &user.valid_permissions {
+    for perm in &user.permissions {
       // Create a basic permission claim for JWT permissions
       permissions_map.insert(
         perm.clone(),
         GranularPermissionClaim::permanent(PermissionSource::SystemGrant, None)
       );
     }
-    (permissions_map, user.permission_version)
+    (permissions_map, 0u32) // Default version since AuthenticatedUser doesn't track versions
   };
 
   let now = Utc::now();
@@ -223,9 +223,9 @@ pub async fn get_user_permissions(
   }
 
   // Check if user has admin access
-  let has_admin_access = user.valid_permissions
+  let has_admin_access = user.permissions
     .iter()
-    .any(|p| (p.starts_with("admin:") || p == "admin:*:*"));
+    .any(|p| p.starts_with("admin:") || p == "admin:*:*");
 
   let status = UserPermissionStatus {
     wallet_address: user.id.clone(),
@@ -271,7 +271,7 @@ pub async fn check_user_permission(
   info!("Checking permission '{}' for user {}", permission, user.id);
 
   // Check if user has the permission (supports wildcard matching)
-  let has_permission = user.valid_permissions
+  let has_permission = user.permissions
     .iter()
     .any(|p| { permission_matches(p, &permission) });
 

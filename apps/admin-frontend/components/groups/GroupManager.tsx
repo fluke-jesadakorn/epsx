@@ -11,36 +11,41 @@
 
 'use client'
 
-import { 
-  Users, Plus, Settings, Trash2, Edit, Shield, Clock, 
-  AlertTriangle, CheckCircle, Star, Zap, Globe, Key,
-  TrendingUp, Activity, FileText, Search, Filter, MoreHorizontal
+import {
+  Activity,
+  AlertTriangle, CheckCircle,
+  Clock,
+  Edit,
+  Filter, MoreHorizontal,
+  Plus,
+  Search,
+  Star,
+  Trash2,
+  Users
 } from 'lucide-react'
-import React, { useState, useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
-import { GroupAnalyticsDashboard } from './GroupAnalyticsDashboard'
 import { GroupEditor } from './GroupEditor'
-import { GroupMembershipManager } from './GroupMembershipManager'
 
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { 
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter 
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle
 } from '@/components/ui/dialog'
-import { 
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger 
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/components/ui/use-toast'
-import { adminCardVariants, adminButtonVariants } from '@/design-system'
+import { adminButtonVariants, adminCardVariants } from '@/design-system'
 import {
-  usePermissionGroups,
-  useGroupAnalytics
+  useGroupAnalytics,
+  useGroups
 } from '@/hooks/useGroupPermissions'
-import { PermissionGroup } from '@/lib/api/group-management-client'
+import { Group } from '@/lib/api/group-management-client'
 import { cn } from '@/lib/shared'
 
 // Sub-components
@@ -61,9 +66,11 @@ export function GroupManager({ className }: GroupManagerProps) {
   const { toast } = useToast()
   const [activeTab, setActiveTab] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
-  const [selectedGroup, setSelectedGroup] = useState<PermissionGroup | null>(null)
   const [showGroupEditor, setShowGroupEditor] = useState(false)
-  const [editingGroup, setEditingGroup] = useState<PermissionGroup | null>(null)
+  const [editingGroup, setEditingGroup] = useState<Group | null>(null)
+
+  // Permission check bypassed - backend handles authorization
+  const canManageGroups = true;
 
   // Hooks
   const {
@@ -71,14 +78,14 @@ export function GroupManager({ className }: GroupManagerProps) {
     loading: isLoading,
     error,
     deleteGroup
-  } = usePermissionGroups()
+  } = useGroups()
 
   const { stats } = useGroupAnalytics()
   // Backend handles permission checking - no client-side validation needed
 
   // Filter groups based on search
   const filteredGroups = useMemo(() => {
-    if (!searchTerm) {return groups}
+    if (!searchTerm) { return groups }
     const searchLower = searchTerm.toLowerCase()
     return groups.filter(group =>
       group.name.toLowerCase().includes(searchLower) ||
@@ -89,11 +96,11 @@ export function GroupManager({ className }: GroupManagerProps) {
 
   // Separate system and custom groups
   const systemGroups = useMemo(() => {
-    return groups.filter(group => group.is_system_group)
+    return groups.filter(group => group.group_type === 'system' || group.group_type === 'admin')
   }, [groups])
 
   const customGroups = useMemo(() => {
-    return groups.filter(group => !group.is_system_group)
+    return groups.filter(group => group.group_type !== 'system' && group.group_type !== 'admin')
   }, [groups])
 
   // Event handlers
@@ -102,16 +109,16 @@ export function GroupManager({ className }: GroupManagerProps) {
     setShowGroupEditor(true)
   }, [])
 
-  const handleEditGroup = useCallback((group: PermissionGroup) => {
+  const handleEditGroup = useCallback((group: Group) => {
     setEditingGroup(group)
     setShowGroupEditor(true)
   }, [])
 
-  const handleDeleteGroup = useCallback(async (group: PermissionGroup) => {
-    if (group.is_system_group) {
+  const handleDeleteGroup = useCallback(async (group: Group) => {
+    if (group.group_type === 'system' || group.group_type === 'admin') {
       toast({
         title: 'Cannot Delete System Group',
-        description: 'System groups cannot be deleted.',
+        description: 'System-managed groups cannot be deleted.',
         variant: 'destructive'
       })
       return
@@ -137,31 +144,31 @@ export function GroupManager({ className }: GroupManagerProps) {
     setEditingGroup(null)
   }, [])
 
-  const handleGroupSaved = useCallback((group: PermissionGroup) => {
+  const handleGroupSaved = useCallback((group: Group) => {
     setShowGroupEditor(false)
     setEditingGroup(null)
     toast({
       title: editingGroup ? 'Group Updated' : 'Group Created',
-      description: `Permission group "${group.name}" has been ${editingGroup ? 'updated' : 'created'}.`
+      description: `Group "${group.name}" has been ${editingGroup ? 'updated' : 'created'}.`
     })
   }, [editingGroup, toast])
 
   // Helper functions
-  const getGroupIcon = (group: PermissionGroup) => {
-    if (group.is_system_group) {return <Star className="h-4 w-4" />}
+  const getGroupIcon = (group: Group) => {
+    if (group.group_type === 'system' || group.group_type === 'admin') { return <Star className="h-4 w-4" /> }
     return <Users className="h-4 w-4" />
   }
 
-  const getGroupBadgeVariant = (group: PermissionGroup) => {
-    if (group.is_system_group) {return 'default'}
-    if (group.priority_level > 5) {return 'destructive'}
+  const getGroupBadgeVariant = (group: Group) => {
+    if (group.group_type === 'system' || group.group_type === 'admin') { return 'default' }
+    if ((group.display_order || 0) > 5) { return 'destructive' }
     return 'secondary'
   }
 
   const getPriorityLabel = (priority: number) => {
-    if (priority >= 8) {return 'Critical'}
-    if (priority >= 5) {return 'High'}
-    if (priority >= 3) {return 'Medium'}
+    if (priority >= 8) { return 'Critical' }
+    if (priority >= 5) { return 'High' }
+    if (priority >= 3) { return 'Medium' }
     return 'Low'
   }
 
@@ -208,13 +215,13 @@ export function GroupManager({ className }: GroupManagerProps) {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Permission Groups</h1>
+          <h1 className="text-2xl font-semibold text-gray-900">Groups</h1>
           <p className="text-sm text-gray-600 mt-1">
-            Manage user permission groups and Web3 auto-assignment rules
+            Manage user groups and Web3 auto-assignment rules
           </p>
         </div>
         {canManageGroups && (
-          <Button 
+          <Button
             onClick={handleCreateGroup}
             className={adminButtonVariants({ variant: 'primary', size: 'sm' })}
           >
@@ -301,39 +308,36 @@ export function GroupManager({ className }: GroupManagerProps) {
         </TabsList>
 
         <TabsContent value="all" className="mt-6">
-          <GroupList 
+          <GroupList
             groups={filteredGroups}
             onEdit={handleEditGroup}
             onDelete={handleDeleteGroup}
-            onSelect={setSelectedGroup}
             canManage={canManageGroups}
           />
         </TabsContent>
 
         <TabsContent value="system" className="mt-6">
-          <GroupList 
-            groups={systemGroups.filter(g => 
-              !searchTerm || 
+          <GroupList
+            groups={systemGroups.filter(g =>
+              !searchTerm ||
               g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
               g.description?.toLowerCase().includes(searchTerm.toLowerCase())
             )}
             onEdit={handleEditGroup}
             onDelete={handleDeleteGroup}
-            onSelect={setSelectedGroup}
             canManage={canManageGroups}
           />
         </TabsContent>
 
         <TabsContent value="custom" className="mt-6">
-          <GroupList 
-            groups={customGroups.filter(g => 
-              !searchTerm || 
+          <GroupList
+            groups={customGroups.filter(g =>
+              !searchTerm ||
               g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
               g.description?.toLowerCase().includes(searchTerm.toLowerCase())
             )}
             onEdit={handleEditGroup}
             onDelete={handleDeleteGroup}
-            onSelect={setSelectedGroup}
             canManage={canManageGroups}
           />
         </TabsContent>
@@ -344,7 +348,7 @@ export function GroupManager({ className }: GroupManagerProps) {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingGroup ? 'Edit Permission Group' : 'Create Permission Group'}
+              {editingGroup ? 'Edit Group' : 'Create Group'}
             </DialogTitle>
           </DialogHeader>
           <GroupEditor
@@ -360,21 +364,20 @@ export function GroupManager({ className }: GroupManagerProps) {
 
 // Group List Component
 interface GroupListProps {
-  groups: PermissionGroup[]
-  onEdit: (group: PermissionGroup) => void
-  onDelete: (group: PermissionGroup) => void
-  onSelect: (group: PermissionGroup | null) => void
+  groups: Group[]
+  onEdit: (group: Group) => void
+  onDelete: (group: Group) => void
   canManage: boolean
 }
 
-function GroupList({ groups, onEdit, onDelete, onSelect, canManage }: GroupListProps) {
+function GroupList({ groups, onEdit, onDelete, canManage }: GroupListProps) {
   if (groups.length === 0) {
     return (
       <Card className="p-8 text-center">
         <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
         <h3 className="text-lg font-medium text-gray-900 mb-2">No groups found</h3>
         <p className="text-gray-600">
-          {canManage ? 'Create your first permission group to get started.' : 'No permission groups match your search criteria.'}
+          {canManage ? 'Create your first group to get started.' : 'No groups match your search criteria.'}
         </p>
       </Card>
     )
@@ -383,14 +386,14 @@ function GroupList({ groups, onEdit, onDelete, onSelect, canManage }: GroupListP
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
       {groups.map((group) => (
-        <Card 
-          key={group.id} 
+        <Card
+          key={group.id}
           className={adminCardVariants({ variant: 'default' })}
         >
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2">
-                {group.is_system_group ? (
+                {group.group_type === 'system' || group.group_type === 'admin' ? (
                   <Star className="h-4 w-4 text-yellow-600" />
                 ) : (
                   <Users className="h-4 w-4 text-blue-600" />
@@ -398,8 +401,8 @@ function GroupList({ groups, onEdit, onDelete, onSelect, canManage }: GroupListP
                 <CardTitle className="text-base">{group.name}</CardTitle>
               </div>
               <div className="flex items-center gap-1">
-                <Badge variant={group.is_system_group ? 'default' : 'secondary'}>
-                  {group.is_system_group ? 'System' : 'Custom'}
+                <Badge variant={group.group_type === 'system' || group.group_type === 'admin' ? 'default' : 'secondary'}>
+                  {group.group_type === 'system' || group.group_type === 'admin' ? 'System' : 'Custom'}
                 </Badge>
                 {canManage && (
                   <DropdownMenu>
@@ -413,8 +416,8 @@ function GroupList({ groups, onEdit, onDelete, onSelect, canManage }: GroupListP
                         <Edit className="h-4 w-4 mr-2" />
                         Edit
                       </DropdownMenuItem>
-                      {!group.is_system_group && (
-                        <DropdownMenuItem 
+                      {!(group.group_type === 'system' || group.group_type === 'admin') && (
+                        <DropdownMenuItem
                           onClick={() => onDelete(group)}
                           className="text-red-600"
                         >
@@ -433,28 +436,21 @@ function GroupList({ groups, onEdit, onDelete, onSelect, canManage }: GroupListP
               </CardDescription>
             )}
           </CardHeader>
-          
+
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-600">Permissions</span>
               <Badge variant="outline">{group.permissions.length}</Badge>
             </div>
-            
+
             <div className="flex items-center justify-between text-sm">
               <span className="text-gray-600">Priority</span>
-              <Badge variant={group.priority_level > 5 ? 'destructive' : 'secondary'}>
-                {group.priority_level}
+              <Badge variant={(group.display_order || 0) > 5 ? 'destructive' : 'secondary'}>
+                {group.display_order || 0}
               </Badge>
             </div>
-            
-            {group.default_expiry_days && (
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Default Expiry</span>
-                <span className="text-xs text-gray-500">
-                  {group.default_expiry_days} days
-                </span>
-              </div>
-            )}
+
+            {/* default_expiry_days removed from backend response, using group_metadata if needed */}
 
             <div className="pt-2 border-t border-gray-100">
               <div className="flex flex-wrap gap-1">

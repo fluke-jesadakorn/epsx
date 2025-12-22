@@ -195,7 +195,7 @@ pub async fn create_assignment(
 
             // Fetch group details
             let group = diesel::sql_query(
-                "SELECT name, group_type FROM permission_groups WHERE id = $1"
+                "SELECT name, group_type FROM groups WHERE id = $1"
             )
             .bind::<diesel::sql_types::Uuid, _>(group_uuid)
             .get_result::<GroupDetails>(conn)
@@ -269,7 +269,7 @@ pub async fn list_assignments(
             wga.next_billing_date,
             wga.assignment_metadata
         FROM wallet_group_assignments wga
-        JOIN permission_groups pg ON wga.group_id = pg.id
+        JOIN groups pg ON wga.group_id = pg.id
         "#
     );
 
@@ -550,7 +550,7 @@ pub async fn get_expiring_assignments(
             wga.assigned_at,
             wga.expires_at
         FROM wallet_group_assignments wga
-        JOIN permission_groups pg ON wga.group_id = pg.id
+        JOIN groups pg ON wga.group_id = pg.id
         WHERE wga.is_active = true
           AND wga.expires_at IS NOT NULL
           AND wga.expires_at BETWEEN NOW() AND NOW() + ($1 || ' days')::interval
@@ -658,7 +658,7 @@ pub async fn get_assignment_history(
             wga.next_billing_date,
             wga.assignment_metadata
         FROM wallet_group_assignments wga
-        JOIN permission_groups pg ON wga.group_id = pg.id
+        JOIN groups pg ON wga.group_id = pg.id
         WHERE wga.wallet_address = $1
         ORDER BY wga.assigned_at DESC
         "#
@@ -744,7 +744,7 @@ pub async fn get_wallet_groups(
             wga.id, wga.group_id, wga.assigned_at, wga.expires_at, wga.is_active,
             pg.name as group_name, pg.slug as group_slug, pg.group_type
         FROM wallet_group_assignments wga
-        JOIN permission_groups pg ON wga.group_id = pg.id
+        JOIN groups pg ON wga.group_id = pg.id
         WHERE wga.wallet_address = $1 AND wga.is_active = true
         ORDER BY wga.assigned_at DESC
         "#

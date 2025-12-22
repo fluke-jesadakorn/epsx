@@ -5,10 +5,9 @@
  * Pure Web3 wallet-based authentication for admin dashboard
  */
 
-import { create } from 'zustand'
+import { create } from 'zustand';
 
-import { config } from '@/config/env'
-import { createAdminClient, SharedWeb3AuthClient, UserInfoResponse } from '@/shared/auth/client'
+import { createAdminClient, UserInfoResponse } from '@/shared/auth/client';
 
 // Web3 Admin Wallet interface (migrated from EnterpriseAdminUser)
 export interface AdminWallet {
@@ -47,7 +46,7 @@ export interface Web3AdminAuthState {
 function transformWeb3UserToAdminWallet(web3User: UserInfoResponse): AdminWallet {
   const permissions = web3User.permissions || [];
   const isAdmin = permissions.some(p => p.startsWith('admin:'));
-  
+
   return {
     wallet_address: web3User.wallet_address,
     permission_group: 'Basic Access Group', // TODO: Get from backend
@@ -97,21 +96,21 @@ export const useAuth = create<Web3AdminAuthState & {
   // Connect wallet for admin authentication
   connectWallet: async () => {
     set({ isConnecting: true, error: null });
-    
+
     try {
-      
+
       // Check if already authenticated
       if (adminWeb3Client.isAuthenticated()) {
         const web3User = await adminWeb3Client.loadCurrentUser();
         if (web3User) {
           const adminWallet = transformWeb3UserToAdminWallet(web3User);
-          
+
           // Check admin permissions
           if (!adminWallet.is_admin) {
             throw new Error('Insufficient admin permissions');
           }
-          
-          set({ 
+
+          set({
             wallet: adminWallet,
             user: adminWallet, // For backward compatibility
             walletAddress: adminWallet.wallet_address,
@@ -119,23 +118,23 @@ export const useAuth = create<Web3AdminAuthState & {
             isConnecting: false,
             expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
           });
-          
+
           return;
         }
       }
-      
+
       // Trigger wallet connection event for Web3 components
       const walletConnectEvent = new CustomEvent('epsx:admin-connect-wallet');
       window.dispatchEvent(walletConnectEvent);
-      
+
       set({ isConnecting: false });
-      
+
     } catch (_error) {
       // eslint-disable-next-line no-console
       console.error('❌ Admin: Wallet connection failed:', _error);
-      set({ 
+      set({
         error: _error instanceof Error ? _error.message : 'Wallet connection failed',
-        isConnecting: false 
+        isConnecting: false
       });
     }
   },
@@ -145,7 +144,7 @@ export const useAuth = create<Web3AdminAuthState & {
     set({ isAuthenticating: true, error: null });
 
     try {
-      
+
       // If signature provided, use it directly
       if (walletAddress && signature && message && nonce) {
         const result = await adminWeb3Client.authenticateWithSignature({
@@ -154,18 +153,18 @@ export const useAuth = create<Web3AdminAuthState & {
           message,
           nonce
         });
-        
+
         if (!result.success || !result.user) {
           throw new Error(result.error || 'Authentication failed');
         }
-        
+
         const adminWallet = transformWeb3UserToAdminWallet(result.user);
-        
+
         // Check admin permissions
         if (!adminWallet.is_admin) {
           throw new Error('Insufficient admin permissions for admin dashboard');
         }
-        
+
         set({
           wallet: adminWallet,
           user: adminWallet, // For backward compatibility
@@ -174,25 +173,25 @@ export const useAuth = create<Web3AdminAuthState & {
           isAuthenticating: false,
           expiresAt: Date.now() + (24 * 60 * 60 * 1000), // 24 hours
         });
-        
+
         return;
       }
-      
+
       // Otherwise, trigger auth flow
       const { walletAddress: currentWalletAddress } = get();
       if (!currentWalletAddress) {
         set({ error: 'Please connect wallet first', isAuthenticating: false });
         return;
       }
-      
+
       // Trigger authentication event for Web3 components to handle
       const authEvent = new CustomEvent('epsx:admin-authenticate', {
         detail: { walletAddress: currentWalletAddress }
       });
       window.dispatchEvent(authEvent);
-      
+
       set({ isAuthenticating: false });
-      
+
     } catch (_error) {
       // eslint-disable-next-line no-console
       console.error('❌ Admin: Authentication failed:', _error);
@@ -203,13 +202,13 @@ export const useAuth = create<Web3AdminAuthState & {
       });
     }
   },
-  
+
   // Request Web3 challenge for admin authentication
   requestAdminChallenge: async (walletAddress: string) => {
     try {
-      
+
       return await adminWeb3Client.requestChallenge(walletAddress);
-      
+
     } catch (_error) {
       // eslint-disable-next-line no-console
       console.error('❌ Admin: Challenge request failed:', _error);
@@ -220,7 +219,7 @@ export const useAuth = create<Web3AdminAuthState & {
   // Disconnect wallet and clear session
   disconnectWallet: async () => {
     set({ isLoading: true });
-    
+
     try {
       // Use Web3 client logout
       await adminWeb3Client.logout();
@@ -239,9 +238,9 @@ export const useAuth = create<Web3AdminAuthState & {
     } catch (_error) {
       // eslint-disable-next-line no-console
       console.error('❌ Admin: Disconnect failed:', _error);
-      set({ 
+      set({
         error: 'Disconnect failed. Please try again.',
-        isLoading: false 
+        isLoading: false
       });
     }
   },
@@ -258,10 +257,10 @@ export const useAuth = create<Web3AdminAuthState & {
       const web3User = await adminWeb3Client.loadCurrentUser();
       if (web3User) {
         const adminWallet = transformWeb3UserToAdminWallet(web3User);
-        
+
         // Verify admin permissions
         if (!adminWallet.is_admin) {
-          set({ 
+          set({
             wallet: null,
             user: null,
             isAuthenticated: false,
@@ -269,29 +268,29 @@ export const useAuth = create<Web3AdminAuthState & {
           });
           return null;
         }
-        
-        set({ 
+
+        set({
           wallet: adminWallet,
           user: adminWallet,
           isAuthenticated: true,
           expiresAt: Date.now() + (24 * 60 * 60 * 1000)
         });
-        
+
         return adminWallet;
       }
     } catch (_error) {
       // eslint-disable-next-line no-console
       console.error('❌ Failed to load admin wallet:', _error);
     }
-    
+
     // Clear session if unable to load
-    set({ 
+    set({
       wallet: null,
       user: null,
       isAuthenticated: false,
       expiresAt: null
     });
-    
+
     return null;
   },
 
@@ -317,58 +316,65 @@ export const useAuth = create<Web3AdminAuthState & {
     set({ error: null });
   },
 
-  // Permission helpers
-  can: (permission: string) => {
-    const { wallet } = get();
-    return wallet?.permissions.includes(permission) || false;
+  // ============================================================================
+  // DEPRECATED: Permission helpers
+  // These no longer do any real validation - backend is the single source of truth
+  // Kept for backward compatibility with UI components that conditionally show elements
+  // All actual permission checks happen in backend via JWT middleware
+  // ============================================================================
+
+  /** @deprecated Backend handles permission enforcement. This always returns true. */
+  can: (_permission: string) => {
+    console.warn('[DEPRECATED] can() - Permission enforcement moved to backend. This always returns true.');
+    return true;
   },
 
-  hasAnyPermission: (permissions: string[]) => {
-    const { wallet } = get();
-    return permissions.some(p => wallet?.permissions.includes(p)) || false;
+  /** @deprecated Backend handles permission enforcement. This always returns true. */
+  hasAnyPermission: (_permissions: string[]) => {
+    console.warn('[DEPRECATED] hasAnyPermission() - Permission enforcement moved to backend. This always returns true.');
+    return true;
   },
 
-  hasAllPermissions: (permissions: string[]) => {
-    const { wallet } = get();
-    return permissions.every(p => wallet?.permissions.includes(p)) || false;
+  /** @deprecated Backend handles permission enforcement. This always returns true. */
+  hasAllPermissions: (_permissions: string[]) => {
+    console.warn('[DEPRECATED] hasAllPermissions() - Permission enforcement moved to backend. This always returns true.');
+    return true;
   },
 
-  hasMinimumPermissionGroup: (requiredGroup: string) => {
-    const { wallet } = get();
-    if (!wallet) {return false;}
-    const groupHierarchy = ['Basic Access Group', 'Standard Access Group', 'Premium Access Group', 'Professional Access Group', 'Enterprise Access Group'];
-    const userGroupIndex = groupHierarchy.indexOf(wallet.permission_group);
-    const requiredGroupIndex = groupHierarchy.indexOf(requiredGroup);
-    return userGroupIndex >= requiredGroupIndex;
+  /** @deprecated Backend handles permission enforcement. This always returns true. */
+  hasMinimumPermissionGroup: (_requiredGroup: string) => {
+    console.warn('[DEPRECATED] hasMinimumPermissionGroup() - Permission enforcement moved to backend. This always returns true.');
+    return true;
   },
 
-  hasEnterpriseTier: (tier: 'Starter' | 'Business' | 'Enterprise' | 'Whale') => {
-    const { wallet } = get();
-    if (!wallet) {return false;}
-    const tierHierarchy = ['Starter', 'Business', 'Enterprise', 'Whale'];
-    const userTierIndex = tierHierarchy.indexOf(wallet.enterprise_tier || 'Starter');
-    const requiredTierIndex = tierHierarchy.indexOf(tier);
-    return userTierIndex >= requiredTierIndex;
+  /** @deprecated Backend handles permission enforcement. This always returns true. */
+  hasEnterpriseTier: (_tier: 'Starter' | 'Business' | 'Enterprise' | 'Whale') => {
+    console.warn('[DEPRECATED] hasEnterpriseTier() - Permission enforcement moved to backend. This always returns true.');
+    return true;
   },
 
+  /** @deprecated Backend handles permission enforcement. This always returns true. */
   isAdmin: () => {
-    const { wallet } = get();
-    return wallet?.is_admin || false;
+    console.warn('[DEPRECATED] isAdmin() - Permission enforcement moved to backend. This always returns true.');
+    return true;
   },
 
+  /** @deprecated Backend handles permission enforcement. This always returns true. */
   canManageUsers: () => {
-    const { wallet } = get();
-    return wallet?.permissions.some(p => p === 'admin:*:*' || p.includes('admin:users:manage')) || false;
+    console.warn('[DEPRECATED] canManageUsers() - Permission enforcement moved to backend. This always returns true.');
+    return true;
   },
 
+  /** @deprecated Backend handles permission enforcement. This always returns true. */
   canManageSystem: () => {
-    const { wallet } = get();
-    return wallet?.permissions.some(p => p === 'admin:*:*' || p.includes('admin:system:manage')) || false;
+    console.warn('[DEPRECATED] canManageSystem() - Permission enforcement moved to backend. This always returns true.');
+    return true;
   },
 
+  /** @deprecated Backend handles permission enforcement. This always returns true. */
   canViewAnalytics: () => {
-    const { wallet } = get();
-    return wallet?.permissions.some(p => p === 'admin:*:*' || p.includes('admin:analytics:view') || p.includes('epsx:analytics:')) || false;
+    console.warn('[DEPRECATED] canViewAnalytics() - Permission enforcement moved to backend. This always returns true.');
+    return true;
   },
 }));
 
@@ -377,10 +383,10 @@ if (typeof window !== 'undefined') {
   // Subscribe to Web3 client user changes
   adminWeb3Client.subscribe((web3User) => {
     const state = useAuth.getState();
-    
+
     if (web3User) {
       const adminWallet = transformWeb3UserToAdminWallet(web3User);
-      
+
       // Only update if user has admin permissions
       if (adminWallet.is_admin) {
         useAuth.setState({
@@ -414,7 +420,7 @@ if (typeof window !== 'undefined') {
       });
     }
   });
-  
+
   // Auto-fetch admin user on app start
   useAuth.getState().getAdminWallet();
 }
@@ -425,9 +431,9 @@ if (typeof window !== 'undefined') {
  * @param user
  */
 export function getAdminDisplayName(user: EnterpriseAdminUser | null): string {
-  if (!user) {return 'Unknown Admin';}
-  return user.wallet_address ? 
-    `${user.wallet_address.slice(0, 6)}...${user.wallet_address.slice(-4)}` : 
+  if (!user) { return 'Unknown Admin'; }
+  return user.wallet_address ?
+    `${user.wallet_address.slice(0, 6)}...${user.wallet_address.slice(-4)}` :
     'Enterprise Admin';
 }
 
@@ -444,23 +450,23 @@ export function getEnterprisePermissionLabels(permissions: string[]): string[] {
     'admin:enterprise:system:manage': 'Enterprise System Management',
     'admin:enterprise:analytics:view': 'Enterprise Analytics',
     'admin:enterprise:tiers:manage': 'Enterprise Tier Management',
-    
+
     // DAO Management
     'admin:dao:*:*': 'Full DAO Management',
     'admin:dao:manage': 'DAO Administration',
     'admin:governance:manage': 'Governance Management',
-    
+
     // Compliance Management
     'admin:compliance:*:*': 'Full Compliance Management',
     'admin:compliance:manage': 'Compliance Administration',
     'admin:kyc:manage': 'KYC Management',
-    
+
     // Marketplace Management
     'admin:marketplace:*:*': 'Full Marketplace Management',
     'admin:marketplace:manage': 'Marketplace Administration',
     'admin:products:manage': 'Product Management',
   };
-  
+
   return permissions.map(permission => {
     return permissionLabels[permission] || permission;
   });
@@ -475,10 +481,10 @@ export function getEnterpriseTierDisplayName(tier: string): string {
   const tierNames: Record<string, string> = {
     'Starter': 'Starter ($1K+ tokens)',
     'Business': 'Business ($10K+ tokens)',
-    'Enterprise': 'Enterprise ($100K+ tokens)', 
+    'Enterprise': 'Enterprise ($100K+ tokens)',
     'Whale': 'Whale ($1M+ tokens)'
   };
-  
+
   return tierNames[tier] || tier;
 }
 
@@ -493,7 +499,7 @@ export function getEnterpriseTierIcon(tier: string): string {
     'Enterprise': '🏢',
     'Whale': '🐋'
   };
-  
+
   return tierIcons[tier] || '⭐';
 }
 

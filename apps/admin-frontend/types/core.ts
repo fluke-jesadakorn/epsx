@@ -4,8 +4,7 @@
  * Replaces: auth-separation.ts, admin-types.ts, iam.ts, unified-user.ts
  */
 
-import { PermissionGroup } from '../../../shared/types/domain/User';
-import type { PaginatedResponse } from '../../../shared/types/api';
+import { Group } from '../../../shared/types/domain/User';
 
 // ============================================================================
 // Authentication & User Types
@@ -25,26 +24,33 @@ export interface User {
   createdAt: string;
   updatedAt: string;
   lastLoginAt?: string;
-  
+
   // Wallet authentication context
   sub?: string; // wallet_address as subject
-  
+
   // Permission system
   permissions?: string[];
-  permissionGroup: PermissionGroup;
-  // @deprecated Use permissionGroup instead
+  group: Group;
+  permissionGroup: Group; // Keep as alias for now
+  // @deprecated Use group instead
   packageTier?: string;
-  
+
   // Platform context
   platforms?: string[];
   primaryPlatform?: string;
   platformContext?: string;
-  
+
   // Wallet-specific fields
   walletConnectedAt?: string;
   lastSignatureAt?: string;
   nftHoldings?: number;
   tokenBalance?: string;
+
+  // Permission helpers
+  hasAllPermissions?: (permissions: string[]) => boolean;
+  hasMinimumGroup?: (requiredGroup: string) => boolean;
+  hasMinimumPermissionGroup?: (requiredGroup: string) => boolean;
+  hasEnterpriseTier?: (tier: 'Starter' | 'Business' | 'Enterprise' | 'Whale') => boolean;
 }
 
 export interface WalletUser {
@@ -307,7 +313,7 @@ export interface ActivityLog {
 // ============================================================================
 
 export function isAdminUser(user: User): boolean {
-  return user.role === 'admin' || (user.permissions || []).some(p => 
+  return user.role === 'admin' || user.group === 'Enterprise Access Group' || (user.permissions || []).some(p =>
     p === 'admin:*:*' || p.startsWith('admin:')
   );
 }
@@ -324,7 +330,7 @@ export function hasExpiredPermissions(permissions: string[]): boolean {
   return permissions.some(permission => {
     const parts = permission.split(':');
     if (parts.length === 4) {
-      const timestamp = parseInt(parts[3], 10);
+      const timestamp = parseInt(parts[3] as string, 10);
       return !isNaN(timestamp) && timestamp <= now;
     }
     return false;

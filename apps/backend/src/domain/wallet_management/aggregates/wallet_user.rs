@@ -20,7 +20,7 @@ pub struct WalletUserLoadParams {
     pub wallet_address: WalletAddress,
     pub is_active: bool,
     pub permissions: HashSet<Permission>,
-    pub permission_groups: HashSet<String>,
+    pub groups: HashSet<String>,
     pub wallet_metadata: WalletMetadata,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -43,7 +43,7 @@ pub struct WalletUser {
     permissions: HashSet<Permission>,
     
     // Permission groups the user belongs to
-    permission_groups: HashSet<String>,
+    groups: HashSet<String>,
     
     // Web3-specific metadata
     wallet_metadata: WalletMetadata,
@@ -120,7 +120,7 @@ impl WalletUser {
             wallet_address: wallet_address.clone(),
             is_active: true, // New wallet users are active by default
             permissions: HashSet::new(),
-            permission_groups: initial_groups.clone(),
+            groups: initial_groups.clone(),
             wallet_metadata: WalletMetadata::default(),
             created_at: now,
             updated_at: now,
@@ -149,7 +149,7 @@ impl WalletUser {
             wallet_address: params.wallet_address,
             is_active: params.is_active,
             permissions: params.permissions,
-            permission_groups: params.permission_groups,
+            groups: params.groups,
             wallet_metadata: params.wallet_metadata,
             created_at: params.created_at,
             updated_at: params.updated_at,
@@ -174,8 +174,8 @@ impl WalletUser {
     }
     
     /// Get user permission groups
-    pub fn permission_groups(&self) -> &HashSet<String> {
-        &self.permission_groups
+    pub fn groups(&self) -> &HashSet<String> {
+        &self.groups
     }
     
     /// Get wallet metadata
@@ -284,13 +284,13 @@ impl WalletUser {
     }
     
     /// Update permission groups
-    pub fn update_permission_groups(&mut self, new_groups: HashSet<String>) -> AppResult<()> {
-        if self.permission_groups == new_groups {
+    pub fn update_groups(&mut self, new_groups: HashSet<String>) -> AppResult<()> {
+        if self.groups == new_groups {
             return Ok(()); // No change needed
         }
         
-        let _old_groups = self.permission_groups.clone();
-        self.permission_groups = new_groups.clone();
+        let _old_groups = self.groups.clone();
+        self.groups = new_groups.clone();
         self.updated_at = Utc::now();
         
         // Permission groups changed - could raise an event here if needed
@@ -322,15 +322,15 @@ impl WalletUser {
     
     /// Check if user has any admin permissions
     pub fn is_admin(&self) -> bool {
-        self.permission_groups.contains("Enterprise Access Group") ||
+        self.groups.contains("Enterprise Access Group") ||
         self.permissions.iter().any(|p| p.as_str().starts_with("admin:"))
     }
     
     /// Check if user has premium access
     pub fn is_premium(&self) -> bool {
-        self.permission_groups.contains("Premium Access Group") ||
-        self.permission_groups.contains("Professional Access Group") ||
-        self.permission_groups.contains("Enterprise Access Group")
+        self.groups.contains("Premium Access Group") ||
+        self.groups.contains("Professional Access Group") ||
+        self.groups.contains("Enterprise Access Group")
     }
     
     /// Update permissions in batch
@@ -416,7 +416,7 @@ mod tests {
 
         assert_eq!(wallet.wallet_address(), &wallet_address);
         assert!(wallet.is_active());
-        assert_eq!(wallet.permission_groups(), &initial_groups);
+        assert_eq!(wallet.groups(), &initial_groups);
         assert!(wallet.permissions().is_empty());
     }
     
@@ -444,9 +444,9 @@ mod tests {
         assert!(!user.is_premium());
         
         let premium_groups = HashSet::from(["Premium Access Group".to_string()]);
-        user.update_permission_groups(premium_groups.clone()).unwrap();
+        user.update_groups(premium_groups.clone()).unwrap();
         assert!(user.is_premium());
-        assert_eq!(user.permission_groups(), &premium_groups);
+        assert_eq!(user.groups(), &premium_groups);
     }
     
     #[test]

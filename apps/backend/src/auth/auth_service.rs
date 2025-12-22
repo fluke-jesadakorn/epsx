@@ -509,10 +509,10 @@ impl UnifiedWeb3AuthService {
 
         let permission_records = diesel::sql_query(
             r#"
-            -- Manual permissions from groups (extract name from JSON VARCHAR)
-            SELECT DISTINCT (p.permission_string::jsonb)->>'name' as permission
+            -- Manual permissions from groups
+            SELECT DISTINCT p.permission_string as permission
             FROM wallet_group_assignments wga
-            JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
+            JOIN group_permissions pgm ON wga.group_id = pgm.group_id
             JOIN permissions p ON pgm.permission_id = p.id
             WHERE wga.wallet_address = $1
               AND wga.is_active = true
@@ -522,8 +522,8 @@ impl UnifiedWeb3AuthService {
 
             UNION
 
-            -- Direct manual permissions (extract name from JSON VARCHAR)
-            SELECT DISTINCT (p.permission_string::jsonb)->>'name' as permission
+            -- Direct manual permissions
+            SELECT DISTINCT p.permission_string as permission
             FROM wallet_direct_permissions wdp
             JOIN permissions p ON wdp.permission_id = p.id
             WHERE wdp.wallet_address = $1
@@ -796,9 +796,18 @@ impl UnifiedWeb3AuthService {
         Ok(permissions)
     }
 
-    /// Generate JWT access token (legacy)
+    /// Generate legacy access token format
+    /// 
+    /// DEPRECATED: This generates the old `web3_token_...` format.
+    /// Use `generate_bearer_token` for proper JWT tokens instead.
+    /// This is kept temporarily for backward compatibility with any clients
+    /// that might still be using the legacy format.
+    /// 
+    /// TODO: Remove this in a future version after confirming no clients depend on it.
+    #[deprecated(note = "Use generate_bearer_token instead. This legacy format will be removed.")]
     fn generate_access_token(&self, wallet_address: &str, _permissions: &[String]) -> Result<String, Web3AuthError> {
         // Legacy access token for backwards compatibility
+        warn!("generate_access_token called - this is deprecated, use bearer_token instead");
         Ok(format!("web3_token_{}", wallet_address))
     }
     

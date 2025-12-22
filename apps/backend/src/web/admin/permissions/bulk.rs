@@ -546,7 +546,7 @@ pub async fn bulk_validate(
             SELECT DISTINCT p.permission_string, wdp.expires_at as direct_expires
             FROM permissions p
             LEFT JOIN wallet_direct_permissions wdp ON p.id = wdp.permission_id AND wdp.wallet_address = $1
-            LEFT JOIN permission_group_memberships pgm ON p.id = pgm.permission_id
+            LEFT JOIN group_permissions pgm ON p.id = pgm.permission_id
             LEFT JOIN wallet_group_assignments wga ON pgm.group_id = wga.group_id AND wga.wallet_address = $1
             WHERE (wdp.is_active = true OR wga.is_active = true)
             "#

@@ -94,7 +94,7 @@ export interface PaymentTransaction {
 
 export enum UserLevel {
   BRONZE = 'BRONZE',
-  SILVER = 'SILVER', 
+  SILVER = 'SILVER',
   GOLD = 'GOLD',
   PLATINUM = 'PLATINUM',
   DIAMOND = 'DIAMOND',
@@ -289,16 +289,21 @@ export interface PermissionTemplate {
   updatedAt: string;
 }
 
-export interface PermissionGroup {
+export interface Group {
   id: string;
   name: string;
   description: string;
   platform: Platform;
   permissions: string[];
   inherits?: string[]; // Other group IDs to inherit from
-  priority: number;
-  isSystemGroup: boolean;
+  display_order: number;
+  group_type: 'admin' | 'system' | 'custom' | string;
 }
+
+/**
+ * @deprecated Use Group instead
+ */
+export type PermissionGroup = Group;
 
 // ============================================================================
 // Security & Compliance Types
@@ -554,10 +559,10 @@ export interface AutomationWorkflow {
 export function parseEmbeddedTimestampPermission(permission: string): EmbeddedTimestampPermission | null {
   const parts = permission.split(':');
   if (parts.length !== 4) return null;
-  
-  const timestamp = parseInt(parts[3], 10);
+
+  const timestamp = parseInt(parts[3] as string, 10);
   if (isNaN(timestamp)) return null;
-  
+
   return {
     basePermission: parts.slice(0, 3).join(':'),
     timestamp,
@@ -571,7 +576,7 @@ export function createEmbeddedTimestampPermission(
 ): EmbeddedTimestampPermission {
   const timestamp = Math.floor(expiryDate.getTime() / 1000);
   const fullPermission = `${basePermission}:${timestamp}`;
-  
+
   return {
     basePermission,
     timestamp,
@@ -582,7 +587,7 @@ export function createEmbeddedTimestampPermission(
 export function isPermissionExpired(permission: string): boolean {
   const embedded = parseEmbeddedTimestampPermission(permission);
   if (!embedded) return false;
-  
+
   const now = Math.floor(Date.now() / 1000);
   return embedded.timestamp <= now;
 }
@@ -590,7 +595,7 @@ export function isPermissionExpired(permission: string): boolean {
 export function getPermissionExpiryDate(permission: string): Date | null {
   const embedded = parseEmbeddedTimestampPermission(permission);
   if (!embedded) return null;
-  
+
   return new Date(embedded.timestamp * 1000);
 }
 
@@ -608,7 +613,7 @@ export function groupPermissionsByExpiry(permissions: string[]): {
     temporary: [] as string[],
     expired: [] as string[]
   };
-  
+
   permissions.forEach(permission => {
     const embedded = parseEmbeddedTimestampPermission(permission);
     if (!embedded) {
@@ -619,6 +624,6 @@ export function groupPermissionsByExpiry(permissions: string[]): {
       result.temporary.push(permission);
     }
   });
-  
+
   return result;
 }

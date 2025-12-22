@@ -230,46 +230,30 @@ export async function clearSession(): Promise<void> {
   }
 }
 
+// ============================================================================
+// DEPRECATED: Permission Check Functions  
+// Backend handles all permission enforcement via JWT middleware
+// These are kept for backward compatibility but always return true
+// ============================================================================
+
 /**
+ * @deprecated Backend handles permission enforcement. This always returns true.
  * Check if user has specific admin permission
  * @param permission
  */
-export async function hasAdminPermission(permission: string): Promise<boolean> {
-  try {
-    const user = await getAuthUser();
-    if (!user) { return false; }
-
-    // Admin users have broader permissions
-    const permissions = Array.isArray(user.permissions) ? user.permissions : [];
-    return permissions.includes(permission) ||
-      permissions.includes('admin:*') ||
-      permissions.includes('*');
-  } catch (_error) {
-    // eslint-disable-next-line no-console
-    console.error('❌ Admin: Failed to check permission:', _error);
-    return false;
-  }
+export async function hasAdminPermission(_permission: string): Promise<boolean> {
+  console.warn('[DEPRECATED] hasAdminPermission() - Permission enforcement moved to backend. This always returns true.');
+  return true;
 }
 
 /**
+ * @deprecated Backend handles permission enforcement. This always returns true.
  * Check if user has specific permission
  * @param permission
  */
-export async function hasPermission(permission: string): Promise<boolean> {
-  try {
-    const user = await getAuthUser();
-    if (!user) { return false; }
-
-    // Admin users have broader permissions
-    const permissions = Array.isArray(user.permissions) ? user.permissions : [];
-    return permissions.includes(permission) ||
-      permissions.includes('admin:*:*') ||
-      permissions.some(p => p.startsWith('admin:'));
-  } catch (_error) {
-    // eslint-disable-next-line no-console
-    console.error('❌ Admin: Failed to check permission:', _error);
-    return false;
-  }
+export async function hasPermission(_permission: string): Promise<boolean> {
+  console.warn('[DEPRECATED] hasPermission() - Permission enforcement moved to backend. This always returns true.');
+  return true;
 }
 
 /**

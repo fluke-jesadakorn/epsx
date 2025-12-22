@@ -222,7 +222,7 @@ pub async fn verify_signature_handler(
                 "wallet_address": auth_result.wallet_address,
                 "permissions": user_permissions,
                 "permissions_granted": permissions_granted,
-                "access_token": auth_result.access_token
+                "access_token": auth_result.bearer_token.clone().unwrap_or(auth_result.access_token)
             })))
         }
         Err(Web3AuthError::ExpiredNonce(_)) => {
@@ -302,38 +302,85 @@ pub async fn get_session_handler(
     State(app_state): State<AppState>,
     request: axum::extract::Request,
 ) -> Result<Json<Value>, StatusCode> {
-    // Extract wallet address from authenticated Web3 context
+    // Try to get wallet address from middleware context first
     use crate::web::middleware::auth_middleware::get_web3_context;
+    
+    if let Some(auth_context) = get_web3_context(&request) {
+        // Middleware already validated - use context directly
+        let wallet_address = &auth_context.wallet_address;
+        info!("Session check via middleware context for wallet: {}", wallet_address);
+        
+        let web3_permission_service = match app_state.domain_container.get_web3_permission_adapter() {
+            Some(service) => service,
+            None => {
+                error!("Web3 permission service not available");
+                return Err(StatusCode::INTERNAL_SERVER_ERROR);
+            }
+        };
 
-    let auth_context = get_web3_context(&request).ok_or(StatusCode::UNAUTHORIZED)?;
-    let wallet_address = &auth_context.wallet_address;
+        let user_permissions = match web3_permission_service
+            .get_user_permissions(wallet_address)
+            .await
+        {
+            Ok(permissions) => permissions,
+            Err(e) => {
+                warn!("Failed to get user permissions: {}", e);
+                Vec::new()
+            }
+        };
 
-    info!("Getting session for wallet: {}", wallet_address);
+        return Ok(Json(json!({
+            "authenticated": true,
+            "wallet_address": wallet_address,
+            "permissions": user_permissions,
+            "session_type": "web3"
+        })));
+    }
 
-    let web3_permission_service = match app_state.domain_container.get_web3_permission_adapter() {
+    // Fallback: Validate token directly (like SSE handlers do)
+    let auth_header = request.headers()
+        .get("authorization")
+        .and_then(|h| h.to_str().ok());
+    
+    let token = match auth_header {
+        Some(header) if header.starts_with("Bearer ") => &header[7..],
+        _ => {
+            warn!("Session check: No valid Authorization header");
+            return Err(StatusCode::UNAUTHORIZED);
+        }
+    };
+
+    // Get token service and validate
+    let token_service = match app_state.domain_container.get_token_service() {
         Some(service) => service,
         None => {
-            error!("Web3 permission service not available");
+            error!("Token service not available for session check");
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
     };
 
-    // Get user's current permissions
-    let user_permissions = match web3_permission_service
-        .get_user_permissions(wallet_address)
-        .await
-    {
-        Ok(permissions) => permissions,
+    let claims = match token_service.validate_access_token(token).await {
+        Ok(c) => c,
         Err(e) => {
-            warn!("Failed to get user permissions: {}", e);
-            Vec::new()
+            warn!("Session check: Token validation failed: {}", e);
+            return Err(StatusCode::UNAUTHORIZED);
         }
     };
+
+    let wallet_address = claims.wallet_address.to_lowercase();
+    info!("Session check via direct token validation for wallet: {}", wallet_address);
+
+    // Get permissions from scope claim (already in the token)
+    let permissions: Vec<String> = claims.scope
+        .split_whitespace()
+        .filter(|s| *s != "openid" && *s != "profile")
+        .map(|s| s.to_string())
+        .collect();
 
     Ok(Json(json!({
         "authenticated": true,
         "wallet_address": wallet_address,
-        "permissions": user_permissions,
+        "permissions": permissions,
         "session_type": "web3"
     })))
 }

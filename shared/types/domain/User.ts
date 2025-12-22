@@ -31,13 +31,18 @@ export type UserRole = 'user' | 'premium_user' | 'admin' | 'super_admin'
 export type UserStatus = 'active' | 'disabled' | 'pending' | 'suspended' | 'trial'
 
 /**
- * Permission groups for access control (NEW)
+ * Groups for access control (NEW)
  */
-export type PermissionGroup = 'Basic Access Group' | 'Standard Access Group' | 'Premium Access Group' | 'Professional Access Group' | 'Enterprise Access Group'
+export type Group = 'Basic Access Group' | 'Standard Access Group' | 'Premium Access Group' | 'Professional Access Group' | 'Enterprise Access Group'
+
+/**
+ * @deprecated Use Group instead
+ */
+export type PermissionGroup = Group
 
 /**
  * Package/subscription tiers
- * @deprecated Use PermissionGroup instead
+ * @deprecated Use Group instead
  */
 export type PackageTier = 'FREE' | 'BRONZE' | 'SILVER' | 'GOLD' | 'PLATINUM' | 'ENTERPRISE'
 
@@ -68,7 +73,8 @@ export interface UserProfile extends BaseUser {
   twoFactorEnabled: boolean
 
   // Platform context
-  permissionGroup: PermissionGroup
+  group: Group
+  permissionGroup: Group // Backward compatibility alias in the interface as well
   permissions: string[]
   platforms: string[]
   primaryPlatform: string
@@ -115,7 +121,7 @@ export interface AdminUserProfile extends UserProfile {
 // ============================================================================
 
 export interface BillingStatus {
-  permissionGroup: PermissionGroup
+  group: Group
   isActive: boolean
   nextBillingDate?: Date
   lastPaymentDate?: Date
@@ -126,7 +132,7 @@ export interface BillingStatus {
 export interface StockRankingPackage {
   id: string
   name: string
-  permissionGroup: PermissionGroup
+  group: Group
   features: string[]
   assignedAt: Date
   expiresAt?: Date
@@ -231,7 +237,7 @@ export interface UserListFilters {
   search?: string
   roles?: UserRole[]
   status?: UserStatus[]
-  permissionGroups?: PermissionGroup[]
+  groups?: Group[]
   modules?: string[]
   emailVerified?: boolean
   lastLoginAfter?: Date
@@ -277,7 +283,7 @@ export interface UserRoleUpdateData {
 }
 
 export interface BillingUpdateData {
-  permissionGroup?: PermissionGroup
+  group?: Group
   stockRankingPackages?: string[]
 }
 
@@ -307,7 +313,7 @@ export function isAdminUser(user: UserProfile): user is AdminUserProfile {
 }
 
 export function isPremiumUser(user: UserProfile): boolean {
-  return user.permissionGroup !== 'Basic Access Group'
+  return user.group !== 'Basic Access Group'
 }
 
 export function hasValidSubscription(user: UserProfile): boolean {
@@ -323,8 +329,8 @@ export function canAccessFeature(user: UserProfile, feature: string): boolean {
   )
 }
 
-export function getPermissionGroupLevel(group: PermissionGroup): number {
-  const levels: Record<PermissionGroup, number> = {
+export function getGroupLevel(group: Group): number {
+  const levels: Record<Group, number> = {
     'Basic Access Group': 1,
     'Standard Access Group': 2,
     'Premium Access Group': 3,
@@ -334,12 +340,22 @@ export function getPermissionGroupLevel(group: PermissionGroup): number {
   return levels[group] || 0
 }
 
-export function hasMinimumPermissionGroup(user: UserProfile, requiredGroup: PermissionGroup): boolean {
-  return getPermissionGroupLevel(user.permissionGroup) >= getPermissionGroupLevel(requiredGroup)
+/**
+ * @deprecated Use getGroupLevel instead
+ */
+export const getPermissionGroupLevel = getGroupLevel
+
+export function hasMinimumGroup(user: UserProfile, requiredGroup: Group): boolean {
+  return getGroupLevel(user.group) >= getGroupLevel(requiredGroup)
 }
 
 /**
- * @deprecated Use getPermissionGroupLevel instead
+ * @deprecated Use hasMinimumGroup instead
+ */
+export const hasMinimumPermissionGroup = hasMinimumGroup
+
+/**
+ * @deprecated Use getGroupLevel instead
  */
 export function getUserTierLevel(tier: PackageTier): number {
   const levels: Record<PackageTier, number> = {

@@ -12,17 +12,17 @@ export interface BackendUserSummary {
   wallet_address: string; // Primary identifier for wallet authentication
   email?: string; // Optional for wallet authentication
   display_name?: string;
-  
+
   // Status and role fields
   role?: string;
   status?: string;
   is_active: boolean;
   email_verified?: boolean;
-  
+
   // Permission fields (tier derived from permissions)
   permissions: string[];
   subscription_tier?: string; // Legacy field name from API (deprecated)
-  
+
   // Timestamp fields
   created_at: string;
   updated_at: string;
@@ -42,7 +42,7 @@ export interface BackendUsersResponse {
 export function transformBackendUser(backendUser: BackendUserSummary): User {
   // Derive platforms from permissions
   const platforms = derivePlatforms(backendUser.permissions || []);
-  
+
   return {
     // Identity mapping
     id: backendUser.id,
@@ -52,29 +52,49 @@ export function transformBackendUser(backendUser: BackendUserSummary): User {
     name: backendUser.display_name || undefined,
     firstName: backendUser.display_name?.split(' ')[0] || undefined,
     lastName: backendUser.display_name?.split(' ').slice(1).join(' ') || undefined,
-    
+
     // Role and status mapping (permission-based role derivation)
     role: mapBackendRole(backendUser.role || deriveRoleFromPermissions(backendUser.permissions || [])),
     status: mapBackendStatus(backendUser.status, backendUser.is_active),
     isActive: backendUser.is_active,
-    
+
     // Timestamps
     createdAt: backendUser.created_at || new Date().toISOString(),
     updatedAt: backendUser.updated_at || new Date().toISOString(),
     lastLoginAt: backendUser.last_login_at,
-    
+
     // Authentication context
     sub: backendUser.id, // Use ID as sub
-    
-    // Permissions and tier (permission-based derivation)
+
+    // Permissions and group (permission-based derivation)
     permissions: backendUser.permissions || [],
-    permissionGroup: derivePermissionGroup(backendUser.permissions || []),
+    group: deriveGroup(backendUser.permissions || []),
+    permissionGroup: deriveGroup(backendUser.permissions || []), // Keep alias
     packageTier: derivePackageTierFromPermissions(backendUser.permissions || []),
 
     // Platform context
     platforms,
     primaryPlatform: platforms[0] || 'epsx',
     platformContext: 'epsx',
+
+    // New permission methods (terminology update)
+    hasAllPermissions: (requiredPermissions: string[]) => requiredPermissions.every(rp => (backendUser.permissions || []).includes(rp)),
+    /** @deprecated Backend handles permission enforcement. This always returns true. */
+    hasMinimumGroup: (_requiredGroup: string) => {
+      console.warn('[DEPRECATED] hasMinimumGroup() - Permission enforcement moved to backend. This always returns true.');
+      return true;
+    },
+    /** @deprecated Backend handles permission enforcement. This always returns true. */
+    hasMinimumPermissionGroup: (_requiredGroup: string) => {
+      console.warn('[DEPRECATED] hasMinimumPermissionGroup() - Permission enforcement moved to backend. This always returns true.');
+      return true;
+    },
+    hasEnterpriseTier: (_tier: 'Starter' | 'Business' | 'Enterprise' | 'Whale') => {
+      // This logic would typically involve checking the derived group or specific permissions
+      // For now, returning true as per the deprecation warning pattern for similar methods
+      console.warn('[DEPRECATED] hasEnterpriseTier() - Permission enforcement moved to backend. This always returns true.');
+      return true;
+    },
   };
 }
 
@@ -128,7 +148,7 @@ function mapBackendStatus(backendStatus?: string, isActive?: boolean): 'active' 
         return isActive ? 'active' : 'inactive';
     }
   }
-  
+
   // Fallback to isActive field
   return isActive ? 'active' : 'inactive';
 }
@@ -143,25 +163,25 @@ function derivePackageTierFromPermissions(permissions: string[]): string {
   if (permissions.some(p => p === "admin:*:*" || p.startsWith("admin:"))) {
     return "admin";
   }
-  
+
   // Premium tiers based on analytics permissions
   if (permissions.some(p => p === "epsx:analytics:premium")) {
     return "premium";
   }
-  
+
   if (permissions.some(p => p === "epsx:analytics:professional")) {
     return "professional";
   }
-  
+
   // Basic tier
-  if (permissions.some(p => 
-    p === "epsx:analytics:basic" || 
-    p === "epsx:analytics:view" || 
+  if (permissions.some(p =>
+    p === "epsx:analytics:basic" ||
+    p === "epsx:analytics:view" ||
     p.startsWith("epsx:")
   )) {
     return "basic";
   }
-  
+
   // Default free tier
   return "free";
 }
@@ -176,24 +196,24 @@ function deriveRoleFromPermissions(permissions: string[]): string {
   if (permissions.some(p => p === "admin:*:*" || p.startsWith("admin:"))) {
     return "admin";
   }
-  
+
   // Premium user role
-  if (permissions.some(p => 
-    p === "epsx:analytics:premium" || 
+  if (permissions.some(p =>
+    p === "epsx:analytics:premium" ||
     p === "epsx:analytics:professional"
   )) {
     return "premium";
   }
-  
+
   // Default user role
   return "user";
 }
 
 /**
- * Derive permission group from user permissions
+ * Derive group from user permissions
  * @param permissions
  */
-function derivePermissionGroup(permissions: string[]): 'Basic Access Group' | 'Standard Access Group' | 'Premium Access Group' | 'Professional Access Group' | 'Enterprise Access Group' {
+function deriveGroup(permissions: string[]): 'Basic Access Group' | 'Standard Access Group' | 'Premium Access Group' | 'Professional Access Group' | 'Enterprise Access Group' {
   // Admin/Enterprise - highest priority
   if (permissions.some(p => p === "admin:*:*" || p.startsWith("admin:") || p === "epsx:*:*")) {
     return "Enterprise Access Group";
@@ -224,7 +244,7 @@ function derivePermissionGroup(permissions: string[]): 'Basic Access Group' | 'S
  */
 function derivePlatforms(permissions: string[]): string[] {
   const platformSet = new Set<string>();
-  
+
   permissions.forEach(permission => {
     const parts = permission.split(':');
     if (parts.length >= 1) {
@@ -234,7 +254,7 @@ function derivePlatforms(permissions: string[]): string[] {
       }
     }
   });
-  
+
   // If no specific platforms found, default to epsx
   return Array.from(platformSet).length > 0 ? Array.from(platformSet) : ['epsx'];
 }
@@ -259,7 +279,7 @@ export function createMockUser(overrides: Partial<BackendUserSummary> = {}): Use
     last_login_at: new Date().toISOString(),
     ...overrides,
   };
-  
+
   return transformBackendUser(mockBackendUser);
 }
 
@@ -279,11 +299,11 @@ export function validateBackendUser(data: any): data is BackendUserSummary {
     typeof data.created_at === 'string' &&
     typeof data.updated_at === 'string'
   );
-  
+
   if (!hasRequiredFields) {
     return false;
   }
-  
+
   // Allow optional fields to be missing or have correct types
   const optionalFieldsValid = (
     (data.email === undefined || typeof data.email === 'string') &&
@@ -293,10 +313,10 @@ export function validateBackendUser(data: any): data is BackendUserSummary {
     (data.email_verified === undefined || typeof data.email_verified === 'boolean') &&
     (data.last_login_at === undefined || typeof data.last_login_at === 'string')
   );
-  
+
   if (!optionalFieldsValid) {
     return false;
   }
-  
+
   return true;
 }

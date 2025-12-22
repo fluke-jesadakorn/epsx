@@ -72,7 +72,7 @@ impl QueryHandler<ListWalletsQuery> for ListWalletsQueryHandler {
                 };
 
                 // Permission group - use first group or "none"
-                let permission_group = wallet.permission_groups()
+                let permission_group = wallet.groups()
                     .iter()
                     .next().cloned()
                     .unwrap_or_else(|| "none".to_string());

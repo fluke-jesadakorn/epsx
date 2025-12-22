@@ -4,10 +4,10 @@
  */
 'use client';
 
-import { useMemo } from 'react';
-import { useAccount } from 'wagmi';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { AuthLevel, type AuthLevelType, type AuthState } from '@/types/progressive-auth';
+import { useMemo } from 'react';
+import { useAccount } from 'wagmi';
 
 export function useAdminProgressiveAuth(): AuthState & {
   canAccess: (requiredLevel: AuthLevelType, requiredPermissions?: string[]) => boolean;
@@ -28,31 +28,22 @@ export function useAdminProgressiveAuth(): AuthState & {
     return AuthLevel.PUBLIC;
   }, [isAuthenticated, isConnected, walletAddress, permissions]);
 
-  // Check if user has a specific permission
-  const hasPermission = (permission: string): boolean => {
-    if (!permissions || permissions.length === 0) return false;
-    
-    // Check for exact match
-    if (permissions.includes(permission)) return true;
-    
-    // Check for wildcard permissions
-    if (permissions.includes('admin:*:*')) return true;
-    
-    // Check for partial wildcard matches
-    const [platform, resource, action] = permission.split(':');
-    const wildcardPatterns = [
-      `${platform}:*:*`,
-      `${platform}:${resource}:*`,
-      `*:${resource}:${action}`,
-      `*:*:${action}`
-    ];
-    
-    return wildcardPatterns.some(pattern => permissions.includes(pattern));
+  // ============================================================================
+  // DEPRECATED: Permission check functions
+  // Backend handles all permission enforcement via JWT middleware
+  // These are kept for backward compatibility but always return true
+  // ============================================================================
+
+  /** @deprecated Backend handles permission enforcement. This always returns true. */
+  const hasPermission = (_permission: string): boolean => {
+    console.warn('[DEPRECATED] useAdminProgressiveAuth.hasPermission() - Permission enforcement moved to backend. This always returns true.');
+    return true;
   };
 
-  // Check if user has any of the specified permissions
-  const hasAnyPermission = (permissions: string[]): boolean => {
-    return permissions.some(permission => hasPermission(permission));
+  /** @deprecated Backend handles permission enforcement. This always returns true. */
+  const hasAnyPermission = (_permissions: string[]): boolean => {
+    console.warn('[DEPRECATED] useAdminProgressiveAuth.hasAnyPermission() - Permission enforcement moved to backend. This always returns true.');
+    return true;
   };
 
   // Check if user can access a feature requiring specific auth level and permissions
@@ -80,7 +71,7 @@ export function useAdminProgressiveAuth(): AuthState & {
     if (requiredLevel === AuthLevel.CONNECTED && currentLevel === AuthLevel.PUBLIC) {
       return `Connect your admin wallet to ${actionName}`;
     }
-    
+
     if (requiredLevel === AuthLevel.AUTHENTICATED) {
       if (currentLevel === AuthLevel.PUBLIC) {
         return `Connect your admin wallet and authenticate to ${actionName}`;
@@ -89,7 +80,7 @@ export function useAdminProgressiveAuth(): AuthState & {
         return `Sign in with your admin wallet to ${actionName}`;
       }
     }
-    
+
     return `Admin authentication required to ${actionName}`;
   };
 
@@ -98,7 +89,7 @@ export function useAdminProgressiveAuth(): AuthState & {
     if (requiredLevel === AuthLevel.CONNECTED && currentLevel === AuthLevel.PUBLIC) {
       return 'connect';
     }
-    
+
     if (requiredLevel === AuthLevel.AUTHENTICATED) {
       if (currentLevel === AuthLevel.PUBLIC) {
         return 'connect_and_authenticate';
@@ -107,7 +98,7 @@ export function useAdminProgressiveAuth(): AuthState & {
         return 'authenticate';
       }
     }
-    
+
     return 'upgrade';
   };
 

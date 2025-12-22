@@ -4,6 +4,7 @@ import { ThemeProvider } from 'next-themes';
 import { ReactNode } from 'react';
 
 import { Web3Provider } from '../../providers/AuthProvider';
+import { SettingsProvider } from './SettingsProvider';
 
 import { SharedOpenIDWeb3Provider } from '@/shared/components/auth/Provider';
 
@@ -25,14 +26,16 @@ export function ClientProviders({ children }: ClientProvidersProps) {
       enableSystem
       disableTransitionOnChange
     >
-      <Web3Provider>
-        <SharedOpenIDWeb3Provider 
-          clientId="epsx-admin"
-          backendUrl={process.env.NEXT_PUBLIC_BACKEND_URL}
-        >
-          {children}
-        </SharedOpenIDWeb3Provider>
-      </Web3Provider>
+      <SettingsProvider>
+        <Web3Provider>
+          <SharedOpenIDWeb3Provider
+            clientId="epsx-admin"
+            backendUrl={process.env['NEXT_PUBLIC_BACKEND_URL']}
+          >
+            {children}
+          </SharedOpenIDWeb3Provider>
+        </Web3Provider>
+      </SettingsProvider>
     </ThemeProvider>
   );
 }

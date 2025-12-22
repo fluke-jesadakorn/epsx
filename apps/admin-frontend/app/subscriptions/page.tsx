@@ -3,7 +3,6 @@ import { Suspense } from 'react'
 
 import { SubscriptionManagement } from '@/components/subscriptions/SubscriptionManagement'
 import { UnifiedAuth } from '@/lib/auth/auth'
-import { ServerAuth } from '@/lib/server/auth-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,7 +15,7 @@ function SubscriptionsHubSkeleton() {
           <div className="h-16 bg-gradient-to-r from-emerald-400 to-green-500 rounded-2xl w-96 mx-auto mb-4  shadow-xl"></div>
           <div className="h-6 bg-gradient-to-r from-gray-300 to-gray-400 rounded-full w-64 mx-auto "></div>
         </div>
-        
+
         {/* Action cards skeleton */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           {Array.from({ length: 3 }).map((_, i) => (
@@ -28,7 +27,7 @@ function SubscriptionsHubSkeleton() {
             </div>
           ))}
         </div>
-        
+
         {/* Stats grid skeleton */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -39,7 +38,7 @@ function SubscriptionsHubSkeleton() {
             </div>
           ))}
         </div>
-        
+
         {/* Subscriptions table skeleton */}
         <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/30 overflow-hidden">
           <div className="p-8">
@@ -67,15 +66,14 @@ function SubscriptionsHubSkeleton() {
 
 async function SubscriptionsDataWrapper() {
   const session = await UnifiedAuth.getSession()
-  
+
   if (!session?.user) {
     notFound()
   }
-  
-  if (!UnifiedAuth.hasPermission(session.user, 'admin:subscriptions:view')) {
-    notFound()
-  }
-  
+
+  // NOTE: Permission enforcement moved to backend
+  // If user lacks permission, API calls will return 403 and show Access Denied UI
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-yellow-50 via-orange-50 to-pink-50 dark:from-gray-900 dark:via-purple-900 dark:to-gray-900 p-6">
       <SubscriptionManagement currentUser={session.user} />

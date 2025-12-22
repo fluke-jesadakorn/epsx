@@ -339,7 +339,7 @@ pub mod testing {
                     .map_err(|e| AppError::database_error(e.to_string()))?;
 
                 // Clean up test permission groups
-                diesel::sql_query("DELETE FROM permission_groups WHERE group_name LIKE 'test_%'")
+                diesel::sql_query("DELETE FROM groups WHERE group_name LIKE 'test_%'")
                     .execute(conn)
                     .await
                     .map_err(|e| AppError::database_error(e.to_string()))?;

@@ -243,7 +243,7 @@ pub struct IpAddr(pub String);
 // Permission Group Types - Updated to match database schema exactly
 // Supports both SQLx (legacy) and Diesel (new) during migration
 #[derive(Debug, Clone, diesel::Queryable, diesel::Selectable)]
-#[diesel(table_name = crate::schema::permission_groups)]
+#[diesel(table_name = crate::schema::groups)]
 pub struct PermissionGroup {
     pub id: Uuid,
     pub name: String,
@@ -281,7 +281,7 @@ impl PermissionGroup {
 
 // Diesel Insertable model for creating new permission groups
 #[derive(Debug, Clone, diesel::Insertable)]
-#[diesel(table_name = crate::schema::permission_groups)]
+#[diesel(table_name = crate::schema::groups)]
 pub struct NewPermissionGroup {
     pub name: String,
     pub slug: String,
@@ -309,7 +309,7 @@ impl NewPermissionGroup {
 
 // Diesel AsChangeset model for updating permission groups
 #[derive(Debug, Clone, diesel::AsChangeset)]
-#[diesel(table_name = crate::schema::permission_groups)]
+#[diesel(table_name = crate::schema::groups)]
 pub struct UpdatePermissionGroup {
     pub name: Option<String>,
     pub description: Option<String>,
@@ -439,9 +439,9 @@ pub struct NewSessionDb {
 // Permission Group Models (Diesel)
 // ============================================================================
 
-/// Diesel Queryable model for permission_groups table
+/// Diesel Queryable model for groups table
 #[derive(Debug, Clone, diesel::Queryable, diesel::Selectable)]
-#[diesel(table_name = crate::schema::permission_groups)]
+#[diesel(table_name = crate::schema::groups)]
 pub struct PermissionGroupDb {
     pub id: uuid::Uuid,
     pub name: String,
@@ -466,7 +466,7 @@ pub struct PermissionGroupDb {
 
 /// Diesel Insertable model for creating/updating permission groups
 #[derive(Debug, Clone, diesel::Insertable, diesel::AsChangeset)]
-#[diesel(table_name = crate::schema::permission_groups)]
+#[diesel(table_name = crate::schema::groups)]
 pub struct NewPermissionGroupDb {
     pub id: uuid::Uuid,
     pub name: String,

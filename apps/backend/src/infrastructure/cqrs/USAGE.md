@@ -34,7 +34,7 @@ let outbox = container.transactional_outbox
 
 ```rust
 // 1. Load or create aggregate
-let mut wallet = WalletUser::create(wallet_address, permission_groups)?;
+let mut wallet = WalletUser::create(wallet_address, groups)?;
 
 // 2. Execute business logic (this creates events)
 wallet.grant_permission(permission)?;
@@ -402,7 +402,7 @@ let wallet = sqlx::query!(
         wallet_address,
         is_active,
         active_permissions,
-        permission_groups,
+        groups,
         total_permissions,
         subscription_tier,
         total_sessions,

@@ -23,7 +23,7 @@ use crate::web::responses::AdminResponse;
 pub struct SystemHealthResponse {
     pub status: String,
     pub database_connected: bool,
-    pub total_permission_groups: i64,
+    pub total_groups: i64,
     pub total_active_assignments: i64,
     pub total_wallets_with_permissions: i64,
     pub total_permissions: i64,
@@ -33,8 +33,8 @@ pub struct SystemHealthResponse {
 
 #[derive(Debug, Serialize)]
 pub struct PermissionStatisticsResponse {
-    pub total_permission_groups: i64,
-    pub active_permission_groups: i64,
+    pub total_groups: i64,
+    pub active_groups: i64,
     pub total_permissions: i64,
     pub total_wallet_assignments: i64,
     pub active_wallet_assignments: i64,
@@ -139,7 +139,7 @@ pub async fn get_health(
 
     // Get system statistics
     let total_groups = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM permission_groups"
+        "SELECT COUNT(*)::bigint as count FROM groups"
     )
     .get_result::<CountRow>(&mut conn)
     .await
@@ -183,7 +183,7 @@ pub async fn get_health(
     let response = SystemHealthResponse {
         status: status.to_string(),
         database_connected: db_connected,
-        total_permission_groups: total_groups,
+        total_groups: total_groups,
         total_active_assignments: active_assignments,
         total_wallets_with_permissions: total_wallets,
         total_permissions,
@@ -245,7 +245,7 @@ pub async fn get_statistics(
 
     // Total groups
     let total_groups = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM permission_groups"
+        "SELECT COUNT(*)::bigint as count FROM groups"
     )
     .get_result::<CountRow>(&mut conn)
     .await
@@ -255,7 +255,7 @@ pub async fn get_statistics(
     };
 
     let active_groups = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM permission_groups WHERE is_active = true"
+        "SELECT COUNT(*)::bigint as count FROM groups WHERE is_active = true"
     )
     .get_result::<CountRow>(&mut conn)
     .await
@@ -330,9 +330,9 @@ pub async fn get_statistics(
             pg.id, pg.name, pg.group_type,
             COUNT(DISTINCT wga.wallet_address)::bigint as member_count,
             COUNT(DISTINCT pgm.permission_id)::bigint as permission_count
-        FROM permission_groups pg
+        FROM groups pg
         LEFT JOIN wallet_group_assignments wga ON pg.id = wga.group_id AND wga.is_active = true
-        LEFT JOIN permission_group_memberships pgm ON pg.id = pgm.group_id
+        LEFT JOIN group_permissions pgm ON pg.id = pgm.group_id
         WHERE pg.is_active = true
         GROUP BY pg.id, pg.name, pg.group_type
         ORDER BY member_count DESC
@@ -384,8 +384,8 @@ pub async fn get_statistics(
     }).collect();
 
     let response = PermissionStatisticsResponse {
-        total_permission_groups: total_groups,
-        active_permission_groups: active_groups,
+        total_groups: total_groups,
+        active_groups: active_groups,
         total_permissions,
         total_wallet_assignments: total_assignments,
         active_wallet_assignments: active_assignments,

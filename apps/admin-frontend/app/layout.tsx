@@ -57,14 +57,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html 
-      lang="en" 
+    <html
+      lang="en"
       suppressHydrationWarning
       className="font-sans antialiased scroll-smooth"
     >
-      <body className="min-h-screen bg-background text-foreground">
+      <body
+        className="min-h-screen bg-background text-foreground"
+        suppressHydrationWarning
+      >
         {/* Theme handled by ThemeProvider to prevent FOUC securely */}
-        
+
         {/* Main application wrapper with consistent spacing */}
         <div className="flex min-h-screen flex-col">
           <ErrorBoundary>

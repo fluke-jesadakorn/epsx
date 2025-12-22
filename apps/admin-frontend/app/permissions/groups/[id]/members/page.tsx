@@ -3,7 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft, Trash2, UserPlus, Users } from 'lucide-react'
 import Link from 'next/link'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { useState } from 'react'
 import { toast } from 'sonner'
 
@@ -11,11 +11,10 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { WalletAutocomplete } from '@/components/ui/WalletAutocomplete'
-import { useGroupPermissions } from '@/hooks/useGroupPermissions'
-import { groupMgmt, PermissionGroup } from '@/lib/api/group-management-client'
+import { useGroupMembers } from '@/hooks/useGroupPermissions'
+import { groupMgmt, PermissionGroup, UserGroupMembership } from '@/lib/api/group-management-client'
 
 export default function GroupMembersPage() {
-    const router = useRouter()
     const params = useParams()
     const groupId = params['id'] as string
     const queryClient = useQueryClient()
@@ -34,7 +33,7 @@ export default function GroupMembersPage() {
     })
 
     // Use the hook to fetch members
-    const { members, isLoading: membersLoading, refreshMembers } = useGroupPermissions.useGroupMembers(groupId)
+    const { members, isLoading: membersLoading, refreshMembers } = useGroupMembers(groupId)
 
     const addMemberMutation = useMutation({
         mutationFn: async (walletAddress: string) => {
@@ -200,7 +199,7 @@ export default function GroupMembersPage() {
                                 </div>
                             ) : (
                                 <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
-                                    {members.map((member) => (
+                                    {members.map((member: UserGroupMembership) => (
                                         <div key={member.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 border rounded-lg hover:shadow-sm transition-shadow">
                                             <div className="flex items-center gap-3">
                                                 <div className="h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-mono text-xs">

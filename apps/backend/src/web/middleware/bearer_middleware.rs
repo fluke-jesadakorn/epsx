@@ -5,11 +5,9 @@
 
 /**
  * CORE PRINCIPLES:
- * - Standard OpenID Connect Bearer token validation
- * - JWT signature verification with RSA keys
+ * - Uses OpenIDTokenService::validate_access_token() as SINGLE SOURCE OF TRUTH
  * - User context extraction from validated tokens
  * - Unified error responses for authentication failures
- * - Single source of truth for authentication
  */
 
 use axum::{
@@ -19,12 +17,11 @@ use axum::{
     response::Response,
     Json,
 };
-use jsonwebtoken::{decode, Algorithm, Validation};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, warn};
 
 use crate::{
-    auth::{AccessTokenClaims, OpenIDTokenError},
+    auth::OpenIDTokenError,
     web::auth::AppState,
 };
 
@@ -126,44 +123,23 @@ pub async fn bearer_middleware(
 }
 
 /// Validate Bearer JWT token and extract user context
+/// 
+/// Uses OpenIDTokenService::validate_access_token() as the SINGLE SOURCE OF TRUTH
+/// for all JWT validation. This ensures consistent validation across the entire application.
 pub async fn validate_bearer_token(
     token: &str,
     app_state: &AppState,
 ) -> Result<OpenIDUserContext, OpenIDTokenError> {
     // Get OpenID token service for validation
-    let openid_service = app_state
+    let token_service = app_state
         .domain_container
         .get_token_service()
         .ok_or_else(|| {
-            OpenIDTokenError::TokenGenerationFailed("OpenID service not available".to_string())
+            OpenIDTokenError::TokenGenerationFailed("Token service not available".to_string())
         })?;
 
-    // Get RSA public key from key manager for JWT validation
-    let key_manager = openid_service.get_key_manager();
-    let current_key = key_manager.current_key();
-    let decoding_key = &current_key.decoding_key;
-
-    // Set up JWT validation with RSA
-    let mut validation = Validation::new(Algorithm::RS256);
-    validation.set_audience(&["epsx-frontend", "epsx-admin"]);
-    validation.set_issuer(&["https://api.epsx.io"]);
-    validation.algorithms = vec![Algorithm::RS256];
-
-    // Decode and validate JWT
-    let token_data = decode::<AccessTokenClaims>(token, decoding_key, &validation)
-        .map_err(|e| {
-            OpenIDTokenError::TokenGenerationFailed(format!("JWT validation failed: {}", e))
-        })?;
-
-    let claims = token_data.claims;
-
-    // Check token expiration
-    let now = chrono::Utc::now().timestamp();
-    if claims.exp < now {
-        return Err(OpenIDTokenError::TokenExpired(
-            "Access token has expired".to_string()
-        ));
-    }
+    // Use the SINGLE SOURCE OF TRUTH for token validation
+    let claims = token_service.validate_access_token(token).await?;
 
     // Parse permissions from OIDC standard scope claim
     // OIDC standard: scope is space-separated string like "openid profile epsx:analytics:read admin:users:manage"

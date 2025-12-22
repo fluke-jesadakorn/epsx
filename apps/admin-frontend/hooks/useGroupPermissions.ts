@@ -3,25 +3,29 @@
  * Provides hooks for managing permission groups and available permissions
  */
 
-import { CreateGroupRequest, GroupAssignmentHistory, PermissionGroup, UpdateGroupRequest, groupMgmt } from '@/lib/api/group-management-client';
+import { AssignUserToGroupRequest, CreateGroupRequest, Group, GroupAssignmentHistory, groupMgmt, UpdateGroupRequest, UserGroupMembership } from '@/lib/api/group-management-client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 // ============================================================================
 // PERMISSION GROUPS HOOK
 // ============================================================================
 
-interface UsePermissionGroupsReturn {
-  groups: PermissionGroup[];
+interface UseGroupsReturn {
+  groups: Group[];
   loading: boolean;
   error: string | null;
-  createGroup: (request: CreateGroupRequest) => Promise<PermissionGroup>;
-  updateGroup: (groupId: string, request: UpdateGroupRequest) => Promise<PermissionGroup>;
+  createGroup: (request: CreateGroupRequest) => Promise<Group>;
+  updateGroup: (groupId: string, request: UpdateGroupRequest) => Promise<Group>;
   deleteGroup: (groupId: string) => Promise<void>;
   refreshGroups: () => Promise<void>;
 }
 
-export function usePermissionGroups(): UsePermissionGroupsReturn {
-  const [groups, setGroups] = useState<PermissionGroup[]>([]);
+export type UsePermissionGroupsReturn = UseGroupsReturn;
+
+export const useGroupPermissions = useGroups;
+
+export function useGroups(): UseGroupsReturn {
+  const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,7 +35,7 @@ export function usePermissionGroups(): UsePermissionGroupsReturn {
     try {
       setLoading(true);
       setError(null);
-      const fetchedGroups = await groupMgmt.getPermissionGroups();
+      const fetchedGroups = await groupMgmt.getGroups();
       setGroups(fetchedGroups);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load permission groups');
@@ -40,29 +44,29 @@ export function usePermissionGroups(): UsePermissionGroupsReturn {
     }
   }, []);
 
-  const createGroup = useCallback(async (request: CreateGroupRequest): Promise<PermissionGroup> => {
+  const createGroup = useCallback(async (request: CreateGroupRequest): Promise<Group> => {
     try {
       setError(null);
-      const newGroup = await groupMgmt.createPermissionGroup(request);
+      const newGroup = await groupMgmt.createGroup(request);
       // Refresh groups after creation
       await loadGroups();
       return newGroup;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to create permission group';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to create group';
       setError(errorMessage);
       throw new Error(errorMessage);
     }
   }, [loadGroups]);
 
-  const updateGroup = useCallback(async (groupId: string, request: UpdateGroupRequest): Promise<PermissionGroup> => {
+  const updateGroup = useCallback(async (groupId: string, request: UpdateGroupRequest): Promise<Group> => {
     try {
       setError(null);
-      const updatedGroup = await groupMgmt.updatePermissionGroup(groupId, request);
+      const updatedGroup = await groupMgmt.updateGroup(groupId, request);
       // Refresh groups after update
       await loadGroups();
       return updatedGroup;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update permission group';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update group';
       setError(errorMessage);
       throw new Error(errorMessage);
     }
@@ -71,11 +75,11 @@ export function usePermissionGroups(): UsePermissionGroupsReturn {
   const deleteGroup = useCallback(async (groupId: string): Promise<void> => {
     try {
       setError(null);
-      await groupMgmt.deletePermissionGroup(groupId);
+      await groupMgmt.deleteGroup(groupId);
       // Refresh groups after deletion
       await loadGroups();
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to delete permission group';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to delete group';
       setError(errorMessage);
       throw new Error(errorMessage);
     }
@@ -183,11 +187,11 @@ export function useGroupAnalytics(): UseGroupAnalyticsReturn {
       setError(null);
 
       // For now, provide basic analytics - can be enhanced later
-      const groups = await groupMgmt.getPermissionGroups();
+      const groups = await groupMgmt.getGroups();
       const totalGroups = groups.length;
-      const activeGroups = groups.filter(g => g.is_system_group === false).length;
-      const systemGroups = groups.filter(g => g.is_system_group === true).length;
-      const totalPermissions = groups.reduce((sum, g) => sum + g.permissions.length, 0);
+      const activeGroups = groups.filter((g: Group) => g.is_active).length; // DB schema has is_active
+      const systemGroups = groups.filter((g: Group) => (g.group_type === 'system')).length;
+      const totalPermissions = groups.reduce((sum: number, g: Group) => sum + g.permissions.length, 0);
 
       setStats({
         totalGroups,
@@ -256,7 +260,7 @@ export function useWeb3AssignmentRules(): UseWeb3AssignmentRulesReturn {
     }
   }, []);
 
-  const processWallet = useCallback(async (walletAddress: string): Promise<void> => {
+  const processWallet = useCallback(async (_walletAddress: string): Promise<void> => {
     try {
       setError(null);
       // For now, just log - would need specific API endpoint
@@ -266,7 +270,7 @@ export function useWeb3AssignmentRules(): UseWeb3AssignmentRulesReturn {
     }
   }, []);
 
-  const verifyWalletAssets = useCallback(async (walletAddress: string): Promise<boolean> => {
+  const verifyWalletAssets = useCallback(async (_walletAddress: string): Promise<boolean> => {
     try {
       setError(null);
       // For now, return true - would need actual verification
@@ -291,17 +295,8 @@ export function useWeb3AssignmentRules(): UseWeb3AssignmentRulesReturn {
   };
 }
 
-// ============================================================================
-// USER GROUP MEMBERSHIPS HOOK (STUB)
-// ============================================================================
-
-import type { UserGroupMembership } from '@/lib/api/group-management-client';
-
-// ============================================================================
-// USER GROUP MEMBERSHIPS HOOK
-// ============================================================================
-
-import { AssignUserToGroupRequest } from '@/lib/api/group-management-client';
+// Backward compatibility exports
+export const usePermissionGroups = useGroups;
 
 export function useUserGroupMemberships(userId: string | null) {
   const [memberships, setMemberships] = useState<UserGroupMembership[]>([]);
@@ -434,8 +429,9 @@ export function useGroupAssignmentHistory() {
 // COMBINED HOOKS EXPORT (BACKWARD COMPATIBILITY)
 // ============================================================================
 
-export const useGroupPermissions = {
-  usePermissionGroups,
+export const groupHooks = {
+  useGroups,
+  usePermissionGroups, // Alias
   useAvailablePermissions,
   useGroupAnalytics,
   // Removed: useAdminGroupPermissions - backend handles permission checking
@@ -445,4 +441,4 @@ export const useGroupPermissions = {
   useGroupMembers,
 };
 
-export default useGroupPermissions;
+export default groupHooks;

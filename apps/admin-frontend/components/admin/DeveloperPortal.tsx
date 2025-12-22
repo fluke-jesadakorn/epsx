@@ -1,30 +1,31 @@
 'use client';
 
 import {
-    Activity,
-    AlertTriangle,
-    BarChart3,
-    BookOpen,
-    Clock,
-    Code,
-    Copy,
-    Download,
-    Eye,
-    EyeOff,
-    Globe,
-    Key,
-    Plus,
-    Settings,
-    Shield,
-    Trash2,
+  Activity,
+  AlertTriangle,
+  BarChart3,
+  BookOpen,
+  Clock,
+  Code,
+  Copy,
+  Download,
+  Eye,
+  EyeOff,
+  Globe,
+  Key,
+  Plus,
+  Settings,
+  Shield,
+  Trash2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { logger } from '@/lib/logger';
 import { createPlansClient, type ApiKeyResponse as ApiKey, type Module } from '@/shared/api/plans';
+import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { createAdminApiClient } from '@/shared/utils/api-client';
 
 // Access levels configuration
@@ -68,29 +69,39 @@ const ACCESS_LEVELS = [
   },
 ];
 
+// Helper function to mask API key prefix for display (e.g., "epsx_abc123..." -> "epsx...123")
+const maskKeyPrefix = (prefix: string): string => {
+  if (prefix.length <= 8) {
+    return `${prefix}...`;
+  }
+  const start = prefix.slice(0, 4);
+  const end = prefix.slice(-3);
+  return `${start}...${end}`;
+};
+
+// Helper function to truncate wallet address
+const truncateWallet = (address: string): string => {
+  if (!address || address.length < 12) return address || 'Unknown';
+  return `${address.slice(0, 6)}...${address.slice(-4)}`;
+};
+
 /**
  *
  */
 export const DeveloperPortal: React.FC = () => {
   const router = useRouter();
-  // SECURITY: Proper module auth check implementation
-  const hasModuleAccess = useCallback((module: string) => {
-    // Check if user has admin permissions
-    // This should integrate with your actual OIDC/permission system
-    return false; // Default to deny access for security
-  }, []);
-  
-  const canPerformAction = useCallback((module: string, action: string) => {
-    // Check if user can perform specific actions
-    // This should integrate with your actual OIDC/permission system  
-    return false; // Default to deny access for security
-  }, []);
+  const { isLoading: authLoading } = useSharedAuth();
+
+  // NOTE: Permission enforcement is handled by backend via JWT middleware
+  // Frontend only handles Access Denied errors from API responses
+
   const [activeTab, setActiveTab] = useState<
     'overview' | 'keys' | 'docs' | 'usage'
   >('overview');
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
+  const [accessDenied, setAccessDenied] = useState<{ message: string; code?: string } | null>(null);
   const [showKeyValue, setShowKeyValue] = useState<string | null>(null);
   const [newApiKey, setNewApiKey] = useState<string | null>(null);
   const [createForm, setCreateForm] = useState({
@@ -109,21 +120,21 @@ export const DeveloperPortal: React.FC = () => {
   // Load initial data
   useEffect(() => {
     loadData();
-    
+
     // Check for URL parameters (success message, new API key)
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('success') === 'true') {
       const clientName = urlParams.get('client_name');
       const newKey = urlParams.get('new_key');
-      
+
       if (clientName) {
         toast.success(`API key for "${clientName}" created successfully!`);
       }
-      
+
       if (newKey && newKey !== 'key-created') {
         setNewApiKey(newKey);
       }
-      
+
       // Clean up URL
       window.history.replaceState({}, '', window.location.pathname);
     }
@@ -132,24 +143,63 @@ export const DeveloperPortal: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
+      setAccessDenied(null);
       const apiClient = createAdminApiClient();
       const plansClient = createPlansClient(apiClient);
 
-      const [keysRes, modulesRes] = await Promise.all([
-        plansClient.listApiKeys(),
-        plansClient.getModules({ status: 'active' }),
-      ]);
-
-      if (keysRes.success) {
-        setApiKeys((keysRes.data as any)?.api_keys || []);
+      // These endpoints may not exist yet - handle gracefully
+      try {
+        const keysRes = await plansClient.listApiKeys();
+        if (keysRes.success) {
+          setApiKeys((keysRes.data as any)?.api_keys || []);
+        }
+      } catch (error: any) {
+        // Handle Access Denied from backend
+        if (error?.status === 403 || error?.code === 'PERMISSION_DENIED') {
+          setAccessDenied({
+            message: error?.message || 'You don\'t have permission to access the developer portal.',
+            code: error?.code
+          });
+          return;
+        }
+        // Silently handle 404 - endpoints not implemented yet
+        if (error?.status !== 404) {
+          logger.warn('Failed to load API keys', { error });
+        }
+        setApiKeys([]);
       }
 
-      if (modulesRes.success) {
-        setModules((modulesRes.data as any)?.modules || []);
+      try {
+        const modulesRes = await plansClient.getModules({ status: 'active' });
+        if (modulesRes.success) {
+          setModules((modulesRes.data as any)?.modules || []);
+        }
+      } catch (error: any) {
+        // Handle Access Denied from backend
+        if (error?.status === 403 || error?.code === 'PERMISSION_DENIED') {
+          setAccessDenied({
+            message: error?.message || 'You don\'t have permission to access the developer portal.',
+            code: error?.code
+          });
+          return;
+        }
+        // Silently handle 404 - endpoints not implemented yet
+        if (error?.status !== 404) {
+          logger.warn('Failed to load modules', { error });
+        }
+        setModules([]);
       }
-    } catch (_error) {
+    } catch (_error: any) {
+      // Handle Access Denied from backend at top level
+      if (_error?.status === 403 || _error?.code === 'PERMISSION_DENIED') {
+        setAccessDenied({
+          message: _error?.message || 'You don\'t have permission to access the developer portal.',
+          code: _error?.code
+        });
+        return;
+      }
       logger.error('Failed to load developer portal data', { _error });
-      toast.error('Failed to load developer portal data');
+      // Don't show toast for expected 404s during development
     } finally {
       setLoading(false);
     }
@@ -160,7 +210,7 @@ export const DeveloperPortal: React.FC = () => {
     const reason = prompt(
       `Are you sure you want to revoke the API key for "${keyName}"? Please provide a reason:`
     );
-    if (!reason) {return;}
+    if (!reason) { return; }
 
     try {
       const apiClient = createAdminApiClient();
@@ -254,11 +304,18 @@ export const DeveloperPortal: React.FC = () => {
     return accessLevel?.color || 'text-gray-600';
   };
 
-  // Check permissions
-  const canManageApiKeys =
-    hasModuleAccess('admin') && canPerformAction('admin', 'manage_api_keys');
+  // Show loading state while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="rounded-full h-8 w-8 border-b-2 border-blue-600 opacity-75"></div>
+        <span className="ml-2 text-gray-600 dark:text-gray-300">Initializing...</span>
+      </div>
+    );
+  }
 
-  if (!canManageApiKeys) {
+  // Show Access Denied from backend
+  if (accessDenied) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-center max-w-md">
@@ -267,9 +324,13 @@ export const DeveloperPortal: React.FC = () => {
             Access Denied
           </h2>
           <p className="text-gray-600 dark:text-gray-300 mb-4">
-            You don&apos;t have permission to access the developer portal. This
-            feature requires admin-level access.
+            {accessDenied.message}
           </p>
+          {accessDenied.code && (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Error code: {accessDenied.code}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -299,44 +360,40 @@ export const DeveloperPortal: React.FC = () => {
       <div className="flex space-x-1 mb-6 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-fit">
         <button
           onClick={() => setActiveTab('overview')}
-          className={`px-4 py-2 rounded-md font-medium transition-colors ${
-            activeTab === 'overview'
-              ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-              : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
-          }`}
+          className={`px-4 py-2 rounded-md font-medium transition-colors ${activeTab === 'overview'
+            ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+            }`}
         >
           <BarChart3 className="w-4 h-4 inline mr-2" />
           Overview
         </button>
         <button
           onClick={() => setActiveTab('keys')}
-          className={`px-4 py-2 rounded-md font-medium transition-colors ${
-            activeTab === 'keys'
-              ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-              : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
-          }`}
+          className={`px-4 py-2 rounded-md font-medium transition-colors ${activeTab === 'keys'
+            ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+            }`}
         >
           <Key className="w-4 h-4 inline mr-2" />
           API Keys
         </button>
         <button
           onClick={() => setActiveTab('docs')}
-          className={`px-4 py-2 rounded-md font-medium transition-colors ${
-            activeTab === 'docs'
-              ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-              : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
-          }`}
+          className={`px-4 py-2 rounded-md font-medium transition-colors ${activeTab === 'docs'
+            ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+            }`}
         >
           <BookOpen className="w-4 h-4 inline mr-2" />
           Documentation
         </button>
         <button
           onClick={() => setActiveTab('usage')}
-          className={`px-4 py-2 rounded-md font-medium transition-colors ${
-            activeTab === 'usage'
-              ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
-              : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
-          }`}
+          className={`px-4 py-2 rounded-md font-medium transition-colors ${activeTab === 'usage'
+            ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+            : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+            }`}
         >
           <Activity className="w-4 h-4 inline mr-2" />
           Usage Analytics
@@ -457,6 +514,21 @@ export const DeveloperPortal: React.FC = () => {
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
+                    {/* Permission Groups (new system) */}
+                    {(apiKey as any).permission_groups?.length > 0 && (
+                      <>
+                        {(apiKey as any).permission_groups.map((group: { id: string; name: string; slug: string }) => (
+                          <span
+                            key={group.id}
+                            className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200"
+                          >
+                            <Shield className="w-3 h-3 mr-1" />
+                            {group.name}
+                          </span>
+                        ))}
+                      </>
+                    )}
+                    {/* Legacy modules (if any) */}
                     {apiKey.allowed_modules.map(module => (
                       <span
                         key={module.module_id}
@@ -549,6 +621,16 @@ export const DeveloperPortal: React.FC = () => {
                       </p>
                       <div className="flex items-center space-x-4 mt-1">
                         <span className="text-xs text-gray-500 dark:text-gray-400">
+                          Wallet:{' '}
+                          <span
+                            className="font-mono cursor-pointer hover:text-blue-600"
+                            title={(apiKey as any).wallet_address || 'Unknown'}
+                            onClick={() => copyToClipboard((apiKey as any).wallet_address || '', 'Wallet address')}
+                          >
+                            {truncateWallet((apiKey as any).wallet_address)}
+                          </span>
+                        </span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
                           Created:{' '}
                           {new Date(apiKey.created_at).toLocaleDateString()}
                         </span>
@@ -616,9 +698,7 @@ export const DeveloperPortal: React.FC = () => {
                       </div>
                     </div>
                     <code className="text-sm text-gray-900 dark:text-gray-100 font-mono">
-                      {showKeyValue === apiKey.id
-                        ? `${apiKey.key_prefix}${'*'.repeat(32)}`
-                        : `${apiKey.key_prefix}...`}
+                      {maskKeyPrefix(apiKey.key_prefix)}
                     </code>
                   </div>
 

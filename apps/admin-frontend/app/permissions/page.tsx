@@ -13,7 +13,6 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { WalletAutocomplete } from '@/components/ui/WalletAutocomplete'
-import { useGroupPermissions } from '@/hooks/useGroupPermissions'
 import { groupMgmt, PermissionGroup } from '@/lib/api/group-management-client'
 
 export const dynamic = 'force-dynamic'
@@ -22,18 +21,17 @@ export const dynamic = 'force-dynamic'
  *
  */
 export default function Web3AdminPermissionsPage() {
-  const [activeView, setActiveView] = useState<'main' | 'create-group' | 'assign-wallet' | 'edit-group' | 'group-members' | 'expiring'>('main')
-  const [editingGroup, setEditingGroup] = useState<PermissionGroup | null>(null)
-  const [viewingMembersGroup, setViewingMembersGroup] = useState<PermissionGroup | null>(null)
-  const [walletSearchTerm, setWalletSearchTerm] = useState('')
-  const [searchResults, setSearchResults] = useState<any[]>([])
-  const [isSearching, setIsSearching] = useState(false)
-  const [recentActivity, setRecentActivity] = useState<any[]>([])
-  const [isLoadingActivity, setIsLoadingActivity] = useState(false)
   const [expiringAssignments, setExpiringAssignments] = useState<any[]>([])
   // Delete confirmation modal state
   const [deleteConfirm, setDeleteConfirm] = useState<{ isOpen: boolean; groupId: string; groupName: string } | null>(null)
   const queryClient = useQueryClient()
+
+  // State for managing different views
+  const [activeView, setActiveView] = useState<'main' | 'create-group' | 'assign-wallet' | 'edit-group' | 'group-members' | 'expiring'>('main')
+  const [editingGroup, setEditingGroup] = useState<PermissionGroup | null>(null)
+  const [isLoadingActivity, setIsLoadingActivity] = useState(false)
+  const [recentActivity, setRecentActivity] = useState<any[]>([])
+
 
   // Fetch permission groups
   const { data: permissionGroups = [], isLoading: groupsLoading, error: groupsError } = useQuery({
@@ -49,7 +47,6 @@ export default function Web3AdminPermissionsPage() {
     refetchInterval: 30000,
     retry: 1,
     staleTime: 5 * 60 * 1000,
-    placeholderData: [],
   })
 
   // Fetch group analytics
@@ -98,8 +95,6 @@ export default function Web3AdminPermissionsPage() {
     setDeleteConfirm(null)
   }
 
-
-
   const handleGroupUpdated = () => {
     queryClient.invalidateQueries({ queryKey: ['permission-groups'] })
     queryClient.invalidateQueries({ queryKey: ['group-analytics'] })
@@ -107,23 +102,6 @@ export default function Web3AdminPermissionsPage() {
     setEditingGroup(null)
   }
 
-  const handleViewMembers = (group: PermissionGroup) => {
-    setViewingMembersGroup(group)
-    setActiveView('group-members')
-  }
-
-  // Debounced search effect
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (walletSearchTerm && walletSearchTerm.length >= 3) {
-        handleWalletSearch(walletSearchTerm)
-      } else {
-        setSearchResults([])
-      }
-    }, 500)
-
-    return () => clearTimeout(timeoutId)
-  }, [walletSearchTerm])
 
   // Load recent activity
   useEffect(() => {
@@ -137,13 +115,11 @@ export default function Web3AdminPermissionsPage() {
           date_from: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
         })
 
-        if (response.success && response.data) {
-          setRecentActivity(response.data.history)
-        } else {
-          setRecentActivity([])
+        if (response && response.history) {
+          setRecentActivity(response.history)
         }
       } catch (error) {
-        setRecentActivity([])
+        // Handle error
       } finally {
         setIsLoadingActivity(false)
       }
@@ -163,26 +139,6 @@ export default function Web3AdminPermissionsPage() {
     }
   }, [activeView])
 
-  const handleWalletSearch = async (searchTerm: string) => {
-    setIsSearching(true)
-    try {
-      const response = await groupMgmt.getGroupAssignmentHistory({
-        user_search: searchTerm,
-        limit: 20
-      })
-
-      if (response.success && response.data) {
-        setSearchResults(response.data.history)
-      } else {
-        setSearchResults([])
-      }
-    } catch (error: any) {
-      toast.error('Failed to search wallets: ' + error.message)
-      setSearchResults([])
-    } finally {
-      setIsSearching(false)
-    }
-  }
 
   // Show loading state
   if (groupsLoading || analyticsLoading) {
@@ -221,7 +177,7 @@ export default function Web3AdminPermissionsPage() {
             </h1>
             <div className="absolute -top-2 -right-2 w-4 h-4 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full"></div>
           </div>
-          <p className="text-base sm:text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
+          <p className="text-base sm:text-lg text-gray-700 dark:text-gray-300 max-w-2xl mx-auto">
             Manage permission groups and wallet assignments
           </p>
         </div>
@@ -233,7 +189,6 @@ export default function Web3AdminPermissionsPage() {
               onClick={() => {
                 setActiveView('main')
                 setEditingGroup(null)
-                setViewingMembersGroup(null)
               }}
               variant="outline"
               className="flex items-center gap-2"
@@ -252,46 +207,46 @@ export default function Web3AdminPermissionsPage() {
               <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl sm:rounded-2xl lg:rounded-3xl p-3 sm:p-4 lg:p-6 shadow-xl border-2 border-blue-300/50 dark:border-blue-700/50 hover:shadow-2xl transition-shadow">
                 <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
                   <div className="text-xl sm:text-2xl lg:text-3xl">👥</div>
-                  <span className="text-xs sm:text-xs lg:text-sm font-medium text-gray-500 dark:text-gray-400">Groups</span>
+                  <span className="text-xs sm:text-xs lg:text-sm font-medium text-gray-600 dark:text-gray-300">Groups</span>
                 </div>
                 <div className="space-y-1">
                   <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-blue-600 break-all">{analytics?.total_groups || 0}</div>
-                  <div className="text-xs sm:text-xs lg:text-sm text-gray-600 dark:text-gray-300">Total Groups</div>
+                  <div className="text-xs sm:text-xs lg:text-sm text-gray-700 dark:text-gray-200">Total Groups</div>
                 </div>
               </div>
 
               <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl sm:rounded-2xl lg:rounded-3xl p-3 sm:p-4 lg:p-6 shadow-xl border-2 border-green-300/50 dark:border-green-700/50 hover:shadow-2xl transition-shadow">
                 <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
                   <div className="text-xl sm:text-2xl lg:text-3xl">✅</div>
-                  <span className="text-xs sm:text-xs lg:text-sm font-medium text-gray-500 dark:text-gray-400">Active</span>
+                  <span className="text-xs sm:text-xs lg:text-sm font-medium text-gray-600 dark:text-gray-300">Active</span>
                 </div>
                 <div className="space-y-1">
                   <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-green-600 break-all">{analytics?.total_active_memberships || 0}</div>
-                  <div className="text-xs sm:text-xs lg:text-sm text-gray-600 dark:text-gray-300">Memberships</div>
+                  <div className="text-xs sm:text-xs lg:text-sm text-gray-700 dark:text-gray-200">Memberships</div>
                 </div>
               </div>
 
               <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl sm:rounded-2xl lg:rounded-3xl p-3 sm:p-4 lg:p-6 shadow-xl border-2 border-orange-300/50 dark:border-orange-700/50 hover:shadow-2xl transition-shadow">
                 <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
                   <div className="text-xl sm:text-2xl lg:text-3xl">⏰</div>
-                  <span className="text-xs sm:text-xs lg:text-sm font-medium text-gray-500 dark:text-gray-400">Soon</span>
+                  <span className="text-xs sm:text-xs lg:text-sm font-medium text-gray-600 dark:text-gray-300">Soon</span>
                 </div>
                 <div className="space-y-1">
                   <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-orange-600 break-all">{analytics?.expiring_soon_count || 0}</div>
-                  <div className="text-xs sm:text-xs lg:text-sm text-gray-600 dark:text-gray-300">Expiring</div>
+                  <div className="text-xs sm:text-xs lg:text-sm text-gray-700 dark:text-gray-200">Expiring</div>
                 </div>
               </div>
 
               <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl sm:rounded-2xl lg:rounded-3xl p-3 sm:p-4 lg:p-6 shadow-xl border-2 border-purple-300/50 dark:border-purple-700/50 hover:shadow-2xl transition-shadow">
                 <div className="flex items-center justify-between mb-2 sm:mb-3 lg:mb-4">
                   <div className="text-xl sm:text-2xl lg:text-3xl">🏆</div>
-                  <span className="text-xs sm:text-xs lg:text-sm font-medium text-gray-500 dark:text-gray-400">Top</span>
+                  <span className="text-xs sm:text-xs lg:text-sm font-medium text-gray-600 dark:text-gray-300">Top</span>
                 </div>
                 <div className="space-y-1">
                   <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-purple-600 break-all">
                     {analytics?.most_popular_groups?.[0]?.member_count || 0}
                   </div>
-                  <div className="text-xs sm:text-xs lg:text-sm text-gray-600 dark:text-gray-300 truncate">Largest</div>
+                  <div className="text-xs sm:text-xs lg:text-sm text-gray-700 dark:text-gray-200 truncate">Largest</div>
                 </div>
               </div>
             </div>
@@ -307,14 +262,14 @@ export default function Web3AdminPermissionsPage() {
                       <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-blue-400 to-cyan-500 bg-clip-text text-transparent mb-2">
                         👥 Create Group
                       </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
                         Create a new permission group
                       </p>
                       <div className="flex items-center justify-between">
                         <div className="px-3 py-1 bg-gradient-to-r from-blue-400 to-cyan-500 text-white rounded-full text-xs font-medium">
                           Open
                         </div>
-                        <div className="text-gray-400 group-hover:translate-x-1 transition-transform duration-200">→</div>
+                        <div className="text-gray-500 dark:text-gray-400 group-hover:translate-x-1 transition-transform duration-200">→</div>
                       </div>
                     </div>
                   </div>
@@ -330,14 +285,14 @@ export default function Web3AdminPermissionsPage() {
                       <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent mb-2">
                         💼 Assign Wallet
                       </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
                         Assign wallet to a group
                       </p>
                       <div className="flex items-center justify-between">
                         <div className="px-3 py-1 bg-gradient-to-r from-green-400 to-emerald-500 text-white rounded-full text-xs font-medium">
                           Open
                         </div>
-                        <div className="text-gray-400 group-hover:translate-x-1 transition-transform duration-200">→</div>
+                        <div className="text-gray-500 dark:text-gray-400 group-hover:translate-x-1 transition-transform duration-200">→</div>
                       </div>
                     </div>
                   </div>
@@ -353,14 +308,14 @@ export default function Web3AdminPermissionsPage() {
                       <h3 className="text-lg sm:text-xl font-bold bg-gradient-to-r from-orange-400 to-pink-500 bg-clip-text text-transparent mb-2">
                         ⏰ Expiring Soon
                       </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                      <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
                         View expiring assignments
                       </p>
                       <div className="flex items-center justify-between">
                         <div className="px-3 py-1 bg-gradient-to-r from-orange-400 to-pink-500 text-white rounded-full text-xs font-medium">
                           Open
                         </div>
-                        <div className="text-gray-400 group-hover:translate-x-1 transition-transform duration-200">→</div>
+                        <div className="text-gray-500 dark:text-gray-400 group-hover:translate-x-1 transition-transform duration-200">→</div>
                       </div>
                     </div>
                   </div>
@@ -377,15 +332,16 @@ export default function Web3AdminPermissionsPage() {
               </h2>
 
               {groupsError ? (
-                <div className="bg-red-50/50 dark:bg-red-900/10 border border-red-200/50 dark:border-red-800/50 rounded-2xl p-4">
-                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                <div className="bg-red-50/50 dark:bg-red-900/20 border border-red-200/50 dark:border-red-700/50 rounded-2xl p-4">
+                  <p className="text-sm text-gray-800 dark:text-gray-200">
                     Failed to load permission groups: {groupsError.message}
                   </p>
                 </div>
               ) : (
                 <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                   {permissionGroups.map((group) => {
-                    const borderColor = group.is_system_group
+                    const isSystem = group.group_type === 'system' || group.is_system_group;
+                    const borderColor = isSystem
                       ? 'border-purple-300/50 dark:border-purple-700/50'
                       : 'border-blue-300/50 dark:border-blue-700/50'
 
@@ -393,10 +349,10 @@ export default function Web3AdminPermissionsPage() {
                       <div key={group.id} className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl sm:rounded-2xl p-3 sm:p-4 lg:p-6 shadow-xl border-2 ${borderColor} hover:shadow-2xl transition-shadow`}>
                         <div className="flex items-center justify-between mb-3 sm:mb-4">
                           <div className="text-2xl sm:text-3xl">
-                            {group.is_system_group ? '⚙️' : '👥'}
+                            {isSystem ? '⚙️' : '👥'}
                           </div>
                           <div className="flex items-center gap-2">
-                            {group.is_system_group && (
+                            {isSystem && (
                               <span className="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full">
                                 System
                               </span>
@@ -413,7 +369,7 @@ export default function Web3AdminPermissionsPage() {
                               {group.name}
                             </h3>
                             {group.description && (
-                              <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
+                              <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-2">
                                 {group.description}
                               </p>
                             )}
@@ -421,46 +377,46 @@ export default function Web3AdminPermissionsPage() {
 
                           <div className="space-y-2 text-sm">
                             <div className="flex justify-between items-center">
-                              <span className="text-gray-600 dark:text-gray-400">Members</span>
+                              <span className="text-gray-700 dark:text-gray-300">Members</span>
                               <span className="font-semibold text-blue-600">{group.member_count ?? 0}</span>
                             </div>
                             <div className="flex justify-between items-center">
-                              <span className="text-gray-600 dark:text-gray-400">Permissions</span>
+                              <span className="text-gray-700 dark:text-gray-300">Permissions</span>
                               <span className="font-semibold text-green-600">{group.permissions.length}</span>
                             </div>
                           </div>
 
-                          <div className="flex flex-wrap gap-2 pt-2">
-                            <Link href={`/permissions/groups/${group.id}/edit`} className="flex-1">
+                          <div className="flex flex-col gap-2 pt-2">
+                            <Link href={`/permissions/groups/${group.id}/edit`} className="w-full">
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="w-full"
+                                className="w-full justify-center px-4 text-blue-600 border-blue-200 hover:bg-blue-50 hover:text-blue-700 dark:border-blue-800 dark:hover:bg-blue-900/20 dark:text-blue-400"
                               >
-                                <Edit3 className="w-3 h-3 mr-1" />
-                                Edit
+                                <Edit3 className="w-4 h-4 mr-2" />
+                                Edit Group Settings
                               </Button>
                             </Link>
-                            <Link href={`/permissions/groups/${group.id}/members`} className="flex-1">
+                            <Link href={`/permissions/groups/${group.id}/members`} className="w-full">
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="w-full"
+                                className="w-full justify-center px-4 text-indigo-600 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700 dark:border-indigo-800 dark:hover:bg-indigo-900/20 dark:text-indigo-400"
                               >
-                                <Users className="w-3 h-3 mr-1" />
-                                Members
+                                <Users className="w-4 h-4 mr-2" />
+                                Manage Members
                               </Button>
                             </Link>
-                            {!group.is_system_group && (
+                            {(group.group_type !== 'system' && !group.is_system_group) && (
                               <Button
                                 size="sm"
                                 variant="outline"
                                 onClick={() => handleDeleteGroup(group.id, group.name)}
                                 disabled={deleteGroupMutation.isPending}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                className="w-full justify-center px-4 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:hover:bg-red-900/20 dark:text-red-400"
                               >
-                                <Trash2 className="w-3 h-3 mr-1" />
-                                Delete
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete Group
                               </Button>
                             )}
                           </div>
@@ -468,6 +424,40 @@ export default function Web3AdminPermissionsPage() {
                       </div>
                     )
                   })}
+                </div>
+              )}
+            </div>
+
+            {/* Recent Activity Section */}
+            <div className="mt-8 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 border-indigo-300/50 dark:border-indigo-700/50">
+              <div className="flex items-center gap-2 mb-4">
+                <Clock className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+                <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">Recent Activity</h3>
+              </div>
+              {isLoadingActivity ? (
+                <div className="text-center py-8">
+                  <div className="h-6 w-6 border-b-2 border-indigo-600 mx-auto mb-2 animate-spin rounded-full"></div>
+                  <p className="text-sm text-gray-500">Loading activity...</p>
+                </div>
+              ) : recentActivity.length === 0 ? (
+                <p className="text-gray-500 dark:text-gray-400 text-sm">No recent activity found.</p>
+              ) : (
+                <div className="space-y-3">
+                  {recentActivity.map((activity, idx) => (
+                    <div key={idx} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                      <div>
+                        <div className="font-medium text-sm text-gray-900 dark:text-gray-100">
+                          {activity.user_id ? `${activity.user_id.substring(0, 6)}...${activity.user_id.substring(activity.user_id.length - 4)}` : 'Unknown User'}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {activity.action_type === 'ASSIGN' ? 'Assigned to' : 'Removed from'} <span className="font-medium">{activity.group_name}</span>
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        {new Date(activity.timestamp).toLocaleDateString()}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -489,10 +479,6 @@ export default function Web3AdminPermissionsPage() {
           <EditGroupSection group={editingGroup} onSuccess={handleGroupUpdated} />
         )}
 
-        {/* Group Members View */}
-        {activeView === 'group-members' && viewingMembersGroup && (
-          <GroupMembersSection group={viewingMembersGroup} onClose={() => setActiveView('main')} />
-        )}
 
         {/* Expiring Assignments View */}
         {activeView === 'expiring' && (
@@ -546,7 +532,7 @@ export default function Web3AdminPermissionsPage() {
           </div>
         )}
       </div>
-    </div>
+    </div >
   )
 }
 
@@ -986,193 +972,6 @@ function EditGroupSection({ group, onSuccess }: { group: PermissionGroup; onSucc
   )
 }
 
-// Group Members Section Component
-function GroupMembersSection({ group, onClose }: { group: PermissionGroup; onClose: () => void }) {
-  const [newWalletAddress, setNewWalletAddress] = useState('')
-  const [showAddMember, setShowAddMember] = useState(false)
-  const queryClient = useQueryClient()
-
-  // Use the new hook to fetch members
-  const { members, isLoading, refreshMembers } = useGroupPermissions.useGroupMembers(group.id)
-
-  const addMemberMutation = useMutation({
-    mutationFn: async (walletAddress: string) => {
-      return groupMgmt.assignUserToGroup({
-        user_id: walletAddress,
-        group_id: group.id,
-        reason: 'Added via Members view'
-      })
-    },
-    onSuccess: () => {
-      toast.success('Member added successfully')
-      setNewWalletAddress('')
-      setShowAddMember(false)
-      queryClient.invalidateQueries({ queryKey: ['permission-groups'] })
-      queryClient.invalidateQueries({ queryKey: ['group-analytics'] })
-      refreshMembers() // Refresh the local list
-    },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to add member')
-    }
-  })
-
-  const removeMemberMutation = useMutation({
-    mutationFn: async (walletAddress: string) => {
-      return groupMgmt.removeUserFromGroup(walletAddress, group.id)
-    },
-    onSuccess: () => {
-      toast.success('Member removed successfully')
-      queryClient.invalidateQueries({ queryKey: ['permission-groups'] })
-      queryClient.invalidateQueries({ queryKey: ['group-analytics'] })
-      refreshMembers() // Refresh the local list
-    },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to remove member')
-    }
-  })
-
-  const handleAddMember = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newWalletAddress?.startsWith('0x')) {
-      toast.error('Please enter a valid wallet address')
-      return
-    }
-    addMemberMutation.mutate(newWalletAddress)
-  }
-
-  return (
-    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 border-indigo-300/50 dark:border-indigo-700/50">
-      <div className="flex justify-between items-start mb-2">
-        <h2 className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
-          <Users className="w-6 h-6" />
-          Members of "{group.name}"
-        </h2>
-        <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
-          <span className="sr-only">Close</span>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-      </div>
-      <div className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-        Total members: {members.length} {isLoading && '(Loading...)'}
-      </div>
-
-      <div className="space-y-4">
-        {/* Add Member Section */}
-        <div className="border-b pb-4">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="font-semibold">Manage Members</h3>
-            <Button
-              onClick={() => setShowAddMember(!showAddMember)}
-              variant="outline"
-              size="sm"
-            >
-              <UserPlus className="w-4 h-4 mr-2" />
-              Add Member
-            </Button>
-          </div>
-
-          {showAddMember && (
-            <form onSubmit={handleAddMember} className="flex gap-2">
-              <WalletAutocomplete
-                value={newWalletAddress}
-                onChange={setNewWalletAddress}
-                placeholder="Enter wallet address (0x...)"
-                className="flex-1"
-                excludeGroupId={group.id}
-              />
-              <Button
-                type="submit"
-                disabled={addMemberMutation.isPending}
-                size="sm"
-              >
-                {addMemberMutation.isPending ? 'Adding...' : 'ADD'}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setShowAddMember(false)
-                  setNewWalletAddress('')
-                }}
-                size="sm"
-              >
-                Cancel
-              </Button>
-            </form>
-          )}
-        </div>
-
-        {/* Members List */}
-        <div className="space-y-3">
-          <h3 className="font-semibold">Current Members</h3>
-
-          {isLoading ? (
-            <div className="text-center py-8">
-              <div className="h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4 animate-spin"></div>
-              <p className="text-gray-500">Loading members...</p>
-            </div>
-          ) : members.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-              <p className="text-lg font-medium">No members in this group</p>
-              <p className="text-sm">Add members to grant them the group's permissions</p>
-            </div>
-          ) : (
-            <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2">
-              {members.map((member) => (
-                <div key={member.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-900 border rounded-lg hover:shadow-sm transition-shadow">
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-mono text-xs">
-                      {member.user_id.substring(2, 4)}
-                    </div>
-                    <div>
-                      <div className="font-medium font-mono text-sm">
-                        {member.user_id}
-                      </div>
-                      <div className="text-xs text-gray-500 flex gap-2">
-                        <span>Added: {new Date(member.granted_at).toLocaleDateString()}</span>
-                        {member.expires_at && (
-                          <span className="text-orange-600">
-                            Expires: {new Date(member.expires_at).toLocaleDateString()}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/10"
-                    onClick={() => {
-                      if (confirm('Remove this user from the group?')) {
-                        removeMemberMutation.mutate(member.user_id)
-                      }
-                    }}
-                    disabled={removeMemberMutation.isPending}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Group Info */}
-        <div className="border-t pt-4">
-          <h3 className="font-semibold mb-2">Group Permissions</h3>
-          <div className="flex flex-wrap gap-2">
-            {group.permissions.map(permission => (
-              <Badge key={permission} variant="secondary">
-                {permission}
-              </Badge>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // Expiring Assignments Section Component
 function ExpiringAssignmentsSection({
@@ -1228,7 +1027,7 @@ function ExpiringAssignmentsSection({
         <Clock className="w-6 h-6" />
         Expiring Assignments
       </h2>
-      <div className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+      <div className="text-sm text-gray-700 dark:text-gray-300 mb-6">
         Assignments expiring in the next 7 days
       </div>
 
@@ -1236,7 +1035,7 @@ function ExpiringAssignmentsSection({
         {isLoading ? (
           <div className="text-center py-8">
             <div className="h-8 w-8 border-b-2 border-orange-600 mx-auto mb-4"></div>
-            <p className="text-gray-500">Loading expiring assignments...</p>
+            <p className="text-gray-600 dark:text-gray-400">Loading expiring assignments...</p>
           </div>
         ) : assignments.length > 0 ? (
           <>
@@ -1254,7 +1053,7 @@ function ExpiringAssignmentsSection({
                 <div key={index} className="p-4 border-orange-200 bg-orange-50/50 dark:bg-orange-900/10 rounded-lg border">
                   <div className="flex justify-between items-start">
                     <div className="space-y-2">
-                      <div className="font-mono text-sm font-medium">
+                      <div className="font-mono text-sm font-medium text-gray-900 dark:text-gray-100">
                         {assignment.user_email || `${(assignment.user_id?.slice(0, 6)) || ''}...${(assignment.user_id?.slice(-4)) || ''}`}
                       </div>
                       <div className="flex items-center gap-2 text-sm">
@@ -1269,7 +1068,7 @@ function ExpiringAssignmentsSection({
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-gray-600 dark:text-gray-400">
                         Granted: {new Date(assignment.granted_at).toLocaleDateString()}
                         {assignment.expires_at && (
                           <> • Expires: {new Date(assignment.expires_at).toLocaleDateString()}</>
@@ -1316,9 +1115,9 @@ function ExpiringAssignmentsSection({
             })}
           </>
         ) : (
-          <div className="text-center py-8 text-gray-500">
-            <Clock className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-            <p className="text-lg font-medium">No expiring assignments</p>
+          <div className="text-center py-8 text-gray-600 dark:text-gray-400">
+            <Clock className="w-12 h-12 mx-auto mb-4 text-gray-400 dark:text-gray-500" />
+            <p className="text-lg font-medium text-gray-700 dark:text-gray-300">No expiring assignments</p>
             <p className="text-sm">All assignments are valid for more than 7 days</p>
           </div>
         )}

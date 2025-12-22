@@ -254,7 +254,7 @@ pub async fn create_plan_handler(
         created_by: Some("admin".to_string()),
     };
 
-    let created_plan = match app_state.permission_group_repo.create_group(new_group).await {
+    let created_plan = match app_state.group_repo.create_group(new_group).await {
         Ok(plan) => plan,
         Err(err) => {
             tracing::error!(error = %err, "Failed to create plan in database");
@@ -321,7 +321,7 @@ pub async fn list_plans_handler(
     use crate::schema::subscriptions;
 
     // Get plans from database instead of hardcoded data
-    let db_plans = match app_state.permission_group_repo.get_subscription_plans().await {
+    let db_plans = match app_state.group_repo.get_subscription_plans().await {
         Ok(plans) => plans,
         Err(err) => {
             tracing::error!(error = %err, "Failed to fetch subscription plans from database");
@@ -454,7 +454,7 @@ pub async fn get_plan_handler(
         Err(_) => {
             // Handle legacy integer IDs by finding the first plan (for backward compatibility)
             // In production, you might want to maintain a mapping table or return an error
-            let db_plans = match app_state.permission_group_repo.get_subscription_plans().await {
+            let db_plans = match app_state.group_repo.get_subscription_plans().await {
                 Ok(plans) => plans,
                 Err(err) => {
                     tracing::error!(error = %err, "Failed to fetch subscription plans from database");
@@ -471,7 +471,7 @@ pub async fn get_plan_handler(
     };
 
     // Get plan from database
-    let plan = match app_state.permission_group_repo.get_plan_by_id(plan_uuid).await {
+    let plan = match app_state.group_repo.get_plan_by_id(plan_uuid).await {
         Ok(Some(plan)) => plan,
         Ok(None) => return Err(StatusCode::NOT_FOUND),
         Err(err) => {
@@ -618,7 +618,7 @@ pub async fn update_plan_handler(
     };
 
     // Get existing plan from database
-    let mut plan = match app_state.permission_group_repo.get_plan_by_id(plan_uuid).await {
+    let mut plan = match app_state.group_repo.get_plan_by_id(plan_uuid).await {
         Ok(Some(plan)) => plan,
         Ok(None) => {
             tracing::error!(plan_id = %plan_uuid, "Plan not found");
@@ -669,7 +669,7 @@ pub async fn update_plan_handler(
     }
 
     // Update plan in database
-    match app_state.permission_group_repo.update_plan(plan.clone()).await {
+    match app_state.group_repo.update_plan(plan.clone()).await {
         Ok(_) => {
             // Extract permissions array from JSONB
             let permissions = plan.permissions().as_array()
@@ -731,7 +731,7 @@ pub async fn create_subscription_handler(
 ) -> Result<JsonResponse<SubscriptionResponse>, StatusCode> {
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
-    use crate::schema::{subscriptions, permission_groups};
+    use crate::schema::{subscriptions, groups};
     use crate::infrastructure::models::payment::NewSubscriptionDb;
 
     let subscription_id = Uuid::new_v4();
@@ -743,9 +743,9 @@ pub async fn create_subscription_handler(
     })?;
     
     // Find plan UUID from permission_group_name
-    let plan_uuid: Uuid = permission_groups::table
-        .filter(permission_groups::name.eq(&request.permission_group_name))
-        .select(permission_groups::id)
+    let plan_uuid: Uuid = groups::table
+        .filter(groups::name.eq(&request.permission_group_name))
+        .select(groups::id)
         .first::<Uuid>(&mut conn)
         .await
         .unwrap_or_else(|_| {

@@ -387,7 +387,7 @@ pub async fn add_permission_to_group(
             // Add permission to group
             let membership = diesel::sql_query(
                 r#"
-                INSERT INTO permission_group_memberships (group_id, permission_id)
+                INSERT INTO group_permissions (group_id, permission_id)
                 VALUES ($1, $2)
                 ON CONFLICT (group_id, permission_id) DO NOTHING
                 RETURNING id, group_id, permission_id, granted_at
@@ -458,7 +458,7 @@ pub async fn remove_permission_from_group(
         }
     };
 
-    match diesel::sql_query("DELETE FROM permission_group_memberships WHERE group_id = $1 AND permission_id = $2")
+    match diesel::sql_query("DELETE FROM group_permissions WHERE group_id = $1 AND permission_id = $2")
         .bind::<diesel::sql_types::Uuid, _>(group_uuid)
         .bind::<diesel::sql_types::Uuid, _>(perm_uuid)
         .execute(&mut conn)

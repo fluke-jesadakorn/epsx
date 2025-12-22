@@ -12,18 +12,36 @@ import { adminApiClient } from '../api-client';
 // TYPES
 // ============================================================================
 
+/**
+ * Group (Permission Group)
+ * Represents a group of permissions that can be assigned to wallets
+ */
 export interface PermissionGroup {
   id: string;
   name: string;
+  slug: string;
+  description: string;
+  group_type: string;
   permissions: string[];
-  is_system_group: boolean;
-  default_expiry_days: number | null;
-  priority_level: number;
-  description?: string;
+  price?: number;
+  currency?: string;
+  billing_cycle?: string;
+  is_active: boolean;
+  is_system_group?: boolean; // Alias for backward compatibility
+  is_promoted?: boolean;
+  display_order?: number;
+  max_members?: number | null;
+  auto_assign_enabled?: boolean;
+  group_metadata?: Record<string, any>;
+  default_expiry_days?: number;
+  priority_level?: number;
   created_at: string;
   updated_at: string;
   member_count?: number;
 }
+
+// Type alias for cleaner naming
+export type Group = PermissionGroup;
 
 export interface UserGroupMembership {
   id: string;
@@ -94,6 +112,42 @@ export interface AssignUserToGroupRequest {
   reason?: string;
 }
 
+export interface CreateGroupRequest {
+  name: string;
+  permissions: string[];
+  description?: string;
+  default_expiry_days?: number;
+  priority_level?: number;
+}
+
+export interface UpdateGroupRequest {
+  name?: string;
+  permissions?: string[];
+  description?: string;
+  default_expiry_days?: number;
+  priority_level?: number;
+}
+
+export interface PermissionDefinitionDto {
+  id: string;
+  permission: string;
+  name?: string | null;
+  description?: string | null;
+  platform: string;
+  category?: string | null;
+  is_system: boolean;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface CreatePermissionDefinitionRequest {
+  permission: string;
+  name?: string;
+  description?: string;
+  platform?: string;
+  category?: string;
+}
+
 // ============================================================================
 // GROUP MANAGEMENT API
 // ============================================================================
@@ -111,13 +165,7 @@ export const groupMgmt = {
     return res.data!;
   },
 
-  async createPermissionGroup(req: {
-    name: string;
-    permissions: string[];
-    description?: string;
-    default_expiry_days?: number;
-    priority_level?: number;
-  }): Promise<PermissionGroup> {
+  async createPermissionGroup(req: CreateGroupRequest): Promise<PermissionGroup> {
     // Generate slug from name (backend requires slug)
     const slug = req.name
       .toLowerCase()
@@ -143,13 +191,7 @@ export const groupMgmt = {
 
   async updatePermissionGroup(
     groupId: string,
-    req: {
-      name?: string;
-      permissions?: string[];
-      description?: string;
-      default_expiry_days?: number;
-      priority_level?: number;
-    }
+    req: UpdateGroupRequest
   ): Promise<PermissionGroup> {
     const res = await adminApiClient.put<PermissionGroup>(`/api/admin/permissions/groups/${groupId}`, req);
     return res.data!;
@@ -455,6 +497,67 @@ export const groupMgmt = {
     const res = await adminApiClient.get<string[]>('/api/admin/permissions/available');
     return res.data!;
   },
+
+  /**
+   * Get all permission definitions with metadata
+   */
+  async getPermissionDefinitions(): Promise<PermissionDefinitionDto[]> {
+    const res = await adminApiClient.get<PermissionDefinitionDto[]>('/api/v1/permissions/definitions');
+    const data = res.data;
+    // Handle nested response format
+    if (Array.isArray(data)) return data;
+    if ((data as any)?.data && Array.isArray((data as any).data)) return (data as any).data;
+    return [];
+  },
+
+  /**
+   * Create a new permission definition
+   */
+  async createPermissionDefinition(req: CreatePermissionDefinitionRequest): Promise<PermissionDefinitionDto> {
+    const res = await adminApiClient.post<PermissionDefinitionDto>('/api/v1/permissions/definitions', req);
+    const data = res.data;
+    // Handle nested response format
+    if ((data as any)?.data) return (data as any).data;
+    return data!;
+  },
+
+  /**
+   * Delete a permission definition by ID
+   */
+  async deletePermissionDefinition(id: string): Promise<void> {
+    await adminApiClient.delete(`/api/v1/permissions/definitions/${id}`);
+  },
+
+  /**
+   * Delete a permission definition by permission string
+   */
+  async deletePermissionByName(permission: string): Promise<void> {
+    const encoded = encodeURIComponent(permission);
+    await adminApiClient.delete(`/api/v1/permissions/definitions/by-name/${encoded}`);
+  },
+
+  // ============================================================================
+  // METHOD ALIASES (for cleaner naming)
+  // ============================================================================
+
+  /** Alias for getPermissionGroups */
+  getGroups: function () { return this.getPermissionGroups(); },
+
+  /** Alias for getPermissionGroup */
+  getGroup: function (groupId: string) { return this.getPermissionGroup(groupId); },
+
+  /** Alias for createPermissionGroup */
+  createGroup: function (req: CreateGroupRequest) {
+    return this.createPermissionGroup(req);
+  },
+
+  /** Alias for updatePermissionGroup */
+  updateGroup: function (groupId: string, req: UpdateGroupRequest) {
+    return this.updatePermissionGroup(groupId, req);
+  },
+
+  /** Alias for deletePermissionGroup */
+  deleteGroup: function (groupId: string) { return this.deletePermissionGroup(groupId); },
 };
 
 // Start Helper Functions
@@ -470,13 +573,15 @@ function mapAssignmentToMembership(assignment: any): UserGroupMembership {
     group: {
       id: assignment.group_id,
       name: assignment.group_name,
+      slug: assignment.group_slug || '',
+      description: assignment.group_description || assignment.group_type || '',
+      group_type: assignment.group_type || 'manual',
       permissions: [], // Assignments endpoint might not return permissions list
-      is_system_group: false, // Defaulting as not provided entirely
-      default_expiry_days: null,
-      priority_level: 0,
-      description: assignment.group_type, // Using type as description fallback
+      is_active: true, // Assuming active if returned from this endpoint
       created_at: assignment.assigned_at, // Fallback
       updated_at: assignment.assigned_at, // Fallback
+      default_expiry_days: assignment.default_expiry_days,
+      priority_level: assignment.priority_level,
     } as PermissionGroup
   };
 }

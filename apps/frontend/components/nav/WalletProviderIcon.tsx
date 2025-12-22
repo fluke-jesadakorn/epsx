@@ -13,7 +13,7 @@ import {
 import { formatAddress, useWeb3AuthStore } from '@/lib/auth/store';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { Check, Copy, ExternalLink, Settings, Wallet } from 'lucide-react';
+import { Check, Code, Copy, ExternalLink, Settings, Wallet } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useAccount, useDisconnect, useSignMessage } from 'wagmi';
@@ -255,6 +255,8 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
 
       <DropdownMenuContent
         align="end"
+        sideOffset={5}
+        style={{ zIndex: 99999 }}
         className="w-64 p-2 bg-white/95 backdrop-blur-xl border border-orange-100/50 dark:bg-slate-900/95 dark:border-slate-700/50"
       >
         {/* Wallet Header */}
@@ -401,6 +403,19 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
         </DropdownMenuItem>
 
         <DropdownMenuSeparator className="bg-orange-100/50 dark:bg-slate-700/50" />
+
+        {/* Developer Portal */}
+        <DropdownMenuItem asChild className="px-3 py-2 rounded-lg cursor-pointer hover:bg-orange-50/80 dark:hover:bg-slate-800/40">
+          <Link href="/developer" className="flex items-center gap-3">
+            <Code className="h-4 w-4 text-orange-500" />
+            <div>
+              <div className="text-sm font-medium">Developer Portal</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                Manage API keys and access
+              </div>
+            </div>
+          </Link>
+        </DropdownMenuItem>
 
         {/* Settings */}
         <DropdownMenuItem asChild className="px-3 py-2 rounded-lg cursor-pointer hover:bg-orange-50/80 dark:hover:bg-slate-800/40">

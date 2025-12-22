@@ -2,14 +2,14 @@ use crate::prelude::*;
 use crate::domain::shared_kernel::{AggregateRoot, AggregateBase, DomainEvent};
 use crate::domain::permission_management::{
     GroupId, GroupSlug, PermissionString,
-    events::{PermissionGroupCreatedEvent, PermissionGroupUpdatedEvent}
+    events::{GroupCreatedEvent, GroupUpdatedEvent}
 };
 use std::collections::HashSet;
 
-/// Permission Group Aggregate Root
+/// Group Aggregate Root
 /// Represents a group of permissions that can be assigned to wallets
 #[derive(Debug, Clone)]
-pub struct PermissionGroup {
+pub struct Group {
     id: GroupId,
     name: String,
     slug: GroupSlug,
@@ -28,7 +28,7 @@ pub struct PermissionGroup {
     base: AggregateBase,
 }
 
-pub struct CreatePermissionGroupParams {
+pub struct CreateGroupParams {
     pub name: String,
     pub slug: GroupSlug,
     pub description: String,
@@ -45,7 +45,7 @@ pub struct CreatePermissionGroupParams {
     pub metadata: Option<serde_json::Value>,
 }
 
-pub struct LoadPermissionGroupParams {
+pub struct LoadGroupParams {
     pub id: GroupId,
     pub name: String,
     pub slug: GroupSlug,
@@ -67,7 +67,7 @@ pub struct LoadPermissionGroupParams {
 }
 
 #[derive(Default)]
-pub struct UpdatePermissionGroupParams {
+pub struct UpdateGroupParams {
     pub name: Option<String>,
     pub description: Option<String>,
     pub permissions: Option<Vec<PermissionString>>,
@@ -82,9 +82,9 @@ pub struct UpdatePermissionGroupParams {
     pub metadata: Option<serde_json::Value>,
 }
 
-impl PermissionGroup {
-    /// Create a new permission group
-    pub fn create(params: CreatePermissionGroupParams) -> AppResult<Self> {
+impl Group {
+    /// Create a new group
+    pub fn create(params: CreateGroupParams) -> AppResult<Self> {
         let now = Utc::now();
         let id = GroupId::new();
         let permissions: HashSet<PermissionString> = params.permissions.into_iter().collect();
@@ -109,7 +109,7 @@ impl PermissionGroup {
         };
 
         // Emit created event
-        group.base.add_event(Box::new(PermissionGroupCreatedEvent::new(
+        group.base.add_event(Box::new(GroupCreatedEvent::new(
             id.as_str(),
             group.base.version,
             id.as_str(),
@@ -122,8 +122,8 @@ impl PermissionGroup {
         Ok(group)
     }
 
-    /// Load existing permission group from database
-    pub fn load(params: LoadPermissionGroupParams) -> Self {
+    /// Load existing group from database
+    pub fn load(params: LoadGroupParams) -> Self {
         Self {
             id: params.id,
             name: params.name,
@@ -150,7 +150,7 @@ impl PermissionGroup {
     }
 
     /// Update group information
-    pub fn update(&mut self, params: UpdatePermissionGroupParams) -> AppResult<()> {
+    pub fn update(&mut self, params: UpdateGroupParams) -> AppResult<()> {
         if let Some(n) = params.name {
             self.name = n;
         }
@@ -192,7 +192,7 @@ impl PermissionGroup {
         self.base.increment_version();
 
         // Emit updated event
-        self.base.add_event(Box::new(PermissionGroupUpdatedEvent::new(
+        self.base.add_event(Box::new(GroupUpdatedEvent::new(
             self.id.as_str(),
             self.base.version,
             self.id.as_str(),
@@ -299,7 +299,7 @@ impl PermissionGroup {
     }
 }
 
-impl AggregateRoot for PermissionGroup {
+impl AggregateRoot for Group {
     type Id = GroupId;
 
     fn id(&self) -> &Self::Id {
@@ -334,3 +334,9 @@ impl AggregateRoot for PermissionGroup {
         self.base.touch();
     }
 }
+
+// Type aliases for backward compatibility during migration
+pub type PermissionGroup = Group;
+pub type CreatePermissionGroupParams = CreateGroupParams;
+pub type LoadPermissionGroupParams = LoadGroupParams;
+pub type UpdatePermissionGroupParams = UpdateGroupParams;

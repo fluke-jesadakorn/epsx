@@ -21,14 +21,21 @@ pub mod cache;
 // LOCAL DEVELOPMENT SUPPORT
 
 // ============================================================================
-// LEGACY SYSTEMS (TO BE REMOVED IN PHASE 3)
+// LEGACY SYSTEMS (DEPRECATED - MIGRATION IN PROGRESS)
 // ============================================================================
-// DEPRECATED: These modules will be deleted in Phase 3
-// DO NOT USE: Use unified_permission_service instead
+// These modules are DEPRECATED and scheduled for removal.
+// Current dependencies still exist - do not delete until fully migrated.
+//
+// Migration paths:
+// - permission_authority → Use unified_permission_service
+// - permission_registry → Use middleware's is_public_route_for_auth()
+// - route_protection → Use auth_middleware's require_permission()
 
-// CENTRALIZED PERMISSION AUTHORITY (DEPRECATED - Use unified_permission_service)
+#[deprecated(note = "Use unified_permission_service instead")]
 pub mod permission_authority;
+#[deprecated(note = "Route permissions handled by middleware")]
 pub mod permission_registry;
+#[deprecated(note = "Use auth_middleware::require_permission instead")]
 pub mod route_protection;
 
 // CORE AUTH MODULES (Web3-First)
@@ -59,24 +66,24 @@ pub use auth_service::{
     Web3Permission, Web3PermissionType, Web3AuthError
 };
 
-// UNIFIED WEB3 PERMISSION SERVICE (NEW - WALLET-FIRST SYSTEM)
-// Now using unified_permission_service exclusively
+// Token validation uses OpenIDTokenService::validate_access_token() as SINGLE SOURCE OF TRUTH
 
-// CENTRALIZED PERMISSION AUTHORITY (NEW - HIGH PERFORMANCE)
+// DEPRECATED EXPORTS (kept for backward compatibility - will be removed)
+#[allow(deprecated)]
 pub use permission_authority::{
     CentralizedPermissionAuthority, PermissionValidator, RoutePermissionResolver,
     PermissionResult, BulkPermissionResult, Permission, PermissionSource,
     ValidationContext, CacheConfig, create_permission_authority, create_high_performance_authority
 };
 
-// DATABASE-DRIVEN PERMISSION REGISTRY (NEW - DYNAMIC ROUTE MAPPING)
+#[allow(deprecated)]
 pub use permission_registry::{
     DatabasePermissionRegistry, RoutePermissionMapping, RegisterRoutePermissionRequest,
     RouteResolution, create_permission_registry, create_high_performance_registry,
     get_default_route_permissions
 };
 
-// ROUTE PROTECTION SYSTEM (NEW - DECORATORS AND GUARDS)
+#[allow(deprecated)]
 pub use route_protection::{
     RequirePermission, PermissionGuard, PermissionMiddlewareBuilder, PermissionState,
     RouteValidationResult, HandlerPermissionExt, require_permission, require_admin,

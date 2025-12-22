@@ -163,7 +163,7 @@ pub async fn get_user_permissions(
           THEN p.id END), 0) as active_permissions_count
      FROM wallet_users wu
      LEFT JOIN wallet_group_assignments wga ON wu.wallet_address = wga.wallet_address
-     LEFT JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
+     LEFT JOIN group_permissions pgm ON wga.group_id = pgm.group_id
      LEFT JOIN permissions p ON pgm.permission_id = p.id
      LEFT JOIN wallet_direct_permissions wdp ON wu.wallet_address = wdp.wallet_address
      {}
@@ -225,7 +225,7 @@ pub async fn get_user_permissions(
       r#"
       SELECT DISTINCT p.permission_string, 'group' as source
       FROM wallet_group_assignments wga
-      JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
+      JOIN group_permissions pgm ON wga.group_id = pgm.group_id
       JOIN permissions p ON pgm.permission_id = p.id
       WHERE wga.wallet_address = $1
         AND wga.is_active = true
@@ -612,7 +612,7 @@ pub async fn get_recent_wallets(
         (
           SELECT COUNT(DISTINCT p.id)::int
           FROM wallet_group_assignments wga
-          JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
+          JOIN group_permissions pgm ON wga.group_id = pgm.group_id
           JOIN permissions p ON pgm.permission_id = p.id
           WHERE wga.wallet_address = wu.wallet_address
             AND wga.is_active = true
@@ -817,7 +817,7 @@ pub async fn search_wallets(
       COALESCE((
         SELECT COUNT(DISTINCT p.id)::int
         FROM wallet_group_assignments wga
-        JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
+        JOIN group_permissions pgm ON wga.group_id = pgm.group_id
         JOIN permissions p ON pgm.permission_id = p.id
         WHERE wga.wallet_address = wu.wallet_address
           AND wga.is_active = true
@@ -897,7 +897,7 @@ pub async fn search_wallets(
       COALESCE((
         SELECT COUNT(DISTINCT p.id)::int
         FROM wallet_group_assignments wga
-        JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
+        JOIN group_permissions pgm ON wga.group_id = pgm.group_id
         JOIN permissions p ON pgm.permission_id = p.id
         WHERE wga.wallet_address = wu.wallet_address
           AND wga.is_active = true
@@ -979,7 +979,7 @@ pub async fn search_wallets(
       r#"
       SELECT pg.name as group_name, pg.slug, wga.assigned_at, wga.expires_at, wga.is_active
       FROM wallet_group_assignments wga
-      JOIN permission_groups pg ON wga.group_id = pg.id
+      JOIN groups pg ON wga.group_id = pg.id
       WHERE wga.wallet_address = $1
       ORDER BY wga.assigned_at DESC
       "#

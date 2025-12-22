@@ -12,6 +12,7 @@ pub mod notification;
 
 pub mod realtime_events;
 pub mod resource_management; // New domain for resource tracking and billing
+pub mod developer_portal; // API key management and module access
 
 // Re-export shared kernel for easy access
 pub use shared_kernel::{

@@ -12,12 +12,19 @@
 
 'use client'
 
-import { 
-  Shield, Key, AlertTriangle, CheckCircle, Info,
-  Search, X, Plus, Minus, Star, Clock, Users,
-  Globe, MapPin, Smartphone, Monitor, Cpu, Database
+import {
+  AlertTriangle,
+  Cpu, Database,
+  Globe,
+  Key,
+  Monitor,
+  Search,
+  Shield,
+  Star,
+  Users,
+  X
 } from 'lucide-react'
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -29,21 +36,21 @@ import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/components/ui/use-toast'
-import { adminCardVariants, adminButtonVariants } from '@/design-system'
-import { 
-  usePermissionGroups, 
-  useAvailablePermissions 
+import { adminButtonVariants, adminCardVariants } from '@/design-system'
+import {
+  useAvailablePermissions,
+  useGroups
 } from '@/hooks/useGroupPermissions'
-import { 
-  PermissionGroup, 
-  CreateGroupRequest, 
-  UpdateGroupRequest 
+import {
+  CreateGroupRequest,
+  Group,
+  UpdateGroupRequest
 } from '@/lib/api/group-management-client'
 import { cn } from '@/lib/shared'
 
 interface GroupEditorProps {
-  group?: PermissionGroup | null
-  onSave: (group: PermissionGroup) => void
+  group?: Group | null
+  onSave: (group: Group) => void
   onCancel: () => void
   className?: string
 }
@@ -63,25 +70,33 @@ interface PermissionCategory {
  * @param root0.onCancel
  * @param root0.className
  */
+interface GroupFormData {
+  name: string;
+  description: string;
+  permissions: string[];
+  priority_level: number;
+  default_expiry_days: number | null;
+}
+
 export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorProps) {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
-  
+
   // Form state
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<GroupFormData>({
     name: '',
     description: '',
     permissions: [] as string[],
     priority_level: 1,
-    default_expiry_days: null as number | null
+    default_expiry_days: null
   })
-  
+
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
 
   // Hooks
-  const { createGroup, updateGroup } = usePermissionGroups()
+  const { createGroup, updateGroup } = useGroups()
   const { permissions: availablePermissions, isLoading: loadingPermissions } = useAvailablePermissions()
 
   // Initialize form data when group prop changes
@@ -91,8 +106,8 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
         name: group.name,
         description: group.description || '',
         permissions: [...group.permissions],
-        priority_level: group.priority_level,
-        default_expiry_days: group.default_expiry_days
+        priority_level: group.display_order || 0,
+        default_expiry_days: null // default_expiry_days removed from backend response
       })
     } else {
       setFormData({
@@ -146,60 +161,60 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
         description: 'Core platform access permissions'
       }
     ]
-    
+
     return categories
   }, [availablePermissions])
 
   // Filter permissions based on search and category
   const filteredPermissions = useMemo(() => {
     let permissions = availablePermissions
-    
+
     // Filter by category
     if (selectedCategory !== 'all') {
       const category = permissionCategories.find(c => c.name.toLowerCase() === selectedCategory)
       permissions = category?.permissions || []
     }
-    
+
     // Filter by search term
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase()
       permissions = permissions.filter(p => p.toLowerCase().includes(searchLower))
     }
-    
+
     return permissions.sort()
   }, [availablePermissions, permissionCategories, selectedCategory, searchTerm])
 
   // Form validation
   const validateForm = useCallback(() => {
     const newErrors: Record<string, string> = {}
-    
+
     if (!formData.name.trim()) {
       newErrors.name = 'Group name is required'
     } else if (formData.name.length < 3) {
       newErrors.name = 'Group name must be at least 3 characters'
     }
-    
+
     if (formData.permissions.length === 0) {
       newErrors.permissions = 'At least one permission must be selected'
     }
-    
+
     if (formData.priority_level < 0 || formData.priority_level > 10) {
       newErrors.priority_level = 'Priority level must be between 0 and 10'
     }
-    
+
     if (formData.default_expiry_days !== null && formData.default_expiry_days <= 0) {
       newErrors.default_expiry_days = 'Expiry days must be positive'
     }
-    
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }, [formData])
 
   // Event handlers
-  const handleInputChange = useCallback((field: string, value: any) => {
+  const handleInputChange = useCallback(<K extends keyof GroupFormData>(field: K, value: GroupFormData[K]) => {
     setFormData(prev => ({ ...prev, [field]: value }))
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: '' }))
+    if (errors[field as string]) {
+      setErrors(prev => ({ ...prev, [field as string]: '' }))
     }
   }, [errors])
 
@@ -216,8 +231,8 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
   }, [errors.permissions])
 
   const handleSave = useCallback(async () => {
-    if (!validateForm()) {return}
-    
+    if (!validateForm()) { return }
+
     setLoading(true)
     try {
       const requestData = {
@@ -227,11 +242,11 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
         priority_level: formData.priority_level,
         default_expiry_days: formData.default_expiry_days || undefined
       }
-      
-      const savedGroup = group 
+
+      const savedGroup = group
         ? await updateGroup(group.id, requestData as UpdateGroupRequest)
         : await createGroup(requestData as CreateGroupRequest)
-      
+
       onSave(savedGroup)
     } catch (_error) {
       toast({
@@ -245,27 +260,20 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
   }, [formData, group, validateForm, createGroup, updateGroup, onSave, toast])
 
   const getPriorityLabel = (priority: number) => {
-    if (priority >= 8) {return 'Critical'}
-    if (priority >= 6) {return 'High'}
-    if (priority >= 4) {return 'Medium'}
+    if (priority >= 8) { return 'Critical' }
+    if (priority >= 6) { return 'High' }
+    if (priority >= 4) { return 'Medium' }
     return 'Low'
-  }
-
-  const getPriorityColor = (priority: number) => {
-    if (priority >= 8) {return 'text-red-600'}
-    if (priority >= 6) {return 'text-orange-600'}
-    if (priority >= 4) {return 'text-yellow-600'}
-    return 'text-green-600'
   }
 
   return (
     <div className={`space-y-6 ${className || ''}`}>
       {/* System Group Warning */}
-      {group?.is_system_group && (
+      {(group?.group_type === 'system' || group?.group_type === 'admin') && (
         <Alert>
           <Star className="h-4 w-4" />
           <AlertDescription>
-            This is a system group. Only certain properties can be modified.
+            This is a system-managed group. Only certain properties can be modified.
           </AlertDescription>
         </Alert>
       )}
@@ -286,7 +294,7 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
               value={formData.name}
               onChange={(e) => handleInputChange('name', e.target.value)}
               placeholder="Enter group name"
-              disabled={group?.is_system_group}
+              disabled={group?.group_type === 'system' || group?.group_type === 'admin'}
               className={errors.name ? 'border-red-300' : ''}
             />
             {errors.name && (
@@ -302,7 +310,7 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
               onChange={(e) => handleInputChange('description', e.target.value)}
               placeholder="Optional description for this group"
               rows={3}
-              disabled={group?.is_system_group}
+              disabled={group?.group_type === 'system' || group?.group_type === 'admin'}
             />
           </div>
 
@@ -335,7 +343,7 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
                 id="expiry"
                 type="number"
                 value={formData.default_expiry_days || ''}
-                onChange={(e) => handleInputChange('default_expiry_days', 
+                onChange={(e) => handleInputChange('default_expiry_days',
                   e.target.value ? parseInt(e.target.value) : null
                 )}
                 placeholder="Optional expiry in days"
@@ -346,6 +354,7 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
                 <p className="text-sm text-red-600 mt-1">{errors.default_expiry_days}</p>
               )}
             </div>
+            {/* Note: default_expiry_days is being deprecated in favor of dynamic rules */}
           </div>
         </CardContent>
       </Card>
@@ -397,7 +406,7 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
               <h4 className="font-medium text-blue-900 mb-2">Selected Permissions</h4>
               <div className="flex flex-wrap gap-1">
                 {formData.permissions.map((permission) => (
-                  <Badge 
+                  <Badge
                     key={permission}
                     variant="secondary"
                     className="cursor-pointer hover:bg-red-100"
@@ -425,19 +434,19 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
                 const platform = parts[0] || ''
                 const resource = parts[1] || ''
                 const action = parts[2] || ''
-                
+
                 return (
                   <div
                     key={permission}
                     className={cn(
                       'flex items-center p-3 rounded-lg border cursor-pointer transition-colors',
-                      isSelected 
+                      isSelected
                         ? 'bg-blue-50 border-blue-200 text-blue-900'
                         : 'bg-white border-gray-200 hover:bg-gray-50'
                     )}
                     onClick={() => handlePermissionToggle(permission)}
                   >
-                    <Checkbox 
+                    <Checkbox
                       checked={isSelected}
                       onChange={() => handlePermissionToggle(permission)}
                       className="mr-3"
@@ -472,8 +481,8 @@ export function GroupEditor({ group, onSave, onCancel, className }: GroupEditorP
         <Button variant="outline" onClick={onCancel} disabled={loading}>
           Cancel
         </Button>
-        <Button 
-          onClick={handleSave} 
+        <Button
+          onClick={handleSave}
           disabled={loading}
           className={adminButtonVariants({ variant: 'primary' })}
         >

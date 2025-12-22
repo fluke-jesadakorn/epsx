@@ -7,7 +7,7 @@
 // Re-export all model modules
 pub mod wallet_user;
 pub mod session;
-pub mod permission_group;
+pub mod group;
 pub mod permission;
 pub mod payment;
 
@@ -20,7 +20,11 @@ pub use session::{
     SessionDb, NewSessionDb
 };
 
-pub use permission_group::{
+// Primary exports (new names)
+pub use group::{
+    GroupDb, NewGroupDb, UpdateGroupDb,
+    CreateGroupRequest, UpdateGroupRequest,
+    // Backward compatibility aliases
     PermissionGroupDb, NewPermissionGroupDb, UpdatePermissionGroupDb,
     CreatePermissionGroupRequest, UpdatePermissionGroupRequest
 };

@@ -10,7 +10,7 @@ pub struct Plan {
     id: PlanId,
     name: String,
     description: String,
-    permission_group_id: GroupId,
+    group_id: GroupId,
     price: Price,
     billing_cycle: BillingCycle,
     features: PlanFeatures,
@@ -25,7 +25,7 @@ pub struct Plan {
 pub struct CreatePlanParams {
     pub name: String,
     pub description: String,
-    pub permission_group_id: GroupId,
+    pub group_id: GroupId,
     pub price: Price,
     pub billing_cycle: BillingCycle,
     pub features: PlanFeatures,
@@ -40,7 +40,7 @@ pub struct LoadPlanParams {
     pub id: PlanId,
     pub name: String,
     pub description: String,
-    pub permission_group_id: GroupId,
+    pub group_id: GroupId,
     pub price: Price,
     pub billing_cycle: BillingCycle,
     pub features: PlanFeatures,
@@ -75,7 +75,7 @@ impl Plan {
             id,
             name: params.name,
             description: params.description,
-            permission_group_id: params.permission_group_id,
+            group_id: params.group_id,
             price: params.price,
             billing_cycle: params.billing_cycle,
             features: params.features,
@@ -94,7 +94,7 @@ impl Plan {
             id: params.id,
             name: params.name,
             description: params.description,
-            permission_group_id: params.permission_group_id,
+            group_id: params.group_id,
             price: params.price,
             billing_cycle: params.billing_cycle,
             features: params.features,
@@ -176,8 +176,8 @@ impl Plan {
         &self.description
     }
 
-    pub fn permission_group_id(&self) -> &GroupId {
-        &self.permission_group_id
+    pub fn group_id(&self) -> &GroupId {
+        &self.group_id
     }
 
     pub fn price(&self) -> &Price {

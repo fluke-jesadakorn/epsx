@@ -393,12 +393,14 @@ export class PlansAPIClient {
   /**
    * List API keys
    * Route: GET /api/v1/admin/developer-portal/api-keys
+   * Supports ?wallet=0x... to filter by wallet address
    */
   async listApiKeys(params: {
     limit?: number;
     offset?: number;
     status?: string;
     client_name?: string;
+    wallet?: string; // Filter by wallet address
   } = {}): Promise<ApiResponse<{ api_keys: ApiKeyResponse[]; total: number }>> {
     return this.client.get('/api/v1/admin/developer-portal/api-keys', params);
   }
@@ -433,6 +435,32 @@ export class PlansAPIClient {
    */
   async revokeApiKey(keyId: string, reason: string): Promise<ApiResponse<{ success: boolean }>> {
     return this.client.post(`/api/v1/admin/developer-portal/api-keys/${keyId}/revoke`, { reason });
+  }
+
+  /**
+   * Update API key expiration date
+   * Route: PATCH /api/v1/admin/developer-portal/api-keys/:id/expiration
+   */
+  async updateApiKeyExpiration(keyId: string, expiresAt: string | null): Promise<ApiResponse<ApiKeyResponse>> {
+    return this.client.patch(`/api/v1/admin/developer-portal/api-keys/${keyId}/expiration`, {
+      expires_at: expiresAt,
+    });
+  }
+
+  /**
+   * List API keys expiring within the specified number of days
+   * Route: GET /api/v1/admin/developer-portal/api-keys/expiring
+   */
+  async listExpiringApiKeys(params: {
+    days?: number; // Default 7 days
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<ApiResponse<{
+    api_keys: ApiKeyResponse[];
+    total: number;
+    days_ahead: number;
+  }>> {
+    return this.client.get('/api/v1/admin/developer-portal/api-keys/expiring', params);
   }
 
   /**
@@ -506,6 +534,85 @@ export class PlansAPIClient {
    */
   async getDeveloperPortalStats(): Promise<ApiResponse<any>> {
     return this.client.get('/api/v1/admin/developer-portal/stats');
+  }
+
+  // ============================================================================
+  // USER-FACING API KEY MANAGEMENT (for main frontend)
+  // ============================================================================
+
+  /**
+   * List user's own API keys
+   * Route: GET /api/v1/developer-portal/my-keys
+   */
+  async listMyApiKeys(params: {
+    limit?: number;
+    offset?: number;
+    status?: string;
+  } = {}): Promise<ApiResponse<{ api_keys: ApiKeyResponse[]; total: number }>> {
+    return this.client.get('/api/v1/developer-portal/my-keys', params);
+  }
+
+  /**
+   * Create API key for current user
+   * Route: POST /api/v1/developer-portal/my-keys
+   */
+  async createMyApiKey(keyData: {
+    client_name: string;
+    client_description?: string;
+    group_ids?: string[];
+    /** @deprecated Use group_ids instead */
+    permission_group_ids?: string[];
+    ip_restrictions?: string[];
+    expires_at?: string;
+  }): Promise<ApiResponse<ApiKeyResponse>> {
+    // Merge permission_group_ids into group_ids for backward compatibility
+    const payload = {
+      ...keyData,
+      group_ids: keyData.group_ids || keyData.permission_group_ids
+    };
+    return this.client.post('/api/v1/developer-portal/my-keys', payload);
+  }
+
+  /**
+   * Get user's API key details
+   * Route: GET /api/v1/developer-portal/my-keys/:id
+   */
+  async getMyApiKey(keyId: string): Promise<ApiResponse<ApiKeyResponse>> {
+    return this.client.get(`/api/v1/developer-portal/my-keys/${keyId}`);
+  }
+
+  /**
+   * Revoke user's own API key
+   * Route: DELETE /api/v1/developer-portal/my-keys/:id
+   */
+  async revokeMyApiKey(keyId: string, reason?: string): Promise<ApiResponse<{ success: boolean }>> {
+    // Use POST with reason in body (DELETE doesn't support body in this client)
+    return this.client.post(`/api/v1/developer-portal/my-keys/${keyId}/revoke`, { reason: reason || 'Revoked by owner' });
+  }
+
+  /**
+   * List available groups for API key creation
+   * Route: GET /api/v1/developer-portal/available-groups
+   */
+  async getAvailableGroups(): Promise<ApiResponse<{
+    groups: Array<{
+      id: string;
+      name: string;
+      slug: string;
+      description: string;
+      permissions: string[];
+      group_type: string;
+      is_active: boolean;
+    }>;
+  }>> {
+    return this.client.get('/api/v1/developer-portal/available-groups');
+  }
+
+  /**
+   * @deprecated Use getAvailableGroups instead
+   */
+  async getAvailablePermissionGroups(): Promise<ApiResponse<any>> {
+    return this.getAvailableGroups();
   }
 }
 

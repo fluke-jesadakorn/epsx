@@ -88,7 +88,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
 
             // NOTE: Permissions now stored in normalized tables
             // Use Web3PermissionService or query normalized tables directly:
-            // - wallet_group_memberships + permission_group_memberships (group permissions)
+            // - wallet_group_memberships + group_permissions (group permissions)
             // - wallet_direct_permissions (direct permissions)
             let permission_set: HashSet<Permission> = HashSet::new();
             let permission_group_set: HashSet<String> = HashSet::new();
@@ -102,7 +102,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 wallet_address: wallet_addr,
                 is_active: row.is_active,
                 permissions: permission_set,
-                permission_groups: permission_group_set,
+                groups: permission_group_set,
                 wallet_metadata: metadata,
                 created_at: row.created_at,
                 updated_at: row.updated_at,
@@ -161,7 +161,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                         wallet_address: wallet_addr,
                         is_active: row.is_active,
                         permissions: permission_set,
-                        permission_groups: permission_group_set,
+                        groups: permission_group_set,
                         wallet_metadata: metadata,
                         created_at: row.created_at,
                         updated_at: row.updated_at,
@@ -271,7 +271,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 wu.created_at, wu.updated_at, wu.last_auth_at
             FROM wallet_users wu
             LEFT JOIN wallet_group_memberships wga ON wu.wallet_address = wga.wallet_address
-            LEFT JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
+            LEFT JOIN group_permissions pgm ON wga.group_id = pgm.group_id
             LEFT JOIN permissions p1 ON pgm.permission_id = p1.id
             LEFT JOIN wallet_direct_permissions wdp ON wu.wallet_address = wdp.wallet_address
             LEFT JOIN permissions p2 ON wdp.permission_id = p2.id
@@ -309,7 +309,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 wallet_address,
                 is_active: row.is_active,
                 permissions,
-                permission_groups: permission_group_set,
+                groups: permission_group_set,
                 wallet_metadata,
                 created_at: row.created_at,
                 updated_at: row.updated_at,
@@ -341,7 +341,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 wu.created_at, wu.updated_at, wu.last_auth_at
             FROM wallet_users wu
             INNER JOIN wallet_group_memberships wga ON wu.wallet_address = wga.wallet_address
-            INNER JOIN permission_groups pg ON wga.group_id = pg.id
+            INNER JOIN groups pg ON wga.group_id = pg.id
             WHERE wu.is_active = true
               AND wga.is_active = true
               AND pg.is_active = true
@@ -375,7 +375,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 wallet_address,
                 is_active: row.is_active,
                 permissions,
-                permission_groups: permission_group_set,
+                groups: permission_group_set,
                 wallet_metadata,
                 created_at: row.created_at,
                 updated_at: row.updated_at,
@@ -405,7 +405,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 wu.last_auth_at
             FROM wallet_users wu
             INNER JOIN wallet_group_memberships wga ON wu.wallet_address = wga.wallet_address
-            INNER JOIN permission_groups pg ON wga.group_id = pg.id
+            INNER JOIN groups pg ON wga.group_id = pg.id
             WHERE wu.is_active = true
               AND wga.is_active = true
               AND pg.is_active = true
@@ -432,7 +432,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 wallet_address: WalletAddress::new(row.wallet_address).expect("Invalid wallet address"),
                 is_active: row.is_active,
                 permissions: HashSet::new(),
-                permission_groups: HashSet::new(),
+                groups: HashSet::new(),
                 wallet_metadata: WalletMetadata::from_json(row.wallet_metadata).expect("Invalid wallet metadata"),
                 created_at: row.created_at,
                 updated_at: row.updated_at,
@@ -467,7 +467,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
         }
 
         if let Some(ref permission_group) = criteria.permission_group {
-            where_clauses.push(format!("permission_groups::jsonb ? '{}'", permission_group.replace("'", "''")));
+            where_clauses.push(format!("groups::jsonb ? '{}'", permission_group.replace("'", "''")));
         }
 
         if let Some(ref created_after) = criteria.created_after {
@@ -512,7 +512,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                         wallet_address: wallet_addr,
                         is_active: row.is_active,
                         permissions: HashSet::new(),
-                        permission_groups: HashSet::new(),
+                        groups: HashSet::new(),
                         wallet_metadata: metadata,
                         created_at: row.created_at,
                         updated_at: row.updated_at,
@@ -605,7 +605,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                         wallet_address: wallet_addr,
                         is_active: row.is_active,
                         permissions: HashSet::new(),
-                        permission_groups: HashSet::new(),
+                        groups: HashSet::new(),
                         wallet_metadata: metadata,
                         created_at: row.created_at,
                         updated_at: row.updated_at,
@@ -932,7 +932,7 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
                 p.permission_string,
                 COUNT(DISTINCT COALESCE(wgm.wallet_address, wdp.wallet_address)) as user_count
             FROM permissions p
-            LEFT JOIN permission_group_memberships pgm ON p.id = pgm.permission_id
+            LEFT JOIN group_permissions pgm ON p.id = pgm.permission_id
             LEFT JOIN wallet_group_memberships wgm ON pgm.group_id = wgm.group_id AND wgm.is_active = true
             LEFT JOIN wallet_direct_permissions wdp ON p.id = wdp.permission_id AND wdp.is_active = true
             WHERE p.is_active = true
@@ -1051,7 +1051,7 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
                         wallet_address: wallet_addr,
                         is_active: row.is_active,
                         permissions: HashSet::new(),
-                        permission_groups: HashSet::new(),
+                        groups: HashSet::new(),
                         wallet_metadata: metadata,
                         created_at: row.created_at,
                         updated_at: row.updated_at,

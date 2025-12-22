@@ -1,17 +1,17 @@
 'use client';
 
 import {
-    AlertTriangle,
-    BarChart3,
-    CheckCircle,
-    Clock,
-    Crown,
-    Eye,
-    RefreshCcw,
-    Settings,
-    Shield,
-    Users,
-    Wallet
+  AlertTriangle,
+  BarChart3,
+  CheckCircle,
+  Clock,
+  Crown,
+  Eye,
+  RefreshCcw,
+  Settings,
+  Shield,
+  Users,
+  Wallet
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -23,22 +23,29 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { apiFetch } from '@/lib/api-fetch';
+import { adminApiClient } from '@/lib/api-client';
 
 interface WalletPermission {
   permission: string;
-  source: 'manual' | 'nft' | 'token' | 'dao' | 'inherited';
+  source: 'manual' | 'nft' | 'token' | 'dao' | 'inherited' | string;
   expires_at?: string;
   granted_at: string;
   granted_by?: string;
   metadata?: {
     description?: string;
-    level?: 'read' | 'write' | 'admin';
+    level?: 'read' | 'write' | 'admin' | string;
     platform?: string;
+    permissions_count?: number;
+    last_auth_at?: string;
   };
 }
 
-interface PermissionGroup {
+interface PermissionsResponse {
+  permissions: WalletPermission[];
+  total_count: number;
+}
+
+interface PlatformGroup {
   platform: string;
   permissions: WalletPermission[];
   level: 'super' | 'admin' | 'manager' | 'user';
@@ -55,14 +62,14 @@ interface AdminWalletPermissionsProps {
  * @param root0.walletAddress
  * @param root0.initialPermissions
  */
-export function AdminWalletPermissions({ 
+export function AdminWalletPermissions({
   walletAddress: initialWalletAddress,
-  initialPermissions 
+  initialPermissions
 }: AdminWalletPermissionsProps) {
   const { address } = useAccount();
-  
+
   const [permissions, setPermissions] = useState<WalletPermission[]>([]);
-  const [permissionGroups, setPermissionGroups] = useState<PermissionGroup[]>([]);
+  const [platformGroups, setPlatformGroups] = useState<PlatformGroup[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
   const [expiringPermissions, setExpiringPermissions] = useState<WalletPermission[]>([]);
@@ -93,25 +100,35 @@ export function AdminWalletPermissions({
   }, [initialPermissions]);
 
   const fetchWalletPermissions = async () => {
-    if (!walletAddress) {return;}
+    if (!walletAddress) { return; }
 
     try {
       setIsLoading(true);
-      const data = await apiFetch('/api/auth/web3/permissions', {
-        method: 'POST',
-        body: JSON.stringify({ wallet_address: walletAddress }),
-      });
+      // Use the unified admin API client
+      const res = await adminApiClient.get<any>(
+        '/api/v1/admin/permissions',
+        { wallet_address: walletAddress }
+      );
 
-      const mappedPermissions = data.permissions?.map((permission: string) => ({
-        permission,
-        source: 'manual' as const,
-        granted_at: new Date().toISOString(),
+      // Handle AdminApiResponse wrapper: { success, data: { permissions, ... }, message }
+      const responseBody = res.data;
+      const responseData = responseBody?.data || responseBody;
+      const rawPermissions = responseData?.permissions || [];
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mappedPermissions = rawPermissions.map((p: any) => ({
+        permission: p.permission,
+        source: p.source,
+        expires_at: p.expires_at,
+        granted_at: p.granted_at,
+        granted_by: p.granted_by,
         metadata: {
-          description: getPermissionDescription(permission),
-          level: getPermissionLevel(permission),
-          platform: permission.split(':')[0]
+          description: getPermissionDescription(p.permission),
+          level: getPermissionLevel(p.permission),
+          platform: p.permission.split(':')[0],
+          ...p.metadata
         }
-      })) || [];
+      }));
 
       setPermissions(mappedPermissions);
       groupPermissions(mappedPermissions);
@@ -129,7 +146,7 @@ export function AdminWalletPermissions({
   const groupPermissions = (perms: WalletPermission[]) => {
     const grouped = perms.reduce((acc, perm) => {
       const platform = perm.permission.split(':')[0] || 'unknown';
-      
+
       if (!acc[platform]) {
         acc[platform] = [];
       }
@@ -137,38 +154,38 @@ export function AdminWalletPermissions({
       return acc;
     }, {} as Record<string, WalletPermission[]>);
 
-    const groups = Object.entries(grouped).map(([platform, permissions]) => ({
+    const groups: PlatformGroup[] = Object.entries(grouped).map(([platform, permissions]) => ({
       platform,
       permissions,
       level: determineAccessLevel(permissions)
     }));
 
-    setPermissionGroups(groups);
+    setPlatformGroups(groups);
   };
 
   const checkExpiringPermissions = (perms: WalletPermission[]) => {
     const now = Date.now();
     const sevenDaysFromNow = now + (7 * 24 * 60 * 60 * 1000);
-    
+
     const expiring = perms.filter(perm => {
-      if (!perm.expires_at) {return false;}
+      if (!perm.expires_at) { return false; }
       const expiryTime = new Date(perm.expires_at).getTime();
       return expiryTime <= sevenDaysFromNow && expiryTime > now;
     });
-    
+
     setExpiringPermissions(expiring);
   };
 
   const determineAccessLevel = (perms: WalletPermission[]): 'super' | 'admin' | 'manager' | 'user' => {
-    if (perms.some(p => p.permission.includes('*:*'))) {return 'super';}
-    if (perms.some(p => p.permission.startsWith('admin:'))) {return 'admin';}
-    if (perms.some(p => p.permission.includes('manage'))) {return 'manager';}
+    if (perms.some(p => p.permission.includes('*:*'))) { return 'super'; }
+    if (perms.some(p => p.permission.startsWith('admin:'))) { return 'admin'; }
+    if (perms.some(p => p.permission.includes('manage'))) { return 'manager'; }
     return 'user';
   };
 
   const getPermissionDescription = (permission: string): string => {
     const [platform, resource, action] = permission.split(':');
-    
+
     const descriptions: Record<string, string> = {
       'admin:*:*': 'Full administrative access to all systems',
       'admin:users:manage': 'Manage user accounts and permissions',
@@ -183,17 +200,17 @@ export function AdminWalletPermissions({
   };
 
   const getPermissionLevel = (permission: string): 'read' | 'write' | 'admin' => {
-    if (permission.includes('admin') || permission.includes('manage')) {return 'admin';}
-    if (permission.includes('write') || permission.includes('create') || permission.includes('update')) {return 'write';}
+    if (permission.includes('admin') || permission.includes('manage')) { return 'admin'; }
+    if (permission.includes('write') || permission.includes('create') || permission.includes('update')) { return 'write'; }
     return 'read';
   };
 
   const getPermissionIcon = (permission: string) => {
-    if (permission.includes('admin')) {return Crown;}
-    if (permission.includes('users')) {return Users;}
-    if (permission.includes('analytics')) {return BarChart3;}
-    if (permission.includes('system')) {return Settings;}
-    if (permission.includes('web3')) {return Wallet;}
+    if (permission.includes('admin')) { return Crown; }
+    if (permission.includes('users')) { return Users; }
+    if (permission.includes('analytics')) { return BarChart3; }
+    if (permission.includes('system')) { return Settings; }
+    if (permission.includes('web3')) { return Wallet; }
     return Shield;
   };
 
@@ -252,7 +269,7 @@ export function AdminWalletPermissions({
               <div className="text-sm text-red-600">Admin Permissions</div>
             </div>
             <div className="text-center p-3 bg-green-50 rounded-lg">
-              <div className="text-2xl font-bold text-green-600">{permissionGroups.length}</div>
+              <div className="text-2xl font-bold text-green-600">{platformGroups.length}</div>
               <div className="text-sm text-green-600">Platforms</div>
             </div>
             <div className="text-center p-3 bg-orange-50 rounded-lg">
@@ -272,7 +289,7 @@ export function AdminWalletPermissions({
         <Alert>
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            You have {expiringPermissions.length} permission(s) expiring within 7 days. 
+            You have {expiringPermissions.length} permission(s) expiring within 7 days.
             Contact your administrator to renew them.
           </AlertDescription>
         </Alert>
@@ -284,7 +301,7 @@ export function AdminWalletPermissions({
           <CardTitle>Permission Details</CardTitle>
         </CardHeader>
         <CardContent>
-          <Tabs value="admin" onValueChange={() => {}} className="w-full">
+          <Tabs value="admin" onValueChange={() => { }} className="w-full">
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="admin">Admin Permissions</TabsTrigger>
               <TabsTrigger value="platform">Platform Access</TabsTrigger>
@@ -388,7 +405,7 @@ export function AdminWalletPermissions({
 
             {/* Grouped by Platform */}
             <TabsContent value="groups" className="space-y-4">
-              {permissionGroups.map((group, index) => (
+              {platformGroups.map((group: PlatformGroup, index: number) => (
                 <Card key={index}>
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
@@ -405,7 +422,7 @@ export function AdminWalletPermissions({
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      {group.permissions.map((permission, permIndex) => (
+                      {group.permissions.map((permission: WalletPermission, permIndex: number) => (
                         <div key={permIndex} className="flex items-center justify-between p-2 bg-gray-50 rounded">
                           <code className="text-sm font-mono">
                             {permission.permission}
@@ -439,7 +456,7 @@ export function AdminWalletPermissions({
               <span className="text-sm text-green-600">Excellent</span>
             </div>
             <Progress value={95} className="h-2" />
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-green-500" />

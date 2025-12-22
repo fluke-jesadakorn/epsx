@@ -108,7 +108,7 @@ pub struct BulkPermissionValidationResponse {
 #[derive(Debug, Serialize)]
 pub struct WalletPermissionsResponse {
     pub wallet_address: String,
-    pub permission_groups: Vec<PermissionGroupSummary>,
+    pub groups: Vec<PermissionGroupSummary>,
     pub effective_permissions: Vec<String>,
     pub permission_summary: PermissionSummary,
     pub audit_id: String,
@@ -344,7 +344,7 @@ pub async fn get_wallet_permissions(
             pg.id, pg.name, pg.group_type,
             wga.is_active, wga.assigned_at, wga.expires_at
         FROM wallet_group_assignments wga
-        JOIN permission_groups pg ON wga.group_id = pg.id
+        JOIN groups pg ON wga.group_id = pg.id
         WHERE wga.wallet_address = $1
         ORDER BY wga.assigned_at DESC
         "#
@@ -360,7 +360,7 @@ pub async fn get_wallet_permissions(
         }
     };
 
-    let permission_groups: Vec<PermissionGroupSummary> = groups.into_iter().map(|row| {
+    let groups: Vec<PermissionGroupSummary> = groups.into_iter().map(|row| {
         PermissionGroupSummary {
             id: row.id.to_string(),
             name: row.name,
@@ -430,7 +430,7 @@ pub async fn get_wallet_permissions(
         Err(_) => 0,
     };
 
-    let highest_group = permission_groups
+    let highest_group = groups
         .get(0)
         .map(|g| g.name.clone())
         .unwrap_or_else(|| "None".to_string());
@@ -452,7 +452,7 @@ pub async fn get_wallet_permissions(
 
     let response = WalletPermissionsResponse {
         wallet_address: wallet,
-        permission_groups,
+        groups,
         effective_permissions: permissions,
         permission_summary,
         audit_id,

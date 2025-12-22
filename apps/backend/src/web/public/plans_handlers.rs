@@ -21,7 +21,7 @@ pub async fn get_public_plans(State(app_state): State<AppState>) -> Result<Json<
     tracing::info!("📊 Fetching public subscription plans");
 
     // Get plans from database instead of hardcoded data
-    let db_plans = match app_state.permission_group_repo.get_subscription_plans().await {
+    let db_plans = match app_state.group_repo.get_subscription_plans().await {
         Ok(plans) => {
             tracing::info!("✅ Found {} subscription plans in database", plans.len());
             plans

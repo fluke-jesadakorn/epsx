@@ -74,7 +74,7 @@ pub async fn send_notification_handler(
             r#"
             SELECT wallet_address
             FROM wallet_group_assignments wga
-            INNER JOIN permission_groups pg ON wga.group_id = pg.id
+            INNER JOIN groups pg ON wga.group_id = pg.id
             WHERE pg.slug = $1 AND wga.is_active = true
             "#
         )

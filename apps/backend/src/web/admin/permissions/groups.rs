@@ -16,9 +16,9 @@ use std::collections::HashMap;
 use crate::web::auth::AppState;
 use crate::web::responses::{AdminResponse, create_pagination};
 use crate::domain::permission_management::{
-    GroupSlug, PermissionString, PermissionGroup, GroupId,
-    aggregates::permission_group::{CreatePermissionGroupParams, UpdatePermissionGroupParams},
-    repository_ports::PermissionGroupRepositoryPort,
+    GroupSlug, PermissionString, Group, GroupId,
+    aggregates::group::{CreateGroupParams, UpdateGroupParams},
+    repository_ports::GroupRepositoryPort,
 };
 use crate::domain::shared_kernel::aggregate_root::AggregateRoot;
 
@@ -143,7 +143,7 @@ pub async fn create_group(
         .unwrap_or(0.0);
 
     // Create domain aggregate
-    let group = match PermissionGroup::create(CreatePermissionGroupParams {
+    let group = match Group::create(CreateGroupParams {
         name: req.name.clone(),
         slug,
         description: req.description.clone(),
@@ -168,15 +168,15 @@ pub async fn create_group(
     };
 
     // Save to database using Diesel repository
-    if let Err(e) = app_state.permission_group_repo.save(&group).await {
+    if let Err(e) = app_state.group_repo.save(&group).await {
         let error_string = e.to_string();
         tracing::error!("Failed to save permission group: {}", error_string);
         
         // Check for duplicate key constraint violation
         if error_string.contains("duplicate key") || error_string.contains("unique constraint") {
-            if error_string.contains("permission_groups_name_key") {
+            if error_string.contains("groups_name_key") {
                 return AdminResponse::conflict(&format!("A permission group with the name '{}' already exists", req.name)).into_response();
-            } else if error_string.contains("permission_groups_slug_key") {
+            } else if error_string.contains("groups_slug_key") {
                 return AdminResponse::conflict(&format!("A permission group with the slug '{}' already exists", req.slug)).into_response();
             }
             return AdminResponse::conflict("A permission group with this name or slug already exists").into_response();
@@ -242,7 +242,7 @@ pub async fn get_group(
     let group_id = GroupId::from_uuid(group_uuid);
 
     // Fetch group using Diesel repository
-    let group = match app_state.permission_group_repo.find_by_id(&group_id).await {
+    let group = match app_state.group_repo.find_by_id(&group_id).await {
         Ok(Some(g)) => g,
         Ok(None) => return AdminResponse::not_found("Permission group").into_response(),
         Err(e) => {
@@ -355,7 +355,7 @@ pub async fn list_groups(
         offset: None,
     };
 
-    let total = match app_state.permission_group_repo.count(count_criteria).await {
+    let total = match app_state.group_repo.count(count_criteria).await {
         Ok(count) => count,
         Err(e) => {
             tracing::error!("Failed to count permission groups: {}", e);
@@ -364,7 +364,7 @@ pub async fn list_groups(
     };
 
     // Fetch groups using Diesel repository
-    let domain_groups = match app_state.permission_group_repo.find_all(criteria).await {
+    let domain_groups = match app_state.group_repo.find_all(criteria).await {
         Ok(groups) => groups,
         Err(e) => {
             tracing::error!("Failed to list permission groups: {}", e);
@@ -482,7 +482,7 @@ pub async fn update_group(
     let group_id_obj = GroupId::from_uuid(group_uuid);
 
     // Fetch existing group
-    let mut group = match app_state.permission_group_repo.find_by_id(&group_id_obj).await {
+    let mut group = match app_state.group_repo.find_by_id(&group_id_obj).await {
         Ok(Some(g)) => g,
         Ok(None) => return AdminResponse::not_found("Permission group").into_response(),
         Err(e) => {
@@ -503,7 +503,7 @@ pub async fn update_group(
         .and_then(|bd| bd.to_string().parse::<f64>().ok());
 
     // Build update parameters
-    let update_params = UpdatePermissionGroupParams {
+    let update_params = UpdateGroupParams {
         name: req.name,
         description: req.description,
         permissions,
@@ -525,7 +525,7 @@ pub async fn update_group(
     }
 
     // Save updated group
-    if let Err(e) = app_state.permission_group_repo.save(&group).await {
+    if let Err(e) = app_state.group_repo.save(&group).await {
         tracing::error!("Failed to save permission group: {}", e);
         return AdminResponse::server_error("Failed to update group").into_response();
     }
@@ -565,7 +565,7 @@ pub async fn delete_group(
     let group_id_obj = GroupId::from_uuid(group_uuid);
 
     // Delete using Diesel repository
-    match app_state.permission_group_repo.delete(&group_id_obj).await {
+    match app_state.group_repo.delete(&group_id_obj).await {
         Ok(_) => {
             AdminResponse::success_with_message(serde_json::json!({"deleted": true}), "Group deleted successfully").into_response()
         },

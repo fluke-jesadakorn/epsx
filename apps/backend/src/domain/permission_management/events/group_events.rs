@@ -2,9 +2,9 @@ use crate::prelude::*;
 use crate::domain::shared_kernel::{DomainEvent, EventMetadata};
 use uuid::Uuid;
 
-/// Event emitted when a permission group is created
+/// Event emitted when a group is created
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PermissionGroupCreatedEvent {
+pub struct GroupCreatedEvent {
     pub metadata: EventMetadata,
     pub group_id: String,
     pub name: String,
@@ -13,7 +13,7 @@ pub struct PermissionGroupCreatedEvent {
     pub created_at: DateTime<Utc>,
 }
 
-impl PermissionGroupCreatedEvent {
+impl GroupCreatedEvent {
     pub fn new(
         aggregate_id: String,
         aggregate_version: u64,
@@ -34,10 +34,10 @@ impl PermissionGroupCreatedEvent {
     }
 }
 
-impl DomainEvent for PermissionGroupCreatedEvent {
+impl DomainEvent for GroupCreatedEvent {
     fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "PermissionGroupCreated" }
-    fn aggregate_type(&self) -> &'static str { "PermissionGroup" }
+    fn event_type(&self) -> &'static str { "GroupCreated" }
+    fn aggregate_type(&self) -> &'static str { "Group" }
     fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
     fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
     fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
@@ -47,15 +47,15 @@ impl DomainEvent for PermissionGroupCreatedEvent {
     fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
-/// Event emitted when a permission group is updated
+/// Event emitted when a group is updated
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PermissionGroupUpdatedEvent {
+pub struct GroupUpdatedEvent {
     pub metadata: EventMetadata,
     pub group_id: String,
     pub updated_at: DateTime<Utc>,
 }
 
-impl PermissionGroupUpdatedEvent {
+impl GroupUpdatedEvent {
     pub fn new(aggregate_id: String, aggregate_version: u64, group_id: String, updated_at: DateTime<Utc>) -> Self {
         Self {
             metadata: EventMetadata::new(aggregate_id, aggregate_version),
@@ -65,10 +65,10 @@ impl PermissionGroupUpdatedEvent {
     }
 }
 
-impl DomainEvent for PermissionGroupUpdatedEvent {
+impl DomainEvent for GroupUpdatedEvent {
     fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "PermissionGroupUpdated" }
-    fn aggregate_type(&self) -> &'static str { "PermissionGroup" }
+    fn event_type(&self) -> &'static str { "GroupUpdated" }
+    fn aggregate_type(&self) -> &'static str { "Group" }
     fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
     fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
     fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
@@ -78,15 +78,15 @@ impl DomainEvent for PermissionGroupUpdatedEvent {
     fn as_any(&self) -> &dyn std::any::Any { self }
 }
 
-/// Event emitted when a permission group is deleted
+/// Event emitted when a group is deleted
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PermissionGroupDeletedEvent {
+pub struct GroupDeletedEvent {
     pub metadata: EventMetadata,
     pub group_id: String,
     pub deleted_at: DateTime<Utc>,
 }
 
-impl PermissionGroupDeletedEvent {
+impl GroupDeletedEvent {
     pub fn new(aggregate_id: String, aggregate_version: u64, group_id: String, deleted_at: DateTime<Utc>) -> Self {
         Self {
             metadata: EventMetadata::new(aggregate_id, aggregate_version),
@@ -96,10 +96,10 @@ impl PermissionGroupDeletedEvent {
     }
 }
 
-impl DomainEvent for PermissionGroupDeletedEvent {
+impl DomainEvent for GroupDeletedEvent {
     fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "PermissionGroupDeleted" }
-    fn aggregate_type(&self) -> &'static str { "PermissionGroup" }
+    fn event_type(&self) -> &'static str { "GroupDeleted" }
+    fn aggregate_type(&self) -> &'static str { "Group" }
     fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
     fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
     fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
@@ -138,7 +138,7 @@ impl WalletAssignedToGroupEvent {
 impl DomainEvent for WalletAssignedToGroupEvent {
     fn event_id(&self) -> Uuid { self.metadata.event_id }
     fn event_type(&self) -> &'static str { "WalletAssignedToGroup" }
-    fn aggregate_type(&self) -> &'static str { "PermissionGroup" }
+    fn aggregate_type(&self) -> &'static str { "Group" }
     fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
     fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
     fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
@@ -177,7 +177,7 @@ impl WalletRemovedFromGroupEvent {
 impl DomainEvent for WalletRemovedFromGroupEvent {
     fn event_id(&self) -> Uuid { self.metadata.event_id }
     fn event_type(&self) -> &'static str { "WalletRemovedFromGroup" }
-    fn aggregate_type(&self) -> &'static str { "PermissionGroup" }
+    fn aggregate_type(&self) -> &'static str { "Group" }
     fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
     fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
     fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
@@ -186,3 +186,8 @@ impl DomainEvent for WalletRemovedFromGroupEvent {
     }
     fn as_any(&self) -> &dyn std::any::Any { self }
 }
+
+// Type aliases for backward compatibility during migration
+pub type PermissionGroupCreatedEvent = GroupCreatedEvent;
+pub type PermissionGroupUpdatedEvent = GroupUpdatedEvent;
+pub type PermissionGroupDeletedEvent = GroupDeletedEvent;

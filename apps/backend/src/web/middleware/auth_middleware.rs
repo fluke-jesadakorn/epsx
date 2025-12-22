@@ -1,5 +1,9 @@
 // Web3 Authentication Middleware
-// Wallet signature-based authentication middleware with improved Axum compatibility
+// Wallet signature-based authentication middleware
+// 
+// Token Validation Strategy:
+// - Uses OpenIDTokenService::validate_access_token() as SINGLE SOURCE OF TRUTH
+// - All other validation methods are deprecated or forwarded
 
 use axum::{
     extract::{Request, State},
@@ -14,10 +18,6 @@ use ethers::types::Address;
 use siwe::{Message, VerificationOpts};
 use std::str::FromStr;
 
-use crate::auth::{
-    token_service::OpenIDTokenService,
-    auth_service::UnifiedWeb3AuthService,
-};
 use crate::web::auth::AppState;
 use crate::core::errors::AppError;
 
@@ -106,7 +106,11 @@ pub async fn web3_auth_middleware(
         Ok(auth_context) => {
             debug!("Web3 authentication successful: {} via {:?}", auth_context.wallet_address, auth_context.auth_method);
 
-            // Attach Web3 context to request
+            // Insert wallet_address as String extension for handlers that expect Extension<String>
+            let wallet_address = auth_context.wallet_address.clone();
+            request.extensions_mut().insert(wallet_address);
+
+            // Attach full Web3 context to request for handlers that need more info
             request.extensions_mut().insert(auth_context);
 
             Ok(next.run(request).await)
@@ -241,42 +245,57 @@ async fn validate_siwe_signature(headers: &HeaderMap, app_state: &AppState) -> R
 }
 
 /// Validate JWT Bearer token
-async fn validate_bearer_token(token: &str, _app_state: &AppState) -> Result<Web3AuthContext, Web3AuthError> {
-    // For now, create a simple placeholder auth context for bearer tokens
-    // TODO: Implement proper JWT validation with the token service
+async fn validate_bearer_token(token: &str, app_state: &AppState) -> Result<Web3AuthContext, Web3AuthError> {
+    // Get token service
+    let token_service = app_state.domain_container.get_token_service()
+        .ok_or_else(|| Web3AuthError::SecurityViolation("Token service not available".to_string()))?;
 
-    // Extract wallet address from token (simplified)
-    let wallet_address = format!("wallet_from_token_{}", &token[..8]);
+    // Validate token and get claims
+    let claims = token_service.validate_access_token(token)
+        .await
+        .map_err(|e| Web3AuthError::TokenVerificationFailed(e.to_string()))?;
+
+    debug!("Bearer token validated for wallet: {}", claims.wallet_address);
+
+    // Extract permissions from scope
+    // Scope format: "openid profile permission1 permission2"
+    let permissions: Vec<String> = claims.scope
+        .split_whitespace()
+        .filter(|s| *s != "openid" && *s != "profile")
+        .map(|s| s.to_string())
+        .collect();
 
     let auth_context = Web3AuthContext {
-        wallet_address: wallet_address.to_lowercase(),
-        permissions: vec![
-            "epsx:basic:view".to_string(),
-            "epsx:data:read".to_string(),
-        ],
-        groups: vec![],
-        is_active: true,
-        verified_at: Utc::now(),
-        signature_hash: "jwt_token".to_string(),
-        chain_id: 56, // Default to BSC for token auth
-        last_auth_at: Utc::now(),
+        wallet_address: claims.wallet_address.to_lowercase(),
+        permissions,
+        groups: vec![], // Groups are flattened into permissions in the token
+        is_active: true, // Assumed active if token is valid
+        verified_at: DateTime::from_timestamp(claims.iat, 0).unwrap_or(Utc::now()),
+        signature_hash: claims.jti,
+        chain_id: 56, // Default to BSC, could be in claims
+        last_auth_at: DateTime::from_timestamp(claims.auth_time, 0).unwrap_or(Utc::now()),
         bearer_token: Some(token.to_string()),
-        token_expires_at: Some(Utc::now() + chrono::Duration::hours(1)), // 1 hour expiry
+        token_expires_at: Some(DateTime::from_timestamp(claims.exp, 0).unwrap_or(Utc::now())),
         auth_method: AuthMethod::BearerToken,
     };
 
-    debug!("Bearer token authentication successful for wallet: {}", wallet_address);
     Ok(auth_context)
 }
 
 /// Generate Bearer token for API access after successful authentication
+/// 
+/// DEPRECATED: Token generation should happen in auth_service.rs or token_service.rs
+/// This function exists only for backward compatibility with SIWE header auth.
+/// New code should use UnifiedWeb3AuthService::verify_and_authenticate() instead.
+#[deprecated(note = "Use UnifiedWeb3AuthService::verify_and_authenticate() instead")]
 async fn generate_bearer_token(
     wallet_address: &str,
     _permissions: &[String],
 ) -> Result<String, AppError> {
-    // TODO: Generate actual JWT token using the app's JWT secret
-    // For now, return a placeholder token
-    Ok(format!("epsx_bearer_token_{}_{}", wallet_address, chrono::Utc::now().timestamp()))
+    // This is a placeholder - in SIWE header auth flow, we don't have access to token_service
+    // The proper flow is: SIWE verify -> verify_signature_handler -> bearer_token returned
+    warn!("generate_bearer_token called - this is deprecated, use proper SIWE verification flow");
+    Ok(format!("epsx_deprecated_bearer_{}_{}", wallet_address, chrono::Utc::now().timestamp()))
 }
 
 /// Extract Web3 authentication context from request

@@ -55,6 +55,7 @@ export const COOKIES = {
   affiliate_attribution: `${prefix}epsx.affiliate_attribution`,
   affiliate_code: `${prefix}epsx.affiliate_code`,
   wallet_state: `${prefix}epsx.wallet_state`,
+  client_session: `${prefix}epsx.client_session`,
 } as const;
 
 /**
@@ -69,7 +70,7 @@ export const COOKIE_OPTIONS = {
     path: '/',
     domain: undefined, // Required for __Host- prefix
   },
-  
+
   // Client-side JavaScript accessible cookies
   clientSide: {
     httpOnly: false,
@@ -78,7 +79,7 @@ export const COOKIE_OPTIONS = {
     path: '/',
     domain: undefined,
   },
-  
+
   maxAge: {
     // Auth tokens
     access: 3600,                    // 1 hour
@@ -86,7 +87,7 @@ export const COOKIE_OPTIONS = {
     refresh: 604800,                // 7 days (1 week)
     state: 600,                      // 10 minutes
     nonce: 600,                      // 10 minutes
-    
+
     // Client-side data
     user: 86400,                     // 24 hours (user data)
     expires_at: 3600,                // 1 hour (same as access token)
@@ -253,9 +254,8 @@ export function removeClientCookie(name: string): void {
   if (typeof document === 'undefined') return;
 
   const options = COOKIE_OPTIONS.clientSide;
-  document.cookie = `${name}=; max-age=0; path=${options.path}; SameSite=${options.sameSite}${
-    options.secure ? '; Secure' : ''
-  }`;
+  document.cookie = `${name}=; max-age=0; path=${options.path}; SameSite=${options.sameSite}${options.secure ? '; Secure' : ''
+    }`;
 }
 
 /**
@@ -299,7 +299,8 @@ export function clearClientSideCookies(): void {
     'browser_notifications',
     'affiliate_attribution',
     'affiliate_code',
-    'wallet_state'
+    'wallet_state',
+    'client_session'
   ] as const;
 
   clientCookieNames.forEach(cookieKey => {
@@ -325,7 +326,8 @@ export const CLIENT_SIDE_COOKIES = [
   'browser_notifications',
   'affiliate_attribution',
   'affiliate_code',
-  'wallet_state'
+  'wallet_state',
+  'client_session'
 ] as const;
 
 /**

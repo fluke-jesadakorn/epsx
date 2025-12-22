@@ -1,5 +1,5 @@
 // Permission Management Bounded Context
-// Handles permission groups, policies, and permission assignment rules
+// Handles groups, policies, and permission assignment rules
 
 pub mod aggregates;
 pub mod entities;
@@ -8,10 +8,12 @@ pub mod events;
 pub mod repository_ports;
 pub mod domain_services;
 
-// Re-export key types
+// Re-export key types (new names)
 pub use aggregates::{
-    PermissionGroup, Policy,
-    CreatePermissionGroupParams, LoadPermissionGroupParams, UpdatePermissionGroupParams,
+    Group, CreateGroupParams, LoadGroupParams, UpdateGroupParams,
+    // Backward compatibility aliases
+    PermissionGroup, CreatePermissionGroupParams, LoadPermissionGroupParams, UpdatePermissionGroupParams,
+    Policy,
 };
 
 pub use value_objects::{
@@ -19,16 +21,21 @@ pub use value_objects::{
 };
 
 pub use events::{
+    GroupCreatedEvent,
+    GroupUpdatedEvent,
+    GroupDeletedEvent,
+    WalletAssignedToGroupEvent,
+    WalletRemovedFromGroupEvent,
+    // Backward compatibility aliases
     PermissionGroupCreatedEvent,
     PermissionGroupUpdatedEvent,
     PermissionGroupDeletedEvent,
-    WalletAssignedToGroupEvent,
-    WalletRemovedFromGroupEvent,
     PolicyCreatedEvent,
     PolicyUpdatedEvent,
 };
 
 pub use repository_ports::{
+    GroupRepositoryPort,
     PermissionGroupRepositoryPort,
     PolicyRepositoryPort,
     GroupAssignmentRepositoryPort,

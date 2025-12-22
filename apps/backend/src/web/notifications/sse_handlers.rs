@@ -98,10 +98,49 @@ pub async fn sse_notifications_handler(
     Query(query): Query<SSEQuery>,
     request: axum::extract::Request,
 ) -> Result<impl IntoResponse, AppError> {
-    // Extract wallet address from authentication
-    let wallet_address = extract_wallet_from_request(&request)
-        .or_else(|| extract_wallet_from_token(query.token.as_deref()))
-        .unwrap_or_else(|| "all".to_string());
+    // Extract wallet address from authentication (Header or Query)
+    let mut wallet_address = "all".to_string();
+    let mut token_to_validate = None;
+
+    // 1. Check Authorization header
+    if let Some(auth_header) = request.headers().get("authorization").and_then(|h| h.to_str().ok()) {
+        if auth_header.starts_with("Bearer ") {
+            token_to_validate = Some(auth_header[7..].to_string());
+        }
+    }
+
+    // 2. Fallback to query param
+    if token_to_validate.is_none() {
+        if let Some(token) = query.token {
+            token_to_validate = Some(token);
+        }
+    }
+
+    // 3. Validate token if present
+    if let Some(token) = token_to_validate {
+        if let Some(token_service) = app_state.domain_container.get_token_service() {
+            match token_service.validate_access_token(&token).await {
+                Ok(claims) => {
+                    wallet_address = claims.wallet_address.to_lowercase();
+                    tracing::debug!("✅ SSE Auth: Validated wallet from token: {}", wallet_address);
+                }
+                Err(e) => {
+                    tracing::warn!("❌ SSE Auth: Token validation failed: {}", e);
+                    // Fallback to legacy extraction (only if needed/safe)
+                    if let Some(legacy_wallet) = extract_wallet_from_token(Some(&token)) {
+                        wallet_address = legacy_wallet;
+                         tracing::warn!("⚠️ SSE Auth: Validated using legacy method (deprecated)");
+                    }
+                }
+            }
+        } else {
+             tracing::error!("❌ SSE Auth: Token service not available");
+             // Fallback
+             if let Some(legacy_wallet) = extract_wallet_from_token(Some(&token)) {
+                wallet_address = legacy_wallet;
+            }
+        }
+    }
 
     tracing::info!(
         "🔌 SSE connection request: wallet={}, types={:?}",

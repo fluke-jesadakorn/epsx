@@ -49,7 +49,7 @@ export const IAM_CONFIG = {
       '/billing': ['epsx:billing:manage'],
       '/payment': ['epsx:payment:create'],
       '/settings': ['epsx:profile:manage'],
-      
+
       // Admin-focused routes
       '/admin': ['admin:*:*'],
       '/admin/users': ['admin:users:manage'],
@@ -60,13 +60,13 @@ export const IAM_CONFIG = {
       '/admin/notifications': ['admin:notifications:manage'],
       '/admin/analytics': ['admin:analytics:view'],
       '/admin/security': ['admin:security:manage'],
-      
+
       // API routes with permissions (user context)
       '/api/v1/analytics/export': ['epsx:analytics:export'],
       '/api/v1/analytics/advanced': ['epsx:analytics:advanced'],
       '/api/v1/payment/create': ['epsx:payment:create'],
       '/api/v1/profile': ['epsx:profile:manage'],
-      
+
       // API routes with permissions (admin context)
       '/api/admin/users': ['admin:users:manage'],
       '/api/admin/permissions': ['admin:permissions:manage'],
@@ -92,7 +92,7 @@ export const IAM_CONFIG = {
         admin: '/api/admin',
       },
     },
-    
+
     // Server-side uses direct backend URLs (configured via env)
     server: {
       timeout: 10000, // 10 seconds
@@ -165,34 +165,34 @@ export const PERMISSION_SETS = {
   SUPER_ADMIN: [
     'admin:*:*'
   ],
-  
+
   USER_MANAGER: [
     'admin:users:manage',
     'admin:permissions:view',
     'admin:analytics:view'
   ],
-  
+
   SYSTEM_ADMIN: [
     'admin:system:manage',
     'admin:audit:read',
     'admin:security:read',
     'admin:analytics:view'
   ],
-  
+
   CONTENT_MANAGER: [
     'admin:notifications:manage',
     'admin:analytics:view',
     'admin:users:read'
   ],
-  
+
   // User permission sets
   ENTERPRISE_USER: [
     'epsx:*:*'
   ],
-  
+
   PREMIUM_USER: [
     'epsx:analytics:view',
-    'epsx:analytics:export', 
+    'epsx:analytics:export',
     'epsx:analytics:advanced',
     'epsx:realtime:access',
     'epsx:profile:manage',
@@ -200,14 +200,14 @@ export const PERMISSION_SETS = {
     'epsx:billing:manage',
     'epsx:payment:create'
   ],
-  
+
   BASIC_USER: [
     'epsx:analytics:view',
     'epsx:profile:manage',
     'epsx:notifications:receive',
     'epsx:billing:view'
   ],
-  
+
   FREE_USER: [
     'epsx:analytics:view',
     'epsx:profile:view',
@@ -239,7 +239,7 @@ export const PERMISSION_SETS = {
 
 export const PLATFORMS = {
   EPSX: 'epsx',
-  EPSX_PAY: 'epsx-pay', 
+  EPSX_PAY: 'epsx-pay',
   EPSX_TOKEN: 'epsx-token',
   ADMIN: 'admin'
 } as const;
@@ -295,7 +295,7 @@ export function getRoutePermissions(route: string): string[] | null {
  * Check if a route is public (no authentication required)
  */
 export function isPublicRoute(route: string): boolean {
-  return IAM_CONFIG.routes.public.some(publicRoute => 
+  return IAM_CONFIG.routes.public.some(publicRoute =>
     route.startsWith(publicRoute) || route === publicRoute
   );
 }
@@ -321,10 +321,10 @@ export function isValidPermission(permission: string): boolean {
 export function parsePermission(permission: string): { platform: string; resource: string; action: string } | null {
   const parts = permission.split(':');
   if (parts.length !== 3) return null;
-  
+
   return {
     platform: parts[0],
-    resource: parts[1], 
+    resource: parts[1],
     action: parts[2]
   };
 }
@@ -352,21 +352,25 @@ export function getPermissionPlatform(permission: string): string | null {
  * Use hasPermissionForDisplay() from SharedWeb3AuthClient for UI display.
  */
 export function hasPermission(userPermissions: string[], requiredPermission: string): boolean {
+  // @deprecated - This is for UI display only. Backend enforces all permissions.
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    console.warn('[DEPRECATED] hasPermission() is for UI display only. Backend enforces all permissions via JWT middleware.');
+  }
   if (!userPermissions || userPermissions.length === 0) return false;
-  
+
   // Check for exact match first
   if (userPermissions.includes(requiredPermission)) return true;
-  
+
   // Check for wildcard permissions
   const { platform, resource, action } = parsePermission(requiredPermission) || {};
   if (!platform || !resource || !action) return false;
-  
+
   // Check various wildcard patterns
   const wildcardPatterns = [
     `${platform}:*:*`, // Platform wildcard (e.g., admin:*:*)
     `${platform}:${resource}:*`, // Resource wildcard (e.g., admin:users:*)
   ];
-  
+
   return wildcardPatterns.some(pattern => userPermissions.includes(pattern));
 }
 
@@ -377,6 +381,10 @@ export function hasPermission(userPermissions: string[], requiredPermission: str
  * Backend validates all permissions via Rust middleware.
  */
 export function hasAnyPermission(userPermissions: string[], requiredPermissions: string[]): boolean {
+  // @deprecated - This is for UI display only. Backend enforces all permissions.
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    console.warn('[DEPRECATED] hasAnyPermission() is for UI display only. Backend enforces all permissions via JWT middleware.');
+  }
   return requiredPermissions.some(permission => hasPermission(userPermissions, permission));
 }
 
@@ -387,6 +395,10 @@ export function hasAnyPermission(userPermissions: string[], requiredPermissions:
  * Backend validates all permissions via Rust middleware.
  */
 export function hasAllPermissions(userPermissions: string[], requiredPermissions: string[]): boolean {
+  // @deprecated - This is for UI display only. Backend enforces all permissions.
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    console.warn('[DEPRECATED] hasAllPermissions() is for UI display only. Backend enforces all permissions via JWT middleware.');
+  }
   return requiredPermissions.every(permission => hasPermission(userPermissions, permission));
 }
 
@@ -420,7 +432,7 @@ export function isSuperAdmin(userPermissions: string[]): boolean {
 export function getUserEffectivePermissions(userPermissions: string[]): string[] {
   // If user has any wildcard permission, include the base permissions for that platform
   const effectivePermissions = new Set(userPermissions);
-  
+
   for (const permission of userPermissions) {
     if (permission.endsWith(':*:*')) {
       // User has platform-wide access
@@ -436,6 +448,6 @@ export function getUserEffectivePermissions(userPermissions: string[]): string[]
       }
     }
   }
-  
+
   return Array.from(effectivePermissions);
 }

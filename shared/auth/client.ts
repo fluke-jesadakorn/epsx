@@ -135,6 +135,12 @@ export class SharedWeb3AuthClient {
     if (typeof window === 'undefined') return;
 
     try {
+      // Access token is HttpOnly usually, but we sync it to client_session for Server Actions & Refresh
+      const clientSession = getClientCookie(COOKIES.client_session);
+      if (clientSession) {
+        this.accessToken = clientSession;
+      }
+
       // Access token is HttpOnly, so we can't access it directly
       // We'll check client-side cookies for expiry and user data
       const expiry = getClientCookie(COOKIES.expires_at);
@@ -160,6 +166,11 @@ export class SharedWeb3AuthClient {
         setClientCookie(COOKIES.expires_at, this.tokenExpiry.toString());
       }
 
+      // Sync access token to client_session for Server Components and persistence
+      if (this.accessToken) {
+        setClientCookie(COOKIES.client_session, this.accessToken);
+      }
+
       // Save user object to cookies
       if (this.user) {
         setClientCookieJSON(COOKIES.user, this.user);
@@ -176,6 +187,8 @@ export class SharedWeb3AuthClient {
     try {
       // Clear client-side cookies
       clearClientSideCookies();
+      // Explicitly clear client_session
+      setClientCookie(COOKIES.client_session, '', 0);
     } catch (error) {
       console.warn('Failed to clear tokens from cookies', { error });
     }

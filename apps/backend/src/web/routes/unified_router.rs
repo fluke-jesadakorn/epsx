@@ -65,6 +65,7 @@ impl UnifiedRouteBuilder {
         let user_routes = self.create_user_routes();
         let notification_routes = self.create_notification_routes();
         let payment_routes = self.create_payment_routes();
+        let developer_portal_routes = self.create_developer_portal_routes();
         let docs_routes = crate::web::docs::create_docs_routes();
         let permission_authority_routes = self.create_permission_authority_routes();
 
@@ -105,6 +106,9 @@ impl UnifiedRouteBuilder {
 
                 // Plan and billing routes (authenticated)
                 .nest("/plans", self.create_plan_routes())
+
+                // Developer Portal (user-facing API key management)
+                .nest("/developer-portal", developer_portal_routes)
             );
 
         // Apply middleware stack
@@ -351,6 +355,44 @@ impl UnifiedRouteBuilder {
             // .route("/invoices", get(crate::web::plans::billing_handlers::get_invoices))
 
             .with_state(app_state)
+    }
+
+    // ============================================================================
+    // DEVELOPER PORTAL ROUTES (user-facing API key management)
+    // ============================================================================
+
+    fn create_developer_portal_routes(&self) -> Router {
+        use crate::web::user::developer_portal::{
+            list_my_keys_handler,
+            create_my_key_handler,
+            get_my_key_handler,
+            revoke_my_key_handler,
+            list_available_groups_handler,
+        };
+
+        let app_state = self.create_app_state();
+
+        // Available permission groups (public info, no auth required)
+        let public_routes = Router::new()
+            .route("/available-groups", get(list_available_groups_handler))
+            .with_state(app_state.clone());
+
+        // User-facing routes (scoped to authenticated user's wallet)
+        // Requires web3 auth middleware to inject wallet_address Extension
+        let authenticated_routes = Router::new()
+            .route("/my-keys", get(list_my_keys_handler))
+            .route("/my-keys", post(create_my_key_handler))
+            .route("/my-keys/{id}", get(get_my_key_handler))
+            .route("/my-keys/{id}", delete(revoke_my_key_handler))
+            .route("/my-keys/{id}/revoke", post(revoke_my_key_handler))
+            .with_state(app_state.clone())
+            .layer(axum_middleware::from_fn_with_state(
+                app_state,
+                crate::web::middleware::web3_auth_middleware
+            ));
+
+        // Combine public and authenticated routes
+        public_routes.merge(authenticated_routes)
     }
 
     // ============================================================================

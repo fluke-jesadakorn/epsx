@@ -6,7 +6,7 @@ use crate::application::shared::Command;
 pub struct CreatePlanCommand {
     pub name: String,
     pub description: String,
-    pub permission_group_id: String,
+    pub group_id: String,
     pub price: f64,
     pub currency: String,
     pub billing_cycle: String,

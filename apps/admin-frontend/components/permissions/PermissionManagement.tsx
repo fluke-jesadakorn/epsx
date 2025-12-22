@@ -5,24 +5,33 @@
 
 'use client'
 
-import { 
-  Shield, Users, Settings, Search, Filter, Plus, Edit, Trash2,
-  AlertTriangle, CheckCircle, Clock, Star, Key, GitBranch, Activity
+import {
+  Activity,
+  AlertTriangle, CheckCircle, Clock,
+  Key,
+  Plus,
+  Search,
+  Settings,
+  Shield,
+  Star,
+  Users
 } from 'lucide-react'
-import React, { useState, useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
+
+import { Group } from '@/lib/api/group-management-client'
 
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { 
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger 
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/components/ui/use-toast'
-import { adminCardVariants, adminButtonVariants } from '@/design-system'
+import { adminButtonVariants, adminCardVariants } from '@/design-system'
 import { cn } from '@/lib/shared'
 
 export interface UserPermissionSummary {
@@ -36,16 +45,6 @@ export interface UserPermissionSummary {
   status: 'active' | 'inactive' | 'suspended';
   riskScore: number;
   hasExpiredPermissions: boolean;
-}
-
-export interface PermissionGroup {
-  id: string;
-  name: string;
-  description?: string;
-  permissions: string[];
-  userCount: number;
-  isSystemGroup: boolean;
-  priority: number;
 }
 
 export interface PermissionAuditLog {
@@ -62,10 +61,10 @@ export interface PermissionAuditLog {
 
 interface PermissionManagementProps {
   users?: UserPermissionSummary[];
-  groups?: PermissionGroup[];
+  groups?: Group[];
   auditLog?: PermissionAuditLog[];
   onUserPermissionChange?: (userId: string, permissions: string[]) => Promise<void>;
-  onGroupChange?: (group: PermissionGroup) => Promise<void>;
+  onGroupChange?: (group: Group) => Promise<void>;
   className?: string;
 }
 
@@ -79,15 +78,16 @@ interface PermissionManagementProps {
  * @param root0.onGroupChange
  * @param root0.className
  */
-export function PermissionManagement({ 
-  users = [], 
-  groups = [], 
+export function PermissionManagement({
+  users = [],
+  groups = [],
   auditLog = [],
-  onUserPermissionChange,
-  onGroupChange,
-  className 
+  onUserPermissionChange: _onUserPermissionChange,
+  onGroupChange: _onGroupChange,
+  className
 }: PermissionManagementProps) {
-  const { toast } = useToast()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { toast: _toast } = useToast()
   const [activeTab, setActiveTab] = useState('users')
   const [searchTerm, setSearchTerm] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
@@ -97,13 +97,13 @@ export function PermissionManagement({
   // Filter users based on search and status
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
-      const matchesSearch = !searchTerm || 
+      const matchesSearch = !searchTerm ||
         user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.walletAddress?.toLowerCase().includes(searchTerm.toLowerCase())
-      
+
       const matchesStatus = filterStatus === 'all' || user.status === filterStatus
-      
+
       return matchesSearch && matchesStatus
     })
   }, [users, searchTerm, filterStatus])
@@ -114,7 +114,7 @@ export function PermissionManagement({
     const activeUsers = users.filter(u => u.status === 'active').length
     const usersWithExpiredPerms = users.filter(u => u.hasExpiredPermissions).length
     const highRiskUsers = users.filter(u => u.riskScore > 70).length
-    
+
     const allPermissions = new Set<string>()
     users.forEach(user => {
       user.permissions.forEach(perm => allPermissions.add(perm))
@@ -136,15 +136,15 @@ export function PermissionManagement({
   }, [])
 
   const getRiskBadgeVariant = (riskScore: number) => {
-    if (riskScore >= 80) {return 'destructive'}
-    if (riskScore >= 60) {return 'secondary'}
+    if (riskScore >= 80) { return 'destructive' }
+    if (riskScore >= 60) { return 'secondary' }
     return 'outline'
   }
 
   const getRiskLabel = (riskScore: number) => {
-    if (riskScore >= 80) {return 'High Risk'}
-    if (riskScore >= 60) {return 'Medium Risk'}
-    if (riskScore >= 40) {return 'Low Risk'}
+    if (riskScore >= 80) { return 'High Risk' }
+    if (riskScore >= 60) { return 'Medium Risk' }
+    if (riskScore >= 40) { return 'Low Risk' }
     return 'Minimal Risk'
   }
 
@@ -168,13 +168,13 @@ export function PermissionManagement({
           </p>
         </div>
         <div className="flex gap-2">
-          <Button 
+          <Button
             className={adminButtonVariants({ variant: 'secondary', size: 'sm' })}
           >
             <Settings className="h-4 w-4 mr-2" />
             Settings
           </Button>
-          <Button 
+          <Button
             className={adminButtonVariants({ variant: 'primary', size: 'sm' })}
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -314,8 +314,8 @@ export function PermissionManagement({
           {/* Users List */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filteredUsers.map((user) => (
-              <Card 
-                key={user.id} 
+              <Card
+                key={user.id}
                 className={cn(
                   adminCardVariants({ variant: 'default' }),
                   'cursor-pointer hover:shadow-md transition-shadow'
@@ -348,12 +348,12 @@ export function PermissionManagement({
                     <span className="text-gray-600">Permissions</span>
                     <Badge variant="outline">{user.permissions.length}</Badge>
                   </div>
-                  
+
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Groups</span>
                     <Badge variant="outline">{user.groups.length}</Badge>
                   </div>
-                  
+
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Last Active</span>
                     <span className="text-xs text-gray-500">
@@ -405,15 +405,15 @@ export function PermissionManagement({
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
-                      {group.isSystemGroup ? (
+                      {group.group_type === 'system' || group.group_type === 'admin' ? (
                         <Star className="h-4 w-4 text-yellow-600" />
                       ) : (
                         <Shield className="h-4 w-4 text-blue-600" />
                       )}
                       <CardTitle className="text-base">{group.name}</CardTitle>
                     </div>
-                    <Badge variant={group.isSystemGroup ? 'default' : 'secondary'}>
-                      {group.isSystemGroup ? 'System' : 'Custom'}
+                    <Badge variant={group.group_type === 'system' || group.group_type === 'admin' ? 'default' : 'secondary'}>
+                      {group.group_type === 'system' || group.group_type === 'admin' ? 'System' : 'Custom'}
                     </Badge>
                   </div>
                   {group.description && (
@@ -423,17 +423,17 @@ export function PermissionManagement({
                 <CardContent className="space-y-3">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Members</span>
-                    <Badge variant="outline">{group.userCount}</Badge>
+                    <Badge variant="outline">{group.member_count || 0}</Badge>
                   </div>
-                  
+
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Permissions</span>
                     <Badge variant="outline">{group.permissions.length}</Badge>
                   </div>
-                  
+
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-600">Priority</span>
-                    <Badge variant="outline">{group.priority}</Badge>
+                    <Badge variant="outline">{group.display_order || 0}</Badge>
                   </div>
 
                   <div className="pt-2 border-t border-gray-100">

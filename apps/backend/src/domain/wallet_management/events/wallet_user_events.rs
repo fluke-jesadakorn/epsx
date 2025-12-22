@@ -11,15 +11,15 @@ use std::collections::HashSet;
 pub struct WalletUserCreatedEvent {
     pub metadata: EventMetadata,
     pub wallet_address: WalletAddress,
-    pub permission_groups: HashSet<String>,
+    pub groups: HashSet<String>,
 }
 
 impl WalletUserCreatedEvent {
-    pub fn new(wallet_address: WalletAddress, permission_groups: HashSet<String>, aggregate_version: u64) -> Self {
+    pub fn new(wallet_address: WalletAddress, groups: HashSet<String>, aggregate_version: u64) -> Self {
         Self {
             metadata: EventMetadata::new(wallet_address.to_string(), aggregate_version),
             wallet_address,
-            permission_groups,
+            groups,
         }
     }
 }

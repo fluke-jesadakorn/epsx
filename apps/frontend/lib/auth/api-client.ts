@@ -62,6 +62,7 @@ export interface UserInfoResponse {
  * Handles all Bearer token authentication with backend OpenID endpoints
  */
 export class OpenIDApiClient {
+  public static readonly SESSION_COOKIE_NAME = 'epsx.client_session';
   private static instance: OpenIDApiClient;
   private accessToken: string | null = null;
   private refreshToken: string | null = null;
@@ -92,6 +93,12 @@ export class OpenIDApiClient {
       this.refreshToken = localStorage.getItem('openid_refresh_token');
       const expiry = localStorage.getItem('openid_token_expiry');
       this.tokenExpiry = expiry ? parseInt(expiry, 10) : null;
+
+      // Sync to cookie for Server Actions
+      if (this.accessToken) {
+        console.log('🔍 [Debug] api-client: Syncing token to cookie (load): epsx.client_session');
+        document.cookie = `${OpenIDApiClient.SESSION_COOKIE_NAME}=${this.accessToken}; path=/; max-age=${this.refreshToken ? 30 * 24 * 60 * 60 : 3600}; SameSite=Lax`;
+      }
     } catch (error) {
       logger.warn('Failed to load tokens from storage', { error });
     }
@@ -103,6 +110,9 @@ export class OpenIDApiClient {
     try {
       if (this.accessToken) {
         localStorage.setItem('openid_access_token', this.accessToken);
+        // Sync to cookie for Server Actions
+        console.log('🔍 [Debug] api-client: Syncing token to cookie (save): epsx.client_session');
+        document.cookie = `${OpenIDApiClient.SESSION_COOKIE_NAME}=${this.accessToken}; path=/; max-age=${this.refreshToken ? 30 * 24 * 60 * 60 : 3600}; SameSite=Lax`;
       }
       if (this.refreshToken) {
         localStorage.setItem('openid_refresh_token', this.refreshToken);
@@ -125,6 +135,9 @@ export class OpenIDApiClient {
       localStorage.removeItem('openid_access_token');
       localStorage.removeItem('openid_refresh_token');
       localStorage.removeItem('openid_token_expiry');
+      // Clear session cookie
+      console.log('🔍 [Debug] api-client: Clearing session cookie');
+      document.cookie = `${OpenIDApiClient.SESSION_COOKIE_NAME}=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;`;
     } catch (error) {
       logger.warn('Failed to clear tokens from storage', { error });
     }

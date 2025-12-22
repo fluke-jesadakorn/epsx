@@ -347,7 +347,7 @@ pub async fn get_platform_overview_handler(
         // Calculate total revenue from all active subscription-based permission groups
         match diesel::sql_query(
             "SELECT COALESCE(SUM(pg.price), 0.0) as revenue FROM wallet_group_assignments wga
-             INNER JOIN permission_groups pg ON wga.group_id = pg.id
+             INNER JOIN groups pg ON wga.group_id = pg.id
              WHERE wga.is_active = true AND pg.group_type = 'subscription'"
         )
         .get_result::<RevenueResult>(&mut conn)
@@ -362,7 +362,7 @@ pub async fn get_platform_overview_handler(
         // Calculate revenue from new subscriptions in the last 30 days
         match diesel::sql_query(
             "SELECT COALESCE(SUM(pg.price), 0.0) as revenue FROM wallet_group_assignments wga
-             INNER JOIN permission_groups pg ON wga.group_id = pg.id
+             INNER JOIN groups pg ON wga.group_id = pg.id
              WHERE wga.is_active = true AND pg.group_type = 'subscription'
              AND wga.created_at >= NOW() - INTERVAL '30 days'"
         )
@@ -600,7 +600,7 @@ pub async fn get_permission_analytics_handler(
 
     // Get total groups count
     let total_groups = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as total_groups FROM permission_groups"
+        "SELECT COUNT(*)::bigint as total_groups FROM groups"
     )
     .get_result::<TotalGroupsRow>(&mut conn)
     .await
@@ -617,7 +617,7 @@ pub async fn get_permission_analytics_handler(
             COUNT(wga.id)::bigint as member_count,
             COUNT(wga.id) FILTER (WHERE wga.is_active = true)::bigint as active_members,
             COALESCE(SUM(CASE WHEN wga.is_active THEN pg.price ELSE 0 END), 0.0) as revenue
-         FROM permission_groups pg
+         FROM groups pg
          LEFT JOIN wallet_group_assignments wga ON pg.id = wga.group_id
          GROUP BY pg.id, pg.name
          ORDER BY member_count DESC
@@ -812,7 +812,7 @@ pub async fn get_revenue_analytics_handler(
     // Calculate total revenue from active subscriptions and lifetime packages
     let total_revenue = match diesel::sql_query(
         "SELECT COALESCE(SUM(pg.price), 0.0) as revenue FROM wallet_group_assignments wga
-         INNER JOIN permission_groups pg ON wga.group_id = pg.id
+         INNER JOIN groups pg ON wga.group_id = pg.id
          WHERE wga.is_active = true AND pg.group_type = 'subscription'"
     )
     .get_result::<RevenueResult>(&mut conn)
@@ -831,7 +831,7 @@ pub async fn get_revenue_analytics_handler(
                 ELSE 0.0
             END
         ), 0.0) as revenue FROM wallet_group_assignments wga
-         INNER JOIN permission_groups pg ON wga.group_id = pg.id
+         INNER JOIN groups pg ON wga.group_id = pg.id
          WHERE wga.is_active = true AND pg.group_type = 'subscription'
          AND pg.billing_cycle IN ('monthly', 'yearly')"
     )
@@ -864,7 +864,7 @@ pub async fn get_revenue_analytics_handler(
                     ELSE 0.0
                 END as average_revenue_per_user
          FROM wallet_group_assignments wga
-         INNER JOIN permission_groups pg ON wga.group_id = pg.id
+         INNER JOIN groups pg ON wga.group_id = pg.id
          WHERE wga.is_active = true AND pg.group_type = 'subscription'
          GROUP BY pg.id, pg.name
          ORDER BY revenue DESC"
@@ -890,7 +890,7 @@ pub async fn get_revenue_analytics_handler(
     // Calculate subscription metrics
     let active_subscriptions = match diesel::sql_query(
         "SELECT COUNT(*)::bigint as count FROM wallet_group_assignments wga
-         INNER JOIN permission_groups pg ON wga.group_id = pg.id
+         INNER JOIN groups pg ON wga.group_id = pg.id
          WHERE wga.is_active = true AND pg.group_type = 'subscription'"
     )
     .get_result::<CountResult>(&mut conn)
@@ -902,7 +902,7 @@ pub async fn get_revenue_analytics_handler(
 
     let new_subscriptions = match diesel::sql_query(
         "SELECT COUNT(*)::bigint as count FROM wallet_group_assignments wga
-         INNER JOIN permission_groups pg ON wga.group_id = pg.id
+         INNER JOIN groups pg ON wga.group_id = pg.id
          WHERE wga.is_active = true AND pg.group_type = 'subscription'
          AND wga.created_at >= NOW() - INTERVAL '30 days'"
     )
@@ -915,7 +915,7 @@ pub async fn get_revenue_analytics_handler(
 
     let cancelled_subscriptions = match diesel::sql_query(
         "SELECT COUNT(*)::bigint as count FROM wallet_group_assignments wga
-         INNER JOIN permission_groups pg ON wga.group_id = pg.id
+         INNER JOIN groups pg ON wga.group_id = pg.id
          WHERE wga.is_active = false AND pg.group_type = 'subscription'
          AND wga.updated_at >= NOW() - INTERVAL '30 days'"
     )
@@ -947,7 +947,7 @@ pub async fn get_revenue_analytics_handler(
             DATE_TRUNC('day', wga.created_at) as trend_date,
             COALESCE(SUM(pg.price), 0.0) as daily_revenue
         FROM wallet_group_assignments wga
-        INNER JOIN permission_groups pg ON wga.group_id = pg.id
+        INNER JOIN groups pg ON wga.group_id = pg.id
         WHERE wga.created_at >= NOW() - INTERVAL '30 days'
           AND pg.group_type = 'subscription'
         GROUP BY DATE_TRUNC('day', wga.created_at)

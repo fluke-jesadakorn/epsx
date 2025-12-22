@@ -1,14 +1,15 @@
-import { getCurrentUser } from '@/lib/server-actions';
 import { DeveloperAPIClient } from '@/components/developer/DeveloperAPIClient';
-import Link from 'next/link';
-import { Card, CardContent, CardHeader, CardTitle, Button } from '@/components/ui';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
+import { getCurrentUser } from '@/lib/server-actions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DeveloperPage() {
   const user = await getCurrentUser();
-  
+
   if (!user) {
+    const debugInfo = await import('@/lib/server-actions-user').then(m => m.getDebugSessionInfo());
+
     return (
       <div className="container mx-auto p-6">
         <h1 className="text-3xl font-bold mb-6">Developer API</h1>
@@ -18,7 +19,12 @@ export default async function DeveloperPage() {
           </CardHeader>
           <CardContent>
             <p className="mb-4">Please connect your wallet to access the Developer API portal and manage your API keys.</p>
-            <p className="text-sm text-gray-500">Use the wallet button in the navigation menu to connect.</p>
+            <p className="text-sm text-gray-500 mb-6">Use the wallet button in the navigation menu to connect.</p>
+
+            <details className="text-xs text-gray-400 bg-gray-900 p-4 rounded mt-4">
+              <summary className="cursor-pointer mb-2">Debug Info (Diagnostic)</summary>
+              <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
+            </details>
           </CardContent>
         </Card>
       </div>

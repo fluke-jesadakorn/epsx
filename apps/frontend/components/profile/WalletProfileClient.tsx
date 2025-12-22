@@ -11,8 +11,8 @@ import { DataManagement } from './DataManagement';
 import { EmailManagement } from './EmailManagement';
 import { Web3Integration } from './Web3Integration';
 
-// Simple permission group helpers (for display only)
-function derivePermissionGroupFromPermissions(permissions: string[]): string {
+// Simple group helpers (for display only)
+function deriveGroupFromPermissions(permissions: string[]): string {
   if (permissions.some(p => p.includes('admin:'))) return 'Admin';
   if (permissions.some(p => p.includes('premium') || p.includes('platinum'))) return 'Premium';
   if (permissions.some(p => p.includes('gold'))) return 'Gold';
@@ -20,7 +20,7 @@ function derivePermissionGroupFromPermissions(permissions: string[]): string {
   return 'Basic';
 }
 
-function getPermissionGroupDisplayName(group: string): string {
+function getGroupDisplayName(group: string): string {
   return group;
 }
 
@@ -42,8 +42,8 @@ export function WalletProfileClient({ wallet }: WalletProfileClientProps) {
     });
   };
 
-  const permissionGroup = derivePermissionGroupFromPermissions(wallet.permissions || []);
-  const permissionGroupDisplay = getPermissionGroupDisplayName(permissionGroup);
+  const group = deriveGroupFromPermissions(wallet.permissions || []);
+  const groupDisplay = getGroupDisplayName(group);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -73,10 +73,10 @@ export function WalletProfileClient({ wallet }: WalletProfileClientProps) {
             <div className="space-y-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                  {permissionGroupDisplay}
+                  {groupDisplay}
                 </div>
                 <div className="text-sm text-slate-600 dark:text-slate-400">
-                  Permission Group
+                  Access Group
                 </div>
               </div>
 
@@ -182,10 +182,10 @@ export function WalletProfileClient({ wallet }: WalletProfileClientProps) {
                     </div>
                     <div>
                       <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Permission Group
+                        Access Group
                       </label>
                       <div className="mt-1 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm">
-                        <Badge variant="outline">{permissionGroupDisplay}</Badge>
+                        <Badge variant="outline">{groupDisplay}</Badge>
                       </div>
                     </div>
                     <div>

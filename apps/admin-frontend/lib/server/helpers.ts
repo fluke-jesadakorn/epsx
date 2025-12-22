@@ -108,47 +108,28 @@ export class ServerAuth {
     return session
   }
 
-  // Check specific permissions
+  // ============================================================================
+  // DEPRECATED: Permission Check Functions
+  // Backend handles all permission enforcement via JWT middleware
+  // These are kept for backward compatibility but always return true
+  // ============================================================================
+
   /**
-   *
+   * @deprecated Backend handles permission enforcement. This always returns true.
    * @param permission
    */
-  static async hasPermission(permission: string): Promise<boolean> {
-    const session = await this.getAdminSession()
-
-    if (!session.isLoggedIn || !session.user) {
-      return false
-    }
-
-    const userPermissions = session.user.permissions
-
-    // Check for exact permission match
-    if (userPermissions.includes(permission)) {
-      return true
-    }
-
-    // Check for wildcard permissions
-    const [platform, resource, action] = permission.split(':')
-
-    return userPermissions.some(p => {
-      if (p === 'admin:*:*') { return true } // Super admin
-      if (p === `${platform}:*:*`) { return true } // Platform admin
-      if (p === `${platform}:${resource}:*`) { return true } // Resource admin
-      return false
-    })
+  static async hasPermission(_permission: string): Promise<boolean> {
+    console.warn('[DEPRECATED] ServerAuth.hasPermission() - Permission enforcement moved to backend. This always returns true.');
+    return true;
   }
 
-  // Require specific permission
   /**
-   *
+   * @deprecated Backend handles permission enforcement. This is now a no-op.
    * @param permission
    */
-  static async requirePermission(permission: string): Promise<void> {
-    const hasAccess = await this.hasPermission(permission)
-
-    if (!hasAccess) {
-      redirect('/unauthorized')
-    }
+  static async requirePermission(_permission: string): Promise<void> {
+    console.warn('[DEPRECATED] ServerAuth.requirePermission() - Permission enforcement moved to backend. This is now a no-op.');
+    // No redirect - backend will handle enforcement via 403 response
   }
 
   // Basic JWT decode (client-side safe, no verification)

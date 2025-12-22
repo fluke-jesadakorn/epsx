@@ -1,6 +1,6 @@
 // Admin routes configuration
 
-use axum::{ routing::{ get, post, put, delete }, Router };
+use axum::{ routing::{ get, post, put, patch, delete }, Router };
 
 // Security monitoring handlers
 use super::security_monitoring_handlers::{ SecurityMonitoringHandlers };
@@ -108,6 +108,13 @@ use super::notification_handlers::{
   acknowledge_notification_handler,
   delete_admin_notification_handler,
 };
+// System settings handlers
+use super::system_settings_handlers::{
+  get_all_settings_handler,
+  get_settings_by_category_handler,
+  update_settings_handler,
+  reset_settings_handler,
+};
 use crate::web::auth::AppState;
 
 pub fn create_admin_routes() -> Router<AppState> {
@@ -175,6 +182,9 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/permissions/system/cache/clear", post(clear_caches))
     .route("/permissions/system/routes", get(get_route_permissions).post(register_route_permission))
 
+    // List all available unique permission strings (matches frontend call)
+    .route("/permissions/available", get(super::permissions::list_available_permissions))
+
     // Group Assignment History (Audit Log)
     .route("/groups/history", get(get_group_history))
 
@@ -238,6 +248,31 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/notifications/{id}/acknowledge", put(acknowledge_notification_handler))
     .route("/notifications/{id}", delete(delete_admin_notification_handler))
 
+    // ============================================================================
+    // SYSTEM SETTINGS MANAGEMENT
+    // Global admin console settings (NOT tied to any wallet)
+    // ============================================================================
+
+    // Settings routes (require admin:settings:* permissions)
+    .route("/settings", get(get_all_settings_handler).put(update_settings_handler))
+    .route("/settings/reset", post(reset_settings_handler))
+    .route("/settings/{category}", get(get_settings_by_category_handler))
+
+    // ============================================================================
+    // DEVELOPER PORTAL MANAGEMENT
+    // API key and module management for third-party integrations
+    // ============================================================================
+
+    // Developer Portal routes (require admin:developer:* permissions)
+    .route("/developer-portal/api-keys", get(super::developer_portal_handlers::list_api_keys_handler).post(super::developer_portal_handlers::create_api_key_handler))
+    .route("/developer-portal/api-keys/{id}", get(super::developer_portal_handlers::get_api_key_handler))
+    .route("/developer-portal/api-keys/{id}/revoke", post(super::developer_portal_handlers::revoke_api_key_handler))
+    .route("/developer-portal/api-keys/{id}/expiration", patch(super::developer_portal_handlers::update_expiration_handler))
+    .route("/developer-portal/api-keys/expiring", get(super::developer_portal_handlers::list_expiring_keys_handler))
+    .route("/developer-portal/modules", get(super::developer_portal_handlers::list_modules_handler).post(super::developer_portal_handlers::create_module_handler))
+    .route("/developer-portal/modules/{id}", get(super::developer_portal_handlers::get_module_handler).put(super::developer_portal_handlers::update_module_handler))
+    .route("/developer-portal/stats", get(super::developer_portal_handlers::get_stats_handler))
+
     }
 
 pub fn create_admin_public_routes() -> Router<AppState> {
@@ -263,6 +298,16 @@ pub fn create_permission_authority_routes() -> Router<AppState> {
     // Used by frontend/admin for batch permission checking
     // Route: /api/v1/permissions/validate-bulk
     .route("/validate-bulk", post(validate_bulk_permissions))
+
+    // List all available unique permission strings
+    // Route: /api/v1/permissions/available
+    .route("/available", get(super::permissions::list_available_permissions))
+
+    // Permission Definitions Management (CRUD for custom permissions)
+    // Route: /api/v1/permissions/definitions
+    .route("/definitions", get(super::permissions::list_permission_definitions).post(super::permissions::create_permission_definition))
+    .route("/definitions/{id}", delete(super::permissions::delete_permission_definition))
+    .route("/definitions/by-name/{permission}", delete(super::permissions::delete_permission_by_name))
 
     // ⚡ CRITICAL: Wallet's effective permissions - what they can actually do
     // Used by frontend/admin to understand wallet capabilities

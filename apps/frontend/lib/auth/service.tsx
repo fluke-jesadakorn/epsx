@@ -10,14 +10,19 @@ import React from 'react';
 
 // 🔒 SECURITY CRITICAL: Backend permission authority removed - permissions handled by backend only
 
-// Simple permission group derivation (for display only)
-function derivePermissionGroupFromPermissions(permissions: string[]): string {
+// Simple group derivation (for display only)
+export function deriveGroupFromPermissions(permissions: string[]): string {
   if (permissions.some(p => p.includes('admin:'))) return 'Admin';
   if (permissions.some(p => p.includes('premium') || p.includes('platinum'))) return 'Premium';
   if (permissions.some(p => p.includes('gold'))) return 'Gold';
   if (permissions.some(p => p.includes('silver'))) return 'Silver';
   return 'Basic';
 }
+
+/**
+ * @deprecated Use deriveGroupFromPermissions instead
+ */
+export const derivePermissionGroupFromPermissions = deriveGroupFromPermissions;
 
 // Permission-centric user interface - Web3-first
 export interface PermissionAwareUser {
@@ -33,7 +38,9 @@ export interface PermissionAwareUser {
   permissions: string[]; // Simple permission list
 
   // Derived permission-based attributes
-  permissionGroup: string; // Derived from permissions
+  group: string; // Derived from permissions
+  /** @deprecated Use group instead */
+  permissionGroup: string;
   accessiblePlatforms: string[]; // Derived from permissions
   role: string; // Derived from permissions
 
@@ -280,7 +287,8 @@ export class PermissionAwareAuthService {
       permissions,
 
       // Derived attributes (permission-based derivation)
-      permissionGroup: derivePermissionGroupFromPermissions(permissions),
+      group: deriveGroupFromPermissions(permissions),
+      permissionGroup: deriveGroupFromPermissions(permissions),
       accessiblePlatforms: derivePlatformsFromPermissions(permissions),
       role: deriveRoleFromPermissions(permissions),
 
@@ -324,7 +332,8 @@ export class PermissionAwareAuthService {
       permissions,
 
       // Derived attributes (permission-based derivation)
-      permissionGroup: derivePermissionGroupFromPermissions(permissions),
+      group: deriveGroupFromPermissions(permissions),
+      permissionGroup: deriveGroupFromPermissions(permissions),
       accessiblePlatforms: derivePlatformsFromPermissions(permissions),
       role: deriveRoleFromPermissions(permissions),
 
@@ -665,8 +674,15 @@ This warning will be removed when local validation is fully deprecated.
   }
 
   // Legacy compatibility
+  getGroup(): string {
+    return this.currentUser?.group || 'Basic Access Group';
+  }
+
+  /**
+   * @deprecated Use getGroup instead
+   */
   getPermissionGroup(): string {
-    return this.currentUser?.permissionGroup || 'Basic Access Group';
+    return this.getGroup();
   }
 
   getAccessiblePlatforms(): string[] {

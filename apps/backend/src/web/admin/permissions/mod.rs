@@ -10,6 +10,7 @@ pub mod direct;       // Direct wallet permission management
 pub mod validation;   // Permission validation logic
 pub mod bulk;         // Bulk operations for permissions
 pub mod system;       // System-level operations (health, caching, stats)
+pub mod available;    // Available permissions listing
 
 // Re-export for convenience
 pub use groups::*;
@@ -18,6 +19,7 @@ pub use direct::*;
 pub use validation::*;
 pub use bulk::*;
 pub use system::*;
+pub use available::*;
 
 use axum::{
     routing::{get, post, delete, put},
@@ -83,4 +85,13 @@ pub fn create_permission_routes() -> Router<AppState> {
         .route("/system/cache/clear", post(system::clear_caches))
         .route("/system/routes", get(system::get_route_permissions))
         .route("/system/routes", post(system::register_route_permission))
+
+        // ============================================================================
+        // AVAILABLE PERMISSIONS / PERMISSION DEFINITIONS
+        // ============================================================================
+        .route("/available", get(available::list_available_permissions))
+        .route("/definitions", get(available::list_permission_definitions))
+        .route("/definitions", post(available::create_permission_definition))
+        .route("/definitions/{id}", delete(available::delete_permission_definition))
+        .route("/definitions/by-name/{permission}", delete(available::delete_permission_by_name))
 }

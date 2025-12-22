@@ -261,7 +261,7 @@ read_model.wallet_details (
 
   -- Permissions
   active_permissions JSONB[],
-  permission_groups JSONB[],
+  groups JSONB[],
   total_permissions INT,
   subscription_tier TEXT,
 
@@ -348,7 +348,7 @@ let wallet = sqlx::query!(
         wallet_address,
         is_active,
         active_permissions,
-        permission_groups,
+        groups,
         total_permissions,
         subscription_tier,
         total_sessions,

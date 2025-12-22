@@ -52,7 +52,7 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> Resul
 
     let free_plan_result = diesel::sql_query(
         r#"
-        INSERT INTO permission_groups (
+        INSERT INTO groups (
             id, name, slug, description, group_type, group_metadata,
             price, currency, billing_cycle, is_active, is_promoted, display_order, created_by
         ) VALUES (
@@ -99,7 +99,7 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> Resul
 
     let starter_plan_result = diesel::sql_query(
         r#"
-        INSERT INTO permission_groups (
+        INSERT INTO groups (
             id, name, slug, description, group_type, group_metadata,
             price, currency, billing_cycle, is_active, is_promoted, display_order, created_by
         ) VALUES (
@@ -151,7 +151,7 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> Resul
 
     let pro_plan_result = diesel::sql_query(
         r#"
-        INSERT INTO permission_groups (
+        INSERT INTO groups (
             id, name, slug, description, group_type, group_metadata,
             price, currency, billing_cycle, is_active, is_promoted, display_order, created_by
         ) VALUES (
@@ -206,7 +206,7 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> Resul
 
     let enterprise_plan_result = diesel::sql_query(
         r#"
-        INSERT INTO permission_groups (
+        INSERT INTO groups (
             id, name, slug, description, group_type, group_metadata,
             price, currency, billing_cycle, is_active, is_promoted, display_order, created_by
         ) VALUES (
@@ -255,7 +255,7 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> Resul
 
     let api_plan_result = diesel::sql_query(
         r#"
-        INSERT INTO permission_groups (
+        INSERT INTO groups (
             id, name, slug, description, group_type, group_metadata,
             price, currency, billing_cycle, is_active, is_promoted, display_order, created_by
         ) VALUES (
@@ -300,7 +300,7 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> Resul
     }
 
     let total_plans = diesel::sql_query(
-        "SELECT COUNT(*) as count FROM permission_groups WHERE group_type = 'subscription'"
+        "SELECT COUNT(*) as count FROM groups WHERE group_type = 'subscription'"
     )
     .get_result::<CountRow>(&mut conn)
     .await

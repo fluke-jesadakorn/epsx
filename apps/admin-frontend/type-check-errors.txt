@@ -1,0 +1,682 @@
+$ tsc --noEmit
+app/analytics/page.tsx(69,25): error TS6133: 'memoryUsage' is declared but its value is never read.
+app/analytics/page.tsx(111,37): error TS4111: Property 'metrics' comes from an index signature, so it must be accessed with ['metrics'].
+app/analytics/page.tsx(111,46): error TS2339: Property 'totalRequests' does not exist on type '{}'.
+app/analytics/page.tsx(270,34): error TS2322: Type '{ id: string; name: string; created_at: string; last_used?: string | undefined; status: string; }[]' is not assignable to type 'ApiKey[]'.
+  Type '{ id: string; name: string; created_at: string; last_used?: string | undefined; status: string; }' is missing the following properties from type 'ApiKey': client_name, total_requests, rate_limit_per_minute
+app/auth/page.tsx(25,5): error TS6133: 'isLoading' is declared but its value is never read.
+app/auth/page.tsx(71,10): error TS6133: 'challenge' is declared but its value is never read.
+app/auth/page.tsx(404,21): error TS6133: 'account' is declared but its value is never read.
+app/auth/page.tsx(405,21): error TS6133: 'chain' is declared but its value is never read.
+app/auth/page.tsx(406,21): error TS6133: 'openAccountModal' is declared but its value is never read.
+app/auth/page.tsx(407,21): error TS6133: 'openChainModal' is declared but its value is never read.
+app/developer-portal/api-keys/create/page.tsx(15,11): error TS6196: 'CreateApiKeyFormData' is declared but never used.
+app/global-error.tsx(4,5): error TS6133: 'error' is declared but its value is never read.
+app/notifications/page.tsx(45,9): error TS6133: 'router' is declared but its value is never read.
+app/page.tsx(6,1): error TS6133: 'PermissionManagement' is declared but its value is never read.
+app/page.tsx(7,1): error TS6133: 'PancakeCard' is declared but its value is never read.
+app/page.tsx(44,10): error TS6133: 'isLoadingStats' is declared but its value is never read.
+app/page.tsx(90,26): error TS2339: Property 'status' does not exist on type 'ApiResponse<any> | { success: boolean; data: null; }'.
+  Property 'status' does not exist on type '{ success: boolean; data: null; }'.
+app/page.tsx(90,55): error TS2339: Property 'status' does not exist on type 'ApiResponse<any> | { success: boolean; data: null; }'.
+  Property 'status' does not exist on type '{ success: boolean; data: null; }'.
+app/page.tsx(91,39): error TS2339: Property 'error' does not exist on type 'ApiResponse<any> | { success: boolean; data: null; }'.
+  Property 'error' does not exist on type '{ success: boolean; data: null; }'.
+app/page.tsx(307,28): error TS6133: 'index' is declared but its value is never read.
+app/payments/page.tsx(16,3): error TS6133: 'MagnifyingGlassIcon' is declared but its value is never read.
+app/payments/page.tsx(20,3): error TS6133: 'ArrowDownTrayIcon' is declared but its value is never read.
+app/payments/page.tsx(34,8): error TS2307: Cannot find module '../../../shared/types/payment' or its corresponding type declarations.
+app/payments/page.tsx(69,10): error TS6133: 'subscriptions' is declared but its value is never read.
+app/payments/page.tsx(87,24): error TS6133: 'setItemsPerPage' is declared but its value is never read.
+app/payments/page.tsx(482,36): error TS2339: Property 'id' does not exist on type 'AdminPayment'.
+app/payments/page.tsx(495,47): error TS2339: Property 'amount' does not exist on type 'AdminPayment'.
+app/payments/page.tsx(495,63): error TS2339: Property 'currency' does not exist on type 'AdminPayment'.
+app/payments/page.tsx(498,138): error TS2339: Property 'status' does not exist on type 'AdminPayment'.
+app/payments/page.tsx(499,48): error TS2339: Property 'status' does not exist on type 'AdminPayment'.
+app/payments/page.tsx(500,57): error TS2339: Property 'status' does not exist on type 'AdminPayment'.
+app/payments/page.tsx(504,43): error TS2339: Property 'created_at' does not exist on type 'AdminPayment'.
+app/permissions/groups/[id]/edit/page.tsx(52,44): error TS2339: Property 'default_expiry_days' does not exist on type 'PermissionGroup'.
+app/permissions/groups/[id]/edit/page.tsx(53,39): error TS2339: Property 'priority_level' does not exist on type 'PermissionGroup'.
+app/permissions/groups/[id]/members/page.tsx(14,10): error TS2614: Module '"@/hooks/useGroupPermissions"' has no exported member 'useGroupPermissions'. Did you mean to use 'import useGroupPermissions from "@/hooks/useGroupPermissions"' instead?
+app/permissions/groups/[id]/members/page.tsx(18,11): error TS6133: 'router' is declared but its value is never read.
+app/permissions/groups/[id]/members/page.tsx(203,51): error TS7006: Parameter 'member' implicitly has an 'any' type.
+app/permissions/page.tsx(16,10): error TS2614: Module '"@/hooks/useGroupPermissions"' has no exported member 'useGroupPermissions'. Did you mean to use 'import useGroupPermissions from "@/hooks/useGroupPermissions"' instead?
+app/permissions/page.tsx(28,28): error TS6133: 'setWalletSearchTerm' is declared but its value is never read.
+app/permissions/page.tsx(29,10): error TS6133: 'searchResults' is declared but its value is never read.
+app/permissions/page.tsx(30,10): error TS6133: 'isSearching' is declared but its value is never read.
+app/permissions/page.tsx(31,10): error TS6133: 'recentActivity' is declared but its value is never read.
+app/permissions/page.tsx(110,9): error TS6133: 'handleViewMembers' is declared but its value is never read.
+app/permissions/page.tsx(140,22): error TS2339: Property 'success' does not exist on type '{ history: GroupAssignmentHistory[]; total: number; }'.
+app/permissions/page.tsx(140,42): error TS2339: Property 'data' does not exist on type '{ history: GroupAssignmentHistory[]; total: number; }'.
+app/permissions/page.tsx(141,38): error TS2339: Property 'data' does not exist on type '{ history: GroupAssignmentHistory[]; total: number; }'.
+app/permissions/page.tsx(174,20): error TS2339: Property 'success' does not exist on type '{ history: GroupAssignmentHistory[]; total: number; }'.
+app/permissions/page.tsx(174,40): error TS2339: Property 'data' does not exist on type '{ history: GroupAssignmentHistory[]; total: number; }'.
+app/permissions/page.tsx(175,35): error TS2339: Property 'data' does not exist on type '{ history: GroupAssignmentHistory[]; total: number; }'.
+app/permissions/page.tsx(388,47): error TS2339: Property 'is_system_group' does not exist on type 'PermissionGroup'.
+app/permissions/page.tsx(396,36): error TS2339: Property 'is_system_group' does not exist on type 'PermissionGroup'.
+app/permissions/page.tsx(399,36): error TS2339: Property 'is_system_group' does not exist on type 'PermissionGroup'.
+app/permissions/page.tsx(454,37): error TS2339: Property 'is_system_group' does not exist on type 'PermissionGroup'.
+app/permissions/page.tsx(828,32): error TS2339: Property 'default_expiry_days' does not exist on type 'PermissionGroup'.
+app/permissions/page.tsx(829,27): error TS2339: Property 'priority_level' does not exist on type 'PermissionGroup'.
+app/permissions/page.tsx(1122,29): error TS7006: Parameter 'member' implicitly has an 'any' type.
+app/plans/[id]/analytics/page.tsx(27,14): error TS4111: Property 'id' comes from an index signature, so it must be accessed with ['id'].
+app/plans/[id]/analytics/page.tsx(30,17): error TS4111: Property 'id' comes from an index signature, so it must be accessed with ['id'].
+app/plans/[id]/analytics/page.tsx(35,66): error TS4111: Property 'id' comes from an index signature, so it must be accessed with ['id'].
+app/plans/[id]/edit/page.tsx(48,19): error TS4111: Property 'id' comes from an index signature, so it must be accessed with ['id'].
+app/plans/[id]/edit/page.tsx(54,59): error TS4111: Property 'id' comes from an index signature, so it must be accessed with ['id'].
+app/plans/[id]/edit/page.tsx(97,37): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+app/plans/[id]/edit/page.tsx(144,14): error TS4111: Property 'id' comes from an index signature, so it must be accessed with ['id'].
+app/plans/[id]/edit/page.tsx(196,60): error TS4111: Property 'id' comes from an index signature, so it must be accessed with ['id'].
+app/plans/page.tsx(73,11): error TS6133: 'user' is declared but its value is never read.
+app/stock-ranking-packages/page.tsx(2,1): error TS6133: 'React' is declared but its value is never read.
+components/admin/ApiKeyManagementTab.tsx(3,48): error TS6133: 'Settings' is declared but its value is never read.
+components/admin/DeveloperPortal.tsx(32,11): error TS6196: 'AccessLevelConfig' is declared but never used.
+components/admin/DeveloperPortal.tsx(232,9): error TS6133: 'addModuleToForm' is declared but its value is never read.
+components/admin/DeveloperPortal.tsx(252,9): error TS6133: 'removeModuleFromForm' is declared but its value is never read.
+components/admin/DeveloperPortal.tsx(262,9): error TS6133: 'updateModuleInForm' is declared but its value is never read.
+components/admin/DeveloperPortalRefactored.tsx(26,3): error TS6133: 'hideDownloads' is declared but its value is never read.
+components/admin/DeveloperPortalRefactored.tsx(38,40): error TS6133: 'module' is declared but its value is never read.
+components/admin/DeveloperPortalRefactored.tsx(44,41): error TS6133: 'action' is declared but its value is never read.
+components/admin/DocumentationTab.tsx(3,20): error TS6133: 'Code' is declared but its value is never read.
+components/admin/EnhancedWalletSearch.tsx(200,5): error TS7030: Not all code paths return a value.
+components/admin/EnhancedWalletSearch.tsx(250,9): error TS6133: 'getTierColor' is declared but its value is never read.
+components/admin/GrantPermissionHub.tsx(20,45): error TS6133: 'currentUser' is declared but its value is never read.
+components/admin/GranularTokenManagement.tsx(4,8): error TS6133: 'React' is declared but its value is never read.
+components/admin/GranularTokenManagement.tsx(4,27): error TS6133: 'useEffect' is declared but its value is never read.
+components/admin/GranularTokenManagement.tsx(48,43): error TS6133: 'userId' is declared but its value is never read.
+components/admin/GranularTokenManagement.tsx(68,49): error TS4111: Property 'NEXT_PUBLIC_BACKEND_URL' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_BACKEND_URL'].
+components/admin/GranularTokenManagement.tsx(122,13): error TS6133: 'introspectEndpoint' is declared but its value is never read.
+components/admin/GranularTokenManagement.tsx(122,49): error TS4111: Property 'NEXT_PUBLIC_BACKEND_URL' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_BACKEND_URL'].
+components/admin/GranularTokenManagement.tsx(130,16): error TS4111: Property 'permission' comes from an index signature, so it must be accessed with ['permission'].
+components/admin/GranularTokenManagement.tsx(131,16): error TS4111: Property 'revoke_type' comes from an index signature, so it must be accessed with ['revoke_type'].
+components/admin/GranularTokenManagement.tsx(134,45): error TS4111: Property 'NEXT_PUBLIC_BACKEND_URL' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_BACKEND_URL'].
+components/admin/NotificationDashboard.tsx(7,3): error TS6133: 'Filter' is declared but its value is never read.
+components/admin/NotificationDashboard.tsx(20,8): error TS6133: 'React' is declared but its value is never read.
+components/admin/NotificationDashboard.tsx(33,1): error TS6133: 'Select' is declared but its value is never read.
+components/admin/NotificationDashboard.tsx(84,9): error TS6133: 'router' is declared but its value is never read.
+components/admin/NotificationDashboard.tsx(356,40): error TS2345: Argument of type 'string' is not assignable to parameter of type 'NotificationType'.
+components/admin/NotificationDashboard.tsx(378,84): error TS2345: Argument of type 'string' is not assignable to parameter of type 'NotificationPriority'.
+components/admin/RecentActivity.tsx(70,9): error TS6133: 'getStatusVariant' is declared but its value is never read.
+components/admin/RecentActivity.tsx(79,9): error TS6133: 'getTypeVariant' is declared but its value is never read.
+components/admin/RecentWalletsPanel.tsx(112,9): error TS6133: 'getTierColor' is declared but its value is never read.
+components/admin/StockPackageDash.tsx(3,8): error TS6133: 'React' is declared but its value is never read.
+components/admin/StockRankingAssignmentList.tsx(52,9): error TS6133: '_setSortOrder' is declared but its value is never read.
+components/admin/StockRankingAssignmentList.tsx(148,41): error TS4111: Property 'packageTier' comes from an index signature, so it must be accessed with ['packageTier'].
+components/admin/StockRankingAssignmentList.tsx(149,56): error TS4111: Property 'status' comes from an index signature, so it must be accessed with ['status'].
+components/admin/StockRankingAssignmentList.tsx(158,18): error TS4111: Property 'reason' comes from an index signature, so it must be accessed with ['reason'].
+components/admin/StockRankingAssignmentList.tsx(168,29): error TS4111: Property 'assignedAt' comes from an index signature, so it must be accessed with ['assignedAt'].
+components/admin/StockRankingAssignmentList.tsx(169,29): error TS4111: Property 'assignedAt' comes from an index signature, so it must be accessed with ['assignedAt'].
+components/admin/StockRankingAssignmentList.tsx(172,20): error TS4111: Property 'expiresAt' comes from an index signature, so it must be accessed with ['expiresAt'].
+components/admin/StockRankingAssignmentList.tsx(172,43): error TS4111: Property 'expiresAt' comes from an index signature, so it must be accessed with ['expiresAt'].
+components/admin/StockRankingAssignmentList.tsx(173,20): error TS4111: Property 'expiresAt' comes from an index signature, so it must be accessed with ['expiresAt'].
+components/admin/StockRankingAssignmentList.tsx(173,43): error TS4111: Property 'expiresAt' comes from an index signature, so it must be accessed with ['expiresAt'].
+components/admin/StockRankingAssignmentList.tsx(176,20): error TS4111: Property 'usageStats' comes from an index signature, so it must be accessed with ['usageStats'].
+components/admin/StockRankingAssignmentList.tsx(177,20): error TS4111: Property 'usageStats' comes from an index signature, so it must be accessed with ['usageStats'].
+components/admin/StockRankingAssignmentList.tsx(216,21): error TS4111: Property 'expiresAt' comes from an index signature, so it must be accessed with ['expiresAt'].
+components/admin/StockRankingAssignmentList.tsx(217,48): error TS4111: Property 'expiresAt' comes from an index signature, so it must be accessed with ['expiresAt'].
+components/admin/StockRankingAssignmentList.tsx(332,40): error TS4111: Property 'status' comes from an index signature, so it must be accessed with ['status'].
+components/admin/StockRankingAssignmentList.tsx(344,40): error TS4111: Property 'status' comes from an index signature, so it must be accessed with ['status'].
+components/admin/StockRankingAssignmentList.tsx(359,35): error TS4111: Property 'id' comes from an index signature, so it must be accessed with ['id'].
+components/admin/StockRankingAssignmentList.tsx(365,108): error TS4111: Property 'packageTier' comes from an index signature, so it must be accessed with ['packageTier'].
+components/admin/StockRankingAssignmentList.tsx(367,39): error TS4111: Property 'packageTier' comes from an index signature, so it must be accessed with ['packageTier'].
+components/admin/StockRankingAssignmentList.tsx(375,40): error TS4111: Property 'userId' comes from an index signature, so it must be accessed with ['userId'].
+components/admin/StockRankingAssignmentList.tsx(378,39): error TS4111: Property 'reason' comes from an index signature, so it must be accessed with ['reason'].
+components/admin/StockRankingAssignmentList.tsx(386,46): error TS4111: Property 'assignedAt' comes from an index signature, so it must be accessed with ['assignedAt'].
+components/admin/StockRankingAssignmentList.tsx(388,35): error TS4111: Property 'expiresAt' comes from an index signature, so it must be accessed with ['expiresAt'].
+components/admin/StockRankingAssignmentList.tsx(397,48): error TS4111: Property 'expiresAt' comes from an index signature, so it must be accessed with ['expiresAt'].
+components/admin/StockRankingAssignmentList.tsx(401,44): error TS4111: Property 'usageStats' comes from an index signature, so it must be accessed with ['usageStats'].
+components/admin/StockRankingAssignmentList.tsx(402,37): error TS4111: Property 'usageStats' comes from an index signature, so it must be accessed with ['usageStats'].
+components/admin/StockRankingAssignmentList.tsx(409,106): error TS4111: Property 'status' comes from an index signature, so it must be accessed with ['status'].
+components/admin/StockRankingAssignmentList.tsx(411,35): error TS4111: Property 'status' comes from an index signature, so it must be accessed with ['status'].
+components/admin/StockRankingAssignmentList.tsx(414,33): error TS4111: Property 'status' comes from an index signature, so it must be accessed with ['status'].
+components/admin/StockRankingAssignmentList.tsx(422,65): error TS4111: Property 'id' comes from an index signature, so it must be accessed with ['id'].
+components/admin/StockRankingAssignmentList.tsx(430,76): error TS4111: Property 'id' comes from an index signature, so it must be accessed with ['id'].
+components/admin/StockRankingAssignmentList.tsx(446,37): error TS4111: Property 'stockRankingConfig' comes from an index signature, so it must be accessed with ['stockRankingConfig'].
+components/admin/StockRankingAssignmentList.tsx(448,40): error TS4111: Property 'stockRankingConfig' comes from an index signature, so it must be accessed with ['stockRankingConfig'].
+components/admin/StockRankingAssignmentList.tsx(454,37): error TS4111: Property 'stockRankingConfig' comes from an index signature, so it must be accessed with ['stockRankingConfig'].
+components/admin/StockRankingAssignmentList.tsx(460,37): error TS4111: Property 'stockRankingConfig' comes from an index signature, so it must be accessed with ['stockRankingConfig'].
+components/admin/StockRankingAssignmentList.tsx(468,37): error TS4111: Property 'stockRankingConfig' comes from an index signature, so it must be accessed with ['stockRankingConfig'].
+components/admin/StockRankingAssignmentList.tsx(472,40): error TS4111: Property 'stockRankingConfig' comes from an index signature, so it must be accessed with ['stockRankingConfig'].
+components/admin/StockRankingPackageAssignment.tsx(3,8): error TS6133: 'React' is declared but its value is never read.
+components/admin/StockRankingPackageAssignment.tsx(15,6): error TS6196: 'BulkStockRankingAssignment' is declared but never used.
+components/admin/StockRankingPackageAssignment.tsx(67,9): error TS6133: '_assignments' is declared but its value is never read.
+components/admin/StockRankingPackageAssignment.tsx(68,9): error TS6133: '_setAssignments' is declared but its value is never read.
+components/admin/UsageAnalyticsTab.tsx(34,10): error TS6133: 'isLoadingUsage' is declared but its value is never read.
+components/admin/UsageAnalyticsTab.tsx(59,3): error TS2304: Cannot find name 'useEffect'.
+components/admin/Web3PermissionManager.tsx(87,9): error TS6133: 'address' is declared but its value is never read.
+components/admin/Web3PermissionManager.tsx(92,10): error TS6133: 'selectedPermissions' is declared but its value is never read.
+components/admin/Web3PermissionManager.tsx(92,31): error TS6133: 'setSelectedPermissions' is declared but its value is never read.
+components/admin/Web3PermissionManager.tsx(147,45): error TS6133: 'permissionsLoading' is declared but its value is never read.
+components/admin/Web3PermissionManager.tsx(160,42): error TS6133: 'nftGatesLoading' is declared but its value is never read.
+components/admin/Web3PermissionManager.tsx(172,44): error TS6133: 'tokenGatesLoading' is declared but its value is never read.
+components/admin/Web3PermissionManager.tsx(184,46): error TS6133: 'daoProposalsLoading' is declared but its value is never read.
+components/affiliates/AffiliateManagement.tsx(5,1): error TS6133: 'PancakeCard' is declared but its value is never read.
+components/affiliates/AffiliateManagement.tsx(41,51): error TS6133: 'currentUser' is declared but its value is never read.
+components/affiliates/AffiliateManagement.tsx(42,10): error TS6133: 'selectedAffiliate' is declared but its value is never read.
+components/affiliates/AffiliateManagement.tsx(285,23): error TS6133: 'performance' is declared but its value is never read.
+components/auth/AdminProgressiveAuthGate.tsx(52,5): error TS6133: 'hasAnyPermission' is declared but its value is never read.
+components/auth/AdminWalletAuth.tsx(94,26): error TS6133: 'chain' is declared but its value is never read.
+components/auth/AdminWalletAuth.tsx(94,33): error TS6133: 'openAccountModal' is declared but its value is never read.
+components/auth/AdminWalletAuth.tsx(94,51): error TS6133: 'openChainModal' is declared but its value is never read.
+components/auth/Gate.tsx(31,28): error TS6133: 'user' is declared but its value is never read.
+components/auth/Gate.tsx(229,30): error TS6133: 'role' is declared but its value is never read.
+components/auth/Gate.tsx(238,32): error TS6133: 'module' is declared but its value is never read.
+components/auth/Gate.tsx(247,30): error TS6133: 'tier' is declared but its value is never read.
+components/auth/Gate.tsx(280,3): error TS6133: 'error' is declared but its value is never read.
+components/charts/chartColors.ts(80,3): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+components/charts/PancakeBarChart.tsx(8,1): error TS6133: 'React' is declared but its value is never read.
+components/charts/PancakeBarChart.tsx(19,3): error TS6133: 'TooltipProps' is declared but its value is never read.
+components/charts/PancakeBarChart.tsx(241,42): error TS6133: 'entry' is declared but its value is never read.
+components/charts/PancakeDonutChart.tsx(16,3): error TS6133: 'TooltipProps' is declared but its value is never read.
+components/charts/PancakeDonutChart.tsx(19,29): error TS6133: 'getChartColor' is declared but its value is never read.
+components/charts/PancakeLineChart.tsx(8,1): error TS6133: 'React' is declared but its value is never read.
+components/charts/PancakeLineChart.tsx(18,3): error TS6133: 'TooltipProps' is declared but its value is never read.
+components/compliance/ComplianceMonitoringDashboard.tsx(21,3): error TS6133: 'TrendingUp' is declared but its value is never read.
+components/compliance/ComplianceMonitoringDashboard.tsx(115,10): error TS6133: 'auditTrail' is declared but its value is never read.
+components/compliance/ComplianceMonitoringDashboard.tsx(121,10): error TS6133: 'selectedStatus' is declared but its value is never read.
+components/compliance/ComplianceMonitoringDashboard.tsx(122,10): error TS6133: 'selectedRisk' is declared but its value is never read.
+components/compliance/ComplianceMonitoringDashboard.tsx(312,9): error TS6133: 'handleUpdateRiskAssessment' is declared but its value is never read.
+components/compliance/ComplianceMonitoringDashboard.tsx(444,15): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+components/enterprise/EnterpriseManagementDashboard.tsx(84,10): error TS6133: 'newPermissions' is declared but its value is never read.
+components/enterprise/EnterpriseManagementDashboard.tsx(145,9): error TS6133: 'handleTierConfigUpdate' is declared but its value is never read.
+components/error-boundaries/AdminErrorBoundary.tsx(70,3): error TS4114: This member must have an 'override' modifier because it overrides a member in the base class 'Component<Props, State, any>'.
+components/error-boundaries/AdminErrorBoundary.tsx(169,3): error TS4114: This member must have an 'override' modifier because it overrides a member in the base class 'Component<Props, State, any>'.
+components/errors/AdminErrorBoundary.tsx(9,3): error TS6133: 'isPermissionDeniedError' is declared but its value is never read.
+components/errors/AdminErrorBoundary.tsx(10,3): error TS6133: 'isInsufficientTierError' is declared but its value is never read.
+components/errors/AdminErrorBoundary.tsx(11,3): error TS6133: 'isPermissionExpiredError' is declared but its value is never read.
+components/errors/AdminErrorBoundary.tsx(12,3): error TS6133: 'isRateLimitExceededError' is declared but its value is never read.
+components/errors/AdminErrorBoundary.tsx(69,3): error TS4114: This member must have an 'override' modifier because it overrides a member in the base class 'Component<Props, State, any>'.
+components/errors/AdminErrorBoundary.tsx(91,20): error TS6133: 'context' is declared but its value is never read.
+components/errors/AdminErrorBoundary.tsx(99,3): error TS4114: This member must have an 'override' modifier because it overrides a member in the base class 'Component<Props, State, any>'.
+components/errors/PermissionErrorBoundary.tsx(52,3): error TS4114: This member must have an 'override' modifier because it overrides a member in the base class 'Component<Props, State, any>'.
+components/errors/PermissionErrorBoundary.tsx(60,3): error TS4114: This member must have an 'override' modifier because it overrides a member in the base class 'Component<Props, State, any>'.
+components/errors/PermissionErrorBoundary.tsx(104,3): error TS4114: This member must have an 'override' modifier because it overrides a member in the base class 'Component<Props, State, any>'.
+components/errors/PermissionErrorUI.tsx(27,1): error TS6133: 'React' is declared but its value is never read.
+components/features/AdminFeatureGate.tsx(16,7): error TS6133: 'hasPlatformPermission' is declared but its value is never read.
+components/groups/DynamicGroupManagement.tsx(17,8): error TS6133: 'React' is declared but its value is never read.
+components/groups/DynamicGroupManagement.tsx(94,10): error TS6133: 'selectedRule' is declared but its value is never read.
+components/groups/DynamicGroupManagement.tsx(94,24): error TS6133: 'setSelectedRule' is declared but its value is never read.
+components/groups/GroupAnalyticsDashboard.tsx(8,1): error TS6133: 'React' is declared but its value is never read.
+components/groups/GroupAssignmentHistory.tsx(8,1): error TS6133: 'React' is declared but its value is never read.
+components/groups/GroupEditor.tsx(192,17): error TS4111: Property 'name' comes from an index signature, so it must be accessed with ['name'].
+components/groups/GroupEditor.tsx(194,17): error TS4111: Property 'name' comes from an index signature, so it must be accessed with ['name'].
+components/groups/GroupEditor.tsx(198,17): error TS4111: Property 'permissions' comes from an index signature, so it must be accessed with ['permissions'].
+components/groups/GroupEditor.tsx(202,17): error TS4111: Property 'priority_level' comes from an index signature, so it must be accessed with ['priority_level'].
+components/groups/GroupEditor.tsx(206,17): error TS4111: Property 'default_expiry_days' comes from an index signature, so it must be accessed with ['default_expiry_days'].
+components/groups/GroupEditor.tsx(228,16): error TS4111: Property 'permissions' comes from an index signature, so it must be accessed with ['permissions'].
+components/groups/GroupEditor.tsx(231,14): error TS4111: Property 'permissions' comes from an index signature, so it must be accessed with ['permissions'].
+components/groups/GroupEditor.tsx(298,33): error TS4111: Property 'name' comes from an index signature, so it must be accessed with ['name'].
+components/groups/GroupEditor.tsx(300,21): error TS4111: Property 'name' comes from an index signature, so it must be accessed with ['name'].
+components/groups/GroupEditor.tsx(301,64): error TS4111: Property 'name' comes from an index signature, so it must be accessed with ['name'].
+components/groups/GroupEditor.tsx(324,50): error TS4111: Property 'priority_level' comes from an index signature, so it must be accessed with ['priority_level'].
+components/groups/GroupEditor.tsx(335,23): error TS4111: Property 'priority_level' comes from an index signature, so it must be accessed with ['priority_level'].
+components/groups/GroupEditor.tsx(336,66): error TS4111: Property 'priority_level' comes from an index signature, so it must be accessed with ['priority_level'].
+components/groups/GroupEditor.tsx(351,35): error TS4111: Property 'default_expiry_days' comes from an index signature, so it must be accessed with ['default_expiry_days'].
+components/groups/GroupEditor.tsx(353,23): error TS4111: Property 'default_expiry_days' comes from an index signature, so it must be accessed with ['default_expiry_days'].
+components/groups/GroupEditor.tsx(354,66): error TS4111: Property 'default_expiry_days' comes from an index signature, so it must be accessed with ['default_expiry_days'].
+components/groups/GroupEditor.tsx(369,19): error TS4111: Property 'permissions' comes from an index signature, so it must be accessed with ['permissions'].
+components/groups/GroupEditor.tsx(372,41): error TS4111: Property 'permissions' comes from an index signature, so it must be accessed with ['permissions'].
+components/groups/GroupManager.tsx(54,6): error TS6196: 'GroupPermissionStats' is declared but never used.
+components/groups/GroupManager.tsx(157,9): error TS6133: 'getGroupIcon' is declared but its value is never read.
+components/groups/GroupManager.tsx(162,9): error TS6133: 'getGroupBadgeVariant' is declared but its value is never read.
+components/groups/GroupManager.tsx(168,9): error TS6133: 'getPriorityLabel' is declared but its value is never read.
+components/groups/PermissionTransferList.tsx(52,5): error TS6133: 'isLoading' is declared but its value is never read.
+components/groups/VisualRuleBuilder.tsx(9,3): error TS6133: 'Move' is declared but its value is never read.
+components/groups/VisualRuleBuilder.tsx(10,3): error TS6133: 'Link' is declared but its value is never read.
+components/groups/VisualRuleBuilder.tsx(20,8): error TS6133: 'React' is declared but its value is never read.
+components/groups/VisualRuleBuilder.tsx(329,11): error TS6133: 'ruleData' is declared but its value is never read.
+components/hubs/CleanupButton.tsx(5,10): error TS2305: Module '"@/lib/actions/consolidated-admin-actions"' has no exported member 'cleanupExpiredPermissionsAction'.
+components/hubs/CleanupButton.tsx(13,13): error TS6133: 'result' is declared but its value is never read.
+components/layout/AdminNotificationBellClient.tsx(22,49): error TS6133: 'reconnectSSE' is declared but its value is never read.
+components/layout/AdminNotificationBellClient.tsx(114,7): error TS2304: Cannot find name 'toast'.
+components/layout/AdminNotificationBellClient.tsx(117,7): error TS2304: Cannot find name 'toast'.
+components/layout/Breadcrumb.tsx(49,20): error TS2345: Argument of type 'BreadcrumbItem | undefined' is not assignable to parameter of type 'BreadcrumbItem'.
+  Type 'undefined' is not assignable to type 'BreadcrumbItem'.
+components/layout/Breadcrumb.tsx(75,13): error TS2322: Type 'BreadcrumbItem | undefined' is not assignable to type 'BreadcrumbItem'.
+  Type 'undefined' is not assignable to type 'BreadcrumbItem'.
+components/layout/Header.tsx(45,24): error TS6133: 'user' is declared but its value is never read.
+components/notifications/NotificationManagement.tsx(16,40): error TS6133: 'currentUser' is declared but its value is never read.
+components/notifications/SendNotificationForm.tsx(4,10): error TS6133: 'Bell' is declared but its value is never read.
+components/permissions/HierarchyBuilder.tsx(10,11): error TS6133: 'Users' is declared but its value is never read.
+components/permissions/HierarchyBuilder.tsx(10,18): error TS6133: 'Key' is declared but its value is never read.
+components/permissions/HierarchyBuilder.tsx(10,23): error TS6133: 'AlertTriangle' is declared but its value is never read.
+components/permissions/HierarchyBuilder.tsx(10,38): error TS6133: 'CheckCircle' is declared but its value is never read.
+components/permissions/HierarchyBuilder.tsx(12,8): error TS6133: 'React' is declared but its value is never read.
+components/permissions/HierarchyBuilder.tsx(14,1): error TS6192: All imports in import declaration are unused.
+components/permissions/HierarchyBuilder.tsx(19,53): error TS6133: 'DialogTrigger' is declared but its value is never read.
+components/permissions/PermissionForms.tsx(9,17): error TS6133: 'Clock' is declared but its value is never read.
+components/permissions/PermissionForms.tsx(9,24): error TS6133: 'AlertTriangle' is declared but its value is never read.
+components/permissions/PermissionForms.tsx(9,39): error TS6133: 'CheckCircle' is declared but its value is never read.
+components/permissions/PermissionForms.tsx(9,52): error TS6133: 'Plus' is declared but its value is never read.
+components/permissions/PermissionForms.tsx(9,58): error TS6133: 'Minus' is declared but its value is never read.
+components/permissions/PermissionForms.tsx(10,11): error TS6133: 'Filter' is declared but its value is never read.
+components/permissions/PermissionForms.tsx(10,19): error TS6133: 'Save' is declared but its value is never read.
+components/permissions/PermissionForms.tsx(10,34): error TS6133: 'Calendar' is declared but its value is never read.
+components/permissions/PermissionForms.tsx(12,8): error TS6133: 'React' is declared but its value is never read.
+components/permissions/UserPermissionInheritance.tsx(10,43): error TS6133: 'Star' is declared but its value is never read.
+components/permissions/UserPermissionInheritance.tsx(12,8): error TS6133: 'React' is declared but its value is never read.
+components/permissions/UserPermissionInheritance.tsx(127,13): error TS2532: Object is possibly 'undefined'.
+components/permissions/UserPermissionInheritance.tsx(127,35): error TS2532: Object is possibly 'undefined'.
+components/plans/PlanManagement.tsx(23,9): error TS6133: '_user' is declared but its value is never read.
+components/policies/PolicyBuilder.tsx(11,3): error TS6133: 'NetworkIcon' is declared but its value is never read.
+components/policies/PolicyBuilder.tsx(24,1): error TS6133: 'Card' is declared but its value is never read.
+components/policies/PolicyBuilder.tsx(27,26): error TS2307: Cannot find module '@/lib/api-fetch' or its corresponding type declarations.
+components/policies/PolicyBuilder.tsx(308,9): error TS6133: 'IconComponent' is declared but its value is never read.
+components/policies/PolicyMonitor.tsx(20,8): error TS6133: 'React' is declared but its value is never read.
+components/policies/PolicyMonitor.tsx(81,10): error TS6133: 'performance' is declared but its value is never read.
+components/policies/PolicyMonitor.tsx(81,23): error TS6133: 'setPerformance' is declared but its value is never read.
+components/policies/PolicyMonitor.tsx(187,11): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+components/policies/PolicyMonitor.tsx(216,11): error TS6133: 'color' is declared but its value is never read.
+components/policies/PolicyMonitor.tsx(348,65): error TS4111: Property 'allow' comes from an index signature, so it must be accessed with ['allow'].
+components/policies/PolicyMonitor.tsx(360,65): error TS4111: Property 'deny' comes from an index signature, so it must be accessed with ['deny'].
+components/policies/PolicyMonitor.tsx(373,47): error TS4111: Property 'require_approval' comes from an index signature, so it must be accessed with ['require_approval'].
+components/policies/PolicyMonitor.tsx(373,98): error TS4111: Property 'require_mfa' comes from an index signature, so it must be accessed with ['require_mfa'].
+components/profile/AdminPermissions.tsx(282,72): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+components/profile/AdminWalletManagement.tsx(22,26): error TS2307: Cannot find module '@/lib/api-fetch' or its corresponding type declarations.
+components/profile/AdminWalletManagement.tsx(49,10): error TS6133: 'lastActivity' is declared but its value is never read.
+components/profile/AdminWalletManagement.tsx(101,11): error TS6133: 'sessionDuration' is declared but its value is never read.
+components/profile/AdminWalletManagement.tsx(211,33): error TS6133: 'address' is declared but its value is never read.
+components/profile/AdminWalletPermissions.tsx(43,11): error TS6196: 'PermissionsResponse' is declared but never used.
+components/profile/AdminWeb3Integration.tsx(22,26): error TS2307: Cannot find module '@/lib/api-fetch' or its corresponding type declarations.
+components/profile/AdminWeb3Integration.tsx(26,11): error TS6196: 'WalletPermission' is declared but never used.
+components/profile/AdminWeb3Integration.tsx(49,16): error TS6133: 'initialPermissions' is declared but its value is never read.
+components/profile/AdminWeb3Integration.tsx(52,9): error TS6133: 'disconnect' is declared but its value is never read.
+components/profile/AdminWeb3Integration.tsx(133,9): error TS6133: 'copyWalletAddress' is declared but its value is never read.
+components/profile/AdminWeb3Integration.tsx(157,33): error TS6133: 'address' is declared but its value is never read.
+components/promotions/PromotionManagement.tsx(5,1): error TS6133: 'PancakeCard' is declared but its value is never read.
+components/promotions/PromotionManagement.tsx(22,9): error TS6133: 'user' is declared but its value is never read.
+components/promotions/PromotionManagement.tsx(25,10): error TS6133: 'selectedPromotion' is declared but its value is never read.
+components/promotions/PromotionManagement.tsx(26,10): error TS6133: 'isCreating' is declared but its value is never read.
+components/promotions/PromotionManagement.tsx(45,23): error TS2345: Argument of type '{ discountType: "fixed" | "percentage"; discountValue: number; maxDiscountAmount: number | null; minPurchaseAmount: number; totalRevenue: number; id: number; name: string; code: string; ... 9 more ...; conversionRate: number; }[]' is not assignable to parameter of type 'SetStateAction<Promotion[]>'.
+  Type '{ discountType: "fixed" | "percentage"; discountValue: number; maxDiscountAmount: number | null; minPurchaseAmount: number; totalRevenue: number; id: number; name: string; code: string; ... 9 more ...; conversionRate: number; }[]' is not assignable to type 'Promotion[]'.
+    Type '{ discountType: "percentage" | "fixed"; discountValue: number; maxDiscountAmount: number | null; minPurchaseAmount: number; totalRevenue: number; id: number; name: string; code: string; ... 9 more ...; conversionRate: number; }' is not assignable to type 'Promotion'.
+      Types of property 'discountValue' are incompatible.
+        Type 'number' is not assignable to type 'string'.
+components/promotions/PromotionManagement.tsx(79,54): error TS2769: No overload matches this call.
+  Overload 1 of 3, '(callbackfn: (previousValue: Promotion, currentValue: Promotion, currentIndex: number, array: Promotion[]) => Promotion, initialValue: Promotion): Promotion', gave the following error.
+    Type 'string' is not assignable to type 'Promotion'.
+  Overload 2 of 3, '(callbackfn: (previousValue: number, currentValue: Promotion, currentIndex: number, array: Promotion[]) => number, initialValue: number): number', gave the following error.
+    Type 'string' is not assignable to type 'number'.
+components/promotions/PromotionManagement.tsx(80,9): error TS6133: 'avgConversionRate' is declared but its value is never read.
+components/promotions/PromotionManagement.tsx(250,30): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+components/promotions/PromotionManagement.tsx(345,106): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+components/promotions/PromotionManagement.tsx(403,81): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+components/promotions/PromotionManagement.tsx(412,38): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+components/promotions/PromotionManagement.tsx(417,34): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+components/prompts/UpgradePrompt.tsx(5,3): error TS6133: 'Lock' is declared but its value is never read.
+components/prompts/UpgradePrompt.tsx(92,3): error TS6133: 'size' is declared but its value is never read.
+components/providers/AuthProvider.tsx(36,3): error TS6133: 'requireAdmin' is declared but its value is never read.
+components/providers/ErrorBoundary.tsx(42,3): error TS4114: This member must have an 'override' modifier because it overrides a member in the base class 'Component<ErrorBoundaryProps, ErrorBoundaryState, any>'.
+components/providers/ErrorBoundary.tsx(53,3): error TS4114: This member must have an 'override' modifier because it overrides a member in the base class 'Component<ErrorBoundaryProps, ErrorBoundaryState, any>'.
+components/providers/ErrorBoundary.tsx(73,20): error TS2532: Object is possibly 'undefined'.
+components/security/SecurityMonitoringAuditDashboard.tsx(135,13): error TS7030: Not all code paths return a value.
+components/subscriptions/SubscriptionManagement.tsx(109,9): error TS6133: 'cancelledSubscriptions' is declared but its value is never read.
+components/tiles/LiveTile.tsx(43,10): error TS6133: 'isFlipping' is declared but its value is never read.
+components/tiles/LiveTile.tsx(44,10): error TS6133: 'showDetails' is declared but its value is never read.
+components/tiles/LiveTile.tsx(44,23): error TS6133: 'setShowDetails' is declared but its value is never read.
+components/tiles/LiveTile.tsx(132,47): error TS4111: Property 'progress' comes from an index signature, so it must be accessed with ['progress'].
+components/tiles/LiveTile.tsx(134,54): error TS4111: Property 'progress' comes from an index signature, so it must be accessed with ['progress'].
+components/tiles/TileGrid.tsx(9,26): error TS2307: Cannot find module '@/lib/api-fetch' or its corresponding type declarations.
+components/tiles/TileGrid.tsx(57,10): error TS6133: 'scrollPosition' is declared but its value is never read.
+components/tiles/TileGrid.tsx(57,26): error TS6133: 'setScrollPosition' is declared but its value is never read.
+components/tiles/TileGrid.tsx(60,9): error TS6133: 'gridRef' is declared but its value is never read.
+components/tiles/TileGrid.tsx(78,13): error TS7030: Not all code paths return a value.
+components/tiles/TileGrid.tsx(189,27): error TS6133: 'index' is declared but its value is never read.
+components/tiles/TileGrid.tsx(280,16): error TS6133: 'fetchTileData' is declared but its value is never read.
+components/ui/AdminSkeleton.tsx(177,13): error TS2322: Type '{ key: number; className: string; style: { height: string; }; }' is not assignable to type 'IntrinsicAttributes & SkeletonProps'.
+  Property 'style' does not exist on type 'IntrinsicAttributes & SkeletonProps'.
+components/ui/AnalyticsCard.tsx(94,3): error TS6133: 'iconName' is declared but its value is never read.
+components/ui/AnalyticsCard.tsx(103,9): error TS6133: 'statusColors' is declared but its value is never read.
+components/ui/AnalyticsCard.tsx(111,9): error TS6133: 'trendColors' is declared but its value is never read.
+components/ui/ErrorDisplay.tsx(2,1): error TS6133: 'React' is declared but its value is never read.
+components/ui/FormComponents.tsx(48,11): error TS6196: 'BadgeProps' is declared but never used.
+components/ui/index.ts(15,1): error TS2308: Module './checkbox' has already exported a member named 'Checkbox'. Consider explicitly re-exporting to resolve the ambiguity.
+components/ui/index.ts(15,1): error TS2308: Module '@/shared/components/ui/button' has already exported a member named 'Button'. Consider explicitly re-exporting to resolve the ambiguity.
+components/ui/index.ts(15,1): error TS2308: Module '@/shared/components/ui/button' has already exported a member named 'ButtonProps'. Consider explicitly re-exporting to resolve the ambiguity.
+components/ui/index.ts(15,1): error TS2308: Module '@/shared/components/ui/input' has already exported a member named 'Input'. Consider explicitly re-exporting to resolve the ambiguity.
+components/ui/index.ts(15,1): error TS2308: Module '@/shared/components/ui/input' has already exported a member named 'InputProps'. Consider explicitly re-exporting to resolve the ambiguity.
+components/ui/index.ts(16,1): error TS2308: Module './FormComponents' has already exported a member named 'Select'. Consider explicitly re-exporting to resolve the ambiguity.
+components/ui/Pagination.tsx(4,1): error TS6133: 'React' is declared but its value is never read.
+components/ui/Pagination.tsx(177,3): error TS6133: 'totalPages' is declared but its value is never read.
+components/ui/SafeThemeScript.tsx(63,30): error TS4111: Property 'theme' comes from an index signature, so it must be accessed with ['theme'].
+components/ui/SecureThemeScript.tsx(59,33): error TS4111: Property 'theme' comes from an index signature, so it must be accessed with ['theme'].
+components/ui/StatsCard.tsx(54,3): error TS6133: 'color' is declared but its value is never read.
+components/ui/StatsCard.tsx(63,9): error TS6133: 'getCardVariant' is declared but its value is never read.
+components/ui/virtual-scroll.tsx(67,9): error TS6133: 'scrollToItem' is declared but its value is never read.
+components/ui/virtual-scroll.tsx(86,9): error TS6133: 'scrollToTop' is declared but its value is never read.
+components/ui/virtual-scroll.tsx(92,9): error TS6133: 'scrollToBottom' is declared but its value is never read.
+components/ui/virtual-scroll.tsx(153,63): error TS6133: 'items' is declared but its value is never read.
+components/users/WalletUserManagement.tsx(32,26): error TS2307: Cannot find module '@/lib/api-fetch' or its corresponding type declarations.
+components/users/WalletUserManagement.tsx(98,9): error TS6133: 'apiClient' is declared but its value is never read.
+components/wallet/WalletHub.tsx(67,18): error TS6133: 'setPage' is declared but its value is never read.
+components/wallet/WalletHub.tsx(68,12): error TS6133: 'totalPages' is declared but its value is never read.
+components/web3/Web3AssignmentRulesManager.tsx(16,14): error TS6133: 'Settings' is declared but its value is never read.
+components/web3/Web3AssignmentRulesManager.tsx(16,32): error TS6133: 'Edit' is declared but its value is never read.
+components/web3/Web3AssignmentRulesManager.tsx(18,11): error TS6133: 'Filter' is declared but its value is never read.
+components/web3/Web3AssignmentRulesManager.tsx(18,41): error TS6133: 'Pause' is declared but its value is never read.
+components/web3/Web3AssignmentRulesManager.tsx(19,3): error TS6133: 'ExternalLink' is declared but its value is never read.
+components/web3/Web3AssignmentRulesManager.tsx(19,31): error TS6133: 'TrendingUp' is declared but its value is never read.
+components/web3/Web3AssignmentRulesManager.tsx(19,43): error TS6133: 'Activity' is declared but its value is never read.
+components/web3/Web3AssignmentRulesManager.tsx(28,53): error TS6133: 'DialogTrigger' is declared but its value is never read.
+components/web3/Web3AssignmentRulesManager.tsx(45,3): error TS2305: Module '"@/lib/api/group-management-client"' has no exported member 'CreateWeb3RuleRequest'.
+components/web3/Web3AssignmentRulesManager.tsx(46,3): error TS2305: Module '"@/lib/api/group-management-client"' has no exported member 'ProcessWalletRequest'.
+components/web3/Web3AssignmentRulesManager.tsx(46,3): error TS6133: 'ProcessWalletRequest' is declared but its value is never read.
+components/web3/Web3AssignmentRulesManager.tsx(95,10): error TS6133: 'editingRule' is declared but its value is never read.
+components/web3/Web3AssignmentRulesManager.tsx(95,23): error TS6133: 'setEditingRule' is declared but its value is never read.
+components/web3/Web3AssignmentRulesManager.tsx(97,10): error TS6133: 'testingRule' is declared but its value is never read.
+components/web3/Web3AssignmentRulesManager.tsx(107,5): error TS6133: 'refreshRules' is declared but its value is never read.
+components/web3/Web3AssignmentRulesManager.tsx(142,47): error TS6133: 'ruleData' is declared but its value is never read.
+components/web3/Web3AssignmentRulesManager.tsx(150,47): error TS6133: 'rule' is declared but its value is never read.
+components/web3/Web3AssignmentRulesManager.tsx(182,13): error TS6133: 'assets' is declared but its value is never read.
+components/web3/Web3AssignmentRulesManager.tsx(244,10): error TS2304: Cannot find name 'canManageWeb3Rules'.
+components/web3/Web3AssignmentRulesManager.tsx(374,26): error TS2304: Cannot find name 'canManageWeb3Rules'.
+components/web3/Web3AssignmentRulesManager.tsx(458,21): error TS2304: Cannot find name 'canManageWeb3Rules'.
+config/env.ts(32,21): error TS4111: Property 'PORT' comes from an index signature, so it must be accessed with ['PORT'].
+config/env.ts(32,49): error TS4111: Property 'PORT' comes from an index signature, so it must be accessed with ['PORT'].
+config/env.ts(68,40): error TS4111: Property 'NEXT_PUBLIC_ENABLE_UNIFIED_USERS' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_ENABLE_UNIFIED_USERS'].
+config/env.ts(69,34): error TS4111: Property 'NEXT_PUBLIC_ENABLE_SERVER_COMPONENTS' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_ENABLE_SERVER_COMPONENTS'].
+config/env.ts(70,31): error TS4111: Property 'NEXT_PUBLIC_ENABLE_NEW_NAV' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_ENABLE_NEW_NAV'].
+config/iam.ts(223,9): error TS6133: 'adminPermissions' is declared but its value is never read.
+design-system/index.ts(224,9): error TS6133: 'info' is declared but its value is never read.
+hooks/iam/useIAMStats.ts(57,68): error TS2304: Cannot find name 'error'.
+hooks/iam/useUsers.ts(69,66): error TS2304: Cannot find name 'error'.
+hooks/use-toast.ts(1,32): error TS2724: '"@/components/ui/use-toast"' has no exported member named 'Toast'. Did you mean 'toast'?
+hooks/useAuthenticatedFetch.ts(36,42): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(data: string): string', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+  Overload 2 of 2, '(data: string): string', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+hooks/useAuthenticatedFetch.ts(37,43): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(data: string): string', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+  Overload 2 of 2, '(data: string): string', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+hooks/useCrossPlatformAuth.ts(20,21): error TS6133: 'permission' is declared but its value is never read.
+hooks/useCrossPlatformAuth.ts(23,28): error TS6133: 'platform' is declared but its value is never read.
+hooks/useCrossPlatformAuth.ts(46,22): error TS6133: 'platform' is declared but its value is never read.
+hooks/useCrossPlatformAuth.ts(47,24): error TS6133: 'platform' is declared but its value is never read.
+hooks/useCrossPlatformAuth.ts(53,11): error TS6133: 'permission' is declared but its value is never read.
+hooks/useCrossPlatformAuth.ts(54,24): error TS6133: 'permissions' is declared but its value is never read.
+hooks/useCrossPlatformAuth.ts(55,25): error TS6133: 'permissions' is declared but its value is never read.
+hooks/useSmartPolling.ts(179,22): error TS2552: Cannot find name 'error'. Did you mean '_error'?
+hooks/useSmartPolling.ts(184,17): error TS2552: Cannot find name 'error'. Did you mean '_error'?
+hooks/useSmartPolling.ts(337,25): error TS2552: Cannot find name 'error'. Did you mean '_error'?
+instrumentation.ts(20,21): error TS4111: Property 'NEXT_RUNTIME' comes from an index signature, so it must be accessed with ['NEXT_RUNTIME'].
+instrumentation.ts(24,21): error TS4111: Property 'NEXT_RUNTIME' comes from an index signature, so it must be accessed with ['NEXT_RUNTIME'].
+lib/actions/consolidated-admin-actions.ts(46,34): error TS4111: Property 'BACKEND_URL' comes from an index signature, so it must be accessed with ['BACKEND_URL'].
+lib/actions/consolidated-wallet-actions.ts(19,1): error TS6133: 'redirect' is declared but its value is never read.
+lib/actions/consolidated-wallet-actions.ts(21,42): error TS2307: Cannot find module './shared-utils' or its corresponding type declarations.
+lib/actions/consolidated-wallet-actions.ts(24,34): error TS6196: 'WalletOperationResult' is declared but never used.
+lib/actions/permissions.ts(47,33): error TS2552: Cannot find name 'COOKIES'. Did you mean 'cookies'?
+lib/actions/permissions.ts(54,49): error TS4111: Property 'BACKEND_URL' comes from an index signature, so it must be accessed with ['BACKEND_URL'].
+lib/actions/permissions.ts(97,33): error TS2552: Cannot find name 'COOKIES'. Did you mean 'cookies'?
+lib/actions/permissions.ts(104,49): error TS4111: Property 'BACKEND_URL' comes from an index signature, so it must be accessed with ['BACKEND_URL'].
+lib/actions/permissions.ts(146,33): error TS2552: Cannot find name 'COOKIES'. Did you mean 'cookies'?
+lib/actions/permissions.ts(153,49): error TS4111: Property 'BACKEND_URL' comes from an index signature, so it must be accessed with ['BACKEND_URL'].
+lib/actions/permissions.ts(153,80): error TS2339: Property 'PERMISSION_TEMPLATES' does not exist on type '{ readonly USERS: "/api/v1/admin/users"; readonly USER_DETAILS: "/api/v1/admin/users/:id"; readonly USER_PERMISSIONS: "/api/v1/admin/users/:id/permissions"; readonly PERMISSIONS: "/api/v1/admin/permissions"; ... 25 more ...; readonly DEVELOPER_PORTAL: { ...; }; }'.
+lib/actions/permissions.ts(184,33): error TS2552: Cannot find name 'COOKIES'. Did you mean 'cookies'?
+lib/actions/permissions.ts(191,49): error TS4111: Property 'BACKEND_URL' comes from an index signature, so it must be accessed with ['BACKEND_URL'].
+lib/actions/permissions.ts(191,80): error TS2339: Property 'PERMISSION_TEMPLATES' does not exist on type '{ readonly USERS: "/api/v1/admin/users"; readonly USER_DETAILS: "/api/v1/admin/users/:id"; readonly USER_PERMISSIONS: "/api/v1/admin/users/:id/permissions"; readonly PERMISSIONS: "/api/v1/admin/permissions"; ... 25 more ...; readonly DEVELOPER_PORTAL: { ...; }; }'.
+lib/actions/permissions.ts(253,33): error TS2552: Cannot find name 'COOKIES'. Did you mean 'cookies'?
+lib/actions/permissions.ts(260,49): error TS4111: Property 'BACKEND_URL' comes from an index signature, so it must be accessed with ['BACKEND_URL'].
+lib/actions/permissions.ts(311,33): error TS2552: Cannot find name 'COOKIES'. Did you mean 'cookies'?
+lib/actions/permissions.ts(327,49): error TS4111: Property 'BACKEND_URL' comes from an index signature, so it must be accessed with ['BACKEND_URL'].
+lib/actions/permissions.ts(387,33): error TS2304: Cannot find name 'COOKIES'.
+lib/actions/permissions.ts(394,49): error TS4111: Property 'BACKEND_URL' comes from an index signature, so it must be accessed with ['BACKEND_URL'].
+lib/actions/permissions.ts(428,33): error TS2304: Cannot find name 'COOKIES'.
+lib/actions/permissions.ts(435,49): error TS4111: Property 'BACKEND_URL' comes from an index signature, so it must be accessed with ['BACKEND_URL'].
+lib/actions/permissions.ts(481,33): error TS2304: Cannot find name 'COOKIES'.
+lib/actions/permissions.ts(488,49): error TS4111: Property 'BACKEND_URL' comes from an index signature, so it must be accessed with ['BACKEND_URL'].
+lib/actions/permissions.ts(519,11): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+lib/actions/permissions.ts(525,11): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+lib/actions/server-auth.ts(9,35): error TS2307: Cannot find module '@/lib/server/jwt' or its corresponding type declarations.
+lib/auth.ts(385,11): error TS6133: 'state' is declared but its value is never read.
+lib/auth/auth.ts(330,40): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+lib/auth/helpers.ts(11,3): error TS6133: 'AdminJWTPayload' is declared but its value is never read.
+lib/auth/helpers.ts(13,3): error TS6133: 'PermissionCheck' is declared but its value is never read.
+lib/auth/helpers.ts(16,3): error TS6133: 'isAdminJWT' is declared but its value is never read.
+lib/auth/helpers.ts(99,3): error TS6133: 'operation' is declared but its value is never read.
+lib/auth/session.ts(10,38): error TS2307: Cannot find module '@/lib/server/jwt' or its corresponding type declarations.
+lib/auth/session.ts(31,48): error TS2307: Cannot find module '@/lib/server/jwt' or its corresponding type declarations.
+lib/auth/session.ts(55,24): error TS2304: Cannot find name 'COOKIES'.
+lib/auth/session.ts(56,24): error TS2304: Cannot find name 'COOKIES'.
+lib/auth/session.ts(57,24): error TS2304: Cannot find name 'COOKIES'.
+lib/auth/session.ts(88,3): error TS6133: 'accessToken' is declared but its value is never read.
+lib/auth/session.ts(89,3): error TS6133: 'refreshToken' is declared but its value is never read.
+lib/backend-url.ts(7,34): error TS4111: Property 'NEXT_PUBLIC_BACKEND_URL' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_BACKEND_URL'].
+lib/config.ts(39,24): error TS4111: Property 'PORT' comes from an index signature, so it must be accessed with ['PORT'].
+lib/config.ts(39,52): error TS4111: Property 'PORT' comes from an index signature, so it must be accessed with ['PORT'].
+lib/security/secure-permission-context-guards.tsx(43,19): error TS6133: 'setContext' is declared but its value is never read.
+lib/security/secure-permission-context-guards.tsx(237,45): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+lib/security/secure-permission-context-guards.tsx(238,38): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+lib/server/auth.ts(12,9): error TS6133: 'codeChallenge' is declared but its value is never read.
+lib/server/auth.ts(60,81): error TS6133: 'state' is declared but its value is never read.
+lib/server/helpers.ts(145,55): error TS18048: 'payload' is possibly 'undefined'.
+lib/server/permission-cache.ts(24,39): error TS4111: Property 'DATABASE_URL' comes from an index signature, so it must be accessed with ['DATABASE_URL'].
+lib/server/token.ts(55,11): error TS6133: 'allCookies' is declared but its value is never read.
+playwright.config.ts(4,24): error TS4111: Property 'CI' comes from an index signature, so it must be accessed with ['CI'].
+providers/AuthProvider.tsx(35,28): error TS4111: Property 'NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID'].
+providers/AuthProvider.tsx(66,9): error TS6133: 'resolvedTheme' is declared but its value is never read.
+proxy.ts(66,10): error TS6133: 'redirectToAuth' is declared but its value is never read.
+proxy.ts(77,27): error TS2304: Cannot find name 'COOKIES'.
+proxy.ts(78,27): error TS2304: Cannot find name 'COOKIES'.
+proxy.ts(79,27): error TS2304: Cannot find name 'COOKIES'.
+types/api.ts(73,1): error TS6192: All imports in import declaration are unused.
+types/progressive-auth.ts(12,16): error TS6196: 'SharedAuthLevel' is declared but never used.
+types/progressive-auth.ts(13,16): error TS6196: 'SharedAuthState' is declared but never used.
+types/progressive-auth.ts(15,27): error TS6196: 'SharedProgressiveAuthProps' is declared but never used.
+../../shared/api/admin.ts(17,28): error TS6133: 'ApiResponse' is declared but its value is never read.
+../../shared/api/admin.ts(17,41): error TS6133: 'PaginatedResponse' is declared but its value is never read.
+../../shared/api/permissions.ts(16,1): error TS6133: 'API_ROUTES' is declared but its value is never read.
+../../shared/auth/api.ts(56,23): error TS4111: Property 'NEXT_PUBLIC_BACKEND_URL' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_BACKEND_URL'].
+../../shared/auth/api.ts(57,23): error TS4111: Property 'BACKEND_URL' comes from an index signature, so it must be accessed with ['BACKEND_URL'].
+../../shared/auth/client.ts(479,17): error TS6133: 'getWeb3Tokens' is declared but its value is never read.
+../../shared/auth/client.ts(504,11): error TS6133: 'isExpired' is declared but its value is never read.
+../../shared/auth/client.ts(510,17): error TS6133: 'refreshTokens' is declared but its value is never read.
+../../shared/auth/jwt.ts(49,37): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(data: string): string', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+  Overload 2 of 2, '(data: string): string', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+../../shared/auth/jwt.ts(62,37): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(data: string): string', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+  Overload 2 of 2, '(data: string): string', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+../../shared/auth/jwt.ts(84,14): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+../../shared/auth/jwt.ts(84,34): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+../../shared/auth/jwt.ts(84,54): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+../../shared/auth/jwt.ts(152,37): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(data: string): string', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+  Overload 2 of 2, '(data: string): string', gave the following error.
+    Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+../../shared/auth/jwt.ts(178,5): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+../../shared/auth/jwt.ts(191,17): error TS4111: Property 'WEB3_APP_SECRET' comes from an index signature, so it must be accessed with ['WEB3_APP_SECRET'].
+../../shared/auth/jwt.ts(211,19): error TS4111: Property 'WEB3_APP_SECRET' comes from an index signature, so it must be accessed with ['WEB3_APP_SECRET'].
+../../shared/auth/store.ts(14,3): error TS6133: 'SmartRefreshRequest' is declared but its value is never read.
+../../shared/auth/store.ts(17,25): error TS6133: 'getFrontendUrl' is declared but its value is never read.
+../../shared/auth/store.ts(80,15): error TS6133: 'backendUrl' is declared but its value is never read.
+../../shared/components/api/UnifiedApiClient.tsx(282,29): error TS6133: 'error' is declared but its value is never read.
+../../shared/components/api/UnifiedApiClient.tsx(353,11): error TS6133: 'user' is declared but its value is never read.
+../../shared/components/auth/Provider.tsx(147,23): error TS4111: Property 'NEXT_PUBLIC_BACKEND_URL' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_BACKEND_URL'].
+../../shared/components/auth/Provider.tsx(149,23): error TS4111: Property 'BACKEND_URL' comes from an index signature, so it must be accessed with ['BACKEND_URL'].
+../../shared/components/auth/Provider.tsx(156,32): error TS4111: Property 'NEXT_PUBLIC_BACKEND_URL' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_BACKEND_URL'].
+../../shared/components/auth/Provider.tsx(157,32): error TS4111: Property 'BACKEND_URL' comes from an index signature, so it must be accessed with ['BACKEND_URL'].
+../../shared/components/auth/Provider.tsx(178,19): error TS6133: 'accessToken' is declared but its value is never read.
+../../shared/components/auth/SignIn.tsx(51,10): error TS6133: 'challenge' is declared but its value is never read.
+../../shared/components/auth/UnifiedPermissionGuard.tsx(26,7): error TS6133: 'getPlatformDisplayName' is declared but its value is never read.
+../../shared/components/auth/UnifiedProgressiveAuthGate.tsx(84,10): error TS6133: 'getAuthLevelDescription' is declared but its value is never read.
+../../shared/components/cards/BaseCard.tsx(468,9): error TS6133: 'getStatusBgColor' is declared but its value is never read.
+../../shared/components/errors/PermissionErrorUI.tsx(587,3): error TS6133: 'variant' is declared but its value is never read.
+../../shared/components/errors/PermissionErrorUI.tsx(684,3): error TS6133: 'variant' is declared but its value is never read.
+../../shared/components/errors/PermissionErrorUI.tsx(821,3): error TS6133: 'variant' is declared but its value is never read.
+../../shared/components/forms/PancakeForm.tsx(12,16): error TS6133: 'BaseFormField' is declared but its value is never read.
+../../shared/components/forms/PancakeForm.tsx(14,3): error TS6133: 'FormLabel' is declared but its value is never read.
+../../shared/components/modals/BaseModal.tsx(146,23): error TS6133: 'setIsAnimating' is declared but its value is never read.
+../../shared/components/navigation/BaseNavigation.tsx(317,13): error TS6133: 'variant' is declared but its value is never read.
+../../shared/components/navigation/BaseTabs.tsx(97,35): error TS6133: 'size' is declared but its value is never read.
+../../shared/components/notifications/__tests__/schemas.test.ts(455,14): error TS2532: Object is possibly 'undefined'.
+../../shared/components/notifications/__tests__/schemas.test.ts(456,14): error TS2532: Object is possibly 'undefined'.
+../../shared/components/PermissionError.tsx(3,1): error TS6133: 'React' is declared but its value is never read.
+../../shared/components/permissions/index.tsx(9,1): error TS6133: 'React' is declared but its value is never read.
+../../shared/components/permissions/index.tsx(43,57): error TS6133: 'userId' is declared but its value is never read.
+../../shared/components/permissions/index.tsx(134,3): error TS6133: 'showRefresh' is declared but its value is never read.
+../../shared/components/permissions/UnifiedPermissionExpiryIndicator.tsx(19,38): error TS6133: 'ReactNode' is declared but its value is never read.
+../../shared/components/permissions/UnifiedPermissionExpiryIndicator.tsx(30,3): error TS6133: 'ShieldAlert' is declared but its value is never read.
+../../shared/components/permissions/UnifiedPermissionExpiryIndicator.tsx(31,3): error TS6133: 'ShieldCheck' is declared but its value is never read.
+../../shared/components/permissions/UnifiedPermissionExpiryIndicator.tsx(357,3): error TS6133: 'platform' is declared but its value is never read.
+../../shared/components/permissions/UnifiedPermissionExpiryIndicator.tsx(544,34): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+../../shared/components/permissions/UnifiedPermissionExpiryIndicator.tsx(1209,18): error TS2532: Object is possibly 'undefined'.
+../../shared/components/permissions/UnifiedPermissionExpiryIndicator.tsx(1215,31): error TS2532: Object is possibly 'undefined'.
+../../shared/components/permissions/UnifiedPermissionExpiryIndicator.tsx(1218,14): error TS2532: Object is possibly 'undefined'.
+../../shared/components/permissions/UnifiedPermissionExpiryIndicator.tsx(1222,49): error TS2532: Object is possibly 'undefined'.
+../../shared/components/profile/EmailEditor.tsx(4,10): error TS6133: 'Mail' is declared but its value is never read.
+../../shared/config/auth.ts(7,15): error TS6133: 'urls' is declared but its value is never read.
+../../shared/config/auth.ts(338,14): error TS4111: Property 'error' comes from an index signature, so it must be accessed with ['error'].
+../../shared/config/auth.ts(341,21): error TS4111: Property 'error_description' comes from an index signature, so it must be accessed with ['error_description'].
+../../shared/config/auth.ts(341,49): error TS4111: Property 'error' comes from an index signature, so it must be accessed with ['error'].
+../../shared/config/auth.ts(345,15): error TS4111: Property 'code' comes from an index signature, so it must be accessed with ['code'].
+../../shared/config/auth.ts(352,15): error TS4111: Property 'state' comes from an index signature, so it must be accessed with ['state'].
+../../shared/config/auth.ts(362,20): error TS4111: Property 'code' comes from an index signature, so it must be accessed with ['code'].
+../../shared/config/auth.ts(363,21): error TS4111: Property 'state' comes from an index signature, so it must be accessed with ['state'].
+../../shared/config/auth.ts(548,20): error TS18048: 'base64Url' is possibly 'undefined'.
+../../shared/config/constants.ts(324,33): error TS4111: Property 'NEXT_PUBLIC_BLOCKCHAIN_NETWORK' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_BLOCKCHAIN_NETWORK'].
+../../shared/config/constants.ts(325,22): error TS2322: Type 'BlockchainNetwork | undefined' is not assignable to type 'BlockchainNetwork'.
+  Type 'undefined' is not assignable to type 'BlockchainNetwork'.
+../../shared/config/constants.ts(325,42): error TS4111: Property 'BSC_MAINNET' comes from an index signature, so it must be accessed with ['BSC_MAINNET'].
+../../shared/config/constants.ts(325,56): error TS2322: Type 'BlockchainNetwork | undefined' is not assignable to type 'BlockchainNetwork'.
+  Type 'undefined' is not assignable to type 'BlockchainNetwork'.
+../../shared/config/constants.ts(325,76): error TS4111: Property 'BSC_TESTNET' comes from an index signature, so it must be accessed with ['BSC_TESTNET'].
+../../shared/config/constants.ts(545,7): error TS18048: 'config' is possibly 'undefined'.
+../../shared/config/constants.ts(547,10): error TS18048: 'config' is possibly 'undefined'.
+../../shared/config/constants.ts(553,7): error TS18048: 'config' is possibly 'undefined'.
+../../shared/config/constants.ts(555,34): error TS18048: 'config' is possibly 'undefined'.
+../../shared/config/constants.ts(565,10): error TS18048: 'config' is possibly 'undefined'.
+../../shared/config/constants.ts(572,9): error TS6133: 'asset' is declared but its value is never read.
+../../shared/config/constants.ts(576,15): error TS18048: 'BLOCKCHAIN_NETWORKS.TRON_MAINNET' is possibly 'undefined'.
+../../shared/config/constants.ts(576,35): error TS4111: Property 'TRON_MAINNET' comes from an index signature, so it must be accessed with ['TRON_MAINNET'].
+../../shared/config/feature-flags.ts(397,34): error TS6133: 'flag' is declared but its value is never read.
+../../shared/config/iam.ts(326,5): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+../../shared/config/iam.ts(327,5): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+../../shared/config/iam.ts(328,5): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+../../shared/env/schema.ts(12,116): error TS4111: Property 'DEPLOYMENT_ENV' comes from an index signature, so it must be accessed with ['DEPLOYMENT_ENV'].
+../../shared/env/schema.ts(13,73): error TS4111: Property 'NEXT_PHASE' comes from an index signature, so it must be accessed with ['NEXT_PHASE'].
+../../shared/env/schema.ts(13,129): error TS4111: Property 'CI' comes from an index signature, so it must be accessed with ['CI'].
+../../shared/env/schema.ts(214,7): error TS6133: 'target' is declared but its value is never read.
+../../shared/env/schema.ts(232,7): error TS6133: 'target' is declared but its value is never read.
+../../shared/env/schema.ts(243,86): error TS4111: Property 'NEXT_PUBLIC_BACKEND_URL' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_BACKEND_URL'].
+../../shared/env/schema.ts(244,82): error TS4111: Property 'NEXT_PUBLIC_APP_URL' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_APP_URL'].
+../../shared/env/schema.ts(245,84): error TS4111: Property 'NEXT_PUBLIC_ADMIN_URL' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_ADMIN_URL'].
+../../shared/env/schema.ts(246,93): error TS4111: Property 'NEXT_PUBLIC_BLOCKCHAIN_NETWORK' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_BLOCKCHAIN_NETWORK'].
+../../shared/env/schema.ts(247,99): error TS4111: Property 'NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID'].
+../../shared/env/schema.ts(248,83): error TS4111: Property 'NEXT_PUBLIC_CHAIN_ID' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_CHAIN_ID'].
+../../shared/env/schema.ts(250,98): error TS4111: Property 'NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_PAYMENT_MAINNET_ADDRESS'].
+../../shared/env/schema.ts(251,98): error TS4111: Property 'NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_PAYMENT_TESTNET_ADDRESS'].
+../../shared/env/schema.ts(253,91): error TS4111: Property 'NEXT_PUBLIC_FIREBASE_API_KEY' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_FIREBASE_API_KEY'].
+../../shared/env/schema.ts(254,94): error TS4111: Property 'NEXT_PUBLIC_FIREBASE_PROJECT_ID' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_FIREBASE_PROJECT_ID'].
+../../shared/env/schema.ts(255,90): error TS4111: Property 'NEXT_PUBLIC_FIREBASE_APP_ID' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_FIREBASE_APP_ID'].
+../../shared/env/schema.ts(256,98): error TS4111: Property 'NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID'].
+../../shared/hooks/useApiClient.ts(65,19): error TS4111: Property 'NEXT_PUBLIC_PLATFORM' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_PLATFORM'].
+../../shared/hooks/useSSENotifications.ts(36,5): error TS6133: 'apiClient' is declared but its value is never read.
+../../shared/hooks/useSSENotifications.ts(37,5): error TS6133: 'walletAddress' is declared but its value is never read.
+../../shared/hooks/useSSENotifications.ts(38,5): error TS6133: 'types' is declared but its value is never read.
+../../shared/hooks/useSSENotifications.ts(40,5): error TS6133: 'onNotification' is declared but its value is never read.
+../../shared/hooks/useSSENotifications.ts(41,5): error TS6133: 'onError' is declared but its value is never read.
+../../shared/hooks/useSSENotifications.ts(42,5): error TS6133: 'onConnect' is declared but its value is never read.
+../../shared/hooks/useSSENotifications.ts(101,10): error TS6133: 'err' is declared but its value is never read.
+../../shared/hooks/useUsers.ts(20,1): error TS6133: 'ApiResponse' is declared but its value is never read.
+../../shared/session/admin-validator.ts(19,35): error TS4111: Property 'DATABASE_URL' comes from an index signature, so it must be accessed with ['DATABASE_URL'].
+../../shared/session/admin-validator.ts(20,27): error TS4111: Property 'BACKEND_URL' comes from an index signature, so it must be accessed with ['BACKEND_URL'].
+../../shared/session/user-validator.ts(21,35): error TS4111: Property 'DATABASE_URL' comes from an index signature, so it must be accessed with ['DATABASE_URL'].
+../../shared/session/user-validator.ts(22,27): error TS4111: Property 'BACKEND_URL' comes from an index signature, so it must be accessed with ['BACKEND_URL'].
+../../shared/session/user-validator.ts(205,7): error TS2322: Type 'string[] | undefined' is not assignable to type 'string[]'.
+  Type 'undefined' is not assignable to type 'string[]'.
+../../shared/session/validator.ts(25,11): error TS6196: 'AdminJWTPayload' is declared but never used.
+../../shared/session/validator.ts(33,11): error TS6196: 'UserJWTPayload' is declared but never used.
+../../shared/session/validator.ts(95,68): error TS4111: Property 'DATABASE_URL' comes from an index signature, so it must be accessed with ['DATABASE_URL'].
+../../shared/session/validator.ts(96,52): error TS4111: Property 'BACKEND_URL' comes from an index signature, so it must be accessed with ['BACKEND_URL'].
+../../shared/session/validator.ts(218,11): error TS6133: 'walletNonce' is declared but its value is never read.
+../../shared/session/validator.ts(327,9): error TS2353: Object literal may only specify known properties, and 'permissionGroup' does not exist in type 'BillingStatus'.
+../../shared/utils/core/logging.ts(52,11): error TS6133: 'maxEntries' is declared but its value is never read.
+../../shared/utils/core/logging.ts(60,12): error TS2532: Object is possibly 'undefined'.
+../../shared/utils/core/logging.ts(60,56): error TS2532: Object is possibly 'undefined'.
+../../shared/utils/core/logging.ts(77,11): error TS6133: 'sanitizeData' is declared but its value is never read.
+../../shared/utils/formatting/display.ts(147,20): error TS18048: 'base64Url' is possibly 'undefined'.
+../../shared/utils/helpers/arrays.ts(239,21): error TS2345: Argument of type 'T | undefined' is not assignable to parameter of type 'T'.
+  'T' could be instantiated with an arbitrary type which could be unrelated to 'T | undefined'.
+../../shared/utils/helpers/arrays.ts(267,11): error TS2322: Type 'T | undefined' is not assignable to type 'T'.
+  'T' could be instantiated with an arbitrary type which could be unrelated to 'T | undefined'.
+../../shared/utils/helpers/arrays.ts(267,24): error TS2322: Type 'T | undefined' is not assignable to type 'T'.
+  'T' could be instantiated with an arbitrary type which could be unrelated to 'T | undefined'.
+../../shared/utils/helpers/arrays.ts(302,9): error TS2532: Object is possibly 'undefined'.
+../../shared/utils/helpers/arrays.ts(302,9): error TS2322: Type 'T | undefined' is not assignable to type 'T'.
+  'T' could be instantiated with an arbitrary type which could be unrelated to 'T | undefined'.
+../../shared/utils/helpers/arrays.ts(302,24): error TS2532: Object is possibly 'undefined'.
+../../shared/utils/helpers/arrays.ts(319,7): error TS2322: Type '(T | undefined)[]' is not assignable to type 'T[]'.
+  Type 'T | undefined' is not assignable to type 'T'.
+    'T' could be instantiated with an arbitrary type which could be unrelated to 'T | undefined'.
+../../shared/utils/helpers/browser.ts(85,21): error TS2532: Object is possibly 'undefined'.
+../../shared/utils/helpers/objects.ts(268,30): error TS2345: Argument of type 'T | undefined' is not assignable to parameter of type 'T'.
+  'T' could be instantiated with an arbitrary type which could be unrelated to 'T | undefined'.
+../../shared/utils/helpers/objects.ts(285,48): error TS2345: Argument of type 'T | undefined' is not assignable to parameter of type 'T'.
+  'T' could be instantiated with an arbitrary type which could be unrelated to 'T | undefined'.
+../../shared/utils/helpers/objects.ts(286,9): error TS2322: Type 'T | undefined' is not assignable to type 'T'.
+  'T' could be instantiated with an arbitrary type which could be unrelated to 'T | undefined'.
+../../shared/utils/helpers/objects.ts(301,9): error TS2536: Type 'T | undefined' cannot be used to index type 'Record<T, string>'.
+../../shared/utils/helpers/objects.ts(319,32): error TS2345: Argument of type 'T | undefined' is not assignable to parameter of type 'T'.
+  'T' could be instantiated with an arbitrary type which could be unrelated to 'T | undefined'.
+../../shared/utils/helpers/objects.ts(323,9): error TS2322: Type 'T | undefined' is not assignable to type 'T'.
+  'T' could be instantiated with an arbitrary type which could be unrelated to 'T | undefined'.
+../../shared/utils/unified-permissions.ts(226,3): error TS2322: Type 'TierGroup | undefined' is not assignable to type 'TierGroup | null'.
+  Type 'undefined' is not assignable to type 'TierGroup | null'.
+../../shared/utils/url-resolver.ts(146,21): error TS4111: Property 'BACKEND_URL' comes from an index signature, so it must be accessed with ['BACKEND_URL'].
+../../shared/utils/url-resolver.ts(146,53): error TS4111: Property 'BACKEND_URL' comes from an index signature, so it must be accessed with ['BACKEND_URL'].
+../../shared/utils/url-resolver.ts(147,21): error TS4111: Property 'NEXT_PUBLIC_BACKEND_URL' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_BACKEND_URL'].
+../../shared/utils/url-resolver.ts(147,65): error TS4111: Property 'NEXT_PUBLIC_BACKEND_URL' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_BACKEND_URL'].
+../../shared/utils/url-resolver.ts(156,21): error TS4111: Property 'FRONTEND_URL' comes from an index signature, so it must be accessed with ['FRONTEND_URL'].
+../../shared/utils/url-resolver.ts(156,54): error TS4111: Property 'FRONTEND_URL' comes from an index signature, so it must be accessed with ['FRONTEND_URL'].
+../../shared/utils/url-resolver.ts(157,21): error TS4111: Property 'NEXT_PUBLIC_APP_URL' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_APP_URL'].
+../../shared/utils/url-resolver.ts(157,61): error TS4111: Property 'NEXT_PUBLIC_APP_URL' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_APP_URL'].
+../../shared/utils/url-resolver.ts(166,21): error TS4111: Property 'ADMIN_FRONTEND_URL' comes from an index signature, so it must be accessed with ['ADMIN_FRONTEND_URL'].
+../../shared/utils/url-resolver.ts(166,60): error TS4111: Property 'ADMIN_FRONTEND_URL' comes from an index signature, so it must be accessed with ['ADMIN_FRONTEND_URL'].
+../../shared/utils/url-resolver.ts(167,21): error TS4111: Property 'NEXT_PUBLIC_ADMIN_URL' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_ADMIN_URL'].
+../../shared/utils/url-resolver.ts(167,63): error TS4111: Property 'NEXT_PUBLIC_ADMIN_URL' comes from an index signature, so it must be accessed with ['NEXT_PUBLIC_ADMIN_URL'].
+../../shared/utils/web3-api-client.ts(7,75): error TS6133: 'ApiResponse' is declared but its value is never read.
+../../shared/utils/web3-api-client.ts(16,3): error TS6196: 'FrontendSessionResponse' is declared but never used.
+../../shared/utils/web3-api-client.ts(17,3): error TS6196: 'AdminSessionResponse' is declared but never used.
+../../shared/validators/schemas.ts(433,30): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+../../shared/validators/schemas.ts(442,34): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+error: script "type-check" exited with code 1

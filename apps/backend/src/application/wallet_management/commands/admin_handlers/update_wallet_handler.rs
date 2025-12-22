@@ -175,7 +175,7 @@ impl UpdateWalletCommandHandler {
                 wgm.expires_at,
                 wgm.is_active
             FROM wallet_group_assignments wga
-            JOIN permission_group_memberships pgm ON wga.group_id = pgm.group_id
+            JOIN group_permissions pgm ON wga.group_id = pgm.group_id
             JOIN permissions p ON pgm.permission_id = p.id
             WHERE wga.wallet_address = $1
               AND p.is_active = true

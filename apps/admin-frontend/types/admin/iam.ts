@@ -1,10 +1,11 @@
 // IAM Types for AWS-style permission system
 import { PermissionSource } from '@/shared/types/domain/Permission';
-import { PermissionGroup } from '@/shared/types/domain/User';
+import { Group } from '@/shared/types/domain/User';
 
 export interface UserWithPermissions extends User {
-  permissionGroup: PermissionGroup;
-  // @deprecated Use permissionGroup instead
+  group: Group;
+  permissionGroup: Group; // Keep as alias
+  // @deprecated Use group instead
   packageTier?: PackageTier;
   customPermissions: CustomPermission[];
   effectivePermissions: EffectivePermission[];
@@ -27,7 +28,8 @@ export interface CustomPermission {
 
 export interface PermissionGroupPermission {
   id: string;
-  permissionGroup: PermissionGroup;
+  group: Group;
+  permissionGroup: Group; // Keep as alias
   featureId: string;
   permission: Permission;
   isDefault: boolean;
@@ -105,8 +107,9 @@ export interface Feature {
   description: string;
   category: FeatureCategory;
   permissions: Permission[];
-  requiredPermissionGroup?: PermissionGroup;
-  // @deprecated Use requiredPermissionGroup instead
+  requiredGroup?: Group;
+  requiredPermissionGroup?: Group; // Keep as alias
+  // @deprecated Use requiredGroup instead
   requiredTier?: PackageTier;
   isAdmin?: boolean;
 }
@@ -165,7 +168,7 @@ export interface Policy {
   updatedAt: string;
 }
 
-export interface Group {
+export interface IamGroup {
   id: string;
   name: string;
   description: string;

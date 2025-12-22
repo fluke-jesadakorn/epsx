@@ -1,18 +1,19 @@
-// Permission Group Repository Adapter (Infrastructure Layer)
-// PostgreSQL implementation of PermissionGroupRepositoryPort using Diesel
-
+// Group Repository Adapter (Infrastructure Layer)
+// PostgreSQL implementation of GroupRepositoryPort using Diesel
+// (Previously PermissionGroupRepositoryAdapter - renamed for clarity)
 use crate::prelude::*;
 use tracing::{error, info};
 use diesel::prelude::*;
 use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
 
 use crate::domain::permission_management::{
-    PermissionGroup, GroupId, GroupSlug, PermissionString,
-    repository_ports::{PermissionGroupRepositoryPort, GroupSearchCriteria, GroupStatistics},
-    aggregates::permission_group::LoadPermissionGroupParams,
+    Group, GroupId, GroupSlug, PermissionString,
+    repository_ports::{GroupRepositoryPort, GroupSearchCriteria, GroupStatistics},
+    aggregates::group::LoadGroupParams,
 };
-use crate::infrastructure::adapters::repositories::database_types::{PermissionGroupDb, NewPermissionGroupDb, PermissionRow};
-use crate::schema::{permission_groups, permission_group_memberships};
+use crate::infrastructure::models::group::{GroupDb, NewGroupDb};
+use crate::infrastructure::adapters::repositories::database_types::PermissionRow;
+use crate::schema::{groups, group_permissions};
 use std::collections::HashSet;
 
 #[derive(diesel::QueryableByName)]
@@ -37,27 +38,27 @@ struct CountResult {
     count: i64,
 }
 
-/// PostgreSQL implementation of PermissionGroupRepositoryPort using Diesel
+/// PostgreSQL implementation of GroupRepositoryPort using Diesel
 #[derive(Clone)]
-pub struct PermissionGroupRepositoryAdapter {
+pub struct GroupRepositoryAdapter {
     db_pool: &'static Pool<AsyncPgConnection>,
 }
 
-impl PermissionGroupRepositoryAdapter {
+impl GroupRepositoryAdapter {
     pub fn new(db_pool: &'static Pool<AsyncPgConnection>) -> Self {
         Self { db_pool }
     }
 }
 
 #[async_trait]
-impl PermissionGroupRepositoryPort for PermissionGroupRepositoryAdapter {
-    async fn find_by_id(&self, id: &GroupId) -> AppResult<Option<PermissionGroup>> {
+impl GroupRepositoryPort for GroupRepositoryAdapter {
+    async fn find_by_id(&self, id: &GroupId) -> AppResult<Option<Group>> {
         let mut conn = self.db_pool.get().await
             .map_err(|e| AppError::database_error(e.to_string()))?;
 
-        let group_result = permission_groups::table
-            .filter(permission_groups::id.eq(id.value()))
-            .first::<PermissionGroupDb>(&mut conn)
+        let group_result = groups::table
+            .filter(groups::id.eq(id.value()))
+            .first::<GroupDb>(&mut conn)
             .await
             .optional()
             .map_err(|e| {
@@ -69,7 +70,7 @@ impl PermissionGroupRepositoryPort for PermissionGroupRepositoryAdapter {
             // Get permissions for this group using raw SQL (JOIN query)
             let query = r#"
                 SELECT p.platform, p.resource, p.action
-                FROM permission_group_memberships pgm
+                FROM group_permissions pgm
                 JOIN permissions p ON pgm.permission_id = p.id
                 WHERE pgm.group_id = $1
             "#;
@@ -100,7 +101,7 @@ impl PermissionGroupRepositoryPort for PermissionGroupRepositoryAdapter {
                 .and_then(|bd| bd.to_string().parse::<f64>().ok())
                 .unwrap_or(0.0);
 
-            let group = PermissionGroup::load(LoadPermissionGroupParams {
+            let group = Group::load(LoadGroupParams {
                 id: group_id,
                 name: row.name,
                 slug,
@@ -127,13 +128,13 @@ impl PermissionGroupRepositoryPort for PermissionGroupRepositoryAdapter {
         }
     }
 
-    async fn find_by_slug(&self, slug: &GroupSlug) -> AppResult<Option<PermissionGroup>> {
+    async fn find_by_slug(&self, slug: &GroupSlug) -> AppResult<Option<Group>> {
         let mut conn = self.db_pool.get().await
             .map_err(|e| AppError::database_error(e.to_string()))?;
 
-        let id_result = permission_groups::table
-            .filter(permission_groups::slug.eq(slug.as_str()))
-            .select(permission_groups::id)
+        let id_result = groups::table
+            .filter(groups::slug.eq(slug.as_str()))
+            .select(groups::id)
             .first::<uuid::Uuid>(&mut conn)
             .await
             .optional()
@@ -150,37 +151,37 @@ impl PermissionGroupRepositoryPort for PermissionGroupRepositoryAdapter {
         }
     }
 
-    async fn find_all(&self, criteria: GroupSearchCriteria) -> AppResult<Vec<PermissionGroup>> {
+    async fn find_all(&self, criteria: GroupSearchCriteria) -> AppResult<Vec<Group>> {
         let mut conn = self.db_pool.get().await
             .map_err(|e| AppError::database_error(e.to_string()))?;
 
         // Build dynamic query using Diesel DSL
-        let mut query = permission_groups::table.into_boxed();
+        let mut query = groups::table.into_boxed();
 
         if let Some(group_type) = &criteria.group_type {
-            query = query.filter(permission_groups::group_type.eq(group_type));
+            query = query.filter(groups::group_type.eq(group_type));
         }
 
         if let Some(is_active) = criteria.is_active {
-            query = query.filter(permission_groups::is_active.eq(is_active));
+            query = query.filter(groups::is_active.eq(is_active));
         }
 
         if let Some(is_promoted) = criteria.is_promoted {
-            query = query.filter(permission_groups::is_promoted.eq(is_promoted));
+            query = query.filter(groups::is_promoted.eq(is_promoted));
         }
 
         if let Some(search_term) = &criteria.search_term {
             let pattern = format!("%{}%", search_term);
             let p = pattern.clone();
             query = query.filter(
-                permission_groups::name.ilike(pattern)
-                    .or(permission_groups::description.ilike(p))
+                groups::name.ilike(pattern)
+                    .or(groups::description.ilike(p))
             );
         }
 
         query = query.order((
-            permission_groups::display_order.asc(),
-            permission_groups::created_at.desc(),
+            groups::display_order.asc(),
+            groups::created_at.desc(),
         ));
 
         if let Some(limit_val) = criteria.limit {
@@ -192,7 +193,7 @@ impl PermissionGroupRepositoryPort for PermissionGroupRepositoryAdapter {
         }
 
         let group_ids = query
-            .select(permission_groups::id)
+            .select(groups::id)
             .load::<uuid::Uuid>(&mut conn)
             .await
             .map_err(|e| {
@@ -211,11 +212,11 @@ impl PermissionGroupRepositoryPort for PermissionGroupRepositoryAdapter {
         Ok(groups)
     }
 
-    async fn save(&self, group: &PermissionGroup) -> AppResult<()> {
+    async fn save(&self, group: &Group) -> AppResult<()> {
         let mut conn = self.db_pool.get().await
             .map_err(|e| AppError::database_error(e.to_string()))?;
 
-        let new_group = NewPermissionGroupDb {
+        let new_group = NewGroupDb {
             id: *group.id().value(),
             name: group.name().to_string(),
             slug: group.slug().as_str().to_string(),
@@ -238,23 +239,23 @@ impl PermissionGroupRepositoryPort for PermissionGroupRepositoryAdapter {
         };
 
         // Upsert permission group
-        diesel::insert_into(permission_groups::table)
+        diesel::insert_into(groups::table)
             .values(&new_group)
-            .on_conflict(permission_groups::id)
+            .on_conflict(groups::id)
             .do_update()
             .set((
-                permission_groups::name.eq(&new_group.name),
-                permission_groups::description.eq(&new_group.description),
-                permission_groups::price.eq(&new_group.price),
-                permission_groups::currency.eq(&new_group.currency),
-                permission_groups::billing_cycle.eq(&new_group.billing_cycle),
-                permission_groups::is_active.eq(new_group.is_active),
-                permission_groups::is_promoted.eq(new_group.is_promoted),
-                permission_groups::display_order.eq(&new_group.display_order),
-                permission_groups::max_members.eq(&new_group.max_members),
-                permission_groups::auto_assign_enabled.eq(&new_group.auto_assign_enabled),
-                permission_groups::group_metadata.eq(&new_group.group_metadata),
-                permission_groups::updated_at.eq(new_group.updated_at),
+                groups::name.eq(&new_group.name),
+                groups::description.eq(&new_group.description),
+                groups::price.eq(&new_group.price),
+                groups::currency.eq(&new_group.currency),
+                groups::billing_cycle.eq(&new_group.billing_cycle),
+                groups::is_active.eq(new_group.is_active),
+                groups::is_promoted.eq(new_group.is_promoted),
+                groups::display_order.eq(&new_group.display_order),
+                groups::max_members.eq(&new_group.max_members),
+                groups::auto_assign_enabled.eq(&new_group.auto_assign_enabled),
+                groups::group_metadata.eq(&new_group.group_metadata),
+                groups::updated_at.eq(new_group.updated_at),
             ))
             .execute(&mut conn)
             .await
@@ -264,8 +265,8 @@ impl PermissionGroupRepositoryPort for PermissionGroupRepositoryAdapter {
             })?;
 
         // Delete existing permission associations
-        diesel::delete(permission_group_memberships::table)
-            .filter(permission_group_memberships::group_id.eq(group.id().value()))
+        diesel::delete(group_permissions::table)
+            .filter(group_permissions::group_id.eq(group.id().value()))
             .execute(&mut conn)
             .await
             .map_err(|e| AppError::database_error(e.to_string()))?;
@@ -277,14 +278,15 @@ impl PermissionGroupRepositoryPort for PermissionGroupRepositoryAdapter {
             if parts.len() >= 3 {
                 // Get or create permission using raw SQL
                 let query = r#"
-                    INSERT INTO permissions (platform, resource, action)
-                    VALUES ($1, $2, $3)
-                    ON CONFLICT (platform, resource, action) DO UPDATE
+                    INSERT INTO permissions (permission_string, platform, resource, action, permission_type)
+                    VALUES ($1, $2, $3, $4, 'manual')
+                    ON CONFLICT (permission_string) DO UPDATE
                     SET platform = EXCLUDED.platform
                     RETURNING id
                 "#;
 
                 let perm_id = diesel::sql_query(query)
+                    .bind::<diesel::sql_types::Text, _>(permission.as_str())
                     .bind::<diesel::sql_types::Text, _>(parts[0])
                     .bind::<diesel::sql_types::Text, _>(parts[1])
                     .bind::<diesel::sql_types::Text, _>(parts[2])
@@ -296,7 +298,7 @@ impl PermissionGroupRepositoryPort for PermissionGroupRepositoryAdapter {
                 // Link permission to group
                 diesel::sql_query(
                     r#"
-                    INSERT INTO permission_group_memberships (group_id, permission_id)
+                    INSERT INTO group_permissions (group_id, permission_id)
                     VALUES ($1, $2)
                     "#
                 )
@@ -316,8 +318,8 @@ impl PermissionGroupRepositoryPort for PermissionGroupRepositoryAdapter {
         let mut conn = self.db_pool.get().await
             .map_err(|e| AppError::database_error(e.to_string()))?;
 
-        diesel::delete(permission_groups::table)
-            .filter(permission_groups::id.eq(id.value()))
+        diesel::delete(groups::table)
+            .filter(groups::id.eq(id.value()))
             .execute(&mut conn)
             .await
             .map_err(|e| {
@@ -333,26 +335,26 @@ impl PermissionGroupRepositoryPort for PermissionGroupRepositoryAdapter {
         let mut conn = self.db_pool.get().await
             .map_err(|e| AppError::database_error(e.to_string()))?;
 
-        let mut query = permission_groups::table.into_boxed();
+        let mut query = groups::table.into_boxed();
 
         if let Some(group_type) = &criteria.group_type {
-            query = query.filter(permission_groups::group_type.eq(group_type));
+            query = query.filter(groups::group_type.eq(group_type));
         }
 
         if let Some(is_active) = criteria.is_active {
-            query = query.filter(permission_groups::is_active.eq(is_active));
+            query = query.filter(groups::is_active.eq(is_active));
         }
 
         if let Some(is_promoted) = criteria.is_promoted {
-            query = query.filter(permission_groups::is_promoted.eq(is_promoted));
+            query = query.filter(groups::is_promoted.eq(is_promoted));
         }
 
         if let Some(search_term) = &criteria.search_term {
             let pattern = format!("%{}%", search_term);
             let p = pattern.clone();
             query = query.filter(
-                permission_groups::name.ilike(pattern)
-                    .or(permission_groups::description.ilike(p))
+                groups::name.ilike(pattern)
+                    .or(groups::description.ilike(p))
             );
         }
 
@@ -378,7 +380,7 @@ impl PermissionGroupRepositoryPort for PermissionGroupRepositoryAdapter {
                 COUNT(*) as total_groups,
                 COUNT(*) FILTER (WHERE is_active = true) as active_groups,
                 COUNT(*) FILTER (WHERE is_promoted = true) as promoted_groups
-            FROM permission_groups
+            FROM groups
         "#;
 
         let row = diesel::sql_query(query)
@@ -409,7 +411,7 @@ impl PermissionGroupRepositoryPort for PermissionGroupRepositoryAdapter {
             .map_err(|e| AppError::database_error(e.to_string()))?;
 
         let exists = diesel::select(diesel::dsl::exists(
-            permission_groups::table.filter(permission_groups::slug.eq(slug.as_str()))
+            groups::table.filter(groups::slug.eq(slug.as_str()))
         ))
         .get_result::<bool>(&mut conn)
         .await
@@ -420,11 +422,11 @@ impl PermissionGroupRepositoryPort for PermissionGroupRepositoryAdapter {
 }
 
 // Additional helper methods for subscription plan management
-impl PermissionGroupRepositoryAdapter {
+impl GroupRepositoryAdapter {
     /// Get all subscription plans (database_types.rs compatibility layer)
     pub async fn get_subscription_plans(&self) -> Result<Vec<crate::infrastructure::adapters::repositories::database_types::PermissionGroup>, diesel::result::Error> {
         use crate::infrastructure::adapters::repositories::database_types::PermissionGroup as DbPermissionGroup;
-        use crate::schema::permission_groups;
+        use crate::schema::groups;
 
         let mut conn = self.db_pool.get().await
             .map_err(|e| diesel::result::Error::DatabaseError(
@@ -432,11 +434,11 @@ impl PermissionGroupRepositoryAdapter {
                 Box::new(e.to_string())
             ))?;
 
-        permission_groups::table
-            .filter(permission_groups::group_type.eq("subscription"))
+        groups::table
+            .filter(groups::group_type.eq("subscription"))
             .order_by((
-                permission_groups::display_order.assume_not_null().asc(),
-                permission_groups::price.assume_not_null().asc()
+                groups::display_order.assume_not_null().asc(),
+                groups::price.assume_not_null().asc()
             ))
             .load::<DbPermissionGroup>(&mut conn)
             .await
@@ -445,7 +447,7 @@ impl PermissionGroupRepositoryAdapter {
     /// Get plan by ID (database_types.rs compatibility layer)
     pub async fn get_plan_by_id(&self, plan_id: uuid::Uuid) -> Result<Option<crate::infrastructure::adapters::repositories::database_types::PermissionGroup>, diesel::result::Error> {
         use crate::infrastructure::adapters::repositories::database_types::PermissionGroup as DbPermissionGroup;
-        use crate::schema::permission_groups;
+        use crate::schema::groups;
 
         let mut conn = self.db_pool.get().await
             .map_err(|e| diesel::result::Error::DatabaseError(
@@ -453,9 +455,9 @@ impl PermissionGroupRepositoryAdapter {
                 Box::new(e.to_string())
             ))?;
 
-        permission_groups::table
-            .filter(permission_groups::id.eq(plan_id))
-            .filter(permission_groups::group_type.eq("subscription"))
+        groups::table
+            .filter(groups::id.eq(plan_id))
+            .filter(groups::group_type.eq("subscription"))
             .first::<DbPermissionGroup>(&mut conn)
             .await
             .optional()
@@ -464,7 +466,7 @@ impl PermissionGroupRepositoryAdapter {
     /// Update plan (database_types.rs compatibility layer)
     pub async fn update_plan(&self, plan: crate::infrastructure::adapters::repositories::database_types::PermissionGroup) -> Result<crate::infrastructure::adapters::repositories::database_types::PermissionGroup, diesel::result::Error> {
         use crate::infrastructure::adapters::repositories::database_types::PermissionGroup as DbPermissionGroup;
-        use crate::schema::permission_groups;
+        use crate::schema::groups;
 
         let mut conn = self.db_pool.get().await
             .map_err(|e| diesel::result::Error::DatabaseError(
@@ -472,19 +474,19 @@ impl PermissionGroupRepositoryAdapter {
                 Box::new(e.to_string())
             ))?;
 
-        diesel::update(permission_groups::table.filter(permission_groups::id.eq(plan.id)))
+        diesel::update(groups::table.filter(groups::id.eq(plan.id)))
             .set((
-                permission_groups::name.eq(plan.name),
-                permission_groups::slug.eq(plan.slug),
-                permission_groups::description.eq(plan.description),
-                permission_groups::group_metadata.eq(plan.group_metadata),
-                permission_groups::price.eq(plan.price),
-                permission_groups::currency.eq(plan.currency),
-                permission_groups::billing_cycle.eq(plan.billing_cycle),
-                permission_groups::is_active.eq(plan.is_active.unwrap_or(true)),
-                permission_groups::is_promoted.eq(plan.is_promoted.unwrap_or(false)),
-                permission_groups::display_order.eq(plan.display_order),
-                permission_groups::updated_at.eq(diesel::dsl::now),
+                groups::name.eq(plan.name),
+                groups::slug.eq(plan.slug),
+                groups::description.eq(plan.description),
+                groups::group_metadata.eq(plan.group_metadata),
+                groups::price.eq(plan.price),
+                groups::currency.eq(plan.currency),
+                groups::billing_cycle.eq(plan.billing_cycle),
+                groups::is_active.eq(plan.is_active.unwrap_or(true)),
+                groups::is_promoted.eq(plan.is_promoted.unwrap_or(false)),
+                groups::display_order.eq(plan.display_order),
+                groups::updated_at.eq(diesel::dsl::now),
             ))
             .get_result::<DbPermissionGroup>(&mut conn)
             .await
@@ -492,7 +494,7 @@ impl PermissionGroupRepositoryAdapter {
 
     /// Create a new permission group (database_types.rs compatibility layer)
     pub async fn create_group(&self, new_group: crate::infrastructure::adapters::repositories::database_types::NewPermissionGroup) -> Result<crate::infrastructure::adapters::repositories::database_types::PermissionGroup, diesel::result::Error> {
-        use crate::schema::permission_groups;
+        use crate::schema::groups;
         use crate::infrastructure::adapters::repositories::database_types::PermissionGroup as DbPermissionGroup;
 
         let mut conn = self.db_pool.get().await
@@ -501,9 +503,12 @@ impl PermissionGroupRepositoryAdapter {
                 Box::new(e.to_string())
             ))?;
 
-        diesel::insert_into(permission_groups::table)
+        diesel::insert_into(groups::table)
             .values(&new_group)
             .get_result::<DbPermissionGroup>(&mut conn)
             .await
     }
 }
+
+// Type alias for backward compatibility
+pub type PermissionGroupRepositoryAdapter = GroupRepositoryAdapter;

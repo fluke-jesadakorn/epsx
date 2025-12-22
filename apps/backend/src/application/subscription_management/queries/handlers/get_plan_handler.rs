@@ -32,7 +32,7 @@ impl QueryHandler<GetPlanQuery> for GetPlanQueryHandler {
             id: plan_id.as_i32(),
             name: plan.name().to_string(),
             description: plan.description().to_string(),
-            permission_group_id: plan.permission_group_id().as_str().to_string(),
+            group_id: plan.group_id().as_str().to_string(),
             price: plan.price().to_f64(),
             currency: plan.price().currency().to_string(),
             billing_cycle: plan.billing_cycle().as_str().to_string(),

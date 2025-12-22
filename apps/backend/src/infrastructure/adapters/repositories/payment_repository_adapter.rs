@@ -23,7 +23,7 @@ use crate::infrastructure::models::payment::{
     UpdateSubscriptionDb, PaymentAuditLogDb, NewPaymentAuditLogDb, PaymentStatsDb,
     CreatePaymentRequest, UpdatePaymentRequest, CreateSubscriptionRequest, UpdateSubscriptionRequest
 };
-use crate::schema::{payments, subscriptions, payment_audit_log, permission_groups};
+use crate::schema::{payments, subscriptions, payment_audit_log, groups};
 
 /// PostgreSQL implementation of PaymentRepositoryPort using Diesel
 #[derive(Clone)]

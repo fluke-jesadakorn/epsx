@@ -1219,19 +1219,30 @@ export class NotificationsAPIClient {
           }
         }
 
-        // Validate token format
+        // Validate token format - prefer JWT over legacy
         if (token) {
+          // Preferred: JWT format (starts with eyJ - base64 encoded JSON header)
+          if (token.startsWith('eyJ')) {
+            console.log(`🔑 JWT token extracted from ${tokenSource}: ${token.substring(0, 20)}...`);
+            return token;
+          }
+
+          // DEPRECATED: Legacy web3_token_ format for backward compatibility
           if (token.startsWith('web3_token_')) {
             const wallet = token.substring(12); // Remove 'web3_token_' prefix
             if (wallet.length >= 20 && wallet.startsWith('0x')) {
-              console.log(`🔑 Authentication token extracted from ${tokenSource}: ${wallet.substring(0, 8)}...${wallet.substring(wallet.length - 6)}`);
+              console.warn('⚠️ DEPRECATED: Legacy web3_token_ format detected. Please re-authenticate to get a JWT.');
+              console.log(`🔑 Legacy token extracted from ${tokenSource}: ${wallet.substring(0, 8)}...${wallet.substring(wallet.length - 6)}`);
               return token;
             } else {
               console.warn('⚠️ Invalid Web3 token format in cookies');
               return null;
             }
-          } else if (token.length > 20) {
-            console.log(`🔑 JWT token extracted from ${tokenSource}: ${token.substring(0, 20)}...`);
+          }
+
+          // Fallback for other valid-looking tokens
+          if (token.length > 50) {
+            console.log(`🔑 Token extracted from ${tokenSource}: ${token.substring(0, 20)}...`);
             return token;
           } else {
             console.warn('⚠️ Token too short or invalid format');

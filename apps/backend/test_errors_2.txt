@@ -1,0 +1,1434 @@
+    Blocking waiting for file lock on build directory
+    Checking epsx v0.1.0 (/Users/fluke/Desktop/Work/epsx/apps/backend)
+error[E0583]: file not found for module `wallet_user_repository_test`
+    --> src/infrastructure/adapters/repositories/wallet_user_repository_adapter.rs:1130:1
+     |
+1130 | mod wallet_user_repository_test;
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: to create the module `wallet_user_repository_test`, create file "src/infrastructure/adapters/repositories/wallet_user_repository_adapter/wallet_user_repository_test.rs" or "src/infrastructure/adapters/repositories/wallet_user_repository_adapter/wallet_user_repository_test/mod.rs"
+     = note: if there is a `mod wallet_user_repository_test` elsewhere in the crate already, import it with `use crate::...` instead
+
+error[E0583]: file not found for module `transaction_tests`
+    --> src/infrastructure/adapters/repositories/wallet_user_repository_adapter.rs:1132:1
+     |
+1132 | mod transaction_tests;
+     | ^^^^^^^^^^^^^^^^^^^^^^
+     |
+     = help: to create the module `transaction_tests`, create file "src/infrastructure/adapters/repositories/wallet_user_repository_adapter/transaction_tests.rs" or "src/infrastructure/adapters/repositories/wallet_user_repository_adapter/transaction_tests/mod.rs"
+     = note: if there is a `mod transaction_tests` elsewhere in the crate already, import it with `use crate::...` instead
+
+error[E0583]: file not found for module `integration_tests`
+   --> src/web/auth/session_handlers.rs:598:1
+    |
+598 | mod integration_tests;
+    | ^^^^^^^^^^^^^^^^^^^^^^
+    |
+    = help: to create the module `integration_tests`, create file "src/web/auth/session_handlers/integration_tests.rs" or "src/web/auth/session_handlers/integration_tests/mod.rs"
+    = note: if there is a `mod integration_tests` elsewhere in the crate already, import it with `use crate::...` instead
+
+error[E0432]: unresolved imports `crate::schema::notifications`, `crate::schema::user_profiles`
+  --> src/__test__/test_utils/database.rs:45:61
+   |
+45 |         use crate::schema::{web3_auth_nonces, wallet_users, notifications, user_profiles};
+   |                                                             ^^^^^^^^^^^^^  ^^^^^^^^^^^^^ no `user_profiles` in `schema`
+   |                                                             |
+   |                                                             no `notifications` in `schema`
+   |
+   = help: consider importing this module instead:
+           crate::web::notifications
+
+error[E0432]: unresolved import `crate::domain::shared_kernel::value_objects::WalletAddress`
+  --> src/__test__/test_utils/fixtures.rs:11:5
+   |
+11 | use crate::domain::shared_kernel::value_objects::WalletAddress;
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ no `WalletAddress` in `domain::shared_kernel::value_objects`
+   |
+help: consider importing one of these items instead
+   |
+11 - use crate::domain::shared_kernel::value_objects::WalletAddress;
+11 + use crate::application::ApplicationError::WalletAddress;
+   |
+11 - use crate::domain::shared_kernel::value_objects::WalletAddress;
+11 + use crate::domain::wallet_management::WalletAddress;
+   |
+
+error[E0432]: unresolved import `super::types`
+   --> src/infrastructure/adapters/services/tradingview/scanner.rs:818:20
+    |
+818 |         use super::types::StockDataField;
+    |                    ^^^^^ could not find `types` in `super`
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `deadpool`
+   --> src/infrastructure/adapters/repositories/database_utils.rs:288:23
+    |
+288 |         let manager = deadpool::managed::Manager::from_config(
+    |                       ^^^^^^^^ use of unresolved module or unlinked crate `deadpool`
+    |
+    = help: if you wanted to use a crate named `deadpool`, use `cargo add deadpool` to add it to your `Cargo.toml`
+
+error[E0423]: expected value, found struct `WalletPermissionService`
+   --> src/domain/wallet_management/domain_services/wallet_permission_service.rs:655:23
+    |
+ 16 | / pub struct WalletPermissionService {
+ 17 | |     blockchain_client: Arc<BlockchainValidationClient>,
+ 18 | | }
+    | |_- `WalletPermissionService` defined here
+...
+ 21 |   pub struct Web3WalletPermissionService;
+    |   --------------------------------------- similarly named unit struct `Web3WalletPermissionService` defined here
+...
+655 |           let service = WalletPermissionService;
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+help: use struct literal syntax instead
+    |
+655 |         let service = WalletPermissionService { blockchain_client: val };
+    |                                               ++++++++++++++++++++++++++
+help: a unit struct with a similar name exists
+    |
+655 |         let service = Web3WalletPermissionService;
+    |                        ++++
+
+error[E0423]: expected value, found struct `WalletPermissionService`
+   --> src/domain/wallet_management/domain_services/wallet_permission_service.rs:705:23
+    |
+ 16 | / pub struct WalletPermissionService {
+ 17 | |     blockchain_client: Arc<BlockchainValidationClient>,
+ 18 | | }
+    | |_- `WalletPermissionService` defined here
+...
+ 21 |   pub struct Web3WalletPermissionService;
+    |   --------------------------------------- similarly named unit struct `Web3WalletPermissionService` defined here
+...
+705 |           let service = WalletPermissionService;
+    |                         ^^^^^^^^^^^^^^^^^^^^^^^
+    |
+help: use struct literal syntax instead
+    |
+705 |         let service = WalletPermissionService { blockchain_client: val };
+    |                                               ++++++++++++++++++++++++++
+help: a unit struct with a similar name exists
+    |
+705 |         let service = Web3WalletPermissionService;
+    |                        ++++
+
+error[E0433]: failed to resolve: use of undeclared type `PaymentAmount`
+  --> src/domain/payment/aggregates/payment_tests.rs:14:22
+   |
+14 |         let amount = PaymentAmount::new(dec!(50.0), Currency::USDT).unwrap();
+   |                      ^^^^^^^^^^^^^ use of undeclared type `PaymentAmount`
+   |
+help: consider importing this struct through its public re-export
+   |
+ 6 +     use crate::domain::payment::PaymentAmount;
+   |
+
+error[E0433]: failed to resolve: use of undeclared type `Currency`
+  --> src/domain/payment/aggregates/payment_tests.rs:14:53
+   |
+14 |         let amount = PaymentAmount::new(dec!(50.0), Currency::USDT).unwrap();
+   |                                                     ^^^^^^^^ use of undeclared type `Currency`
+   |
+help: consider importing one of these enums
+   |
+ 6 +     use crate::domain::payment::Currency;
+   |
+ 6 +     use crate::domain::resource_management::value_objects::Currency;
+   |
+ 6 +     use crate::domain::shared_kernel::common_types::Currency;
+   |
+
+error[E0433]: failed to resolve: use of undeclared type `PaymentMethod`
+  --> src/domain/payment/aggregates/payment_tests.rs:15:22
+   |
+15 |         let method = PaymentMethod::new(
+   |                      ^^^^^^^^^^^^^ use of undeclared type `PaymentMethod`
+   |
+help: an enum with a similar name exists
+   |
+15 |         let method = PaymentMethodType::new(
+   |                                   ++++
+help: consider importing this struct through its public re-export
+   |
+ 6 +     use crate::domain::payment::PaymentMethod;
+   |
+
+error[E0433]: failed to resolve: use of undeclared type `Currency`
+  --> src/domain/payment/aggregates/payment_tests.rs:17:13
+   |
+17 |             Currency::USDT,
+   |             ^^^^^^^^ use of undeclared type `Currency`
+   |
+help: consider importing one of these enums
+   |
+ 6 +     use crate::domain::payment::Currency;
+   |
+ 6 +     use crate::domain::resource_management::value_objects::Currency;
+   |
+ 6 +     use crate::domain::shared_kernel::common_types::Currency;
+   |
+
+error[E0433]: failed to resolve: use of undeclared type `Payment`
+  --> src/domain/payment/aggregates/payment_tests.rs:21:23
+   |
+21 |         let payment = Payment::create(wallet_address.clone(), amount, method).unwrap();
+   |                       ^^^^^^^ use of undeclared type `Payment`
+   |
+help: consider importing this struct through its public re-export
+   |
+ 6 +     use crate::domain::payment::Payment;
+   |
+
+error[E0433]: failed to resolve: use of undeclared type `PaymentStatus`
+  --> src/domain/payment/aggregates/payment_tests.rs:24:39
+   |
+24 |         assert_eq!(*payment.status(), PaymentStatus::Created);
+   |                                       ^^^^^^^^^^^^^ use of undeclared type `PaymentStatus`
+   |
+help: consider importing this enum through its public re-export
+   |
+ 6 +     use crate::domain::payment::PaymentStatus;
+   |
+
+error[E0425]: cannot find value `user_id` in this scope
+   --> src/application/payment/commands/create_payment_command.rs:267:49
+    |
+267 |         let command = CreatePaymentCommand::new(user_id, amount, method);
+    |                                                 ^^^^^^^ not found in this scope
+    |
+help: consider importing this unit struct through its public re-export
+    |
+187 +     use crate::schema::event_store::user_id;
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `deadpool`
+   --> src/infrastructure/adapters/repositories/database_utils.rs:289:13
+    |
+289 |             deadpool::managed::Config::from_url(&database_url),
+    |             ^^^^^^^^ use of unresolved module or unlinked crate `deadpool`
+    |
+    = help: if you wanted to use a crate named `deadpool`, use `cargo add deadpool` to add it to your `Cargo.toml`
+help: consider importing one of these items
+    |
+276 +     use crate::config::Config;
+    |
+276 +     use base64::engine::Config;
+    |
+help: if you import `Config`, refer to it directly
+    |
+289 -             deadpool::managed::Config::from_url(&database_url),
+289 +             Config::from_url(&database_url),
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `deadpool`
+   --> src/infrastructure/adapters/repositories/database_utils.rs:290:13
+    |
+290 |             deadpool::diesel::AsyncDieselConnectionManager::<AsyncPgConnection>::new(database_url),
+    |             ^^^^^^^^ use of unresolved module or unlinked crate `deadpool`
+    |
+    = help: if you wanted to use a crate named `deadpool`, use `cargo add deadpool` to add it to your `Cargo.toml`
+help: consider importing one of these structs
+    |
+276 +     use crate::infrastructure::adapter_repositories::AsyncDieselConnectionManager;
+    |
+276 +     use diesel_async::pooled_connection::AsyncDieselConnectionManager;
+    |
+help: if you import `AsyncDieselConnectionManager`, refer to it directly
+    |
+290 -             deadpool::diesel::AsyncDieselConnectionManager::<AsyncPgConnection>::new(database_url),
+290 +             AsyncDieselConnectionManager::<AsyncPgConnection>::new(database_url),
+    |
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `deadpool`
+   --> src/infrastructure/adapters/repositories/database_utils.rs:293:20
+    |
+293 |         let pool = deadpool::managed::Pool::builder(manager)
+    |                    ^^^^^^^^ use of unresolved module or unlinked crate `deadpool`
+    |
+    = help: if you wanted to use a crate named `deadpool`, use `cargo add deadpool` to add it to your `Cargo.toml`
+help: consider importing one of these items
+    |
+276 +     use crate::infrastructure::adapter_repositories::Pool;
+    |
+276 +     use diesel::r2d2::Pool;
+    |
+276 +     use diesel_async::pooled_connection::bb8::Pool;
+    |
+276 +     use diesel_async::pooled_connection::deadpool::Pool;
+    |
+help: if you import `Pool`, refer to it directly
+    |
+293 -         let pool = deadpool::managed::Pool::builder(manager)
+293 +         let pool = Pool::builder(manager)
+    |
+
+error[E0412]: cannot find type `AsyncPgConnection` in this scope
+   --> src/web/notifications/tests.rs:18:21
+    |
+ 18 |         pool: &Pool<AsyncPgConnection>,
+    |                     ^^^^^^^^^^^^^^^^^
+    |
+   ::: /Users/fluke/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/diesel-2.1.6/src/pg/connection/mod.rs:116:1
+    |
+116 | pub struct PgConnection {
+    | ----------------------- similarly named struct `PgConnection` defined here
+    |
+    = note: struct `crate::auth::token_service::tests::AsyncPgConnection` exists but is inaccessible
+help: a struct with a similar name exists
+    |
+ 18 -         pool: &Pool<AsyncPgConnection>,
+ 18 +         pool: &Pool<PgConnection>,
+    |
+help: consider importing this struct
+    |
+ 10 +     use diesel_async::AsyncPgConnection;
+    |
+
+error[E0412]: cannot find type `AsyncPgConnection` in this scope
+   --> src/web/notifications/tests.rs:46:21
+    |
+ 46 |         pool: &Pool<AsyncPgConnection>,
+    |                     ^^^^^^^^^^^^^^^^^
+    |
+   ::: /Users/fluke/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/diesel-2.1.6/src/pg/connection/mod.rs:116:1
+    |
+116 | pub struct PgConnection {
+    | ----------------------- similarly named struct `PgConnection` defined here
+    |
+    = note: struct `crate::auth::token_service::tests::AsyncPgConnection` exists but is inaccessible
+help: a struct with a similar name exists
+    |
+ 46 -         pool: &Pool<AsyncPgConnection>,
+ 46 +         pool: &Pool<PgConnection>,
+    |
+help: consider importing this struct
+    |
+ 10 +     use diesel_async::AsyncPgConnection;
+    |
+
+error[E0412]: cannot find type `AsyncPgConnection` in this scope
+   --> src/__test__/test_utils/fixtures.rs:41:43
+    |
+ 41 |     pub async fn insert(&self, conn: &mut AsyncPgConnection) -> Result<()> {
+    |                                           ^^^^^^^^^^^^^^^^^
+    |
+   ::: /Users/fluke/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/diesel-2.1.6/src/pg/connection/mod.rs:116:1
+    |
+116 | pub struct PgConnection {
+    | ----------------------- similarly named struct `PgConnection` defined here
+    |
+    = note: struct `crate::auth::token_service::tests::AsyncPgConnection` exists but is inaccessible
+help: a struct with a similar name exists
+    |
+ 41 -     pub async fn insert(&self, conn: &mut AsyncPgConnection) -> Result<()> {
+ 41 +     pub async fn insert(&self, conn: &mut PgConnection) -> Result<()> {
+    |
+help: consider importing this struct
+    |
+  4 + use diesel_async::AsyncPgConnection;
+    |
+
+error[E0412]: cannot find type `AsyncPgConnection` in this scope
+   --> src/__test__/test_utils/fixtures.rs:85:43
+    |
+ 85 |     pub async fn insert(&self, conn: &mut AsyncPgConnection) -> Result<()> {
+    |                                           ^^^^^^^^^^^^^^^^^
+    |
+   ::: /Users/fluke/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/diesel-2.1.6/src/pg/connection/mod.rs:116:1
+    |
+116 | pub struct PgConnection {
+    | ----------------------- similarly named struct `PgConnection` defined here
+    |
+    = note: struct `crate::auth::token_service::tests::AsyncPgConnection` exists but is inaccessible
+help: a struct with a similar name exists
+    |
+ 85 -     pub async fn insert(&self, conn: &mut AsyncPgConnection) -> Result<()> {
+ 85 +     pub async fn insert(&self, conn: &mut PgConnection) -> Result<()> {
+    |
+help: consider importing this struct
+    |
+  4 + use diesel_async::AsyncPgConnection;
+    |
+
+error[E0412]: cannot find type `AsyncPgConnection` in this scope
+   --> src/__test__/test_utils/fixtures.rs:139:43
+    |
+139 |     pub async fn insert(&self, conn: &mut AsyncPgConnection) -> Result<()> {
+    |                                           ^^^^^^^^^^^^^^^^^
+    |
+   ::: /Users/fluke/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/diesel-2.1.6/src/pg/connection/mod.rs:116:1
+    |
+116 | pub struct PgConnection {
+    | ----------------------- similarly named struct `PgConnection` defined here
+    |
+    = note: struct `crate::auth::token_service::tests::AsyncPgConnection` exists but is inaccessible
+help: a struct with a similar name exists
+    |
+139 -     pub async fn insert(&self, conn: &mut AsyncPgConnection) -> Result<()> {
+139 +     pub async fn insert(&self, conn: &mut PgConnection) -> Result<()> {
+    |
+help: consider importing this struct
+    |
+  4 + use diesel_async::AsyncPgConnection;
+    |
+
+error[E0412]: cannot find type `AsyncPgConnection` in this scope
+   --> src/__test__/test_utils/fixtures.rs:193:43
+    |
+193 |     pub async fn insert(&self, conn: &mut AsyncPgConnection) -> Result<()> {
+    |                                           ^^^^^^^^^^^^^^^^^
+    |
+   ::: /Users/fluke/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/diesel-2.1.6/src/pg/connection/mod.rs:116:1
+    |
+116 | pub struct PgConnection {
+    | ----------------------- similarly named struct `PgConnection` defined here
+    |
+    = note: struct `crate::auth::token_service::tests::AsyncPgConnection` exists but is inaccessible
+help: a struct with a similar name exists
+    |
+193 -     pub async fn insert(&self, conn: &mut AsyncPgConnection) -> Result<()> {
+193 +     pub async fn insert(&self, conn: &mut PgConnection) -> Result<()> {
+    |
+help: consider importing this struct
+    |
+  4 + use diesel_async::AsyncPgConnection;
+    |
+
+error[E0412]: cannot find type `AsyncPgConnection` in this scope
+   --> src/__test__/test_utils/fixtures.rs:216:20
+    |
+216 |         conn: &mut AsyncPgConnection,
+    |                    ^^^^^^^^^^^^^^^^^
+    |
+   ::: /Users/fluke/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/diesel-2.1.6/src/pg/connection/mod.rs:116:1
+    |
+116 | pub struct PgConnection {
+    | ----------------------- similarly named struct `PgConnection` defined here
+    |
+    = note: struct `crate::auth::token_service::tests::AsyncPgConnection` exists but is inaccessible
+help: a struct with a similar name exists
+    |
+216 -         conn: &mut AsyncPgConnection,
+216 +         conn: &mut PgConnection,
+    |
+help: consider importing this struct
+    |
+  4 + use diesel_async::AsyncPgConnection;
+    |
+
+error[E0412]: cannot find type `AsyncPgConnection` in this scope
+   --> src/__test__/test_utils/fixtures.rs:232:20
+    |
+232 |         conn: &mut AsyncPgConnection,
+    |                    ^^^^^^^^^^^^^^^^^
+    |
+   ::: /Users/fluke/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/diesel-2.1.6/src/pg/connection/mod.rs:116:1
+    |
+116 | pub struct PgConnection {
+    | ----------------------- similarly named struct `PgConnection` defined here
+    |
+    = note: struct `crate::auth::token_service::tests::AsyncPgConnection` exists but is inaccessible
+help: a struct with a similar name exists
+    |
+232 -         conn: &mut AsyncPgConnection,
+232 +         conn: &mut PgConnection,
+    |
+help: consider importing this struct
+    |
+  4 + use diesel_async::AsyncPgConnection;
+    |
+
+error[E0412]: cannot find type `AsyncPgConnection` in this scope
+   --> src/__test__/test_utils/fixtures.rs:248:20
+    |
+248 |         conn: &mut AsyncPgConnection,
+    |                    ^^^^^^^^^^^^^^^^^
+    |
+   ::: /Users/fluke/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/diesel-2.1.6/src/pg/connection/mod.rs:116:1
+    |
+116 | pub struct PgConnection {
+    | ----------------------- similarly named struct `PgConnection` defined here
+    |
+    = note: struct `crate::auth::token_service::tests::AsyncPgConnection` exists but is inaccessible
+help: a struct with a similar name exists
+    |
+248 -         conn: &mut AsyncPgConnection,
+248 +         conn: &mut PgConnection,
+    |
+help: consider importing this struct
+    |
+  4 + use diesel_async::AsyncPgConnection;
+    |
+
+error[E0728]: `await` is only allowed inside `async` functions and blocks
+   --> src/infrastructure/adapters/repositories/database_utils.rs:326:22
+    |
+319 |             conn.transaction::<_, AppError, _>(|conn| {
+    |                                                ------ this is not `async`
+...
+326 |                     .await
+    |                      ^^^^^ only allowed inside `async` functions and blocks
+
+error[E0728]: `await` is only allowed inside `async` functions and blocks
+   --> src/infrastructure/adapters/repositories/database_utils.rs:332:22
+    |
+319 |             conn.transaction::<_, AppError, _>(|conn| {
+    |                                                ------ this is not `async`
+...
+332 |                     .await
+    |                      ^^^^^ only allowed inside `async` functions and blocks
+
+error[E0728]: `await` is only allowed inside `async` functions and blocks
+   --> src/infrastructure/adapters/repositories/database_utils.rs:338:22
+    |
+319 |             conn.transaction::<_, AppError, _>(|conn| {
+    |                                                ------ this is not `async`
+...
+338 |                     .await
+    |                      ^^^^^ only allowed inside `async` functions and blocks
+
+error[E0728]: `await` is only allowed inside `async` functions and blocks
+   --> src/infrastructure/adapters/repositories/database_utils.rs:344:22
+    |
+319 |             conn.transaction::<_, AppError, _>(|conn| {
+    |                                                ------ this is not `async`
+...
+344 |                     .await
+    |                      ^^^^^ only allowed inside `async` functions and blocks
+
+warning: use of deprecated function `base64::decode`: Use Engine::decode
+   --> src/web/auth/session_handlers.rs:592:17
+    |
+592 |         base64::decode(&input)
+    |                 ^^^^^^
+    |
+    = note: `#[warn(deprecated)]` on by default
+
+error[E0053]: method `find_by_user` has an incompatible type for trait
+   --> src/application/payment/commands/create_payment_command.rs:204:54
+    |
+204 |         async fn find_by_user(&self, wallet_address: &UserId) -> Result<Vec<Payment>, String> {
+    |                                                      ^^^^^^^ expected `WalletAddress`, found `UserId`
+    |
+note: type in trait
+   --> src/domain/payment/repository_ports/mod.rs:23:50
+    |
+ 23 |     async fn find_by_user(&self, wallet_address: &WalletAddress) -> Result<Vec<Payment>, String>;
+    |                                                  ^^^^^^^^^^^^^^
+    = note: expected signature `fn(&'life0 MockPaymentRepository, &'life1 domain::wallet_management::value_objects::wallet_address::WalletAddress) -> Pin<_>`
+               found signature `fn(&'life0 MockPaymentRepository, &'life1 shared_kernel::value_objects::user_id::UserId) -> Pin<_>`
+help: change the parameter type to match the trait
+    |
+204 -         async fn find_by_user(&self, wallet_address: &UserId) -> Result<Vec<Payment>, String> {
+204 +         async fn find_by_user(&self, wallet_address: &'life1 domain::wallet_management::value_objects::wallet_address::WalletAddress) -> Result<Vec<Payment>, String> {
+    |
+
+error[E0053]: method `get_user_payment_stats` has an incompatible type for trait
+   --> src/application/payment/commands/create_payment_command.rs:232:64
+    |
+232 |         async fn get_user_payment_stats(&self, wallet_address: &UserId) -> Result<crate::domain::payment::PaymentStats, String> {
+    |                                                                ^^^^^^^ expected `WalletAddress`, found `UserId`
+    |
+note: type in trait
+   --> src/domain/payment/repository_ports/mod.rs:48:60
+    |
+ 48 |     async fn get_user_payment_stats(&self, wallet_address: &WalletAddress) -> Result<PaymentStats, String>;
+    |                                                            ^^^^^^^^^^^^^^
+    = note: expected signature `fn(&'life0 MockPaymentRepository, &'life1 domain::wallet_management::value_objects::wallet_address::WalletAddress) -> Pin<_>`
+               found signature `fn(&'life0 MockPaymentRepository, &'life1 shared_kernel::value_objects::user_id::UserId) -> Pin<_>`
+help: change the parameter type to match the trait
+    |
+232 -         async fn get_user_payment_stats(&self, wallet_address: &UserId) -> Result<crate::domain::payment::PaymentStats, String> {
+232 +         async fn get_user_payment_stats(&self, wallet_address: &'life1 domain::wallet_management::value_objects::wallet_address::WalletAddress) -> Result<crate::domain::payment::PaymentStats, String> {
+    |
+
+error[E0195]: lifetime parameters or bounds on method `publish` do not match the trait declaration
+   --> src/application/payment/commands/create_payment_command.rs:249:18
+    |
+247 |     #[async_trait]
+    |     -------------- this `where` clause might not match the one in the trait
+248 |     impl DomainEventBus for MockEventBus {
+249 |         async fn publish(&self, _event: Arc<dyn crate::domain::shared_kernel::DomainEvent>) -> Result<(), String> {
+    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ lifetimes do not match method in trait
+    |
+   ::: src/domain/shared_kernel/domain_event.rs:59:15
+    |
+ 59 |     fn publish(&self, event: &dyn DomainEvent);
+    |               - lifetimes in impl do not match this method in trait
+
+error[E0599]: no method named `transaction` found for struct `deadpool::managed::Object<AsyncDieselConnectionManager<diesel_async::AsyncPgConnection>>` in the current scope
+   --> src/infrastructure/adapters/repositories/database_utils.rs:319:18
+    |
+319 |             conn.transaction::<_, AppError, _>(|conn| {
+    |             -----^^^^^^^^^^^
+    |
+   ::: /Users/fluke/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/diesel-async-0.4.1/src/lib.rs:236:14
+    |
+236 |     async fn transaction<'a, R, E, F>(&mut self, callback: F) -> Result<R, E>
+    |              ----------- the method is available for `deadpool::managed::Object<AsyncDieselConnectionManager<diesel_async::AsyncPgConnection>>` here
+    |
+    = help: items from traits can only be used if the trait is in scope
+help: trait `AsyncConnection` which provides `transaction` is implemented but not in scope; perhaps you want to import it
+    |
+276 +     use diesel_async::AsyncConnection;
+    |
+help: there is a method `test_transaction` with a similar name
+    |
+319 |             conn.test_transaction::<_, AppError, _>(|conn| {
+    |                   +++++
+
+error[E0034]: multiple applicable items in scope
+   --> src/infrastructure/adapters/repositories/database_utils.rs:325:22
+    |
+325 |                     .execute(conn)
+    |                      ^^^^^^^ multiple `execute` found
+    |
+    = note: candidate #1 is defined in an impl of the trait `diesel::RunQueryDsl` for the type `SqlQuery<Inner>`
+    = note: candidate #2 is defined in an impl of the trait `diesel_async::RunQueryDsl` for the type `T`
+help: disambiguate the method for candidate #1
+    |
+324 -                 diesel::sql_query("DELETE FROM user_sessions WHERE wallet_address LIKE 'test_%'")
+325 -                     .execute(conn)
+324 +                 diesel::RunQueryDsl::execute(diesel::sql_query("DELETE FROM user_sessions WHERE wallet_address LIKE 'test_%'"), conn)
+    |
+help: disambiguate the method for candidate #2
+    |
+324 -                 diesel::sql_query("DELETE FROM user_sessions WHERE wallet_address LIKE 'test_%'")
+325 -                     .execute(conn)
+324 +                 diesel_async::RunQueryDsl::execute(diesel::sql_query("DELETE FROM user_sessions WHERE wallet_address LIKE 'test_%'"), conn)
+    |
+
+error[E0034]: multiple applicable items in scope
+   --> src/infrastructure/adapters/repositories/database_utils.rs:331:22
+    |
+331 |                     .execute(conn)
+    |                      ^^^^^^^ multiple `execute` found
+    |
+    = note: candidate #1 is defined in an impl of the trait `diesel::RunQueryDsl` for the type `SqlQuery<Inner>`
+    = note: candidate #2 is defined in an impl of the trait `diesel_async::RunQueryDsl` for the type `T`
+help: disambiguate the method for candidate #1
+    |
+330 -                 diesel::sql_query("DELETE FROM user_permissions WHERE user_id LIKE 'test_%'")
+331 -                     .execute(conn)
+330 +                 diesel::RunQueryDsl::execute(diesel::sql_query("DELETE FROM user_permissions WHERE user_id LIKE 'test_%'"), conn)
+    |
+help: disambiguate the method for candidate #2
+    |
+330 -                 diesel::sql_query("DELETE FROM user_permissions WHERE user_id LIKE 'test_%'")
+331 -                     .execute(conn)
+330 +                 diesel_async::RunQueryDsl::execute(diesel::sql_query("DELETE FROM user_permissions WHERE user_id LIKE 'test_%'"), conn)
+    |
+
+error[E0034]: multiple applicable items in scope
+   --> src/infrastructure/adapters/repositories/database_utils.rs:337:22
+    |
+337 |                     .execute(conn)
+    |                      ^^^^^^^ multiple `execute` found
+    |
+    = note: candidate #1 is defined in an impl of the trait `diesel::RunQueryDsl` for the type `SqlQuery<Inner>`
+    = note: candidate #2 is defined in an impl of the trait `diesel_async::RunQueryDsl` for the type `T`
+help: disambiguate the method for candidate #1
+    |
+336 -                 diesel::sql_query("DELETE FROM users WHERE wallet_address LIKE 'test_%'")
+337 -                     .execute(conn)
+336 +                 diesel::RunQueryDsl::execute(diesel::sql_query("DELETE FROM users WHERE wallet_address LIKE 'test_%'"), conn)
+    |
+help: disambiguate the method for candidate #2
+    |
+336 -                 diesel::sql_query("DELETE FROM users WHERE wallet_address LIKE 'test_%'")
+337 -                     .execute(conn)
+336 +                 diesel_async::RunQueryDsl::execute(diesel::sql_query("DELETE FROM users WHERE wallet_address LIKE 'test_%'"), conn)
+    |
+
+error[E0034]: multiple applicable items in scope
+   --> src/infrastructure/adapters/repositories/database_utils.rs:343:22
+    |
+343 |                     .execute(conn)
+    |                      ^^^^^^^ multiple `execute` found
+    |
+    = note: candidate #1 is defined in an impl of the trait `diesel::RunQueryDsl` for the type `SqlQuery<Inner>`
+    = note: candidate #2 is defined in an impl of the trait `diesel_async::RunQueryDsl` for the type `T`
+help: disambiguate the method for candidate #1
+    |
+342 -                 diesel::sql_query("DELETE FROM permission_groups WHERE group_name LIKE 'test_%'")
+343 -                     .execute(conn)
+342 +                 diesel::RunQueryDsl::execute(diesel::sql_query("DELETE FROM permission_groups WHERE group_name LIKE 'test_%'"), conn)
+    |
+help: disambiguate the method for candidate #2
+    |
+342 -                 diesel::sql_query("DELETE FROM permission_groups WHERE group_name LIKE 'test_%'")
+343 -                     .execute(conn)
+342 +                 diesel_async::RunQueryDsl::execute(diesel::sql_query("DELETE FROM permission_groups WHERE group_name LIKE 'test_%'"), conn)
+    |
+
+error: expected `,`, found `+`
+   --> tests/diesel_dsl_performance_benchmarks.rs:291:19
+    |
+291 |     println!("\n" + "=".repeat(60));
+    |                   ^ expected `,`
+
+warning: field `test_value` is never read
+  --> tests/integration_tests.rs:50:9
+   |
+48 |     struct TestResult {
+   |            ---------- field in this struct
+49 |         #[diesel(sql_type = diesel::sql_types::Integer)]
+50 |         test_value: i32,
+   |         ^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+error[E0425]: cannot find value `session_token` in module `sessions`
+  --> tests/simple_dsl_validation.rs:82:43
+   |
+82 |     let _session_token_column = sessions::session_token;
+   |                                           ^^^^^^^^^^^^^ not found in `sessions`
+
+error[E0422]: cannot find struct, variant or union type `WalletSearchCriteria` in module `epsx::domain::wallet_management`
+   --> tests/diesel_dsl_performance_benchmarks.rs:164:60
+    |
+164 |     let search_criteria = epsx::domain::wallet_management::WalletSearchCriteria {
+    |                                                            ^^^^^^^^^^^^^^^^^^^^
+    |
+   ::: /Users/fluke/Desktop/Work/epsx/apps/backend/src/domain/wallet_management/repository_ports/wallet_user_repository_port.rs:103:1
+    |
+103 | pub struct WalletUserSearchCriteria {
+    | ----------------------------------- similarly named struct `WalletUserSearchCriteria` defined here
+    |
+help: a struct with a similar name exists
+    |
+164 |     let search_criteria = epsx::domain::wallet_management::WalletUserSearchCriteria {
+    |                                                                  ++++
+help: consider importing this struct
+    |
+  6 + use epsx::application::wallet_management::wallet_management_repository::WalletSearchCriteria;
+    |
+help: if you import `WalletSearchCriteria`, refer to it directly
+    |
+164 -     let search_criteria = epsx::domain::wallet_management::WalletSearchCriteria {
+164 +     let search_criteria = WalletSearchCriteria {
+    |
+
+warning: unused import: `diesel_async::RunQueryDsl`
+ --> tests/simple_dsl_validation.rs:7:5
+  |
+7 | use diesel_async::RunQueryDsl;
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: unused import: `Error as DieselError`
+   --> tests/simple_dsl_validation.rs:135:26
+    |
+135 |     use diesel::result::{Error as DieselError, DatabaseErrorKind};
+    |                          ^^^^^^^^^^^^^^^^^^^^
+
+warning: unused import: `pooled_connection::deadpool::Pool`
+ --> tests/diesel_dsl_performance_benchmarks.rs:8:33
+  |
+8 | use diesel_async::{RunQueryDsl, pooled_connection::deadpool::Pool};
+  |                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  |
+  = note: `#[warn(unused_imports)]` (part of `#[warn(unused)]`) on by default
+
+warning: `epsx` (test "integration_tests") generated 1 warning
+error[E0277]: `Result<(), Box<dyn StdError>>` is not a future
+   --> tests/simple_dsl_validation.rs:161:34
+    |
+161 |     test_basic_dsl_compilation().await?;
+    |     ---------------------------- ^^^^^ `Result<(), Box<dyn StdError>>` is not a future
+    |     |
+    |     this call returns `Result<(), Box<dyn StdError>>`
+    |
+    = help: the trait `std::future::Future` is not implemented for `Result<(), Box<dyn StdError>>`
+    = note: Result<(), Box<dyn StdError>> must be a future or must implement `IntoFuture` to be awaited
+    = note: required for `Result<(), Box<dyn StdError>>` to implement `IntoFuture`
+help: remove the `.await`
+    |
+161 -     test_basic_dsl_compilation().await?;
+161 +     test_basic_dsl_compilation()?;
+    |
+help: alternatively, consider making `fn test_basic_dsl_compilation` asynchronous
+    |
+ 11 | async async fn test_basic_dsl_compilation() -> Result<(), Box<dyn std::error::Error>> {
+    |       +++++
+
+error[E0277]: `Result<(), Box<dyn StdError>>` is not a future
+   --> tests/simple_dsl_validation.rs:162:37
+    |
+162 |     test_query_pattern_validation().await?;
+    |     ------------------------------- ^^^^^ `Result<(), Box<dyn StdError>>` is not a future
+    |     |
+    |     this call returns `Result<(), Box<dyn StdError>>`
+    |
+    = help: the trait `std::future::Future` is not implemented for `Result<(), Box<dyn StdError>>`
+    = note: Result<(), Box<dyn StdError>> must be a future or must implement `IntoFuture` to be awaited
+    = note: required for `Result<(), Box<dyn StdError>>` to implement `IntoFuture`
+help: remove the `.await`
+    |
+162 -     test_query_pattern_validation().await?;
+162 +     test_query_pattern_validation()?;
+    |
+help: alternatively, consider making `fn test_query_pattern_validation` asynchronous
+    |
+ 29 | async async fn test_query_pattern_validation() -> Result<(), Box<dyn std::error::Error>> {
+    |       +++++
+
+error[E0277]: `Result<(), Box<dyn StdError>>` is not a future
+   --> tests/simple_dsl_validation.rs:163:39
+    |
+163 |     test_database_schema_validation().await?;
+    |     --------------------------------- ^^^^^ `Result<(), Box<dyn StdError>>` is not a future
+    |     |
+    |     this call returns `Result<(), Box<dyn StdError>>`
+    |
+    = help: the trait `std::future::Future` is not implemented for `Result<(), Box<dyn StdError>>`
+    = note: Result<(), Box<dyn StdError>> must be a future or must implement `IntoFuture` to be awaited
+    = note: required for `Result<(), Box<dyn StdError>>` to implement `IntoFuture`
+help: remove the `.await`
+    |
+163 -     test_database_schema_validation().await?;
+163 +     test_database_schema_validation()?;
+    |
+help: alternatively, consider making `fn test_database_schema_validation` asynchronous
+    |
+ 56 | async async fn test_database_schema_validation() -> Result<(), Box<dyn std::error::Error>> {
+    |       +++++
+
+error[E0277]: `Result<(), Box<dyn StdError>>` is not a future
+   --> tests/simple_dsl_validation.rs:164:35
+    |
+164 |     test_type_safety_validation().await?;
+    |     ----------------------------- ^^^^^ `Result<(), Box<dyn StdError>>` is not a future
+    |     |
+    |     this call returns `Result<(), Box<dyn StdError>>`
+    |
+    = help: the trait `std::future::Future` is not implemented for `Result<(), Box<dyn StdError>>`
+    = note: Result<(), Box<dyn StdError>> must be a future or must implement `IntoFuture` to be awaited
+    = note: required for `Result<(), Box<dyn StdError>>` to implement `IntoFuture`
+help: remove the `.await`
+    |
+164 -     test_type_safety_validation().await?;
+164 +     test_type_safety_validation()?;
+    |
+help: alternatively, consider making `fn test_type_safety_validation` asynchronous
+    |
+ 97 | async async fn test_type_safety_validation() -> Result<(), Box<dyn std::error::Error>> {
+    |       +++++
+
+error[E0277]: `Result<(), Box<dyn StdError>>` is not a future
+   --> tests/simple_dsl_validation.rs:165:36
+    |
+165 |     test_error_handling_patterns().await?;
+    |     ------------------------------ ^^^^^ `Result<(), Box<dyn StdError>>` is not a future
+    |     |
+    |     this call returns `Result<(), Box<dyn StdError>>`
+    |
+    = help: the trait `std::future::Future` is not implemented for `Result<(), Box<dyn StdError>>`
+    = note: Result<(), Box<dyn StdError>> must be a future or must implement `IntoFuture` to be awaited
+    = note: required for `Result<(), Box<dyn StdError>>` to implement `IntoFuture`
+help: remove the `.await`
+    |
+165 -     test_error_handling_patterns().await?;
+165 +     test_error_handling_patterns()?;
+    |
+help: alternatively, consider making `fn test_error_handling_patterns` asynchronous
+    |
+132 | async async fn test_error_handling_patterns() -> Result<(), Box<dyn std::error::Error>> {
+    |       +++++
+
+warning: unused import: `diesel::prelude`
+ --> tests/simple_dsl_validation.rs:6:5
+  |
+6 | use diesel::prelude::*;
+  |     ^^^^^^^^^^^^^^^
+
+Some errors have detailed explanations: E0277, E0425.
+For more information about an error, try `rustc --explain E0277`.
+warning: `epsx` (test "simple_dsl_validation") generated 3 warnings
+error: could not compile `epsx` (test "simple_dsl_validation") due to 6 previous errors; 3 warnings emitted
+warning: build failed, waiting for other jobs to finish...
+error[E0599]: no method named `get_wallet_statistics` found for struct `WalletUserRepositoryAdapter` in the current scope
+   --> tests/diesel_dsl_performance_benchmarks.rs:158:29
+    |
+158 |     let stats = wallet_repo.get_wallet_statistics().await?;
+    |                             ^^^^^^^^^^^^^^^^^^^^^
+    |
+help: there is a method `get_statistics` with a similar name
+    |
+158 -     let stats = wallet_repo.get_wallet_statistics().await?;
+158 +     let stats = wallet_repo.get_statistics().await?;
+    |
+
+error[E0599]: no method named `search_wallets` found for struct `WalletUserRepositoryAdapter` in the current scope
+   --> tests/diesel_dsl_performance_benchmarks.rs:174:38
+    |
+174 |     let search_results = wallet_repo.search_wallets(&search_criteria).await?;
+    |                                      ^^^^^^^^^^^^^^ method not found in `WalletUserRepositoryAdapter`
+
+error[E0599]: no method named `get_statistics` found for struct `GroupRepositoryAdapter` in the current scope
+   --> tests/diesel_dsl_performance_benchmarks.rs:184:34
+    |
+184 |     let group_stats = group_repo.get_statistics().await?;
+    |                                  ^^^^^^^^^^^^^^ method not found in `GroupRepositoryAdapter`
+    |
+   ::: /Users/fluke/Desktop/Work/epsx/apps/backend/src/domain/permission_management/repository_ports/group_repository_port.rs:47:14
+    |
+ 47 |     async fn get_statistics(&self) -> AppResult<GroupStatistics>;
+    |              -------------- the method is available for `GroupRepositoryAdapter` here
+    |
+    = help: items from traits can only be used if the trait is in scope
+help: trait `GroupRepositoryPort` which provides `get_statistics` is implemented but not in scope; perhaps you want to import it
+    |
+  6 + use epsx::domain::permission_management::GroupRepositoryPort;
+    |
+
+error[E0277]: `Result<(), Box<dyn StdError>>` is not a future
+   --> tests/diesel_dsl_performance_benchmarks.rs:285:34
+    |
+285 |     benchmark_basic_operations().await?;
+    |     ---------------------------- ^^^^^ `Result<(), Box<dyn StdError>>` is not a future
+    |     |
+    |     this call returns `Result<(), Box<dyn StdError>>`
+    |
+    = help: the trait `Future` is not implemented for `Result<(), Box<dyn StdError>>`
+    = note: Result<(), Box<dyn StdError>> must be a future or must implement `IntoFuture` to be awaited
+    = note: required for `Result<(), Box<dyn StdError>>` to implement `IntoFuture`
+help: remove the `.await`
+    |
+285 -     benchmark_basic_operations().await?;
+285 +     benchmark_basic_operations()?;
+    |
+help: alternatively, consider making `fn benchmark_basic_operations` asynchronous
+    |
+ 12 | async async fn benchmark_basic_operations() -> Result<(), Box<dyn std::error::Error>> {
+    |       +++++
+
+error[E0277]: `Result<(), Box<dyn StdError>>` is not a future
+   --> tests/diesel_dsl_performance_benchmarks.rs:286:39
+    |
+286 |     benchmark_repository_operations().await?;
+    |     --------------------------------- ^^^^^ `Result<(), Box<dyn StdError>>` is not a future
+    |     |
+    |     this call returns `Result<(), Box<dyn StdError>>`
+    |
+    = help: the trait `Future` is not implemented for `Result<(), Box<dyn StdError>>`
+    = note: Result<(), Box<dyn StdError>> must be a future or must implement `IntoFuture` to be awaited
+    = note: required for `Result<(), Box<dyn StdError>>` to implement `IntoFuture`
+help: remove the `.await`
+    |
+286 -     benchmark_repository_operations().await?;
+286 +     benchmark_repository_operations()?;
+    |
+help: alternatively, consider making `fn benchmark_repository_operations` asynchronous
+    |
+141 | async async fn benchmark_repository_operations() -> Result<(), Box<dyn std::error::Error>> {
+    |       +++++
+
+error[E0277]: `Result<(), Box<dyn StdError>>` is not a future
+   --> tests/diesel_dsl_performance_benchmarks.rs:287:29
+    |
+287 |     validate_memory_usage().await?;
+    |     ----------------------- ^^^^^ `Result<(), Box<dyn StdError>>` is not a future
+    |     |
+    |     this call returns `Result<(), Box<dyn StdError>>`
+    |
+    = help: the trait `Future` is not implemented for `Result<(), Box<dyn StdError>>`
+    = note: Result<(), Box<dyn StdError>> must be a future or must implement `IntoFuture` to be awaited
+    = note: required for `Result<(), Box<dyn StdError>>` to implement `IntoFuture`
+help: remove the `.await`
+    |
+287 -     validate_memory_usage().await?;
+287 +     validate_memory_usage()?;
+    |
+help: alternatively, consider making `fn validate_memory_usage` asynchronous
+    |
+208 | async async fn validate_memory_usage() -> Result<(), Box<dyn std::error::Error>> {
+    |       +++++
+
+Some errors have detailed explanations: E0277, E0422, E0599.
+warning: `epsx` (test "diesel_dsl_performance_benchmarks") generated 1 warning
+error: could not compile `epsx` (test "diesel_dsl_performance_benchmarks") due to 8 previous errors; 1 warning emitted
+error[E0308]: mismatched types
+  --> src/__test__/test_utils/database.rs:37:9
+   |
+35 |     pub async fn get_connection(&self) -> Result<AsyncPgConnection> {
+   |                                           ------------------------- expected `std::result::Result<diesel_async::AsyncPgConnection, anyhow::Error>` because of return type
+36 |         let pool = get_diesel_pool().await?;
+37 |         pool.get().await.map_err(|e| anyhow::anyhow!("Failed to get test connection: {}", e))
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ expected `Result<AsyncPgConnection, Error>`, found `Result<Object<...>, ...>`
+   |
+   = note: expected enum `std::result::Result<diesel_async::AsyncPgConnection, _>`
+              found enum `std::result::Result<deadpool::managed::Object<AsyncDieselConnectionManager<diesel_async::AsyncPgConnection>>, _>`
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `user_profiles`
+   --> src/__test__/test_utils/fixtures.rs:140:29
+    |
+140 |         diesel::insert_into(user_profiles::table)
+    |                             ^^^^^^^^^^^^^ use of unresolved module or unlinked crate `user_profiles`
+    |
+    = help: if you wanted to use a crate named `user_profiles`, use `cargo add user_profiles` to add it to your `Cargo.toml`
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `user_profiles`
+   --> src/__test__/test_utils/fixtures.rs:142:17
+    |
+142 |                 user_profiles::id.eq(&self.id),
+    |                 ^^^^^^^^^^^^^ use of unresolved module or unlinked crate `user_profiles`
+    |
+    = help: if you wanted to use a crate named `user_profiles`, use `cargo add user_profiles` to add it to your `Cargo.toml`
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `user_profiles`
+   --> src/__test__/test_utils/fixtures.rs:143:17
+    |
+143 |                 user_profiles::wallet_address.eq(&self.wallet_address),
+    |                 ^^^^^^^^^^^^^ use of unresolved module or unlinked crate `user_profiles`
+    |
+    = help: if you wanted to use a crate named `user_profiles`, use `cargo add user_profiles` to add it to your `Cargo.toml`
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `user_profiles`
+   --> src/__test__/test_utils/fixtures.rs:144:17
+    |
+144 |                 user_profiles::email.eq(&self.email),
+    |                 ^^^^^^^^^^^^^ use of unresolved module or unlinked crate `user_profiles`
+    |
+    = help: if you wanted to use a crate named `user_profiles`, use `cargo add user_profiles` to add it to your `Cargo.toml`
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `user_profiles`
+   --> src/__test__/test_utils/fixtures.rs:145:17
+    |
+145 |                 user_profiles::display_name.eq(&self.display_name),
+    |                 ^^^^^^^^^^^^^ use of unresolved module or unlinked crate `user_profiles`
+    |
+    = help: if you wanted to use a crate named `user_profiles`, use `cargo add user_profiles` to add it to your `Cargo.toml`
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `user_profiles`
+   --> src/__test__/test_utils/fixtures.rs:146:17
+    |
+146 |                 user_profiles::created_at.eq(&self.created_at),
+    |                 ^^^^^^^^^^^^^ use of unresolved module or unlinked crate `user_profiles`
+    |
+    = help: if you wanted to use a crate named `user_profiles`, use `cargo add user_profiles` to add it to your `Cargo.toml`
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `user_profiles`
+   --> src/__test__/test_utils/fixtures.rs:147:17
+    |
+147 |                 user_profiles::updated_at.eq(&self.updated_at),
+    |                 ^^^^^^^^^^^^^ use of unresolved module or unlinked crate `user_profiles`
+    |
+    = help: if you wanted to use a crate named `user_profiles`, use `cargo add user_profiles` to add it to your `Cargo.toml`
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `notifications`
+   --> src/__test__/test_utils/fixtures.rs:194:29
+    |
+194 |         diesel::insert_into(notifications::table)
+    |                             ^^^^^^^^^^^^^ use of unresolved module or unlinked crate `notifications`
+    |
+    = help: if you wanted to use a crate named `notifications`, use `cargo add notifications` to add it to your `Cargo.toml`
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `notifications`
+   --> src/__test__/test_utils/fixtures.rs:196:17
+    |
+196 |                 notifications::id.eq(&self.id),
+    |                 ^^^^^^^^^^^^^ use of unresolved module or unlinked crate `notifications`
+    |
+    = help: if you wanted to use a crate named `notifications`, use `cargo add notifications` to add it to your `Cargo.toml`
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `notifications`
+   --> src/__test__/test_utils/fixtures.rs:197:17
+    |
+197 |                 notifications::user_id.eq(&self.user_id),
+    |                 ^^^^^^^^^^^^^ use of unresolved module or unlinked crate `notifications`
+    |
+    = help: if you wanted to use a crate named `notifications`, use `cargo add notifications` to add it to your `Cargo.toml`
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `notifications`
+   --> src/__test__/test_utils/fixtures.rs:198:17
+    |
+198 |                 notifications::title.eq(&self.title),
+    |                 ^^^^^^^^^^^^^ use of unresolved module or unlinked crate `notifications`
+    |
+    = help: if you wanted to use a crate named `notifications`, use `cargo add notifications` to add it to your `Cargo.toml`
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `notifications`
+   --> src/__test__/test_utils/fixtures.rs:199:17
+    |
+199 |                 notifications::message.eq(&self.message),
+    |                 ^^^^^^^^^^^^^ use of unresolved module or unlinked crate `notifications`
+    |
+    = help: if you wanted to use a crate named `notifications`, use `cargo add notifications` to add it to your `Cargo.toml`
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `notifications`
+   --> src/__test__/test_utils/fixtures.rs:200:17
+    |
+200 |                 notifications::notification_type.eq(&self.notification_type),
+    |                 ^^^^^^^^^^^^^ use of unresolved module or unlinked crate `notifications`
+    |
+    = help: if you wanted to use a crate named `notifications`, use `cargo add notifications` to add it to your `Cargo.toml`
+
+error[E0433]: failed to resolve: use of unresolved module or unlinked crate `notifications`
+   --> src/__test__/test_utils/fixtures.rs:201:17
+    |
+201 |                 notifications::created_at.eq(&self.created_at),
+    |                 ^^^^^^^^^^^^^ use of unresolved module or unlinked crate `notifications`
+    |
+    = help: if you wanted to use a crate named `notifications`, use `cargo add notifications` to add it to your `Cargo.toml`
+
+error[E0624]: method `year` is private
+    --> src/domain/payment/value_objects/payment_id.rs:252:25
+     |
+ 252 |         assert_eq!(date.year(), 2024);
+     |                         ^^^^ private method
+     |
+    ::: /Users/fluke/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/chrono-0.4.42/src/naive/date/mod.rs:1380:5
+     |
+1380 |     const fn year(&self) -> i32 {
+     |     --------------------------- private method defined here
+     |
+     = help: items from traits can only be used if the trait is in scope
+help: trait `Datelike` which provides `year` is implemented but not in scope; perhaps you want to import it
+     |
+ 188 +     use chrono::Datelike;
+     |
+
+error[E0624]: method `month` is private
+    --> src/domain/payment/value_objects/payment_id.rs:253:25
+     |
+ 253 |         assert_eq!(date.month(), 12);
+     |                         ^^^^^ private method
+     |
+    ::: /Users/fluke/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/chrono-0.4.42/src/naive/date/mod.rs:1393:5
+     |
+1393 |     const fn month(&self) -> u32 {
+     |     ---------------------------- private method defined here
+     |
+     = help: items from traits can only be used if the trait is in scope
+help: trait `Datelike` which provides `month` is implemented but not in scope; perhaps you want to import it
+     |
+ 188 +     use chrono::Datelike;
+     |
+
+error[E0624]: method `day` is private
+    --> src/domain/payment/value_objects/payment_id.rs:254:25
+     |
+ 254 |         assert_eq!(date.day(), 1);
+     |                         ^^^ private method
+     |
+    ::: /Users/fluke/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/chrono-0.4.42/src/naive/date/mod.rs:1399:5
+     |
+1399 |     const fn day(&self) -> u32 {
+     |     -------------------------- private method defined here
+     |
+     = help: items from traits can only be used if the trait is in scope
+help: trait `Datelike` which provides `day` is implemented but not in scope; perhaps you want to import it
+     |
+ 188 +     use chrono::Datelike;
+     |
+
+error[E0599]: no function or associated item named `generate` found for struct `shared_kernel::value_objects::user_id::UserId` in the current scope
+  --> src/domain/payment/aggregates/payment_tests.rs:13:38
+   |
+13 |         let wallet_address = UserId::generate();
+   |                                      ^^^^^^^^ function or associated item not found in `shared_kernel::value_objects::user_id::UserId`
+   |
+  ::: src/domain/shared_kernel/value_objects/user_id.rs:9:1
+   |
+ 9 | pub struct UserId(String);
+   | ----------------- function or associated item `generate` not found for this struct
+   |
+note: if you're trying to build a new `shared_kernel::value_objects::user_id::UserId` consider using one of the following associated functions:
+      shared_kernel::value_objects::user_id::UserId::new
+      shared_kernel::value_objects::user_id::UserId::from_string
+      shared_kernel::value_objects::user_id::UserId::from_string_unchecked
+      shared_kernel::value_objects::user_id::UserId::parse
+  --> src/domain/shared_kernel/value_objects/user_id.rs:18:5
+   |
+18 |     pub fn new() -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^
+...
+22 |     pub fn from_string(id: String) -> Result<Self, ValueObjectError> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+31 |     pub fn from_string_unchecked(id: String) -> Self {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+...
+35 |     pub fn parse(id: &str) -> Result<Self, ValueObjectError> {
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   = help: items from traits can only be used if the trait is implemented and in scope
+   = note: the following traits define an item `generate`, perhaps you need to implement one of them:
+           candidate #1: `BlockRngCore`
+           candidate #2: `GenericSequence`
+           candidate #3: `rand_core::block::BlockRngCore`
+
+error[E0061]: this function takes 0 arguments but 1 argument was supplied
+   --> src/application/payment/commands/create_payment_command.rs:260:30
+    |
+260 |         let wallet_address = UserId::new(1);
+    |                              ^^^^^^^^^^^ - unexpected argument of type `{integer}`
+    |
+note: associated function defined here
+   --> src/domain/shared_kernel/value_objects/user_id.rs:18:12
+    |
+ 18 |     pub fn new() -> Self {
+    |            ^^^
+help: remove the extra argument
+    |
+260 -         let wallet_address = UserId::new(1);
+260 +         let wallet_address = UserId::new();
+    |
+
+error[E0599]: no variant or associated item named `CreditCard` found for enum `payment_method::PaymentMethodType` in the current scope
+   --> src/application/payment/commands/create_payment_command.rs:263:56
+    |
+263 |             crate::domain::payment::PaymentMethodType::CreditCard,
+    |                                                        ^^^^^^^^^^ variant or associated item not found in `payment_method::PaymentMethodType`
+    |
+   ::: src/domain/payment/value_objects/payment_method.rs:158:1
+    |
+158 | pub enum PaymentMethodType {
+    | -------------------------- variant or associated item `CreditCard` not found for this enum
+
+error[E0599]: no function or associated item named `default` found for struct `payment_method::PaymentMethodConfig` in the current scope
+   --> src/application/payment/commands/create_payment_command.rs:264:58
+    |
+264 |             crate::domain::payment::PaymentMethodConfig::default(),
+    |                                                          ^^^^^^^ function or associated item not found in `payment_method::PaymentMethodConfig`
+    |
+   ::: src/domain/payment/value_objects/payment_method.rs:215:1
+    |
+215 | pub struct PaymentMethodConfig {
+    | ------------------------------ function or associated item `default` not found for this struct
+    |
+note: if you're trying to build a new `payment_method::PaymentMethodConfig`, consider using `payment_method::PaymentMethodConfig::default_for_method` which returns `payment_method::PaymentMethodConfig`
+   --> src/domain/payment/value_objects/payment_method.rs:226:5
+    |
+226 |     pub fn default_for_method(method_type: &PaymentMethodType, currency: &Currency) -> Self {
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    = help: items from traits can only be used if the trait is implemented and in scope
+    = note: the following traits define an item `default`, perhaps you need to implement one of them:
+            candidate #1: `std::default::Default`
+            candidate #2: `tinyvec::array::Array`
+
+error[E0061]: this function takes 3 arguments but 2 arguments were supplied
+   --> src/application/payment/commands/create_payment_command.rs:262:22
+    |
+262 |           let method = PaymentMethod::new(
+    |  ______________________^^^^^^^^^^^^^^^^^^-
+263 | |             crate::domain::payment::PaymentMethodType::CreditCard,
+264 | |             crate::domain::payment::PaymentMethodConfig::default(),
+265 | |         ).unwrap();
+    | |_________- argument #3 of type `std::option::Option<shared_kernel::value_objects::payments::Network>` is missing
+    |
+note: associated function defined here
+   --> src/domain/payment/value_objects/payment_method.rs:20:12
+    |
+ 20 |     pub fn new(
+    |            ^^^
+...
+ 23 |         network: Option<Network>,
+    |         ------------------------
+help: provide the argument
+    |
+265 |         let method = PaymentMethod::new(
+266 |             crate::domain::payment::PaymentMethodType::CreditCard,
+267 |             crate::domain::payment::PaymentMethodConfig::default(),
+268 ~             /* std::option::Option<shared_kernel::value_objects::payments::Network> */,
+269 ~         ).unwrap();
+    |
+
+error[E0277]: the trait bound `session_handlers::SessionVerificationResponse: serde::Deserialize<'de>` is not satisfied
+    --> src/web/auth/session_handlers.rs:333:57
+     |
+ 333 |         let deserialized: SessionVerificationResponse = serde_json::from_str(&json).unwrap();
+     |                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+     |
+help: the trait `core::errors::_::_serde::Deserialize<'_>` is not implemented for `session_handlers::SessionVerificationResponse`
+    --> src/web/auth/session_handlers.rs:27:1
+     |
+  27 | pub struct SessionVerificationResponse {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = note: for local types consider adding `#[derive(serde::Deserialize)]` to your `session_handlers::SessionVerificationResponse` type
+     = note: for types from other crates check whether the crate offers a `serde` feature flag
+     = help: the following other types implement trait `core::errors::_::_serde::Deserialize<'de>`:
+               `&'a [u8]` implements `core::errors::_::_serde::Deserialize<'de>`
+               `&'a camino::Utf8Path` implements `core::errors::_::_serde::Deserialize<'de>`
+               `&'a serde_json::value::RawValue` implements `core::errors::_::_serde::Deserialize<'de>`
+               `&'a std::path::Path` implements `core::errors::_::_serde::Deserialize<'de>`
+               `&'a str` implements `core::errors::_::_serde::Deserialize<'de>`
+               `()` implements `core::errors::_::_serde::Deserialize<'de>`
+               `(T,)` implements `core::errors::_::_serde::Deserialize<'de>`
+               `(T0, T1)` implements `core::errors::_::_serde::Deserialize<'de>`
+             and 1222 others
+note: required by a bound in `serde_json::from_str`
+    --> /Users/fluke/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.145/src/de.rs:2699:8
+     |
+2697 | pub fn from_str<'a, T>(s: &'a str) -> Result<T>
+     |        -------- required by a bound in this function
+2698 | where
+2699 |     T: de::Deserialize<'a>,
+     |        ^^^^^^^^^^^^^^^^^^^ required by this bound in `from_str`
+     = note: the full name for the type has been written to '/Users/fluke/Desktop/Work/epsx/apps/backend/target/debug/deps/epsx-23ae9891cea64037.long-type-10808980635362276490.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+
+error[E0277]: the trait bound `session_handlers::SessionVerificationResponse: serde::Deserialize<'de>` is not satisfied
+    --> src/web/auth/session_handlers.rs:351:63
+     |
+ 351 |         let error_deserialized: SessionVerificationResponse = serde_json::from_str(&error_json).unwrap();
+     |                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ unsatisfied trait bound
+     |
+help: the trait `core::errors::_::_serde::Deserialize<'_>` is not implemented for `session_handlers::SessionVerificationResponse`
+    --> src/web/auth/session_handlers.rs:27:1
+     |
+  27 | pub struct SessionVerificationResponse {
+     | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+     = note: for local types consider adding `#[derive(serde::Deserialize)]` to your `session_handlers::SessionVerificationResponse` type
+     = note: for types from other crates check whether the crate offers a `serde` feature flag
+     = help: the following other types implement trait `core::errors::_::_serde::Deserialize<'de>`:
+               `&'a [u8]` implements `core::errors::_::_serde::Deserialize<'de>`
+               `&'a camino::Utf8Path` implements `core::errors::_::_serde::Deserialize<'de>`
+               `&'a serde_json::value::RawValue` implements `core::errors::_::_serde::Deserialize<'de>`
+               `&'a std::path::Path` implements `core::errors::_::_serde::Deserialize<'de>`
+               `&'a str` implements `core::errors::_::_serde::Deserialize<'de>`
+               `()` implements `core::errors::_::_serde::Deserialize<'de>`
+               `(T,)` implements `core::errors::_::_serde::Deserialize<'de>`
+               `(T0, T1)` implements `core::errors::_::_serde::Deserialize<'de>`
+             and 1222 others
+note: required by a bound in `serde_json::from_str`
+    --> /Users/fluke/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.145/src/de.rs:2699:8
+     |
+2697 | pub fn from_str<'a, T>(s: &'a str) -> Result<T>
+     |        -------- required by a bound in this function
+2698 | where
+2699 |     T: de::Deserialize<'a>,
+     |        ^^^^^^^^^^^^^^^^^^^ required by this bound in `from_str`
+     = note: the full name for the type has been written to '/Users/fluke/Desktop/Work/epsx/apps/backend/target/debug/deps/epsx-23ae9891cea64037.long-type-10808980635362276490.txt'
+     = note: consider using `--verbose` to print the full type name to the console
+
+error[E0308]: mismatched types
+   --> src/web/auth/session_handlers.rs:586:44
+    |
+586 |         let mut input = input.replace('-', '+').replace('_', '/');
+    |                               -------      ^^^ expected `&str`, found `char`
+    |                               |
+    |                               arguments to this method are incorrect
+    |
+note: method defined here
+   --> /Users/fluke/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/src/rust/library/alloc/src/str.rs:268:12
+    |
+268 |     pub fn replace<P: Pattern>(&self, from: P, to: &str) -> String {
+    |            ^^^^^^^
+help: if you meant to write a string literal, use double quotes
+    |
+586 -         let mut input = input.replace('-', '+').replace('_', '/');
+586 +         let mut input = input.replace('-', "+").replace('_', '/');
+    |
+
+error[E0308]: mismatched types
+   --> src/web/auth/session_handlers.rs:586:62
+    |
+586 |         let mut input = input.replace('-', '+').replace('_', '/');
+    |                                                 -------      ^^^ expected `&str`, found `char`
+    |                                                 |
+    |                                                 arguments to this method are incorrect
+    |
+note: method defined here
+   --> /Users/fluke/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/src/rust/library/alloc/src/str.rs:268:12
+    |
+268 |     pub fn replace<P: Pattern>(&self, from: P, to: &str) -> String {
+    |            ^^^^^^^
+help: if you meant to write a string literal, use double quotes
+    |
+586 -         let mut input = input.replace('-', '+').replace('_', '/');
+586 +         let mut input = input.replace('-', '+').replace('_', "/");
+    |
+
+error[E0596]: cannot borrow `rates` as mutable, as it is not declared as mutable
+   --> src/domain/payment/value_objects/payment_amount.rs:458:9
+    |
+458 |         rates.set_rate(Currency::ETH, dec!(2000.0)); // 1 ETH = $2000
+    |         ^^^^^ cannot borrow as mutable
+    |
+help: consider changing this to be mutable
+    |
+457 |         let mut rates = ExchangeRates::new();
+    |             +++
+
+error[E0596]: cannot borrow `payment_addr` as mutable, as it is not declared as mutable
+   --> src/domain/payment/value_objects/crypto_address.rs:487:9
+    |
+487 |         payment_addr.mark_verified();
+    |         ^^^^^^^^^^^^ cannot borrow as mutable
+    |
+help: consider changing this to be mutable
+    |
+479 |         let mut payment_addr = PaymentAddress::new(
+    |             +++
+
+error[E0596]: cannot borrow `tx_hash` as mutable, as it is not declared as mutable
+   --> src/domain/payment/value_objects/transaction_hash.rs:502:13
+    |
+502 |         let tx_hash = tx_hash;
+    |             ^^^^^^^ not mutable
+503 |         tx_hash.update_confirmations(1);
+    |         ------- cannot borrow as mutable
+...
+507 |         tx_hash.update_confirmations(15);
+    |         ------- cannot borrow as mutable
+    |
+help: consider changing this to be mutable
+    |
+502 |         let mut tx_hash = tx_hash;
+    |             +++
+
+error[E0596]: cannot borrow `receipt` as mutable, as it is not declared as mutable
+   --> src/domain/payment/value_objects/transaction_hash.rs:553:9
+    |
+553 |         receipt.set_gas_info(21000, 20000000000); // 21k gas at 20 gwei
+    |         ^^^^^^^ cannot borrow as mutable
+    |
+help: consider changing this to be mutable
+    |
+543 |         let mut receipt = TransactionReceipt::new(
+    |             +++
+
+warning: unreachable pattern
+   --> src/domain/payment/value_objects/payment_method.rs:466:13
+    |
+461 |             PaymentInstructions::Crypto { currency, network, estimated_confirmations } => {
+    |             -------------------------------------------------------------------------- matches all the relevant values
+...
+466 |             _ => panic!("Expected crypto instructions"),
+    |             ^ no value can reach this
+    |
+    = note: `#[warn(unreachable_patterns)]` (part of `#[warn(unused)]`) on by default
+
+error[E0382]: borrow of partially moved value: `instructions`
+   --> src/domain/payment/value_objects/payment_method.rs:469:20
+    |
+461 |             PaymentInstructions::Crypto { currency, network, estimated_confirmations } => {
+    |                                                     ------- value partially moved here
+...
+469 |         let text = instructions.instructions_text();
+    |                    ^^^^^^^^^^^^ value borrowed here after partial move
+    |
+    = note: partial move occurs because value has type `shared_kernel::value_objects::payments::Network`, which does not implement the `Copy` trait
+help: borrow this binding in the pattern to avoid moving the value
+    |
+461 |             PaymentInstructions::Crypto { currency, ref network, estimated_confirmations } => {
+    |                                                     +++
+
+error[E0596]: cannot borrow `method` as mutable, as it is not declared as mutable
+   --> src/domain/payment/value_objects/payment_method.rs:493:22
+    |
+493 |         let result = method.update_config(invalid_config);
+    |                      ^^^^^^ cannot borrow as mutable
+    |
+help: consider changing this to be mutable
+    |
+477 |         let mut method = PaymentMethod::new(
+    |             +++
+
+Some errors have detailed explanations: E0034, E0053, E0061, E0195, E0277, E0308, E0382, E0412, E0423...
+For more information about an error, try `rustc --explain E0034`.
+warning: `epsx` (lib test) generated 2 warnings
+error: could not compile `epsx` (lib test) due to 73 previous errors; 2 warnings emitted

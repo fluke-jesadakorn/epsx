@@ -221,9 +221,9 @@ impl UnifiedPermissionService {
             r#"
             SELECT
                 permission_string,
-                permission_id,
+                permission_id::text,
                 source_type,
-                source_id,
+                source_id::text,
                 source_name,
                 expires_at,
                 granted_at,

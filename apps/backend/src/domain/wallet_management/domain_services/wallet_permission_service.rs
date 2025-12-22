@@ -54,7 +54,7 @@ impl WalletPermissionService {
         }
         
         // Add group-based permissions
-        let groups: Vec<String> = wallet.permission_groups().iter().cloned().collect();
+        let groups: Vec<String> = wallet.groups().iter().cloned().collect();
         let group_permissions = self.get_group_permissions(&groups)?;
         effective_permissions.extend(group_permissions);
         
@@ -102,7 +102,7 @@ impl WalletPermissionService {
         permissions.insert(Permission::new("epsx:user:read")?);
         
         // Group-based permissions
-        for group in wallet.permission_groups() {
+        for group in wallet.groups() {
             permissions.extend(self.get_group_permissions(&[group.clone()])?);
         }
         

@@ -9,7 +9,7 @@ use crate::web::notifications::RedisNotificationBroadcaster;
 use crate::infrastructure::adapters::repositories::{
     wallet_user_repository_adapter::WalletUserRepositoryAdapter,
     session_repository_adapter::SessionRepositoryAdapter,
-    permission_group_repository_adapter::PermissionGroupRepositoryAdapter,
+    group_repository_adapter::GroupRepositoryAdapter,
     // payment_repository_adapter::PaymentRepositoryAdapter, // Temporarily disabled
 };
 use crate::infrastructure::adapters::services::{
@@ -35,7 +35,7 @@ pub struct SimpleContainer {
     // NEW - Web3-first services (primary)
     pub wallet_user_repository: Option<Arc<WalletUserRepositoryAdapter>>,
     pub session_repository: Option<Arc<SessionRepositoryAdapter>>,
-    pub permission_group_repository: Option<Arc<PermissionGroupRepositoryAdapter>>,
+    pub group_repository: Option<Arc<GroupRepositoryAdapter>>,
     // pub payment_repository: Option<Arc<PaymentRepositoryAdapter>>, // Temporarily disabled
     pub wallet_permission_service: Option<Arc<WalletPermissionService>>,
     pub web3_permission_adapter: Option<Arc<Web3PermissionServiceAdapter>>,
@@ -66,7 +66,7 @@ impl SimpleContainer {
             // NEW - Web3-first services (initialized as None, configured via builder methods)
             wallet_user_repository: None,
             session_repository: None,
-            permission_group_repository: None,
+            group_repository: None,
             // payment_repository: None, // Temporarily disabled - field removed from struct
             wallet_permission_service: None,
             web3_permission_adapter: None,
@@ -132,7 +132,7 @@ impl SimpleContainer {
         // Create repository adapters
         let wallet_user_repository = Arc::new(WalletUserRepositoryAdapter::new(diesel_pool));
         let session_repository = Arc::new(SessionRepositoryAdapter::new(diesel_pool));
-        let permission_group_repository = Arc::new(PermissionGroupRepositoryAdapter::new(diesel_pool));
+        let group_repository = Arc::new(GroupRepositoryAdapter::new(diesel_pool));
         // let payment_repository = Arc::new(PaymentRepositoryAdapter::new(diesel_pool)); // Temporarily disabled
 
         // Create domain services
@@ -145,21 +145,23 @@ impl SimpleContainer {
             *db_pool,
         ));
 
-        // Create unified auth service with environment-based domain
-        let domain = Self::get_web3_domain();
-        let auth_service = Arc::new(UnifiedWeb3AuthService::new(
-            *db_pool,
-            domain,
-        ));
-
         // Create OpenID token service with RSA key manager
         let key_manager = KeyManager::from_env_or_generate()
             .expect("Failed to initialize RSA key manager");
-        let token_service = Arc::new(OpenIDTokenService::new(
+        let token_service_impl = OpenIDTokenService::new(
             *db_pool,
             "https://api.epsx.io".to_string(), // issuer
-            vec!["epsx-frontend".to_string(), "epsx-admin".to_string()], // audiences
+            vec!["epsx-frontend".to_string(), "epsx-admin".to_string(), "epsx-api".to_string()], // audiences
             Arc::new(key_manager),
+        );
+        let token_service = Arc::new(token_service_impl.clone());
+
+        // Create unified auth service with environment-based domain & OpenID support
+        let domain = Self::get_web3_domain();
+        let auth_service = Arc::new(UnifiedWeb3AuthService::new_with_openid(
+            *db_pool,
+            domain,
+            token_service_impl,
         ));
 
         // Create event bus
@@ -237,7 +239,7 @@ impl SimpleContainer {
             // Web3-first services
             wallet_user_repository: Some(wallet_user_repository),
             session_repository: Some(session_repository),
-            permission_group_repository: Some(permission_group_repository),
+            group_repository: Some(group_repository),
             // // payment_repository: None, // Temporarily disabled - field removed from struct // Temporarily disabled - field removed from struct
             wallet_permission_service: Some(wallet_permission_service),
             web3_permission_adapter: Some(web3_permission_adapter),
@@ -265,7 +267,7 @@ impl SimpleContainer {
             // Initialize Web3 services as None - use new_with_web3_services for full setup
             wallet_user_repository: None,
             session_repository: None,
-            permission_group_repository: None,
+            group_repository: None,
             // payment_repository: None, // Temporarily disabled - field removed from struct
             wallet_permission_service: None,
             web3_permission_adapter: None,

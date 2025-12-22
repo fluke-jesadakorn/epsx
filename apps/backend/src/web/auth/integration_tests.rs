@@ -483,7 +483,7 @@ mod tests {
         use std::sync::Arc;
         use crate::infrastructure::cache::tests::MockCache;
         use crate::infrastructure::container::simple_container::SimpleContainer;
-        use crate::infrastructure::adapters::repositories::permission_group_repository_adapter::tests::MockPermissionGroupRepository;
+        use crate::infrastructure::adapters::repositories::group_repository_adapter::tests::MockPermissionGroupRepository;
         use crate::infrastructure::adapters::repositories::payment_repository_adapter::tests::MockPaymentRepository;
 
         // This would create actual test dependencies

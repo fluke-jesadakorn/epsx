@@ -1,7 +1,7 @@
 use crate::prelude::*;
-use crate::domain::permission_management::{PermissionGroup, GroupId, GroupSlug};
+use crate::domain::permission_management::{Group, GroupId, GroupSlug};
 
-/// Search criteria for permission groups
+/// Search criteria for groups
 #[derive(Debug, Clone, Default)]
 pub struct GroupSearchCriteria {
     pub group_type: Option<String>,
@@ -12,7 +12,7 @@ pub struct GroupSearchCriteria {
     pub offset: Option<i64>,
 }
 
-/// Permission group statistics
+/// Group statistics
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupStatistics {
     pub total_groups: i64,
@@ -21,22 +21,23 @@ pub struct GroupStatistics {
     pub total_members: i64,
 }
 
-/// Repository port for permission group operations
+/// Repository port for group operations (new name)
+/// Also exported as PermissionGroupRepositoryPort for backward compatibility
 #[async_trait]
-pub trait PermissionGroupRepositoryPort: Send + Sync {
+pub trait GroupRepositoryPort: Send + Sync {
     /// Find group by ID
-    async fn find_by_id(&self, id: &GroupId) -> AppResult<Option<PermissionGroup>>;
+    async fn find_by_id(&self, id: &GroupId) -> AppResult<Option<Group>>;
 
     /// Find group by slug
-    async fn find_by_slug(&self, slug: &GroupSlug) -> AppResult<Option<PermissionGroup>>;
+    async fn find_by_slug(&self, slug: &GroupSlug) -> AppResult<Option<Group>>;
 
     /// List all groups with optional filtering
-    async fn find_all(&self, criteria: GroupSearchCriteria) -> AppResult<Vec<PermissionGroup>>;
+    async fn find_all(&self, criteria: GroupSearchCriteria) -> AppResult<Vec<Group>>;
 
-    /// Save (create or update) a permission group
-    async fn save(&self, group: &PermissionGroup) -> AppResult<()>;
+    /// Save (create or update) a group
+    async fn save(&self, group: &Group) -> AppResult<()>;
 
-    /// Delete a permission group
+    /// Delete a group
     async fn delete(&self, id: &GroupId) -> AppResult<()>;
 
     /// Count groups matching criteria
@@ -48,3 +49,9 @@ pub trait PermissionGroupRepositoryPort: Send + Sync {
     /// Check if slug exists
     async fn slug_exists(&self, slug: &GroupSlug) -> AppResult<bool>;
 }
+
+/// Backward compatibility: alias trait with same signature
+pub trait PermissionGroupRepositoryPort: GroupRepositoryPort {}
+
+/// Blanket implementation: any GroupRepositoryPort is also a PermissionGroupRepositoryPort
+impl<T: GroupRepositoryPort> PermissionGroupRepositoryPort for T {}

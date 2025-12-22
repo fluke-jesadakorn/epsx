@@ -134,6 +134,21 @@ export const API_ROUTES = {
     NOTIFICATIONS: '/api/v1/admin/notifications',
     NOTIFICATION_TEMPLATES: '/api/v1/admin/notifications/templates',
     BROADCAST_NOTIFICATIONS: '/api/v1/admin/notifications/broadcast',
+
+    // System settings (global admin console settings)
+    SETTINGS: '/api/v1/admin/settings',
+    SETTINGS_BY_CATEGORY: '/api/v1/admin/settings/:category',
+    SETTINGS_RESET: '/api/v1/admin/settings/reset',
+
+    // Developer Portal (API key management)
+    DEVELOPER_PORTAL: {
+      API_KEYS: '/api/v1/admin/developer-portal/api-keys',
+      API_KEY_DETAILS: '/api/v1/admin/developer-portal/api-keys/:id',
+      API_KEY_REVOKE: '/api/v1/admin/developer-portal/api-keys/:id/revoke',
+      MODULES: '/api/v1/admin/developer-portal/modules',
+      MODULE_DETAILS: '/api/v1/admin/developer-portal/modules/:id',
+      STATS: '/api/v1/admin/developer-portal/stats',
+    },
   },
 
   // Permission Authority endpoints (ALL applications use this)

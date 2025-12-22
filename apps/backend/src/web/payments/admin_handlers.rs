@@ -17,7 +17,7 @@ use crate::{
     prelude::*,
     web::middleware::bearer_middleware::OpenIDUserContext,
     web::middleware::UnifiedErrorResponse,
-    schema::{payments, subscriptions, payment_audit_log, permission_groups},
+    schema::{payments, subscriptions, payment_audit_log, groups},
 };
 
 /// Admin payment list query parameters
@@ -262,7 +262,7 @@ pub async fn admin_list_payments_handler(
     // - Pagination
     // - Filtering by status, wallet, plan, date range
     // - Search functionality
-    // - Join with permission_groups to get plan names
+    // - Join with groups to get plan names
     // - Proper ordering
 
     // For now, return placeholder data
@@ -501,10 +501,10 @@ pub async fn admin_list_subscriptions_handler(
     // Map to response format with plan name lookup
     let mut subscriptions_resp: Vec<AdminSubscriptionInfo> = Vec::new();
     for sub_db in subscription_rows {
-        // Try to get plan name from permission_groups table
-        let plan_name = permission_groups::table
-            .filter(permission_groups::id.eq(sub_db.plan_id))
-            .select(permission_groups::name)
+        // Try to get plan name from groups table
+        let plan_name = groups::table
+            .filter(groups::id.eq(sub_db.plan_id))
+            .select(groups::name)
             .first::<String>(&mut conn)
             .await
             .unwrap_or_else(|_| "Unknown Plan".to_string());

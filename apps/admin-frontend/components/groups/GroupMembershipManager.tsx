@@ -47,12 +47,12 @@ import { useToast } from '@/components/ui/use-toast'
 import { adminButtonVariants, adminCardVariants } from '@/design-system'
 import {
   useGroupAssignmentHistory,
-  usePermissionGroups,
+  useGroups,
   useUserGroupMemberships
 } from '@/hooks/useGroupPermissions'
 import {
   AssignUserToGroupRequest,
-  PermissionGroup,
+  Group,
   UserGroupMembership
 } from '@/lib/api/group-management-client'
 import { cn } from '@/lib/shared'
@@ -72,7 +72,7 @@ interface GroupMembershipManagerProps {
  */
 export function GroupMembershipManager({
   userId,
-  groupId,
+  groupId: _groupId,
   className
 }: GroupMembershipManagerProps) {
   const { toast } = useToast()
@@ -82,7 +82,7 @@ export function GroupMembershipManager({
   const [filterStatus, setFilterStatus] = useState<string>('all')
 
   // Hooks
-  const { groups } = usePermissionGroups()
+  const { groups } = useGroups()
   const {
     memberships,
     activeMemberships,
@@ -92,7 +92,8 @@ export function GroupMembershipManager({
     removeUserFromGroup,
     refreshMemberships
   } = useUserGroupMemberships(userId || null)
-  const { history } = useGroupAssignmentHistory()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { history: _history } = useGroupAssignmentHistory()
 
   // Filter memberships
   const filteredMemberships = useMemo(() => {
@@ -396,7 +397,7 @@ export function GroupMembershipManager({
                         {membership.group?.name}
                       </h4>
                       {getMembershipStatusBadge(membership)}
-                      {membership.group?.is_system_group && (
+                      {(membership.group?.group_type === 'system' || membership.group?.group_type === 'admin') && (
                         <Badge variant="outline">System</Badge>
                       )}
                     </div>
@@ -465,7 +466,7 @@ export function GroupMembershipManager({
 // Assign Group Form Component
 interface AssignGroupFormProps {
   userId: string
-  availableGroups: PermissionGroup[]
+  availableGroups: Group[]
   onAssign: (request: AssignUserToGroupRequest) => void
   onCancel: () => void
 }
@@ -505,7 +506,7 @@ function AssignGroupForm({ userId, availableGroups, onAssign, onCancel }: Assign
             {availableGroups.map((group) => (
               <SelectItem key={group.id} value={group.id}>
                 <div className="flex items-center gap-2">
-                  {group.is_system_group ? (
+                  {group.group_type === 'system' || group.group_type === 'admin' ? (
                     <BadgeIcon className="h-3 w-3 text-yellow-600" />
                   ) : (
                     <Users className="h-3 w-3 text-blue-600" />
@@ -523,8 +524,8 @@ function AssignGroupForm({ userId, availableGroups, onAssign, onCancel }: Assign
           <Info className="h-4 w-4" />
           <AlertDescription>
             This group includes {selectedGroup.permissions.length} permissions.
-            {selectedGroup.default_expiry_days && (
-              ` Default expiry: ${selectedGroup.default_expiry_days} days.`
+            {selectedGroup.group_metadata?.['default_expiry_days'] && (
+              ` Default expiry: ${selectedGroup.group_metadata['default_expiry_days']} days.`
             )}
           </AlertDescription>
         </Alert>
@@ -537,8 +538,8 @@ function AssignGroupForm({ userId, availableGroups, onAssign, onCancel }: Assign
           type="number"
           value={expiryDays}
           onChange={(e) => setExpiryDays(e.target.value)}
-          placeholder={selectedGroup?.default_expiry_days
-            ? `Default: ${selectedGroup.default_expiry_days} days`
+          placeholder={selectedGroup?.group_metadata?.['default_expiry_days']
+            ? `Default: ${selectedGroup.group_metadata['default_expiry_days']} days`
             : 'Leave empty for no expiry'
           }
           min="1"
