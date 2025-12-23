@@ -477,10 +477,10 @@ pub async fn get_nft_gates(State(app_state): State<AppState>) -> Result<
 
   // Note: NFT permission configs table not implemented yet
   // use crate::schema::nft_permission_configs::dsl::*;
-  use diesel::prelude::*;
-  use diesel_async::RunQueryDsl;
+  // use diesel::prelude::*;
+  // use diesel_async::RunQueryDsl;
 
-  let conn = app_state.db_pool.get().await
+  let _conn = app_state.db_pool.get().await
     .map_err(|e| {
       error!("Failed to get database connection: {:?}", e);
       StatusCode::INTERNAL_SERVER_ERROR
@@ -507,10 +507,10 @@ pub async fn get_token_gates(State(app_state): State<AppState>) -> Result<
 
   // Note: Token permission configs table not implemented yet
   // use crate::schema::token_permission_configs::dsl::*;
-  use diesel::prelude::*;
-  use diesel_async::RunQueryDsl;
+  // use diesel::prelude::*;
+  // use diesel_async::RunQueryDsl;
 
-  let conn = app_state.db_pool.get().await
+  let _conn = app_state.db_pool.get().await
     .map_err(|e| {
       error!("Failed to get database connection: {:?}", e);
       StatusCode::INTERNAL_SERVER_ERROR
@@ -537,10 +537,8 @@ pub async fn get_dao_proposals(State(app_state): State<AppState>) -> Result<
 
   // Note: DAO proposals table not implemented yet
   // use crate::schema::dao_proposals::dsl::*;
-  use diesel::prelude::*;
-  use diesel_async::RunQueryDsl;
 
-  let conn = app_state.db_pool.get().await
+  let _conn = app_state.db_pool.get().await
     .map_err(|e| {
       error!("Failed to get database connection: {:?}", e);
       StatusCode::INTERNAL_SERVER_ERROR
@@ -588,6 +586,7 @@ pub async fn get_recent_wallets(
   struct RecentWalletRow {
     #[diesel(sql_type = diesel::sql_types::Text)]
     wallet_address: String,
+    #[allow(dead_code)]
     #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
     wallet_metadata: Option<serde_json::Value>,
     #[diesel(sql_type = diesel::sql_types::Timestamptz)]
@@ -846,6 +845,7 @@ pub async fn search_wallets(
   struct SearchWalletRow {
     #[diesel(sql_type = diesel::sql_types::Text)]
     wallet_address: String,
+    #[allow(dead_code)]
     #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
     wallet_metadata: Option<serde_json::Value>,
     #[diesel(sql_type = diesel::sql_types::Timestamptz)]

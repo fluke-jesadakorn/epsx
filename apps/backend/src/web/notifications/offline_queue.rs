@@ -1,6 +1,5 @@
 use diesel::prelude::*;
 use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
-use crate::schema::wallet_notifications;
 use uuid::Uuid;
 use crate::web::notifications::{SSENotification, NotificationType, NotificationPriority};
 use crate::core::errors::AppError;

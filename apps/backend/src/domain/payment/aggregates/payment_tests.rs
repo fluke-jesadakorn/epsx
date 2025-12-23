@@ -3,8 +3,10 @@
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::domain::payment::value_objects::{PaymentMethodType, Network};
+    use super::Payment;
+    use crate::domain::payment::value_objects::{
+        PaymentMethodType, Network, PaymentAmount, PaymentMethod, Currency
+    };
     use crate::domain::shared_kernel::value_objects::UserId;
     use rust_decimal_macros::dec;
 

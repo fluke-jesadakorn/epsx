@@ -5,12 +5,12 @@
 use chrono::Utc;
 use diesel::prelude::*;
 use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
-use tracing::{debug, error, info};
+use tracing::info;
 use uuid::Uuid;
 
 use crate::domain::developer_portal::{
     ApiKey, ApiKeyStatus, ModuleAccess, RateLimits, CreateApiKeyRequest, 
-    UpdateApiKeyRequest, RevokeApiKeyRequest, ApiKeyCreatedResponse, AccessLevel,
+    RevokeApiKeyRequest, ApiKeyCreatedResponse, AccessLevel,
     PermissionGroupInfo,
 };
 use crate::prelude::*;
@@ -128,6 +128,7 @@ impl ApiKeyRepository {
         #[derive(Queryable)]
         struct ApiKeyRow {
             id: Uuid,
+            #[allow(dead_code)]
             key_hash: String,
             key_prefix: String,
             client_name: String,
@@ -305,6 +306,7 @@ impl ApiKeyRepository {
         #[derive(Queryable)]
         struct ApiKeyRow {
             id: Uuid,
+            #[allow(dead_code)]
             key_hash: String,
             key_prefix: String,
             client_name: String,
@@ -405,6 +407,7 @@ impl ApiKeyRepository {
         #[derive(Queryable)]
         struct ApiKeyRow {
             id: Uuid,
+            #[allow(dead_code)]
             key_hash: String,
             key_prefix: String,
             client_name: String,
@@ -570,6 +573,7 @@ impl ApiKeyRepository {
         #[derive(Queryable)]
         struct ApiKeyRow {
             id: Uuid,
+            #[allow(dead_code)]
             key_hash: String,
             key_prefix: String,
             client_name: String,

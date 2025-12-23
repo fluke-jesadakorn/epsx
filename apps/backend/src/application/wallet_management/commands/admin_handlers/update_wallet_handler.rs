@@ -42,6 +42,7 @@ impl CommandHandler<UpdateWalletCommand> for UpdateWalletCommandHandler {
         #[derive(QueryableByName)]
         struct WalletExistsRow {
             #[diesel(sql_type = diesel::sql_types::Text)]
+            #[allow(dead_code)]
             wallet_address: String,
         }
 

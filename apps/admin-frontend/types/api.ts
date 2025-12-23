@@ -6,33 +6,41 @@
 
 // Re-export everything from shared API types
 export * from '../../../shared/types/api';
+export type { Permission, PermissionAnalytics, User, UserStats } from './core';
+export type { PaginatedResponse };
 
 // Import for local re-export with legacy names (maintaining compatibility)
-import type { 
-  ApiResponse as SharedApiResponse,
-  ApiError as SharedApiError,
+import type {
   ActionResult as SharedActionResult,
-  LoginRequest as SharedLoginRequest,
-  LoginResponse as SharedLoginResponse,
-  CreateUserRequest as SharedCreateUserRequest,
-  CreateUserResponse as SharedCreateUserResponse,
-  UpdateUserRequest as SharedUpdateUserRequest,
-  BulkUserOperationRequest as SharedBulkUserOperationRequest,
+  ApiError as SharedApiError,
+  ApiResponse as SharedApiResponse,
   BulkOperationResponse as SharedBulkOperationResponse,
-  UserSearchRequest as SharedUserSearchRequest,
-  GrantPermissionRequest as SharedGrantPermissionRequest,
-  RevokePermissionRequest as SharedRevokePermissionRequest,
   BulkPermissionRequest as SharedBulkPermissionRequest,
   BulkPermissionResponse as SharedBulkPermissionResponse,
+  BulkUserOperationRequest as SharedBulkUserOperationRequest,
+  CreateUserRequest as SharedCreateUserRequest,
+  CreateUserResponse as SharedCreateUserResponse,
+  GrantPermissionRequest as SharedGrantPermissionRequest,
+  LoginRequest as SharedLoginRequest,
+  LoginResponse as SharedLoginResponse,
+  PerformanceMetrics as SharedPerformanceMetrics,
   PermissionTemplate as SharedPermissionTemplate,
+  RevokePermissionRequest as SharedRevokePermissionRequest,
+  SystemRecommendation as SharedSystemRecommendation,
+  UpdateUserRequest as SharedUpdateUserRequest,
+  UserSearchRequest as SharedUserSearchRequest,
+} from '../../../shared/types/api';
+
+import type {
+  BroadcastNotificationRequest as SharedBroadcastNotificationRequest,
   Notification as SharedNotification,
   NotificationCreateRequest as SharedNotificationCreateRequest,
-  BroadcastNotificationRequest as SharedBroadcastNotificationRequest,
+} from '../../../shared/types/notifications';
+
+import type {
   EPSRanking as SharedEPSRanking,
-  EPSRankingsResponse as SharedEPSRankingsResponse,
-  PerformanceMetrics as SharedPerformanceMetrics,
-  SystemRecommendation as SharedSystemRecommendation
-} from '../../../shared/types/api';
+  AnalyticsRankingsResponse as SharedEPSRankingsResponse,
+} from '../../../shared/types/analytics';
 
 // Re-export with exact same names for backward compatibility
 export type ApiResponse<T = any> = SharedApiResponse<T>;
@@ -70,7 +78,4 @@ export type PerformanceMetrics = SharedPerformanceMetrics;
 export type SystemRecommendation = SharedSystemRecommendation;
 
 // Legacy compatibility (admin-frontend was importing from core types)
-import type { User, Permission, UserStats, PermissionAnalytics } from './core';
 import type { PaginatedResponse } from '../../../shared/types/api';
-export type { User, Permission, UserStats, PermissionAnalytics } from './core';
-export type { PaginatedResponse };

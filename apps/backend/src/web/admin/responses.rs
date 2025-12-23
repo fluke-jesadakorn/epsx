@@ -76,8 +76,8 @@ pub struct PaginationInfo {
 /// Admin permission context
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct AdminPermissionContext {
-    /// Admin user tier/role
-    pub admin_role: String,
+    /// Admin user tier/group
+    pub admin_group: String,
     
     /// Available admin actions
     pub available_actions: Vec<String>,
@@ -203,9 +203,9 @@ impl AdminMetadata {
 
 impl AdminPermissionContext {
     /// Create admin permission context
-    pub fn new(admin_role: &str, available_actions: Vec<String>) -> Self {
+    pub fn new(admin_group: &str, available_actions: Vec<String>) -> Self {
         Self {
-            admin_role: admin_role.to_string(),
+            admin_group: admin_group.to_string(),
             available_actions,
             restricted_actions: None,
         }

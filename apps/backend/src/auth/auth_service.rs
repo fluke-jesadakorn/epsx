@@ -208,7 +208,9 @@ impl UnifiedWeb3AuthService {
         #[derive(Queryable, Selectable)]
         #[diesel(table_name = crate::schema::web3_auth_nonces)]
         struct NonceRecord {
+            #[allow(dead_code)]
             nonce: String,
+            #[allow(dead_code)]
             message: String,
             expires_at: DateTime<Utc>,
         }
@@ -840,7 +842,6 @@ impl UnifiedWeb3AuthService {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rand::Rng;
     use std::fmt::Write;
 

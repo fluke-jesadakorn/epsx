@@ -1,6 +1,5 @@
 use async_trait::async_trait;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
-use diesel::prelude::*;
+use diesel_async::{AsyncPgConnection, pooled_connection::deadpool::Pool};
 use std::sync::Arc;
 use crate::core::errors::{AppResult, AppError};
 

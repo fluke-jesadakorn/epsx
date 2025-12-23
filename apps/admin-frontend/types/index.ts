@@ -175,31 +175,12 @@ export interface PermissionProfile {
   assignedUserCount?: number;
 }
 
-// Notification Types
-export interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  type: 'trading' | 'system' | 'account' | 'price_alert' | 'security' | 'compliance';
-  priority: 'low' | 'medium' | 'high' | 'critical';
-  read: boolean;
-  createdAt: string;
-  updatedAt: string;
-  userId?: string;
-  actionUrl?: string;
-  metadata?: Record<string, any>;
-}
-
-export interface NotificationListParams {
-  page?: number;
-  limit?: number;
-  type?: string;
-  priority?: string;
-  read?: boolean;
-  userId?: string;
-  startDate?: string;
-  endDate?: string;
-}
+// Notification Types - Re-exported from shared
+export type {
+  Notification,
+  NotificationListParams, NotificationPriority, NotificationStats,
+  NotificationType
+} from '@/shared/types/notifications';
 
 export interface NotificationListResponse {
   notifications: Notification[];
@@ -214,8 +195,8 @@ export interface NotificationListResponse {
 export interface NotificationCreateRequest {
   title: string;
   message: string;
-  type: Notification['type'];
-  priority: Notification['priority'];
+  type: any; // Use any or specific type if needed for compatibility
+  priority: any;
   userId?: string;
   userIds?: string[];
   actionUrl?: string;
@@ -225,8 +206,8 @@ export interface NotificationCreateRequest {
 export interface NotificationUpdateRequest {
   title?: string;
   message?: string;
-  type?: Notification['type'];
-  priority?: Notification['priority'];
+  type?: any;
+  priority?: any;
   read?: boolean;
   actionUrl?: string;
   metadata?: Record<string, any>;
@@ -240,13 +221,4 @@ export interface NotificationPreferences {
   systemUpdates: boolean;
   securityAlerts: boolean;
   complianceNotifications: boolean;
-}
-
-export interface NotificationStats {
-  total: number;
-  unread: number;
-  byType: Record<string, number>;
-  byPriority: Record<string, number>;
-  last24Hours: number;
-  lastWeek: number;
 }

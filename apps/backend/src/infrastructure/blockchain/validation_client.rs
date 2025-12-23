@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::time::Duration;
 use anyhow::{Result, Context};
-use ethers::providers::{Provider, Http, Middleware};
+use ethers::providers::{Provider, Http};
 use ethers::types::{Address, U256};
 use crate::core::errors::AppError;
 
@@ -178,7 +178,7 @@ impl BlockchainValidationClient {
 
     async fn check_nft_ownership(
         &self,
-        provider: Provider<Http>,
+        _provider: Provider<Http>,
         contract_addr: Address,
         wallet_addr: Address,
         token_id: u64,
@@ -191,7 +191,7 @@ impl BlockchainValidationClient {
 
     async fn check_nft_balance(
         &self,
-        provider: Provider<Http>,
+        _provider: Provider<Http>,
         contract_addr: Address,
         wallet_addr: Address,
     ) -> Result<U256> {
@@ -202,7 +202,7 @@ impl BlockchainValidationClient {
 
     async fn check_token_balance(
         &self,
-        provider: Provider<Http>,
+        _provider: Provider<Http>,
         contract_addr: Address,
         wallet_addr: Address,
     ) -> Result<U256> {
@@ -215,7 +215,7 @@ impl BlockchainValidationClient {
         &self,
         contract_addr: Address,
         wallet_addr: Address,
-        provider: &Provider<Http>,
+        _provider: &Provider<Http>,
     ) -> Result<U256> {
         // For now, return a placeholder
         tracing::info!("Checking voting power for wallet {} on contract {}", wallet_addr, contract_addr);

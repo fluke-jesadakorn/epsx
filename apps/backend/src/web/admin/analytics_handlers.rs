@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc, Duration};
 use tracing::{error, info};
 use diesel::prelude::*;
-use diesel_async::{RunQueryDsl, AsyncPgConnection};
+use diesel_async::RunQueryDsl;
 use crate::web::auth::AppState;
 use crate::web::admin::responses::{AdminApiResponse, AdminMetadata};
 use crate::prelude::*;
@@ -1000,28 +1000,4 @@ pub async fn get_revenue_analytics_handler(
         "Revenue analytics retrieved successfully",
         metadata,
     )))
-}
-
-// ============================================================================
-// HELPER METHODS FOR REAL DATA IMPLEMENTATION
-// ============================================================================
-// TODO: Implement real data collection for analytics when activity tracking is available
-// The current implementation returns structured mock data until user activity logging is implemented
-
-/// Get feature usage statistics from database (placeholder)
-/// TODO: Replace with real query when feature usage tracking is implemented
-async fn get_feature_usage_stats(_conn: &mut AsyncPgConnection) -> Result<Vec<FeatureUsage>, AppError> {
-    Ok(vec![]) // Return empty until feature tracking table is available
-}
-
-/// Get registration time series data from database (placeholder)
-/// TODO: Replace with real query when user analytics are implemented
-async fn get_registration_time_series(_conn: &mut AsyncPgConnection, _days: i64) -> Result<Vec<TimeSeriesPoint>, AppError> {
-    Ok(vec![]) // Return empty until time series tracking is implemented
-}
-
-/// Get user activity time series data from database (placeholder)
-/// TODO: Replace with real query when user activity tracking is implemented
-async fn get_user_activity_time_series(_conn: &mut AsyncPgConnection, _days: i64) -> Result<Vec<TimeSeriesPoint>, AppError> {
-    Ok(vec![]) // Return empty until activity tracking is implemented
 }

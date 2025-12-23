@@ -59,9 +59,6 @@ pub struct SimpleContainer {
     pub event_dispatcher: Option<Arc<crate::infrastructure::EventDispatcher>>,
     pub projection_manager: Option<Arc<crate::infrastructure::ProjectionManager>>,
 
-    // Compatibility fields for compilation
-    pub permission_service: Option<String>,
-    pub auth_trigger_service: Option<String>,
 }
 
 impl SimpleContainer {
@@ -90,9 +87,6 @@ impl SimpleContainer {
             transactional_outbox: None,
             event_dispatcher: None,
             projection_manager: None,
-            // Compatibility
-            permission_service: None,
-            auth_trigger_service: None,
         }
     }
 
@@ -291,9 +285,6 @@ impl SimpleContainer {
             transactional_outbox: Some(transactional_outbox),
             event_dispatcher,
             projection_manager,
-            // Compatibility
-            permission_service: None,
-            auth_trigger_service: None,
         }
     }
 
@@ -322,9 +313,6 @@ impl SimpleContainer {
             transactional_outbox: None,
             event_dispatcher: None,
             projection_manager: None,
-            // Compatibility
-            permission_service: None,
-            auth_trigger_service: None,
         }
     }
 

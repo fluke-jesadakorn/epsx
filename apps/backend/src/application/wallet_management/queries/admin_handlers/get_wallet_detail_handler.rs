@@ -60,10 +60,9 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
             .ok_or_else(|| ApplicationError::not_found("Wallet", &query.wallet_address))?;
 
         // 3. Get wallet permissions (from groups + direct)
-        use diesel::sql_query;
-        use diesel::sql_types::{Text, Timestamp, Nullable, Bool, Timestamptz};
+        use diesel::sql_types::Text;
 
-        let permissions_result = diesel::sql_query(r#"
+        let _permissions_result = diesel::sql_query(r#"
             -- Permissions from groups
             SELECT
                 p.permission_string as permission,

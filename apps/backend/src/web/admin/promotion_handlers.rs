@@ -107,6 +107,7 @@ pub async fn list_promotions_handler(
         created_at: Option<DateTime<Utc>>,
         #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         updated_at: Option<DateTime<Utc>>,
+        #[allow(dead_code)]
         #[diesel(sql_type = diesel::sql_types::Integer)]
         plan_count: i32,
     }
@@ -482,6 +483,7 @@ pub async fn delete_promotion_handler(
 
     #[derive(QueryableByName)]
     struct DeleteResult {
+        #[allow(dead_code)]
         #[diesel(sql_type = diesel::sql_types::Integer)]
         id: i32,
     }

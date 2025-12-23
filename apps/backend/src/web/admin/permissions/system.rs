@@ -127,6 +127,7 @@ pub async fn get_health(
 
     #[derive(QueryableByName)]
     struct HealthCheck {
+        #[allow(dead_code)]
         #[diesel(sql_type = diesel::sql_types::Integer)]
         check: i32,
     }

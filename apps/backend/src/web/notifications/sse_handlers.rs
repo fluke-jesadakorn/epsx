@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Query, State, Path},
+    extract::{Query, State},
     response::sse::{Event, KeepAlive, Sse},
     response::IntoResponse,
 };
@@ -363,22 +363,6 @@ fn parse_notification_types(types_str: Option<String>) -> Option<Vec<Notificatio
     })
 }
 
-/// Extract wallet address from Bearer token in request
-/// Returns None if no auth present or token invalid
-fn extract_wallet_from_request(request: &axum::extract::Request) -> Option<String> {
-    // Get Authorization header
-    let auth_header = request.headers()
-        .get("authorization")
-        .and_then(|h| h.to_str().ok())?;
-
-    // Check Bearer format
-    if !auth_header.starts_with("Bearer ") {
-        return None;
-    }
-
-    let token = &auth_header[7..];
-    extract_wallet_from_token(Some(token))
-}
 
 /// Extract wallet address from Bearer token string
 /// Returns None if token is invalid or missing

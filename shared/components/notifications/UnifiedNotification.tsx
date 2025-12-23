@@ -41,9 +41,11 @@ export function UnifiedNotification({
 
     useEffect(() => {
         setIsVisible(visible);
+        let interval: any;
+
         if (visible && duration > 0) {
             const startTime = Date.now();
-            const interval = setInterval(() => {
+            interval = setInterval(() => {
                 const elapsed = Date.now() - startTime;
                 const remaining = Math.max(0, 100 - (elapsed / duration) * 100);
                 setProgress(remaining);
@@ -54,9 +56,11 @@ export function UnifiedNotification({
                     onClose?.();
                 }
             }, 16);
-
-            return () => clearInterval(interval);
         }
+
+        return () => {
+            if (interval) clearInterval(interval);
+        };
     }, [visible, duration, onClose]);
 
     const positions = {

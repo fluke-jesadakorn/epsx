@@ -115,6 +115,7 @@ impl DieselConnectionManager {
                     Ok(mut conn) => {
                         #[derive(QueryableByName)]
                         struct HealthCheck {
+                            #[allow(dead_code)]
                             #[diesel(sql_type = Integer)]
                             result: i32,
                         }

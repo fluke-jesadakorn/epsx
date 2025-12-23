@@ -5,7 +5,7 @@
 use chrono::Utc;
 use diesel::prelude::*;
 use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
-use tracing::{debug, info};
+use tracing::info;
 use uuid::Uuid;
 
 use crate::domain::developer_portal::{

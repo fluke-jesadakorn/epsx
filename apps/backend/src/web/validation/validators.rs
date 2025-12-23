@@ -165,28 +165,28 @@ pub fn validate_phone_number(phone: &str) -> Result<(), ValidationError> {
     Ok(())
 }
 
-/// Custom validator for role names in IAM system
-pub fn validate_role_name(role: &str) -> Result<(), ValidationError> {
-    if role.trim().is_empty() {
-        let mut error = ValidationError::new("empty_role");
-        error.message = Some("Role name cannot be empty".into());
+/// Custom validator for group names in IAM system
+pub fn validate_group_name(group: &str) -> Result<(), ValidationError> {
+    if group.trim().is_empty() {
+        let mut error = ValidationError::new("empty_group");
+        error.message = Some("Group name cannot be empty".into());
         return Err(error);
     }
 
-    if role.len() > 50 {
-        let mut error = ValidationError::new("role_too_long");
-        error.message = Some("Role name cannot exceed 50 characters".into());
+    if group.len() > 50 {
+        let mut error = ValidationError::new("group_too_long");
+        error.message = Some("Group name cannot exceed 50 characters".into());
         return Err(error);
     }
 
-    // Role names should be alphanumeric with underscores and dashes
-    static ROLE_REGEX: Lazy<Regex> = Lazy::new(|| {
+    // Group names should be alphanumeric with underscores and dashes
+    static GROUP_REGEX: Lazy<Regex> = Lazy::new(|| {
         Regex::new(r"^[a-zA-Z0-9_-]+$").unwrap()
     });
 
-    if !ROLE_REGEX.is_match(role) {
-        let mut error = ValidationError::new("invalid_role_format");
-        error.message = Some("Role name can only contain letters, numbers, underscores, and dashes".into());
+    if !GROUP_REGEX.is_match(group) {
+        let mut error = ValidationError::new("invalid_group_format");
+        error.message = Some("Group name can only contain letters, numbers, underscores, and dashes".into());
         return Err(error);
     }
 

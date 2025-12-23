@@ -13,12 +13,9 @@ use uuid::Uuid;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use std::collections::HashMap;
-use std::sync::Arc;
 
 use crate::web::auth::AppState;
 use crate::web::responses::AdminResponse;
-use crate::auth::UnifiedPermissionService;
-use crate::infrastructure::cache::unified_permission_cache::UnifiedPermissionCache;
 
 
 // ============================================================================

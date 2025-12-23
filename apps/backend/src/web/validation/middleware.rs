@@ -2,16 +2,12 @@
 #![allow(improper_ctypes_definitions)]
 
 use axum::{
-    extract::{Request, FromRequest},
+    extract::Request,
     http::StatusCode,
-    response::{IntoResponse, Response},
+    response::Response,
     middleware::Next,
-    Json,
 };
-use serde::de::DeserializeOwned;
-use validator::Validate;
 
-use super::{ValidationErrorResponse, validate_request};
 
 /// Validated JSON extractor that performs validation before passing to handler
 pub struct ValidatedJson<T>(pub T);

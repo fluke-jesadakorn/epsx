@@ -3,11 +3,13 @@
 
 use std::sync::Once;
 use diesel::prelude::*;
-use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel_async::{AsyncPgConnection, RunQueryDsl};
 use anyhow::Result;
 use tracing::info;
 
 use crate::infrastructure::database::get_diesel_pool;
+
+use diesel_async::pooled_connection::deadpool::Object;
 
 /// Test database setup guard
 /// Ensures test database is properly configured and cleaned up
@@ -32,7 +34,7 @@ impl TestDatabase {
     }
 
     /// Get a connection for testing
-    pub async fn get_connection(&self) -> Result<AsyncPgConnection> {
+    pub async fn get_connection(&self) -> Result<Object<AsyncPgConnection>> {
         let pool = get_diesel_pool().await?;
         pool.get().await.map_err(|e| anyhow::anyhow!("Failed to get test connection: {}", e))
     }
@@ -42,7 +44,7 @@ impl TestDatabase {
         let mut conn = self.get_connection().await?;
 
         // Clean up test data with LIKE patterns to avoid affecting production data
-        use crate::schema::{web3_auth_nonces, wallet_users, notifications, user_profiles};
+        use crate::schema::{web3_auth_nonces, wallet_users, wallet_notifications};
 
         // Clean up test nonces
         diesel::delete(web3_auth_nonces::table.filter(web3_auth_nonces::nonce.like("test_%")))
@@ -55,17 +57,13 @@ impl TestDatabase {
             .await?;
 
         // Clean up test notifications
-        diesel::delete(notifications::table.filter(notifications::user_id.like("test_%")))
-            .execute(&mut conn)
-            .await?;
-
-        // Clean up test profiles
-        diesel::delete(user_profiles::table.filter(user_profiles::wallet_address.like("0xtest%")))
+        diesel::delete(wallet_notifications::table.filter(wallet_notifications::wallet_address.like("0xtest%")))
             .execute(&mut conn)
             .await?;
 
         Ok(())
     }
+
 }
 
 impl Drop for TestDatabase {

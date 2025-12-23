@@ -64,6 +64,7 @@ pub struct CategorySettingsResponse {
 
 #[derive(Debug, QueryableByName)]
 struct SystemSettingRow {
+    #[allow(dead_code)]
     #[diesel(sql_type = diesel::sql_types::Integer)]
     pub id: i32,
     #[diesel(sql_type = diesel::sql_types::Varchar)]
@@ -72,8 +73,10 @@ struct SystemSettingRow {
     pub key: String,
     #[diesel(sql_type = diesel::sql_types::Jsonb)]
     pub value: Value,
+    #[allow(dead_code)]
     #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
     pub description: Option<String>,
+    #[allow(dead_code)]
     #[diesel(sql_type = diesel::sql_types::Timestamptz)]
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }

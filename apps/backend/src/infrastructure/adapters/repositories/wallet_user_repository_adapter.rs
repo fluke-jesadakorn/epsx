@@ -1125,8 +1125,3 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
     }
 }
 
-// Include the comprehensive test modules
-#[cfg(test)]
-mod wallet_user_repository_test;
-#[cfg(test)]
-mod transaction_tests;

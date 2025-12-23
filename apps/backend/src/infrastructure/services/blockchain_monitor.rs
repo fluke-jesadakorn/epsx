@@ -106,6 +106,7 @@ impl BlockchainMonitor {
 
         #[derive(QueryableByName)]
         struct EventIdRow {
+            #[allow(dead_code)]
             #[diesel(sql_type = diesel::sql_types::Integer)]
             id: i32,
         }
@@ -165,9 +166,9 @@ impl BlockchainMonitor {
         #[derive(QueryableByName)]
         struct UserRow {
             #[diesel(sql_type = diesel::sql_types::Text)]
-            wallet_address: String,
+            _wallet_address: String,
             #[diesel(sql_type = diesel::sql_types::Bool)]
-            is_active: bool,
+            _is_active: bool,
         }
 
         let user_row = diesel::sql_query(
@@ -208,10 +209,12 @@ impl BlockchainMonitor {
         // Step 4: Get plan details to determine subscription duration
         #[derive(QueryableByName)]
         struct PlanRow {
+            #[allow(dead_code)]
             #[diesel(sql_type = diesel::sql_types::Integer)]
             id: i32,
             #[diesel(sql_type = diesel::sql_types::Text)]
             name: String,
+            #[allow(dead_code)]
             #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
             plan_type: Option<String>,
         }

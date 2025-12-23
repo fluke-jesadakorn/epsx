@@ -7,7 +7,7 @@ use crate::core::constants::*;
 // This module implements a single permission-based access control system
 // Format: "platform:resource:action" (e.g., "epsx:analytics:view")
 // Platforms: epsx, epsx-pay, epsx-token, admin
-// No role concept - only permission-based access control
+// No group concept - only permission-based access control
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -225,7 +225,7 @@ pub fn check_any_permission(user_permissions: &[String], required_permissions: &
 }
 
 // ============================================================================
-// PREDEFINED PERMISSION SETS (REPLACES ROLE-BASED FEATURES)
+// PREDEFINED PERMISSION SETS (REPLACES GROUP-BASED FEATURES)
 // ============================================================================
 
 pub struct PermissionSets;
@@ -236,7 +236,7 @@ impl PermissionSets {
         vec!["admin:*:*".to_string()]
     }
     
-    // Premium user permissions (replaces "user" role)
+    // Premium user permissions (replaces "user" group)
     pub fn premium_user() -> Vec<String> {
         vec![
             "epsx:analytics:view".to_string(),
@@ -249,7 +249,7 @@ impl PermissionSets {
         ]
     }
     
-    // Basic user permissions (replaces "guest" role)
+    // Basic user permissions (replaces "guest" group)
     pub fn basic_user() -> Vec<String> {
         vec!["epsx:analytics:view".to_string()]
     }

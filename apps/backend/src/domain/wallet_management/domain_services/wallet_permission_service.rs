@@ -8,7 +8,7 @@ use crate::domain::wallet_management::{
     aggregates::{WalletUser},
     value_objects::{Permission, WalletAddress, PermissionType},
 };
-use crate::infrastructure::blockchain::{BlockchainValidationClient, NftValidationResult, TokenValidationResult, DaoValidationResult};
+use crate::infrastructure::blockchain::BlockchainValidationClient;
 
 /// Domain service for managing wallet-based user permissions
 /// This service contains business logic for permission validation,
@@ -652,7 +652,7 @@ mod tests {
     
     #[tokio::test]
     async fn generate_default_permissions_for_basic_wallet() {
-        let service = WalletPermissionService;
+        let service = WalletPermissionService::new();
         let wallet = create_test_wallet_user();
         let context = Web3PermissionContext::default();
         
@@ -702,7 +702,7 @@ mod tests {
     
     #[test]
     fn temporary_web3_permissions_creation() {
-        let service = WalletPermissionService;
+        let service = WalletPermissionService::new();
         let mut base_permissions = HashSet::new();
         
         let nft_perm = Permission::new_nft_gated(

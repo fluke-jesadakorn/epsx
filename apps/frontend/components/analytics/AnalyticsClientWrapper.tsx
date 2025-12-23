@@ -1,33 +1,32 @@
 'use client';
 
-import { useAnalyticsFilters } from '@/hooks/useAnalyticsFilters';
-import { 
-  // AnalyticsClient, 
-  UnifiedAnalyticsRankingsResponse, 
-  UnifiedRankingItem
-} from '@/lib/api-client';
-import type { AnalyticsFilters, EPSRanking } from '@/types/analytics';
-import { useEffect, useState, memo, useMemo, useCallback } from 'react';
-import FilterPanel from './FilterPanel';
-import Pagination from './Pagination';
-import { StockDataCard } from '@/shared/components/cards/StockDataCard';
-import { CardDashboardView } from './CardDashboardView';
+import { AnalyticsNavigation } from '@/components/shared/AnalyticsNavigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { LayoutGrid, List, Download, FileDown } from 'lucide-react';
-import { 
-  exportUnifiedAnalyticsData, 
-  exportCurrentViewData, 
-  exportGrowthLeadersData,
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAnalyticsFilters } from '@/hooks/useAnalyticsFilters';
+import {
+  // AnalyticsClient, 
+  UnifiedAnalyticsRankingsResponse
+} from '@/lib/api-client';
+import {
+  exportCurrentViewData,
   exportFilteredData,
-  ExportFormat 
+  ExportFormat,
+  exportGrowthLeadersData,
+  exportUnifiedAnalyticsData
 } from '@/lib/export-utils';
-import { AnalyticsNavigation } from '@/components/shared/AnalyticsNavigation';
+import { StockDataCard } from '@/shared/components/cards/StockDataCard';
+import type { AnalyticsFilters } from '@/types/analytics';
+import { Download, FileDown, LayoutGrid, List } from 'lucide-react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { CardDashboardView } from './CardDashboardView';
+import FilterPanel from './FilterPanel';
+import Pagination from './Pagination';
 
 // Rich filter options interface
 interface RichFilterOptions {
@@ -65,9 +64,9 @@ async function fetchEPSRankings(filters: AnalyticsFilters): Promise<UnifiedAnaly
   }
 }
 
-function AnalyticsClientWrapper({ 
-  initialData, 
-  filterOptions 
+function AnalyticsClientWrapper({
+  initialData,
+  filterOptions
 }: AnalyticsClientWrapperProps) {
   const {
     filters,
@@ -80,7 +79,7 @@ function AnalyticsClientWrapper({
     setIsLoading,
   } = useAnalyticsFilters();
 
-  
+
   // Memoized calculation of Growth leaders - expensive array operations
   const calculateGrowthLeaders = useCallback((data: UnifiedAnalyticsRankingsResponse | null) => {
     if (!data?.rankings || data.rankings.length === 0) return { growthLeaders: [], priceLeaders: [] };
@@ -121,11 +120,11 @@ function AnalyticsClientWrapper({
   // Load data when filters change (skip on initial load if we have initialData)
   useEffect(() => {
     // Only fetch if filters have changed from default
-    const hasNonDefaultFilters = filters.page !== 1 || 
-                                  filters.country || 
-                                  filters.sector || 
-                                  filters.min_eps || 
-                                  filters.min_growth;
+    const hasNonDefaultFilters = filters.page !== 1 ||
+      filters.country ||
+      filters.sector ||
+      filters.min_eps ||
+      filters.min_growth;
 
     if (!initialData || hasNonDefaultFilters) {
       const loadData = async () => {
@@ -310,7 +309,7 @@ function AnalyticsClientWrapper({
                 <FilterPanel
                   filters={filters}
                   options={{
-                    countries: filterOptions.countries.map(c => c.value),
+                    countries: filterOptions.countries.map(c => typeof c === 'string' ? { value: c, label: c } : c),
                     sectors: filterOptions.sectors,
                     exchanges: filterOptions.exchanges,
                     stock_types: filterOptions.stock_types
@@ -332,7 +331,7 @@ function AnalyticsClientWrapper({
                   <div className="absolute inset-0 bg-gradient-to-br from-orange-50/50 via-transparent to-yellow-50/50 dark:from-orange-900/10 dark:via-transparent dark:to-yellow-900/10" />
                   <div className="absolute top-0 right-0 h-32 w-32 rounded-full bg-gradient-to-br from-orange-400/10 to-yellow-400/10 blur-2xl" />
                   <div className="absolute bottom-0 left-0 h-40 w-40 rounded-full bg-gradient-to-br from-blue-400/10 to-cyan-400/10 blur-2xl" />
-                  
+
                   <div className="relative z-10">
                     <div className="mb-6 text-center sm:text-left">
                       <h2 className="mb-3 text-xl font-bold sm:text-2xl">
@@ -401,7 +400,7 @@ function AnalyticsClientWrapper({
                           {priceLeaders.slice(0, 3).map((leader, index) => {
                             // Use momentum data since quarterly_data is not available
                             const priceGrowth = leader.momentum_1m || 0;
-                            
+
                             return (
                               <div key={leader.symbol} className="flex items-center justify-between rounded-xl bg-white/60 p-3 backdrop-blur-sm dark:bg-slate-800/60">
                                 <div className="flex items-center gap-3">
@@ -414,11 +413,10 @@ function AnalyticsClientWrapper({
                                   </div>
                                 </div>
                                 <div className="text-right">
-                                  <span className={`rounded-lg px-3 py-1 text-sm font-bold text-white shadow-md ${
-                                    priceGrowth >= 0 
-                                      ? 'bg-gradient-to-r from-blue-500 to-cyan-500' 
+                                  <span className={`rounded-lg px-3 py-1 text-sm font-bold text-white shadow-md ${priceGrowth >= 0
+                                      ? 'bg-gradient-to-r from-blue-500 to-cyan-500'
                                       : 'bg-gradient-to-r from-red-500 to-pink-500'
-                                  }`}>
+                                    }`}>
                                     {priceGrowth >= 0 ? '+' : ''}{priceGrowth.toFixed(1)}%
                                   </span>
                                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -447,7 +445,7 @@ function AnalyticsClientWrapper({
             <div className="mb-8">
               <div className="relative overflow-hidden rounded-3xl border border-purple-200/50 bg-white/80 p-6 shadow-2xl backdrop-blur-xl dark:border-purple-400/20 dark:bg-slate-800/80">
                 <div className="absolute inset-0 bg-gradient-to-br from-purple-50/50 via-transparent to-blue-50/50 dark:from-purple-900/10 dark:via-transparent dark:to-blue-900/10" />
-                
+
                 <div className="relative z-10">
                   <div className="mb-6 text-center sm:text-left">
                     <h2 className="mb-3 text-xl font-bold sm:text-2xl">
@@ -523,15 +521,15 @@ function AnalyticsClientWrapper({
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
             <div className="flex justify-center">
               <TabsList className="grid w-full max-w-md grid-cols-2 rounded-2xl bg-white/80 backdrop-blur-xl border border-orange-200/50 dark:bg-slate-800/80 dark:border-orange-400/20">
-                <TabsTrigger 
-                  value="list" 
+                <TabsTrigger
+                  value="list"
                   className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-yellow-500 data-[state=active]:text-white"
                 >
                   <List className="h-4 w-4" />
                   List View
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="cards" 
+                <TabsTrigger
+                  value="cards"
                   className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-yellow-500 data-[state=active]:text-white"
                 >
                   <LayoutGrid className="h-4 w-4" />
@@ -549,7 +547,7 @@ function AnalyticsClientWrapper({
                       <FilterPanel
                         filters={filters}
                         options={{
-                          countries: filterOptions.countries.map(c => c.value),
+                          countries: filterOptions.countries.map(c => typeof c === 'string' ? { value: c, label: c } : c),
                           sectors: filterOptions.sectors,
                           exchanges: filterOptions.exchanges,
                           stock_types: filterOptions.stock_types
@@ -563,366 +561,366 @@ function AnalyticsClientWrapper({
 
                 {/* Enhanced Main content */}
                 <div className="lg:col-span-3">
-              {/* Enhanced Results header */}
-              <div className="mb-6 rounded-2xl border border-orange-200/50 bg-white/80 p-4 sm:p-6 backdrop-blur-xl shadow-lg dark:border-orange-400/20 dark:bg-slate-800/80">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex-1">
-                    <h2 className="mb-2 bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-lg font-bold text-transparent sm:text-xl">
-                      {data
-                        ? `${data.pagination.total_items} Companies Found`
-                        : 'Loading Analytics...'}
-                    </h2>
-                    <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                      <span className="flex items-center gap-1">
-                        <div className="h-2 w-2 rounded-full bg-blue-400"></div>
-                        Page {filters.page} of {data?.pagination.total_pages || 1}
-                      </span>
-                      {hasActiveFilters && (
-                        <span className="flex items-center gap-1">
-                          <div className="h-2 w-2 rounded-full bg-orange-400"></div>
-                          {activeFilterCount} filter{activeFilterCount !== 1 ? 's' : ''} applied
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                  {/* Enhanced Results header */}
+                  <div className="mb-6 rounded-2xl border border-orange-200/50 bg-white/80 p-4 sm:p-6 backdrop-blur-xl shadow-lg dark:border-orange-400/20 dark:bg-slate-800/80">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex-1">
+                        <h2 className="mb-2 bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-lg font-bold text-transparent sm:text-xl">
+                          {data
+                            ? `${data.pagination.total_items} Companies Found`
+                            : 'Loading Analytics...'}
+                        </h2>
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                          <span className="flex items-center gap-1">
+                            <div className="h-2 w-2 rounded-full bg-blue-400"></div>
+                            Page {filters.page} of {data?.pagination.total_pages || 1}
+                          </span>
+                          {hasActiveFilters && (
+                            <span className="flex items-center gap-1">
+                              <div className="h-2 w-2 rounded-full bg-orange-400"></div>
+                              {activeFilterCount} filter{activeFilterCount !== 1 ? 's' : ''} applied
+                            </span>
+                          )}
+                        </div>
+                      </div>
 
-                  <div className="flex items-center gap-3">
-                    {hasActiveFilters && (
-                      <button
-                        onClick={resetFilters}
-                        className="rounded-xl border border-gray-300 bg-white/60 px-4 py-2 text-sm font-medium text-gray-700 backdrop-blur-sm transition-all duration-300 hover:bg-white/80 hover:scale-105 disabled:opacity-50 dark:border-gray-600 dark:bg-slate-700/60 dark:text-gray-300 dark:hover:bg-slate-700/80"
-                        disabled={isLoading}
-                      >
-                        Clear All
-                      </button>
-                    )}
+                      <div className="flex items-center gap-3">
+                        {hasActiveFilters && (
+                          <button
+                            onClick={resetFilters}
+                            className="rounded-xl border border-gray-300 bg-white/60 px-4 py-2 text-sm font-medium text-gray-700 backdrop-blur-sm transition-all duration-300 hover:bg-white/80 hover:scale-105 disabled:opacity-50 dark:border-gray-600 dark:bg-slate-700/60 dark:text-gray-300 dark:hover:bg-slate-700/80"
+                            disabled={isLoading}
+                          >
+                            Clear All
+                          </button>
+                        )}
 
-                    <button
-                      onClick={refreshData}
-                      className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105 disabled:opacity-50"
-                      disabled={isLoading}
-                    >
-                      <svg
-                        className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                        />
-                      </svg>
-                      <span className="hidden sm:inline">Refresh Data</span>
-                      <span className="sm:hidden">Refresh</span>
-                    </button>
-
-                    <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
-                      <DialogTrigger asChild>
                         <button
-                          className="flex items-center gap-2 rounded-xl border border-purple-200 bg-white/80 px-4 py-2 text-sm font-semibold text-purple-700 shadow-lg backdrop-blur-sm transition-all duration-300 hover:bg-purple-50 hover:scale-105 dark:border-purple-400/20 dark:bg-slate-800/80 dark:text-purple-400 dark:hover:bg-slate-700/80"
-                          disabled={!data || isLoading}
+                          onClick={refreshData}
+                          className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105 disabled:opacity-50"
+                          disabled={isLoading}
                         >
-                          <Download className="h-4 w-4" />
-                          <span className="hidden sm:inline">Export Data</span>
-                          <span className="sm:hidden">Export</span>
-                        </button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-md">
-                        <DialogHeader>
-                          <DialogTitle className="flex items-center gap-2">
-                            <FileDown className="h-5 w-5 text-purple-600" />
-                            Export Analytics Data
-                          </DialogTitle>
-                        </DialogHeader>
-                        
-                        <div className="space-y-6 py-4">
-                          {/* Export type selection */}
-                          <div>
-                            <Label className="text-sm font-medium">Export Type</Label>
-                            <Select value={exportType} onValueChange={(value: any) => setExportType(value)}>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="current">Current Page</SelectItem>
-                                <SelectItem value="filtered">Filtered Data</SelectItem>
-                                <SelectItem value="leaders">Growth Leaders</SelectItem>
-                                <SelectItem value="full">Full Dataset</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <p className="text-xs text-gray-500 mt-1">{getExportDescription()}</p>
-                          </div>
-
-                          {/* Format selection */}
-                          <div>
-                            <Label className="text-sm font-medium">Format</Label>
-                            <Select value={exportFormat} onValueChange={(value: ExportFormat) => setExportFormat(value)}>
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="json">JSON</SelectItem>
-                                <SelectItem value="csv">CSV</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          {/* Filename input */}
-                          <div>
-                            <Label className="text-sm font-medium">Filename (optional)</Label>
-                            <Input
-                              value={exportFilename}
-                              onChange={(e) => setExportFilename(e.target.value)}
-                              placeholder="Leave empty for auto-generated name"
+                          <svg
+                            className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                             />
-                          </div>
+                          </svg>
+                          <span className="hidden sm:inline">Refresh Data</span>
+                          <span className="sm:hidden">Refresh</span>
+                        </button>
 
-                          {/* Options */}
-                          <div className="space-y-3">
-                            <div className="flex items-center space-x-2">
-                              <Checkbox 
-                                id="metadata" 
-                                checked={includeMetadata}
-                                onCheckedChange={(checked) => setIncludeMetadata(!!checked)}
-                              />
-                              <Label htmlFor="metadata" className="text-sm">Include metadata</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <Checkbox 
-                                id="quarterly" 
-                                checked={includeQuarterlyData}
-                                onCheckedChange={(checked) => setIncludeQuarterlyData(!!checked)}
-                              />
-                              <Label htmlFor="quarterly" className="text-sm">Include quarterly data</Label>
-                            </div>
-                          </div>
-
-                          {/* Export button */}
-                          <div className="flex justify-end space-x-2">
-                            <Button variant="outline" onClick={() => setShowExportDialog(false)}>
-                              Cancel
-                            </Button>
-                            <Button 
-                              onClick={handleExport}
-                              className="bg-gradient-to-r from-purple-500 to-purple-600 text-white"
+                        <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+                          <DialogTrigger asChild>
+                            <button
+                              className="flex items-center gap-2 rounded-xl border border-purple-200 bg-white/80 px-4 py-2 text-sm font-semibold text-purple-700 shadow-lg backdrop-blur-sm transition-all duration-300 hover:bg-purple-50 hover:scale-105 dark:border-purple-400/20 dark:bg-slate-800/80 dark:text-purple-400 dark:hover:bg-slate-700/80"
+                              disabled={!data || isLoading}
                             >
-                              <Download className="h-4 w-4 mr-2" />
-                              Export
-                            </Button>
-                          </div>
+                              <Download className="h-4 w-4" />
+                              <span className="hidden sm:inline">Export Data</span>
+                              <span className="sm:hidden">Export</span>
+                            </button>
+                          </DialogTrigger>
+                          <DialogContent className="sm:max-w-md">
+                            <DialogHeader>
+                              <DialogTitle className="flex items-center gap-2">
+                                <FileDown className="h-5 w-5 text-purple-600" />
+                                Export Analytics Data
+                              </DialogTitle>
+                            </DialogHeader>
+
+                            <div className="space-y-6 py-4">
+                              {/* Export type selection */}
+                              <div>
+                                <Label className="text-sm font-medium">Export Type</Label>
+                                <Select value={exportType} onValueChange={(value: any) => setExportType(value)}>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="current">Current Page</SelectItem>
+                                    <SelectItem value="filtered">Filtered Data</SelectItem>
+                                    <SelectItem value="leaders">Growth Leaders</SelectItem>
+                                    <SelectItem value="full">Full Dataset</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <p className="text-xs text-gray-500 mt-1">{getExportDescription()}</p>
+                              </div>
+
+                              {/* Format selection */}
+                              <div>
+                                <Label className="text-sm font-medium">Format</Label>
+                                <Select value={exportFormat} onValueChange={(value: ExportFormat) => setExportFormat(value)}>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="json">JSON</SelectItem>
+                                    <SelectItem value="csv">CSV</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              {/* Filename input */}
+                              <div>
+                                <Label className="text-sm font-medium">Filename (optional)</Label>
+                                <Input
+                                  value={exportFilename}
+                                  onChange={(e) => setExportFilename(e.target.value)}
+                                  placeholder="Leave empty for auto-generated name"
+                                />
+                              </div>
+
+                              {/* Options */}
+                              <div className="space-y-3">
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="metadata"
+                                    checked={includeMetadata}
+                                    onCheckedChange={(checked) => setIncludeMetadata(!!checked)}
+                                  />
+                                  <Label htmlFor="metadata" className="text-sm">Include metadata</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <Checkbox
+                                    id="quarterly"
+                                    checked={includeQuarterlyData}
+                                    onCheckedChange={(checked) => setIncludeQuarterlyData(!!checked)}
+                                  />
+                                  <Label htmlFor="quarterly" className="text-sm">Include quarterly data</Label>
+                                </div>
+                              </div>
+
+                              {/* Export button */}
+                              <div className="flex justify-end space-x-2">
+                                <Button variant="outline" onClick={() => setShowExportDialog(false)}>
+                                  Cancel
+                                </Button>
+                                <Button
+                                  onClick={handleExport}
+                                  className="bg-gradient-to-r from-purple-500 to-purple-600 text-white"
+                                >
+                                  <Download className="h-4 w-4 mr-2" />
+                                  Export
+                                </Button>
+                              </div>
+                            </div>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Enhanced Error state */}
+                  {error && (
+                    <div className="mb-6 rounded-2xl border border-red-200/50 bg-gradient-to-br from-red-50/80 to-pink-50/80 p-6 backdrop-blur-sm dark:border-red-400/20 dark:from-red-900/20 dark:to-pink-900/20">
+                      <div className="flex items-center gap-4">
+                        <div className="rounded-xl bg-gradient-to-r from-red-500 to-pink-500 p-3">
+                          <svg
+                            className="h-6 w-6 text-white"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
                         </div>
-                      </DialogContent>
-                    </Dialog>
-                  </div>
-                </div>
-              </div>
-
-              {/* Enhanced Error state */}
-              {error && (
-                <div className="mb-6 rounded-2xl border border-red-200/50 bg-gradient-to-br from-red-50/80 to-pink-50/80 p-6 backdrop-blur-sm dark:border-red-400/20 dark:from-red-900/20 dark:to-pink-900/20">
-                  <div className="flex items-center gap-4">
-                    <div className="rounded-xl bg-gradient-to-r from-red-500 to-pink-500 p-3">
-                      <svg
-                        className="h-6 w-6 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-bold text-red-700 dark:text-red-400">Unable to Load Data</p>
-                      <p className="mt-1 text-red-600 dark:text-red-300">{error}</p>
-                    </div>
-                    <button
-                      onClick={refreshData}
-                      className="rounded-xl bg-gradient-to-r from-red-500 to-pink-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
-                    >
-                      Try Again
-                    </button>
-                  </div>
-                </div>
-              )}
-
-            {/* Loading state - Mobile optimized */}
-            {isLoading && (
-              <>
-                {/* Mobile: Horizontal scroll skeleton */}
-                <div className="mb-6 block sm:hidden">
-                  <div className="overflow-x-auto pb-4">
-                    <div className="flex gap-3">
-                      {Array.from({ length: 4 }).map((_, index) => (
-                        <div
-                          key={index}
-                          className="w-72 flex-shrink-0 animate-pulse rounded-lg border border-gray-200 bg-white p-4"
-                        >
-                          <div className="mb-3 flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-gray-200"></div>
-                            <div className="flex-1">
-                              <div className="mb-1 h-4 rounded bg-gray-200"></div>
-                              <div className="h-3 w-3/4 rounded bg-gray-200"></div>
-                            </div>
-                            <div className="h-6 w-16 rounded-full bg-gray-200"></div>
-                          </div>
-                          <div className="mb-3 grid grid-cols-2 gap-3">
-                            <div className="rounded-lg bg-gray-100 p-3">
-                              <div className="mb-1 h-3 rounded bg-gray-200"></div>
-                              <div className="h-4 rounded bg-gray-200"></div>
-                            </div>
-                            <div className="rounded-lg bg-gray-100 p-3">
-                              <div className="mb-1 h-3 rounded bg-gray-200"></div>
-                              <div className="h-4 rounded bg-gray-200"></div>
-                            </div>
-                          </div>
-                          <div className="mt-4 h-10 w-full rounded-lg bg-gray-200"></div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Desktop: Grid skeleton */}
-                <div className="mb-6 hidden sm:grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {Array.from({ length: 6 }).map((_, index) => (
-                    <div
-                      key={index}
-                      className="animate-pulse rounded-lg border border-gray-200 bg-white p-4"
-                    >
-                      <div className="mb-3 flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-gray-200"></div>
                         <div className="flex-1">
-                          <div className="mb-1 h-4 rounded bg-gray-200"></div>
-                          <div className="h-3 w-3/4 rounded bg-gray-200"></div>
+                          <p className="font-bold text-red-700 dark:text-red-400">Unable to Load Data</p>
+                          <p className="mt-1 text-red-600 dark:text-red-300">{error}</p>
                         </div>
-                        <div className="h-6 w-16 rounded-full bg-gray-200"></div>
+                        <button
+                          onClick={refreshData}
+                          className="rounded-xl bg-gradient-to-r from-red-500 to-pink-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
+                        >
+                          Try Again
+                        </button>
                       </div>
-                      <div className="mb-3 grid grid-cols-2 gap-3">
-                        <div className="rounded-lg bg-gray-100 p-3">
-                          <div className="mb-1 h-3 rounded bg-gray-200"></div>
-                          <div className="h-4 rounded bg-gray-200"></div>
-                        </div>
-                        <div className="rounded-lg bg-gray-100 p-3">
-                          <div className="mb-1 h-3 rounded bg-gray-200"></div>
-                          <div className="h-4 rounded bg-gray-200"></div>
+                    </div>
+                  )}
+
+                  {/* Loading state - Mobile optimized */}
+                  {isLoading && (
+                    <>
+                      {/* Mobile: Horizontal scroll skeleton */}
+                      <div className="mb-6 block sm:hidden">
+                        <div className="overflow-x-auto pb-4">
+                          <div className="flex gap-3">
+                            {Array.from({ length: 4 }).map((_, index) => (
+                              <div
+                                key={index}
+                                className="w-72 flex-shrink-0 animate-pulse rounded-lg border border-gray-200 bg-white p-4"
+                              >
+                                <div className="mb-3 flex items-center gap-3">
+                                  <div className="h-8 w-8 rounded-full bg-gray-200"></div>
+                                  <div className="flex-1">
+                                    <div className="mb-1 h-4 rounded bg-gray-200"></div>
+                                    <div className="h-3 w-3/4 rounded bg-gray-200"></div>
+                                  </div>
+                                  <div className="h-6 w-16 rounded-full bg-gray-200"></div>
+                                </div>
+                                <div className="mb-3 grid grid-cols-2 gap-3">
+                                  <div className="rounded-lg bg-gray-100 p-3">
+                                    <div className="mb-1 h-3 rounded bg-gray-200"></div>
+                                    <div className="h-4 rounded bg-gray-200"></div>
+                                  </div>
+                                  <div className="rounded-lg bg-gray-100 p-3">
+                                    <div className="mb-1 h-3 rounded bg-gray-200"></div>
+                                    <div className="h-4 rounded bg-gray-200"></div>
+                                  </div>
+                                </div>
+                                <div className="mt-4 h-10 w-full rounded-lg bg-gray-200"></div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        {Array.from({ length: 4 }).map((_, i) => (
-                          <div key={i} className="flex justify-between">
-                            <div className="h-3 w-1/3 rounded bg-gray-200"></div>
-                            <div className="h-3 w-1/4 rounded bg-gray-200"></div>
+
+                      {/* Desktop: Grid skeleton */}
+                      <div className="mb-6 hidden sm:grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        {Array.from({ length: 6 }).map((_, index) => (
+                          <div
+                            key={index}
+                            className="animate-pulse rounded-lg border border-gray-200 bg-white p-4"
+                          >
+                            <div className="mb-3 flex items-center gap-3">
+                              <div className="h-8 w-8 rounded-full bg-gray-200"></div>
+                              <div className="flex-1">
+                                <div className="mb-1 h-4 rounded bg-gray-200"></div>
+                                <div className="h-3 w-3/4 rounded bg-gray-200"></div>
+                              </div>
+                              <div className="h-6 w-16 rounded-full bg-gray-200"></div>
+                            </div>
+                            <div className="mb-3 grid grid-cols-2 gap-3">
+                              <div className="rounded-lg bg-gray-100 p-3">
+                                <div className="mb-1 h-3 rounded bg-gray-200"></div>
+                                <div className="h-4 rounded bg-gray-200"></div>
+                              </div>
+                              <div className="rounded-lg bg-gray-100 p-3">
+                                <div className="mb-1 h-3 rounded bg-gray-200"></div>
+                                <div className="h-4 rounded bg-gray-200"></div>
+                              </div>
+                            </div>
+                            <div className="space-y-2">
+                              {Array.from({ length: 4 }).map((_, i) => (
+                                <div key={i} className="flex justify-between">
+                                  <div className="h-3 w-1/3 rounded bg-gray-200"></div>
+                                  <div className="h-3 w-1/4 rounded bg-gray-200"></div>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="mt-4 h-10 w-full rounded-lg bg-gray-200"></div>
                           </div>
                         ))}
                       </div>
-                      <div className="mt-4 h-10 w-full rounded-lg bg-gray-200"></div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
+                    </>
+                  )}
 
-            {/* Results grid - Responsive HTTP Data */}
-            {!isLoading && data && data.rankings.length > 0 && (
-              <>
-                {/* Mobile: Horizontal scrolling cards */}
-                <div className="mb-6 block sm:hidden">
-                  <div className="overflow-x-auto pb-4">
-                    <div className="flex gap-3">
-                      {data.rankings.map((ranking, index) => (
-                        <div key={ranking.symbol} className="w-72 flex-shrink-0">
+                  {/* Results grid - Responsive HTTP Data */}
+                  {!isLoading && data && data.rankings.length > 0 && (
+                    <>
+                      {/* Mobile: Horizontal scrolling cards */}
+                      <div className="mb-6 block sm:hidden">
+                        <div className="overflow-x-auto pb-4">
+                          <div className="flex gap-3">
+                            {data.rankings.map((ranking, index) => (
+                              <div key={ranking.symbol} className="w-72 flex-shrink-0">
+                                <StockDataCard
+                                  symbol={ranking.symbol}
+                                  rank={ranking.rank || index + 1}
+                                  epsGrowth={ranking.epsGrowth || 0}
+                                  price={0} // Price not available in API
+                                  currency="USD"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                          {/* Scroll indicator */}
+                          <div className="mt-4 flex justify-center">
+                            <p className="text-xs text-gray-500">
+                              👈 Swipe to see more stocks →
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Desktop: Grid layout */}
+                      <div className="mb-6 hidden sm:grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        {data.rankings.map(ranking => (
                           <StockDataCard
+                            key={ranking.symbol}
                             symbol={ranking.symbol}
-                            rank={ranking.rank || index + 1}
+                            rank={ranking.rank || 0}
                             epsGrowth={ranking.epsGrowth || 0}
                             price={0} // Price not available in API
                             currency="USD"
                           />
-                        </div>
-                      ))}
-                    </div>
-                    {/* Scroll indicator */}
-                    <div className="mt-4 flex justify-center">
-                      <p className="text-xs text-gray-500">
-                        👈 Swipe to see more stocks →
+                        ))}
+                      </div>
+
+                      {/* Mobile-optimized Pagination */}
+                      <div className="px-2 sm:px-0">
+                        <Pagination
+                          pagination={{
+                            page: data.pagination.page,
+                            limit: data.pagination.per_page,
+                            total: data.pagination.total_items,
+                            totalPages: data.pagination.total_pages,
+                            hasNext: data.pagination.page < data.pagination.total_pages,
+                            hasPrev: data.pagination.page > 1
+                          }}
+                          onPageChange={changePage}
+                          onLimitChange={(limit) => updateFilters({ limit })}
+                          isLoading={isLoading}
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Enhanced Empty state */}
+                  {!isLoading && data && data.rankings.length === 0 && (
+                    <div className="rounded-2xl border border-gray-200/50 bg-white/80 p-8 text-center backdrop-blur-xl dark:border-gray-600/20 dark:bg-slate-800/80">
+                      <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600">
+                        <svg
+                          className="h-10 w-10 text-gray-400 dark:text-gray-500"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                          />
+                        </svg>
+                      </div>
+                      <h3 className="mb-3 bg-gradient-to-r from-gray-600 to-gray-800 bg-clip-text text-xl font-bold text-transparent dark:from-gray-300 dark:to-gray-100">
+                        No Results Found
+                      </h3>
+                      <p className="mb-6 max-w-md mx-auto text-gray-600 dark:text-gray-300">
+                        We couldn't find any companies matching your current filter criteria. Try adjusting your filters to discover more analytics data.
                       </p>
+                      <button
+                        onClick={resetFilters}
+                        className="rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 px-6 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
+                      >
+                        Clear All Filters
+                      </button>
                     </div>
-                  </div>
-                </div>
-
-                {/* Desktop: Grid layout */}
-                <div className="mb-6 hidden sm:grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  {data.rankings.map(ranking => (
-                    <StockDataCard
-                      key={ranking.symbol}
-                      symbol={ranking.symbol}
-                      rank={ranking.rank || 0}
-                      epsGrowth={ranking.epsGrowth || 0}
-                      price={0} // Price not available in API
-                      currency="USD"
-                    />
-                  ))}
-                </div>
-
-                {/* Mobile-optimized Pagination */}
-                <div className="px-2 sm:px-0">
-                  <Pagination
-                    pagination={{
-                      page: data.pagination.page,
-                      limit: data.pagination.per_page,
-                      total: data.pagination.total_items,
-                      totalPages: data.pagination.total_pages,
-                      hasNext: data.pagination.page < data.pagination.total_pages,
-                      hasPrev: data.pagination.page > 1
-                    }}
-                    onPageChange={changePage}
-                    onLimitChange={(limit) => updateFilters({ limit })}
-                    isLoading={isLoading}
-                  />
-                </div>
-              </>
-            )}
-
-              {/* Enhanced Empty state */}
-              {!isLoading && data && data.rankings.length === 0 && (
-                <div className="rounded-2xl border border-gray-200/50 bg-white/80 p-8 text-center backdrop-blur-xl dark:border-gray-600/20 dark:bg-slate-800/80">
-                  <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600">
-                    <svg
-                      className="h-10 w-10 text-gray-400 dark:text-gray-500"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                      />
-                    </svg>
-                  </div>
-                  <h3 className="mb-3 bg-gradient-to-r from-gray-600 to-gray-800 bg-clip-text text-xl font-bold text-transparent dark:from-gray-300 dark:to-gray-100">
-                    No Results Found
-                  </h3>
-                  <p className="mb-6 max-w-md mx-auto text-gray-600 dark:text-gray-300">
-                    We couldn't find any companies matching your current filter criteria. Try adjusting your filters to discover more analytics data.
-                  </p>
-                  <button
-                    onClick={resetFilters}
-                    className="rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 px-6 py-3 font-semibold text-white shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
-                  >
-                    Clear All Filters
-                  </button>
-                </div>
-              )}
+                  )}
                 </div>
               </div>
             </TabsContent>

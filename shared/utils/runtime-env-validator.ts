@@ -2,9 +2,10 @@
  * Runtime Environment Variable Validator
  * Validates NEXT_PUBLIC_* variables are available at runtime
  * Works with Cloud Run environment variables (no build-time coupling)
+ * Modernized with centralized URL resolver for fallbacks
  */
 
-import { getAdminUrl, getBackendUrl, getFrontendUrl } from './url-resolver';
+import { URLContext, getAdminUrl, getBackendUrl, getFrontendUrl } from './url-resolver';
 
 export interface ValidationResult {
   isValid: boolean;
@@ -20,13 +21,13 @@ export interface RequiredEnvVars {
 }
 
 export interface OptionalEnvVars {
+  // Web3 configuration
+  NEXT_PUBLIC_BLOCKCHAIN_NETWORK?: string;
+  NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID?: string;
+  // Firebase legacy configuration
   NEXT_PUBLIC_FIREBASE_API_KEY?: string;
-  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN?: string;
   NEXT_PUBLIC_FIREBASE_PROJECT_ID?: string;
-  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?: string;
-  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID?: string;
   NEXT_PUBLIC_FIREBASE_APP_ID?: string;
-  NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID?: string;
 }
 
 /**
@@ -88,21 +89,10 @@ export function validateRuntimeEnvironment(isDevelopment = false): ValidationRes
     }
   }
 
-  // Optional Firebase variables - warn if partially configured
-  const firebaseVars: (keyof OptionalEnvVars)[] = [
-    'NEXT_PUBLIC_FIREBASE_API_KEY',
-    'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
-    'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
-    'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET',
-    'NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID',
-    'NEXT_PUBLIC_FIREBASE_APP_ID',
-    'NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID'
-  ];
-
-  const configuredFirebaseVars = firebaseVars.filter(varName => !!process.env[varName]);
-
-  if (configuredFirebaseVars.length > 0 && configuredFirebaseVars.length < 3) {
-    warnings.push(`Firebase partially configured (${configuredFirebaseVars.length}/7 variables). Configure all Firebase variables or none for optimal performance.`);
+  // Optional Web3 variables - validate blockchain network
+  const blockchainNetwork = process.env['NEXT_PUBLIC_BLOCKCHAIN_NETWORK'];
+  if (blockchainNetwork && !['mainnet', 'testnet'].includes(blockchainNetwork)) {
+    errors.push(`NEXT_PUBLIC_BLOCKCHAIN_NETWORK must be 'mainnet' or 'testnet' (current: ${blockchainNetwork})`);
   }
 
   return {
@@ -128,20 +118,20 @@ export function getRuntimeEnvironment(isDevelopment = false): RequiredEnvVars & 
   }
 
   return {
-    // Required variables with development fallbacks
-    NEXT_PUBLIC_BACKEND_URL: getBackendUrl('client'),
-    NEXT_PUBLIC_APP_URL: getFrontendUrl('client'),
-    NEXT_PUBLIC_ADMIN_URL: getAdminUrl('client'),
-    NEXT_PUBLIC_OAUTH_CLIENT_ID: process.env['NEXT_PUBLIC_OAUTH_CLIENT_ID'] || (isDevelopment ? 'epsx-frontend' : ''),
+    // Required variables with centralized URL resolver fallbacks
+    NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL || getBackendUrl(URLContext.CLIENT),
+    NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL || getFrontendUrl(URLContext.CLIENT),
+    NEXT_PUBLIC_ADMIN_URL: process.env.NEXT_PUBLIC_ADMIN_URL || getAdminUrl(URLContext.CLIENT),
+    NEXT_PUBLIC_OAUTH_CLIENT_ID: process.env.NEXT_PUBLIC_OAUTH_CLIENT_ID || (isDevelopment ? 'epsx-frontend' : ''),
+
+    // Optional Web3 variables
+    NEXT_PUBLIC_BLOCKCHAIN_NETWORK: process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK || 'testnet',
+    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'epsx-web3-frontend',
 
     // Optional Firebase variables
     NEXT_PUBLIC_FIREBASE_API_KEY: process.env['NEXT_PUBLIC_FIREBASE_API_KEY'],
-    NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: process.env['NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN'],
     NEXT_PUBLIC_FIREBASE_PROJECT_ID: process.env['NEXT_PUBLIC_FIREBASE_PROJECT_ID'],
-    NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: process.env['NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET'],
-    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: process.env['NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID'],
-    NEXT_PUBLIC_FIREBASE_APP_ID: process.env['NEXT_PUBLIC_FIREBASE_APP_ID'],
-    NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: process.env['NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID']
+    NEXT_PUBLIC_FIREBASE_APP_ID: process.env['NEXT_PUBLIC_FIREBASE_APP_ID']
   };
 }
 
@@ -149,20 +139,22 @@ export function getRuntimeEnvironment(isDevelopment = false): RequiredEnvVars & 
  * Initialize and validate environment on app startup
  */
 export function initializeRuntimeEnvironment(): void {
-  const isDevelopment = process.env['NODE_ENV'] === 'development';
+  const isDevelopment = process.env.NODE_ENV === 'development';
 
-  console.log('🔍 Validating runtime environment variables...');
+  if (isDevelopment) {
+    console.log('🔍 Validating runtime environment variables...');
+  }
 
   try {
     const env = getRuntimeEnvironment(isDevelopment);
-    console.log('✅ Runtime environment validation passed');
-    console.log(`🌐 Backend URL: ${env.NEXT_PUBLIC_BACKEND_URL}`);
-    console.log(`🎯 App URL: ${env.NEXT_PUBLIC_APP_URL}`);
-    console.log(`👥 Admin URL: ${env.NEXT_PUBLIC_ADMIN_URL}`);
-    console.log(`🔑 OAuth Client ID: ${env.NEXT_PUBLIC_OAUTH_CLIENT_ID}`);
-
-    if (env.NEXT_PUBLIC_FIREBASE_API_KEY) {
-      console.log('🔥 Firebase configuration detected');
+    if (isDevelopment) {
+      console.log('✅ Runtime environment validation passed');
+      console.log(`🌐 Backend URL: ${env.NEXT_PUBLIC_BACKEND_URL}`);
+      console.log(`🎯 App URL: ${env.NEXT_PUBLIC_APP_URL}`);
+      console.log(`👥 Admin URL: ${env.NEXT_PUBLIC_ADMIN_URL}`);
+      console.log(`🔑 OAuth Client ID: ${env.NEXT_PUBLIC_OAUTH_CLIENT_ID}`);
+      console.log(`⛓️ Blockchain Network: ${env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK}`);
+      console.log(`🔗 WalletConnect Project ID: ${env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID}`);
     }
   } catch (error) {
     console.error('❌ Runtime environment validation failed:', error);

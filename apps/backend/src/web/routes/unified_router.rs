@@ -152,9 +152,6 @@ impl UnifiedRouteBuilder {
             revoke_permission_handler,
         };
 
-        // Get Redis services - optional, log warning if not available
-        let redis_pool = self.container.get_redis_pool();
-        let redis_broadcaster = self.container.get_redis_broadcaster();
 
         // Get Redis services - optional, log warning if not available
         let redis_pool = self.container.get_redis_pool();
@@ -186,7 +183,6 @@ impl UnifiedRouteBuilder {
     // ============================================================================
 
     fn create_admin_routes(&self) -> Router {
-        let app_state = self.create_app_state();
 
         let redis_pool = self.container.redis_pool.clone();
         let redis_broadcaster = self.container.redis_broadcaster.clone();
@@ -434,24 +430,6 @@ impl UnifiedRouteBuilder {
             .with_state(app_state.clone());
 
         // Create authenticated user notification routes
-        let auth_routes: Router<()> = Router::new()
-            // User notification routes (authenticated)
-            .route("/unread-count", get(crate::web::admin::notification_handlers::get_unread_count_handler))
-            .route("/mark-all-read", put(crate::web::admin::notification_handlers::mark_all_notifications_read_handler))
-            .route("/clear-all", delete(crate::web::admin::notification_handlers::clear_all_notifications_handler))
-            .route("/{id}/read", put(crate::web::admin::notification_handlers::mark_notification_read_handler))
-            .route("/{id}", delete(crate::web::admin::notification_handlers::delete_notification_handler))
-            .route("/{id}/acknowledge", put(crate::web::admin::notification_handlers::acknowledge_notification_handler))
-            .route("/", get(crate::web::admin::notification_handlers::get_user_notifications_handler))
-            .with_state(app_state.clone());
-
-        // Create admin notification routes (admin-only)
-        let admin_routes: Router<()> = Router::new()
-            .route("/send", post(crate::web::admin::notification_handlers::send_notification_handler))
-            .route("/stats", get(crate::web::admin::notification_handlers::get_notification_stats_handler))
-            .route("/admin/{id}", delete(crate::web::admin::notification_handlers::delete_admin_notification_handler))
-            .route("/admin", get(crate::web::admin::notification_handlers::get_all_notifications_handler))
-            .with_state(app_state.clone());
 
         // Combine all notification routes
         let notification_routes = Router::new()

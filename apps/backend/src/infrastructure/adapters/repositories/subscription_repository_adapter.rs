@@ -8,7 +8,7 @@ use tracing::{info, error, debug, warn};
 use diesel::prelude::*;
 use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 
 use crate::infrastructure::models::payment::{SubscriptionDb, NewSubscriptionDb};
 use crate::schema::subscriptions;

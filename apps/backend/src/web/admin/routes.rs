@@ -35,7 +35,6 @@ use super::permissions::{
   remove_assignment,
   get_expiring_assignments,
   get_assignment_history,
-  get_wallet_groups,
   get_group_history,
   // Validation operations
   validate_permission,

@@ -187,6 +187,7 @@ mod tests {
     use super::*;
     use std::sync::Arc;
     use async_trait::async_trait;
+    use crate::domain::payment::value_objects::{Currency, PaymentMethodType, Network};
     
     // Mock payment repository
     struct MockPaymentRepository;
@@ -201,7 +202,7 @@ mod tests {
             Ok(None)
         }
         
-        async fn find_by_user(&self, wallet_address: &UserId) -> Result<Vec<Payment>, String> {
+        async fn find_by_user(&self, _wallet_address: &WalletAddress) -> Result<Vec<Payment>, String> {
             Ok(vec![])
         }
         
@@ -229,7 +230,7 @@ mod tests {
             Ok(())
         }
         
-        async fn get_user_payment_stats(&self, wallet_address: &UserId) -> Result<crate::domain::payment::PaymentStats, String> {
+        async fn get_user_payment_stats(&self, _wallet_address: &WalletAddress) -> Result<crate::domain::payment::PaymentStats, String> {
             Ok(crate::domain::payment::PaymentStats {
                 total_payments: 0,
                 completed_payments: 0,
@@ -246,7 +247,7 @@ mod tests {
     
     #[async_trait]
     impl DomainEventBus for MockEventBus {
-        async fn publish(&self, _event: Arc<dyn crate::domain::shared_kernel::DomainEvent>) -> Result<(), String> {
+        async fn publish(&self, _event: &dyn crate::domain::shared_kernel::DomainEvent) -> Result<(), String> {
             Ok(())
         }
     }
@@ -257,14 +258,15 @@ mod tests {
         let event_bus = Arc::new(MockEventBus);
         let handler = CreatePaymentCommandHandler::new(payment_repo, event_bus);
         
-        let wallet_address = UserId::new(1);
-        let amount = PaymentAmount::new(rust_decimal::Decimal::from(100), crate::domain::payment::Currency::USD).unwrap();
+        let wallet_address = WalletAddress::new("0x742d35Cc6634C0532925a3b8D369D7763F3c45c6").unwrap();
+        let amount = PaymentAmount::new(rust_decimal::Decimal::from(100), Currency::USD).unwrap();
         let method = PaymentMethod::new(
-            crate::domain::payment::PaymentMethodType::CreditCard,
-            crate::domain::payment::PaymentMethodConfig::default(),
+            PaymentMethodType::Crypto,
+            Currency::USD,
+            Some(Network::Ethereum),
         ).unwrap();
         
-        let command = CreatePaymentCommand::new(user_id, amount, method);
+        let command = CreatePaymentCommand::new(wallet_address, amount, method);
         
         // This test would pass if the Payment::create method was properly implemented
         // For now, it will likely fail due to incomplete Payment aggregate implementation

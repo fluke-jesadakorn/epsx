@@ -457,7 +457,7 @@ mod tests {
         ).unwrap();
 
         let instructions = method.get_instructions();
-        match instructions {
+        match &instructions {
             PaymentInstructions::Crypto { currency, network, estimated_confirmations } => {
                 assert_eq!(currency, Currency::USDT);
                 assert_eq!(network, Network::Ethereum);
@@ -474,7 +474,7 @@ mod tests {
 
     #[test]
     fn test_config_validation() {
-        let method = PaymentMethod::new(
+        let mut method = PaymentMethod::new(
             PaymentMethodType::Crypto,
             Currency::USDT,
             Some(Network::Ethereum),

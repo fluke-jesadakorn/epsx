@@ -4,20 +4,18 @@
 /// Requires admin permissions and provides detailed analytics and management capabilities
 
 use axum::{
-    extract::{State, Query, Path, Request},
-    http::StatusCode,
+    extract::{State, Query, Path},
     response::Json,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
-use tracing::{info, debug, error, warn};
+use tracing::{info, error};
 
 use crate::{
     prelude::*,
-    web::middleware::bearer_middleware::OpenIDUserContext,
     web::middleware::UnifiedErrorResponse,
-    schema::{payments, subscriptions, payment_audit_log, groups},
+    schema::{subscriptions, groups},
 };
 
 /// Admin payment list query parameters
@@ -252,7 +250,7 @@ pub async fn admin_list_payments_handler(
 ) -> Result<Json<AdminPaymentListResponse>, Json<UnifiedErrorResponse>> {
     info!("Admin listing payments with params: {:?}", params);
 
-    let conn = app_state.db_pool.get().await
+    let _conn = app_state.db_pool.get().await
         .map_err(|e| {
             error!("Failed to get database connection: {}", e);
             Json(create_error_response(500, "Database connection failed", "Failed to establish database connection"))

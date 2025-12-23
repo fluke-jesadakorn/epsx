@@ -232,6 +232,30 @@
         "typescript": "^5.9.3",
       },
     },
+    "shared": {
+      "name": "@shared/types",
+      "version": "1.0.0",
+      "devDependencies": {
+        "@rainbow-me/rainbowkit": "^2.2.10",
+        "@types/react": "19.2.7",
+        "@types/react-dom": "19.2.3",
+        "react": "19.2.3",
+        "typescript": "^5.0.0",
+        "viem": "^2.41.2",
+        "wagmi": "^2.15.5",
+      },
+      "peerDependencies": {
+        "@radix-ui/react-tooltip": ">=1.0.0",
+        "@rainbow-me/rainbowkit": ">=2.0.0",
+        "@tanstack/react-query": ">=5.0.0",
+        "lucide-react": ">=0.500.0",
+        "next-themes": ">=0.4.0",
+        "react": ">=18.0.0",
+        "viem": ">=2.0.0",
+        "wagmi": ">=2.0.0",
+        "zustand": ">=5.0.0",
+      },
+    },
   },
   "packages": {
     "@adobe/css-tools": ["@adobe/css-tools@4.4.4", "", {}, "sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg=="],
@@ -811,6 +835,8 @@
     "@scure/bip32": ["@scure/bip32@1.7.0", "", { "dependencies": { "@noble/curves": "~1.9.0", "@noble/hashes": "~1.8.0", "@scure/base": "~1.2.5" } }, "sha512-E4FFX/N3f4B80AKWp5dP6ow+flD1LQZo/w8UnLGYZO674jS6YnYeepycOOksv+vLPSpgN35wgKgy+ybfTb2SMw=="],
 
     "@scure/bip39": ["@scure/bip39@1.6.0", "", { "dependencies": { "@noble/hashes": "~1.8.0", "@scure/base": "~1.2.5" } }, "sha512-+lF0BbLiJNwVlev4eKelw1WWLaiKXw7sSl8T6FvBlWkdX+94aGJ4o8XjUdlyhTCjd8c+B3KT3JfS8P0bLRNU6A=="],
+
+    "@shared/types": ["@shared/types@workspace:shared"],
 
     "@sinclair/typebox": ["@sinclair/typebox@0.34.41", "", {}, "sha512-6gS8pZzSXdyRHTIqoqSVknxolr1kzfy4/CeDnrzsVz8TTIWUbOBr6gnzOmTYJ3eXQNh4IYHIGi5aIL7sOZ2G/g=="],
 

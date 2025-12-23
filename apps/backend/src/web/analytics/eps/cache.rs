@@ -44,7 +44,7 @@ use super::{
 )]
 pub async fn get_unified_analytics_rankings_cached(
   Query(params): Query<EPSRankingQueryParams>,
-  Extension(cache): Extension<Arc<dyn Cache>>
+  Extension(_cache): Extension<Arc<dyn Cache>>
 ) -> Result<Json<CardDashboardResponse>, AppError> {
   debug!(
     "Direct TradingView analytics rankings API called with params: {:?}",

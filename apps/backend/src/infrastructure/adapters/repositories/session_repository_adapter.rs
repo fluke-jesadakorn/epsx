@@ -737,14 +737,18 @@ impl SessionAnalyticsPort for SessionRepositoryAdapter {
 
         // Log statistics (in production, this would write to metrics/monitoring system)
         tracing::info!(
-            "Session Statistics: total={}, unique_wallets={}, active={}, revoked={}, expired={}, avg_duration_hours={:.2}, created_24h={}",
+            "Session Statistics: total={}, unique_wallets={}, active={}, revoked={}, expired={}, avg_duration_hours={:.2}, max_duration_hours={:?}, min_duration_hours={:?}, created_last_hour={}, created_last_24h={}, created_last_7d={}",
             stats.total,
             stats.unique_wallets,
             stats.active,
             stats.revoked,
             stats.expired,
             stats.avg_duration_hours.unwrap_or(0.0),
-            stats.created_last_24h
+            stats.max_duration_hours,
+            stats.min_duration_hours,
+            stats.created_last_hour,
+            stats.created_last_24h,
+            stats.created_last_7d
         );
 
         Ok(())
@@ -783,11 +787,12 @@ impl SessionAnalyticsPort for SessionRepositoryAdapter {
         // Log activity patterns
         for row in patterns {
             tracing::info!(
-                "Activity Pattern: day={:?}, sessions={}, unique_wallets={}, avg_duration_hours={:.2}",
+                "Activity Pattern: day={:?}, sessions={}, unique_wallets={}, avg_duration_hours={:.2}, revoked={}",
                 row.day,
                 row.sessions_created,
                 row.unique_wallets,
-                row.avg_duration_hours.unwrap_or(0.0)
+                row.avg_duration_hours.unwrap_or(0.0),
+                row.revoked_count
             );
         }
 

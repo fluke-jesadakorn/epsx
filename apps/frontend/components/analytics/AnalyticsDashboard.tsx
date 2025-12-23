@@ -1,19 +1,19 @@
 'use client';
 
-import { useAnalyticsFilters } from '@/hooks/useAnalyticsFilters';
 import { useAnalyticsData } from '@/hooks/useAnalyticsData';
+import { useAnalyticsFilters } from '@/hooks/useAnalyticsFilters';
 import { calculateQoQLeaders } from '@/lib/analytics/qoq-calculations';
-import { useMemo, useState } from 'react';
 import type { UnifiedAnalyticsRankingsResponse } from '@/lib/api-client';
+import { useMemo, useState } from 'react';
 
-import { AnalyticsMetadataDisplay } from './AnalyticsMetadataDisplay';
 import { AnalyticsNavigation } from '@/components/shared/AnalyticsNavigation';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
+import { StockDataCard } from '@/shared/components/cards/StockDataCard';
+import { LayoutGrid, List } from 'lucide-react';
+import { AnalyticsMetadataDisplay } from './AnalyticsMetadataDisplay';
+import { CardDashboardView } from './CardDashboardView';
 import FilterPanel from './FilterPanel';
 import Pagination from './Pagination';
-import { StockDataCard } from '@/shared/components/cards/StockDataCard';
-import { CardDashboardView } from './CardDashboardView';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { LayoutGrid, List } from 'lucide-react';
 
 interface RichFilterOptions {
   countries: Array<{ value: string; label: string }>;
@@ -27,12 +27,12 @@ interface AnalyticsDashboardProps {
    * Optional initial data for SSR scenarios
    */
   initialData?: UnifiedAnalyticsRankingsResponse | null;
-  
+
   /**
    * Optional filter options for SSR scenarios
    */
   filterOptions?: RichFilterOptions;
-  
+
   /**
    * Whether to show the analytics navigation component
    */
@@ -43,8 +43,8 @@ interface AnalyticsDashboardProps {
  * Analytics Dashboard that supports both client-side fetching
  * and server-side rendering with initial data
  */
-export default function AnalyticsDashboard({ 
-  initialData = null, 
+export default function AnalyticsDashboard({
+  initialData = null,
   filterOptions: initialFilterOptions,
   showNavigation = false
 }: AnalyticsDashboardProps) {
@@ -71,8 +71,8 @@ export default function AnalyticsDashboard({
 
   // Use initial data if provided and no new data has been loaded
   const currentData = data || initialData;
-  const currentFilterOptions = filterOptions.countries.length > 0 
-    ? filterOptions 
+  const currentFilterOptions = filterOptions.countries.length > 0
+    ? filterOptions
     : (initialFilterOptions || filterOptions);
 
   const isLoading = filtersLoading || dataLoading;
@@ -88,9 +88,9 @@ export default function AnalyticsDashboard({
 
   if (error) {
     return (
-      <ErrorDisplay 
-        error={error} 
-        onRetry={() => window.location.reload()} 
+      <ErrorDisplay
+        error={error}
+        onRetry={() => window.location.reload()}
       />
     );
   }
@@ -98,10 +98,10 @@ export default function AnalyticsDashboard({
   return (
     <div className="container mx-auto space-y-6 p-4">
       <div className="mx-auto max-w-7xl space-y-8">
-        
+
         {/* Optional Analytics Navigation */}
         {showNavigation && <AnalyticsNavigation currentPage="analytics" />}
-        
+
         {/* Header Section */}
         <HeaderSection />
 
@@ -109,7 +109,7 @@ export default function AnalyticsDashboard({
         <FilterPanel
           filters={filters}
           options={{
-            countries: currentFilterOptions.countries.map(c => c.value),
+            countries: currentFilterOptions.countries.map(c => typeof c === 'string' ? c : (c as any).value),
             sectors: currentFilterOptions.sectors,
             exchanges: currentFilterOptions.exchanges,
             stock_types: currentFilterOptions.stock_types
@@ -133,9 +133,9 @@ export default function AnalyticsDashboard({
             <TabNavigation />
 
             <TabsContent value="list" className="space-y-6">
-              <RankingsList 
-                data={currentData} 
-                isLoading={isLoading} 
+              <RankingsList
+                data={currentData}
+                isLoading={isLoading}
                 onPageChange={handlePageChange}
                 onReset={resetFilters}
               />
@@ -170,15 +170,15 @@ function TabNavigation() {
   return (
     <div className="flex justify-center">
       <TabsList className="grid w-full max-w-md grid-cols-2 rounded-2xl bg-white/80 backdrop-blur-xl border border-orange-200/50 dark:bg-slate-800/80 dark:border-orange-400/20">
-        <TabsTrigger 
-          value="list" 
+        <TabsTrigger
+          value="list"
           className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-yellow-500 data-[state=active]:text-white"
         >
           <List className="h-4 w-4" />
           List View
         </TabsTrigger>
-        <TabsTrigger 
-          value="cards" 
+        <TabsTrigger
+          value="cards"
           className="flex items-center gap-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-yellow-500 data-[state=active]:text-white"
         >
           <LayoutGrid className="h-4 w-4" />
@@ -247,7 +247,7 @@ function QoQLeadersDisplay({ qoqLeaders, isLoading }: QoQLeadersDisplayProps) {
       <h2 className="mb-4 text-xl font-bold text-gray-900 dark:text-white">
         🏆 Quarter-over-Quarter Leaders
       </h2>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <LeaderCategory
           title="Top EPS Growth"
@@ -278,13 +278,13 @@ interface LeaderCategoryProps {
 function LeaderCategory({ title, leaders, colorScheme, valueKey }: LeaderCategoryProps) {
   const colorClasses = colorScheme === 'green'
     ? {
-        bg: 'bg-green-50 dark:bg-green-900/20',
-        text: 'text-green-600 dark:text-green-400'
-      }
+      bg: 'bg-green-50 dark:bg-green-900/20',
+      text: 'text-green-600 dark:text-green-400'
+    }
     : {
-        bg: 'bg-blue-50 dark:bg-blue-900/20',
-        text: 'text-blue-600 dark:text-blue-400'
-      };
+      bg: 'bg-blue-50 dark:bg-blue-900/20',
+      text: 'text-blue-600 dark:text-blue-400'
+    };
 
   return (
     <div>

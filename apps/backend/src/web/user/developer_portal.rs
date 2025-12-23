@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 use uuid::Uuid;
 
-use crate::domain::developer_portal::{CreateApiKeyRequest, ModuleAccessRequest, RevokeApiKeyRequest};
+use crate::domain::developer_portal::{CreateApiKeyRequest, RevokeApiKeyRequest};
 use crate::infrastructure::adapters::repositories::developer_portal::ApiKeyRepository;
 use crate::web::auth::AppState;
 use crate::web::responses::UnifiedApiResponse;
@@ -362,10 +362,6 @@ pub async fn list_available_groups_handler(
     let mut result_groups = Vec::new();
     for group in active_groups {
         // Query permissions for this group
-        #[derive(diesel::Queryable)]
-        struct PermissionRow {
-            permission_string: String,
-        }
 
         let group_perms = match group_permissions::table
             .inner_join(permissions::table.on(permissions::id.eq(group_permissions::permission_id)))

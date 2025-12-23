@@ -382,7 +382,7 @@ impl NewPermissionDb {
         source_id: Option<Uuid>,
         granted_by: Option<String>,
         grant_reason: Option<String>,
-        expires_at: Option<DateTime<Utc>>,
+        _expires_at: Option<DateTime<Utc>>,
     ) -> Result<Self, String> {
         // Parse permission string into components
         let parts: Vec<&str> = permission_string.split(':').collect();

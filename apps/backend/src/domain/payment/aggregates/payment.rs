@@ -1,20 +1,19 @@
 use crate::prelude::*;
 
 use rust_decimal::Decimal;
-use std::fmt;
 use uuid::Uuid;
 
 use crate::domain::shared_kernel::aggregate_root::AggregateBase;
 use crate::domain::payment::value_objects::{
     PaymentId, PaymentAmount, PaymentMethod, CryptoAddress, TransactionHash,
-    PaymentReference, Currency
+    PaymentReference
 };
 use crate::domain::wallet_management::value_objects::WalletAddress;
 
 // Import types from separate modules
 use super::payment_status::PaymentStatus;
 use super::payment_metadata::PaymentMetadata;
-use super::payment_details::{CryptoPaymentDetails, FiatPaymentDetails, BlockchainVerificationStatus};
+use super::payment_details::{CryptoPaymentDetails, FiatPaymentDetails};
 
 /// Payment Aggregate Root
 /// Manages the complete payment lifecycle from creation to completion
@@ -40,10 +39,10 @@ impl Payment {
         wallet_address: WalletAddress,
         amount: PaymentAmount,
         status: PaymentStatus,
-        transaction_hash: Option<TransactionHash>,
-        plan_id: String,
+        _transaction_hash: Option<TransactionHash>,
+        _plan_id: String,
         created_at: DateTime<Utc>,
-        metadata: serde_json::Value,
+        _metadata: serde_json::Value,
     ) -> Result<Self, PaymentError> {
         let payment_metadata = PaymentMetadata::new(created_at);
         let method = PaymentMethod::new(

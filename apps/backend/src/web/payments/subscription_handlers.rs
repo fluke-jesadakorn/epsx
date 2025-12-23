@@ -4,14 +4,13 @@
 /// Complex database operations will be implemented in a future iteration
 
 use axum::{
-    extract::{State, Query, Path},
-    http::StatusCode,
+    extract::{State, Path},
     response::Json,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
-use tracing::{info, error, debug, warn};
+use tracing::info;
 
 use crate::{
     prelude::*,

@@ -1,7 +1,7 @@
 'use client';
 
-import { memo, useState } from 'react';
 import type { FilterPanelProps } from '@/types/analytics';
+import { memo, useState } from 'react';
 
 const FilterPanel = memo<FilterPanelProps>(({ filters, options, onFiltersChange, isLoading }) => {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -55,7 +55,7 @@ const FilterPanel = memo<FilterPanelProps>(({ filters, options, onFiltersChange,
               </span>
             )}
           </div>
-          
+
           <div className="flex items-center gap-2">
             {activeFilterCount > 0 && (
               <button
@@ -66,7 +66,7 @@ const FilterPanel = memo<FilterPanelProps>(({ filters, options, onFiltersChange,
                 Clear
               </button>
             )}
-            
+
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="lg:hidden p-1 rounded hover:bg-gray-100"
@@ -114,8 +114,8 @@ const FilterPanel = memo<FilterPanelProps>(({ filters, options, onFiltersChange,
           >
             <option value="">All Countries</option>
             {options.countries.map((country) => (
-              <option key={country} value={country}>
-                {country}
+              <option key={country.value} value={country.value}>
+                {country.label}
               </option>
             ))}
           </select>

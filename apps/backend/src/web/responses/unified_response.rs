@@ -104,8 +104,8 @@ pub struct PaginationMeta {
 /// Backend tells frontend what user can do
 #[derive(Debug, Serialize, Deserialize, ToSchema)]
 pub struct PermissionContext {
-    /// User's role/tier level
-    pub user_tier: String,
+    /// User's group/tier level
+    pub user_group: String,
     
     /// Available actions for current context
     pub available_actions: Vec<String>,
@@ -312,8 +312,8 @@ impl ResponseMeta {
 impl PermissionContext {
     /// Create permission context from JWT permissions (permission-first approach)
     pub fn from_permissions(user_permissions: &[String]) -> Self {
-        // Derive tier from permissions for display purposes only
-        let user_tier = if user_permissions.iter().any(|p| p.starts_with("admin:")) {
+        // Derive group from permissions for display purposes only
+        let user_group = if user_permissions.iter().any(|p| p.starts_with("admin:")) {
             "admin".to_string()
         } else if user_permissions.iter().any(|p| p.contains("premium")) {
             "premium".to_string()
@@ -343,7 +343,7 @@ impl PermissionContext {
             .collect();
 
         Self {
-            user_tier,
+            user_group,
             available_actions,
             restricted_actions: None,
             feature_access: None,

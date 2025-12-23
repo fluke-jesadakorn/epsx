@@ -420,7 +420,7 @@ pub async fn clear_all_notifications_handler(
 )]
 pub async fn acknowledge_notification_handler(
     State(app_state): State<AppState>,
-    headers: HeaderMap,
+    _headers: HeaderMap,
     Path(notification_id): Path<String>,
 ) -> Result<impl IntoResponse, AppError> {
     // Call the offline_queue module's mark_as_acknowledged function

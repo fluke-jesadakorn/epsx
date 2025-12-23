@@ -5,22 +5,16 @@
 
 use axum::{
     extract::{State, Query},
-    http::StatusCode,
     response::Json,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
-use tracing::{info, error, debug, warn};
-use std::str::FromStr;
-use rust_decimal::Decimal;
-use rust_decimal::prelude::FromPrimitive;
-use bigdecimal::ToPrimitive;
+use tracing::{info, debug};
 
 use crate::{
     prelude::*,
     web::middleware::UnifiedErrorResponse,
-    infrastructure::blockchain::PaymentVerifier,
 };
 
 // ============================================================================
@@ -128,7 +122,7 @@ pub struct PaymentDetails {
 /// Validate blockchain payment transaction
 #[axum::debug_handler]
 pub async fn validate_payment_handler(
-    State(app_state): State<crate::web::auth::AppState>,
+    State(_app_state): State<crate::web::auth::AppState>,
     Json(payload): Json<ValidatePaymentRequest>,
 ) -> Result<Json<ValidatePaymentResponse>, Json<UnifiedErrorResponse>> {
     // TODO: Extract user context from validated Bearer token (handled by middleware)
@@ -271,26 +265,4 @@ pub async fn get_payment_details_handler(
         success: false,
         payment: None,
     }))
-}
-
-/// Helper function to create PaymentVerifier for different networks
-fn create_payment_verifier(network: &str) -> Result<PaymentVerifier, crate::domain::shared_kernel::app_error::AppError> {
-    // Environment variables for blockchain RPC URLs and contract addresses
-    let rpc_url = match network {
-        "mainnet" => std::env::var("BSC_MAINNET_RPC_URL")
-            .unwrap_or_else(|_| "https://bsc-dataseed1.binance.org".to_string()),
-        "testnet" => std::env::var("BSC_TESTNET_RPC_URL")
-            .unwrap_or_else(|_| "https://data-seed-prebsc-1-s1.binance.org:8545".to_string()),
-        _ => return Err(crate::domain::shared_kernel::app_error::AppError::validation_error("network", "Invalid blockchain network")),
-    };
-
-    let contract_address = match network {
-        "mainnet" => std::env::var("PAYMENT_ESCROW_ADDRESS_MAINNET")
-            .unwrap_or_else(|_| "0xcf2254fEa2ED6aAb8B846C150a00dC4faB2d7558".to_string()),
-        "testnet" => std::env::var("PAYMENT_ESCROW_ADDRESS_TESTNET")
-            .unwrap_or_else(|_| "0xcf2254fEa2ED6aAb8B846C150a00dC4faB2d7558".to_string()),
-        _ => "0xcf2254fEa2ED6aAb8B846C150a00dC4faB2d7558".to_string(),
-    };
-
-    PaymentVerifier::new(rpc_url, contract_address)
 }

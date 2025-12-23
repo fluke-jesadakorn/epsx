@@ -6,31 +6,37 @@
 
 // Import for local re-export with legacy names (maintaining compatibility)
 import type {
-  ApiResponse as SharedApiResponse,
-  ApiError as SharedApiError,
-  PaginatedResponse as SharedPaginatedResponse,
-  AnalyticsQueryParams as SharedAnalyticsQueryParams,
-  AnalyticsRankingItem as SharedAnalyticsRankingItem,
-  QuarterlyEPSData as SharedQuarterlyEPSData,
-  FilterOptions as SharedFilterOptions,
-  CountryOption as SharedCountryOption,
-  UserProfile as SharedUserProfile,
-  UserPreferences as SharedUserPreferences,
-  NotificationPreferences as SharedNotificationPreferences,
   AnalyticsPreferences as SharedAnalyticsPreferences,
-  UserSubscription as SharedUserSubscription,
-  LoginRequest as SharedLoginRequest,
-  RegisterRequest as SharedRegisterRequest,
+  ApiError as SharedApiError,
+  ApiResponse as SharedApiResponse,
   LoginResponse as SharedAuthResponse,
   AuthTokens as SharedAuthTokens,
+  LoginRequest as SharedLoginRequest,
+  NotificationPreferences as SharedNotificationPreferences,
+  PaginatedResponse as SharedPaginatedResponse,
   PaymentRequest as SharedPaymentRequest,
   PaymentResponse as SharedPaymentResponse,
   PaymentStatus as SharedPaymentStatus,
-  NotificationWSMessage as SharedNotificationMessage,
-  WebSocketMessage as SharedWebSocketMessage,
+  RegisterRequest as SharedRegisterRequest,
   SearchRequest as SharedSearchRequest,
-  SearchResponse as SharedSearchResponse
+  SearchResponse as SharedSearchResponse,
+  UserPreferences as SharedUserPreferences,
+  UserProfile as SharedUserProfile,
+  UserSubscription as SharedUserSubscription,
+  WebSocketMessage as SharedWebSocketMessage
 } from '../../../shared/types/api';
+
+import type {
+  AnalyticsQueryParams as SharedAnalyticsQueryParams,
+  AnalyticsRankingItem as SharedAnalyticsRankingItem,
+  CountryOption as SharedCountryOption,
+  FilterOptions as SharedFilterOptions,
+  QuarterlyEPSData as SharedQuarterlyEPSData,
+} from '../../../shared/types/analytics';
+
+import type {
+  NotificationWSMessage as SharedNotificationMessage,
+} from '../../../shared/types/notifications';
 
 // Re-export with exact same names for backward compatibility
 export type ApiResponse<T = unknown> = SharedApiResponse<T>;

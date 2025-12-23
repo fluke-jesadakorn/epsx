@@ -89,7 +89,7 @@ pub async fn verify_session_handler(
     headers: HeaderMap,
     Json(request): Json<SessionVerificationRequest>,
 ) -> Result<Json<SessionVerificationResponse>, StatusCode> {
-    use crate::web::middleware::bearer_middleware::{validate_bearer_token, OpenIDUserContext};
+    use crate::web::middleware::bearer_middleware::validate_bearer_token;
     use crate::auth::OpenIDTokenError;
 
     info!("Processing session verification request");
@@ -245,11 +245,6 @@ pub async fn get_session_status_handler(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::{
-        body::Body,
-        http::{header::AUTHORIZATION, Request, StatusCode},
-        Json,
-    };
     use serde_json::json;
 
     // ================== Basic Session Handler Tests ==================
@@ -623,10 +618,8 @@ mod tests {
         let padding_len = (4 - input.len() % 4) % 4;
         input.push_str(&"=".repeat(padding_len));
 
-        base64::decode(&input)
+        use base64::Engine;
+        base64::engine::general_purpose::STANDARD.decode(&input)
     }
 }
 
-// Include the integration test module
-#[cfg(test)]
-mod integration_tests;

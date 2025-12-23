@@ -188,7 +188,8 @@
     "uuid": "^13.0.0"
   },
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "shared"
   ],
   "dependencies": {
     "@anthropic-ai/claude-code": "^2.0.67",

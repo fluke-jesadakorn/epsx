@@ -815,7 +815,7 @@ mod tests {
 
     #[test]
     fn test_nvda_earnings_date_selection() {
-        use super::types::StockDataField;
+        use super::StockDataField;
         
         let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);

@@ -19,7 +19,6 @@ use siwe::{Message, VerificationOpts};
 use std::str::FromStr;
 
 use crate::web::auth::AppState;
-use crate::core::errors::AppError;
 
 /// Enhanced Web3 Authentication Context
 /// Represents authenticated wallet with comprehensive permissions from the permission system
@@ -213,7 +212,7 @@ async fn validate_siwe_signature(headers: &HeaderMap, app_state: &AppState) -> R
     info!("SIWE signature verification successful for wallet: {}", wallet_header);
 
     // Get auth service for wallet lookup and permission validation
-    let auth_service = app_state.domain_container.get_auth_service()
+    let _auth_service = app_state.domain_container.get_auth_service()
         .ok_or_else(|| Web3AuthError::SecurityViolation("Auth service not available".to_string()))?;
 
     // For now, provide basic permissions - TODO: Integrate with proper wallet permission service

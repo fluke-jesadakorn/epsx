@@ -1,9 +1,5 @@
 // Clean architecture library exports
 
-// Temporary allowance for complex Axum trait lifetime issues
-#![allow(dead_code)]
-#![allow(unused_imports)]
-#![allow(unused_variables)]
 #![allow(improper_ctypes_definitions)]
 
 // Diesel schema module (auto-generated from database)
@@ -20,7 +16,7 @@ pub mod auth; // Web3 wallet-first authentication system
 
 #[cfg(test)]
 pub mod __test__; // Test utilities and test modules
-// permissions module removed - replaced by auth/roles.rs
+// permissions module removed - replaced by auth/groups.rs (conceptually)
 
 // Selective re-exports for clean namespace
 pub use core::{ errors, types, telemetry };

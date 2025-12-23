@@ -23,6 +23,8 @@ export * from './progressive-auth';
 // Tier group types (unified tier and permission group system)
 export * from './tier-groups';
 // Wallet types
+export * from './analytics';
+export * from './notifications';
 export * from './wallet';
 
 // Existing shared types
@@ -89,10 +91,18 @@ export type {
 } from './auth-separation';
 
 export type {
-  AnalyticsRankingItem, ApiError,
+  ApiError,
   // API
-  ApiResponse, AuthTokens, LoginRequest, NotificationWSMessage, PaginatedResponse
+  ApiResponse, AuthTokens, LoginRequest, PaginatedResponse
 } from './api';
+
+export type {
+  AnalyticsRankingItem
+} from './analytics';
+
+export type {
+  NotificationWSMessage
+} from './notifications';
 
 export type {
   AuthGateProps,
@@ -113,3 +123,4 @@ export type {
   AuthConfig, AuthenticatedUserProfile, BaseJWTPayload, LegacyJWTPayload,
   MigrationResult, PermissionValidation, SessionValidationResult, TokenValidationOptions
 } from './auth-separation';
+

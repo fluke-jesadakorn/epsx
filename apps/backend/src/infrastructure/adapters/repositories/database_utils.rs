@@ -6,11 +6,9 @@
 
 use crate::prelude::*;
 use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
-use diesel::prelude::*;
-use std::sync::Arc;
 use std::pin::Pin;
 use std::future::Future;
-use tracing::{error, warn, debug, info};
+use tracing::error;
 
 // ============================================================================
 // DATABASE ERROR HANDLING MACROS
@@ -274,6 +272,7 @@ pub fn add_hours_to_timestamp(hours: i64) -> chrono::DateTime<chrono::Utc> {
 #[cfg(test)]
 pub mod testing {
     use super::*;
+    use diesel_async::pooled_connection::AsyncDieselConnectionManager;
 
     /// Create a mock connection pool for testing
     pub async fn create_test_pool() -> Arc<Pool<AsyncPgConnection>> {
@@ -285,12 +284,9 @@ pub mod testing {
             .unwrap_or_else(|_| "postgresql://postgres:password@localhost:5432/epsx_test_db".to_string());
 
         // Create connection pool configuration for testing
-        let manager = deadpool::managed::Manager::from_config(
-            deadpool::managed::Config::from_url(&database_url),
-            deadpool::diesel::AsyncDieselConnectionManager::<AsyncPgConnection>::new(database_url),
-        );
+        let config = AsyncDieselConnectionManager::<AsyncPgConnection>::new(database_url);
 
-        let pool = deadpool::managed::Pool::builder(manager)
+        let pool = Pool::builder(config)
             .max_size(5) // Small pool for testing
             .build()
             .expect("Failed to create test database pool");
