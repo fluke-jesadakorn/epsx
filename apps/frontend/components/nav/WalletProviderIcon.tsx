@@ -1,6 +1,5 @@
-'use client';
+import { useUnifiedWeb3 } from '@/shared/components/providers/UnifiedWeb3Provider';
 
-import { useWeb3Context } from '@/components/providers/AuthProvider';
 import {
   Button,
   DropdownMenu,
@@ -10,7 +9,8 @@ import {
   DropdownMenuTrigger,
   UnifiedThemeToggle,
 } from '@/components/ui';
-import { formatAddress, useWeb3AuthStore } from '@/lib/auth/store';
+import { useWeb3AuthStore } from '@/lib/auth/store';
+import { formatAddress } from '@/shared/auth/utils';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { Check, Code, Copy, ExternalLink, Settings, Wallet } from 'lucide-react';
@@ -67,7 +67,7 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   const [lastAuthError, setLastAuthError] = useState<string | null>(null);
   const { address, isConnected, connector } = useAccount();
   const { disconnect } = useDisconnect();
-  const { isInitialized } = useWeb3Context();
+  const { isInitialized } = useUnifiedWeb3();
   const { isAuthenticated, requestChallenge, authenticateWithWallet, logout } = useSharedAuth();
   const { signMessageAsync } = useSignMessage();
 

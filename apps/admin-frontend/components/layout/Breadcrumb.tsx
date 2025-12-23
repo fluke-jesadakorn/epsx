@@ -46,7 +46,8 @@ function generateBreadcrumbs(pathname: string): BreadcrumbItem[] {
   const breadcrumbs: BreadcrumbItem[] = []
 
   // Always start with dashboard
-  breadcrumbs.push(routeConfig['/'])
+  const dashboardItem = routeConfig['/'] || { label: 'Dashboard', href: '/', icon: '🏠' }
+  breadcrumbs.push(dashboardItem)
 
   // Build path progressively
   let currentPath = ''
@@ -72,7 +73,8 @@ function generateBreadcrumbs(pathname: string): BreadcrumbItem[] {
 
   // Remove duplicate dashboard if current page is dashboard
   if (pathname === '/' && breadcrumbs.length > 1) {
-    return [breadcrumbs[0]]
+    const first = breadcrumbs[0]
+    return first ? [first] : []
   }
 
   return breadcrumbs
@@ -100,31 +102,34 @@ export function Breadcrumb() {
 
   return (
     <div className="flex items-center gap-2 text-sm">
-      {breadcrumbs.map((item, index) => (
-        <div key={item.href} className="flex items-center gap-2">
-          {index === 0 && (
-            <span className="text-gray-600 dark:text-gray-300">
-              {item.icon || '🏠'}
-            </span>
-          )}
+      {breadcrumbs.map((item, index) => {
+        if (!item) return null
+        return (
+          <div key={item.href} className="flex items-center gap-2">
+            {index === 0 && (
+              <span className="text-gray-600 dark:text-gray-300">
+                {item.icon || '🏠'}
+              </span>
+            )}
 
-          {index < breadcrumbs.length - 1 ? (
-            <>
-              <Link
-                href={item.href}
-                className="text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100"
-              >
+            {index < breadcrumbs.length - 1 ? (
+              <>
+                <Link
+                  href={item.href}
+                  className="text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100"
+                >
+                  {item.label}
+                </Link>
+                <span className="text-gray-400 dark:text-gray-500">/</span>
+              </>
+            ) : (
+              <span className="font-semibold bg-gradient-to-r from-yellow-600 to-orange-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
                 {item.label}
-              </Link>
-              <span className="text-gray-400 dark:text-gray-500">/</span>
-            </>
-          ) : (
-            <span className="font-semibold bg-gradient-to-r from-yellow-600 to-orange-600 dark:from-purple-400 dark:to-pink-400 bg-clip-text text-transparent">
-              {item.label}
-            </span>
-          )}
-        </div>
-      ))}
+              </span>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }

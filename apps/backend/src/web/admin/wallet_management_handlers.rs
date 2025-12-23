@@ -12,10 +12,11 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use tracing::{error, info};
+use std::sync::Arc;
 
 use crate::web::auth::AppState;
 use crate::web::admin::responses::{AdminApiResponse, AdminMetadata, PaginationInfo};
-use crate::auth::{PermissionState, HandlerPermissionExt, ValidationContext, PermissionValidator};
+use crate::auth::unified_permission_service::UnifiedPermissionService;
 
 // CQRS imports for wallet management
 use crate::application::shared::{QueryHandler, CommandHandler};
@@ -614,11 +615,12 @@ pub async fn get_user_stats_handler(
     )
 )]
 pub async fn validate_user_permissions_bulk(
-    State(permission_state): State<PermissionState>,
+    State(permission_service): State<Arc<UnifiedPermissionService>>,
     headers: axum::http::HeaderMap,
     RequestJson(request): RequestJson<BulkPermissionValidationRequest>,
 ) -> Result<Json<AdminApiResponse<BulkPermissionValidationResponse>>, StatusCode> {
     info!("🔐 Admin: Performing bulk permission validation test");
+    let start_time = std::time::Instant::now();
 
     // Extract admin wallet
     let admin_wallet = headers.get("x-wallet-address")
@@ -626,75 +628,84 @@ pub async fn validate_user_permissions_bulk(
         .unwrap_or("0x742d35Cc6AbAAC8b14A3780B5b0E11B2Ce65d695");
 
     // Validate admin can perform bulk operations
-    match permission_state.require_permission("admin:permissions:bulk_validate", admin_wallet).await {
-        Ok(_) => info!("✅ Admin authorized for bulk permission validation"),
-        Err(_) => return Err(StatusCode::FORBIDDEN),
+    match permission_service.has_permission(admin_wallet, "admin:permissions:bulk_validate").await {
+        Ok(true) => info!("✅ Admin authorized for bulk permission validation"),
+        Ok(false) => {
+            info!("❌ Admin not authorized for bulk permission validation");
+            return Err(StatusCode::FORBIDDEN);
+        },
+        Err(e) => {
+            error!("❌ Permission check failed: {}", e);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
     }
 
     // Get test wallet and permissions from request
     let test_wallet = request.wallet_address.clone();
     let test_permissions = request.permissions.clone();
 
-    // Create validation context
-    let context = ValidationContext {
-        request_id: uuid::Uuid::new_v4().to_string(),
-        user_agent: headers.get("user-agent").and_then(|h| h.to_str().ok()).map(String::from),
-        ip_address: headers.get("x-forwarded-for").and_then(|h| h.to_str().ok()).map(String::from),
-        timestamp: chrono::Utc::now(),
-        route_path: "/admin/wallets/validate-permissions-bulk".to_string(),
-        http_method: "POST".to_string(),
-    };
+    // Perform bulk validation using UnifiedPermissionService
+    let mut results = Vec::new();
+    let mut granted_count = 0u32;
+    let mut denied_count = 0u32;
 
-    // Perform bulk validation
-    match permission_state.authority.bulk_validate_permissions(
-        &test_wallet,
-        &test_permissions,
-        &context,
-    ).await {
-        Ok(bulk_result) => {
-            info!("✅ Bulk validation completed: {}/{} permissions granted",
-                bulk_result.granted_count, bulk_result.total_permissions);
-
-            let response_data = BulkPermissionValidationResponse {
-                wallet_address: test_wallet,
-                total_permissions: bulk_result.total_permissions as u32,
-                granted_count: bulk_result.granted_count as u32,
-                denied_count: bulk_result.denied_count as u32,
-                validation_time_ms: bulk_result.validation_time_ms,
-                results: bulk_result.results
-                    .into_iter()
-                    .map(|(permission, result)| {
-                        serde_json::json!({
-                            "permission": permission,
-                            "granted": result.granted,
-                            "source": result.source,
-                            "expires_at": result.expires_at,
-                            "reason": result.reason
-                        })
-                    })
-                    .collect(),
-            };
-
-            let metadata = AdminMetadata {
-                operation: "bulk_permission_validation".to_string(),
-                performed_by: Some(admin_wallet.to_string()),
-                pagination: None,
-                permissions: None,
-                metadata: Some(serde_json::json!({
-                    "request_id": context.request_id,
-                    "validation_time_ms": bulk_result.validation_time_ms
-                })),
-            };
-
-            Ok(Json(AdminApiResponse::success_with_meta(
-                response_data,
-                "Bulk permission validation completed",
-                metadata,
-            )))
-        }
-        Err(e) => {
-            error!("❌ Bulk validation failed: {}", e);
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
+    for permission in &test_permissions {
+        match permission_service.has_permission(&test_wallet, permission).await {
+            Ok(granted) => {
+                if granted {
+                    granted_count += 1;
+                } else {
+                    denied_count += 1;
+                }
+                results.push(serde_json::json!({
+                    "permission": permission,
+                    "granted": granted,
+                    "source": if granted { "direct_or_group" } else { "not_found" },
+                    "expires_at": null,
+                    "reason": null
+                }));
+            }
+            Err(e) => {
+                denied_count += 1;
+                results.push(serde_json::json!({
+                    "permission": permission,
+                    "granted": false,
+                    "source": "error",
+                    "expires_at": null,
+                    "reason": e.to_string()
+                }));
+            }
         }
     }
+
+    let validation_time_ms = start_time.elapsed().as_millis() as u64;
+
+    info!("✅ Bulk validation completed: {}/{} permissions granted in {}ms",
+        granted_count, test_permissions.len(), validation_time_ms);
+
+    let response_data = BulkPermissionValidationResponse {
+        wallet_address: test_wallet,
+        total_permissions: test_permissions.len() as u32,
+        granted_count,
+        denied_count,
+        validation_time_ms,
+        results,
+    };
+
+    let metadata = AdminMetadata {
+        operation: "bulk_permission_validation".to_string(),
+        performed_by: Some(admin_wallet.to_string()),
+        pagination: None,
+        permissions: None,
+        metadata: Some(serde_json::json!({
+            "request_id": uuid::Uuid::new_v4().to_string(),
+            "validation_time_ms": validation_time_ms
+        })),
+    };
+
+    Ok(Json(AdminApiResponse::success_with_meta(
+        response_data,
+        "Bulk permission validation completed",
+        metadata,
+    )))
 }

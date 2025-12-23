@@ -1,17 +1,17 @@
 'use client';
 
-import '@/lib/browser-polyfills';
+import '@/shared/utils/browser-polyfills';
 import {
-    darkTheme,
-    getDefaultConfig,
-    RainbowKitProvider,
+  darkTheme,
+  getDefaultConfig,
+  RainbowKitProvider,
 } from '@rainbow-me/rainbowkit';
 import '@rainbow-me/rainbowkit/styles.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
 import { WagmiProvider } from 'wagmi';
-import { bsc, bscTestnet } from 'wagmi/chains';
 import type { Chain } from 'wagmi/chains';
+import { bsc, bscTestnet } from 'wagmi/chains';
 
 // Query client factory function
 const createQueryClient = () => new QueryClient({
@@ -142,7 +142,7 @@ export function MinimalWeb3Provider({ children }: MinimalWeb3ProviderProps) {
     // Handle wallet library and database cleanup errors that are safe to ignore
     const handleWalletErrors = (event: PromiseRejectionEvent) => {
       const error = event.reason;
-      
+
       if (error instanceof TypeError) {
         const msg = error.message;
         // These specific errors are from wallet library and database cleanup and are harmless
@@ -151,6 +151,7 @@ export function MinimalWeb3Provider({ children }: MinimalWeb3ProviderProps) {
           msg === "Cannot read properties of null (reading 'transaction')" ||
           msg.includes("Cannot set properties of null") ||
           msg.includes("Cannot read properties of null") ||
+          msg.includes("Cannot mix BigInt") ||
           msg.includes("IndexedDB") ||
           msg.includes("WebSocket") ||
           msg.includes("transaction") ||
@@ -165,9 +166,14 @@ export function MinimalWeb3Provider({ children }: MinimalWeb3ProviderProps) {
       if (error && typeof error === 'object' && error.name === 'TypeError') {
         const errorStr = error.toString();
         if (
-          errorStr.includes('null') && 
+          errorStr.includes('null') &&
           (errorStr.includes('onclose') || errorStr.includes('transaction'))
         ) {
+          event.preventDefault();
+          return;
+        }
+        // Handle BigInt mixing errors from viem/wagmi
+        if (errorStr.includes('BigInt')) {
           event.preventDefault();
           return;
         }
@@ -190,7 +196,7 @@ export function MinimalWeb3Provider({ children }: MinimalWeb3ProviderProps) {
 
   // Get wagmi config safely
   const config = getWagmiConfig();
-  
+
   // During hydration, provide minimal wagmi context without RainbowKit to prevent SSR issues
   if (!isHydrated || !config) {
     return (

@@ -1,14 +1,13 @@
 'use client';
 
-import { 
-  Shield, 
-  Lock, 
-  UserCheck, 
-  Settings, 
-  ArrowRight, 
-  X,
+import {
   AlertTriangle,
-  MessageSquare
+  ArrowRight,
+  MessageSquare,
+  Settings,
+  Shield,
+  UserCheck,
+  X
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -20,19 +19,19 @@ interface AdminUpgradePromptProps {
   // Permission info
   requiredPermission?: string;
   requiredRole?: 'admin' | 'super_admin' | 'system_admin';
-  
+
   // Feature context
   featureName?: string;
   description?: string;
-  
+
   // Display options
   variant?: 'banner' | 'card' | 'inline' | 'tooltip';
   size?: 'sm' | 'md' | 'lg';
   dismissible?: boolean;
-  
+
   // Styling
   className?: string;
-  
+
   // Actions
   onRequestAccess?: () => void;
   onContactSuperAdmin?: () => void;
@@ -99,7 +98,7 @@ export function AdminUpgradePrompt({
 }: AdminUpgradePromptProps) {
   const [isDismissed, setIsDismissed] = useState(false);
 
-  if (isDismissed) {return null;}
+  if (isDismissed) { return null; }
 
   // Determine which info to use
   const roleInfo = requiredRole ? ROLE_INFO[requiredRole] : ROLE_INFO.admin;
@@ -111,16 +110,16 @@ export function AdminUpgradePrompt({
   };
 
   const getTitle = () => {
-    if (featureName) {return `${featureName} Access Required`;}
-    if (requiredPermission) {return `Permission Required: ${requiredPermission}`;}
-    if (requiredRole) {return `${requiredRole.replace('_', ' ').toUpperCase()} Role Required`;}
+    if (featureName) { return `${featureName} Access Required`; }
+    if (requiredPermission) { return `Permission Required: ${requiredPermission}`; }
+    if (requiredRole) { return `${requiredRole.replace('_', ' ').toUpperCase()} Group Required`; }
     return 'Administrative Access Required';
   };
 
   const getDescription = () => {
-    if (description) {return description;}
-    if (requiredPermission) {return `This feature requires the "${requiredPermission}" permission.`;}
-    if (requiredRole) {return roleInfo.description;}
+    if (description) { return description; }
+    if (requiredPermission) { return `This feature requires the "${requiredPermission}" permission.`; }
+    if (requiredRole) { return roleInfo.description; }
     return 'You need additional administrative permissions to access this feature.';
   };
 
@@ -129,7 +128,7 @@ export function AdminUpgradePrompt({
     return (
       <div className={`relative overflow-hidden ${roleInfo.bgColor} ${roleInfo.borderColor} border rounded-lg p-4 ${className}`}>
         <div className={`absolute inset-0 bg-gradient-to-r ${roleInfo.color} opacity-5`} />
-        
+
         <div className="relative flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className={`p-2 rounded-full bg-gradient-to-r ${roleInfo.color}`}>
@@ -140,7 +139,7 @@ export function AdminUpgradePrompt({
               <p className="text-sm text-muted-foreground">{getDescription()}</p>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-2">
             {onRequestAccess && (
               <Button onClick={onRequestAccess} size="sm">
@@ -177,12 +176,12 @@ export function AdminUpgradePrompt({
               <X className="h-4 w-4" />
             </button>
           )}
-          
+
           <div className="flex items-start space-x-4">
             <div className={`p-3 rounded-lg bg-gradient-to-br ${roleInfo.color}`}>
               <IconComponent className="h-6 w-6 text-white" />
             </div>
-            
+
             <div className="flex-1">
               <div className="flex items-center space-x-2 mb-2">
                 {requiredRole && (
@@ -196,10 +195,10 @@ export function AdminUpgradePrompt({
                   </Badge>
                 )}
               </div>
-              
+
               <h3 className="font-semibold mb-1">{getTitle()}</h3>
               <p className="text-sm text-muted-foreground mb-4">{getDescription()}</p>
-              
+
               <div className="space-y-2 mb-4">
                 <div className="flex items-center text-sm text-muted-foreground">
                   <AlertTriangle className="h-4 w-4 mr-2 text-yellow-500" />
@@ -212,7 +211,7 @@ export function AdminUpgradePrompt({
                   </div>
                 )}
               </div>
-              
+
               <div className="flex gap-2">
                 {onRequestAccess && (
                   <Button onClick={onRequestAccess} size="sm" className="flex-1">
@@ -252,7 +251,7 @@ export function AdminUpgradePrompt({
             )}
           </span>
         </div>
-        
+
         <div className="flex items-center space-x-2">
           {onRequestAccess && (
             <Button onClick={onRequestAccess} size="sm" variant="outline">
@@ -279,8 +278,8 @@ export function AdminUpgradePrompt({
             Access Restricted
           </h3>
           <p className="text-xs text-muted-foreground mb-3">
-            {requiredRole 
-              ? `${requiredRole.replace('_', ' ').toUpperCase()} role required`
+            {requiredRole
+              ? `${requiredRole.replace('_', ' ').toUpperCase()} group required`
               : 'Administrative permission required'
             }
           </p>

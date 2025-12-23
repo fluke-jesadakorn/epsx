@@ -46,7 +46,9 @@ export interface EPSXJWTPayload extends JWTPayload {
  */
 export function isJWTExpired(token: string): boolean {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
+    const payloadPart = token.split('.')[1];
+    if (!payloadPart) return true;
+    const payload = JSON.parse(atob(payloadPart));
     const currentTime = Math.floor(Date.now() / 1000);
     return payload.exp < currentTime;
   } catch {
@@ -59,7 +61,9 @@ export function isJWTExpired(token: string): boolean {
  */
 export function getJWTTimeToExpiry(token: string): number {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
+    const payloadPart = token.split('.')[1];
+    if (!payloadPart) return 0;
+    const payload = JSON.parse(atob(payloadPart));
     const currentTime = Math.floor(Date.now() / 1000);
     return Math.max(0, payload.exp - currentTime);
   } catch {
@@ -81,7 +85,11 @@ export function hasJWTPermission(
   ): { platform: string; resource: string; action: string } | null => {
     const parts = permissionString.split(':');
     if (parts.length !== 3) return null;
-    return { platform: parts[0], resource: parts[1], action: parts[2] };
+    const platform = parts[0];
+    const resource = parts[1];
+    const action = parts[2];
+    if (!platform || !resource || !action) return null;
+    return { platform, resource, action };
   };
 
   const checkPermissionAccess = (
@@ -149,7 +157,9 @@ export function getJWTPermissions(payload: EPSXJWTPayload | JWTUser): string[] {
  */
 export function decodeJWT(token: string): JWTUser | null {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
+    const payloadPart = token.split('.')[1];
+    if (!payloadPart) return null;
+    const payload = JSON.parse(atob(payloadPart));
 
     return {
       uid: payload.sub || payload.uid,
@@ -175,7 +185,7 @@ export function createJWTClaims(
   return {
     sub: options.id,
     email: options.email,
-    name: options.name || options.email.split('@')[0],
+    name: options.name || options.email.split('@')[0] || 'user',
     permissions: options.permissions || [],
     iat: now,
     exp: expiry,
@@ -188,9 +198,9 @@ export function createJWTClaims(
  */
 export async function signJWT(payload: EPSXJWTPayload): Promise<string> {
   const secret =
-    process.env.WEB3_APP_SECRET || 
+    process.env.WEB3_APP_SECRET ||
     'web3-default-secret-for-development-only-change-in-production';
-  
+
   const encoder = new TextEncoder();
   const key = encoder.encode(secret);
 
@@ -208,9 +218,9 @@ export async function signJWT(payload: EPSXJWTPayload): Promise<string> {
 export async function verifyJWT(token: string): Promise<EPSXJWTPayload | null> {
   try {
     const secret =
-      process.env.WEB3_APP_SECRET || 
+      process.env.WEB3_APP_SECRET ||
       'web3-default-secret-for-development-only-change-in-production';
-    
+
     const encoder = new TextEncoder();
     const key = encoder.encode(secret);
 

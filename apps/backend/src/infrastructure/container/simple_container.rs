@@ -4,6 +4,7 @@
 use std::sync::Arc;
 use diesel_async::{AsyncPgConnection, pooled_connection::deadpool::Pool};
 use crate::infrastructure::cache::Cache;
+use crate::infrastructure::cache::unified_permission_cache::UnifiedPermissionCache;
 use crate::infrastructure::redis::RedisPool;
 use crate::web::notifications::RedisNotificationBroadcaster;
 use crate::infrastructure::adapters::repositories::{
@@ -24,6 +25,7 @@ use crate::domain::payment::repository_ports::PaymentRepositoryPort;
 use crate::auth::auth_service::UnifiedWeb3AuthService;
 use crate::auth::token_service::OpenIDTokenService;
 use crate::auth::key_manager::KeyManager;
+use crate::auth::UnifiedPermissionService;
 use crate::infrastructure::cqrs::{EventStore, PostgresEventStore, TransactionalOutbox};
 
 /// Enhanced container with Web3-first services
@@ -42,6 +44,10 @@ pub struct SimpleContainer {
     pub auth_service: Option<Arc<UnifiedWeb3AuthService>>,
     pub token_service: Option<Arc<OpenIDTokenService>>,
     pub event_bus: Option<Arc<dyn crate::domain::DomainEventBus>>,
+
+    // Unified Permission Service (single source of truth for permissions)
+    pub unified_permission_service: Option<Arc<UnifiedPermissionService>>,
+    pub permission_cache: Option<Arc<UnifiedPermissionCache>>,
 
     // Redis infrastructure for real-time notifications
     pub redis_pool: Option<Arc<RedisPool>>,
@@ -73,6 +79,9 @@ impl SimpleContainer {
             auth_service: None,
             token_service: None,
             event_bus: None,
+            // Unified Permission Service
+            unified_permission_service: None,
+            permission_cache: None,
             // Redis
             redis_pool: None,
             redis_broadcaster: None,
@@ -138,12 +147,8 @@ impl SimpleContainer {
         // Create domain services
         let wallet_permission_service = Arc::new(WalletPermissionService::new());
 
-        // Create infrastructure adapters
-        let web3_permission_adapter = Arc::new(Web3PermissionServiceAdapter::new(
-            cache.as_ref().map(Arc::clone),
-            blockchain_config,
-            *db_pool,
-        ));
+        // NOTE: UnifiedPermissionCache will be created after Redis initialization
+        // Create initial web3_permission_adapter with None cache (will be updated after Redis init)
 
         // Create OpenID token service with RSA key manager
         let key_manager = KeyManager::from_env_or_generate()
@@ -212,9 +217,10 @@ impl SimpleContainer {
         };
 
         // Create Redis pool and notification broadcaster
-        let (redis_pool, redis_broadcaster) = match redis_url {
-            Some(url) => {
-                match RedisPool::new(&url).await {
+        let (redis_pool, redis_broadcaster, permission_cache, unified_permission_service) = match redis_url {
+            Some(ref url) => {
+                // Try to create Redis pool for notifications
+                let (pool, broadcaster) = match RedisPool::new(url).await {
                     Ok(pool) => {
                         let pool_arc = Arc::new(pool);
                         let broadcaster = Arc::new(RedisNotificationBroadcaster::new(Arc::clone(&pool_arc)));
@@ -225,13 +231,41 @@ impl SimpleContainer {
                         tracing::warn!("⚠️ Failed to create Redis pool: {} (notifications will not work)", e);
                         (None, None)
                     }
+                };
+
+                // Try to create Redis client for permission caching
+                match redis::Client::open(url.as_str()) {
+                    Ok(client) => {
+                        let redis_client = Arc::new(client);
+                        let perm_cache = Arc::new(UnifiedPermissionCache::new(Arc::clone(&redis_client)));
+                        let perm_service = Arc::new(UnifiedPermissionService::new(
+                            *db_pool,
+                            Arc::clone(&perm_cache),
+                        ));
+                        tracing::info!("✅ UnifiedPermissionService initialized with Redis cache");
+                        (pool, broadcaster, Some(perm_cache), perm_service)
+                    }
+                    Err(e) => {
+                        tracing::warn!("⚠️ Failed to create Redis client for permission cache: {}", e);
+                        let perm_service = Arc::new(UnifiedPermissionService::new_without_cache(*db_pool));
+                        tracing::info!("✅ UnifiedPermissionService initialized (without Redis cache)");
+                        (pool, broadcaster, None, perm_service)
+                    }
                 }
             }
             None => {
-                tracing::warn!("⚠️ No REDIS_URL configured - notifications will not work");
-                (None, None)
+                tracing::warn!("⚠️ No REDIS_URL configured - notifications and permission caching will not work");
+                let perm_service = Arc::new(UnifiedPermissionService::new_without_cache(*db_pool));
+                (None, None, None, perm_service)
             }
         };
+
+        // Create Web3 permission adapter
+        let web3_permission_adapter = Arc::new(Web3PermissionServiceAdapter::new(
+            cache.as_ref().map(Arc::clone),
+            blockchain_config,
+            *db_pool,
+        ));
 
         Self {
             db_pool,
@@ -246,6 +280,9 @@ impl SimpleContainer {
             auth_service: Some(auth_service),
             token_service: Some(token_service),
             event_bus: Some(event_bus),
+            // Unified Permission Service
+            unified_permission_service: Some(unified_permission_service),
+            permission_cache,
             // Redis notifications
             redis_pool,
             redis_broadcaster,
@@ -274,6 +311,9 @@ impl SimpleContainer {
             auth_service: None,
             token_service: None,
             event_bus: None,
+            // Unified Permission Service
+            unified_permission_service: None,
+            permission_cache: None,
             // Redis
             redis_pool: None,
             redis_broadcaster: None,
@@ -329,7 +369,9 @@ impl SimpleContainer {
 
     // pub fn get_payment_repository_port(&self) -> Option<Arc<dyn PaymentRepositoryPort>> {
     //     self.payment_repository.as_ref().map(|repo| Arc::clone(repo) as Arc<dyn PaymentRepositoryPort>)
-  pub fn get_wallet_permission_service(&self) -> Option<Arc<WalletPermissionService>> {
+    // }
+
+    pub fn get_wallet_permission_service(&self) -> Option<Arc<WalletPermissionService>> {
         self.wallet_permission_service.as_ref().map(Arc::clone)
     }
 
@@ -343,6 +385,11 @@ impl SimpleContainer {
 
     pub fn get_token_service(&self) -> Option<Arc<OpenIDTokenService>> {
         self.token_service.as_ref().map(Arc::clone)
+    }
+
+    /// Get the unified permission service (single source of truth)
+    pub fn get_unified_permission_service(&self) -> Option<Arc<UnifiedPermissionService>> {
+        self.unified_permission_service.as_ref().map(Arc::clone)
     }
 
     pub fn get_redis_pool(&self) -> Option<Arc<RedisPool>> {

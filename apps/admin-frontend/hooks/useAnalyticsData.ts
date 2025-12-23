@@ -20,14 +20,17 @@ import {
 // API KEYS TYPE (Admin-specific)
 // ============================================================================
 
+export interface ApiKey {
+  id: string;
+  client_name: string;
+  total_requests: number;
+  rate_limit_per_minute: number;
+  last_used_at?: string;
+  status: 'active' | 'revoked' | 'expired';
+}
+
 interface ApiKeysResponse {
-  keys: Array<{
-    id: string;
-    name: string;
-    created_at: string;
-    last_used?: string;
-    status: string;
-  }>;
+  keys: ApiKey[];
 }
 
 // ============================================================================

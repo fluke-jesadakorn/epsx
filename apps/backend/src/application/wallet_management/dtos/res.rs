@@ -21,6 +21,10 @@ pub struct SessionVerificationResponse {
     pub permissions: Option<Vec<String>>,
     /// Whether user has admin permissions
     pub is_admin: Option<bool>,
+    /// User's computed group: "user", "admin", or "super_admin"
+    pub group: Option<String>,
+    /// Admin-scoped permissions (admin:*)
+    pub admin_permissions: Option<Vec<String>>,
     /// Session expiry (if authenticated)
     pub expires: Option<String>,
     /// Error message (if verification failed)

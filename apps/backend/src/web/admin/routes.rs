@@ -50,7 +50,7 @@ use super::permissions::{
   // Bulk operations
   bulk_grant,
   bulk_revoke,
-  bulk_assign_roles,
+  bulk_assign_groups,
   bulk_apply_template,
   bulk_validate,
   // System operations
@@ -198,7 +198,7 @@ pub fn create_admin_routes() -> Router<AppState> {
     // Admin-only bulk operations
     .route("/permissions/bulk/grant", post(bulk_grant))
     .route("/permissions/bulk/revoke", post(bulk_revoke))
-    .route("/permissions/bulk/assign-roles", post(bulk_assign_roles))
+    .route("/permissions/bulk/assign-groups", post(bulk_assign_groups))
     .route("/permissions/bulk/apply-template", post(bulk_apply_template))
     .route("/permissions/bulk/validate", post(bulk_validate))
 

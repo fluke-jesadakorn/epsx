@@ -1,12 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
-import { PancakeCard } from '@/components/ui/PancakeCard'
 import { toast } from '@/hooks/use-toast'
-import { createPromotionsClient, type Promotion, isApiSuccess } from '@/shared/api/promotions'
-import { createAdminApiClient } from '@/shared/utils/api-client'
+import { createPromotionsClient, isApiSuccess, type Promotion } from '@/shared/api/promotions'
 import { useSharedAuth } from '@/shared/components/auth/Provider'
+import { createAdminApiClient } from '@/shared/utils/api-client'
+
+interface DisplayPromotion extends Omit<Promotion, 'discountValue' | 'maxDiscountAmount' | 'minPurchaseAmount' | 'totalRevenue'> {
+  discountValue: number;
+  maxDiscountAmount: number | null;
+  minPurchaseAmount: number;
+  totalRevenue: number;
+}
 
 interface PromotionManagementProps {
   currentUser?: any
@@ -19,11 +25,11 @@ interface PromotionManagementProps {
  */
 export function PromotionManagement({ currentUser }: PromotionManagementProps) {
   const { user: authUser } = useSharedAuth()
-  const user = currentUser || authUser
-  const [promotions, setPromotions] = useState<Promotion[]>([])
+  const _user = currentUser || authUser
+  const [promotions, setPromotions] = useState<DisplayPromotion[]>([])
   const [loading, setLoading] = useState(true)
-  const [selectedPromotion, setSelectedPromotion] = useState<Promotion | null>(null)
-  const [isCreating, setIsCreating] = useState(false)
+  const [_selectedPromotion, setSelectedPromotion] = useState<DisplayPromotion | null>(null)
+  const [_isCreating, setIsCreating] = useState(false)
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all')
 
   useEffect(() => {
@@ -68,16 +74,16 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
     }
   }
 
-  const filteredPromotions = promotions.filter(promotion => 
-    filterStatus === 'all' || 
+  const filteredPromotions = promotions.filter(promotion =>
+    filterStatus === 'all' ||
     (filterStatus === 'active' && promotion.isActive) ||
     (filterStatus === 'inactive' && !promotion.isActive)
   )
 
   const activePromotions = promotions.filter(p => p.isActive)
   const totalUsage = promotions.reduce((sum, p) => sum + p.currentUsage, 0)
-  const totalRevenue = promotions.reduce((sum, p) => sum + p.totalRevenue, 0)
-  const avgConversionRate = promotions.length > 0
+  const totalRevenue = promotions.reduce((sum, p) => sum + (typeof p.totalRevenue === 'number' ? p.totalRevenue : parseFloat(String(p.totalRevenue)) || 0), 0)
+  const _avgConversionRate = promotions.length > 0
     ? promotions.reduce((sum, p) => sum + p.conversionRate, 0) / promotions.length
     : 0
 
@@ -105,7 +111,7 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
     })
   }
 
-  const getDiscountDisplay = (promotion: Promotion) => {
+  const getDiscountDisplay = (promotion: DisplayPromotion) => {
     if (promotion.discountType === 'percentage') {
       return `${promotion.discountValue}% OFF`
     } else {
@@ -113,8 +119,8 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
     }
   }
 
-  const getUsagePercentage = (promotion: Promotion) => {
-    if (!promotion.usageLimit) {return 0}
+  const getUsagePercentage = (promotion: DisplayPromotion) => {
+    if (!promotion.usageLimit) { return 0 }
     return Math.min((promotion.currentUsage / promotion.usageLimit) * 100, 100)
   }
 
@@ -151,7 +157,7 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
 
         {/* Action Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12">
-          <div 
+          <div
             className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-to-r from-pink-400/20 via-rose-500/20 to-red-500/20 p-0.5 cursor-pointer"
             onClick={() => setIsCreating(true)}
           >
@@ -233,7 +239,7 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
             </div>
             <div className="space-y-1">
               <div className="text-xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400 truncate">
-                {totalUsage > 999999 ? `${Math.round(totalUsage/1000000)}M` : `${Math.round(totalUsage/1000)}K`}
+                {totalUsage > 999999 ? `${Math.round(totalUsage / 1000000)}M` : `${Math.round(totalUsage / 1000)}K`}
               </div>
               <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Redemptions</div>
               <div className="text-xs text-gray-500 dark:text-gray-400">Codes used</div>
@@ -247,7 +253,7 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
             </div>
             <div className="space-y-1">
               <div className="text-xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400 truncate">
-                ${Math.round(totalRevenue / 1000)}K
+                ${Math.round(Number(totalRevenue) / 1000)}K
               </div>
               <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-300">Generated</div>
               <div className="text-xs text-gray-500 dark:text-gray-400">From campaigns</div>
@@ -261,31 +267,28 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
             <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
               <button
                 onClick={() => setFilterStatus('all')}
-                className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${
-                  filterStatus === 'all'
-                    ? 'bg-gradient-to-r from-pink-400 to-rose-500 text-white shadow-lg'
-                    : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
+                className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${filterStatus === 'all'
+                  ? 'bg-gradient-to-r from-pink-400 to-rose-500 text-white shadow-lg'
+                  : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
               >
                 All Campaigns ({promotions.length})
               </button>
               <button
                 onClick={() => setFilterStatus('active')}
-                className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${
-                  filterStatus === 'active'
-                    ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white shadow-lg'
-                    : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
+                className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${filterStatus === 'active'
+                  ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white shadow-lg'
+                  : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
               >
                 Active ({activePromotions.length})
               </button>
               <button
                 onClick={() => setFilterStatus('inactive')}
-                className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${
-                  filterStatus === 'inactive'
-                    ? 'bg-gradient-to-r from-gray-400 to-gray-500 text-white shadow-lg'
-                    : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                }`}
+                className={`px-4 sm:px-6 py-3 rounded-xl font-semibold text-sm sm:text-base min-h-[44px] ${filterStatus === 'inactive'
+                  ? 'bg-gradient-to-r from-gray-400 to-gray-500 text-white shadow-lg'
+                  : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
               >
                 Inactive ({promotions.filter(p => !p.isActive).length})
               </button>
@@ -298,8 +301,8 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
           <div className="relative bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-8">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
               <h2 className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-pink-600 via-rose-600 to-red-600 bg-clip-text text-transparent">
-                {filterStatus === 'all' ? 'All Campaigns' : 
-                 filterStatus === 'active' ? 'Active Campaigns' : 'Inactive Campaigns'}
+                {filterStatus === 'all' ? 'All Campaigns' :
+                  filterStatus === 'active' ? 'Active Campaigns' : 'Inactive Campaigns'}
               </h2>
               <div className="text-sm text-gray-500 dark:text-gray-400">
                 {filteredPromotions.length} campaigns
@@ -321,11 +324,10 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <h3 className="text-lg font-bold text-gray-900 dark:text-white truncate">{promotion.name}</h3>
-                        <div className={`text-xs px-2 py-1 rounded-full font-semibold ${
-                          promotion.isActive 
-                            ? 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400'
-                            : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                        }`}>
+                        <div className={`text-xs px-2 py-1 rounded-full font-semibold ${promotion.isActive
+                          ? 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400'
+                          : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                          }`}>
                           {promotion.isActive ? 'ACTIVE' : 'INACTIVE'}
                         </div>
                       </div>
@@ -334,7 +336,7 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
                       </code>
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-2 gap-3 mb-3">
                     <div className="bg-white/50 dark:bg-gray-600/30 rounded-xl p-3">
                       <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Discount</div>
@@ -342,10 +344,10 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
                     </div>
                     <div className="bg-white/50 dark:bg-gray-600/30 rounded-xl p-3">
                       <div className="text-sm font-medium text-gray-700 dark:text-gray-300">Revenue</div>
-                      <div className="text-lg font-bold text-green-600 dark:text-green-400">${Math.round(promotion.totalRevenue / 1000)}K</div>
+                      <div className="text-lg font-bold text-green-600 dark:text-green-400">${Math.round(Number(promotion.totalRevenue) / 1000)}K</div>
                     </div>
                   </div>
-                  
+
                   {/* Usage Progress for Mobile */}
                   <div className="bg-white/50 dark:bg-gray-600/30 rounded-xl p-3">
                     <div className="flex items-center justify-between mb-2">
@@ -355,7 +357,7 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
                       </span>
                     </div>
                     <div className="bg-gray-200 dark:bg-gray-600 rounded-full h-2">
-                      <div 
+                      <div
                         className="bg-gradient-to-r from-pink-400 to-rose-500 rounded-full h-2"
                         style={{ width: `${getUsagePercentage(promotion)}%` }}
                       ></div>
@@ -386,11 +388,10 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
                           <code className="bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-lg text-sm font-mono">
                             {promotion.code}
                           </code>
-                          <div className={`text-xs px-3 py-1 rounded-full font-semibold ${
-                            promotion.isActive 
-                              ? 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400'
-                              : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                          }`}>
+                          <div className={`text-xs px-3 py-1 rounded-full font-semibold ${promotion.isActive
+                            ? 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400'
+                            : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                            }`}>
                             {promotion.isActive ? 'ACTIVE' : 'INACTIVE'}
                           </div>
                         </div>
@@ -400,7 +401,7 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
                             {getDiscountDisplay(promotion)}
                           </span>
                           <span>•</span>
-                          <span>{formatDate(promotion.startDate)} - {formatDate(promotion.endDate)}</span>
+                          <span>{formatDate(promotion.startDate || '')} - {formatDate(promotion.endDate || '')}</span>
                           <span>•</span>
                           <span>{promotion.applicablePlans.join(', ')} plans</span>
                         </div>
@@ -409,17 +410,17 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
 
                     <div className="text-right">
                       <div className="text-2xl font-bold text-gray-900 dark:text-white mb-1">
-                        ${Math.round(promotion.totalRevenue).toLocaleString()}
+                        ${Math.round(Number(promotion.totalRevenue)).toLocaleString()}
                       </div>
                       <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">
                         {promotion.conversionRate.toFixed(1)}% conversion
                       </div>
-                      {isExpired(promotion.endDate) && (
+                      {isExpired(promotion.endDate || '') && (
                         <div className="text-xs bg-red-100 dark:bg-red-900/20 text-red-600 dark:text-red-400 px-2 py-1 rounded-full">
                           EXPIRED
                         </div>
                       )}
-                      {isUpcoming(promotion.startDate) && (
+                      {isUpcoming(promotion.startDate || '') && (
                         <div className="text-xs bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full">
                           UPCOMING
                         </div>
@@ -437,7 +438,7 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
                         </span>
                       </div>
                       <div className="bg-gray-200 dark:bg-gray-600 rounded-full h-2">
-                        <div 
+                        <div
                           className="bg-gradient-to-r from-pink-400 to-rose-500 rounded-full h-2"
                           style={{ width: `${getUsagePercentage(promotion)}%` }}
                         ></div>
@@ -473,7 +474,7 @@ export function PromotionManagement({ currentUser }: PromotionManagementProps) {
                   No campaigns found
                 </h3>
                 <p className="text-gray-500 dark:text-gray-500">
-                  {filterStatus === 'all' 
+                  {filterStatus === 'all'
                     ? 'Start by creating your first promotional campaign'
                     : `No ${filterStatus} campaigns available. Try switching filters or create a new campaign.`
                   }

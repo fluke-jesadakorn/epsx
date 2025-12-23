@@ -28,23 +28,20 @@ export function AdminWalletAuth({
 }: AdminWalletAuthProps) {
   const {
     wallet,
-    user, // For backward compatibility
     isAuthenticated,
     isLoading,
     error,
-    isAdmin,
     disconnectWallet
   } = useAuth();
 
-  const currentWallet = wallet || user; // Support both new and legacy
-  const walletAddress = currentWallet?.wallet_address;
+  const walletAddress = wallet?.wallet_address;
 
   // Call success callback when authenticated with enhanced handling
   React.useEffect(() => {
-    if (isAuthenticated && walletAddress && isAdmin()) {
+    if (isAuthenticated && walletAddress && wallet?.is_admin) {
       onAuthSuccess?.(walletAddress);
     }
-  }, [isAuthenticated, walletAddress, isAdmin, onAuthSuccess]);
+  }, [isAuthenticated, walletAddress, wallet?.is_admin, onAuthSuccess]);
 
   // Call error callback when there's an error
   React.useEffect(() => {
@@ -133,7 +130,7 @@ export function AdminWalletAuth({
   }
 
   // Authenticated but not admin - show error
-  if (isAuthenticated && !isAdmin()) {
+  if (isAuthenticated && !wallet?.is_admin) {
     return (
       <div className={`flex flex-col gap-2 ${className}`}>
         <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-400">

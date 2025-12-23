@@ -2,9 +2,9 @@
  * Authenticated API Fetch Hook
  * Uses SharedWeb3AuthClient to get the access token for API requests
  */
-import { useCallback } from 'react';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { env } from '@/config/env';
+import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { useCallback } from 'react';
 
 const BACKEND_URL = env.BACKEND_URL;
 
@@ -33,8 +33,8 @@ export function useAuthenticatedFetch() {
       console.log('🎫 JWT parts:', parts.length);
       if (parts.length === 3) {
         try {
-          const header = JSON.parse(atob(parts[0]));
-          const payload = JSON.parse(atob(parts[1]));
+          const header = JSON.parse(atob(parts[0] || ''));
+          const payload = JSON.parse(atob(parts[1] || ''));
           console.log('🎫 JWT header:', header);
           console.log('🎫 JWT payload:', payload);
           console.log('🎫 JWT expires:', payload.exp ? new Date(payload.exp * 1000).toISOString() : 'no exp');

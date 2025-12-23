@@ -12,40 +12,57 @@
 
 'use client'
 
-import { 
-  Zap, Plus, Settings, Trash2, Edit, Globe, Coins,
-  Image, Users, AlertTriangle, CheckCircle, Eye,
-  Search, Filter, MoreHorizontal, Play, Pause,
-  ExternalLink, Copy, Wallet, TrendingUp, Activity
+import {
+  AlertTriangle, CheckCircle,
+  Coins,
+  Copy,
+  Eye,
+  Globe,
+  Image,
+  MoreHorizontal, Play,
+  Plus,
+  Search,
+  Trash2,
+  Users,
+  Wallet,
+  Zap
 } from 'lucide-react'
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { 
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter 
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Dialog, DialogContent,
+  DialogFooter,
+  DialogHeader, DialogTitle
 } from '@/components/ui/dialog'
-import { 
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger 
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useToast } from '@/components/ui/use-toast'
-import { adminCardVariants, adminButtonVariants } from '@/design-system'
+import { adminButtonVariants, adminCardVariants } from '@/design-system'
 import {
-  useWeb3AssignmentRules,
-  usePermissionGroups
+  usePermissionGroups,
+  useWeb3AssignmentRules
 } from '@/hooks/useGroupPermissions'
-import { 
-  Web3AssignmentRule, 
-  CreateWeb3RuleRequest,
-  ProcessWalletRequest 
-} from '@/lib/api/group-management-client'
+import type { Web3AssignmentRule } from '@/lib/api/group-management-client'
 import { cn } from '@/lib/shared'
+
+// Type for create rule request (if not exported from client)
+interface CreateWeb3RuleRequest {
+  group_id: string;
+  blockchain_network: string;
+  verification_type: string;
+  contract_address: string;
+  token_id?: string;
+  minimum_balance?: string;
+}
 
 interface Web3AssignmentRulesManagerProps {
   className?: string
@@ -61,21 +78,21 @@ const BLOCKCHAIN_NETWORKS = [
 ] as const
 
 const VERIFICATION_TYPES = [
-  { 
-    value: 'nft_ownership', 
-    label: 'NFT Ownership', 
+  {
+    value: 'nft_ownership',
+    label: 'NFT Ownership',
     icon: <Image className="h-4 w-4" />,
     description: 'Verify ownership of specific NFTs'
   },
-  { 
-    value: 'token_balance', 
-    label: 'Token Balance', 
+  {
+    value: 'token_balance',
+    label: 'Token Balance',
     icon: <Coins className="h-4 w-4" />,
     description: 'Check minimum token balance'
   },
-  { 
-    value: 'dao_membership', 
-    label: 'DAO Membership', 
+  {
+    value: 'dao_membership',
+    label: 'DAO Membership',
     icon: <Users className="h-4 w-4" />,
     description: 'Verify DAO participation'
   }
@@ -92,9 +109,9 @@ export function Web3AssignmentRulesManager({ className }: Web3AssignmentRulesMan
   const [filterNetwork, setFilterNetwork] = useState<string>('all')
   const [filterType, setFilterType] = useState<string>('all')
   const [showCreateDialog, setShowCreateDialog] = useState(false)
-  const [editingRule, setEditingRule] = useState<Web3AssignmentRule | null>(null)
+  const [_editingRule, _setEditingRule] = useState<Web3AssignmentRule | null>(null)
   const [testingWallet, setTestingWallet] = useState('')
-  const [testingRule, setTestingRule] = useState<Web3AssignmentRule | null>(null)
+  const [_testingRule, setTestingRule] = useState<Web3AssignmentRule | null>(null)
   const [activeTab, setActiveTab] = useState('rules')
 
   // Hooks
@@ -104,10 +121,13 @@ export function Web3AssignmentRulesManager({ className }: Web3AssignmentRulesMan
     error,
     processWallet,
     verifyWalletAssets,
-    refreshRules
+    refreshRules: _refreshRules
   } = useWeb3AssignmentRules()
 
   const { groups } = usePermissionGroups()
+
+  // Backend handles permission checking - always allow UI actions, backend will reject if unauthorized
+  const canManageWeb3Rules = true
   // Backend handles permission checking - no client-side validation needed
 
   // Filter rules
@@ -127,19 +147,19 @@ export function Web3AssignmentRulesManager({ className }: Web3AssignmentRulesMan
     // Filter by search term
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase()
-      filtered = filtered.filter(rule => 
+      filtered = filtered.filter(rule =>
         rule.group?.name.toLowerCase().includes(searchLower) ||
         rule.contract_address?.toLowerCase().includes(searchLower)
       )
     }
 
-    return filtered.sort((a, b) => 
+    return filtered.sort((a, b) =>
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     )
   }, [rules, filterNetwork, filterType, searchTerm])
 
   // Event handlers
-  const handleCreateRule = useCallback(async (ruleData: CreateWeb3RuleRequest) => {
+  const handleCreateRule = useCallback(async (_ruleData: CreateWeb3RuleRequest) => {
     toast({
       title: 'Not Implemented',
       description: 'Creating Web3 assignment rules is not yet implemented.',
@@ -147,7 +167,7 @@ export function Web3AssignmentRulesManager({ className }: Web3AssignmentRulesMan
     })
   }, [toast])
 
-  const handleDeleteRule = useCallback(async (rule: Web3AssignmentRule) => {
+  const handleDeleteRule = useCallback(async (_rule: Web3AssignmentRule) => {
     toast({
       title: 'Not Implemented',
       description: 'Deleting Web3 assignment rules is not yet implemented.',
@@ -156,7 +176,7 @@ export function Web3AssignmentRulesManager({ className }: Web3AssignmentRulesMan
   }, [toast])
 
   const handleTestWallet = useCallback(async (walletAddress: string) => {
-    if (!walletAddress.trim()) {return}
+    if (!walletAddress.trim()) { return }
 
     try {
       setTestingRule(null)
@@ -175,12 +195,12 @@ export function Web3AssignmentRulesManager({ className }: Web3AssignmentRulesMan
   }, [processWallet, toast])
 
   const handleVerifyAssets = useCallback(async (walletAddress: string, rule?: Web3AssignmentRule) => {
-    if (!walletAddress.trim()) {return}
+    if (!walletAddress.trim()) { return }
 
     try {
       setTestingRule(rule || null)
-      const assets = await verifyWalletAssets(walletAddress.trim())
-      // Handle verification results
+      await verifyWalletAssets(walletAddress.trim())
+      // Handle verification results - assets are processed but not currently displayed
     } catch (_error) {
       toast({
         title: 'Verification Failed',
@@ -191,13 +211,13 @@ export function Web3AssignmentRulesManager({ className }: Web3AssignmentRulesMan
   }, [verifyWalletAssets, toast])
 
   const getNetworkInfo = (network: string) => {
-    return BLOCKCHAIN_NETWORKS.find(n => n.value === network) || 
-           { value: network, label: network, icon: '🌐' }
+    return BLOCKCHAIN_NETWORKS.find(n => n.value === network) ||
+      { value: network, label: network, icon: '🌐' }
   }
 
   const getVerificationTypeInfo = (type: string) => {
-    return VERIFICATION_TYPES.find(t => t.value === type) || 
-           { value: type, label: type, icon: <Globe className="h-4 w-4" />, description: '' }
+    return VERIFICATION_TYPES.find(t => t.value === type) ||
+      { value: type, label: type, icon: <Globe className="h-4 w-4" />, description: '' }
   }
 
   if (isLoading) {
@@ -242,7 +262,7 @@ export function Web3AssignmentRulesManager({ className }: Web3AssignmentRulesMan
           </p>
         </div>
         {canManageWeb3Rules && (
-          <Button 
+          <Button
             onClick={() => setShowCreateDialog(true)}
             className={adminButtonVariants({ variant: 'primary', size: 'sm' })}
           >
@@ -358,7 +378,7 @@ export function Web3AssignmentRulesManager({ className }: Web3AssignmentRulesMan
             {filteredRules.map((rule) => {
               const networkInfo = getNetworkInfo(rule.blockchain_network)
               const typeInfo = getVerificationTypeInfo(rule.verification_type)
-              
+
               return (
                 <Card key={rule.id} className={adminCardVariants({ variant: 'default' })}>
                   <CardHeader className="pb-3">
@@ -379,13 +399,13 @@ export function Web3AssignmentRulesManager({ className }: Web3AssignmentRulesMan
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
                                 onClick={() => handleVerifyAssets(testingWallet || '0x742d35Cc6634C0532925a3b8D4a9529B29F2D3f9', rule)}
                               >
                                 <Eye className="h-4 w-4 mr-2" />
                                 Test Rule
                               </DropdownMenuItem>
-                              <DropdownMenuItem 
+                              <DropdownMenuItem
                                 onClick={() => handleDeleteRule(rule)}
                                 className="text-red-600"
                               >
@@ -404,7 +424,7 @@ export function Web3AssignmentRulesManager({ className }: Web3AssignmentRulesMan
                       <span>{typeInfo.label}</span>
                     </CardDescription>
                   </CardHeader>
-                  
+
                   <CardContent className="space-y-3">
                     {rule.contract_address && (
                       <div className="flex items-center justify-between text-sm">
@@ -413,9 +433,9 @@ export function Web3AssignmentRulesManager({ className }: Web3AssignmentRulesMan
                           <code className="text-xs bg-gray-100 px-2 py-1 rounded">
                             {rule.contract_address.slice(0, 6)}...{rule.contract_address.slice(-4)}
                           </code>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             className="h-6 w-6 p-0"
                             onClick={() => navigator.clipboard.writeText(rule.contract_address)}
                           >
@@ -424,14 +444,14 @@ export function Web3AssignmentRulesManager({ className }: Web3AssignmentRulesMan
                         </div>
                       </div>
                     )}
-                    
+
                     {rule.token_id && (
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-600">Token ID</span>
                         <Badge variant="outline">{rule.token_id}</Badge>
                       </div>
                     )}
-                    
+
                     {rule.minimum_balance && (
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-gray-600">Min Balance</span>
@@ -455,7 +475,7 @@ export function Web3AssignmentRulesManager({ className }: Web3AssignmentRulesMan
               <p className="text-gray-600">
                 {searchTerm || filterNetwork !== 'all' || filterType !== 'all'
                   ? 'No rules match your search criteria.'
-                  : canManageWeb3Rules 
+                  : canManageWeb3Rules
                     ? 'Create your first Web3 assignment rule to get started.'
                     : 'No Web3 assignment rules have been created yet.'
                 }
@@ -483,7 +503,7 @@ export function Web3AssignmentRulesManager({ className }: Web3AssignmentRulesMan
                   onChange={(e) => setTestingWallet(e.target.value)}
                   className="flex-1"
                 />
-                <Button 
+                <Button
                   onClick={() => handleTestWallet(testingWallet)}
                   disabled={!testingWallet.trim()}
                 >
@@ -536,7 +556,7 @@ function Web3RuleForm({ groups, onSave, onCancel }: Web3RuleFormProps) {
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.group_id || !formData.contract_address) {return}
+    if (!formData.group_id || !formData.contract_address) { return }
 
     const request: CreateWeb3RuleRequest = {
       group_id: formData.group_id,
@@ -554,7 +574,7 @@ function Web3RuleForm({ groups, onSave, onCancel }: Web3RuleFormProps) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <Label>Target Group *</Label>
-        <Select value={formData.group_id} onValueChange={(value) => 
+        <Select value={formData.group_id} onValueChange={(value) =>
           setFormData(prev => ({ ...prev, group_id: value }))
         }>
           <SelectTrigger>
@@ -572,7 +592,7 @@ function Web3RuleForm({ groups, onSave, onCancel }: Web3RuleFormProps) {
 
       <div>
         <Label>Blockchain Network *</Label>
-        <Select value={formData.blockchain_network} onValueChange={(value) => 
+        <Select value={formData.blockchain_network} onValueChange={(value) =>
           setFormData(prev => ({ ...prev, blockchain_network: value }))
         }>
           <SelectTrigger>
@@ -590,7 +610,7 @@ function Web3RuleForm({ groups, onSave, onCancel }: Web3RuleFormProps) {
 
       <div>
         <Label>Verification Type *</Label>
-        <Select value={formData.verification_type} onValueChange={(value) => 
+        <Select value={formData.verification_type} onValueChange={(value) =>
           setFormData(prev => ({ ...prev, verification_type: value }))
         }>
           <SelectTrigger>
@@ -647,8 +667,8 @@ function Web3RuleForm({ groups, onSave, onCancel }: Web3RuleFormProps) {
         <Button type="button" variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button 
-          type="submit" 
+        <Button
+          type="submit"
           disabled={!formData.group_id || !formData.contract_address}
         >
           Create Rule

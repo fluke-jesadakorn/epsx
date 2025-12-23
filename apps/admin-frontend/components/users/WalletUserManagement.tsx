@@ -29,7 +29,7 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { apiFetch } from '@/lib/api-fetch';
+import { adminApiClient } from '@/lib/api-client';
 import type { GroupMembership, Web3Permission } from '@/shared/types/web3-auth';
 import { createWeb3AdminClient } from '@/shared/utils/web3-api-client';
 
@@ -117,23 +117,27 @@ export function WalletUserManagement() {
 
     try {
       // Get user permissions and data
-      const permissionsData = await apiFetch(
+      const response = await adminApiClient.get<any>(
         `/api/auth/web3/permissions?wallet_address=${walletAddress}`
       );
 
-      // Construct user data from response
-      const walletUserData: WalletUserData = {
-        wallet_address: walletAddress,
-        user_id: permissionsData.user_id,
-        permissions: permissionsData.permissions || [],
-        groups: permissionsData.groups || [],
-        is_active: permissionsData.has_access || false,
-        last_active: permissionsData.last_active,
-        created_at: permissionsData.created_at,
-      };
+      if (response.success && response.data) {
+        // Construct user data from response
+        const walletUserData: WalletUserData = {
+          wallet_address: walletAddress,
+          user_id: response.data.user_id,
+          permissions: response.data.permissions || [],
+          groups: response.data.groups || [],
+          is_active: response.data.has_access || false,
+          last_active: response.data.last_active,
+          created_at: response.data.created_at,
+        };
 
-      setUserData(walletUserData);
-      setSuccess('Wallet data loaded successfully');
+        setUserData(walletUserData);
+        setSuccess('Wallet data loaded successfully');
+      } else {
+        throw new Error(response.error || 'Failed to lookup wallet');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to lookup wallet');
       setUserData(null);
@@ -159,10 +163,11 @@ export function WalletUserManagement() {
         notes: newPermission.notes,
       };
 
-      await apiFetch('/api/admin/permissions/grant', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-      });
+      const response = await adminApiClient.post<any>('/api/admin/permissions/grant', payload);
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to grant permission');
+      }
 
       setSuccess(
         `Permission "${newPermission.permission}" granted successfully`
@@ -190,13 +195,14 @@ export function WalletUserManagement() {
       clearMessages();
 
       try {
-        await apiFetch('/api/admin/permissions/revoke', {
-          method: 'POST',
-          body: JSON.stringify({
-            wallet_address: userData.wallet_address,
-            permission,
-          }),
+        const response = await adminApiClient.post<any>('/api/admin/permissions/revoke', {
+          wallet_address: userData.wallet_address,
+          permission,
         });
+
+        if (!response.success) {
+          throw new Error(response.error || 'Failed to revoke permission');
+        }
 
         setSuccess(`Permission "${permission}" revoked successfully`);
 
@@ -223,13 +229,14 @@ export function WalletUserManagement() {
     clearMessages();
 
     try {
-      await apiFetch('/api/admin/groups/assign', {
-        method: 'POST',
-        body: JSON.stringify({
-          wallet_address: userData.wallet_address,
-          group_id: selectedGroup,
-        }),
+      const response = await adminApiClient.post<any>('/api/admin/groups/assign', {
+        wallet_address: userData.wallet_address,
+        group_id: selectedGroup,
       });
+
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to assign to group');
+      }
 
       setSuccess(`User assigned to group "${selectedGroup}" successfully`);
       setSelectedGroup('');

@@ -1,20 +1,13 @@
 'use client';
 
-import { BarChart3, TrendingUp, Clock, Activity, AlertTriangle, Download } from 'lucide-react';
-import { memo, useState, useCallback } from 'react';
+import { Activity, AlertTriangle, BarChart3, Clock, Download, TrendingUp } from 'lucide-react';
+import { memo, useCallback, useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-interface ApiKey {
-  id: string;
-  client_name: string;
-  total_requests: number;
-  rate_limit_per_minute: number;
-  last_used_at?: string;
-  status: 'active' | 'revoked' | 'expired';
-}
+import { ApiKey } from '@/hooks/useAnalyticsData';
 
 interface UsageData {
   date: string;
@@ -59,7 +52,7 @@ function UsageAnalyticsTab({ apiKeys }: UsageAnalyticsTabProps) {
   useEffect(() => {
     loadUsageData();
   }, [loadUsageData]);
-  
+
   const totalRequests = usageData.reduce((sum, day) => sum + day.requests, 0);
   const totalErrors = usageData.reduce((sum, day) => sum + day.errors, 0);
   const avgLatency = usageData.reduce((sum, day) => sum + day.latency, 0) / usageData.length;
@@ -233,7 +226,7 @@ function UsageAnalyticsTab({ apiKeys }: UsageAnalyticsTabProps) {
           <div className="h-64 flex items-end justify-between space-x-2">
             {usageData.map((day, index) => (
               <div key={index} className="flex flex-col items-center flex-1">
-                <div 
+                <div
                   className="w-full bg-blue-500 rounded-t"
                   style={{
                     height: `${(day.requests / Math.max(...usageData.map(d => d.requests))) * 200}px`,
@@ -241,9 +234,9 @@ function UsageAnalyticsTab({ apiKeys }: UsageAnalyticsTabProps) {
                   }}
                 />
                 <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-                  {new Date(day.date).toLocaleDateString('en-US', { 
-                    month: 'short', 
-                    day: 'numeric' 
+                  {new Date(day.date).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric'
                   })}
                 </div>
                 <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -263,10 +256,10 @@ function UsageAnalyticsTab({ apiKeys }: UsageAnalyticsTabProps) {
         <CardContent>
           <div className="space-y-4">
             {activeKeys.map(key => {
-              const usagePercentage = totalApiRequests > 0 
+              const usagePercentage = totalApiRequests > 0
                 ? (key.total_requests / totalApiRequests * 100).toFixed(1)
                 : '0';
-              
+
               return (
                 <div key={key.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
                   <div className="flex-1">
@@ -309,7 +302,7 @@ function UsageAnalyticsTab({ apiKeys }: UsageAnalyticsTabProps) {
               const currentUsage = getCurrentUsage(key);
               const usagePercentage = (currentUsage / key.rate_limit_per_minute) * 100;
               const isNearLimit = usagePercentage > 80;
-              
+
               return (
                 <div key={key.id} className="p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
@@ -321,10 +314,9 @@ function UsageAnalyticsTab({ apiKeys }: UsageAnalyticsTabProps) {
                     </span>
                   </div>
                   <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                    <div 
-                      className={`h-2 rounded-full ${
-                        isNearLimit ? 'bg-red-500' : usagePercentage > 60 ? 'bg-yellow-500' : 'bg-green-500'
-                      }`}
+                    <div
+                      className={`h-2 rounded-full ${isNearLimit ? 'bg-red-500' : usagePercentage > 60 ? 'bg-yellow-500' : 'bg-green-500'
+                        }`}
                       style={{ width: `${usagePercentage}%` }}
                     />
                   </div>

@@ -1,7 +1,10 @@
-import { ArrowLeft, Shield, Plus } from 'lucide-react'
+import { ArrowLeft, Plus, Shield } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
+
+// Force dynamic rendering since we use cookies for auth
+export const dynamic = 'force-dynamic'
 
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -164,7 +167,7 @@ async function CreateApiKeyForm() {
               <div>
                 <h3 className="font-medium text-yellow-800 mb-1">Module Configuration Required</h3>
                 <p className="text-sm text-yellow-700">
-                  After creating the API key, you'll need to configure module permissions and access levels 
+                  After creating the API key, you'll need to configure module permissions and access levels
                   in the main developer portal.
                 </p>
               </div>

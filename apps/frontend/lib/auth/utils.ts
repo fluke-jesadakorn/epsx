@@ -1,41 +1,18 @@
 /**
  * Authentication Utilities
  * JWT parsing, permission validation, token refresh, and user helpers
+ * Re-exports shared JWT utilities and adds frontend-specific extensions
  */
 
-import { JWTPayload } from 'jose';
+// Re-export shared JWT types and utilities
+export {
+  decodeJWT, getJWTPermissions, getJWTTimeToExpiry, hasJWTPermission,
+  isJWTAdmin, isJWTExpired, type CreateJWTClaimsOptions,
+  type EPSXJWTPayload, type JWTUser
+} from '@/shared/auth/jwt';
+
 import { getDisplayTierFromPermissions, getRankingLimitFromPermissions } from '@/app/constants/packages';
 import { authLogger, safeError } from '@/lib/utils/logging';
-
-// ============================================================================
-// JWT Interfaces
-// ============================================================================
-
-export interface JWTUser {
-  uid: string;
-  email: string;
-  permissions: string[];
-  role?: string;
-  iat?: number;
-  exp?: number;
-}
-
-export interface CreateJWTClaimsOptions {
-  id: string;
-  email: string;
-  name?: string;
-  permissions: string[];
-  role?: string;
-}
-
-export interface EPSXJWTPayload extends JWTPayload {
-  sub: string;
-  email: string;
-  name: string;
-  permissions: string[];
-  iat: number;
-  exp: number;
-}
 
 export interface JWTClaims {
   sub: string;                    // User ID
@@ -89,14 +66,14 @@ interface SecurityMetrics {
  */
 export function getAccessiblePlatforms(permissions: string[]): string[] {
   const platforms = new Set<string>();
-  
+
   for (const permission of permissions) {
     const platform = permission.split(':')[0];
     if (platform) {
       platforms.add(platform);
     }
   }
-  
+
   return Array.from(platforms);
 }
 
@@ -112,11 +89,11 @@ export function getDisplayTier(permissions: string[]): string {
  */
 export function getPrimaryPlatform(permissions: string[]): string {
   const platforms = getAccessiblePlatforms(permissions);
-  
+
   // Priority order: admin > epsx > others
   if (platforms.includes('admin')) return 'admin';
   if (platforms.includes('epsx')) return 'epsx';
-  
+
   return platforms[0] || 'epsx';
 }
 
@@ -145,7 +122,7 @@ export function parseJWTForUI(token: string): JWTClaims | null {
 
     // Decode payload (no verification - UI only)
     const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-    
+
     // Validate required fields
     if (!payload.sub || !payload.exp || !payload.iat) {
       return null;
@@ -178,7 +155,7 @@ export function parseJWTForUI(token: string): JWTClaims | null {
 export function isTokenExpired(token: string): boolean {
   const claims = parseJWTForUI(token);
   if (!claims) return true;
-  
+
   return Date.now() >= claims.exp * 1000;
 }
 
@@ -188,7 +165,7 @@ export function isTokenExpired(token: string): boolean {
 export function getTimeToExpiry(token: string): number {
   const claims = parseJWTForUI(token);
   if (!claims) return 0;
-  
+
   return (claims.exp * 1000) - Date.now();
 }
 
@@ -226,7 +203,7 @@ class SecureTokenRefreshManager {
    */
   private generateDeviceFingerprint(): string {
     if (typeof window === 'undefined') return 'server';
-    
+
     const components = [
       navigator.userAgent,
       navigator.language,
@@ -234,7 +211,7 @@ class SecureTokenRefreshManager {
       new Date().getTimezoneOffset(),
       navigator.hardwareConcurrency || 0
     ];
-    
+
     return btoa(components.join('|')).substring(0, 16);
   }
 
@@ -290,7 +267,7 @@ class SecureTokenRefreshManager {
     }
 
     this.refreshPromise = this.performRefresh();
-    
+
     try {
       const result = await this.refreshPromise;
       return result;
@@ -304,11 +281,11 @@ class SecureTokenRefreshManager {
    */
   private async performRefresh(): Promise<RefreshResponse> {
     let attempt = 0;
-    
+
     while (attempt < this.config.maxRetries) {
       try {
         this.metrics.refreshAttempts++;
-        
+
         const response = await fetch('/api/auth/refresh', {
           method: 'POST',
           credentials: 'include',
@@ -323,7 +300,7 @@ class SecureTokenRefreshManager {
         }
 
         const data = await response.json();
-        
+
         this.metrics.lastSuccessfulRefresh = Date.now();
         this.metrics.suspiciousActivity = false;
 
@@ -353,7 +330,7 @@ class SecureTokenRefreshManager {
         }
 
         // Exponential backoff
-        await new Promise(resolve => 
+        await new Promise(resolve =>
           setTimeout(resolve, this.config.backoffMultiplier * Math.pow(2, attempt - 1))
         );
       }

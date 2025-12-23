@@ -13,8 +13,8 @@ export interface BackendUserSummary {
   email?: string; // Optional for wallet authentication
   display_name?: string;
 
-  // Status and role fields
-  role?: string;
+  // Status and group fields
+  group?: string;
   status?: string;
   is_active: boolean;
   email_verified?: boolean;
@@ -37,11 +37,14 @@ export interface BackendUsersResponse {
 
 /**
  * Transform backend user data to frontend User interface
+ * Uses backend-provided group directly - no client-side derivation
  * @param backendUser
  */
 export function transformBackendUser(backendUser: BackendUserSummary): User {
-  // Derive platforms from permissions
-  const platforms = derivePlatforms(backendUser.permissions || []);
+  // Use backend-provided values directly
+  const group = backendUser.group || 'user';
+  const permissions = backendUser.permissions || [];
+  const platforms = derivePlatforms(permissions);
 
   return {
     // Identity mapping
@@ -53,8 +56,8 @@ export function transformBackendUser(backendUser: BackendUserSummary): User {
     firstName: backendUser.display_name?.split(' ')[0] || undefined,
     lastName: backendUser.display_name?.split(' ').slice(1).join(' ') || undefined,
 
-    // Role and status mapping (permission-based role derivation)
-    role: mapBackendRole(backendUser.role || deriveRoleFromPermissions(backendUser.permissions || [])),
+    // Group from backend (no client-side derivation)
+    group: group as 'admin' | 'user' | 'premium_user',
     status: mapBackendStatus(backendUser.status, backendUser.is_active),
     isActive: backendUser.is_active,
 
@@ -64,37 +67,17 @@ export function transformBackendUser(backendUser: BackendUserSummary): User {
     lastLoginAt: backendUser.last_login_at,
 
     // Authentication context
-    sub: backendUser.id, // Use ID as sub
+    sub: backendUser.id,
 
-    // Permissions and group (permission-based derivation)
-    permissions: backendUser.permissions || [],
-    group: deriveGroup(backendUser.permissions || []),
-    permissionGroup: deriveGroup(backendUser.permissions || []), // Keep alias
-    packageTier: derivePackageTierFromPermissions(backendUser.permissions || []),
-
+    // Permissions from backend (no derivation)
+    permissions,
     // Platform context
     platforms,
     primaryPlatform: platforms[0] || 'epsx',
     platformContext: 'epsx',
 
-    // New permission methods (terminology update)
-    hasAllPermissions: (requiredPermissions: string[]) => requiredPermissions.every(rp => (backendUser.permissions || []).includes(rp)),
-    /** @deprecated Backend handles permission enforcement. This always returns true. */
-    hasMinimumGroup: (_requiredGroup: string) => {
-      console.warn('[DEPRECATED] hasMinimumGroup() - Permission enforcement moved to backend. This always returns true.');
-      return true;
-    },
-    /** @deprecated Backend handles permission enforcement. This always returns true. */
-    hasMinimumPermissionGroup: (_requiredGroup: string) => {
-      console.warn('[DEPRECATED] hasMinimumPermissionGroup() - Permission enforcement moved to backend. This always returns true.');
-      return true;
-    },
-    hasEnterpriseTier: (_tier: 'Starter' | 'Business' | 'Enterprise' | 'Whale') => {
-      // This logic would typically involve checking the derived group or specific permissions
-      // For now, returning true as per the deprecation warning pattern for similar methods
-      console.warn('[DEPRECATED] hasEnterpriseTier() - Permission enforcement moved to backend. This always returns true.');
-      return true;
-    },
+    // Permission checking (local only - backend enforces)
+    hasAllPermissions: (requiredPermissions: string[]) => requiredPermissions.every(rp => permissions.includes(rp)),
   };
 }
 
@@ -112,28 +95,11 @@ export function transformBackendUsersResponse(
 }
 
 /**
- * Map backend role to frontend role enum
- * @param backendRole
- */
-function mapBackendRole(backendRole: string): 'admin' | 'user' | 'premium_user' {
-  switch (backendRole.toLowerCase()) {
-    case 'admin':
-      return 'admin';
-    case 'premium':
-      return 'premium_user';
-    case 'user':
-    default:
-      return 'user';
-  }
-}
-
-/**
  * Map backend status to frontend status enum
  * @param backendStatus
  * @param isActive
  */
 function mapBackendStatus(backendStatus?: string, isActive?: boolean): 'active' | 'inactive' | 'suspended' | 'deleted' {
-  // If we have explicit status, use it
   if (backendStatus) {
     switch (backendStatus.toLowerCase()) {
       case 'active':
@@ -148,94 +114,7 @@ function mapBackendStatus(backendStatus?: string, isActive?: boolean): 'active' 
         return isActive ? 'active' : 'inactive';
     }
   }
-
-  // Fallback to isActive field
   return isActive ? 'active' : 'inactive';
-}
-
-/**
- * Derive package tier from user permissions
- * Replaces hardcoded tier logic with permission-based derivation
- * @param permissions
- */
-function derivePackageTierFromPermissions(permissions: string[]): string {
-  // Admin tier - highest priority
-  if (permissions.some(p => p === "admin:*:*" || p.startsWith("admin:"))) {
-    return "admin";
-  }
-
-  // Premium tiers based on analytics permissions
-  if (permissions.some(p => p === "epsx:analytics:premium")) {
-    return "premium";
-  }
-
-  if (permissions.some(p => p === "epsx:analytics:professional")) {
-    return "professional";
-  }
-
-  // Basic tier
-  if (permissions.some(p =>
-    p === "epsx:analytics:basic" ||
-    p === "epsx:analytics:view" ||
-    p.startsWith("epsx:")
-  )) {
-    return "basic";
-  }
-
-  // Default free tier
-  return "free";
-}
-
-/**
- * Derive role from user permissions  
- * Replaces hardcoded role logic with permission-based derivation
- * @param permissions
- */
-function deriveRoleFromPermissions(permissions: string[]): string {
-  // Admin role - highest priority
-  if (permissions.some(p => p === "admin:*:*" || p.startsWith("admin:"))) {
-    return "admin";
-  }
-
-  // Premium user role
-  if (permissions.some(p =>
-    p === "epsx:analytics:premium" ||
-    p === "epsx:analytics:professional"
-  )) {
-    return "premium";
-  }
-
-  // Default user role
-  return "user";
-}
-
-/**
- * Derive group from user permissions
- * @param permissions
- */
-function deriveGroup(permissions: string[]): 'Basic Access Group' | 'Standard Access Group' | 'Premium Access Group' | 'Professional Access Group' | 'Enterprise Access Group' {
-  // Admin/Enterprise - highest priority
-  if (permissions.some(p => p === "admin:*:*" || p.startsWith("admin:") || p === "epsx:*:*")) {
-    return "Enterprise Access Group";
-  }
-
-  // Professional tier
-  if (permissions.some(p => p === "epsx:analytics:professional")) {
-    return "Professional Access Group";
-  }
-
-  // Premium tier
-  if (permissions.some(p => p === "epsx:analytics:premium")) {
-    return "Premium Access Group";
-  }
-
-  // Standard tier
-  if (permissions.some(p => p === "epsx:analytics:basic" || p === "epsx:analytics:view")) {
-    return "Standard Access Group";
-  }
-
-  // Default basic tier
-  return "Basic Access Group";
 }
 
 /**
@@ -255,7 +134,6 @@ function derivePlatforms(permissions: string[]): string[] {
     }
   });
 
-  // If no specific platforms found, default to epsx
   return Array.from(platformSet).length > 0 ? Array.from(platformSet) : ['epsx'];
 }
 
@@ -269,7 +147,7 @@ export function createMockUser(overrides: Partial<BackendUserSummary> = {}): Use
     wallet_address: '0x1234567890123456789012345678901234567890',
     email: 'user@example.com',
     display_name: 'Mock User',
-    role: 'user',
+    group: 'user',
     status: 'active',
     is_active: true,
     email_verified: true,

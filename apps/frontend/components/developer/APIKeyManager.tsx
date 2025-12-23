@@ -361,9 +361,9 @@ export function APIKeyManager({ currentUser }: APIKeyManagerProps) {
 
                             return (
                               <span className={`inline-flex items-center gap-1 ${isExpired ? 'text-gray-500' :
-                                  isExpiringSoon ? 'text-red-600 dark:text-red-400 font-medium' :
-                                    isExpiringMedium ? 'text-yellow-600 dark:text-yellow-400' :
-                                      'text-gray-900 dark:text-gray-100'
+                                isExpiringSoon ? 'text-red-600 dark:text-red-400 font-medium' :
+                                  isExpiringMedium ? 'text-yellow-600 dark:text-yellow-400' :
+                                    'text-gray-900 dark:text-gray-100'
                                 }`}>
                                 {isExpired && '⚫ Expired '}
                                 {isExpiringSoon && !isExpired && '🔴 '}

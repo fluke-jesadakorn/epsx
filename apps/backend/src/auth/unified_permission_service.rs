@@ -115,13 +115,18 @@ pub struct RemoveGroupRequest {
 #[derive(Clone)]
 pub struct UnifiedPermissionService {
     db_pool: &'static Pool<AsyncPgConnection>,
-    cache: Arc<UnifiedPermissionCache>,
+    cache: Option<Arc<UnifiedPermissionCache>>,
 }
 
 impl UnifiedPermissionService {
-    /// Create new unified permission service
+    /// Create new unified permission service with cache
     pub fn new(db_pool: &'static Pool<AsyncPgConnection>, cache: Arc<UnifiedPermissionCache>) -> Self {
-        Self { db_pool, cache }
+        Self { db_pool, cache: Some(cache) }
+    }
+
+    /// Create new unified permission service without cache (direct DB queries only)
+    pub fn new_without_cache(db_pool: &'static Pool<AsyncPgConnection>) -> Self {
+        Self { db_pool, cache: None }
     }
 
     // ========================================================================
@@ -139,9 +144,11 @@ impl UnifiedPermissionService {
         debug!("Checking permission '{}' for wallet: {}", permission, wallet_lower);
 
         // Try cache first
-        if let Some(cached_result) = self.cache.get_permission_check(&wallet_lower, permission).await {
-            debug!("Cache hit for permission check: {}", permission);
-            return Ok(cached_result);
+        if let Some(ref cache) = self.cache {
+            if let Some(cached_result) = cache.get_permission_check(&wallet_lower, permission).await {
+                debug!("Cache hit for permission check: {}", permission);
+                return Ok(cached_result);
+            }
         }
 
         // Query database using optimized function
@@ -170,7 +177,9 @@ impl UnifiedPermissionService {
         let result = has_permission.wallet_has_permission.unwrap_or(false);
 
         // Cache result
-        self.cache.set_permission_check(&wallet_lower, permission, result).await;
+        if let Some(ref cache) = self.cache {
+            cache.set_permission_check(&wallet_lower, permission, result).await;
+        }
 
         Ok(result)
     }
@@ -184,9 +193,11 @@ impl UnifiedPermissionService {
         debug!("Fetching permissions for wallet: {}", wallet_lower);
 
         // Try cache first
-        if let Some(cached_permissions) = self.cache.get_wallet_permissions(&wallet_lower).await {
-            debug!("Cache hit for wallet permissions");
-            return Ok(cached_permissions);
+        if let Some(ref cache) = self.cache {
+            if let Some(cached_permissions) = cache.get_wallet_permissions(&wallet_lower).await {
+                debug!("Cache hit for wallet permissions");
+                return Ok(cached_permissions);
+            }
         }
 
         // Query database using optimized function
@@ -264,7 +275,9 @@ impl UnifiedPermissionService {
             .collect();
 
         // Cache result
-        self.cache.set_wallet_permissions(&wallet_lower, &permissions).await;
+        if let Some(ref cache) = self.cache {
+            cache.set_wallet_permissions(&wallet_lower, &permissions).await;
+        }
 
         info!("Found {} permissions for wallet: {}", permissions.len(), wallet_lower);
         Ok(permissions)
@@ -428,7 +441,9 @@ impl UnifiedPermissionService {
         .id;
 
         // Invalidate cache
-        self.cache.invalidate_wallet(&wallet_lower).await;
+        if let Some(ref cache) = self.cache {
+            cache.invalidate_wallet(&wallet_lower).await;
+        }
 
         // Audit log (trigger handles this automatically)
 
@@ -481,7 +496,9 @@ impl UnifiedPermissionService {
         }
 
         // Invalidate cache
-        self.cache.invalidate_wallet(&wallet_lower).await;
+        if let Some(ref cache) = self.cache {
+            cache.invalidate_wallet(&wallet_lower).await;
+        }
 
         // Audit log (trigger handles this automatically)
 
@@ -551,7 +568,9 @@ impl UnifiedPermissionService {
             .id;
 
         // Invalidate cache
-        self.cache.invalidate_wallet(&wallet_lower).await;
+        if let Some(ref cache) = self.cache {
+            cache.invalidate_wallet(&wallet_lower).await;
+        }
 
         // Audit log (trigger handles this automatically)
 
@@ -600,7 +619,9 @@ impl UnifiedPermissionService {
         }
 
         // Invalidate cache
-        self.cache.invalidate_wallet(&wallet_lower).await;
+        if let Some(ref cache) = self.cache {
+            cache.invalidate_wallet(&wallet_lower).await;
+        }
 
         // Audit log (trigger handles this automatically)
 

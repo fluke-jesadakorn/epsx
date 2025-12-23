@@ -64,8 +64,8 @@ pub struct WalletSummary {
     pub id: String,                        // Wallet address for frontend
     pub display_name: Option<String>,      // Display name from database
 
-    // Status and role fields
-    pub role: String,                      // Derived from permissions (admin/user/premium)
+    // Status and group fields
+    pub group: String,                     // Derived from permissions (admin/user/premium)
     pub status: String,                    // Derived from is_active (active/inactive)
     pub is_active: bool,
 

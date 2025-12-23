@@ -1,24 +1,23 @@
 'use client';
 
 import {
-  Bell,
-  Plus,
-  Search,
-  Filter,
-  Send,
-  Users,
-  BarChart3,
-  Settings,
   AlertTriangle,
+  BarChart3,
+  Bell,
   CheckCircle,
   Clock,
-  Trash2,
   Edit,
-  Eye
+  Eye,
+  Plus,
+  Search,
+  Send,
+  Settings,
+  Trash2,
+  Users
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
+import { SendNotificationForm } from '@/components/notifications/SendNotificationForm';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,17 +29,15 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { SendNotificationForm } from '@/components/notifications/SendNotificationForm';
-import {
-  createNotificationsClient,
-} from '@/shared/api/notifications';
 import type {
   Notification as ApiNotification,
   NotificationFilters,
   NotificationPriority,
   NotificationType,
+} from '@/shared/api/notifications';
+import {
+  createNotificationsClient,
 } from '@/shared/api/notifications';
 import { createAdminApiClient } from '@/shared/utils/api-client';
 
@@ -81,7 +78,6 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedType, setSelectedType] = useState<NotificationType | 'all'>('all');
   const [selectedPriority, setSelectedPriority] = useState<NotificationPriority | 'all'>('all');
-  const router = useRouter();
   const [selectedNotifications, setSelectedNotifications] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState('overview');
   const [showSendDialog, setShowSendDialog] = useState(false);
@@ -188,8 +184,8 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
   };
 
   const handleBulkDelete = async () => {
-    if (selectedNotifications.size === 0) {return;}
-    
+    if (selectedNotifications.size === 0) { return; }
+
     try {
       // await apiClient.deleteNotifications(Array.from(selectedNotifications));
       setNotifications(prev => prev.filter(n => !selectedNotifications.has(n.id)));
@@ -202,11 +198,11 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
   };
 
   const handleBulkMarkRead = async () => {
-    if (selectedNotifications.size === 0) {return;}
-    
+    if (selectedNotifications.size === 0) { return; }
+
     try {
       // await apiClient.markNotificationsRead(Array.from(selectedNotifications));
-      setNotifications(prev => prev.map(n => 
+      setNotifications(prev => prev.map(n =>
         selectedNotifications.has(n.id) ? { ...n, read: true } : n
       ));
       setSelectedNotifications(new Set());
@@ -293,7 +289,7 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -305,7 +301,7 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -317,7 +313,7 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
               </div>
             </CardContent>
           </Card>
-          
+
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -353,7 +349,7 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
                     {Object.entries(stats.byType).map(([type, count]) => (
                       <div key={type} className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          {getTypeIcon(type)}
+                          {getTypeIcon(type as NotificationType)}
                           <span className="capitalize">{type}</span>
                         </div>
                         <Badge variant="secondary">{String(count)}</Badge>
@@ -375,7 +371,7 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
                     {Object.entries(stats.byPriority).map(([priority, count]) => (
                       <div key={priority} className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className={`w-3 h-3 rounded-full ${getPriorityColor(priority)}`} />
+                          <div className={`w-3 h-3 rounded-full ${getPriorityColor(priority as NotificationPriority)}`} />
                           <span className="capitalize">{priority}</span>
                         </div>
                         <Badge variant="secondary">{String(count)}</Badge>
@@ -402,8 +398,8 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
                     className="pl-10"
                   />
                 </div>
-                
-                <select 
+
+                <select
                   value={selectedType}
                   onChange={(e) => setSelectedType(e.target.value as NotificationType | 'all')}
                   className="px-3 py-2 border border-input rounded-md bg-background"
@@ -417,8 +413,8 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
                   <option value="payment">Payment</option>
                   <option value="general">General</option>
                 </select>
-                
-                <select 
+
+                <select
                   value={selectedPriority}
                   onChange={(e) => setSelectedPriority(e.target.value as NotificationPriority | 'all')}
                   className="px-3 py-2 border border-input rounded-md bg-background"
@@ -495,15 +491,15 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
                         }}
                         className="mt-1"
                       />
-                      
+
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               {getTypeIcon(notification.notificationType)}
                               <h3 className="font-medium">{notification.title}</h3>
-                              <Badge 
-                                variant="secondary" 
+                              <Badge
+                                variant="secondary"
                                 className={`${getPriorityColor(notification.priority)} text-white`}
                               >
                                 {notification.priority}
@@ -527,7 +523,7 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
                               )}
                             </div>
                           </div>
-                          
+
                           <div className="flex items-center gap-2">
                             <Button variant="ghost" size="sm">
                               <Eye className="h-4 w-4" />
@@ -535,9 +531,9 @@ export function NotificationDashboard({ className }: NotificationDashboardProps)
                             <Button variant="ghost" size="sm">
                               <Edit className="h-4 w-4" />
                             </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               onClick={() => handleDeleteNotification(notification.id)}
                             >
                               <Trash2 className="h-4 w-4" />

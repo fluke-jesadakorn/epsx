@@ -26,6 +26,7 @@ export interface Web3TokenResponse {
   access_token: string; // Web3 JWT Bearer token for API access
   token_type: string; // Always "Bearer"
   expires_in: number; // Seconds until expiration
+  refresh_token?: string; // Optional refresh token
   wallet_address: string; // Authenticated wallet address
   permissions: string[]; // User permissions from backend
   user_id: string; // User identifier
@@ -88,6 +89,7 @@ export interface UnifiedApiResponse<T = any> {
  */
 export class SharedWeb3AuthClient {
   private accessToken: string | null = null;
+  private refreshToken: string | null = null;
   private tokenExpiry: number | null = null;
   private user: UserInfoResponse | null = null;
   private listeners: Set<(user: UserInfoResponse | null) => void> = new Set();
@@ -141,6 +143,8 @@ export class SharedWeb3AuthClient {
         this.accessToken = clientSession;
       }
 
+      this.refreshToken = getClientCookie(COOKIES.refresh);
+
       // Access token is HttpOnly, so we can't access it directly
       // We'll check client-side cookies for expiry and user data
       const expiry = getClientCookie(COOKIES.expires_at);
@@ -169,6 +173,10 @@ export class SharedWeb3AuthClient {
       // Sync access token to client_session for Server Components and persistence
       if (this.accessToken) {
         setClientCookie(COOKIES.client_session, this.accessToken);
+      }
+
+      if (this.refreshToken) {
+        setClientCookie(COOKIES.refresh, this.refreshToken);
       }
 
       // Save user object to cookies
@@ -439,6 +447,7 @@ export class SharedWeb3AuthClient {
 
       // Store access token
       this.accessToken = result.access_token;
+      this.refreshToken = result.refresh_token;
       // Default to 24 hour expiry if not provided
       this.tokenExpiry = Date.now() + 24 * 60 * 60 * 1000;
 
@@ -519,17 +528,54 @@ export class SharedWeb3AuthClient {
     return this.tokenExpiry <= Date.now();
   }
 
-  // Web3-first system: No refresh tokens, users re-authenticate with wallet
-  private async refreshTokens(): Promise<boolean> {
-    console.log(
-      'Web3 tokens expired, user needs to re-authenticate with wallet'
-    );
-    this.clearTokens();
-    return false;
+  // Refresh tokens using backend refresh endpoint
+  async refreshTokens(): Promise<boolean> {
+    if (!this.refreshToken) {
+      console.log('No refresh token available, user needs to re-authenticate');
+      this.clearTokens();
+      return false;
+    }
+
+    try {
+      const response = await fetch(`${this.backendUrl}/api/v1/auth/session/refresh`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          refresh_token: this.refreshToken,
+        }),
+      });
+
+      if (!response.ok) {
+        console.warn('Token refresh failed', response.status);
+        this.clearTokens();
+        return false;
+      }
+
+      const result = await response.json();
+      if (result.success && result.access_token) {
+        this.accessToken = result.access_token;
+        if (result.refresh_token) {
+          this.refreshToken = result.refresh_token;
+        }
+        this.tokenExpiry = Date.now() + (result.expires_in || 3600) * 1000;
+        this.saveTokensToStorage();
+        return true;
+      }
+
+      this.clearTokens();
+      return false;
+    } catch (error) {
+      console.error('Token refresh request failed', error);
+      this.clearTokens();
+      return false;
+    }
   }
 
   private clearTokens(): void {
     this.accessToken = null;
+    this.refreshToken = null;
     this.tokenExpiry = null;
     this.user = null;
     this.clearTokensFromStorage();
@@ -719,6 +765,22 @@ export class SharedWeb3AuthClient {
 
   getUserTier(): string {
     return this.user?.tier_level || 'free';
+  }
+
+  // ============================================================================
+  // OPENID CONNECT DISCOVERY (Compatibility)
+  // ============================================================================
+
+  async getDiscoveryDocument(): Promise<any> {
+    const url = `${this.backendUrl}/.well-known/openid-configuration`;
+    const response = await fetch(url);
+    return response.json();
+  }
+
+  async getJwks(): Promise<any> {
+    const url = `${this.backendUrl}/.well-known/jwks.json`;
+    const response = await fetch(url);
+    return response.json();
   }
 }
 

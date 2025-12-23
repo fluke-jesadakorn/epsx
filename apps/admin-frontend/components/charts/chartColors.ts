@@ -8,14 +8,14 @@ export const PancakeSwapColors = {
   primary: '#FFC107',        // PancakeSwap yellow
   primaryDark: '#FF8F00',    // Darker yellow
   primaryLight: '#FFD54F',   // Lighter yellow
-  
+
   // Secondary colors matching PancakeSwap theme
   secondary: '#FF6B35',      // Orange
   accent: '#4CAF50',         // Success green
   warning: '#FF9800',        // Warning orange
   error: '#F44336',          // Error red
   info: '#2196F3',          // Info blue
-  
+
   // Gradient colors for Windows Phone live tiles
   gradients: {
     pancake: ['#FFC107', '#FF8F00'],
@@ -26,7 +26,7 @@ export const PancakeSwapColors = {
     analytics: ['#9C27B0', '#7B1FA2'],
     premium: ['#FF5722', '#E64A19'],
   },
-  
+
   // Chart-specific color palettes
   chartPalette: [
     '#FFC107',  // Primary yellow
@@ -38,7 +38,7 @@ export const PancakeSwapColors = {
     '#607D8B',  // Blue grey
     '#795548',  // Brown
   ],
-  
+
   // Windows Phone accent colors
   wpAccents: [
     '#FFC107',  // Yellow
@@ -48,7 +48,7 @@ export const PancakeSwapColors = {
     '#9C27B0',  // Purple
     '#FF5722',  // Red
   ],
-  
+
   // Background colors for dark mode compatibility
   backgrounds: {
     light: '#FFFFFF',
@@ -56,13 +56,13 @@ export const PancakeSwapColors = {
     cardLight: '#F5F5F5',
     cardDark: '#2D2D2D',
   },
-  
+
   // Grid and axis colors
   grid: {
     light: '#E0E0E0',
     dark: '#404040',
   },
-  
+
   text: {
     light: '#333333',
     dark: '#FFFFFF',
@@ -77,7 +77,7 @@ export type PancakeSwapColorKey = keyof typeof PancakeSwapColors.chartPalette
  * @param index
  */
 export function getChartColor(index: number): string {
-  return PancakeSwapColors.chartPalette[index % PancakeSwapColors.chartPalette.length]
+  return PancakeSwapColors.chartPalette[index % PancakeSwapColors.chartPalette.length] || PancakeSwapColors.chartPalette[0] || '#FFC107'
 }
 
 /**

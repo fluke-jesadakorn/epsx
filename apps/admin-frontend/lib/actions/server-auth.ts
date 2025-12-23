@@ -6,7 +6,7 @@
 'use server'
 
 import { getAuthUser } from '@/lib/server/auth';
-import { getJWTFromCookies } from '@/lib/server/jwt';
+import { getJWTFromCookies } from '@/lib/server/token';
 
 /**
  * Get JWT bearer token for authenticated API requests
@@ -35,19 +35,25 @@ export async function getCurrentUser() {
 }
 
 /**
- * Validate that current user has admin privileges using structured permissions only
+ * Validate that current user has admin privileges using backend-provided role
  */
 export async function validateAdminAccess(): Promise<boolean> {
   try {
     const user = await getCurrentUser();
-    
+
     if (!user) {
       return false;
     }
 
-    // Check structured permissions only
+    // Use backend-provided role (computed server-side)
+    // Falls back to permission check for backward compatibility
+    if ((user as any).role === 'admin' || (user as any).role === 'super_admin') {
+      return true;
+    }
+
+    // Fallback: Check structured permissions if role not available
     if (user.permissions?.length > 0) {
-      return user.permissions.some(p => 
+      return user.permissions.some(p =>
         p === 'admin:*:*' ||           // Full admin access
         p.startsWith('admin:')         // Any admin-scoped permission
       );
@@ -69,27 +75,27 @@ export async function validateAdminAccess(): Promise<boolean> {
 export async function hasPermission(permission: string): Promise<boolean> {
   try {
     const user = await getCurrentUser();
-    
+
     if (!user?.permissions) {
       return false;
     }
 
     const permissions = Array.isArray(user.permissions) ? user.permissions : [];
-    
+
     // Check for exact permission match
-    if (permissions.includes(permission)) {return true;}
-    
+    if (permissions.includes(permission)) { return true; }
+
     // Check for admin wildcard permission
-    if (permissions.includes('admin:*:*')) {return true;}
-    
+    if (permissions.includes('admin:*:*')) { return true; }
+
     // Check for legacy wildcard permission
-    if (permissions.includes('*')) {return true;}
-    
+    if (permissions.includes('*')) { return true; }
+
     // Check for broader permissions (e.g., admin:users:* covers admin:users:view)
     if (permission.includes(':')) {
       const [platform, resource] = permission.split(':');
-      return permissions.some(p => 
-        p === `${platform}:${resource}:*` || 
+      return permissions.some(p =>
+        p === `${platform}:${resource}:*` ||
         p === `${platform}:*:*`
       );
     }
@@ -109,13 +115,13 @@ export async function hasPermission(permission: string): Promise<boolean> {
  * @param platform
  */
 export async function hasPlatformPermission(
-  resource: string, 
-  action: string, 
+  resource: string,
+  action: string,
   platform?: string
 ): Promise<boolean> {
   try {
     const user = await getCurrentUser();
-    
+
     if (!user) {
       return false;
     }

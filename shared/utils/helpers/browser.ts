@@ -29,19 +29,21 @@ export const storage = {
   get<T>(key: string, defaultValue?: T): T | null {
     try {
       if (typeof window === 'undefined') return defaultValue || null
-      
+
       // Try cookie first
       const cookies = document.cookie.split(';').reduce((acc, cookie) => {
-        const [k, v] = cookie.trim().split('=')
+        const parts = cookie.trim().split('=')
+        const k = parts[0] || ''
+        const v = parts[1] || ''
         if (k && v) acc[k] = v
         return acc
       }, {} as Record<string, string>)
-      
+
       const cookieValue = cookies[key]
       if (cookieValue) {
         return JSON.parse(decodeURIComponent(cookieValue))
       }
-      
+
       // Fallback to localStorage for migration
       const item = localStorage.getItem(key)
       return item ? JSON.parse(item) : defaultValue || null
@@ -57,10 +59,10 @@ export const storage = {
   remove(key: string): boolean {
     try {
       if (typeof window === 'undefined') return false
-      
+
       // Remove from cookie
       document.cookie = `${key}=; max-age=0; path=/; SameSite=lax`
-      
+
       // Remove from localStorage (fallback cleanup)
       localStorage.removeItem(key)
       return true
@@ -76,13 +78,13 @@ export const storage = {
   clear(): boolean {
     try {
       if (typeof window === 'undefined') return false
-      
+
       // Clear localStorage
       localStorage.clear()
-      
+
       // Clear all cookies by setting them to expire
       document.cookie.split(';').forEach(cookie => {
-        const key = cookie.split('=')[0].trim()
+        const key = (cookie.split('=')[0] || '').trim()
         if (key) {
           document.cookie = `${key}=; max-age=0; path=/; SameSite=lax`
         }
@@ -99,7 +101,7 @@ export const storage = {
    */
   isAvailable(): boolean {
     if (typeof window === 'undefined') return false
-    
+
     // Try cookies
     const test = '__storage_test__'
     try {
@@ -210,17 +212,17 @@ export function isAndroid(): boolean {
  */
 export function getDeviceType(): 'desktop' | 'tablet' | 'mobile' {
   if (!isBrowser()) return 'desktop'
-  
+
   const userAgent = navigator.userAgent
-  
+
   if (/iPad/.test(userAgent) || (isMobile() && window.innerWidth > 768)) {
     return 'tablet'
   }
-  
+
   if (isMobile()) {
     return 'mobile'
   }
-  
+
   return 'desktop'
 }
 
@@ -235,14 +237,14 @@ export function getBrowserInfo(): {
   if (!isBrowser()) {
     return { name: 'unknown', version: 'unknown', engine: 'unknown' }
   }
-  
+
   const userAgent = navigator.userAgent
-  
+
   // Browser detection
   let name = 'unknown'
   let version = 'unknown'
   let engine = 'unknown'
-  
+
   if (userAgent.includes('Chrome')) {
     name = 'Chrome'
     version = userAgent.match(/Chrome\/(\d+)/)?.[1] || 'unknown'
@@ -260,7 +262,7 @@ export function getBrowserInfo(): {
     version = userAgent.match(/Edge\/(\d+)/)?.[1] || 'unknown'
     engine = 'EdgeHTML'
   }
-  
+
   return { name, version, engine }
 }
 
@@ -269,7 +271,7 @@ export function getBrowserInfo(): {
  */
 export async function copyToClipboard(text: string): Promise<boolean> {
   if (!isBrowser()) return false
-  
+
   try {
     await navigator.clipboard.writeText(text)
     return true
@@ -297,7 +299,7 @@ export async function copyToClipboard(text: string): Promise<boolean> {
  */
 export async function readFromClipboard(): Promise<string | null> {
   if (!isBrowser()) return null
-  
+
   try {
     const text = await navigator.clipboard.readText()
     return text
@@ -312,20 +314,20 @@ export async function readFromClipboard(): Promise<string | null> {
  */
 export function downloadFile(data: string | Blob, filename: string, mimeType?: string): boolean {
   if (!isBrowser()) return false
-  
+
   try {
     const blob = data instanceof Blob ? data : new Blob([data], { type: mimeType || 'text/plain' })
     const url = URL.createObjectURL(blob)
-    
+
     const link = document.createElement('a')
     link.href = url
     link.download = filename
     link.style.display = 'none'
-    
+
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
-    
+
     URL.revokeObjectURL(url)
     return true
   } catch (error) {
@@ -339,7 +341,7 @@ export function downloadFile(data: string | Blob, filename: string, mimeType?: s
  */
 export function getViewportSize(): { width: number; height: number } {
   if (!isBrowser()) return { width: 0, height: 0 }
-  
+
   return {
     width: window.innerWidth,
     height: window.innerHeight
@@ -351,7 +353,7 @@ export function getViewportSize(): { width: number; height: number } {
  */
 export function getScrollPosition(): { x: number; y: number } {
   if (!isBrowser()) return { x: 0, y: 0 }
-  
+
   return {
     x: window.pageXOffset || document.documentElement.scrollLeft,
     y: window.pageYOffset || document.documentElement.scrollTop
@@ -363,7 +365,7 @@ export function getScrollPosition(): { x: number; y: number } {
  */
 export function smoothScrollTo(target: number | Element, options?: ScrollToOptions): void {
   if (!isBrowser()) return
-  
+
   if (typeof target === 'number') {
     window.scrollTo({
       top: target,
@@ -384,10 +386,10 @@ export function smoothScrollTo(target: number | Element, options?: ScrollToOptio
  */
 export function isElementInViewport(element: Element): boolean {
   if (!isBrowser()) return false
-  
+
   const rect = element.getBoundingClientRect()
   const viewport = getViewportSize()
-  
+
   return (
     rect.top >= 0 &&
     rect.left >= 0 &&
@@ -404,10 +406,10 @@ export function addEventListener<K extends keyof WindowEventMap>(
   listener: (event: WindowEventMap[K]) => void,
   options?: boolean | AddEventListenerOptions
 ): () => void {
-  if (!isBrowser()) return () => {}
-  
+  if (!isBrowser()) return () => { }
+
   window.addEventListener(type, listener, options)
-  
+
   return () => {
     window.removeEventListener(type, listener, options)
   }
@@ -420,19 +422,19 @@ export function onResize(
   callback: (size: { width: number; height: number }) => void,
   delay: number = 100
 ): () => void {
-  if (!isBrowser()) return () => {}
-  
+  if (!isBrowser()) return () => { }
+
   let timeoutId: number
-  
+
   const debouncedCallback = () => {
     clearTimeout(timeoutId)
     timeoutId = window.setTimeout(() => {
       callback(getViewportSize())
     }, delay)
   }
-  
+
   window.addEventListener('resize', debouncedCallback)
-  
+
   return () => {
     clearTimeout(timeoutId)
     window.removeEventListener('resize', debouncedCallback)
@@ -448,7 +450,7 @@ export const cssVariables = {
    */
   set(name: string, value: string, element: Element = document.documentElement): void {
     if (!isBrowser()) return
-    ;(element as HTMLElement).style.setProperty(`--${name}`, value)
+      ; (element as HTMLElement).style.setProperty(`--${name}`, value)
   },
 
   /**
@@ -464,7 +466,7 @@ export const cssVariables = {
    */
   remove(name: string, element: Element = document.documentElement): void {
     if (!isBrowser()) return
-    ;(element as HTMLElement).style.removeProperty(`--${name}`)
+      ; (element as HTMLElement).style.removeProperty(`--${name}`)
   }
 }
 
@@ -473,15 +475,15 @@ export const cssVariables = {
  */
 export function getColorSchemePreference(): 'light' | 'dark' | 'no-preference' {
   if (!isBrowser()) return 'no-preference'
-  
+
   if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
     return 'dark'
   }
-  
+
   if (window.matchMedia('(prefers-color-scheme: light)').matches) {
     return 'light'
   }
-  
+
   return 'no-preference'
 }
 
@@ -491,18 +493,18 @@ export function getColorSchemePreference(): 'light' | 'dark' | 'no-preference' {
 export function watchColorScheme(
   callback: (scheme: 'light' | 'dark' | 'no-preference') => void
 ): () => void {
-  if (!isBrowser()) return () => {}
-  
+  if (!isBrowser()) return () => { }
+
   const darkQuery = window.matchMedia('(prefers-color-scheme: dark)')
   const lightQuery = window.matchMedia('(prefers-color-scheme: light)')
-  
+
   const handler = () => {
     callback(getColorSchemePreference())
   }
-  
+
   darkQuery.addEventListener('change', handler)
   lightQuery.addEventListener('change', handler)
-  
+
   return () => {
     darkQuery.removeEventListener('change', handler)
     lightQuery.removeEventListener('change', handler)

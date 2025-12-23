@@ -1,11 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
-import type { StockFinancialData } from '@/types/financialChartData';
-import { 
+import {
+  checkStockCacheStatus,
   getBatchStocks,
-  getStockData as _getStockData,
-  preloadStocks,
-  checkStockCacheStatus
+  preloadStocks
 } from '@/lib/server-actions';
+import type { StockFinancialData } from '@/types/financialChartData';
+import { useCallback, useEffect, useState } from 'react';
 
 interface BatchStockData {
   [symbol: string]: StockFinancialData | null;
@@ -44,7 +43,7 @@ export function useBatchStockData(symbols: string[]): BatchFetchState {
       setState(prev => ({ ...prev, loading: true, error: null }));
 
       const result = await getBatchStocks(symbolsList);
-      
+
       if (!result.success) {
         const errorMessage = result.errors && result.errors.length > 0 ? result.errors.join(', ') : 'Failed to fetch batch data';
         throw new Error(errorMessage);
@@ -89,7 +88,7 @@ export function useStockData(symbol: string): {
   fromCache: boolean;
 } {
   const batchResult = useBatchStockData([symbol]);
-  
+
   return {
     data: batchResult.data[symbol] || null,
     loading: batchResult.loading,

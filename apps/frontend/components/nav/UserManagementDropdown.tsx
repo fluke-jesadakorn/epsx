@@ -1,14 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { formatAddress } from '@/lib/auth/store';
-import {
-  User,
-  Settings,
-  CreditCard,
-  Gift,
-  BarChart3,
-} from 'lucide-react';
+import { WalletConnectAuth } from '@/components/auth/WalletConnectAuth';
 import {
   Button,
   DropdownMenu,
@@ -17,8 +9,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui';
+import {
+  BarChart3,
+  CreditCard,
+  Gift,
+  Settings,
+  User,
+} from 'lucide-react';
 import Link from 'next/link';
-import { WalletConnectAuth } from '@/components/auth/WalletConnectAuth';
+import { useEffect, useState } from 'react';
 
 interface UserManagementDropdownProps {
   className?: string;
@@ -111,7 +110,7 @@ export function UserManagementDropdown({ className = '', compact = false }: User
             }
           ].map((item) => {
             const Icon = item.icon;
-            
+
             return (
               <DropdownMenuItem
                 key={item.href}
@@ -138,7 +137,7 @@ export function UserManagementDropdown({ className = '', compact = false }: User
 
         {/* Wallet Connect */}
         <div className="p-2">
-          <WalletConnectAuth 
+          <WalletConnectAuth
             compact={false}
             className="w-full"
           />

@@ -1,2 +1,1 @@
-// Direct export from shared
-export * from '../../../../shared/components/ui/switch';
+export * from '@/shared/components/ui/switch';

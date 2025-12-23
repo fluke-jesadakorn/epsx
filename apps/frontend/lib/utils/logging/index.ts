@@ -167,6 +167,9 @@ export class Logger {
     // Skip logging if console is not available (SSR/hydration safety)
     if (typeof console === 'undefined') return;
 
+    // Sanitize data to handle BigInt values before logging
+    const safeData = data !== undefined ? this.sanitizeData(data) : undefined;
+
     // Simplified logging - console output only, no buffering or transmission
     const consoleMethod = level === 'debug' ? 'log' : level;
     const timestamp = new Date().toLocaleTimeString();
@@ -178,8 +181,8 @@ export class Logger {
       // Fallback to console.log if specific method doesn't exist
       const fallbackLog = console.log;
       if (typeof fallbackLog === 'function') {
-        if (data) {
-          fallbackLog(prefix, message, data);
+        if (safeData !== undefined) {
+          fallbackLog(prefix, message, safeData);
         } else {
           fallbackLog(prefix, message);
         }
@@ -188,15 +191,15 @@ export class Logger {
     }
 
     try {
-      if (data) {
-        (logFunction as Function)(prefix, message, data);
+      if (safeData !== undefined) {
+        (logFunction as Function)(prefix, message, safeData);
       } else {
         (logFunction as Function)(prefix, message);
       }
     } catch (error) {
       // Fallback to console.log if specific method fails
       if (console.log && typeof console.log === 'function') {
-        console.log(`[LOGGER ERROR] ${prefix}`, message, data || '');
+        console.log(`[LOGGER ERROR] ${prefix}`, message, safeData !== undefined ? safeData : '');
       }
     }
   }

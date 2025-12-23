@@ -67,7 +67,7 @@ export class AdminErrorBoundary extends Component<Props, State> {
    * @param error
    * @param errorInfo
    */
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     const { context = 'component', featureName } = this.props;
     
     // Enhanced error logging for admin interface
@@ -166,7 +166,7 @@ export class AdminErrorBoundary extends Component<Props, State> {
   /**
    *
    */
-  render() {
+  override render() {
     if (this.state.hasError) {
       // Use custom fallback if provided
       if (this.props.fallback) {

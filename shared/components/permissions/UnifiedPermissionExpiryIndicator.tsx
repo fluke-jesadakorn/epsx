@@ -16,26 +16,24 @@
  */
 'use client';
 
-import React, { useState, useEffect, ReactNode } from 'react';
-import { 
-  Clock, 
-  AlertTriangle, 
+import {
+  AlertCircle,
+  AlertTriangle,
+  ArrowUp,
   CheckCircle,
-  XCircle,
-  Zap,
+  Clock,
   Eye,
   RefreshCw,
-  ArrowUp,
   Shield,
-  ShieldAlert,
-  ShieldCheck,
-  AlertCircle
+  XCircle,
+  Zap
 } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
 
-import { BaseCard as Card } from '../cards/BaseCard';
+import { format, formatDistanceToNow } from 'date-fns';
 import { BaseButton as Button } from '../buttons/BaseButton';
+import { BaseCard as Card } from '../cards/BaseCard';
 import { BaseModal } from '../modals/BaseModal';
-import { formatDistanceToNow, format } from 'date-fns';
 
 // Simple inline components to replace missing UI components
 const Badge = ({ className, variant, children, ...props }: any) => (
@@ -123,59 +121,59 @@ export interface UnifiedPermissionExpiryIndicatorProps {
    * Platform context - determines styling and behavior
    */
   platform: Platform;
-  
+
   /**
    * Single permission or array of permissions to display
    */
   permissions: string | string[];
-  
+
   /**
    * Display variant
    */
   variant?: 'badge' | 'banner' | 'card' | 'compact' | 'detailed' | 'dashboard' | 'inline' | 'full';
-  
+
   /**
    * Size for badge and compact variants
    */
   size?: 'xs' | 'sm' | 'md' | 'lg';
-  
+
   /**
    * Whether to show live countdown
    */
   showCountdown?: boolean;
-  
+
   /**
    * Whether to show detailed permission information
    */
   showDetails?: boolean;
-  
+
   /**
    * Whether to show health scoring (multiple permissions)
    */
   showHealth?: boolean;
-  
+
   /**
    * Whether to show action buttons
    */
   showActions?: boolean;
-  
+
   /**
    * CSS class name
    */
   className?: string;
-  
+
   /**
    * Callback when permission expires
    */
   onExpired?: (permission: PermissionInfo) => void;
-  
+
   /**
    * Action callbacks (admin only)
    */
   onExtendPermission?: (permission: PermissionInfo) => void;
   onRevokePermission?: (permission: PermissionInfo) => void;
   onViewDetails?: (permission: PermissionInfo) => void;
-  
+
   /**
    * Custom permission data provider
    */
@@ -199,12 +197,12 @@ function usePermissionHook(platform: Platform): PermissionHookInterface {
       return hookRegistry[platform]();
     }
   }
-  
+
   // Fallback for server-side rendering
   return {
     hasPermission: () => false,
     getPermissionExpiry: () => null,
-    refreshPermissions: async () => {},
+    refreshPermissions: async () => { },
     loading: false
   };
 }
@@ -229,26 +227,26 @@ export default function UnifiedPermissionExpiryIndicator({
   const [currentTime, setCurrentTime] = useState(Date.now());
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
+
   // Convert single permission to array for unified processing
   const permissionArray = Array.isArray(permissions) ? permissions : [permissions];
-  
+
   // Update current time for live countdown
   useEffect(() => {
     if (!showCountdown) return;
-    
+
     const interval = setInterval(() => {
       setCurrentTime(Date.now());
     }, 60000); // Update every minute
-    
+
     return () => clearInterval(interval);
   }, [showCountdown]);
-  
+
   // Process permissions into structured data
-  const processedData: PermissionExpiryData = permissionDataProvider 
+  const processedData: PermissionExpiryData = permissionDataProvider
     ? permissionDataProvider(permissionArray)
     : parsePermissions(permissionArray, permissionHook, currentTime);
-  
+
   // Handle expiration callbacks
   useEffect(() => {
     if (onExpired) {
@@ -257,11 +255,11 @@ export default function UnifiedPermissionExpiryIndicator({
         .forEach(onExpired);
     }
   }, [processedData.permissions, onExpired]);
-  
+
   // Handle refresh
   const handleRefresh = async () => {
     if (!permissionHook.refreshPermissions) return;
-    
+
     setIsRefreshing(true);
     try {
       await permissionHook.refreshPermissions();
@@ -271,19 +269,19 @@ export default function UnifiedPermissionExpiryIndicator({
       setIsRefreshing(false);
     }
   };
-  
+
   // Don't render if no permissions or all permanent with no issues
-  if (processedData.totalCount === 0 || 
-      (processedData.expiredCount === 0 && 
-       processedData.criticalCount === 0 && 
-       processedData.expiringSoonCount === 0 && 
-       variant === 'badge')) {
+  if (processedData.totalCount === 0 ||
+    (processedData.expiredCount === 0 &&
+      processedData.criticalCount === 0 &&
+      processedData.expiringSoonCount === 0 &&
+      variant === 'badge')) {
     return null;
   }
-  
+
   // Route to appropriate variant component
   const VariantComponent = getVariantComponent(variant);
-  
+
   return (
     <VariantComponent
       platform={platform}
@@ -309,9 +307,9 @@ export default function UnifiedPermissionExpiryIndicator({
 // VARIANT COMPONENTS
 // ============================================================================
 
-function BadgeVariant({ 
-  data, 
-  size, 
+function BadgeVariant({
+  data,
+  size,
   className,
   isDialogOpen,
   setIsDialogOpen
@@ -319,7 +317,7 @@ function BadgeVariant({
   const overallUrgency = getOverallUrgency(data);
   const { colors, icon: Icon } = getUrgencyConfig(overallUrgency);
   const sizeClasses = getSizeClasses(size || 'sm');
-  
+
   return (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
@@ -334,7 +332,7 @@ function BadgeVariant({
           </span>
         </Badge>
       </DialogTrigger>
-      
+
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -345,33 +343,33 @@ function BadgeVariant({
             Permission expiry information
           </DialogDescription>
         </DialogHeader>
-        
+
         <PermissionDetailView data={data} />
       </DialogContent>
     </Dialog>
   );
 }
 
-function InlineVariant({ 
-  data, 
+function InlineVariant({
+  data,
   platform,
   showDetails,
   className,
   isDialogOpen,
-  setIsDialogOpen 
+  setIsDialogOpen
 }: VariantProps) {
   const firstPermission = data.permissions[0];
   if (!firstPermission) return null;
-  
+
   const { icon: Icon } = getUrgencyConfig(firstPermission.urgencyLevel);
-  
+
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       <Icon className="h-4 w-4" />
       <span className={`text-sm ${getTextColor(firstPermission.urgencyLevel)}`}>
         {formatTimeRemaining(firstPermission.timeRemaining)}
       </span>
-      
+
       {showDetails && (
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
@@ -379,7 +377,7 @@ function InlineVariant({
               <Eye className="h-3 w-3" />
             </Button>
           </DialogTrigger>
-          
+
           <DialogContent>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -390,7 +388,7 @@ function InlineVariant({
                 Information about the permission
               </DialogDescription>
             </DialogHeader>
-            
+
             <PermissionDetailView data={data} />
           </DialogContent>
         </Dialog>
@@ -399,10 +397,10 @@ function InlineVariant({
   );
 }
 
-function FullVariant({ 
-  data, 
-  platform, 
-  showDetails, 
+function FullVariant({
+  data,
+  platform,
+  showDetails,
   className,
   onRefresh,
   isRefreshing,
@@ -411,11 +409,11 @@ function FullVariant({
 }: VariantProps) {
   const firstPermission = data.permissions[0];
   if (!firstPermission) return null;
-  
+
   const { icon: Icon } = getUrgencyConfig(firstPermission.urgencyLevel);
   const timeText = formatTimeRemaining(firstPermission.timeRemaining);
   const exactTime = firstPermission.expiresAt ? format(new Date(firstPermission.expiresAt * 1000), 'PPpp') : undefined;
-  
+
   return (
     <Alert className={`${className} ${getAlertColors(firstPermission.urgencyLevel)}`}>
       <Icon className="h-5 w-5" />
@@ -434,7 +432,7 @@ function FullVariant({
               )}
             </div>
           </div>
-          
+
           <div className="flex gap-2">
             {showDetails && (
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -444,7 +442,7 @@ function FullVariant({
                     Details
                   </Button>
                 </DialogTrigger>
-                
+
                 <DialogContent>
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
@@ -455,15 +453,15 @@ function FullVariant({
                       Information about the "{firstPermission.basePermission}" permission
                     </DialogDescription>
                   </DialogHeader>
-                  
+
                   <PermissionDetailView data={data} />
                 </DialogContent>
               </Dialog>
             )}
-            
+
             {onRefresh && (
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="sm"
                 onClick={onRefresh}
                 disabled={isRefreshing}
@@ -472,9 +470,9 @@ function FullVariant({
                 Refresh
               </Button>
             )}
-            
+
             {(firstPermission.isExpired || firstPermission.urgencyLevel === 'critical') && platform === 'frontend' && (
-              <Button 
+              <Button
                 size="sm"
                 onClick={() => window.open('/upgrade', '_blank')}
               >
@@ -494,35 +492,35 @@ function FullVariant({
 // ============================================================================
 
 function parsePermissions(
-  permissions: string[], 
+  permissions: string[],
   permissionHook: PermissionHookInterface,
   currentTime: number
 ): PermissionExpiryData {
   const now = Math.floor(currentTime / 1000);
   const processedPermissions: PermissionInfo[] = [];
-  
+
   for (const permission of permissions) {
     // Check if user has this permission
     if (!permissionHook.hasPermission(permission)) continue;
-    
+
     let permissionInfo: PermissionInfo;
-    
+
     // Try to get expiry information from hook first
     const expiryInfo = permissionHook.getPermissionExpiry?.(permission);
-    
+
     if (expiryInfo && expiryInfo.claim?.expires_at) {
       const expiresAt = expiryInfo.claim.expires_at;
       const timeRemaining = expiresAt - now;
       const isExpired = timeRemaining <= 0;
       const isExpiringSoon = !isExpired && timeRemaining <= 86400; // 24 hours
-      
+
       let urgencyLevel: PermissionInfo['urgencyLevel'] = 'normal';
       if (isExpired) urgencyLevel = 'expired';
       else if (timeRemaining <= 3600) urgencyLevel = 'critical'; // 1 hour
       else if (isExpiringSoon) urgencyLevel = 'warning';
-      
+
       const [platform, resource, action] = permission.split(':');
-      
+
       permissionInfo = {
         permission,
         basePermission: permission,
@@ -541,20 +539,20 @@ function parsePermissions(
       // Try parsing embedded timestamp format
       const parts = permission.split(':');
       const lastPart = parts[parts.length - 1];
-      const timestamp = parseInt(lastPart, 10);
-      
+      const timestamp = parseInt(lastPart || '', 10);
+
       if (!isNaN(timestamp) && timestamp > 1000000000) {
         const basePermission = parts.slice(0, -1).join(':');
         const [platform, resource, action] = basePermission.split(':');
         const timeRemaining = timestamp - now;
         const isExpired = timeRemaining <= 0;
         const isExpiringSoon = !isExpired && timeRemaining <= 86400;
-        
+
         let urgencyLevel: PermissionInfo['urgencyLevel'] = 'normal';
         if (isExpired) urgencyLevel = 'expired';
         else if (timeRemaining <= 3600) urgencyLevel = 'critical';
         else if (isExpiringSoon) urgencyLevel = 'warning';
-        
+
         permissionInfo = {
           permission,
           basePermission,
@@ -583,30 +581,30 @@ function parsePermissions(
         };
       }
     }
-    
+
     processedPermissions.push(permissionInfo);
   }
-  
+
   // Calculate summary statistics
   const expiredCount = processedPermissions.filter(p => p.isExpired).length;
   const expiringSoonCount = processedPermissions.filter(p => p.isExpiringSoon && !p.isExpired).length;
   const criticalCount = processedPermissions.filter(p => p.urgencyLevel === 'critical').length;
   const permanentCount = processedPermissions.filter(p => p.urgencyLevel === 'permanent').length;
-  
+
   // Calculate health score
   const totalActive = processedPermissions.length - expiredCount;
   const healthRatio = processedPermissions.length > 0 ? totalActive / processedPermissions.length : 1;
   let healthScore: PermissionExpiryData['healthScore'] = 'excellent';
-  
+
   if (expiredCount > 0 || criticalCount > 2) healthScore = 'critical';
   else if (expiringSoonCount > 3 || healthRatio < 0.8) healthScore = 'warning';
   else if (healthRatio < 0.95) healthScore = 'good';
-  
+
   // Find next expiry
   const nextExpiry = processedPermissions
     .filter(p => !p.isExpired && p.expiresAt)
     .sort((a, b) => (a.expiresAt || 0) - (b.expiresAt || 0))[0];
-  
+
   return {
     permissions: processedPermissions,
     totalCount: processedPermissions.length,
@@ -623,10 +621,10 @@ function parsePermissions(
 // UTILITY FUNCTIONS
 // ============================================================================
 
-function BannerVariant({ 
-  data, 
-  showDetails, 
-  className 
+function BannerVariant({
+  data,
+  showDetails,
+  className
 }: VariantProps) {
   const overallUrgency = getOverallUrgency(data);
   const { bgColors, icon: Icon } = getUrgencyConfig(overallUrgency);
@@ -647,7 +645,7 @@ function BannerVariant({
             </h3>
             {showDetails && <ExpiryDetails data={data} compact={true} />}
           </div>
-          
+
           <div className="text-right text-sm">
             <div className="font-medium">{data.totalCount} Total</div>
             <div className="text-muted-foreground text-xs">
@@ -660,12 +658,12 @@ function BannerVariant({
   );
 }
 
-function CardVariant({ 
+function CardVariant({
   platform,
-  data, 
+  data,
   showActions,
-  showDetails, 
-  showHealth, 
+  showDetails,
+  showHealth,
   className,
   onExtendPermission,
   onRevokePermission,
@@ -689,7 +687,7 @@ function CardVariant({
               </p>
             </div>
           </div>
-          <BadgeVariant platform={platform} data={data} size="md" className="" isDialogOpen={false} setIsDialogOpen={() => {}} />
+          <BadgeVariant platform={platform} data={data} size="md" className="" isDialogOpen={false} setIsDialogOpen={() => { }} />
         </div>
 
         {showHealth && (
@@ -701,8 +699,8 @@ function CardVariant({
 
         {showDetails && (
           <>
-            <ExpiryDetails 
-              data={data} 
+            <ExpiryDetails
+              data={data}
               showActions={showActions}
               onExtendPermission={onExtendPermission}
               onRevokePermission={onRevokePermission}
@@ -726,10 +724,10 @@ function CardVariant({
   );
 }
 
-function CompactVariant({ 
-  data, 
-  size, 
-  className 
+function CompactVariant({
+  data,
+  size,
+  className
 }: VariantProps) {
   const overallUrgency = getOverallUrgency(data);
   const { icon: Icon } = getUrgencyConfig(overallUrgency);
@@ -757,8 +755,8 @@ function CompactVariant({
   );
 }
 
-function DetailedVariant({ 
-  data, 
+function DetailedVariant({
+  data,
   showActions,
   className,
   onExtendPermission,
@@ -769,8 +767,8 @@ function DetailedVariant({
     <div className={`space-y-4 ${className}`}>
       <PermissionHealthDisplay data={data} />
       <Separator />
-      <ExpiryDetails 
-        data={data} 
+      <ExpiryDetails
+        data={data}
         showActions={showActions}
         onExtendPermission={onExtendPermission}
         onRevokePermission={onRevokePermission}
@@ -780,10 +778,10 @@ function DetailedVariant({
   );
 }
 
-function DashboardVariant({ 
-  data, 
-  showHealth, 
-  className 
+function DashboardVariant({
+  data,
+  showHealth,
+  className
 }: VariantProps) {
   return (
     <div className={`grid grid-cols-2 md:grid-cols-4 gap-4 ${className}`}>
@@ -798,7 +796,7 @@ function DashboardVariant({
           </div>
         </CardContent>
       </Card>
-      
+
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center gap-2">
@@ -940,7 +938,7 @@ function getAlertColors(urgency: string): string {
 function getUrgencyIconColor(urgency: string): string {
   return {
     expired: 'text-red-500',
-    critical: 'text-red-400', 
+    critical: 'text-red-400',
     warning: 'text-yellow-500',
     normal: 'text-green-500',
     permanent: 'text-blue-500'
@@ -950,7 +948,7 @@ function getUrgencyIconColor(urgency: string): string {
 function getHealthTextColor(health: string): string {
   return {
     excellent: 'text-green-600',
-    good: 'text-blue-600', 
+    good: 'text-blue-600',
     warning: 'text-yellow-600',
     critical: 'text-red-600'
   }[health] || 'text-gray-600';
@@ -969,11 +967,11 @@ function getStatusText(data: PermissionExpiryData): string {
 function formatTimeRemaining(seconds: number): string {
   if (seconds === Infinity) return 'Permanent';
   if (seconds <= 0) return 'Expired';
-  
+
   const minutes = Math.floor(seconds / 60);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
-  
+
   if (days > 7) return `${Math.floor(days / 7)}w ${days % 7}d`;
   if (days > 0) return `${days}d ${hours % 24}h`;
   if (hours > 0) return `${hours}h ${minutes % 60}m`;
@@ -985,14 +983,14 @@ function formatTimeRemaining(seconds: number): string {
 // HELPER COMPONENTS
 // ============================================================================
 
-function ExpiryDetails({ 
+function ExpiryDetails({
   data,
   compact = false,
   showActions = false,
   onExtendPermission,
   onRevokePermission,
   onViewDetails
-}: { 
+}: {
   data: PermissionExpiryData;
   compact?: boolean;
   showActions?: boolean;
@@ -1013,9 +1011,9 @@ function ExpiryDetails({
           </h4>
           <div className="space-y-1">
             {expiredPermissions.slice(0, compact ? 3 : 10).map((permission, i) => (
-              <PermissionItem 
-                key={i} 
-                permission={permission} 
+              <PermissionItem
+                key={i}
+                permission={permission}
                 showActions={showActions}
                 onExtendPermission={onExtendPermission}
                 onRevokePermission={onRevokePermission}
@@ -1030,7 +1028,7 @@ function ExpiryDetails({
           </div>
         </div>
       )}
-      
+
       {criticalPermissions.length > 0 && (
         <div>
           <h4 className="font-medium text-red-600 dark:text-red-300 mb-2">
@@ -1038,9 +1036,9 @@ function ExpiryDetails({
           </h4>
           <div className="space-y-1">
             {criticalPermissions.slice(0, compact ? 3 : 10).map((permission, i) => (
-              <PermissionItem 
-                key={i} 
-                permission={permission} 
+              <PermissionItem
+                key={i}
+                permission={permission}
                 showActions={showActions}
                 onExtendPermission={onExtendPermission}
                 onRevokePermission={onRevokePermission}
@@ -1058,9 +1056,9 @@ function ExpiryDetails({
           </h4>
           <div className="space-y-1">
             {warningPermissions.slice(0, compact ? 3 : 5).map((permission, i) => (
-              <PermissionItem 
-                key={i} 
-                permission={permission} 
+              <PermissionItem
+                key={i}
+                permission={permission}
                 showActions={showActions}
                 onExtendPermission={onExtendPermission}
                 onRevokePermission={onRevokePermission}
@@ -1074,7 +1072,7 @@ function ExpiryDetails({
   );
 }
 
-function PermissionItem({ 
+function PermissionItem({
   permission,
   showActions = false,
   onExtendPermission,
@@ -1095,14 +1093,14 @@ function PermissionItem({
         </div>
         {permission.expiresAt && (
           <div className="text-muted-foreground">
-            {permission.isExpired 
+            {permission.isExpired
               ? `Expired ${formatDistanceToNow(new Date(permission.expiresAt * 1000), { addSuffix: true })}`
               : `Expires ${formatTimeRemaining(permission.timeRemaining)}`
             }
           </div>
         )}
       </div>
-      
+
       {showActions && (
         <div className="flex gap-1 ml-2">
           {onViewDetails && (
@@ -1140,7 +1138,7 @@ function PermissionItem({
 
 function PermissionHealthDisplay({ data }: { data: PermissionExpiryData }) {
   const healthPercentage = Math.round(((data.totalCount - data.expiredCount) / data.totalCount) * 100);
-  
+
   return (
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
       <div>
@@ -1201,7 +1199,7 @@ function PermissionDetailView({ data }: { data: PermissionExpiryData }) {
     <div className="space-y-4">
       {/* Permission Info */}
       <div className="space-y-2">
-        {data.permissions.length === 1 && (
+        {data.permissions.length === 1 && data.permissions[0] && (
           <>
             <div>
               <span className="text-sm font-medium">Permission:</span>
@@ -1209,12 +1207,12 @@ function PermissionDetailView({ data }: { data: PermissionExpiryData }) {
                 {data.permissions[0].basePermission}
               </code>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <span className="text-sm font-medium">Source:</span>
               {getSourceBadge(data.permissions[0].source || 'Unknown')}
             </div>
-            
+
             {data.permissions[0].grantedAt && (
               <div>
                 <span className="text-sm font-medium">Granted:</span>
@@ -1225,7 +1223,7 @@ function PermissionDetailView({ data }: { data: PermissionExpiryData }) {
             )}
           </>
         )}
-        
+
         {data.permissions.length > 1 && (
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div><span className="font-medium">Total:</span> {data.totalCount}</div>
@@ -1235,23 +1233,23 @@ function PermissionDetailView({ data }: { data: PermissionExpiryData }) {
           </div>
         )}
       </div>
-      
+
       {/* Expiry Status */}
       <div className="p-3 border rounded-lg">
         <div className="flex items-center justify-between mb-2">
           <span className="font-medium">Status</span>
-          <Badge 
+          <Badge
             variant={data.expiredCount > 0 ? 'destructive' : data.criticalCount > 0 ? 'destructive' : 'default'}
             className={
               data.expiredCount > 0 ? 'bg-red-100 text-red-800' :
-              data.criticalCount > 0 ? 'bg-yellow-100 text-yellow-800' :
-              'bg-green-100 text-green-800'
+                data.criticalCount > 0 ? 'bg-yellow-100 text-yellow-800' :
+                  'bg-green-100 text-green-800'
             }
           >
             {data.expiredCount > 0 ? 'Issues Found' : data.criticalCount > 0 ? 'Needs Attention' : 'Healthy'}
           </Badge>
         </div>
-        
+
         <div className="text-sm space-y-1">
           <div>Health Score: <span className={getHealthTextColor(data.healthScore)}>{data.healthScore}</span></div>
           {data.nextExpiry && (
@@ -1261,7 +1259,7 @@ function PermissionDetailView({ data }: { data: PermissionExpiryData }) {
           )}
         </div>
       </div>
-      
+
       {/* Warning Messages */}
       {data.expiredCount > 0 && (
         <Alert variant="destructive">
@@ -1271,7 +1269,7 @@ function PermissionDetailView({ data }: { data: PermissionExpiryData }) {
           </AlertDescription>
         </Alert>
       )}
-      
+
       {data.criticalCount > 0 && data.expiredCount === 0 && (
         <Alert>
           <Clock className="h-4 w-4" />
@@ -1292,7 +1290,7 @@ function getSourceBadge(source: string) {
     System: 'bg-indigo-100 text-indigo-800',
     Legacy: 'bg-gray-100 text-gray-800'
   };
-  
+
   return (
     <Badge variant="outline" className={colors[source] || 'bg-gray-100 text-gray-800'}>
       {source}

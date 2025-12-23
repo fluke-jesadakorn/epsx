@@ -139,6 +139,7 @@ export const SecurityMonitoringAuditDashboard: React.FC<SecurityMonitoringAuditD
       const interval = setInterval(loadSecurityData, refreshInterval)
       return () => clearInterval(interval)
     }
+    return undefined
   }, [loadSecurityData, autoRefresh, isRealTimeEnabled, refreshInterval])
 
   // Filter events based on current filters
@@ -338,8 +339,8 @@ export const SecurityMonitoringAuditDashboard: React.FC<SecurityMonitoringAuditD
                 <p className="text-2xl font-semibold">{metrics.riskScore}/100</p>
               </div>
               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${metrics.riskScore > 70 ? 'bg-red-100 text-red-600' :
-                  metrics.riskScore > 40 ? 'bg-yellow-100 text-yellow-600' :
-                    'bg-green-100 text-green-600'
+                metrics.riskScore > 40 ? 'bg-yellow-100 text-yellow-600' :
+                  'bg-green-100 text-green-600'
                 }`}>
                 {metrics.riskScore}
               </div>
@@ -352,8 +353,8 @@ export const SecurityMonitoringAuditDashboard: React.FC<SecurityMonitoringAuditD
                 <p className="text-2xl font-semibold">{metrics.complianceScore}%</p>
               </div>
               <div className={`w-8 h-8 rounded-full flex items-center justify-center ${metrics.complianceScore > 90 ? 'bg-green-100 text-green-600' :
-                  metrics.complianceScore > 70 ? 'bg-yellow-100 text-yellow-600' :
-                    'bg-red-100 text-red-600'
+                metrics.complianceScore > 70 ? 'bg-yellow-100 text-yellow-600' :
+                  'bg-red-100 text-red-600'
                 }`}>
                 ✓
               </div>
@@ -390,8 +391,8 @@ export const SecurityMonitoringAuditDashboard: React.FC<SecurityMonitoringAuditD
           <div className="space-y-3">
             {alerts.filter(alert => !alert.resolved).map(alert => (
               <div key={alert.id} className={`p-4 border rounded-lg ${alert.priority === 'urgent' ? 'border-red-200 bg-red-50' :
-                  alert.priority === 'high' ? 'border-orange-200 bg-orange-50' :
-                    'border-yellow-200 bg-yellow-50'
+                alert.priority === 'high' ? 'border-orange-200 bg-orange-50' :
+                  'border-yellow-200 bg-yellow-50'
                 }`}>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
@@ -554,9 +555,9 @@ export const SecurityMonitoringAuditDashboard: React.FC<SecurityMonitoringAuditD
                   </td>
                   <td className="py-3 px-4">
                     <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${event.riskScore > 80 ? 'bg-red-100 text-red-800' :
-                        event.riskScore > 60 ? 'bg-orange-100 text-orange-800' :
-                          event.riskScore > 40 ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-green-100 text-green-800'
+                      event.riskScore > 60 ? 'bg-orange-100 text-orange-800' :
+                        event.riskScore > 40 ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-green-100 text-green-800'
                       }`}>
                       {event.riskScore}
                     </div>

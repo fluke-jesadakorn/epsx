@@ -73,7 +73,7 @@ pub fn create_permission_routes() -> Router<AppState> {
         // ============================================================================
         .route("/bulk/grant", post(bulk::bulk_grant))
         .route("/bulk/revoke", post(bulk::bulk_revoke))
-        .route("/bulk/assign-roles", post(bulk::bulk_assign_roles))
+        .route("/bulk/assign-groups", post(bulk::bulk_assign_groups))
         .route("/bulk/apply-template", post(bulk::bulk_apply_template))
         .route("/bulk/validate", post(bulk::bulk_validate))
 

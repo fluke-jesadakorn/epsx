@@ -323,9 +323,9 @@ export function parsePermission(permission: string): { platform: string; resourc
   if (parts.length !== 3) return null;
 
   return {
-    platform: parts[0],
-    resource: parts[1],
-    action: parts[2]
+    platform: parts[0] || '',
+    resource: parts[1] || '',
+    action: parts[2] || ''
   };
 }
 
@@ -347,15 +347,9 @@ export function getPermissionPlatform(permission: string): string | null {
 /**
  * Check if user has permission (supports wildcards)
  *
- * ⚠️ IMPORTANT: FOR UI DISPLAY ONLY - DO NOT USE FOR AUTHORIZATION
- * Backend validates all permissions via Rust middleware.
- * Use hasPermissionForDisplay() from SharedWeb3AuthClient for UI display.
+ * FOR UI DISPLAY ONLY - Backend validates all permissions via Rust middleware.
  */
 export function hasPermission(userPermissions: string[], requiredPermission: string): boolean {
-  // @deprecated - This is for UI display only. Backend enforces all permissions.
-  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-    console.warn('[DEPRECATED] hasPermission() is for UI display only. Backend enforces all permissions via JWT middleware.');
-  }
   if (!userPermissions || userPermissions.length === 0) return false;
 
   // Check for exact match first
@@ -375,30 +369,16 @@ export function hasPermission(userPermissions: string[], requiredPermission: str
 }
 
 /**
- * Check if user has any of the required permissions
- *
- * ⚠️ IMPORTANT: FOR UI DISPLAY ONLY - DO NOT USE FOR AUTHORIZATION
- * Backend validates all permissions via Rust middleware.
+ * Check if user has any of the required permissions (FOR UI DISPLAY ONLY)
  */
 export function hasAnyPermission(userPermissions: string[], requiredPermissions: string[]): boolean {
-  // @deprecated - This is for UI display only. Backend enforces all permissions.
-  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-    console.warn('[DEPRECATED] hasAnyPermission() is for UI display only. Backend enforces all permissions via JWT middleware.');
-  }
   return requiredPermissions.some(permission => hasPermission(userPermissions, permission));
 }
 
 /**
- * Check if user has all required permissions
- *
- * ⚠️ IMPORTANT: FOR UI DISPLAY ONLY - DO NOT USE FOR AUTHORIZATION
- * Backend validates all permissions via Rust middleware.
+ * Check if user has all required permissions (FOR UI DISPLAY ONLY)
  */
 export function hasAllPermissions(userPermissions: string[], requiredPermissions: string[]): boolean {
-  // @deprecated - This is for UI display only. Backend enforces all permissions.
-  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-    console.warn('[DEPRECATED] hasAllPermissions() is for UI display only. Backend enforces all permissions via JWT middleware.');
-  }
   return requiredPermissions.every(permission => hasPermission(userPermissions, permission));
 }
 

@@ -6,7 +6,7 @@
 // ============================================================================
 // This is the ONLY permission system in use. All legacy systems removed.
 
-// UNIFIED PERMISSION SERVICE (NEW - DATABASE-BACKED)
+// UNIFIED PERMISSION SERVICE (DATABASE-BACKED - SINGLE SOURCE OF TRUTH)
 pub mod unified_permission_service;
 
 // UNIFIED WEB3 AUTHENTICATION (CURRENT - SINGLE SOURCE OF TRUTH)
@@ -19,24 +19,6 @@ pub mod token_service;
 pub mod cache;
 
 // LOCAL DEVELOPMENT SUPPORT
-
-// ============================================================================
-// LEGACY SYSTEMS (DEPRECATED - MIGRATION IN PROGRESS)
-// ============================================================================
-// These modules are DEPRECATED and scheduled for removal.
-// Current dependencies still exist - do not delete until fully migrated.
-//
-// Migration paths:
-// - permission_authority → Use unified_permission_service
-// - permission_registry → Use middleware's is_public_route_for_auth()
-// - route_protection → Use auth_middleware's require_permission()
-
-#[deprecated(note = "Use unified_permission_service instead")]
-pub mod permission_authority;
-#[deprecated(note = "Route permissions handled by middleware")]
-pub mod permission_registry;
-#[deprecated(note = "Use auth_middleware::require_permission instead")]
-pub mod route_protection;
 
 // CORE AUTH MODULES (Web3-First)
 pub mod key_manager;
@@ -68,34 +50,11 @@ pub use auth_service::{
 
 // Token validation uses OpenIDTokenService::validate_access_token() as SINGLE SOURCE OF TRUTH
 
-// DEPRECATED EXPORTS (kept for backward compatibility - will be removed)
-#[allow(deprecated)]
-pub use permission_authority::{
-    CentralizedPermissionAuthority, PermissionValidator, RoutePermissionResolver,
-    PermissionResult, BulkPermissionResult, Permission, PermissionSource,
-    ValidationContext, CacheConfig, create_permission_authority, create_high_performance_authority
-};
-
-#[allow(deprecated)]
-pub use permission_registry::{
-    DatabasePermissionRegistry, RoutePermissionMapping, RegisterRoutePermissionRequest,
-    RouteResolution, create_permission_registry, create_high_performance_registry,
-    get_default_route_permissions
-};
-
-#[allow(deprecated)]
-pub use route_protection::{
-    RequirePermission, PermissionGuard, PermissionMiddlewareBuilder, PermissionState,
-    RouteValidationResult, HandlerPermissionExt, require_permission, require_admin,
-    require_admin_permission
-};
-
-// OPENID CONNECT TOKEN SERVICE (NEW - WEB3 + OPENID HYBRID)
+// OPENID CONNECT TOKEN SERVICE (WEB3 + OPENID HYBRID)
 pub use token_service::{
     OpenIDTokenService, OpenIDTokenResponse, AccessTokenClaims, IdTokenClaims,
     Web3AuthTokenRequest, OpenIDTokenError, RefreshTokenInfo
 };
-
 
 // PERFORMANCE OPTIMIZATION EXPORTS
 pub use cache::{

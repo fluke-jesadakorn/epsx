@@ -236,7 +236,8 @@ export const array = {
    */
   findLastIndex<T>(arr: T[], predicate: (item: T) => boolean): number {
     for (let i = arr.length - 1; i >= 0; i--) {
-      if (predicate(arr[i])) {
+      const item = arr[i];
+      if (item !== undefined && predicate(item)) {
         return i
       }
     }
@@ -264,7 +265,12 @@ export const array = {
     const shuffled = [...arr]
     for (let i = shuffled.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1))
-        ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+      const temp = shuffled[i];
+      const swap = shuffled[j];
+      if (temp !== undefined && swap !== undefined) {
+        shuffled[i] = swap;
+        shuffled[j] = temp;
+      }
     }
     return shuffled
   },
@@ -299,7 +305,12 @@ export const array = {
     for (let i = 0; i < maxLength; i++) {
       result[i] = []
       for (let j = 0; j < matrix.length; j++) {
-        result[i][j] = matrix[j][i]
+        const row = matrix[j];
+        const val = row?.[i];
+        const resultRow = result[i];
+        if (val !== undefined && resultRow) {
+          resultRow[j] = val;
+        }
       }
     }
 
@@ -316,7 +327,7 @@ export const array = {
     const result: T[][] = []
 
     for (let i = 0; i < maxLength; i++) {
-      result[i] = arrays.map(arr => arr[i])
+      result[i] = arrays.map(arr => arr[i]).filter((item): item is T => item !== undefined)
     }
 
     return result

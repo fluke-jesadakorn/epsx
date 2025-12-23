@@ -4,7 +4,7 @@
  * Supports OIDC, Web3, and progressive authentication patterns
  */
 
-import { env, urls } from '../env/schema';
+import { env } from '../env/schema';
 
 // ============================================================================
 // AUTH CONFIGURATION TYPES
@@ -136,7 +136,7 @@ export function getAdminOIDCConfig(): OIDCConfig {
 export function getWeb3Config(): Web3Config {
   const isMainnet = env.BLOCKCHAIN_NETWORK === 'mainnet';
   const chainId = isMainnet ? 56 : 97; // BSC Mainnet : BSC Testnet
-  
+
   // Determine the correct domain for SIWE
   const getSIWEDomain = () => {
     // If we're in browser, check the current hostname
@@ -149,13 +149,13 @@ export function getWeb3Config(): Web3Config {
       // If accessing via localhost or other, use the configured APP_URL domain
       return getDomainFromUrl(env.APP_URL);
     }
-    
+
     // Server-side: use production domain if configured URLs suggest production
     const appUrl = env.APP_URL;
     if (appUrl && appUrl.includes('epsx.io')) {
       return 'epsx.io';
     }
-    
+
     // Default to extracting domain from APP_URL
     return getDomainFromUrl(appUrl);
   };
@@ -168,7 +168,7 @@ export function getWeb3Config(): Web3Config {
     // Otherwise use the configured APP_URL
     return env.APP_URL;
   };
-  
+
   return {
     networkId: env.BLOCKCHAIN_NETWORK,
     chainId,
@@ -195,7 +195,7 @@ export function getWeb3Config(): Web3Config {
  */
 export function getSessionConfig(context: 'admin' | 'user' = 'user'): SessionConfig {
   const isDev = process.env.NODE_ENV === 'development';
-  
+
   return {
     cookieName: context === 'admin' ? 'admin_session' : 'user_session',
     maxAge: context === 'admin' ? 60 * 60 * 4 : 60 * 60 * 24 * 7, // 4 hours for admin, 7 days for users
@@ -258,7 +258,7 @@ export function getAdminAuthConfig(): AuthConfig {
  * Build authorization URL for OIDC flow
  */
 export function buildAuthorizationUrl(
-  config: OIDCConfig, 
+  config: OIDCConfig,
   options: {
     state?: string;
     nonce?: string;
@@ -295,11 +295,11 @@ export function buildLogoutUrl(
   } = {}
 ): string {
   const params = new URLSearchParams();
-  
+
   if (options.postLogoutRedirectUri) {
     params.append('post_logout_redirect_uri', options.postLogoutRedirectUri);
   }
-  
+
   if (options.idTokenHint) {
     params.append('id_token_hint', options.idTokenHint);
   }
@@ -316,7 +316,7 @@ export function buildWeb3ChallengeUrl(config: OIDCConfig, walletAddress: string)
     wallet_address: walletAddress,
     client_id: config.clientId,
   });
-  
+
   return `${config.endpoints.challenge}?${params.toString()}`;
 }
 
@@ -341,21 +341,21 @@ export function validateOIDCCallback(params: Record<string, string>): {
       error: params.error_description || params.error,
     };
   }
-  
+
   if (!params.code) {
     return {
       valid: false,
       error: 'Missing authorization code',
     };
   }
-  
+
   if (!params.state) {
     return {
       valid: false,
       error: 'Missing state parameter',
     };
   }
-  
+
   return {
     valid: true,
     data: {
@@ -383,21 +383,21 @@ export function validateWeb3Signature(
       error: 'Missing required parameters',
     };
   }
-  
+
   if (!signature.startsWith('0x')) {
     return {
       valid: false,
       error: 'Invalid signature format',
     };
   }
-  
+
   if (!walletAddress.match(/^0x[a-fA-F0-9]{40}$/)) {
     return {
       valid: false,
       error: 'Invalid wallet address format',
     };
   }
-  
+
   return { valid: true };
 }
 
@@ -424,7 +424,7 @@ export function getRequiredAuthLevel(
   if (userContext === 'admin' || route.startsWith('/admin')) {
     return 'authenticated';
   }
-  
+
   // Payment and sensitive routes require full authentication
   const sensitiveRoutes = [
     '/payment',
@@ -433,11 +433,11 @@ export function getRequiredAuthLevel(
     '/settings/security',
     '/profile/edit',
   ];
-  
+
   if (sensitiveRoutes.some(sensitiveRoute => route.startsWith(sensitiveRoute))) {
     return 'authenticated';
   }
-  
+
   // Personalized routes require wallet connection
   const personalizedRoutes = [
     '/dashboard',
@@ -446,11 +446,11 @@ export function getRequiredAuthLevel(
     '/profile',
     '/analytics/export',
   ];
-  
+
   if (personalizedRoutes.some(personalizedRoute => route.startsWith(personalizedRoute))) {
     return 'connected';
   }
-  
+
   // Default to public
   return 'public';
 }
@@ -464,17 +464,17 @@ export function meetsAuthRequirements(
   userContext: 'admin' | 'user' = 'user'
 ): boolean {
   const requiredLevel = getRequiredAuthLevel(route, userContext);
-  
+
   switch (requiredLevel) {
     case 'public':
       return true;
-      
+
     case 'connected':
       return authState.level !== 'public';
-      
+
     case 'authenticated':
       return authState.isAuthenticated;
-      
+
     default:
       return false;
   }
@@ -524,14 +524,14 @@ export function createPKCEChallenge(): {
   codeChallengeMethod: string;
 } {
   const codeVerifier = generateRandomString(128);
-  
+
   // In a real implementation, you'd use crypto.subtle.digest
   // For now, we'll use a simple base64 encoding
   const codeChallenge = btoa(codeVerifier)
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
     .replace(/=/g, '');
-  
+
   return {
     codeVerifier,
     codeChallenge,
@@ -544,7 +544,8 @@ export function createPKCEChallenge(): {
  */
 export function parseJWTPayload(token: string): any {
   try {
-    const base64Url = token.split('.')[1];
+    const parts = token.split('.');
+    const base64Url = parts[1] || '';
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
     const jsonPayload = decodeURIComponent(
       atob(base64)
@@ -564,7 +565,7 @@ export function parseJWTPayload(token: string): any {
 export function isJWTExpired(token: string): boolean {
   const payload = parseJWTPayload(token);
   if (!payload || !payload.exp) return true;
-  
+
   return Date.now() >= payload.exp * 1000;
 }
 

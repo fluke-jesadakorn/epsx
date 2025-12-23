@@ -38,13 +38,13 @@ interface PlatformSwitcherConfig {
 interface UnifiedPlatformSwitcherProps {
   // Configuration
   config?: Partial<PlatformSwitcherConfig>;
-  
+
   // Basic mode props (for backward compatibility)
   currentPlatform?: Platform;
   availablePlatforms?: Platform[];
   userPlatformAccess?: string[];
   onPlatformSwitch?: (platformCode: string) => void;
-  
+
   // Custom styling
   className?: string;
 }
@@ -67,7 +67,7 @@ const platformColors: Record<string, string> = {
 
 const platformDescriptions: Record<string, string> = {
   'epsx': 'Data analytics platform management',
-  'epsx-pay': 'Payment system administration', 
+  'epsx-pay': 'Payment system administration',
   'epsx-token': 'Token governance oversight',
 };
 
@@ -133,17 +133,26 @@ export function UnifiedPlatformSwitcher({
   if (finalConfig.mode === 'admin') {
     // Admin mode: use auth hooks
     const auth = useAuth.getState();
+    const isAdmin = auth.wallet?.is_admin ?? false;
+    const permissions = auth.wallet?.permissions || [];
+    const hasPermission = (perm: string) => {
+      const platform = perm.split(':')[0] || '';
+      return permissions.some(p =>
+        p === perm || p === '*:*:*' || (p.startsWith(platform) && p.endsWith('*:*'))
+      );
+    };
+
     resolvedCurrentPlatform = 'admin'; // Default current platform for admin
     resolvedAvailablePlatforms = ['admin', 'epsx'];
-    resolvedUserAccess = resolvedAvailablePlatforms.filter(platform => 
-      platform === 'admin' ? auth.isAdmin() : auth.can(`${platform}:*:*`)
+    resolvedUserAccess = resolvedAvailablePlatforms.filter(platform =>
+      platform === 'admin' ? isAdmin : hasPermission(`${platform}:*:*`)
     );
     resolvedOnSwitch = async (platform: string) => {
       if (platform === resolvedCurrentPlatform) {
         setIsOpen(false);
         return;
       }
-      
+
       setIsLoading(true);
       try {
         // For admin mode, switch to different platform URLs
@@ -195,14 +204,14 @@ export function UnifiedPlatformSwitcher({
   // Single platform display (no dropdown needed)
   if (accessiblePlatforms.length <= 1) {
     const PlatformIcon = getPlatformIcon(resolvedCurrentPlatform);
-    
+
     // Simple platform display name mapping
     const platformDisplayNames: Record<string, string> = {
       'admin': 'Admin Dashboard',
       'epsx': 'EPSX Platform',
     };
-    
-    const platformName = finalConfig.mode === 'admin' 
+
+    const platformName = finalConfig.mode === 'admin'
       ? platformDisplayNames[resolvedCurrentPlatform] || resolvedCurrentPlatform
       : currentPlatform?.name || resolvedCurrentPlatform;
 
@@ -237,7 +246,7 @@ export function UnifiedPlatformSwitcher({
     'admin': 'Admin Dashboard',
     'epsx': 'EPSX Platform',
   };
-  
+
   const currentName = finalConfig.mode === 'admin'
     ? platformDisplayNames[resolvedCurrentPlatform] || resolvedCurrentPlatform
     : currentPlatform?.name || resolvedCurrentPlatform;
@@ -245,8 +254,8 @@ export function UnifiedPlatformSwitcher({
   const buttonClasses = finalConfig.variant === 'minimal'
     ? `inline-flex items-center gap-2 ${sizeClasses[finalConfig.size!]} hover:bg-gray-50 dark:hover:bg-gray-800 rounded-md transition-colors`
     : finalConfig.mode === 'admin'
-    ? `flex items-center gap-2 ${sizeClasses[finalConfig.size!]} font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed`
-    : `inline-flex items-center gap-2 ${sizeClasses[finalConfig.size!]} rounded-lg font-medium hover:opacity-90 ${currentColor}`;
+      ? `flex items-center gap-2 ${sizeClasses[finalConfig.size!]} font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed`
+      : `inline-flex items-center gap-2 ${sizeClasses[finalConfig.size!]} rounded-lg font-medium hover:opacity-90 ${currentColor}`;
 
   return (
     <div className={`relative ${className} ${finalConfig.className}`}>
@@ -258,7 +267,7 @@ export function UnifiedPlatformSwitcher({
         {finalConfig.showIcon && (
           <CurrentIcon className={iconSizes[finalConfig.size!]} />
         )}
-        
+
         <div className="flex items-center gap-2">
           {finalConfig.showLabel && (
             <span className={finalConfig.variant === 'compact' ? 'hidden sm:inline' : ''}>
@@ -277,10 +286,9 @@ export function UnifiedPlatformSwitcher({
             </span>
           )}
         </div>
-        
-        <ChevronDown className={`${iconSizes[finalConfig.size!]} transition-transform ${
-          isOpen ? 'rotate-180' : ''
-        }`} />
+
+        <ChevronDown className={`${iconSizes[finalConfig.size!]} transition-transform ${isOpen ? 'rotate-180' : ''
+          }`} />
       </button>
 
       {isOpen && (
@@ -290,7 +298,7 @@ export function UnifiedPlatformSwitcher({
             className="fixed inset-0 z-40"
             onClick={() => setIsOpen(false)}
           />
-          
+
           {/* Dropdown Menu */}
           <div className={`absolute ${finalConfig.mode === 'admin' ? 'right-0' : 'left-0'} z-50 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700`}>
             {/* Header */}
@@ -307,7 +315,7 @@ export function UnifiedPlatformSwitcher({
                 </p>
               )}
             </div>
-            
+
             {/* Platform List */}
             <div className="py-2">
               {accessiblePlatforms.map((platform) => {
@@ -320,20 +328,19 @@ export function UnifiedPlatformSwitcher({
                 const description = finalConfig.mode === 'admin'
                   ? `Admin access to ${getPlatformDescription(platform)}`
                   : availablePlatforms?.find(p => p.code === platform)?.description || getPlatformDescription(platform);
-                
+
                 return (
                   <button
                     key={platform}
                     onClick={() => resolvedOnSwitch(platform)}
                     disabled={isLoading}
-                    className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
-                      isActive ? 'bg-gray-50 dark:bg-gray-700' : ''
-                    }`}
+                    className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${isActive ? 'bg-gray-50 dark:bg-gray-700' : ''
+                      }`}
                   >
                     <div className={`p-2 rounded-lg ${color} opacity-80`}>
                       <PlatformIcon className="h-4 w-4" />
                     </div>
-                    
+
                     <div className="flex-1 text-left">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-gray-900 dark:text-white">
@@ -351,18 +358,18 @@ export function UnifiedPlatformSwitcher({
                         </div>
                       )}
                     </div>
-                    
+
                     {isActive && (
-                      finalConfig.mode === 'admin' 
+                      finalConfig.mode === 'admin'
                         ? <Check className="w-4 h-4 text-blue-600" />
                         : <div className="w-2 h-2 bg-blue-500 rounded-full" />
                     )}
                   </button>
                 );
               })}
-              
+
               {/* Manage Platforms Link (Admin mode only) */}
-              {finalConfig.mode === 'admin' && useAuth.getState().isAdmin() && (
+              {finalConfig.mode === 'admin' && useAuth.getState().wallet?.is_admin && (
                 <div className="border-t border-gray-100 dark:border-gray-600 pt-2 mt-2">
                   <button className="w-full flex items-center gap-3 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700">
                     <Settings className="w-4 h-4" />
@@ -370,7 +377,7 @@ export function UnifiedPlatformSwitcher({
                   </button>
                 </div>
               )}
-              
+
               {/* Empty State */}
               {accessiblePlatforms.length === 0 && (
                 <div className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">

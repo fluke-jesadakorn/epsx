@@ -96,10 +96,13 @@ export class ServerAuth {
       redirect('/login')
     }
 
-    // Check for admin permissions
-    const hasAdminPermission = session.user?.permissions?.some(p =>
-      p.startsWith('admin:') || p === 'admin:*:*'
-    ) || session.user?.role === 'admin'
+    // Use role from JWT payload (computed by backend)
+    // Falls back to permission check if role is not available
+    const hasAdminPermission = session.user?.role === 'admin' ||
+      session.user?.role === 'super_admin' ||
+      session.user?.permissions?.some(p =>
+        p.startsWith('admin:') || p === 'admin:*:*'
+      )
 
     if (!hasAdminPermission) {
       redirect('/access-denied')
@@ -108,28 +111,13 @@ export class ServerAuth {
     return session
   }
 
-  // ============================================================================
-  // DEPRECATED: Permission Check Functions
-  // Backend handles all permission enforcement via JWT middleware
-  // These are kept for backward compatibility but always return true
-  // ============================================================================
-
-  /**
-   * @deprecated Backend handles permission enforcement. This always returns true.
-   * @param permission
-   */
+  // Permission check stubs - Backend handles enforcement via JWT middleware
   static async hasPermission(_permission: string): Promise<boolean> {
-    console.warn('[DEPRECATED] ServerAuth.hasPermission() - Permission enforcement moved to backend. This always returns true.');
     return true;
   }
 
-  /**
-   * @deprecated Backend handles permission enforcement. This is now a no-op.
-   * @param permission
-   */
   static async requirePermission(_permission: string): Promise<void> {
-    console.warn('[DEPRECATED] ServerAuth.requirePermission() - Permission enforcement moved to backend. This is now a no-op.');
-    // No redirect - backend will handle enforcement via 403 response
+    // No-op - backend handles enforcement via 403 response
   }
 
   // Basic JWT decode (client-side safe, no verification)
@@ -140,7 +128,7 @@ export class ServerAuth {
         return null
       }
 
-      const payload = parts[1]
+      const payload = parts[1] || ''
       // Add padding if needed
       const paddedPayload = payload + '='.repeat((4 - payload.length % 4) % 4)
       const decoded = Buffer.from(paddedPayload, 'base64').toString('utf8')

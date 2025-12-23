@@ -75,6 +75,9 @@ export interface AnalyticsDashboardData {
     user_stats?: UserStats;
     permission_analytics?: PermissionAnalytics;
     system_metrics?: SystemMetrics;
+    metrics?: {
+        totalRequests?: number;
+    };
     [key: string]: unknown;
 }
 

@@ -29,52 +29,52 @@ export const PERMISSION_TEMPLATES: Record<PermissionTemplateName, PermissionTemp
     color: 'gray-500',
     description: 'Basic access for beginners',
     features: [
-      'Basic access', 
-      'View 3 rankings', 
+      'Basic access',
+      'View 3 rankings',
       'Community support',
       'Basic analytics',
       'Public data access'
     ],
     permissions: [
-      'epsx:analytics:view', 
+      'epsx:analytics:view',
       'epsx:profile:view',
       'epsx:notifications:receive'
     ],
     monthlyPrice: 0,
     yearlyPrice: 0
   },
-  
+
   'BASIC': {
     name: 'BASIC',
     displayTier: 'BASIC',
     color: 'blue-500',
     description: 'Enhanced features for casual users',
     features: [
-      'Enhanced access', 
-      'View 10 rankings', 
+      'Enhanced access',
+      'View 10 rankings',
       'Email support',
       'Basic portfolio tracking',
       'Export capabilities'
     ],
     permissions: [
-      'epsx:analytics:view', 
+      'epsx:analytics:view',
       'epsx:analytics:export',
-      'epsx:profile:manage', 
+      'epsx:profile:manage',
       'epsx:notifications:receive',
       'epsx:billing:view'
     ],
     monthlyPrice: 9.99,
     yearlyPrice: 99.99
   },
-  
+
   'PRO': {
     name: 'PRO',
-    displayTier: 'PRO', 
+    displayTier: 'PRO',
     color: 'purple-500',
     description: 'Advanced tools for serious traders',
     features: [
-      'Professional access', 
-      'View 50 rankings', 
+      'Professional access',
+      'View 50 rankings',
       'Priority support',
       'Advanced analytics',
       'Real-time data',
@@ -83,7 +83,7 @@ export const PERMISSION_TEMPLATES: Record<PermissionTemplateName, PermissionTemp
     permissions: [
       'epsx:analytics:view',
       'epsx:analytics:advanced',
-      'epsx:analytics:export', 
+      'epsx:analytics:export',
       'epsx:realtime:access',
       'epsx:profile:manage',
       'epsx:notifications:manage',
@@ -94,15 +94,15 @@ export const PERMISSION_TEMPLATES: Record<PermissionTemplateName, PermissionTemp
     yearlyPrice: 299.99,
     popular: true
   },
-  
+
   'ENTERPRISE': {
     name: 'ENTERPRISE',
     displayTier: 'ENTERPRISE',
     color: 'red-500',
     description: 'Complete access for organizations',
     features: [
-      'Unlimited access', 
-      'All platform features', 
+      'Unlimited access',
+      'All platform features',
       'Dedicated support',
       'Custom integrations',
       'Team management',
@@ -117,7 +117,7 @@ export const PERMISSION_TEMPLATES: Record<PermissionTemplateName, PermissionTemp
     monthlyPrice: 99.99,
     yearlyPrice: 999.99
   },
-  
+
   'WHALE': {
     name: 'WHALE',
     displayTier: 'WHALE',
@@ -139,7 +139,7 @@ export const PERMISSION_TEMPLATES: Record<PermissionTemplateName, PermissionTemp
     monthlyPrice: 299.99,
     yearlyPrice: 2999.99
   },
-  
+
   'CUSTOM': {
     name: 'CUSTOM',
     displayTier: 'CUSTOM',
@@ -322,7 +322,12 @@ export const BLOCKCHAIN_NETWORKS: Record<string, BlockchainNetwork> = {
 // Get network configuration based on environment
 export function getBlockchainConfig(): BlockchainNetwork {
   const isMainnet = process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === 'mainnet';
-  return isMainnet ? BLOCKCHAIN_NETWORKS.BSC_MAINNET : BLOCKCHAIN_NETWORKS.BSC_TESTNET;
+  const mainnet = BLOCKCHAIN_NETWORKS.BSC_MAINNET;
+  const testnet = BLOCKCHAIN_NETWORKS.BSC_TESTNET;
+  if (!mainnet || !testnet) {
+    throw new Error('Blockchain network configuration not found');
+  }
+  return isMainnet ? mainnet : testnet;
 }
 
 // ============================================================================
@@ -335,25 +340,25 @@ export const Z_INDEX_LAYERS = {
     CONTENT: 'z-0',
     ELEVATED_CONTENT: 'z-10',
   },
-  
+
   // Dropdowns and tooltips: z-[9999] to z-[10000]
   DROPDOWNS: {
     DROPDOWN: 'z-[10000]',
     TOOLTIP: 'z-[9999]',
   },
-  
+
   // Sidebar and navigation overlays: z-40 to z-50
   NAVIGATION: {
     OVERLAY_BACKDROP: 'z-40',  // Mobile sidebar backdrop
     SIDEBAR: 'z-50',           // Sidebar panels and navigation bars
   },
-  
+
   // Modal dialogs and overlays: z-60 to z-70
   MODALS: {
     MODAL_BACKDROP: 'z-60',    // Modal overlay backgrounds
     MODAL_CONTENT: 'z-70',     // Modal content (if needed to stack above backdrop)
   },
-  
+
   // Toast notifications: z-80 to z-90
   NOTIFICATIONS: {
     TOAST: 'z-80',             // Toast notification containers
@@ -396,39 +401,39 @@ export const FEATURE_FLAGS: Record<string, FeatureFlagConfig> = {
     defaultValue: true,
     environments: ['development', 'staging'],
   },
-  
+
   SERVER_COMPONENTS: {
     name: 'Server Components',
     description: 'Enable Next.js Server Components where applicable',
     defaultValue: true,
   },
-  
+
   NEW_NAVIGATION: {
     name: 'New Navigation',
     description: 'Enable the redesigned navigation system',
     defaultValue: false,
     environments: ['development'],
   },
-  
+
   PROGRESSIVE_AUTH: {
     name: 'Progressive Authentication',
     description: 'Enable progressive authentication (PUBLIC → CONNECTED → AUTHENTICATED)',
     defaultValue: true,
   },
-  
+
   WEB3_INTEGRATION: {
     name: 'Web3 Integration',
     description: 'Enable Web3 wallet connection and blockchain features',
     defaultValue: true,
   },
-  
+
   ADMIN_ENHANCED_PERMISSIONS: {
     name: 'Admin Enhanced Permissions',
     description: 'Enable enhanced permission management for admins',
     defaultValue: true,
     environments: ['development', 'staging'],
   },
-  
+
   REAL_TIME_UPDATES: {
     name: 'Real-time Updates',
     description: 'Enable real-time data updates via WebSocket',
@@ -450,7 +455,7 @@ export const API_ENDPOINTS = {
     REFRESH: '/api/v1/auth/refresh',
     PERMISSIONS: '/api/v1/auth/permissions',
   },
-  
+
   // User endpoints
   USER: {
     PROFILE: '/api/v1/user/profile',
@@ -458,7 +463,7 @@ export const API_ENDPOINTS = {
     SUBSCRIPTION: '/api/v1/user/subscription',
     NOTIFICATIONS: '/api/v1/user/notifications',
   },
-  
+
   // Payment endpoints
   PAYMENT: {
     CREATE: '/api/v1/payment/create',
@@ -466,7 +471,7 @@ export const API_ENDPOINTS = {
     HISTORY: '/api/v1/payment/history',
     ASSETS: '/api/v1/payment/assets',
   },
-  
+
   // Analytics endpoints
   ANALYTICS: {
     RANKINGS: '/api/v1/analytics/rankings',
@@ -474,7 +479,7 @@ export const API_ENDPOINTS = {
     ADVANCED: '/api/v1/analytics/advanced',
     REAL_TIME: '/api/v1/analytics/realtime',
   },
-  
+
   // Admin endpoints
   ADMIN: {
     USERS: '/api/admin/users',
@@ -519,12 +524,12 @@ export function validatePayment(amount: number, currency: CurrencyType): { valid
   if (!Object.keys(MIN_AMOUNT).includes(currency)) {
     return { valid: false, error: 'Invalid currency' };
   }
-  
+
   const minAmount = MIN_AMOUNT[currency];
   if (amount < minAmount) {
     return { valid: false, error: `Minimum amount is ${minAmount} ${currency}` };
   }
-  
+
   return { valid: true };
 }
 
@@ -540,7 +545,10 @@ export function getAssetInfo(currency: CurrencyType): AssetInfo | undefined {
  */
 export function isFeatureEnabled(flag: keyof typeof FEATURE_FLAGS): boolean {
   const config = FEATURE_FLAGS[flag];
-  
+  if (!config) {
+    return false;
+  }
+
   // Check environment restriction
   if (config.environments) {
     const currentEnv = process.env.NODE_ENV as 'development' | 'staging' | 'production';
@@ -548,20 +556,20 @@ export function isFeatureEnabled(flag: keyof typeof FEATURE_FLAGS): boolean {
       return false;
     }
   }
-  
+
   // Check rollout percentage (simple implementation)
   if (config.rolloutPercentage !== undefined) {
     // In a real implementation, this would use user ID or session ID for consistent rollout
     return Math.random() * 100 < config.rolloutPercentage;
   }
-  
+
   // Check environment variable override
   const envVar = `NEXT_PUBLIC_ENABLE_${flag}`;
   const envValue = process.env[envVar];
   if (envValue !== undefined) {
     return envValue.toLowerCase() === 'true';
   }
-  
+
   return config.defaultValue;
 }
 
@@ -569,12 +577,12 @@ export function isFeatureEnabled(flag: keyof typeof FEATURE_FLAGS): boolean {
  * Get blockchain explorer URL for transaction
  */
 export function getExplorerUrl(txHash: string, currency: CurrencyType): string {
-  const asset = getAssetInfo(currency);
   const network = getBlockchainConfig();
-  
+
   if (currency.includes('TRC20')) {
-    return `${BLOCKCHAIN_NETWORKS.TRON_MAINNET.explorerUrl}${txHash}`;
+    const tronNetwork = BLOCKCHAIN_NETWORKS.TRON_MAINNET;
+    return tronNetwork ? `${tronNetwork.explorerUrl}${txHash}` : `https://tronscan.org/#/transaction/${txHash}`;
   }
-  
+
   return `${network.explorerUrl}${txHash}`;
 }

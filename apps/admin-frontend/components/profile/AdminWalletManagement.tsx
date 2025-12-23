@@ -1,14 +1,14 @@
 'use client';
 
 import {
-    Activity,
-    AlertTriangle,
-    CheckCircle,
-    Clock,
-    Power,
-    RefreshCcw,
-    Shield,
-    TrendingUp
+  Activity,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  Power,
+  RefreshCcw,
+  Shield,
+  TrendingUp
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -19,7 +19,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { apiFetch } from '@/lib/api-fetch';
+import { adminApiClient } from '@/lib/api-client';
 
 interface WalletSession {
   wallet_address: string;
@@ -42,7 +42,7 @@ export function AdminWalletManagement({ initialSession }: AdminWalletManagementP
   const { address, isConnected, connector } = useAccount();
   const { disconnect } = useDisconnect();
   const { data: balance } = useBalance({ address });
-  
+
   const [session, setSession] = useState<WalletSession | null>(initialSession || null);
   const [isLoading, setIsLoading] = useState(false);
   const [sessionHealth, setSessionHealth] = useState(100);
@@ -64,15 +64,15 @@ export function AdminWalletManagement({ initialSession }: AdminWalletManagementP
   const fetchSessionInfo = async (walletAddress: string) => {
     try {
       setIsLoading(true);
-      const sessionData = await apiFetch('/api/auth/session');
+      const response = await adminApiClient.get<any>('/api/auth/session');
 
-      if (sessionData.wallet_address === walletAddress) {
+      if (response.success && response.data && response.data.wallet_address === walletAddress) {
         setSession({
           wallet_address: walletAddress,
           connected_at: Date.now() - (3600 * 1000), // 1 hour ago (mock)
           expires_at: Date.now() + (3600 * 1000), // 1 hour from now
           last_activity: Date.now(),
-          session_id: sessionData.session_id || 'mock-session-id'
+          session_id: response.data.session_id || 'mock-session-id'
         });
       }
     } catch (_error) {
@@ -95,39 +95,40 @@ export function AdminWalletManagement({ initialSession }: AdminWalletManagementP
   };
 
   const updateSessionHealth = () => {
-    if (!session) {return;}
+    if (!session) { return; }
 
     const now = Date.now();
     const sessionDuration = now - session.connected_at;
     const maxDuration = session.expires_at - session.connected_at;
     const remainingTime = session.expires_at - now;
-    
+
     // Calculate health based on remaining time
     const healthPercent = Math.max(0, (remainingTime / maxDuration) * 100);
     setSessionHealth(Math.round(healthPercent));
   };
 
   const handleExtendSession = async () => {
-    if (!address || !session) {return;}
+    if (!address || !session) { return; }
 
     try {
       setIsLoading(true);
 
       // Mock extending session by refreshing authentication
-      await apiFetch('/api/auth/web3/verify', {
-        method: 'POST',
-        body: JSON.stringify({
-          wallet_address: address,
-          extend_session: true
-        }),
+      const response = await adminApiClient.post<any>('/api/auth/web3/verify', {
+        wallet_address: address,
+        extend_session: true
       });
 
-      setSession(prev => prev ? {
-        ...prev,
-        expires_at: Date.now() + (3600 * 1000), // Extend by 1 hour
-        last_activity: Date.now()
-      } : null);
-      toast.success('Session extended successfully');
+      if (response.success) {
+        setSession(prev => prev ? {
+          ...prev,
+          expires_at: Date.now() + (3600 * 1000), // Extend by 1 hour
+          last_activity: Date.now()
+        } : null);
+        toast.success('Session extended successfully');
+      } else {
+        throw new Error(response.error);
+      }
     } catch (_error) {
       toast.error('Failed to extend session');
     } finally {
@@ -140,9 +141,7 @@ export function AdminWalletManagement({ initialSession }: AdminWalletManagementP
       setIsLoading(true);
 
       // Call logout API
-      await apiFetch('/api/auth/logout', {
-        method: 'POST',
-      });
+      await adminApiClient.post<any>('/api/auth/logout');
 
       // Disconnect wallet
       disconnect();
@@ -160,7 +159,7 @@ export function AdminWalletManagement({ initialSession }: AdminWalletManagementP
     const diff = Math.abs(Date.now() - timestamp);
     const hours = Math.floor(diff / (1000 * 60 * 60));
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    
+
     if (hours > 0) {
       return `${hours}h ${minutes}m`;
     }
@@ -168,10 +167,10 @@ export function AdminWalletManagement({ initialSession }: AdminWalletManagementP
   };
 
   const getSessionStatus = () => {
-    if (!session) {return { status: 'disconnected', color: 'text-gray-500' };}
-    
+    if (!session) { return { status: 'disconnected', color: 'text-gray-500' }; }
+
     const remainingTime = session.expires_at - Date.now();
-    
+
     if (remainingTime <= 0) {
       return { status: 'expired', color: 'text-red-500' };
     } else if (remainingTime < 300000) { // Less than 5 minutes
@@ -182,8 +181,8 @@ export function AdminWalletManagement({ initialSession }: AdminWalletManagementP
   };
 
   const getHealthColor = () => {
-    if (sessionHealth >= 70) {return 'bg-green-500';}
-    if (sessionHealth >= 30) {return 'bg-orange-500';}
+    if (sessionHealth >= 70) { return 'bg-green-500'; }
+    if (sessionHealth >= 30) { return 'bg-orange-500'; }
     return 'bg-red-500';
   };
 
@@ -206,7 +205,7 @@ export function AdminWalletManagement({ initialSession }: AdminWalletManagementP
                 <Power className="h-12 w-12 mx-auto text-gray-400 mb-2" />
                 <p className="text-gray-600 mb-4">No wallet connected</p>
               </div>
-              <AdminWalletAuth 
+              <AdminWalletAuth
                 className="w-full"
                 onAuthSuccess={(address) => {
                   toast.success('Wallet connected successfully');
@@ -246,7 +245,7 @@ export function AdminWalletManagement({ initialSession }: AdminWalletManagementP
                   </div>
                   <Progress value={sessionHealth} className="h-2" />
                   <div className={`w-full bg-gray-200 rounded-full h-2`}>
-                    <div 
+                    <div
                       className={`h-2 rounded-full transition-all duration-300 ${getHealthColor()}`}
                       style={{ width: `${sessionHealth}%` }}
                     />
@@ -327,7 +326,7 @@ export function AdminWalletManagement({ initialSession }: AdminWalletManagementP
                 <RefreshCcw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                 Extend Session
               </Button>
-              
+
               <Button
                 variant="outline"
                 onClick={handleForceDisconnect}
@@ -346,7 +345,7 @@ export function AdminWalletManagement({ initialSession }: AdminWalletManagementP
                 <div className="text-sm">
                   <p className="font-medium text-blue-800">Security Notice</p>
                   <p className="text-blue-700 mt-1">
-                    Always disconnect your wallet when finished using the admin panel, 
+                    Always disconnect your wallet when finished using the admin panel,
                     especially on shared computers.
                   </p>
                 </div>

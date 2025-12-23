@@ -1,5 +1,6 @@
 'use server';
 
+import { COOKIES } from '@/shared/auth/cookies';
 import { API_ROUTES } from '@/shared/config/route-constants';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
@@ -150,7 +151,8 @@ export async function createPermissionTemplate(template: Omit<PermissionTemplate
   }
 
   try {
-    const response = await fetch(`${process.env.BACKEND_URL}${API_ROUTES.ADMIN.PERMISSION_TEMPLATES}`, {
+    // Note: PERMISSION_TEMPLATES endpoint may not be implemented in backend
+    const response = await fetch(`${process.env.BACKEND_URL}/api/v1/admin/permissions/templates`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -188,7 +190,8 @@ export async function getPermissionTemplates(): Promise<PermissionTemplate[]> {
   }
 
   try {
-    const response = await fetch(`${process.env.BACKEND_URL}${API_ROUTES.ADMIN.PERMISSION_TEMPLATES}`, {
+    // Note: PERMISSION_TEMPLATES endpoint may not be implemented in backend
+    const response = await fetch(`${process.env.BACKEND_URL}/api/v1/admin/permissions/templates`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -516,13 +519,13 @@ export async function getPermissionStatistics(): Promise<{
       },
       recent_activity: [
         {
-          date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] || '',
           granted: 45,
           revoked: 12,
           expired: 8
         },
         {
-          date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] || '',
           granted: 38,
           revoked: 15,
           expired: 5

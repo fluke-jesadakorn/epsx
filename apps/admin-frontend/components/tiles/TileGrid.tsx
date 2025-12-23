@@ -1,12 +1,12 @@
 'use client';
 
 import { ChevronLeft, ChevronRight, RotateCcw, Settings } from 'lucide-react';
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { LiveTile } from './LiveTile';
 import { TileData, TileGridConfig } from './types';
 
-import { apiFetch } from '@/lib/api-fetch';
+import { adminApiClient } from '@/lib/api-client';
 import { logger } from '@/lib/logger';
 import { cn } from '@/lib/utils';
 
@@ -64,7 +64,7 @@ export function TileGrid({
 
   // Check scroll capabilities
   const checkScrollCapabilities = () => {
-    if (!scrollContainerRef.current) {return;}
+    if (!scrollContainerRef.current) { return; }
 
     const container = scrollContainerRef.current;
     const scrollLeft = container.scrollLeft;
@@ -77,18 +77,19 @@ export function TileGrid({
 
   useEffect(() => {
     checkScrollCapabilities();
-    
+
     const container = scrollContainerRef.current;
     if (container) {
       container.addEventListener('scroll', checkScrollCapabilities);
       return () => container.removeEventListener('scroll', checkScrollCapabilities);
     }
+    return undefined;
   }, [tiles]);
 
   // Handle refresh all
   const handleRefreshAll = async () => {
-    if (isRefreshing) {return;}
-    
+    if (isRefreshing) { return; }
+
     setIsRefreshing(true);
     try {
       await onRefreshAll?.();
@@ -99,14 +100,14 @@ export function TileGrid({
 
   // Scroll functions
   const scrollLeft = () => {
-    if (!scrollContainerRef.current) {return;}
+    if (!scrollContainerRef.current) { return; }
     const container = scrollContainerRef.current;
     const scrollAmount = container.clientWidth * 0.8;
     container.scrollBy({ left: -scrollAmount, behavior: 'smooth' });
   };
 
   const scrollRight = () => {
-    if (!scrollContainerRef.current) {return;}
+    if (!scrollContainerRef.current) { return; }
     const container = scrollContainerRef.current;
     const scrollAmount = container.clientWidth * 0.8;
     container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
@@ -141,7 +142,7 @@ export function TileGrid({
               </p>
             )}
           </div>
-          
+
           {showControls && (
             <div className="flex items-center gap-2">
               {horizontal && (
@@ -164,7 +165,7 @@ export function TileGrid({
                   </button>
                 </>
               )}
-              
+
               <button
                 onClick={handleRefreshAll}
                 disabled={isRefreshing}
@@ -280,7 +281,8 @@ export function CompactTileGrid(props: TileGridProps) {
 async function fetchTileData(tileId: string): Promise<any> {
   // This would be replaced with actual API calls based on tile type
   try {
-    return await apiFetch(`/api/admin/tiles/${tileId}`);
+    const response = await adminApiClient.get<any>(`/api/admin/tiles/${tileId}`);
+    return response.data;
   } catch (_error) {
     logger.error(`Failed to fetch data for tile ${tileId}`, { tileId, _error });
     throw _error;

@@ -9,8 +9,8 @@ import { useAccount } from 'wagmi';
 import { useAdminWeb3Context } from '../../providers/AuthProvider';
 
 import {
-    requestWalletChallenge,
-    verifyWalletSignature,
+  requestWalletChallenge,
+  verifyWalletSignature,
 } from '@/shared/auth/api';
 import { OIDC_KEYS } from '@/shared/auth/storage';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
@@ -22,7 +22,7 @@ export default function AuthPage() {
   const { isInitialized } = useAdminWeb3Context();
   const {
     authenticateWithDirectApi,
-    isLoading,
+    isLoading: _isLoading,
     hasPermissionForDisplay,
     isAuthenticated,
     user,
@@ -68,7 +68,7 @@ export default function AuthPage() {
       authCompletedRef.current = true;
     }
   };
-  const [challenge, setChallenge] = useState<{
+  const [_challenge, setChallenge] = useState<{
     nonce: string;
     message: string;
     wallet_address: string;
@@ -84,8 +84,8 @@ export default function AuthPage() {
   // Final return URL - ensure we don't redirect to auth pages
   const finalReturnUrl =
     decodedReturnUrl === '/' ||
-    decodedReturnUrl === '/auth' ||
-    decodedReturnUrl === '/login'
+      decodedReturnUrl === '/auth' ||
+      decodedReturnUrl === '/login'
       ? '/'
       : decodedReturnUrl;
   const reason = searchParams.get('reason');
@@ -401,10 +401,10 @@ export default function AuthPage() {
               {authStep === 'connect' && (
                 <ConnectButton.Custom>
                   {({
-                    account,
-                    chain,
-                    openAccountModal,
-                    openChainModal,
+                    account: _account,
+                    chain: _chain,
+                    openAccountModal: _openAccountModal,
+                    openChainModal: _openChainModal,
                     openConnectModal,
                     authenticationStatus,
                     mounted,

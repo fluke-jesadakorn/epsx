@@ -5,7 +5,7 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-import { logPermissionDenied, logInvalidPermission } from '@/lib/analytics/permission-error-analytics';
+import { logInvalidPermission, logPermissionDenied } from '@/lib/analytics/permission-error-analytics';
 
 export interface SecurityContext {
   userId?: string;
@@ -33,10 +33,10 @@ const SecurityContextState = createContext<SecurityContext | null>(null);
  * @param root0.children
  * @param root0.initialContext
  */
-export function SecurityContextProvider({ 
-  children, 
-  initialContext 
-}: { 
+export function SecurityContextProvider({
+  children,
+  initialContext
+}: {
   children: React.ReactNode;
   initialContext?: Partial<SecurityContext>;
 }) {
@@ -99,7 +99,7 @@ export function validatePermissionRequest(
     '*:*:*'
   ];
 
-  const hasWildcardPermission = wildcardPermissions.some(wildcard => 
+  const hasWildcardPermission = wildcardPermissions.some(wildcard =>
     userPermissions.includes(wildcard)
   );
 
@@ -124,10 +124,10 @@ export function validateSecurityContext(context: SecurityContext): SecurityConte
   const adminPermissions = context.permissions.filter(p => p.startsWith('admin:'));
   if (adminPermissions.length > 0) {
     // Validate admin permissions are legitimate
-    const suspiciousAdminPerms = adminPermissions.filter(p => 
+    const suspiciousAdminPerms = adminPermissions.filter(p =>
       !['admin:*:*', 'admin:users:view', 'admin:analytics:view'].includes(p)
     );
-    
+
     if (suspiciousAdminPerms.length > 0) {
       threats.push({
         id: crypto.randomUUID(),
@@ -170,7 +170,7 @@ export function validateSecurityContext(context: SecurityContext): SecurityConte
       severity: 'medium',
       description: 'User has unusually broad permission set',
       timestamp: new Date().toISOString(),
-      metadata: { 
+      metadata: {
         permissionTypes: ['web3', 'admin', 'user_management'],
         totalPermissions: context.permissions.length
       }
@@ -180,7 +180,7 @@ export function validateSecurityContext(context: SecurityContext): SecurityConte
 
   // Remove old threats (older than 1 hour)
   const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
-  const recentThreats = threats.filter(threat => 
+  const recentThreats = threats.filter(threat =>
     new Date(threat.timestamp) > oneHourAgo
   );
 
@@ -216,7 +216,7 @@ export function checkPermissionSafety(permission: string): {
       risks.push('Full admin access can modify system settings');
       recommendations.push('Limit admin permissions to specific resources');
     }
-    
+
     if (permission.includes('users:delete')) {
       risks.push('User deletion permission cannot be undone');
       recommendations.push('Use user deactivation instead of deletion');
@@ -226,7 +226,7 @@ export function checkPermissionSafety(permission: string): {
   // Check for dangerous actions
   const dangerousActions = ['delete', 'destroy', 'purge', 'admin'];
   const action = permission.split(':')[2];
-  
+
   if (action && dangerousActions.includes(action)) {
     risks.push(`Action "${action}" can cause irreversible changes`);
     recommendations.push('Ensure proper audit logging is enabled');
@@ -234,11 +234,11 @@ export function checkPermissionSafety(permission: string): {
 
   // Check for embedded timestamps
   const parts = permission.split(':');
-  if (parts.length === 4 && !isNaN(parseInt(parts[3]))) {
-    const expiryTimestamp = parseInt(parts[3]);
+  if (parts.length === 4 && !isNaN(parseInt(parts[3] || '0'))) {
+    const expiryTimestamp = parseInt(parts[3] || '0');
     const expiryDate = new Date(expiryTimestamp * 1000);
     const now = new Date();
-    
+
     if (expiryDate < now) {
       risks.push('Permission has already expired');
       recommendations.push('Remove expired permissions from user accounts');
@@ -283,7 +283,7 @@ export function validatePermissionFormat(permission: string): {
   }
 
   const parts = permission.split(':');
-  
+
   if (parts.length < 3 || parts.length > 4) {
     errors.push('Permission must have format "platform:resource:action" or "platform:resource:action:timestamp"');
   }
@@ -306,7 +306,7 @@ export function validatePermissionFormat(permission: string): {
 
   // Validate timestamp if present
   if (parts[3]) {
-    const timestamp = parseInt(parts[3]);
+    const timestamp = parseInt(parts[3] || '0');
     if (isNaN(timestamp) || timestamp < 0) {
       errors.push('Timestamp must be a valid Unix timestamp');
     }
@@ -329,19 +329,19 @@ const permissionCheckLimiter = new Map<string, { count: number; resetTime: numbe
 export function rateLimitPermissionCheck(userId: string, limit = 100): boolean {
   const now = Date.now();
   const windowSize = 60 * 1000; // 1 minute window
-  
+
   const userLimiter = permissionCheckLimiter.get(userId);
-  
+
   if (!userLimiter || now > userLimiter.resetTime) {
     permissionCheckLimiter.set(userId, { count: 1, resetTime: now + windowSize });
     return true;
   }
-  
+
   if (userLimiter.count >= limit) {
     logInvalidPermission('rate_limit_exceeded', `User ${userId} exceeded permission check rate limit`, userId);
     return false;
   }
-  
+
   userLimiter.count++;
   return true;
 }

@@ -5,6 +5,9 @@ import { Suspense } from 'react';
 import { AdminProfileClient } from '@/components/profile/AdminProfileClient';
 import { getServerSessionAdmin } from '@/lib/session';
 
+// Force dynamic rendering since we use cookies for auth
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'Admin Profile | EPSX Admin',
   description: 'Manage your admin account settings and permissions',

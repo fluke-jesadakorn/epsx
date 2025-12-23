@@ -10,11 +10,11 @@
  * ensuring consistent access control across the entire system.
  */
 
-import { hasPermission, hasAnyPermission, hasAllPermissions } from '../config/iam';
-import type { 
-  TierGroup, 
-  UserTierAssignment, 
-  UnifiedUserPermissions 
+import { hasAllPermissions, hasAnyPermission, hasPermission } from '../config/iam';
+import type {
+  TierGroup,
+  UnifiedUserPermissions,
+  UserTierAssignment
 } from '../types/tier-groups';
 
 // ============================================================================
@@ -72,9 +72,9 @@ export function resolveUnifiedPermissions(
       permissions: tierGroup.permissions,
       expiresAt: assignment.expiresAt
     };
-    
+
     sources.tierGroups.push(tierSource);
-    
+
     // Add permissions to effective set
     tierGroup.permissions.forEach(permission => {
       effectivePermissions.add(permission);
@@ -84,7 +84,7 @@ export function resolveUnifiedPermissions(
     if (assignment.expiresAt) {
       const expiryDate = new Date(assignment.expiresAt);
       const daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      
+
       tierGroup.permissions.forEach(permission => {
         expiringPermissions.push({
           permission,
@@ -99,7 +99,7 @@ export function resolveUnifiedPermissions(
   // 2. Process Permission Group Memberships
   for (const membership of groupMemberships) {
     if (!membership.isActive) continue;
-    
+
     // Check if membership has expired
     if (membership.expiresAt && new Date(membership.expiresAt) <= now) continue;
 
@@ -109,9 +109,9 @@ export function resolveUnifiedPermissions(
       permissions: membership.permissions,
       expiresAt: membership.expiresAt
     };
-    
+
     sources.directGroups.push(groupSource);
-    
+
     // Add permissions to effective set
     membership.permissions.forEach(permission => {
       effectivePermissions.add(permission);
@@ -121,7 +121,7 @@ export function resolveUnifiedPermissions(
     if (membership.expiresAt) {
       const expiryDate = new Date(membership.expiresAt);
       const daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-      
+
       membership.permissions.forEach(permission => {
         expiringPermissions.push({
           permission,
@@ -140,7 +140,7 @@ export function resolveUnifiedPermissions(
   sources.directPermissions = [...directPermissions];
 
   // Sort expiring permissions by expiry date
-  expiringPermissions.sort((a, b) => 
+  expiringPermissions.sort((a, b) =>
     new Date(a.expiresAt).getTime() - new Date(b.expiresAt).getTime()
   );
 
@@ -199,11 +199,11 @@ export function hasAllUnifiedPermissions(
  */
 export function isActiveTierAssignment(assignment: UserTierAssignment): boolean {
   if (!assignment.isActive || assignment.status !== 'active') return false;
-  
+
   if (assignment.expiresAt) {
     return new Date(assignment.expiresAt) > new Date();
   }
-  
+
   return true;
 }
 
@@ -226,7 +226,7 @@ export function getHighestTierGroup(
   return activeTiers.sort((a, b) => {
     if (a.price !== b.price) return b.price - a.price;
     return a.displayOrder - b.displayOrder;
-  })[0];
+  })[0] || null;
 }
 
 /**

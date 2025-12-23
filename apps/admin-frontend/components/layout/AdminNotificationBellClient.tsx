@@ -1,5 +1,6 @@
 'use client'
 
+import { toast } from '@/hooks/use-toast'
 import { createNotificationsClient } from '@/shared/api/notifications'
 import { MAX_DROPDOWN_NOTIFICATIONS } from '@/shared/components/notifications/constants'
 import type { Notification } from '@/shared/components/notifications/types'
@@ -111,10 +112,10 @@ export function AdminNotificationBell() {
       setNotifications(prev => prev.filter(n => n.id !== notificationId))
       setCount(prev => Math.max(0, prev - 1))
 
-      toast.success('Notification deleted')
+      toast({ title: 'Notification deleted' })
     } catch (error) {
       console.error('Failed to delete notification:', error)
-      toast.error('Failed to delete notification')
+      toast({ title: 'Failed to delete notification', variant: 'destructive' })
     }
   }
 

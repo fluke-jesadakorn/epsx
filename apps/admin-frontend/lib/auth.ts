@@ -12,8 +12,8 @@ import { createAdminClient, UserInfoResponse } from '@/shared/auth/client';
 // Web3 Admin Wallet interface (migrated from EnterpriseAdminUser)
 export interface AdminWallet {
   wallet_address: string;
-  permission_group: 'Basic Access Group' | 'Standard Access Group' | 'Premium Access Group' | 'Professional Access Group' | 'Enterprise Access Group';
-  enterprise_tier?: 'Starter' | 'Business' | 'Enterprise' | 'Whale'; // @deprecated Use permission_group instead
+  /** User's role from backend: 'user', 'admin', or 'super_admin' */
+  role: 'user' | 'admin' | 'super_admin';
   permissions: string[];
   has_api_access: boolean;
   verified_tokens_usd: number;
@@ -26,12 +26,10 @@ export interface AdminWallet {
 // Web3 admin client instance
 const adminWeb3Client = createAdminClient();
 
-// Backward compatibility alias
-export type EnterpriseAdminUser = AdminWallet;
+
 
 export interface Web3AdminAuthState {
   wallet: AdminWallet | null;
-  user: EnterpriseAdminUser | null; // @deprecated Use wallet instead
   isLoading: boolean;
   isAuthenticated: boolean;
   error: string | null;
@@ -42,22 +40,26 @@ export interface Web3AdminAuthState {
 }
 
 // Transform Web3 user to admin wallet format
-// TODO: Backend should send permission_group directly, not derive on client
+// Uses backend-provided role directly - no client-side derivation
 function transformWeb3UserToAdminWallet(web3User: UserInfoResponse): AdminWallet {
   const permissions = web3User.permissions || [];
-  const isAdmin = permissions.some(p => p.startsWith('admin:'));
+  // Use backend-provided is_admin flag
+  const isAdmin = (web3User as any).is_admin ?? permissions.some(p => p.startsWith('admin:'));
+  // Use backend-provided admin_permissions
+  const adminPermissions: string[] = (web3User as any).admin_permissions || permissions.filter(p => p.startsWith('admin:'));
+  // Use backend-provided role
+  const role = ((web3User as any).role || (isAdmin ? 'admin' : 'user')) as 'user' | 'admin' | 'super_admin';
 
   return {
     wallet_address: web3User.wallet_address,
-    permission_group: 'Basic Access Group', // TODO: Get from backend
-    enterprise_tier: 'Starter', // @deprecated
+    role,
     permissions,
-    has_api_access: true, // Admin users have API access
-    verified_tokens_usd: 0, // Could be derived from permissions or separate API
+    has_api_access: true,
+    verified_tokens_usd: 0,
     nft_collections: [],
     dao_memberships: [],
     is_admin: isAdmin,
-    admin_permissions: permissions.filter(p => p.startsWith('admin:')),
+    admin_permissions: adminPermissions,
   };
 }
 
@@ -69,22 +71,11 @@ export const useAuth = create<Web3AdminAuthState & {
   requestAdminChallenge: (walletAddress: string) => Promise<{ nonce: string; message: string; wallet_address: string }>;
   disconnectWallet: () => Promise<void>;
   getAdminWallet: () => Promise<AdminWallet | null>;
-  getAdminUser: () => Promise<EnterpriseAdminUser | null>; // @deprecated Use getAdminWallet instead
   refreshSession: () => Promise<void>;
   clearError: () => void;
-  // Permission helpers
-  can: (permission: string) => boolean;
-  hasAnyPermission: (permissions: string[]) => boolean;
-  hasAllPermissions: (permissions: string[]) => boolean;
-  hasMinimumPermissionGroup: (requiredGroup: string) => boolean;
-  hasEnterpriseTier: (tier: 'Starter' | 'Business' | 'Enterprise' | 'Whale') => boolean;
-  isAdmin: () => boolean;
-  canManageUsers: () => boolean;
-  canManageSystem: () => boolean;
-  canViewAnalytics: () => boolean;
+  // Permission enforcement handled by backend - no local methods needed
 }>((set, get) => ({
   wallet: null,
-  user: null, // @deprecated Use wallet instead
   isLoading: false,
   isAuthenticated: false,
   error: null,
@@ -112,7 +103,6 @@ export const useAuth = create<Web3AdminAuthState & {
 
           set({
             wallet: adminWallet,
-            user: adminWallet, // For backward compatibility
             walletAddress: adminWallet.wallet_address,
             isAuthenticated: true,
             isConnecting: false,
@@ -167,7 +157,6 @@ export const useAuth = create<Web3AdminAuthState & {
 
         set({
           wallet: adminWallet,
-          user: adminWallet, // For backward compatibility
           walletAddress: adminWallet.wallet_address,
           isAuthenticated: true,
           isAuthenticating: false,
@@ -226,7 +215,6 @@ export const useAuth = create<Web3AdminAuthState & {
 
       set({
         wallet: null,
-        user: null,
         isAuthenticated: false,
         expiresAt: null,
         walletAddress: undefined,
@@ -262,7 +250,6 @@ export const useAuth = create<Web3AdminAuthState & {
         if (!adminWallet.is_admin) {
           set({
             wallet: null,
-            user: null,
             isAuthenticated: false,
             error: 'Insufficient admin permissions'
           });
@@ -271,7 +258,6 @@ export const useAuth = create<Web3AdminAuthState & {
 
         set({
           wallet: adminWallet,
-          user: adminWallet,
           isAuthenticated: true,
           expiresAt: Date.now() + (24 * 60 * 60 * 1000)
         });
@@ -286,7 +272,6 @@ export const useAuth = create<Web3AdminAuthState & {
     // Clear session if unable to load
     set({
       wallet: null,
-      user: null,
       isAuthenticated: false,
       expiresAt: null
     });
@@ -294,11 +279,7 @@ export const useAuth = create<Web3AdminAuthState & {
     return null;
   },
 
-  // Get current admin user (@deprecated - use getAdminWallet)
-  getAdminUser: async () => {
-    // Delegate to getAdminWallet for Web3-first approach
-    return await get().getAdminWallet(); // AdminWallet and EnterpriseAdminUser are type-compatible
-  },
+
 
   // Refresh admin session
   refreshSession: async () => {
@@ -318,64 +299,11 @@ export const useAuth = create<Web3AdminAuthState & {
 
   // ============================================================================
   // DEPRECATED: Permission helpers
-  // These no longer do any real validation - backend is the single source of truth
-  // Kept for backward compatibility with UI components that conditionally show elements
-  // All actual permission checks happen in backend via JWT middleware
   // ============================================================================
-
-  /** @deprecated Backend handles permission enforcement. This always returns true. */
-  can: (_permission: string) => {
-    console.warn('[DEPRECATED] can() - Permission enforcement moved to backend. This always returns true.');
-    return true;
-  },
-
-  /** @deprecated Backend handles permission enforcement. This always returns true. */
-  hasAnyPermission: (_permissions: string[]) => {
-    console.warn('[DEPRECATED] hasAnyPermission() - Permission enforcement moved to backend. This always returns true.');
-    return true;
-  },
-
-  /** @deprecated Backend handles permission enforcement. This always returns true. */
-  hasAllPermissions: (_permissions: string[]) => {
-    console.warn('[DEPRECATED] hasAllPermissions() - Permission enforcement moved to backend. This always returns true.');
-    return true;
-  },
-
-  /** @deprecated Backend handles permission enforcement. This always returns true. */
-  hasMinimumPermissionGroup: (_requiredGroup: string) => {
-    console.warn('[DEPRECATED] hasMinimumPermissionGroup() - Permission enforcement moved to backend. This always returns true.');
-    return true;
-  },
-
-  /** @deprecated Backend handles permission enforcement. This always returns true. */
-  hasEnterpriseTier: (_tier: 'Starter' | 'Business' | 'Enterprise' | 'Whale') => {
-    console.warn('[DEPRECATED] hasEnterpriseTier() - Permission enforcement moved to backend. This always returns true.');
-    return true;
-  },
-
-  /** @deprecated Backend handles permission enforcement. This always returns true. */
-  isAdmin: () => {
-    console.warn('[DEPRECATED] isAdmin() - Permission enforcement moved to backend. This always returns true.');
-    return true;
-  },
-
-  /** @deprecated Backend handles permission enforcement. This always returns true. */
-  canManageUsers: () => {
-    console.warn('[DEPRECATED] canManageUsers() - Permission enforcement moved to backend. This always returns true.');
-    return true;
-  },
-
-  /** @deprecated Backend handles permission enforcement. This always returns true. */
-  canManageSystem: () => {
-    console.warn('[DEPRECATED] canManageSystem() - Permission enforcement moved to backend. This always returns true.');
-    return true;
-  },
-
-  /** @deprecated Backend handles permission enforcement. This always returns true. */
-  canViewAnalytics: () => {
-    console.warn('[DEPRECATED] canViewAnalytics() - Permission enforcement moved to backend. This always returns true.');
-    return true;
-  },
+  // PERMISSION ENFORCEMENT - HANDLED BY BACKEND
+  // All permission checks are done server-side via JWT middleware
+  // Frontend only displays role/permissions but does not enforce them
+  // ============================================================================
 }));
 
 // Subscribe to Web3 client changes
@@ -391,7 +319,6 @@ if (typeof window !== 'undefined') {
       if (adminWallet.is_admin) {
         useAuth.setState({
           wallet: adminWallet,
-          user: adminWallet,
           walletAddress: adminWallet.wallet_address,
           isAuthenticated: true,
           expiresAt: Date.now() + (24 * 60 * 60 * 1000),
@@ -401,7 +328,6 @@ if (typeof window !== 'undefined') {
         // Clear session if no admin permissions
         useAuth.setState({
           wallet: null,
-          user: null,
           walletAddress: undefined,
           isAuthenticated: false,
           expiresAt: null,
@@ -412,7 +338,6 @@ if (typeof window !== 'undefined') {
       // Clear session if Web3 user is null
       useAuth.setState({
         wallet: null,
-        user: null,
         walletAddress: undefined,
         isAuthenticated: false,
         expiresAt: null,
@@ -430,10 +355,10 @@ if (typeof window !== 'undefined') {
  *
  * @param user
  */
-export function getAdminDisplayName(user: EnterpriseAdminUser | null): string {
-  if (!user) { return 'Unknown Admin'; }
-  return user.wallet_address ?
-    `${user.wallet_address.slice(0, 6)}...${user.wallet_address.slice(-4)}` :
+export function getAdminDisplayName(wallet: AdminWallet | null): string {
+  if (!wallet) { return 'Unknown Admin'; }
+  return wallet.wallet_address ?
+    `${wallet.wallet_address.slice(0, 6)}...${wallet.wallet_address.slice(-4)}` :
     'Enterprise Admin';
 }
 
@@ -519,12 +444,4 @@ export async function connectAdminWallet() {
 export async function authenticateAdminWallet() {
   const { authenticateAdmin } = useAuth.getState();
   return await authenticateAdmin();
-}
-
-// Legacy compatibility exports (deprecated)
-export interface AuthState {
-  user: any | null;
-  isLoading: boolean;
-  isAuthenticated: boolean;
-  error: string | null;
 }

@@ -16,12 +16,11 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 
 import { makeAuthenticatedRequest } from './shared-utils';
 
-import { createSuccessResult, createErrorResult, type ActionResult } from '@/lib/action-utils';
-import type { UnifiedWalletData, WalletOperationResult } from '@/lib/types/unified-wallet';
+import { createErrorResult, createSuccessResult, type ActionResult } from '@/lib/action-utils';
+import type { UnifiedWalletData } from '@/lib/types/unified-wallet';
 
 // ============================================================================
 // TYPES AND INTERFACES
@@ -30,7 +29,7 @@ import type { UnifiedWalletData, WalletOperationResult } from '@/lib/types/unifi
 export interface WalletListFilters {
   search: string;
   status: string;
-  role: string;
+  group: string;
   page: number;
   limit: number;
   sortBy: string;
@@ -40,7 +39,7 @@ export interface WalletListFilters {
 export interface CreateWalletRequest {
   email: string;
   name?: string;
-  role?: string;
+  group?: string;
   permissions?: string[];
   sendInvite?: boolean;
 }
@@ -49,7 +48,7 @@ export interface UpdateWalletRequest {
   id: string;
   email?: string;
   name?: string;
-  role?: string;
+  group?: string;
   isActive?: boolean;
   permissions?: string[];
 }
@@ -76,8 +75,8 @@ export interface WalletStatusUpdateData {
   reason?: string;
 }
 
-export interface WalletRoleUpdateData {
-  roles: string[];
+export interface WalletGroupUpdateData {
+  groups: string[];
   reason?: string;
 }
 
@@ -91,10 +90,10 @@ export interface PermissionHistoryEntry {
   id: string;
   walletAddress: string;
   action: 'granted' | 'revoked' | 'modified';
-  type: 'role' | 'permission' | 'profile';
+  type: 'group' | 'permission' | 'profile';
   resource?: string;
   permission?: string;
-  role?: string;
+  group?: string;
   profileId?: string;
   grantedBy: string;
   grantedAt: Date;
@@ -147,7 +146,7 @@ export async function getWalletList(filters: WalletListFilters): Promise<ActionR
     const params = new URLSearchParams({
       search: filters.search,
       status: filters.status,
-      role: filters.role,
+      group: filters.group,
       page: filters.page.toString(),
       limit: filters.limit.toString(),
       sortBy: filters.sortBy,
@@ -155,7 +154,7 @@ export async function getWalletList(filters: WalletListFilters): Promise<ActionR
     });
 
     const response = await makeAuthenticatedRequest(`/api/admin/wallets?${params.toString()}`);
-    
+
     return createSuccessResult(response);
   } catch (_error) {
     // eslint-disable-next-line no-console
@@ -179,7 +178,7 @@ export async function searchWallets(query: string, filters?: Partial<WalletListF
     });
 
     const response = await makeAuthenticatedRequest(`/api/admin/wallets/search?${params.toString()}`);
-    
+
     return createSuccessResult(response.users || []);
   } catch (_error) {
     // eslint-disable-next-line no-console
@@ -253,7 +252,7 @@ export async function createWallet(userData: CreateWalletRequest): Promise<Actio
 export async function updateWallet(userData: UpdateWalletRequest): Promise<ActionResult<UnifiedWalletData>> {
   try {
     const { id, ...updateData } = userData;
-    
+
     const response = await makeAuthenticatedRequest(`/api/admin/wallets/${id}`, {
       method: 'PUT',
       body: JSON.stringify(updateData)
@@ -319,7 +318,7 @@ export async function toggleWalletStatus(walletAddress: string): Promise<ActionR
  */
 export async function getWalletPermissions(walletAddress: string): Promise<ActionResult<{
   permissions: string[];
-  roles: string[];
+  groups: string[];
   profiles: string[];
 }>> {
   try {
@@ -449,7 +448,7 @@ export async function getUnifiedWalletData(walletAddress: string): Promise<Actio
   try {
     // NOTE: Backend does not implement /wallets/:wallet_address/unified - DEAD CODE
     const response = await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/unified`);
-    
+
     // Transform backend response to match frontend interface
     const userData = {
       id: response.user.id,
@@ -462,14 +461,14 @@ export async function getUnifiedWalletData(walletAddress: string): Promise<Actio
       createdAt: new Date(response.user.created_at),
       updatedAt: new Date(response.user.updated_at),
       lastLogin: response.user.last_login ? new Date(response.user.last_login) : undefined,
-      
+
       status: response.user.is_active ? 'active' : 'inactive' as const,
       phoneNumber: null,
       timezone: null,
       language: 'en',
       twoFactorEnabled: false,
-      
-      roles: [],
+
+      groups: [],
       customPermissions: response.permissions?.individual_permissions || [],
       permissionProfiles: response.permissions?.permission_profiles?.map((profile: any) => ({
         id: profile.id,
@@ -479,7 +478,7 @@ export async function getUnifiedWalletData(walletAddress: string): Promise<Actio
         assignedAt: new Date(profile.assigned_at),
         expiresAt: profile.expires_at ? new Date(profile.expires_at) : null
       })) || [],
-      
+
       moduleAccess: response.modules?.enabled_modules || [],
       moduleQuotas: response.modules?.quotas ? [
         {
@@ -491,7 +490,7 @@ export async function getUnifiedWalletData(walletAddress: string): Promise<Actio
         }
       ] : [],
       stockRankingPackages: [],
-      
+
       apiKeys: [],
       recentActivity: [],
       loginHistory: [],
@@ -502,7 +501,7 @@ export async function getUnifiedWalletData(walletAddress: string): Promise<Actio
         sessionsThisMonth: response.activity?.total_logins || 0,
         averageSessionDuration: 0
       },
-      
+
       billing: {
         tier: response.billing?.tier || response.user?.subscription_tier || 'free',
         status: response.billing?.status || 'active',
@@ -510,7 +509,7 @@ export async function getUnifiedWalletData(walletAddress: string): Promise<Actio
         nextBillingDate: response.billing?.next_billing_date ? new Date(response.billing.next_billing_date) : null
       }
     };
-    
+
     return createSuccessResult(userData as any);
   } catch (_error) {
     // eslint-disable-next-line no-console
@@ -566,25 +565,25 @@ export async function updateWalletStatus(walletAddress: string, data: WalletStat
 }
 
 /**
- * Update user roles
+ * Update user groups
  * @param walletAddress
  * @param data
  */
-export async function updateWalletRoles(walletAddress: string, data: WalletRoleUpdateData): Promise<ActionResult<void>> {
+export async function updateWalletGroups(walletAddress: string, data: WalletGroupUpdateData): Promise<ActionResult<void>> {
   try {
-    // NOTE: Backend does not implement /wallets/:wallet_address/roles - DEAD CODE
-    await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/roles`, {
+    // NOTE: Backend does not implement /wallets/:wallet_address/groups - DEAD CODE
+    await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/groups`, {
       method: 'PUT',
       body: JSON.stringify(data)
     });
 
     revalidatePath(`/users/${walletAddress}`);
     revalidatePath('/users');
-    return createSuccessResult(undefined, 'Roles updated successfully');
+    return createSuccessResult(undefined, 'Groups updated successfully');
   } catch (_error) {
     // eslint-disable-next-line no-console
-    console.error('Failed to update user roles:', _error);
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update roles');
+    console.error('Failed to update user groups:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to update groups');
   }
 }
 
@@ -612,60 +611,60 @@ export async function updateModuleAccess(walletAddress: string, data: ModuleAcce
 }
 
 // ============================================================================
-// ROLE MANAGEMENT OPERATIONS
+// GROUP MANAGEMENT OPERATIONS
 // ============================================================================
 
 /**
- * Assign role to user
+ * Assign group to user
  * @param data
  * @param data.walletAddress
- * @param data.role
+ * @param data.group
  * @param data.reason
  */
-export async function assignWalletRole(data: { walletAddress: string; role: string; reason?: string }): Promise<ActionResult<void>> {
+export async function assignWalletGroup(data: { walletAddress: string; group: string; reason?: string }): Promise<ActionResult<void>> {
   try {
-    await makeAuthenticatedRequest('/api/admin/casbin/roles', {
+    await makeAuthenticatedRequest('/api/admin/casbin/groups', {
       method: 'POST',
       body: JSON.stringify({
         user: data.walletAddress,
-        role: data.role
+        group: data.group
       })
     });
 
     revalidatePath(`/users/${data.walletAddress}`);
     revalidatePath('/users');
-    return createSuccessResult(undefined, 'Role assigned successfully');
+    return createSuccessResult(undefined, 'Group assigned successfully');
   } catch (_error) {
     // eslint-disable-next-line no-console
-    console.error('Failed to assign user role:', _error);
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to assign role');
+    console.error('Failed to assign user group:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to assign group');
   }
 }
 
 /**
- * Remove role from user
+ * Remove group from user
  * @param data
  * @param data.walletAddress
- * @param data.role
+ * @param data.group
  * @param data.reason
  */
-export async function removeWalletRole(data: { walletAddress: string; role: string; reason?: string }): Promise<ActionResult<void>> {
+export async function removeWalletGroup(data: { walletAddress: string; group: string; reason?: string }): Promise<ActionResult<void>> {
   try {
-    await makeAuthenticatedRequest('/api/admin/casbin/roles', {
+    await makeAuthenticatedRequest('/api/admin/casbin/groups', {
       method: 'DELETE',
       body: JSON.stringify({
         user: data.walletAddress,
-        role: data.role
+        group: data.group
       })
     });
 
     revalidatePath(`/users/${data.walletAddress}`);
     revalidatePath('/users');
-    return createSuccessResult(undefined, 'Role removed successfully');
+    return createSuccessResult(undefined, 'Group removed successfully');
   } catch (_error) {
     // eslint-disable-next-line no-console
-    console.error('Failed to remove user role:', _error);
-    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to remove role');
+    console.error('Failed to remove user group:', _error);
+    return createErrorResult(_error instanceof Error ? _error.message : 'Failed to remove group');
   }
 }
 
@@ -962,20 +961,20 @@ export async function getPermissionHistory(walletAddress: string, limit = 50): P
   try {
     // NOTE: Backend does not implement /wallets/:wallet_address/activity - DEAD CODE
     const response = await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/activity?limit=${limit}`);
-    
+
     const history: PermissionHistoryEntry[] = (response.activities || [])
-      .filter((activity: any) => 
-        activity.action?.includes('permission') || 
-        activity.action?.includes('role') || 
+      .filter((activity: any) =>
+        activity.action?.includes('permission') ||
+        activity.action?.includes('role') ||
         activity.action?.includes('profile')
       )
       .map((activity: any) => ({
         id: activity.id,
         walletAddress,
-        action: activity.action?.includes('granted') ? 'granted' : 
-               activity.action?.includes('revoked') ? 'revoked' : 'modified',
-        type: activity.action?.includes('role') ? 'role' : 
-              activity.action?.includes('profile') ? 'profile' : 'permission',
+        action: activity.action?.includes('granted') ? 'granted' :
+          activity.action?.includes('revoked') ? 'revoked' : 'modified',
+        type: activity.action?.includes('role') ? 'role' :
+          activity.action?.includes('profile') ? 'profile' : 'permission',
         resource: activity.resource || '',
         permission: activity.details?.permission || '',
         role: activity.details?.role || '',
@@ -1016,15 +1015,15 @@ export async function getWalletActivityLogs(walletAddress: string, params: Activ
 }>> {
   try {
     const queryParams = new URLSearchParams();
-    if (params.limit) {queryParams.append('limit', params.limit.toString());}
-    if (params.offset) {queryParams.append('offset', params.offset.toString());}
-    if (params.start_date) {queryParams.append('start_date', params.start_date);}
-    if (params.end_date) {queryParams.append('end_date', params.end_date);}
-    if (params.action_type) {queryParams.append('action_type', params.action_type);}
+    if (params.limit) { queryParams.append('limit', params.limit.toString()); }
+    if (params.offset) { queryParams.append('offset', params.offset.toString()); }
+    if (params.start_date) { queryParams.append('start_date', params.start_date); }
+    if (params.end_date) { queryParams.append('end_date', params.end_date); }
+    if (params.action_type) { queryParams.append('action_type', params.action_type); }
 
     // NOTE: Backend does not implement /wallets/:wallet_address/activity - DEAD CODE
     const response = await makeAuthenticatedRequest(`/api/admin/wallets/${walletAddress}/activity?${queryParams.toString()}`);
-    
+
     const activities: ActivityLogEntry[] = (response.activities || []).map((activity: any) => ({
       id: activity.id,
       action: activity.action,
@@ -1093,13 +1092,13 @@ export async function searchWalletsAction(searchParams: {
 }>> {
   try {
     const queryParams = new URLSearchParams();
-    
+
     Object.entries(searchParams).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
         queryParams.append(key, value.toString());
       }
     });
-    
+
     const response = await makeAuthenticatedRequest(`/api/admin/wallets/search?${queryParams.toString()}`);
     return createSuccessResult(response);
   } catch (_error) {

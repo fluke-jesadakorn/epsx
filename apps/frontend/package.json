@@ -16,7 +16,7 @@
   },
   "scripts": {
     "dev": "dotenv -e ../../.env -- next dev -H 0.0.0.0 -p ${PORT:-3000} --webpack",
-    "build": "dotenv -e ../../.env -- next build --webpack",
+    "build": "NODE_ENV=production dotenv -e ../../.env -- next build --webpack",
     "start": "dotenv -e ../../.env -- next start -p ${PORT:-3000}",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

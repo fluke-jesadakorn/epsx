@@ -66,7 +66,7 @@ export const useUsers = (options: UseUsersOptions) => {
     } catch (_error) {
       // eslint-disable-next-line no-console
       console.error('Error fetching users', {
-        error: _error instanceof Error ? _error.message : String(error),
+        error: _error instanceof Error ? _error.message : String(_error),
         searchTerm: options.searchTerm,
         statusFilter: options.statusFilter,
         packageFilter: options.packageFilter,

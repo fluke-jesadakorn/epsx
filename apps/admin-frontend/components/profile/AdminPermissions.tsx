@@ -33,7 +33,7 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
   const [filterType, setFilterType] = useState<'all' | 'admin' | 'platform'>('all');
 
   const formatDate = (timestamp?: number) => {
-    if (!timestamp) {return 'Not available';}
+    if (!timestamp) { return 'Not available'; }
     return new Date(timestamp * 1000).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
@@ -50,7 +50,7 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
     permissions.forEach(permission => {
       const parts = permission.split(':');
       const platform = parts[0] || 'unknown';
-      
+
       if (!categories.has(platform)) {
         categories.set(platform, []);
       }
@@ -97,8 +97,8 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
 
   const filteredCategories = categorizePermissions()
     .filter(category => {
-      if (filterType === 'admin' && category.name !== 'admin') {return false;}
-      if (filterType === 'platform' && category.name === 'admin') {return false;}
+      if (filterType === 'admin' && category.name !== 'admin') { return false; }
+      if (filterType === 'platform' && category.name === 'admin') { return false; }
       return true;
     })
     .map(category => ({
@@ -110,8 +110,8 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
     .filter(category => category.permissions.length > 0);
 
   const getPermissionLevel = (permission: string): string => {
-    if (permission.includes(':admin') || permission.includes(':manage')) {return 'high';}
-    if (permission.includes(':write') || permission.includes(':create') || permission.includes(':update')) {return 'medium';}
+    if (permission.includes(':admin') || permission.includes(':manage')) { return 'high'; }
+    if (permission.includes(':write') || permission.includes(':create') || permission.includes(':update')) { return 'medium'; }
     return 'low';
   };
 
@@ -189,7 +189,7 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                You have temporary permissions that will expire automatically. 
+                You have temporary permissions that will expire automatically.
                 Check individual permissions below for expiry times.
               </AlertDescription>
             </Alert>
@@ -279,11 +279,12 @@ export function AdminPermissions({ user }: AdminPermissionsProps) {
                         const isTemporary = /:\d+$/.test(permission);
                         const parts = permission.split(':');
                         const basePermission = isTemporary ? parts.slice(0, -1).join(':') : permission;
-                        const expiryTimestamp = isTemporary ? parseInt(parts[parts.length - 1]) : null;
+                        const lastPart = parts[parts.length - 1]
+                        const expiryTimestamp = isTemporary && lastPart ? parseInt(lastPart) : undefined;
 
                         return (
-                          <div 
-                            key={index} 
+                          <div
+                            key={index}
                             className="flex items-center justify-between p-3 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700"
                           >
                             <div className="flex-1">

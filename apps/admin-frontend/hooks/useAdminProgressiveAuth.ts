@@ -28,23 +28,9 @@ export function useAdminProgressiveAuth(): AuthState & {
     return AuthLevel.PUBLIC;
   }, [isAuthenticated, isConnected, walletAddress, permissions]);
 
-  // ============================================================================
-  // DEPRECATED: Permission check functions
-  // Backend handles all permission enforcement via JWT middleware
-  // These are kept for backward compatibility but always return true
-  // ============================================================================
-
-  /** @deprecated Backend handles permission enforcement. This always returns true. */
-  const hasPermission = (_permission: string): boolean => {
-    console.warn('[DEPRECATED] useAdminProgressiveAuth.hasPermission() - Permission enforcement moved to backend. This always returns true.');
-    return true;
-  };
-
-  /** @deprecated Backend handles permission enforcement. This always returns true. */
-  const hasAnyPermission = (_permissions: string[]): boolean => {
-    console.warn('[DEPRECATED] useAdminProgressiveAuth.hasAnyPermission() - Permission enforcement moved to backend. This always returns true.');
-    return true;
-  };
+  // Permission check stubs - Backend handles all enforcement, these return true for compatibility
+  const hasPermission = (_permission: string): boolean => true;
+  const hasAnyPermission = (_permissions: string[]): boolean => true;
 
   // Check if user can access a feature requiring specific auth level and permissions
   const canAccess = (requiredLevel: AuthLevelType, requiredPermissions?: string[]): boolean => {

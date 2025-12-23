@@ -99,6 +99,7 @@ export function EnhancedWalletSearch() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
+  const [searchTimeoutId, setSearchTimeoutId] = useState<any>(null);
   const [tiers, setTiers] = useState<Array<{ value: string; label: string }>>([
     { value: 'all', label: 'All Tiers' },
   ]);
@@ -203,16 +204,17 @@ export function EnhancedWalletSearch() {
 
       // Auto-search with debounce for text inputs
       if (key === 'search') {
-        const timeoutId = setTimeout(() => {
+        if (searchTimeoutId) clearTimeout(searchTimeoutId);
+        const id = setTimeout(() => {
           searchWallets(1, newFilters);
         }, 500);
-        return () => clearTimeout(timeoutId);
+        setSearchTimeoutId(id);
       } else {
         // Immediate search for dropdown changes
         searchWallets(1, newFilters);
       }
     },
-    [filters, searchWallets, isAuthenticated, fetchWithAuth]
+    [filters, searchWallets, searchTimeoutId]
   );
 
   // Initial search

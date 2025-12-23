@@ -60,27 +60,6 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
-/**
- * Create redirect response to auth page
- */
-function redirectToAuth(request: NextRequest): NextResponse {
-  const adminUrl = `${request.nextUrl.protocol}//${request.nextUrl.host}`;
-  const returnUrl = `${request.nextUrl.pathname}${request.nextUrl.search}`;
-
-  const authUrl = new URL('/auth', adminUrl);
-  authUrl.searchParams.set('return_url', returnUrl);
-  authUrl.searchParams.set('reason', 'no-session');
-
-  const redirect = NextResponse.redirect(authUrl.toString());
-
-  // Clear authentication cookies
-  redirect.cookies.delete(COOKIES.access);
-  redirect.cookies.delete(COOKIES.id);
-  redirect.cookies.delete(COOKIES.refresh);
-
-  return redirect;
-}
-
 export const config = {
   matcher: [
     // Enable middleware for all routes except public ones

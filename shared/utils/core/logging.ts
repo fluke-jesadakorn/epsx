@@ -57,12 +57,15 @@ export class Logger {
   }
 
   private shouldLog(level: LogLevel['level']): boolean {
-    return LOG_LEVELS[level.toUpperCase()].priority >= LOG_LEVELS[this.minLevel.toUpperCase()].priority;
+    const currentLevel = LOG_LEVELS[level.toUpperCase()];
+    const minLevelSet = LOG_LEVELS[this.minLevel.toUpperCase()];
+    if (!currentLevel || !minLevelSet) return false;
+    return currentLevel.priority >= minLevelSet.priority;
   }
 
   private sanitizeMessage(message: string): string {
     if (!message) return message;
-    
+
     // Remove common sensitive patterns
     return message
       .replace(/token[=:]\s*[^\s,}]+/gi, 'token=***')
@@ -76,36 +79,36 @@ export class Logger {
 
   private sanitizeData(data: any): any {
     if (!data) return data;
-    
+
     // In production, limit data logging for security
     if (process.env.NODE_ENV === 'production') {
       // Only log error messages and basic metadata
       if (data instanceof Error) {
-        return { 
+        return {
           error: data.message,
           name: data.name
           // Stack traces excluded in production for security
         };
       }
-      
+
       if (typeof data === 'object') {
         // Only include safe fields
         const safeFields = ['status', 'code', 'type', 'category'];
         const sanitized: any = {};
-        
+
         for (const field of safeFields) {
           if (field in data && typeof data[field] !== 'object') {
             sanitized[field] = data[field];
           }
         }
-        
+
         return sanitized;
       }
-      
+
       // For primitive types, return as-is if not sensitive
       return typeof data === 'string' ? this.sanitizeMessage(data) : data;
     }
-    
+
     // In development, return full data for debugging
     return data;
   }
@@ -117,7 +120,7 @@ export class Logger {
     const consoleMethod = level === 'debug' ? 'log' : level;
     const timestamp = new Date().toLocaleTimeString();
     const prefix = `[${timestamp}] [${level.toUpperCase()}] [${this.context}]`;
-    
+
     if (data) {
       console[consoleMethod](prefix, message, data);
     } else {
@@ -192,11 +195,11 @@ export const analyticsLogger = new Logger('Analytics', isDevelopment ? developme
 export const uiLogger = new Logger('UI', isDevelopment ? developmentLogLevel : productionLogLevel);
 
 // Development-only logging function
-export const devLog = isDevelopment ? logger.debug.bind(logger) : () => {};
+export const devLog = isDevelopment ? logger.debug.bind(logger) : () => { };
 
 // Production-safe logging functions (no-ops in production)
-export const devInfo = isDevelopment ? logger.info.bind(logger) : () => {};
-export const devWarn = isDevelopment ? logger.warn.bind(logger) : () => {};
+export const devInfo = isDevelopment ? logger.info.bind(logger) : () => { };
+export const devWarn = isDevelopment ? logger.warn.bind(logger) : () => { };
 
 // Environment check utilities
 export const isDevEnvironment = () => isDevelopment;

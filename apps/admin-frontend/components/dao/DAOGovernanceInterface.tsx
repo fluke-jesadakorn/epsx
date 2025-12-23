@@ -5,7 +5,7 @@
  * Comprehensive DAO management and governance tracking for Web3 enterprise
  */
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/lib/auth';
 
@@ -92,21 +92,28 @@ interface DelegationRecord {
  *
  */
 export default function DAOGovernanceInterface() {
-  const { user, canViewAnalytics } = useAuth();
-  const canManageDAO = () => true; // Stubbed for build compatibility
-  
+  const { wallet } = useAuth();
+
+  const permissions = wallet?.permissions || [];
+  const hasPermission = (perm: string) => permissions.some((p: string) =>
+    p === perm || p === '*:*:*' || (p.startsWith(perm.split(':')[0] || '') && p.endsWith('*:*'))
+  );
+
+  const canViewAnalytics = () => hasPermission('admin:analytics:view') || hasPermission('admin:*:*');
+  const canManageDAO = () => hasPermission('admin:dao:manage') || hasPermission('admin:*:*');
+
   // State management
   const [activeTab, setActiveTab] = useState<'overview' | 'memberships' | 'proposals' | 'voting' | 'delegations'>('overview');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Data state
   const [daoMemberships, setDAOMemberships] = useState<DAOMembership[]>([]);
   const [proposals, setProposals] = useState<GovernanceProposal[]>([]);
   const [analytics, setAnalytics] = useState<DAOAnalytics | null>(null);
   const [votingHistory, setVotingHistory] = useState<VotingHistory[]>([]);
   const [delegations, setDelegations] = useState<DelegationRecord[]>([]);
-  
+
   // Filter state
   const [selectedDAO, setSelectedDAO] = useState<string>('all');
   const [selectedNetwork, setSelectedNetwork] = useState<string>('all');
@@ -169,10 +176,10 @@ export default function DAOGovernanceInterface() {
   const filteredMemberships = daoMemberships.filter(membership => {
     const matchesDAO = selectedDAO === 'all' || membership.dao_name === selectedDAO;
     const matchesNetwork = selectedNetwork === 'all' || membership.network === selectedNetwork;
-    const matchesSearch = searchTerm === '' || 
+    const matchesSearch = searchTerm === '' ||
       membership.wallet_address.toLowerCase().includes(searchTerm.toLowerCase()) ||
       membership.dao_name.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     return matchesDAO && matchesNetwork && matchesSearch;
   });
 
@@ -180,10 +187,10 @@ export default function DAOGovernanceInterface() {
     const matchesDAO = selectedDAO === 'all' || proposal.dao_name === selectedDAO;
     const matchesNetwork = selectedNetwork === 'all' || proposal.network === selectedNetwork;
     const matchesStatus = proposalStatusFilter === 'all' || proposal.status === proposalStatusFilter;
-    const matchesSearch = searchTerm === '' || 
+    const matchesSearch = searchTerm === '' ||
       proposal.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       proposal.dao_name.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     return matchesDAO && matchesNetwork && matchesStatus && matchesSearch;
   });
 
@@ -295,13 +302,13 @@ export default function DAOGovernanceInterface() {
           <p className="text-gray-600 mt-2">
             Monitor and manage DAO memberships, proposals, and governance activity
           </p>
-          {user && (
+          {wallet && (
             <div className="mt-4 inline-flex items-center space-x-4">
               <span className="text-sm text-gray-500">
-                Admin: {user.wallet_address?.slice(0, 8)}...{user.wallet_address?.slice(-4)}
+                Admin: {wallet.wallet_address?.slice(0, 8)}...{wallet.wallet_address?.slice(-4)}
               </span>
               <span className="text-sm text-gray-500">
-                DAO Permissions: {user.permissions?.filter(p => p.includes('dao')).length || 0} active
+                DAO Permissions: {wallet.permissions?.filter((p: string) => p.includes('dao')).length || 0} active
               </span>
             </div>
           )}
@@ -377,11 +384,10 @@ export default function DAOGovernanceInterface() {
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key as any)}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === tab.key
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === tab.key
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -531,8 +537,8 @@ export default function DAOGovernanceInterface() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {membership.delegation_status === 'none' ? 'Self' :
-                           membership.delegation_status === 'delegated_to' ? 'Delegated' :
-                           'Delegate'}
+                            membership.delegation_status === 'delegated_to' ? 'Delegated' :
+                              'Delegate'}
                         </td>
                       </tr>
                     ))}
@@ -755,9 +761,8 @@ export default function DAOGovernanceInterface() {
                           {formatNumber(delegation.voting_power)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            delegation.is_active ? 'text-green-700 bg-green-100' : 'text-gray-700 bg-gray-100'
-                          }`}>
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${delegation.is_active ? 'text-green-700 bg-green-100' : 'text-gray-700 bg-gray-100'
+                            }`}>
                             {delegation.is_active ? 'Active' : 'Inactive'}
                           </span>
                         </td>

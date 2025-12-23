@@ -16,7 +16,7 @@ use crate::web::auth::AppState;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AdminAssignmentRequest {
-    pub role: String,
+    pub group: String,
     pub custom_claims: Option<HashMap<String, Value>>,
 }
 
@@ -25,7 +25,7 @@ pub struct AdminAssignmentResponse {
     pub success: bool,
     pub message: String,
     pub wallet_address: String,
-    pub assigned_role: String,
+    pub assigned_group: String,
     pub custom_claims: HashMap<String, Value>,
 }
 
@@ -138,13 +138,13 @@ async fn set_firebase_custom_claims(
     }
 }
 
-/// Assign admin role to a Firebase user
-pub async fn assign_admin_role_handler(
+/// Assign admin group to a Firebase user
+pub async fn assign_admin_group_handler(
     State(_app_state): State<AppState>,
     Path(wallet_address): Path<String>,
     Json(request): Json<AdminAssignmentRequest>,
 ) -> Result<Json<AdminAssignmentResponse>, StatusCode> {
-    tracing::info!("Admin assignment request for user {} with role {}", wallet_address, request.role);
+    tracing::info!("Admin assignment request for user {} with group {}", wallet_address, request.group);
     
     // Create admin custom claims - using structured permissions
     let mut custom_claims = HashMap::new();
@@ -169,20 +169,20 @@ pub async fn assign_admin_role_handler(
     // Set the custom claims via Firebase Admin SDK
     match set_firebase_custom_claims(&wallet_address, &custom_claims).await {
         Ok(()) => {
-            tracing::info!("Successfully assigned admin role to user {}", wallet_address);
+            tracing::info!("Successfully assigned admin group to user {}", wallet_address);
             
             let response = AdminAssignmentResponse {
                 success: true,
-                message: "Admin role assigned successfully".to_string(),
+                message: "Admin group assigned successfully".to_string(),
                 wallet_address: wallet_address.clone(),
-                assigned_role: request.role,
+                assigned_group: request.group,
                 custom_claims,
             };
             
             Ok(Json(response))
         },
         Err(e) => {
-            tracing::error!("Failed to assign admin role to user {}: {}", wallet_address, e);
+            tracing::error!("Failed to assign admin group to user {}: {}", wallet_address, e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }

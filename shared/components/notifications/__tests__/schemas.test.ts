@@ -10,15 +10,15 @@
  */
 
 import {
-  NotificationSchema,
-  SSENotificationSchema,
   NotificationFiltersSchema,
+  NotificationSchema,
   SendNotificationRequestSchema,
+  SSENotificationSchema,
   validateNotification,
-  validateSSENotification,
   validateNotificationFilters,
-  validateSendNotificationRequest,
   validateNotifications,
+  validateSendNotificationRequest,
+  validateSSENotification,
 } from '../schemas'
 
 describe('Notification Schemas', () => {
@@ -452,8 +452,8 @@ describe('Notification Schemas', () => {
 
       const result = validateNotifications(data)
       expect(result).toHaveLength(2)
-      expect(result[0].title).toBe('Valid')
-      expect(result[1].title).toBe('Valid 2')
+      expect(result[0]?.title).toBe('Valid')
+      expect(result[1]?.title).toBe('Valid 2')
     })
 
     it('should return empty array for all invalid notifications', () => {

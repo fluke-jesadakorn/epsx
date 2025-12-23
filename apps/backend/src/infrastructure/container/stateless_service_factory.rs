@@ -21,10 +21,7 @@ use crate::domain::wallet_management::{
 use crate::auth::auth_service::UnifiedWeb3AuthService;
 use crate::auth::token_service::OpenIDTokenService;
 use crate::auth::key_manager::KeyManager;
-use crate::auth::{
-    CentralizedPermissionAuthority, DatabasePermissionRegistry, PermissionState,
-    create_permission_authority, create_permission_registry
-};
+use crate::auth::unified_permission_service::UnifiedPermissionService;
 
 /// Stateless configuration for service factory
 #[derive(Clone)]
@@ -141,20 +138,10 @@ impl StatelessServiceFactory {
             Arc::new(key_manager),
         );
 
-        // Create centralized permission services
-        let permission_authority = Arc::new(create_permission_authority(diesel_pool));
-        let permission_registry = Arc::new(create_permission_registry(diesel_pool));
-
-        // Initialize permission registry with default routes
-        if let Err(e) = permission_registry.initialize().await {
-            tracing::warn!("Failed to initialize permission registry: {}", e);
-        }
-
-        // Create permission state for dependency injection
-        let permission_state = PermissionState::new(
-            permission_authority.clone(),
-            permission_registry.clone(),
-        );
+        // Create UnifiedPermissionService (single source of truth for permissions)
+        let unified_permission_service = Arc::new(UnifiedPermissionService::new_without_cache(
+            diesel_pool,
+        ));
 
         // Create Redis pool and notification broadcaster
         let (redis_pool, redis_broadcaster) = if let Some(redis_url) = &self.config.redis_url {
@@ -187,10 +174,8 @@ impl StatelessServiceFactory {
             redis_pool,
             redis_broadcaster,
 
-            // New centralized permission services
-            permission_authority,
-            permission_registry,
-            permission_state: Arc::new(permission_state),
+            // Unified permission service (single source of truth)
+            unified_permission_service,
         })
     }
 
@@ -224,10 +209,8 @@ pub struct RequestServices {
     pub redis_pool: Option<Arc<RedisPool>>,
     pub redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
 
-    // Centralized permission services (v2.0)
-    pub permission_authority: Arc<CentralizedPermissionAuthority>,
-    pub permission_registry: Arc<DatabasePermissionRegistry>,
-    pub permission_state: Arc<PermissionState>,
+    // Unified permission service (single source of truth for all permission operations)
+    pub unified_permission_service: Arc<UnifiedPermissionService>,
 }
 
 impl RequestServices {

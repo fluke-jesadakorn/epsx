@@ -28,8 +28,8 @@ export interface WalletAccountInfo extends BaseWallet {
   twoFactorEnabled: boolean
 }
 
-// Roles and permissions (from IAM system)
-export interface WalletRole {
+// Groups and permissions (from IAM system)
+export interface WalletGroup {
   id: string
   name: string
   description: string
@@ -143,22 +143,22 @@ export interface UsageMetrics {
 
 // Combined unified user data
 export interface UnifiedWalletData extends WalletAccountInfo {
-  // Permissions & Roles (consolidates IAM data)
-  roles: WalletRole[]
+  // Permissions & Groups (consolidates IAM data)
+  groups: WalletGroup[]
   customPermissions: Permission[]
   permissionProfiles: PermissionProfile[]
-  
+
   // Modules & Access (consolidates module management)
   moduleAccess: ModuleAccess[]
   moduleQuotas: ModuleQuota[]
-  
+
   // Billing & Packages (consolidates billing + stock ranking)
   billing: BillingStatus
   stockRankingPackages: StockRankingPackage[]
-  
+
   // Developer Access
   apiKeys: ApiKey[]
-  
+
   // Activity & Analytics (new consolidated view)
   recentActivity: ActivityRecord[]
   loginHistory: LoginRecord[]
@@ -168,7 +168,7 @@ export interface UnifiedWalletData extends WalletAccountInfo {
 // Request/Response types for API operations
 export interface WalletListFilters {
   search?: string
-  roles?: string[]
+  groups?: string[]
   status?: WalletStatus[]
   tier?: SubscriptionTier[]
   modules?: string[]
@@ -206,8 +206,8 @@ export interface WalletStatusUpdateData {
   reason?: string
 }
 
-export interface WalletRoleUpdateData {
-  roleIds: string[]
+export interface WalletGroupUpdateData {
+  groupIds: string[]
   customPermissions?: Permission[]
 }
 

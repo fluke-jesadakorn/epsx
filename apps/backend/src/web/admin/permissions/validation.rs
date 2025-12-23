@@ -1,5 +1,6 @@
 // Permission Validation Logic
 // Consolidates validation operations from permission_group_handlers.rs and centralized_permission_handlers.rs
+// Uses UnifiedPermissionService as the single source of truth for permissions
 
 use axum::{
     extract::{Path, State},
@@ -12,14 +13,13 @@ use uuid::Uuid;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use crate::web::auth::AppState;
 use crate::web::responses::AdminResponse;
-use crate::auth::permission_authority::{
-    CentralizedPermissionAuthority,
-    PermissionValidator,
-    ValidationContext,
-};
+use crate::auth::UnifiedPermissionService;
+use crate::infrastructure::cache::unified_permission_cache::UnifiedPermissionCache;
+
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES
@@ -147,21 +147,17 @@ pub async fn validate_permission(
     let audit_id = Uuid::new_v4().to_string();
     let wallet = req.wallet_address.to_lowercase();
 
-    // Create CentralizedPermissionAuthority
-    let authority = CentralizedPermissionAuthority::with_defaults(*app_state.db_pool);
-
-    // Create validation context
-    let context = ValidationContext {
-        request_id: req.request_id.clone().unwrap_or_else(|| audit_id.clone()),
-        user_agent: req.user_agent.clone(),
-        ip_address: req.ip_address.clone(),
-        timestamp: Utc::now(),
-        route_path: "/admin/permissions/validate".to_string(),
-        http_method: "POST".to_string(),
+    // Get permission service from domain container
+    let permission_service = match app_state.domain_container.get_unified_permission_service() {
+        Some(service) => service,
+        None => {
+            tracing::error!("UnifiedPermissionService not available");
+            return AdminResponse::server_error("Permission service unavailable").into_response();
+        }
     };
 
-    // Use CentralizedPermissionAuthority for validation
-    let validation_result = match authority.validate_permission(&wallet, &req.permission, &context).await {
+    // Use UnifiedPermissionService for validation
+    let is_valid = match permission_service.has_permission(&wallet, &req.permission).await {
         Ok(result) => result,
         Err(e) => {
             tracing::error!("Failed to validate permission: {}", e);
@@ -169,22 +165,34 @@ pub async fn validate_permission(
         }
     };
 
-    let is_valid = validation_result.granted;
-    let source_group = match &validation_result.source {
-        crate::auth::permission_authority::PermissionSource::Group(name) => Some(name.clone()),
-        _ => None,
+    // Get permission details for source information
+    let source_group = if is_valid {
+        match permission_service.get_wallet_permissions(&wallet).await {
+            Ok(perms) => perms
+                .iter()
+                .find(|p| p.permission_string == req.permission)
+                .and_then(|p| {
+                    if p.source_type == crate::auth::unified_permission_service::PermissionSource::Group {
+                        Some(p.source_name.clone())
+                    } else {
+                        None
+                    }
+                }),
+            Err(_) => None,
+        }
+    } else {
+        None
     };
-    let expires_at = validation_result.expires_at;
 
     // Build validation result
     let validation_result = PermissionValidationResult {
         granted: is_valid,
         reason: if is_valid {
-            "Permission granted by permission group".to_string()
+            "Permission granted".to_string()
         } else {
             "Insufficient permissions".to_string()
         },
-        expires_at,
+        expires_at: None, // Can be enhanced if needed
         source_group: source_group.clone(),
         next_refresh: Some(Utc::now() + chrono::Duration::hours(1)),
     };
@@ -252,21 +260,17 @@ pub async fn validate_bulk_permissions(
     let audit_id = Uuid::new_v4().to_string();
     let wallet = req.wallet_address.to_lowercase();
 
-    // Create CentralizedPermissionAuthority
-    let authority = CentralizedPermissionAuthority::with_defaults(*app_state.db_pool);
-
-    // Create validation context
-    let context = ValidationContext {
-        request_id: req.request_id.clone().unwrap_or_else(|| audit_id.clone()),
-        user_agent: req.user_agent.clone(),
-        ip_address: req.ip_address.clone(),
-        timestamp: Utc::now(),
-        route_path: "/admin/permissions/validate/bulk".to_string(),
-        http_method: "POST".to_string(),
+    // Get permission service from domain container
+    let permission_service = match app_state.domain_container.get_unified_permission_service() {
+        Some(service) => service,
+        None => {
+            tracing::error!("UnifiedPermissionService not available");
+            return AdminResponse::server_error("Permission service unavailable").into_response();
+        }
     };
 
-    // Use CentralizedPermissionAuthority for bulk validation
-    let bulk_result = match authority.bulk_validate_permissions(&wallet, &req.permissions, &context).await {
+    // Use UnifiedPermissionService for bulk validation
+    let batch_result = match permission_service.has_permissions_batch(&wallet, &req.permissions).await {
         Ok(result) => result,
         Err(e) => {
             tracing::error!("Failed to validate bulk permissions: {}", e);
@@ -275,12 +279,18 @@ pub async fn validate_bulk_permissions(
     };
 
     let mut results = HashMap::new();
-    for (permission, perm_result) in &bulk_result.results {
-        results.insert(permission.clone(), perm_result.granted);
+    let mut granted_count = 0;
+    let mut denied_count = 0;
+
+    for (permission, has_perm) in batch_result {
+        if has_perm {
+            granted_count += 1;
+        } else {
+            denied_count += 1;
+        }
+        results.insert(permission, has_perm);
     }
 
-    let granted_count = bulk_result.granted_count;
-    let denied_count = bulk_result.denied_count;
     let overall_valid = denied_count == 0;
 
     tracing::info!(
@@ -371,21 +381,22 @@ pub async fn get_wallet_permissions(
         }
     }).collect();
 
-    // Get effective permissions using CentralizedPermissionAuthority
-    let authority = CentralizedPermissionAuthority::with_defaults(*app_state.db_pool);
-    let wallet_permissions = match authority.get_wallet_permissions(&wallet).await {
+    // Get effective permissions using UnifiedPermissionService
+    let permission_service = match app_state.domain_container.get_unified_permission_service() {
+        Some(service) => service,
+        None => {
+            tracing::error!("UnifiedPermissionService not available");
+            return AdminResponse::server_error("Permission service unavailable").into_response();
+        }
+    };
+
+    let permissions = match permission_service.get_permission_strings(&wallet).await {
         Ok(perms) => perms,
         Err(e) => {
             tracing::error!("Failed to fetch effective permissions: {}", e);
             return AdminResponse::server_error("Failed to retrieve permissions").into_response();
         }
     };
-
-    let permissions: Vec<String> = wallet_permissions
-        .iter()
-        .filter(|p| p.is_active)
-        .map(|p| p.name.clone())
-        .collect();
 
     #[derive(QueryableByName)]
     struct CountRow {
@@ -463,8 +474,8 @@ pub async fn get_wallet_permissions(
 }
 
 // ============================================================================
-// HELPER FUNCTIONS (DEPRECATED - Now using CentralizedPermissionAuthority)
+// HELPER FUNCTIONS
 // ============================================================================
 
-// check_wallet_permission() function removed - replaced by CentralizedPermissionAuthority
-// The authority provides better caching, Web3 support, and unified permission validation
+// All permission validation is now handled by UnifiedPermissionService
+// which provides database-backed caching and audit logging

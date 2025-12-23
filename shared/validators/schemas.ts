@@ -430,7 +430,8 @@ export const isValidEmbeddedPermission = (permission: string): boolean => {
   const parts = permission.split(':');
   if (parts.length !== 4) return false;
 
-  const timestamp = parseInt(parts[3], 10);
+  const timestampStr = parts[3] || '0';
+  const timestamp = parseInt(timestampStr, 10);
   return !isNaN(timestamp) && timestamp > 1000000000; // Valid Unix timestamp
 };
 
@@ -438,7 +439,7 @@ export const isValidEmbeddedPermission = (permission: string): boolean => {
  * Validate email domain
  */
 export const isValidEmailDomain = (email: string, allowedDomains: string[]): boolean => {
-  const domain = email.split('@')[1];
+  const domain = email.split('@')[1] || '';
   return allowedDomains.includes(domain);
 };
 

@@ -27,7 +27,7 @@ export function formatEPSGrowth(growth: number): string {
 /**
  * Short alias for EPS growth formatting
  */
-export const epsGr = (growth: number | null | undefined): string => 
+export const epsGr = (growth: number | null | undefined): string =>
   growth === null || growth === undefined ? 'N/A' : `${growth > 0 ? '+' : ''}${growth}%`
 
 /**
@@ -125,7 +125,7 @@ export function getGrowthIndicator(growthPercent: number): { emoji: string; colo
     }
   } else if (growthPercent < 0) {
     return {
-      emoji: '📉', 
+      emoji: '📉',
       color: 'text-red-600 dark:text-red-400',
       isPositive: false
     }
@@ -143,7 +143,8 @@ export function getGrowthIndicator(growthPercent: number): { emoji: string; colo
  */
 export function parseJWT(token: string): any {
   try {
-    const base64Url = token.split('.')[1]
+    const parts = token.split('.');
+    const base64Url = parts[1] || '';
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')
     const jsonPayload = decodeURIComponent(
       atob(base64)
@@ -190,7 +191,7 @@ export function generateSimpleId(): string {
  */
 export async function copyToClipboard(text: string): Promise<boolean> {
   if (typeof window === 'undefined') return false
-  
+
   try {
     await navigator.clipboard.writeText(text)
     return true

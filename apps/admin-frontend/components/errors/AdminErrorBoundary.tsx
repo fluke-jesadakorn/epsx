@@ -66,7 +66,7 @@ export class AdminErrorBoundary extends Component<Props, State> {
    * @param error
    * @param errorInfo
    */
-  componentDidCatch(error: Error, errorInfo: any) {
+  override componentDidCatch(error: Error, errorInfo: any) {
     // eslint-disable-next-line no-console
     console.error('AdminErrorBoundary caught an error:', error, errorInfo);
     
@@ -96,7 +96,7 @@ export class AdminErrorBoundary extends Component<Props, State> {
   /**
    *
    */
-  render() {
+  override render() {
     if (this.state.hasError) {
       // If we have a structured API error, use the permission error UI
       if (this.state.apiError) {

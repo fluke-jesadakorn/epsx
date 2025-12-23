@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from '@/components/ui';
 // Note: OIDC logout handled by server-side auth flow
+import { Badge, Button } from '@/components/ui';
 import {
   BarChart3,
   Lock,
@@ -18,7 +19,6 @@ import {
   User,
 } from 'lucide-react';
 import Link from 'next/link';
-import { Badge, Button } from '@/components/ui';
 
 interface DashboardClientProps {
   user: any;
@@ -64,7 +64,7 @@ export function DashboardClient({ user, permissions, dashboardData: _dashboardDa
               className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-300 dark:border-emerald-400/30 text-green-700 dark:text-emerald-300 px-4 py-2 text-sm font-semibold"
             >
               <Shield className="w-4 h-4 mr-2" />
-              Role: {permissions.role}
+              Group: {permissions.role}
             </Badge>
           </div>
         </div>
@@ -215,14 +215,14 @@ export function DashboardClient({ user, permissions, dashboardData: _dashboardDa
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
                   <span className="text-lg font-semibold text-gray-700 dark:text-gray-200">
-                    Role:
+                    Group:
                   </span>
                   <Badge className="bg-gradient-to-r from-indigo-500 to-violet-500 text-white px-4 py-2 text-sm font-semibold shadow-lg">
                     {permissions.role}
                   </Badge>
                 </div>
                 {permissions.permissions &&
-                permissions.permissions.length > 0 ? (
+                  permissions.permissions.length > 0 ? (
                   <div className="space-y-2">
                     <h4 className="font-medium text-gray-700 dark:text-gray-200">
                       🎯 Permissions:

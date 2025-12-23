@@ -230,29 +230,12 @@ export async function clearSession(): Promise<void> {
   }
 }
 
-// ============================================================================
-// DEPRECATED: Permission Check Functions  
-// Backend handles all permission enforcement via JWT middleware
-// These are kept for backward compatibility but always return true
-// ============================================================================
-
-/**
- * @deprecated Backend handles permission enforcement. This always returns true.
- * Check if user has specific admin permission
- * @param permission
- */
+// Permission check stubs - Backend handles all enforcement via JWT middleware
 export async function hasAdminPermission(_permission: string): Promise<boolean> {
-  console.warn('[DEPRECATED] hasAdminPermission() - Permission enforcement moved to backend. This always returns true.');
   return true;
 }
 
-/**
- * @deprecated Backend handles permission enforcement. This always returns true.
- * Check if user has specific permission
- * @param permission
- */
 export async function hasPermission(_permission: string): Promise<boolean> {
-  console.warn('[DEPRECATED] hasPermission() - Permission enforcement moved to backend. This always returns true.');
   return true;
 }
 

@@ -202,7 +202,8 @@ export class UserSessionValidator {
         ENTERPRISE: ['view_eps', 'export_data', 'realtime', 'profile', 'notifications', 'billing', 'advanced_filters']
       }
 
-      return featuresByTier[user.packageTier ?? 'FREE'] ?? featuresByTier['FREE']
+      const tier = user.packageTier ?? 'FREE'
+      return (featuresByTier[tier] ?? featuresByTier['FREE']) || []
     } catch (error) {
       console.error('Failed to get available features:', error)
       return ['view_eps', 'profile'] // Safe fallback

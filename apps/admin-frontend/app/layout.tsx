@@ -8,6 +8,9 @@ import { Metadata, Viewport } from 'next';
 
 import './globals.css';
 
+// Force dynamic rendering to avoid context issues during static prerendering
+export const dynamic = 'force-dynamic';
+
 import { LayoutWrapper } from '@/components/layout/LayoutWrapper';
 import { ClientProviders } from '@/components/providers/ClientProviders';
 import { ErrorBoundary } from '@/components/providers/ErrorBoundary';

@@ -39,13 +39,13 @@ export const useIAMStats = () => {
           totalUsers: analyticsData.total_users,
           activeSubscriptions: analyticsData.active_users,
           permissionProfiles: Object.keys(analyticsData.package_distribution).length,
-          userGrowth: { 
-            value: Math.abs(analyticsData.user_growth), 
-            isPositive: analyticsData.user_growth >= 0 
+          userGrowth: {
+            value: Math.abs(analyticsData.user_growth),
+            isPositive: analyticsData.user_growth >= 0
           },
-          subscriptionGrowth: { 
-            value: Math.abs(analyticsData.active_users - analyticsData.total_users * 0.8), 
-            isPositive: analyticsData.active_users >= analyticsData.total_users * 0.8 
+          subscriptionGrowth: {
+            value: Math.abs(analyticsData.active_users - analyticsData.total_users * 0.8),
+            isPositive: analyticsData.active_users >= analyticsData.total_users * 0.8
           },
           permissionProfileGrowth: { value: 3, isPositive: true },
         };
@@ -54,7 +54,7 @@ export const useIAMStats = () => {
       } catch (_error) {
         // eslint-disable-next-line no-console
         console.error('Failed to fetch IAM stats', {
-          error: _error instanceof Error ? _error.message : String(error),
+          error: _error instanceof Error ? _error.message : String(_error),
         });
         // Set fallback values
         setStats({

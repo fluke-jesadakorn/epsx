@@ -1,23 +1,23 @@
 'use client';
 
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Minus, 
-  Loader2, 
+import {
   AlertTriangle,
+  Loader2,
+  Minus,
+  RotateCcw,
+  TrendingDown,
+  TrendingUp,
   Wifi,
-  WifiOff,
-  RotateCcw
+  WifiOff
 } from 'lucide-react';
 import Link from 'next/link';
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
-import { 
-  TileData, 
-  TILE_SIZE_CLASSES, 
+import {
   TILE_COLOR_CLASSES,
-  TileActionData 
+  TILE_SIZE_CLASSES,
+  TileActionData,
+  TileData
 } from './types';
 
 import { useSmartPolling } from '@/hooks/useSmartPolling';
@@ -44,7 +44,7 @@ export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
   const [showDetails, setShowDetails] = useState(false);
   const previousValueRef = useRef(tile.value);
   const flipTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // Smart polling for real-time data if fetcher is provided
   const {
     data,
@@ -62,10 +62,12 @@ export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
       customInterval: tile.refreshInterval,
       onSuccess: (newData) => {
         // Trigger flip animation if value changed significantly
-        if (newData?.value !== undefined && newData.value !== previousValueRef.current) {
+        const data = newData as Record<string, unknown> | null;
+        const newValue = data?.value as string | number | undefined;
+        if (newValue !== undefined && newValue !== previousValueRef.current) {
           setIsFlipping(true);
-          previousValueRef.current = newData.value;
-          
+          previousValueRef.current = newValue;
+
           flipTimeoutRef.current = setTimeout(() => setIsFlipping(false), 600);
         }
       },
@@ -94,7 +96,7 @@ export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
       // Navigation will be handled by Link component
       return;
     }
-    
+
     onClick?.(tile, {
       type: 'action',
       payload: currentData
@@ -108,18 +110,18 @@ export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
   };
 
   const handleRefresh = (e: React.MouseEvent) => {
-    e.preventDefault(); 
+    e.preventDefault();
     e.stopPropagation();
     refresh();
   };
 
   const renderTrend = () => {
-    if (!tile.trend) {return null;}
-    
+    if (!tile.trend) { return null; }
+
     const { direction, value, percentage, period } = tile.trend;
     const TrendIcon = direction === 'up' ? TrendingUp : direction === 'down' ? TrendingDown : Minus;
     const trendColor = direction === 'up' ? 'text-green-300' : direction === 'down' ? 'text-red-300' : 'text-gray-300';
-    
+
     return (
       <div className={`flex items-center gap-1 text-xs ${trendColor}`}>
         <TrendIcon className="h-3 w-3" />
@@ -129,13 +131,13 @@ export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
   };
 
   const renderProgressBar = () => {
-    if (!tile.showProgress || !tile.metadata?.progress) {return null;}
-    
+    if (!tile.showProgress || !tile.metadata?.progress) { return null; }
+
     const progress = Math.min(Math.max(tile.metadata.progress, 0), 100);
-    
+
     return (
       <div className="absolute bottom-0 left-0 right-0 h-1 bg-black/20 rounded-b-xl overflow-hidden">
-        <div 
+        <div
           className="h-full bg-white/40"
           style={{ width: `${progress}%` }}
         />
@@ -207,7 +209,7 @@ export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
               <p className="text-xs opacity-75 truncate">{tile.subtitle}</p>
             )}
           </div>
-          
+
           {/* Icon */}
           <div className={`p-2 rounded-lg ${colorClasses.accent} ml-2 flex-shrink-0`}>
             <tile.icon className="h-4 w-4" />
@@ -217,13 +219,13 @@ export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
         {/* Value Display */}
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-              <div className="text-2xl font-bold">
-                {typeof currentData.value === 'number' && currentData.value > 999 
-                  ? (currentData.value / 1000).toFixed(1) + 'K'
-                  : currentData.value}
-              </div>
-              {renderTrend()}
+            <div className="text-2xl font-bold">
+              {typeof currentData.value === 'number' && currentData.value > 999
+                ? (currentData.value / 1000).toFixed(1) + 'K'
+                : currentData.value}
             </div>
+            {renderTrend()}
+          </div>
         </div>
 
         {/* Footer */}
@@ -236,7 +238,7 @@ export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
               })}
             </span>
           )}
-          
+
           {tile.isRealTime && fetcher && (
             <button
               onClick={handleRefresh}
@@ -282,10 +284,10 @@ export function LiveTile({ tile, fetcher, onClick, className }: LiveTileProps) {
  *
  * @param props
  */
-export function UserStatsTile(props: Omit<LiveTileProps, 'tile'> & { 
-  userCount: number; 
-  activeCount: number; 
-  trend?: any 
+export function UserStatsTile(props: Omit<LiveTileProps, 'tile'> & {
+  userCount: number;
+  activeCount: number;
+  trend?: any
 }) {
   const tile: TileData = {
     id: 'user-stats',
@@ -309,13 +311,13 @@ export function UserStatsTile(props: Omit<LiveTileProps, 'tile'> & {
  *
  * @param props
  */
-export function SecurityAlertsTile(props: Omit<LiveTileProps, 'tile'> & { 
-  alertCount: number; 
-  severity: 'low' | 'medium' | 'high' | 'critical' 
+export function SecurityAlertsTile(props: Omit<LiveTileProps, 'tile'> & {
+  alertCount: number;
+  severity: 'low' | 'medium' | 'high' | 'critical'
 }) {
   const colors = {
     low: 'success' as const,
-    medium: 'warning' as const, 
+    medium: 'warning' as const,
     high: 'error' as const,
     critical: 'error' as const
   };
@@ -341,7 +343,7 @@ export function SecurityAlertsTile(props: Omit<LiveTileProps, 'tile'> & {
  *
  * @param props
  */
-export function AnalyticsTile(props: Omit<LiveTileProps, 'tile'> & { 
+export function AnalyticsTile(props: Omit<LiveTileProps, 'tile'> & {
   metric: string;
   value: string | number;
   trend?: any;

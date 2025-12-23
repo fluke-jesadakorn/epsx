@@ -1,50 +1,36 @@
 /**
  * Permission-Centric Web3-First Authentication Service
- * Core philosophy: Permissions are the product, Web3 wallet is the identity
- * Provides sophisticated permission-aware authentication with granular access control
+ * Core philosophy: Backend is THE authority for permissions
+ * Frontend only displays backend-provided group and handles errors
  */
 
 import { logger as authLogger, safeError } from '@/lib/shared';
 import { createFrontendClient, SharedWeb3AuthClient, UserInfoResponse } from '@/shared/auth/client';
 import React from 'react';
 
-// 🔒 SECURITY CRITICAL: Backend permission authority removed - permissions handled by backend only
-
-// Simple group derivation (for display only)
-export function deriveGroupFromPermissions(permissions: string[]): string {
-  if (permissions.some(p => p.includes('admin:'))) return 'Admin';
-  if (permissions.some(p => p.includes('premium') || p.includes('platinum'))) return 'Premium';
-  if (permissions.some(p => p.includes('gold'))) return 'Gold';
-  if (permissions.some(p => p.includes('silver'))) return 'Silver';
-  return 'Basic';
-}
-
-/**
- * @deprecated Use deriveGroupFromPermissions instead
- */
-export const derivePermissionGroupFromPermissions = deriveGroupFromPermissions;
+// 🔒 SECURITY CRITICAL: All permission logic handled by backend
+// Frontend only receives group and handles access-denied errors
 
 // Permission-centric user interface - Web3-first
 export interface PermissionAwareUser {
   // Identity (Web3-first)
-  id: string; // Wallet address or user ID
-  walletAddress?: string; // Primary identity for Web3 users
-  email?: string; // Optional for Web3-only users
+  id: string;
+  walletAddress?: string;
+  email?: string;
   name?: string;
   photoURL?: string;
   emailVerified: boolean;
 
-  // Basic permissions - handled by backend
-  permissions: string[]; // Simple permission list
+  // Permissions from backend
+  permissions: string[];
 
-  // Derived permission-based attributes
-  group: string; // Derived from permissions
-  /** @deprecated Use group instead */
-  permissionGroup: string;
-  accessiblePlatforms: string[]; // Derived from permissions
-  role: string; // Derived from permissions
+  // Group from backend: 'user', 'admin', 'super_admin'
+  group: string;
 
-  // Analytics and access tracking
+  // Platforms derived from permissions
+  accessiblePlatforms: string[];
+
+  // Feature access (from backend)
   featureAccess: {
     analytics: boolean;
     export: boolean;
@@ -72,7 +58,7 @@ interface BackendUserData {
   displayName?: string;
   photoURL?: string;
   emailVerified?: boolean;
-  role?: string;
+  group?: string;
   granular_permissions?: string[];
   createdAt?: string;
   lastLogin?: string;
@@ -273,32 +259,33 @@ export class PermissionAwareAuthService {
   // Transform Web3 user to permission-aware user format
   private transformWeb3UserToPermissionAware(web3User: UserInfoResponse): PermissionAwareUser {
     const permissions: string[] = web3User.permissions || [];
+    // Use backend-provided group directly
+    const group = (web3User as any).group || 'user';
+    const isAdmin = (web3User as any).is_admin ?? permissions.some(p => p.startsWith('admin:'));
 
     return {
       // Identity (Web3-first)
       id: web3User.sub,
       walletAddress: web3User.wallet_address,
       email: web3User.email,
-      name: web3User.wallet_address, // Use wallet address as display name
+      name: web3User.wallet_address,
       photoURL: undefined,
       emailVerified: !!web3User.email,
 
       // Core permissions (from Web3 backend)
       permissions,
 
-      // Derived attributes (permission-based derivation)
-      group: deriveGroupFromPermissions(permissions),
-      permissionGroup: deriveGroupFromPermissions(permissions),
+      // Use backend-provided group
+      group,
       accessiblePlatforms: derivePlatformsFromPermissions(permissions),
-      role: deriveRoleFromPermissions(permissions),
 
-      // Feature access (derived from permissions)
+      // Feature access (derived from is_admin)
       featureAccess: {
-        analytics: permissions.some(p => p.includes('analytics') || p.includes('epsx:')),
-        export: permissions.some(p => p.includes('export') || p.includes('epsx:')),
-        realtime: permissions.some(p => p.includes('realtime') || p.includes('epsx:')),
-        advancedFilters: permissions.some(p => p.includes('advanced') || p.includes('epsx:')),
-        admin: permissions.some(p => p.startsWith('admin:'))
+        analytics: true,
+        export: true,
+        realtime: true,
+        advancedFilters: true,
+        admin: isAdmin
       },
 
       // Timestamps
@@ -313,11 +300,10 @@ export class PermissionAwareAuthService {
 
   // Transform backend data to permission-aware user format (legacy support)
   private transformToPermissionAwareUser(userData: BackendUserData): PermissionAwareUser {
-    // Use simple permissions array
     const permissions: string[] = userData.granular_permissions || [];
-
-    // Determine auth method
     const authMethod = userData.wallet_address ? 'web3' : 'oidc';
+    // Use backend-provided group
+    const group = userData.group || 'user';
 
     return {
       // Identity (Web3-first)
@@ -331,11 +317,9 @@ export class PermissionAwareAuthService {
       // Core permissions (handled by backend)
       permissions,
 
-      // Derived attributes (permission-based derivation)
-      group: deriveGroupFromPermissions(permissions),
-      permissionGroup: deriveGroupFromPermissions(permissions),
+      // Use backend-provided group
+      group,
       accessiblePlatforms: derivePlatformsFromPermissions(permissions),
-      role: deriveRoleFromPermissions(permissions),
 
       // Feature access (handled by backend)
       featureAccess: {
@@ -343,7 +327,7 @@ export class PermissionAwareAuthService {
         export: true,
         realtime: true,
         advancedFilters: true,
-        admin: userData.role === 'admin'
+        admin: group === 'admin' || group === 'super_admin'
       },
 
       // Timestamps
@@ -673,16 +657,9 @@ This warning will be removed when local validation is fully deprecated.
     return { status: 'healthy', message: 'Permission system handled by backend' };
   }
 
-  // Legacy compatibility
+  // Get user group (from backend)
   getGroup(): string {
-    return this.currentUser?.group || 'Basic Access Group';
-  }
-
-  /**
-   * @deprecated Use getGroup instead
-   */
-  getPermissionGroup(): string {
-    return this.getGroup();
+    return this.currentUser?.group || 'user';
   }
 
   getAccessiblePlatforms(): string[] {
@@ -705,26 +682,7 @@ export function usePermissionAuth(): PermissionAuthContextValue {
   return context;
 }
 
-// Permission-based derivation helpers - using shared utility
-// Removed local implementation in favor of shared derivePermissionGroupFromPermissions
-
-function deriveRoleFromPermissions(permissions: string[]): string {
-  // Admin role - highest priority
-  if (permissions.some(p => p === "admin:*:*" || p.startsWith("admin:"))) {
-    return "admin";
-  }
-
-  // Premium user role
-  if (permissions.some(p =>
-    p === "epsx:analytics:premium" ||
-    p === "epsx:analytics:professional"
-  )) {
-    return "premium_user";
-  }
-
-  // Default user role
-  return "user";
-}
+// Derives platforms from permissions (kept for accessiblePlatforms field)
 
 function derivePlatformsFromPermissions(permissions: string[]): string[] {
   const platformSet = new Set<string>();

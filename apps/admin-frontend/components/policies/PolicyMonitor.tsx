@@ -1,23 +1,23 @@
 'use client';
 
-import { 
-  ActivityIcon, 
-  ShieldIcon, 
-  PlayIcon,
-  PauseIcon,
-  RefreshCwIcon,
-  FilterIcon,
-  DownloadIcon,
+import {
+  ActivityIcon,
   AlertTriangleIcon,
+  BarChart3Icon,
   CheckCircleIcon,
   ClockIcon,
-  UserIcon,
-  BarChart3Icon,
-  TrendingUpIcon,
+  DownloadIcon,
+  FilterIcon,
+  PauseIcon,
+  PlayIcon,
+  RefreshCwIcon,
+  ShieldIcon,
   TrendingDownIcon,
+  TrendingUpIcon,
+  UserIcon,
   ZapIcon,
 } from 'lucide-react';
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -58,7 +58,7 @@ interface PolicyPerformance {
 
 const DECISION_COLORS = {
   allow: 'green',
-  deny: 'red', 
+  deny: 'red',
   require_mfa: 'yellow',
   require_approval: 'orange',
   restricted_access: 'purple',
@@ -86,14 +86,14 @@ export default function PolicyMonitor() {
 
   useEffect(() => {
     loadInitialData();
-    
+
     let interval: NodeJS.Timeout;
     if (isLiveMode) {
       interval = setInterval(refreshLiveData, 2000); // Update every 2 seconds
     }
-    
+
     return () => {
-      if (interval) {clearInterval(interval);}
+      if (interval) { clearInterval(interval); }
     };
   }, [isLiveMode]);
 
@@ -168,7 +168,7 @@ export default function PolicyMonitor() {
           policy_name: 'Risk Control',
         },
       ];
-      
+
       setLiveEvaluations(mockEvaluations);
     } catch (_error) {
       // eslint-disable-next-line no-console
@@ -184,17 +184,17 @@ export default function PolicyMonitor() {
           id: Date.now().toString(),
           user_id: `user${Math.floor(Math.random() * 10)}`,
           user_email: `user${Math.floor(Math.random() * 10)}@epsx.io`,
-          action_attempted: ['epsx:trading:execute', 'epsx:analytics:view', 'epsx:portfolio:export'][Math.floor(Math.random() * 3)],
-          decision: ['allow', 'deny', 'require_mfa', 'require_approval'][Math.floor(Math.random() * 4)] as any,
+          action_attempted: (['epsx:trading:execute', 'epsx:analytics:view', 'epsx:portfolio:export'][Math.floor(Math.random() * 3)] || 'epsx:analytics:view'),
+          decision: (['allow', 'deny', 'require_mfa', 'require_approval'][Math.floor(Math.random() * 4)] as any || 'allow'),
           decision_reason: 'Policy evaluation completed',
           evaluation_time_ms: Math.floor(Math.random() * 50) + 5,
           evaluated_at: new Date().toISOString(),
-          policy_name: ['Trading Hours', 'Risk Control', 'Data Export'][Math.floor(Math.random() * 3)],
+          policy_name: (['Trading Hours', 'Risk Control', 'Data Export'][Math.floor(Math.random() * 3)] || 'Trading Hours'),
         };
-        
+
         setLiveEvaluations(prev => [newEvaluation, ...prev.slice(0, 19)]); // Keep last 20
       }
-      
+
       setLastUpdate(new Date());
     } catch (_error) {
       // eslint-disable-next-line no-console
@@ -204,7 +204,7 @@ export default function PolicyMonitor() {
 
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString('en-US', { 
+    return date.toLocaleTimeString('en-US', {
       hour12: false,
       hour: '2-digit',
       minute: '2-digit',
@@ -215,12 +215,12 @@ export default function PolicyMonitor() {
   const getDecisionBadge = (decision: string) => {
     const color = DECISION_COLORS[decision as keyof typeof DECISION_COLORS] || 'gray';
     const Icon = DECISION_ICONS[decision as keyof typeof DECISION_ICONS] || ActivityIcon;
-    
+
     let variant: "default" | "destructive" | "outline" | "secondary" = "outline";
-    if (decision === 'allow') {variant = 'default';}
-    if (decision === 'deny') {variant = 'destructive';}
-    if (decision === 'require_mfa') {variant = 'secondary';}
-    
+    if (decision === 'allow') { variant = 'default'; }
+    if (decision === 'deny') { variant = 'destructive'; }
+    if (decision === 'require_mfa') { variant = 'secondary'; }
+
     return (
       <Badge variant={variant} className="flex items-center gap-1 text-xs">
         <Icon className="h-3 w-3" />
@@ -258,15 +258,15 @@ export default function PolicyMonitor() {
             {isLiveMode ? 'LIVE' : 'PAUSED'}
           </Badge>
         </div>
-        
+
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full lg:w-auto">
           <span className="text-sm text-gray-500 text-center sm:text-left">
             Last update: {lastUpdate.toLocaleTimeString()}
           </span>
-          
+
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               size="sm"
               onClick={() => setIsLiveMode(!isLiveMode)}
               className="min-h-[44px] justify-center"
@@ -283,9 +283,9 @@ export default function PolicyMonitor() {
                 </>
               )}
             </Button>
-            
-            <Button 
-              variant="outline" 
+
+            <Button
+              variant="outline"
               size="sm"
               onClick={loadInitialData}
               className="min-h-[44px] justify-center"
@@ -293,8 +293,8 @@ export default function PolicyMonitor() {
               <RefreshCwIcon className="h-4 w-4 mr-2" />
               Refresh
             </Button>
-            
-            <Button 
+
+            <Button
               size="sm"
               disabled
               className="min-h-[44px] justify-center"
@@ -318,7 +318,7 @@ export default function PolicyMonitor() {
               </div>
             </div>
           </Card>
-          
+
           <Card className="p-3 sm:p-4">
             <div className="flex items-center gap-2">
               <BarChart3Icon className="h-4 w-4 text-green-600 flex-shrink-0" />
@@ -328,7 +328,7 @@ export default function PolicyMonitor() {
               </div>
             </div>
           </Card>
-          
+
           <Card className="p-3 sm:p-4">
             <div className="flex items-center gap-2">
               <ZapIcon className="h-4 w-4 text-orange-600 flex-shrink-0" />
@@ -338,7 +338,7 @@ export default function PolicyMonitor() {
               </div>
             </div>
           </Card>
-          
+
           <Card className="p-3 sm:p-4">
             <div className="flex items-center gap-2">
               <CheckCircleIcon className="h-4 w-4 text-green-600 flex-shrink-0" />
@@ -350,7 +350,7 @@ export default function PolicyMonitor() {
               </div>
             </div>
           </Card>
-          
+
           <Card className="p-3 sm:p-4">
             <div className="flex items-center gap-2">
               <AlertTriangleIcon className="h-4 w-4 text-red-600 flex-shrink-0" />
@@ -362,7 +362,7 @@ export default function PolicyMonitor() {
               </div>
             </div>
           </Card>
-          
+
           <Card className="p-3 sm:p-4">
             <div className="flex items-center gap-2">
               <ClockIcon className="h-4 w-4 text-yellow-600 flex-shrink-0" />
@@ -370,7 +370,7 @@ export default function PolicyMonitor() {
                 <p className="text-xs sm:text-sm text-gray-600">Pending</p>
                 <p className="text-lg sm:text-xl font-semibold">
                   {calculatePercentage(
-                    (stats.decision_breakdown.require_approval || 0) + (stats.decision_breakdown.require_mfa || 0), 
+                    (stats.decision_breakdown.require_approval || 0) + (stats.decision_breakdown.require_mfa || 0),
                     stats.evaluations_24h
                   )}%
                 </p>
@@ -392,7 +392,7 @@ export default function PolicyMonitor() {
               <span className="text-sm text-gray-500">(refreshing every 2s)</span>
             )}
           </div>
-          
+
           <div className="flex items-center gap-3 w-full sm:w-auto">
             <Button variant="outline" size="sm" disabled className="w-full sm:w-auto min-h-[44px]">
               <FilterIcon className="h-4 w-4 mr-2" />
@@ -400,7 +400,7 @@ export default function PolicyMonitor() {
             </Button>
           </div>
         </div>
-        
+
         <div className="space-y-2 max-h-96 overflow-y-auto">
           {/* Desktop Header */}
           <div className="hidden lg:grid grid-cols-12 gap-2 px-3 py-2 text-xs font-medium text-gray-600 border-b">
@@ -411,42 +411,41 @@ export default function PolicyMonitor() {
             <div className="col-span-2">Decision</div>
             <div className="col-span-2">Details</div>
           </div>
-          
+
           {liveEvaluations.map((evaluation, index) => (
             <div key={evaluation.id}>
               {/* Desktop Layout */}
-              <div 
-                className={`hidden lg:grid grid-cols-12 gap-2 px-3 py-2 text-sm hover:bg-gray-50 rounded ${
-                  index === 0 && isLiveMode ? 'bg-blue-50 border-l-4 border-blue-500' : ''
-                }`}
+              <div
+                className={`hidden lg:grid grid-cols-12 gap-2 px-3 py-2 text-sm hover:bg-gray-50 rounded ${index === 0 && isLiveMode ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                  }`}
               >
                 <div className="col-span-1 font-mono text-xs">
                   {formatTime(evaluation.evaluated_at)}
                 </div>
-                
+
                 <div className="col-span-2">
                   <div className="flex items-center gap-1">
                     <UserIcon className="h-3 w-3 text-gray-400" />
                     <span className="truncate">{evaluation.user_email}</span>
                   </div>
                 </div>
-                
+
                 <div className="col-span-3">
                   <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
                     {evaluation.action_attempted}
                   </span>
                 </div>
-                
+
                 <div className="col-span-2">
                   <span className="text-xs text-gray-600">
                     {evaluation.policy_name || 'Unknown'}
                   </span>
                 </div>
-                
+
                 <div className="col-span-2">
                   {getDecisionBadge(evaluation.decision)}
                 </div>
-                
+
                 <div className="col-span-2">
                   <div className="flex items-center gap-2 text-xs text-gray-500">
                     <ClockIcon className="h-3 w-3" />
@@ -454,10 +453,9 @@ export default function PolicyMonitor() {
                   </div>
                 </div>
               </div>
-              
+
               {/* Mobile Layout */}
-              <div className={`lg:hidden p-3 rounded border bg-white hover:bg-gray-50 ${
-                  index === 0 && isLiveMode ? 'bg-blue-50 border-blue-200' : 'border-gray-200'
+              <div className={`lg:hidden p-3 rounded border bg-white hover:bg-gray-50 ${index === 0 && isLiveMode ? 'bg-blue-50 border-blue-200' : 'border-gray-200'
                 }`}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
@@ -468,13 +466,13 @@ export default function PolicyMonitor() {
                     {formatTime(evaluation.evaluated_at)}
                   </span>
                 </div>
-                
+
                 <div className="mb-2">
                   <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded break-all">
                     {evaluation.action_attempted}
                   </span>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col gap-1">
                     <span className="text-xs text-gray-600">
@@ -492,7 +490,7 @@ export default function PolicyMonitor() {
               </div>
             </div>
           ))}
-          
+
           {liveEvaluations.length === 0 && (
             <div className="text-center py-8 sm:py-12 text-gray-500">
               <ActivityIcon className="h-8 w-8 sm:h-12 sm:w-12 mx-auto mb-4 text-gray-300" />
@@ -508,22 +506,22 @@ export default function PolicyMonitor() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           <Card className="p-4 sm:p-6">
             <h3 className="text-base sm:text-lg font-medium mb-4">Decision Breakdown (24h)</h3>
-            
+
             <div className="space-y-3">
               {Object.entries(stats.decision_breakdown).map(([decision, count]) => {
                 const percentage = calculatePercentage(count, stats.evaluations_24h);
                 const Icon = DECISION_ICONS[decision as keyof typeof DECISION_ICONS] || ActivityIcon;
-                
+
                 return (
                   <div key={decision} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-0">
                     <div className="flex items-center gap-2">
                       <Icon className="h-4 w-4 text-gray-600" />
                       <span className="text-sm capitalize">{decision.replace('_', ' ')}</span>
                     </div>
-                    
+
                     <div className="flex items-center gap-2">
                       <div className="w-20 sm:w-24 bg-gray-200 rounded-full h-2">
-                        <div 
+                        <div
                           className="bg-blue-600 h-2 rounded-full"
                           style={{ width: `${percentage}%` }}
                         />
@@ -540,7 +538,7 @@ export default function PolicyMonitor() {
 
           <Card className="p-4 sm:p-6">
             <h3 className="text-base sm:text-lg font-medium mb-4">Performance Trends</h3>
-            
+
             <div className="space-y-3 sm:space-y-4">
               <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
                 <div className="flex items-center gap-2">
@@ -552,7 +550,7 @@ export default function PolicyMonitor() {
                   <div className="text-xs text-green-600">vs last week</div>
                 </div>
               </div>
-              
+
               <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                 <div className="flex items-center gap-2">
                   <ZapIcon className="h-4 w-4 text-blue-600" />
@@ -563,7 +561,7 @@ export default function PolicyMonitor() {
                   <div className="text-xs text-blue-600">avg evaluation</div>
                 </div>
               </div>
-              
+
               <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
                 <div className="flex items-center gap-2">
                   <TrendingDownIcon className="h-4 w-4 text-orange-600" />
@@ -585,7 +583,7 @@ export default function PolicyMonitor() {
           <AlertTriangleIcon className="h-5 w-5 text-yellow-600" />
           <h3 className="text-base sm:text-lg font-medium">Alert & Notification Center</h3>
         </div>
-        
+
         <div className="space-y-3">
           <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -597,7 +595,7 @@ export default function PolicyMonitor() {
               <span className="text-xs text-red-600 self-end sm:self-auto">2m ago</span>
             </div>
           </div>
-          
+
           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-start sm:items-center gap-2">
@@ -608,7 +606,7 @@ export default function PolicyMonitor() {
               <span className="text-xs text-yellow-600 self-end sm:self-auto">5m ago</span>
             </div>
           </div>
-          
+
           <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div className="flex items-start sm:items-center gap-2">

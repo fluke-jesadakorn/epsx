@@ -5,7 +5,7 @@
  * Comprehensive enterprise user and tier management for admins
  */
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { useAuth } from '@/lib/auth';
 
@@ -59,25 +59,33 @@ interface PermissionTemplate {
  *
  */
 export default function EnterpriseManagementDashboard() {
-  const { user, canManageUsers, canViewAnalytics } = useAuth();
-  const canManageEnterprise = () => true; // Stubbed for build compatibility
-  
+  const { wallet } = useAuth();
+
+  const permissions = wallet?.permissions || [];
+  const hasPermission = (perm: string) => permissions.some((p: string) =>
+    p === perm || p === '*:*:*' || (p.startsWith(perm.split(':')[0] || '') && p.endsWith('*:*'))
+  );
+
+  const canManageUsers = () => hasPermission('admin:users:manage') || hasPermission('admin:*:*');
+  const canViewAnalytics = () => hasPermission('admin:analytics:view') || hasPermission('admin:*:*');
+  const canManageEnterprise = () => hasPermission('admin:enterprise:manage') || hasPermission('admin:*:*');
+
   // State management
   const [activeTab, setActiveTab] = useState<'users' | 'tiers' | 'analytics' | 'permissions'>('users');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Data state
   const [enterpriseUsers, setEnterpriseUsers] = useState<EnterpriseUser[]>([]);
   const [tierConfigs, setTierConfigs] = useState<TierConfig[]>([]);
   const [analytics, setAnalytics] = useState<EnterpriseAnalytics | null>(null);
   const [permissionTemplates, setPermissionTemplates] = useState<PermissionTemplate[]>([]);
-  
+
   // Filter and search state
   const [searchTerm, setSearchTerm] = useState('');
   const [tierFilter, setTierFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  
+
   // Form state
   const [selectedUser, setSelectedUser] = useState<EnterpriseUser | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -163,13 +171,13 @@ export default function EnterpriseManagementDashboard() {
   };
 
   const filteredUsers = enterpriseUsers.filter(user => {
-    const matchesSearch = searchTerm === '' || 
+    const matchesSearch = searchTerm === '' ||
       user.wallet_address.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.enterprise_tier.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesTier = tierFilter === 'all' || user.enterprise_tier === tierFilter;
     const matchesStatus = statusFilter === 'all' || user.subscription_status === statusFilter;
-    
+
     return matchesSearch && matchesTier && matchesStatus;
   });
 
@@ -266,13 +274,13 @@ export default function EnterpriseManagementDashboard() {
           <p className="text-gray-600 mt-2">
             Manage enterprise users, tiers, and permissions across the Web3 platform
           </p>
-          {user && (
+          {wallet && (
             <div className="mt-4 inline-flex items-center space-x-4">
               <span className="text-sm text-gray-500">
-                Admin: {user.wallet_address?.slice(0, 8)}...{user.wallet_address?.slice(-4)}
+                Admin: {wallet.wallet_address?.slice(0, 8)}...{wallet.wallet_address?.slice(-4)}
               </span>
               <span className="text-sm text-gray-500">
-                Permissions: {user.admin_permissions?.length || 0} active
+                Permissions: {wallet.admin_permissions?.length || 0} active
               </span>
             </div>
           )}
@@ -291,11 +299,10 @@ export default function EnterpriseManagementDashboard() {
                 <button
                   key={tab.key}
                   onClick={() => setActiveTab(tab.key as any)}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                    activeTab === tab.key
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === tab.key
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -476,7 +483,7 @@ export default function EnterpriseManagementDashboard() {
                     </div>
                   </div>
                   <button
-                    onClick={() => {/* Edit tier logic */}}
+                    onClick={() => {/* Edit tier logic */ }}
                     className="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded text-sm hover:bg-blue-700"
                   >
                     Edit Configuration
@@ -591,7 +598,7 @@ export default function EnterpriseManagementDashboard() {
                     </div>
                   </div>
                   <button
-                    onClick={() => {/* Apply template logic */}}
+                    onClick={() => {/* Apply template logic */ }}
                     className="mt-4 w-full bg-green-600 text-white py-2 px-4 rounded text-sm hover:bg-green-700"
                   >
                     Apply Template

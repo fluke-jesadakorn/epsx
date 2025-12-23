@@ -60,13 +60,18 @@ export async function getCurrentUser() {
     }
 
     console.log('✅ [Debug] getCurrentUser: Contenticated successfully');
+    // Use backend-provided role directly (computed server-side)
+    // Backend computes: "user" | "admin" | "super_admin" based on permissions
+    const role = data.role || 'user';
+    const perms = Array.isArray(data.permissions) ? data.permissions : [];
+
     // Map backend response to AuthUser
     return {
       id: data.wallet_address,
       wallet_address: data.wallet_address,
       emailVerified: true, // Wallet is always verified
-      permissions: data.permissions || [],
-      role: data.role || 'user', // Default role if not provided
+      permissions: perms,
+      role: role,
     };
 
   } catch (error) {

@@ -11,27 +11,25 @@
 
 'use client';
 
-import React, { useState, useEffect } from 'react';
 import {
-  MagnifyingGlassIcon,
-  CurrencyDollarIcon,
-  UserGroupIcon,
   ChartBarIcon,
-  ArrowDownTrayIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  CurrencyDollarIcon,
   EyeIcon,
   PencilIcon,
   TrashIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ClockIcon
+  UserGroupIcon,
+  XCircleIcon
 } from '@heroicons/react/24/outline';
+import React, { useEffect, useState } from 'react';
 
 // Import shared types
 import type {
   PaymentResponse,
-  UserSubscription,
-  PermissionTemplateName
-} from '../../../shared/types/payment';
+  PermissionTemplateName,
+  UserSubscription
+} from '@/shared/types/payment';
 
 // Enhanced types for admin interface
 interface AdminPayment extends PaymentResponse {
@@ -66,7 +64,7 @@ interface PaymentFilters {
 
 const PaymentsPage: React.FC = () => {
   const [payments, setPayments] = useState<AdminPayment[]>([]);
-  const [subscriptions, setSubscriptions] = useState<UserSubscription[]>([]);
+  const [_subscriptions, setSubscriptions] = useState<UserSubscription[]>([]);
   const [stats, setStats] = useState<PaymentStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +82,7 @@ const PaymentsPage: React.FC = () => {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(20);
+  const [itemsPerPage, _setItemsPerPage] = useState(20);
 
   // Load payments data
   const loadPayments = async () => {
@@ -304,11 +302,10 @@ const PaymentsPage: React.FC = () => {
         <nav className="flex space-x-8">
           <button
             onClick={() => setSelectedTab('payments')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              selectedTab === 'payments'
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${selectedTab === 'payments'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+              }`}
           >
             <div className="flex items-center space-x-2">
               <CurrencyDollarIcon className="w-4 h-4" />
@@ -318,11 +315,10 @@ const PaymentsPage: React.FC = () => {
 
           <button
             onClick={() => setSelectedTab('subscriptions')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              selectedTab === 'subscriptions'
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${selectedTab === 'subscriptions'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+              }`}
           >
             <div className="flex items-center space-x-2">
               <UserGroupIcon className="w-4 h-4" />
@@ -332,11 +328,10 @@ const PaymentsPage: React.FC = () => {
 
           <button
             onClick={() => setSelectedTab('analytics')}
-            className={`py-2 px-1 border-b-2 font-medium text-sm ${
-              selectedTab === 'analytics'
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${selectedTab === 'analytics'
                 ? 'border-blue-500 text-blue-600'
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
+              }`}
           >
             <div className="flex items-center space-x-2">
               <ChartBarIcon className="w-4 h-4" />

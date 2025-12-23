@@ -11,17 +11,14 @@ import { DataManagement } from './DataManagement';
 import { EmailManagement } from './EmailManagement';
 import { Web3Integration } from './Web3Integration';
 
-// Simple group helpers (for display only)
-function deriveGroupFromPermissions(permissions: string[]): string {
-  if (permissions.some(p => p.includes('admin:'))) return 'Admin';
-  if (permissions.some(p => p.includes('premium') || p.includes('platinum'))) return 'Premium';
-  if (permissions.some(p => p.includes('gold'))) return 'Gold';
-  if (permissions.some(p => p.includes('silver'))) return 'Silver';
-  return 'Basic';
-}
-
-function getGroupDisplayName(group: string): string {
-  return group;
+// Role display helper (uses backend-provided role)
+function getRoleDisplayName(role: string): string {
+  switch (role) {
+    case 'super_admin': return 'Super Admin';
+    case 'admin': return 'Admin';
+    case 'premium_user': return 'Premium';
+    default: return 'User';
+  }
 }
 
 interface WalletProfileClientProps {
@@ -42,8 +39,9 @@ export function WalletProfileClient({ wallet }: WalletProfileClientProps) {
     });
   };
 
-  const group = deriveGroupFromPermissions(wallet.permissions || []);
-  const groupDisplay = getGroupDisplayName(group);
+  // Use backend-provided role directly
+  const role = (wallet as any).role || 'user';
+  const roleDisplay = getRoleDisplayName(role);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
@@ -73,7 +71,7 @@ export function WalletProfileClient({ wallet }: WalletProfileClientProps) {
             <div className="space-y-4">
               <div className="text-center">
                 <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                  {groupDisplay}
+                  {roleDisplay}
                 </div>
                 <div className="text-sm text-slate-600 dark:text-slate-400">
                   Access Group
@@ -185,7 +183,7 @@ export function WalletProfileClient({ wallet }: WalletProfileClientProps) {
                         Access Group
                       </label>
                       <div className="mt-1 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg text-sm">
-                        <Badge variant="outline">{groupDisplay}</Badge>
+                        <Badge variant="outline">{roleDisplay}</Badge>
                       </div>
                     </div>
                     <div>

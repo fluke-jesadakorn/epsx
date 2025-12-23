@@ -265,7 +265,10 @@ export const object = {
 
     for (const key in obj) {
       if (obj.hasOwnProperty(key)) {
-        result[key] = mapper(obj[key], key)
+        const value = obj[key];
+        if (value !== undefined) {
+          result[key] = mapper(value, key)
+        }
       }
     }
 
@@ -282,8 +285,11 @@ export const object = {
     const result: Record<string, T> = {}
 
     for (const key in obj) {
-      if (obj.hasOwnProperty(key) && predicate(obj[key], key)) {
-        result[key] = obj[key]
+      if (obj.hasOwnProperty(key)) {
+        const value = obj[key];
+        if (value !== undefined && predicate(value, key)) {
+          result[key] = value
+        }
       }
     }
 
@@ -298,7 +304,10 @@ export const object = {
 
     for (const key in obj) {
       if (obj.hasOwnProperty(key)) {
-        result[obj[key]] = key
+        const value = obj[key];
+        if (value !== undefined) {
+          result[value] = key
+        }
       }
     }
 
@@ -316,11 +325,17 @@ export const object = {
 
     for (const key in obj) {
       if (obj.hasOwnProperty(key)) {
-        const groupKey = keyFn(obj[key], key)
-        if (!result[groupKey]) {
-          result[groupKey] = {}
+        const value = obj[key];
+        if (value !== undefined) {
+          const groupKey = keyFn(value, key)
+          if (!result[groupKey]) {
+            result[groupKey] = {}
+          }
+          const group = result[groupKey];
+          if (group) {
+            group[key] = value
+          }
         }
-        result[groupKey][key] = obj[key]
       }
     }
 

@@ -1,61 +1,48 @@
-'use client';
+'use client'
 
-import { Component, ReactNode } from 'react';
+/**
+ * Error Boundary (Admin Frontend)
+ * Wrapper using shared component with admin-specific fallback UI
+ */
+
+import { SharedErrorBoundary } from '@/shared/components/errors/ErrorBoundary'
+import { Component, ReactNode } from 'react'
 
 interface ErrorBoundaryState {
-  hasError: boolean;
-  error?: Error;
-  _error?: Error; // Add _error for backward compatibility
+  hasError: boolean
+  error?: Error
 }
 
 interface ErrorBoundaryProps {
-  children: ReactNode;
-  fallback?: ReactNode;
+  children: ReactNode
+  fallback?: ReactNode
 }
 
 /**
- *
+ * Admin-specific Error Boundary with admin-themed fallback
  */
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  /**
-   *
-   * @param props
-   */
   constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false, error: undefined, _error: undefined };
+    super(props)
+    this.state = { hasError: false, error: undefined }
   }
 
-  /**
-   *
-   * @param error
-   */
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error, _error: error };
+    return { hasError: true, error }
   }
 
-  /**
-   *
-   * @param error
-   * @param errorInfo
-   */
-  componentDidCatch(error: Error, errorInfo: any) {
+  override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // eslint-disable-next-line no-console
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
-    
-    // Update state to include _error for backward compatibility
-    this.setState({ _error: error });
+    console.error('ErrorBoundary caught an error:', error, errorInfo)
   }
 
-  /**
-   *
-   */
-  render() {
+  override render() {
     if (this.state.hasError) {
       if (this.props.fallback) {
-        return this.props.fallback;
+        return this.props.fallback
       }
 
+      // Admin-specific fallback UI
       return (
         <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
           <div className="text-center space-y-4 max-w-md">
@@ -70,7 +57,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                   Error Details (Development)
                 </summary>
                 <pre className="whitespace-pre-wrap text-red-300">
-                  {this.state._error.message}
+                  {this.state.error.message}
                   {'\n'}
                   {this.state.error.stack}
                 </pre>
@@ -92,9 +79,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             </div>
           </div>
         </div>
-      );
+      )
     }
 
-    return this.props.children;
+    return this.props.children
   }
 }
+
+// Re-export SharedErrorBoundary for cases where the shared version is preferred
+export { SharedErrorBoundary }

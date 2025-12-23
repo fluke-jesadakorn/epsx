@@ -90,3 +90,11 @@ export {
   type UserStats
 } from './useAnalyticsData';
 
+// ============================================================================
+// SMART POLLING HOOKS
+// ============================================================================
+
+export {
+  DEFAULT_POLLING_CONFIG, useOptimisticUpdate, usePollingManager, useSmartPolling, type PollingPriority, type PollingState, type SmartPollingConfig, type UseSmartPollingOptions
+} from './useSmartPolling';
+

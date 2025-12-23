@@ -249,20 +249,19 @@ impl UnifiedWeb3AuthService {
         // Get user permissions
         let permissions = self.get_wallet_permissions(&request.wallet_address).await?;
 
-        // Generate access token
-        let access_token = self.generate_access_token(&request.wallet_address, &permissions)?;
-
         // Generate Bearer token if OpenID service is available
-        let (bearer_token, token_expires_at) = if let Some(ref openid_service) = self.openid_service {
+        let (access_token, bearer_token, token_expires_at) = if let Some(ref openid_service) = self.openid_service {
             match self.generate_bearer_token(&request.wallet_address, &permissions, openid_service).await {
-                Ok((token, expiry)) => (Some(token), Some(expiry)),
+                Ok((token, expiry)) => (token.clone(), Some(token), Some(expiry)),
                 Err(e) => {
                     error!("Failed to generate Bearer token: {}", e);
-                    (None, None)
+                    // Fallback to simple token format if JWT generation fails
+                    (format!("web3_session_{}", request.wallet_address), None, None)
                 }
             }
         } else {
-            (None, None)
+            // No OpenID service configured - use simple session token
+            (format!("web3_session_{}", request.wallet_address), None, None)
         };
 
         Ok(Web3AuthResult {
@@ -794,21 +793,6 @@ impl UnifiedWeb3AuthService {
         }
         
         Ok(permissions)
-    }
-
-    /// Generate legacy access token format
-    /// 
-    /// DEPRECATED: This generates the old `web3_token_...` format.
-    /// Use `generate_bearer_token` for proper JWT tokens instead.
-    /// This is kept temporarily for backward compatibility with any clients
-    /// that might still be using the legacy format.
-    /// 
-    /// TODO: Remove this in a future version after confirming no clients depend on it.
-    #[deprecated(note = "Use generate_bearer_token instead. This legacy format will be removed.")]
-    fn generate_access_token(&self, wallet_address: &str, _permissions: &[String]) -> Result<String, Web3AuthError> {
-        // Legacy access token for backwards compatibility
-        warn!("generate_access_token called - this is deprecated, use bearer_token instead");
-        Ok(format!("web3_token_{}", wallet_address))
     }
     
     /// Generate Bearer token for API access using OpenID service

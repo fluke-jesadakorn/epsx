@@ -1,6 +1,6 @@
 'use client';
 
-import '@/lib/browser-polyfills';
+import '@/shared/utils/browser-polyfills';
 import { darkTheme, getDefaultConfig, lightTheme, RainbowKitProvider } from '@rainbow-me/rainbowkit';
 import '@rainbow-me/rainbowkit/styles.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

@@ -5,18 +5,24 @@
 
 'use client'
 
-import { 
-  GitBranch, Shield, User, Clock, AlertTriangle, CheckCircle, 
-  Eye, EyeOff, ChevronDown, ChevronRight, Star, Crown, Key
+import {
+  AlertTriangle, CheckCircle,
+  ChevronDown, ChevronRight,
+  Clock,
+  Crown,
+  Eye, EyeOff,
+  GitBranch,
+  Key,
+  Shield, User
 } from 'lucide-react'
-import React, { useState, useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { 
-  Collapsible, CollapsibleContent, CollapsibleTrigger 
+import {
+  Collapsible, CollapsibleContent, CollapsibleTrigger
 } from '@/components/ui/collapsible'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { adminCardVariants } from '@/design-system'
@@ -57,10 +63,10 @@ interface UserPermissionInheritanceProps {
  * @param root0.onRefresh
  * @param root0.className
  */
-export function UserPermissionInheritance({ 
-  data, 
-  onRefresh, 
-  className 
+export function UserPermissionInheritance({
+  data,
+  onRefresh,
+  className
 }: UserPermissionInheritanceProps) {
   const [expandedSources, setExpandedSources] = useState<Set<string>>(new Set())
   const [showExpired, setShowExpired] = useState(false)
@@ -88,7 +94,10 @@ export function UserPermissionInheritance({
     }
 
     data.sources.forEach(source => {
-      groups[source.type].push(source)
+      const group = groups[source.type]
+      if (group) {
+        group.push(source)
+      }
     })
 
     // Sort by priority (higher first)
@@ -102,13 +111,16 @@ export function UserPermissionInheritance({
   // Calculate permission conflicts
   const permissionConflicts = useMemo(() => {
     const permissionMap = new Map<string, PermissionSource[]>()
-    
+
     data.sources.forEach(source => {
       source.permissions.forEach(permission => {
         if (!permissionMap.has(permission)) {
           permissionMap.set(permission, [])
         }
-        permissionMap.get(permission)!.push(source)
+        const sourceList = permissionMap.get(permission)
+        if (sourceList) {
+          sourceList.push(source)
+        }
       })
     })
 
@@ -122,10 +134,12 @@ export function UserPermissionInheritance({
       if (sources.length > 1) {
         // Determine conflict resolution strategy
         const hasDirectSource = sources.some(s => s.type === 'direct')
-        const resolution = hasDirectSource 
-          ? 'direct_override' 
-          : sources[0].priority > sources[1].priority 
-            ? 'highest_priority' 
+        const first = sources[0]
+        const second = sources[1]
+        const resolution = hasDirectSource
+          ? 'direct_override'
+          : (first && second && first.priority > second.priority)
+            ? 'highest_priority'
             : 'most_recent'
 
         conflicts.push({
@@ -166,12 +180,12 @@ export function UserPermissionInheritance({
   const renderPermissionSource = (source: PermissionSource) => {
     const isExpanded = expandedSources.has(source.id)
     const expired = isExpired(source)
-    
-    if (expired && !showExpired) {return null}
+
+    if (expired && !showExpired) { return null }
 
     return (
-      <Card 
-        key={source.id} 
+      <Card
+        key={source.id}
         className={cn(
           adminCardVariants({ variant: 'default' }),
           expired ? 'opacity-60 border-red-200' : ''
@@ -179,7 +193,7 @@ export function UserPermissionInheritance({
       >
         <Collapsible>
           <CollapsibleTrigger asChild>
-            <CardHeader 
+            <CardHeader
               className="cursor-pointer hover:bg-gray-50 transition-colors"
               onClick={() => toggleSourceExpansion(source.id)}
             >
@@ -233,7 +247,7 @@ export function UserPermissionInheritance({
                   <div>
                     <p className="text-xs font-medium text-gray-600">Expires At</p>
                     <p className="text-sm">
-                      {source.expiresAt 
+                      {source.expiresAt
                         ? new Date(source.expiresAt).toLocaleDateString()
                         : 'Never'
                       }
@@ -262,7 +276,7 @@ export function UserPermissionInheritance({
                   <h4 className="font-medium text-sm mb-2">Permissions</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                     {source.permissions.map((permission, index) => (
-                      <div 
+                      <div
                         key={index}
                         className="flex items-center justify-between p-2 bg-white border rounded text-sm"
                       >
@@ -295,8 +309,8 @@ export function UserPermissionInheritance({
           </p>
         </div>
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             onClick={() => setShowExpired(!showExpired)}
           >
@@ -367,7 +381,7 @@ export function UserPermissionInheritance({
         <Alert variant="destructive">
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
-            {data.conflictingPermissions.length} permission conflicts detected. 
+            {data.conflictingPermissions.length} permission conflicts detected.
             Review the conflicts tab for resolution details.
           </AlertDescription>
         </Alert>

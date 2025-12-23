@@ -1,9 +1,11 @@
 // Web3 Permission Service Adapter (Infrastructure Layer)
 // Orchestrates Web3 permission validation with blockchain integration
+// Uses database-backed permission checks for legacy compatibility
 
 use crate::prelude::*;
 use tracing::{debug, info, warn};
-use diesel_async::{AsyncPgConnection, pooled_connection::deadpool::Pool};
+use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
+use diesel::prelude::*;
 
 use crate::domain::wallet_management::{
     aggregates::WalletUser,
@@ -15,7 +17,7 @@ use crate::domain::wallet_management::{
     },
 };
 use crate::infrastructure::cache::Cache;
-use crate::auth::permission_authority::{CentralizedPermissionAuthority, PermissionValidator};
+use std::sync::Arc;
 
 mod web3;
 use web3::{Web3CacheMgr, NftValidator, TokenValidator, DaoValidator};
@@ -165,19 +167,33 @@ impl Web3PermissionServiceAdapter {
         ])
     }
 
-    /// Get user permissions for a wallet address
+    /// Get user permissions for a wallet address (direct database query)
     pub async fn get_user_permissions(&self, wallet: &str) -> AppResult<Vec<String>> {
         debug!("Getting user permissions for wallet: {}", wallet);
 
-        let authority = CentralizedPermissionAuthority::with_defaults(self.pool);
+        let wallet_lower = wallet.to_lowercase();
+        let mut conn = self.pool.get().await
+            .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
-        match authority.get_wallet_permissions(wallet).await {
-            Ok(perms) => {
-                let perm_strings: Vec<String> = perms
-                    .iter()
-                    .filter(|p| p.is_active)
-                    .map(|p| p.name.clone())
-                    .collect();
+        #[derive(QueryableByName)]
+        struct PermissionsJson {
+            #[diesel(sql_type = diesel::sql_types::Jsonb)]
+            get_wallet_effective_permissions: serde_json::Value,
+        }
+
+        match diesel::sql_query("SELECT get_wallet_effective_permissions($1)")
+            .bind::<diesel::sql_types::Text, _>(&wallet_lower)
+            .get_result::<PermissionsJson>(&mut conn)
+            .await
+        {
+            Ok(result) => {
+                let perm_strings: Vec<String> = if let serde_json::Value::Array(arr) = result.get_wallet_effective_permissions {
+                    arr.into_iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                } else {
+                    vec![]
+                };
 
                 if !perm_strings.is_empty() {
                     debug!("Found {} permissions for wallet: {}", perm_strings.len(), wallet);
@@ -204,16 +220,30 @@ impl Web3PermissionServiceAdapter {
         }
     }
 
-    /// Check if user has a specific permission
+    /// Check if user has a specific permission (direct database query)
     pub async fn has_permission(&self, wallet: &str, perm: &str) -> AppResult<bool> {
         debug!("Checking permission '{}' for wallet: {}", perm, wallet);
 
-        let authority = CentralizedPermissionAuthority::with_defaults(self.pool);
+        let wallet_lower = wallet.to_lowercase();
+        let mut conn = self.pool.get().await
+            .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
-        match authority.has_permission(wallet, perm).await {
+        #[derive(QueryableByName)]
+        struct PermissionCheck {
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Bool>)]
+            wallet_has_permission: Option<bool>,
+        }
+
+        match diesel::sql_query("SELECT wallet_has_permission($1, $2)")
+            .bind::<diesel::sql_types::Text, _>(&wallet_lower)
+            .bind::<diesel::sql_types::Text, _>(perm)
+            .get_result::<PermissionCheck>(&mut conn)
+            .await
+        {
             Ok(result) => {
-                debug!("Permission check result: {} for wallet: {}", result, wallet);
-                Ok(result)
+                let has_perm = result.wallet_has_permission.unwrap_or(false);
+                debug!("Permission check result: {} for wallet: {}", has_perm, wallet);
+                Ok(has_perm)
             }
             Err(e) => {
                 warn!("Permission check failed for wallet {}: {}", wallet, e);

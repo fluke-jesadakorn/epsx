@@ -1,5 +1,6 @@
 // Core EPS Rankings Business Logic
 // Focused module handling EPS rankings endpoint and business logic
+// Uses UnifiedPermissionService for permission checking
 
 use axum::{
     extract::{Query, Extension},
@@ -11,7 +12,7 @@ use tracing::{debug, info, warn};
 
 use crate::core::errors::AppError;
 use crate::domain::shared_kernel::services::eps_ranking_service::{EPSRankingService, EPSRankingParams};
-use crate::auth::permission_authority::{CentralizedPermissionAuthority, PermissionValidator};
+use crate::auth::UnifiedPermissionService;
 use super::{types::*, enhancement::enhance_with_websocket_data};
 
 /// GET /api/analytics/eps-rankings
@@ -20,7 +21,7 @@ pub async fn get_eps_rankings(
     headers: HeaderMap,
     Query(params): Query<EPSRankingQueryParams>,
     Extension(service): Extension<Arc<EPSRankingService>>,
-    Extension(permission_authority): Extension<Arc<CentralizedPermissionAuthority>>,
+    Extension(permission_service): Extension<Arc<UnifiedPermissionService>>,
 ) -> Result<Json<EPSRankingsApiResponse>, AppError> {
     debug!("EPS Rankings API called with params: {:?}", params);
 
@@ -33,7 +34,7 @@ pub async fn get_eps_rankings(
 
     // Calculate rank_offset based on user permissions
     let rank_offset = if let Some(ref wallet) = wallet_address {
-        calculate_rank_offset_from_permissions(&permission_authority, wallet).await
+        calculate_rank_offset_from_permissions(&permission_service, wallet).await
     } else {
         100 // Default free tier offset for anonymous users
     };
@@ -213,12 +214,12 @@ pub fn is_valid_eps_for_ranking(eps: f64) -> bool {
 /// Calculate rank offset based on user permissions
 /// Premium users get access to top-ranked stocks, free users see lower ranks
 async fn calculate_rank_offset_from_permissions(
-    permission_authority: &Arc<CentralizedPermissionAuthority>,
+    permission_service: &Arc<UnifiedPermissionService>,
     wallet_address: &str,
 ) -> i32 {
     // Check permission tiers (from highest to lowest)
     // Premium tier: Full access to all ranks (offset = 1)
-    if permission_authority
+    if permission_service
         .has_permission(wallet_address, "epsx:analytics:premium")
         .await
         .unwrap_or(false)
@@ -228,7 +229,7 @@ async fn calculate_rank_offset_from_permissions(
     }
 
     // Pro tier: Access to top 50 ranks (offset = 1)
-    if permission_authority
+    if permission_service
         .has_permission(wallet_address, "epsx:analytics:pro")
         .await
         .unwrap_or(false)
@@ -238,7 +239,7 @@ async fn calculate_rank_offset_from_permissions(
     }
 
     // Basic tier: Access from rank 25+ (offset = 25)
-    if permission_authority
+    if permission_service
         .has_permission(wallet_address, "epsx:analytics:basic")
         .await
         .unwrap_or(false)

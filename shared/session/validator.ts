@@ -18,7 +18,7 @@
 import type {
   SessionValidationResponse
 } from '../types/domain/Session';
-import type { AdminUserProfile, PermissionGroup, UserProfile } from '../types/domain/User';
+import type { AdminUserProfile, Group, PermissionGroup, UserProfile } from '../types/domain/User';
 import { getPermissionGroupLevel } from '../types/domain/User';
 
 // JWT payload types for backward compatibility
@@ -314,7 +314,8 @@ export class BaseSessionValidator {
       name: walletAddress.substring(0, 8) + '...',
       role: permissions.some(p => p.startsWith('admin:')) ? 'admin' : 'user',
       permissions: permissions,
-      permissionGroup: 'Enterprise Access Group',
+      group: 'Enterprise Access Group' as Group,
+      permissionGroup: 'Enterprise Access Group' as Group,
       packageTier: 'ENTERPRISE',
       platforms: ['admin', 'epsx'],
       primaryPlatform: 'admin',
@@ -324,7 +325,7 @@ export class BaseSessionValidator {
       createdAt: new Date(),
       updatedAt: new Date(),
       billing: {
-        permissionGroup: 'Enterprise Access Group',
+        group: 'Enterprise Access Group' as Group,
         isActive: true,
         paymentStatus: 'current'
       },

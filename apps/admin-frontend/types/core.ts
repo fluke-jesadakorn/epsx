@@ -4,7 +4,6 @@
  * Replaces: auth-separation.ts, admin-types.ts, iam.ts, unified-user.ts
  */
 
-import { Group } from '../../../shared/types/domain/User';
 
 // ============================================================================
 // Authentication & User Types
@@ -18,7 +17,7 @@ export interface User {
   firstName?: string;
   lastName?: string;
   displayName?: string;
-  role: 'admin' | 'user' | 'premium_user';
+  group: 'admin' | 'user' | 'premium_user'; // From backend
   status?: 'active' | 'inactive' | 'suspended' | 'deleted';
   isActive: boolean;
   createdAt: string;
@@ -28,12 +27,8 @@ export interface User {
   // Wallet authentication context
   sub?: string; // wallet_address as subject
 
-  // Permission system
+  // Permission system (from backend)
   permissions?: string[];
-  group: Group;
-  permissionGroup: Group; // Keep as alias for now
-  // @deprecated Use group instead
-  packageTier?: string;
 
   // Platform context
   platforms?: string[];
@@ -46,11 +41,8 @@ export interface User {
   nftHoldings?: number;
   tokenBalance?: string;
 
-  // Permission helpers
+  // Permission helpers (for local checks only - backend enforces)
   hasAllPermissions?: (permissions: string[]) => boolean;
-  hasMinimumGroup?: (requiredGroup: string) => boolean;
-  hasMinimumPermissionGroup?: (requiredGroup: string) => boolean;
-  hasEnterpriseTier?: (tier: 'Starter' | 'Business' | 'Enterprise' | 'Whale') => boolean;
 }
 
 export interface WalletUser {
@@ -150,23 +142,23 @@ export interface PermissionHealth {
 }
 
 // ============================================================================
-// Role & Access Control Types
+// Group & Access Control Types
 // ============================================================================
 
-export interface Role {
+export interface Group {
   id: string;
   name: string;
   description: string;
   permissions: string[];
-  isSystemRole: boolean;
+  isSystemGroup: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface UserRole {
+export interface UserGroup {
   userId: string;
-  roleId: string;
-  role: Role;
+  groupId: string;
+  group: Group;
   assignedAt: string;
   assignedBy: string;
   expiresAt?: string;
@@ -222,7 +214,7 @@ export interface ActivityStats {
 // ============================================================================
 
 export interface UserFilters {
-  role?: string;
+  group?: string;
   status?: 'active' | 'inactive' | 'deleted';
   search?: string;
   platform?: string;
@@ -302,7 +294,7 @@ export interface AuditLog {
 export interface ActivityLog {
   id: string;
   userId: string;
-  type: 'login' | 'logout' | 'permission_change' | 'role_change' | 'profile_update' | 'api_call';
+  type: 'login' | 'logout' | 'permission_change' | 'group_change' | 'profile_update' | 'api_call';
   description: string;
   metadata?: Record<string, any>;
   timestamp: string;
@@ -313,7 +305,7 @@ export interface ActivityLog {
 // ============================================================================
 
 export function isAdminUser(user: User): boolean {
-  return user.role === 'admin' || user.group === 'Enterprise Access Group' || (user.permissions || []).some(p =>
+  return user.group === 'admin' || (user.permissions || []).some(p =>
     p === 'admin:*:*' || p.startsWith('admin:')
   );
 }

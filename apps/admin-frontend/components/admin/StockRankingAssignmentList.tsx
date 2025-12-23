@@ -14,7 +14,30 @@ enum PackageTier {
   ENTERPRISE = 'enterprise',
   PREMIUM = 'premium'
 }
-type StockRankingPackageAssignment = any;
+
+interface StockRankingConfig {
+  maxRankings: number;
+  rateLimitPerMinute: number;
+  realTimeUpdates: boolean;
+  allowedMarkets: string[];
+}
+
+interface UsageStats {
+  apiCallsUsed: number;
+  rankingsViewed: number;
+}
+
+interface StockRankingPackageAssignment {
+  id: string;
+  userId: string;
+  packageTier: PackageTier;
+  status: 'active' | 'expired' | 'revoked' | 'suspended';
+  reason: string;
+  assignedAt: string;
+  expiresAt?: string;
+  usageStats: UsageStats;
+  stockRankingConfig: StockRankingConfig;
+}
 
 interface User {
   id: string;
@@ -48,8 +71,7 @@ export default function StockRankingAssignmentList({
   const [sortBy, setSortBy] = useState<
     'assignedAt' | 'expiresAt' | 'usageStats'
   >('assignedAt');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  const _setSortOrder = setSortOrder;
+  const [sortOrder, _setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     loadAssignments();

@@ -6,24 +6,23 @@
 
 'use client';
 
-import { 
-  Shield, 
-  AlertTriangle, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
-  Search,
-  Download,
-  RefreshCw,
-  Eye,
+import {
+  Activity,
+  AlertTriangle,
   Ban,
-  Flag,
-  TrendingUp,
-  Users,
+  CheckCircle,
+  Clock,
+  Download,
+  Eye,
   FileText,
-  Activity
+  Flag,
+  RefreshCw,
+  Search,
+  Shield,
+  Users,
+  XCircle
 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -116,7 +115,7 @@ export default function ComplianceMonitoringDashboard() {
   const [suspiciousActivities, setSuspiciousActivities] = useState<SuspiciousActivity[]>([]);
   const [complianceMetrics, setComplianceMetrics] = useState<ComplianceMetrics | null>(null);
   const [regulatorySettings, setRegulatorySettings] = useState<RegulatorySetting[]>([]);
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStatus, setSelectedStatus] = useState<ComplianceStatus | null>(null);
   const [selectedRisk, setSelectedRisk] = useState<RiskAssessment | null>(null);
@@ -440,9 +439,9 @@ export default function ComplianceMonitoringDashboard() {
             Refresh
           </Button>
           <Button
-            onClick={() => handleExportComplianceReport('full', 
-              new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-              new Date().toISOString().split('T')[0]
+            onClick={() => handleExportComplianceReport('full',
+              (new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] || ''),
+              (new Date().toISOString().split('T')[0] || '')
             )}
             size="sm"
           >
@@ -579,7 +578,7 @@ export default function ComplianceMonitoringDashboard() {
                           </p>
                         </div>
                       </div>
-                      <Badge 
+                      <Badge
                         className={`
                           ${activity.investigation_status === 'open' ? 'bg-red-100 text-red-800' : ''}
                           ${activity.investigation_status === 'investigating' ? 'bg-yellow-100 text-yellow-800' : ''}
@@ -627,9 +626,9 @@ export default function ComplianceMonitoringDashboard() {
                       <div>
                         <p className="text-xs text-gray-500">Risk Score</p>
                         <p className={`font-medium ${getRiskLevelColor(
-                          status.risk_score >= 75 ? 'critical' : 
-                          status.risk_score >= 50 ? 'high' : 
-                          status.risk_score >= 25 ? 'medium' : 'low'
+                          status.risk_score >= 75 ? 'critical' :
+                            status.risk_score >= 50 ? 'high' :
+                              status.risk_score >= 25 ? 'medium' : 'low'
                         )}`}>
                           {status.risk_score}/100
                         </p>

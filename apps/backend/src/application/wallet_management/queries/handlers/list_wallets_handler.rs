@@ -55,8 +55,8 @@ impl QueryHandler<ListWalletsQuery> for ListWalletsQueryHandler {
         let summaries: Vec<WalletSummary> = result.users
             .into_iter()
             .map(|wallet| {
-                // Derive role from permissions
-                let role = if wallet.permissions().iter().any(|p| p.platform() == "admin") {
+                // Derive group from permissions
+                let group = if wallet.permissions().iter().any(|p| p.platform() == "admin") {
                     "admin".to_string()
                 } else if wallet.permissions().iter().any(|p| p.platform() == "premium") {
                     "premium".to_string()
@@ -80,7 +80,7 @@ impl QueryHandler<ListWalletsQuery> for ListWalletsQueryHandler {
                 WalletSummary {
                     id: wallet.wallet_address().as_str().to_string(),
                     display_name: None, // TODO: Add display name support
-                    role,
+                    group,
                     status,
                     is_active: wallet.is_active(),
                     permissions: wallet.permissions().clone(),

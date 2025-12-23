@@ -327,7 +327,7 @@ export function getExpiringPermissions(permissions: string[], withinDays = 7): s
     if (!permission) return false;
     const parts = permission.split(':');
     if (parts.length === 4) {
-      const expiryTimestamp = parseInt(parts[3], 10);
+      const expiryTimestamp = parseInt(parts[3] || '0', 10);
       return !isNaN(expiryTimestamp) && expiryTimestamp <= threshold;
     }
     return false;

@@ -1,6 +1,7 @@
 'use client'
 
 import { useAuth } from '@/lib/auth'
+import { checkPermission } from '@/shared/utils/permission-utils'
 
 export interface GateProps {
   children: React.ReactNode
@@ -23,12 +24,16 @@ export interface GateProps {
  * @param root0.fallback
  * @param root0.check
  */
-export default function Gate({ 
-  children, 
+export default function Gate({
+  children,
   fallback = null,
   check = {}
 }: GateProps) {
-  const { isAuthenticated, user, can } = useAuth()
+  const { isAuthenticated, wallet } = useAuth()
+  const userPermissions = wallet?.permissions || []
+
+  // Local can function using wallet permissions
+  const can = (permission: string) => checkPermission(userPermissions, permission)
 
   // Check authentication
   if (check.authenticated && !isAuthenticated) {
@@ -82,8 +87,8 @@ export default function Gate({
  * @param root0.children
  * @param root0.fallback
  */
-export function AuthGate({ 
-  children, 
+export function AuthGate({
+  children,
   fallback = null
 }: {
   children: React.ReactNode
@@ -102,8 +107,8 @@ export function AuthGate({
  * @param root0.children
  * @param root0.fallback
  */
-export function AdminGate({ 
-  children, 
+export function AdminGate({
+  children,
   fallback = null
 }: {
   children: React.ReactNode
@@ -123,9 +128,9 @@ export function AdminGate({
  * @param root0.children
  * @param root0.fallback
  */
-export function PermissionGate({ 
+export function PermissionGate({
   permission,
-  children, 
+  children,
   fallback = null
 }: {
   permission: string
@@ -146,9 +151,9 @@ export function PermissionGate({
  * @param root0.children
  * @param root0.fallback
  */
-export function ModuleGate({ 
+export function ModuleGate({
   module,
-  children, 
+  children,
   fallback = null
 }: {
   module: string
@@ -169,9 +174,9 @@ export function ModuleGate({
  * @param root0.children
  * @param root0.fallback
  */
-export function TierGate({ 
+export function TierGate({
   tier,
-  children, 
+  children,
   fallback = null
 }: {
   tier: string
@@ -218,8 +223,9 @@ export function MultiPermissionGate({
  * @param permission
  */
 export function usePermissionCheck(permission: string): boolean {
-  const { can } = useAuth()
-  return can(permission)
+  const { wallet } = useAuth()
+  const userPermissions = wallet?.permissions || []
+  return checkPermission(userPermissions, permission)
 }
 
 /**
@@ -255,8 +261,11 @@ export function useTierCheck(tier: string): boolean {
  * @param requireAll
  */
 export function useMultiPermissionCheck(permissions: string[], requireAll = false): boolean {
-  const { can } = useAuth()
-  
+  const { wallet } = useAuth()
+  const userPermissions = wallet?.permissions || []
+
+  const can = (permission: string) => checkPermission(userPermissions, permission)
+
   if (requireAll) {
     return permissions.every(permission => can(permission))
   } else {

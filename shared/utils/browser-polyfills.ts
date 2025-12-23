@@ -24,6 +24,20 @@ if (typeof globalThis !== 'undefined' && typeof globalThis.Math !== 'undefined' 
     Math.__bigintSafe = true;
 }
 
+// Enable BigInt JSON serialization to prevent "Cannot mix BigInt" errors
+// This is a common issue with wagmi/viem that use BigInt extensively
+declare global {
+    interface BigInt {
+        toJSON(): string;
+    }
+}
+
+if (typeof BigInt !== 'undefined' && !BigInt.prototype.toJSON) {
+    BigInt.prototype.toJSON = function () {
+        return this.toString();
+    };
+}
+
 // IndexedDB polyfill for server-side rendering
 if (typeof globalThis !== 'undefined' && typeof globalThis.indexedDB === 'undefined') {
     // Create a minimal IndexedDB mock for SSR with proper error handling

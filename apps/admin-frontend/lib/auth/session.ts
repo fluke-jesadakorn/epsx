@@ -3,11 +3,12 @@
  * Clean utilities for JWT-based session handling
  */
 
+import { COOKIES } from '@/shared/auth/cookies';
 import { cookies } from 'next/headers';
 
 import type { EPSXJWTPayload } from '@/shared/auth/jwt';
 
-import { verifyJWTFromCookies } from '@/lib/server/jwt';
+import { getJWTFromCookies, verifyJWTFromCookies } from '@/lib/server/token';
 
 export interface SessionData {
   isLoggedIn: boolean;
@@ -28,7 +29,6 @@ export async function getSession(): Promise<SessionData> {
     }
 
     // Get the raw JWT token for API calls
-    const { getJWTFromCookies } = await import('@/lib/server/jwt');
     const accessToken = await getJWTFromCookies();
 
     return {
@@ -80,13 +80,13 @@ interface OAuthUserInfo {
 /**
  * Create user session data from userinfo (used in OAuth callback)
  * @param userinfo
- * @param accessToken
- * @param refreshToken
+ * @param _accessToken - Reserved for future token persistence
+ * @param _refreshToken - Reserved for future token refresh logic
  */
 export function createUserSession(
   userinfo: OAuthUserInfo,
-  accessToken?: string,
-  refreshToken?: string
+  _accessToken?: string,
+  _refreshToken?: string
 ): SessionData {
   const user: EPSXJWTPayload = {
     sub: userinfo.sub || userinfo.id || 'unknown',

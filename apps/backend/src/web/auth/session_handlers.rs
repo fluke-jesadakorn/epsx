@@ -43,6 +43,12 @@ pub struct SessionVerificationResponse {
     /// Whether user has admin permissions
     pub is_admin: Option<bool>,
     
+    /// User's computed group: "user", "admin", or "super_admin"
+    pub group: Option<String>,
+    
+    /// Admin-scoped permissions (admin:*)
+    pub admin_permissions: Option<Vec<String>>,
+    
     /// Session expiry (if authenticated)
     pub expires: Option<String>,
     
@@ -102,6 +108,8 @@ pub async fn verify_session_handler(
                 user_id: None,
                 permissions: None,
                 is_admin: None,
+                group: None,
+                admin_permissions: None,
                 expires: None,
                 error: Some("No active session".to_string()),
             }));
@@ -118,6 +126,8 @@ pub async fn verify_session_handler(
             user_id: None,
             permissions: None,
             is_admin: None,
+            group: None,
+            admin_permissions: None,
             expires: None,
             error: Some("Invalid token format".to_string()),
         }));
@@ -130,14 +140,28 @@ pub async fn verify_session_handler(
         Ok(user_context) => {
             info!("JWT token validated successfully for user: {}", user_context.wallet_address);
 
-            // Check admin permissions if admin_context is required
-            let is_admin_user = admin_context && (
-                user_context.permissions.iter().any(|p| p.starts_with("admin:")) ||
-                user_context.permissions.contains(&"admin:*:*".to_string())
-            );
+            // Compute admin status from permissions
+            let has_admin_perms = user_context.permissions.iter().any(|p| p.starts_with("admin:")) ||
+                user_context.permissions.contains(&"admin:*:*".to_string());
+
+            // Compute group based on permissions (centralized logic)
+            let group = if user_context.permissions.contains(&"admin:*:*".to_string()) {
+                "super_admin".to_string()
+            } else if has_admin_perms || user_context.permissions.iter().any(|p| p.contains(":admin:")) {
+                "admin".to_string()
+            } else {
+                "user".to_string()
+            };
+
+            // Extract admin-scoped permissions
+            let admin_permissions: Vec<String> = user_context.permissions
+                .iter()
+                .filter(|p| p.starts_with("admin:"))
+                .cloned()
+                .collect();
 
             // If admin context is required but user is not admin, return failure
-            if admin_context && !is_admin_user {
+            if admin_context && !has_admin_perms {
                 return Ok(Json(SessionVerificationResponse {
                     success: false,
                     authenticated: Some(true),
@@ -145,6 +169,8 @@ pub async fn verify_session_handler(
                     user_id: Some(user_context.sub),
                     permissions: Some(user_context.permissions),
                     is_admin: Some(false),
+                    group: Some(group),
+                    admin_permissions: Some(admin_permissions),
                     expires: Some(user_context.exp.to_string()),
                     error: Some("Admin permissions required".to_string()),
                 }));
@@ -156,7 +182,9 @@ pub async fn verify_session_handler(
                 wallet_address: Some(user_context.wallet_address),
                 user_id: Some(user_context.sub),
                 permissions: Some(user_context.permissions),
-                is_admin: Some(is_admin_user),
+                is_admin: Some(has_admin_perms),
+                group: Some(group),
+                admin_permissions: Some(admin_permissions),
                 expires: Some(user_context.exp.to_string()),
                 error: None,
             }))
@@ -178,6 +206,8 @@ pub async fn verify_session_handler(
                 user_id: None,
                 permissions: None,
                 is_admin: None,
+                group: None,
+                admin_permissions: None,
                 expires: None,
                 error: Some(error_message),
             }))
@@ -317,6 +347,8 @@ mod tests {
                 "epsx:rankings:read".to_string(),
             ]),
             is_admin: Some(false),
+            group: Some("user".to_string()),
+            admin_permissions: Some(vec![]),
             expires: Some("2024-12-31T23:59:59Z".to_string()),
             error: None,
         };
@@ -343,6 +375,8 @@ mod tests {
             user_id: None,
             permissions: None,
             is_admin: None,
+            group: None,
+            admin_permissions: None,
             expires: None,
             error: Some("No active session".to_string()),
         };

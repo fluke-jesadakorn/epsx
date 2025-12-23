@@ -1,8 +1,8 @@
 'use client'
 
-import { Search, Users, Shield, Clock, CheckCircle, AlertCircle, UserPlus } from 'lucide-react'
+import { AlertCircle, CheckCircle, Clock, Search, Shield, UserPlus, Users } from 'lucide-react'
 import { useRouter } from 'next/navigation'
-import { useState, useMemo } from 'react'
+import { useMemo, useState } from 'react'
 
 import { User } from '@/types/core'
 
@@ -17,16 +17,16 @@ interface GrantPermissionHubProps {
  * @param root0.users
  * @param root0.currentUser
  */
-export function GrantPermissionHub({ users, currentUser }: GrantPermissionHubProps) {
+export function GrantPermissionHub({ users, currentUser: _currentUser }: GrantPermissionHubProps) {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
 
   // Filter and search users
   const filteredUsers = useMemo(() => {
-    if (!searchQuery.trim()) {return users}
-    
+    if (!searchQuery.trim()) { return users }
+
     const query = searchQuery.toLowerCase()
-    return users.filter(user => 
+    return users.filter(user =>
       user.email?.toLowerCase().includes(query) ||
       user.name?.toLowerCase().includes(query) ||
       user.displayName?.toLowerCase().includes(query)
@@ -37,8 +37,8 @@ export function GrantPermissionHub({ users, currentUser }: GrantPermissionHubPro
     return {
       totalUsers: users.length,
       activeUsers: users.filter(u => u.status === 'active').length,
-      adminUsers: users.filter(u => u.role === 'admin').length,
-      premiumUsers: users.filter(u => u.role === 'premium_user').length
+      adminUsers: users.filter(u => u.group === 'admin').length,
+      premiumUsers: users.filter(u => u.group === 'premium_user').length
     }
   }, [users])
 
@@ -49,8 +49,8 @@ export function GrantPermissionHub({ users, currentUser }: GrantPermissionHubPro
     router.push(`/permissions/grant?${params.toString()}`)
   }
 
-  const getRoleBadgeColor = (role: string) => {
-    switch (role) {
+  const getRoleBadgeColor = (group: string) => {
+    switch (group) {
       case 'admin': return 'bg-gradient-to-r from-red-500 to-pink-500'
       case 'premium_user': return 'bg-gradient-to-r from-yellow-500 to-orange-500'
       default: return 'bg-gradient-to-r from-gray-400 to-gray-500'
@@ -74,7 +74,7 @@ export function GrantPermissionHub({ users, currentUser }: GrantPermissionHubPro
         <div className="absolute top-40 right-32 w-24 h-24 bg-gradient-to-r from-pink-400/20 to-purple-500/20 rounded-full blur-lg"></div>
         <div className="absolute bottom-32 left-1/3 w-28 h-28 bg-gradient-to-r from-orange-400/15 to-yellow-500/15 rounded-full blur-xl"></div>
       </div>
-      
+
       <div className="relative z-10 max-w-7xl mx-auto">
         {/* Hero Header */}
         <div className="text-center mb-12">
@@ -173,7 +173,7 @@ export function GrantPermissionHub({ users, currentUser }: GrantPermissionHubPro
             <UserPlus className="h-7 w-7 mr-3 text-purple-600" />
             Select User to Grant Permissions
           </h2>
-          
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredUsers.map((user) => (
               <button
@@ -206,8 +206,8 @@ export function GrantPermissionHub({ users, currentUser }: GrantPermissionHubPro
 
                     {/* Role Badge */}
                     <div className="flex items-center justify-between">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium text-white ${getRoleBadgeColor(user.role)}`}>
-                        {user.role.replace('_', ' ').toUpperCase()}
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium text-white ${getRoleBadgeColor(user.group)}`}>
+                        {user.group.replace('_', ' ').toUpperCase()}
                       </span>
                       <span className="text-xs text-gray-500 dark:text-gray-400">
                         {user.permissions?.length || 0} permissions

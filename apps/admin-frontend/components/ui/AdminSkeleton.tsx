@@ -11,12 +11,13 @@ interface SkeletonProps {
   variant?: 'text' | 'circle' | 'rect' | 'card'
   width?: string
   height?: string
+  style?: React.CSSProperties
 }
 
 /**
  * Base skeleton element
  */
-export function Skeleton({ className, variant = 'rect', width, height }: SkeletonProps) {
+export function Skeleton({ className, variant = 'rect', width, height, style }: SkeletonProps) {
   const variantStyles = {
     text: 'h-4 rounded',
     circle: 'rounded-full',
@@ -31,7 +32,7 @@ export function Skeleton({ className, variant = 'rect', width, height }: Skeleto
         variantStyles[variant],
         className
       )}
-      style={{ width, height }}
+      style={{ width, height, ...style }}
       aria-busy="true"
       aria-live="polite"
     />

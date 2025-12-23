@@ -223,9 +223,8 @@ async fn validate_siwe_signature(headers: &HeaderMap, app_state: &AppState) -> R
         "admin:*:*".to_string(), // Temporary admin access for testing
     ];
 
-    // Generate Bearer token for continued API access
-    let bearer_token = generate_bearer_token(wallet_header, &permissions).await.ok();
-
+    // Note: Bearer token is NOT generated here - SIWE header auth is a legacy flow
+    // The proper flow goes through /api/v1/auth/web3/verify which returns JWT tokens
     let auth_context = Web3AuthContext {
         wallet_address: wallet_header.to_lowercase(),
         permissions,
@@ -235,7 +234,7 @@ async fn validate_siwe_signature(headers: &HeaderMap, app_state: &AppState) -> R
         signature_hash: format!("0x{}", &signature_header[2..18]), // First 16 chars of signature
         chain_id,
         last_auth_at: Utc::now(),
-        bearer_token,
+        bearer_token: None, // Bearer tokens are only generated via the proper SIWE verify endpoint
         token_expires_at: Some(Utc::now() + chrono::Duration::hours(24)), // 24 hour expiry
         auth_method: AuthMethod::SiweSignature,
     };
@@ -280,22 +279,6 @@ async fn validate_bearer_token(token: &str, app_state: &AppState) -> Result<Web3
     };
 
     Ok(auth_context)
-}
-
-/// Generate Bearer token for API access after successful authentication
-/// 
-/// DEPRECATED: Token generation should happen in auth_service.rs or token_service.rs
-/// This function exists only for backward compatibility with SIWE header auth.
-/// New code should use UnifiedWeb3AuthService::verify_and_authenticate() instead.
-#[deprecated(note = "Use UnifiedWeb3AuthService::verify_and_authenticate() instead")]
-async fn generate_bearer_token(
-    wallet_address: &str,
-    _permissions: &[String],
-) -> Result<String, AppError> {
-    // This is a placeholder - in SIWE header auth flow, we don't have access to token_service
-    // The proper flow is: SIWE verify -> verify_signature_handler -> bearer_token returned
-    warn!("generate_bearer_token called - this is deprecated, use proper SIWE verification flow");
-    Ok(format!("epsx_deprecated_bearer_{}_{}", wallet_address, chrono::Utc::now().timestamp()))
 }
 
 /// Extract Web3 authentication context from request
@@ -377,7 +360,6 @@ pub async fn has_any_permission<'a>(
 /// Routes that don't need Web3 authentication
 fn is_public_route_for_auth(path: &str) -> bool {
     const PUBLIC_PATHS: &[&str] = &[
-        "/",
         "/health",
         "/readiness",
         "/liveness",

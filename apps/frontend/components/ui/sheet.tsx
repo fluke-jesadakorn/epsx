@@ -1,2 +1,1 @@
-// Direct export from shared
-export * from '../../../../shared/components/ui/sheet';
+export * from '@/shared/components/ui/sheet';

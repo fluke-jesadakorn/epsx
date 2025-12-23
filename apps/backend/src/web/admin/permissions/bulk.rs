@@ -35,7 +35,7 @@ pub struct BulkRevokeRequest {
 }
 
 #[derive(Debug, Deserialize)]
-pub struct BulkAssignRolesRequest {
+pub struct BulkAssignGroupsRequest {
     pub wallet_addresses: Vec<String>,
     pub group_id: String,
     pub expires_at: Option<DateTime<Utc>>,
@@ -367,10 +367,10 @@ pub async fn bulk_revoke(
 }
 
 /// Bulk assign wallets to a permission group
-/// POST /admin/permissions/bulk/assign-roles
-pub async fn bulk_assign_roles(
+/// POST /admin/permissions/bulk/assign-groups
+pub async fn bulk_assign_groups(
     State(app_state): State<AppState>,
-    Json(req): Json<BulkAssignRolesRequest>,
+    Json(req): Json<BulkAssignGroupsRequest>,
 ) -> impl IntoResponse {
     let group_uuid = match Uuid::parse_str(&req.group_id) {
         Ok(id) => id,
@@ -451,7 +451,7 @@ pub async fn bulk_assign_roles(
     };
 
     tracing::info!(
-        "Bulk role assignment completed: {} successful, {} failed",
+        "Bulk group assignment completed: {} successful, {} failed",
         summary.successful_operations,
         summary.failed_operations
     );
@@ -460,7 +460,7 @@ pub async fn bulk_assign_roles(
         successful,
         failed,
         summary,
-        operation: "bulk_assign_roles".to_string(),
+        operation: "bulk_assign_groups".to_string(),
         timestamp: Utc::now(),
     }).into_response()
 }

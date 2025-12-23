@@ -94,7 +94,7 @@ export default function EditPlanPage() {
             // Check if it's "unlimited"
             if (lastPart === 'unlimited') return -1
 
-            const parsed = parseInt(lastPart)
+            const parsed = parseInt(lastPart || '0')
             return isNaN(parsed) ? defaultValue : parsed
           }
 

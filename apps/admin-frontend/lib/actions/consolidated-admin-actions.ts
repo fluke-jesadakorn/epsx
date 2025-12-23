@@ -140,10 +140,31 @@ export async function sendNotification(
   return createAdminNotification(params);
 }
 
-export async function cleanupOldData(): Promise<ActionResult> {
-  // TODO: Implement cleanup functionality
-  return {
-    success: false,
-    error: 'Not implemented yet',
-  };
+export async function cleanupExpiredPermissionsAction(): Promise<ActionResult> {
+  try {
+    const response = await makeAdminApiRequest('/api/v1/admin/permissions/cleanup', {
+      method: 'POST',
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      return {
+        success: false,
+        error: errorData.message || `HTTP ${response.status}: ${response.statusText}`,
+      };
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      data: data.data,
+    };
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to cleanup permissions:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to cleanup permissions',
+    };
+  }
 }
