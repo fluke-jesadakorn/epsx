@@ -510,12 +510,12 @@ fn validate_web3_token(token: &str) -> Result<(), String> {
 
     // Basic header validation (check if it's base64 encoded)
     use base64::{Engine as _, engine::general_purpose};
-    if let Err(_) = general_purpose::STANDARD.decode(parts[0]) {
+    if general_purpose::STANDARD.decode(parts[0]).is_err() {
         return Err("Invalid token header".to_string());
     }
 
     // Basic payload validation
-    if let Err(_) = general_purpose::STANDARD.decode(parts[1]) {
+    if general_purpose::STANDARD.decode(parts[1]).is_err() {
         return Err("Invalid token payload".to_string());
     }
 

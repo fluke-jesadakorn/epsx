@@ -168,8 +168,8 @@ impl NotificationRepositoryPort for NotificationRepository {
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(criteria.priority.as_deref())
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(criteria.created_after)
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(criteria.created_before)
-        .bind::<diesel::sql_types::BigInt, _>(criteria.limit.unwrap_or(100) as i64)
-        .bind::<diesel::sql_types::BigInt, _>(criteria.offset.unwrap_or(0) as i64)
+        .bind::<diesel::sql_types::BigInt, _>(criteria.limit.unwrap_or(100))
+        .bind::<diesel::sql_types::BigInt, _>(criteria.offset.unwrap_or(0))
         .load::<NotificationQueryRow>(&mut conn)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Database error: {}", e)))?;

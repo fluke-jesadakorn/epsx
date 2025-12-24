@@ -184,7 +184,7 @@ pub async fn get_health(
     let response = SystemHealthResponse {
         status: status.to_string(),
         database_connected: db_connected,
-        total_groups: total_groups,
+        total_groups,
         total_active_assignments: active_assignments,
         total_wallets_with_permissions: total_wallets,
         total_permissions,
@@ -385,8 +385,8 @@ pub async fn get_statistics(
     }).collect();
 
     let response = PermissionStatisticsResponse {
-        total_groups: total_groups,
-        active_groups: active_groups,
+        total_groups,
+        active_groups,
         total_permissions,
         total_wallet_assignments: total_assignments,
         active_wallet_assignments: active_assignments,

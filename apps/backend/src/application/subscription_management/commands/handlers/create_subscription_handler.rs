@@ -45,7 +45,7 @@ impl CommandHandler<CreateSubscriptionCommand> for CreateSubscriptionCommandHand
         let plan = self.plan_repository
             .find_by_id(&plan_id).await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
-            .ok_or_else(|| ApplicationError::not_found("plan", &command.plan_id.to_string()))?;
+            .ok_or_else(|| ApplicationError::not_found("plan", command.plan_id.to_string()))?;
 
         // 4. Check if active subscription already exists
         if let Some(_existing) = self.subscription_repository

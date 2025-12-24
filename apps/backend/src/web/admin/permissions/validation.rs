@@ -438,8 +438,8 @@ pub async fn get_wallet_permissions(
         Err(_) => 0,
     };
 
-    let highest_group = groups
-        .get(0)
+    let highest_group = groups[..]
+        .first()
         .map(|g| g.name.clone())
         .unwrap_or_else(|| "None".to_string());
 

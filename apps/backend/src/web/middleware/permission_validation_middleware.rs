@@ -155,8 +155,8 @@ fn is_public_endpoint(path: &str) -> bool {
         "/api/permissions/health",
         "/docs",
         "/api-docs/",
-        // Admin public Web3 endpoints
-        "/api/v1/admin/web3/recent-wallets",
+        // Admin public Web3 endpoints (relative paths for nested router)
+        "/web3/recent-wallets",
     ];
 
     PUBLIC_PATHS.iter().any(|public_path| path.starts_with(public_path))

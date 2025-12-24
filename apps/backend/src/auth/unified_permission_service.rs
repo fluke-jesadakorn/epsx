@@ -256,7 +256,7 @@ impl UnifiedPermissionService {
                     permission_string: row.permission_string,
                     permission_id: row.permission_id
                         .and_then(|s| Uuid::parse_str(&s).ok())
-                        .unwrap_or_else(|| Uuid::new_v4()),
+                        .unwrap_or_else(Uuid::new_v4),
                     source_type: if row.source_type == "group" {
                         PermissionSource::Group
                     } else {
@@ -264,7 +264,7 @@ impl UnifiedPermissionService {
                     },
                     source_id: row.source_id
                         .and_then(|s| Uuid::parse_str(&s).ok())
-                        .unwrap_or_else(|| Uuid::new_v4()),
+                        .unwrap_or_else(Uuid::new_v4),
                     source_name: row.source_name.unwrap_or_else(|| "Unknown".to_string()),
                     expires_at: row.expires_at,
                     granted_at: row.granted_at,

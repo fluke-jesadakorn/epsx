@@ -11,12 +11,12 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use crate::web::auth::AppState;
 use crate::web::responses::AdminResponse;
+use diesel::sql_types::{Uuid as SqlUuid, Varchar, Text, Bool, Timestamptz};
 
-/// Permission definition response
 #[derive(Debug, Serialize)]
 pub struct PermissionDefinition {
     pub id: Uuid,
-    pub permission: String,
+    pub permission_string: String,
     pub name: Option<String>,
     pub description: Option<String>,
     pub platform: String,
@@ -60,38 +60,38 @@ pub async fn list_permission_definitions(
 
     #[derive(diesel::QueryableByName)]
     struct PermRow {
-        #[diesel(sql_type = diesel::sql_types::Uuid)]
+        #[diesel(sql_type = SqlUuid)]
         id: Uuid,
-        #[diesel(sql_type = diesel::sql_types::Varchar)]
-        permission: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Varchar>)]
+        #[diesel(sql_type = Varchar)]
+        permission_string: String,
+        #[diesel(sql_type = diesel::sql_types::Nullable<Varchar>)]
         name: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        #[diesel(sql_type = diesel::sql_types::Nullable<Text>)]
         description: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Varchar)]
+        #[diesel(sql_type = Varchar)]
         platform: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Varchar>)]
+        #[diesel(sql_type = diesel::sql_types::Nullable<Varchar>)]
         category: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Bool)]
+        #[diesel(sql_type = Bool)]
         is_system: bool,
-        #[diesel(sql_type = diesel::sql_types::Bool)]
+        #[diesel(sql_type = Bool)]
         is_active: bool,
-        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+        #[diesel(sql_type = Timestamptz)]
         created_at: chrono::DateTime<chrono::Utc>,
     }
 
     let permissions: Vec<PermissionDefinition> = match diesel::sql_query(
-        "SELECT id, permission, name, description, platform, category, is_system, is_active, created_at
-         FROM permission_definitions
+        "SELECT id, permission_string, name, description, platform, category, is_system, is_active, created_at
+         FROM permissions
          WHERE is_active = TRUE
-         ORDER BY platform, category, permission"
+         ORDER BY platform, category, permission_string"
     )
     .load::<PermRow>(&mut conn)
     .await
     {
         Ok(rows) => rows.into_iter().map(|r| PermissionDefinition {
             id: r.id,
-            permission: r.permission,
+            permission_string: r.permission_string,
             name: r.name,
             description: r.description,
             platform: r.platform,
@@ -124,29 +124,13 @@ pub async fn list_available_permissions(
 
     #[derive(diesel::QueryableByName)]
     struct PermissionStringRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
+        #[diesel(sql_type = Text)]
         permission_string: String,
     }
 
-    // First try to get from permission_definitions table
-    let from_definitions: Vec<String> = match diesel::sql_query(
-        "SELECT permission as permission_string FROM permission_definitions WHERE is_active = TRUE ORDER BY permission"
-    )
-    .load::<PermissionStringRow>(&mut conn)
-    .await
-    {
-        Ok(rows) => rows.into_iter().map(|r| r.permission_string).collect(),
-        Err(_) => vec![], // Table might not exist yet
-    };
-
-    // If we have permissions from definitions table, use those
-    if !from_definitions.is_empty() {
-        return AdminResponse::success(from_definitions).into_response();
-    }
-
-    // Fallback: get from the permissions table (legacy behavior)
+    // Consolidated query from permissions table
     let permissions: Vec<String> = match diesel::sql_query(
-        "SELECT DISTINCT permission_string FROM permissions ORDER BY permission_string"
+        "SELECT DISTINCT permission_string FROM permissions WHERE is_active = TRUE ORDER BY permission_string"
     )
     .load::<PermissionStringRow>(&mut conn)
     .await
@@ -190,49 +174,53 @@ pub async fn create_permission_definition(
 
     let permission = req.permission.to_lowercase();
     let platform = req.platform.unwrap_or_else(|| parts[0].to_string());
+    let resource = parts[1].to_string();
+    let action = parts[2].to_string();
     let category = req.category.or_else(|| Some(parts[1].to_string()));
     
     // Derive name from permission if not provided
     let name = req.name.or_else(|| {
         Some(format!("{} {}", 
-            parts[1].replace('_', " ").replace('-', " "),
-            parts[2].replace('_', " ").replace('-', " ")
+            parts[1].replace(['_', '-'], " "),
+            parts[2].replace(['_', '-'], " ")
         ).to_uppercase())
     });
 
     #[derive(diesel::QueryableByName)]
     struct NewPermRow {
-        #[diesel(sql_type = diesel::sql_types::Uuid)]
+        #[diesel(sql_type = SqlUuid)]
         id: Uuid,
-        #[diesel(sql_type = diesel::sql_types::Varchar)]
-        permission: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Varchar>)]
+        #[diesel(sql_type = Varchar)]
+        permission_string: String,
+        #[diesel(sql_type = diesel::sql_types::Nullable<Varchar>)]
         name: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        #[diesel(sql_type = diesel::sql_types::Nullable<Text>)]
         description: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Varchar)]
+        #[diesel(sql_type = Varchar)]
         platform: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Varchar>)]
+        #[diesel(sql_type = diesel::sql_types::Nullable<Varchar>)]
         category: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Bool)]
+        #[diesel(sql_type = Bool)]
         is_system: bool,
-        #[diesel(sql_type = diesel::sql_types::Bool)]
+        #[diesel(sql_type = Bool)]
         is_active: bool,
-        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+        #[diesel(sql_type = Timestamptz)]
         created_at: chrono::DateTime<chrono::Utc>,
     }
 
     let result = diesel::sql_query(
-        "INSERT INTO permission_definitions (permission, name, description, platform, category, is_system, is_active)
-         VALUES ($1, $2, $3, $4, $5, FALSE, TRUE)
-         ON CONFLICT (permission) DO UPDATE SET is_active = TRUE, updated_at = NOW()
-         RETURNING id, permission, name, description, platform, category, is_system, is_active, created_at"
+        "INSERT INTO permissions (permission_string, platform, resource, action, name, description, category, is_system, is_active, permission_type)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, TRUE, 'manual')
+         ON CONFLICT (permission_string) DO UPDATE SET is_active = TRUE, updated_at = NOW()
+         RETURNING id, permission_string, name, description, platform, category, is_system, is_active, created_at"
     )
-    .bind::<diesel::sql_types::Varchar, _>(&permission)
-    .bind::<diesel::sql_types::Nullable<diesel::sql_types::Varchar>, _>(&name)
-    .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&req.description)
-    .bind::<diesel::sql_types::Varchar, _>(&platform)
-    .bind::<diesel::sql_types::Nullable<diesel::sql_types::Varchar>, _>(&category)
+    .bind::<Varchar, _>(&permission)
+    .bind::<Varchar, _>(&platform)
+    .bind::<Varchar, _>(&resource)
+    .bind::<Varchar, _>(&action)
+    .bind::<diesel::sql_types::Nullable<Varchar>, _>(&name)
+    .bind::<diesel::sql_types::Nullable<Text>, _>(&req.description)
+    .bind::<diesel::sql_types::Nullable<Varchar>, _>(&category)
     .get_result::<NewPermRow>(&mut conn)
     .await;
 
@@ -240,7 +228,7 @@ pub async fn create_permission_definition(
         Ok(row) => {
             AdminResponse::success(PermissionDefinition {
                 id: row.id,
-                permission: row.permission,
+                permission_string: row.permission_string,
                 name: row.name,
                 description: row.description,
                 platform: row.platform,
@@ -274,16 +262,17 @@ pub async fn delete_permission_definition(
     // Check if it's a system permission
     #[derive(diesel::QueryableByName)]
     struct CheckRow {
-        #[diesel(sql_type = diesel::sql_types::Bool)]
+        #[diesel(sql_type = Bool)]
         is_system: bool,
     }
 
     let check_result = diesel::sql_query(
-        "SELECT is_system FROM permission_definitions WHERE id = $1"
+        "SELECT is_system FROM permissions WHERE id = $1"
     )
-    .bind::<diesel::sql_types::Uuid, _>(id)
+    .bind::<SqlUuid, _>(id)
     .get_result::<CheckRow>(&mut conn)
     .await;
+
 
     match check_result {
         Ok(row) => {
@@ -302,9 +291,9 @@ pub async fn delete_permission_definition(
 
     // Soft delete by setting is_active = false
     let result = diesel::sql_query(
-        "UPDATE permission_definitions SET is_active = FALSE, updated_at = NOW() WHERE id = $1 AND is_system = FALSE"
+        "UPDATE permissions SET is_active = FALSE, updated_at = NOW() WHERE id = $1 AND is_system = FALSE"
     )
-    .bind::<diesel::sql_types::Uuid, _>(id)
+    .bind::<SqlUuid, _>(id)
     .execute(&mut conn)
     .await;
 
@@ -341,9 +330,9 @@ pub async fn delete_permission_by_name(
 
     // Soft delete by setting is_active = false
     let result = diesel::sql_query(
-        "UPDATE permission_definitions SET is_active = FALSE, updated_at = NOW() WHERE permission = $1 AND is_system = FALSE"
+        "UPDATE permissions SET is_active = FALSE, updated_at = NOW() WHERE permission_string = $1 AND is_system = FALSE"
     )
-    .bind::<diesel::sql_types::Varchar, _>(&permission)
+    .bind::<Varchar, _>(&permission)
     .execute(&mut conn)
     .await;
 

@@ -54,27 +54,27 @@ const getRankTitle = (rank: number): string => {
 
 const getPremiumStyle = (rank: number) => {
   if (rank === 1) return {
-    container: 'bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-50 border-4 border-yellow-400/50 shadow-yellow-500/40',
-    glow: 'shadow-2xl shadow-yellow-500/50',
+    container: 'bg-gradient-to-br from-yellow-50 via-amber-50 to-orange-50 dark:from-yellow-900/20 dark:via-amber-900/20 dark:to-orange-900/20 border-4 border-yellow-400/50 dark:border-yellow-500/30 shadow-yellow-500/40',
+    glow: 'shadow-2xl shadow-yellow-500/50 dark:shadow-yellow-500/20',
   };
   if (rank === 2) return {
-    container: 'bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 border-4 border-slate-400/50 shadow-slate-500/40',
-    glow: 'shadow-2xl shadow-slate-500/50',
+    container: 'bg-gradient-to-br from-slate-50 via-gray-50 to-zinc-50 dark:from-slate-800/50 dark:via-gray-800/50 dark:to-zinc-800/50 border-4 border-slate-400/50 dark:border-slate-500/30 shadow-slate-500/40',
+    glow: 'shadow-2xl shadow-slate-500/50 dark:shadow-slate-500/20',
   };
   if (rank === 3) return {
-    container: 'bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 border-4 border-orange-400/50 shadow-orange-500/40',
-    glow: 'shadow-2xl shadow-orange-500/50',
+    container: 'bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 dark:from-orange-900/20 dark:via-amber-900/20 dark:to-yellow-900/20 border-4 border-orange-400/50 dark:border-orange-500/30 shadow-orange-500/40',
+    glow: 'shadow-2xl shadow-orange-500/50 dark:shadow-orange-500/20',
   };
   if (rank === 4) return {
-    container: 'bg-gradient-to-br from-purple-50 via-pink-50 to-fuchsia-50 border-4 border-purple-400/50 shadow-purple-500/40',
-    glow: 'shadow-2xl shadow-purple-500/50',
+    container: 'bg-gradient-to-br from-purple-50 via-pink-50 to-fuchsia-50 dark:from-purple-900/20 dark:via-pink-900/20 dark:to-fuchsia-900/20 border-4 border-purple-400/50 dark:border-purple-500/30 shadow-purple-500/40',
+    glow: 'shadow-2xl shadow-purple-500/50 dark:shadow-purple-500/20',
   };
   if (rank === 5) return {
-    container: 'bg-gradient-to-br from-cyan-50 via-blue-50 to-sky-50 border-4 border-cyan-400/50 shadow-cyan-500/40',
-    glow: 'shadow-2xl shadow-cyan-500/50',
+    container: 'bg-gradient-to-br from-cyan-50 via-blue-50 to-sky-50 dark:from-cyan-900/20 dark:via-blue-900/20 dark:to-sky-900/20 border-4 border-cyan-400/50 dark:border-cyan-500/30 shadow-cyan-500/40',
+    glow: 'shadow-2xl shadow-cyan-500/50 dark:shadow-cyan-500/20',
   };
   return {
-    container: 'bg-gradient-to-br from-white via-slate-50 to-gray-100 border-2 border-slate-300',
+    container: 'bg-gradient-to-br from-white via-slate-50 to-gray-100 dark:from-gray-800 dark:via-slate-800 dark:to-gray-900 border-2 border-slate-300 dark:border-slate-600',
     glow: '',
   };
 };
@@ -85,7 +85,7 @@ const getPremiumStyle = (rank: number) => {
 
 const NextActionProgress = ({ daysUntilNextAction }: { daysUntilNextAction: number }) => {
   const progressPercentage = Math.max(0, Math.min(100, ((90 - daysUntilNextAction) / 90) * 100));
-  
+
   return (
     <div className="mb-6">
       <div className="mb-2 flex items-center justify-between px-1">
@@ -132,7 +132,6 @@ const PremiumStockCard = ({
       className={cn(
         'relative w-full max-w-[350px] min-w-[240px] flex-shrink-0 overflow-visible rounded-3xl sm:min-w-[300px]',
         premiumStyle.container,
-        'dark:from-gray-800 dark:via-gray-700 dark:to-gray-900',
         premiumStyle.glow,
         className
       )}
@@ -148,8 +147,8 @@ const PremiumStockCard = ({
       </div>
 
       {/* Corner effects */}
-      <div className="bg-gradient-radial absolute top-0 right-0 h-20 w-20 rounded-bl-3xl from-white/40 via-transparent to-transparent opacity-60" />
-      <div className="bg-gradient-radial absolute bottom-0 left-0 h-20 w-20 rounded-tr-3xl from-white/40 via-transparent to-transparent opacity-60" />
+      <div className="bg-gradient-radial absolute top-0 right-0 h-20 w-20 rounded-bl-3xl from-white/40 dark:from-white/10 via-transparent to-transparent opacity-60" />
+      <div className="bg-gradient-radial absolute bottom-0 left-0 h-20 w-20 rounded-tr-3xl from-white/40 dark:from-white/10 via-transparent to-transparent opacity-60" />
 
       <div className="p-8 pt-16">
         {/* Header */}
@@ -235,7 +234,7 @@ const StandardStockCard = ({
   daysUntilNextAction,
   className,
 }: StockDataCardProps) => {
-  const progressPercentage = daysUntilNextAction !== undefined 
+  const progressPercentage = daysUntilNextAction !== undefined
     ? Math.max(0, Math.min(100, ((90 - daysUntilNextAction) / 90) * 100))
     : 0;
 
@@ -248,7 +247,7 @@ const StandardStockCard = ({
       )}
     >
       {/* Corner accent */}
-      <div className="absolute top-0 right-0 h-16 w-16 bg-gradient-to-bl from-slate-400/20 to-transparent rounded-bl-3xl" />
+      <div className="absolute top-0 right-0 h-16 w-16 bg-gradient-to-bl from-slate-400/20 dark:from-slate-500/20 to-transparent rounded-bl-3xl" />
 
       <div className="p-6">
         {/* Header */}

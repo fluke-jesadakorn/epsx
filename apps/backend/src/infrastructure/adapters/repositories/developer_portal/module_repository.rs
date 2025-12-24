@@ -146,7 +146,7 @@ impl ModuleRepository {
 
         let id = Uuid::new_v4();
         let now = Utc::now();
-        let endpoints_json = serde_json::to_value(&request.endpoints.unwrap_or_default())
+        let endpoints_json = serde_json::to_value(request.endpoints.unwrap_or_default())
             .map_err(|e| AppError::internal_error(format!("Failed to serialize endpoints: {}", e)))?;
         let access_levels = request.access_levels.unwrap_or(serde_json::json!({}));
 

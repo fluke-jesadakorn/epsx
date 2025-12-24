@@ -1,12 +1,12 @@
-/// Comprehensive Rate Limiting Service
-/// 
-/// Features:
-/// - Sliding window algorithm for precise rate limiting
-/// - Progressive penalties for repeat violators
-/// - Redis + database fallback for high availability
-/// - Distributed rate limiting coordination
-/// - Brute force protection with violation tracking
-/// - Security event integration
+//! Comprehensive Rate Limiting Service
+//! 
+//! Features:
+//! - Sliding window algorithm for precise rate limiting
+//! - Progressive penalties for repeat violators
+//! - Redis + database fallback for high availability
+//! - Distributed rate limiting coordination
+//! - Brute force protection with violation tracking
+//! - Security event integration
 
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};

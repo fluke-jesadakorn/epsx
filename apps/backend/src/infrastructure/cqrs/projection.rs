@@ -272,7 +272,7 @@ impl ProjectionManager {
     /// Fetch events from Redis Streams
     async fn fetch_events_from_redis(&self, checkpoint: &ProjectionCheckpoint) -> AppResult<Vec<ProjectionEvent>> {
         if let Some(redis_client) = &self.redis_client {
-            let mut con = redis_client.get_async_connection().await.map_err(|e| {
+            let mut con = redis_client.get_multiplexed_async_connection().await.map_err(|e| {
                 AppError::internal_error(format!("Failed to get Redis connection: {}", e))
             })?;
 

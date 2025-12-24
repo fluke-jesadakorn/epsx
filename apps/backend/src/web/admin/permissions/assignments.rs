@@ -786,7 +786,7 @@ pub async fn get_group_history(
     State(app_state): State<AppState>,
     Query(query): Query<GroupHistoryQuery>,
 ) -> impl IntoResponse {
-    let page = query.limit.unwrap_or(20).max(1).min(100);
+    let page = query.limit.unwrap_or(20).clamp(1, 100);
     let offset = query.offset.unwrap_or(0);
 
     let mut conn = match app_state.db_pool.get().await {

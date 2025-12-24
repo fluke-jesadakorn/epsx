@@ -1,7 +1,7 @@
-/// Payment Validation API Handlers
-///
-/// Simplified payment validation handlers for integration testing
-/// Database operations will be implemented in a future iteration
+//! Payment Validation API Handlers
+//!
+//! Simplified payment validation handlers for integration testing
+//! Database operations will be implemented in a future iteration
 
 use axum::{
     extract::{State, Query},
@@ -177,7 +177,7 @@ pub async fn validate_payment_handler(
             amount_paid: payload.amount as f64,
             user_address: user_context.wallet_address.clone(),
             block_number,
-            confirmations: confirmations.map(|c| c as u32),
+            confirmations,
             plan_name,
             plan_price,
             payment_status: "validated".to_string(),

@@ -13,7 +13,7 @@
  * - Configurable request options and timeouts
  */
 
-import { COOKIES } from '../auth/cookies';
+import { COOKIES, getClientCookie, getClientCookieJSON } from '../auth/cookies';
 import { getBackendUrl } from './url-resolver';
 
 // ============================================================================
@@ -125,6 +125,26 @@ export class UnifiedApiClient {
         // Cookie access might fail in some server contexts or non-Next.js environments
         console.warn(`Failed to get server-side ${this.platform} auth token:`, error);
       }
+    } else {
+      // Client-side: attempt to get token from accessible cookies
+      // This is crucial for singleton clients that are initialized without tokens
+      try {
+        // 1. Try client_session cookie (synced by SharedWeb3AuthClient)
+        const clientSession = getClientCookie(COOKIES.client_session);
+        if (clientSession) {
+          headers['Authorization'] = `Bearer ${clientSession}`;
+          return headers;
+        }
+
+        // 2. Try user cookie (contains access token in JSON)
+        const user = getClientCookieJSON<{ access?: string }>(COOKIES.user);
+        if (user?.access) {
+          headers['Authorization'] = `Bearer ${user.access}`;
+          return headers;
+        }
+      } catch (error) {
+        // Silent failure on client side - simply won't have auth headers
+      }
     }
 
     return headers;
@@ -163,7 +183,13 @@ export class UnifiedApiClient {
       if (response.status === 401) {
         // Don't redirect - let the application handle authentication state
         // The auth provider will show wallet connection UI when needed
-        throw new APIError(401, 'Unauthorized - please log in again', 'UNAUTHORIZED');
+        return {
+          success: false,
+          status: 401,
+          error: 'Unauthorized - please log in again',
+          message: 'Unauthorized - please log in again',
+          data: null as any
+        };
       }
 
       // Parse response data

@@ -15,25 +15,25 @@
 'use client';
 
 import React, {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useState,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
 } from 'react';
 import {
-    SharedWeb3AuthClient,
-    UnifiedApiResponse,
-    UserInfoResponse,
+  SharedWeb3AuthClient,
+  UnifiedApiResponse,
+  UserInfoResponse,
 } from '../../auth/client';
 import {
-    COOKIES,
-    COOKIE_OPTIONS,
-    clearClientSideCookies,
-    getClientCookie,
-    getClientCookieJSON,
-    setClientCookie,
-    setClientCookieJSON,
+  COOKIES,
+  COOKIE_OPTIONS,
+  clearClientSideCookies,
+  getClientCookie,
+  getClientCookieJSON,
+  setClientCookie,
+  setClientCookieJSON,
 } from '../../auth/cookies';
 
 // Shared authentication context value
@@ -144,8 +144,8 @@ export function SharedOpenIDWeb3Provider({
       backendUrl ||
       (typeof window !== 'undefined'
         ? // Try environment variables first, then dynamic port replacement
-          process.env.NEXT_PUBLIC_BACKEND_URL ||
-          window.location.origin.replace(/:300[0-9]/, ':8080')
+        process.env.NEXT_PUBLIC_BACKEND_URL ||
+        window.location.origin.replace(/:300[0-9]/, ':8080')
         : process.env.BACKEND_URL || 'http://localhost:8080');
 
     console.log(
@@ -419,14 +419,14 @@ export function SharedOpenIDWeb3Provider({
     try {
       setError(null);
       setIsLoading(true);
-      
+
       console.log('🔄 Processing direct API authentication result', {
         wallet: result.wallet_address,
         tier: result.tier_level,
         permissions: result.permissions.length,
         isNew: result.is_new_user
       });
-      
+
       // Create user info compatible with UserInfoResponse
       const user: UserInfoResponse = {
         sub: result.wallet_address,
@@ -437,7 +437,7 @@ export function SharedOpenIDWeb3Provider({
         packageTier: result.tier_level ?? 'free', // For compatibility
         access: result.access_token, // JWT for SSE authentication
       };
-      
+
       // Persist user data to cookies for page refresh survival
       if (typeof window !== 'undefined') {
         try {
@@ -481,8 +481,8 @@ export function SharedOpenIDWeb3Provider({
       setIsLoading(false);
     }
   },
-  [onAuthError]
-);
+    [onAuthError]
+  );
 
   // Logout user
   const logout = useCallback(async () => {
@@ -591,7 +591,7 @@ export function SharedOpenIDWeb3Provider({
     isLoading,
   });
 
-  const contextValue: SharedAuthContextValue = {
+  const contextValue: SharedAuthContextValue = React.useMemo(() => ({
     user,
     // Backend-authoritative auth: Frontend only checks if user exists
     // Backend validates tokens, permissions, and expiry on every API request
@@ -609,7 +609,23 @@ export function SharedOpenIDWeb3Provider({
     getUserPermissions,
     hasPermissionForDisplay,
     makeApiRequest,
-  };
+  }), [
+    user,
+    isAuthenticated,
+    isLoading,
+    isSigningChallenge,
+    error,
+    requestChallenge,
+    authenticateWithWallet,
+    authenticateWithDirectApi,
+    logout,
+    refreshUser,
+    getWalletAddress,
+    getUserTier,
+    getUserPermissions,
+    hasPermissionForDisplay,
+    makeApiRequest,
+  ]);
 
   return (
     <SharedAuthContext.Provider value={contextValue}>

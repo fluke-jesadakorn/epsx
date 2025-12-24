@@ -244,19 +244,13 @@ impl TransactionHash {
             }
             Network::Tron => {
                 // TRON hashes don't use 0x prefix
-                if trimmed.starts_with("0x") {
-                    Ok(trimmed[2..].to_lowercase())
-                } else {
-                    Ok(trimmed.to_lowercase())
-                }
+                let hash_without_prefix = trimmed.strip_prefix("0x").unwrap_or(trimmed);
+                Ok(hash_without_prefix.to_lowercase())
             }
             Network::Bitcoin => {
                 // Bitcoin hashes don't use 0x prefix, use little-endian format
-                if trimmed.starts_with("0x") {
-                    Ok(trimmed[2..].to_lowercase())
-                } else {
-                    Ok(trimmed.to_lowercase())
-                }
+                let hash_without_prefix = trimmed.strip_prefix("0x").unwrap_or(trimmed);
+                Ok(hash_without_prefix.to_lowercase())
             }
         }
     }

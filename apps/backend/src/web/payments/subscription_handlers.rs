@@ -1,7 +1,7 @@
-/// Subscription Management API Handlers
-///
-/// Simplified subscription handlers for integration testing
-/// Complex database operations will be implemented in a future iteration
+//! Subscription Management API Handlers
+//!
+//! Simplified subscription handlers for integration testing
+//! Complex database operations will be implemented in a future iteration
 
 use axum::{
     extract::{State, Path},

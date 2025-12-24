@@ -42,8 +42,8 @@ impl UnifiedPermissionCache {
     }
 
     /// Get Redis connection
-    async fn get_connection(&self) -> Result<redis::aio::Connection, redis::RedisError> {
-        self.redis_client.get_async_connection().await
+    async fn get_connection(&self) -> Result<redis::aio::MultiplexedConnection, redis::RedisError> {
+        self.redis_client.get_multiplexed_async_connection().await
     }
 
     // ========================================================================
@@ -217,7 +217,7 @@ impl UnifiedPermissionCache {
     /// Delete keys matching pattern (helper for cache invalidation)
     async fn delete_keys_by_pattern(
         &self,
-        conn: &mut redis::aio::Connection,
+        conn: &mut redis::aio::MultiplexedConnection,
         pattern: &str,
     ) -> Result<(), redis::RedisError> {
         // Use SCAN to avoid blocking Redis
@@ -229,7 +229,7 @@ impl UnifiedPermissionCache {
                 .arg(pattern)
                 .arg("COUNT")
                 .arg(100)
-                .query_async(conn)
+                .query_async::<(u64, Vec<String>)>(conn)
                 .await?;
 
             if !keys.is_empty() {
@@ -276,7 +276,7 @@ impl UnifiedPermissionCache {
             Ok(mut conn) => {
                 match redis::cmd("INFO")
                     .arg("stats")
-                    .query_async::<_, String>(&mut conn)
+                    .query_async::<String>(&mut conn)
                     .await
                 {
                     Ok(info) => {

@@ -205,7 +205,7 @@ pub async fn send_notification_handler(
     // Build response
     let delivery_message = if app_state.redis_broadcaster.is_some() {
         if is_broadcast {
-            format!("Broadcast notification sent successfully via Redis")
+            "Broadcast notification sent successfully via Redis".to_string()
         } else {
             format!("Notifications sent to {} recipients via Redis", wallet_addresses.len())
         }

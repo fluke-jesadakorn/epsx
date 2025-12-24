@@ -363,16 +363,13 @@ pub async fn list_available_groups_handler(
     for group in active_groups {
         // Query permissions for this group
 
-        let group_perms = match group_permissions::table
+        let group_perms: Vec<String> = group_permissions::table
             .inner_join(permissions::table.on(permissions::id.eq(group_permissions::permission_id)))
             .filter(group_permissions::group_id.eq(&group.id))
             .select(permissions::permission_string)
             .load::<String>(&mut conn)
             .await
-        {
-            Ok(perms) => perms,
-            Err(_) => vec![], // If no permissions, return empty
-        };
+            .unwrap_or_default();
 
         result_groups.push(AvailableGroup {
             id: group.id.to_string(),

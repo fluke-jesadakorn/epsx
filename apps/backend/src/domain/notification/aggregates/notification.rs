@@ -37,6 +37,7 @@ impl std::fmt::Display for NotificationPriority {
 }
 
 impl NotificationPriority {
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Result<Self, String> {
         match s.to_lowercase().as_str() {
             "urgent" => Ok(NotificationPriority::Urgent),
@@ -703,6 +704,7 @@ impl NotificationStatus {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Result<Self, String> {
         match s.to_lowercase().replace("_", "").as_str() {
             "created" => Ok(NotificationStatus::Created),

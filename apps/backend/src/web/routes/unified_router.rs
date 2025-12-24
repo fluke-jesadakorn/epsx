@@ -187,7 +187,7 @@ impl UnifiedRouteBuilder {
         let redis_pool = self.container.redis_pool.clone();
         let redis_broadcaster = self.container.redis_broadcaster.clone();
         let cache = self.container.cache.clone().ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::Other, "Cache not configured")
+            std::io::Error::other("Cache not configured")
         }).unwrap();
 
         let app_state = crate::web::auth::AppState::new(
@@ -327,7 +327,11 @@ impl UnifiedRouteBuilder {
 
             // Settings management (settings_handlers not implemented yet)
             // .route("/settings", get(crate::web::user::settings_handlers::get_user_settings))
-            .with_state(app_state)
+            .with_state(app_state.clone())
+            .layer(axum_middleware::from_fn_with_state(
+                app_state,
+                crate::web::middleware::bearer_middleware
+            ))
     }
 
     // ============================================================================

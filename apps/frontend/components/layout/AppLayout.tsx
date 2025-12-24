@@ -6,7 +6,7 @@ import { NavigationClient } from '@/components/nav';
 import { StateProvider } from '@/components/state/StateProvider';
 import { useLoadingState, useUI } from '@/context/ui-context';
 import { useResponsive } from '@/hooks/state/useStateSelector';
-import { ThemeProvider } from 'next-themes';
+
 import React, { useEffect } from 'react';
 
 interface AppLayoutProps {
@@ -128,15 +128,12 @@ export function AppLayout({
   className,
 }: AppLayoutProps) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <StateProvider
-        serverAuthState={serverAuthState}
-        serverUserPreferences={serverUserPreferences}
-      >
-        <InnerLayout className={className}>{children}</InnerLayout>
-
-      </StateProvider>
-    </ThemeProvider>
+    <StateProvider
+      serverAuthState={serverAuthState}
+      serverUserPreferences={serverUserPreferences}
+    >
+      <InnerLayout className={className}>{children}</InnerLayout>
+    </StateProvider>
   );
 }
 

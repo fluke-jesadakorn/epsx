@@ -78,7 +78,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 error!("Failed to find wallet user by address {}: {}", wallet_address.as_str(), e);
                 AppError::database_error(e.to_string())
                     .with_component("wallet_user_repository")
-                    .with_operation(&format!("find_by_wallet({})", wallet_address.as_str()))
+                    .with_operation(format!("find_by_wallet({})", wallet_address.as_str()))
             })?;
 
         if let Some(row) = db_user {
@@ -146,7 +146,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 error!("Failed to find wallet users by addresses: {}", e);
                 AppError::database_error(e.to_string())
                     .with_component("wallet_user_repository")
-                    .with_operation(&format!("find_by_wallets({} addresses)", wallet_addresses.len()))
+                    .with_operation(format!("find_by_wallets({} addresses)", wallet_addresses.len()))
             })?;
 
         let mut users = Vec::new();
@@ -217,7 +217,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 error!("Failed to save wallet user {}: {}", user.wallet_address().as_str(), e);
                 AppError::database_error(e.to_string())
                     .with_component("wallet_user_repository")
-                    .with_operation(&format!("save({})", user.wallet_address().as_str()))
+                    .with_operation(format!("save({})", user.wallet_address().as_str()))
             })?;
 
         info!("Saved wallet user: {}", user.wallet_address().as_str());
@@ -567,7 +567,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 .with_component("wallet_user_repository")
             })?;
 
-        Ok(result.get(0).map(|r| r.count as u64).unwrap_or(0))
+        Ok(result[..].first().map(|r| r.count as u64).unwrap_or(0))
     }
 
     async fn find_eligible_for_web3_permissions(&self, chain_id: u64) -> AppResult<Vec<WalletUser>> {
@@ -628,7 +628,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
         let mut conn = self.db_pool.get().await
             .map_err(|e| AppError::database_error(e.to_string())
                 .with_component("wallet_user_repository")
-                .with_operation(&format!("save_batch({} users)", users.len())))?;
+                .with_operation(format!("save_batch({} users)", users.len())))?;
 
         // Execute batch inserts without transaction for now
         // Transaction support can be added later if needed for data consistency
@@ -799,7 +799,7 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
                     .with_operation("get_statistics")
             })?;
 
-        let stats = results.get(0).ok_or_else(|| {
+        let stats = results[..].first().ok_or_else(|| {
             AppError::database_error("No statistics returned".to_string())
                 .with_component("wallet_user_repository")
         })?;
@@ -968,7 +968,7 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
         let mut conn = self.db_pool.get().await
             .map_err(|e| AppError::database_error(e.to_string())
                 .with_component("wallet_user_repository")
-                .with_operation(&format!("get_activity_patterns_by_chain(chain={}, days={})", chain_id, days)))?;
+                .with_operation(format!("get_activity_patterns_by_chain(chain={}, days={})", chain_id, days)))?;
 
         #[derive(diesel::QueryableByName)]
         struct ActivityRow {
@@ -1001,7 +1001,7 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
                 error!("Failed to get activity patterns for chain {}: {}", chain_id, e);
                 AppError::database_error(e.to_string())
                     .with_component("wallet_user_repository")
-                    .with_operation(&format!("get_activity_patterns_by_chain(chain={}, days={})", chain_id, days))
+                    .with_operation(format!("get_activity_patterns_by_chain(chain={}, days={})", chain_id, days))
             })?;
 
         let patterns: Vec<(NaiveDate, u64)> = rows.iter()
@@ -1105,7 +1105,7 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
         for row in rows {
             if !row.wallet_address.is_empty() && !row.permission_group.is_empty() {
                 progression.entry(row.wallet_address)
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(row.permission_group);
             }
         }

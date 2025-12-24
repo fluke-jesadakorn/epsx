@@ -20,6 +20,12 @@ pub struct WalletPermissionService {
 /// @deprecated Use WalletPermissionService instead
 pub struct Web3WalletPermissionService;
 
+impl Default for WalletPermissionService {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WalletPermissionService {
     pub fn new() -> Self {
         Self {
@@ -103,7 +109,7 @@ impl WalletPermissionService {
         
         // Group-based permissions
         for group in wallet.groups() {
-            permissions.extend(self.get_group_permissions(&[group.clone()])?);
+            permissions.extend(self.get_group_permissions(std::slice::from_ref(group))?);
         }
         
         // Chain-specific permissions based on user's primary chain

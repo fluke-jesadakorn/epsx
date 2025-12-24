@@ -1,7 +1,7 @@
-/// Admin Payment Management API Handlers
-///
-/// Comprehensive admin interface for managing payments, subscriptions, and financial operations
-/// Requires admin permissions and provides detailed analytics and management capabilities
+//! Admin Payment Management API Handlers
+//!
+//! Comprehensive admin interface for managing payments, subscriptions, and financial operations
+//! Requires admin permissions and provides detailed analytics and management capabilities
 
 use axum::{
     extract::{State, Query, Path},
@@ -514,7 +514,7 @@ pub async fn admin_list_subscriptions_handler(
             plan_name,
             status: sub_db.status,
             payment_id: sub_db.payment_id.unwrap_or(Uuid::nil()),
-            started_at: sub_db.started_at.unwrap_or_else(|| Utc::now()),
+            started_at: sub_db.started_at.unwrap_or_else(Utc::now),
             expires_at: sub_db.expires_at,
             cancelled_at: sub_db.cancelled_at,
             auto_renew: sub_db.auto_renew.unwrap_or(false),

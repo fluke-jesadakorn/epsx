@@ -3,7 +3,6 @@
 /// This module contains all value objects for the Payment bounded context.
 /// Value objects represent concepts with identity defined by their attributes
 /// rather than a unique identifier.
-
 pub mod payment_id;
 pub mod payment_amount;
 pub mod crypto_address;

@@ -1,5 +1,5 @@
-/// Mappers for Trading Analytics domain
-/// Convert between legacy EPS ranking structures and DDD Trading Analytics aggregates
+//! Mappers for Trading Analytics domain
+//! Convert between legacy EPS ranking structures and DDD Trading Analytics aggregates
 
 use chrono::Utc;
 use tracing::{debug, warn};

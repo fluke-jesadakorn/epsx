@@ -144,9 +144,25 @@ async fn authenticate_request(headers: &HeaderMap, app_state: &AppState) -> Resu
     }
 
     // Method 3: Try session cookie authentication
-    if let Some(_cookie) = headers.get("cookie") {
-        // TODO: Implement session cookie validation
-        debug!("Session cookie authentication not yet implemented");
+    if let Some(cookie_header) = headers.get("cookie") {
+        if let Ok(cookie_str) = cookie_header.to_str() {
+            debug!("Cookie header found, attempting to extract token from: {}", 
+                   if cookie_str.len() > 100 { &cookie_str[..100] } else { cookie_str });
+            // Try to extract access token from cookies
+            // Cookie names: "epsx.access" (development) or "__Host-epsx.access" (production)
+            if let Some(token) = extract_token_from_cookie(cookie_str) {
+                debug!("Extracted token from cookie: {}...", &token[..std::cmp::min(20, token.len())]);
+                match validate_bearer_token(&token, app_state).await {
+                    Ok(mut context) => {
+                        context.auth_method = AuthMethod::SessionCookie;
+                        return Ok(context);
+                    },
+                    Err(e) => debug!("Session cookie token validation failed: {}", e),
+                }
+            } else {
+                debug!("No token found in cookies. Cookie names checked: epsx.access, __Host-epsx.access");
+            }
+        }
     }
 
     Err(Web3AuthError::MissingCredentials)
@@ -157,6 +173,102 @@ fn has_siwe_headers(headers: &HeaderMap) -> bool {
     headers.get("X-Web3-Signature").is_some() &&
     headers.get("X-Wallet-Address").is_some() &&
     headers.get("X-Signed-Message").is_some()
+}
+
+/// Extract access token from cookie string
+/// Supports multiple cookie names:
+/// - Production: "__Host-epsx.access" (HttpOnly)
+/// - Development: "epsx.access" (HttpOnly)
+/// - Client session: "epsx.client_session" or "__Host-epsx.client_session" (JS accessible)
+/// - User cookie: "epsx.user" or "__Host-epsx.user" (JSON with `access` field - this is where frontend stores token!)
+fn extract_token_from_cookie(cookie_str: &str) -> Option<String> {
+    for cookie in cookie_str.split(';') {
+        let cookie = cookie.trim();
+        // HttpOnly access cookies
+        if let Some(token) = cookie.strip_prefix("__Host-epsx.access=") {
+            if !token.is_empty() {
+                return Some(token.to_string());
+            }
+        }
+        if let Some(token) = cookie.strip_prefix("epsx.access=") {
+            if !token.is_empty() {
+                return Some(token.to_string());
+            }
+        }
+        // Client session cookies (frontend JavaScript-accessible fallback)
+        if let Some(token) = cookie.strip_prefix("__Host-epsx.client_session=") {
+            if !token.is_empty() {
+                return Some(token.to_string());
+            }
+        }
+        if let Some(token) = cookie.strip_prefix("epsx.client_session=") {
+            if !token.is_empty() {
+                return Some(token.to_string());
+            }
+        }
+        // User JSON cookie - THIS IS WHERE FRONTEND ACTUALLY STORES THE TOKEN
+        // Format: {"sub":"0x...", "wallet_address":"0x...", "access":"eyJ...JWT..."}
+        if let Some(user_json) = cookie.strip_prefix("__Host-epsx.user=") {
+            if let Some(token) = extract_token_from_user_json(user_json) {
+                debug!("Found token in __Host-epsx.user cookie's access field");
+                return Some(token);
+            }
+        }
+        if let Some(user_json) = cookie.strip_prefix("epsx.user=") {
+            if let Some(token) = extract_token_from_user_json(user_json) {
+                debug!("Found token in epsx.user cookie's access field");
+                return Some(token);
+            }
+        }
+    }
+    None
+}
+
+/// Extract the `access` token from URL-decoded user JSON cookie
+fn extract_token_from_user_json(encoded_json: &str) -> Option<String> {
+    // URL decode the JSON first
+    let decoded = url_decode_cookie_value(encoded_json)?;
+    
+    // Parse as JSON and extract the "access" field
+    match serde_json::from_str::<serde_json::Value>(&decoded) {
+        Ok(value) => {
+            if let Some(access) = value.get("access").and_then(|v| v.as_str()) {
+                if !access.is_empty() && access.starts_with("eyJ") {
+                    // Looks like a JWT (starts with base64-encoded JSON header)
+                    return Some(access.to_string());
+                }
+            }
+            None
+        }
+        Err(e) => {
+            debug!("Failed to parse epsx.user cookie as JSON: {}", e);
+            None
+        }
+    }
+}
+
+/// URL decode a cookie value
+fn url_decode_cookie_value(value: &str) -> Option<String> {
+    if value.contains('%') {
+        let mut result = String::with_capacity(value.len());
+        let mut chars = value.chars().peekable();
+        while let Some(c) = chars.next() {
+            if c == '%' {
+                let hex: String = chars.by_ref().take(2).collect();
+                if let Ok(byte) = u8::from_str_radix(&hex, 16) {
+                    result.push(byte as char);
+                } else {
+                    result.push('%');
+                    result.push_str(&hex);
+                }
+            } else {
+                result.push(c);
+            }
+        }
+        Some(result)
+    } else {
+        Some(value.to_string())
+    }
 }
 
 /// Validate SIWE signature-based authentication
@@ -243,41 +355,113 @@ async fn validate_siwe_signature(headers: &HeaderMap, app_state: &AppState) -> R
 }
 
 /// Validate JWT Bearer token
+/// Tries RS256 (primary) then falls back to HS256 (legacy) like SSE handler
 async fn validate_bearer_token(token: &str, app_state: &AppState) -> Result<Web3AuthContext, Web3AuthError> {
-    // Get token service
-    let token_service = app_state.domain_container.get_token_service()
-        .ok_or_else(|| Web3AuthError::SecurityViolation("Token service not available".to_string()))?;
+    // Try RS256 validation first (primary method - OpenID tokens)
+    if let Some(token_service) = app_state.domain_container.get_token_service() {
+        match token_service.validate_access_token(token).await {
+            Ok(claims) => {
+                debug!("Bearer token validated (RS256) for wallet: {}", claims.wallet_address);
+                
+                // Extract permissions from scope
+                let permissions: Vec<String> = claims.scope
+                    .split_whitespace()
+                    .filter(|s| *s != "openid" && *s != "profile")
+                    .map(|s| s.to_string())
+                    .collect();
 
-    // Validate token and get claims
-    let claims = token_service.validate_access_token(token)
-        .await
-        .map_err(|e| Web3AuthError::TokenVerificationFailed(e.to_string()))?;
+                return Ok(Web3AuthContext {
+                    wallet_address: claims.wallet_address.to_lowercase(),
+                    permissions,
+                    groups: vec![],
+                    is_active: true,
+                    verified_at: DateTime::from_timestamp(claims.iat, 0).unwrap_or(Utc::now()),
+                    signature_hash: claims.jti,
+                    chain_id: 56,
+                    last_auth_at: DateTime::from_timestamp(claims.auth_time, 0).unwrap_or(Utc::now()),
+                    bearer_token: Some(token.to_string()),
+                    token_expires_at: Some(DateTime::from_timestamp(claims.exp, 0).unwrap_or(Utc::now())),
+                    auth_method: AuthMethod::BearerToken,
+                });
+            },
+            Err(e) => {
+                debug!("RS256 token validation failed: {}, trying legacy HS256 fallback", e);
+            }
+        }
+    }
+    
+    // Fallback: Try HS256 validation (legacy method - matches SSE handler)
+    if let Some(wallet_address) = validate_token_hs256_legacy(token) {
+        warn!("Token validated using legacy HS256 method (deprecated) for wallet: {}", wallet_address);
+        return Ok(Web3AuthContext {
+            wallet_address: wallet_address.to_lowercase(),
+            permissions: vec![], // Legacy tokens don't have permissions in claims
+            groups: vec![],
+            is_active: true,
+            verified_at: Utc::now(),
+            signature_hash: String::new(),
+            chain_id: 56,
+            last_auth_at: Utc::now(),
+            bearer_token: Some(token.to_string()),
+            token_expires_at: None,
+            auth_method: AuthMethod::BearerToken,
+        });
+    }
+    
+    Err(Web3AuthError::TokenVerificationFailed("Token validation failed with all methods".to_string()))
+}
 
-    debug!("Bearer token validated for wallet: {}", claims.wallet_address);
-
-    // Extract permissions from scope
-    // Scope format: "openid profile permission1 permission2"
-    let permissions: Vec<String> = claims.scope
-        .split_whitespace()
-        .filter(|s| *s != "openid" && *s != "profile")
-        .map(|s| s.to_string())
-        .collect();
-
-    let auth_context = Web3AuthContext {
-        wallet_address: claims.wallet_address.to_lowercase(),
-        permissions,
-        groups: vec![], // Groups are flattened into permissions in the token
-        is_active: true, // Assumed active if token is valid
-        verified_at: DateTime::from_timestamp(claims.iat, 0).unwrap_or(Utc::now()),
-        signature_hash: claims.jti,
-        chain_id: 56, // Default to BSC, could be in claims
-        last_auth_at: DateTime::from_timestamp(claims.auth_time, 0).unwrap_or(Utc::now()),
-        bearer_token: Some(token.to_string()),
-        token_expires_at: Some(DateTime::from_timestamp(claims.exp, 0).unwrap_or(Utc::now())),
-        auth_method: AuthMethod::BearerToken,
-    };
-
-    Ok(auth_context)
+/// Legacy HS256 token validation (fallback for older tokens)
+/// Matches the logic in SSE handler's extract_wallet_from_token function
+fn validate_token_hs256_legacy(token: &str) -> Option<String> {
+    use jsonwebtoken::{decode, DecodingKey, Validation, Algorithm};
+    
+    #[derive(Debug, serde::Deserialize)]
+    struct LegacyTokenClaims {
+        #[serde(default)]
+        wallet_address: String,
+        #[serde(default)]
+        sub: String,
+    }
+    
+    // First, try legacy format: "web3_token_{wallet_address}"
+    if token.starts_with("web3_token_") {
+        let wallet = token.strip_prefix("web3_token_").unwrap_or("").to_string();
+        if !wallet.is_empty() && wallet.len() >= 20 {
+            debug!("Validated legacy web3_token_ format for wallet: {}", wallet);
+            return Some(wallet.to_lowercase());
+        }
+    }
+    
+    // Fall back to JWT decoding using JWT_SECRET environment variable
+    let secret = std::env::var("JWT_SECRET")
+        .unwrap_or_else(|_| "epsx-web3-bearer-token-secret-key".to_string());
+    let decoding_key = DecodingKey::from_secret(secret.as_bytes());
+    
+    let mut validation = Validation::new(Algorithm::HS256);
+    validation.validate_exp = true;
+    
+    // Try to decode token
+    match decode::<LegacyTokenClaims>(token, &decoding_key, &validation) {
+        Ok(token_data) => {
+            let wallet = if !token_data.claims.wallet_address.is_empty() {
+                token_data.claims.wallet_address
+            } else {
+                token_data.claims.sub
+            };
+            
+            if !wallet.is_empty() && wallet != "anonymous" {
+                debug!("Validated legacy HS256 JWT for wallet: {}", wallet);
+                Some(wallet.to_lowercase())
+            } else {
+                None
+            }
+        }
+        Err(e) => {
+            debug!("Legacy HS256 JWT validation failed: {:?}", e);
+            None
+        }
+    }
 }
 
 /// Extract Web3 authentication context from request
@@ -369,8 +553,8 @@ fn is_public_route_for_auth(path: &str) -> bool {
         "/api/permissions/health",
         "/docs",
         "/api-docs/",
-        // Admin public Web3 endpoints
-        "/api/v1/admin/web3/recent-wallets",
+        // Admin public Web3 endpoints (relative paths for nested router)
+        "/web3/recent-wallets",
     ];
 
     PUBLIC_PATHS.iter().any(|public_path| path.starts_with(public_path))

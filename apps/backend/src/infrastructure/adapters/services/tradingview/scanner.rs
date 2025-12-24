@@ -672,11 +672,7 @@ impl TradingViewScanner {
                     println!("DEBUG [NVDA]: Current TS={}, Selected={:?}", current_timestamp, next_val);
                 }
 
-                if let Some(val) = next_val {
-                    Some(val)
-                } else {
-                    None
-                }
+                next_val
             },
         }
     }

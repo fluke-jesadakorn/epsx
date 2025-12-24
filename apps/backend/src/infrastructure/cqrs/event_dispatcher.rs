@@ -192,7 +192,7 @@ impl EventDispatcher {
     async fn publish_event(&self, event: &super::outbox::OutboxEvent) -> AppResult<()> {
         if let Some(redis_client) = &self.redis_client {
             // Get Redis connection
-            let mut con = redis_client.get_async_connection().await.map_err(|e| {
+            let mut con = redis_client.get_multiplexed_async_connection().await.map_err(|e| {
                 AppError::internal_error(format!("Failed to get Redis connection: {}", e))
             })?;
 
@@ -252,7 +252,7 @@ impl EventDispatcher {
 
         // Check Redis connectivity if configured
         let redis_healthy = if let Some(redis_client) = &self.redis_client {
-            redis_client.get_async_connection().await.is_ok()
+            redis_client.get_multiplexed_async_connection().await.is_ok()
         } else {
             true // No Redis = considered healthy
         };

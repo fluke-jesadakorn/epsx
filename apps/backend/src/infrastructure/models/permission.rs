@@ -1,10 +1,8 @@
-/**
- * Diesel Models for Unified Permissions System
- *
- * Database models for the new unified permissions table using Diesel ORM.
- * This replaces the complex multi-table permission system with a single,
- * optimized table that supports direct, group-based, and route permissions.
- */
+//! Diesel Models for Unified Permissions System
+//!
+//! Database models for the new unified permissions table using Diesel ORM.
+//! This replaces the complex multi-table permission system with a single,
+//! optimized table that supports direct, group-based, and route permissions.
 
 use chrono::{DateTime, Utc};
 use diesel::{Queryable, Selectable, Insertable, AsChangeset, Identifiable};
@@ -26,20 +24,16 @@ pub struct PermissionDb {
     pub resource: String,
     /// Extracted action from permission_string
     pub action: String,
-    /// Permission description (legacy field)
+    /// Human readable name
+    pub name: Option<String>,
+    /// Permission description
     pub description: Option<String>,
+    /// Permission category
+    pub category: Option<String>,
+    /// Whether this is a system permission (cannot be deleted)
+    pub is_system: bool,
     /// Permission type (legacy field)
     pub permission_type: String,
-    /// Web3 contract address (legacy field)
-    pub web3_contract_address: Option<String>,
-    /// Web3 chain ID (legacy field)
-    pub web3_chain_id: Option<i64>,
-    /// Web3 minimum balance (legacy field)
-    pub web3_min_balance: Option<String>,
-    /// Web3 token IDs (legacy field)
-    pub web3_token_ids: Option<serde_json::Value>,
-    /// Web3 metadata (legacy field)
-    pub web3_metadata: Option<serde_json::Value>,
     /// Whether this permission is currently active
     pub is_active: bool,
     /// Creation timestamp
@@ -48,22 +42,9 @@ pub struct PermissionDb {
     pub updated_at: DateTime<Utc>,
     /// Original creator (legacy field)
     pub created_by: Option<String>,
-    /// Wallet address that has this permission (new unified field)
-    pub wallet_address: Option<String>,
-    /// Source type: 'direct', 'group', or 'route' (new unified field)
-    pub source_type: Option<String>,
-    /// Source ID for group-based permissions (new unified field)
-    pub source_id: Option<Uuid>,
-    /// When this permission was granted (new unified field)
-    pub granted_at: Option<DateTime<Utc>>,
-    /// When this permission expires (NULL for permanent) (new unified field)
-    pub expires_at: Option<DateTime<Utc>>,
-    /// Who granted this permission (admin wallet address) (new unified field)
-    pub granted_by: Option<String>,
-    /// Reason for granting this permission (new unified field)
-    pub grant_reason: Option<String>,
 }
 
+/// Diesel Insertable model for creating new permissions
 /// Diesel Insertable model for creating new permissions
 #[derive(Debug, Clone, Insertable)]
 #[diesel(table_name = crate::schema::permissions)]
@@ -77,22 +58,19 @@ pub struct NewPermissionDb {
     pub resource: String,
     /// Extracted action component
     pub action: String,
+    /// Name
+    pub name: Option<String>,
+    /// Category
+    pub category: Option<String>,
     /// Permission description (optional)
     pub description: Option<String>,
+    /// System flag
+    pub is_system: bool,
     /// Permission type (legacy, defaults to 'manual')
     pub permission_type: String,
-    /// Wallet address to grant permission to (new unified field)
-    pub wallet_address: Option<String>,
-    /// Source type: 'direct', 'group', or 'route' (new unified field)
-    pub source_type: Option<String>,
-    /// Source ID for group-based permissions (new unified field)
-    pub source_id: Option<Uuid>,
-    /// Who is granting this permission (new unified field)
-    pub granted_by: Option<String>,
-    /// Reason for granting permission (new unified field)
-    pub grant_reason: Option<String>,
 }
 
+/// Diesel AsChangeset model for updating existing permissions
 /// Diesel AsChangeset model for updating existing permissions
 #[derive(Debug, Clone, AsChangeset, Default)]
 #[diesel(table_name = crate::schema::permissions)]
@@ -100,18 +78,12 @@ pub struct NewPermissionDb {
 pub struct UpdatePermissionDb {
     /// Update permission status
     pub is_active: Option<bool>,
-    /// Update expiry time (new unified field)
-    pub expires_at: Option<Option<DateTime<Utc>>>,
-    /// Update grant reason (new unified field)
-    pub grant_reason: Option<Option<String>>,
-    /// Update wallet address (new unified field)
-    pub wallet_address: Option<Option<String>>,
-    /// Update source type (new unified field)
-    pub source_type: Option<Option<String>>,
-    /// Update source ID (new unified field)
-    pub source_id: Option<Option<Uuid>>,
-    /// Update granted by (new unified field)
-    pub granted_by: Option<Option<String>>,
+    /// Update description
+    pub description: Option<Option<String>>,
+    /// Update name
+    pub name: Option<Option<String>>,
+    /// Update category
+    pub category: Option<Option<String>>,
     /// Force update timestamp
     pub updated_at: Option<DateTime<Utc>>,
 }
@@ -308,116 +280,26 @@ pub struct PermissionSummary {
 }
 
 /// Helper functions for permission management
+/// Helper functions for permission management
 impl PermissionDb {
-    /// Check if this permission is currently valid
-    pub fn is_currently_valid(&self) -> bool {
-        if !self.is_active {
-            return false;
-        }
-
-        // Check if it's assigned to a wallet and hasn't expired
-        if self.wallet_address.is_some() {
-            if let Some(expires_at) = self.expires_at {
-                expires_at > Utc::now()
-            } else {
-                true
-            }
-        } else {
-            // Permission definition (not assigned) - always valid if active
-            true
-        }
+    /// Check if this permission is currently active
+    pub fn is_currently_active(&self) -> bool {
+        self.is_active
     }
 
-    /// Check if this permission is assigned to a wallet
-    pub fn is_wallet_permission(&self) -> bool {
-        self.wallet_address.is_some()
-    }
-
-    /// Check if this permission will expire
-    pub fn is_temporary(&self) -> bool {
-        self.expires_at.is_some()
-    }
-
-    /// Get time until expiry
-    pub fn time_until_expiry(&self) -> Option<chrono::Duration> {
-        self.expires_at.map(|expiry| expiry - Utc::now())
-    }
-
-    /// Check if expired
-    pub fn is_expired(&self) -> bool {
-        if let Some(expires_at) = self.expires_at {
-            expires_at <= Utc::now()
-        } else {
-            false
-        }
-    }
-
-    /// Get permission source information
-    pub fn get_source_info(&self) -> Option<(String, Option<Uuid>)> {
-        self.source_type.clone().map(|st| (st, self.source_id))
-    }
-
-    /// Check if this is a legacy permission definition
-    pub fn is_legacy_definition(&self) -> bool {
-        self.wallet_address.is_none() && self.source_type.is_none()
-    }
-
-    /// Convert to wallet-assigned permission
-    pub fn as_wallet_permission(&self, wallet_address: String, source_type: String) -> PermissionDb {
-        let mut result = self.clone();
-        result.wallet_address = Some(wallet_address);
-        result.source_type = Some(source_type);
-        result.granted_at = Some(Utc::now());
-        result
+    /// Check if this is a system permission
+    pub fn is_system_permission(&self) -> bool {
+        self.is_system
     }
 }
 
-/// Helper functions for creating new permissions
+    /// Create a simplified permission definition
 impl NewPermissionDb {
-    /// Create a new permission from a permission string
-    pub fn from_permission_string(
-        wallet_address: Option<String>,
-        permission_string: String,
-        source_type: String,
-        source_id: Option<Uuid>,
-        granted_by: Option<String>,
-        grant_reason: Option<String>,
-        _expires_at: Option<DateTime<Utc>>,
-    ) -> Result<Self, String> {
-        // Parse permission string into components
-        let parts: Vec<&str> = permission_string.split(':').collect();
-        if parts.len() != 3 {
-            return Err("Permission string must be in format 'platform:resource:action'".to_string());
-        }
-
-        let platform = parts[0].to_string();
-        let resource = parts[1].to_string();
-        let action = parts[2].to_string();
-
-        // Validate source type
-        if !matches!(source_type.as_str(), "direct" | "group" | "route") {
-            return Err("Source type must be 'direct', 'group', or 'route'".to_string());
-        }
-
-        Ok(Self {
-            permission_string,
-            platform,
-            resource,
-            action,
-            description: None, // Optional, can be set separately
-            permission_type: "manual".to_string(), // Default for unified permissions
-            wallet_address,
-            source_type: Some(source_type),
-            source_id,
-            granted_by,
-            grant_reason,
-        })
-    }
-
-    /// Create a simple permission definition (without wallet assignment)
-    pub fn permission_definition(
+    pub fn new(
         permission_string: String,
         description: Option<String>,
+        name: Option<String>,
+        category: Option<String>,
     ) -> Result<Self, String> {
         // Parse permission string into components
         let parts: Vec<&str> = permission_string.split(':').collect();
@@ -434,13 +316,11 @@ impl NewPermissionDb {
             platform,
             resource,
             action,
+            name,
+            category,
             description,
+            is_system: false,
             permission_type: "manual".to_string(),
-            wallet_address: None,
-            source_type: None,
-            source_id: None,
-            granted_by: None,
-            grant_reason: None,
         })
     }
 }
@@ -497,15 +377,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_new_permission_from_string() {
-        let result = NewPermissionDb::from_permission_string(
-            Some("0x1234567890123456789012345678901234567890".to_string()),
+    fn test_new_permission() {
+        let result = NewPermissionDb::new(
             "admin:users:manage".to_string(),
-            "direct".to_string(),
-            None,
-            Some("0x9876543210987654321098765432109876543210".to_string()),
-            Some("Test permission".to_string()),
-            None,
+            Some("Description".to_string()),
+            Some("Name".to_string()),
+            Some("Category".to_string()),
         );
 
         assert!(result.is_ok());
@@ -513,65 +390,6 @@ mod tests {
         assert_eq!(perm.platform, "admin");
         assert_eq!(perm.resource, "users");
         assert_eq!(perm.action, "manage");
-    }
-
-    #[test]
-    fn test_invalid_permission_string() {
-        let result = NewPermissionDb::from_permission_string(
-            Some("0x1234567890123456789012345678901234567890".to_string()),
-            "invalid_permission".to_string(),
-            "direct".to_string(),
-            None,
-            None,
-            None,
-            None,
-        );
-
-        assert!(result.is_err());
-    }
-
-    #[test]
-    fn test_permission_validity() {
-        let mut perm = PermissionDb {
-            id: Uuid::new_v4(),
-            permission_string: "admin:users:manage".to_string(),
-            platform: "admin".to_string(),
-            resource: "users".to_string(),
-            action: "manage".to_string(),
-            description: None,
-            permission_type: "manual".to_string(),
-            web3_contract_address: None,
-            web3_chain_id: None,
-            web3_min_balance: None,
-            web3_token_ids: None,
-            web3_metadata: None,
-            is_active: true,
-            created_at: Utc::now(),
-            updated_at: Utc::now(),
-            created_by: None,
-            wallet_address: Some("0x1234567890123456789012345678901234567890".to_string()),
-            source_type: Some("direct".to_string()),
-            source_id: None,
-            granted_at: Some(Utc::now()),
-            expires_at: None,
-            granted_by: Some("0x9876543210987654321098765432109876543210".to_string()),
-            grant_reason: Some("Test permission".to_string()),
-        };
-
-        assert!(perm.is_currently_valid());
-        assert!(!perm.is_temporary());
-        assert!(!perm.is_expired());
-
-        // Test expired permission
-        perm.expires_at = Some(Utc::now() - chrono::Duration::hours(1));
-        assert!(!perm.is_currently_valid());
-        assert!(perm.is_temporary());
-        assert!(perm.is_expired());
-
-        // Test temporary but not expired
-        perm.expires_at = Some(Utc::now() + chrono::Duration::hours(1));
-        assert!(perm.is_currently_valid());
-        assert!(perm.is_temporary());
-        assert!(!perm.is_expired());
+        assert_eq!(perm.name, Some("Name".to_string()));
     }
 }

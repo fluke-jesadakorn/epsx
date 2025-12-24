@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useConnect } from 'wagmi';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { Wallet, Loader2, ChevronDown, AlertCircle, RefreshCw } from 'lucide-react';
-import { useWeb3Context } from '@/components/providers/AuthProvider';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
+import { useUnifiedWeb3 } from '@/shared/components/providers/UnifiedWeb3Provider';
+import { AlertCircle, ChevronDown, Loader2, RefreshCw, Wallet } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useConnect } from 'wagmi';
 
 interface WalletConnectionModalProps {
   children?: React.ReactNode;
@@ -16,9 +16,9 @@ interface WalletConnectionModalProps {
 
 export function WalletConnectionModal({ children, className }: WalletConnectionModalProps) {
   const [lastConnectionError, setLastConnectionError] = useState<string | null>(null);
-  
+
   const { connect, connectors, isPending, error } = useConnect();
-  const { forceReset, forceRecreateConnectors, isInitialized } = useWeb3Context();
+  const { forceReset, forceRecreateConnectors, isInitialized } = useUnifiedWeb3();
 
   const walletIcons = {
     'MetaMask': '🦊',
@@ -58,16 +58,16 @@ export function WalletConnectionModal({ children, className }: WalletConnectionM
 
   const handleConnect = async (connector: any, retryCount = 0) => {
     const maxRetries = 3;
-    
+
     try {
       setLastConnectionError(null);
-      
+
       // Handle undefined connector states with retry logic
       if (connector.connected === undefined || connector.ready === undefined) {
         if (retryCount < maxRetries) {
           const waitTime = (retryCount + 1) * 500;
           await new Promise(resolve => setTimeout(resolve, waitTime));
-          
+
           if ((connector.connected === undefined || connector.ready === undefined) && retryCount === maxRetries - 1) {
             if (forceRecreateConnectors) {
               toast.info('Initializing wallet connectors...');
@@ -76,13 +76,13 @@ export function WalletConnectionModal({ children, className }: WalletConnectionM
               return;
             }
           }
-          
+
           return handleConnect(connector, retryCount + 1);
         } else {
           throw new Error('Wallet connector not ready. Please refresh the page and try again.');
         }
       }
-      
+
       // Force connector ready state if needed
       if (connector.ready === false) {
         if (typeof connector.prepare === 'function') {
@@ -90,18 +90,18 @@ export function WalletConnectionModal({ children, className }: WalletConnectionM
         }
         await new Promise(resolve => setTimeout(resolve, 300));
       }
-      
+
       // Reset connector if already connected
       if (connector.connected === true) {
         try {
           if (typeof connector.disconnect === 'function') {
             await connector.disconnect();
           }
-          
+
           if (typeof connector.reset === 'function') {
             await connector.reset();
           }
-          
+
           try {
             if (connector.connected) {
               connector.connected = false;
@@ -109,16 +109,16 @@ export function WalletConnectionModal({ children, className }: WalletConnectionM
           } catch (propError) {
             // Property might be readonly
           }
-          
+
           await new Promise(resolve => setTimeout(resolve, 200));
-          
+
         } catch (resetError) {
           if (retryCount < maxRetries) {
             return handleConnect(connector, retryCount + 1);
           }
         }
       }
-      
+
       // Final state validation
       if (connector.connected && retryCount >= maxRetries) {
         if (forceRecreateConnectors) {
@@ -136,13 +136,13 @@ export function WalletConnectionModal({ children, className }: WalletConnectionM
           throw new Error('Connector state corrupted. Please refresh the page.');
         }
       }
-      
+
       // Attempt connection
       const result = connect({ connector });
-      
+
     } catch (err: any) {
       let errorMsg = err?.message || 'Connection failed';
-      
+
       // Handle specific error types with recovery
       if (errorMsg.includes('Connector already connected')) {
         if (retryCount < maxRetries) {
@@ -161,7 +161,7 @@ export function WalletConnectionModal({ children, className }: WalletConnectionM
           return handleConnect(connector, retryCount + 1);
         }
       }
-      
+
       setLastConnectionError(errorMsg);
       toast.error(errorMsg);
     }
@@ -203,7 +203,7 @@ export function WalletConnectionModal({ children, className }: WalletConnectionM
         {/* Recommended Section */}
         <div className="px-4 py-2">
           <div className="text-sm text-slate-400 mb-3">Recommended</div>
-          
+
           {!isInitialized ? (
             // Show loading state while connectors are being initialized
             <div className="flex items-center justify-center py-8">
@@ -297,34 +297,34 @@ export function WalletConnectionModal({ children, className }: WalletConnectionM
                   >
                     Clear
                   </button>
-                  {(lastConnectionError?.includes('already connected') || 
+                  {(lastConnectionError?.includes('already connected') ||
                     lastConnectionError?.includes('corrupted') ||
                     lastConnectionError?.includes('state')) && (
-                    <>
-                      <button
-                        onClick={() => {
-                          toast.info('Recreating wallet connectors...');
-                          forceRecreateConnectors();
-                        }}
-                        className="flex items-center gap-1 text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-                        title="Recreate fresh connector instances"
-                      >
-                        <RefreshCw className="h-3 w-3" />
-                        Recreate
-                      </button>
-                      <button
-                        onClick={() => {
-                          toast.info('Resetting connection state...');
-                          forceReset();
-                        }}
-                        className="flex items-center gap-1 text-xs px-2 py-1 bg-orange-500 text-white rounded hover:bg-orange-600"
-                        title="Full reset with page reload"
-                      >
-                        <RefreshCw className="h-3 w-3" />
-                        Reset
-                      </button>
-                    </>
-                  )}
+                      <>
+                        <button
+                          onClick={() => {
+                            toast.info('Recreating wallet connectors...');
+                            forceRecreateConnectors();
+                          }}
+                          className="flex items-center gap-1 text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                          title="Recreate fresh connector instances"
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          Recreate
+                        </button>
+                        <button
+                          onClick={() => {
+                            toast.info('Resetting connection state...');
+                            forceReset();
+                          }}
+                          className="flex items-center gap-1 text-xs px-2 py-1 bg-orange-500 text-white rounded hover:bg-orange-600"
+                          title="Full reset with page reload"
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          Reset
+                        </button>
+                      </>
+                    )}
                 </div>
               </div>
             </div>

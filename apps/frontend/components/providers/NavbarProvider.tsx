@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 
 interface NavbarContextType {
   isHydrated: boolean;
@@ -32,20 +32,25 @@ export function NavbarProvider({ children }: NavbarProviderProps) {
     // Single mount effect for entire navbar
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
     checkMobile();
-    
+
     // Use single requestAnimationFrame to prevent hydration mismatch
     // This ensures client matches server state initially, then hydrates
     requestAnimationFrame(() => {
       setIsHydrated(true);
     });
-    
+
     // Listen for resize events
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  const contextValue = useMemo(() => ({
+    isHydrated,
+    isMobile
+  }), [isHydrated, isMobile]);
+
   return (
-    <NavbarContext.Provider value={{ isHydrated, isMobile }}>
+    <NavbarContext.Provider value={contextValue}>
       {children}
     </NavbarContext.Provider>
   );

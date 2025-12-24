@@ -280,7 +280,7 @@ impl OpenIDTokenService {
     pub async fn validate_access_token(&self, token: &str) -> Result<AccessTokenClaims, OpenIDTokenError> {
         let mut validation = jsonwebtoken::Validation::new(Algorithm::RS256);
         validation.set_audience(&self.audiences);
-        validation.set_issuer(&[self.issuer.clone()]);
+        validation.set_issuer(std::slice::from_ref(&self.issuer));
         
         // Allow some leeway for clock skew
         validation.leeway = 60; 

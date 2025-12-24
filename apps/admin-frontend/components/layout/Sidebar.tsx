@@ -1,5 +1,6 @@
 'use client';
 
+import { useSharedAuth } from '@/shared/components/auth/Provider';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState } from 'react';
@@ -87,6 +88,10 @@ export function Sidebar() {
   const pathname = usePathname();
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set(['permissions']));
   const { isConnected } = useAccount();
+  const { isAuthenticated } = useSharedAuth();
+
+  // Combined connection status: wagmi connected OR cookie-based auth
+  const isWalletConnected = isConnected || isAuthenticated;
 
   const toggleExpanded = (itemId: string) => {
     const newExpanded = new Set(expandedItems);
@@ -110,7 +115,7 @@ export function Sidebar() {
         {navigationItems
           .filter(item => {
             // Hide auth item if already connected
-            if (item.id === 'auth' && isConnected) { return false; }
+            if (item.id === 'auth' && isWalletConnected) { return false; }
             return true;
           })
           .map(item => {
@@ -120,7 +125,7 @@ export function Sidebar() {
               pathname === child.href || pathname.startsWith(`${child.href}/`)
             );
             const isExpanded = expandedItems.has(item.id);
-            const needsAuth = item.requiresAuth && !isConnected;
+            const needsAuth = item.requiresAuth && !isWalletConnected;
             const isDisabled = needsAuth;
 
             return (
@@ -139,8 +144,8 @@ export function Sidebar() {
                   ) : (
                     <Link href={item.href}>
                       <div className={`flex items-center gap-3 px-3 py-2 rounded-lg min-w-0 overflow-hidden ${isActive || hasActiveChild
-                          ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
-                          : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
+                        : 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800'
                         }`}>
                         <span className="text-lg flex-shrink-0">{item.icon}</span>
                         <span className="font-medium text-ellipsis whitespace-nowrap overflow-hidden hidden sm:inline" style={{ textOverflow: 'ellipsis' }}>{item.label}</span>
@@ -168,7 +173,7 @@ export function Sidebar() {
                     {item.children.map(child => {
                       const childIsActive = pathname === child.href ||
                         pathname.startsWith(`${child.href}/`);
-                      const childNeedsAuth = child.requiresAuth && !isConnected;
+                      const childNeedsAuth = child.requiresAuth && !isWalletConnected;
                       const childIsDisabled = childNeedsAuth;
 
                       return (
@@ -183,8 +188,8 @@ export function Sidebar() {
                           ) : (
                             <Link href={child.href}>
                               <div className={`flex items-center gap-3 px-3 py-2 rounded-lg min-w-0 overflow-hidden ${childIsActive
-                                  ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300'
-                                  : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                                ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/50 dark:text-blue-300'
+                                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
                                 }`}>
                                 <span className="text-sm flex-shrink-0">{child.icon}</span>
                                 <span className="text-sm font-medium text-ellipsis whitespace-nowrap overflow-hidden hidden sm:inline" style={{ textOverflow: 'ellipsis' }}>{child.label}</span>
@@ -203,7 +208,7 @@ export function Sidebar() {
       </nav>
 
       {/* Footer - Wallet Connection Prompt */}
-      {!isConnected && (
+      {!isWalletConnected && (
         <div className="p-4 border-t border-gray-200 dark:border-gray-700">
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
             <div className="flex items-center gap-2 mb-2">

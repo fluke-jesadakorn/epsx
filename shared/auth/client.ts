@@ -164,15 +164,29 @@ export class SharedWeb3AuthClient {
     if (typeof window === 'undefined') return;
 
     try {
+      console.log('🍪 saveTokensToStorage called:', {
+        hasTokenExpiry: !!this.tokenExpiry,
+        hasAccessToken: !!this.accessToken,
+        accessTokenLength: this.accessToken?.length || 0,
+        hasRefreshToken: !!this.refreshToken,
+        hasUser: !!this.user,
+        cookieClientSession: COOKIES.client_session,
+      });
+
       // Access token is set by server as HttpOnly cookie
       // Save expiry and user data to client-side cookies
       if (this.tokenExpiry) {
         setClientCookie(COOKIES.expires_at, this.tokenExpiry.toString());
+        console.log('🍪 Set expires_at cookie');
       }
 
       // Sync access token to client_session for Server Components and persistence
       if (this.accessToken) {
+        console.log('🍪 Setting client_session cookie with token of length:', this.accessToken.length);
         setClientCookie(COOKIES.client_session, this.accessToken);
+        console.log('🍪 client_session cookie SET');
+      } else {
+        console.warn('⚠️ No access token to save to client_session!');
       }
 
       if (this.refreshToken) {
@@ -183,6 +197,7 @@ export class SharedWeb3AuthClient {
       if (this.user) {
         setClientCookieJSON(COOKIES.user, this.user);
         setClientCookie(COOKIES.auth_time, Date.now().toString());
+        console.log('🍪 Set user and auth_time cookies');
       }
     } catch (error) {
       console.warn('Failed to save tokens to cookies', { error });
@@ -446,6 +461,11 @@ export class SharedWeb3AuthClient {
       }
 
       // Store access token
+      console.log('🔐 Auth result from backend:', {
+        hasAccessToken: !!result.access_token,
+        accessTokenLength: result.access_token?.length || 0,
+        accessTokenPreview: result.access_token?.substring(0, 50) + '...',
+      });
       this.accessToken = result.access_token;
       this.refreshToken = result.refresh_token;
       // Default to 24 hour expiry if not provided
@@ -462,6 +482,7 @@ export class SharedWeb3AuthClient {
       };
 
       this.user = user;
+      console.log('🍪 Saving tokens to storage, accessToken is:', this.accessToken ? 'SET' : 'EMPTY');
       this.saveTokensToStorage();
       this.notifyListeners();
 

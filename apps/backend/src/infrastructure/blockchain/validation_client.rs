@@ -11,6 +11,12 @@ pub struct BlockchainValidationClient {
     timeout_ms: u64,
 }
 
+impl Default for BlockchainValidationClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BlockchainValidationClient {
     pub fn new() -> Self {
         let mut providers = HashMap::new();

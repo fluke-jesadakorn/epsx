@@ -109,6 +109,15 @@
 }
 
 /* ============================================================================
+   TAILWIND V4 DARK MODE VARIANT
+   
+   This directive tells Tailwind how to generate dark: prefixed classes.
+   Without this, dark mode classes won't work correctly.
+   ============================================================================ */
+
+@custom-variant dark (&:is(.dark, .dark *));
+
+/* ============================================================================
    SHARED VARIABLES & TOKENS
    ============================================================================ */
 

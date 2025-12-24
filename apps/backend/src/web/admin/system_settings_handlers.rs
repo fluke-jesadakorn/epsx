@@ -158,7 +158,7 @@ pub async fn get_all_settings_handler(
         std::collections::HashMap::new();
     
     for row in rows {
-        let category_settings = settings.entry(row.category.clone()).or_insert_with(std::collections::HashMap::new);
+        let category_settings = settings.entry(row.category.clone()).or_default();
         category_settings.insert(row.key, row.value);
     }
     

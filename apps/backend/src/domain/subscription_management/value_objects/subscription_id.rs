@@ -15,6 +15,7 @@ impl SubscriptionId {
         Self(id)
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> AppResult<Self> {
         s.parse()
     }

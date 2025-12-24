@@ -14,7 +14,6 @@ export const dynamic = 'force-dynamic';
 import { LayoutWrapper } from '@/components/layout/LayoutWrapper';
 import { ClientProviders } from '@/components/providers/ClientProviders';
 import { ErrorBoundary } from '@/components/providers/ErrorBoundary';
-import { ThemeProvider } from '@/components/providers/ThemeProvider';
 import { ToastProvider } from '@/components/providers/ToastProvider';
 
 export const metadata: Metadata = {
@@ -69,21 +68,19 @@ export default function RootLayout({
         className="min-h-screen bg-background text-foreground"
         suppressHydrationWarning
       >
-        {/* Theme handled by ThemeProvider to prevent FOUC securely */}
+        {/* Theme handled by CommonProviders (inside ClientProviders) */}
 
         {/* Main application wrapper with consistent spacing */}
         <div className="flex min-h-screen flex-col">
           <ErrorBoundary>
-            <ThemeProvider>
-              <ClientProviders>
-                <main className="flex-1 relative">
-                  <LayoutWrapper>
-                    {children}
-                  </LayoutWrapper>
-                </main>
-                <ToastProvider />
-              </ClientProviders>
-            </ThemeProvider>
+            <ClientProviders>
+              <main className="flex-1 relative">
+                <LayoutWrapper>
+                  {children}
+                </LayoutWrapper>
+              </main>
+              <ToastProvider />
+            </ClientProviders>
           </ErrorBoundary>
         </div>
 

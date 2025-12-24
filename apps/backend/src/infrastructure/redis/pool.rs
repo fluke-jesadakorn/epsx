@@ -32,14 +32,13 @@ impl RedisPool {
     }
 
     pub async fn get_pubsub(&self) -> Result<redis::aio::PubSub, redis::RedisError> {
-        let conn = self.client.get_async_connection().await?;
-        Ok(conn.into_pubsub())
+        self.client.get_async_pubsub().await
     }
 
     pub async fn health_check(&self) -> bool {
         match self.get_connection().await {
             Ok(mut conn) => {
-                redis::cmd("PING").query_async::<_, String>(&mut conn).await.is_ok()
+                redis::cmd("PING").query_async::<String>(&mut conn).await.is_ok()
             }
             Err(_) => false,
         }

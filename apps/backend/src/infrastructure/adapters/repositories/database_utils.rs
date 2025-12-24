@@ -209,7 +209,7 @@ impl ConnectionPoolManager {
                 .with_operation(operation)
         })?;
 
-        f(&mut *conn_obj).await
+        f(&mut conn_obj).await
     }
 
     /// Check pool health
@@ -221,7 +221,7 @@ impl ConnectionPoolManager {
                 .with_operation("health_check")
         })?;
 
-        DatabaseOperations::health_check_query(&mut *conn_obj, self.component).await
+        DatabaseOperations::health_check_query(&mut conn_obj, self.component).await
     }
 }
 

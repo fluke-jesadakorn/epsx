@@ -42,10 +42,10 @@ const HeroSection: React.FC<HeroSectionProps> = ({ style, className }) => {
     >
       {/* Analytics-style floating elements */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-20 left-10 w-16 h-16 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 rounded-full animate-float" />
-        <div className="absolute top-32 right-20 w-12 h-12 bg-gradient-to-br from-amber-400/20 to-orange-400/20 rounded-full animate-bounce-gentle" />
-        <div className="absolute bottom-40 left-20 w-8 h-8 bg-gradient-to-br from-yellow-400/20 to-amber-400/20 rounded-full animate-pulse-gentle" />
-        <div className="absolute bottom-20 right-10 w-20 h-20 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 rounded-full animate-float-reverse" />
+        <div className="absolute top-20 left-10 w-16 h-16 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 dark:from-orange-600/10 dark:to-yellow-600/10 rounded-full animate-float" />
+        <div className="absolute top-32 right-20 w-12 h-12 bg-gradient-to-br from-amber-400/20 to-orange-400/20 dark:from-amber-600/10 dark:to-orange-600/10 rounded-full animate-bounce-gentle" />
+        <div className="absolute bottom-40 left-20 w-8 h-8 bg-gradient-to-br from-yellow-400/20 to-amber-400/20 dark:from-yellow-600/10 dark:to-amber-600/10 rounded-full animate-pulse-gentle" />
+        <div className="absolute bottom-20 right-10 w-20 h-20 bg-gradient-to-br from-orange-400/20 to-yellow-400/20 dark:from-orange-600/10 dark:to-yellow-600/10 rounded-full animate-float-reverse" />
 
         {/* Decorative analytics shapes with enhanced styling */}
         <div className="absolute top-1/4 left-1/4 text-6xl opacity-10 animate-spin-slow">

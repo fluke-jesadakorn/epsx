@@ -586,7 +586,7 @@ impl SessionRepositoryPort for SessionRepositoryAdapter {
         let mut conn = self.db_pool.get().await
             .map_err(|e| AppError::database_error(e.to_string())
                 .with_component("session_repository")
-                .with_operation(&format!("save_batch({} sessions)", session_list.len())))?;
+                .with_operation(format!("save_batch({} sessions)", session_list.len())))?;
 
         // Execute batch inserts using raw SQL to handle ip_address INET conversion
         let query = r#"

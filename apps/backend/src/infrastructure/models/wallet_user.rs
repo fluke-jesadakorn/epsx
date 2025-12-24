@@ -1,8 +1,6 @@
-/**
- * Diesel Models for Wallet Users
- *
- * Database models for wallet_users table using Diesel ORM
- */
+//! Diesel Models for Wallet Users
+//!
+//! Database models for wallet_users table using Diesel ORM
 
 use chrono::{DateTime, Utc};
 use diesel::{Queryable, Selectable, Insertable, AsChangeset};

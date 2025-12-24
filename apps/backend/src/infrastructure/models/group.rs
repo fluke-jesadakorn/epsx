@@ -1,9 +1,7 @@
-/**
- * Diesel Models for Groups
- *
- * Database models for groups table using Diesel ORM
- * (Previously groups - renamed for simplicity)
- */
+//! Diesel Models for Groups
+//!
+//! Database models for groups table using Diesel ORM
+//! (Previously groups - renamed for simplicity)
 
 use chrono::{DateTime, Utc};
 use diesel::{Queryable, Selectable, Insertable, AsChangeset};

@@ -918,68 +918,28 @@ export class NotificationsAPIClient {
 
     const errorHandler = (event: Event) => {
       const currentState = this.sseConnection?.readyState;
-      const stateNames = {
-        0: 'CONNECTING',
-        1: 'OPEN',
-        2: 'CLOSED'
-      };
 
-      // Enhanced error logging with detailed diagnostic information
-      console.error('❌ SSE connection error:', {
-        // Connection state information
-        readyState: currentState,
-        stateName: stateNames[currentState as 0 | 1 | 2] || 'UNKNOWN',
-        url: sseUrl,
-        timestamp: new Date().toISOString(),
-        isReconnecting: this.isReconnecting,
-
-        // EventSource details
-        lastEventId: (this.sseConnection as any)?.lastEventId,
-        withCredentials: this.sseConnection?.withCredentials,
-
-        // Browser environment info
-        userAgent: navigator.userAgent,
-        onlineStatus: navigator.onLine,
-        cookieEnabled: navigator.cookieEnabled,
-
-        // Current context
-        platform: platform,
-        hasToken: !!token,
-        tokenLength: token?.length || 0,
-
-        // URL breakdown for debugging
-        urlParts: {
-          baseURL: baseURL,
-          routePath: API_ROUTES.NOTIFICATIONS.STREAM,
-          queryString: queryString,
-          paramsCount: params.toString().split('&').filter(p => p).length
-        },
-
-        // Available cookies (names only, for security)
-        availableCookies: document.cookie ? document.cookie.split(';').map(c => c.trim().split('=')[0]) : [],
-
-        // EventSource constants for reference
-        constants: {
-          CONNECTING: EventSource.CONNECTING,
-          OPEN: EventSource.OPEN,
-          CLOSED: EventSource.CLOSED
-        },
-
-        // Network information if available
-        connection: (navigator as any).connection ? {
-          effectiveType: (navigator as any).connection.effectiveType,
-          downlink: (navigator as any).connection.downlink,
-          rtt: (navigator as any).connection.rtt
-        } : 'not available',
-
-        // Event details (often empty but worth logging)
-        eventDetails: {
-          type: event.type,
-          bubbles: event.bubbles,
-          cancelable: event.cancelable,
+      // Only log as error when connection is actually CLOSED
+      // For CONNECTING (0) and OPEN (1) states, these are transient or spurious events
+      if (currentState === EventSource.CLOSED) {
+        // Connection is actually closed - this is a real error worth logging
+        console.error('❌ SSE connection closed:', {
+          readyState: currentState,
+          stateName: 'CLOSED',
+          url: sseUrl,
+          timestamp: new Date().toISOString(),
+          platform: platform,
+          hasToken: !!token,
           timeSinceConnection: Date.now() - connectionStartTime
-        }
-      });
+        });
+      } else if (currentState === EventSource.CONNECTING) {
+        // Connection is still connecting - this is likely a transient state event
+        // Only log as debug to reduce console noise
+        console.debug('⏳ SSE: Transient error during connection (still CONNECTING)');
+      } else if (currentState === EventSource.OPEN) {
+        // Connection is open but error fired - likely a transient network glitch
+        console.warn('⚠️ SSE: Error event fired while connection is OPEN (transient)');
+      }
 
       // Only reconnect if connection is actually closed and not already reconnecting
       if (currentState === EventSource.CLOSED && !this.isReconnecting) {

@@ -2,7 +2,6 @@
 import { FrontendAuthRegistration } from '@/components/auth/FrontendAuthRegistration';
 import { GlobalErrorBoundary } from '@/components/error-boundaries/GlobalErrorBoundary';
 import { NavigationClient } from '@/components/nav/NavigationClient';
-import { MinimalWeb3Provider } from '@/components/providers/AuthProvider';
 import { ClientProviders } from '@/components/providers/ClientProviders';
 import { SharedOpenIDWeb3Provider } from '@/shared/components/auth/Provider';
 import '@/shared/utils/browser-polyfills';
@@ -93,32 +92,30 @@ export default function RootLayout({
       >
         <GlobalErrorBoundary level="global">
           <ClientProviders>
-            <MinimalWeb3Provider>
-              <SharedOpenIDWeb3Provider
-                clientId="epsx-frontend"
-                backendUrl={process.env.NEXT_PUBLIC_BACKEND_URL}
-              >
-                <FrontendAuthRegistration>
-                  {/* Mobile navigation optimized for touch */}
-                  <NavigationClient />
+            <SharedOpenIDWeb3Provider
+              clientId="epsx-frontend"
+              backendUrl={process.env.NEXT_PUBLIC_BACKEND_URL}
+            >
+              <FrontendAuthRegistration>
+                {/* Mobile navigation optimized for touch */}
+                <NavigationClient />
 
-                  {/* Main content with mobile scroll optimization */}
-                  <main className="relative min-h-screen">{children}</main>
+                {/* Main content with mobile scroll optimization */}
+                <main className="relative min-h-screen">{children}</main>
 
-                  {/* Toast notifications */}
-                  <Toaster
-                    position="top-right"
-                    toastOptions={{
-                      style: {
-                        background: 'hsl(var(--background))',
-                        color: 'hsl(var(--foreground))',
-                        border: '1px solid hsl(var(--border))',
-                      },
-                    }}
-                  />
-                </FrontendAuthRegistration>
-              </SharedOpenIDWeb3Provider>
-            </MinimalWeb3Provider>
+                {/* Toast notifications */}
+                <Toaster
+                  position="top-right"
+                  toastOptions={{
+                    style: {
+                      background: 'hsl(var(--background))',
+                      color: 'hsl(var(--foreground))',
+                      border: '1px solid hsl(var(--border))',
+                    },
+                  }}
+                />
+              </FrontendAuthRegistration>
+            </SharedOpenIDWeb3Provider>
           </ClientProviders>
         </GlobalErrorBoundary>
       </body>

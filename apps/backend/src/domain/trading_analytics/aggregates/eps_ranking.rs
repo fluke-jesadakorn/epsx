@@ -270,7 +270,7 @@ impl EPSRanking {
     fn calculate_median(values: &mut [f64]) -> f64 {
         values.sort_by(|a, b| a.partial_cmp(b).unwrap());
         let len = values.len();
-        if len % 2 == 0 {
+        if len.is_multiple_of(2) {
             (values[len / 2 - 1] + values[len / 2]) / 2.0
         } else {
             values[len / 2]
@@ -378,6 +378,7 @@ impl RankingType {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Result<Self, String> {
         match s.to_lowercase().as_str() {
             "eps_value" | "epsvalue" => Ok(RankingType::EPSValue),
@@ -411,6 +412,7 @@ impl RankingPeriod {
         }
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Result<Self, String> {
         match s.to_lowercase().as_str() {
             "quarterly" | "q" => Ok(RankingPeriod::Quarterly),

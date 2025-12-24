@@ -175,7 +175,7 @@ impl ApiKeyRepository {
                 ip_restrictions: row.ip_restrictions
                     .unwrap_or_default()
                     .into_iter()
-                    .filter_map(|s| s)
+                    .flatten()
                     .collect(),
                 rate_limits: RateLimits {
                     per_minute: row.rate_limit_per_minute,
@@ -349,7 +349,7 @@ impl ApiKeyRepository {
                 ip_restrictions: row.ip_restrictions
                     .unwrap_or_default()
                     .into_iter()
-                    .filter_map(|s| s)
+                    .flatten()
                     .collect(),
                 rate_limits: RateLimits {
                     per_minute: row.rate_limit_per_minute,
@@ -450,7 +450,7 @@ impl ApiKeyRepository {
                 ip_restrictions: row.ip_restrictions
                     .unwrap_or_default()
                     .into_iter()
-                    .filter_map(|s| s)
+                    .flatten()
                     .collect(),
                 rate_limits: RateLimits {
                     per_minute: row.rate_limit_per_minute,
@@ -640,7 +640,7 @@ impl ApiKeyRepository {
                 ip_restrictions: row.ip_restrictions
                     .unwrap_or_default()
                     .into_iter()
-                    .filter_map(|s| s)
+                    .flatten()
                     .collect(),
                 rate_limits: RateLimits {
                     per_minute: row.rate_limit_per_minute,

@@ -27,8 +27,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { themeUtils } from '@/components/ui/SafeThemeScript';
 import { isProduction } from '@/shared/utils';
-import { useTheme } from 'next-themes';
 import { AdminNotificationBell } from './AdminNotificationBellClient';
 
 interface User {
@@ -44,17 +44,42 @@ interface HeaderProps {
 
 export function Header({ user }: HeaderProps) {
   const [mounted, setMounted] = useState(false);
-  const { logout } = useSharedAuth();
+  const [cookieWallet, setCookieWallet] = useState<string | null>(null);
+  const { logout, isAuthenticated, user: authUser, isLoading: authLoading } = useSharedAuth();
 
   const chainId = useChainId();
   const { switchChain, isPending: isSwitching } = useSwitchChain();
   const { isConnected, address } = useAccount();
   const { disconnect } = useDisconnect();
-  const { resolvedTheme, setTheme } = useTheme();
+  const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>('light');
 
+  // Read wallet address directly from cookie on mount (before auth hydrates)
   useEffect(() => {
     setMounted(true);
+    // Initialize theme from themeUtils
+    setCurrentTheme(themeUtils.getTheme());
+    // Try to read wallet from epsx.user cookie directly
+    try {
+      const userCookie = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('epsx.user=') || row.startsWith('__Host-epsx.user='));
+      if (userCookie) {
+        const value = decodeURIComponent(userCookie.split('=')[1] || '');
+        const parsed = JSON.parse(value);
+        if (parsed?.wallet || parsed?.wallet_address) {
+          setCookieWallet(parsed.wallet || parsed.wallet_address);
+        }
+      }
+    } catch (e) {
+      // Ignore parsing errors
+    }
   }, []);
+
+  // Use wagmi address first, then auth user, then direct cookie read
+  const walletAddress = address || authUser?.wallet || cookieWallet;
+
+  // Combined connection status: wagmi connected OR cookie-based auth OR have cookie wallet
+  const isWalletConnected = isConnected || isAuthenticated || !!cookieWallet;
 
   const getCurrentChainName = () => {
     if (!mounted) return 'Chain';
@@ -117,11 +142,16 @@ export function Header({ user }: HeaderProps) {
 
           {/* Theme Toggle */}
           <button
-            onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+            type="button"
+            onClick={() => {
+              const newTheme = themeUtils.toggleTheme();
+              setCurrentTheme(newTheme);
+            }}
             className="p-2 rounded-lg text-orange-500 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
-            title={`Switch to ${resolvedTheme === 'dark' ? 'light' : 'dark'} mode`}
+            title={`Switch to ${currentTheme === 'dark' ? 'light' : 'dark'} mode`}
+            aria-label={`Switch to ${currentTheme === 'dark' ? 'light' : 'dark'} mode`}
           >
-            {resolvedTheme === 'dark' ? (
+            {currentTheme === 'dark' ? (
               <Sun className="h-5 w-5" />
             ) : (
               <Moon className="h-5 w-5" />
@@ -134,7 +164,7 @@ export function Header({ user }: HeaderProps) {
               <DropdownMenuTrigger asChild>
                 <button
                   className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white transition-colors"
-                  disabled={isSwitching || !isConnected}
+                  disabled={isSwitching || !isWalletConnected}
                 >
                   <LinkIcon className="h-4 w-4 text-orange-500" />
                   <span className="hidden md:inline">{getCurrentChainName()}</span>
@@ -169,12 +199,12 @@ export function Header({ user }: HeaderProps) {
           )}
 
           {/* Wallet Connect */}
-          {isConnected ? (
+          {isWalletConnected && walletAddress ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-orange-500 to-yellow-500 px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity">
                   <Wallet className="h-4 w-4" />
-                  <span className="hidden md:inline">{formatAddress(address!)}</span>
+                  <span className="hidden md:inline">{formatAddress(walletAddress)}</span>
                   <ChevronDown className="h-3 w-3" />
                 </button>
               </DropdownMenuTrigger>
@@ -184,7 +214,7 @@ export function Header({ user }: HeaderProps) {
                 style={{ zIndex: 99999 }}
               >
                 <div className="px-3 py-2 text-xs text-gray-500 dark:text-slate-400 border-b border-gray-200 dark:border-slate-700 mb-1 font-mono">
-                  {address}
+                  {walletAddress}
                 </div>
                 <DropdownMenuItem
                   onClick={handleDisconnect}

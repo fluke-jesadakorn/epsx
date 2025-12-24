@@ -1,5 +1,5 @@
-/// Web3-first Notification Mappers for SSE Integration
-/// Convert between domain notification structures and SSE notification types
+//! Web3-first Notification Mappers for SSE Integration
+//! Convert between domain notification structures and SSE notification types
 
 use chrono::Utc;
 

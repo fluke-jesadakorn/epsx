@@ -65,7 +65,7 @@ impl PaymentVerifier {
     /// Verify token address is supported
     pub async fn verify_token(&self, token_address: &str) -> Result<bool, AppError> {
         // Supported token addresses (should match smart contract configuration)
-        let supported_tokens = vec![
+        let supported_tokens = [
             "0x55d398326f99059fF775485246999027B3197955", // USDT BSC Mainnet
             "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", // USDC BSC Mainnet
             "0x337610d27c682E347C9cD60BD4b3b107C9d34dDD", // USDT BSC Testnet

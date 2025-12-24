@@ -101,7 +101,7 @@ reqwest = { version = "0.11", features = ["json"], optional = true, default-feat
 
 # Redis for notification pub/sub and event bus
 # TLS support with rustls for production use
-redis = { version = "0.24", features = ["tokio-comp", "connection-manager", "streams", "tokio-rustls-comp"], optional = true }
+redis = { version = "0.28", features = ["tokio-comp", "connection-manager", "streams", "tokio-rustls-comp"], optional = true }
 
 # Optional CLI tools
 clap = { version = "4.4", features = ["derive"], optional = true }

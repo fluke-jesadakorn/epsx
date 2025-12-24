@@ -186,17 +186,15 @@ impl ValueObject for CryptoNetwork {
     type Error = CryptoNetworkError;
     
     fn validate(&self) -> Result<(), Self::Error> {
-        match self {
-            CryptoNetwork::Custom(name) => {
-                if name.trim().is_empty() {
-                    return Err(CryptoNetworkError::EmptyNetwork);
-                }
-                if name.len() > 100 {
-                    return Err(CryptoNetworkError::NetworkNameTooLong);
-                }
+        if let CryptoNetwork::Custom(name) = self {
+            if name.trim().is_empty() {
+                return Err(CryptoNetworkError::EmptyNetwork);
             }
-            _ => {} // Predefined networks are always valid
+            if name.len() > 100 {
+                return Err(CryptoNetworkError::NetworkNameTooLong);
+            }
         }
+        // Predefined networks are always valid
         Ok(())
     }
 }

@@ -1,5 +1,5 @@
-/// Web3-first notification repository adapter for serverless deployment  
-/// Handles wallet-based notifications and database storage
+//! Web3-first notification repository adapter for serverless deployment  
+//! Handles wallet-based notifications and database storage
 
 use chrono::Utc;
 use uuid::Uuid;

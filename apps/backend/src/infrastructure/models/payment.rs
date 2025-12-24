@@ -1,8 +1,6 @@
-/**
- * Diesel Models for Payments and Subscriptions
- *
- * Database models for payments, subscriptions, and payment_audit_log tables using Diesel ORM
- */
+//! Diesel Models for Payments and Subscriptions
+//!
+//! Database models for payments, subscriptions, and payment_audit_log tables using Diesel ORM
 
 use chrono::{DateTime, Utc};
 use diesel::{Queryable, Selectable, Insertable, AsChangeset, QueryableByName};

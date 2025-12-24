@@ -104,8 +104,8 @@ pub async fn sse_notifications_handler(
 
     // 1. Check Authorization header
     if let Some(auth_header) = request.headers().get("authorization").and_then(|h| h.to_str().ok()) {
-        if auth_header.starts_with("Bearer ") {
-            token_to_validate = Some(auth_header[7..].to_string());
+        if let Some(token) = auth_header.strip_prefix("Bearer ") {
+            token_to_validate = Some(token.to_string());
         }
     }
 

@@ -1,8 +1,6 @@
-/**
- * Diesel Models for Sessions
- *
- * Database models for sessions table using Diesel ORM
- */
+//! Diesel Models for Sessions
+//!
+//! Database models for sessions table using Diesel ORM
 
 use chrono::{DateTime, Utc};
 use diesel::QueryableByName;

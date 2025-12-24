@@ -1,3 +1,5 @@
+'use client';
+
 import { useUnifiedWeb3 } from '@/shared/components/providers/UnifiedWeb3Provider';
 
 import {
@@ -72,24 +74,37 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
   const { signMessageAsync } = useSignMessage();
 
   // Get web3 auth store for syncing authentication state
-  const {
-    setConnected: setWeb3Connected,
-    setAuthenticated: setWeb3Authenticated,
-    setWalletAddress: setWeb3WalletAddress
-  } = useWeb3AuthStore();
+  // Use selectors to prevent unnecessary re-renders when other parts of the store change
+  const setWeb3Connected = useWeb3AuthStore((s: any) => s.setConnected);
+  const setWeb3Authenticated = useWeb3AuthStore((s: any) => s.setAuthenticated);
+  const setWeb3WalletAddress = useWeb3AuthStore((s: any) => s.setWalletAddress);
+
+  // Get current state to avoid redundant updates
+  const storeWalletAddress = useWeb3AuthStore((s: any) => s.walletAddress);
+  const storeIsConnected = useWeb3AuthStore((s: any) => s.isConnected);
+  const storeIsAuthenticated = useWeb3AuthStore((s: any) => s.isAuthenticated);
 
   // Sync wallet connection state to Web3AuthStore immediately
   useEffect(() => {
     if (isConnected && address) {
-      // ✅ Set isConnected and walletAddress IMMEDIATELY when wallet connects
-      setWeb3Connected(true);
-      setWeb3WalletAddress(address.toLowerCase());
+      const normalizedAddress = address.toLowerCase();
+
+      // ✅ Only update if state actually changed to prevent infinite loops
+      if (!storeIsConnected) {
+        setWeb3Connected(true);
+      }
+      if (storeWalletAddress !== normalizedAddress) {
+        setWeb3WalletAddress(normalizedAddress);
+      }
+
       console.log('✅ Wallet connected - synced to Web3 auth store:', address);
     }
-  }, [isConnected, address, setWeb3Connected, setWeb3WalletAddress]);
+  }, [isConnected, address, setWeb3Connected, setWeb3WalletAddress, storeIsConnected, storeWalletAddress]);
 
   useEffect(() => {
-    setIsHydrated(true);
+    if (!isHydrated) {
+      setIsHydrated(true);
+    }
     console.log('🔍 WalletProviderIcon Debug:', {
       isConnected,
       address,
@@ -98,20 +113,28 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
       isInitialized,
       isAuthenticated
     });
-  }, [isConnected, address, connector, isInitialized, isAuthenticated]);
+  }, [isConnected, address, connector, isInitialized, isAuthenticated, isHydrated]);
 
   // Sync disconnect state: Clear web3 auth store when wallet disconnects
   useEffect(() => {
     if (!isConnected || !address) {
       // Wallet disconnected - clear web3 auth store completely
-      setWeb3Connected(false);
-      setWeb3Authenticated(false);
-      setWeb3WalletAddress(undefined);
+      // ✅ Only update if state actually changed
+      if (storeIsConnected) {
+        setWeb3Connected(false);
+      }
+      if (storeIsAuthenticated) {
+        setWeb3Authenticated(false);
+      }
+      if (storeWalletAddress !== undefined) {
+        setWeb3WalletAddress(undefined);
+      }
+
       setAuthRetryCount(0); // Reset retry count
       setLastAuthError(null); // Clear last error
       console.log('🔌 Wallet disconnected - cleared web3 auth store');
     }
-  }, [isConnected, address, setWeb3Connected, setWeb3Authenticated, setWeb3WalletAddress]);
+  }, [isConnected, address, setWeb3Connected, setWeb3Authenticated, setWeb3WalletAddress, storeIsConnected, storeIsAuthenticated, storeWalletAddress]);
 
   // NOTE: Auto-authentication is DISABLED
   // Users only need to connect wallet. SIWE sign-in is triggered:

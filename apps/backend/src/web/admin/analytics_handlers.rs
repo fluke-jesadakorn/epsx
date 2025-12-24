@@ -320,10 +320,10 @@ pub async fn get_platform_overview_handler(
         Ok(results) => results
             .into_iter()
             .map(|row| TimeSeriesPoint {
-                timestamp: row.signup_date.unwrap_or_else(|| Utc::now()),
+                timestamp: row.signup_date.unwrap_or_else(Utc::now),
                 value: row.user_count.unwrap_or(0) as f64,
                 label: row.signup_date
-                    .unwrap_or_else(|| Utc::now())
+                    .unwrap_or_else(Utc::now)
                     .format("%Y-%m-%d")
                     .to_string(),
             })
@@ -711,10 +711,10 @@ pub async fn get_permission_analytics_handler(
         Ok(results) => results
             .into_iter()
             .map(|row| TimeSeriesPoint {
-                timestamp: row.trend_date.unwrap_or_else(|| Utc::now()),
+                timestamp: row.trend_date.unwrap_or_else(Utc::now),
                 value: row.permission_count.unwrap_or(0) as f64,
                 label: row.trend_date
-                    .unwrap_or_else(|| Utc::now())
+                    .unwrap_or_else(Utc::now)
                     .format("%Y-%m-%d")
                     .to_string(),
             })
@@ -758,7 +758,7 @@ pub async fn get_permission_analytics_handler(
             .map(|row| ExpiringPermission {
                 wallet_address: row.wallet_address,
                 permission: row.permission_string,
-                expires_at: row.expires_at.unwrap_or_else(|| Utc::now()),
+                expires_at: row.expires_at.unwrap_or_else(Utc::now),
                 days_until_expiry: row.days_until_expiry.unwrap_or(0),
             })
             .collect(),
@@ -960,10 +960,10 @@ pub async fn get_revenue_analytics_handler(
         Ok(results) => results
             .into_iter()
             .map(|row| TimeSeriesPoint {
-                timestamp: row.trend_date.unwrap_or_else(|| Utc::now()),
+                timestamp: row.trend_date.unwrap_or_else(Utc::now),
                 value: row.daily_revenue.map(|r| r.to_string().parse::<f64>().unwrap_or(0.0)).unwrap_or(0.0),
                 label: row.trend_date
-                    .unwrap_or_else(|| Utc::now())
+                    .unwrap_or_else(Utc::now)
                     .format("%Y-%m-%d")
                     .to_string(),
             })

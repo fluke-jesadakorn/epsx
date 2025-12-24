@@ -1,7 +1,7 @@
-/// Subscription Repository Adapter (Infrastructure Layer)
-/// PostgreSQL implementation for subscription persistence using Diesel
-/// NOTE: This is a simplified adapter that works directly with database models
-/// to avoid complexity with domain model type mismatches (PlanId i32 vs UUID)
+//! Subscription Repository Adapter (Infrastructure Layer)
+//! PostgreSQL implementation for subscription persistence using Diesel
+//! NOTE: This is a simplified adapter that works directly with database models
+//! to avoid complexity with domain model type mismatches (PlanId i32 vs UUID)
 
 use crate::prelude::*;
 use tracing::{info, error, debug, warn};

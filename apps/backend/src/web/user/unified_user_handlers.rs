@@ -3,14 +3,12 @@
 // Example implementation of unified response format + OpenID authentication
 // ============================================================================
 
-/**
- * CORE PRINCIPLES:
- * - Standard OpenID Bearer token validation
- * - Unified API response format for all endpoints
- * - Backend makes ALL authorization decisions
- * - Frontend displays exactly what backend tells it to display
- * - No permission logic in handlers - middleware handles auth
- */
+//! CORE PRINCIPLES:
+//! - Standard OpenID Bearer token validation
+//! - Unified API response format for all endpoints
+//! - Backend makes ALL authorization decisions
+//! - Frontend displays exactly what backend tells it to display
+//! - No permission logic in handlers - middleware handles auth
 
 use axum::{
     extract::{Path, Query, Request, State},
@@ -113,8 +111,8 @@ pub async fn get_current_user_profile(
     .optional()
     {
         Ok(Some(row)) => (
-            row.created_at.unwrap_or_else(|| chrono::Utc::now()).to_rfc3339(),
-            row.last_auth_at.unwrap_or_else(|| chrono::Utc::now()).to_rfc3339(),
+            row.created_at.unwrap_or_else(chrono::Utc::now).to_rfc3339(),
+            row.last_auth_at.unwrap_or_else(chrono::Utc::now).to_rfc3339(),
         ),
         _ => {
             // Fallback to current time if user not found in database
@@ -469,8 +467,8 @@ pub async fn get_user_by_wallet_address(
         wallet_address: wallet_addr,
         permissions: user_permissions,
         auth_method: "web3_siwe".to_string(),
-        created_at: created_at.unwrap_or_else(|| chrono::Utc::now()).to_rfc3339(),
-        last_login: last_auth.unwrap_or_else(|| chrono::Utc::now()).to_rfc3339(),
+        created_at: created_at.unwrap_or_else(chrono::Utc::now).to_rfc3339(),
+        last_login: last_auth.unwrap_or_else(chrono::Utc::now).to_rfc3339(),
     };
 
     // Create admin permission context from permissions only

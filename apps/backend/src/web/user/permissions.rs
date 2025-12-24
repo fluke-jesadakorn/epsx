@@ -140,20 +140,12 @@ pub async fn get_user_permissions(
   let mut expiring_soon_count = 0;
 
   for (permission, claim) in &permissions_map {
-    let is_expired = claim.expires_at.map_or(false, |exp| {
-      if let Some(exp_dt) = DateTime::from_timestamp(exp, 0) {
-        exp_dt < now
-      } else {
-        false
-      }
+    let is_expired = claim.expires_at.is_some_and(|exp| {
+      DateTime::from_timestamp(exp, 0).is_some_and(|exp_dt| exp_dt < now)
     });
     let is_active = !is_expired;
-    let expires_soon = claim.expires_at.map_or(false, |exp| {
-      if let Some(exp_dt) = DateTime::from_timestamp(exp, 0) {
-        (exp_dt - now).num_hours() <= 24
-      } else {
-        false
-      }
+    let expires_soon = claim.expires_at.is_some_and(|exp| {
+      DateTime::from_timestamp(exp, 0).is_some_and(|exp_dt| (exp_dt - now).num_hours() <= 24)
     });
 
     if is_expired {
@@ -176,16 +168,11 @@ pub async fn get_user_permissions(
       source: format!("{:?}", claim.source),
       granted_by: claim.granted_by.clone(),
       granted_at: DateTime::from_timestamp(claim.granted_at, 0)
-        .unwrap_or_else(|| Utc::now())
-        .into(),
+        .unwrap_or_else(Utc::now),
       is_active,
       expires_soon: Some(expires_soon),
       time_until_expiry: claim.expires_at.and_then(|exp| {
-        if let Some(exp_dt) = DateTime::from_timestamp(exp, 0) {
-          Some((exp_dt - now).num_seconds().max(0))
-        } else {
-          None
-        }
+        DateTime::from_timestamp(exp, 0).map(|exp_dt| (exp_dt - now).num_seconds().max(0))
       }),
       metadata: claim.metadata.clone(),
     });
@@ -217,7 +204,7 @@ pub async fn get_user_permissions(
 
       platform_permissions
         .entry(platform.to_string())
-        .or_insert_with(Vec::new)
+        .or_default()
         .push(info.permission.clone());
     }
   }
@@ -313,15 +300,13 @@ fn permission_matches(
   }
 
   // Wildcard matching
-  if user_permission.ends_with(":*:*") {
-    let prefix = &user_permission[..user_permission.len() - 4]; // Remove ":*:*"
+  if let Some(prefix) = user_permission.strip_suffix(":*:*") {
     if required_permission.starts_with(prefix) {
       return true;
     }
   }
 
-  if user_permission.ends_with(":*") {
-    let prefix = &user_permission[..user_permission.len() - 2]; // Remove ":*"
+  if let Some(prefix) = user_permission.strip_suffix(":*") {
     if required_permission.starts_with(prefix) {
       return true;
     }

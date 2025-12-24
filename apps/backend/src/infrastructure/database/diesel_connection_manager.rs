@@ -149,7 +149,7 @@ impl DieselConnectionManager {
         Self::get_pool().await.ok().map(|pool| {
             let status = pool.status();
             DieselPoolStats {
-                size: status.size as usize,
+                size: status.size,
                 available: status.available as usize,
                 max_size: status.max_size,
             }

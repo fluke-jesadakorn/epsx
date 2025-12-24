@@ -3,14 +3,12 @@
 // Standard response structure for all API endpoints
 // ============================================================================
 
-/**
- * CORE PRINCIPLES:
- * - Consistent response format across all endpoints
- * - Clear success/error indication
- * - Structured error information
- * - Frontend can handle all responses uniformly
- * - Backend makes all authorization decisions
- */
+//! CORE PRINCIPLES:
+//! - Consistent response format across all endpoints
+//! - Clear success/error indication
+//! - Structured error information
+//! - Frontend can handle all responses uniformly
+//! - Backend makes all authorization decisions
 
 use axum::{
     http::StatusCode,
