@@ -4,6 +4,8 @@
 
 mod api_key;
 mod api_module;
+pub mod usage_service;
 
 pub use api_key::*;
 pub use api_module::*;
+pub use usage_service::*;

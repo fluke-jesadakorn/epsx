@@ -26,7 +26,6 @@ import { useEffect, useState } from 'react';
 import { useAccount, useChainId, useSwitchChain } from 'wagmi';
 import { bsc, bscTestnet } from 'wagmi/chains';
 
-import { ChainSelector } from '@/components/nav/ChainSelector';
 import { WalletProviderIcon } from '@/components/nav/WalletProviderIcon';
 import { NotificationBellClient } from '@/components/notifications/NotificationBellClient';
 import {
@@ -37,16 +36,16 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
+  SheetTrigger
 } from '@/components/ui';
 import { navigationService } from '@/services/navigation.service';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { ChainSelector } from '@/shared/components/navigation/ChainSelector';
 import { devLog, isProduction } from '@/shared/utils';
 
 // Pure Web3 Navigation - no props needed
@@ -341,98 +340,7 @@ function NavigationContent() {
 
 
           {/* Chain Selection Dropdown - Hidden in production */}
-          {!isProduction && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className="flex items-center gap-2 rounded-2xl px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white transition-colors"
-                  disabled={isSwitching || !isConnected}
-                >
-                  <LinkIcon className="h-5 w-5 text-orange-500" />
-                  <span>{getCurrentChainName()}</span>
-                  <ChevronDown className="h-3 w-3 ml-1 text-slate-400" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                style={{ zIndex: 99999 }}
-                className="w-56 p-2 bg-white border border-slate-200 shadow-xl dark:bg-slate-900 dark:border-slate-700"
-              >
-                {/* Network Selection Header */}
-                <div className="px-2 py-1.5 mb-1">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Select Network
-                  </span>
-                </div>
-
-                <DropdownMenuItem
-                  onClick={() => handleChainSwitch(bsc.id)}
-                  disabled={isSwitching || chainId === bsc.id}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${chainId === bsc.id
-                    ? 'bg-orange-100 text-orange-800 dark:bg-orange-500/20 dark:text-orange-300'
-                    : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-sm">
-                    <span className="text-[10px] font-bold text-white">56</span>
-                  </div>
-                  <span className="font-medium">BSC Mainnet</span>
-                  {chainId === bsc.id && (
-                    <div className="ml-auto w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
-                      <span className="text-white text-xs">✓</span>
-                    </div>
-                  )}
-                </DropdownMenuItem>
-
-                <DropdownMenuItem
-                  onClick={() => handleChainSwitch(bscTestnet.id)}
-                  disabled={isSwitching || chainId === bscTestnet.id}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${chainId === bscTestnet.id
-                    ? 'bg-orange-100 text-orange-800 dark:bg-orange-500/20 dark:text-orange-300'
-                    : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center shadow-sm">
-                    <span className="text-[10px] font-bold text-white">97</span>
-                  </div>
-                  <span className="font-medium">BSC Testnet</span>
-                  {chainId === bscTestnet.id && (
-                    <div className="ml-auto w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
-                      <span className="text-white text-xs">✓</span>
-                    </div>
-                  )}
-                </DropdownMenuItem>
-
-                <DropdownMenuItem
-                  onClick={() => handleChainSwitch(31337)}
-                  disabled={isSwitching || chainId === 31337}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${chainId === 31337
-                    ? 'bg-orange-100 text-orange-800 dark:bg-orange-500/20 dark:text-orange-300'
-                    : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800'
-                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center shadow-sm">
-                    <span className="text-xs">🔧</span>
-                  </div>
-                  <span className="font-medium">Hardhat Local</span>
-                  {chainId === 31337 && (
-                    <div className="ml-auto w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
-                      <span className="text-white text-xs">✓</span>
-                    </div>
-                  )}
-                </DropdownMenuItem>
-
-                {!isConnected && (
-                  <>
-                    <DropdownMenuSeparator className="my-2" />
-                    <div className="px-3 py-2 text-xs text-slate-500 dark:text-slate-400 italic">
-                      Connect your wallet to switch networks
-                    </div>
-                  </>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          <ChainSelector />
 
           {/* PancakeSwap-style Connect/Disconnect Button */}
           <WalletProviderIcon compact={false} className="ml-2" />

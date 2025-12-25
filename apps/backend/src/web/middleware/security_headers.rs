@@ -10,18 +10,23 @@ use axum::{
 use uuid::Uuid;
 
 /// Security headers middleware that adds essential security headers to all responses
+/// Allows iframe embedding for /docs routes by using permissive frame-ancestors
 pub async fn security_headers_middleware(
     request: Request,
     next: Next,
 ) -> Result<Response, Response> {
+    // Check if this is a docs route that should allow iframe embedding
+    let path = request.uri().path();
+    let is_docs_route = path.starts_with("/docs") || path.starts_with("/api-docs");
+    
     // Process the request
     let mut response = next.run(request).await;
     
     // Get the headers map
     let headers = response.headers_mut();
     
-    // Add essential security headers
-    add_security_headers(headers);
+    // Add essential security headers (with iframe exception for docs)
+    add_security_headers(headers, is_docs_route);
     
     Ok(response)
 }
@@ -60,7 +65,8 @@ pub async fn request_id_middleware(
 pub struct RequestId(pub String);
 
 /// Add essential security headers to response
-fn add_security_headers(headers: &mut HeaderMap) {
+/// If is_docs_route is true, allows iframe embedding from allowed origins
+fn add_security_headers(headers: &mut HeaderMap, is_docs_route: bool) {
     // Prevent XSS attacks
     headers.insert(
         HeaderName::from_static("x-xss-protection"),
@@ -73,11 +79,16 @@ fn add_security_headers(headers: &mut HeaderMap) {
         HeaderValue::from_static("nosniff"),
     );
     
-    // Prevent clickjacking
-    headers.insert(
-        HeaderName::from_static("x-frame-options"),
-        HeaderValue::from_static("DENY"),
-    );
+    // Prevent clickjacking - with exception for docs routes
+    if is_docs_route {
+        // For docs routes, don't set X-Frame-Options (let CSP frame-ancestors handle it)
+        // The response handler in docs/routes.rs sets permissive frame-ancestors
+    } else {
+        headers.insert(
+            HeaderName::from_static("x-frame-options"),
+            HeaderValue::from_static("DENY"),
+        );
+    }
     
     // Force HTTPS in production
     if std::env::var("RUST_ENV").unwrap_or_default() == "production" {
@@ -94,10 +105,18 @@ fn add_security_headers(headers: &mut HeaderMap) {
     );
 
     // Cross-Origin-Opener-Policy for security isolation
-    headers.insert(
-        HeaderName::from_static("cross-origin-opener-policy"),
-        HeaderValue::from_static("same-origin-allow-popups"),
-    );
+    // For docs routes, use a less restrictive policy to allow iframe embedding
+    if is_docs_route {
+        headers.insert(
+            HeaderName::from_static("cross-origin-opener-policy"),
+            HeaderValue::from_static("unsafe-none"),
+        );
+    } else {
+        headers.insert(
+            HeaderName::from_static("cross-origin-opener-policy"),
+            HeaderValue::from_static("same-origin-allow-popups"),
+        );
+    }
 
     // Feature policy / Permissions policy
     headers.insert(

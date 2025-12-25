@@ -5,24 +5,30 @@ import {
   AlertTriangle,
   BarChart3,
   BookOpen,
-  Clock,
   Code,
   Copy,
   Download,
-  Eye,
-  EyeOff,
   Globe,
   Key,
   Plus,
   Settings,
   Shield,
-  Trash2,
+  Trash2
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { logger } from '@/lib/logger';
 import { createPlansClient, type ApiKeyResponse as ApiKey, type Module } from '@/shared/api/plans';
 import { useSharedAuth } from '@/shared/components/auth/Provider';
@@ -604,174 +610,116 @@ export const DeveloperPortal: React.FC = () => {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 gap-6">
-            {apiKeys.map(apiKey => (
-              <div key={apiKey.id} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center space-x-4">
-                    <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
-                      <Key className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                        {apiKey.client_name}
-                      </h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {apiKey.client_description || 'No description'}
-                      </p>
-                      <div className="flex items-center space-x-4 mt-1">
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          Wallet:{' '}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>User / Client</TableHead>
+                  <TableHead>API Key</TableHead>
+                  <TableHead>Scope</TableHead>
+                  <TableHead>Expires</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {apiKeys.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-24 text-center">
+                      No API keys found.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  apiKeys.map((apiKey) => (
+                    <TableRow key={apiKey.id}>
+                      <TableCell>
+                        <div className="flex flex-col">
+                          <span className="font-medium text-gray-900 dark:text-gray-100">
+                            {apiKey.client_name}
+                          </span>
                           <span
-                            className="font-mono cursor-pointer hover:text-blue-600"
+                            className="text-xs text-gray-500 dark:text-gray-400 font-mono cursor-pointer hover:text-blue-600"
                             title={(apiKey as any).wallet_address || 'Unknown'}
                             onClick={() => copyToClipboard((apiKey as any).wallet_address || '', 'Wallet address')}
                           >
                             {truncateWallet((apiKey as any).wallet_address)}
                           </span>
-                        </span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          Created:{' '}
-                          {new Date(apiKey.created_at).toLocaleDateString()}
-                        </span>
-                        {apiKey.last_used_at && (
-                          <span className="text-xs text-gray-500 dark:text-gray-400">
-                            Last used:{' '}
-                            {new Date(apiKey.last_used_at).toLocaleDateString()}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-mono text-sm text-gray-600 dark:text-gray-300">
+                            {showKeyValue === apiKey.id ? apiKey.key_prefix : maskKeyPrefix(apiKey.key_prefix)}
                           </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(apiKey.status)}`}
-                    >
-                      {apiKey.status}
-                    </span>
-                    {apiKey.status === 'active' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() =>
-                          handleRevokeApiKey(apiKey.id, apiKey.client_name)
-                        }
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        API Key
-                      </span>
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() =>
-                            setShowKeyValue(
-                              showKeyValue === apiKey.id ? null : apiKey.id
-                            )
-                          }
-                          className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
-                        >
-                          {showKeyValue === apiKey.id ? (
-                            <EyeOff className="w-4 h-4" />
+                          <button
+                            onClick={() =>
+                              copyToClipboard(
+                                apiKey.key_prefix + '...', // We don't have the full key here usually
+                                'API Key Prefix'
+                              )
+                            }
+                            className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                          >
+                            <Copy className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {(apiKey as any).permission_groups?.length > 0 ? (
+                            (apiKey as any).permission_groups.map((group: any) => (
+                              <Badge key={group.id} variant="secondary" className="text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-200 hover:bg-purple-200 border-none">
+                                {group.name}
+                              </Badge>
+                            ))
                           ) : (
-                            <Eye className="w-4 h-4" />
+                            apiKey.allowed_modules.map((module) => (
+                              <Badge key={module.module_id} variant="outline" className="text-xs">
+                                {module.module_name}
+                              </Badge>
+                            ))
                           )}
-                        </button>
-                        <button
-                          onClick={() =>
-                            copyToClipboard(
-                              apiKey.key_prefix + '...',
-                              'API Key'
-                            )
-                          }
-                          className="p-1 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm text-gray-600 dark:text-gray-300">
+                          {apiKey.expires_at ? (
+                            new Date(apiKey.expires_at).toLocaleDateString()
+                          ) : (
+                            <span className="text-gray-400">Never</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={apiKey.status === 'active' ? 'default' : apiKey.status === 'revoked' ? 'destructive' : 'secondary'}
+                          className={`
+                              ${apiKey.status === 'active' ? 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-200 hover:bg-green-200 border-none' : ''}
+                              ${apiKey.status === 'revoked' ? 'bg-red-100 dark:bg-red-900/50 text-red-800 dark:text-red-200 hover:bg-red-200 border-none' : ''}
+                              ${apiKey.status === 'expired' ? 'bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-200 hover:bg-yellow-200 border-none' : ''}
+                            `}
                         >
-                          <Copy className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                    <code className="text-sm text-gray-900 dark:text-gray-100 font-mono">
-                      {maskKeyPrefix(apiKey.key_prefix)}
-                    </code>
-                  </div>
-
-                  <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Total Requests
-                    </span>
-                    <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      {apiKey.total_requests.toLocaleString()}
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Modules
-                    </span>
-                    <div className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                      {apiKey.allowed_modules.length}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">
-                      Allowed Modules
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {apiKey.allowed_modules.map(module => (
-                        <span
-                          key={module.module_id}
-                          className="inline-flex items-center px-3 py-1 rounded-full text-xs bg-blue-100 text-blue-800"
-                        >
-                          {module.module_name}
-                          <span
-                            className={`ml-2 px-1 rounded text-xs ${getAccessLevelColor(module.access_level)}`}
+                          {apiKey.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {apiKey.status === 'active' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            onClick={() => handleRevokeApiKey(apiKey.id, apiKey.client_name)}
                           >
-                            {module.access_level.toUpperCase()}
-                          </span>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {apiKey.ip_restrictions.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-700 mb-2">
-                        IP Restrictions
-                      </h4>
-                      <div className="flex flex-wrap gap-2">
-                        {apiKey.ip_restrictions.map((ip, index) => (
-                          <span
-                            key={index}
-                            className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-100 text-gray-800"
-                          >
-                            <Globe className="w-3 h-3 mr-1" />
-                            {ip}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {apiKey.expires_at && (
-                    <div className="flex items-center text-sm text-gray-600">
-                      <Clock className="w-4 h-4 mr-2" />
-                      Expires:{' '}
-                      {new Date(apiKey.expires_at).toLocaleDateString()}
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
+                            <Trash2 className="w-4 h-4" />
+                            <span className="sr-only">Revoke</span>
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
           </div>
         </div>
       )}

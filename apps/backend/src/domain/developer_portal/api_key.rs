@@ -113,6 +113,7 @@ pub struct PermissionGroupInfo {
 pub struct ApiKey {
     pub id: Uuid,
     pub key_prefix: String,
+    pub full_key: Option<String>, // Full key for user to copy (stored for owner access)
     pub client_name: String,
     pub client_description: Option<String>,
     pub client_contact_email: Option<String>,
@@ -125,6 +126,9 @@ pub struct ApiKey {
     pub allowed_modules: Vec<ModuleAccess>,
     #[serde(default)]
     pub permission_groups: Vec<PermissionGroupInfo>,
+    /// Individual permission strings selected by the user
+    #[serde(default)]
+    pub selected_permissions: Vec<String>,
     pub expires_at: Option<DateTime<Utc>>,
     pub last_used_at: Option<DateTime<Utc>>,
     pub revoked_at: Option<DateTime<Utc>>,
@@ -147,6 +151,9 @@ pub struct CreateApiKeyRequest {
     /// Permission group IDs to assign to this API key
     #[serde(default)]
     pub group_ids: Vec<Uuid>,
+    /// Individual permission strings to assign (must be within user's groups)
+    #[serde(default)]
+    pub permissions: Vec<String>,
     pub ip_restrictions: Option<Vec<String>>,
     pub rate_limit_per_minute: Option<i32>,
     pub rate_limit_per_day: Option<i32>,

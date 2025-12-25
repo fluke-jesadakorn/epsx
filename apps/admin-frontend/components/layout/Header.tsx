@@ -9,7 +9,6 @@
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import {
   ChevronDown,
-  Link as LinkIcon,
   LogOut,
   Moon,
   Sun,
@@ -17,8 +16,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { useAccount, useChainId, useDisconnect, useSwitchChain } from 'wagmi';
-import { bsc, bscTestnet } from 'wagmi/chains';
+import { useAccount, useDisconnect } from 'wagmi';
 
 import {
   DropdownMenu,
@@ -26,8 +24,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useSharedAuth } from '@/shared/components/auth/Provider';
 import { themeUtils } from '@/components/ui/SafeThemeScript';
+import { useSharedAuth } from '@/shared/components/auth/Provider';
+import { ChainSelector } from '@/shared/components/navigation/ChainSelector';
 import { isProduction } from '@/shared/utils';
 import { AdminNotificationBell } from './AdminNotificationBellClient';
 
@@ -47,8 +46,8 @@ export function Header({ user }: HeaderProps) {
   const [cookieWallet, setCookieWallet] = useState<string | null>(null);
   const { logout, isAuthenticated, user: authUser, isLoading: authLoading } = useSharedAuth();
 
-  const chainId = useChainId();
-  const { switchChain, isPending: isSwitching } = useSwitchChain();
+
+
   const { isConnected, address } = useAccount();
   const { disconnect } = useDisconnect();
   const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>('light');
@@ -76,27 +75,12 @@ export function Header({ user }: HeaderProps) {
   }, []);
 
   // Use wagmi address first, then auth user, then direct cookie read
-  const walletAddress = address || authUser?.wallet || cookieWallet;
+  const walletAddress = address || authUser?.wallet_address || cookieWallet;
 
   // Combined connection status: wagmi connected OR cookie-based auth OR have cookie wallet
   const isWalletConnected = isConnected || isAuthenticated || !!cookieWallet;
 
-  const getCurrentChainName = () => {
-    if (!mounted) return 'Chain';
-    if (chainId === bsc.id) return 'BSC Mainnet';
-    if (chainId === bscTestnet.id) return 'BSC Testnet';
-    if (chainId === 31337) return 'Hardhat Local';
-    return 'Unknown Chain';
-  };
 
-  const handleChainSwitch = async (targetChainId: number) => {
-    if (!isConnected || isSwitching || targetChainId === chainId) return;
-    try {
-      await switchChain({ chainId: targetChainId });
-    } catch (error) {
-      console.error('Failed to switch chain:', error);
-    }
-  };
 
   const handleDisconnect = async () => {
     try {
@@ -160,42 +144,7 @@ export function Header({ user }: HeaderProps) {
 
           {/* Chain Selector - Only in dev */}
           {!isProduction && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white transition-colors"
-                  disabled={isSwitching || !isWalletConnected}
-                >
-                  <LinkIcon className="h-4 w-4 text-orange-500" />
-                  <span className="hidden md:inline">{getCurrentChainName()}</span>
-                  <ChevronDown className="h-3 w-3 text-slate-400" />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="w-48 bg-white dark:bg-slate-900 border-gray-200 dark:border-slate-700 p-1"
-                style={{ zIndex: 99999 }}
-              >
-                <DropdownMenuItem
-                  onClick={() => handleChainSwitch(bsc.id)}
-                  disabled={chainId === bsc.id}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer ${chainId === bsc.id ? 'bg-orange-500/20 text-orange-400' : 'text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800'
-                    }`}
-                >
-                  <div className="w-5 h-5 rounded-full bg-yellow-500 flex items-center justify-center text-[10px] font-bold text-white">56</div>
-                  BSC Mainnet
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => handleChainSwitch(bscTestnet.id)}
-                  disabled={chainId === bscTestnet.id}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer ${chainId === bscTestnet.id ? 'bg-orange-500/20 text-orange-400' : 'text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800'
-                    }`}
-                >
-                  <div className="w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center text-[10px] font-bold text-white">97</div>
-                  BSC Testnet
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <ChainSelector />
           )}
 
           {/* Wallet Connect */}

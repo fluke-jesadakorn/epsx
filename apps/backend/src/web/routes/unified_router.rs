@@ -119,6 +119,14 @@ impl UnifiedRouteBuilder {
             .layer(axum_middleware::from_fn(
                 crate::web::middleware::request_id_middleware
             ))
+            .layer(axum_middleware::from_fn_with_state(
+                self.container.clone(),
+                crate::web::middleware::usage_tracking_middleware
+            ))
+            .layer(axum_middleware::from_fn_with_state(
+                self.container.clone(),
+                crate::web::middleware::unified_rate_limit_middleware
+            ))
             .layer(self.configure_cors())
     }
 
@@ -368,6 +376,10 @@ impl UnifiedRouteBuilder {
             get_my_key_handler,
             revoke_my_key_handler,
             list_available_groups_handler,
+            get_my_groups_handler,
+            get_usage_stats_handler,
+            get_usage_history_handler,
+            get_top_endpoints_handler,
         };
 
         let app_state = self.create_app_state();
@@ -385,6 +397,10 @@ impl UnifiedRouteBuilder {
             .route("/my-keys/{id}", get(get_my_key_handler))
             .route("/my-keys/{id}", delete(revoke_my_key_handler))
             .route("/my-keys/{id}/revoke", post(revoke_my_key_handler))
+            .route("/my-groups", get(get_my_groups_handler))
+            .route("/stats", get(get_usage_stats_handler))
+            .route("/usage-history", get(get_usage_history_handler))
+            .route("/top-endpoints", get(get_top_endpoints_handler))
             .with_state(app_state.clone())
             .layer(axum_middleware::from_fn_with_state(
                 app_state,

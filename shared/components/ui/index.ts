@@ -13,6 +13,25 @@ export { Button, buttonVariants, type ButtonProps } from './button';
 export { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from './card';
 export { Input, inputVariants, type InputProps } from './input';
 
+// Dropdown Menu
+export {
+    DropdownMenu,
+    DropdownMenuCheckboxItem,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuPortal,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
+    DropdownMenuSeparator,
+    DropdownMenuShortcut,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
+    DropdownMenuTrigger
+} from './dropdown-menu';
+
 // Alert
 export {
     Alert, AlertDescription, AlertTitle, alertVariants, type AlertDescriptionProps, type AlertProps,

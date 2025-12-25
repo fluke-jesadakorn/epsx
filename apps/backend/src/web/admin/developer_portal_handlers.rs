@@ -177,6 +177,7 @@ pub async fn create_api_key_handler(
         wallet_address: body.wallet_address.clone(),
         allowed_modules,
         group_ids: vec![], // TODO: Add group_ids to admin create form
+        permissions: vec![], // TODO: Add permissions to admin create form
         ip_restrictions: body.ip_restrictions,
         rate_limit_per_minute: body.rate_limit_per_minute,
         rate_limit_per_day: body.rate_limit_per_day,

@@ -1,5 +1,6 @@
 'use client';
 
+import { GlobalAuthGuard } from '@/components/auth/GlobalAuthGuard';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,7 +21,6 @@ import {
   Crown,
   Download,
   Eye,
-  Filter,
   History,
   PieChart,
   RefreshCw,
@@ -29,7 +29,7 @@ import {
   TrendingUp,
   Users,
   XCircle,
-  Zap,
+  Zap
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 // import {
@@ -129,8 +129,8 @@ function PermissionCard({ permission }: { permission: TimestampedPermission }) {
         'transition-all hover:shadow-md',
         permission.isExpired && 'border-red-200 bg-red-50 opacity-60',
         isExpiringSoon &&
-          !permission.isExpired &&
-          'border-yellow-200 bg-yellow-50'
+        !permission.isExpired &&
+        'border-yellow-200 bg-yellow-50'
       )}
     >
       <CardContent className="p-4">
@@ -165,7 +165,7 @@ function PermissionCard({ permission }: { permission: TimestampedPermission }) {
                   className={cn(
                     'text-xs',
                     PLATFORM_COLORS[platform as keyof typeof PLATFORM_COLORS] ||
-                      PLATFORM_COLORS.default
+                    PLATFORM_COLORS.default
                   )}
                 >
                   {platform}
@@ -512,299 +512,276 @@ export default function PermissionsPage() {
     }
   });
 
-  if (isLoading) {
-    return (
-      <div className="container mx-auto p-6">
-        <div className="flex h-64 items-center justify-center">
-          <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return (
-      <div className="container mx-auto p-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center">
-              <Shield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h2 className="text-xl font-semibold text-gray-900 mb-2">Authentication Required</h2>
-              <p className="text-gray-600 mb-4">Please sign in to view your permissions.</p>
-              <p className="text-sm text-gray-500">Please connect your wallet using the navigation menu.</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
-    <div className="container mx-auto max-w-6xl p-6">
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">My Permissions</h1>
-          <p className="mt-1 text-gray-600">
-            View and manage your platform permissions and access levels
-          </p>
-        </div>
-
-        <div className="flex items-center space-x-2">
-          <div className="relative">
-            <Button
-              data-testid="export-button"
-              onClick={() => handleExport('json')}
-              disabled={isExporting}
-              variant="outline"
-              size="sm"
-            >
-              <Download className="mr-2 h-4 w-4" />
-              {isExporting ? 'Exporting...' : 'Export'}
-            </Button>
-          </div>
-          <Button
-            data-testid="refresh-permissions-button"
-            onClick={() => window.location.reload()}
-            variant="outline"
-            size="sm"
-          >
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
-        </div>
-      </div>
-
-      {/* Stats */}
-      <PermissionStats permissions={timestampedPermissions} />
-
-      {/* User Info */}
-      <Card className="mb-6">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Users className="h-5 w-5" />
-            <span>Account Information</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+    <div className="container mx-auto p-6">
+      <GlobalAuthGuard title="My Permissions">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="mb-6 flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-500">
-                Wallet Address
-              </p>
-              <p className="text-sm text-gray-900">
-                {user.wallet_address || 'Not connected'}
+              <h1 className="text-3xl font-bold text-gray-900">My Permissions</h1>
+              <p className="mt-1 text-gray-600">
+                View and manage your platform permissions and access levels
               </p>
             </div>
-            <div>
-              <p className="text-sm font-medium text-gray-500">
-                Permissions Count
-              </p>
-              <p className="text-sm text-gray-900">
-                {typeof user.permissions === 'object' &&
-                user.permissions !== null
-                  ? Object.keys(user.permissions).length
-                  : Array.isArray(user.permissions)
-                    ? (user.permissions as string[]).length
-                    : 0}{' '}
-                permissions
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      {/* Permissions Content */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Shield className="h-5 w-5" />
-            <span>Permission Details</span>
-          </CardTitle>
-          <CardDescription>
-            All permissions including embedded timestamp permissions with expiry
-            information
-          </CardDescription>
-
-          {/* Tab Navigation */}
-          <div className="flex flex-wrap space-x-2 pt-4">
-            {[
-              {
-                key: 'active',
-                label: 'Active',
-                count: timestampedPermissions.filter(p => !p.isExpired).length,
-              },
-              {
-                key: 'expiring',
-                label: 'Expiring Soon',
-                count: timestampedPermissions.filter(
-                  p =>
-                    !p.isExpired &&
-                    p.timeRemaining &&
-                    p.timeRemaining < 24 * 60 * 60 * 1000
-                ).length,
-              },
-              {
-                key: 'expired',
-                label: 'Expired',
-                count: timestampedPermissions.filter(p => p.isExpired).length,
-              },
-              {
-                key: 'all',
-                label: 'All',
-                count: timestampedPermissions.length,
-              },
-              {
-                key: 'analytics',
-                label: 'Analytics',
-                count: null,
-              },
-              {
-                key: 'history',
-                label: 'History',
-                count: null,
-              },
-            ].map(tab => (
-              <Button
-                key={tab.key}
-                data-testid={`permission-tab-${tab.key}`}
-                variant={activeTab === tab.key ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setActiveTab(tab.key as typeof activeTab)}
-                className="relative mb-2"
-              >
-                {tab.key === 'analytics' && <BarChart3 className="mr-2 h-4 w-4" />}
-                {tab.key === 'history' && <History className="mr-2 h-4 w-4" />}
-                {tab.label}
-                {tab.count !== null && tab.count > 0 && (
-                  <Badge variant="secondary" className="ml-2 text-xs">
-                    {tab.count}
-                  </Badge>
-                )}
-              </Button>
-            ))}
-          </div>
-        </CardHeader>
-
-        <CardContent>
-          {/* Analytics Tab Content */}
-          {activeTab === 'analytics' && (
-            <div className="space-y-6">
-              {analytics ? (
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center space-x-2">
-                          <PieChart className="h-5 w-5" />
-                          <span>Platform Distribution</span>
-                        </CardTitle>
-                        <CardDescription>
-                          Breakdown of your permissions by platform
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <PlatformDistributionChart distribution={analytics.platformDistribution} />
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center space-x-2">
-                          <TrendingUp className="h-5 w-5" />
-                          <span>Usage Statistics</span>
-                        </CardTitle>
-                        <CardDescription>
-                          Your most frequently used permissions
-                        </CardDescription>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          {analytics.usageStats?.mostUsedPermissions?.map((item: any, index: number) => (
-                            <div key={index} className="flex items-center justify-between">
-                              <span className="text-sm font-medium">{item.permission}</span>
-                              <Badge variant="secondary">{item.usage} uses</Badge>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center space-x-2">
-                        <BarChart3 className="h-5 w-5" />
-                        <span>Recently Granted Permissions</span>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {analytics.usageStats?.recentlyGranted?.map((item: any, index: number) => (
-                          <div key={index} className="flex items-center justify-between">
-                            <span className="text-sm font-medium">{item.permission}</span>
-                            <span className="text-xs text-gray-500">
-                              {formatDistanceToNow(new Date(item.grantedAt), { addSuffix: true })}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </>
-              ) : (
-                <div className="text-center py-8">
-                  <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p className="text-lg font-medium">Loading analytics...</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* History Tab Content */}
-          {activeTab === 'history' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium">Permission Activity History</h3>
-                <Badge variant="outline">{history.length} activities</Badge>
+            <div className="flex items-center space-x-2">
+              <div className="relative">
+                <Button
+                  data-testid="export-button"
+                  onClick={() => handleExport('json')}
+                  disabled={isExporting}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  {isExporting ? 'Exporting...' : 'Export'}
+                </Button>
               </div>
-              <PermissionHistory history={history} />
+              <Button
+                data-testid="refresh-permissions-button"
+                onClick={() => window.location.reload()}
+                variant="outline"
+                size="sm"
+              >
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh
+              </Button>
             </div>
-          )}
+          </div>
 
-          {/* Permission Lists for Other Tabs */}
-          {activeTab !== 'analytics' && activeTab !== 'history' && (
-            <>
-              {filteredPermissions.length === 0 ? (
-                <div className="py-12 text-center">
-                  <Shield className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-                  <h3 className="mb-2 text-lg font-medium text-gray-900">
-                    No {activeTab !== 'all' ? activeTab : ''} permissions found
-                  </h3>
-                  <p className="text-gray-500">
-                    {activeTab === 'active'
-                      ? 'You have no active permissions at the moment.'
-                      : activeTab === 'expiring'
-                        ? 'No permissions are expiring soon.'
-                        : activeTab === 'expired'
-                          ? 'No permissions have expired.'
-                          : 'You have no permissions assigned to your account.'}
+          {/* Stats */}
+          <PermissionStats permissions={timestampedPermissions} />
+
+          {/* User Info */}
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Users className="h-5 w-5" />
+                <span>Account Information</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">
+                    Wallet Address
+                  </p>
+                  <p className="text-sm text-gray-900">
+                    {user?.wallet_address || 'Not connected'}
                   </p>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {filteredPermissions.map((perm, index) => (
-                    <PermissionCard
-                      key={`${perm.permission}-${index}`}
-                      permission={perm}
-                    />
-                  ))}
+                <div>
+                  <p className="text-sm font-medium text-gray-500">
+                    Permissions Count
+                  </p>
+                  <p className="text-sm text-gray-900">
+                    {typeof user?.permissions === 'object' &&
+                      user?.permissions !== null
+                      ? Object.keys(user.permissions).length
+                      : Array.isArray(user?.permissions)
+                        ? (user.permissions as string[]).length
+                        : 0}{' '}
+                    permissions
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Permissions Content */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2">
+                <Shield className="h-5 w-5" />
+                <span>Permission Details</span>
+              </CardTitle>
+              <CardDescription>
+                All permissions including embedded timestamp permissions with expiry
+                information
+              </CardDescription>
+
+              {/* Tab Navigation */}
+              <div className="flex flex-wrap space-x-2 pt-4">
+                {[
+                  {
+                    key: 'active',
+                    label: 'Active',
+                    count: timestampedPermissions.filter(p => !p.isExpired).length,
+                  },
+                  {
+                    key: 'expiring',
+                    label: 'Expiring Soon',
+                    count: timestampedPermissions.filter(
+                      p =>
+                        !p.isExpired &&
+                        p.timeRemaining &&
+                        p.timeRemaining < 24 * 60 * 60 * 1000
+                    ).length,
+                  },
+                  {
+                    key: 'expired',
+                    label: 'Expired',
+                    count: timestampedPermissions.filter(p => p.isExpired).length,
+                  },
+                  {
+                    key: 'all',
+                    label: 'All',
+                    count: timestampedPermissions.length,
+                  },
+                  {
+                    key: 'analytics',
+                    label: 'Analytics',
+                    count: null,
+                  },
+                  {
+                    key: 'history',
+                    label: 'History',
+                    count: null,
+                  },
+                ].map(tab => (
+                  <Button
+                    key={tab.key}
+                    data-testid={`permission-tab-${tab.key}`}
+                    variant={activeTab === tab.key ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setActiveTab(tab.key as typeof activeTab)}
+                    className="relative mb-2"
+                  >
+                    {tab.key === 'analytics' && <BarChart3 className="mr-2 h-4 w-4" />}
+                    {tab.key === 'history' && <History className="mr-2 h-4 w-4" />}
+                    {tab.label}
+                    {tab.count !== null && tab.count > 0 && (
+                      <Badge variant="secondary" className="ml-2 text-xs">
+                        {tab.count}
+                      </Badge>
+                    )}
+                  </Button>
+                ))}
+              </div>
+            </CardHeader>
+
+            <CardContent>
+              {/* Analytics Tab Content */}
+              {activeTab === 'analytics' && (
+                <div className="space-y-6">
+                  {analytics ? (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center space-x-2">
+                              <PieChart className="h-5 w-5" />
+                              <span>Platform Distribution</span>
+                            </CardTitle>
+                            <CardDescription>
+                              Breakdown of your permissions by platform
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <PlatformDistributionChart distribution={analytics.platformDistribution} />
+                          </CardContent>
+                        </Card>
+
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="flex items-center space-x-2">
+                              <TrendingUp className="h-5 w-5" />
+                              <span>Usage Statistics</span>
+                            </CardTitle>
+                            <CardDescription>
+                              Your most frequently used permissions
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <div className="space-y-3">
+                              {analytics.usageStats?.mostUsedPermissions?.map((item: any, index: number) => (
+                                <div key={index} className="flex items-center justify-between">
+                                  <span className="text-sm font-medium">{item.permission}</span>
+                                  <Badge variant="secondary">{item.usage} uses</Badge>
+                                </div>
+                              ))}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center space-x-2">
+                            <BarChart3 className="h-5 w-5" />
+                            <span>Recently Granted Permissions</span>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            {analytics.usageStats?.recentlyGranted?.map((item: any, index: number) => (
+                              <div key={index} className="flex items-center justify-between">
+                                <span className="text-sm font-medium">{item.permission}</span>
+                                <span className="text-xs text-gray-500">
+                                  {formatDistanceToNow(new Date(item.grantedAt), { addSuffix: true })}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </>
+                  ) : (
+                    <div className="text-center py-8">
+                      <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                      <p className="text-lg font-medium">Loading analytics...</p>
+                    </div>
+                  )}
                 </div>
               )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+
+              {/* History Tab Content */}
+              {activeTab === 'history' && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-medium">Permission Activity History</h3>
+                    <Badge variant="outline">{history.length} activities</Badge>
+                  </div>
+                  <PermissionHistory history={history} />
+                </div>
+              )}
+
+              {/* Permission Lists for Other Tabs */}
+              {activeTab !== 'analytics' && activeTab !== 'history' && (
+                <>
+                  {filteredPermissions.length === 0 ? (
+                    <div className="py-12 text-center">
+                      <Shield className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+                      <h3 className="mb-2 text-lg font-medium text-gray-900">
+                        No {activeTab !== 'all' ? activeTab : ''} permissions found
+                      </h3>
+                      <p className="text-gray-500">
+                        {activeTab === 'active'
+                          ? 'You have no active permissions at the moment.'
+                          : activeTab === 'expiring'
+                            ? 'No permissions are expiring soon.'
+                            : activeTab === 'expired'
+                              ? 'No permissions have expired.'
+                              : 'You have no permissions assigned to your account.'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {filteredPermissions.map((perm, index) => (
+                        <PermissionCard
+                          key={`${perm.permission}-${index}`}
+                          permission={perm}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </GlobalAuthGuard>
     </div>
   );
 }

@@ -448,12 +448,19 @@ export function SharedOpenIDWeb3Provider({
           const expiryTime = Date.now() + (COOKIE_OPTIONS.maxAge.access * 1000);
           setClientCookie(COOKIES.expires_at, expiryTime.toString(), COOKIE_OPTIONS.maxAge.expires_at);
 
+          // CRITICAL: Set client_session cookie with access_token for server-side auth
+          if (result.access_token) {
+            setClientCookie(COOKIES.client_session, result.access_token, COOKIE_OPTIONS.maxAge.access);
+            console.log('🔑 Set client_session cookie for server-side auth');
+          }
+
           console.log('💾 Persisted Web3 authentication to cookies', {
             clientId,
             keys: {
               user: COOKIES.user,
               authTime: COOKIES.auth_time,
-              expiresAt: COOKIES.expires_at
+              expiresAt: COOKIES.expires_at,
+              clientSession: COOKIES.client_session
             }
           });
         } catch (error) {

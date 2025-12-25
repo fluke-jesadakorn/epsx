@@ -1,27 +1,43 @@
 'use client';
 
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import type { AuthUser } from '@/lib/server-actions';
-import { createPlansClient, type ApiKeyResponse, type Module } from '@/shared/api/plans';
+import { createPlansClient, type ApiKeyResponse } from '@/shared/api/plans';
 import { UnifiedApiClient } from '@/shared/utils/api-client';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { GroupTransferList } from './GroupTransferList';
 
 interface APIKeyManagerProps {
   currentUser: AuthUser;
+  onStatsChange?: () => void;
 }
 
-export function APIKeyManager({ currentUser }: APIKeyManagerProps) {
+export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps) {
   const [apiKeys, setApiKeys] = useState<ApiKeyResponse[]>([]);
-  const [modules, setModules] = useState<Module[]>([]);
+  const [availablePermissions, setAvailablePermissions] = useState<string[]>([]);
   const [newKeyName, setNewKeyName] = useState('');
   const [showNewKey, setShowNewKey] = useState(false);
   const [generatedKey, setGeneratedKey] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedModules, setSelectedModules] = useState<string[]>([]);
+  const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   const [expiresAt, setExpiresAt] = useState<string>(''); // ISO date string or empty
+  const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
+  const [selectedKeyToRevoke, setSelectedKeyToRevoke] = useState<ApiKeyResponse | null>(null);
+  const [hasGroups, setHasGroups] = useState(false);
+
 
   // Get API client
   const getApiClient = () => {
@@ -32,42 +48,80 @@ export function APIKeyManager({ currentUser }: APIKeyManagerProps) {
     return createPlansClient(client);
   };
 
-  // Load API keys and modules on mount
+  // Load API keys and permissions on mount
   useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        const client = getApiClient();
+
+        // Load user's own API keys using user-facing endpoint
+        const keysResponse = await client.listMyApiKeys({ limit: 100 });
+        if (keysResponse.success && keysResponse.data) {
+          const keysRaw = keysResponse.data as any;
+          setApiKeys(keysRaw.data?.api_keys || keysRaw.api_keys || []);
+        }
+
+        // Load user's assigned groups and flatten permissions
+        const groupsResponse = await client.getMyGroups();
+        console.log('My Groups API Response:', groupsResponse);
+        if (groupsResponse.success && groupsResponse.data) {
+          const rawData = groupsResponse.data as any;
+          const groups = rawData.data?.groups || rawData.groups || [];
+          console.log('User groups:', groups.length, groups);
+
+          // Flatten permissions from all groups into unique list
+          const allPermissions = new Set<string>();
+          groups.forEach((g: any) => {
+            if (g.permissions && Array.isArray(g.permissions)) {
+              g.permissions.forEach((p: string) => allPermissions.add(p));
+            }
+          });
+
+          const permissionsList = Array.from(allPermissions).sort();
+          console.log('Available permissions:', permissionsList.length, permissionsList);
+          setAvailablePermissions(permissionsList);
+          setHasGroups(groups.length > 0);
+        } else {
+          console.log('Groups API failed or no data:', groupsResponse);
+        }
+      } catch (error) {
+        console.error('Failed to load data:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
     loadData();
   }, []);
 
-  const loadData = async () => {
+  // Manual refresh function for create/revoke operations
+  const refreshData = async () => {
     setIsLoading(true);
     try {
       const client = getApiClient();
-
-      // Load user's own API keys using user-facing endpoint
       const keysResponse = await client.listMyApiKeys({ limit: 100 });
       if (keysResponse.success && keysResponse.data) {
-        setApiKeys((keysResponse.data as any).api_keys || []);
+        const keysRaw = keysResponse.data as any;
+        setApiKeys(keysRaw.data?.api_keys || keysRaw.api_keys || []);
       }
-
-      // Load available groups for creating keys
-      const groupsResponse = await client.getAvailableGroups();
+      // Also refresh available groups
+      const groupsResponse = await client.getMyGroups();
       if (groupsResponse.success && groupsResponse.data) {
-        // Convert groups to Module format for compatibility
-        const groups = (groupsResponse.data as any).groups || [];
-        setModules(groups.map((g: any) => ({
-          id: g.id,
-          name: g.slug,
-          display_name: g.name,
-          description: g.description,
-          category: g.group_type,
-          status: g.is_active ? 'active' : 'inactive',
-          access_levels: {},
-          default_quotas: {},
-          endpoints: [],
-        })));
+        const rawData = groupsResponse.data as any;
+        const groups = rawData.data?.groups || rawData.groups || [];
+        setHasGroups(groups.length > 0);
+        // Flatten permissions from groups
+        const allPermissions = new Set<string>();
+        groups.forEach((g: any) => {
+          if (g.permissions && Array.isArray(g.permissions)) {
+            g.permissions.forEach((p: string) => allPermissions.add(p));
+          }
+        });
+        setAvailablePermissions(Array.from(allPermissions).sort());
       }
     } catch (error) {
-      console.error('Failed to load data:', error);
-      // Don't show error toast - just use empty state
+      console.error('Failed to refresh data:', error);
     } finally {
       setIsLoading(false);
     }
@@ -88,22 +142,33 @@ export function APIKeyManager({ currentUser }: APIKeyManagerProps) {
       const response = await client.createMyApiKey({
         client_name: newKeyName,
         client_description: `API key for ${currentUser.walletAddress}`,
-        group_ids: selectedModules, // Selected groups
+        group_ids: [], // Not using group IDs
+        permissions: selectedPermissions, // Individual permission strings
         ip_restrictions: [],
         expires_at: expiresAt || undefined, // Use selected expiration or undefined for no expiration
       });
 
       if (response.success && response.data) {
-        const newKey = response.data as any;
-        setGeneratedKey(newKey.full_key || 'Key created - check your keys');
+        // Handle potentially nested response: response.data may contain { data: { full_key, api_key: { id } } }
+        const rawData = response.data as any;
+        const newKey = rawData.data || rawData; // Handle both wrapped and unwrapped response
+        const fullKey = newKey.full_key || '';
+        const keyId = newKey.api_key?.id || newKey.id || '';
+
+        console.log('Created API key response:', { rawData, newKey, fullKey, keyId });
+
+        setGeneratedKey(fullKey || 'Key created - check your keys');
         setShowNewKey(true);
         setNewKeyName('');
-        setSelectedModules([]);
+        setSelectedPermissions([]);
         setExpiresAt(''); // Reset expiration
         toast.success('API key created successfully!');
 
+
+
         // Reload keys list
-        await loadData();
+        await refreshData();
+        onStatsChange?.(); // Notify parent to refresh stats
       } else {
         toast.error('Failed to create API key');
       }
@@ -115,10 +180,7 @@ export function APIKeyManager({ currentUser }: APIKeyManagerProps) {
     }
   };
 
-  const revokeAPIKey = async (keyId: string) => {
-    const confirmed = window.confirm('Are you sure you want to revoke this API key? This action cannot be undone.');
-    if (!confirmed) return;
-
+  const executeRevoke = async (keyId: string) => {
     setIsLoading(true);
     try {
       const client = getApiClient();
@@ -127,270 +189,420 @@ export function APIKeyManager({ currentUser }: APIKeyManagerProps) {
 
       if (response.success) {
         toast.success('API key revoked successfully');
-        await loadData();
+        await refreshData();
+        onStatsChange?.(); // Notify parent to refresh stats
       } else {
         toast.error('Failed to revoke API key');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to revoke API key:', error);
-      toast.error('Failed to revoke API key');
+      const errorMessage = error?.message || error?.error || 'Failed to revoke API key';
+      toast.error(`Error: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const toggleModuleSelection = (moduleId: string) => {
-    setSelectedModules(prev =>
-      prev.includes(moduleId)
-        ? prev.filter(id => id !== moduleId)
-        : [...prev, moduleId]
+  const togglePermissionSelection = (permissionId: string) => {
+    setSelectedPermissions((prev: string[]) =>
+      prev.includes(permissionId)
+        ? prev.filter((id: string) => id !== permissionId)
+        : [...prev, permissionId]
     );
   };
 
-  const canCreateKeys = currentUser.role === 'premium' || currentUser.role === 'admin';
+  // User can create keys if they have any groups assigned
+  console.log('Permissions state:', availablePermissions.length, 'hasGroups:', hasGroups, 'isLoading:', isLoading);
+  const canCreateKeys = hasGroups || currentUser.role === 'admin';
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Create New Key */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            Create New API Key
-            {!canCreateKeys && (
-              <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">
-                Premium Required
-              </Badge>
-            )}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {canCreateKeys ? (
-            <div className="space-y-4">
-              <div className="flex gap-4">
-                <Input
-                  placeholder="Enter key name (e.g., 'My Trading Bot')"
-                  value={newKeyName}
-                  onChange={(e) => setNewKeyName(e.target.value)}
-                  className="flex-1"
-                />
+      <div className="relative rounded-2xl bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-rose-500/10 p-[1px]">
+        <Card className="rounded-2xl border-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center shadow-lg shadow-amber-500/25">
+                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                </div>
+                <span className="text-xl font-semibold">Create New API Key</span>
               </div>
-
-              {/* Module Selection */}
-              {modules.length > 0 && (
-                <div>
-                  <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                    Select API groups to access:
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {modules.map((module) => (
-                      <Badge
-                        key={module.id}
-                        variant={selectedModules.includes(module.id) ? "default" : "outline"}
-                        className="cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700"
-                        onClick={() => toggleModuleSelection(module.id)}
-                      >
-                        {module.display_name}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
+              {!canCreateKeys && !isLoading && (
+                <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0">
+                  Premium Required
+                </Badge>
               )}
-
-              {/* Expiration Date Picker */}
-              <div>
-                <div className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                  Key Expiration (optional):
-                </div>
-                <div className="flex items-center gap-4">
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-amber-500"></div>
+              </div>
+            ) : canCreateKeys ? (
+              <div className="space-y-6">
+                {/* Key Name Input */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Key Name
+                  </label>
                   <Input
-                    type="date"
-                    value={expiresAt ? new Date(expiresAt).toISOString().split('T')[0] : ''}
-                    onChange={(e) => {
-                      if (e.target.value) {
-                        // Set to end of day in UTC
-                        const date = new Date(e.target.value);
-                        date.setUTCHours(23, 59, 59, 999);
-                        setExpiresAt(date.toISOString());
-                      } else {
-                        setExpiresAt('');
-                      }
-                    }}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="max-w-[200px]"
+                    placeholder="e.g., 'Production Server', 'Trading Bot'"
+                    value={newKeyName}
+                    onChange={(e) => setNewKeyName(e.target.value)}
+                    className="h-12 text-base bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 focus:ring-amber-500 focus:border-amber-500"
                   />
-                  {expiresAt && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setExpiresAt('')}
-                      className="text-gray-500"
-                    >
-                      Clear
-                    </Button>
-                  )}
-                  <span className="text-xs text-gray-500 dark:text-gray-400">
-                    {expiresAt ? `Expires: ${new Date(expiresAt).toLocaleDateString()}` : 'Never expires'}
-                  </span>
                 </div>
-              </div>
 
-              <Button
-                onClick={generateAPIKey}
-                disabled={!newKeyName.trim() || isLoading}
-              >
-                {isLoading ? 'Generating...' : 'Generate Key'}
-              </Button>
-
-              {showNewKey && generatedKey && (
-                <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-                  <h4 className="font-semibold text-green-800 dark:text-green-300 mb-2">
-                    🎉 New API Key Generated
-                  </h4>
-                  <p className="text-sm text-green-700 dark:text-green-400 mb-3">
-                    Make sure to copy your API key now. You won't be able to see it again!
+                {/* Permission Selection - Drag & Drop */}
+                <GroupTransferList
+                  available={availablePermissions}
+                  selected={selectedPermissions}
+                  onChange={setSelectedPermissions}
+                />
+                {availablePermissions.length === 0 && (
+                  <p className="text-sm text-amber-600 dark:text-amber-400 -mt-2">
+                    Note: No permissions available. Check if you have been assigned any permission groups.
                   </p>
-                  <div className="bg-white dark:bg-gray-800 p-3 rounded border font-mono text-sm break-all">
-                    {generatedKey}
+                )}
+
+                {/* Expiration Date Picker */}
+                <div className="space-y-3">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    Key Expiration:
                   </div>
-                  <Button
-                    size="sm"
-                    className="mt-3"
-                    onClick={() => {
-                      navigator.clipboard.writeText(generatedKey);
-                      toast.success('API key copied to clipboard');
-                      setShowNewKey(false);
-                    }}
-                  >
-                    Copy & Close
-                  </Button>
+
+                  {/* Quick Preset Buttons */}
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { label: '30 Days', days: 30 },
+                      { label: '60 Days', days: 60 },
+                      { label: '90 Days', days: 90 },
+                      { label: '1 Year', days: 365 },
+                      { label: 'Never', days: 0 },
+                    ].map((option) => {
+                      const isSelected = option.days === 0
+                        ? !expiresAt
+                        : (() => {
+                          if (!expiresAt) return false;
+                          const targetDate = new Date();
+                          targetDate.setDate(targetDate.getDate() + option.days);
+                          const expiryDate = new Date(expiresAt);
+                          // Check if dates are within 1 day of each other (accounting for time of creation)
+                          return Math.abs(targetDate.getTime() - expiryDate.getTime()) < 86400000 * 2;
+                        })();
+
+                      return (
+                        <button
+                          key={option.label}
+                          type="button"
+                          onClick={() => {
+                            if (option.days === 0) {
+                              setExpiresAt('');
+                            } else {
+                              const date = new Date();
+                              date.setDate(date.getDate() + option.days);
+                              date.setUTCHours(23, 59, 59, 999);
+                              setExpiresAt(date.toISOString());
+                            }
+                          }}
+                          className={`
+                          px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200
+                          ${isSelected
+                              ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/25'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
+                            }
+                        `}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Custom Date Option */}
+                  <div className="flex items-center gap-3 pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Or select custom date:</span>
+                    <Input
+                      type="date"
+                      value={expiresAt ? new Date(expiresAt).toISOString().split('T')[0] : ''}
+                      onChange={(e) => {
+                        if (e.target.value) {
+                          const date = new Date(e.target.value);
+                          date.setUTCHours(23, 59, 59, 999);
+                          setExpiresAt(date.toISOString());
+                        } else {
+                          setExpiresAt('');
+                        }
+                      }}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="max-w-[160px] text-sm"
+                    />
+                  </div>
+
+                  {/* Status Display */}
+                  <div className={`
+                  flex items-center gap-2 px-3 py-2 rounded-lg text-sm
+                  ${expiresAt
+                      ? 'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400'
+                      : 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                    }
+                `}>
+                    <span className={`w-2 h-2 rounded-full ${expiresAt ? 'bg-amber-500' : 'bg-green-500'}`} />
+                    {expiresAt
+                      ? `Expires on ${new Date(expiresAt).toLocaleDateString('en-US', {
+                        weekday: 'short',
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric'
+                      })}`
+                      : 'This key will never expire'
+                    }
+                  </div>
                 </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <div className="text-gray-500 dark:text-gray-400 mb-4">
-                API key generation requires a Premium subscription
+
+                <Button
+                  onClick={generateAPIKey}
+                  disabled={!newKeyName.trim() || isLoading || (availablePermissions.length > 0 && selectedPermissions.length === 0)}
+                  className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white shadow-lg shadow-amber-500/25"
+                >
+                  {isLoading ? 'Creating...' : 'Create API Key'}
+                </Button>
+
+                {showNewKey && generatedKey && (
+                  <div className="p-5 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/10 dark:to-emerald-900/10 border border-green-200 dark:border-green-800/30 rounded-xl mb-6">
+                    <div className="flex items-center gap-2 mb-3">
+                      <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
+                        <svg className="w-5 h-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                      <h4 className="font-semibold text-green-900 dark:text-green-100">
+                        API Key Generated Successfully
+                      </h4>
+                    </div>
+                    <p className="text-sm text-green-800 dark:text-green-300/80 mb-4 ml-10">
+                      Copy your API key now. You won't be able to see it again!
+                    </p>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 relative group/input">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                          <svg className="w-4 h-4 text-gray-400 group-hover/input:text-gray-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                          </svg>
+                        </div>
+                        <input
+                          type="text"
+                          readOnly
+                          value={generatedKey}
+                          className="w-full pl-10 pr-4 py-3 bg-[#1e2330] border border-gray-700/50 rounded-lg font-mono text-sm text-green-500 focus:outline-none focus:ring-1 focus:ring-green-500/30 transition-all font-medium truncate"
+                        />
+                      </div>
+                      <Button
+                        size="icon"
+                        className="rounded-full bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/20 shrink-0 w-10 h-10 transition-transform hover:scale-105 active:scale-95"
+                        onClick={() => {
+                          navigator.clipboard.writeText(generatedKey);
+                          toast.success('API key copied to clipboard!');
+                        }}
+                      >
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                        <span className="sr-only">Copy</span>
+                      </Button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowNewKey(false)}
+                      className="mt-4 ml-1 text-xs text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 font-medium transition-colors"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
               </div>
-              <Button variant="outline">
-                Upgrade to Premium
-              </Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            ) : (
+              <div className="text-center py-8">
+                <div className="text-gray-500 dark:text-gray-400 mb-4">
+                  API key generation requires a Premium subscription
+                </div>
+                <Button variant="outline">
+                  Upgrade to Premium
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Existing Keys */}
-      <Card>
+      <Card className="rounded-2xl border-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm shadow-xl">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            Your API Keys
-            <Button variant="outline" size="sm" onClick={loadData} disabled={isLoading}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-500/25">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+              </div>
+              <span className="text-xl font-semibold">Your API Keys</span>
+            </div>
+            <button
+              onClick={refreshData}
+              disabled={isLoading}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+            >
+              <svg className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
               {isLoading ? 'Loading...' : 'Refresh'}
-            </Button>
+            </button>
           </CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading && apiKeys.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-              Loading...
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
             </div>
           ) : apiKeys.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-              No API keys created yet
+            <div className="text-center py-12">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                </svg>
+              </div>
+              <p className="text-gray-500 dark:text-gray-400 mb-2">No API keys created yet</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500">Create your first key to start using the API</p>
             </div>
           ) : (
             <div className="space-y-4">
               {apiKeys.map((apiKey) => (
-                <div key={apiKey.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold">{apiKey.client_name}</h3>
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant={apiKey.status === 'active' ? "default" : "secondary"}
-                        className={apiKey.status === 'active' ? "bg-green-500 text-white" : "bg-gray-500 text-white"}
-                      >
-                        {apiKey.status === 'active' ? 'Active' : 'Revoked'}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <div className="text-gray-500 dark:text-gray-400">Key Preview</div>
-                      <div className="font-mono bg-gray-100 dark:bg-gray-700 p-2 rounded text-xs break-all">
-                        {apiKey.key_prefix}...
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-gray-500 dark:text-gray-400">Permission Groups</div>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {((apiKey as any).groups?.length > 0) ? (
-                          (apiKey as any).groups.map((group: { id: string; name: string; slug: string }, idx: number) => (
-                            <Badge key={idx} variant="outline" className="text-xs">
-                              {group.name}
-                            </Badge>
-                          ))
-                        ) : (
-                          <span className="text-gray-400">No groups assigned</span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-gray-500 dark:text-gray-400">Created</div>
-                      <div>{new Date(apiKey.created_at).toLocaleDateString()}</div>
-                    </div>
-
-                    <div>
-                      <div className="text-gray-500 dark:text-gray-400">Total Requests</div>
-                      <div>{apiKey.total_requests?.toLocaleString() || 0}</div>
-                    </div>
-
-                    <div>
-                      <div className="text-gray-500 dark:text-gray-400">Expires</div>
+                <div key={apiKey.id} className="group relative overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 transition-all duration-200 hover:shadow-lg hover:border-gray-300 dark:hover:border-gray-700">
+                  {/* Card Header & Key Section */}
+                  <div className="p-5 pb-4">
+                    <div className="flex items-start justify-between mb-4">
                       <div>
-                        {apiKey.expires_at ? (
-                          (() => {
-                            const expiresAt = new Date(apiKey.expires_at);
-                            const now = new Date();
-                            const daysUntilExpiry = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                            const isExpired = daysUntilExpiry < 0;
-                            const isExpiringSoon = daysUntilExpiry >= 0 && daysUntilExpiry <= 7;
-                            const isExpiringMedium = daysUntilExpiry > 7 && daysUntilExpiry <= 30;
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{apiKey.client_name}</h3>
+                          <Badge
+                            variant={apiKey.status === 'active' ? "default" : "secondary"}
+                            className={`px-2 py-0.5 text-xs font-medium rounded-full ${apiKey.status === 'active'
+                              ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800"
+                              : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400 border-gray-200 dark:border-gray-700"}`}
+                          >
+                            {apiKey.status === 'active' ? 'Active' : 'Revoked'}
+                          </Badge>
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          Created on {new Date(apiKey.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}
+                        </div>
+                      </div>
+                    </div>
 
-                            return (
-                              <span className={`inline-flex items-center gap-1 ${isExpired ? 'text-gray-500' :
-                                isExpiringSoon ? 'text-red-600 dark:text-red-400 font-medium' :
-                                  isExpiringMedium ? 'text-yellow-600 dark:text-yellow-400' :
-                                    'text-gray-900 dark:text-gray-100'
-                                }`}>
-                                {isExpired && '⚫ Expired '}
-                                {isExpiringSoon && !isExpired && '🔴 '}
-                                {isExpiringMedium && '🟡 '}
-                                {expiresAt.toLocaleDateString()}
-                                {isExpiringSoon && !isExpired && ` (${daysUntilExpiry}d)`}
-                              </span>
-                            );
-                          })()
-                        ) : (
-                          <span className="text-green-600 dark:text-green-400">Never</span>
-                        )}
+                    {/* Key Preview Box */}
+                    <div className="mb-6">
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 font-medium">Key Preview</div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 relative group/input">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg className="w-4 h-4 text-gray-400 group-hover/input:text-gray-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                            </svg>
+                          </div>
+                          <input
+                            type="text"
+                            readOnly
+                            value={apiKey.key_preview || 'epsx_••••••••••••••••'}
+                            className="w-full pl-10 pr-4 py-3 bg-[#1e2330] border border-gray-700/50 rounded-lg font-mono text-sm text-green-500 focus:outline-none focus:ring-1 focus:ring-green-500/30 transition-all font-medium truncate"
+                          />
+                        </div>
+                        <Button
+                          size="icon"
+                          className="rounded-full bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/20 shrink-0 w-8 h-8 transition-transform hover:scale-105 active:scale-95 flex items-center justify-center p-0"
+                          onClick={() => {
+                            const keyToCopy = apiKey.full_key || apiKey.key_preview;
+                            if (keyToCopy) {
+                              navigator.clipboard.writeText(keyToCopy);
+                              toast.success(apiKey.full_key ? 'Full API key copied!' : 'Key preview copied');
+                            }
+                          }}
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                          <span className="sr-only">Copy</span>
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Info Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-4 border-t border-gray-800/50">
+                      {/* Permission Groups */}
+                      <div>
+                        <div className="text-[10px] font-bold text-gray-500 dark:text-gray-500 uppercase tracking-widest mb-2">Permissions</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {((apiKey as any).permissions?.length > 0) ? (
+                            (apiKey as any).permissions.map((permission: string, idx: number) => (
+                              <Badge key={idx} variant="outline" className="px-2 py-0.5 text-[11px] border-amber-500/50 text-amber-400 bg-amber-900/10 font-mono">
+                                {permission}
+                              </Badge>
+                            ))
+                          ) : ((apiKey as any).groups?.length > 0) ? (
+                            (apiKey as any).groups.map((group: { id: string; name: string; slug: string }, idx: number) => (
+                              <Badge key={idx} variant="outline" className="px-3 py-1 text-xs border-blue-900/50 text-blue-400 bg-blue-900/10">
+                                {group.name}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-sm text-gray-500 italic">Read Only</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Usage Stats */}
+                      <div>
+                        <div className="text-[10px] font-bold text-gray-500 dark:text-gray-500 uppercase tracking-widest mb-2">Usage</div>
+                        <div className="text-sm font-semibold text-gray-200">
+                          {apiKey.total_requests?.toLocaleString() || 0} <span className="font-medium text-gray-500 text-xs">requests</span>
+                        </div>
+                      </div>
+
+                      {/* Expiration */}
+                      <div>
+                        <div className="text-[10px] font-bold text-gray-500 dark:text-gray-500 uppercase tracking-widest mb-2">Expiration</div>
+                        <div className="text-sm font-medium">
+                          {apiKey.expires_at ? (
+                            <span className={(() => {
+                              const d = new Date(apiKey.expires_at);
+                              const days = Math.ceil((d.getTime() - new Date().getTime()) / 86400000);
+                              return days < 0 ? 'text-red-500' : days < 7 ? 'text-amber-500' : 'text-gray-200';
+                            })()}>
+                              {new Date(apiKey.expires_at).toLocaleDateString()}
+                            </span>
+                          ) : (
+                            <span className="text-green-500 flex items-center gap-1.5">
+                              Never
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
 
+                  {/* Actions Footer */}
                   {apiKey.status === 'active' && (
-                    <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-700">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => revokeAPIKey(apiKey.id)}
+                    <div className="px-6 pb-4 flex justify-end">
+                      <button
+                        type="button"
                         disabled={isLoading}
-                        className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+                        onClick={() => {
+                          setSelectedKeyToRevoke(apiKey);
+                          setRevokeDialogOpen(true);
+                        }}
+                        className="text-xs font-medium text-red-500/80 hover:text-red-400 transition-colors flex items-center gap-1 hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        Revoke Key
-                      </Button>
+                        Revoke Key...
+                      </button>
                     </div>
                   )}
                 </div>
@@ -415,6 +627,37 @@ export function APIKeyManager({ currentUser }: APIKeyManagerProps) {
           </ul>
         </CardContent>
       </Card>
+
+      {/* Revoke Confirmation Dialog - Controlled */}
+      <AlertDialog open={revokeDialogOpen} onOpenChange={setRevokeDialogOpen}>
+        <AlertDialogContent className="sm:max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Revoke API Key</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to revoke{' '}
+              <span className="font-mono text-xs p-1 bg-gray-100 dark:bg-gray-800 rounded">
+                {selectedKeyToRevoke?.client_name}
+              </span>
+              ? This action cannot be undone and any applications using this key will stop working immediately.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isLoading}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (selectedKeyToRevoke) {
+                  executeRevoke(selectedKeyToRevoke.id);
+                  setRevokeDialogOpen(false);
+                }
+              }}
+              disabled={isLoading}
+              className="bg-red-600 text-white hover:bg-red-700 dark:bg-red-900 dark:text-red-100 dark:hover:bg-red-800"
+            >
+              {isLoading ? 'Revoking...' : 'Revoke Key'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

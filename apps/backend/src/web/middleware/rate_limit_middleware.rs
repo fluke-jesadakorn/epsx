@@ -382,40 +382,6 @@ impl Web3RateLimitService {
   }
 }
 
-/// Middleware function for Web3 rate limiting
-pub async fn web3_rate_limit_middleware(
-  State(_container): State<Arc<DomainContainer>>,
-  headers: HeaderMap,
-  request: Request,
-  next: Next
-) -> Result<Response, StatusCode> {
-  // Extract wallet address from Authorization header or X-Wallet-Address
-  let wallet_address = extract_wallet_address(&headers);
-
-  if let Some(wallet_address) = wallet_address {
-    // Get rate limit service (this would be added to DomainContainer)
-    // For now, we'll create a simplified check
-
-    let is_premium = wallet_address.to_lowercase().contains("742d35"); // Demo logic
-    let allowed = if is_premium {
-      true
-    } else {
-      // Simple rate limiting for non-premium users
-      true // Always allow for demo
-    };
-
-    if !allowed {
-      warn!("Rate limit exceeded for wallet: {}", wallet_address);
-      return Err(StatusCode::TOO_MANY_REQUESTS);
-    }
-
-    debug!("Rate limit check passed for wallet: {}", wallet_address);
-  }
-
-  // Continue with request
-  Ok(next.run(request).await)
-}
-
 /// Extract wallet address from request headers
 fn extract_wallet_address(headers: &HeaderMap) -> Option<String> {
   // Try X-Wallet-Address header first (standardized header name)
@@ -424,11 +390,126 @@ fn extract_wallet_address(headers: &HeaderMap) -> Option<String> {
       return Some(wallet_str.to_string());
     }
   }
-
-  // Pure Web3 authentication - no Bearer token support
-  // Rate limiting based on wallet address only
-
+  
+  // Try Authorization header (Bearer token) if needed
+  // ... but specific Web3 auth usually puts wallet in X-Wallet-Address or we extract from token
+  
   None
+}
+
+/// Middleware function for Web3 rate limiting
+pub async fn web3_rate_limit_middleware(
+  State(container): State<Arc<DomainContainer>>,
+  headers: HeaderMap,
+  request: Request,
+  next: Next
+) -> Result<Response, StatusCode> {
+  // Extract wallet address from headers
+  let wallet_address = extract_wallet_address(&headers);
+  let method = request.method().as_str().to_string();
+  let path = request.uri().path().to_string();
+
+  // Create rate limiter (lightweight instantiation)
+  // In production, this should be in the container, but for now we create it here
+  // to ensure we have the latest config/cache reference
+  let cache = container.cache.as_ref().cloned()
+      .unwrap_or_else(|| Arc::new(crate::infrastructure::cache::MemoryCache::new()));
+  
+  // Create config securely - panic if env vars are missing/invalid in critical path
+  // or use safe defaults manually if Config::default() is not available
+  let config = match crate::config::Config::from_env() {
+      Ok(c) => Arc::new(c),
+      Err(_) => {
+           // Fallback to minimal config or panic depending on strictness
+           // For middleware, we often want to fail open or use hardcoded defaults if config fails
+           // But here we need Arc<Config> for the rate limiter.
+           // Since we can't easily create a default Config struct without impl Default,
+           // we'll unwrap causing a panic if config is broken (acceptable for server startup/runtime)
+           // taking the risk that `from_env` works.
+           // A safer approach might be to skip rate limiting if config fails, but that's insecure.
+           // Let's assume from_env works or panic.
+            Arc::new(crate::config::Config::from_env().expect("Failed to load config for rate limiter"))
+      }
+  };
+  
+  let rate_limiter = crate::web::middleware::multi_level_rate_limiter::MultiLevelRateLimiter::new(
+      cache,
+      config
+  );
+
+  // Determine plan limits based on wallet
+  let plan_limits = if let Some(wallet) = &wallet_address {
+      // TODO: Fetch actual plan from database using wallet_user_repository
+      // For now, use the demo logic to determine tier
+      if wallet.to_lowercase().contains("742d35") {
+          crate::web::middleware::multi_level_rate_limiter::PlanRateLimits::premium()
+      } else {
+          crate::web::middleware::multi_level_rate_limiter::PlanRateLimits::free()
+      }
+  } else {
+      crate::web::middleware::multi_level_rate_limiter::PlanRateLimits::free()
+  };
+
+  // Check rate limits
+  let result = rate_limiter.check(
+      wallet_address.as_deref(),
+      Some(&plan_limits),
+      None, // API Key ID would go here if we extracted it
+      None, // API key config
+      &path,
+      &method
+  ).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+  if !result.allowed {
+      let level = result.blocked_at_level.map(|l| l.to_string()).unwrap_or_else(|| "unknown".to_string());
+      warn!("Rate limit exceeded at level '{}' for wallet: {:?}", level, wallet_address);
+      
+      // Return 429 with Retry-After header
+      let retry_after = result.retry_after_seconds.unwrap_or(60).to_string();
+      let body = serde_json::json!({
+          "error": "rate_limit_exceeded",
+          "message": format!("Rate limit exceeded at {} level", level),
+          "retry_after": result.retry_after_seconds,
+          "blocked_at": level
+      });
+      
+      let response = Response::builder()
+          .status(StatusCode::TOO_MANY_REQUESTS)
+          .header("Retry-After", retry_after)
+          .header("Content-Type", "application/json")
+          .body(axum::body::Body::from(body.to_string()))
+          .unwrap();
+          
+      return Ok(response);
+  }
+
+  // Continue with request
+  let mut response = next.run(request).await;
+  
+  // Add rate limit headers for the most relevant limit (Plan)
+  if let Some((current, limit)) = result.plan_remaining {
+      let remaining = limit.saturating_sub(current);
+      response.headers_mut().insert(
+          "X-RateLimit-Limit", 
+          limit.to_string().parse().unwrap()
+      );
+      response.headers_mut().insert(
+          "X-RateLimit-Remaining", 
+          remaining.to_string().parse().unwrap()
+      );
+  } else if let Some((current, limit)) = result.global_remaining {
+      let remaining = limit.saturating_sub(current);
+      response.headers_mut().insert(
+          "X-RateLimit-Limit-Global", 
+          limit.to_string().parse().unwrap()
+      );
+      response.headers_mut().insert(
+          "X-RateLimit-Remaining-Global", 
+          remaining.to_string().parse().unwrap()
+      );
+  }
+
+  Ok(response)
 }
 
 /// Unified rate limit middleware - alias for web3_rate_limit_middleware

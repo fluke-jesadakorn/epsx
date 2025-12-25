@@ -89,6 +89,7 @@ export default function RootLayout({
       </head>
       <body
         className={`${kanit.variable} bg-background text-foreground overflow-x-hidden font-sans antialiased`}
+        suppressHydrationWarning
       >
         <GlobalErrorBoundary level="global">
           <ClientProviders>

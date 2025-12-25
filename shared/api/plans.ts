@@ -200,8 +200,8 @@ export interface ApiKeyRequest {
 
 export interface ApiKeyResponse {
   id: string;
-  key_prefix: string;
-  full_key?: string; // Only returned on creation
+  key_preview: string;
+  full_key?: string; // Optional: only returned if user owns key
   client_name: string;
   client_description?: string;
   client_contact_email?: string;
@@ -560,6 +560,8 @@ export class PlansAPIClient {
     client_name: string;
     client_description?: string;
     group_ids?: string[];
+    /** Individual permission strings to assign */
+    permissions?: string[];
     /** @deprecated Use group_ids instead */
     permission_group_ids?: string[];
     ip_restrictions?: string[];
@@ -609,10 +611,73 @@ export class PlansAPIClient {
   }
 
   /**
+   * Get user's assigned permission groups with metadata
+   * Route: GET /api/v1/developer-portal/my-groups
+   */
+  async getMyGroups(): Promise<ApiResponse<{
+    groups: Array<{
+      id: string;
+      name: string;
+      slug: string;
+      description: string;
+      group_type: string;
+      permissions: string[];
+      expires_at: string | null;
+      rate_limit_per_minute: number | null;
+      rate_limit_per_day: number | null;
+      assigned_at: string;
+    }>;
+    total_api_keys: number;
+    total_requests: number;
+  }>> {
+    return this.client.get('/api/v1/developer-portal/my-groups');
+  }
+
+  /**
    * @deprecated Use getAvailableGroups instead
    */
   async getAvailablePermissionGroups(): Promise<ApiResponse<any>> {
     return this.getAvailableGroups();
+  }
+
+  // ============================================================================
+  // USAGE ANALYTICS (User Facing)
+  // ============================================================================
+
+  /**
+   * Get user's aggregated usage stats
+   * Route: GET /api/v1/developer-portal/stats
+   */
+  async getUserUsageStats(): Promise<ApiResponse<{
+    total_requests: number;
+    average_success_rate: number;
+    requests_24h: number;
+    error_rate_24h: number;
+  }>> {
+    return this.client.get('/api/v1/developer-portal/stats');
+  }
+
+  /**
+   * Get usage history
+   * Route: GET /api/v1/developer-portal/usage-history
+   */
+  async getUserUsageHistory(days: number = 7): Promise<ApiResponse<Array<{
+    bucket: string;
+    count: number;
+  }>>> {
+    return this.client.get('/api/v1/developer-portal/usage-history', { days });
+  }
+
+  /**
+   * Get top endpoints
+   * Route: GET /api/v1/developer-portal/top-endpoints
+   */
+  async getUserTopEndpoints(days: number = 7): Promise<ApiResponse<Array<{
+    endpoint: string;
+    method: string;
+    count: number;
+  }>>> {
+    return this.client.get('/api/v1/developer-portal/top-endpoints', { days });
   }
 }
 

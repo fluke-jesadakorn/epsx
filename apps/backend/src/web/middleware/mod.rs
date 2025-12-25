@@ -13,6 +13,8 @@ pub mod bearer_middleware;
 // Rate limiting for API protection
 pub mod rate_limiter;
 pub mod rate_limit_middleware;
+pub mod multi_level_rate_limiter;
+pub mod usage_tracking_middleware;
 
 // ⚡ CRITICAL: Bulletproof Permission Validation Middleware (Phase 1.2)
 // THE SINGLE SOURCE OF TRUTH for all permission enforcement
@@ -67,3 +69,15 @@ pub use rate_limit_middleware::{
 pub use permission_validation_middleware::{
   permission_validation_middleware,
 };
+
+// Multi-level rate limiter exports (3-tier rate limiting)
+pub use multi_level_rate_limiter::{
+    MultiLevelRateLimiter,
+    MultiLevelRateLimitResult,
+    GlobalRateLimitConfig,
+    PlanRateLimits,
+    RateLimitLevel,
+};
+
+// Usage tracking exports
+pub use usage_tracking_middleware::usage_tracking_middleware;

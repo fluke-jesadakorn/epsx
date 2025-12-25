@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 use uuid::Uuid;
 
-use crate::domain::developer_portal::{CreateApiKeyRequest, RevokeApiKeyRequest};
+use crate::domain::developer_portal::{CreateApiKeyRequest, RevokeApiKeyRequest, UsageService};
 use crate::infrastructure::adapters::repositories::developer_portal::ApiKeyRepository;
 use crate::web::auth::AppState;
 use crate::web::responses::UnifiedApiResponse;
@@ -33,6 +33,8 @@ pub struct CreateMyApiKeyBody {
     pub client_name: String,
     pub client_description: Option<String>,
     pub group_ids: Vec<String>, // Permission groups to assign
+    #[serde(default)]
+    pub permissions: Vec<String>, // Individual permission strings
     pub ip_restrictions: Option<Vec<String>>,
     pub expires_at: Option<String>,
 }
@@ -52,10 +54,13 @@ pub struct MyApiKeyListResponse {
 pub struct MaskedApiKey {
     pub id: String,
     pub key_preview: String, // e.g., "epsx_xxxx...xxxx"
+    pub full_key: Option<String>, // Full key for copying (only for owner)
     pub client_name: String,
     pub client_description: Option<String>,
     pub status: String,
     pub groups: Vec<PermissionGroupInfo>,
+    /// Individual permissions selected when creating the key
+    pub permissions: Vec<String>,
     pub total_requests: i64,
     pub expires_at: Option<String>,
     pub last_used_at: Option<String>,
@@ -83,6 +88,33 @@ pub struct AvailableGroup {
     pub permissions: Vec<String>,
     pub group_type: String,
     pub is_active: bool,
+}
+
+/// Response for user's assigned groups
+#[derive(Debug, Serialize)]
+pub struct MyGroupsResponse {
+    pub groups: Vec<UserAssignedGroup>,
+    pub total_api_keys: i64,
+    pub total_requests: i64,
+}
+
+/// User's assigned group with metadata
+#[derive(Debug, Serialize)]
+pub struct UserAssignedGroup {
+    pub id: String,
+    pub name: String,
+    pub slug: String,
+    pub description: String,
+    pub group_type: String,
+    pub permissions: Vec<String>,
+    /// When this group assignment expires (None = never)
+    pub expires_at: Option<String>,
+    /// Rate limit per minute for this group
+    pub rate_limit_per_minute: Option<i32>,
+    /// Rate limit per day for this group
+    pub rate_limit_per_day: Option<i32>,
+    /// When the user was assigned this group
+    pub assigned_at: String,
 }
 
 // ============================================================================
@@ -121,6 +153,7 @@ pub async fn list_my_keys_handler(
                 .map(|key| MaskedApiKey {
                     id: key.id.to_string(),
                     key_preview: mask_key_prefix(&key.key_prefix),
+                    full_key: key.full_key,
                     client_name: key.client_name,
                     client_description: key.client_description,
                     status: key.status.to_string(),
@@ -129,6 +162,7 @@ pub async fn list_my_keys_handler(
                         name: g.name,
                         slug: g.slug,
                     }).collect(),
+                    permissions: key.selected_permissions,
                     total_requests: key.total_requests,
                     expires_at: key.expires_at.map(|dt| dt.to_rfc3339()),
                     last_used_at: key.last_used_at.map(|dt| dt.to_rfc3339()),
@@ -179,6 +213,7 @@ pub async fn create_my_key_handler(
         wallet_address: wallet_address.clone(),
         allowed_modules: vec![], // Legacy, replaced by permission groups
         group_ids,
+        permissions: body.permissions, // Individual permission strings
         ip_restrictions: body.ip_restrictions,
         rate_limit_per_minute: Some(60),
         rate_limit_per_day: Some(10000),
@@ -230,6 +265,7 @@ pub async fn get_my_key_handler(
             let masked = MaskedApiKey {
                 id: api_key.id.to_string(),
                 key_preview: mask_key_prefix(&api_key.key_prefix),
+                full_key: api_key.full_key,
                 client_name: api_key.client_name,
                 client_description: api_key.client_description,
                 status: api_key.status.to_string(),
@@ -238,6 +274,7 @@ pub async fn get_my_key_handler(
                     name: g.name,
                     slug: g.slug,
                 }).collect(),
+                permissions: api_key.selected_permissions,
                 total_requests: api_key.total_requests,
                 expires_at: api_key.expires_at.map(|dt| dt.to_rfc3339()),
                 last_used_at: api_key.last_used_at.map(|dt| dt.to_rfc3339()),
@@ -267,10 +304,13 @@ pub async fn revoke_my_key_handler(
 
     let uuid = match Uuid::parse_str(&id) {
         Ok(u) => u,
-        Err(_) => {
+        Err(e) => {
+            error!("Invalid UUID provided for revocation: {} - error: {}", id, e);
             return UnifiedApiResponse::error(400, "Invalid UUID", "The provided ID is not a valid UUID")
         }
     };
+    
+    info!("Attempting to revoke key {} for wallet {}", uuid, wallet_address);
 
     // First verify ownership
     match repo.get_by_id(uuid).await {
@@ -337,8 +377,10 @@ pub async fn list_available_groups_handler(
         is_active: bool,
     }
 
+    // Exclude 'free' group from available groups for API key assignment
     let active_groups = match groups::table
         .filter(groups::is_active.eq(true))
+        .filter(groups::slug.ne("free"))
         .select((
             groups::id,
             groups::name,
@@ -384,4 +426,225 @@ pub async fn list_available_groups_handler(
 
     info!("Returning {} available groups", result_groups.len());
     UnifiedApiResponse::success(AvailableGroupsResponse { groups: result_groups })
+}
+
+/// GET /api/v1/developer-portal/my-groups
+/// Get the authenticated user's assigned permission groups with metadata
+pub async fn get_my_groups_handler(
+    State(state): State<AppState>,
+    Extension(wallet_address): Extension<String>,
+) -> impl IntoResponse {
+    use diesel::prelude::*;
+    use diesel_async::RunQueryDsl;
+    use crate::schema::{groups, group_permissions, permissions, api_keys, wallet_group_assignments};
+
+    let pool = *state.db_pool;
+    let mut conn = match pool.get().await {
+        Ok(c) => c,
+        Err(e) => {
+            error!("Pool error: {}", e);
+            return UnifiedApiResponse::server_error(&e.to_string());
+        }
+    };
+
+    // Get user's API keys for total stats
+    #[derive(diesel::Queryable)]
+    struct ApiKeyRow {
+        id: uuid::Uuid,
+        total_requests: i64,
+        expires_at: Option<chrono::DateTime<chrono::Utc>>,
+        rate_limit_per_minute: i32,
+        rate_limit_per_day: i32,
+        created_at: chrono::DateTime<chrono::Utc>,
+    }
+
+    // Query ALL API keys for the user (for total stats)
+    // Use case-insensitive comparison for wallet address
+    let wallet_lower = wallet_address.to_lowercase();
+    let all_api_keys = match api_keys::table
+        .filter(diesel::dsl::sql::<diesel::sql_types::Bool>(&format!(
+            "LOWER(wallet_address) = '{}'", wallet_lower.replace('\'', "''")
+        )))
+        .select((
+            api_keys::id,
+            api_keys::total_requests,
+            api_keys::expires_at,
+            api_keys::rate_limit_per_minute,
+            api_keys::rate_limit_per_day,
+            api_keys::created_at,
+        ))
+        .load::<ApiKeyRow>(&mut conn)
+        .await
+    {
+        Ok(keys) => keys,
+        Err(e) => {
+            error!("Failed to query user API keys: {}", e);
+            return UnifiedApiResponse::server_error(&e.to_string());
+        }
+    };
+
+    let total_api_keys = all_api_keys.len() as i64;
+    let total_requests: i64 = all_api_keys.iter().map(|k| k.total_requests).sum();
+    
+    // Use first active key for rate limits (if any)
+    let user_api_keys: Vec<_> = all_api_keys;
+
+    // Get groups assigned directly to the wallet (from wallet_group_assignments)
+    #[derive(diesel::Queryable)]
+    struct WalletGroupRow {
+        group_id: uuid::Uuid,
+        assigned_at: chrono::DateTime<chrono::Utc>,
+        expires_at: Option<chrono::DateTime<chrono::Utc>>,
+    }
+
+    let wallet_assignments = wallet_group_assignments::table
+        .filter(wallet_group_assignments::wallet_address.eq(&wallet_address))
+        .filter(wallet_group_assignments::is_active.eq(true))
+        .select((
+            wallet_group_assignments::group_id,
+            wallet_group_assignments::assigned_at,
+            wallet_group_assignments::expires_at,
+        ))
+        .load::<WalletGroupRow>(&mut conn)
+        .await
+        .unwrap_or_default();
+
+    // Get the full group details for each assigned group
+    #[derive(diesel::Queryable)]
+    struct GroupRow {
+        id: uuid::Uuid,
+        name: String,
+        slug: String,
+        description: String,
+        group_type: String,
+    }
+
+    let group_ids: Vec<uuid::Uuid> = wallet_assignments.iter().map(|a| a.group_id).collect();
+    
+    let assigned_groups = if group_ids.is_empty() {
+        vec![]
+    } else {
+        groups::table
+            .filter(groups::id.eq_any(&group_ids))
+            .filter(groups::is_active.eq(true))
+            .select((
+                groups::id,
+                groups::name,
+                groups::slug,
+                groups::description,
+                groups::group_type,
+            ))
+            .load::<GroupRow>(&mut conn)
+            .await
+            .unwrap_or_default()
+    };
+
+    // Build result with permissions for each group
+    let mut result_groups = Vec::new();
+    for group in assigned_groups {
+        // Get permissions for this group
+        let group_perms: Vec<String> = group_permissions::table
+            .inner_join(permissions::table.on(permissions::id.eq(group_permissions::permission_id)))
+            .filter(group_permissions::group_id.eq(&group.id))
+            .select(permissions::permission_string)
+            .load::<String>(&mut conn)
+            .await
+            .unwrap_or_default();
+
+        // Find the wallet assignment for this group to get expiry/assigned_at
+        let wallet_assignment = wallet_assignments.iter().find(|a| a.group_id == group.id);
+        
+        // Use first API key for rate limits if available (use get(0) to avoid Diesel trait conflict)
+        let first_api_key = user_api_keys.get(0);
+        
+        result_groups.push(UserAssignedGroup {
+            id: group.id.to_string(),
+            name: group.name,
+            slug: group.slug,
+            description: group.description,
+            group_type: group.group_type,
+            permissions: group_perms,
+            expires_at: wallet_assignment.and_then(|a| a.expires_at.map(|dt| dt.to_rfc3339())),
+            rate_limit_per_minute: first_api_key.map(|k| k.rate_limit_per_minute),
+            rate_limit_per_day: first_api_key.map(|k| k.rate_limit_per_day),
+            assigned_at: wallet_assignment
+                .map(|a| a.assigned_at.to_rfc3339())
+                .unwrap_or_else(|| chrono::Utc::now().to_rfc3339()),
+        });
+    }
+
+    info!("Returning {} assigned groups for wallet {}", result_groups.len(), wallet_address);
+    UnifiedApiResponse::success(MyGroupsResponse {
+        groups: result_groups,
+        total_api_keys,
+        total_requests,
+    })
+}
+
+// ============================================================================
+// Usage Analytics Handlers
+// ============================================================================
+
+/// GET /api/v1/developer-portal/stats
+/// Get aggregated usage stats for the authenticated user
+pub async fn get_usage_stats_handler(
+    State(state): State<AppState>,
+    Extension(wallet_address): Extension<String>,
+) -> impl IntoResponse {
+    let pool = *state.db_pool;
+    let service = UsageService::new(pool);
+
+    match service.get_wallet_stats(&wallet_address).await {
+        Ok(stats) => UnifiedApiResponse::success(stats),
+        Err(e) => {
+            error!("Failed to get usage stats: {}", e);
+            UnifiedApiResponse::server_error(&e.to_string())
+        }
+    }
+}
+
+/// GET /api/v1/developer-portal/usage-history
+/// Get usage history (time series)
+pub async fn get_usage_history_handler(
+    State(state): State<AppState>,
+    Extension(wallet_address): Extension<String>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> impl IntoResponse {
+    let pool = *state.db_pool;
+    let service = UsageService::new(pool);
+
+    let days = params.get("days")
+        .and_then(|d| d.parse::<i32>().ok())
+        .unwrap_or(7); // Default to 7 days
+
+    match service.get_usage_history(&wallet_address, days).await {
+        Ok(points) => UnifiedApiResponse::success(points),
+        Err(e) => {
+            error!("Failed to get usage history: {}", e);
+            UnifiedApiResponse::server_error(&e.to_string())
+        }
+    }
+}
+
+/// GET /api/v1/developer-portal/top-endpoints
+/// Get top used endpoints
+pub async fn get_top_endpoints_handler(
+    State(state): State<AppState>,
+    Extension(wallet_address): Extension<String>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> impl IntoResponse {
+    let pool = *state.db_pool;
+    let service = UsageService::new(pool);
+
+    let days = params.get("days")
+        .and_then(|d| d.parse::<i32>().ok())
+        .unwrap_or(7);
+
+    match service.get_top_endpoints(&wallet_address, days).await {
+        Ok(endpoints) => UnifiedApiResponse::success(endpoints),
+        Err(e) => {
+            error!("Failed to get top endpoints: {}", e);
+            UnifiedApiResponse::server_error(&e.to_string())
+        }
+    }
 }
