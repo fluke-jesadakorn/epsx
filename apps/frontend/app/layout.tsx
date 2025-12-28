@@ -4,7 +4,6 @@ import { GlobalErrorBoundary } from '@/components/error-boundaries/GlobalErrorBo
 import { NavigationClient } from '@/components/nav/NavigationClient';
 import { ClientProviders } from '@/components/providers/ClientProviders';
 import { SharedOpenIDWeb3Provider } from '@/shared/components/auth/Provider';
-import '@/shared/utils/browser-polyfills';
 import { initializeRuntimeEnvironment } from '@/shared/utils/runtime-env-validator';
 import { Kanit } from 'next/font/google';
 import { Toaster } from 'sonner';

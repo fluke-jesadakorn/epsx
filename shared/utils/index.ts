@@ -1,17 +1,15 @@
 /**
  * CONSOLIDATED UTILS INDEX
- * Unified export of all utility functions to replace monolithic admin utils.ts
- * This replaces the 592-line admin monolith with clean, modular utilities
+ * Unified export of all utility functions
  */
 
 // ============================================================================
-// FORMATTING UTILITIES - Import then re-export for utils object
+// FORMATTING UTILITIES
 // ============================================================================
 import {
   cur,
   fmtCurrency,
   formatBytes,
-  // Currency formatting
   formatCurrency,
   formatEPS,
   formatFileSize,
@@ -34,7 +32,6 @@ import {
   formatAnnouncementDate,
   formatCompactDate,
   formatCountdown,
-  // Date formatting
   formatDate,
   formatDateTime,
   formatQuarterDate,
@@ -61,7 +58,6 @@ import {
   copyToClipboard as copyToClipboardDisplay,
   epsGr,
   formatEPSGrowth,
-  // Display formatting
   formatPercentage,
   generateId,
   generateSimpleId,
@@ -89,100 +85,27 @@ export {
 }
 
 // ============================================================================
-// CALCULATION UTILITIES
+// BROWSER UTILITIES
 // ============================================================================
-// Financial calculations moved to app-specific implementations:
-// - apps/admin-frontend/lib/consolidated-utils.ts
-// - apps/frontend/components/home/utils/financialCalculations.ts
-
-// ============================================================================
-// HELPER UTILITIES
-// ============================================================================
-import {
-  AsyncQueue,
-  batchAsync,
-  cancellable,
-  // Async utilities
-  debounce,
-  memoizeAsync,
-  poll,
-  promises,
-  retry,
-  sleep,
-  throttle,
-  timeout
-} from './helpers/async'
-
 export {
-  AsyncQueue, batchAsync,
-  cancellable, debounce, memoizeAsync, poll,
-  promises, retry, sleep, throttle, timeout
-}
-
-import {
-  // Object utilities
-  deepClone,
-  object,
-  objectUtils
-} from './helpers/objects'
-
-export {
-  deepClone, object, objectUtils
-}
-
-import {
-  copyToClipboard,
-  isBrowser,
-  isMobile,
-  // Browser utilities  
-  storage
-} from './helpers/browser'
-
-export {
-  array,
-  // Array utilities
-  arrayUtils
-} from './helpers/arrays'
-
-export {
-  addEventListener, copyToClipboard, cssVariables, downloadFile, getBrowserInfo, getColorSchemePreference, getDeviceType, getScrollPosition, getViewportSize, isAndroid, isBrowser, isElementInViewport, isIOS, isMobile, onResize, readFromClipboard, sessionStorage, smoothScrollTo,
-  // Browser utilities
+  addEventListener, copyToClipboard, cssVariables, downloadFile, getBrowserInfo,
+  getColorSchemePreference, getDeviceType, getScrollPosition, getViewportSize,
+  isAndroid, isBrowser, isElementInViewport, isIOS, isMobile, onResize,
+  readFromClipboard, sessionStorage, smoothScrollTo,
   storage, watchColorScheme
 } from './helpers/browser'
-
-// ============================================================================
-// CORE UTILITIES
-// ============================================================================
-export {
-  analyticsLogger, apiLogger,
-  authLogger, devInfo, devLog, devWarn,
-  isDevEnvironment,
-  isProdEnvironment,
-  // Logging utilities
-  Logger,
-  logger, safeError, uiLogger, type LogEntry, type LogLevel, type SafeErrorResult
-} from './core/logging'
 
 // ============================================================================
 // BLOCKCHAIN ENVIRONMENT HELPERS
 // ============================================================================
 export {
   getDefaultChainId,
-  getNetworkName,
-  isDev as isDevNetwork,
-  isLocal as isLocalNetwork,
-  isProduction as isProductionNetwork,
-  isTestnet as isTestnetNetwork
+  getNetworkName, isDev, isDev as isDevNetwork, isLocal, isLocal as isLocalNetwork, isProduction, isProduction as isProductionNetwork, isTestnet, isTestnet as isTestnetNetwork
 } from './env-helpers'
-
-// Re-export with common names for convenience
-export { isDev, isLocal, isProduction, isTestnet } from './env-helpers'
 
 // ============================================================================
 // API CLIENT UTILITIES
 // ============================================================================
-
-// Import API client functions
 import {
   APIError,
   createAdminApiClient,
@@ -202,7 +125,6 @@ import {
   type RequestConfig
 } from './api-client'
 
-// Re-export API client utilities
 export {
   APIError,
   createAdminApiClient,
@@ -214,7 +136,7 @@ export {
   type Platform, type RequestConfig
 }
 
-// Legacy compatibility exports for easier migration
+// Legacy compatibility exports
 export const createAdminClient = createAdminApiClient;
 export const createServerAdminClient = (baseURL?: string, token?: string) =>
   createAdminApiClient({ baseURL, token, serverSide: true });
@@ -223,63 +145,8 @@ export const createClient = createFrontendApiClient;
 export const createApiClient = createApiClientBase;
 
 // ============================================================================
-// UNIFIED PERMISSION UTILITIES
+// TAILWIND CLASS UTILITY
 // ============================================================================
-
-// Import unified permission functions first
-import {
-  createCacheablePermissions,
-  generatePermissionCacheKey,
-  getActiveTierGroups,
-  getExpiredPermissions,
-  // Expiry utilities
-  getExpiringPermissions,
-  getHighestTierGroup,
-  getTierDisplayFromPermissions,
-  hasAllUnifiedPermissions,
-  hasAnyUnifiedPermission,
-  hasMinimumTier,
-  hasUnifiedPermission,
-  // Tier utilities
-  isActiveTierAssignment,
-  // Cache utilities
-  isPermissionCacheValid,
-  // Legacy compatibility
-  legacyTierToPermissionCheck,
-  needsRenewalWarning,
-  // Permission resolution
-  resolveUnifiedPermissions,
-  // Types
-  type PermissionSource,
-  type UserGroupMembership
-} from './unified-permissions'
-
-// Then export them
-export {
-  createCacheablePermissions, generatePermissionCacheKey, getActiveTierGroups, getExpiredPermissions,
-  // Expiry utilities
-  getExpiringPermissions, getHighestTierGroup, getTierDisplayFromPermissions, hasAllUnifiedPermissions, hasAnyUnifiedPermission, hasMinimumTier, hasUnifiedPermission,
-  // Tier utilities
-  isActiveTierAssignment,
-  // Cache utilities
-  isPermissionCacheValid,
-  // Legacy compatibility
-  legacyTierToPermissionCheck, needsRenewalWarning,
-  // Permission resolution
-  resolveUnifiedPermissions,
-  // Types
-  type PermissionSource,
-  type UserGroupMembership
-}
-
-// ============================================================================
-// TAILWIND CLASS UTILITY (From both apps)
-// ============================================================================
-
-/**
- * Utility function to merge Tailwind CSS classes
- * Direct imports since dependencies are now available
- */
 import clsx from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
@@ -287,64 +154,62 @@ export function cn(...inputs: any[]) {
   return twMerge(clsx(inputs));
 }
 
-/**
- * Synchronous version for environments where clsx/tailwind-merge are available
- * Use this when you know the dependencies are installed
- */
-export function cnSync(...inputs: any[]) {
-  // This will need to be implemented by the consuming application
-  // if they want synchronous class merging
-  return inputs
-    .filter(Boolean)
-    .map(input => typeof input === 'string' ? input : '')
-    .join(' ')
+// ============================================================================
+// SIMPLE HELPER UTILITIES (inline implementations)
+// ============================================================================
+
+/** Simple debounce implementation */
+export function debounce<T extends (...args: any[]) => any>(
+  fn: T,
+  delay: number
+): (...args: Parameters<T>) => void {
+  let timeoutId: ReturnType<typeof setTimeout>;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => fn(...args), delay);
+  };
+}
+
+/** Simple throttle implementation */
+export function throttle<T extends (...args: any[]) => any>(
+  fn: T,
+  limit: number
+): (...args: Parameters<T>) => void {
+  let inThrottle = false;
+  return (...args: Parameters<T>) => {
+    if (!inThrottle) {
+      fn(...args);
+      inThrottle = true;
+      setTimeout(() => (inThrottle = false), limit);
+    }
+  };
+}
+
+/** Simple sleep implementation */
+export function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/** Simple deep clone */
+export function deepClone<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj));
 }
 
 // ============================================================================
-// CONVENIENCE RE-EXPORTS FOR LEGACY COMPATIBILITY
+// CONVENIENCE RE-EXPORTS
 // ============================================================================
-
-// Legacy aliases from admin utils.ts
-export { formatCurrency as formatCurrencyAdmin } from './formatting/currency'
-export { formatDate as formatDateAdmin } from './formatting/date'
-export { formatPercentage as formatPercentageAdmin } from './formatting/display'
-
-// Legacy aliases from frontend utils
-export { formatCurrency as cur_legacy, formatPrice as prc_legacy } from './formatting/currency'
-export { formatDate as dt_legacy } from './formatting/date'
-export { formatEPSGrowth as epsGr_legacy, formatPercentage as pct_legacy } from './formatting/display'
-
-// Re-export commonly used utilities at top level for convenience
 export const utils = {
-  // Most frequently used formatters
   formatCurrency,
   formatDate,
   formatPercentage,
   formatPrice,
   formatEPSGrowth,
-
-  // Most frequently used helpers
   debounce,
   throttle,
   deepClone,
   isEmpty,
   generateId,
   cn,
-
-  // Most frequently used browser utilities
-  isBrowser,
-  isMobile,
-  copyToClipboard,
-  storage,
-
-  // Most frequently used permission utilities
-  resolveUnifiedPermissions,
-  hasUnifiedPermission,
-  isActiveTierAssignment,
-  getHighestTierGroup,
-  legacyTierToPermissionCheck,
-
-  // Most frequently used API client utilities
   createAdminApiClient,
   createFrontendApiClient,
   handlePaginatedRequest,
@@ -353,12 +218,8 @@ export const utils = {
 }
 
 // ============================================================================
-// QUARTER PRIORITY HELPER (From admin monolith)
+// QUARTER PRIORITY HELPER
 // ============================================================================
-
-/**
- * Get quarter priority based on growth and timing
- */
 export function getQuarterPriority(epsGrowth: number, daysUntilAnnouncement: number): 'high' | 'medium' | 'low' {
   if (Math.abs(epsGrowth) > 20 || daysUntilAnnouncement <= 7) {
     return 'high'
@@ -369,7 +230,52 @@ export function getQuarterPriority(epsGrowth: number, daysUntilAnnouncement: num
 }
 
 // ============================================================================
-// DEFAULT EXPORT FOR CONVENIENCE
+// LOGGING UTILITIES (from deleted core/logging)
 // ============================================================================
+
+/** Check if running in development environment */
+export const isDevEnvironment = typeof window !== 'undefined'
+  ? window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  : process.env.NODE_ENV === 'development';
+
+/** Check if running in production environment */
+export const isProdEnvironment = !isDevEnvironment;
+
+/** Development-only logging (no-op in production) */
+export function devLog(...args: any[]): void {
+  if (isDevEnvironment) {
+    console.log('[DEV]', ...args);
+  }
+}
+
+/** Development-only warning (no-op in production) */
+export function devWarn(...args: any[]): void {
+  if (isDevEnvironment) {
+    console.warn('[DEV]', ...args);
+  }
+}
+
+/** Development-only info (no-op in production) */
+export function devInfo(...args: any[]): void {
+  if (isDevEnvironment) {
+    console.info('[DEV]', ...args);
+  }
+}
+
+/** Safe error handling */
+export function safeError(error: unknown): { message: string; stack?: string } {
+  if (error instanceof Error) {
+    return { message: error.message, stack: error.stack };
+  }
+  return { message: String(error) };
+}
+
+/** Simple logger object */
+export const logger = {
+  debug: (...args: any[]) => isDevEnvironment && console.debug(...args),
+  info: (...args: any[]) => console.info(...args),
+  warn: (...args: any[]) => console.warn(...args),
+  error: (...args: any[]) => console.error(...args),
+};
 
 export default utils

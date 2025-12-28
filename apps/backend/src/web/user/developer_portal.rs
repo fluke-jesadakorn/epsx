@@ -449,6 +449,7 @@ pub async fn get_my_groups_handler(
 
     // Get user's API keys for total stats
     #[derive(diesel::Queryable)]
+    #[allow(dead_code)] // Fields needed for Diesel query but not all are read
     struct ApiKeyRow {
         id: uuid::Uuid,
         total_requests: i64,

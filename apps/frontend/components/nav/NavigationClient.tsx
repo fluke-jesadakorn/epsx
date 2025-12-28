@@ -346,10 +346,11 @@ function NavigationContent() {
           <WalletProviderIcon compact={false} className="ml-2" />
         </div>
 
-        {/* Mobile Menu */}
+        {/* Mobile Menu - Toast-like Floating Button (hidden in navbar, shown as fixed element) */}
         <Sheet open={isOpen} onOpenChange={setIsOpen}>
-          <SheetTrigger asChild className="lg:hidden">
-            <button className="rounded-2xl bg-orange-50 p-3 text-orange-500 shadow-sm transition-all duration-300 hover:scale-105 hover:bg-orange-100 hover:shadow-md dark:bg-slate-800 dark:text-orange-400 dark:hover:bg-slate-700">
+          {/* Hidden trigger in navbar for accessibility - actual trigger is the floating button below */}
+          <SheetTrigger asChild className="lg:hidden sr-only">
+            <button aria-label="Open navigation menu">
               <Menu className="h-5 w-5" />
             </button>
           </SheetTrigger>
@@ -445,6 +446,20 @@ function NavigationContent() {
             </div>
           </SheetContent>
         </Sheet>
+
+        {/* Toast-like Floating Dashboard Button - Similar to Developer Menu */}
+        <button
+          type="button"
+          onClick={() => setIsOpen(true)}
+          className="lg:hidden fixed top-5 right-4 flex items-center gap-2.5 px-3 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 shadow-lg border border-orange-400/50 hover:from-orange-600 hover:to-amber-600 active:scale-95 transition-all"
+          style={{ zIndex: 60 }}
+          aria-label="Open dashboard menu"
+        >
+          {/* Dashboard Icon */}
+          <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
+          {/* Menu Text */}
+          <span className="text-sm font-semibold text-white">Dashboard</span>
+        </button>
       </div>
     </header>
   );

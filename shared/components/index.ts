@@ -1,7 +1,6 @@
 /**
  * SHARED COMPONENTS INDEX
  * Unified export of all consolidated components
- * Replaces 68+ duplicate component implementations across frontend and admin apps
  */
 
 // ============================================================================
@@ -101,14 +100,6 @@ export {
   type FormModalProps
 }
 
-// Themed Modals
-export {
-  PancakeCardModal,
-  PancakeConfirmModal,
-  PancakeFormModal, PancakeModal, PancakeSubscriptionModal, type PancakeCardModalProps, type PancakeConfirmModalProps,
-  type PancakeFormModalProps, type PancakeModalProps, type PancakeSubscriptionModalProps
-} from './modals/PancakeModal'
-
 // ============================================================================
 // FORM COMPONENTS
 // ============================================================================
@@ -160,76 +151,18 @@ export {
   BaseInput, BaseCheckbox as Checkbox, BaseInput as Input, BaseRadio as Radio, BaseSelect as Select, BaseTextarea as Textarea, type BaseCheckboxProps, type BaseInputProps, type BaseRadioProps, type BaseSelectProps, type BaseTextareaProps
 }
 
-// Themed Forms (excluding duplicates with buttons/cards)
-export {
-  PancakeBadge, PancakeCheckbox, Checkbox as PancakeCheckboxAlias, PancakeForm, Form as PancakeFormAlias, PancakeFormField, FormField as PancakeFormFieldAlias, PancakeInput, Input as PancakeInputAlias, PancakeLabel, Label as PancakeLabelAlias, PancakeSelect, Select as PancakeSelectAlias, PancakeTextarea, Textarea as PancakeTextareaAlias, type PancakeBadgeProps, type PancakeFormFieldProps, type PancakeFormProps,
-  type PancakeInputProps,
-  type PancakeLabelProps, type PancakeSelectProps,
-  type PancakeTextareaProps
-} from './forms/PancakeForm'
-
-// Note: PancakeButton is exported from buttons section to avoid duplicates
-
 // ============================================================================
 // NAVIGATION COMPONENTS
 // ============================================================================
 
-// Navigation System - Import for local use and re-export
-import {
-  BaseNavigation,
-  BreadcrumbSeparator,
-  NavigationContent,
-  NavigationItem,
-  NavigationLink,
-  NavigationList,
-  NavigationTrigger,
-  useNavigation,
-  type BaseNavigationProps,
-  type BreadcrumbSeparatorProps,
-  type NavigationContentProps,
-  type NavigationItemProps,
-  type NavigationLinkProps,
-  type NavigationListProps,
-  type NavigationTriggerProps
-} from './navigation/BaseNavigation'
-
-export {
-  BreadcrumbSeparator, BaseNavigation as Navigation, NavigationContent, NavigationItem,
-  NavigationLink, NavigationList, NavigationTrigger, useNavigation,
-  type BaseNavigationProps, type BreadcrumbSeparatorProps, type NavigationContentProps, type NavigationItemProps, type NavigationItem as NavigationItemType, type NavigationLinkProps, type NavigationListProps, type NavigationTriggerProps
-}
-
-// Tabs System - Import for local use and re-export
-import {
-  BaseTabs,
-  CounterTab,
-  IconTab,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-  useTabActive,
-  useTabs,
-  useTabsState,
-  type BaseTabsProps,
-  type CounterTabProps,
-  type IconTabProps,
-  type TabsContentProps,
-  type TabsListProps,
-  type TabsTriggerProps
-} from './navigation/BaseTabs'
-
-export {
-  CounterTab, IconTab, BaseTabs as Tabs, TabsContent, TabsList,
-  TabsTrigger, useTabActive, useTabs,
-  useTabsState, type BaseTabsProps, type CounterTabProps, type IconTabProps, type TabsContentProps, type TabsListProps,
-  type TabsTriggerProps
-}
+// Chain Selector
+export { ChainSelector } from './navigation/ChainSelector'
 
 // ============================================================================
 // DEVELOPER PORTAL COMPONENTS
 // ============================================================================
 
-export { DeveloperLayout, DeveloperMobileHeader, DeveloperSidebar } from './developer'
+export { DeveloperMobileHeader, DeveloperSidebar } from './developer'
 
 // ============================================================================
 // CONVENIENCE RE-EXPORTS
@@ -247,10 +180,6 @@ export const Components = {
   get Input() { return BaseInput },
   get Select() { return BaseSelect },
   get Checkbox() { return BaseCheckbox },
-
-  // Navigation
-  get Navigation() { return BaseNavigation },
-  get Tabs() { return BaseTabs }
 }
 
 // Legacy compatibility aliases
@@ -288,14 +217,6 @@ export const MIGRATION_MAP = {
   'Select': 'BaseSelect',
   'Checkbox': 'BaseCheckbox',
   'FormField': 'FormFieldWrapper',
-
-  // Navigation components → Unified
-  'MobileBottomNav': 'BaseNavigation',
-  'NavigationMenu': 'BaseNavigation',
-  'Tabs': 'BaseTabs',
-  'TabsList': 'TabsList',
-  'TabsTrigger': 'TabsTrigger',
-  'TabsContent': 'TabsContent'
 } as const
 
 /**
