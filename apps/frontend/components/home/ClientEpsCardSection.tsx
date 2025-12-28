@@ -64,7 +64,7 @@ export default function ClientEpsCardSection({
           Array.from({ length: 3 }).map((_, index) => (
             <div
               key={index}
-              className="relative w-full max-w-[350px] min-w-[240px] flex-shrink-0 overflow-visible rounded-3xl sm:min-w-[300px] bg-gradient-to-br from-gray-50 via-gray-100 to-gray-200 dark:from-gray-800 dark:via-gray-700 dark:to-gray-900 animate-pulse"
+              className="relative w-full max-w-[350px] min-w-[240px] flex-shrink-0 overflow-visible rounded-3xl sm:min-w-[300px] from-gray-50 via-gray-100 to-gray-200 dark:from-gray-800 dark:via-gray-700 dark:to-gray-900 animate-pulse"
             >
               <div className="p-8 pt-16">
                 <div className="mb-6 text-center">

@@ -19,6 +19,7 @@ use siwe::{Message, VerificationOpts};
 use std::str::FromStr;
 
 use crate::web::auth::AppState;
+use crate::auth::UnifiedWeb3AuthService;
 
 /// Enhanced Web3 Authentication Context
 /// Represents authenticated wallet with comprehensive permissions from the permission system
@@ -324,15 +325,19 @@ async fn validate_siwe_signature(headers: &HeaderMap, app_state: &AppState) -> R
     info!("SIWE signature verification successful for wallet: {}", wallet_header);
 
     // Get auth service for wallet lookup and permission validation
-    let _auth_service = app_state.domain_container.get_auth_service()
+    let auth_service = app_state.domain_container.get_auth_service()
         .ok_or_else(|| Web3AuthError::SecurityViolation("Auth service not available".to_string()))?;
 
-    // For now, provide basic permissions - TODO: Integrate with proper wallet permission service
-    let permissions: Vec<String> = vec![
-        "epsx:basic:view".to_string(),
-        "epsx:data:read".to_string(),
-        "admin:*:*".to_string(), // Temporary admin access for testing
-    ];
+    // Fetch dynamic permissions from the database
+    // This ensures that even SIWE legacy auth respects proper permissions
+    let permissions = match auth_service.get_wallet_permissions(wallet_header).await {
+        Ok(perms) => perms,
+        Err(e) => {
+            warn!("Failed to fetch permissions for wallet {}: {}", wallet_header, e);
+            // Default to basic View access on failure (safe fallback)
+            vec!["epsx:basic:view".to_string()]
+        }
+    };
 
     // Note: Bearer token is NOT generated here - SIWE header auth is a legacy flow
     // The proper flow goes through /api/v1/auth/web3/verify which returns JWT tokens
@@ -483,7 +488,7 @@ pub async fn require_permission<'a>(
 ) -> Result<&'a Web3AuthContext, StatusCode> {
     let context = require_web3_auth(request).await?;
 
-    if context.permissions.contains(&required_permission.to_string()) {
+    if UnifiedWeb3AuthService::has_permission(&context.permissions, required_permission) {
         Ok(context)
     } else {
         warn!(
@@ -501,14 +506,7 @@ pub async fn require_admin(
 ) -> Result<&Web3AuthContext, StatusCode> {
     let context = require_web3_auth(request).await?;
 
-    // Check for admin permissions using the new structured format
-    let has_admin = context.permissions.iter().any(|p|
-        p.starts_with("admin:") ||
-        p == "admin:*:*" ||
-        p.contains(":admin:")
-    );
-
-    if has_admin {
+    if UnifiedWeb3AuthService::is_admin(&context.permissions) {
         Ok(context)
     } else {
         warn!("Admin access denied for wallet: {}", context.wallet_address);
@@ -524,7 +522,7 @@ pub async fn has_any_permission<'a>(
     let context = require_web3_auth(request).await?;
 
     let has_permission = permissions.iter().any(|&required_perm| {
-        context.permissions.contains(&required_perm.to_string())
+        UnifiedWeb3AuthService::has_permission(&context.permissions, required_perm)
     });
 
     if has_permission {

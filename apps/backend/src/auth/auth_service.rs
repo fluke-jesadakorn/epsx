@@ -321,6 +321,37 @@ impl UnifiedWeb3AuthService {
         Ok(())
     }
 
+    /// Check if a user has a specific permission
+    /// This purely checks the logic based on a permission string and a list of permissions
+    /// It does NOT make a DB call, to be fast and allow validating permissions from a token
+    pub fn has_permission(user_permissions: &[String], required_permission: &str) -> bool {
+        user_permissions.iter().any(|p| {
+            // exact match
+            if p == required_permission { return true; }
+            
+            // wildcard match (e.g. "admin:*" matches "admin:users")
+            if p.ends_with(":*") {
+                 let prefix = &p[..p.len() - 2];
+                 if required_permission.starts_with(prefix) { return true; }
+            }
+
+            // Super admin match
+            if p == "*:*" || p == "admin:*:*" { return true; }
+            
+            false
+        })
+    }
+    
+    /// Check if a user has admin privileges
+    pub fn is_admin(user_permissions: &[String]) -> bool {
+        user_permissions.iter().any(|p| 
+            p.starts_with("admin:") || 
+            p == "admin:*:*" || 
+            p.contains(":admin:") ||
+            p == "*:*"
+        )
+    }
+
     // Private helper methods
 
     /// Generate secure random nonce

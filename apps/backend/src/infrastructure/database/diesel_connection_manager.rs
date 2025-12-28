@@ -10,6 +10,15 @@ use tracing::{info, warn, error};
 /// Global Diesel async connection pool that persists across serverless invocations
 static GLOBAL_DIESEL_POOL: OnceLock<Pool<AsyncPgConnection>> = OnceLock::new();
 
+/// Global Analytics database pool (separate database for high-volume logs)
+static GLOBAL_ANALYTICS_POOL: OnceLock<Pool<AsyncPgConnection>> = OnceLock::new();
+
+/// Global Notifications database pool (separate database for real-time notifications)
+static GLOBAL_NOTIFICATIONS_POOL: OnceLock<Pool<AsyncPgConnection>> = OnceLock::new();
+
+/// Global Payments database pool (separate database for financial transactions)
+static GLOBAL_PAYMENTS_POOL: OnceLock<Pool<AsyncPgConnection>> = OnceLock::new();
+
 /// Serverless-optimized Diesel connection configuration
 #[derive(Clone, Debug)]
 pub struct DieselServerlessConfig {
@@ -103,6 +112,123 @@ impl DieselConnectionManager {
         Self::get_pool().await
     }
 
+    /// Get or create the analytics database pool (for high-volume logs)
+    /// Falls back to main pool if ANALYTICS_DATABASE_URL is not configured
+    pub async fn get_analytics_pool() -> Result<&'static Pool<AsyncPgConnection>> {
+        // Check if analytics DB is configured
+        let analytics_url = match std::env::var("ANALYTICS_DATABASE_URL") {
+            Ok(url) => url,
+            Err(_) => {
+                // Fall back to main pool if analytics DB not configured
+                info!("📊 ANALYTICS_DATABASE_URL not set, using main database pool");
+                return Self::get_pool().await;
+            }
+        };
+
+        // Try to get existing analytics pool first
+        if let Some(pool) = GLOBAL_ANALYTICS_POOL.get() {
+            return Ok(pool);
+        }
+
+        // Create new analytics pool
+        let config = DieselServerlessConfig {
+            database_url: analytics_url,
+            max_size: 5,  // Smaller pool for analytics - write-heavy, less concurrent needs
+            acquire_timeout_secs: 5,
+        };
+        let pool = Self::create_optimized_pool(config).await?;
+
+        // Store in global static
+        match GLOBAL_ANALYTICS_POOL.set(pool) {
+            Ok(()) => {
+                info!("✅ Analytics database pool initialized");
+                Ok(GLOBAL_ANALYTICS_POOL.get().unwrap())
+            }
+            Err(_) => {
+                warn!("⚠️ Analytics pool was initialized by another thread");
+                Ok(GLOBAL_ANALYTICS_POOL.get().unwrap())
+            }
+        }
+    }
+
+    /// Get or create the notifications database pool (for real-time SSE notifications)
+    /// Falls back to main pool if NOTIFICATIONS_DATABASE_URL is not configured
+    pub async fn get_notifications_pool() -> Result<&'static Pool<AsyncPgConnection>> {
+        // Check if notifications DB is configured
+        let notifications_url = match std::env::var("NOTIFICATIONS_DATABASE_URL") {
+            Ok(url) => url,
+            Err(_) => {
+                // Fall back to main pool if notifications DB not configured
+                info!("🔔 NOTIFICATIONS_DATABASE_URL not set, using main database pool");
+                return Self::get_pool().await;
+            }
+        };
+
+        // Try to get existing notifications pool first
+        if let Some(pool) = GLOBAL_NOTIFICATIONS_POOL.get() {
+            return Ok(pool);
+        }
+
+        // Create new notifications pool
+        let config = DieselServerlessConfig {
+            database_url: notifications_url,
+            max_size: 8,  // Medium pool for notifications - read/write balanced
+            acquire_timeout_secs: 3,  // Fast timeout for real-time SSE
+        };
+        let pool = Self::create_optimized_pool(config).await?;
+
+        // Store in global static
+        match GLOBAL_NOTIFICATIONS_POOL.set(pool) {
+            Ok(()) => {
+                info!("✅ Notifications database pool initialized");
+                Ok(GLOBAL_NOTIFICATIONS_POOL.get().unwrap())
+            }
+            Err(_) => {
+                warn!("⚠️ Notifications pool was initialized by another thread");
+                Ok(GLOBAL_NOTIFICATIONS_POOL.get().unwrap())
+            }
+        }
+    }
+
+    /// Get or create the payments database pool (for financial transactions)
+    /// Falls back to main pool if PAYMENTS_DATABASE_URL is not configured
+    pub async fn get_payments_pool() -> Result<&'static Pool<AsyncPgConnection>> {
+        // Check if payments DB is configured
+        let payments_url = match std::env::var("PAYMENTS_DATABASE_URL") {
+            Ok(url) => url,
+            Err(_) => {
+                // Fall back to main pool if payments DB not configured
+                info!("💰 PAYMENTS_DATABASE_URL not set, using main database pool");
+                return Self::get_pool().await;
+            }
+        };
+
+        // Try to get existing payments pool first
+        if let Some(pool) = GLOBAL_PAYMENTS_POOL.get() {
+            return Ok(pool);
+        }
+
+        // Create new payments pool
+        let config = DieselServerlessConfig {
+            database_url: payments_url,
+            max_size: 10,  // Higher pool for payments - critical path
+            acquire_timeout_secs: 10,  // Longer timeout for financial transactions
+        };
+        let pool = Self::create_optimized_pool(config).await?;
+
+        // Store in global static
+        match GLOBAL_PAYMENTS_POOL.set(pool) {
+            Ok(()) => {
+                info!("✅ Payments database pool initialized");
+                Ok(GLOBAL_PAYMENTS_POOL.get().unwrap())
+            }
+            Err(_) => {
+                warn!("⚠️ Payments pool was initialized by another thread");
+                Ok(GLOBAL_PAYMENTS_POOL.get().unwrap())
+            }
+        }
+    }
+
     /// Health check for the Diesel connection pool
     pub async fn health_check() -> bool {
         match Self::get_pool().await {
@@ -168,6 +294,21 @@ pub struct DieselPoolStats {
 /// Quick access function for getting Diesel database pool in handlers
 pub async fn get_diesel_pool() -> Result<&'static Pool<AsyncPgConnection>> {
     DieselConnectionManager::get_connection().await
+}
+
+/// Quick access function for getting analytics database pool in handlers
+pub async fn get_analytics_pool() -> Result<&'static Pool<AsyncPgConnection>> {
+    DieselConnectionManager::get_analytics_pool().await
+}
+
+/// Quick access function for getting notifications database pool in handlers
+pub async fn get_notifications_pool() -> Result<&'static Pool<AsyncPgConnection>> {
+    DieselConnectionManager::get_notifications_pool().await
+}
+
+/// Quick access function for getting payments database pool in handlers
+pub async fn get_payments_pool() -> Result<&'static Pool<AsyncPgConnection>> {
+    DieselConnectionManager::get_payments_pool().await
 }
 
 /// Health check function for health endpoints

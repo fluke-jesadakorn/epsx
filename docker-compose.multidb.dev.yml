@@ -1,0 +1,25 @@
+# EPSX Multi-Database Development Setup (Single PostgreSQL Instance)
+# Creates multiple databases in one PostgreSQL container
+# Use: docker compose -f docker-compose.yml -f docker-compose.multidb.dev.yml up -d
+
+services:
+  # Override PostgreSQL to create multiple databases
+  postgres:
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh:ro
+
+  # Backend with all database connections (same host, different DBs)
+  backend:
+    environment:
+      # Main database (already set in base compose)
+      # DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/${DB_NAME}
+      
+      # Analytics database (same host, different DB)
+      ANALYTICS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/epsx_analytics_dev
+      
+      # Notifications database (same host, different DB)  
+      NOTIFICATIONS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/epsx_notifications_dev
+      
+      # Payments database (same host, different DB)
+      PAYMENTS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/epsx_payments_dev

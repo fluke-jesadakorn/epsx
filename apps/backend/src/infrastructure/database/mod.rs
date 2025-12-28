@@ -9,5 +9,8 @@ pub use diesel_connection_manager::{
     DieselServerlessConfig,
     DieselPoolStats,
     get_diesel_pool,
+    get_analytics_pool,
+    get_notifications_pool,
+    get_payments_pool,
     diesel_health_check,
 };
