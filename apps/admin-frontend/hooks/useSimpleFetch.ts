@@ -28,7 +28,6 @@ export function useSimpleFetch() {
     endpoint: string,
     options?: RequestInit
   ): Promise<Response> => {
-    console.log(`🌐 Simple Request: ${endpoint}`);
 
     const token = getToken();
 

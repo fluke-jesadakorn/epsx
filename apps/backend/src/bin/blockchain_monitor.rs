@@ -128,6 +128,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pool_static: &'static Pool<AsyncPgConnection> = Box::leak(Box::new(pool));
     let pool_arc = Arc::new(pool_static);
 
+    // Parse supported tokens
+    let supported_tokens_str = std::env::var("SUPPORTED_PAYMENT_TOKENS")
+        .unwrap_or_else(|_| "0x55d398326f99059fF775485246999027B3197955,0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d,0x337610d27c682E347C9cD60BD4b3b107C9d34dDD,0x64544969ed7EBf5f083679233325356EbE738930".to_string());
+    
+    let supported_tokens: Vec<String> = supported_tokens_str
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    info!("   Supported Tokens: {} configured", supported_tokens.len());
+
     // Create blockchain monitor
     info!("🔧 Initializing blockchain monitor...");
     let monitor = BlockchainMonitor::new(
@@ -135,6 +147,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         contract_address.clone(),
         start_block,
         poll_interval,
+        supported_tokens,
         pool_arc,
     )
     .expect("Failed to create blockchain monitor");

@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { COOKIES } from '@/shared/auth/cookies';
+import { cookies } from 'next/headers';
+import { NextRequest, NextResponse } from 'next/server';
 
 // Payment confirmation request body
 interface PaymentConfirmRequest {
@@ -20,14 +20,6 @@ export async function POST(req: NextRequest) {
         const cookieStore = await cookies();
         const userCookie = cookieStore.get(COOKIES.user);
         const accessCookie = cookieStore.get(COOKIES.access);
-
-        console.log('[Payment Confirmation] Cookie check:', {
-            userCookieName: COOKIES.user,
-            accessCookieName: COOKIES.access,
-            hasUserCookie: !!userCookie?.value,
-            hasAccessCookie: !!accessCookie?.value,
-            allCookies: Array.from(cookieStore.getAll()).map(c => c.name)
-        });
 
         if (!userCookie?.value) {
             return NextResponse.json(
@@ -56,15 +48,6 @@ export async function POST(req: NextRequest) {
         const body: PaymentConfirmRequest = await req.json();
         const { plan_id, transaction_hash, amount, currency, network = 'localhost' } = body;
 
-        console.log('[Payment Confirmation] Received request:', {
-            plan_id,
-            transaction_hash,
-            amount,
-            currency,
-            network,
-            user_wallet: user.wallet_address,
-        });
-
         // Validate required fields
         if (!plan_id || !transaction_hash || !amount) {
             return NextResponse.json(
@@ -74,7 +57,6 @@ export async function POST(req: NextRequest) {
         }
 
         // 2. Call backend API for payment validation
-        console.log('[Payment Confirmation] Calling backend API for validation...');
 
         const requestBody = {
             plan_id,
@@ -84,13 +66,6 @@ export async function POST(req: NextRequest) {
             network,
             wallet_address: user.wallet_address,
         };
-
-        console.log('[Payment Confirmation] Sending to backend:', {
-            url: `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/payments/validate`,
-            body: requestBody,
-            hasAccessToken: !!accessCookie?.value || !!user.access,
-            walletAddress: user.wallet_address,
-        });
 
         const backendResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/payments/validate`, {
             method: 'POST',
@@ -131,7 +106,6 @@ export async function POST(req: NextRequest) {
         }
 
         const validationResult = await backendResponse.json();
-        console.log('[Payment Confirmation] Backend validation result:', validationResult);
 
         if (!validationResult.success) {
             return NextResponse.json(validationResult, { status: 400 });

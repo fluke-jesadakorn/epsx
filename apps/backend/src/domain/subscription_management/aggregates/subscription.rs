@@ -9,7 +9,6 @@ pub enum SubscriptionStatus {
     Active,
     Cancelled,
     Expired,
-    PendingRenewal,
 }
 
 /// Subscription Aggregate Root
@@ -24,7 +23,7 @@ pub struct Subscription {
     started_at: chrono::DateTime<chrono::Utc>,
     expires_at: Option<chrono::DateTime<chrono::Utc>>,
     cancelled_at: Option<chrono::DateTime<chrono::Utc>>,
-    auto_renew: bool,
+    last_purchased_at: Option<chrono::DateTime<chrono::Utc>>,
     payment_method_id: Option<String>,
     metadata: serde_json::Value,
     base: AggregateBase,
@@ -34,12 +33,11 @@ pub struct CreateSubscriptionParams {
     pub wallet_address: WalletAddress,
     pub plan_id: PlanId,
     pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
-    pub auto_renew: bool,
     pub payment_method_id: Option<String>,
 }
 
 impl Subscription {
-    /// Create a new subscription
+    /// Create a new subscription (plan purchase)
     pub fn create(params: CreateSubscriptionParams) -> Self {
         let now = Utc::now();
 
@@ -51,14 +49,14 @@ impl Subscription {
             started_at: now,
             expires_at: params.expires_at,
             cancelled_at: None,
-            auto_renew: params.auto_renew,
+            last_purchased_at: Some(now),
             payment_method_id: params.payment_method_id,
             metadata: serde_json::json!({}),
             base: AggregateBase::new(),
         }
     }
 
-    /// Cancel subscription
+    /// Cancel subscription (user-initiated)
     pub fn cancel(&mut self) -> AppResult<()> {
         if self.status == SubscriptionStatus::Cancelled {
             return Err(AppError::validation_error("Subscription is already cancelled"));
@@ -66,21 +64,28 @@ impl Subscription {
 
         self.status = SubscriptionStatus::Cancelled;
         self.cancelled_at = Some(Utc::now());
-        self.auto_renew = false;
         self.base.touch();
         self.base.increment_version();
 
         Ok(())
     }
 
-    /// Renew subscription
-    pub fn renew(&mut self, new_expires_at: chrono::DateTime<chrono::Utc>) -> AppResult<()> {
+    /// Extend subscription by a duration (pay-to-extend model)
+    /// If expired, reactivates from now. If active, adds to current expiry.
+    pub fn extend(&mut self, duration: chrono::Duration) -> AppResult<()> {
         if self.status == SubscriptionStatus::Cancelled {
-            return Err(AppError::validation_error("Cannot renew cancelled subscription"));
+            return Err(AppError::validation_error("Cannot extend cancelled subscription"));
         }
 
-        self.expires_at = Some(new_expires_at);
+        let now = Utc::now();
+        let base_time = match self.expires_at {
+            Some(expires) if expires > now => expires, // Still active, extend from expiry
+            _ => now, // Expired or no expiry, extend from now
+        };
+        
+        self.expires_at = Some(base_time + duration);
         self.status = SubscriptionStatus::Active;
+        self.last_purchased_at = Some(now);
         self.base.touch();
         self.base.increment_version();
 
@@ -90,7 +95,6 @@ impl Subscription {
     /// Mark subscription as expired
     pub fn expire(&mut self) -> AppResult<()> {
         self.status = SubscriptionStatus::Expired;
-        self.auto_renew = false;
         self.base.touch();
         self.base.increment_version();
 
@@ -135,8 +139,16 @@ impl Subscription {
         self.expires_at
     }
 
-    pub fn auto_renew(&self) -> bool {
-        self.auto_renew
+    pub fn last_purchased_at(&self) -> Option<chrono::DateTime<chrono::Utc>> {
+        self.last_purchased_at
+    }
+
+    /// Calculate days until expiry (None if no expiry or already expired)
+    pub fn days_until_expiry(&self) -> Option<i64> {
+        self.expires_at.map(|exp| {
+            let diff = exp - Utc::now();
+            diff.num_days()
+        })
     }
 }
 

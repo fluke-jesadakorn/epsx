@@ -65,13 +65,11 @@ export function WalletAutocomplete({
         queryFn: async () => {
             if (!shouldSearch) return []
 
-            console.log('[WalletAutocomplete] Searching with:', { query: debouncedQuery, excludeGroupId })
 
             try {
                 // Use the group management client to search users
                 const results = await groupMgmt.searchUsers(debouncedQuery, 10, excludeGroupId)
 
-                console.log('[WalletAutocomplete] Search results:', results)
 
                 // Transform results to wallet suggestions
                 if (Array.isArray(results)) {

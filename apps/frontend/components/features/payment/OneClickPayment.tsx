@@ -2,6 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+// Plans are fetched dynamically from API - no hardcoded fallback
 import { cn } from '@/lib/utils';
 import {
   AlertCircle,
@@ -20,6 +21,7 @@ import { useEffect, useState } from 'react';
 import { API_ROUTES } from '../../../../../shared/config/route-constants';
 import { env } from '../../../../../shared/env/schema';
 import MetaMaskPayment from './MetaMaskPayment';
+import { UpgradeBanner } from './UpgradeBanner';
 
 interface OneClickPaymentProps {
   className?: string;
@@ -76,7 +78,6 @@ const fetchPlans = async (): Promise<PaymentPackage[]> => {
     const baseUrl = env.BACKEND_URL;
     const apiUrl = `${baseUrl}${API_ROUTES.PUBLIC.PLANS}`;
 
-    console.log('[OneClickPayment] Fetching plans from:', apiUrl);
 
     const response = await fetch(apiUrl, {
       method: 'GET',
@@ -96,28 +97,17 @@ const fetchPlans = async (): Promise<PaymentPackage[]> => {
     }
 
     const result = await response.json();
-    console.log('[OneClickPayment] Plans received:', result);
 
     // Backend returns wrapped response: { success, data, message }
     if (!result.success || !result.data || !Array.isArray(result.data)) {
-      console.warn(
-        '[OneClickPayment] Invalid response format, using fallback plans'
-      );
-      return getFallbackPlans();
+      console.error('[OneClickPayment] Invalid response format');
+      throw new Error('Invalid API response format');
     }
 
     const plans: ApiPaymentPlan[] = result.data;
 
     // Transform API response to include UI-specific fields
     return plans.map((plan: ApiPaymentPlan, index: number): PaymentPackage => {
-      console.log('🚨 fetchPlans Plan Debug:', {
-        plan,
-        current_price: plan.current_price,
-        effective_price: plan.effective_price,
-        priceType: typeof plan.current_price,
-        index
-      });
-
       // Parse prices (backend returns strings) with comprehensive validation
       let currentPrice: number;
       if (typeof plan.current_price === 'string') {
@@ -130,7 +120,7 @@ const fetchPlans = async (): Promise<PaymentPackage[]> => {
 
       // Validate parsed price - if invalid (NaN or negative), try effective_price as fallback
       // Note: Price of 0 is valid for free plans
-      if (!currentPrice || isNaN(currentPrice) || currentPrice < 0) {
+      if (isNaN(currentPrice) || currentPrice < 0) {
         console.warn('⚠️ Invalid current_price, trying effective_price as fallback:', {
           plan_id: plan.id,
           plan_name: plan.name,
@@ -150,8 +140,7 @@ const fetchPlans = async (): Promise<PaymentPackage[]> => {
       }
 
       // Final validation - if still invalid, log error
-      // Price of 0 is valid for free plans, only flag if NaN or negative
-      if (!currentPrice || isNaN(currentPrice) || currentPrice < 0) {
+      if (isNaN(currentPrice) || currentPrice < 0) {
         console.error('❌ CRITICAL: Plan has invalid price after all fallbacks:', {
           plan_id: plan.id,
           plan_name: plan.name,
@@ -160,16 +149,8 @@ const fetchPlans = async (): Promise<PaymentPackage[]> => {
           effective_price: plan.effective_price,
           parsed_current: currentPrice
         });
+        currentPrice = 0; // Default to 0 to prevent NaN propagation
       }
-
-      console.log('🚨 fetchPlans Price Conversion:', {
-        plan_id: plan.id,
-        original: plan.current_price,
-        parsed: currentPrice,
-        isNaN: isNaN(currentPrice),
-        isZero: currentPrice === 0,
-        isValid: currentPrice >= 0 && !isNaN(currentPrice)
-      });
 
       const basePrice = plan.base_price
         ? typeof plan.base_price === 'string'
@@ -180,25 +161,15 @@ const fetchPlans = async (): Promise<PaymentPackage[]> => {
       const effectivePrice = plan.effective_price ?? currentPrice;
 
       // Parse original plan ID from backend
-      let originalPlanId: number | string;
-      if (typeof plan.id === 'number' && !isNaN(plan.id)) {
-        originalPlanId = plan.id;
-      } else {
-        // Keep as string if it's a UUID or other string ID
-        originalPlanId = plan.id;
-      }
-
-      // Use composite key or original ID
-      const parsedId = originalPlanId;
+      const originalPlanId = plan.id;
 
       return {
         ...plan,
-        id: parsedId,
-        original_plan_id: originalPlanId, // Store original ID for contract calls
+        id: originalPlanId,
+        original_plan_id: originalPlanId,
         current_price: currentPrice,
         base_price: basePrice,
         effective_price: effectivePrice,
-        // Add UI-specific fields based on plan type or other criteria
         icon: getIconForPlan(plan.plan_type),
         description: getDescriptionForPlan(plan.plan_type),
         popular: plan.is_highlighted || plan.plan_type === 'professional',
@@ -211,9 +182,7 @@ const fetchPlans = async (): Promise<PaymentPackage[]> => {
     });
   } catch (error) {
     console.error('[OneClickPayment] Error fetching plans:', error);
-    console.warn('[OneClickPayment] Using fallback plans due to API error');
-    // Return fallback data in case of API failure
-    return getFallbackPlans();
+    throw error; // Let caller handle the error
   }
 };
 
@@ -289,80 +258,7 @@ const getDefaultFeaturesForPlan = (planType: string): string[] => {
   }
 };
 
-const getFallbackPlans = (): PaymentPackage[] => [
-  {
-    id: 'adc7bfb7-16ea-4758-8717-ed5c899f36af', // UUID matching MetaMaskPayment mapping
-    original_plan_id: 'adc7bfb7-16ea-4758-8717-ed5c899f36af', // Actual contract plan ID
-    name: 'Starter',
-    plan_type: 'starter',
-    base_price: 14.99,
-    current_price: 14.99,
-    currency: 'USD',
-    is_active: true,
-    is_highlighted: false,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    icon: '🚀',
-    description: 'Perfect for beginners',
-    features: [
-      '5 API calls per day',
-      'Basic analytics dashboard',
-      'Email support',
-      'Mobile app access',
-      'Basic stock alerts',
-    ],
-  },
-  {
-    id: 'a5b20d50-6616-41a3-b130-4ed2c28f3063', // UUID matching MetaMaskPayment mapping
-    original_plan_id: 'a5b20d50-6616-41a3-b130-4ed2c28f3063', // Actual contract plan ID
-    name: 'Professional',
-    plan_type: 'professional',
-    base_price: 29.99,
-    current_price: 29.99,
-    currency: 'USD',
-    is_active: true,
-    is_highlighted: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    icon: '⭐',
-    description: 'Most popular choice',
-    popular: true,
-    features: [
-      'Everything in Starter',
-      '50 API calls per day',
-      'Advanced analytics & charts',
-      'Priority email support',
-      'Real-time data streaming',
-      'Portfolio tracking',
-      'Custom alerts & notifications',
-    ],
-  },
-  {
-    id: '3a6ec235-6a7e-4fbd-aa8a-178ad86b5b35', // UUID matching MetaMaskPayment mapping
-    original_plan_id: '3a6ec235-6a7e-4fbd-aa8a-178ad86b5b35', // Actual contract plan ID
-    name: 'Enterprise',
-    plan_type: 'enterprise',
-    base_price: 99.99,
-    current_price: 99.99,
-    currency: 'USD',
-    is_active: true,
-    is_highlighted: false,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-    icon: '👑',
-    description: 'For serious traders',
-    features: [
-      'Everything in Professional',
-      'Unlimited API calls',
-      'Premium analytics suite',
-      '24/7 phone & chat support',
-      'AI-powered insights',
-      'Advanced portfolio management',
-      'Custom integrations',
-      'Dedicated account manager',
-    ],
-  },
-];
+// Plans are now fully dynamic from API - no hardcoded fallback
 
 const PAYMENT_METHODS = [
   {
@@ -398,22 +294,12 @@ export default function OneClickPayment({
 
         // Set default selected package
         if (preselectedPackage) {
-          console.log('🚨 PreselectedPackage Debug:', {
-            preselectedPackage,
-            plans: plans.map(p => ({ id: p.id, plan_type: p.plan_type, name: p.name }))
-          });
-
           const selectedPlan = plans.find(
             p =>
-              p.id === preselectedPackage || // Direct ID match (UUID)
+              p.id === preselectedPackage ||
               p.plan_type.toLowerCase() === preselectedPackage.toLowerCase() ||
               p.name.toLowerCase() === preselectedPackage.toLowerCase()
           );
-          console.log('🚨 SelectedPlan Result:', {
-            selectedPlan,
-            found: !!selectedPlan,
-            fallbackTo: plans[0]?.id || null
-          });
           setSelectedPackage(selectedPlan?.id || plans[0]?.id || null);
         } else {
           // Default to first plan (Starter at $14.99)
@@ -423,12 +309,9 @@ export default function OneClickPayment({
       } catch (err) {
         console.error('Error loading plans:', err);
         setError('Failed to load plans. Please try again.');
-        // Use fallback data
-        const fallbackPlans = getFallbackPlans();
-        setPackages(fallbackPlans);
-        setSelectedPackage(
-          fallbackPlans[0]?.id || null
-        );
+        // No fallback - show error state instead
+        setPackages([]);
+        setSelectedPackage(null);
       } finally {
         setLoading(false);
       }
@@ -446,7 +329,6 @@ export default function OneClickPayment({
     setIsProcessing(true);
 
     try {
-      console.log('Processing payment for package:', selectedPackage);
 
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 2000));
@@ -462,7 +344,6 @@ export default function OneClickPayment({
 
   const handleMetaMaskSuccess = async (txHash: string) => {
     setTransactionHash(txHash);
-    console.log('MetaMask payment successful:', txHash);
 
     // Call backend to confirm payment and activate subscription
     if (selectedPkg) {
@@ -485,7 +366,6 @@ export default function OneClickPayment({
         const result = await response.json();
 
         if (result.success) {
-          console.log('Subscription activated successfully:', result);
           setCurrentStep('confirmation');
         } else {
           console.error('Failed to activate subscription:', result.message);
@@ -509,16 +389,6 @@ export default function OneClickPayment({
   };
 
   const selectedPkg = packages.find(pkg => pkg.id === selectedPackage);
-
-  console.log('🚨 selectedPkg Debug:', {
-    packages: packages.map(p => ({ id: p.id, name: p.name, current_price: p.current_price })),
-    selectedPackage,
-    selectedPkg,
-    found: !!selectedPkg,
-    packageCount: packages.length,
-    selectedPkgPrice: selectedPkg?.current_price,
-    priceIsValid: selectedPkg?.current_price !== undefined && selectedPkg.current_price >= 0 && !isNaN(selectedPkg.current_price)
-  });
 
   // Validate selected package has valid price
   // Price of 0 is valid for free plans
@@ -576,15 +446,15 @@ export default function OneClickPayment({
                   currentStep === step
                     ? 'bg-primary text-primary-foreground scale-110'
                     : index <
-                        ['package', 'payment', 'confirmation'].indexOf(
-                          currentStep
-                        )
+                      ['package', 'payment', 'confirmation'].indexOf(
+                        currentStep
+                      )
                       ? 'bg-green-500 text-white'
                       : 'bg-muted text-muted-foreground'
                 )}
               >
                 {index <
-                ['package', 'payment', 'confirmation'].indexOf(currentStep) ? (
+                  ['package', 'payment', 'confirmation'].indexOf(currentStep) ? (
                   <Check className="h-4 w-4" />
                 ) : (
                   index + 1
@@ -1006,6 +876,14 @@ export default function OneClickPayment({
           <div className="grid gap-6 sm:gap-8 lg:grid-cols-2">
             {/* Payment Form */}
             <div className="space-y-6">
+              {/* Upgrade Credit Banner */}
+              <UpgradeBanner
+                newPlanId={typeof selectedPkg.original_plan_id === 'number'
+                  ? selectedPkg.original_plan_id
+                  : parseInt(String(selectedPkg.original_plan_id), 10)}
+                className="mb-4"
+              />
+
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -1044,22 +922,14 @@ export default function OneClickPayment({
 
               {/* MetaMask Payment Component */}
               {selectedPaymentMethod === 'metamask' && selectedPkg && (
-                <>
-                  {console.log('🚨 OneClickPayment MetaMask Debug:', {
-                    selectedPkg,
-                    current_price: selectedPkg.current_price,
-                    priceType: typeof selectedPkg.current_price,
-                    planId: selectedPkg.original_plan_id
-                  })}
-                  <MetaMaskPayment
-                    planId={selectedPkg.original_plan_id}
-                    planName={selectedPkg.name}
-                    amount={selectedPkg.current_price}
-                    currency={selectedPkg.currency}
-                    onSuccess={handleMetaMaskSuccess}
-                    onError={handleMetaMaskError}
-                  />
-                </>
+                <MetaMaskPayment
+                  planId={selectedPkg.original_plan_id}
+                  planName={selectedPkg.name}
+                  amount={selectedPkg.current_price}
+                  currency={selectedPkg.currency}
+                  onSuccess={handleMetaMaskSuccess}
+                  onError={handleMetaMaskError}
+                />
               )}
 
               {/* Security Info */}
@@ -1114,23 +984,23 @@ export default function OneClickPayment({
                   </div>
 
                   <Button
-                      disabled={isProcessing}
-                      className="w-full"
-                      size="lg"
-                      onClick={handlePayment}
-                    >
-                      {isProcessing ? (
-                        <>
-                          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          <Lock className="mr-2 h-4 w-4" />
-                          Pay ${selectedPkg.current_price} Now
-                        </>
-                      )}
-                    </Button>
+                    disabled={isProcessing}
+                    className="w-full"
+                    size="lg"
+                    onClick={handlePayment}
+                  >
+                    {isProcessing ? (
+                      <>
+                        <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="mr-2 h-4 w-4" />
+                        Pay ${selectedPkg.current_price} Now
+                      </>
+                    )}
+                  </Button>
 
                   <p className="text-muted-foreground text-center text-xs">
                     By continuing, you agree to our Terms of Service and Privacy

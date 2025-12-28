@@ -130,10 +130,6 @@ export const loggingMiddleware: StateMiddleware = (action, prevState, nextState,
 
   const timestamp = new Date().toISOString();
   console.group(`%c${action.type}`, 'color: #2196F3; font-weight: bold;');
-  console.log('Action:', action);
-  console.log('Previous State:', prevState);
-  console.log('Next State:', nextState);
-  console.log('Timestamp:', timestamp);
   console.groupEnd();
 };
 

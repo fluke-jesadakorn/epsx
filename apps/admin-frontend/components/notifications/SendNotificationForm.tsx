@@ -70,7 +70,6 @@ export function SendNotificationForm({ onSuccess, onCancel }: SendNotificationFo
         ...(imageUrl && { image_url: imageUrl }),
       });
 
-      console.log('✅ Notification sent successfully:', result);
 
       // Reset form
       setRecipientType('specific');

@@ -13,7 +13,6 @@ export interface AuthUser {
 }
 
 export async function getCurrentUser() {
-  console.log('🔍 [Debug] getCurrentUser: Starting check');
   try {
     const cookieStore = await cookies();
 
@@ -24,15 +23,12 @@ export async function getCurrentUser() {
       token = cookieStore.get('epsx.access')?.value;
       if (token) console.log('🔍 [Debug] getCurrentUser: Found epsx.access cookie');
     } else {
-      console.log('🔍 [Debug] getCurrentUser: Found epsx.client_session cookie');
     }
 
     if (!token) {
-      console.log('❌ [Debug] getCurrentUser: No session token found in cookies');
       return null;
     }
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
-    console.log(`🔍 [Debug] getCurrentUser: Verifying token with ${backendUrl}`);
 
     const response = await fetch(`${backendUrl}/api/auth/web3/session`, {
       method: 'GET',
@@ -43,23 +39,18 @@ export async function getCurrentUser() {
       cache: 'no-store' // Ensure we always get fresh status
     });
 
-    console.log(`🔍 [Debug] getCurrentUser: Backend response status: ${response.status}`);
 
     if (!response.ok) {
-      console.log('❌ [Debug] getCurrentUser: Backend rejected token');
       // Token invalid or expired
       return null;
     }
 
     const data = await response.json();
-    console.log(`🔍 [Debug] getCurrentUser: Backend data:`, JSON.stringify(data));
 
     if (!data.authenticated) {
-      console.log('❌ [Debug] getCurrentUser: Data says not authenticated');
       return null;
     }
 
-    console.log('✅ [Debug] getCurrentUser: Contenticated successfully');
     // Use backend-provided role directly (computed server-side)
     // Backend computes: "user" | "admin" | "super_admin" based on permissions
     const role = data.role || 'user';
@@ -116,7 +107,6 @@ export async function getBatchStocks(symbols: string[]) {
 
 export async function preloadStocks(symbols: string[]) {
   // TODO: Implement when backend is ready
-  console.log('Preloading stocks:', symbols);
 }
 
 export async function checkStockCacheStatus(symbols: string[]) {

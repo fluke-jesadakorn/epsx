@@ -21,7 +21,6 @@ export function FrontendAuthRegistration({ children }: { children: React.ReactNo
         if (!isRegistered) {
             registerAuthHook('frontend', useFrontendAuth);
             isRegistered = true;
-            console.log('✅ Frontend auth hook registered with unified auth adapter');
         }
     }, []);
 

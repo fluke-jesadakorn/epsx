@@ -1,7 +1,9 @@
-import { getCurrentUser } from '@/lib/server-actions';
-import { PaymentPageClient } from './PaymentPageClient';
+import { GlobalAuthGuard } from '@/components/auth/GlobalAuthGuard';
 import { PaymentStatusServer } from '@/components/sections/payment/PaymentStatusServer';
+import { getCurrentUser } from '@/lib/server-actions';
+import { getDebugSessionInfo } from '@/lib/server-actions-user';
 import { Suspense } from 'react';
+import { PaymentPageClient } from './PaymentPageClient';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,19 +12,29 @@ interface PaymentPageProps {
 }
 
 export default async function PaymentPage({ searchParams }: PaymentPageProps) {
-  // Get user data but don't redirect on failure - allow viewing pricing plans
-  const _user = await getCurrentUser();
-  
+  const user = await getCurrentUser();
+  const debugInfo = !user ? await getDebugSessionInfo() : null;
+
   // Extract package parameter from search params (support both 'package' and 'plan' for compatibility)
   const resolvedSearchParams = await searchParams;
   const selectedPackageId = resolvedSearchParams.package || resolvedSearchParams.plan || '';
 
-  console.log('🚨 Payment Page Debug:', {
-    searchParams: resolvedSearchParams,
-    selectedPackageId,
-    packageParam: resolvedSearchParams.package,
-    planParam: resolvedSearchParams.plan
-  });
+  // Show GlobalAuthGuard modal for unauthenticated users (same pattern as Developer page)
+  if (!user) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-orange-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-gray-800 flex items-center justify-center relative overflow-hidden">
+        {/* Decorative background elements */}
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="absolute top-10 left-10 w-32 h-32 bg-gradient-to-br from-pink-400/30 to-purple-500/30 rounded-full blur-xl"></div>
+          <div className="absolute top-40 right-20 w-24 h-24 bg-gradient-to-br from-orange-400/30 to-yellow-500/30 rounded-full blur-xl"></div>
+          <div className="absolute bottom-20 left-20 w-40 h-40 bg-gradient-to-br from-blue-400/30 to-cyan-500/30 rounded-full blur-xl"></div>
+        </div>
+        <div className="container mx-auto p-6 relative z-10">
+          <GlobalAuthGuard title="Payment Portal" debugInfo={debugInfo} />
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-orange-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-gray-800 py-12 px-4 relative overflow-hidden">
@@ -50,7 +62,7 @@ export default async function PaymentPage({ searchParams }: PaymentPageProps) {
           </p>
         </div>
 
-        {/* Always show pricing plans - no auth required */}
+        {/* Payment options - now guaranteed to have authenticated user */}
         <PaymentPageClient selectedPackageId={selectedPackageId} />
 
         {/* Payment status - backend will handle permissions */}
@@ -75,3 +87,4 @@ export default async function PaymentPage({ searchParams }: PaymentPageProps) {
     </main>
   );
 }
+

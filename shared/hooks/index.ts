@@ -17,78 +17,25 @@ export {
 // USER HOOKS
 // ============================================================================
 
-export {
-  useApiKeys,
-  useCreateApiKey,
-  useDeleteApiKey, useSubscribeToPlan, useSubscriptions, useUpdateProfile, useUpdateSettings, useUserProfile, useUserSettings
-} from './useUsers';
+// NOTE: useUsers.ts was removed in prior cleanup - these exports are now unavailable
 
 // ============================================================================
 // PERMISSION HOOKS
 // ============================================================================
 
-export {
-  useCheckPermission, useCurrentUserPermissions, useGrantPermission, usePermissionDisplay, usePermissionStats, useRevokePermission, useWalletPermissions
-} from './usePermissions';
+// NOTE: usePermissions.ts was removed in prior cleanup
 
 // ============================================================================
 // WALLET HOOKS
 // ============================================================================
 
-export {
-  useRecentWallets,
-  useUpdateWalletStatus,
-  useUpdateWalletTier, useWallet,
-  useWalletSearch, useWalletStats
-} from './useWallets';
+// NOTE: useWallets.ts was removed in prior cleanup
 
 // ============================================================================
 // COMPLIANCE HOOKS
 // ============================================================================
 
-export {
-  useApproveKYC, useBlockUser,
-  useComplianceMetrics, useFlagUser, useKYCStatuses, useRejectKYC,
-  useRiskAssessments, useSuspiciousActivities, useUpdateRiskAssessment
-} from './useCompliance';
-
-// ============================================================================
-// CONVENIENCE RE-EXPORTS
-// ============================================================================
-
-// Most commonly used hooks for quick access
-export {
-  useKYCStatuses as useKYC, useCurrentUserPermissions as usePermissions, useUserProfile as useProfile, useWalletSearch as useSearchWallets, useWallet as useWalletInfo
-} from './';
-
-// ============================================================================
-// ANALYTICS HOOKS
-// ============================================================================
-
-export {
-  // Constants
-  DEFAULT_ANALYTICS_CONFIG,
-  DEFAULT_FILTER_OPTIONS,
-  REALTIME_ANALYTICS_CONFIG,
-  SLOW_ANALYTICS_CONFIG,
-  // Utilities
-  buildQueryString,
-  combineErrorStates,
-  combineLoadingStates,
-  // Factories
-  createAnalyticsHook,
-  createParameterizedAnalyticsHook,
-  // Types
-  type AnalyticsConfig,
-  type AnalyticsDashboardData,
-  type AnalyticsPaginationParams,
-  type FetcherFunction,
-  type FilterOption,
-  type PermissionAnalytics,
-  type RichFilterOptions,
-  type SystemMetrics,
-  type UserStats
-} from './useAnalyticsData';
+// NOTE: useCompliance.ts was removed in prior cleanup
 
 // ============================================================================
 // SMART POLLING HOOKS
@@ -98,3 +45,10 @@ export {
   DEFAULT_POLLING_CONFIG, useOptimisticUpdate, usePollingManager, useSmartPolling, type PollingPriority, type PollingState, type SmartPollingConfig, type UseSmartPollingOptions
 } from './useSmartPolling';
 
+// ============================================================================
+// NOTIFICATION HOOKS
+// ============================================================================
+
+export {
+  useNotificationBell
+} from './useNotificationBell';

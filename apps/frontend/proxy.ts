@@ -209,7 +209,6 @@ async function validateWeb3Authentication(request: NextRequest): Promise<{
     const cached = validationCache.get(cacheKey);
 
     if (cached && (now - cached.timestamp) < CACHE_TTL) {
-      console.log('Using cached middleware validation');
       return { valid: cached.valid, user: cached.user };
     }
 

@@ -6,7 +6,6 @@ use crate::application::shared::Command;
 pub struct CreateSubscriptionCommand {
     pub wallet_address: String,
     pub plan_id: i32,
-    pub auto_renew: bool,
     pub payment_method_id: Option<String>,
 }
 

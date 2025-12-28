@@ -52,7 +52,6 @@ export function useStateSelector<R>(
     
     if (!equalityRef.current(selectedState, newSelectedState)) {
       if (debugName && process.env.NODE_ENV === 'development') {
-        console.log(`[StateSelector:${debugName}] State changed:`, {
           prev: selectedState,
           next: newSelectedState
         });
@@ -223,7 +222,6 @@ export function useSelectorPerformance(name: string) {
     lastRender.current = now;
     
     if (process.env.NODE_ENV === 'development') {
-      console.log(`[SelectorPerformance:${name}] Render #${renderCount.current}, Time since last: ${timeSinceLastRender}ms`);
     }
   });
   

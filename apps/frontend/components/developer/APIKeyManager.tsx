@@ -64,11 +64,9 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
 
         // Load user's assigned groups and flatten permissions
         const groupsResponse = await client.getMyGroups();
-        console.log('My Groups API Response:', groupsResponse);
         if (groupsResponse.success && groupsResponse.data) {
           const rawData = groupsResponse.data as any;
           const groups = rawData.data?.groups || rawData.groups || [];
-          console.log('User groups:', groups.length, groups);
 
           // Flatten permissions from all groups into unique list
           const allPermissions = new Set<string>();
@@ -79,11 +77,9 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
           });
 
           const permissionsList = Array.from(allPermissions).sort();
-          console.log('Available permissions:', permissionsList.length, permissionsList);
           setAvailablePermissions(permissionsList);
           setHasGroups(groups.length > 0);
         } else {
-          console.log('Groups API failed or no data:', groupsResponse);
         }
       } catch (error) {
         console.error('Failed to load data:', error);
@@ -155,7 +151,6 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
         const fullKey = newKey.full_key || '';
         const keyId = newKey.api_key?.id || newKey.id || '';
 
-        console.log('Created API key response:', { rawData, newKey, fullKey, keyId });
 
         setGeneratedKey(fullKey || 'Key created - check your keys');
         setShowNewKey(true);
@@ -212,7 +207,6 @@ export function APIKeyManager({ currentUser, onStatsChange }: APIKeyManagerProps
   };
 
   // User can create keys if they have any groups assigned
-  console.log('Permissions state:', availablePermissions.length, 'hasGroups:', hasGroups, 'isLoading:', isLoading);
   const canCreateKeys = hasGroups || currentUser.role === 'admin';
 
   return (

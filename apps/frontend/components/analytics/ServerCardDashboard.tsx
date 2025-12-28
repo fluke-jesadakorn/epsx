@@ -50,7 +50,7 @@ const renderStockCard = (cardData: SymbolCardData) => {
   const latestQuarter = cardData.quarterly_performance?.[0];
   const isPremium = cardData.rank <= 5;
 
-  
+
   return (
     <StockDataCard
       key={cardData.symbol}
@@ -59,9 +59,9 @@ const renderStockCard = (cardData: SymbolCardData) => {
       epsGrowth={latestQuarter?.eps_growth || 0}
       price={latestQuarter?.price || 0}
       currency={cardData.currency}
-          daysUntilNextAction={
-            cardData.next_quarter_estimate?.days_until_announcement ?? 0
-          }
+      daysUntilNextAction={
+        cardData.next_quarter_estimate?.days_until_announcement ?? 0
+      }
       variant={isPremium ? 'premium' : 'standard'}
     />
   );
@@ -71,7 +71,7 @@ const Top5SpecialBox = ({ top5Data }: { top5Data: SymbolCardData[] }) => {
   return (
     <div className="mb-8">
       {/* Top 5 cards grid using shared StockDataCard */}
-      <div className="flex flex-wrap items-stretch justify-center gap-3 px-2 sm:gap-4 sm:px-0 overflow-visible">
+      <div className="grid grid-cols-1 justify-items-center gap-4 px-2 sm:grid-cols-2 sm:px-0 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-5 overflow-visible">
         {top5Data.map(cardData => renderStockCard(cardData))}
       </div>
     </div>
@@ -84,8 +84,8 @@ async function CardGrid({ params, isPortfolio }: { params: EPSQueryParams; isPor
     ...params,
     limit: params.page === 1 ? params.limit + 5 : params.limit
   };
-  
-  const data = isPortfolio 
+
+  const data = isPortfolio
     ? await getPortfolioData(adjustedParams)
     : await getAnalyticsData(adjustedParams);
 
@@ -108,7 +108,7 @@ async function CardGrid({ params, isPortfolio }: { params: EPSQueryParams; isPor
         <Top5SpecialBox top5Data={top5Data} />
       )}
 
-      <div className="flex flex-wrap items-stretch justify-center gap-3 px-2 sm:gap-6 sm:px-0">
+      <div className="grid grid-cols-1 justify-items-center gap-4 px-2 sm:grid-cols-2 sm:gap-6 sm:px-0 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-5">
         {data.rankings
           .filter(cardData => cardData.rank > 5) // Skip ranks 1-5 to avoid duplication with Top 5 section
           .map(cardData =>

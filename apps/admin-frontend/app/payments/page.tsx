@@ -303,8 +303,8 @@ const PaymentsPage: React.FC = () => {
           <button
             onClick={() => setSelectedTab('payments')}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${selectedTab === 'payments'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
           >
             <div className="flex items-center space-x-2">
@@ -316,8 +316,8 @@ const PaymentsPage: React.FC = () => {
           <button
             onClick={() => setSelectedTab('subscriptions')}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${selectedTab === 'subscriptions'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
           >
             <div className="flex items-center space-x-2">
@@ -329,8 +329,8 @@ const PaymentsPage: React.FC = () => {
           <button
             onClick={() => setSelectedTab('analytics')}
             className={`py-2 px-1 border-b-2 font-medium text-sm ${selectedTab === 'analytics'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              ? 'border-blue-500 text-blue-600'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
           >
             <div className="flex items-center space-x-2">
@@ -598,25 +598,134 @@ const PaymentsPage: React.FC = () => {
       {/* Subscriptions Tab Content */}
       {!loading && !error && selectedTab === 'subscriptions' && (
         <div className="bg-white shadow rounded-lg overflow-hidden">
-          <div className="text-center py-12">
-            <UserGroupIcon className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">Subscription management</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Subscription management interface will be implemented here.
-            </p>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    User
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Plan
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Started
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Expires
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Auto Renew
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {_subscriptions.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                      <UserGroupIcon className="mx-auto h-12 w-12 text-gray-400 mb-2" />
+                      <p>No subscriptions found</p>
+                    </td>
+                  </tr>
+                ) : (
+                  _subscriptions.map((sub) => (
+                    <tr key={sub.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div className="font-mono text-xs" title={sub.user_id}>
+                          {sub.user_id.substring(0, 10)}...{sub.user_id.substring(sub.user_id.length - 4)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <span className="font-medium">{sub.plan_name}</span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800`}>
+                          {sub.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {sub.started_at ? formatDate(sub.started_at) : '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {sub.expires_at ? formatDate(sub.expires_at) : 'Never'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {sub.auto_renew ? (
+                          <CheckCircleIcon className="w-5 h-5 text-green-500" />
+                        ) : (
+                          <XCircleIcon className="w-5 h-5 text-gray-400" />
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <div className="flex space-x-2">
+                          <button className="text-blue-600 hover:text-blue-900">
+                            Manage
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
       {/* Analytics Tab Content */}
-      {!loading && !error && selectedTab === 'analytics' && (
-        <div className="bg-white shadow rounded-lg overflow-hidden">
-          <div className="text-center py-12">
-            <ChartBarIcon className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">Payment analytics</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Analytics dashboard will be implemented here.
-            </p>
+      {!loading && !error && selectedTab === 'analytics' && stats && (
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Transaction Overview</h3>
+              <dl className="grid grid-cols-2 gap-4">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <dt className="text-sm font-medium text-gray-500">Total Transactions</dt>
+                  <dd className="mt-1 text-2xl font-semibold text-gray-900">{stats.total_payments}</dd>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <dt className="text-sm font-medium text-green-800">Successful</dt>
+                  <dd className="mt-1 text-2xl font-semibold text-green-900">{stats.successful_payments}</dd>
+                </div>
+                <div className="bg-yellow-50 p-4 rounded-lg">
+                  <dt className="text-sm font-medium text-yellow-800">Pending</dt>
+                  <dd className="mt-1 text-2xl font-semibold text-yellow-900">{stats.pending_payments}</dd>
+                </div>
+                <div className="bg-red-50 p-4 rounded-lg">
+                  <dt className="text-sm font-medium text-red-800">Failed</dt>
+                  <dd className="mt-1 text-2xl font-semibold text-red-900">{stats.failed_payments}</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div className="bg-white p-6 rounded-lg shadow">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Revenue Overview</h3>
+              <dl className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+                  <dt className="text-sm font-medium text-blue-800">Total Revenue</dt>
+                  <dd className="text-2xl font-bold text-blue-900">{formatCurrency(stats.total_amount)}</dd>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <dt className="text-sm font-medium text-gray-600">Revenue Today</dt>
+                  <dd className="text-xl font-semibold text-gray-900">{formatCurrency(stats.revenue_today)}</dd>
+                </div>
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <dt className="text-sm font-medium text-gray-600">Avg. Transaction</dt>
+                  <dd className="text-xl font-semibold text-gray-900">{formatCurrency(stats.average_payment_amount)}</dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Recent Activity</h3>
+            <p className="text-gray-500 text-sm">Detailed historical analytics and charts coming soon.</p>
           </div>
         </div>
       )}

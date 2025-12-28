@@ -172,8 +172,6 @@ export default function WalletDetailPage() {
             const toRemove = originalPermissions.filter(p => !selectedPermissions.includes(p));
 
             // TODO: Call API to update permissions
-            console.log('Permissions to add:', toAdd);
-            console.log('Permissions to remove:', toRemove);
 
             // Simulate API call
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -192,7 +190,6 @@ export default function WalletDetailPage() {
         setIsActionLoading(true);
         try {
             // TODO: Call API to disable wallet
-            console.log('Disable wallet:', data);
             await new Promise(resolve => setTimeout(resolve, 1000));
             toast.success('Wallet disabled successfully');
             setShowDisableModal(false);
@@ -208,7 +205,6 @@ export default function WalletDetailPage() {
         setIsActionLoading(true);
         try {
             // TODO: Call API to re-enable wallet
-            console.log('Re-enable wallet:', data);
             await new Promise(resolve => setTimeout(resolve, 1000));
             toast.success('Wallet re-enabled successfully');
             setShowReenableModal(false);

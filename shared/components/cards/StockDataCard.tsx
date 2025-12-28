@@ -111,7 +111,7 @@ const PremiumStockCard = ({
   return (
     <div
       className={cn(
-        'relative w-full max-w-[350px] min-w-[240px] flex-shrink-0 overflow-visible rounded-3xl sm:min-w-[300px]',
+        'relative w-full max-w-[600px] flex-shrink-0 overflow-visible rounded-3xl',
         premiumStyle.container,
         premiumStyle.glow,
         className
@@ -222,7 +222,7 @@ const StandardStockCard = ({
   return (
     <div
       className={cn(
-        'relative w-full max-w-[320px] min-w-[240px] flex-shrink-0 overflow-hidden rounded-3xl border-2 bg-gradient-to-br from-white via-slate-50 to-gray-100 dark:from-gray-800 dark:via-gray-700 dark:to-gray-900 shadow-2xl sm:min-w-[280px]',
+        'relative w-full max-w-[600px] flex-shrink-0 overflow-hidden rounded-3xl border-2 bg-gradient-to-br from-white via-slate-50 to-gray-100 dark:from-gray-800 dark:via-gray-700 dark:to-gray-900 shadow-2xl',
         'border-slate-300 dark:border-slate-600',
         className
       )}

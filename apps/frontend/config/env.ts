@@ -2,15 +2,14 @@
 // Pure Web3 authentication with shared configuration system
 // Migrated to use shared/config compatibility layers
 
-import { 
-  serverEnv, 
-  clientEnv, 
-  env, 
-  urls,
-  isServer,
+import {
+  clientEnv,
+  env,
   isDev,
   isProd,
-  isStaging
+  isStaging,
+  serverEnv,
+  urls
 } from '../../../shared/env/schema';
 
 /**
@@ -22,17 +21,17 @@ export const config = {
   backendUrl: env.BACKEND_URL,
   appUrl: env.APP_URL,
   adminUrl: env.ADMIN_URL,
-  
+
   // Web3 configuration (use shared auth config for full Web3 setup)
   web3: {
     networkId: process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK || 'testnet',
     walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'epsx-web3-frontend',
   },
-  
+
   // Web3 blockchain configuration
   blockchainNetwork: env.BLOCKCHAIN_NETWORK,
   walletConnectProjectId: env.WALLETCONNECT_PROJECT_ID,
-  
+
   // Environment flags
   isDev,
   isProd,
@@ -47,15 +46,15 @@ export const serverConfig = {
   get backendUrl() {
     return env.BACKEND_URL;
   },
-  
+
   get siteUrl() {
     return env.APP_URL;
   },
-  
+
   get databaseUrl() {
     return env.DATABASE_URL;
   },
-  
+
   get redisUrl() {
     return env.REDIS_URL;
   }
@@ -86,22 +85,11 @@ export const enterpriseUrls = {
 /**
  * Validation and debugging (development only)
  */
-if (typeof window !== 'undefined' && isDev) {
-  console.log('✅ Web3 Enterprise Frontend Configuration Loaded');
-  console.log('🔧 Client Configuration:', {
-    backendUrl: config.backendUrl,
-    appUrl: config.appUrl,
-    adminUrl: config.adminUrl,
-    web3Network: config.web3.networkId,
-    environment: process.env.NODE_ENV
-  });
-}
+// Debug logging removed - use browser devtools for environment inspection
 
 // Export unified schema components for direct access if needed
-export { serverEnv, clientEnv, env, urls };
+export { clientEnv, env, serverEnv, urls };
 
 // Export for Web3 enterprise system
-export { env as environment };
-export { config as clientConfig };
-export { enterpriseUrls as apiUrls };
+export { enterpriseUrls as apiUrls, config as clientConfig, env as environment };
 export default config;

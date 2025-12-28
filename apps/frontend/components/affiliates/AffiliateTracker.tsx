@@ -150,7 +150,6 @@ export function AffiliateTracker({ children, onAffiliateDetected }: AffiliateTra
         // Ignore errors for tracking
       });
 
-      console.log('🎯 Affiliate referral tracked:', trackingData);
     } catch (error) {
       console.error('Error tracking referral click:', error);
     }

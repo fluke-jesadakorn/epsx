@@ -1,8 +1,8 @@
 'use client'
 
-import { ComponentType } from 'react'
-import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth'
+import { useRouter } from 'next/navigation'
+import { ComponentType } from 'react'
 
 /**
  * Higher-order component for payment authentication
@@ -15,17 +15,17 @@ export function withPaymentAuth<P extends object>(
     const router = useRouter()
     const { user, isLoading } = useAuth()
     const isAuthenticated = !!user
-    
+
     // Payment access means user has basic permissions
     // Handle both array and object permission formats
     const hasPaymentAccess = user?.permissions ?
       (Array.isArray(user.permissions)
         ? user.permissions.some(p =>
-            p.includes('epsx:') || p.includes('premium:') || p.includes('payments:')
-          )
+          p.includes('epsx:') || p.includes('premium:') || p.includes('payments:')
+        )
         : Object.keys(user.permissions).some(p =>
-            p.includes('epsx:') || p.includes('premium:') || p.includes('payments:')
-          )
+          p.includes('epsx:') || p.includes('premium:') || p.includes('payments:')
+        )
       ) : true // If authenticated, allow payment access by default
 
     // Show loading state
@@ -62,15 +62,6 @@ export function withPaymentAuth<P extends object>(
         </div>
       )
     }
-
-    // Debug log to check permissions
-    console.log('withPaymentAuth Debug:', {
-      isAuthenticated,
-      hasPermissions: !!user?.permissions,
-      permissions: user?.permissions,
-      permissionsType: Array.isArray(user?.permissions) ? 'array' : typeof user?.permissions,
-      hasPaymentAccess
-    });
 
     // Show payment access required message
     if (!hasPaymentAccess) {

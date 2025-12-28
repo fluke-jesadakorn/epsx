@@ -157,7 +157,6 @@ export async function getServerAnalytics(filters: EPSQueryParams): Promise<Serve
       result = await analyticsClient.getAuthenticatedRankings(analyticsFilters);
     } catch (authError) {
       // If authentication failed, try public endpoint
-      console.log('Authenticated analytics failed, trying public endpoint:', authError);
       try {
         result = await analyticsClient.getPublicRankings(analyticsFilters);
       } catch (publicError) {
@@ -271,7 +270,6 @@ export async function getServerFilterOptions(): Promise<FilterOptions> {
       result = await analyticsClient.getAuthenticatedFilters();
     } catch (error) {
       // If authentication failed, try public filters
-      console.log('Authenticated filters failed, trying public endpoint');
       result = await analyticsClient.getPublicFilters();
     }
 
@@ -322,7 +320,6 @@ export async function getServerPortfolio(filters: EPSQueryParams): Promise<Serve
       result = await analyticsClient.getAuthenticatedRankings(analyticsFilters);
     } catch (error) {
       // Fallback to public with positive growth filter
-      console.log('Authenticated portfolio failed, trying public endpoint');
       result = await analyticsClient.getPublicRankings(analyticsFilters);
     }
 

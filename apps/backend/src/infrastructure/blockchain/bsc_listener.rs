@@ -23,6 +23,7 @@ impl BscEventListener {
         contract_address: String,
         start_block: u64,
         poll_interval_secs: u64,
+        supported_tokens: Vec<String>,
     ) -> Result<Self, AppError> {
         let provider = Provider::<Http>::try_from(&rpc_url)
             .map_err(|e| AppError::infrastructure_error(format!("Failed to create provider: {}", e)))?;
@@ -30,7 +31,11 @@ impl BscEventListener {
         let contract_address = contract_address.parse::<H160>()
             .map_err(|e| AppError::infrastructure_error(format!("Invalid contract address: {}", e)))?;
 
-        let payment_verifier = Arc::new(PaymentVerifier::new(rpc_url.clone(), contract_address.to_string())?);
+        let payment_verifier = Arc::new(PaymentVerifier::new(
+            rpc_url.clone(), 
+            contract_address.to_string(),
+            supported_tokens
+        )?);
 
         // PaymentReceived event topic
         // keccak256("PaymentReceived(address,uint256,address,uint256,uint256,uint256)")
@@ -183,6 +188,7 @@ mod tests {
             "0x1234567890123456789012345678901234567890".to_string(),
             0,
             3,
+            vec![], // Empty tokens list for testing
         );
 
         assert!(listener.is_ok());

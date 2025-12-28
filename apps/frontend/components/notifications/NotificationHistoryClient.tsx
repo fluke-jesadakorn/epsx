@@ -12,11 +12,9 @@ import {
 } from '@/components/ui/select'
 // TODO: Implement these functions when backend is ready
 const markAllNotificationsRead = async () => {
-  console.log('Mark all notifications as read - stub implementation');
 };
 
 const markNotificationRead = async (notificationId: string) => {
-  console.log(`Mark notification ${notificationId} as read - stub implementation`);
 };
 import { Notification } from '@/lib/api'
 import { Filter, RefreshCw, Search, Settings } from 'lucide-react'

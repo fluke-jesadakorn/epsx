@@ -1,15 +1,14 @@
 'use client';
 
-import { ReactNode, useState, useCallback } from 'react';
 import { useTouchGestures } from '@/hooks/useTouchGestures';
+import { ReactNode, useCallback, useState } from 'react';
 // PullToRefresh component not available - using simple implementation
 import { cn } from '@/lib/utils';
-import { 
-  RefreshCw, 
-  Heart, 
-  Share2, 
-  Bookmark, 
+import {
+  Bookmark,
+  Heart,
   MoreHorizontal,
+  Share2,
   ZoomIn,
   ZoomOut
 } from 'lucide-react';
@@ -25,35 +24,35 @@ interface TouchAction {
 interface EnhancedTouchWrapperProps {
   children: ReactNode;
   className?: string;
-  
+
   // Pull to refresh
   enablePullToRefresh?: boolean;
   onRefresh?: () => Promise<void>;
-  
+
   // Swipe actions
   enableSwipeActions?: boolean;
   leftActions?: TouchAction[];
   rightActions?: TouchAction[];
-  
+
   // Pinch to zoom
   enablePinchZoom?: boolean;
   onZoomChange?: (scale: number) => void;
-  
+
   // Long press
   enableLongPress?: boolean;
   onLongPress?: () => void;
-  
+
   // Double tap
   enableDoubleTap?: boolean;
   onDoubleTap?: () => void;
-  
+
   // Quick actions
   enableQuickActions?: boolean;
   quickActions?: TouchAction[];
-  
+
   // Haptic feedback
   enableHaptics?: boolean;
-  
+
   disabled?: boolean;
 }
 
@@ -84,66 +83,66 @@ export function EnhancedTouchWrapper({
   // Haptic feedback helper
   const triggerHaptic = useCallback((type: 'light' | 'medium' | 'heavy' = 'light') => {
     if (!enableHaptics || !navigator.vibrate) return;
-    
+
     const patterns = {
       light: [10],
       medium: [20],
       heavy: [30]
     };
-    
+
     navigator.vibrate(patterns[type]);
   }, [enableHaptics]);
 
   // Enhanced gesture handlers
   const handleSwipeLeft = useCallback(() => {
     if (!enableSwipeActions || rightActions.length === 0) return;
-    
+
     triggerHaptic('light');
     setShowSwipeHint(true);
-    
+
     // Auto-hide hint after animation
     setTimeout(() => setShowSwipeHint(false), 2000);
   }, [enableSwipeActions, rightActions.length, triggerHaptic]);
 
   const handleSwipeRight = useCallback(() => {
     if (!enableSwipeActions || leftActions.length === 0) return;
-    
+
     triggerHaptic('light');
     setShowSwipeHint(true);
-    
+
     setTimeout(() => setShowSwipeHint(false), 2000);
   }, [enableSwipeActions, leftActions.length, triggerHaptic]);
 
   const handleLongPress = useCallback(() => {
     if (!enableLongPress) return;
-    
+
     triggerHaptic('heavy');
     setLongPressTriggered(true);
-    
+
     if (enableQuickActions && quickActions.length > 0) {
       setIsActionMenuOpen(true);
     }
-    
+
     onLongPress?.();
-    
+
     // Reset visual feedback
     setTimeout(() => setLongPressTriggered(false), 200);
   }, [enableLongPress, enableQuickActions, quickActions.length, onLongPress, triggerHaptic]);
 
   const handleDoubleTap = useCallback(() => {
     if (!enableDoubleTap) return;
-    
+
     triggerHaptic('medium');
     onDoubleTap?.();
   }, [enableDoubleTap, onDoubleTap, triggerHaptic]);
 
   const handlePinch = useCallback((scale: number) => {
     if (!enablePinchZoom) return;
-    
+
     const newZoom = Math.max(0.5, Math.min(3, scale));
     setCurrentZoom(newZoom);
     onZoomChange?.(newZoom);
-    
+
     // Light haptic feedback during pinch
     if (Math.abs(newZoom - currentZoom) > 0.1) {
       triggerHaptic('light');
@@ -152,7 +151,7 @@ export function EnhancedTouchWrapper({
 
   const handlePinchEnd = useCallback(() => {
     if (!enablePinchZoom) return;
-    
+
     // Snap to common zoom levels
     let snapZoom = currentZoom;
     if (currentZoom < 0.75) snapZoom = 0.5;
@@ -160,7 +159,7 @@ export function EnhancedTouchWrapper({
     else if (currentZoom < 1.75) snapZoom = 1.5;
     else if (currentZoom < 2.5) snapZoom = 2;
     else snapZoom = 3;
-    
+
     if (Math.abs(snapZoom - currentZoom) > 0.1) {
       setCurrentZoom(snapZoom);
       onZoomChange?.(snapZoom);
@@ -191,21 +190,21 @@ export function EnhancedTouchWrapper({
       icon: <Heart className="h-5 w-5" />,
       label: 'Like',
       color: 'bg-red-500',
-      action: () => console.log('Like action')
+      action: () => { }
     },
     {
       id: 'share',
       icon: <Share2 className="h-5 w-5" />,
       label: 'Share',
       color: 'bg-blue-500',
-      action: () => console.log('Share action')
+      action: () => { }
     },
     {
       id: 'save',
       icon: <Bookmark className="h-5 w-5" />,
       label: 'Save',
       color: 'bg-green-500',
-      action: () => console.log('Save action')
+      action: () => { }
     }
   ];
 
@@ -273,11 +272,11 @@ export function EnhancedTouchWrapper({
       {isActionMenuOpen && enableQuickActions && (
         <>
           {/* Backdrop */}
-          <div 
+          <div
             className="fixed inset-0 bg-black/50 z-40 animate-fadeIn"
             onClick={() => setIsActionMenuOpen(false)}
           />
-          
+
           {/* Actions Menu */}
           <div className="fixed bottom-4 left-4 right-4 z-50 animate-slideInUp">
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-2xl border">
@@ -290,7 +289,7 @@ export function EnhancedTouchWrapper({
                   <MoreHorizontal className="h-5 w-5" />
                 </button>
               </div>
-              
+
               <div className="grid grid-cols-3 gap-3">
                 {actionsToShow.map((action) => (
                   <button
@@ -326,11 +325,11 @@ export function EnhancedTouchWrapper({
           >
             <ZoomIn className="h-5 w-5" />
           </button>
-          
+
           <div className="px-3 py-1 bg-white dark:bg-gray-800 rounded-full shadow-lg text-sm font-medium">
             {Math.round(currentZoom * 100)}%
           </div>
-          
+
           <button
             onClick={() => {
               const newZoom = Math.max(0.5, currentZoom - 0.5);
@@ -342,7 +341,7 @@ export function EnhancedTouchWrapper({
           >
             <ZoomOut className="h-5 w-5" />
           </button>
-          
+
           {currentZoom !== 1 && (
             <button
               onClick={() => {

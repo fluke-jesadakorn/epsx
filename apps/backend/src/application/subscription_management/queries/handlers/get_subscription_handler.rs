@@ -38,7 +38,7 @@ impl QueryHandler<GetSubscriptionQuery> for GetSubscriptionQueryHandler {
             status: format!("{:?}", subscription.status()),
             started_at: subscription.started_at(),
             expires_at: subscription.expires_at(),
-            auto_renew: subscription.auto_renew(),
+            days_until_expiry: subscription.days_until_expiry(),
             created_at: subscription.created_at(),
         })
     }

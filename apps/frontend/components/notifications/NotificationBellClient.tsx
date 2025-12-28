@@ -65,7 +65,6 @@ export function NotificationBellClient() {
   const handleDeleteNotification = async (e: React.MouseEvent, _notificationId: string) => {
     e.stopPropagation()
     // TODO: Implement when deleteNotification API is available
-    console.log('Delete notification not yet implemented')
   }
 
   return (

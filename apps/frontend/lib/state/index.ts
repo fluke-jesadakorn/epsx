@@ -30,9 +30,6 @@ export const analyticsMiddleware = (action: any, prevState: any, nextState: any,
 // Logging middleware for debugging state changes
 export const loggingMiddleware = (action: any, prevState: any, nextState: any, store: string) => {
   if (process.env.NODE_ENV === 'development') {
-    console.log(`[${store}] Action:`, action.type, action);
-    console.log(`[${store}] Previous State:`, prevState);
-    console.log(`[${store}] Next State:`, nextState);
   }
 };
 

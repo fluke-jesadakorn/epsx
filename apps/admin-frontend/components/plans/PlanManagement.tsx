@@ -35,17 +35,14 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
   const loadPlans = async () => {
     try {
       setLoading(true)
-      console.log('[PlanManagement] Loading plans...')
       const apiClient = createAdminApiClient()
       const plansClient = createPlansClient(apiClient)
 
-      console.log('[PlanManagement] Making API request to /api/admin/plans')
       const response = await plansClient.getPlans({
         limit: 100,
         plan_category: filterCategory === 'all' ? undefined : filterCategory
       })
 
-      console.log('[PlanManagement] Full API response:', JSON.stringify(response, null, 2))
 
       if (isApiSuccess(response)) {
         // Backend returns: { success, data: { plans: [...], has_more, total_count }, message }
@@ -55,13 +52,6 @@ export function PlanManagement({ currentUser }: PlanManagementProps) {
 
         // Extract plans from backend response structure
         const plansData = backendResponse?.data?.plans || backendResponse?.plans || []
-
-        console.log('[PlanManagement] Backend response structure:', {
-          hasDataField: !!backendResponse?.data,
-          hasPlansDirectly: !!backendResponse?.plans,
-          plansCount: plansData.length
-        })
-        console.log('[PlanManagement] Extracted plans:', plansData)
 
         setPlans(plansData)
       } else {

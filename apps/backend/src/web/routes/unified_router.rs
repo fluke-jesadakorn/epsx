@@ -504,6 +504,7 @@ impl UnifiedRouteBuilder {
             cancel_subscription_handler,
             renew_subscription_handler,
             check_subscription_status_handler,
+            get_upgrade_preview_handler,
             // Admin payment handlers
             admin_list_payments_handler,
             admin_get_payment_details_handler,
@@ -529,6 +530,7 @@ impl UnifiedRouteBuilder {
             .route("/subscriptions/{id}/cancel", post(cancel_subscription_handler))
             .route("/subscriptions/{id}/renew", post(renew_subscription_handler))
             .route("/subscriptions/check/{plan_id}", get(check_subscription_status_handler))
+            .route("/subscriptions/upgrade-preview", get(get_upgrade_preview_handler))
             .with_state(app_state.clone());
 
         // Admin payment management routes (admin permissions required)

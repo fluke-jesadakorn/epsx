@@ -371,7 +371,6 @@ export const groupMgmt = {
       }
 
       const apiUrl = `/api/v1/admin/wallets/search?${params.toString()}`;
-      console.log('[searchUsers] API URL:', apiUrl);
 
       const res = await adminApiClient.get<any>(apiUrl);
 

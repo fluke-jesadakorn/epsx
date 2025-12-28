@@ -97,7 +97,6 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
         setWeb3WalletAddress(normalizedAddress);
       }
 
-      console.log('✅ Wallet connected - synced to Web3 auth store:', address);
     }
   }, [isConnected, address, setWeb3Connected, setWeb3WalletAddress, storeIsConnected, storeWalletAddress]);
 
@@ -105,14 +104,6 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
     if (!isHydrated) {
       setIsHydrated(true);
     }
-    console.log('🔍 WalletProviderIcon Debug:', {
-      isConnected,
-      address,
-      connector: connector?.id,
-      isHydrated: true,
-      isInitialized,
-      isAuthenticated
-    });
   }, [isConnected, address, connector, isInitialized, isAuthenticated, isHydrated]);
 
   // Sync disconnect state: Clear web3 auth store when wallet disconnects
@@ -132,7 +123,6 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
 
       setAuthRetryCount(0); // Reset retry count
       setLastAuthError(null); // Clear last error
-      console.log('🔌 Wallet disconnected - cleared web3 auth store');
     }
   }, [isConnected, address, setWeb3Connected, setWeb3Authenticated, setWeb3WalletAddress, storeIsConnected, storeIsAuthenticated, storeWalletAddress]);
 
@@ -334,17 +324,14 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
               if (!address) return;
               try {
                 setIsAuthenticating(true);
-                console.log('🔐 Manual sign-in started for:', address);
 
                 // Step 1: Request challenge from backend
                 const challenge = await requestChallenge(address);
-                console.log('✅ Challenge received, prompting user to sign...');
 
                 // Step 2: Prompt user to sign the SIWE message
                 const signature = await signMessageAsync({
                   message: challenge.message,
                 });
-                console.log('✅ Message signed by user');
 
                 // Step 3: Complete authentication with signature
                 const result = await authenticateWithWallet(
@@ -355,7 +342,6 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
                 );
 
                 if (result.success) {
-                  console.log('✅ Manual sign-in successful!');
                   setAuthRetryCount(0);
                   setLastAuthError(null);
                   setWeb3Authenticated(true);
@@ -367,7 +353,6 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
               } catch (error: any) {
                 console.error('❌ Sign-in error:', error);
                 if (error?.code === 4001 || error?.message?.includes('User rejected')) {
-                  console.log('ℹ️ User rejected signature request');
                 } else {
                   setLastAuthError(error?.message || 'Sign-in failed');
                 }
@@ -393,7 +378,6 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
             onClick={() => {
               setAuthRetryCount(0);
               setLastAuthError(null);
-              console.log('🔄 Cleared auth error state');
             }}
             className="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-orange-50/80 dark:hover:bg-slate-800/40"
           >

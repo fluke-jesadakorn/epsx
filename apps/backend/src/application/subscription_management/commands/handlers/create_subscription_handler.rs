@@ -74,7 +74,6 @@ impl CommandHandler<CreateSubscriptionCommand> for CreateSubscriptionCommandHand
             wallet_address: wallet_address.clone(),
             plan_id: plan_id.clone(),
             expires_at,
-            auto_renew: command.auto_renew,
             payment_method_id: command.payment_method_id,
         });
 

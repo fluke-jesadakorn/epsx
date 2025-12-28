@@ -152,7 +152,6 @@ export function WalletHub({ className }: WalletHubProps) {
         setIsActionLoading(true);
         try {
             // TODO: Call API
-            console.log('Disable wallet:', data);
             await new Promise(resolve => setTimeout(resolve, 1000));
             setDisableModalWallet(null);
             await loadData();
@@ -165,7 +164,6 @@ export function WalletHub({ className }: WalletHubProps) {
         setIsActionLoading(true);
         try {
             // TODO: Call API
-            console.log('Re-enable wallet:', data);
             await new Promise(resolve => setTimeout(resolve, 1000));
             setReenableModalWallet(null);
             await loadData();
@@ -322,10 +320,10 @@ export function WalletHub({ className }: WalletHubProps) {
             <BulkActionsBar
                 selectedCount={selectedWallets.size}
                 onClearSelection={handleClearSelection}
-                onAddPermission={() => console.log('Bulk add permission')}
-                onRemovePermission={() => console.log('Bulk remove permission')}
-                onDisable={() => console.log('Bulk disable')}
-                onNotify={() => console.log('Bulk notify')}
+                onAddPermission={() => { }}
+                onRemovePermission={() => { }}
+                onDisable={() => { }}
+                onNotify={() => { }}
             />
 
 

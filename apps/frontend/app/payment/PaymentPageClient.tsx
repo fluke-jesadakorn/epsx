@@ -2,15 +2,11 @@
 
 import dynamic from 'next/dynamic';
 import { Suspense } from 'react';
-import { withPaymentAuth } from '@/components/sections/payment/withPaymentAuth';
 
 const OneClickPayment = dynamic(
   () => import('@/components/features/payment/OneClickPayment'),
   { ssr: false },
 );
-
-// Wrap OneClickPayment with authentication check
-const AuthenticatedOneClickPayment = withPaymentAuth(OneClickPayment);
 
 interface PaymentPageClientProps {
   selectedPackageId: string;
@@ -29,7 +25,7 @@ export function PaymentPageClient({ selectedPackageId }: PaymentPageClientProps)
           </div>
         }
       >
-        <AuthenticatedOneClickPayment className="mb-12" preselectedPackage={selectedPackageId} />
+        <OneClickPayment className="mb-12" preselectedPackage={selectedPackageId} />
       </Suspense>
     </>
   );

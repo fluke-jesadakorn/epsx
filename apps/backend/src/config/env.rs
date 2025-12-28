@@ -47,6 +47,9 @@ pub struct Config {
     // Infrastructure (1 variable)
     pub redis_url: Option<String>,
     pub log_level: String,
+
+    // Token whitelist
+    pub supported_payment_tokens: Vec<String>,
 }
 
 impl Config {
@@ -142,6 +145,16 @@ impl Config {
         let redis_url = get_optional("REDIS_URL");
         let log_level = get_with_default("LOG_LEVEL", "info");
 
+        // Parse supported tokens from comma-separated env var or strict defaults
+        let supported_tokens_str = get_with_default("SUPPORTED_PAYMENT_TOKENS", 
+            "0x55d398326f99059fF775485246999027B3197955,0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d,0x337610d27c682E347C9cD60BD4b3b107C9d34dDD,0x64544969ed7EBf5f083679233325356EbE738930");
+        
+        let supported_payment_tokens = supported_tokens_str
+            .split(',')
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .collect();
+
         if !errors.is_empty() {
             return Err(errors);
         }
@@ -163,6 +176,7 @@ impl Config {
             blockchain_network,
             redis_url,
             log_level,
+            supported_payment_tokens,
         })
     }
 
@@ -248,6 +262,10 @@ pub fn get_fallback_config() -> Config {
         blockchain_network: "testnet".to_string(),
         redis_url: None,
         log_level: "info".to_string(),
+        supported_payment_tokens: vec![
+            "0x55d398326f99059fF775485246999027B3197955".to_string(), // USDT BSC
+            "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d".to_string(), // USDC BSC
+        ],
     }
 }
 

@@ -50,7 +50,6 @@ export function AdminNotificationBell() {
       console.warn('Admin SSE connection error:', error)
     },
     onConnect: () => {
-      console.log('✅ Admin SSE connected')
     },
   })
 

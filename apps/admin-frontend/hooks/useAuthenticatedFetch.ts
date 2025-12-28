@@ -19,28 +19,15 @@ export function useAuthenticatedFetch() {
     const token = user?.access;
 
     // Debug: Log token information for troubleshooting
-    console.log(`🔐 Authenticated Request: ${endpoint}`);
-    console.log('👤 User exists:', !!user);
-    console.log('👤 User wallet:', user?.wallet_address?.slice(0, 8) + '...');
-    console.log('🎫 Token exists:', !!token);
-    console.log('🎫 Token length:', token?.length || 0);
-    console.log('🎫 Token preview:', token ? `${token.substring(0, 20)}...` : 'null');
-    console.log('🎫 Token structure:', token ? (token.includes('.') ? 'JWT format (3 parts)' : 'Not JWT format') : 'null');
 
     // Check JWT structure
     if (token && token.includes('.')) {
       const parts = token.split('.');
-      console.log('🎫 JWT parts:', parts.length);
       if (parts.length === 3) {
         try {
           const header = JSON.parse(atob(parts[0] || ''));
           const payload = JSON.parse(atob(parts[1] || ''));
-          console.log('🎫 JWT header:', header);
-          console.log('🎫 JWT payload:', payload);
-          console.log('🎫 JWT expires:', payload.exp ? new Date(payload.exp * 1000).toISOString() : 'no exp');
-          console.log('🎫 JWT expired:', payload.exp ? (Date.now() / 1000 > payload.exp) : 'unknown');
         } catch (e) {
-          console.log('❌ JWT parsing error:', e);
         }
       }
     }

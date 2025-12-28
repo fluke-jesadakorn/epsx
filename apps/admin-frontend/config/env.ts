@@ -103,14 +103,7 @@ export const serverConfig = {
 /**
  * Development validation
  */
-if (typeof window !== 'undefined' && isDev) {
-  console.log('Environment Configuration:', {
-    adminUrl: config.adminUrl,
-    backendUrl: config.backendUrl,
-    clientId: config.clientId,
-    environment: process.env.NODE_ENV
-  });
-}
+// Debug logging removed - use browser devtools for environment inspection
 
 // Export unified schema components for direct access if needed
 export { clientEnv, env, serverEnv, urls };

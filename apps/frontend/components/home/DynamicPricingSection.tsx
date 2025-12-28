@@ -89,7 +89,6 @@ const DynamicPricingSection = () => {
           apiUrl += `?affiliate_code=${encodeURIComponent(affiliateCode)}`;
         }
 
-        console.log('[DynamicPricing] Fetching plans from:', apiUrl);
 
         const response = await fetch(apiUrl, {
           method: 'GET',
@@ -98,7 +97,6 @@ const DynamicPricingSection = () => {
           },
         });
 
-        console.log('[DynamicPricing] Response status:', response.status);
 
         if (!response.ok) {
           const errorText = await response.text();
@@ -111,7 +109,6 @@ const DynamicPricingSection = () => {
         }
 
         const result = await response.json();
-        console.log('[DynamicPricing] Plans received:', result);
 
         if (result.success && result.data && Array.isArray(result.data)) {
           const planData = result.data
@@ -154,12 +151,6 @@ const DynamicPricingSection = () => {
 
           setPersonalPlans(personal);
           setApiPlans(api);
-
-          console.log('[DynamicPricing] Plans loaded from API:', {
-            total: planData.length,
-            personal: personal.length,
-            api: api.length
-          });
 
           // TODO: Implement affiliate info fetching when backend endpoint is available
           // if (affiliateCode && planData.length > 0) {

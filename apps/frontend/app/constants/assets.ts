@@ -1,4 +1,4 @@
-import type { AssetInfo } from '@/types/payment.d'
+import type { AssetInfo } from '@/shared/types/payment'
 
 export const supportedAssets: AssetInfo[] = [
   {

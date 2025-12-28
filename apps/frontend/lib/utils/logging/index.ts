@@ -199,7 +199,6 @@ export class Logger {
     } catch (error) {
       // Fallback to console.log if specific method fails
       if (console.log && typeof console.log === 'function') {
-        console.log(`[LOGGER ERROR] ${prefix}`, message, safeData !== undefined ? safeData : '');
       }
     }
   }

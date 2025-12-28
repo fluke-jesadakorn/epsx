@@ -16,14 +16,8 @@ interface NavItem {
 const navigationItems: NavItem[] = [
     {
         id: 'dashboard',
-        label: 'Dashboard',
-        href: '/developer',
-        icon: '🏠',
-    },
-    {
-        id: 'api-keys',
         label: 'API Keys',
-        href: '/developer/keys',
+        href: '/developer',
         icon: '🔑',
         description: 'Manage your API keys',
     },
@@ -40,13 +34,6 @@ const navigationItems: NavItem[] = [
         href: '/developer/usage',
         icon: '📊',
         description: 'Monitor your usage',
-    },
-    {
-        id: 'settings',
-        label: 'Settings',
-        href: '/developer/settings',
-        icon: '⚙️',
-        description: 'Developer settings',
     },
 ];
 

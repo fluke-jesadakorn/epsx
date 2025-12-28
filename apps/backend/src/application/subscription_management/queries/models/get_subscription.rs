@@ -20,6 +20,6 @@ pub struct GetSubscriptionResponse {
     pub status: String,
     pub started_at: chrono::DateTime<chrono::Utc>,
     pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
-    pub auto_renew: bool,
+    pub days_until_expiry: Option<i64>,
     pub created_at: chrono::DateTime<chrono::Utc>,
 }

@@ -54,18 +54,7 @@ export function AuthLayout({ children, user: serverUser }: AuthLayoutProps) {
 
   // Handle authentication redirects
   useEffect(() => {
-    console.log('🔍 AuthLayout: Auth check triggered', {
-      mounted,
-      isLoading,
-      isAuthenticated,
-      redirecting,
-      authChecked,
-      pathname,
-      hasUser: !!authUser
-    });
-
     if (!mounted || isLoading || redirecting) {
-      console.log('⏸️ AuthLayout: Skipping auth check (waiting for provider)');
       return;
     }
 
@@ -73,7 +62,6 @@ export function AuthLayout({ children, user: serverUser }: AuthLayoutProps) {
 
     // Skip auth check for public paths
     if (isPublicPath) {
-      console.log('✅ AuthLayout: Public path, no auth required', { pathname });
       setAuthChecked(true)
       setRedirecting(false) // Reset redirecting flag for public paths
       return
@@ -101,7 +89,6 @@ export function AuthLayout({ children, user: serverUser }: AuthLayoutProps) {
       // No need to check permissions here - let backend return 403 if no access
 
       // If we reach here, auth is valid
-      console.log('✅ AuthLayout: Auth valid, allowing access', { pathname });
       setAuthChecked(true)
       setRedirecting(false)
     }

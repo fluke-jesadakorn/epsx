@@ -134,7 +134,6 @@ export function WalletConnectAuth({
               setIsAuthenticating(true);
               setIsSigningChallenge(true);
               
-              console.log('🚀 Starting Web3 authentication flow...', { address });
               
               // Use the authentication service which now integrates with SharedWeb3AuthClient
               const authService = (await import('@/lib/auth/service')).permissionAuthService;
@@ -142,10 +141,8 @@ export function WalletConnectAuth({
               // Request challenge
               const challenge = await authService.requestWeb3Challenge(address);
               
-              console.log('✍️ Requesting wallet signature...');
               const signature = await signMessageAsync({ message: challenge.message, account: address });
               
-              console.log('🔍 Verifying signature with backend...');
               const success = await authService.authenticateWithWallet(
                 address,
                 signature,
@@ -154,7 +151,6 @@ export function WalletConnectAuth({
               );
               
               if (success) {
-                console.log('🎉 Authentication successful!');
                 
                 // Reload user data
                 await refreshUser();

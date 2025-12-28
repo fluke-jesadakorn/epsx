@@ -81,8 +81,6 @@ export default function EditPlanPage() {
               .filter((f: string) => f.length > 0)
           }
 
-          console.log('Loaded plan data:', planData)
-          console.log('Extracted feature list:', featureList)
 
           // Parse limits with proper fallbacks
           // Returns: -1 for unlimited, 0 for not granted, >0 for specific limit

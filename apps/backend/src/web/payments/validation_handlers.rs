@@ -1,20 +1,24 @@
 //! Payment Validation API Handlers
 //!
-//! Simplified payment validation handlers for integration testing
-//! Database operations will be implemented in a future iteration
+//! Payment validation handlers using proper OpenID Bearer auth
+//! and database operations for plan lookup.
 
 use axum::{
     extract::{State, Query},
+    Extension,
     response::Json,
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
-use tracing::{info, debug};
+use tracing::{info, debug, error};
 
 use crate::{
     prelude::*,
-    web::middleware::UnifiedErrorResponse,
+    web::{
+        auth::AppState,
+        middleware::{OpenIDUserContext, UnifiedErrorResponse, ErrorDetails},
+    },
 };
 
 // ============================================================================
@@ -122,22 +126,10 @@ pub struct PaymentDetails {
 /// Validate blockchain payment transaction
 #[axum::debug_handler]
 pub async fn validate_payment_handler(
-    State(_app_state): State<crate::web::auth::AppState>,
+    State(app_state): State<AppState>,
+    Extension(user_context): Extension<OpenIDUserContext>,
     Json(payload): Json<ValidatePaymentRequest>,
 ) -> Result<Json<ValidatePaymentResponse>, Json<UnifiedErrorResponse>> {
-    // TODO: Extract user context from validated Bearer token (handled by middleware)
-    // For now, use a placeholder wallet address
-    let user_context = crate::web::middleware::bearer_middleware::OpenIDUserContext {
-        wallet_address: payload.wallet_address.clone(),
-        sub: "placeholder".to_string(),
-        permissions: vec![],
-        auth_method: "oidc".to_string(),
-        jti: "placeholder".to_string(),
-        exp: 0,
-        iat: 0,
-        auth_time: 0,
-    };
-
     info!(
         "Validating payment for user {}, plan {}, transaction {}",
         user_context.wallet_address,
@@ -145,23 +137,34 @@ pub async fn validate_payment_handler(
         payload.transaction_hash
     );
 
-    // TODO: Implement actual blockchain verification and database plan fetching
-    // For now, simulate successful validation
-    let (block_number, confirmations) = (Some(12345u64), Some(12u32));
-    let plan_name = "Premium Plan".to_string();
-    let plan_price = payload.amount as f64;
+    // Validate wallet address matches authenticated user
+    if user_context.wallet_address.to_lowercase() != payload.wallet_address.to_lowercase() {
+        error!(
+            "Wallet address mismatch: {} vs {}",
+            user_context.wallet_address, payload.wallet_address
+        );
+        return Err(Json(UnifiedErrorResponse {
+            success: false,
+            error: ErrorDetails {
+                code: 400,
+                message: "Wallet address mismatch".to_string(),
+                reason: "Authenticated wallet does not match payment wallet".to_string(),
+            },
+        }));
+    }
 
-    // Create payment record in database
+    // Fetch plan details from database
+    let plan_info = fetch_plan_info(&app_state, &payload.plan_id).await?;
+    let plan_name = plan_info.0;
+    let plan_price = plan_info.1;
+
+    // For blockchain verification, we rely on the BlockchainMonitor service
+    // which automatically detects PaymentReceived events and creates subscriptions
+    // This handler primarily validates the request data and returns expected info
+    let block_number = None; // Will be filled by blockchain monitor
+    let confirmations = None; // Will be filled by blockchain monitor
+
     let payment_id = Uuid::new_v4();
-
-    // TODO: Save payment to database using repository
-    // let payment_repo = app_state.payment_repository.as_ref()
-    //     .ok_or_else(|| {
-    //         error!("Payment repository not available");
-    //         Json(UnifiedErrorResponse { ... })
-    //     })?;
-    
-    // For now we just verify on chain and return success
 
     info!(
         "Payment {} validated for wallet {}, transaction {}",
@@ -170,7 +173,7 @@ pub async fn validate_payment_handler(
 
     Ok(Json(ValidatePaymentResponse {
         success: true,
-        message: "Payment validation successful".to_string(),
+        message: "Payment validation submitted. Blockchain monitor will process the transaction.".to_string(),
         data: Some(PaymentValidationData {
             transaction_hash: payload.transaction_hash.clone(),
             plan_id: payload.plan_id,
@@ -180,41 +183,50 @@ pub async fn validate_payment_handler(
             confirmations,
             plan_name,
             plan_price,
-            payment_status: "validated".to_string(),
+            payment_status: "pending_confirmation".to_string(),
         }),
     }))
 }
 
 /// Activate subscription after payment validation
+#[axum::debug_handler]
 pub async fn activate_subscription_handler(
-    State(_app_state): State<crate::web::auth::AppState>,
+    State(app_state): State<AppState>,
+    Extension(user_context): Extension<OpenIDUserContext>,
     Json(payload): Json<ActivateSubscriptionRequest>,
 ) -> Result<Json<ActivateSubscriptionResponse>, Json<UnifiedErrorResponse>> {
-    // TODO: Extract user context from validated Bearer token (handled by middleware)
-    let user_context = crate::web::middleware::bearer_middleware::OpenIDUserContext {
-        wallet_address: payload.wallet_address.clone(),
-        sub: "placeholder".to_string(),
-        permissions: vec![],
-        auth_method: "oidc".to_string(),
-        jti: "placeholder".to_string(),
-        exp: 0,
-        iat: 0,
-        auth_time: 0,
-    };
-
     info!(
         "Activating subscription for user {}, plan {}",
         user_context.wallet_address,
         payload.plan_id
     );
 
-    // TODO: Implement database plan validation and subscription creation
-    // For now, simulate successful subscription activation
+    // Validate wallet address matches authenticated user
+    if user_context.wallet_address.to_lowercase() != payload.wallet_address.to_lowercase() {
+        error!(
+            "Wallet address mismatch: {} vs {}",
+            user_context.wallet_address, payload.wallet_address
+        );
+        return Err(Json(UnifiedErrorResponse {
+            success: false,
+            error: ErrorDetails {
+                code: 400,
+                message: "Wallet address mismatch".to_string(),
+                reason: "Authenticated wallet does not match subscription wallet".to_string(),
+            },
+        }));
+    }
+
+    // Fetch plan details
+    let plan_info = fetch_plan_info(&app_state, &payload.plan_id).await?;
+    let plan_name = plan_info.0;
+
     let duration_days = payload.duration_days.unwrap_or(30);
     let expires_at = Utc::now() + chrono::Duration::days(duration_days as i64);
     let subscription_id = Uuid::new_v4();
-    let plan_name = "Premium Plan".to_string();
 
+    // Note: For blockchain payments, the BlockchainMonitor handles subscription creation
+    // This endpoint is for manual/administrative subscription activation
     let subscription_data = PaymentSubscriptionData {
         subscription_id,
         plan_id: payload.plan_id,
@@ -231,38 +243,95 @@ pub async fn activate_subscription_handler(
 
     Ok(Json(ActivateSubscriptionResponse {
         success: true,
-        message: "Subscription activated successfully".to_string(),
+        message: "Subscription activation request submitted".to_string(),
         data: Some(subscription_data),
     }))
 }
 
 /// Get payment details by transaction hash, reference, or wallet address
+#[axum::debug_handler]
 pub async fn get_payment_details_handler(
-    State(_app_state): State<crate::web::auth::AppState>,
+    State(_app_state): State<AppState>,
+    Extension(user_context): Extension<OpenIDUserContext>,
     Query(params): Query<PaymentLookupParams>,
 ) -> Result<Json<PaymentDetailsResponse>, Json<UnifiedErrorResponse>> {
-    // TODO: Extract user context from validated Bearer token (handled by middleware)
-    let user_context = crate::web::middleware::bearer_middleware::OpenIDUserContext {
-        wallet_address: "0x1234567890123456789012345678901234567890".to_string(),
-        sub: "placeholder".to_string(),
-        permissions: vec![],
-        auth_method: "oidc".to_string(),
-        jti: "placeholder".to_string(),
-        exp: 0,
-        iat: 0,
-        auth_time: 0,
-    };
-
     debug!(
         "Getting payment details for user {} with params: {:?}",
         user_context.wallet_address,
         params
     );
 
-    // TODO: Implement actual payment lookup with database queries
-    // For now, return None to indicate no payment found
+    // If wallet_address is provided, validate it matches authenticated user
+    if let Some(ref wallet) = params.wallet_address {
+        if user_context.wallet_address.to_lowercase() != wallet.to_lowercase() {
+            error!(
+                "Wallet address mismatch: {} vs {}",
+                user_context.wallet_address, wallet
+            );
+            return Err(Json(UnifiedErrorResponse {
+                success: false,
+                error: ErrorDetails {
+                    code: 403,
+                    message: "Access denied".to_string(),
+                    reason: "Can only query your own payments".to_string(),
+                },
+            }));
+        }
+    }
+
+    // TODO: Implement database lookup for payment details
+    // Query processed_blockchain_events table for payment history
     Ok(Json(PaymentDetailsResponse {
-        success: false,
-        payment: None,
+        success: true,
+        payment: None, // No payment found matching criteria
     }))
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/// Fetch plan information from database
+async fn fetch_plan_info(
+    app_state: &AppState,
+    plan_id: &Uuid,
+) -> Result<(String, f64), Json<UnifiedErrorResponse>> {
+    // Try to fetch from group repository using the plan ID
+    let plan_id_str = plan_id.to_string();
+    
+    // Query the pricing_plans table if available, otherwise use groups
+    match app_state.group_repo.get_subscription_plans().await {
+        Ok(plans) => {
+            // Find the plan by ID (compare as string since plan_id might be stored differently)
+            for plan in plans {
+                if plan.id.to_string() == plan_id_str {
+                    let price = plan.price
+                        .as_ref()
+                        .and_then(|p| p.to_string().parse::<f64>().ok())
+                        .unwrap_or(0.0);
+                    return Ok((plan.name, price));
+                }
+            }
+            // Plan not found, return not found error
+            Err(Json(UnifiedErrorResponse {
+                success: false,
+                error: ErrorDetails {
+                    code: 404,
+                    message: "Plan not found".to_string(),
+                    reason: format!("No plan found with ID: {}", plan_id),
+                },
+            }))
+        }
+        Err(e) => {
+            error!("Failed to fetch plans: {}", e);
+            Err(Json(UnifiedErrorResponse {
+                success: false,
+                error: ErrorDetails {
+                    code: 500,
+                    message: "Database error".to_string(),
+                    reason: "Failed to fetch plan information".to_string(),
+                },
+            }))
+        }
+    }
 }
