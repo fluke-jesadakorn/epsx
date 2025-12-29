@@ -10,7 +10,7 @@ use tracing::{error, info, warn};
 // Diesel imports
 use diesel::prelude::*;
 use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::Pool};
-use crate::schema::wallet_users;
+use crate::schemas::primary::wallet_users;
 use crate::infrastructure::adapters::repositories::database_types::{WalletUserDb, NewWalletUserDb};
 
 use crate::domain::wallet_management::{

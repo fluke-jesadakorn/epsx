@@ -14,7 +14,7 @@ use crate::domain::developer_portal::{
     PermissionGroupInfo,
 };
 use crate::prelude::*;
-use crate::schema::{api_keys, api_key_module_access, api_modules, api_key_permissions, groups};
+use crate::schemas::primary::{api_keys, api_key_module_access, api_modules, api_key_permissions, groups};
 
 /// API Key Repository for database operations
 pub struct ApiKeyRepository {

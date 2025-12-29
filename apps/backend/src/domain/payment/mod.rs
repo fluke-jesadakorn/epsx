@@ -47,11 +47,16 @@ pub use aggregates::{
     CryptoPaymentDetails, FiatPaymentDetails,
     PaymentCreated, PaymentAddressAssigned, PaymentConfirmed,
     PaymentCompleted, PaymentFailed, PaymentCancelled,
-    PaymentRefundInitiated, PaymentRefundCompleted
+    PaymentRefundInitiated, PaymentRefundCompleted,
+    // Payment Context exports
+    PaymentContext, PaymentContextId, PaymentContextType,
+    CreatePaymentContextParams, LoadPaymentContextParams, UpdatePaymentContextParams,
+    PaymentContextError, DEFAULT_EXPIRATION_HOURS
 };
 
 // Public exports from repository ports
 pub use repository_ports::{
     PaymentRepositoryPort, TransactionRepositoryPort, CryptoAddressRepositoryPort,
-    PaymentMethodRepositoryPort, PaymentStats, TransactionRecord
+    PaymentMethodRepositoryPort, PaymentStats, TransactionRecord,
+    PaymentContextRepositoryPort
 };

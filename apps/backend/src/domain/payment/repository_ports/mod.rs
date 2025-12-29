@@ -127,3 +127,65 @@ pub struct TransactionRecord {
     pub gas_used: Option<u64>,
     pub gas_price: Option<u64>,
 }
+
+// ============================================================================
+// Payment Context Repository Port (V2 Dynamic Payments)
+// ============================================================================
+
+use super::aggregates::{PaymentContext, PaymentContextId, PaymentContextType};
+
+/// Port for payment context (dynamic payment link) operations
+#[async_trait]
+pub trait PaymentContextRepositoryPort: Send + Sync {
+    /// Save a payment context aggregate
+    async fn save(&self, context: &PaymentContext) -> Result<(), String>;
+    
+    /// Find payment context by ID
+    async fn find_by_id(&self, id: &PaymentContextId) -> Result<Option<PaymentContext>, String>;
+    
+    /// Find payment context by slug
+    async fn find_by_slug(&self, slug: &str) -> Result<Option<PaymentContext>, String>;
+    
+    /// Find all payment contexts by context type
+    async fn find_by_type(&self, context_type: PaymentContextType) -> Result<Vec<PaymentContext>, String>;
+    
+    /// Find payment contexts linked to a specific entity (plan, group, etc.)
+    async fn find_by_context_id(&self, context_id: &uuid::Uuid) -> Result<Vec<PaymentContext>, String>;
+    
+    /// List all active payment contexts with pagination
+    async fn list_active(
+        &self,
+        limit: i64,
+        offset: i64,
+    ) -> Result<Vec<PaymentContext>, String>;
+    
+    /// List all payment contexts with pagination and filters
+    async fn list_with_filters(
+        &self,
+        context_type: Option<PaymentContextType>,
+        is_active: Option<bool>,
+        created_by: Option<&str>,
+        limit: i64,
+        offset: i64,
+    ) -> Result<(Vec<PaymentContext>, i64), String>;
+    
+    /// Update payment context
+    async fn update(&self, context: &PaymentContext) -> Result<(), String>;
+    
+    /// Delete payment context (soft delete by setting is_active = false)
+    async fn soft_delete(&self, id: &PaymentContextId) -> Result<(), String>;
+    
+    /// Increment usage count
+    async fn increment_usage(&self, id: &PaymentContextId) -> Result<(), String>;
+    
+    /// Find expired contexts that need cleanup
+    async fn find_expired(&self) -> Result<Vec<PaymentContext>, String>;
+    
+    /// Get total count with filters
+    async fn count_with_filters(
+        &self,
+        context_type: Option<PaymentContextType>,
+        is_active: Option<bool>,
+        created_by: Option<&str>,
+    ) -> Result<i64, String>;
+}

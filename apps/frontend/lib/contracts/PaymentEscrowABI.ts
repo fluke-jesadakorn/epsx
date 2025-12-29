@@ -1,12 +1,36 @@
 /**
- * PaymentEscrow Contract ABI
+ * PaymentEscrow Contract ABI V2
  *
- * This is the Application Binary Interface for the PaymentEscrow smart contract.
+ * This is the Application Binary Interface for the PaymentEscrow V2 smart contract.
  * It defines how to interact with the contract functions and events.
  *
  * Generated from: apps/contracts/contracts/PaymentEscrow.sol
- * Updated: 2025-11-29 - Added payWithAmountDisplay function
+ * Updated: 2025-12-29 - Complete V2 rewrite with context-based payments
+ * 
+ * Context Types:
+ * - 0: PLAN (subscription plan payment)
+ * - 1: GROUP (permission group payment)
+ * - 2: PRODUCT (one-time product purchase)
+ * - 3: CAMPAIGN (promotional campaign payment)
+ * - 4: CUSTOM (custom payment link)
  */
+
+// Context type enum values for TypeScript
+export enum ContextType {
+  PLAN = 0,
+  GROUP = 1,
+  PRODUCT = 2,
+  CAMPAIGN = 3,
+  CUSTOM = 4,
+}
+
+export const CONTEXT_TYPE_NAMES: Record<ContextType, string> = {
+  [ContextType.PLAN]: 'PLAN',
+  [ContextType.GROUP]: 'GROUP',
+  [ContextType.PRODUCT]: 'PRODUCT',
+  [ContextType.CAMPAIGN]: 'CAMPAIGN',
+  [ContextType.CUSTOM]: 'CUSTOM',
+};
 
 export const PAYMENT_ESCROW_ABI = [
   {
@@ -16,6 +40,34 @@ export const PAYMENT_ESCROW_ABI = [
     ],
     stateMutability: 'nonpayable',
   },
+  // ============ Primary Payment Functions ============
+  {
+    type: 'function',
+    name: 'payWithContext',
+    inputs: [
+      { name: 'contextType', type: 'uint8', internalType: 'enum PaymentEscrow.ContextType' },
+      { name: 'contextId', type: 'uint256', internalType: 'uint256' },
+      { name: 'linkHash', type: 'bytes32', internalType: 'bytes32' },
+      { name: 'token', type: 'address', internalType: 'address' },
+      { name: 'amount', type: 'uint256', internalType: 'uint256' }
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'payWithContextDisplay',
+    inputs: [
+      { name: 'contextType', type: 'uint8', internalType: 'enum PaymentEscrow.ContextType' },
+      { name: 'contextId', type: 'uint256', internalType: 'uint256' },
+      { name: 'linkHash', type: 'bytes32', internalType: 'bytes32' },
+      { name: 'token', type: 'address', internalType: 'address' },
+      { name: 'amount', type: 'uint256', internalType: 'uint256' }
+    ],
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  // ============ Convenience Payment Functions ============
   {
     type: 'function',
     name: 'payForPlan',
@@ -29,9 +81,9 @@ export const PAYMENT_ESCROW_ABI = [
   },
   {
     type: 'function',
-    name: 'payWithTransfer',
+    name: 'payForGroup',
     inputs: [
-      { name: 'planId', type: 'uint256', internalType: 'uint256' },
+      { name: 'groupId', type: 'uint256', internalType: 'uint256' },
       { name: 'token', type: 'address', internalType: 'address' },
       { name: 'amount', type: 'uint256', internalType: 'uint256' }
     ],
@@ -40,15 +92,18 @@ export const PAYMENT_ESCROW_ABI = [
   },
   {
     type: 'function',
-    name: 'payWithAmountDisplay',
+    name: 'payViaLink',
     inputs: [
-      { name: 'planId', type: 'uint256', internalType: 'uint256' },
+      { name: 'contextType', type: 'uint8', internalType: 'enum PaymentEscrow.ContextType' },
+      { name: 'contextId', type: 'uint256', internalType: 'uint256' },
+      { name: 'linkHash', type: 'bytes32', internalType: 'bytes32' },
       { name: 'token', type: 'address', internalType: 'address' },
       { name: 'amount', type: 'uint256', internalType: 'uint256' }
     ],
     outputs: [],
-    stateMutability: 'payable',
+    stateMutability: 'nonpayable',
   },
+  // ============ Admin Functions ============
   {
     type: 'function',
     name: 'setTokenEnabled',
@@ -72,6 +127,16 @@ export const PAYMENT_ESCROW_ABI = [
   },
   {
     type: 'function',
+    name: 'withdrawNative',
+    inputs: [
+      { name: 'amount', type: 'uint256', internalType: 'uint256' },
+      { name: 'recipient', type: 'address', internalType: 'address payable' }
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
     name: 'pause',
     inputs: [],
     outputs: [],
@@ -84,6 +149,7 @@ export const PAYMENT_ESCROW_ABI = [
     outputs: [],
     stateMutability: 'nonpayable',
   },
+  // ============ View Functions ============
   {
     type: 'function',
     name: 'isTokenSupported',
@@ -114,6 +180,17 @@ export const PAYMENT_ESCROW_ABI = [
       { name: '', type: 'uint256', internalType: 'uint256' }
     ],
     stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getContextTypeName',
+    inputs: [
+      { name: 'contextType', type: 'uint8', internalType: 'enum PaymentEscrow.ContextType' }
+    ],
+    outputs: [
+      { name: '', type: 'string', internalType: 'string' }
+    ],
+    stateMutability: 'pure',
   },
   {
     type: 'function',
@@ -174,16 +251,19 @@ export const PAYMENT_ESCROW_ABI = [
     ],
     stateMutability: 'view',
   },
+  // ============ Events ============
   {
     type: 'event',
-    name: 'PaymentReceived',
+    name: 'PaymentWithContext',
     inputs: [
       { name: 'user', type: 'address', indexed: true, internalType: 'address' },
-      { name: 'planId', type: 'uint256', indexed: true, internalType: 'uint256' },
-      { name: 'token', type: 'address', indexed: true, internalType: 'address' },
+      { name: 'contextType', type: 'uint8', indexed: true, internalType: 'enum PaymentEscrow.ContextType' },
+      { name: 'contextId', type: 'uint256', indexed: true, internalType: 'uint256' },
+      { name: 'token', type: 'address', indexed: false, internalType: 'address' },
       { name: 'amount', type: 'uint256', indexed: false, internalType: 'uint256' },
       { name: 'timestamp', type: 'uint256', indexed: false, internalType: 'uint256' },
-      { name: 'paymentId', type: 'uint256', indexed: false, internalType: 'uint256' }
+      { name: 'paymentId', type: 'uint256', indexed: false, internalType: 'uint256' },
+      { name: 'linkHash', type: 'bytes32', indexed: false, internalType: 'bytes32' }
     ],
     anonymous: false,
   },
@@ -201,6 +281,15 @@ export const PAYMENT_ESCROW_ABI = [
     name: 'FundsWithdrawn',
     inputs: [
       { name: 'token', type: 'address', indexed: true, internalType: 'address' },
+      { name: 'amount', type: 'uint256', indexed: false, internalType: 'uint256' },
+      { name: 'recipient', type: 'address', indexed: true, internalType: 'address' }
+    ],
+    anonymous: false,
+  },
+  {
+    type: 'event',
+    name: 'NativeFundsWithdrawn',
+    inputs: [
       { name: 'amount', type: 'uint256', indexed: false, internalType: 'uint256' },
       { name: 'recipient', type: 'address', indexed: true, internalType: 'address' }
     ],
@@ -227,13 +316,15 @@ export const PAYMENT_ESCROW_ABI = [
 /**
  * Typed event interfaces for better type safety
  */
-export interface PaymentReceivedEvent {
+export interface PaymentWithContextEvent {
   user: string;
-  planId: bigint;
+  contextType: ContextType;
+  contextId: bigint;
   token: string;
   amount: bigint;
   timestamp: bigint;
   paymentId: bigint;
+  linkHash: string;
 }
 
 export interface TokenStatusUpdatedEvent {
@@ -246,3 +337,41 @@ export interface FundsWithdrawnEvent {
   amount: bigint;
   recipient: string;
 }
+
+export interface NativeFundsWithdrawnEvent {
+  amount: bigint;
+  recipient: string;
+}
+
+/**
+ * Helper to convert context type string to enum
+ */
+export function parseContextType(type: string): ContextType {
+  const upperType = type.toUpperCase();
+  switch (upperType) {
+    case 'PLAN': return ContextType.PLAN;
+    case 'GROUP': return ContextType.GROUP;
+    case 'PRODUCT': return ContextType.PRODUCT;
+    case 'CAMPAIGN': return ContextType.CAMPAIGN;
+    case 'CUSTOM': return ContextType.CUSTOM;
+    default: throw new Error(`Unknown context type: ${type}`);
+  }
+}
+
+/**
+ * Helper to compute link hash from slug
+ */
+export function computeLinkHash(slug: string): `0x${string}` {
+  // Use keccak256 hash of the slug
+  // Note: This should match the backend computation
+  const encoder = new TextEncoder();
+  const data = encoder.encode(slug);
+  // In production, use viem's keccak256 or ethers.js
+  // For now, return a placeholder that should be replaced with actual implementation
+  return `0x${Array.from(data).map(b => b.toString(16).padStart(2, '0')).join('').padEnd(64, '0')}` as `0x${string}`;
+}
+
+/**
+ * Zero hash constant for payments without link verification
+ */
+export const ZERO_LINK_HASH = '0x0000000000000000000000000000000000000000000000000000000000000000' as const;

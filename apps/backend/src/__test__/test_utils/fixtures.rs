@@ -7,7 +7,7 @@ use chrono::{DateTime, Utc};
 use uuid::Uuid;
 use anyhow::Result;
 
-use crate::schema::*;
+use crate::schemas::primary::*;
 use crate::domain::wallet_management::value_objects::WalletAddress;
 
 /// Test fixture builder for Web3 authentication nonces

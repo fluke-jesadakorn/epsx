@@ -8,12 +8,31 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /**
- * @title PaymentEscrow
- * @dev Escrow contract for subscription plan payments on BSC
- * @notice Users pay for subscription plans with USDT/USDC, contract emits events for backend verification
+ * @title PaymentEscrow V2
+ * @dev Dynamic payment escrow contract supporting context-based payments
+ * @notice Users pay for features via dynamic links (plans, groups, products, campaigns, or custom)
+ * 
+ * Core Design Philosophy:
+ * - Payments are tied to context (group/plan/link) enabling flexible feature unlocking
+ * - No backward compatibility with V1 payForPlan() - fresh context-based approach
+ * - Backend validates payment context and activates corresponding permissions
  */
 contract PaymentEscrow is AccessControl, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
+
+    // ============ Enums ============
+
+    /**
+     * @notice Context types for dynamic payments
+     * @dev Each type maps to a different backend entity for feature unlocking
+     */
+    enum ContextType {
+        PLAN,       // Subscription plan payment
+        GROUP,      // Permission group payment
+        PRODUCT,    // One-time product purchase
+        CAMPAIGN,   // Promotional campaign payment
+        CUSTOM      // Custom payment link
+    }
 
     // ============ Roles ============
 
@@ -30,21 +49,25 @@ contract PaymentEscrow is AccessControl, Pausable, ReentrancyGuard {
     // ============ Events ============
 
     /**
-     * @notice Emitted when a payment is successfully received
+     * @notice Emitted when a context-based payment is received
      * @param user Address of the user who paid
-     * @param planId ID of the subscription plan (for backend tracking)
+     * @param contextType Type of payment context (PLAN, GROUP, etc.)
+     * @param contextId ID of the context entity (plan ID, group ID, etc.)
      * @param token Address of the ERC20 token used for payment
      * @param amount Amount paid (in token decimals)
      * @param timestamp Block timestamp of the payment
      * @param paymentId Unique sequential payment ID
+     * @param linkHash Hash of the payment link for verification (optional, 0x0 if unused)
      */
-    event PaymentReceived(
+    event PaymentWithContext(
         address indexed user,
-        uint256 indexed planId,
-        address indexed token,
+        ContextType indexed contextType,
+        uint256 indexed contextId,
+        address token,
         uint256 amount,
         uint256 timestamp,
-        uint256 paymentId
+        uint256 paymentId,
+        bytes32 linkHash
     );
 
     /**
@@ -84,16 +107,19 @@ contract PaymentEscrow is AccessControl, Pausable, ReentrancyGuard {
     // ============ User Functions ============
 
     /**
-     * @notice Pay for a subscription plan
+     * @notice Pay with context - primary payment function
      * @dev User must approve this contract to spend tokens before calling
-     * @dev Contract acts as payment gateway - does not validate plan or amount
-     * @dev Backend is responsible for validating payment amounts match plan prices
-     * @param planId ID of the subscription plan (logged for backend tracking)
+     * @dev Backend is responsible for validating payment context and amount
+     * @param contextType Type of payment context (PLAN, GROUP, PRODUCT, CAMPAIGN, CUSTOM)
+     * @param contextId ID of the context entity (backend entity ID)
+     * @param linkHash Hash of the payment link for verification (pass bytes32(0) if not using links)
      * @param token Address of the ERC20 token to pay with (USDT/USDC)
-     * @param amount Amount to pay (any amount accepted)
+     * @param amount Amount to pay (in token decimals)
      */
-    function payForPlan(
-        uint256 planId,
+    function payWithContext(
+        ContextType contextType,
+        uint256 contextId,
+        bytes32 linkHash,
         address token,
         uint256 amount
     ) external whenNotPaused nonReentrant {
@@ -108,65 +134,32 @@ contract PaymentEscrow is AccessControl, Pausable, ReentrancyGuard {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
         // Emit event for backend verification
-        emit PaymentReceived(
+        emit PaymentWithContext(
             msg.sender,
-            planId,
+            contextType,
+            contextId,
             token,
             amount,
             block.timestamp,
-            totalPayments
+            totalPayments,
+            linkHash
         );
     }
 
     /**
-     * @notice Pay for a subscription plan using direct transfer
-     * @dev Optimized for better MetaMask display - functionally identical to payForPlan
+     * @notice Pay with context - payable version for MetaMask amount display
+     * @dev Accepts native currency for display but refunds it
      * @dev User must approve this contract to spend tokens before calling
-     * @dev Contract acts as payment gateway - does not validate plan or amount
-     * @dev Backend is responsible for validating payment amounts match plan prices
-     * @param planId ID of the subscription plan (logged for backend tracking)
-     * @param token Address of the ERC20 token to pay with (USDT/USDC)
-     * @param amount Amount to pay (any amount accepted)
+     * @param contextType Type of payment context
+     * @param contextId ID of the context entity
+     * @param linkHash Hash of the payment link for verification
+     * @param token Address of the ERC20 token to pay with
+     * @param amount Amount to pay in tokens
      */
-    function payWithTransfer(
-        uint256 planId,
-        address token,
-        uint256 amount
-    ) external whenNotPaused nonReentrant {
-        // Validate inputs
-        require(supportedTokens[token], "Token not supported");
-        require(amount > 0, "Amount must be greater than 0");
-
-        // Increment payment counter
-        totalPayments++;
-
-        // Transfer tokens from user to this contract
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-
-        // Emit event for backend verification
-        emit PaymentReceived(
-            msg.sender,
-            planId,
-            token,
-            amount,
-            block.timestamp,
-            totalPayments
-        );
-    }
-
-    /**
-     * @notice Pay for a subscription plan with explicit amount display for MetaMask
-     * @dev This function accepts native currency as reference but doesn't actually use it
-     * @dev The native currency amount is just for MetaMask display purposes
-     * @dev User must approve this contract to spend tokens before calling
-     * @dev Contract acts as payment gateway - does not validate plan or amount
-     * @dev Backend is responsible for validating payment amounts match plan prices
-     * @param planId ID of the subscription plan (logged for backend tracking)
-     * @param token Address of the ERC20 token to pay with (USDT/USDC)
-     * @param amount Amount to pay in tokens (any amount accepted)
-     */
-    function payWithAmountDisplay(
-        uint256 planId,
+    function payWithContextDisplay(
+        ContextType contextType,
+        uint256 contextId,
+        bytes32 linkHash,
         address token,
         uint256 amount
     ) external payable whenNotPaused nonReentrant {
@@ -174,29 +167,121 @@ contract PaymentEscrow is AccessControl, Pausable, ReentrancyGuard {
         require(supportedTokens[token], "Token not supported");
         require(amount > 0, "Amount must be greater than 0");
 
-        // Note: msg.value is ignored - it's just for MetaMask display
-        // The actual payment happens with ERC20 tokens
-
         // Increment payment counter
         totalPayments++;
 
         // Transfer tokens from user to this contract
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
 
-        // Refund the native currency if any was sent
+        // Refund the native currency if any was sent (for MetaMask display only)
         if (msg.value > 0) {
             (bool success, ) = payable(msg.sender).call{value: msg.value}("");
             require(success, "Refund failed");
         }
 
         // Emit event for backend verification
-        emit PaymentReceived(
+        emit PaymentWithContext(
             msg.sender,
+            contextType,
+            contextId,
+            token,
+            amount,
+            block.timestamp,
+            totalPayments,
+            linkHash
+        );
+    }
+
+    /**
+     * @notice Convenience function for plan payments
+     * @param planId ID of the subscription plan
+     * @param token Address of the ERC20 token to pay with
+     * @param amount Amount to pay
+     */
+    function payForPlan(
+        uint256 planId,
+        address token,
+        uint256 amount
+    ) external whenNotPaused nonReentrant {
+        require(supportedTokens[token], "Token not supported");
+        require(amount > 0, "Amount must be greater than 0");
+
+        totalPayments++;
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+
+        emit PaymentWithContext(
+            msg.sender,
+            ContextType.PLAN,
             planId,
             token,
             amount,
             block.timestamp,
-            totalPayments
+            totalPayments,
+            bytes32(0)
+        );
+    }
+
+    /**
+     * @notice Convenience function for group/permission payments
+     * @param groupId ID of the permission group (as uint256)
+     * @param token Address of the ERC20 token to pay with
+     * @param amount Amount to pay
+     */
+    function payForGroup(
+        uint256 groupId,
+        address token,
+        uint256 amount
+    ) external whenNotPaused nonReentrant {
+        require(supportedTokens[token], "Token not supported");
+        require(amount > 0, "Amount must be greater than 0");
+
+        totalPayments++;
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+
+        emit PaymentWithContext(
+            msg.sender,
+            ContextType.GROUP,
+            groupId,
+            token,
+            amount,
+            block.timestamp,
+            totalPayments,
+            bytes32(0)
+        );
+    }
+
+    /**
+     * @notice Pay via dynamic link
+     * @dev linkHash is used by backend to verify payment link validity
+     * @param contextType Type of payment context
+     * @param contextId ID of the context entity
+     * @param linkHash Keccak256 hash of the payment link slug
+     * @param token Address of the ERC20 token to pay with
+     * @param amount Amount to pay
+     */
+    function payViaLink(
+        ContextType contextType,
+        uint256 contextId,
+        bytes32 linkHash,
+        address token,
+        uint256 amount
+    ) external whenNotPaused nonReentrant {
+        require(supportedTokens[token], "Token not supported");
+        require(amount > 0, "Amount must be greater than 0");
+        require(linkHash != bytes32(0), "Link hash required");
+
+        totalPayments++;
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+
+        emit PaymentWithContext(
+            msg.sender,
+            contextType,
+            contextId,
+            token,
+            amount,
+            block.timestamp,
+            totalPayments,
+            linkHash
         );
     }
 
@@ -296,6 +381,20 @@ contract PaymentEscrow is AccessControl, Pausable, ReentrancyGuard {
      */
     function getTotalPayments() external view returns (uint256) {
         return totalPayments;
+    }
+
+    /**
+     * @notice Get context type name as string
+     * @param contextType The context type enum value
+     * @return The context type name
+     */
+    function getContextTypeName(ContextType contextType) external pure returns (string memory) {
+        if (contextType == ContextType.PLAN) return "PLAN";
+        if (contextType == ContextType.GROUP) return "GROUP";
+        if (contextType == ContextType.PRODUCT) return "PRODUCT";
+        if (contextType == ContextType.CAMPAIGN) return "CAMPAIGN";
+        if (contextType == ContextType.CUSTOM) return "CUSTOM";
+        return "UNKNOWN";
     }
 
     /**

@@ -25,7 +25,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
 -- High-volume table partitioned by month for efficient data lifecycle management
 
 CREATE TABLE api_key_usage_logs (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id UUID DEFAULT gen_random_uuid(),
     api_key_id UUID NOT NULL,  -- Reference only, no FK (cross-database)
     module_id UUID,
     endpoint VARCHAR(255) NOT NULL,
@@ -34,7 +34,8 @@ CREATE TABLE api_key_usage_logs (
     response_time_ms INTEGER,
     ip_address INET,
     user_agent TEXT,
-    request_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    request_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (id, request_at)
 ) PARTITION BY RANGE (request_at);
 
 -- Create monthly partitions for 2025

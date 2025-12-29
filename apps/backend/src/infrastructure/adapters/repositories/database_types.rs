@@ -243,7 +243,7 @@ pub struct IpAddr(pub String);
 // Permission Group Types - Updated to match database schema exactly
 // Supports both SQLx (legacy) and Diesel (new) during migration
 #[derive(Debug, Clone, diesel::Queryable, diesel::Selectable)]
-#[diesel(table_name = crate::schema::groups)]
+#[diesel(table_name = crate::schemas::primary::groups)]
 pub struct PermissionGroup {
     pub id: Uuid,
     pub name: String,
@@ -267,6 +267,10 @@ pub struct PermissionGroup {
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<String>,
     pub last_modified_by: Option<String>,
+    pub rate_limit_per_minute: i32,
+    pub rate_limit_per_hour: i32,
+    pub rate_limit_per_day: i32,
+    pub burst_capacity: i32,
 }
 
 // Helper to extract permissions from group_metadata
@@ -281,7 +285,7 @@ impl PermissionGroup {
 
 // Diesel Insertable model for creating new permission groups
 #[derive(Debug, Clone, diesel::Insertable)]
-#[diesel(table_name = crate::schema::groups)]
+#[diesel(table_name = crate::schemas::primary::groups)]
 pub struct NewPermissionGroup {
     pub name: String,
     pub slug: String,
@@ -295,6 +299,10 @@ pub struct NewPermissionGroup {
     pub is_promoted: Option<bool>,
     pub display_order: Option<i32>,
     pub created_by: Option<String>,
+    pub rate_limit_per_minute: i32,
+    pub rate_limit_per_hour: i32,
+    pub rate_limit_per_day: i32,
+    pub burst_capacity: i32,
 }
 
 // Helper method for backward compatibility
@@ -309,7 +317,7 @@ impl NewPermissionGroup {
 
 // Diesel AsChangeset model for updating permission groups
 #[derive(Debug, Clone, diesel::AsChangeset)]
-#[diesel(table_name = crate::schema::groups)]
+#[diesel(table_name = crate::schemas::primary::groups)]
 pub struct UpdatePermissionGroup {
     pub name: Option<String>,
     pub description: Option<String>,
@@ -358,7 +366,7 @@ pub struct WalletAssignment {
 
 /// Diesel Queryable model for wallet_users table
 #[derive(Debug, Clone, diesel::Queryable, diesel::Selectable)]
-#[diesel(table_name = crate::schema::wallet_users)]
+#[diesel(table_name = crate::schemas::primary::wallet_users)]
 pub struct WalletUserDb {
     pub wallet_address: String,
     pub is_active: bool,
@@ -373,7 +381,7 @@ pub struct WalletUserDb {
 
 /// Diesel Insertable model for creating new wallet users
 #[derive(Debug, Clone, diesel::Insertable)]
-#[diesel(table_name = crate::schema::wallet_users)]
+#[diesel(table_name = crate::schemas::primary::wallet_users)]
 pub struct NewWalletUserDb {
     pub wallet_address: String,
     pub is_active: bool,
@@ -383,7 +391,7 @@ pub struct NewWalletUserDb {
 
 /// Diesel AsChangeset model for updating wallet users
 #[derive(Debug, Clone, diesel::AsChangeset)]
-#[diesel(table_name = crate::schema::wallet_users)]
+#[diesel(table_name = crate::schemas::primary::wallet_users)]
 pub struct UpdateWalletUserDb {
     pub is_active: Option<bool>,
     pub tier_level: Option<String>,
@@ -441,7 +449,7 @@ pub struct NewSessionDb {
 
 /// Diesel Queryable model for groups table
 #[derive(Debug, Clone, diesel::Queryable, diesel::Selectable)]
-#[diesel(table_name = crate::schema::groups)]
+#[diesel(table_name = crate::schemas::primary::groups)]
 pub struct PermissionGroupDb {
     pub id: uuid::Uuid,
     pub name: String,
@@ -462,11 +470,15 @@ pub struct PermissionGroupDb {
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<String>,
     pub last_modified_by: Option<String>,
+    pub rate_limit_per_minute: i32,
+    pub rate_limit_per_hour: i32,
+    pub rate_limit_per_day: i32,
+    pub burst_capacity: i32,
 }
 
 /// Diesel Insertable model for creating/updating permission groups
 #[derive(Debug, Clone, diesel::Insertable, diesel::AsChangeset)]
-#[diesel(table_name = crate::schema::groups)]
+#[diesel(table_name = crate::schemas::primary::groups)]
 pub struct NewPermissionGroupDb {
     pub id: uuid::Uuid,
     pub name: String,
@@ -487,6 +499,10 @@ pub struct NewPermissionGroupDb {
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<String>,
     pub last_modified_by: Option<String>,
+    pub rate_limit_per_minute: i32,
+    pub rate_limit_per_hour: i32,
+    pub rate_limit_per_day: i32,
+    pub burst_capacity: i32,
 }
 
 /// Query result for permission data from JOIN query

@@ -16,7 +16,7 @@ use crate::domain::wallet_management::{
 };
 use crate::domain::shared_kernel::value_objects::UserId;
 use crate::infrastructure::adapters::repositories::database_types::{SessionDb, NewSessionDb};
-use crate::schema::sessions;
+use crate::schemas::primary::sessions;
 
 // Query result structs for raw SQL analytics queries
 #[derive(diesel::QueryableByName)]

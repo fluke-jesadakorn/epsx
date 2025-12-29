@@ -1,0 +1,11 @@
+# Diesel Configuration for Analytics Database
+# Usage: diesel migration run --config diesel_analytics.toml
+
+[print_schema]
+file = "src/schemas/analytics.rs"
+import_types = ["diesel::sql_types::*"]
+filter = { except_tables = ["_sqlx_migrations", "__diesel_schema_migrations", "schema_migrations"] }
+with_docs = true
+
+[migrations_directory]
+dir = "diesel_migrations_analytics/"

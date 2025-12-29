@@ -252,6 +252,10 @@ pub async fn create_plan_handler(
         is_promoted: Some(false),
         display_order: None,
         created_by: Some("admin".to_string()),
+        rate_limit_per_minute: 0,
+        rate_limit_per_hour: 0,
+        rate_limit_per_day: 0,
+        burst_capacity: 0,
     };
 
     let created_plan = match app_state.group_repo.create_group(new_group).await {
@@ -318,7 +322,7 @@ pub async fn list_plans_handler(
 ) -> Result<JsonResponse<serde_json::Value>, StatusCode> {
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
-    use crate::schema::subscriptions;
+    use crate::schemas::payments::subscriptions;
 
     // Get plans from database instead of hardcoded data
     let db_plans = match app_state.group_repo.get_subscription_plans().await {
@@ -731,7 +735,8 @@ pub async fn create_subscription_handler(
 ) -> Result<JsonResponse<SubscriptionResponse>, StatusCode> {
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
-    use crate::schema::{subscriptions, groups};
+    use crate::schemas::payments::subscriptions;
+    use crate::schemas::primary::groups;
     use crate::infrastructure::models::payment::NewSubscriptionDb;
 
     let subscription_id = Uuid::new_v4();

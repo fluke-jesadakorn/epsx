@@ -157,7 +157,7 @@ impl UnifiedWeb3AuthService {
         let message = self.create_siwe_message(&address, &nonce)?;
 
         // Store nonce in database
-        use crate::schema::web3_auth_nonces;
+        use crate::schemas::primary::web3_auth_nonces;
 
         let mut conn = self.db_pool.get().await
             .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
@@ -200,13 +200,13 @@ impl UnifiedWeb3AuthService {
             .map_err(|e| Web3AuthError::InvalidWalletAddress(e.to_string()))?;
 
         // Verify nonce exists and is valid
-        use crate::schema::web3_auth_nonces;
+        use crate::schemas::primary::web3_auth_nonces;
 
         let mut conn = self.db_pool.get().await
             .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
 
         #[derive(Queryable, Selectable)]
-        #[diesel(table_name = crate::schema::web3_auth_nonces)]
+        #[diesel(table_name = crate::schemas::primary::web3_auth_nonces)]
         struct NonceRecord {
             #[allow(dead_code)]
             nonce: String,
@@ -400,7 +400,7 @@ impl UnifiedWeb3AuthService {
 
     /// Cleanup used nonce
     async fn cleanup_nonce(&self, wallet_address: &str) -> Result<(), Web3AuthError> {
-        use crate::schema::web3_auth_nonces;
+        use crate::schemas::primary::web3_auth_nonces;
 
         let mut conn = self.db_pool.get().await
             .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
@@ -416,7 +416,7 @@ impl UnifiedWeb3AuthService {
 
     /// Get or create user for wallet
     async fn get_or_create_user(&self, wallet_address: &str) -> Result<(String, bool), Web3AuthError> {
-        use crate::schema::wallet_users;
+        use crate::schemas::primary::wallet_users;
 
         let mut conn = self.db_pool.get().await
             .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;

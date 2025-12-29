@@ -355,7 +355,7 @@ pub async fn list_available_groups_handler(
 ) -> impl IntoResponse {
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
-    use crate::schema::{groups, group_permissions, permissions};
+    use crate::schemas::primary::{groups, group_permissions, permissions};
 
     let pool = *state.db_pool;
     let mut conn = match pool.get().await {
@@ -436,7 +436,7 @@ pub async fn get_my_groups_handler(
 ) -> impl IntoResponse {
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
-    use crate::schema::{groups, group_permissions, permissions, api_keys, wallet_group_assignments};
+    use crate::schemas::primary::{groups, group_permissions, permissions, api_keys, wallet_group_assignments};
 
     let pool = *state.db_pool;
     let mut conn = match pool.get().await {

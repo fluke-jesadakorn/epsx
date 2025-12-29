@@ -7,17 +7,40 @@ import { PaymentPageClient } from './PaymentPageClient';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Payment Page Props
+ * Supports multiple URL patterns for V2 dynamic payments:
+ * - /payment?plan=uuid       → Plan payment (subscription)
+ * - /payment?group=uuid      → Group payment (permission access)
+ * - /payment?link=slug       → Dynamic payment link
+ * - /payment?package=id      → Legacy package selection
+ */
 interface PaymentPageProps {
-  searchParams: Promise<{ package?: string; plan?: string }>;
+  searchParams: Promise<{
+    package?: string;
+    plan?: string;
+    group?: string;
+    link?: string;
+  }>;
 }
 
 export default async function PaymentPage({ searchParams }: PaymentPageProps) {
   const user = await getCurrentUser();
   const debugInfo = !user ? await getDebugSessionInfo() : null;
 
-  // Extract package parameter from search params (support both 'package' and 'plan' for compatibility)
+  // Extract payment context from search params
   const resolvedSearchParams = await searchParams;
   const selectedPackageId = resolvedSearchParams.package || resolvedSearchParams.plan || '';
+
+  // V2 Dynamic Payment Context
+  const paymentContext = {
+    planId: resolvedSearchParams.plan || null,
+    groupId: resolvedSearchParams.group || null,
+    linkSlug: resolvedSearchParams.link || null,
+  };
+
+  // Determine if this is a dynamic link payment
+  const isDynamicPayment = !!(paymentContext.planId || paymentContext.groupId || paymentContext.linkSlug);
 
   // Show GlobalAuthGuard modal for unauthenticated users (same pattern as Developer page)
   if (!user) {
@@ -63,7 +86,10 @@ export default async function PaymentPage({ searchParams }: PaymentPageProps) {
         </div>
 
         {/* Payment options - now guaranteed to have authenticated user */}
-        <PaymentPageClient selectedPackageId={selectedPackageId} />
+        <PaymentPageClient
+          selectedPackageId={selectedPackageId}
+          context={isDynamicPayment ? paymentContext : undefined}
+        />
 
         {/* Payment status - backend will handle permissions */}
         <div className="mb-12">

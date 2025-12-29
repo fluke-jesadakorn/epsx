@@ -272,6 +272,16 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/developer-portal/modules/{id}", get(super::developer_portal_handlers::get_module_handler).put(super::developer_portal_handlers::update_module_handler))
     .route("/developer-portal/stats", get(super::developer_portal_handlers::get_stats_handler))
 
+    // ============================================================================
+    // PAYMENT LINK MANAGEMENT (V2 Dynamic Payments)
+    // Dynamic payment links for plans, groups, products, campaigns, and custom
+    // ============================================================================
+
+    // Payment Link routes (require admin:payments:* permissions)
+    .route("/payment-links", get(super::payment_link_handlers::list_payment_links_handler).post(super::payment_link_handlers::create_payment_link_handler))
+    .route("/payment-links/{id}", get(super::payment_link_handlers::get_payment_link_handler).put(super::payment_link_handlers::update_payment_link_handler).delete(super::payment_link_handlers::delete_payment_link_handler))
+    .route("/payment-links/{id}/record-usage", post(super::payment_link_handlers::record_payment_usage_handler))
+
     }
 
 pub fn create_admin_public_routes() -> Router<AppState> {

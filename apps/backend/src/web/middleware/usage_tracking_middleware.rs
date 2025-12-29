@@ -9,7 +9,8 @@ use chrono::Utc;
 use crate::infrastructure::container::DomainContainer;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use crate::schema::{api_key_usage_logs, api_keys};
+use crate::schemas::primary::api_keys;
+use crate::schemas::analytics::api_key_usage_logs;
 
 /// Middleware to track API key usage
 pub async fn usage_tracking_middleware(

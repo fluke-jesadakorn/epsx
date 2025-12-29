@@ -17,6 +17,7 @@ pub mod group_repository_adapter; // Renamed from permission_group_repository_ad
 pub use group_repository_adapter as permission_group_repository_adapter;
 pub mod subscription_repository_adapter; // NEW: Subscription persistence
 pub mod developer_portal; // Developer portal API keys and modules
+pub mod payment_context_repository_adapter; // V2 Dynamic payment contexts
 
 
 pub use base_repository::{ BaseRepository, DieselBaseRepository };
@@ -28,6 +29,7 @@ pub use tradingview_eps_repository::TradingViewEPSRepository;
 
 pub use wallet_user_repository_adapter::WalletUserRepositoryAdapter;
 pub use subscription_repository_adapter::SubscriptionRepositoryAdapter;
+pub use payment_context_repository_adapter::{PaymentContextRepositoryAdapter, PaymentContextSearchCriteria};
 
 // Export both new and legacy names for backward compatibility
 pub use group_repository_adapter::{GroupRepositoryAdapter, PermissionGroupRepositoryAdapter};

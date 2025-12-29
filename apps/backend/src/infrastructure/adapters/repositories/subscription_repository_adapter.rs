@@ -11,7 +11,7 @@ use uuid::Uuid;
 use chrono::Utc;
 
 use crate::infrastructure::models::payment::{SubscriptionDb, NewSubscriptionDb};
-use crate::schema::subscriptions;
+use crate::schemas::payments::subscriptions;
 
 /// Search criteria for subscriptions
 #[derive(Debug, Clone, Default)]

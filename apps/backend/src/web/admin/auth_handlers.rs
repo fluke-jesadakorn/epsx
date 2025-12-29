@@ -476,7 +476,7 @@ pub async fn get_nft_gates(State(app_state): State<AppState>) -> Result<
   info!("🎨 Admin: Fetching NFT gates from database");
 
   // Note: NFT permission configs table not implemented yet
-  // use crate::schema::nft_permission_configs::dsl::*;
+  // use crate::schemas::primary::nft_permission_configs::dsl::*;
   // use diesel::prelude::*;
   // use diesel_async::RunQueryDsl;
 
@@ -506,7 +506,7 @@ pub async fn get_token_gates(State(app_state): State<AppState>) -> Result<
   info!("🪙 Admin: Fetching token gates from database");
 
   // Note: Token permission configs table not implemented yet
-  // use crate::schema::token_permission_configs::dsl::*;
+  // use crate::schemas::primary::token_permission_configs::dsl::*;
   // use diesel::prelude::*;
   // use diesel_async::RunQueryDsl;
 
@@ -536,7 +536,7 @@ pub async fn get_dao_proposals(State(app_state): State<AppState>) -> Result<
   info!("🗳️ Admin: Fetching DAO proposals from database");
 
   // Note: DAO proposals table not implemented yet
-  // use crate::schema::dao_proposals::dsl::*;
+  // use crate::schemas::primary::dao_proposals::dsl::*;
 
   let _conn = app_state.db_pool.get().await
     .map_err(|e| {

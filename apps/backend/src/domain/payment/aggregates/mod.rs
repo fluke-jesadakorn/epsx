@@ -2,6 +2,7 @@ pub mod payment;
 pub mod payment_status;
 pub mod payment_metadata;
 pub mod payment_details;
+pub mod payment_context;
 
 #[cfg(test)]
 pub mod payment_tests;
@@ -20,4 +21,11 @@ pub use payment::{
     PaymentCompleted, PaymentFailed, PaymentCancelled,
     PaymentRefundInitiated, PaymentRefundCompleted,
     PaymentVerificationStarted, PaymentBlockchainVerified, PaymentVerificationFailed
+};
+
+// Re-export payment context aggregate
+pub use payment_context::{
+    PaymentContext, PaymentContextId, PaymentContextType,
+    CreatePaymentContextParams, LoadPaymentContextParams, UpdatePaymentContextParams,
+    PaymentContextError, DEFAULT_EXPIRATION_HOURS
 };

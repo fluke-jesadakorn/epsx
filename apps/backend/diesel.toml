@@ -3,7 +3,7 @@
 
 [print_schema]
 # Output schema.rs to src/schema.rs
-file = "src/schema.rs"
+file = "src/schemas/primary.rs"
 
 # Don't wrap in schema module - tables at root level
 # schema = "public"

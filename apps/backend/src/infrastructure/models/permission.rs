@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 /// Diesel Queryable model for the unified permissions table
 #[derive(Debug, Clone, Queryable, Selectable, Identifiable, Serialize, Deserialize)]
-#[diesel(table_name = crate::schema::permissions)]
+#[diesel(table_name = crate::schemas::primary::permissions)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct PermissionDb {
     /// Primary key
@@ -47,7 +47,7 @@ pub struct PermissionDb {
 /// Diesel Insertable model for creating new permissions
 /// Diesel Insertable model for creating new permissions
 #[derive(Debug, Clone, Insertable)]
-#[diesel(table_name = crate::schema::permissions)]
+#[diesel(table_name = crate::schemas::primary::permissions)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct NewPermissionDb {
     /// Complete permission string
@@ -73,7 +73,7 @@ pub struct NewPermissionDb {
 /// Diesel AsChangeset model for updating existing permissions
 /// Diesel AsChangeset model for updating existing permissions
 #[derive(Debug, Clone, AsChangeset, Default)]
-#[diesel(table_name = crate::schema::permissions)]
+#[diesel(table_name = crate::schemas::primary::permissions)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct UpdatePermissionDb {
     /// Update permission status
@@ -91,7 +91,7 @@ pub struct UpdatePermissionDb {
 // Temporarily commented out due to Diesel schema generation issues
 /*
 #[derive(Debug, Clone, Queryable, Selectable, Serialize, Deserialize)]
-#[diesel(table_name = crate::schema::wallet_permissions_view)]
+#[diesel(table_name = crate::schemas::primary::wallet_permissions_view)]
 #[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct WalletPermissionsViewDb {
     /// Wallet address (primary key)

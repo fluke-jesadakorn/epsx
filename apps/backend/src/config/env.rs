@@ -94,8 +94,12 @@ impl Config {
             }
         };
 
+
         let backend_url = get_with_default("BACKEND_URL", 
             if Self::is_development() { "http://localhost:8080" } else { "" });
+
+
+
         let frontend_url = get_with_default("FRONTEND_URL", 
             if Self::is_development() { "http://localhost:3000" } else { "" });
         let admin_frontend_url = get_with_default("ADMIN_FRONTEND_URL", 
@@ -215,12 +219,16 @@ impl Config {
 
 /// Load environment from .env file
 pub fn load_env() {
-    // In a monorepo setup with TurboRepo, environment variables are injected via dotenv-cli
-    // before the process starts. We don't need to manually load the .env file here.
-    // However, we keep this as a no-op or fallback if needed in the future.
-    // if let Err(e) = dotenv::dotenv() {
-    //     eprintln!("Warning: Failed to load .env file: {}", e);
-    // }
+    // Load environment variables from .env file (searches current and parent directories)
+    match dotenv::dotenv() {
+        Ok(path) => println!("✅ Loaded environment variables from .env file: {:?}", path),
+        Err(e) => {
+            // Only log if we don't have the variables already
+            if std::env::var("DATABASE_URL").is_err() {
+                eprintln!("Info: .env file not loaded: {}", e);
+            }
+        }
+    }
 }
 
 /// Initialize and validate configuration

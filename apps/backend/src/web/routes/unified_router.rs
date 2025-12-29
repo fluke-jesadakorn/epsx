@@ -293,6 +293,8 @@ impl UnifiedRouteBuilder {
             )
             .route("/plans", get(crate::web::public::plans_handlers::get_public_plans))
             .route("/plans/seed", post(crate::web::public::seed_plans_handler::seed_subscription_plans))
+            // V2 Dynamic Payment Links (public lookup by slug)
+            .route("/payment-links/{slug}", get(crate::web::admin::payment_link_handlers::get_payment_link_by_slug_handler))
             .with_state(app_state)
     }
 

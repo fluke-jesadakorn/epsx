@@ -15,7 +15,8 @@ use tracing::{info, error};
 use crate::{
     prelude::*,
     web::middleware::UnifiedErrorResponse,
-    schema::{subscriptions, groups},
+    schemas::primary::{groups},
+    schemas::payments::subscriptions,
 };
 
 /// Admin payment list query parameters

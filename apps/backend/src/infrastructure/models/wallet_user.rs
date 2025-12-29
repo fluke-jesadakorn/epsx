@@ -8,7 +8,7 @@ use serde::Deserialize;
 
 /// Diesel Queryable model for wallet_users table
 #[derive(Debug, Clone, Queryable, Selectable)]
-#[diesel(table_name = crate::schema::wallet_users)]
+#[diesel(table_name = crate::schemas::primary::wallet_users)]
 pub struct WalletUserDb {
     pub wallet_address: String,
     pub is_active: bool,
@@ -23,7 +23,7 @@ pub struct WalletUserDb {
 
 /// Diesel Insertable model for creating new wallet users
 #[derive(Debug, Clone, Insertable)]
-#[diesel(table_name = crate::schema::wallet_users)]
+#[diesel(table_name = crate::schemas::primary::wallet_users)]
 pub struct NewWalletUserDb {
     pub wallet_address: String,
     pub is_active: bool,
@@ -32,7 +32,7 @@ pub struct NewWalletUserDb {
 
 /// Diesel AsChangeset model for updating wallet users
 #[derive(Debug, Clone, AsChangeset)]
-#[diesel(table_name = crate::schema::wallet_users)]
+#[diesel(table_name = crate::schemas::primary::wallet_users)]
 pub struct UpdateWalletUserDb {
     pub is_active: Option<bool>,
     pub wallet_metadata: Option<serde_json::Value>,

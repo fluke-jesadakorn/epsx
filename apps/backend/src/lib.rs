@@ -7,7 +7,8 @@
 #![allow(clippy::too_many_arguments)] // Complex domain constructors require many params
 
 // Diesel schema module (auto-generated from database)
-pub mod schema;
+// Diesel schema modules
+pub mod schemas;
 
 pub mod prelude; // Common imports prelude
 pub mod core; // Shared kernel

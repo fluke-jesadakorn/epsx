@@ -49,8 +49,8 @@ mod tests {
             let mut conn = self.pool.get().await.unwrap();
 
             for wallet_addr in &self.test_wallet_addresses {
-                diesel::delete(crate::schema::wallet_users::table
-                    .filter(crate::schema::wallet_users::wallet_address.eq(wallet_addr)))
+                diesel::delete(crate::schemas::primary::wallet_users::table
+                    .filter(crate::schemas::primary::wallet_users::wallet_address.eq(wallet_addr)))
                     .execute(&mut conn)
                     .await
                     .ok();
@@ -80,14 +80,14 @@ mod tests {
                     wallet_metadata: &metadata,
                 };
 
-                diesel::insert_into(crate::schema::wallet_users::table)
+                diesel::insert_into(crate::schemas::primary::wallet_users::table)
                     .values(&new_user)
                     .execute(conn)
                     .await?;
 
                 // Verify user exists within transaction
-                let user = crate::schema::wallet_users::table
-                    .filter(crate::schema::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[0]))
+                let user = crate::schemas::primary::wallet_users::table
+                    .filter(crate::schemas::primary::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[0]))
                     .first::<WalletUserDb>(conn)
                     .await?;
 
@@ -99,8 +99,8 @@ mod tests {
 
         // Verify user still exists after transaction commit
         let mut conn = setup.pool.get().await.unwrap();
-        let user = crate::schema::wallet_users::table
-            .filter(crate::schema::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[0]))
+        let user = crate::schemas::primary::wallet_users::table
+            .filter(crate::schemas::primary::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[0]))
             .first::<WalletUserDb>(&mut conn)
             .await;
 
@@ -125,7 +125,7 @@ mod tests {
                     wallet_metadata: &metadata1,
                 };
 
-                diesel::insert_into(crate::schema::wallet_users::table)
+                diesel::insert_into(crate::schemas::primary::wallet_users::table)
                     .values(&new_user1)
                     .execute(conn)
                     .await?;
@@ -139,7 +139,7 @@ mod tests {
                     wallet_metadata: &metadata2,
                 };
 
-                diesel::insert_into(crate::schema::wallet_users::table)
+                diesel::insert_into(crate::schemas::primary::wallet_users::table)
                     .values(&new_user2)
                     .execute(conn)
                     .await?;
@@ -156,8 +156,8 @@ mod tests {
         // Verify no users exist after rollback
         let mut conn = setup.pool.get().await.unwrap();
         for wallet_addr in &setup.test_wallet_addresses[..2] {
-            let user = crate::schema::wallet_users::table
-                .filter(crate::schema::wallet_users::wallet_address.eq(wallet_addr))
+            let user = crate::schemas::primary::wallet_users::table
+                .filter(crate::schemas::primary::wallet_users::wallet_address.eq(wallet_addr))
                 .first::<WalletUserDb>(&mut conn)
                 .await;
 
@@ -183,7 +183,7 @@ mod tests {
                     wallet_metadata: &metadata1,
                 };
 
-                diesel::insert_into(crate::schema::wallet_users::table)
+                diesel::insert_into(crate::schemas::primary::wallet_users::table)
                     .values(&new_user1)
                     .execute(outer_conn)
                     .await?;
@@ -200,7 +200,7 @@ mod tests {
                             wallet_metadata: &metadata2,
                         };
 
-                        diesel::insert_into(crate::schema::wallet_users::table)
+                        diesel::insert_into(crate::schemas::primary::wallet_users::table)
                             .values(&new_user2)
                             .execute(inner_conn)
                             .await?;
@@ -223,8 +223,8 @@ mod tests {
         // Verify both users exist (both transactions committed)
         let mut conn = setup.pool.get().await.unwrap();
         for wallet_addr in &setup.test_wallet_addresses[..2] {
-            let user = crate::schema::wallet_users::table
-                .filter(crate::schema::wallet_users::wallet_address.eq(wallet_addr))
+            let user = crate::schemas::primary::wallet_users::table
+                .filter(crate::schemas::primary::wallet_users::wallet_address.eq(wallet_addr))
                 .first::<WalletUserDb>(&mut conn)
                 .await;
 
@@ -259,7 +259,7 @@ mod tests {
                             wallet_metadata: &metadata,
                         };
 
-                        diesel::insert_into(crate::schema::wallet_users::table)
+                        diesel::insert_into(crate::schemas::primary::wallet_users::table)
                             .values(&new_user)
                             .execute(conn)
                             .await?;
@@ -291,8 +291,8 @@ mod tests {
         let mut conn = setup.pool.get().await.unwrap();
         for i in 0..5 {
             let wallet_addr = format!("0x{:040x}", i + 1000);
-            diesel::delete(crate::schema::wallet_users::table
-                .filter(crate::schema::wallet_users::wallet_address.eq(wallet_addr)))
+            diesel::delete(crate::schemas::primary::wallet_users::table
+                .filter(crate::schemas::primary::wallet_users::wallet_address.eq(wallet_addr)))
                 .execute(&mut conn)
                 .await
                 .ok();
@@ -315,7 +315,7 @@ mod tests {
             wallet_metadata: &metadata,
         };
 
-        diesel::insert_into(crate::schema::wallet_users::table)
+        diesel::insert_into(crate::schemas::primary::wallet_users::table)
             .values(&existing_user)
             .execute(&mut conn)
             .await
@@ -332,7 +332,7 @@ mod tests {
                     wallet_metadata: &metadata2,
                 };
 
-                diesel::insert_into(crate::schema::wallet_users::table)
+                diesel::insert_into(crate::schemas::primary::wallet_users::table)
                     .values(&duplicate_user)
                     .execute(conn)
                     .await?;
@@ -346,7 +346,7 @@ mod tests {
                     wallet_metadata: &metadata3,
                 };
 
-                diesel::insert_into(crate::schema::wallet_users::table)
+                diesel::insert_into(crate::schemas::primary::wallet_users::table)
                     .values(&third_user)
                     .execute(conn)
                     .await?;
@@ -358,16 +358,16 @@ mod tests {
         assert!(result.is_err(), "Transaction should fail due to constraint violation");
 
         // Verify the original user still exists
-        let existing_user = crate::schema::wallet_users::table
-            .filter(crate::schema::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[0]))
+        let existing_user = crate::schemas::primary::wallet_users::table
+            .filter(crate::schemas::primary::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[0]))
             .first::<WalletUserDb>(&mut conn)
             .await;
 
         assert!(existing_user.is_ok(), "Original user should still exist after rollback");
 
         // Verify the third user was not inserted
-        let third_user = crate::schema::wallet_users::table
-            .filter(crate::schema::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[2]))
+        let third_user = crate::schemas::primary::wallet_users::table
+            .filter(crate::schemas::primary::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[2]))
             .first::<WalletUserDb>(&mut conn)
             .await;
 
@@ -399,7 +399,7 @@ mod tests {
                             wallet_metadata: &metadata,
                         };
 
-                        diesel::insert_into(crate::schema::wallet_users::table)
+                        diesel::insert_into(crate::schemas::primary::wallet_users::table)
                             .values(&new_user)
                             .execute(conn)
                             .await?;
@@ -431,8 +431,8 @@ mod tests {
         let mut conn = setup.pool.get().await.unwrap();
         for i in 0..20 {
             let wallet_addr = format!("0x{:040x}", i + 2000);
-            diesel::delete(crate::schema::wallet_users::table
-                .filter(crate::schema::wallet_users::wallet_address.eq(wallet_addr)))
+            diesel::delete(crate::schemas::primary::wallet_users::table
+                .filter(crate::schemas::primary::wallet_users::wallet_address.eq(wallet_addr)))
                 .execute(&mut conn)
                 .await
                 .ok();
@@ -459,7 +459,7 @@ mod tests {
                         wallet_metadata: &metadata,
                     };
 
-                    diesel::insert_into(crate::schema::wallet_users::table)
+                    diesel::insert_into(crate::schemas::primary::wallet_users::table)
                         .values(&new_user)
                         .execute(conn)
                         .await?;
@@ -473,8 +473,8 @@ mod tests {
             Ok(_) => {
                 // If transaction completed (unlikely), verify rollback occurred
                 let mut conn = setup.pool.get().await.unwrap();
-                let user = crate::schema::wallet_users::table
-                    .filter(crate::schema::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[0]))
+                let user = crate::schemas::primary::wallet_users::table
+                    .filter(crate::schemas::primary::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[0]))
                     .first::<WalletUserDb>(&mut conn)
                     .await;
 
@@ -508,7 +508,7 @@ mod tests {
                     wallet_metadata: &metadata1,
                 };
 
-                diesel::insert_into(crate::schema::wallet_users::table)
+                diesel::insert_into(crate::schemas::primary::wallet_users::table)
                     .values(&new_user1)
                     .execute(conn)
                     .await?;
@@ -527,7 +527,7 @@ mod tests {
                     wallet_metadata: &metadata2,
                 };
 
-                diesel::insert_into(crate::schema::wallet_users::table)
+                diesel::insert_into(crate::schemas::primary::wallet_users::table)
                     .values(&new_user2)
                     .execute(conn)
                     .await?;
@@ -541,7 +541,7 @@ mod tests {
                     wallet_metadata: &metadata3,
                 };
 
-                diesel::insert_into(crate::schema::wallet_users::table)
+                diesel::insert_into(crate::schemas::primary::wallet_users::table)
                     .values(&new_user3)
                     .execute(conn)
                     .await?;
@@ -560,7 +560,7 @@ mod tests {
                     wallet_metadata: &metadata4,
                 };
 
-                diesel::insert_into(crate::schema::wallet_users::table)
+                diesel::insert_into(crate::schemas::primary::wallet_users::table)
                     .values(&new_user4)
                     .execute(conn)
                     .await?;
@@ -575,22 +575,22 @@ mod tests {
         let mut conn = setup.pool.get().await.unwrap();
 
         // First user should exist (inserted before savepoint)
-        let user1 = crate::schema::wallet_users::table
-            .filter(crate::schema::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[0]))
+        let user1 = crate::schemas::primary::wallet_users::table
+            .filter(crate::schemas::primary::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[0]))
             .first::<WalletUserDb>(&mut conn)
             .await;
         assert!(user1.is_ok(), "User before savepoint should exist");
 
         // Second user should not exist (rolled back)
-        let user2 = crate::schema::wallet_users::table
-            .filter(crate::schema::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[1]))
+        let user2 = crate::schemas::primary::wallet_users::table
+            .filter(crate::schemas::primary::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[1]))
             .first::<WalletUserDb>(&mut conn)
             .await;
         assert!(user2.is_err(), "User after savepoint should not exist (rolled back)");
 
         // Fourth user should exist (inserted after rollback)
-        let user4 = crate::schema::wallet_users::table
-            .filter(crate::schema::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[2]))
+        let user4 = crate::schemas::primary::wallet_users::table
+            .filter(crate::schemas::primary::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[2]))
             .first::<WalletUserDb>(&mut conn)
             .await;
         assert!(user4.is_ok(), "User after rollback should exist");

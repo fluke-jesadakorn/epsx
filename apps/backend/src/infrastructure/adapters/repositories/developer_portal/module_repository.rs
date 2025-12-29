@@ -13,7 +13,7 @@ use crate::domain::developer_portal::{
     CreateModuleRequest, UpdateModuleRequest,
 };
 use crate::prelude::*;
-use crate::schema::api_modules;
+use crate::schemas::primary::api_modules;
 
 /// Module Repository for database operations
 pub struct ModuleRepository {

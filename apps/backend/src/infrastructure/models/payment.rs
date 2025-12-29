@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 /// Diesel Queryable model for payments table
 #[derive(Debug, Clone, Queryable)]
-#[diesel(table_name = crate::schema::payments)]
+#[diesel(table_name = crate::schemas::payments::payments)]
 pub struct PaymentDb {
     pub id: Uuid,
     pub payment_reference: String,
@@ -34,7 +34,7 @@ pub struct PaymentDb {
 
 /// Diesel Insertable model for creating new payments
 #[derive(Debug, Clone, Insertable)]
-#[diesel(table_name = crate::schema::payments)]
+#[diesel(table_name = crate::schemas::payments::payments)]
 pub struct NewPaymentDb {
     pub payment_reference: String,
     pub wallet_address: String,
@@ -53,7 +53,7 @@ pub struct NewPaymentDb {
 
 /// Diesel AsChangeset model for updating payments
 #[derive(Debug, Clone, AsChangeset)]
-#[diesel(table_name = crate::schema::payments)]
+#[diesel(table_name = crate::schemas::payments::payments)]
 pub struct UpdatePaymentDb {
     pub transaction_hash: Option<String>,
     pub status: Option<String>,
@@ -68,7 +68,7 @@ pub struct UpdatePaymentDb {
 
 /// Diesel Queryable model for subscriptions table
 #[derive(Debug, Clone, Queryable, Selectable)]
-#[diesel(table_name = crate::schema::subscriptions)]
+#[diesel(table_name = crate::schemas::payments::subscriptions)]
 pub struct SubscriptionDb {
     pub id: Uuid,
     pub wallet_address: String,
@@ -84,7 +84,7 @@ pub struct SubscriptionDb {
 
 /// Diesel Insertable model for creating new subscriptions
 #[derive(Debug, Clone, Insertable)]
-#[diesel(table_name = crate::schema::subscriptions)]
+#[diesel(table_name = crate::schemas::payments::subscriptions)]
 pub struct NewSubscriptionDb {
     pub wallet_address: String,
     pub plan_id: Uuid,
@@ -99,7 +99,7 @@ pub struct NewSubscriptionDb {
 
 /// Diesel AsChangeset model for updating subscriptions
 #[derive(Debug, Clone, AsChangeset)]
-#[diesel(table_name = crate::schema::subscriptions)]
+#[diesel(table_name = crate::schemas::payments::subscriptions)]
 pub struct UpdateSubscriptionDb {
     pub status: Option<String>,
     pub cancelled_at: Option<DateTime<Utc>>,
@@ -109,7 +109,7 @@ pub struct UpdateSubscriptionDb {
 
 /// Diesel Queryable model for payment_audit_log table
 #[derive(Debug, Clone, Queryable, Selectable)]
-#[diesel(table_name = crate::schema::payment_audit_log)]
+#[diesel(table_name = crate::schemas::analytics::payment_audit_log)]
 pub struct PaymentAuditLogDb {
     pub id: Uuid,
     pub payment_id: Uuid,
@@ -124,7 +124,7 @@ pub struct PaymentAuditLogDb {
 
 /// Diesel Insertable model for creating audit log entries
 #[derive(Debug, Clone, Insertable)]
-#[diesel(table_name = crate::schema::payment_audit_log)]
+#[diesel(table_name = crate::schemas::analytics::payment_audit_log)]
 pub struct NewPaymentAuditLogDb {
     pub payment_id: Uuid,
     pub action: String,
@@ -196,7 +196,7 @@ pub struct PaymentStatsDb {
 
 /// Payment summary for admin dashboard
 #[derive(Debug, Clone, Queryable, Selectable, QueryableByName)]
-#[diesel(table_name = crate::schema::payments)]
+#[diesel(table_name = crate::schemas::payments::payments)]
 pub struct PaymentSummaryDb {
     pub id: Uuid,
     pub payment_reference: String,

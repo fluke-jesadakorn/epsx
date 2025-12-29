@@ -13,7 +13,7 @@ use crate::domain::permission_management::{
 };
 use crate::infrastructure::models::group::{GroupDb, NewGroupDb};
 use crate::infrastructure::adapters::repositories::database_types::PermissionRow;
-use crate::schema::{groups, group_permissions};
+use crate::schemas::primary::{groups, group_permissions};
 use std::collections::HashSet;
 
 #[derive(diesel::QueryableByName)]
@@ -426,7 +426,7 @@ impl GroupRepositoryAdapter {
     /// Get all subscription plans (database_types.rs compatibility layer)
     pub async fn get_subscription_plans(&self) -> Result<Vec<crate::infrastructure::adapters::repositories::database_types::PermissionGroup>, diesel::result::Error> {
         use crate::infrastructure::adapters::repositories::database_types::PermissionGroup as DbPermissionGroup;
-        use crate::schema::groups;
+        use crate::schemas::primary::groups;
 
         let mut conn = self.db_pool.get().await
             .map_err(|e| diesel::result::Error::DatabaseError(
@@ -447,7 +447,7 @@ impl GroupRepositoryAdapter {
     /// Get plan by ID (database_types.rs compatibility layer)
     pub async fn get_plan_by_id(&self, plan_id: uuid::Uuid) -> Result<Option<crate::infrastructure::adapters::repositories::database_types::PermissionGroup>, diesel::result::Error> {
         use crate::infrastructure::adapters::repositories::database_types::PermissionGroup as DbPermissionGroup;
-        use crate::schema::groups;
+        use crate::schemas::primary::groups;
 
         let mut conn = self.db_pool.get().await
             .map_err(|e| diesel::result::Error::DatabaseError(
@@ -466,7 +466,7 @@ impl GroupRepositoryAdapter {
     /// Update plan (database_types.rs compatibility layer)
     pub async fn update_plan(&self, plan: crate::infrastructure::adapters::repositories::database_types::PermissionGroup) -> Result<crate::infrastructure::adapters::repositories::database_types::PermissionGroup, diesel::result::Error> {
         use crate::infrastructure::adapters::repositories::database_types::PermissionGroup as DbPermissionGroup;
-        use crate::schema::groups;
+        use crate::schemas::primary::groups;
 
         let mut conn = self.db_pool.get().await
             .map_err(|e| diesel::result::Error::DatabaseError(
@@ -494,7 +494,7 @@ impl GroupRepositoryAdapter {
 
     /// Create a new permission group (database_types.rs compatibility layer)
     pub async fn create_group(&self, new_group: crate::infrastructure::adapters::repositories::database_types::NewPermissionGroup) -> Result<crate::infrastructure::adapters::repositories::database_types::PermissionGroup, diesel::result::Error> {
-        use crate::schema::groups;
+        use crate::schemas::primary::groups;
         use crate::infrastructure::adapters::repositories::database_types::PermissionGroup as DbPermissionGroup;
 
         let mut conn = self.db_pool.get().await

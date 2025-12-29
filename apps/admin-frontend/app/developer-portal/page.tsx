@@ -1,19 +1,20 @@
 import { Metadata } from 'next';
 
-import { DeveloperPortal } from '@/components/admin/DeveloperPortal';
+import { DeveloperPortalPage } from '@/components/admin/developer-portal';
 
 export const metadata: Metadata = {
   title: 'Developer Portal | Admin',
-  description: 'Manage API keys and third-party integrations',
+  description: 'Manage user API keys and third-party integrations',
 };
 
 /**
- *
+ * Developer Portal Page - Manages user API keys
  */
-export default function DeveloperPortalPage() {
+export default function DeveloperPortalRoute() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      <DeveloperPortal />
+      <DeveloperPortalPage />
     </div>
   );
 }
+

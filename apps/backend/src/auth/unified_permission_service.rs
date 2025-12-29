@@ -24,7 +24,7 @@ use diesel_async::{AsyncPgConnection, RunQueryDsl, pooled_connection::deadpool::
 use diesel::prelude::*;
 use std::sync::Arc;
 // Note: wallet_group_memberships table not implemented yet
-  // use crate::schema::{wallet_group_memberships};
+  // use crate::schemas::primary::{wallet_group_memberships};
 use tracing::{debug, info, warn, error};
 use uuid::Uuid;
 

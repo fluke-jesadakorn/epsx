@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 /// Diesel Queryable model for groups table
 /// Note: Uses groups table until migration is run
 #[derive(Debug, Clone, Queryable, Selectable)]
-#[diesel(table_name = crate::schema::groups)]
+#[diesel(table_name = crate::schemas::primary::groups)]
 pub struct GroupDb {
     pub id: Uuid,
     pub name: String,
@@ -33,11 +33,15 @@ pub struct GroupDb {
     pub updated_at: DateTime<Utc>,
     pub created_by: Option<String>,
     pub last_modified_by: Option<String>,
+    pub rate_limit_per_minute: i32,
+    pub rate_limit_per_hour: i32,
+    pub rate_limit_per_day: i32,
+    pub burst_capacity: i32,
 }
 
 /// Diesel Insertable model for creating new groups
 #[derive(Debug, Clone, Insertable)]
-#[diesel(table_name = crate::schema::groups)]
+#[diesel(table_name = crate::schemas::primary::groups)]
 pub struct NewGroupDb {
     pub id: Uuid,
     pub name: String,
@@ -62,7 +66,7 @@ pub struct NewGroupDb {
 
 /// Diesel AsChangeset model for updating groups
 #[derive(Debug, Clone, AsChangeset)]
-#[diesel(table_name = crate::schema::groups)]
+#[diesel(table_name = crate::schemas::primary::groups)]
 pub struct UpdateGroupDb {
     pub name: Option<String>,
     pub slug: Option<String>,
@@ -127,7 +131,7 @@ pub type UpdatePermissionGroupRequest = UpdateGroupRequest;
 
 /// Diesel Queryable model for group permissions (junction table)
 #[derive(Debug, Clone, Queryable, Selectable, Insertable)]
-#[diesel(table_name = crate::schema::group_permissions)]
+#[diesel(table_name = crate::schemas::primary::group_permissions)]
 pub struct GroupPermissionDb {
     pub id: Uuid,
     pub group_id: Uuid,
@@ -139,7 +143,7 @@ pub struct GroupPermissionDb {
 
 /// Diesel Insertable model for linking permissions to groups
 #[derive(Debug, Clone, Insertable)]
-#[diesel(table_name = crate::schema::group_permissions)]
+#[diesel(table_name = crate::schemas::primary::group_permissions)]
 pub struct NewGroupPermissionDb {
     pub group_id: Uuid,
     pub permission_id: Uuid,

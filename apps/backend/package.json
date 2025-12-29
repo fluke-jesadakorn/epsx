@@ -19,6 +19,7 @@
     "test:coverage": "dotenv -e ../../.env -- cargo tarpaulin --out html --output-dir coverage",
     "bench": "cargo bench",
     "lint": "cargo clippy",
-    "lint:fix": "cargo clippy --fix --allow-dirty --allow-staged"
+    "lint:fix": "cargo clippy --fix --allow-dirty --allow-staged",
+    "migrate:all": "./scripts/migrate_all.sh"
   }
 }
