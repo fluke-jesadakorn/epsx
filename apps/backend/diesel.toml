@@ -19,4 +19,4 @@ with_docs = true
 
 [migrations_directory]
 # Location of Diesel migrations (using dedicated Diesel directory)
-dir = "diesel_migrations/"
+dir = "migrations/core/"

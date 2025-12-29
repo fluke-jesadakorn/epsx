@@ -13,17 +13,17 @@ export default function UnauthorizedPage() {
             Access Denied
           </h1>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
-            You don&apos;t have permission to access the admin panel. 
+            You don&apos;t have permission to access the admin panel.
             Please contact your administrator if you believe this is an error.
           </p>
           <div className="space-y-3">
-            <Link 
-              href="/login"
+            <Link
+              href="/auth"
               className="block w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-center"
             >
               Go to Login
             </Link>
-            <Link 
+            <Link
               href="/"
               className="block w-full px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-center"
             >

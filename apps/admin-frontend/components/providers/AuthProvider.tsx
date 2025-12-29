@@ -30,8 +30,8 @@ interface AuthProviderProps {
  * @param root0.requireAdmin
  * @param root0.layout
  */
-export async function AuthProvider({ 
-  children, 
+export async function AuthProvider({
+  children,
   requireAuth = true,
   requireAdmin = true,
   layout = true
@@ -39,10 +39,10 @@ export async function AuthProvider({
   // Get the current pathname from headers
   const headersList = await headers();
   const pathname = headersList.get('x-pathname') || '';
-  
+
   // Public routes that don't require authentication
   const publicRoutes = [
-    '/login',
+    '/auth',
     '/api/auth/callback/epsx-backend',
     '/api/auth/login',
     '/api/auth/logout',
@@ -50,9 +50,9 @@ export async function AuthProvider({
     '/unauthorized',
     '/access-denied'
   ];
-  
+
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
-  
+
   // For public routes, render without authentication or layout
   if (isPublicRoute) {
     return (
@@ -63,19 +63,19 @@ export async function AuthProvider({
       </ClientProviders>
     );
   }
-  
+
   // Check authentication if required
   if (requireAuth) {
     // Wallet Authentication: Validate authentication using wallet signatures
     const session = await UnifiedAuth.getSession();
-    
+
     if (!session?.user) {
-      redirect('/login');
+      redirect('/auth');
     }
-    
+
     // Backend validates all permissions - don't check on frontend
     // Just let authenticated users through - backend will return 403 if no access
-    
+
     // Render with layout if requested
     if (layout && session.user) {
       try {
@@ -100,7 +100,7 @@ export async function AuthProvider({
       );
     }
   }
-  
+
   // No authentication required - render without auth checks
   return (
     <ClientProviders>
@@ -128,9 +128,9 @@ function AuthError() {
           </div>
           <h1 className="text-xl font-bold text-gray-900">Authentication Error</h1>
           <p className="text-gray-600">Failed to load admin interface</p>
-          <a 
-            href="/login" 
-          className="inline-block bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-6 py-3 rounded-2xl font-semibold shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow-500"
+          <a
+            href="/auth"
+            className="inline-block bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-6 py-3 rounded-2xl font-semibold shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow-500"
           >
             Return to Login
           </a>

@@ -413,7 +413,7 @@ export async function requireAdminSession(): Promise<AdminSession> {
   const session = await getAdminSession();
 
   if (!session.isAuthenticated) {
-    redirect('/login');
+    redirect('/auth');
   }
 
   if (!session.hasAdminAccess) {

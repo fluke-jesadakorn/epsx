@@ -6,21 +6,21 @@ This directory contains all deployment, testing, and utility scripts for the EPS
 
 ```
 scripts/
-├── deploy/          # Environment-driven deployment system
-│   ├── deploy.sh           # Deploy all services
-│   ├── deploy-service.sh   # Deploy individual service
-│   └── services/           # YAML templates with env variables
-│       ├── production/     # Production configurations
-│       ├── staging/        # Staging configurations
-│       └── development/    # Development configurations
-├── test/            # Testing and validation scripts
+├── auth/            # Authentication & permission scripts
+│   ├── grant-wallet-admin.sh
+│   └── grant-wallet-analytics.sh
+├── database/        # Database management scripts
+│   ├── init-databases.sh
+│   └── recover_epsx_dev.sh
+├── deploy/          # Deployment scripts
+│   ├── deploy-payment-escrow.sh
+│   └── deploy-remote.sh
+├── test/            # Testing scripts
 │   ├── notification-e2e.sh
+│   ├── test-rate-limit.ts
 │   └── verify-asset-loading.js
-├── utils/           # Utility and maintenance scripts
-│   ├── validate-env.js     # Environment validation
-│   ├── validate-permissions.js
-│   ├── promote-admin.sh
-│   └── revoke-admin.sh
+├── utils/           # Utility scripts
+│   └── validate-env.js
 └── README.md        # This documentation
 ```
 

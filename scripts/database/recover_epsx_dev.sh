@@ -6,8 +6,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-MIGRATIONS_DIR="$PROJECT_ROOT/apps/backend/diesel_migrations"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
+MIGRATIONS_DIR="$PROJECT_ROOT/apps/backend/migrations/core"
 
 # Load .env file if it exists (optional but helpful for credentials)
 if [ -f "$PROJECT_ROOT/.env" ]; then
@@ -27,10 +27,10 @@ ADMIN_URL="postgresql://$DB_USER:$DB_PASSWORD@$DB_HOST:$DB_PORT/postgres"
 # Define databases and their migration directories
 # Format: "db_name:migration_dir_name"
 DATABASES=(
-    "epsx_dev:diesel_migrations"
-    "epsx_analytics_dev:diesel_migrations_analytics"
-    "epsx_notifications_dev:diesel_migrations_notifications"
-    "epsx_payments_dev:diesel_migrations_payments"
+    "epsx_dev:migrations/core"
+    "epsx_analytics_dev:migrations/analytics"
+    "epsx_notifications_dev:migrations/notifications"
+    "epsx_payments_dev:migrations/payments"
 )
 
 echo "🔧 Recovering Databases..."

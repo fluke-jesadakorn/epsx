@@ -93,7 +93,7 @@ export class ServerAuth {
     const session = await this.getAdminSession()
 
     if (!session.isLoggedIn) {
-      redirect('/login')
+      redirect('/auth')
     }
 
     // Use role from JWT payload (computed by backend)

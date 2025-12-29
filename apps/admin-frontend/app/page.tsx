@@ -128,7 +128,7 @@ export default function DashboardPage() {
           <p className="text-gray-600 dark:text-gray-400 mb-8">
             Please connect your wallet to access the admin dashboard.
           </p>
-          <a href="/login" className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 rounded-2xl text-white font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow-500">
+          <a href="/auth" className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 rounded-2xl text-white font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow-500">
             Connect Wallet
           </a>
         </div>
@@ -147,7 +147,7 @@ export default function DashboardPage() {
           <p className="text-gray-600 dark:text-gray-400 mb-8">
             {accessError}
           </p>
-          <a href="/login" className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 rounded-2xl text-white font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow-500">
+          <a href="/auth" className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-yellow-400 via-orange-500 to-pink-500 rounded-2xl text-white font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-yellow-500">
             Try Again
           </a>
         </div>

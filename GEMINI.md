@@ -36,6 +36,7 @@ bun lint && bun type-check && bun format  # QA
 │   ├── frontend/           # Main analytics platform
 │   ├── admin-frontend/     # Admin dashboard
 │   └── backend/           # Rust API server
+├── infrastructure/        # Docker & Cloudflare config
 ├── shared/                # Shared packages & config
 ├── packages/              # NPM packages
 └── scripts/              # Build & deployment scripts
@@ -100,19 +101,18 @@ API_ROUTES.USERS.PROFILE           // '/api/v1/users/profile'
 
 ```bash
 # Build all images locally
-./scripts/build/local-all.sh
+bun build:all
 
 # Deploy with local testing (recommended)
-./scripts/deploy/deploy-frontend.sh
-./scripts/deploy/deploy-admin.sh
-./scripts/deploy/deploy-backend.sh
+bun deploy:frontend
+bun deploy:admin
+bun deploy:backend
 
-# Or push only (manual revision control)
-./scripts/deploy/push-all.sh
+# Or push only
+bun deploy:all:prod
 
 # Monitor
-./scripts/deploy/status.sh
-./scripts/deploy/logs.sh [service]
+bun env:status
 
 ### Remote Server Deployment (Docker Compose)
 
@@ -122,7 +122,7 @@ For servers with limited RAM or network bandwidth (e.g., 100.109.131.15), use th
 ```bash
 # Build images for server architecture (linux/amd64)
 export DOCKER_DEFAULT_PLATFORM=linux/amd64
-docker compose -f docker-compose.yml build frontend admin-frontend backend
+docker compose -f infrastructure/docker/docker-compose.yml build frontend admin-frontend backend
 
 # Save images to a compressed tarball
 docker save epsx-frontend:latest epsx-admin-frontend:latest epsx-backend:latest | gzip > deploy.tar.gz
@@ -192,7 +192,9 @@ docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
 ```
 
 **4. Running Migrations (Important)**
-The Docker image currently does not contain the migration binary. Run migrations locally via SSH tunnel:
+The Docker image currently does not contain the migration binary. Run migrations locally via SSH tunnel.
+Note: Backend uses multiple databases. You must specify the config for each.
+
 ```bash
 # 1. Open Tunnel to Remote DB
 ssh -L 5434:localhost:5433 USER@SERVER_IP -Nf
@@ -200,7 +202,18 @@ ssh -L 5434:localhost:5433 USER@SERVER_IP -Nf
 # 2. Run Migration Locally (using diesel_cli)
 # For Production:
 export DATABASE_URL=postgres://epsx_user:password@localhost:5434/epsx_prod
-diesel migration run
+
+# Core Migrations
+diesel migration run --config apps/backend/diesel.toml
+
+# Analytics Migrations
+diesel migration run --config apps/backend/diesel_analytics.toml
+
+# Notifications Migrations
+diesel migration run --config apps/backend/diesel_notifications.toml
+
+# Payments Migrations
+diesel migration run --config apps/backend/diesel_payments.toml
 ```
 
 ## Environment Variables

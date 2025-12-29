@@ -7,7 +7,7 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
+PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 MIGRATIONS_DIR="$PROJECT_ROOT/apps/backend"
 
 # Check DATABASE_URL
@@ -40,8 +40,8 @@ echo "🔄 Running migrations..."
 
 # Analytics migrations
 ANALYTICS_URL="$BASE_URL/epsx_analytics_dev$SSL_PARAMS"
-echo "   → Analytics DB: $MIGRATIONS_DIR/diesel_migrations_analytics"
-for migration in "$MIGRATIONS_DIR"/diesel_migrations_analytics/*/up.sql; do
+echo "   → Analytics DB: $MIGRATIONS_DIR/migrations/analytics"
+for migration in "$MIGRATIONS_DIR"/migrations/analytics/*/up.sql; do
     if [ -f "$migration" ]; then
         echo "     Running: $(basename $(dirname $migration))"
         psql "$ANALYTICS_URL" -f "$migration" 2>/dev/null || echo "     (already applied or skipped)"
@@ -50,8 +50,8 @@ done
 
 # Notifications migrations
 NOTIFICATIONS_URL="$BASE_URL/epsx_notifications_dev$SSL_PARAMS"
-echo "   → Notifications DB: $MIGRATIONS_DIR/diesel_migrations_notifications"
-for migration in "$MIGRATIONS_DIR"/diesel_migrations_notifications/*/up.sql; do
+echo "   → Notifications DB: $MIGRATIONS_DIR/migrations/notifications"
+for migration in "$MIGRATIONS_DIR"/migrations/notifications/*/up.sql; do
     if [ -f "$migration" ]; then
         echo "     Running: $(basename $(dirname $migration))"
         psql "$NOTIFICATIONS_URL" -f "$migration" 2>/dev/null || echo "     (already applied or skipped)"
@@ -60,8 +60,8 @@ done
 
 # Payments migrations
 PAYMENTS_URL="$BASE_URL/epsx_payments_dev$SSL_PARAMS"
-echo "   → Payments DB: $MIGRATIONS_DIR/diesel_migrations_payments"
-for migration in "$MIGRATIONS_DIR"/diesel_migrations_payments/*/up.sql; do
+echo "   → Payments DB: $MIGRATIONS_DIR/migrations/payments"
+for migration in "$MIGRATIONS_DIR"/migrations/payments/*/up.sql; do
     if [ -f "$migration" ]; then
         echo "     Running: $(basename $(dirname $migration))"
         psql "$PAYMENTS_URL" -f "$migration" 2>/dev/null || echo "     (already applied or skipped)"

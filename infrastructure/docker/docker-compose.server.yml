@@ -49,7 +49,7 @@ services:
   # Rust Backend API
   backend:
     build:
-      context: .
+      context: ../../
       dockerfile: apps/backend/Dockerfile
     container_name: epsx-backend
     restart: unless-stopped
@@ -120,7 +120,7 @@ services:
   # Next.js Frontend
   frontend:
     build:
-      context: .
+      context: ../../
       dockerfile: apps/frontend/Dockerfile
       args:
         - NEXT_PUBLIC_BACKEND_URL=${BACKEND_URL}
@@ -181,7 +181,7 @@ services:
   # Next.js Admin Frontend
   admin-frontend:
     build:
-      context: .
+      context: ../../
       dockerfile: apps/admin-frontend/Dockerfile
       args:
         - NEXT_PUBLIC_BACKEND_URL=${BACKEND_URL}
@@ -254,7 +254,7 @@ services:
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
     volumes:
-      - ./cloudflared-config.yml:/etc/cloudflared/config.yml:ro
+      - ../cloudflare/cloudflared-config.yml:/etc/cloudflared/config.yml:ro
     networks:
       - epsx_internal
 

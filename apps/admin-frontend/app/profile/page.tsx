@@ -21,7 +21,7 @@ export default async function AdminProfilePage() {
 
   // Redirect if not authenticated as admin
   if (!session?.isAuthenticated || !session.user) {
-    redirect('/login');
+    redirect('/auth');
   }
 
   return (

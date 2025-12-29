@@ -56,7 +56,7 @@ export default function AccessDeniedPage({ searchParams }: AccessDeniedPageProps
 
             <div className="flex space-x-3">
               <Link
-                href="/login"
+                href="/auth"
                 className="flex-1 flex justify-center items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
               >
                 <RotateCcw className="h-4 w-4 mr-2" />

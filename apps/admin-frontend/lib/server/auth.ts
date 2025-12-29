@@ -202,7 +202,7 @@ export async function requireAuth(redirectPath?: string) {
 
   if (!user) {
     const { redirect } = await import('next/navigation');
-    const loginUrl = redirectPath ? `/login?redirectTo=${encodeURIComponent(redirectPath)}` : '/login';
+    const loginUrl = redirectPath ? `/auth?return_url=${encodeURIComponent(redirectPath)}` : '/auth';
     redirect(loginUrl);
   }
 

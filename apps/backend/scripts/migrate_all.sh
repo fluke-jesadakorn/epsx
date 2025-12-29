@@ -29,7 +29,7 @@ echo "📦 [1/4] Main Database (epsx_dev)"
 export DATABASE_URL="$BASE_CONN/epsx_dev"
 echo "   URL: $DATABASE_URL"
 # Create DB if needed, and run migrations
-diesel database setup --migration-dir diesel_migrations
+diesel database setup --migration-dir migrations/core
 
 # ---------------------------------------------------------
 # 2. Analytics Database (epsx_analytics_dev)

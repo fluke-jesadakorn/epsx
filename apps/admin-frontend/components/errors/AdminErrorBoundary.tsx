@@ -4,12 +4,8 @@ import React, { Component, ReactNode } from 'react';
 
 import { PermissionErrorUI } from './PermissionErrorUI';
 
-import { 
-  ApiError,
-  isPermissionDeniedError,
-  isInsufficientTierError,
-  isPermissionExpiredError,
-  isRateLimitExceededError
+import {
+  ApiError
 } from '@/shared/utils/response-handler';
 
 interface Props {
@@ -49,7 +45,7 @@ export class AdminErrorBoundary extends Component<Props, State> {
   static getDerivedStateFromError(error: Error): State {
     // Check if this is an API error with permission information
     let apiError: ApiError | null = null;
-    
+
     if (error && typeof error === 'object' && 'error' in error) {
       apiError = error as unknown as ApiError;
     }
@@ -69,7 +65,7 @@ export class AdminErrorBoundary extends Component<Props, State> {
   override componentDidCatch(error: Error, errorInfo: any) {
     // eslint-disable-next-line no-console
     console.error('AdminErrorBoundary caught an error:', error, errorInfo);
-    
+
     // Call optional error handler
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
@@ -85,7 +81,7 @@ export class AdminErrorBoundary extends Component<Props, State> {
   };
 
   handleLogin = () => {
-    window.location.href = '/login';
+    window.location.href = '/auth';
   };
 
   handleSupport = (context?: any) => {

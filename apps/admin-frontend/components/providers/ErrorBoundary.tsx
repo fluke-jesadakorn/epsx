@@ -71,7 +71,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
                 Reload Page
               </button>
               <a
-                href="/login"
+                href="/auth"
                 className="inline-block bg-gray-700 text-white px-4 py-2 rounded hover:bg-gray-600"
               >
                 Return to Login

@@ -8,4 +8,4 @@ filter = { except_tables = ["_sqlx_migrations", "__diesel_schema_migrations", "s
 with_docs = true
 
 [migrations_directory]
-dir = "diesel_migrations_payments/"
+dir = "migrations/payments/"

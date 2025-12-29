@@ -27,7 +27,6 @@ const NO_LAYOUT_PATHS = [
 
 // Pages that don't require authentication
 const PUBLIC_PATHS = [
-  '/login',
   '/auth',
   '/unauthorized',
   '/access-denied',
