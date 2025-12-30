@@ -72,7 +72,7 @@ fi
 FORK_BLOCK=$((LATEST_BLOCK - 15))
 
 echo "🚀 Starting Anvil..."
-echo "   Network: BSC Mainnet (Chain ID 56)"
+echo "   Network: BSC Mainnet Fork (Chain ID 31337)"
 echo "   RPC: $SELECTED_RPC"
 echo "   Fork Block: $FORK_BLOCK"
 
@@ -81,7 +81,7 @@ echo "   Fork Block: $FORK_BLOCK"
 anvil \
     --fork-url "$SELECTED_RPC" \
     --fork-block-number "$FORK_BLOCK" \
-    --chain-id 56 \
+    --chain-id 31337 \
     --host 0.0.0.0 \
     --gas-price 3000000000 \
     --code-size-limit 50000 \

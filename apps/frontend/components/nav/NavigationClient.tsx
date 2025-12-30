@@ -123,7 +123,7 @@ function NavigationContent() {
     if (!isHydrated) return 'Chain';
     if (chainId === bsc.id) return 'BSC Mainnet';
     if (chainId === bscTestnet.id) return 'BSC Testnet';
-    if (chainId === 31337) return 'Hardhat Local';
+    if (chainId === 31337) return 'Anvil Local';
     return 'Unknown Chain';
   };
 

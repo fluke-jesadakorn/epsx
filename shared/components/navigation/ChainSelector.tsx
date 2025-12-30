@@ -18,7 +18,7 @@ interface ChainSelectorProps {
     compact?: boolean;
 }
 
-interface ChainInfo {
+export interface ChainInfo {
     id: number;
     name: string;
     displayName: string;
@@ -26,7 +26,7 @@ interface ChainInfo {
     testnet: boolean;
 }
 
-const supportedChains: ChainInfo[] = [
+export const supportedChains: ChainInfo[] = [
     {
         id: bsc.id,
         name: bsc.name,
@@ -43,9 +43,9 @@ const supportedChains: ChainInfo[] = [
     },
     {
         id: 31337,
-        name: 'Hardhat Local',
-        displayName: 'Hardhat Local',
-        icon: '🔧',
+        name: 'Anvil Local (BSC Fork)',
+        displayName: 'Anvil Local (BSC)',
+        icon: '🟡',
         testnet: true,
     },
 ];

@@ -11,6 +11,7 @@ use super::plan_handlers::{
   list_plans_handler,
   update_plan_handler,
   create_subscription_handler,
+  admin_list_user_access_handler,
 };
 // Promotion management handlers
 use super::promotion_handlers::{
@@ -144,6 +145,8 @@ pub fn create_admin_routes() -> Router<AppState> {
     .route("/promotions/{id}", delete(delete_promotion_handler))
     // Subscription Management routes (require admin:subscriptions:* permissions) - Simplified
     .route("/subscriptions", post(create_subscription_handler))
+    // Direct Payment Model: User Access List (replaces subscription-based model)
+    .route("/plans/user-access/list", get(admin_list_user_access_handler))
     // Performance monitoring routes (require admin:performance:* permissions)
     .route("/performance/auth-cache", get(get_auth_cache_performance))
     .route("/performance/cache-summary", get(get_cache_summary))

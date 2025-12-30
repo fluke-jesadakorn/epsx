@@ -1,12 +1,12 @@
 // Subscription Management Application Layer
-// Commands and queries for plan and subscription operations
+// Commands and queries for plan operations (Subscription logic removed - Direct Payment model)
 
 pub mod commands;
 pub mod queries;
 pub mod controllers; // HTTP controllers (inbound adapters)
 pub mod dtos; // Request/Response DTOs
 
-// Re-export command models
+// Re-export command models (Plan only)
 pub use commands::{
     CreatePlanCommand,
     CreatePlanResponse,
@@ -14,37 +14,26 @@ pub use commands::{
     UpdatePlanResponse,
     DeletePlanCommand,
     DeletePlanResponse,
-    CreateSubscriptionCommand,
-    CreateSubscriptionResponse,
-    CancelSubscriptionCommand,
-    CancelSubscriptionResponse,
 };
 
-// Re-export command handlers
+// Re-export command handlers (Plan only)
 pub use commands::{
     CreatePlanCommandHandler,
     UpdatePlanCommandHandler,
     DeletePlanCommandHandler,
-    CreateSubscriptionCommandHandler,
-    CancelSubscriptionCommandHandler,
 };
 
-// Re-export query models
+// Re-export query models (Plan only)
 pub use queries::{
     GetPlanQuery,
     GetPlanResponse,
     ListPlansQuery,
     ListPlansResponse,
-    GetSubscriptionQuery,
-    GetSubscriptionResponse,
-    ListSubscriptionsQuery,
-    ListSubscriptionsResponse,
 };
 
-// Re-export query handlers
+// Re-export query handlers (Plan only)
 pub use queries::{
     GetPlanQueryHandler,
     ListPlansQueryHandler,
-    GetSubscriptionQueryHandler,
-    ListSubscriptionsQueryHandler,
 };
+

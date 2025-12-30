@@ -30,10 +30,10 @@ const queryClient = new QueryClient({
     },
 });
 
-// Define Hardhat Localhost chain for development
-const hardhatLocalhost = {
+// Define Anvil Localhost chain for development
+const anvilLocalhost = {
     id: 31337,
-    name: 'Hardhat Local',
+    name: 'Anvil Local',
     nativeCurrency: {
         decimals: 18,
         name: 'Ether',
@@ -44,21 +44,27 @@ const hardhatLocalhost = {
         public: { http: ['http://127.0.0.1:8545'] },
     },
     blockExplorers: {
-        default: { name: 'Hardhat', url: 'http://127.0.0.1:8545' },
+        default: { name: 'Anvil', url: 'http://127.0.0.1:8545' },
     },
     testnet: true,
 } as const satisfies Chain;
 
 // Get the blockchain network from environment
 const isMainnet = process.env.NEXT_PUBLIC_BLOCKCHAIN_NETWORK === 'mainnet';
-const isLocal = Number(process.env.NEXT_PUBLIC_CHAIN_ID) === 31337;
+const isProduction = process.env.NODE_ENV === 'production';
+const defaultChainId = Number(process.env.NEXT_PUBLIC_CHAIN_ID);
 
 // Determine default chains with environment awareness
-const DEFAULT_CHAINS = isLocal
-    ? [hardhatLocalhost, bscTestnet, bsc]
-    : isMainnet
-        ? [bsc]
-        : [bscTestnet, bsc];
+// In production mainnet: only BSC Mainnet
+// In production non-mainnet: BSC Testnet + BSC Mainnet
+// In development: Include Anvil Local for local testing
+const DEFAULT_CHAINS = isMainnet && isProduction
+    ? [bsc]
+    : isProduction
+        ? [bscTestnet, bsc]
+        : defaultChainId === 31337
+            ? [anvilLocalhost, bscTestnet, bsc]  // Anvil first when it's the default
+            : [bscTestnet, anvilLocalhost, bsc]; // Include Anvil in dev for switching
 
 const DEFAULT_APP_NAME = 'EPSX';
 const DEFAULT_PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || '04e0a500abfa1e095bf8f64b15fa2812';

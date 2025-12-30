@@ -24,14 +24,6 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
-    "test:web3": "playwright test --project=web3-comprehensive",
-    "test:web3:coverage": "./__test__/scripts/run-web3-coverage.sh",
-    "test:web3:complete": "playwright test --project=web3-complete-coverage",
-    "test:web3:auth": "playwright test --project=web3-auth-flows",
-    "test:web3:mobile": "playwright test --project=web3-mobile-chrome --project=web3-mobile-safari",
-    "test:web3:cross-browser": "playwright test --project=web3-firefox --project=web3-webkit",
-    "analyze": "ANALYZE=true npm run build",
     "clean": "rm -rf .next out dist node_modules/.cache"
   },
   "dependencies": {

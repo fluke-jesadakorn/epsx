@@ -16,8 +16,23 @@ export const PAYMENT_ESCROW_ADDRESS = {
   // BSC Testnet (ChainID: 97) - Staging network
   97: process.env['NEXT_PUBLIC_PAYMENT_ESCROW_TESTNET'] || '0x5FbDB2315678afecb367f032d93F642f64180aa3',
 
-  // Local Anvil (ChainID: 31337) - Local development
-  31337: process.env['NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL'] || '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+  // Local Anvil (ChainID: 31337) - Deployed via DeployLocal.s.sol to match Mainnet address using vm.etch
+  31337: process.env['NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL'] || '0x1613beB3B2C4f22Ee086B2b38C1476A3cE7f78E8',
+} as const;
+
+/**
+ * Payment Receiver Address for Direct Token Transfers
+ * This is the wallet that receives payment tokens directly.
+ */
+export const PAYMENT_RECEIVER_ADDRESS = {
+  // BSC Mainnet (ChainID: 56) - Production treasury wallet
+  56: process.env['NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET'] || '',
+
+  // BSC Testnet (ChainID: 97) - Testnet receiver
+  97: process.env['NEXT_PUBLIC_PAYMENT_RECEIVER_TESTNET'] || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+
+  // Local Anvil (ChainID: 31337) - Anvil default account #1 (not #0 to avoid sender=receiver)
+  31337: process.env['NEXT_PUBLIC_PAYMENT_RECEIVER_LOCAL'] || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
 } as const;
 
 /**
@@ -26,13 +41,13 @@ export const PAYMENT_ESCROW_ADDRESS = {
 export const TOKEN_ADDRESSES = {
   USDT: {
     56: '0x55d398326f99059fF775485246999027B3197955', // BSC Mainnet
-    97: '0xaE7671B4199B31a37C3e6999485d4d7A28610D6A', // BSC Testnet USDT (official)
-    31337: '0x55d398326f99059fF775485246999027B3197955', // Local Anvil (forked from BSC Mainnet)
+    97: '0x66E972502A34A625828C544a1914E8D8cc2A9dE5', // BSC Testnet USDT (PandaTool community token)
+    31337: '0x55d398326f99059fF775485246999027B3197955', // Local Anvil (Etched to match Mainnet)
   },
   USDC: {
     56: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', // BSC Mainnet
-    97: '0x2054A15C681bc0B3C9b4381b3d6C4Bd6E7c9eF7D', // BSC Testnet USDC (official)
-    31337: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', // Local Anvil (forked from BSC Mainnet)
+    97: '0x64544969ed7EBf5f083679233325356EbE738930', // BSC Testnet USDC (community token)
+    31337: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', // Local Anvil (Etched to match Mainnet)
   },
 } as const;
 
@@ -43,6 +58,17 @@ export function getPaymentEscrowAddress(chainId: number): string {
   const address = PAYMENT_ESCROW_ADDRESS[chainId as keyof typeof PAYMENT_ESCROW_ADDRESS];
   if (!address || address === '0x0000000000000000000000000000000000000000') {
     throw new Error(`Payment escrow contract not deployed on chain ${chainId}`);
+  }
+  return address;
+}
+
+/**
+ * Get payment receiver address for direct token transfers
+ */
+export function getPaymentReceiverAddress(chainId: number): string {
+  const address = PAYMENT_RECEIVER_ADDRESS[chainId as keyof typeof PAYMENT_RECEIVER_ADDRESS];
+  if (!address || address === '0x0000000000000000000000000000000000000000') {
+    throw new Error(`Payment receiver not configured for chain ${chainId}`);
   }
   return address;
 }

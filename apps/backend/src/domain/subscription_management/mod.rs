@@ -10,32 +10,26 @@ pub mod domain_services;
 pub mod promotion;
 
 // Re-export key types
-pub use aggregates::{Plan, Subscription, CreatePlanParams, CreateSubscriptionParams};
+// Re-export key types
+pub use aggregates::{Plan, CreatePlanParams};
 
 pub use value_objects::{
-    PlanId, SubscriptionId, Price, BillingCycle, PlanFeatures
+    PlanId, Price, BillingCycle, PlanFeatures
 };
 
 pub use events::{
     PlanCreatedEvent,
     PlanUpdatedEvent,
     PlanDeletedEvent,
-    SubscriptionStartedEvent,
-    SubscriptionRenewedEvent,
-    SubscriptionCancelledEvent,
-    SubscriptionExpiredEvent,
 };
 
 pub use repository_ports::{
     PlanRepositoryPort,
-    SubscriptionRepositoryPort,
     PlanSearchCriteria,
-    SubscriptionSearchCriteria,
 };
 
 pub use domain_services::{
     PricingService,
-    SubscriptionLifecycleService,
 };
 
 pub use promotion::{

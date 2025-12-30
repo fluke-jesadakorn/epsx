@@ -359,7 +359,7 @@ export default function OneClickPayment({
             transaction_hash: txHash,
             amount: selectedPkg.current_price,
             currency: selectedPkg.currency,
-            network: 'localhost', // Use localhost for Hardhat local development
+            network: 'localhost', // Use localhost for Anvil local development
           }),
         });
 

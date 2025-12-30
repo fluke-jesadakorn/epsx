@@ -4,7 +4,7 @@ import { SharedOpenIDWeb3Provider } from '@/shared/components/auth/Provider';
 import { CommonProviders } from '@/shared/components/providers/CommonProviders';
 import { UnifiedWeb3Provider } from '@/shared/components/providers/UnifiedWeb3Provider';
 import React from 'react';
-import { bscTestnet } from 'wagmi/chains';
+import { bsc, bscTestnet, foundry } from 'wagmi/chains';
 import { SettingsProvider } from './SettingsProvider';
 
 export function ClientProviders({ children }: { children: React.ReactNode }) {
@@ -13,7 +13,7 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
       <UnifiedWeb3Provider
         appName="EPSX Admin"
         isAdminMode={true}
-        chains={[bscTestnet]}
+        chains={[bsc, bscTestnet, foundry]}
         learnMoreUrl="https://admin.epsx.io/docs"
       >
         <SettingsProvider>

@@ -1,7 +1,8 @@
 //! Subscription Management API Handlers
 //!
-//! Pay-to-extend model: users pay to activate/extend their plan duration
+//! Direct Payment model: users pay to activate/extend their plan duration
 //! No auto-renewal - users must pay again when their plan expires
+//! Uses wallet_users.plan_expires_at instead of active_subscriptions table
 
 use axum::{
     extract::{State, Path, Extension},
@@ -28,15 +29,26 @@ use crate::{
 pub struct UserPlansResponse {
     pub success: bool,
     pub message: String,
-    pub data: Option<Vec<PlanData>>,
+    pub data: Option<PlanAccessData>,
 }
 
-/// Get plan details response
+/// Plan access data (simplified for Direct Payment model)
+#[derive(Debug, Clone, Serialize)]
+pub struct PlanAccessData {
+    pub wallet_address: String,
+    pub current_plan_id: Option<i32>,
+    pub plan_name: Option<String>,
+    pub plan_expires_at: Option<DateTime<Utc>>,
+    pub days_remaining: i64,
+    pub status: String, // "active", "expiring_soon", "expired", "no_plan"
+}
+
+/// Plan expiry status response
 #[derive(Debug, Serialize)]
-pub struct PlanDetailsResponse {
+pub struct PlanExpiryResponse {
     pub success: bool,
     pub message: String,
-    pub data: Option<PlanData>,
+    pub data: Option<PlanAccessData>,
 }
 
 /// Cancel plan request
@@ -52,49 +64,17 @@ pub struct CancelPlanResponse {
     pub message: String,
 }
 
-/// Plan expiry status response
-#[derive(Debug, Serialize)]
-pub struct PlanExpiryResponse {
-    pub success: bool,
-    pub message: String,
-    pub data: Option<PlanExpiryData>,
-}
-
-/// Plan data (simplified for pay-to-extend model)
-#[derive(Debug, Serialize)]
-pub struct PlanData {
-    pub id: Uuid,
-    pub plan_name: String,
-    pub status: String, // "active", "expired", "cancelled"
-    pub started_at: DateTime<Utc>,
-    pub expires_at: Option<DateTime<Utc>>,
-    pub days_remaining: Option<i64>,
-    pub wallet_address: String,
-}
-
-/// Plan expiry status data
-#[derive(Debug, Serialize)]
-pub struct PlanExpiryData {
-    pub plan_id: String,
-    pub plan_name: String,
-    pub expires_at: Option<DateTime<Utc>>,
-    pub days_remaining: i64,
-    pub is_expired: bool,
-    pub status: String, // "active", "expiring_soon", "expired", "no_plan"
-}
-
 // ============================================================================
 // HANDLERS
 // ============================================================================
 
-/// Get user's active plans
+/// Get user's plan access status
 pub async fn get_user_plans_handler(
     State(app_state): State<crate::web::auth::AppState>,
     Extension(user_context): Extension<OpenIDUserContext>,
 ) -> Result<Json<UserPlansResponse>, Json<UnifiedErrorResponse>> {
-    info!("Getting plans for user: {}", user_context.wallet_address);
+    info!("Getting plan access for user: {}", user_context.wallet_address);
 
-    // Query active_subscriptions for this wallet
     let mut conn = app_state.db_pool
         .get()
         .await
@@ -108,94 +88,20 @@ pub async fn get_user_plans_handler(
         }))?;
 
     #[derive(diesel::QueryableByName)]
-    struct SubRow {
-        #[diesel(sql_type = diesel::sql_types::Uuid)]
-        id: Uuid,
+    struct UserRow {
         #[diesel(sql_type = diesel::sql_types::Text)]
-        tier: String,
-        #[diesel(sql_type = diesel::sql_types::Text)]
-        status: String,
-        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
-        start_date: DateTime<Utc>,
+        wallet_address: String,
         #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
-        next_payment_date: Option<DateTime<Utc>>,
+        plan_expires_at: Option<DateTime<Utc>>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Integer>)]
+        current_plan_id: Option<i32>,
     }
 
-    let plans: Vec<SubRow> = diesel::sql_query(
+    let user: Option<UserRow> = diesel::sql_query(
         r#"
-        SELECT id, tier, status, start_date, next_payment_date
-        FROM active_subscriptions
+        SELECT wallet_address, plan_expires_at, current_plan_id
+        FROM wallet_users
         WHERE LOWER(wallet_address) = LOWER($1)
-        ORDER BY created_at DESC
-        "#
-    )
-    .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
-    .get_results(&mut conn)
-    .await
-    .map_err(|e| Json(UnifiedErrorResponse {
-        success: false,
-        error: ErrorDetails {
-            code: 500,
-            message: "Failed to fetch plans".to_string(),
-            reason: e.to_string(),
-        },
-    }))?;
-
-    let now = Utc::now();
-    let plan_data: Vec<PlanData> = plans.into_iter().map(|p| {
-        let days_remaining = p.next_payment_date.map(|exp| (exp - now).num_days());
-        PlanData {
-            id: p.id,
-            plan_name: p.tier.clone(),
-            status: p.status,
-            started_at: p.start_date,
-            expires_at: p.next_payment_date,
-            days_remaining,
-            wallet_address: user_context.wallet_address.clone(),
-        }
-    }).collect();
-
-    Ok(Json(UserPlansResponse {
-        success: true,
-        message: "User plans retrieved successfully".to_string(),
-        data: Some(plan_data),
-    }))
-}
-
-/// Get plan expiry status (for renewal prompts)
-pub async fn get_plan_expiry_status_handler(
-    State(app_state): State<crate::web::auth::AppState>,
-    Extension(user_context): Extension<OpenIDUserContext>,
-) -> Result<Json<PlanExpiryResponse>, Json<UnifiedErrorResponse>> {
-    info!("Checking plan expiry for user: {}", user_context.wallet_address);
-
-    let mut conn = app_state.db_pool
-        .get()
-        .await
-        .map_err(|e| Json(UnifiedErrorResponse {
-            success: false,
-            error: ErrorDetails {
-                code: 500,
-                message: "Database connection failed".to_string(),
-                reason: e.to_string(),
-            },
-        }))?;
-
-    #[derive(diesel::QueryableByName)]
-    struct SubRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
-        tier: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
-        next_payment_date: Option<DateTime<Utc>>,
-    }
-
-    let plan: Option<SubRow> = diesel::sql_query(
-        r#"
-        SELECT tier, next_payment_date
-        FROM active_subscriptions
-        WHERE LOWER(wallet_address) = LOWER($1) AND status = 'active'
-        ORDER BY created_at DESC
-        LIMIT 1
         "#
     )
     .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
@@ -206,17 +112,23 @@ pub async fn get_plan_expiry_status_handler(
         success: false,
         error: ErrorDetails {
             code: 500,
-            message: "Failed to fetch plan".to_string(),
+            message: "Failed to fetch user".to_string(),
             reason: e.to_string(),
         },
     }))?;
 
-    let data = match plan {
-        Some(p) => {
-            let now = Utc::now();
-            let days_remaining = p.next_payment_date.map(|exp| (exp - now).num_days()).unwrap_or(0);
+    let now = Utc::now();
+    
+    let data = match user {
+        Some(u) => {
+            let days_remaining = u.plan_expires_at
+                .map(|exp| (exp - now).num_days())
+                .unwrap_or(0);
+            
             let is_expired = days_remaining < 0;
-            let status = if is_expired {
+            let status = if u.current_plan_id.is_none() {
+                "no_plan"
+            } else if is_expired {
                 "expired"
             } else if days_remaining <= 7 {
                 "expiring_soon"
@@ -224,40 +136,75 @@ pub async fn get_plan_expiry_status_handler(
                 "active"
             };
 
-            PlanExpiryData {
-                plan_id: "current".to_string(),
-                plan_name: p.tier,
-                expires_at: p.next_payment_date,
-                days_remaining,
-                is_expired,
+            // Get plan name if we have a plan ID
+            let plan_name = if let Some(plan_id) = u.current_plan_id {
+                #[derive(diesel::QueryableByName)]
+                struct PlanNameRow {
+                    #[diesel(sql_type = diesel::sql_types::Text)]
+                    name: String,
+                }
+                
+                diesel::sql_query("SELECT name FROM pricing_plans WHERE id = $1")
+                    .bind::<diesel::sql_types::Integer, _>(plan_id)
+                    .get_result::<PlanNameRow>(&mut conn)
+                    .await
+                    .ok()
+                    .map(|p| p.name)
+            } else {
+                None
+            };
+
+            PlanAccessData {
+                wallet_address: u.wallet_address,
+                current_plan_id: u.current_plan_id,
+                plan_name,
+                plan_expires_at: u.plan_expires_at,
+                days_remaining: days_remaining.max(0),
                 status: status.to_string(),
             }
         },
-        None => PlanExpiryData {
-            plan_id: "".to_string(),
-            plan_name: "No active plan".to_string(),
-            expires_at: None,
+        None => PlanAccessData {
+            wallet_address: user_context.wallet_address.clone(),
+            current_plan_id: None,
+            plan_name: None,
+            plan_expires_at: None,
             days_remaining: 0,
-            is_expired: true,
             status: "no_plan".to_string(),
         },
     };
 
-    Ok(Json(PlanExpiryResponse {
+    Ok(Json(UserPlansResponse {
         success: true,
-        message: "Plan expiry status retrieved".to_string(),
+        message: "User plan access retrieved successfully".to_string(),
         data: Some(data),
     }))
 }
 
-/// Cancel plan (user-initiated, plan continues until expiry)
+/// Get plan expiry status (for renewal prompts)
+pub async fn get_plan_expiry_status_handler(
+    State(app_state): State<crate::web::auth::AppState>,
+    Extension(user_context): Extension<OpenIDUserContext>,
+) -> Result<Json<PlanExpiryResponse>, Json<UnifiedErrorResponse>> {
+    info!("Checking plan expiry for user: {}", user_context.wallet_address);
+
+    // Reuse get_user_plans_handler logic
+    let result = get_user_plans_handler(State(app_state), Extension(user_context)).await?;
+    
+    Ok(Json(PlanExpiryResponse {
+        success: result.success,
+        message: "Plan expiry status retrieved".to_string(),
+        data: result.data.clone(),
+    }))
+}
+
+/// Cancel plan (clear the current_plan_id, keep expiry so user can use until it expires)
 pub async fn cancel_plan_handler(
     State(app_state): State<crate::web::auth::AppState>,
     Extension(user_context): Extension<OpenIDUserContext>,
-    Path(plan_id): Path<Uuid>,
+    Path(_plan_id): Path<Uuid>,
     Json(_payload): Json<CancelPlanRequest>,
 ) -> Result<Json<CancelPlanResponse>, Json<UnifiedErrorResponse>> {
-    info!("Cancelling plan {} for user {}", plan_id, user_context.wallet_address);
+    info!("Cancelling plan for user {}", user_context.wallet_address);
 
     let mut conn = app_state.db_pool
         .get()
@@ -271,16 +218,16 @@ pub async fn cancel_plan_handler(
             },
         }))?;
 
-    // Update status to cancelled (user can still use until expiry)
+    // Mark the plan as cancelled but don't change expiry (user can still use until expiry)
+    // In Direct Payment model, we just clear the current_plan_id
     let rows_affected = diesel::sql_query(
         r#"
-        UPDATE active_subscriptions
-        SET status = 'cancelled', updated_at = $1
-        WHERE id = $2 AND LOWER(wallet_address) = LOWER($3)
+        UPDATE wallet_users
+        SET current_plan_id = NULL, updated_at = $1
+        WHERE LOWER(wallet_address) = LOWER($2) AND current_plan_id IS NOT NULL
         "#
     )
     .bind::<diesel::sql_types::Timestamptz, _>(Utc::now())
-    .bind::<diesel::sql_types::Uuid, _>(plan_id)
     .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
     .execute(&mut conn)
     .await
@@ -296,7 +243,7 @@ pub async fn cancel_plan_handler(
     if rows_affected == 0 {
         return Ok(Json(CancelPlanResponse {
             success: false,
-            message: "Plan not found or not owned by this wallet".to_string(),
+            message: "No active plan found for this wallet".to_string(),
         }));
     }
 
@@ -307,7 +254,7 @@ pub async fn cancel_plan_handler(
 }
 
 // ============================================================================
-// UPGRADE PREVIEW
+// UPGRADE PREVIEW (Simplified - no complex credit calculation)
 // ============================================================================
 
 /// Upgrade preview response
@@ -323,17 +270,16 @@ pub struct UpgradePreviewResponse {
 pub struct UpgradePreviewData {
     pub current_plan: Option<CurrentPlanInfo>,
     pub new_plan: NewPlanInfo,
-    pub upgrade_details: UpgradeDetails,
-    pub is_upgrade: bool,
-    pub is_downgrade: bool,
     pub payment_required: String,
+    pub new_duration_days: i64,
+    pub new_expiry_date: DateTime<Utc>,
 }
 
 /// Current plan info
 #[derive(Debug, Serialize)]
 pub struct CurrentPlanInfo {
+    pub id: Option<i32>,
     pub name: String,
-    pub price: String,
     pub expires_at: Option<DateTime<Utc>>,
     pub days_remaining: i64,
 }
@@ -344,16 +290,6 @@ pub struct NewPlanInfo {
     pub id: i32,
     pub name: String,
     pub price: String,
-    pub standard_duration_days: i64,
-}
-
-/// Upgrade calculation details
-#[derive(Debug, Serialize)]
-pub struct UpgradeDetails {
-    pub remaining_credit: String,
-    pub bonus_days: i64,
-    pub total_duration_days: i64,
-    pub new_expiry_date: DateTime<Utc>,
 }
 
 /// Query params for upgrade preview
@@ -362,15 +298,13 @@ pub struct UpgradePreviewQuery {
     pub new_plan_id: i32,
 }
 
-/// Get upgrade preview - shows credit calculation before payment
+/// Get upgrade preview - shows what happens when user pays
 pub async fn get_upgrade_preview_handler(
     State(app_state): State<crate::web::auth::AppState>,
     Extension(user_context): Extension<OpenIDUserContext>,
     axum::extract::Query(query): axum::extract::Query<UpgradePreviewQuery>,
 ) -> Result<Json<UpgradePreviewResponse>, Json<UnifiedErrorResponse>> {
-    use rust_decimal::Decimal;
     use std::str::FromStr;
-    use crate::domain::subscription_management::domain_services::UpgradeCalculator;
     
     info!("Getting upgrade preview for user: {}, new_plan_id: {}", 
           user_context.wallet_address, query.new_plan_id);
@@ -409,7 +343,7 @@ pub async fn get_upgrade_preview_handler(
         success: false,
         error: ErrorDetails {
             code: 500,
-            message: "Failed to fetch new plan".to_string(),
+            message: "Failed to fetch plan".to_string(),
             reason: e.to_string(),
         },
     }))?;
@@ -425,27 +359,21 @@ pub async fn get_upgrade_preview_handler(
         }
     };
 
-    let new_plan_price: Decimal = new_plan.price.as_ref()
-        .and_then(|bd| Decimal::from_str(&bd.to_string()).ok())
-        .unwrap_or(Decimal::ZERO);
+    let new_plan_price: rust_decimal::Decimal = new_plan.price.as_ref()
+        .and_then(|bd| rust_decimal::Decimal::from_str(&bd.to_string()).ok())
+        .unwrap_or(rust_decimal::Decimal::ZERO);
 
-    // Get current subscription
+    // Get current user plan info
     #[derive(diesel::QueryableByName)]
-    struct SubRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
-        tier: String,
+    struct UserRow {
         #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
-        next_payment_date: Option<DateTime<Utc>>,
+        plan_expires_at: Option<DateTime<Utc>>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Integer>)]
+        current_plan_id: Option<i32>,
     }
 
-    let current_sub: Option<SubRow> = diesel::sql_query(
-        r#"
-        SELECT tier, next_payment_date
-        FROM active_subscriptions
-        WHERE LOWER(wallet_address) = LOWER($1) AND status = 'active'
-        ORDER BY created_at DESC
-        LIMIT 1
-        "#
+    let user: Option<UserRow> = diesel::sql_query(
+        "SELECT plan_expires_at, current_plan_id FROM wallet_users WHERE LOWER(wallet_address) = LOWER($1)"
     )
     .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
     .get_result(&mut conn)
@@ -455,7 +383,7 @@ pub async fn get_upgrade_preview_handler(
         success: false,
         error: ErrorDetails {
             code: 500,
-            message: "Failed to fetch current subscription".to_string(),
+            message: "Failed to fetch user".to_string(),
             reason: e.to_string(),
         },
     }))?;
@@ -463,62 +391,48 @@ pub async fn get_upgrade_preview_handler(
     let now = Utc::now();
     let standard_duration_days: i64 = 30;
 
-    let (current_plan_info, old_plan_price, days_remaining) = if let Some(ref sub) = current_sub {
-        // Get old plan price
-        let old_plan: Option<PlanRow> = diesel::sql_query(
-            "SELECT id, name, price FROM pricing_plans WHERE name = $1 LIMIT 1"
-        )
-        .bind::<diesel::sql_types::Text, _>(&sub.tier)
-        .get_result(&mut conn)
-        .await
-        .optional()
-        .map_err(|e| Json(UnifiedErrorResponse {
-            success: false,
-            error: ErrorDetails {
-                code: 500,
-                message: "Failed to fetch current plan details".to_string(),
-                reason: e.to_string(),
-            },
-        }))?;
+    let current_plan_info = if let Some(ref u) = user {
+        if let Some(plan_id) = u.current_plan_id {
+            let current_plan: Option<PlanRow> = diesel::sql_query(
+                "SELECT id, name, price FROM pricing_plans WHERE id = $1"
+            )
+            .bind::<diesel::sql_types::Integer, _>(plan_id)
+            .get_result(&mut conn)
+            .await
+            .optional()
+            .ok()
+            .flatten();
 
-        let old_price: Decimal = old_plan.as_ref()
-            .and_then(|p| p.price.as_ref())
-            .and_then(|bd| Decimal::from_str(&bd.to_string()).ok())
-            .unwrap_or(Decimal::ZERO);
+            let days_remaining = u.plan_expires_at
+                .map(|exp| if exp > now { (exp - now).num_days() } else { 0 })
+                .unwrap_or(0);
 
-        let days = sub.next_payment_date
-            .map(|exp| if exp > now { (exp - now).num_days() } else { 0 })
-            .unwrap_or(0);
-
-        (
-            Some(CurrentPlanInfo {
-                name: sub.tier.clone(),
-                price: old_price.to_string(),
-                expires_at: sub.next_payment_date,
-                days_remaining: days,
-            }),
-            old_price,
-            days,
-        )
+            current_plan.map(|p| CurrentPlanInfo {
+                id: Some(p.id),
+                name: p.name,
+                expires_at: u.plan_expires_at,
+                days_remaining,
+            })
+        } else {
+            None
+        }
     } else {
-        (None, Decimal::ZERO, 0)
+        None
     };
 
-    // Calculate upgrade details
-    let calc = UpgradeCalculator::calculate(old_plan_price, new_plan_price, days_remaining);
-
-    let new_expiry = now + chrono::Duration::days(calc.total_new_duration_days);
-
-    let upgrade_details = UpgradeDetails {
-        remaining_credit: calc.remaining_credit.to_string(),
-        bonus_days: calc.bonus_days,
-        total_duration_days: calc.total_new_duration_days,
-        new_expiry_date: new_expiry,
+    // Simple calculation: new expiry = now + 30 days (or extend from current if same plan)
+    let new_expiry = if let Some(ref u) = user {
+        if u.current_plan_id == Some(query.new_plan_id) {
+            // Same plan - extend from current expiry
+            let base = u.plan_expires_at.filter(|&exp| exp > now).unwrap_or(now);
+            base + chrono::Duration::days(standard_duration_days)
+        } else {
+            // Different plan - start fresh
+            now + chrono::Duration::days(standard_duration_days)
+        }
+    } else {
+        now + chrono::Duration::days(standard_duration_days)
     };
-
-    let is_same_plan = current_sub.as_ref()
-        .map(|s| s.tier == new_plan.name)
-        .unwrap_or(false);
 
     let response_data = UpgradePreviewData {
         current_plan: current_plan_info,
@@ -526,22 +440,18 @@ pub async fn get_upgrade_preview_handler(
             id: new_plan.id,
             name: new_plan.name,
             price: new_plan_price.to_string(),
-            standard_duration_days,
         },
-        upgrade_details,
-        is_upgrade: calc.is_valid_upgrade,
-        is_downgrade: UpgradeCalculator::is_downgrade(old_plan_price, new_plan_price) && !is_same_plan,
         payment_required: new_plan_price.to_string(),
+        new_duration_days: standard_duration_days,
+        new_expiry_date: new_expiry,
     };
 
-    let message = if calc.is_valid_upgrade {
-        format!("Upgrade gives you {} bonus days from remaining credit!", calc.bonus_days)
-    } else if is_same_plan {
-        "Extending your current plan by 30 days".to_string()
-    } else if current_sub.is_none() {
-        "New subscription - 30 days access".to_string()
+    let message = if user.as_ref().and_then(|u| u.current_plan_id) == Some(query.new_plan_id) {
+        format!("Extending your current plan by {} days", standard_duration_days)
+    } else if user.as_ref().and_then(|u| u.current_plan_id).is_some() {
+        format!("Switching to new plan - {} days access", standard_duration_days)
     } else {
-        "Downgrade not allowed. Payment will extend your current plan.".to_string()
+        format!("New subscription - {} days access", standard_duration_days)
     };
 
     Ok(Json(UpgradePreviewResponse {
@@ -552,7 +462,7 @@ pub async fn get_upgrade_preview_handler(
 }
 
 // ============================================================================
-// LEGACY HANDLERS (for backward compatibility, redirect to new endpoints)
+// LEGACY HANDLERS (for backward compatibility)
 // ============================================================================
 
 /// Legacy: Get user subscriptions (maps to get_user_plans_handler)
@@ -566,15 +476,12 @@ pub async fn get_user_subscriptions_handler(
 /// Legacy: Get subscription details
 pub async fn get_subscription_details_handler(
     State(_app_state): State<crate::web::auth::AppState>,
-    Path(subscription_id): Path<Uuid>,
-) -> Result<Json<PlanDetailsResponse>, Json<UnifiedErrorResponse>> {
-    info!("Legacy: Getting subscription details for {}", subscription_id);
-    
-    Ok(Json(PlanDetailsResponse {
-        success: false,
-        message: "Use /api/v1/plans/expiry-status instead".to_string(),
-        data: None,
-    }))
+    Path(_subscription_id): Path<Uuid>,
+) -> Result<Json<serde_json::Value>, Json<UnifiedErrorResponse>> {
+    Ok(Json(serde_json::json!({
+        "success": false,
+        "message": "Use /api/v1/plans/expiry-status instead"
+    })))
 }
 
 /// Legacy: Cancel subscription (maps to cancel_plan_handler)
@@ -600,7 +507,7 @@ pub async fn renew_subscription_handler(
     })))
 }
 
-/// Legacy: Check subscription status (maps to get_plan_expiry_status_handler)
+/// Legacy: Check subscription status
 pub async fn check_subscription_status_handler(
     state: State<crate::web::auth::AppState>,
     ext: Extension<OpenIDUserContext>,

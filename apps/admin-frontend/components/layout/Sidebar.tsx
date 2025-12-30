@@ -52,6 +52,13 @@ const navigationItems: NavItem[] = [
     requiresAuth: true,
   },
   {
+    id: 'payments',
+    label: 'Payments',
+    href: '/payments',
+    icon: '💰',
+    requiresAuth: true,
+  },
+  {
     id: 'analytics',
     label: 'Analytics',
     href: '/analytics',
@@ -71,6 +78,13 @@ const navigationItems: NavItem[] = [
     href: '/notifications',
     icon: '🔔',
     requiresAuth: true,
+  },
+  {
+    id: 'mint',
+    label: 'Mint Tokens',
+    href: '/mint',
+    icon: '🖨️',
+    requiresAuth: false,
   },
   {
     id: 'settings',

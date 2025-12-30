@@ -832,3 +832,180 @@ pub async fn create_subscription_handler(
     
     Ok(JsonResponse(response))
 }
+
+// ============================================================================
+// DIRECT PAYMENT MODEL - User Access List
+// ============================================================================
+
+/// Query params for user access list
+#[derive(Debug, Deserialize)]
+pub struct UserAccessListQuery {
+    pub page: Option<i64>,
+    pub limit: Option<i64>,
+    pub status: Option<String>, // "active", "expired", "expiring_soon", "no_plan"
+    pub search: Option<String>,
+}
+
+/// User access data response
+#[derive(Debug, Serialize)]
+pub struct UserAccessData {
+    pub wallet_address: String,
+    pub current_plan_id: Option<i32>,
+    pub plan_name: Option<String>,
+    pub plan_expires_at: Option<DateTime<Utc>>,
+    pub days_remaining: i64,
+    pub status: String, // "active", "expiring_soon", "expired", "no_plan"
+}
+
+/// Admin handler to list users with plan access (Direct Payment model)
+/// Queries wallet_group_assignments for plan access data
+pub async fn admin_list_user_access_handler(
+    State(app_state): State<AppState>,
+    Query(query): Query<UserAccessListQuery>,
+) -> Result<JsonResponse<serde_json::Value>, StatusCode> {
+    use diesel_async::RunQueryDsl;
+    
+    let page = query.page.unwrap_or(1).max(1);
+    let limit = query.limit.unwrap_or(20).min(100);
+    let offset = (page - 1) * limit;
+    
+    let mut conn = match (*app_state.db_pool).get().await {
+        Ok(c) => c,
+        Err(err) => {
+            tracing::error!(error = %err, "Failed to get database connection");
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
+    };
+    
+    // Query wallet_group_assignments with plan info from groups table
+    #[derive(diesel::QueryableByName)]
+    struct UserRow {
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        wallet_address: String,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+        expires_at: Option<DateTime<Utc>>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        plan_name: Option<String>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        group_id: Option<String>,
+    }
+    
+    // Build the query with search filter
+    let search_filter = query.search.as_ref()
+        .map(|s| format!("%{}%", s.to_lowercase()))
+        .unwrap_or_else(|| "%".to_string());
+    
+    // Query wallet_group_assignments joined with groups for subscription plans
+    let users: Vec<UserRow> = diesel::sql_query(
+        r#"
+        SELECT 
+            wga.wallet_address::text,
+            wga.expires_at,
+            g.name as plan_name,
+            g.id::text as group_id
+        FROM wallet_group_assignments wga
+        LEFT JOIN groups g ON wga.group_id = g.id
+        WHERE wga.is_active = true
+          AND g.group_type = 'subscription'
+          AND LOWER(wga.wallet_address) LIKE $1
+        ORDER BY wga.assigned_at DESC NULLS LAST
+        LIMIT $2 OFFSET $3
+        "#
+    )
+    .bind::<diesel::sql_types::Text, _>(&search_filter)
+    .bind::<diesel::sql_types::BigInt, _>(limit)
+    .bind::<diesel::sql_types::BigInt, _>(offset)
+    .get_results(&mut conn)
+    .await
+    .map_err(|e| {
+        tracing::error!(error = %e, "Failed to query user access data");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    
+    // Get total count
+    #[derive(diesel::QueryableByName)]
+    struct CountRow {
+        #[diesel(sql_type = diesel::sql_types::BigInt)]
+        count: i64,
+    }
+    
+    let total_count: i64 = diesel::sql_query(
+        r#"
+        SELECT COUNT(*)::bigint as count 
+        FROM wallet_group_assignments wga
+        LEFT JOIN groups g ON wga.group_id = g.id
+        WHERE wga.is_active = true
+          AND g.group_type = 'subscription'
+          AND LOWER(wga.wallet_address) LIKE $1
+        "#
+    )
+    .bind::<diesel::sql_types::Text, _>(&search_filter)
+    .get_result::<CountRow>(&mut conn)
+    .await
+    .map(|r| r.count)
+    .unwrap_or(0);
+    
+    let now = Utc::now();
+    
+    // Convert to response format with status calculation
+    let users_data: Vec<UserAccessData> = users.into_iter()
+        .filter_map(|user| {
+            let days_remaining = user.expires_at
+                .map(|exp| (exp - now).num_days())
+                .unwrap_or(365); // No expiry means long-term access
+            
+            let status = if user.plan_name.is_none() {
+                "no_plan"
+            } else if days_remaining < 0 {
+                "expired"
+            } else if days_remaining <= 7 {
+                "expiring_soon"
+            } else {
+                "active"
+            };
+            
+            // Apply status filter if provided
+            if let Some(ref filter_status) = query.status {
+                if filter_status != status {
+                    return None;
+                }
+            }
+            
+            Some(UserAccessData {
+                wallet_address: user.wallet_address,
+                current_plan_id: None, // Not using integer plan IDs anymore
+                plan_name: user.plan_name,
+                plan_expires_at: user.expires_at,
+                days_remaining: days_remaining.max(0),
+                status: status.to_string(),
+            })
+        })
+        .collect();
+    
+    // Calculate stats
+    let active_count = users_data.iter().filter(|u| u.status == "active").count();
+    let expiring_count = users_data.iter().filter(|u| u.status == "expiring_soon").count();
+    let expired_count = users_data.iter().filter(|u| u.status == "expired").count();
+    let no_plan_count = users_data.iter().filter(|u| u.status == "no_plan").count();
+    
+    Ok(JsonResponse(serde_json::json!({
+        "success": true,
+        "data": {
+            "users": users_data,
+            "pagination": {
+                "page": page,
+                "limit": limit,
+                "total": total_count,
+                "total_pages": (total_count as f64 / limit as f64).ceil() as i64
+            },
+            "summary": {
+                "total_users": total_count,
+                "active": active_count,
+                "expiring_soon": expiring_count,
+                "expired": expired_count,
+                "no_plan": no_plan_count
+            }
+        },
+        "message": "User access data retrieved successfully"
+    })))
+}

@@ -152,9 +152,26 @@ export interface AssetInfo {
 }
 
 // ============================================================================
-// SUBSCRIPTION TYPES (from both apps)
+// SUBSCRIPTION/PLAN ACCESS TYPES (Direct Payment Model)
 // ============================================================================
 
+/**
+ * Plan access data for Direct Payment model
+ * Replaces subscription concept with simpler plan expiry tracking
+ */
+export interface PlanAccessData {
+  wallet_address: string;
+  current_plan_id: number | null;
+  plan_name: string | null;
+  plan_expires_at: string | null;
+  days_remaining: number;
+  status: 'active' | 'expiring_soon' | 'expired' | 'no_plan';
+}
+
+/**
+ * @deprecated Use PlanAccessData for new implementations
+ * Legacy subscription type kept for backward compatibility
+ */
 export interface UserSubscription {
   id: string;
   user_id: string;

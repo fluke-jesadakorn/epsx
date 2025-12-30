@@ -1,5 +1,5 @@
 {
-  "network": "hardhat",
+  "network": "anvil",
   "chainId": "31337",
   "contractAddress": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
   "adminWallet": "0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7",
