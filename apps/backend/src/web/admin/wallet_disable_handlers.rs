@@ -112,9 +112,11 @@ pub struct ActivityLogResponse {
 pub async fn disable_wallet_handler(
     Path(wallet_address): Path<String>,
     State(app_state): State<AppState>,
+    axum::Extension(admin_context): axum::Extension<crate::web::middleware::OpenIDUserContext>,
     RequestJson(request): RequestJson<DisableWalletRequest>,
 ) -> Result<Json<AdminApiResponse<DisableWalletResponse>>, StatusCode> {
-    info!("🔒 Admin: Disabling wallet: {}", wallet_address);
+    let admin_wallet = &admin_context.wallet_address;
+    info!("🔒 Admin {} disabling wallet: {}", admin_wallet, wallet_address);
 
     let mut conn = app_state.db_pool.get().await.map_err(|e| {
         error!("❌ Failed to get connection: {}", e);
@@ -124,10 +126,10 @@ pub async fn disable_wallet_handler(
     let now = Utc::now();
     let expires_at = request.duration_days.map(|days| now + Duration::days(days as i64));
 
-    // Build disable_info JSON
+    // Build disable_info JSON with actual admin wallet
     let disable_info = serde_json::json!({
         "disabled_at": now.to_rfc3339(),
-        "disabled_by": "admin", // TODO: Get from auth context
+        "disabled_by": admin_wallet,
         "duration": request.duration_days,
         "expires_at": expires_at.map(|e| e.to_rfc3339()),
         "reason_category": request.reason_category,
@@ -155,19 +157,39 @@ pub async fn disable_wallet_handler(
         return Err(StatusCode::NOT_FOUND);
     }
 
-    // Log the activity
+    // Log the activity with actual admin wallet
     let _ = diesel::sql_query(
         "INSERT INTO wallet_activity_logs (wallet_address, event_type, description, performed_by, metadata) 
          VALUES ($1, 'wallet_disabled', $2, $3, $4)"
     )
     .bind::<diesel::sql_types::Text, _>(&wallet_address)
     .bind::<diesel::sql_types::Text, _>(format!("Wallet disabled: {}", request.reason_details))
-    .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(Some("admin")) // TODO: Get from auth
+    .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(Some(admin_wallet.as_str()))
     .bind::<diesel::sql_types::Jsonb, _>(&disable_info)
     .execute(&mut conn)
     .await;
 
-    // TODO: If notify_user is true, send notification
+    // Send notification if requested
+    if request.notify_user {
+        // Insert notification into notifications table
+        let notification_payload = serde_json::json!({
+            "type": "wallet_disabled",
+            "title": "Account Temporarily Disabled",
+            "message": format!("Your account has been temporarily disabled. Reason: {}", request.reason_category),
+            "reason": request.reason_details,
+            "expires_at": expires_at.map(|e| e.to_rfc3339()),
+        });
+        let _ = diesel::sql_query(
+            "INSERT INTO notifications (wallet_address, notification_type, title, message, data, created_at) 
+             VALUES ($1, 'system', 'Account Disabled', $2, $3, $4)"
+        )
+        .bind::<diesel::sql_types::Text, _>(&wallet_address)
+        .bind::<diesel::sql_types::Text, _>(format!("Your account has been temporarily disabled. Reason: {}", request.reason_category))
+        .bind::<diesel::sql_types::Jsonb, _>(&notification_payload)
+        .bind::<diesel::sql_types::Timestamptz, _>(now)
+        .execute(&mut conn)
+        .await;
+    }
 
     let response = DisableWalletResponse {
         success: true,
@@ -177,9 +199,9 @@ pub async fn disable_wallet_handler(
         message: format!("Wallet {} has been disabled", wallet_address),
     };
 
-    let metadata = AdminMetadata::crud_operation("disable_wallet", Some("admin".to_string()));
+    let metadata = AdminMetadata::crud_operation("disable_wallet", Some(admin_wallet.clone()));
 
-    info!("✅ Admin: Successfully disabled wallet: {}", wallet_address);
+    info!("✅ Admin {}: Successfully disabled wallet: {}", admin_wallet, wallet_address);
     Ok(Json(AdminApiResponse::success_with_meta(
         response,
         "Wallet disabled successfully",
@@ -208,9 +230,11 @@ pub async fn disable_wallet_handler(
 pub async fn enable_wallet_handler(
     Path(wallet_address): Path<String>,
     State(app_state): State<AppState>,
+    axum::Extension(admin_context): axum::Extension<crate::web::middleware::OpenIDUserContext>,
     RequestJson(request): RequestJson<EnableWalletRequest>,
 ) -> Result<Json<AdminApiResponse<EnableWalletResponse>>, StatusCode> {
-    info!("🔓 Admin: Re-enabling wallet: {}", wallet_address);
+    let admin_wallet = &admin_context.wallet_address;
+    info!("🔓 Admin {} re-enabling wallet: {}", admin_wallet, wallet_address);
 
     let mut conn = app_state.db_pool.get().await.map_err(|e| {
         error!("❌ Failed to get connection: {}", e);
@@ -236,10 +260,10 @@ pub async fn enable_wallet_handler(
         return Err(StatusCode::NOT_FOUND);
     }
 
-    // Log the activity
+    // Log the activity with actual admin wallet
     let activity_meta = serde_json::json!({
         "enabled_at": now.to_rfc3339(),
-        "enabled_by": "admin",
+        "enabled_by": admin_wallet,
         "platforms_enabled": request.platforms_to_enable,
         "permissions_restored": request.restore_permissions,
         "subscriptions_resumed": request.resume_subscriptions,
@@ -252,13 +276,50 @@ pub async fn enable_wallet_handler(
     )
     .bind::<diesel::sql_types::Text, _>(&wallet_address)
     .bind::<diesel::sql_types::Text, _>(format!("Wallet re-enabled: {}", request.resolution_note))
-    .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(Some("admin"))
+    .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(Some(admin_wallet.as_str()))
     .bind::<diesel::sql_types::Jsonb, _>(&activity_meta)
     .execute(&mut conn)
     .await;
 
-    // TODO: If restore_permissions is true, restore permissions
-    // TODO: If resume_subscriptions is true, resume subscriptions
+    // Restore permissions if requested
+    // This restores any soft-deleted or expired permissions that were set to expire when wallet was disabled
+    if request.restore_permissions {
+        // Update any permissions that were marked as expired when wallet was disabled
+        let _ = diesel::sql_query(
+            "UPDATE wallet_permissions 
+             SET expires_at = NULL, updated_at = $1 
+             WHERE wallet_address = $2 
+             AND expires_at < $1 
+             AND source_metadata->>'disabled_during_account_disable' = 'true'"
+        )
+        .bind::<diesel::sql_types::Timestamptz, _>(now)
+        .bind::<diesel::sql_types::Text, _>(&wallet_address)
+        .execute(&mut conn)
+        .await;
+
+        info!("🔑 Restored permissions for wallet: {}", wallet_address);
+    }
+
+    // Resume subscriptions if requested
+    if request.resume_subscriptions {
+        // Get payments pool for subscription updates
+        if let Ok(payments_pool) = crate::infrastructure::database::get_payments_pool().await {
+            if let Ok(mut payments_conn) = payments_pool.get().await {
+                // Resume paused subscriptions
+                let _ = diesel::sql_query(
+                    "UPDATE subscriptions 
+                     SET status = 'active', cancelled_at = NULL, metadata = metadata || '{\"resumed_by_admin\": true}'::jsonb
+                     WHERE wallet_address = $1 
+                     AND status = 'paused'"
+                )
+                .bind::<diesel::sql_types::Text, _>(&wallet_address)
+                .execute(&mut payments_conn)
+                .await;
+
+                info!("📦 Resumed subscriptions for wallet: {}", wallet_address);
+            }
+        }
+    }
 
     let response = EnableWalletResponse {
         success: true,
@@ -267,9 +328,9 @@ pub async fn enable_wallet_handler(
         message: format!("Wallet {} has been re-enabled", wallet_address),
     };
 
-    let metadata = AdminMetadata::crud_operation("enable_wallet", Some("admin".to_string()));
+    let metadata = AdminMetadata::crud_operation("enable_wallet", Some(admin_wallet.clone()));
 
-    info!("✅ Admin: Successfully enabled wallet: {}", wallet_address);
+    info!("✅ Admin {}: Successfully enabled wallet: {}", admin_wallet, wallet_address);
     Ok(Json(AdminApiResponse::success_with_meta(
         response,
         "Wallet enabled successfully",

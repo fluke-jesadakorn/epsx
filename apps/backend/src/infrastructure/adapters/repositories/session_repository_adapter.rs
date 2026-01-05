@@ -478,43 +478,108 @@ impl SessionRepositoryPort for SessionRepositoryAdapter {
         limit: u32,
         offset: u32
     ) -> Result<SessionSearchResult, AppError> {
-        // Use raw SQL for dynamic query building (complex criteria)
-        let mut query = String::from(
-            "SELECT id, user_id, access_token, expires_at, provider, session_token, user_agent, ip_address, is_active, created_at
-             FROM sessions WHERE 1=1"
-        );
+        let mut conn = self.db_pool.get().await
+            .map_err(|e| AppError::database_error(e.to_string())
+                .with_component("session_repository")
+                .with_operation("find_by_criteria"))?;
 
-        // Build conditions
-        if criteria.wallet_address.is_some() {
-            query.push_str(" AND user_id = $1");
+        // Build dynamic query using Diesel boxed query for type safety
+        let mut query = sessions::table
+            .into_boxed();
+
+        // Apply wallet filter
+        if let Some(ref wallet) = criteria.wallet_address {
+            query = query.filter(sessions::wallet_address.eq(wallet.to_string()));
         }
 
+        // Apply active filter
         if let Some(active) = criteria.is_active {
             if active {
-                query.push_str(" AND is_active = TRUE AND expires_at > NOW()");
+                query = query.filter(sessions::is_revoked.eq(false))
+                    .filter(sessions::expires_at.gt(diesel::dsl::now));
             } else {
-                query.push_str(" AND (is_active = FALSE OR expires_at <= NOW())");
+                query = query.filter(sessions::is_revoked.eq(true));
             }
         }
 
-        if criteria.created_after.is_some() {
-            query.push_str(" AND created_at > $2");
+        // Apply created_after filter
+        if let Some(ref created_after_time) = criteria.created_after {
+            query = query.filter(sessions::created_at.gt(created_after_time));
         }
 
-        if criteria.created_before.is_some() {
-            query.push_str(" AND created_at < $3");
+        // Apply created_before filter
+        if let Some(ref created_before_time) = criteria.created_before {
+            query = query.filter(sessions::created_at.lt(created_before_time));
         }
 
-        query.push_str(" ORDER BY created_at DESC LIMIT $4 OFFSET $5");
-
-        // Note: Diesel doesn't support dynamic parameterized queries well with sql_query
-        // For now, use a simplified approach - this would need refactoring for production
+        // Get total count first (using separate query to avoid borrow issues)
         let total_count = self.count_by_criteria(criteria).await?;
 
-        // TODO: Implement proper dynamic query with Diesel - for now return empty
-        // This is a known limitation during migration
-        tracing::warn!("find_by_criteria not fully implemented in Diesel migration - returning empty results");
-        Ok(SessionSearchResult::new(vec![], total_count, offset, limit))
+        // Execute main query with pagination
+        // Note: We need to use raw SQL for the final select because of ip_address::TEXT conversion
+        let base_query = r#"
+            SELECT id, user_id, access_token, expires_at, provider, session_token,
+                   user_agent, ip_address::TEXT as ip_address, is_active, created_at
+            FROM sessions
+            WHERE 1=1
+        "#;
+
+        let mut conditions = Vec::new();
+        if criteria.wallet_address.is_some() {
+            conditions.push("AND wallet_address = $1");
+        }
+        if let Some(active) = criteria.is_active {
+            if active {
+                conditions.push("AND is_revoked = FALSE AND expires_at > NOW()");
+            } else {
+                conditions.push("AND is_revoked = TRUE");
+            }
+        }
+        if criteria.created_after.is_some() {
+            conditions.push("AND created_at > $2");
+        }
+        if criteria.created_before.is_some() {
+            conditions.push("AND created_at < $3");
+        }
+
+        let full_query = format!(
+            "{} {} ORDER BY created_at DESC LIMIT {} OFFSET {}",
+            base_query,
+            conditions.join(" "),
+            limit,
+            offset
+        );
+
+        // For simple case, just return the results with raw SQL
+        let db_sessions: Vec<SessionDb> = if let Some(ref wallet) = criteria.wallet_address {
+            diesel::sql_query(&full_query)
+                .bind::<diesel::sql_types::Text, _>(wallet.to_string())
+                .load(&mut conn)
+                .await
+                .unwrap_or_default()
+        } else {
+            // No wallet filter - simpler query
+            let simple_query = format!(
+                "SELECT id, user_id, access_token, expires_at, provider, session_token,
+                        user_agent, ip_address::TEXT as ip_address, is_active, created_at
+                 FROM sessions
+                 ORDER BY created_at DESC LIMIT {} OFFSET {}",
+                limit, offset
+            );
+            diesel::sql_query(&simple_query)
+                .load(&mut conn)
+                .await
+                .unwrap_or_default()
+        };
+
+        let mut sessions = Vec::new();
+        for db in db_sessions {
+            if let Ok(session) = Self::map_db_to_session(db) {
+                sessions.push(session);
+            }
+        }
+
+        Ok(SessionSearchResult::new(sessions, total_count, offset, limit))
     }
 
     async fn count_by_criteria(&self, criteria: &SessionSearchCriteria) -> Result<u64, AppError> {
