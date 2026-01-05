@@ -2,6 +2,18 @@ use chrono::{DateTime, Utc, Duration};
 use std::fmt::{self, Display};
 use serde::{Serialize, Deserialize};
 
+// ============================================================================
+// NOTIFICATION WINDOW CONSTANTS
+// ============================================================================
+/// Time threshold (in minutes) before scheduled time to boost priority
+const PRIORITY_BOOST_THRESHOLD_MINUTES: i64 = 5;
+/// Delivery window duration for immediate notifications (in minutes)
+const IMMEDIATE_NOTIFICATION_WINDOW_MINUTES: i64 = 5;
+/// Delivery window duration after scheduled time (in minutes)
+const SCHEDULED_NOTIFICATION_WINDOW_MINUTES: i64 = 15;
+/// Fallback delivery window duration (in minutes)
+const FALLBACK_NOTIFICATION_WINDOW_MINUTES: i64 = 5;
+
 /// Schedule Information Value Object
 /// Handles notification scheduling, expiry, and timing logic
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -234,7 +246,7 @@ impl ScheduleInfo {
             }
             ScheduleType::Scheduled => {
                 if let Some(time_until) = self.time_until_scheduled() {
-                    if time_until <= Duration::minutes(5) { // TODO: Use constants for notification priority thresholds
+                    if time_until <= Duration::minutes(PRIORITY_BOOST_THRESHOLD_MINUTES) {
                         // High priority for notifications due very soon
                         2
                     } else if time_until <= Duration::hours(1) {
@@ -269,18 +281,18 @@ impl ScheduleInfo {
         match self.schedule_type {
             ScheduleType::Immediate => DeliveryWindow {
                 start: now,
-                end: now + Duration::minutes(5), // TODO: Configure: IMMEDIATE_NOTIFICATION_WINDOW_MINUTES
+                end: now + Duration::minutes(IMMEDIATE_NOTIFICATION_WINDOW_MINUTES),
             },
             ScheduleType::Scheduled => {
                 if let Some(scheduled) = self.scheduled_at {
                     DeliveryWindow {
                         start: scheduled,
-                        end: scheduled + Duration::minutes(15), // TODO: Configure: SCHEDULED_NOTIFICATION_WINDOW_MINUTES
+                        end: scheduled + Duration::minutes(SCHEDULED_NOTIFICATION_WINDOW_MINUTES),
                     }
                 } else {
                     DeliveryWindow {
                         start: now,
-                        end: now + Duration::minutes(5), // TODO: Configure: FALLBACK_NOTIFICATION_WINDOW_MINUTES
+                        end: now + Duration::minutes(FALLBACK_NOTIFICATION_WINDOW_MINUTES),
                     }
                 }
             }
