@@ -314,15 +314,34 @@ impl ApiKeyRepository {
     }
 
     /// Get selected permissions for an API key
-    /// TODO: Fix Diesel type mapping for Nullable<Array<Nullable<Text>>> column
+    /// Uses raw SQL to handle Nullable<Array<Nullable<Text>>> column type
     async fn get_selected_permissions_for_key(
         &self,
-        _conn: &mut AsyncPgConnection,
-        _api_key_id: Uuid,
+        conn: &mut AsyncPgConnection,
+        api_key_id: Uuid,
     ) -> AppResult<Vec<String>> {
-        // Temporarily returning empty vec - Diesel has type mapping issues with nullable arrays
-        // The selected_permissions are stored during creation, this will be fixed in a follow-up
-        Ok(vec![])
+        use diesel_async::RunQueryDsl;
+        
+        #[derive(diesel::QueryableByName)]
+        struct PermissionsRow {
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Array<diesel::sql_types::Nullable<diesel::sql_types::Text>>>)]
+            selected_permissions: Option<Vec<Option<String>>>,
+        }
+
+        let result = diesel::sql_query(
+            "SELECT selected_permissions FROM api_keys WHERE id = $1"
+        )
+        .bind::<diesel::sql_types::Uuid, _>(&api_key_id)
+        .get_result::<PermissionsRow>(conn)
+        .await
+        .ok();
+
+        Ok(result
+            .and_then(|r| r.selected_permissions)
+            .unwrap_or_default()
+            .into_iter()
+            .flatten()
+            .collect())
     }
 
     /// List all API keys with optional filters

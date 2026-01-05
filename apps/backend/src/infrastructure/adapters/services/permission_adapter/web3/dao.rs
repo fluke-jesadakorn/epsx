@@ -180,6 +180,45 @@ impl DaoValidator {
         let meets_min = current_power >= min_power_u256;
         let is_member = current_power > U256::zero();
 
+        // Check for delegation info - try to find who the wallet has delegated to
+        let mut delegation_info = HashMap::new();
+        
+        // Try common delegation functions
+        let delegation_functions = vec![
+            ("delegates", 0x587cde1e_u32), // ERC20Votes delegates(address)
+            ("getDelegate", 0x9ad54685_u32), // Alternative delegate getter
+        ];
+
+        for (fn_name, selector) in delegation_functions {
+            let call_data = ethers::abi::encode(&[ethers::abi::Token::Address(wallet_addr)]);
+            
+            let mut fn_call = selector.to_be_bytes().to_vec();
+            fn_call.extend_from_slice(&call_data);
+
+            let req = TransactionRequest::new()
+                .to(contract_addr)
+                .data(Bytes::from(fn_call));
+
+            let tx = TypedTransaction::Legacy(req);
+            if let Ok(result) = provider.call(&tx, None).await {
+                if result.len() >= 32 {
+                    // Parse address from result (last 20 bytes of 32-byte word)
+                    let delegate_bytes = &result[12..32];
+                    let delegate_addr = Address::from_slice(delegate_bytes);
+                    
+                    // Only record if delegate is different from wallet (actually delegated)
+                    if delegate_addr != wallet_addr && delegate_addr != Address::zero() {
+                        delegation_info.insert(
+                            "delegated_to".to_string(),
+                            format!("{:?}", delegate_addr)
+                        );
+                        debug!("✅ Found delegation from {} to {:?} using {}", wallet.as_str(), delegate_addr, fn_name);
+                    }
+                    break;
+                }
+            }
+        }
+
         info!("✅ DAO membership check complete: voting power {} >= {} = {}", current_power, min_power_u256, meets_min);
 
         Ok(DaoResult {
@@ -189,7 +228,7 @@ impl DaoValidator {
             dao_contract: contract.to_string(),
             chain_id: 1, // Will be detected from RPC
             is_member,
-            delegation_info: HashMap::new(), // TODO: Implement delegation checking
+            delegation_info,
             error_details: None,
         })
     }
