@@ -397,6 +397,70 @@ fn extract_wallet_address(headers: &HeaderMap) -> Option<String> {
   None
 }
 
+/// Helper function to get user's plan tier from their group assignments
+async fn get_user_plan_from_groups(
+    container: &Arc<DomainContainer>,
+    wallet_address: &str,
+) -> Option<String> {
+    use diesel_async::RunQueryDsl;
+    
+    // Get database connection from container
+    let pool = container.db_pool.clone();
+    let mut conn = match pool.get().await {
+        Ok(c) => c,
+        Err(e) => {
+            warn!("Failed to get database connection for plan lookup: {}", e);
+            return None;
+        }
+    };
+    
+    // Query user's active group assignments to determine rate limit tier
+    // We prioritize by group type: elite > premium > basic > free
+    #[derive(diesel::QueryableByName)]
+    struct GroupInfo {
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        group_type: String,
+    }
+    
+    let result: Result<Vec<GroupInfo>, _> = diesel::sql_query(
+        "SELECT DISTINCT g.group_type 
+         FROM wallet_group_assignments wga
+         JOIN groups g ON g.id = wga.group_id
+         WHERE wga.wallet_address = $1 
+           AND wga.is_active = true
+           AND (wga.expires_at IS NULL OR wga.expires_at > NOW())
+         ORDER BY CASE g.group_type 
+           WHEN 'elite' THEN 1
+           WHEN 'enterprise' THEN 2
+           WHEN 'premium' THEN 3
+           WHEN 'professional' THEN 4
+           WHEN 'basic' THEN 5
+           WHEN 'starter' THEN 6
+           ELSE 7
+         END
+         LIMIT 1"
+    )
+    .bind::<diesel::sql_types::Text, _>(wallet_address)
+    .load(&mut conn)
+    .await;
+    
+    match result {
+        Ok(groups) if !groups.is_empty() => {
+            let plan = groups[0].group_type.clone();
+            debug!("Found plan '{}' for wallet {}", plan, wallet_address);
+            Some(plan)
+        }
+        Ok(_) => {
+            debug!("No active groups found for wallet {}", wallet_address);
+            None
+        }
+        Err(e) => {
+            warn!("Failed to query user groups for rate limiting: {}", e);
+            None
+        }
+    }
+}
+
 /// Middleware function for Web3 rate limiting
 pub async fn web3_rate_limit_middleware(
   State(container): State<Arc<DomainContainer>>,
@@ -437,14 +501,19 @@ pub async fn web3_rate_limit_middleware(
       config
   );
 
-  // Determine plan limits based on wallet
+  // Determine plan limits based on wallet's group assignments
   let plan_limits = if let Some(wallet) = &wallet_address {
-      // TODO: Fetch actual plan from database using wallet_user_repository
-      // For now, use the demo logic to determine tier
-      if wallet.to_lowercase().contains("742d35") {
-          crate::web::middleware::multi_level_rate_limiter::PlanRateLimits::premium()
-      } else {
-          crate::web::middleware::multi_level_rate_limiter::PlanRateLimits::free()
+      // Query user's groups from database to determine rate limit tier
+      let user_plan = match get_user_plan_from_groups(&container, wallet).await {
+          Some(plan) => plan,
+          None => "free".to_string(),
+      };
+      
+      match user_plan.to_lowercase().as_str() {
+          "elite" | "enterprise" | "whale" => crate::web::middleware::multi_level_rate_limiter::PlanRateLimits::elite(),
+          "premium" | "professional" | "pro" => crate::web::middleware::multi_level_rate_limiter::PlanRateLimits::premium(),
+          "basic" | "starter" => crate::web::middleware::multi_level_rate_limiter::PlanRateLimits::basic(),
+          _ => crate::web::middleware::multi_level_rate_limiter::PlanRateLimits::free(),
       }
   } else {
       crate::web::middleware::multi_level_rate_limiter::PlanRateLimits::free()

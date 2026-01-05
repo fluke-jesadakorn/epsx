@@ -128,6 +128,18 @@ impl PlanRateLimits {
         }
     }
 
+    /// Create rate limits for elite tier (alias for enterprise)
+    pub fn elite() -> Self {
+        Self {
+            plan_id: None,
+            plan_name: "elite".to_string(),
+            requests_per_minute: 1000,
+            requests_per_hour: 50000,
+            requests_per_day: 1000000,
+            burst_capacity: 200,
+        }
+    }
+
     /// Convert to RateLimitConfig for UnifiedRateLimiter
     pub fn to_rate_limit_config(&self) -> RateLimitConfig {
         RateLimitConfig {
