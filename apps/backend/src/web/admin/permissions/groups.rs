@@ -633,3 +633,155 @@ pub async fn get_group_members(
 
     AdminResponse::success(serde_json::json!({"members": members, "count": members.len()})).into_response()
 }
+
+/// Get permissions of a permission group
+/// GET /permissions/groups/:group_id/permissions
+#[utoipa::path(
+    get,
+    path = "/permissions/groups/{group_id}/permissions",
+    tag = "permissions",
+    responses(
+        (status = 200, description = "Successfully retrieved group permissions"),
+        (status = 400, description = "Invalid group ID format"),
+        (status = 401, description = "Unauthorized"),
+        (status = 404, description = "Permission group not found"),
+        (status = 500, description = "Internal server error")
+    ),
+    params(
+        ("group_id" = String, Path, description = "UUID of the permission group")
+    ),
+    security(("bearerAuth" = []))
+)]
+pub async fn get_group_permissions(
+    State(app_state): State<AppState>,
+    Path(group_id): Path<String>,
+) -> impl IntoResponse {
+    let group_uuid = match Uuid::parse_str(&group_id) {
+        Ok(id) => id,
+        Err(_) => return AdminResponse::bad_request("Invalid group ID format").into_response(),
+    };
+
+    let group_id_obj = GroupId::from_uuid(group_uuid);
+
+    // Fetch group using Diesel repository
+    let group = match app_state.group_repo.find_by_id(&group_id_obj).await {
+        Ok(Some(g)) => g,
+        Ok(None) => return AdminResponse::not_found("Permission group").into_response(),
+        Err(e) => {
+            tracing::error!("Failed to fetch permission group: {}", e);
+            return AdminResponse::server_error("Database query failed").into_response();
+        }
+    };
+
+    // Extract permissions from the group
+    let permissions: Vec<String> = group.permissions()
+        .iter()
+        .map(|p| p.as_str().to_string())
+        .collect();
+
+    AdminResponse::success(serde_json::json!({
+        "group_id": group_id,
+        "group_name": group.name().to_string(),
+        "permissions": permissions,
+        "count": permissions.len()
+    })).into_response()
+}
+
+/// Get assignments for a permission group
+/// GET /permissions/assignments/group/:group_id
+#[utoipa::path(
+    get,
+    path = "/permissions/assignments/group/{group_id}",
+    tag = "permissions",
+    responses(
+        (status = 200, description = "Successfully retrieved group assignments"),
+        (status = 400, description = "Invalid group ID format"),
+        (status = 401, description = "Unauthorized"),
+        (status = 500, description = "Internal server error")
+    ),
+    params(
+        ("group_id" = String, Path, description = "UUID of the permission group")
+    ),
+    security(("bearerAuth" = []))
+)]
+pub async fn get_group_assignments(
+    State(app_state): State<AppState>,
+    Path(group_id): Path<String>,
+    Query(query): Query<ListGroupsQuery>,
+) -> impl IntoResponse {
+    let group_uuid = match Uuid::parse_str(&group_id) {
+        Ok(id) => id,
+        Err(_) => return AdminResponse::bad_request("Invalid group ID format").into_response(),
+    };
+
+    let page = query.page.unwrap_or(1);
+    let limit = query.limit.unwrap_or(20).min(100);
+    let offset = (page - 1) * limit;
+
+    let mut conn = match app_state.db_pool.get().await {
+        Ok(conn) => conn,
+        Err(e) => {
+            tracing::error!("Failed to get database connection: {}", e);
+            return AdminResponse::server_error("Database connection failed").into_response();
+        }
+    };
+
+    #[derive(diesel::QueryableByName, Serialize)]
+    struct AssignmentRow {
+        #[diesel(sql_type = diesel::sql_types::Uuid)]
+        id: Uuid,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        wallet_address: String,
+        #[diesel(sql_type = diesel::sql_types::Bool)]
+        is_active: bool,
+        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+        created_at: DateTime<Utc>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+        expires_at: Option<DateTime<Utc>>,
+    }
+
+    // Get total count
+    #[derive(diesel::QueryableByName)]
+    struct Count {
+        #[diesel(sql_type = diesel::sql_types::BigInt)]
+        count: i64,
+    }
+
+    let total = match diesel::sql_query(
+        "SELECT COUNT(*) as count FROM wallet_group_assignments WHERE group_id = $1"
+    )
+    .bind::<diesel::sql_types::Uuid, _>(group_uuid)
+    .get_result::<Count>(&mut conn)
+    .await
+    {
+        Ok(c) => c.count,
+        Err(e) => {
+            tracing::error!("Failed to count group assignments: {}", e);
+            0
+        }
+    };
+
+    // Fetch assignments with pagination
+    let assignments: Vec<AssignmentRow> = match diesel::sql_query(
+        "SELECT id, wallet_address, is_active, created_at, expires_at 
+         FROM wallet_group_assignments 
+         WHERE group_id = $1 
+         ORDER BY created_at DESC 
+         LIMIT $2 OFFSET $3"
+    )
+    .bind::<diesel::sql_types::Uuid, _>(group_uuid)
+    .bind::<diesel::sql_types::BigInt, _>(limit as i64)
+    .bind::<diesel::sql_types::BigInt, _>(offset as i64)
+    .load::<AssignmentRow>(&mut conn)
+    .await
+    {
+        Ok(rows) => rows,
+        Err(e) => {
+            tracing::error!("Failed to get group assignments: {}", e);
+            return AdminResponse::server_error("Database query failed").into_response();
+        }
+    };
+
+    let pagination = create_pagination(page, limit, total as u64);
+    AdminResponse::success_with_pagination(assignments, pagination).into_response()
+}

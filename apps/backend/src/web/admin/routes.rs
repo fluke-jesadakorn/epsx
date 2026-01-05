@@ -59,6 +59,9 @@ use super::permissions::{
   clear_caches,
   get_route_permissions,
   register_route_permission,
+  // Group permission and assignment queries
+  get_group_permissions,
+  get_group_assignments,
 };
 // Performance monitoring handlers
 use super::performance_handlers::{
@@ -331,8 +334,7 @@ pub fn create_permission_authority_routes() -> Router<AppState> {
     .route("/groups", get(list_groups).post(create_group))
     .route("/groups/{group_id}", get(get_group).put(update_group).delete(delete_group))
     .route("/groups/{group_id}/members", get(get_group_members))
-    // TODO: implement get_group_permissions function
-  // .route("/groups/{group_id}/permissions", get(crate::web::admin::permissions::get_group_permissions))
+    .route("/groups/{group_id}/permissions", get(get_group_permissions))
 
     // Assignment Management (accessible by all apps)
     // Route: /api/permissions/assignments
@@ -340,8 +342,7 @@ pub fn create_permission_authority_routes() -> Router<AppState> {
     .route("/assignments/{assignment_id}", delete(remove_assignment))
     .route("/assignments/expiring", get(get_expiring_assignments))
     .route("/assignments/wallet/{wallet}", get(get_assignment_history))
-    // TODO: implement get_group_assignments function
-  // .route("/assignments/group/{group_id}", get(crate::web::admin::permissions::get_group_assignments))
+    .route("/assignments/group/{group_id}", get(get_group_assignments))
 
     // Apply authentication middleware to permission authority routes
     }

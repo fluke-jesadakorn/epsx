@@ -40,6 +40,8 @@ pub fn create_permission_routes() -> Router<AppState> {
         .route("/groups/{group_id}", put(groups::update_group))
         .route("/groups/{group_id}", delete(groups::delete_group))
         .route("/groups/{group_id}/members", get(groups::get_group_members))
+        .route("/groups/{group_id}/permissions", get(groups::get_group_permissions))
+        .route("/assignments/group/{group_id}", get(groups::get_group_assignments))
 
         // ============================================================================
         // WALLET-GROUP ASSIGNMENTS
