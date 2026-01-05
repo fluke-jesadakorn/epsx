@@ -46,7 +46,7 @@ pub struct UpdatePermissionRequest {
 }
 
 /// List all available permission definitions
-/// GET /api/v1/permissions/definitions
+/// GET /api/permissions/definitions
 pub async fn list_permission_definitions(
     State(app_state): State<AppState>,
 ) -> impl IntoResponse {
@@ -146,7 +146,7 @@ pub async fn list_available_permissions(
 }
 
 /// Create a new permission definition
-/// POST /api/v1/permissions/definitions
+/// POST /api/permissions/definitions
 pub async fn create_permission_definition(
     State(app_state): State<AppState>,
     Json(req): Json<CreatePermissionRequest>,
@@ -246,7 +246,7 @@ pub async fn create_permission_definition(
 }
 
 /// Delete a permission definition (soft delete by setting is_active = false)
-/// DELETE /api/v1/permissions/definitions/{id}
+/// DELETE /api/permissions/definitions/{id}
 pub async fn delete_permission_definition(
     State(app_state): State<AppState>,
     Path(id): Path<Uuid>,
@@ -313,7 +313,7 @@ pub async fn delete_permission_definition(
 }
 
 /// Delete a permission definition by permission string
-/// DELETE /api/v1/permissions/definitions/by-name/{permission}
+/// DELETE /api/permissions/definitions/by-name/{permission}
 pub async fn delete_permission_by_name(
     State(app_state): State<AppState>,
     Path(permission): Path<String>,

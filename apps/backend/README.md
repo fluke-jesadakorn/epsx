@@ -331,7 +331,7 @@ cargo test --test integration_tests
 
 ## 🔌 API Endpoints
 
-### Authentication (`/api/v1/auth`)
+### Authentication (`/api/auth`)
 ```
 POST   /login              # User authentication
 POST   /logout             # Session termination
@@ -339,7 +339,7 @@ GET    /session/validate   # Session validation
 POST   /refresh            # Token refresh
 ```
 
-### User Management (`/api/v1/users`)
+### User Management (`/api/users`)
 ```
 GET    /profile            # User profile
 PUT    /profile            # Update profile
@@ -347,7 +347,7 @@ GET    /permissions        # User permissions
 POST   /level/assign       # Assign user level
 ```
 
-### Notifications (`/api/v1/notifications`) ✅ **New**
+### Notifications (`/api/notifications`) ✅ **New**
 ```
 GET    /                   # Get user notifications (paginated)
 POST   /                   # Create notification
@@ -358,7 +358,7 @@ GET    /stats              # Notification statistics
 POST   /bulk/read          # Bulk mark as read
 ```
 
-### Analytics (`/api/v1/analytics`)
+### Analytics (`/api/analytics`)
 ```
 GET    /eps-rankings       # EPS growth rankings
 GET    /eps-rankings/metadata  # Rankings metadata
@@ -366,7 +366,7 @@ GET    /stock/:symbol      # Individual stock analytics
 GET    /screener           # Stock screening with filters
 ```
 
-### Security (`/api/v1/security`) ✅ **New**
+### Security (`/api/security`) ✅ **New**
 ```
 GET    /events             # Security event log
 GET    /alerts             # Security alerts
@@ -374,7 +374,7 @@ POST   /ip-block           # Block IP address
 GET    /attack-stats       # Attack statistics
 ```
 
-### Real-time (`/api/v1/realtime`)
+### Real-time (`/api/realtime`)
 ```
 GET    /ws                 # WebSocket connection
 GET    /sse                # Server-Sent Events

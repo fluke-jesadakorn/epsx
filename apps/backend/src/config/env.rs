@@ -213,7 +213,7 @@ impl Config {
 
     /// Get enterprise API endpoint
     pub fn enterprise_api_url(&self) -> String {
-        format!("{}/api/v1/enterprise", self.backend_url)
+        format!("{}/api/enterprise", self.backend_url)
     }
 }
 

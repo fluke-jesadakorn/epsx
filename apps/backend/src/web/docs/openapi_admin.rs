@@ -16,7 +16,7 @@ use utoipa::{
     info(
         title = "EPSX Admin API Documentation",
         version = "1.0.0",
-        description = "Complete EPSX API documentation including admin endpoints for platform management.\n\n## Authentication\n\nThis API uses Web3 authentication (Sign-In with Ethereum). Admin endpoints require specific permissions.\n\n### Authentication Flow:\n1. **Generate Challenge**: `POST /api/v1/auth/web3/challenge`\n2. **Sign Message**: Sign the SIWE message with your admin wallet\n3. **Verify Signature**: `POST /api/v1/auth/web3/verify` to receive Bearer token\n4. **Use Token**: Include `Authorization: Bearer <token>` in subsequent requests\n\n### Admin Permissions\n\nAdmin endpoints require the `admin:*:*` permission or specific permissions like `admin:users:manage`, `admin:plans:manage`, etc.",
+        description = "Complete EPSX API documentation including admin endpoints for platform management.\n\n## Authentication\n\nThis API uses Web3 authentication (Sign-In with Ethereum). Admin endpoints require specific permissions.\n\n### Authentication Flow:\n1. **Generate Challenge**: `POST /api/auth/web3/challenge`\n2. **Sign Message**: Sign the SIWE message with your admin wallet\n3. **Verify Signature**: `POST /api/auth/web3/verify` to receive Bearer token\n4. **Use Token**: Include `Authorization: Bearer <token>` in subsequent requests\n\n### Admin Permissions\n\nAdmin endpoints require the `admin:*:*` permission or specific permissions like `admin:users:manage`, `admin:plans:manage`, etc.",
         contact(
             name = "EPSX Team",
             url = "https://epsx.io",

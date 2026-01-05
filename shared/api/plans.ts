@@ -251,7 +251,7 @@ export class PlansAPIClient {
 
   /**
    * Get all plans with filtering
-   * Route: GET /api/v1/admin/plans
+   * Route: GET /api/admin/plans
    */
   async getPlans(params: {
     limit?: number;
@@ -260,7 +260,7 @@ export class PlansAPIClient {
     target_audience?: string;
     is_active?: boolean;
   } = {}): Promise<ApiResponse<PlanListResponse>> {
-    return this.client.get('/api/v1/admin/plans', params);
+    return this.client.get('/api/admin/plans', params);
   }
 
   /**
@@ -268,7 +268,7 @@ export class PlansAPIClient {
    * Route: GET /api/admin/plans/:id
    */
   async getPlan(planId: number | string): Promise<ApiResponse<PlanResponse>> {
-    return this.client.get(`/api/v1/admin/plans/${planId}`);
+    return this.client.get(`/api/admin/plans/${planId}`);
   }
 
   /**
@@ -276,7 +276,7 @@ export class PlansAPIClient {
    * Route: POST /api/admin/plans
    */
   async createPlan(planData: CreatePlanRequest): Promise<ApiResponse<PlanResponse>> {
-    return this.client.post('/api/v1/admin/plans', planData);
+    return this.client.post('/api/admin/plans', planData);
   }
 
   /**
@@ -284,7 +284,7 @@ export class PlansAPIClient {
    * Route: PUT /api/admin/plans/:id
    */
   async updatePlan(planId: number | string, planData: UpdatePlanRequest): Promise<ApiResponse<PlanResponse>> {
-    return this.client.put(`/api/v1/admin/plans/${planId}`, planData);
+    return this.client.put(`/api/admin/plans/${planId}`, planData);
   }
 
   /**
@@ -292,7 +292,7 @@ export class PlansAPIClient {
    * Route: DELETE /api/admin/plans/:id
    */
   async deletePlan(planId: number | string): Promise<ApiResponse<void>> {
-    return this.client.delete(`/api/v1/admin/plans/${planId}`);
+    return this.client.delete(`/api/admin/plans/${planId}`);
   }
 
   /**
@@ -301,7 +301,7 @@ export class PlansAPIClient {
    */
   async getPlanAnalytics(planId: number | string, period?: string): Promise<ApiResponse<PlanAnalyticsResponse>> {
     const params = period ? { period } : {};
-    return this.client.get(`/api/v1/admin/plans/${planId}/analytics`, params);
+    return this.client.get(`/api/admin/plans/${planId}/analytics`, params);
   }
 
   /**
@@ -331,7 +331,7 @@ export class PlansAPIClient {
 
   /**
    * Get subscriptions with filtering
-   * Route: GET /api/v1/payments/admin/subscriptions
+   * Route: GET /api/payments/admin/subscriptions
    */
   async getSubscriptions(params: {
     limit?: number;
@@ -339,20 +339,20 @@ export class PlansAPIClient {
     access_context?: string;
     plan_id?: number;
   } = {}): Promise<ApiResponse<{ subscriptions: SubscriptionResponse[] }>> {
-    return this.client.get('/api/v1/payments/admin/subscriptions', params);
+    return this.client.get('/api/payments/admin/subscriptions', params);
   }
 
   /**
    * Get single subscription
-   * Route: GET /api/v1/payments/subscriptions/:id
+   * Route: GET /api/payments/subscriptions/:id
    */
   async getSubscription(subscriptionId: string): Promise<ApiResponse<SubscriptionResponse>> {
-    return this.client.get(`/api/v1/payments/subscriptions/${subscriptionId}`);
+    return this.client.get(`/api/payments/subscriptions/${subscriptionId}`);
   }
 
   /**
    * Create subscription
-   * Route: POST /api/v1/admin/subscriptions
+   * Route: POST /api/admin/subscriptions
    */
   async createSubscription(data: CreateSubscriptionRequest): Promise<ApiResponse<SubscriptionResponse>> {
     // Map user_id to wallet_address for backend compatibility
@@ -367,23 +367,23 @@ export class PlansAPIClient {
       auto_renew: data.auto_renew,
       metadata: data.metadata,
     };
-    return this.client.post('/api/v1/admin/subscriptions', payload);
+    return this.client.post('/api/admin/subscriptions', payload);
   }
 
   /**
    * Update subscription
-   * Route: PUT /api/v1/admin/subscriptions/:id
+   * Route: PUT /api/admin/subscriptions/:id
    */
   async updateSubscription(subscriptionId: string, data: UpdateSubscriptionRequest): Promise<ApiResponse<SubscriptionResponse>> {
-    return this.client.put(`/api/v1/admin/subscriptions/${subscriptionId}`, data);
+    return this.client.put(`/api/admin/subscriptions/${subscriptionId}`, data);
   }
 
   /**
    * Cancel subscription
-   * Route: POST /api/v1/admin/subscriptions/:id/cancel
+   * Route: POST /api/admin/subscriptions/:id/cancel
    */
   async cancelSubscription(subscriptionId: string): Promise<ApiResponse<void>> {
-    return this.client.post(`/api/v1/admin/subscriptions/${subscriptionId}/cancel`);
+    return this.client.post(`/api/admin/subscriptions/${subscriptionId}/cancel`);
   }
 
   // ============================================================================
@@ -392,7 +392,7 @@ export class PlansAPIClient {
 
   /**
    * List API keys
-   * Route: GET /api/v1/admin/developer-portal/api-keys
+   * Route: GET /api/admin/developer-portal/api-keys
    * Supports ?wallet=0x... to filter by wallet address
    */
   async listApiKeys(params: {
@@ -402,54 +402,54 @@ export class PlansAPIClient {
     client_name?: string;
     wallet?: string; // Filter by wallet address
   } = {}): Promise<ApiResponse<{ api_keys: ApiKeyResponse[]; total: number }>> {
-    return this.client.get('/api/v1/admin/developer-portal/api-keys', params);
+    return this.client.get('/api/admin/developer-portal/api-keys', params);
   }
 
   /**
    * Get API key details
-   * Route: GET /api/v1/admin/developer-portal/api-keys/:id
+   * Route: GET /api/admin/developer-portal/api-keys/:id
    */
   async getApiKey(keyId: string): Promise<ApiResponse<ApiKeyResponse>> {
-    return this.client.get(`/api/v1/admin/developer-portal/api-keys/${keyId}`);
+    return this.client.get(`/api/admin/developer-portal/api-keys/${keyId}`);
   }
 
   /**
    * Create API key
-   * Route: POST /api/v1/admin/developer-portal/api-keys
+   * Route: POST /api/admin/developer-portal/api-keys
    */
   async createApiKey(keyData: ApiKeyRequest): Promise<ApiResponse<ApiKeyResponse>> {
-    return this.client.post('/api/v1/admin/developer-portal/api-keys', keyData);
+    return this.client.post('/api/admin/developer-portal/api-keys', keyData);
   }
 
   /**
    * Update API key
-   * Route: PUT /api/v1/admin/developer-portal/api-keys/:id
+   * Route: PUT /api/admin/developer-portal/api-keys/:id
    */
   async updateApiKey(keyId: string, keyData: Partial<ApiKeyRequest>): Promise<ApiResponse<ApiKeyResponse>> {
-    return this.client.put(`/api/v1/admin/developer-portal/api-keys/${keyId}`, keyData);
+    return this.client.put(`/api/admin/developer-portal/api-keys/${keyId}`, keyData);
   }
 
   /**
    * Revoke API key
-   * Route: POST /api/v1/admin/developer-portal/api-keys/:id/revoke
+   * Route: POST /api/admin/developer-portal/api-keys/:id/revoke
    */
   async revokeApiKey(keyId: string, reason: string): Promise<ApiResponse<{ success: boolean }>> {
-    return this.client.post(`/api/v1/admin/developer-portal/api-keys/${keyId}/revoke`, { reason });
+    return this.client.post(`/api/admin/developer-portal/api-keys/${keyId}/revoke`, { reason });
   }
 
   /**
    * Update API key expiration date
-   * Route: PATCH /api/v1/admin/developer-portal/api-keys/:id/expiration
+   * Route: PATCH /api/admin/developer-portal/api-keys/:id/expiration
    */
   async updateApiKeyExpiration(keyId: string, expiresAt: string | null): Promise<ApiResponse<ApiKeyResponse>> {
-    return this.client.patch(`/api/v1/admin/developer-portal/api-keys/${keyId}/expiration`, {
+    return this.client.patch(`/api/admin/developer-portal/api-keys/${keyId}/expiration`, {
       expires_at: expiresAt,
     });
   }
 
   /**
    * List API keys expiring within the specified number of days
-   * Route: GET /api/v1/admin/developer-portal/api-keys/expiring
+   * Route: GET /api/admin/developer-portal/api-keys/expiring
    */
   async listExpiringApiKeys(params: {
     days?: number; // Default 7 days
@@ -460,15 +460,15 @@ export class PlansAPIClient {
     total: number;
     days_ahead: number;
   }>> {
-    return this.client.get('/api/v1/admin/developer-portal/api-keys/expiring', params);
+    return this.client.get('/api/admin/developer-portal/api-keys/expiring', params);
   }
 
   /**
    * Regenerate API key
-   * Route: POST /api/v1/admin/developer-portal/api-keys/:id/regenerate
+   * Route: POST /api/admin/developer-portal/api-keys/:id/regenerate
    */
   async regenerateApiKey(keyId: string): Promise<ApiResponse<ApiKeyResponse>> {
-    return this.client.post(`/api/v1/admin/developer-portal/api-keys/${keyId}/regenerate`);
+    return this.client.post(`/api/admin/developer-portal/api-keys/${keyId}/regenerate`);
   }
 
   // ============================================================================
@@ -477,29 +477,29 @@ export class PlansAPIClient {
 
   /**
    * Get modules
-   * Route: GET /api/v1/admin/developer-portal/modules
+   * Route: GET /api/admin/developer-portal/modules
    */
   async getModules(params: {
     status?: string;
     category?: string;
   } = {}): Promise<ApiResponse<{ modules: Module[]; total: number }>> {
-    return this.client.get('/api/v1/admin/developer-portal/modules', params);
+    return this.client.get('/api/admin/developer-portal/modules', params);
   }
 
   /**
    * Get module details
-   * Route: GET /api/v1/admin/developer-portal/modules/:id
+   * Route: GET /api/admin/developer-portal/modules/:id
    */
   async getModule(moduleId: string): Promise<ApiResponse<Module>> {
-    return this.client.get(`/api/v1/admin/developer-portal/modules/${moduleId}`);
+    return this.client.get(`/api/admin/developer-portal/modules/${moduleId}`);
   }
 
   /**
    * Update module
-   * Route: PUT /api/v1/admin/developer-portal/modules/:id
+   * Route: PUT /api/admin/developer-portal/modules/:id
    */
   async updateModule(moduleId: string, moduleData: Partial<Module>): Promise<ApiResponse<Module>> {
-    return this.client.put(`/api/v1/admin/developer-portal/modules/${moduleId}`, moduleData);
+    return this.client.put(`/api/admin/developer-portal/modules/${moduleId}`, moduleData);
   }
 
   // ============================================================================
@@ -508,32 +508,32 @@ export class PlansAPIClient {
 
   /**
    * Get API key usage stats
-   * Route: GET /api/v1/admin/developer-portal/api-keys/:id/usage
+   * Route: GET /api/admin/developer-portal/api-keys/:id/usage
    */
   async getApiKeyUsageStats(keyId: string, params: {
     period?: string; // "24h", "7d", "30d", "90d"
     granularity?: string; // "hour", "day", "week"
   } = {}): Promise<ApiResponse<any>> {
-    return this.client.get(`/api/v1/admin/developer-portal/api-keys/${keyId}/usage`, params);
+    return this.client.get(`/api/admin/developer-portal/api-keys/${keyId}/usage`, params);
   }
 
   /**
    * Get module usage stats
-   * Route: GET /api/v1/admin/developer-portal/modules/:id/usage
+   * Route: GET /api/admin/developer-portal/modules/:id/usage
    */
   async getModuleUsageStats(moduleId: string, params: {
     period?: string;
     granularity?: string;
   } = {}): Promise<ApiResponse<any>> {
-    return this.client.get(`/api/v1/admin/developer-portal/modules/${moduleId}/usage`, params);
+    return this.client.get(`/api/admin/developer-portal/modules/${moduleId}/usage`, params);
   }
 
   /**
    * Get developer portal stats
-   * Route: GET /api/v1/admin/developer-portal/stats
+   * Route: GET /api/admin/developer-portal/stats
    */
   async getDeveloperPortalStats(): Promise<ApiResponse<any>> {
-    return this.client.get('/api/v1/admin/developer-portal/stats');
+    return this.client.get('/api/admin/developer-portal/stats');
   }
 
   // ============================================================================
@@ -542,19 +542,19 @@ export class PlansAPIClient {
 
   /**
    * List user's own API keys
-   * Route: GET /api/v1/developer-portal/my-keys
+   * Route: GET /api/developer-portal/my-keys
    */
   async listMyApiKeys(params: {
     limit?: number;
     offset?: number;
     status?: string;
   } = {}): Promise<ApiResponse<{ api_keys: ApiKeyResponse[]; total: number }>> {
-    return this.client.get('/api/v1/developer-portal/my-keys', params);
+    return this.client.get('/api/developer-portal/my-keys', params);
   }
 
   /**
    * Create API key for current user
-   * Route: POST /api/v1/developer-portal/my-keys
+   * Route: POST /api/developer-portal/my-keys
    */
   async createMyApiKey(keyData: {
     client_name: string;
@@ -572,29 +572,29 @@ export class PlansAPIClient {
       ...keyData,
       group_ids: keyData.group_ids || keyData.permission_group_ids
     };
-    return this.client.post('/api/v1/developer-portal/my-keys', payload);
+    return this.client.post('/api/developer-portal/my-keys', payload);
   }
 
   /**
    * Get user's API key details
-   * Route: GET /api/v1/developer-portal/my-keys/:id
+   * Route: GET /api/developer-portal/my-keys/:id
    */
   async getMyApiKey(keyId: string): Promise<ApiResponse<ApiKeyResponse>> {
-    return this.client.get(`/api/v1/developer-portal/my-keys/${keyId}`);
+    return this.client.get(`/api/developer-portal/my-keys/${keyId}`);
   }
 
   /**
    * Revoke user's own API key
-   * Route: DELETE /api/v1/developer-portal/my-keys/:id
+   * Route: DELETE /api/developer-portal/my-keys/:id
    */
   async revokeMyApiKey(keyId: string, reason?: string): Promise<ApiResponse<{ success: boolean }>> {
     // Use POST with reason in body (DELETE doesn't support body in this client)
-    return this.client.post(`/api/v1/developer-portal/my-keys/${keyId}/revoke`, { reason: reason || 'Revoked by owner' });
+    return this.client.post(`/api/developer-portal/my-keys/${keyId}/revoke`, { reason: reason || 'Revoked by owner' });
   }
 
   /**
    * List available groups for API key creation
-   * Route: GET /api/v1/developer-portal/available-groups
+   * Route: GET /api/developer-portal/available-groups
    */
   async getAvailableGroups(): Promise<ApiResponse<{
     groups: Array<{
@@ -607,12 +607,12 @@ export class PlansAPIClient {
       is_active: boolean;
     }>;
   }>> {
-    return this.client.get('/api/v1/developer-portal/available-groups');
+    return this.client.get('/api/developer-portal/available-groups');
   }
 
   /**
    * Get user's assigned permission groups with metadata
-   * Route: GET /api/v1/developer-portal/my-groups
+   * Route: GET /api/developer-portal/my-groups
    */
   async getMyGroups(): Promise<ApiResponse<{
     groups: Array<{
@@ -630,7 +630,7 @@ export class PlansAPIClient {
     total_api_keys: number;
     total_requests: number;
   }>> {
-    return this.client.get('/api/v1/developer-portal/my-groups');
+    return this.client.get('/api/developer-portal/my-groups');
   }
 
   /**
@@ -646,7 +646,7 @@ export class PlansAPIClient {
 
   /**
    * Get user's aggregated usage stats
-   * Route: GET /api/v1/developer-portal/stats
+   * Route: GET /api/developer-portal/stats
    */
   async getUserUsageStats(): Promise<ApiResponse<{
     total_requests: number;
@@ -654,30 +654,30 @@ export class PlansAPIClient {
     requests_24h: number;
     error_rate_24h: number;
   }>> {
-    return this.client.get('/api/v1/developer-portal/stats');
+    return this.client.get('/api/developer-portal/stats');
   }
 
   /**
    * Get usage history
-   * Route: GET /api/v1/developer-portal/usage-history
+   * Route: GET /api/developer-portal/usage-history
    */
   async getUserUsageHistory(days: number = 7): Promise<ApiResponse<Array<{
     bucket: string;
     count: number;
   }>>> {
-    return this.client.get('/api/v1/developer-portal/usage-history', { days });
+    return this.client.get('/api/developer-portal/usage-history', { days });
   }
 
   /**
    * Get top endpoints
-   * Route: GET /api/v1/developer-portal/top-endpoints
+   * Route: GET /api/developer-portal/top-endpoints
    */
   async getUserTopEndpoints(days: number = 7): Promise<ApiResponse<Array<{
     endpoint: string;
     method: string;
     count: number;
   }>>> {
-    return this.client.get('/api/v1/developer-portal/top-endpoints', { days });
+    return this.client.get('/api/developer-portal/top-endpoints', { days });
   }
 }
 

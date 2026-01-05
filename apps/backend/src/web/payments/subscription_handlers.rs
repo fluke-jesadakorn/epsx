@@ -480,7 +480,7 @@ pub async fn get_subscription_details_handler(
 ) -> Result<Json<serde_json::Value>, Json<UnifiedErrorResponse>> {
     Ok(Json(serde_json::json!({
         "success": false,
-        "message": "Use /api/v1/plans/expiry-status instead"
+        "message": "Use /api/plans/expiry-status instead"
     })))
 }
 

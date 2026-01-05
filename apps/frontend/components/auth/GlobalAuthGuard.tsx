@@ -91,30 +91,17 @@ export function GlobalAuthGuard({
         );
     }
 
-    // If authenticated, render children or show loading (for page refresh)
+    // If authenticated, render children
     if (isAuthenticated) {
-        // If no children, show loading spinner (page should reload and display content from server)
+        // If no children provided, this guard was rendered because server-side auth failed
+        // but client still has stale auth state. This is an auth desync - show sign-in UI.
+        // The sign-in will clear cookies and re-authenticate properly.
         if (!children) {
-            return (
-                <div className="flex h-64 items-center justify-center p-6 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-indigo-900 rounded-xl">
-                    <div className="flex flex-col items-center gap-4">
-                        <div className="relative">
-                            <div className="absolute inset-0 blur-xl bg-gradient-to-r from-orange-500/30 to-blue-500/30 rounded-full animate-pulse" />
-                            <Loader2 className="h-12 w-12 animate-spin text-orange-500 relative z-10" />
-                        </div>
-                        <div className="text-center space-y-2">
-                            <p className="text-lg font-medium text-slate-700 dark:text-slate-300">
-                                Welcome back!
-                            </p>
-                            <p className="text-sm text-muted-foreground animate-pulse">
-                                Loading your dashboard...
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            );
+            console.warn('⚠️ GlobalAuthGuard: Auth desync detected - server rejected but client authenticated. Clearing stale auth.');
+            // Fall through to show auth UI below
+        } else {
+            return <>{children}</>;
         }
-        return <>{children}</>;
     }
 
     // Fallback UI

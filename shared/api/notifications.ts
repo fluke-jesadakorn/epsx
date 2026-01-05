@@ -406,7 +406,7 @@ export class NotificationsAPIClient {
 
   /**
    * Mark all notifications as read
-   * Route: PUT /api/v1/auth/notifications/mark-all-read
+   * Route: PUT /api/auth/notifications/mark-all-read
    */
   async markAllAsRead(): Promise<{ success: boolean; updated_count: number }> {
     try {
@@ -459,7 +459,7 @@ export class NotificationsAPIClient {
 
   /**
    * Delete notification
-   * Route: DELETE /api/v1/auth/notifications/{id}
+   * Route: DELETE /api/auth/notifications/{id}
    */
   async deleteNotification(notificationId: string): Promise<{ success: boolean; message: string }> {
     try {
@@ -486,7 +486,7 @@ export class NotificationsAPIClient {
 
   /**
    * Clear all notifications
-   * Route: DELETE /api/v1/auth/notifications/clear-all
+   * Route: DELETE /api/auth/notifications/clear-all
    */
   async clearAllNotifications(): Promise<{ success: boolean; deleted_count: number }> {
     try {
@@ -517,7 +517,7 @@ export class NotificationsAPIClient {
 
   /**
    * Get notification preferences
-   * Route: GET /api/v1/auth/notifications/preferences
+   * Route: GET /api/auth/notifications/preferences
    */
   async getPreferences(): Promise<NotificationPreferencesResponse> {
     const response = await this.client.get<NotificationPreferencesResponse>(
@@ -540,7 +540,7 @@ export class NotificationsAPIClient {
 
   /**
    * Update notification preferences
-   * Route: PUT /api/v1/auth/notifications/preferences
+   * Route: PUT /api/auth/notifications/preferences
    */
   async updatePreferences(preferences: Partial<NotificationPreferences>): Promise<{
     success: boolean;
@@ -570,7 +570,7 @@ export class NotificationsAPIClient {
 
   /**
    * Subscribe to push notifications
-   * Route: POST /api/v1/auth/notifications/push/subscribe
+   * Route: POST /api/auth/notifications/push/subscribe
    */
   async subscribeToPush(subscription: PushSubscription): Promise<PushSubscriptionResponse> {
     const response = await this.client.post<PushSubscriptionResponse>(
@@ -593,7 +593,7 @@ export class NotificationsAPIClient {
 
   /**
    * Unsubscribe from push notifications
-   * Route: DELETE /api/v1/auth/notifications/push/unsubscribe
+   * Route: DELETE /api/auth/notifications/push/unsubscribe
    */
   async unsubscribeFromPush(): Promise<{ success: boolean; message: string }> {
     const response = await this.client.delete<{ success: boolean; message: string }>(
@@ -615,7 +615,7 @@ export class NotificationsAPIClient {
 
   /**
    * Get push subscription status
-   * Route: GET /api/v1/auth/notifications/push/status
+   * Route: GET /api/auth/notifications/push/status
    */
   async getPushStatus(): Promise<{
     subscribed: boolean;
@@ -646,7 +646,7 @@ export class NotificationsAPIClient {
 
   /**
    * Send notification (admin only)
-   * Route: POST /api/v1/admin/notifications/send
+   * Route: POST /api/admin/notifications/send
    */
   async sendNotification(request: SendNotificationRequest): Promise<SendNotificationResponse> {
     try {
@@ -684,7 +684,7 @@ export class NotificationsAPIClient {
 
   /**
    * Get notification statistics (admin only)
-   * Route: GET /api/v1/admin/notifications/stats
+   * Route: GET /api/admin/notifications/stats
    */
   async getNotificationStats(): Promise<NotificationStatsResponse> {
     try {
@@ -713,7 +713,7 @@ export class NotificationsAPIClient {
 
   /**
    * Get all notifications (admin only)
-   * Route: GET /api/v1/admin/notifications
+   * Route: GET /api/admin/notifications
    */
   async getAllNotifications(filters: NotificationFilters = {}): Promise<NotificationsResponse> {
     try {
@@ -742,7 +742,7 @@ export class NotificationsAPIClient {
 
   /**
    * Delete notification (admin only)
-   * Route: DELETE /api/v1/admin/notifications/{id}
+   * Route: DELETE /api/admin/notifications/{id}
    */
   async deleteAdminNotification(notificationId: string): Promise<{ success: boolean; message: string }> {
     try {
@@ -774,7 +774,7 @@ export class NotificationsAPIClient {
 
   /**
    * Connect to SSE for real-time notifications
-   * Route: GET /api/v1/auth/notifications/stream
+   * Route: GET /api/auth/notifications/stream
    */
   connectToSSE(
     options: SSEConnectionOptions = {},

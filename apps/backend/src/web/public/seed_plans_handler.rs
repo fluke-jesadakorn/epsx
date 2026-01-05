@@ -11,12 +11,12 @@ use bigdecimal::BigDecimal;
 use std::str::FromStr;
 
 /// Seed subscription plans (development/testing only)
-/// POST /api/v1/public/plans/seed
+/// POST /api/public/plans/seed
 ///
 /// SAFETY: Should be disabled in production or require admin auth
 #[utoipa::path(
     post,
-    path = "/api/v1/public/plans/seed",
+    path = "/api/public/plans/seed",
     tag = "public",
     responses(
         (status = 200, description = "Successfully seeded subscription plans"),

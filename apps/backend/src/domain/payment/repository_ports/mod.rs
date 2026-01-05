@@ -189,3 +189,29 @@ pub trait PaymentContextRepositoryPort: Send + Sync {
         created_by: Option<&str>,
     ) -> Result<i64, String>;
 }
+
+/// Transaction history information for UI
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct TransactionHistoryInfo {
+    pub tx_hash: String,
+    pub amount: f64,
+    pub currency: String,
+    pub status: String,
+    pub timestamp: DateTime<Utc>,
+    pub from_address: String,
+    pub to_address: String,
+    pub block_number: u64,
+    pub plan_name: Option<String>,
+}
+
+/// Port for fetching transaction history from blockchain sources (RPC/Scanner)
+#[async_trait]
+pub trait TransactionHistoryProvider: Send + Sync {
+    /// Get paginated transaction history for a wallet
+    async fn get_history(
+        &self,
+        wallet_address: &str,
+        page: u32,
+        per_page: u32,
+    ) -> Result<(Vec<TransactionHistoryInfo>, u64), String>;
+}

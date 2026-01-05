@@ -211,7 +211,7 @@ class FrontendApiClient {
       Object.entries(params).filter(([, v]) => v !== undefined)
     );
     const response = await this.client.get<PaginatedResponse<NotificationResponse>>(
-      '/api/v1/notifications',
+      '/api/notifications',
       filteredParams
     );
     return response.data;
@@ -222,11 +222,11 @@ class FrontendApiClient {
   }
 
   async markAllNotificationsRead(): Promise<void> {
-    await this.client.post('/api/v1/notifications/read-all');
+    await this.client.post('/api/notifications/read-all');
   }
 
   async getNotificationStats(): Promise<NotificationStats | undefined> {
-    const response = await this.client.get<NotificationStats>('/api/v1/notifications/unread-count');
+    const response = await this.client.get<NotificationStats>('/api/notifications/unread-count');
     return response.data;
   }
 

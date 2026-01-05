@@ -22,6 +22,8 @@ bun install && bun dev
 bun dev:frontend     # Port 3000
 bun dev:admin        # Port 3001
 bun dev:backend      # Port 8080
+bun dev:anvil        # Start Local Anvil Chain (Port 8545)
+bun setup:local      # Deploy contracts & tokens to local chain (Run in separate terminal)
 
 # Build & test
 bun build            # All applications
@@ -76,23 +78,23 @@ Temporal: "platform:resource:action:unix_timestamp" for expiring permissions
 
 ## API Structure
 
-All endpoints use `/api/v1/` prefix. Routes defined in `/shared/config/route-constants.ts`.
+All endpoints use `/api/` prefix. Routes defined in `/shared/config/route-constants.ts`.
 
 | Category | Endpoint | Description |
 |----------|----------|-------------|
-| Public | `/api/v1/public/*` | No auth required |
-| Auth | `/api/v1/auth/*` | Web3 SIWE authentication |
-| Users | `/api/v1/users/*` | User management |
-| Analytics | `/api/v1/analytics/*` | Market data |
-| Admin | `/api/v1/admin/*` | Admin endpoints (permission required) |
-| Permissions | `/api/v1/permissions/*` | Permission authority |
-| Plans | `/api/v1/plans/*` | Subscription management |
+| Public | `/api/public/*` | No auth required |
+| Auth | `/api/auth/*` | Web3 SIWE authentication |
+| Users | `/api/users/*` | User management |
+| Analytics | `/api/analytics/*` | Market data |
+| Admin | `/api/admin/*` | Admin endpoints (permission required) |
+| Permissions | `/api/permissions/*` | Permission authority |
+| Plans | `/api/plans/*` | Subscription management |
 
 **Route Constants Example:**
 ```typescript
-API_ROUTES.AUTH.WEB3_CHALLENGE     // '/api/v1/auth/web3/challenge'
-API_ROUTES.ANALYTICS.RANKINGS      // '/api/v1/analytics/rankings'
-API_ROUTES.USERS.PROFILE           // '/api/v1/users/profile'
+API_ROUTES.AUTH.WEB3_CHALLENGE     // '/api/auth/web3/challenge'
+API_ROUTES.ANALYTICS.RANKINGS      // '/api/analytics/rankings'
+API_ROUTES.USERS.PROFILE           // '/api/users/profile'
 ```
 
 ## Deployment

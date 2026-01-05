@@ -98,7 +98,7 @@ mod api_integration_tests {
         });
         
         let response = server
-            .post(&format!("/api/v1/admin/users/{}/embedded-permissions", test_user_id))
+            .post(&format!("/api/admin/users/{}/embedded-permissions", test_user_id))
             .json(&grant_request)
             .await;
         
@@ -130,7 +130,7 @@ mod api_integration_tests {
         });
         
         let response = server
-            .post(&format!("/api/v1/admin/users/{}/embedded-permissions/validate", test_user_id))
+            .post(&format!("/api/admin/users/{}/embedded-permissions/validate", test_user_id))
             .json(&validate_request)
             .await;
         
@@ -154,7 +154,7 @@ mod api_integration_tests {
         let test_user_id = "test-user-123";
         
         let response = server
-            .get(&format!("/api/v1/admin/users/{}/permissions/expiry-status", test_user_id))
+            .get(&format!("/api/admin/users/{}/permissions/expiry-status", test_user_id))
             .await;
         
         if response.status() == StatusCode::OK {
@@ -186,7 +186,7 @@ mod api_integration_tests {
         });
         
         let response = server
-            .post(&format!("/api/v1/admin/users/{}/embedded-permissions/extend", test_user_id))
+            .post(&format!("/api/admin/users/{}/embedded-permissions/extend", test_user_id))
             .json(&extend_request)
             .await;
         
@@ -212,7 +212,7 @@ mod api_integration_tests {
         });
         
         let response = server
-            .post(&format!("/api/v1/admin/users/{}/embedded-permissions/revoke", test_user_id))
+            .post(&format!("/api/admin/users/{}/embedded-permissions/revoke", test_user_id))
             .json(&revoke_request)
             .await;
         
@@ -250,7 +250,7 @@ mod api_integration_tests {
         });
         
         let response = server
-            .post("/api/v1/admin/users/bulk/embedded-permissions")
+            .post("/api/admin/users/bulk/embedded-permissions")
             .json(&bulk_request)
             .await;
         
@@ -278,7 +278,7 @@ mod api_integration_tests {
         });
         
         let response = server
-            .post("/api/v1/admin/embedded-permissions/cleanup-expired")
+            .post("/api/admin/embedded-permissions/cleanup-expired")
             .json(&cleanup_request)
             .await;
         
@@ -460,7 +460,7 @@ mod error_handling_tests {
         
         // Test invalid user ID
         let response = server
-            .get("/api/v1/admin/users/invalid-user-id/permissions/expiry-status")
+            .get("/api/admin/users/invalid-user-id/permissions/expiry-status")
             .await;
         
         // Should handle invalid user gracefully
@@ -472,7 +472,7 @@ mod error_handling_tests {
         });
         
         let response = server
-            .post("/api/v1/admin/users/test-user/embedded-permissions/validate")
+            .post("/api/admin/users/test-user/embedded-permissions/validate")
             .json(&malformed_request)
             .await;
         

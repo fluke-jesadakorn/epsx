@@ -36,6 +36,7 @@ export {
 // Stock Data Card
 export {
   StockDataCard,
+  StockDataCardSkeleton,
   type StockDataCardProps
 } from './cards/StockDataCard'
 

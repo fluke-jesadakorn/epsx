@@ -4,26 +4,23 @@
  * This file provides a single source of truth for all API endpoints and routes
  * across the entire EPSX platform (Backend, Frontend, Admin-Frontend).
  *
- * Naming Convention: RESTful /api/v1/{resource}/{action}
- * - All backend endpoints use /api/v1/ prefix
+ * Naming Convention: RESTful /api/{resource}/{action}
+ * - All backend endpoints use /api/ prefix
  * - Frontend routes map directly to functionality without conflicts
  * - Admin routes use /admin/ prefix for clear separation
  */
 
 export const API_ROUTES = {
-  // System endpoints (no version required)
+  // System endpoints
   HEALTH: '/health',
   DOCS: '/docs',
 
-  // API v1 base prefix
-  API_V1: '/api/v1',
-
   // Public endpoints (no authentication required)
   PUBLIC: {
-    PLANS: '/api/v1/public/plans',
-    PLANS_FEATURES: '/api/v1/public/plans/features',
-    STATUS: '/api/v1/public/status',
-    NETWORKS: '/api/v1/public/networks',
+    PLANS: '/api/public/plans',
+    PLANS_FEATURES: '/api/public/plans/features',
+    STATUS: '/api/public/status',
+    NETWORKS: '/api/public/networks',
   },
 
   // Authentication endpoints
@@ -35,179 +32,185 @@ export const API_ROUTES = {
     WEB3_LOGOUT: '/api/auth/web3/logout',
 
     // Session Management
-    SESSION_VERIFY: '/api/v1/auth/session/verify',
-    SESSION_REFRESH: '/api/v1/auth/session/refresh',
+    SESSION_VERIFY: '/api/auth/session/verify',
+    SESSION_REFRESH: '/api/auth/session/refresh',
 
     // User Authentication
-    PROFILE: '/api/v1/auth/users/profile',
-    PERMISSIONS: '/api/v1/auth/users/permissions',
-    SESSIONS: '/api/v1/auth/users/sessions',
+    PROFILE: '/api/auth/users/profile',
+    PERMISSIONS: '/api/auth/users/permissions',
+    SESSIONS: '/api/auth/users/sessions',
   },
 
   // User management endpoints
   USERS: {
-    PROFILE: '/api/v1/users/profile',
-    WATCHLIST: '/api/v1/users/watchlist',
-    ALERTS: '/api/v1/users/alerts',
-    PUSH_SUBSCRIPTION: '/api/v1/users/push-subscription',
-    NOTIFICATIONS: '/api/v1/users/notifications',
-    SETTINGS: '/api/v1/users/settings',
-    WALLET_CONNECT: '/api/v1/users/wallet/connect',
-    WALLET_DISCONNECT: '/api/v1/users/wallet/disconnect',
+    PROFILE: '/api/users/profile',
+    WATCHLIST: '/api/users/watchlist',
+    ALERTS: '/api/users/alerts',
+    PUSH_SUBSCRIPTION: '/api/users/push-subscription',
+    NOTIFICATIONS: '/api/notifications',
+    SETTINGS: '/api/users/settings',
+    ACCESS_OVERVIEW: '/api/users/access-overview', // NEW
+    WALLET_CONNECT: '/api/users/wallet/connect',
+    WALLET_DISCONNECT: '/api/users/wallet/disconnect',
   },
 
   // Analytics endpoints
   ANALYTICS: {
     // Core analytics data
-    RANKINGS: '/api/v1/analytics/rankings',
-    COUNTRIES: '/api/v1/analytics/countries',
-    SECTORS: '/api/v1/analytics/sectors',
-    FILTERS: '/api/v1/analytics/filters',
+    RANKINGS: '/api/analytics/rankings',
+    COUNTRIES: '/api/analytics/countries',
+    SECTORS: '/api/analytics/sectors',
+    FILTERS: '/api/analytics/filters',
 
     // Market data
-    MARKET_OVERVIEW: '/api/v1/analytics/market/overview',
-    MARKET_TRENDS: '/api/v1/analytics/market/trends',
-    TOP_GAINERS: '/api/v1/analytics/market/top-gainers',
-    TOP_LOSERS: '/api/v1/analytics/market/top-losers',
+    MARKET_OVERVIEW: '/api/analytics/market/overview',
+    MARKET_TRENDS: '/api/analytics/market/trends',
+    TOP_GAINERS: '/api/analytics/market/top-gainers',
+    TOP_LOSERS: '/api/analytics/market/top-losers',
 
     // Performance metrics
-    PERFORMANCE: '/api/v1/analytics/performance',
-    PORTFOLIO_ANALYSIS: '/api/v1/analytics/portfolio/analysis',
+    PERFORMANCE: '/api/analytics/performance',
+    PORTFOLIO_ANALYSIS: '/api/analytics/portfolio/analysis',
 
     // Public analytics (no auth)
-    PUBLIC_RANKINGS: '/api/v1/public/analytics/rankings',
-    PUBLIC_FILTERS: '/api/v1/public/analytics/filters',
+    PUBLIC_RANKINGS: '/api/public/analytics/rankings',
+    PUBLIC_FILTERS: '/api/public/analytics/filters',
 
     // Export functionality
-    EXPORT: '/api/v1/analytics/export',
+    EXPORT: '/api/analytics/export',
   },
 
   // Notification endpoints
   NOTIFICATIONS: {
     // Real-time streams
-    STREAM: '/api/v1/notifications/stream',
-    SSE_ENDPOINT: '/api/v1/notifications/sse',
+    STREAM: '/api/notifications/stream',
+    SSE_ENDPOINT: '/api/notifications/sse',
 
     // Notification management
-    PREFERENCES: '/api/v1/notifications/preferences',
-    HISTORY: '/api/v1/notifications/history',
+    PREFERENCES: '/api/notifications/preferences',
+    HISTORY: '/api/notifications/history',
   },
 
   // Admin-only endpoints
   ADMIN: {
     // User management
-    USERS: '/api/v1/admin/users',
-    USER_DETAILS: '/api/v1/admin/users/:id',
-    USER_PERMISSIONS: '/api/v1/admin/users/:id/permissions',
+    USERS: '/api/admin/users',
+    USER_DETAILS: '/api/admin/users/:id',
+    USER_PERMISSIONS: '/api/admin/users/:id/permissions',
 
     // Permission management
-    PERMISSIONS: '/api/v1/admin/permissions',
-    PERMISSION_GROUPS: '/api/v1/permissions/groups',
-    PERMISSION_ASSIGNMENTS: '/api/v1/permissions/assignments',
+    PERMISSIONS: '/api/admin/permissions',
+    PERMISSION_GROUPS: '/api/permissions/groups',
+    PERMISSION_ASSIGNMENTS: '/api/permissions/assignments',
 
     // Wallet management
-    WALLET_MANAGEMENT: '/api/v1/admin/wallets',
-    WALLET_DETAILS: '/api/v1/admin/wallets/:address',
-    WALLET_TRANSACTIONS: '/api/v1/admin/wallets/:address/transactions',
+    WALLET_MANAGEMENT: '/api/admin/wallets',
+    WALLET_DETAILS: '/api/admin/wallets/:address',
+    WALLET_TRANSACTIONS: '/api/admin/wallets/:address/transactions',
 
     // System management
-    SYSTEM_STATUS: '/api/v1/admin/system/status',
-    SYSTEM_METRICS: '/api/v1/admin/system/metrics',
-    SYSTEM_LOGS: '/api/v1/admin/system/logs',
+    SYSTEM_STATUS: '/api/admin/system/status',
+    SYSTEM_METRICS: '/api/admin/system/metrics',
+    SYSTEM_LOGS: '/api/admin/system/logs',
 
     // Content management
-    PLANS: '/api/v1/admin/plans',
-    PROMOTIONS: '/api/v1/admin/promotions',
-    ANNOUNCEMENTS: '/api/v1/admin/announcements',
+    PLANS: '/api/admin/plans',
+    PROMOTIONS: '/api/admin/promotions',
+    ANNOUNCEMENTS: '/api/admin/announcements',
 
     // Analytics and reporting
-    ANALYTICS: '/api/v1/admin/analytics',
-    ANALYTICS_OVERVIEW: '/api/v1/admin/analytics/overview',
-    ANALYTICS_USERS: '/api/v1/admin/analytics/users',
-    ANALYTICS_PERMISSIONS: '/api/v1/admin/analytics/permissions',
-    ANALYTICS_REVENUE: '/api/v1/admin/analytics/revenue',
-    ANALYTICS_PERFORMANCE: '/api/v1/admin/analytics/performance',
-    REPORTS: '/api/v1/admin/reports',
-    AUDIT_LOGS: '/api/v1/admin/audit-logs',
+    ANALYTICS: '/api/admin/analytics',
+    ANALYTICS_OVERVIEW: '/api/admin/analytics/overview',
+    ANALYTICS_USERS: '/api/admin/analytics/users',
+    ANALYTICS_PERMISSIONS: '/api/admin/analytics/permissions',
+    ANALYTICS_REVENUE: '/api/admin/analytics/revenue',
+    ANALYTICS_PERFORMANCE: '/api/admin/analytics/performance',
+    REPORTS: '/api/admin/reports',
+    AUDIT_LOGS: '/api/admin/audit-logs',
 
     // Notification management
-    NOTIFICATIONS: '/api/v1/admin/notifications',
-    NOTIFICATION_TEMPLATES: '/api/v1/admin/notifications/templates',
-    BROADCAST_NOTIFICATIONS: '/api/v1/admin/notifications/broadcast',
+    NOTIFICATIONS: '/api/admin/notifications',
+    NOTIFICATION_TEMPLATES: '/api/admin/notifications/templates',
+    BROADCAST_NOTIFICATIONS: '/api/admin/notifications/broadcast',
 
     // System settings (global admin console settings)
-    SETTINGS: '/api/v1/admin/settings',
-    SETTINGS_BY_CATEGORY: '/api/v1/admin/settings/:category',
-    SETTINGS_RESET: '/api/v1/admin/settings/reset',
+    SETTINGS: '/api/admin/settings',
+    SETTINGS_BY_CATEGORY: '/api/admin/settings/:category',
+    SETTINGS_RESET: '/api/admin/settings/reset',
 
     // Developer Portal (API key management)
     DEVELOPER_PORTAL: {
-      API_KEYS: '/api/v1/admin/developer-portal/api-keys',
-      API_KEY_DETAILS: '/api/v1/admin/developer-portal/api-keys/:id',
-      API_KEY_REVOKE: '/api/v1/admin/developer-portal/api-keys/:id/revoke',
-      MODULES: '/api/v1/admin/developer-portal/modules',
-      MODULE_DETAILS: '/api/v1/admin/developer-portal/modules/:id',
-      STATS: '/api/v1/admin/developer-portal/stats',
+      API_KEYS: '/api/admin/developer-portal/api-keys',
+      API_KEY_DETAILS: '/api/admin/developer-portal/api-keys/:id',
+      API_KEY_REVOKE: '/api/admin/developer-portal/api-keys/:id/revoke',
+      MODULES: '/api/admin/developer-portal/modules',
+      MODULE_DETAILS: '/api/admin/developer-portal/modules/:id',
+      STATS: '/api/admin/developer-portal/stats',
     },
   },
 
   // Permission Authority endpoints (ALL applications use this)
   PERMISSIONS: {
     // Core permission validation
-    VALIDATE: '/api/v1/permissions/validate',
-    VALIDATE_BULK: '/api/v1/permissions/validate-bulk',
-    CHECK: '/api/v1/permissions/check',
+    VALIDATE: '/api/permissions/validate',
+    VALIDATE_BULK: '/api/permissions/validate-bulk',
+    CHECK: '/api/permissions/check',
 
     // Wallet-specific permissions
-    WALLET_PERMISSIONS: '/api/v1/permissions/wallet/:wallet_address',
-    WALLET_GROUPS: '/api/v1/permissions/wallet/:wallet_address/groups',
+    WALLET_PERMISSIONS: '/api/permissions/wallet/:wallet_address',
+    WALLET_GROUPS: '/api/permissions/wallet/:wallet_address/groups',
 
     // Permission group management
-    GROUPS: '/api/v1/permissions/groups',
-    GROUP_DETAILS: '/api/v1/permissions/groups/:id',
-    GROUP_PERMISSIONS: '/api/v1/permissions/groups/:id/permissions',
+    GROUPS: '/api/permissions/groups',
+    GROUP_DETAILS: '/api/permissions/groups/:id',
+    GROUP_PERMISSIONS: '/api/permissions/groups/:id/permissions',
 
     // Assignment management
-    ASSIGNMENTS: '/api/v1/permissions/assignments',
-    WALLET_ASSIGNMENTS: '/api/v1/permissions/assignments/wallet/:wallet_address',
-    GROUP_ASSIGNMENTS: '/api/v1/permissions/assignments/group/:group_id',
+    ASSIGNMENTS: '/api/permissions/assignments',
+    WALLET_ASSIGNMENTS: '/api/permissions/assignments/wallet/:wallet_address',
+    GROUP_ASSIGNMENTS: '/api/permissions/assignments/group/:group_id',
 
     // Permission hierarchy and inheritance
-    HIERARCHY: '/api/v1/permissions/hierarchy',
-    INHERITANCE: '/api/v1/permissions/inheritance',
-    DEPENDENCIES: '/api/v1/permissions/dependencies',
+    HIERARCHY: '/api/permissions/hierarchy',
+    INHERITANCE: '/api/permissions/inheritance',
+    DEPENDENCIES: '/api/permissions/dependencies',
 
     // Permission analytics and monitoring
-    EXPIRING: '/api/v1/admin/permissions/expiring',
-    EXPIRED: '/api/v1/admin/permissions/expired',
-    STATS: '/api/v1/admin/permissions/stats',
-    GRANT_HISTORY: '/api/v1/admin/permissions/history/grants',
-    REVOKE_HISTORY: '/api/v1/admin/permissions/history/revocations',
+    EXPIRING: '/api/admin/permissions/expiring',
+    EXPIRED: '/api/admin/permissions/expired',
+    STATS: '/api/admin/permissions/system/stats',
+    GRANT_HISTORY: '/api/admin/permissions/history/grants',
+    REVOKE_HISTORY: '/api/admin/permissions/history/revocations',
 
     // Bulk operations
-    BULK_GRANT: '/api/v1/admin/users/bulk/permissions/grant',
-    BULK_REVOKE: '/api/v1/admin/users/bulk/permissions/revoke',
+    BULK_GRANT: '/api/admin/users/bulk/permissions/grant',
+    BULK_REVOKE: '/api/admin/users/bulk/permissions/revoke',
 
     // Permission management
-    ADMIN_PERMISSIONS: '/api/v1/admin/permissions',
-    GRANT: '/api/v1/admin/permissions/grant',
-    REVOKE: '/api/v1/admin/permissions/revoke',
-    UPDATE_EXPIRY: '/api/v1/admin/permissions/expiry',
+    ADMIN_PERMISSIONS: '/api/admin/permissions',
+    GRANT: '/api/admin/permissions/grant',
+    REVOKE: '/api/admin/permissions/revoke',
+    UPDATE_EXPIRY: '/api/admin/permissions/expiry',
 
     // Web3 permission management
-    WEB3_PERMISSIONS: '/api/v1/admin/web3/permissions',
-    WEB3_GRANT: '/api/v1/admin/web3/permissions/grant',
-    WEB3_RECENT_WALLETS: '/api/v1/admin/web3/recent-wallets',
+    WEB3_PERMISSIONS: '/api/admin/web3/permissions',
+    WEB3_GRANT: '/api/admin/web3/permissions/grant',
+    WEB3_RECENT_WALLETS: '/api/admin/web3/recent-wallets',
   },
 
   // Plan and billing endpoints
   PLANS: {
-    SUBSCRIPTION: '/api/v1/plans/subscription',
-    SUBSCRIPTION_STATUS: '/api/v1/plans/subscription/status',
-    SUBSCRIPTION_HISTORY: '/api/v1/plans/subscription/history',
-    USAGE: '/api/v1/plans/usage',
-    BILLING: '/api/v1/plans/billing',
-    INVOICES: '/api/v1/plans/invoices',
+    SUBSCRIPTION: '/api/plans/subscription',
+    SUBSCRIPTION_STATUS: '/api/plans/subscription/status',
+    SUBSCRIPTION_HISTORY: '/api/plans/subscription/history',
+    USAGE: '/api/plans/usage',
+    BILLING: '/api/plans/billing',
+    INVOICES: '/api/plans/invoices',
+  },
+
+  // Payment endpoints
+  PAYMENTS: {
+    HISTORY: '/api/payments/history',
   },
 } as const;
 
@@ -229,7 +232,7 @@ export const FRONTEND_ROUTES = {
   ANALYTICS: '/analytics',
   NOTIFICATIONS: '/notifications',
   PROFILE: '/profile',
-  SETTINGS: '/settings',
+  ACCOUNT: '/account',
   PLANS: '/plans',
 
   // Feature-specific routes
@@ -312,7 +315,7 @@ export const routeExamples = {
   // API route examples
   getUserProfile: (userId: string) => constructRoute(API_ROUTES.ADMIN.USER_DETAILS, { id: userId }),
   getWalletPermissions: (walletAddress: string) => constructRoute(API_ROUTES.PERMISSIONS.WALLET_PERMISSIONS, { wallet_address: walletAddress }),
-  acknowledgeNotification: (notificationId: string) => constructRoute('/api/v1/notifications/{id}/acknowledge', { id: notificationId }),
+  acknowledgeNotification: (notificationId: string) => constructRoute('/api/notifications/{id}/acknowledge', { id: notificationId }),
 
   // Frontend route examples
   adminUserDetails: (userId: string) => constructRoute(ADMIN_ROUTES.ADMIN.USER_DETAILS, { id: userId }),

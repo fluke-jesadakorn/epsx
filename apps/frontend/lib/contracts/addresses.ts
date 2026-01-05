@@ -9,31 +9,58 @@
  * Update these addresses after running deployment scripts in apps/contracts
  */
 
-export const PAYMENT_ESCROW_ADDRESS = {
+/**
+ * Validate Ethereum address format
+ */
+function isValidAddress(address: string | undefined): address is `0x${string}` {
+  return typeof address === 'string' && /^0x[a-fA-F0-9]{40}$/.test(address);
+}
+
+/**
+ * Get optional address from env (returns undefined if not set/invalid)
+ */
+function getOptionalEnvAddress(envKey: string): `0x${string}` | undefined {
+  const address = process.env[envKey];
+  if (!isValidAddress(address)) {
+    return undefined;
+  }
+  return address;
+}
+
+/**
+ * PaymentEscrow Contract Addresses
+ * All addresses are read from environment variables for flexibility.
+ * Configure in .env:
+ *   - NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET (BSC Mainnet, ChainID: 56)
+ *   - NEXT_PUBLIC_PAYMENT_ESCROW_TESTNET (BSC Testnet, ChainID: 97)
+ *   - NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL (Local Anvil, ChainID: 31337)
+ */
+export const PAYMENT_ESCROW_ADDRESS: Partial<Record<number, `0x${string}`>> = {
   // BSC Mainnet (ChainID: 56)
-  56: process.env['NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET'] || '',
+  56: getOptionalEnvAddress('NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET'),
 
-  // BSC Testnet (ChainID: 97) - Staging network
-  97: process.env['NEXT_PUBLIC_PAYMENT_ESCROW_TESTNET'] || '0x5FbDB2315678afecb367f032d93F642f64180aa3',
+  // BSC Testnet (ChainID: 97)
+  97: getOptionalEnvAddress('NEXT_PUBLIC_PAYMENT_ESCROW_TESTNET'),
 
-  // Local Anvil (ChainID: 31337) - Deployed via DeployLocal.s.sol to match Mainnet address using vm.etch
-  31337: process.env['NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL'] || '0x1613beB3B2C4f22Ee086B2b38C1476A3cE7f78E8',
-} as const;
+  // Local Anvil (ChainID: 31337) - Deployed via setup-local.sh
+  31337: getOptionalEnvAddress('NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL'),
+};
 
 /**
  * Payment Receiver Address for Direct Token Transfers
- * This is the wallet that receives payment tokens directly.
+ * - Mainnet: Set via environment variable (validated on access)
+ * - Testnet/Local: Use known test accounts
  */
-export const PAYMENT_RECEIVER_ADDRESS = {
-  // BSC Mainnet (ChainID: 56) - Production treasury wallet
-  56: process.env['NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET'] || '',
+export const PAYMENT_RECEIVER_ADDRESS: Partial<Record<number, `0x${string}`>> = {
+  // BSC Mainnet (ChainID: 56) - Optional at load time, validated on access
+  56: getOptionalEnvAddress('NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET'),
 
-  // BSC Testnet (ChainID: 97) - Testnet receiver
-  97: process.env['NEXT_PUBLIC_PAYMENT_RECEIVER_TESTNET'] || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+  // BSC Testnet (ChainID: 97) - Testnet receiver account
+  97: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as const,
 
-  // Local Anvil (ChainID: 31337) - Anvil default account #1 (not #0 to avoid sender=receiver)
-  31337: process.env['NEXT_PUBLIC_PAYMENT_RECEIVER_LOCAL'] || '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
-} as const;
+  // Local Anvil (ChainID: 31337) - Anvil account #1
+  31337: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as const,
+};
 
 /**
  * ERC20 Token Addresses on BSC and Local

@@ -122,10 +122,10 @@ fn get_default_settings() -> std::collections::HashMap<String, std::collections:
 // ============================================================================
 
 /// Get all system settings
-/// GET /api/v1/admin/settings
+/// GET /api/admin/settings
 #[utoipa::path(
     get,
-    path = "/api/v1/admin/settings",
+    path = "/api/admin/settings",
     responses(
         (status = 200, description = "All system settings", body = Value),
         (status = 500, description = "Internal server error")
@@ -176,10 +176,10 @@ pub async fn get_all_settings_handler(
 }
 
 /// Get settings by category
-/// GET /api/v1/admin/settings/:category
+/// GET /api/admin/settings/:category
 #[utoipa::path(
     get,
-    path = "/api/v1/admin/settings/{category}",
+    path = "/api/admin/settings/{category}",
     params(
         ("category" = String, Path, description = "Settings category (general, notifications, security, appearance)")
     ),
@@ -239,10 +239,10 @@ pub async fn get_settings_by_category_handler(
 }
 
 /// Update system settings (bulk)
-/// PUT /api/v1/admin/settings
+/// PUT /api/admin/settings
 #[utoipa::path(
     put,
-    path = "/api/v1/admin/settings",
+    path = "/api/admin/settings",
     request_body = UpdateSettingsRequest,
     responses(
         (status = 200, description = "Settings updated successfully", body = Value),
@@ -307,10 +307,10 @@ pub async fn update_settings_handler(
 }
 
 /// Reset settings to defaults
-/// POST /api/v1/admin/settings/reset
+/// POST /api/admin/settings/reset
 #[utoipa::path(
     post,
-    path = "/api/v1/admin/settings/reset",
+    path = "/api/admin/settings/reset",
     responses(
         (status = 200, description = "Settings reset to defaults", body = Value),
         (status = 500, description = "Internal server error")

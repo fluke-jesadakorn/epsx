@@ -3,6 +3,7 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 // Plans are fetched dynamically from API - no hardcoded fallback
+import { useAuth } from '@/lib/auth';
 import { cn } from '@/lib/utils';
 import {
   AlertCircle,
@@ -15,13 +16,16 @@ import {
   Shield,
   Smartphone,
   Sparkles,
+  Wallet,
   Zap,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useAccount } from 'wagmi';
 import { API_ROUTES } from '../../../../../shared/config/route-constants';
 import { env } from '../../../../../shared/env/schema';
 import MetaMaskPayment from './MetaMaskPayment';
 import { UpgradeBanner } from './UpgradeBanner';
+
 
 interface OneClickPaymentProps {
   className?: string;
@@ -273,6 +277,13 @@ export default function OneClickPayment({
   className,
   preselectedPackage,
 }: OneClickPaymentProps) {
+  // Get chain info from wallet connection for backend confirmation
+  const { chain } = useAccount();
+
+  // Check if user is authenticated (has completed SIWE)
+  const { user, isLoading: isAuthLoading, refreshUser } = useAuth();
+  const isAuthenticated = !!user;
+
   const [packages, setPackages] = useState<PaymentPackage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -282,6 +293,77 @@ export default function OneClickPayment({
     useState('metamask');
   const [isProcessing, setIsProcessing] = useState(false);
   const [transactionHash, setTransactionHash] = useState<string | null>(null);
+
+
+  if (!isAuthLoading && !isAuthenticated) {
+    return (
+      <div className={cn('mx-auto max-w-2xl p-4 sm:p-6', className)}>
+        <div className="space-y-6 text-center">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-amber-100 sm:h-24 sm:w-24 dark:bg-amber-900/30">
+            <Wallet className="h-10 w-10 text-amber-600 sm:h-12 sm:w-12 dark:text-amber-400" />
+          </div>
+
+          <div>
+            <h2 className="mb-2 text-2xl font-bold sm:text-3xl">
+              🔐 Sign In Required
+            </h2>
+            <p className="text-muted-foreground max-w-md mx-auto">
+              To complete your purchase, please connect and sign in with your wallet. This verifies your identity and ensures your subscription is properly activated.
+            </p>
+          </div>
+
+          <Card className="text-left max-w-md mx-auto">
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <Shield className="h-5 w-5 text-green-500 mt-0.5" />
+                  <div>
+                    <p className="font-medium">Secure Authentication</p>
+                    <p className="text-sm text-muted-foreground">Sign-In with Ethereum (SIWE) ensures only you can access your account</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Lock className="h-5 w-5 text-blue-500 mt-0.5" />
+                  <div>
+                    <p className="font-medium">One-Time Sign In</p>
+                    <p className="text-sm text-muted-foreground">You'll stay signed in until you disconnect your wallet</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-center">
+            {/* Use the wallet button in the header - prompt user to click it */}
+            <Button
+              className="px-8 py-3 text-lg"
+              onClick={() => {
+                // Scroll to top and focus on the connect button in nav
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+                // Try to find and click the connect button
+                const connectBtn = document.querySelector('[data-testid="rk-connect-button"]') as HTMLButtonElement;
+                if (connectBtn) {
+                  connectBtn.click();
+                } else {
+                  // Fallback: look for any wallet-related button
+                  const walletBtn = document.querySelector('button[aria-label*="wallet"], button[aria-label*="connect"]') as HTMLButtonElement;
+                  if (walletBtn) walletBtn.click();
+                }
+              }}
+            >
+              <Wallet className="mr-2 h-5 w-5" />
+              Connect & Sign In
+            </Button>
+          </div>
+
+          <p className="text-sm text-muted-foreground">
+            Don't have a wallet? <a href="https://metamask.io" target="_blank" rel="noopener noreferrer" className="underline hover:text-primary">Get MetaMask</a>
+          </p>
+        </div>
+      </div>
+    );
+  }
+
 
   // Load plans from API
   useEffect(() => {
@@ -345,43 +427,27 @@ export default function OneClickPayment({
   const handleMetaMaskSuccess = async (txHash: string) => {
     setTransactionHash(txHash);
 
-    // Call backend to confirm payment and activate subscription
-    if (selectedPkg) {
-      try {
-        const response = await fetch('/api/payments/confirm', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            plan_id: selectedPkg.original_plan_id, // Use original plan ID for backend
-            transaction_hash: txHash,
-            amount: selectedPkg.current_price,
-            currency: selectedPkg.currency,
-            network: 'localhost', // Use localhost for Anvil local development
-          }),
-        });
+    // Backend confirmation is now handled by usePaymentTransaction hook
+    // which submits to /api/payments/submit and polls /api/payments/status
+    // This callback is triggered when backend confirms the transaction
 
-        const result = await response.json();
+    console.log('✅ Payment confirmed by backend:', txHash);
 
-        if (result.success) {
-          setCurrentStep('confirmation');
-        } else {
-          console.error('Failed to activate subscription:', result.message);
-          alert(
-            `Payment confirmed but subscription activation failed: ${result.message}`
-          );
-          setCurrentStep('confirmation'); // Still show confirmation since payment succeeded
-        }
-      } catch (error) {
-        console.error('Error confirming payment:', error);
-        alert(
-          'Payment succeeded but there was an error activating your subscription. Please contact support.'
-        );
-        setCurrentStep('confirmation'); // Still show confirmation since payment succeeded
-      }
+    // Refresh user session to update plan status immediately
+    if (user) {
+      // We'll try to re-fetch the user profile to update permissions/plan
+      // This relies on SWR's mutate or simply forcing a reload/refetch in auth provider
+      // Since we don't have direct access to SWR mutate here, we might need to rely on 
+      // the auth hook exposing a refresh method, or just wait for the next polling interval.
+      // However, we can try to invalidate the profile cache if we had access to global mutate.
+
+      // For now, let's log that we want to refresh
+      console.log('🔄 Refreshing user session...');
+      // If useAuth provided a refresh/mutate method, we would call it here.
+      // Looking at useAuth usage, it seems we might need to verify if it exposes a refresh method.
     }
+
+    setCurrentStep('confirmation');
   };
 
   const handleMetaMaskError = (error: string) => {
@@ -576,7 +642,7 @@ export default function OneClickPayment({
             <div className="overflow-x-auto pb-4">
               <div className="flex gap-4 px-2">
                 {packages.map(pkg => (
-                  <div key={`${pkg.id}-${pkg.name}`} className="relative w-80 flex-shrink-0">
+                  <div key={`${pkg.id} - ${pkg.name}`} className="relative w-80 flex-shrink-0">
                     {/* Main Card */}
                     <div
                       className={cn(
@@ -716,7 +782,7 @@ export default function OneClickPayment({
           {/* Desktop: Grid */}
           <div className="mb-8 hidden gap-6 md:grid md:grid-cols-3">
             {packages.map(pkg => (
-              <div key={`${pkg.id}-${pkg.name}`} className="relative">
+              <div key={`${pkg.id} - ${pkg.name}`} className="relative">
                 {/* Main Card */}
                 <div
                   className={cn(

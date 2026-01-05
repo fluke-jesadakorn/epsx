@@ -12,24 +12,19 @@ interface StreamingWrapperProps {
  * Streaming wrapper component for progressive enhancement
  * Optimizes SSR by allowing content to stream in chunks
  */
-export function StreamingWrapper({ 
-  children, 
+export function StreamingWrapper({
+  children,
   fallback,
   priority = 'medium',
-  identifier 
+  identifier
 }: StreamingWrapperProps) {
   const getFallback = () => {
     if (fallback) return fallback;
-    
+
     const size = priority === 'high' ? 'md' : 'sm';
     return (
       <div className="flex items-center justify-center p-4">
         <LoadingSpinner size={size} />
-        {identifier && (
-          <span className="ml-2 text-sm text-muted-foreground animate-pulse">
-            Loading {identifier}...
-          </span>
-        )}
       </div>
     );
   };

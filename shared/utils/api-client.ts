@@ -202,6 +202,7 @@ export class UnifiedApiClient {
 
       if (!response.ok) {
         const errorMessage = data?.message || data?.error || `HTTP ${response.status}: ${response.statusText}`;
+        console.error(`[UnifiedApiClient] Error ${response.status} ${requestConfig.method || 'GET'} ${url}:`, errorMessage);
         throw new APIError(
           response.status,
           errorMessage,
@@ -429,9 +430,13 @@ export async function handleSimpleRequest<T>(
   endpoint: string,
   data?: any
 ): Promise<T> {
+  // DIAGNOSTIC LOG: Trace usage of this supposedly unused function
+  console.log(`[UnifiedApiClient] handleSimpleRequest called: ${method.toUpperCase()} ${endpoint}`);
+
   const response = await client[method]<T>(endpoint, data);
 
   if (!client.isApiSuccess(response)) {
+    console.error(`[UnifiedApiClient] handleSimpleRequest failed: ${response.status} ${response.error || 'Unknown Error'}`);
     throw new APIError(response.status, response.error || 'Request failed');
   }
 

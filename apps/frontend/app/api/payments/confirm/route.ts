@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
             wallet_address: user.wallet_address,
         };
 
-        const backendResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/payments/validate`, {
+        const backendResponse = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/payments/validate`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

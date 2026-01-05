@@ -25,12 +25,46 @@ interface PaymentStatusSectionProps {
   error?: string | null;
 }
 
-const BasePaymentStatusSection = ({ 
+// Helper to derive the overall payment status from transactions
+const getOverallPaymentStatus = (transactions: Transaction[]): 'pending' | 'completed' | 'failed' | 'processing' => {
+  if (transactions.length === 0) return 'pending';
+
+  // Get the most recent transaction
+  const latestTransaction = transactions[0];
+  const status = latestTransaction.status.toLowerCase();
+
+  // Map transaction status to PaymentStatusCard status
+  if (status === 'succeeded' || status === 'completed' || status === 'paid' || status === 'success') {
+    return 'completed';
+  } else if (status === 'failed' || status === 'cancelled' || status === 'expired') {
+    return 'failed';
+  } else if (status === 'processing') {
+    return 'processing';
+  }
+  return 'pending';
+};
+
+// Helper to get latest transaction details for display
+const getLatestTransactionDetails = (transactions: Transaction[]) => {
+  if (transactions.length === 0) return {};
+  const latest = transactions[0];
+  return {
+    transactionId: latest.blockchainData?.txHash || latest.orderNo,
+    amount: latest.actualAmount,
+    currency: latest.currency,
+    timestamp: latest.finishTime,
+  };
+};
+
+const BasePaymentStatusSection = ({
   className = '',
   showTitle = true,
   transactions = [],
   error = null
 }: PaymentStatusSectionProps) => {
+  // Derive status from transactions instead of hardcoding
+  const paymentStatus = getOverallPaymentStatus(transactions);
+  const transactionDetails = getLatestTransactionDetails(transactions);
 
   return (
     <section className={`w-full ${className}`}>
@@ -43,8 +77,14 @@ const BasePaymentStatusSection = ({
         </div>
       )}
       <div className="space-y-8">
-        <PaymentStatusCard status="pending" />
-        
+        <PaymentStatusCard
+          status={paymentStatus}
+          transactionId={transactionDetails.transactionId}
+          amount={transactionDetails.amount}
+          currency={transactionDetails.currency}
+          timestamp={transactionDetails.timestamp}
+        />
+
         {/* Transaction History */}
         <div id="history">
           <h3 className="text-xl font-semibold mb-4">Transaction History</h3>
@@ -53,7 +93,7 @@ const BasePaymentStatusSection = ({
               <p className="text-red-600 dark:text-red-400">{error}</p>
             </div>
           ) : (
-            <TransactionHistory 
+            <TransactionHistory
               transactions={transactions}
               className="bg-card"
             />

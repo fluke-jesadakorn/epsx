@@ -65,7 +65,7 @@ class DirectWeb3ApiClient {
    * Request a SIWE challenge from the backend
    */
   async requestChallenge(walletAddress: string): Promise<ChallengeResponse> {
-    const url = `${this.baseUrl}/api/v1/auth/web3/challenge`;
+    const url = `${this.baseUrl}/api/auth/web3/challenge`;
 
     console.log('📝 Requesting SIWE challenge', {
       wallet_address: walletAddress,
@@ -129,7 +129,7 @@ class DirectWeb3ApiClient {
   async verifySignature(
     request: SignatureVerificationRequest
   ): Promise<SignatureVerificationResponse> {
-    const url = `${this.baseUrl}/api/v1/auth/web3/verify`;
+    const url = `${this.baseUrl}/api/auth/web3/verify`;
 
     console.log('🔐 Verifying wallet signature', {
       wallet_address: request.wallet_address,

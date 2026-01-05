@@ -424,14 +424,14 @@ export function WalletProviderIcon({ className = '', compact = false }: WalletPr
           </Link>
         </DropdownMenuItem>
 
-        {/* Settings */}
+        {/* Account */}
         <DropdownMenuItem asChild className="px-3 py-2 rounded-lg cursor-pointer hover:bg-orange-50/80 dark:hover:bg-slate-800/40">
-          <Link href="/settings" className="flex items-center gap-3">
+          <Link href="/account" className="flex items-center gap-3">
             <Settings className="h-4 w-4 text-orange-500" />
             <div>
-              <div className="text-sm font-medium">Settings</div>
+              <div className="text-sm font-medium">Account</div>
               <div className="text-xs text-slate-500 dark:text-slate-400">
-                App preferences and configuration
+                Manage your account settings
               </div>
             </div>
           </Link>

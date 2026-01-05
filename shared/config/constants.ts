@@ -449,35 +449,35 @@ export const FEATURE_FLAGS: Record<string, FeatureFlagConfig> = {
 export const API_ENDPOINTS = {
   // Authentication endpoints
   AUTH: {
-    CHALLENGE: '/api/v1/auth/challenge',
-    VERIFY: '/api/v1/auth/verify',
-    LOGOUT: '/api/v1/auth/logout',
-    REFRESH: '/api/v1/auth/refresh',
-    PERMISSIONS: '/api/v1/auth/permissions',
+    CHALLENGE: '/api/auth/challenge',
+    VERIFY: '/api/auth/verify',
+    LOGOUT: '/api/auth/logout',
+    REFRESH: '/api/auth/refresh',
+    PERMISSIONS: '/api/auth/permissions',
   },
 
   // User endpoints
   USER: {
-    PROFILE: '/api/v1/user/profile',
-    PREFERENCES: '/api/v1/user/preferences',
-    SUBSCRIPTION: '/api/v1/user/subscription',
-    NOTIFICATIONS: '/api/v1/user/notifications',
+    PROFILE: '/api/user/profile',
+    PREFERENCES: '/api/user/preferences',
+    SUBSCRIPTION: '/api/user/subscription',
+    NOTIFICATIONS: '/api/user/notifications',
   },
 
   // Payment endpoints
   PAYMENT: {
-    CREATE: '/api/v1/payment/create',
-    STATUS: '/api/v1/payment/status',
-    HISTORY: '/api/v1/payment/history',
-    ASSETS: '/api/v1/payment/assets',
+    CREATE: '/api/payment/create',
+    STATUS: '/api/payment/status',
+    HISTORY: '/api/payment/history',
+    ASSETS: '/api/payment/assets',
   },
 
   // Analytics endpoints
   ANALYTICS: {
-    RANKINGS: '/api/v1/analytics/rankings',
-    EXPORT: '/api/v1/analytics/export',
-    ADVANCED: '/api/v1/analytics/advanced',
-    REAL_TIME: '/api/v1/analytics/realtime',
+    RANKINGS: '/api/analytics/rankings',
+    EXPORT: '/api/analytics/export',
+    ADVANCED: '/api/analytics/advanced',
+    REAL_TIME: '/api/analytics/realtime',
   },
 
   // Admin endpoints

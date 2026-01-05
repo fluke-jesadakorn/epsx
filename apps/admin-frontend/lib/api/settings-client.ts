@@ -83,7 +83,7 @@ export const settingsApi = {
     async getAll(): Promise<SystemSettings> {
         try {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const res = await adminApiClient.get<any>('/api/v1/admin/settings');
+            const res = await adminApiClient.get<any>('/api/admin/settings');
             const data = res.data?.data || res.data;
             return parseSettingsData(data);
         } catch (error) {
@@ -98,7 +98,7 @@ export const settingsApi = {
     async getByCategory(category: string): Promise<Record<string, unknown>> {
         try {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const res = await adminApiClient.get<any>(`/api/v1/admin/settings/${category}`);
+            const res = await adminApiClient.get<any>(`/api/admin/settings/${category}`);
             return res.data?.data?.settings || {};
         } catch (error) {
             console.error(`Failed to fetch ${category} settings:`, error);
@@ -136,7 +136,7 @@ export const settingsApi = {
 
         try {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const res = await adminApiClient.put<any>('/api/v1/admin/settings', {
+            const res = await adminApiClient.put<any>('/api/admin/settings', {
                 settings: updates,
             });
 
@@ -153,7 +153,7 @@ export const settingsApi = {
     async reset(): Promise<SystemSettings> {
         try {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const res = await adminApiClient.post<any>('/api/v1/admin/settings/reset', {});
+            const res = await adminApiClient.post<any>('/api/admin/settings/reset', {});
             const data = res.data?.data || {};
             return parseSettingsData(data);
         } catch (error) {

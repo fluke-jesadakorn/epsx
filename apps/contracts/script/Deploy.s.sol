@@ -3,94 +3,83 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
 import "../contracts/PaymentEscrow.sol";
-import "../contracts/MockERC20.sol";
 
-contract DeployScript is Script {
+/**
+ * @title Deploy
+ * @dev Unified deployment script for PaymentEscrow on all networks.
+ * 
+ * Usage:
+ *   # Local Anvil (requires setup-local.sh for token etching)
+ *   forge script script/Deploy.s.sol --rpc-url http://127.0.0.1:8545 --broadcast --private-key 0xac0974bec...
+ * 
+ *   # BSC Testnet
+ *   forge script script/Deploy.s.sol --rpc-url $BSC_TESTNET_RPC --broadcast --private-key $PRIVATE_KEY
+ * 
+ *   # BSC Mainnet
+ *   forge script script/Deploy.s.sol --rpc-url $BSC_MAINNET_RPC --broadcast --private-key $PRIVATE_KEY
+ */
+contract Deploy is Script {
+    // Official BSC Mainnet Token Addresses
+    // These addresses are used on all networks for consistency
+    address constant USDT = 0x55d398326f99059fF775485246999027B3197955;
+    address constant USDC = 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d;
+
     function run() external {
-        vm.startBroadcast();
-
-        console.log("Deploying PaymentEscrow contract...");
-
-        // Get deployer account
-        address deployer = msg.sender;
-        console.log("Deploying with account:", deployer);
-
-        uint256 deployerBalance = deployer.balance;
-        console.log("Account balance:", deployerBalance, "wei");
-
-        // Get admin wallet address from environment
+        // Get deployer from environment or use Anvil default
+        uint256 deployerPrivateKey = vm.envOr(
+            "PRIVATE_KEY",
+            uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80)
+        );
+        
+        address deployer = vm.addr(deployerPrivateKey);
         address adminWallet = vm.envOr("ADMIN_WALLET_ADDRESS", deployer);
-        console.log("Admin wallet:", adminWallet);
 
-        // Deploy PaymentEscrow contract
+        vm.startBroadcast(deployerPrivateKey);
+
+        console.log("=== EPSX PaymentEscrow Deployment ===");
+        console.log("Network Chain ID:", block.chainid);
+        console.log("Deployer:", deployer);
+        console.log("Admin Wallet:", adminWallet);
+        console.log("");
+
+        // Deploy PaymentEscrow
         console.log("Deploying PaymentEscrow...");
-        PaymentEscrow paymentEscrow = new PaymentEscrow(deployer);
-        address contractAddress = address(paymentEscrow);
-        console.log("PaymentEscrow deployed to:", contractAddress);
+        PaymentEscrow escrow = new PaymentEscrow(deployer);
+        address escrowAddress = address(escrow);
+        console.log("PaymentEscrow deployed to:", escrowAddress);
+        console.log("");
 
-        // Get chain ID to determine token addresses
-        uint256 chainId = block.chainid;
-        console.log("Network Chain ID:", chainId);
-
-        address usdtAddress;
-        address usdcAddress;
-
-        if (chainId == 56) {
-            // BSC Mainnet
-            usdtAddress = 0x55d398326f99059fF775485246999027B3197955;
-            usdcAddress = 0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d;
-            console.log("Network: BSC Mainnet (56)");
-        } else if (chainId == 97) {
-            // BSC Testnet
-            usdtAddress = 0x337610d27c682E347C9cD60BD4b3b107C9d34dDd;
-            usdcAddress = 0x64544969ed7EBf5f083679233325356EbE738930;
-            console.log("Network: BSC Testnet (97)");
-        } else {
-            // Local/Development network - deploy mock tokens
-            console.log("Network: Local Development (", chainId, ")");
-            console.log("Deploying Mock ERC20 tokens for development...");
-
-            MockERC20 usdt = new MockERC20("Tether USD", "USDT", 6);
-            usdtAddress = address(usdt);
-            console.log("Mock USDT deployed to:", usdtAddress);
-
-            MockERC20 usdc = new MockERC20("USD Coin", "USDC", 6);
-            usdcAddress = address(usdc);
-            console.log("Mock USDC deployed to:", usdcAddress);
-        }
-
-        console.log("USDT Address:", usdtAddress);
-        console.log("USDC Address:", usdcAddress);
-
-        // Configure tokens
+        // Enable tokens (same addresses for all networks)
         console.log("Enabling tokens...");
-        paymentEscrow.setTokenEnabled(usdtAddress, true);
-        console.log("USDT enabled");
-        paymentEscrow.setTokenEnabled(usdcAddress, true);
-        console.log("USDC enabled");
-
-        console.log("Contract configured as payment gateway - plan prices managed by backend");
+        escrow.setTokenEnabled(USDT, true);
+        console.log("USDT enabled:", USDT);
+        escrow.setTokenEnabled(USDC, true);
+        console.log("USDC enabled:", USDC);
+        console.log("");
 
         // Transfer roles if admin wallet is different from deployer
         if (adminWallet != deployer) {
-            console.log("Transferring roles to admin wallet:", adminWallet);
-            bytes32 DEFAULT_ADMIN_ROLE = paymentEscrow.DEFAULT_ADMIN_ROLE();
-            bytes32 MANAGER_ROLE = paymentEscrow.MANAGER_ROLE();
+            console.log("Transferring roles to admin wallet...");
+            bytes32 DEFAULT_ADMIN_ROLE = escrow.DEFAULT_ADMIN_ROLE();
+            bytes32 MANAGER_ROLE = escrow.MANAGER_ROLE();
 
-            paymentEscrow.grantRole(DEFAULT_ADMIN_ROLE, adminWallet);
-            paymentEscrow.grantRole(MANAGER_ROLE, adminWallet);
-            console.log("Roles granted to admin wallet");
+            escrow.grantRole(DEFAULT_ADMIN_ROLE, adminWallet);
+            escrow.grantRole(MANAGER_ROLE, adminWallet);
+            console.log("Roles granted to:", adminWallet);
         }
 
         vm.stopBroadcast();
 
-        // Log deployment summary
-        console.log("Deployment complete!");
-        console.log("Summary:");
-        console.log("Contract Address:", contractAddress);
-        console.log("Admin Wallet:", adminWallet);
-        console.log("USDT:", usdtAddress);
-        console.log("USDC:", usdcAddress);
-        console.log("Chain ID:", chainId);
+        // Summary
+        console.log("");
+        console.log("=== Deployment Complete ===");
+        console.log("PaymentEscrow:", escrowAddress);
+        console.log("USDT:", USDT);
+        console.log("USDC:", USDC);
+        console.log("");
+
+        if (block.chainid == 31337) {
+            console.log("NOTE: For local Anvil, run 'bun setup:local' to etch tokens.");
+        }
     }
 }

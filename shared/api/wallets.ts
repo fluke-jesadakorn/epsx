@@ -103,15 +103,15 @@ export class WalletsApi {
 
   /**
    * Get wallet information
-   * GET /api/v1/admin/wallets/{address}
+   * GET /api/admin/wallets/{address}
    */
   async getWallet(address: string): Promise<ApiResponse<WalletInfo>> {
-    return this.client.get<WalletInfo>(`/api/v1/admin/wallets/${address}`);
+    return this.client.get<WalletInfo>(`/api/admin/wallets/${address}`);
   }
 
   /**
    * Search wallets
-   * GET /api/v1/admin/wallets/search
+   * GET /api/admin/wallets/search
    */
   async searchWallets(filters: WalletSearchFilters): Promise<ApiResponse<PaginatedResponse<WalletInfo>>> {
     const params = new URLSearchParams();
@@ -121,15 +121,15 @@ export class WalletsApi {
       }
     });
 
-    return this.client.get<PaginatedResponse<WalletInfo>>(`/api/v1/admin/wallets/search?${params.toString()}`);
+    return this.client.get<PaginatedResponse<WalletInfo>>(`/api/admin/wallets/search?${params.toString()}`);
   }
 
   /**
    * Get recent wallets
-   * GET /api/v1/admin/web3/recent-wallets
+   * GET /api/admin/web3/recent-wallets
    */
   async getRecentWallets(filters?: { limit?: number; days?: number }): Promise<ApiResponse<RecentWallet[]>> {
-    return this.client.get<RecentWallet[]>('/api/v1/admin/web3/recent-wallets', filters);
+    return this.client.get<RecentWallet[]>('/api/admin/web3/recent-wallets', filters);
   }
 
   // ============================================================================
@@ -138,22 +138,22 @@ export class WalletsApi {
 
   /**
    * Get wallet activity history
-   * GET /api/v1/admin/wallets/{address}/activity
+   * GET /api/admin/wallets/{address}/activity
    */
   async getWalletActivity(address: string, filters?: { limit?: number; offset?: number }): Promise<ApiResponse<PaginatedResponse<WalletActivity>>> {
-    return this.client.get<PaginatedResponse<WalletActivity>>(`/api/v1/admin/wallets/${address}/activity`, filters);
+    return this.client.get<PaginatedResponse<WalletActivity>>(`/api/admin/wallets/${address}/activity`, filters);
   }
 
   /**
    * Get wallet activity summary
-   * GET /api/v1/admin/wallets/{address}/activity/summary
+   * GET /api/admin/wallets/{address}/activity/summary
    */
   async getActivitySummary(address: string, period?: '24h' | '7d' | '30d'): Promise<ApiResponse<{
     total_actions: number;
     actions_by_type: Record<string, number>;
     last_action?: WalletActivity;
   }>> {
-    return this.client.get(`/api/v1/admin/wallets/${address}/activity/summary`, { period });
+    return this.client.get(`/api/admin/wallets/${address}/activity/summary`, { period });
   }
 
   // ============================================================================
@@ -162,26 +162,26 @@ export class WalletsApi {
 
   /**
    * Update wallet status
-   * PUT /api/v1/admin/wallets/{address}/status
+   * PUT /api/admin/wallets/{address}/status
    */
   async updateWalletStatus(address: string, status: 'active' | 'inactive' | 'suspended', reason?: string): Promise<ApiResponse<{ updated: boolean }>> {
-    return this.client.put<{ updated: boolean }>(`/api/v1/admin/wallets/${address}/status`, { status, reason });
+    return this.client.put<{ updated: boolean }>(`/api/admin/wallets/${address}/status`, { status, reason });
   }
 
   /**
    * Update wallet tier
-   * PUT /api/v1/admin/wallets/{address}/tier
+   * PUT /api/admin/wallets/{address}/tier
    */
   async updateWalletTier(address: string, tier: string): Promise<ApiResponse<{ updated: boolean }>> {
-    return this.client.put<{ updated: boolean }>(`/api/v1/admin/wallets/${address}/tier`, { tier });
+    return this.client.put<{ updated: boolean }>(`/api/admin/wallets/${address}/tier`, { tier });
   }
 
   /**
    * Update wallet metadata
-   * PUT /api/v1/admin/wallets/{address}/metadata
+   * PUT /api/admin/wallets/{address}/metadata
    */
   async updateWalletMetadata(address: string, metadata: Record<string, any>): Promise<ApiResponse<{ updated: boolean }>> {
-    return this.client.put<{ updated: boolean }>(`/api/v1/admin/wallets/${address}/metadata`, { metadata });
+    return this.client.put<{ updated: boolean }>(`/api/admin/wallets/${address}/metadata`, { metadata });
   }
 
   // ============================================================================
@@ -190,18 +190,18 @@ export class WalletsApi {
 
   /**
    * Get multiple wallets
-   * POST /api/v1/admin/wallets/bulk/get
+   * POST /api/admin/wallets/bulk/get
    */
   async bulkGetWallets(addresses: string[]): Promise<ApiResponse<WalletInfo[]>> {
-    return this.client.post<WalletInfo[]>('/api/v1/admin/wallets/bulk/get', { addresses });
+    return this.client.post<WalletInfo[]>('/api/admin/wallets/bulk/get', { addresses });
   }
 
   /**
    * Update multiple wallet statuses
-   * POST /api/v1/admin/wallets/bulk/update-status
+   * POST /api/admin/wallets/bulk/update-status
    */
   async bulkUpdateStatus(addresses: string[], status: 'active' | 'inactive' | 'suspended', reason?: string): Promise<ApiResponse<{ updated_count: number; failed: string[] }>> {
-    return this.client.post<{ updated_count: number; failed: string[] }>('/api/v1/admin/wallets/bulk/update-status', {
+    return this.client.post<{ updated_count: number; failed: string[] }>('/api/admin/wallets/bulk/update-status', {
       addresses,
       status,
       reason
@@ -214,15 +214,15 @@ export class WalletsApi {
 
   /**
    * Get wallet statistics
-   * GET /api/v1/admin/wallets/stats
+   * GET /api/admin/wallets/stats
    */
   async getStats(): Promise<ApiResponse<WalletStats>> {
-    return this.client.get<WalletStats>('/api/v1/admin/wallets/stats');
+    return this.client.get<WalletStats>('/api/admin/wallets/stats');
   }
 
   /**
    * Get wallet growth over time
-   * GET /api/v1/admin/wallets/stats/growth
+   * GET /api/admin/wallets/stats/growth
    */
   async getGrowthStats(period?: '7d' | '30d' | '90d' | '1y'): Promise<ApiResponse<Array<{
     date: string;
@@ -230,19 +230,19 @@ export class WalletsApi {
     active_wallets: number;
     total_wallets: number;
   }>>> {
-    return this.client.get('/api/v1/admin/wallets/stats/growth', { period });
+    return this.client.get('/api/admin/wallets/stats/growth', { period });
   }
 
   /**
    * Get tier distribution
-   * GET /api/v1/admin/wallets/stats/tiers
+   * GET /api/admin/wallets/stats/tiers
    */
   async getTierDistribution(): Promise<ApiResponse<Record<string, {
     count: number;
     percentage: number;
     active: number;
   }>>> {
-    return this.client.get('/api/v1/admin/wallets/stats/tiers');
+    return this.client.get('/api/admin/wallets/stats/tiers');
   }
 }
 

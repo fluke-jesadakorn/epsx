@@ -88,10 +88,10 @@ pub async fn get_user_permissions_debug_handler(
     
     // Test specific permissions
     let test_permissions = vec![
-        "/api/v1/admin/wallets",
-        "/api/v1/admin/analytics", 
-        "/api/v1/admin/settings",
-        "/api/v1/admin/modules",
+        "/api/admin/wallets",
+        "/api/admin/analytics", 
+        "/api/admin/settings",
+        "/api/admin/modules",
     ];
     
     let mut permission_checks = Vec::new();

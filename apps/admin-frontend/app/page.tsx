@@ -63,8 +63,8 @@ export default function DashboardPage() {
           // Fetch wallet data, permissions, and system stats in parallel
           const [walletsRes, permissionsRes, systemRes] = await Promise.all([
             safeFetch(client.get('/api/admin/wallets/stats')),
-            safeFetch(client.get('/api/admin/permissions/stats')),
-            safeFetch(client.get('/api/admin/system/health'))
+            safeFetch(client.get('/api/admin/permissions/system/stats')),
+            safeFetch(client.get('/api/admin/permissions/system/health'))
           ])
 
           // Update stats from real API responses

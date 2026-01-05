@@ -31,7 +31,7 @@ export function APIDocumentation({ currentUser }: APIDocumentationProps) {
     public: [
       {
         method: 'GET',
-        endpoint: '/api/v1/public/analytics/rankings',
+        endpoint: '/api/public/analytics/rankings',
         description: 'Get stock rankings with EPS analysis. No authentication required.',
         requiresAuth: false,
         authType: 'none',
@@ -65,11 +65,11 @@ export function APIDocumentation({ currentUser }: APIDocumentationProps) {
     }
   }
 }`,
-        example: `curl -X GET "${baseUrl}/api/v1/public/analytics/rankings?limit=10&country=TH"`
+        example: `curl -X GET "${baseUrl}/api/public/analytics/rankings?limit=10&country=TH"`
       },
       {
         method: 'GET',
-        endpoint: '/api/v1/public/analytics/stock/:symbol',
+        endpoint: '/api/public/analytics/stock/:symbol',
         description: 'Get detailed analytics for a specific stock by symbol.',
         requiresAuth: false,
         authType: 'none',
@@ -90,13 +90,13 @@ export function APIDocumentation({ currentUser }: APIDocumentationProps) {
     "last_updated": "2025-12-25T00:00:00Z"
   }
 }`,
-        example: `curl -X GET "${baseUrl}/api/v1/public/analytics/stock/PTT"`
+        example: `curl -X GET "${baseUrl}/api/public/analytics/stock/PTT"`
       }
     ],
     developer: [
       {
         method: 'GET',
-        endpoint: '/api/v1/developer-portal/my-keys',
+        endpoint: '/api/developer-portal/my-keys',
         description: 'List your API keys. Requires session authentication.',
         requiresAuth: true,
         authType: 'session',
@@ -121,12 +121,12 @@ export function APIDocumentation({ currentUser }: APIDocumentationProps) {
   }
 }`,
         example: `# Session auth via browser cookies
-curl -X GET "${baseUrl}/api/v1/developer-portal/my-keys" \\
+curl -X GET "${baseUrl}/api/developer-portal/my-keys" \\
   --cookie "session=YOUR_SESSION_COOKIE"`
       },
       {
         method: 'POST',
-        endpoint: '/api/v1/developer-portal/my-keys',
+        endpoint: '/api/developer-portal/my-keys',
         description: 'Create a new API key. Requires session authentication.',
         requiresAuth: true,
         authType: 'session',
@@ -147,7 +147,7 @@ curl -X GET "${baseUrl}/api/v1/developer-portal/my-keys" \\
     }
   }
 }`,
-        example: `curl -X POST "${baseUrl}/api/v1/developer-portal/my-keys" \\
+        example: `curl -X POST "${baseUrl}/api/developer-portal/my-keys" \\
   -H "Content-Type: application/json" \\
   --cookie "session=YOUR_SESSION_COOKIE" \\
   -d '{
@@ -157,7 +157,7 @@ curl -X GET "${baseUrl}/api/v1/developer-portal/my-keys" \\
       },
       {
         method: 'GET',
-        endpoint: '/api/v1/developer-portal/my-groups',
+        endpoint: '/api/developer-portal/my-groups',
         description: 'Get your assigned permission groups and usage summary.',
         requiresAuth: true,
         authType: 'session',
@@ -177,14 +177,14 @@ curl -X GET "${baseUrl}/api/v1/developer-portal/my-keys" \\
     "total_requests": 5000
   }
 }`,
-        example: `curl -X GET "${baseUrl}/api/v1/developer-portal/my-groups" \\
+        example: `curl -X GET "${baseUrl}/api/developer-portal/my-groups" \\
   --cookie "session=YOUR_SESSION_COOKIE"`
       }
     ],
     apikey: [
       {
         method: 'GET',
-        endpoint: '/api/v1/analytics/rankings',
+        endpoint: '/api/analytics/rankings',
         description: 'Get stock rankings using API key authentication.',
         requiresAuth: true,
         authType: 'api_key',
@@ -199,7 +199,7 @@ curl -X GET "${baseUrl}/api/v1/developer-portal/my-keys" \\
     "pagination": {...}
   }
 }`,
-        example: `curl -X GET "${baseUrl}/api/v1/analytics/rankings" \\
+        example: `curl -X GET "${baseUrl}/api/analytics/rankings" \\
   -H "Authorization: Bearer YOUR_API_KEY"`
       }
     ]

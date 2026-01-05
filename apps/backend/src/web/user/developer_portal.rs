@@ -135,7 +135,7 @@ fn mask_key_prefix(prefix: &str) -> String {
 // User API Key Handlers
 // ============================================================================
 
-/// GET /api/v1/developer-portal/my-keys
+/// GET /api/developer-portal/my-keys
 /// List the authenticated user's API keys
 pub async fn list_my_keys_handler(
     State(state): State<AppState>,
@@ -182,7 +182,7 @@ pub async fn list_my_keys_handler(
     }
 }
 
-/// POST /api/v1/developer-portal/my-keys
+/// POST /api/developer-portal/my-keys
 /// Create a new API key for the authenticated user
 pub async fn create_my_key_handler(
     State(state): State<AppState>,
@@ -233,7 +233,7 @@ pub async fn create_my_key_handler(
     }
 }
 
-/// GET /api/v1/developer-portal/my-keys/:id
+/// GET /api/developer-portal/my-keys/:id
 /// Get details of a specific API key owned by the user
 pub async fn get_my_key_handler(
     State(state): State<AppState>,
@@ -291,7 +291,7 @@ pub async fn get_my_key_handler(
     }
 }
 
-/// DELETE /api/v1/developer-portal/my-keys/:id
+/// DELETE /api/developer-portal/my-keys/:id
 /// Revoke an API key owned by the user
 pub async fn revoke_my_key_handler(
     State(state): State<AppState>,
@@ -348,7 +348,7 @@ pub async fn revoke_my_key_handler(
     }
 }
 
-/// GET /api/v1/developer-portal/available-groups
+/// GET /api/developer-portal/available-groups
 /// List permission groups available for API key assignment
 pub async fn list_available_groups_handler(
     State(state): State<AppState>,
@@ -428,7 +428,7 @@ pub async fn list_available_groups_handler(
     UnifiedApiResponse::success(AvailableGroupsResponse { groups: result_groups })
 }
 
-/// GET /api/v1/developer-portal/my-groups
+/// GET /api/developer-portal/my-groups
 /// Get the authenticated user's assigned permission groups with metadata
 pub async fn get_my_groups_handler(
     State(state): State<AppState>,
@@ -586,7 +586,7 @@ pub async fn get_my_groups_handler(
 // Usage Analytics Handlers
 // ============================================================================
 
-/// GET /api/v1/developer-portal/stats
+/// GET /api/developer-portal/stats
 /// Get aggregated usage stats for the authenticated user
 pub async fn get_usage_stats_handler(
     State(state): State<AppState>,
@@ -604,7 +604,7 @@ pub async fn get_usage_stats_handler(
     }
 }
 
-/// GET /api/v1/developer-portal/usage-history
+/// GET /api/developer-portal/usage-history
 /// Get usage history (time series)
 pub async fn get_usage_history_handler(
     State(state): State<AppState>,
@@ -627,7 +627,7 @@ pub async fn get_usage_history_handler(
     }
 }
 
-/// GET /api/v1/developer-portal/top-endpoints
+/// GET /api/developer-portal/top-endpoints
 /// Get top used endpoints
 pub async fn get_top_endpoints_handler(
     State(state): State<AppState>,

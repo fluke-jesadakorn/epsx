@@ -72,8 +72,63 @@ export async function getCurrentUser() {
 }
 
 export async function getPaymentHistory() {
-  // TODO: Implement when backend is ready
-  return [];
+  try {
+    const cookieStore = await cookies();
+
+    // Get auth token
+    let token = cookieStore.get('epsx.client_session')?.value;
+    if (!token) {
+      token = cookieStore.get('epsx.access')?.value;
+    }
+
+    if (!token) {
+      console.log('[getPaymentHistory] No auth token found');
+      return [];
+    }
+
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8080';
+
+    const response = await fetch(`${backendUrl}/api/payments/history`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      cache: 'no-store'
+    });
+
+    if (!response.ok) {
+      console.error('[getPaymentHistory] Failed to fetch:', response.status, response.statusText);
+      return [];
+    }
+
+    const result = await response.json();
+
+    if (!result.success || !result.data) {
+      console.error('[getPaymentHistory] Invalid response format:', result);
+      return [];
+    }
+
+    // Map backend response to Transaction format expected by PaymentStatusSection
+    const payments = result.data.payments || [];
+    return payments.map((payment: any) => ({
+      orderNo: payment.payment_reference || payment.id || '',
+      actualAmount: payment.amount || 0,
+      currency: payment.currency || 'USD',
+      status: payment.status || 'pending',
+      finishTime: payment.completed_at || payment.created_at || new Date().toISOString(),
+      blockchainData: {
+        txHash: payment.tx_hash || '',  // Backend returns 'tx_hash' not 'transaction_hash'
+        network: 'BSC'
+      },
+      blockExplorerUrl: payment.tx_hash
+        ? `https://bscscan.com/tx/${payment.tx_hash}`
+        : ''
+    }));
+  } catch (error) {
+    console.error('[getPaymentHistory] Error:', error);
+    return [];
+  }
 }
 
 export async function checkFeatureAccess(feature: string) {

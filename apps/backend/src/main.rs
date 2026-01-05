@@ -119,8 +119,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     info!("");
     info!("📡 UNIFIED API ENDPOINTS:");
     info!("   🔐 Auth:      http://{}:{}/api/auth/web3/*", host, port);
-    info!("   📊 Analytics: http://{}:{}/api/v1/analytics/*", host, port);
-    info!("   📊 Public:    http://{}:{}/api/v1/public/*", host, port);
+    info!("   📊 Analytics: http://{}:{}/api/analytics/*", host, port);
+    info!("   📊 Public:    http://{}:{}/api/public/*", host, port);
     info!("   👤 Admin:     http://{}:{}/admin/* | http://{}:{}/api/admin/*", host, port, host, port);
     info!("   📖 Docs:      http://{}:{}/docs", host, port);
     info!("");

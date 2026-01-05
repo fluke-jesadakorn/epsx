@@ -24,7 +24,7 @@ grant_permission() {
     local permission=$1
     echo "Granting permission: $permission"
     
-    curl -X POST "$BACKEND_URL/api/v1/auth/web3/permissions/grant" \
+    curl -X POST "$BACKEND_URL/api/auth/web3/permissions/grant" \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer admin-token" \
         -d '{

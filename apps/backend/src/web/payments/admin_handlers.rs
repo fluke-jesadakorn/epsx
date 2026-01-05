@@ -9,7 +9,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Datelike, Utc};
 use tracing::{info, error};
 
 use crate::{
@@ -249,68 +249,218 @@ pub async fn admin_list_payments_handler(
     State(app_state): State<crate::web::auth::AppState>,
     Query(params): Query<AdminPaymentListParams>,
 ) -> Result<Json<AdminPaymentListResponse>, Json<UnifiedErrorResponse>> {
+    use diesel::prelude::*;
+    use diesel_async::RunQueryDsl;
+    use crate::infrastructure::models::payment::PaymentDb;
+    use crate::infrastructure::database::get_payments_pool;
+    use crate::schemas::payments::payments;
+    use crate::schemas::primary::groups;
+
     info!("Admin listing payments with params: {:?}", params);
 
-    let _conn = app_state.db_pool.get().await
+    // Get PAYMENTS database connection
+    let payments_pool = get_payments_pool().await.map_err(|e| {
+        error!("Failed to get payments database pool: {}", e);
+        Json(create_error_response(500, "Database connection failed", "Failed to get payments database pool"))
+    })?;
+    let mut payments_conn = payments_pool.get().await
         .map_err(|e| {
-            error!("Failed to get database connection: {}", e);
-            Json(create_error_response(500, "Database connection failed", "Failed to establish database connection"))
+            error!("Failed to get payments database connection: {}", e);
+            Json(create_error_response(500, "Database connection failed", "Failed to establish payments database connection"))
         })?;
 
-    // TODO: Implement comprehensive admin payment listing with:
-    // - Pagination
-    // - Filtering by status, wallet, plan, date range
-    // - Search functionality
-    // - Join with groups to get plan names
-    // - Proper ordering
+    // Get PRIMARY database connection for plan name lookups
+    let mut primary_conn = app_state.db_pool.get().await
+        .map_err(|e| {
+            error!("Failed to get primary database connection: {}", e);
+            Json(create_error_response(500, "Database connection failed", "Failed to establish primary database connection"))
+        })?;
 
-    // For now, return placeholder data
-    let payments = vec![
-        AdminPaymentInfo {
-            id: Uuid::new_v4(),
-            payment_reference: "PAY-001".to_string(),
-            wallet_address: "0x1234567890123456789012345678901234567890".to_string(),
-            amount: 59.00,
-            currency: "USD".to_string(),
-            status: "completed".to_string(),
-            plan_id: Uuid::new_v4(),
-            plan_name: "Professional Plan".to_string(),
-            transaction_hash: Some("0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890".to_string()),
-            contract_address: Some("0xcf2254fEa2ED6aAb8B846C150a00dC4faB2d7558".to_string()),
-            token_address: Some("0x55d398326f99059fF775485246999027B3197955".to_string()),
-            block_number: Some(12345678),
-            confirmations: 12,
-            created_at: Utc::now() - chrono::Duration::hours(2),
-            updated_at: Utc::now() - chrono::Duration::hours(1),
-            completed_at: Some(Utc::now() - chrono::Duration::hours(1)),
-            expires_at: None,
-            metadata: serde_json::json!({"network": "bsc"}),
+    // Build query with filters
+    let mut query = payments::table.into_boxed();
+
+    // Apply status filter
+    if let Some(ref status) = params.status {
+        query = query.filter(payments::status.eq(status));
+    }
+
+    // Apply wallet_address filter
+    if let Some(ref wallet_addr) = params.wallet_address {
+        query = query.filter(payments::wallet_address.ilike(format!("%{}%", wallet_addr)));
+    }
+
+    // Apply plan_id filter
+    if let Some(ref plan_id) = params.plan_id {
+        query = query.filter(payments::plan_id.eq(plan_id));
+    }
+
+    // Apply search filter (transaction hash or reference)
+    if let Some(ref search) = params.search {
+        query = query.filter(
+            payments::payment_reference.ilike(format!("%{}%", search))
+                .or(payments::transaction_hash.ilike(format!("%{}%", search)))
+        );
+    }
+
+    // Apply date range filters
+    if let Some(ref start_date) = params.start_date {
+        if let Ok(parsed) = chrono::NaiveDate::parse_from_str(start_date, "%Y-%m-%d") {
+            let start_datetime = parsed.and_hms_opt(0, 0, 0)
+                .map(|dt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc));
+            if let Some(start_dt) = start_datetime {
+                query = query.filter(payments::created_at.ge(start_dt));
+            }
         }
-    ];
+    }
 
+    if let Some(ref end_date) = params.end_date {
+        if let Ok(parsed) = chrono::NaiveDate::parse_from_str(end_date, "%Y-%m-%d") {
+            let end_datetime = parsed.and_hms_opt(23, 59, 59)
+                .map(|dt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc));
+            if let Some(end_dt) = end_datetime {
+                query = query.filter(payments::created_at.le(end_dt));
+            }
+        }
+    }
+
+    // Apply pagination
+    let limit = params.limit.unwrap_or(20) as i64;
+    let page = params.page.unwrap_or(1);
+    let offset = ((page - 1) * params.limit.unwrap_or(20)) as i64;
+
+    // Get total count (before pagination)
+    let total_count: i64 = payments::table
+        .count()
+        .get_result(&mut payments_conn)
+        .await
+        .unwrap_or(0);
+
+    // Fetch payments with pagination
+    let payment_rows = query
+        .order(payments::created_at.desc().nulls_last())
+        .limit(limit)
+        .offset(offset)
+        .load::<PaymentDb>(&mut payments_conn)
+        .await
+        .map_err(|e| {
+            error!("Failed to query payments: {}", e);
+            Json(create_error_response(500, "Query failed", &format!("Failed to load payments: {}", e)))
+        })?;
+
+    // Map to response format with plan name lookup
+    let mut payments_resp: Vec<AdminPaymentInfo> = Vec::new();
+    for pay_db in payment_rows {
+        // Try to get plan name from groups table (PRIMARY DB)
+        let plan_name = groups::table
+            .filter(groups::id.eq(pay_db.plan_id))
+            .select(groups::name)
+            .first::<String>(&mut primary_conn)
+            .await
+            .unwrap_or_else(|_| "Unknown Plan".to_string());
+
+        payments_resp.push(AdminPaymentInfo {
+            id: pay_db.id,
+            payment_reference: pay_db.payment_reference,
+            wallet_address: pay_db.wallet_address,
+            amount: pay_db.amount.to_string().parse::<f64>().unwrap_or(0.0),
+            currency: pay_db.currency,
+            status: pay_db.status,
+            plan_id: pay_db.plan_id,
+            plan_name,
+            transaction_hash: pay_db.transaction_hash,
+            contract_address: pay_db.contract_address,
+            token_address: pay_db.token_address,
+            block_number: pay_db.block_number,
+            confirmations: pay_db.confirmations.unwrap_or(0),
+            created_at: pay_db.created_at.unwrap_or_else(Utc::now),
+            updated_at: pay_db.updated_at.unwrap_or_else(Utc::now),
+            completed_at: pay_db.completed_at,
+            expires_at: pay_db.expires_at,
+            metadata: pay_db.metadata.unwrap_or(serde_json::json!({})),
+        });
+    }
+
+    let total_pages = ((total_count as f64) / (limit as f64)).ceil() as u32;
     let pagination = PaginationInfo {
-        page: params.page.unwrap_or(1),
-        limit: params.limit.unwrap_or(20),
-        total_count: payments.len() as u64,
-        total_pages: 1,
-        has_next: false,
-        has_prev: false,
+        page,
+        limit: limit as u32,
+        total_count: total_count as u64,
+        total_pages,
+        has_next: page < total_pages,
+        has_prev: page > 1,
     };
+
+    // Calculate summary statistics from database
+    let today_start = Utc::now().date_naive().and_hms_opt(0, 0, 0)
+        .map(|dt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
+        .unwrap_or_else(Utc::now);
+
+    let completed_count: i64 = payments::table
+        .filter(payments::status.eq("completed").or(payments::status.eq("confirmed")))
+        .count()
+        .get_result(&mut payments_conn)
+        .await
+        .unwrap_or(0);
+
+    let failed_count: i64 = payments::table
+        .filter(payments::status.eq("failed"))
+        .count()
+        .get_result(&mut payments_conn)
+        .await
+        .unwrap_or(0);
+
+    let pending_count: i64 = payments::table
+        .filter(payments::status.eq("pending").or(payments::status.eq("created")))
+        .count()
+        .get_result(&mut payments_conn)
+        .await
+        .unwrap_or(0);
+
+    let total_amount: Option<bigdecimal::BigDecimal> = payments::table
+        .filter(payments::status.eq("completed").or(payments::status.eq("confirmed")))
+        .select(diesel::dsl::sum(payments::amount))
+        .first(&mut payments_conn)
+        .await
+        .unwrap_or(None);
+
+    let payments_today: i64 = payments::table
+        .filter(payments::created_at.ge(today_start))
+        .count()
+        .get_result(&mut payments_conn)
+        .await
+        .unwrap_or(0);
+
+    let revenue_today: Option<bigdecimal::BigDecimal> = payments::table
+        .filter(payments::created_at.ge(today_start))
+        .filter(payments::status.eq("completed").or(payments::status.eq("confirmed")))
+        .select(diesel::dsl::sum(payments::amount))
+        .first(&mut payments_conn)
+        .await
+        .unwrap_or(None);
+
+    let total_amount_f64 = total_amount
+        .map(|bd| bd.to_string().parse::<f64>().unwrap_or(0.0))
+        .unwrap_or(0.0);
+    let revenue_today_f64 = revenue_today
+        .map(|bd| bd.to_string().parse::<f64>().unwrap_or(0.0))
+        .unwrap_or(0.0);
 
     let summary = PaymentSummary {
-        total_payments: payments.len() as u64,
-        total_amount: payments.iter().map(|p| p.amount).sum(),
-        successful_payments: payments.iter().filter(|p| p.status == "completed").count() as u64,
-        failed_payments: 0,
-        pending_payments: 0,
-        average_payment_amount: payments.iter().map(|p| p.amount).sum::<f64>() / payments.len() as f64,
-        payments_today: 5,
-        revenue_today: 295.00,
+        total_payments: total_count as u64,
+        total_amount: total_amount_f64,
+        successful_payments: completed_count as u64,
+        failed_payments: failed_count as u64,
+        pending_payments: pending_count as u64,
+        average_payment_amount: if completed_count > 0 { total_amount_f64 / completed_count as f64 } else { 0.0 },
+        payments_today: payments_today as u64,
+        revenue_today: revenue_today_f64,
     };
+
+    info!("Found {} payments (page {} of {})", payments_resp.len(), page, total_pages);
 
     Ok(Json(AdminPaymentListResponse {
         success: true,
-        payments,
+        payments: payments_resp,
         pagination,
         summary,
     }))
@@ -318,64 +468,108 @@ pub async fn admin_list_payments_handler(
 
 /// Get payment details with audit log
 pub async fn admin_get_payment_details_handler(
-    State(_app_state): State<crate::web::auth::AppState>,
+    State(app_state): State<crate::web::auth::AppState>,
     Path(payment_id): Path<Uuid>,
 ) -> Result<Json<AdminPaymentDetailsResponse>, Json<UnifiedErrorResponse>> {
+    use diesel::prelude::*;
+    use diesel_async::RunQueryDsl;
+    use crate::infrastructure::models::payment::PaymentDb;
+    use crate::infrastructure::database::get_payments_pool;
+    use crate::schemas::payments::{payments, payment_audit_log};
+    use crate::schemas::primary::groups;
+
     info!("Admin getting payment details for {}", payment_id);
 
-    // TODO: Implement comprehensive payment details retrieval
-    // - Full payment information
-    // - Complete audit log
-    // - Related subscription information
-    // - Transaction verification details
+    // Get PAYMENTS database connection
+    let payments_pool = get_payments_pool().await.map_err(|e| {
+        error!("Failed to get payments database pool: {}", e);
+        Json(create_error_response(500, "Database connection failed", "Failed to get payments database pool"))
+    })?;
+    let mut payments_conn = payments_pool.get().await
+        .map_err(|e| {
+            error!("Failed to get payments database connection: {}", e);
+            Json(create_error_response(500, "Database connection failed", "Failed to establish payments database connection"))
+        })?;
 
-    let payment = AdminPaymentInfo {
-        id: payment_id,
-        payment_reference: "PAY-001".to_string(),
-        wallet_address: "0x1234567890123456789012345678901234567890".to_string(),
-        amount: 59.00,
-        currency: "USD".to_string(),
-        status: "completed".to_string(),
-        plan_id: Uuid::new_v4(),
-        plan_name: "Professional Plan".to_string(),
-        transaction_hash: Some("0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890".to_string()),
-        contract_address: Some("0xcf2254fEa2ED6aAb8B846C150a00dC4faB2d7558".to_string()),
-        token_address: Some("0x55d398326f99059fF775485246999027B3197955".to_string()),
-        block_number: Some(12345678),
-        confirmations: 12,
-        created_at: Utc::now() - chrono::Duration::hours(2),
-        updated_at: Utc::now() - chrono::Duration::hours(1),
-        completed_at: Some(Utc::now() - chrono::Duration::hours(1)),
-        expires_at: None,
-        metadata: serde_json::json!({"network": "bsc"}),
+    // Get PRIMARY database connection for plan name lookup
+    let mut primary_conn = app_state.db_pool.get().await
+        .map_err(|e| {
+            error!("Failed to get primary database connection: {}", e);
+            Json(create_error_response(500, "Database connection failed", "Failed to establish primary database connection"))
+        })?;
+
+    // Fetch payment from database
+    let payment_result = payments::table
+        .filter(payments::id.eq(payment_id))
+        .first::<PaymentDb>(&mut payments_conn)
+        .await;
+
+    let payment = match payment_result {
+        Ok(pay_db) => {
+            // Try to get plan name from groups table (PRIMARY DB)
+            let plan_name = groups::table
+                .filter(groups::id.eq(pay_db.plan_id))
+                .select(groups::name)
+                .first::<String>(&mut primary_conn)
+                .await
+                .unwrap_or_else(|_| "Unknown Plan".to_string());
+
+            Some(AdminPaymentInfo {
+                id: pay_db.id,
+                payment_reference: pay_db.payment_reference,
+                wallet_address: pay_db.wallet_address,
+                amount: pay_db.amount.to_string().parse::<f64>().unwrap_or(0.0),
+                currency: pay_db.currency,
+                status: pay_db.status,
+                plan_id: pay_db.plan_id,
+                plan_name,
+                transaction_hash: pay_db.transaction_hash,
+                contract_address: pay_db.contract_address,
+                token_address: pay_db.token_address,
+                block_number: pay_db.block_number,
+                confirmations: pay_db.confirmations.unwrap_or(0),
+                created_at: pay_db.created_at.unwrap_or_else(Utc::now),
+                updated_at: pay_db.updated_at.unwrap_or_else(Utc::now),
+                completed_at: pay_db.completed_at,
+                expires_at: pay_db.expires_at,
+                metadata: pay_db.metadata.unwrap_or(serde_json::json!({})),
+            })
+        }
+        Err(diesel::NotFound) => {
+            return Err(Json(create_error_response(404, "Payment not found", &format!("No payment found with ID: {}", payment_id))));
+        }
+        Err(e) => {
+            error!("Failed to query payment: {}", e);
+            return Err(Json(create_error_response(500, "Query failed", &format!("Failed to load payment: {}", e))));
+        }
     };
 
-    let audit_logs = vec![
+    // Fetch audit logs for this payment
+    let audit_log_rows = payment_audit_log::table
+        .filter(payment_audit_log::payment_id.eq(payment_id))
+        .order(payment_audit_log::performed_at.desc().nulls_last())
+        .load::<(Uuid, Uuid, String, Option<String>, String, Option<String>, Option<String>, Option<chrono::DateTime<Utc>>, Option<serde_json::Value>)>(&mut payments_conn)
+        .await
+        .unwrap_or_default();
+
+    let audit_logs: Vec<PaymentAuditLog> = audit_log_rows.into_iter().map(|(id, _payment_id, action, old_status, new_status, reason, performed_by, performed_at, metadata)| {
         PaymentAuditLog {
-            id: Uuid::new_v4(),
-            action: "created".to_string(),
-            old_status: None,
-            new_status: "created".to_string(),
-            reason: Some("Payment initiated".to_string()),
-            performed_by: Some("0x1234567890123456789012345678901234567890".to_string()),
-            performed_at: Utc::now() - chrono::Duration::hours(2),
-            metadata: serde_json::json!({"source": "web"}),
-        },
-        PaymentAuditLog {
-            id: Uuid::new_v4(),
-            action: "confirmed".to_string(),
-            old_status: Some("created".to_string()),
-            new_status: "completed".to_string(),
-            reason: Some("Transaction verified on blockchain".to_string()),
-            performed_by: Some("system".to_string()),
-            performed_at: Utc::now() - chrono::Duration::hours(1),
-            metadata: serde_json::json!({"block_number": 12345678}),
-        },
-    ];
+            id,
+            action,
+            old_status,
+            new_status,
+            reason,
+            performed_by,
+            performed_at: performed_at.unwrap_or_else(Utc::now),
+            metadata: metadata.unwrap_or(serde_json::json!({})),
+        }
+    }).collect();
+
+    info!("Found payment {} with {} audit log entries", payment_id, audit_logs.len());
 
     Ok(Json(AdminPaymentDetailsResponse {
         success: true,
-        payment: Some(payment),
+        payment,
         audit_logs,
     }))
 }
@@ -386,25 +580,99 @@ pub async fn admin_update_payment_status_handler(
     Path(payment_id): Path<Uuid>,
     Json(request): Json<UpdatePaymentStatusRequest>,
 ) -> Result<Json<UpdatePaymentStatusResponse>, Json<UnifiedErrorResponse>> {
+    use diesel::prelude::*;
+    use diesel_async::RunQueryDsl;
+    use crate::infrastructure::database::get_payments_pool;
+    use crate::schemas::payments::{payments, payment_audit_log};
+
     info!(
         "Admin updating payment {} status to {}",
         payment_id,
         request.status
     );
 
-    // TODO: Implement payment status update
-    // - Validate status transition
-    // - Update payment in database
-    // - Create audit log entry
-    // - Send notifications if requested
-    // - Handle related subscription status updates
+    // Validate status transition
+    let valid_statuses = ["created", "pending", "confirmed", "completed", "failed", "refunded", "expired", "cancelled"];
+    if !valid_statuses.contains(&request.status.as_str()) {
+        return Err(Json(create_error_response(400, "Invalid status", &format!("Status must be one of: {:?}", valid_statuses))));
+    }
+
+    // Get PAYMENTS database connection
+    let payments_pool = get_payments_pool().await.map_err(|e| {
+        error!("Failed to get payments database pool: {}", e);
+        Json(create_error_response(500, "Database connection failed", "Failed to get payments database pool"))
+    })?;
+    let mut payments_conn = payments_pool.get().await
+        .map_err(|e| {
+            error!("Failed to get payments database connection: {}", e);
+            Json(create_error_response(500, "Database connection failed", "Failed to establish payments database connection"))
+        })?;
+
+    // Get current payment status
+    let old_status: String = payments::table
+        .filter(payments::id.eq(payment_id))
+        .select(payments::status)
+        .first(&mut payments_conn)
+        .await
+        .map_err(|e| {
+            if matches!(e, diesel::NotFound) {
+                Json(create_error_response(404, "Payment not found", &format!("No payment found with ID: {}", payment_id)))
+            } else {
+                error!("Failed to query payment: {}", e);
+                Json(create_error_response(500, "Query failed", &format!("Failed to load payment: {}", e)))
+            }
+        })?;
+
+    // Update payment status
+    let updated_at = Utc::now();
+    let completed_at = if request.status == "completed" || request.status == "confirmed" {
+        Some(updated_at)
+    } else {
+        None
+    };
+
+    diesel::update(payments::table.filter(payments::id.eq(payment_id)))
+        .set((
+            payments::status.eq(&request.status),
+            payments::updated_at.eq(updated_at),
+            payments::completed_at.eq(completed_at),
+        ))
+        .execute(&mut payments_conn)
+        .await
+        .map_err(|e| {
+            error!("Failed to update payment status: {}", e);
+            Json(create_error_response(500, "Update failed", &format!("Failed to update payment: {}", e)))
+        })?;
+
+    // Create audit log entry
+    diesel::insert_into(payment_audit_log::table)
+        .values((
+            payment_audit_log::id.eq(Uuid::new_v4()),
+            payment_audit_log::payment_id.eq(payment_id),
+            payment_audit_log::action.eq("status_change"),
+            payment_audit_log::old_status.eq(&old_status),
+            payment_audit_log::new_status.eq(&request.status),
+            payment_audit_log::reason.eq(&request.reason),
+            payment_audit_log::performed_by.eq("admin"), // TODO: Get from auth context when available
+            payment_audit_log::performed_at.eq(updated_at),
+            payment_audit_log::metadata.eq(request.metadata.unwrap_or(serde_json::json!({}))),
+        ))
+        .execute(&mut payments_conn)
+        .await
+        .map_err(|e| {
+            error!("Failed to create audit log: {}", e);
+            // Non-fatal error, log and continue
+        })
+        .ok();
+
+    info!("Payment {} status updated from {} to {}", payment_id, old_status, request.status);
 
     Ok(Json(UpdatePaymentStatusResponse {
         success: true,
         message: "Payment status updated successfully".to_string(),
-        old_status: "created".to_string(),
+        old_status,
         new_status: request.status,
-        updated_at: Utc::now(),
+        updated_at,
     }))
 }
 
@@ -414,27 +682,116 @@ pub async fn admin_process_refund_handler(
     Path(payment_id): Path<Uuid>,
     Json(request): Json<RefundPaymentRequest>,
 ) -> Result<Json<RefundPaymentResponse>, Json<UnifiedErrorResponse>> {
+    use diesel::prelude::*;
+    use diesel_async::RunQueryDsl;
+    use crate::infrastructure::database::get_payments_pool;
+    use crate::schemas::payments::{payments, payment_audit_log, subscriptions};
+
     info!(
         "Admin processing refund for payment {}, reason: {}",
         payment_id,
         request.reason
     );
 
-    // TODO: Implement refund processing
-    // - Validate refund eligibility
-    // - Calculate refund amount
-    // - Process blockchain refund (if applicable)
-    // - Update payment status to 'refunded'
-    // - Create audit log entry
-    // - Notify user if requested
-    // - Update subscription status if needed
+    // Get PAYMENTS database connection
+    let payments_pool = get_payments_pool().await.map_err(|e| {
+        error!("Failed to get payments database pool: {}", e);
+        Json(create_error_response(500, "Database connection failed", "Failed to get payments database pool"))
+    })?;
+    let mut payments_conn = payments_pool.get().await
+        .map_err(|e| {
+            error!("Failed to get payments database connection: {}", e);
+            Json(create_error_response(500, "Database connection failed", "Failed to establish payments database connection"))
+        })?;
+
+    // Get current payment
+    let (old_status, payment_amount): (String, bigdecimal::BigDecimal) = payments::table
+        .filter(payments::id.eq(payment_id))
+        .select((payments::status, payments::amount))
+        .first(&mut payments_conn)
+        .await
+        .map_err(|e| {
+            if matches!(e, diesel::NotFound) {
+                Json(create_error_response(404, "Payment not found", &format!("No payment found with ID: {}", payment_id)))
+            } else {
+                error!("Failed to query payment: {}", e);
+                Json(create_error_response(500, "Query failed", &format!("Failed to load payment: {}", e)))
+            }
+        })?;
+
+    // Validate refund eligibility
+    if !["completed", "confirmed"].contains(&old_status.as_str()) {
+        return Err(Json(create_error_response(400, "Invalid refund", &format!("Cannot refund payment with status: {}", old_status))));
+    }
+
+    // Calculate refund amount
+    let payment_amount_f64 = payment_amount.to_string().parse::<f64>().unwrap_or(0.0);
+    let refund_amount = if request.partial_refund {
+        request.refund_amount.unwrap_or(payment_amount_f64)
+    } else {
+        payment_amount_f64
+    };
+
+    // Validate refund amount
+    if refund_amount <= 0.0 || refund_amount > payment_amount_f64 {
+        return Err(Json(create_error_response(400, "Invalid refund amount", &format!("Refund amount must be between 0 and {}", payment_amount_f64))));
+    }
+
+    let processed_at = Utc::now();
+    let refund_id = format!("REF-{}", Uuid::new_v4().to_string()[..8].to_string().to_uppercase());
+
+    // Update payment status to refunded
+    diesel::update(payments::table.filter(payments::id.eq(payment_id)))
+        .set((
+            payments::status.eq("refunded"),
+            payments::updated_at.eq(processed_at),
+        ))
+        .execute(&mut payments_conn)
+        .await
+        .map_err(|e| {
+            error!("Failed to update payment status: {}", e);
+            Json(create_error_response(500, "Update failed", &format!("Failed to update payment: {}", e)))
+        })?;
+
+    // Cancel associated subscription if exists
+    diesel::update(subscriptions::table.filter(subscriptions::payment_id.eq(payment_id)))
+        .set((
+            subscriptions::status.eq("cancelled"),
+            subscriptions::cancelled_at.eq(Some(processed_at)),
+        ))
+        .execute(&mut payments_conn)
+        .await
+        .ok(); // Non-fatal if no subscription found
+
+    // Create audit log entry
+    diesel::insert_into(payment_audit_log::table)
+        .values((
+            payment_audit_log::id.eq(Uuid::new_v4()),
+            payment_audit_log::payment_id.eq(payment_id),
+            payment_audit_log::action.eq("refund"),
+            payment_audit_log::old_status.eq(&old_status),
+            payment_audit_log::new_status.eq("refunded"),
+            payment_audit_log::reason.eq(&request.reason),
+            payment_audit_log::performed_by.eq("admin"),
+            payment_audit_log::performed_at.eq(processed_at),
+            payment_audit_log::metadata.eq(serde_json::json!({
+                "refund_id": refund_id,
+                "refund_amount": refund_amount,
+                "partial_refund": request.partial_refund,
+            })),
+        ))
+        .execute(&mut payments_conn)
+        .await
+        .ok();
+
+    info!("Refund {} processed for payment {}, amount: {}", refund_id, payment_id, refund_amount);
 
     Ok(Json(RefundPaymentResponse {
         success: true,
         message: "Refund processed successfully".to_string(),
-        refund_id: Some("REF-001".to_string()),
-        refund_amount: request.refund_amount.unwrap_or(59.00),
-        processed_at: Utc::now(),
+        refund_id: Some(refund_id),
+        refund_amount,
+        processed_at,
     }))
 }
 
@@ -446,13 +803,26 @@ pub async fn admin_list_subscriptions_handler(
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
     use crate::infrastructure::models::payment::SubscriptionDb;
+    use crate::infrastructure::database::get_payments_pool;
 
     info!("Admin listing subscriptions with params: {:?}", params);
 
-    let mut conn = app_state.db_pool.get().await
+    // Get PAYMENTS database connection (subscriptions table is in payments DB)
+    let payments_pool = get_payments_pool().await.map_err(|e| {
+        error!("Failed to get payments database pool: {}", e);
+        Json(create_error_response(500, "Database connection failed", "Failed to get payments database pool"))
+    })?;
+    let mut payments_conn = payments_pool.get().await
         .map_err(|e| {
-            error!("Failed to get database connection: {}", e);
-            Json(create_error_response(500, "Database connection failed", "Failed to establish database connection"))
+            error!("Failed to get payments database connection: {}", e);
+            Json(create_error_response(500, "Database connection failed", "Failed to establish payments database connection"))
+        })?;
+
+    // Get PRIMARY database connection (groups table is in primary DB)
+    let mut primary_conn = app_state.db_pool.get().await
+        .map_err(|e| {
+            error!("Failed to get primary database connection: {}", e);
+            Json(create_error_response(500, "Database connection failed", "Failed to establish primary database connection"))
         })?;
 
     // Build query
@@ -478,33 +848,33 @@ pub async fn admin_list_subscriptions_handler(
     let page = params.page.unwrap_or(1);
     let offset = ((page - 1) * params.limit.unwrap_or(50)) as i64;
 
-    // Get total count (before pagination)
+    // Get total count (before pagination) from PAYMENTS DB
     let total_count: i64 = subscriptions::table
         .count()
-        .get_result(&mut conn)
+        .get_result(&mut payments_conn)
         .await
         .unwrap_or(0);
 
-    // Fetch subscriptions with pagination
+    // Fetch subscriptions with pagination from PAYMENTS DB
     let subscription_rows = query
         .order(subscriptions::started_at.desc().nulls_last())
         .limit(limit)
         .offset(offset)
-        .load::<SubscriptionDb>(&mut conn)
+        .load::<SubscriptionDb>(&mut payments_conn)
         .await
         .map_err(|e| {
             error!("Failed to query subscriptions: {}", e);
             Json(create_error_response(500, "Query failed", &format!("Failed to load subscriptions: {}", e)))
         })?;
 
-    // Map to response format with plan name lookup
+    // Map to response format with plan name lookup from PRIMARY DB
     let mut subscriptions_resp: Vec<AdminSubscriptionInfo> = Vec::new();
     for sub_db in subscription_rows {
-        // Try to get plan name from groups table
+        // Try to get plan name from groups table (PRIMARY DB)
         let plan_name = groups::table
             .filter(groups::id.eq(sub_db.plan_id))
             .select(groups::name)
-            .first::<String>(&mut conn)
+            .first::<String>(&mut primary_conn)
             .await
             .unwrap_or_else(|_| "Unknown Plan".to_string());
 
@@ -533,16 +903,79 @@ pub async fn admin_list_subscriptions_handler(
         has_prev: page > 1,
     };
 
-    // Calculate summary statistics
-    let active_count = subscriptions_resp.iter().filter(|s| s.status == "active").count() as u64;
+    // Calculate summary statistics with real database queries
+    let today_start = Utc::now().date_naive().and_hms_opt(0, 0, 0)
+        .map(|dt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
+        .unwrap_or_else(Utc::now);
+    let seven_days_from_now = Utc::now() + chrono::Duration::days(7);
+    let month_start = Utc::now().date_naive()
+        .with_day(1)
+        .and_then(|d| d.and_hms_opt(0, 0, 0))
+        .map(|dt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
+        .unwrap_or_else(Utc::now);
+
+    // Get counts from database
+    let active_count: i64 = subscriptions::table
+        .filter(subscriptions::status.eq("active"))
+        .count()
+        .get_result(&mut payments_conn)
+        .await
+        .unwrap_or(0);
+
+    let expired_count: i64 = subscriptions::table
+        .filter(subscriptions::status.eq("expired"))
+        .count()
+        .get_result(&mut payments_conn)
+        .await
+        .unwrap_or(0);
+
+    let cancelled_count: i64 = subscriptions::table
+        .filter(subscriptions::status.eq("cancelled"))
+        .count()
+        .get_result(&mut payments_conn)
+        .await
+        .unwrap_or(0);
+
+    // New subscriptions today (started_at >= today_start)
+    let new_today: i64 = subscriptions::table
+        .filter(subscriptions::started_at.ge(today_start))
+        .count()
+        .get_result(&mut payments_conn)
+        .await
+        .unwrap_or(0);
+
+    // Expiring soon (active and expires_at <= 7 days from now)
+    let expiring_soon_count: i64 = subscriptions::table
+        .filter(subscriptions::status.eq("active"))
+        .filter(subscriptions::expires_at.le(seven_days_from_now))
+        .filter(subscriptions::expires_at.ge(Utc::now()))
+        .count()
+        .get_result(&mut payments_conn)
+        .await
+        .unwrap_or(0);
+
+    // Monthly revenue from payments (this month, completed/confirmed)
+    let monthly_revenue_bd: Option<bigdecimal::BigDecimal> = crate::schemas::payments::payments::table
+        .filter(crate::schemas::payments::payments::created_at.ge(month_start))
+        .filter(crate::schemas::payments::payments::status.eq("completed")
+            .or(crate::schemas::payments::payments::status.eq("confirmed")))
+        .select(diesel::dsl::sum(crate::schemas::payments::payments::amount))
+        .first(&mut payments_conn)
+        .await
+        .unwrap_or(None);
+
+    let monthly_revenue = monthly_revenue_bd
+        .map(|bd| bd.to_string().parse::<f64>().unwrap_or(0.0))
+        .unwrap_or(0.0);
+
     let summary = SubscriptionSummary {
         total_subscriptions: total_count as u64,
-        active_subscriptions: active_count,
-        expired_subscriptions: subscriptions_resp.iter().filter(|s| s.status == "expired").count() as u64,
-        cancelled_subscriptions: subscriptions_resp.iter().filter(|s| s.status == "cancelled").count() as u64,
-        new_subscriptions_today: 0, // TODO: Calculate from timestamps
-        expiring_soon: 0, // TODO: Calculate subscriptions expiring in next 7 days
-        monthly_revenue: 0.0, // TODO: Calculate from payments
+        active_subscriptions: active_count as u64,
+        expired_subscriptions: expired_count as u64,
+        cancelled_subscriptions: cancelled_count as u64,
+        new_subscriptions_today: new_today as u64,
+        expiring_soon: expiring_soon_count as u64,
+        monthly_revenue,
     };
 
     info!("Found {} subscriptions (page {} of {})", subscriptions_resp.len(), page, total_pages);

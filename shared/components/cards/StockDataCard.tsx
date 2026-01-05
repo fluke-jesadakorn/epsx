@@ -308,6 +308,80 @@ const StandardStockCard = ({
 };
 
 // ============================================================================
+// STOCK DATA CARD SKELETON (for loading states)
+// ============================================================================
+
+export const StockDataCardSkeleton = ({ className }: { className?: string }) => {
+  return (
+    <div
+      className={cn(
+        'relative w-full max-w-[600px] flex-shrink-0 overflow-visible rounded-3xl',
+        'bg-gradient-to-br from-white via-slate-50 to-gray-100 dark:from-gray-800 dark:via-gray-700 dark:to-gray-900',
+        'border-2 border-slate-300 dark:border-slate-600 shadow-2xl animate-pulse',
+        className
+      )}
+    >
+      {/* Floating rank badge skeleton */}
+      <div className="absolute -top-4 -left-4 h-16 w-16 flex rotate-12 transform items-center justify-center rounded-full border-4 border-white bg-slate-300 dark:bg-slate-600 shadow-2xl z-30" />
+
+      {/* Corner effects */}
+      <div className="bg-gradient-radial absolute top-0 right-0 h-20 w-20 rounded-bl-3xl from-white/40 dark:from-white/10 via-transparent to-transparent opacity-60" />
+      <div className="bg-gradient-radial absolute bottom-0 left-0 h-20 w-20 rounded-tr-3xl from-white/40 dark:from-white/10 via-transparent to-transparent opacity-60" />
+
+      <div className="p-8 pt-16">
+        {/* Header skeleton */}
+        <div className="mb-6 text-center">
+          <div className="mb-3">
+            <div className="mb-1 mx-auto h-3 w-32 rounded bg-slate-300 dark:bg-slate-600" />
+            <div className="mb-2 mx-auto h-8 w-24 rounded bg-slate-300 dark:bg-slate-600" />
+            <div className="mx-auto h-px w-16 bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-500 to-transparent" />
+          </div>
+
+          {/* Progress skeleton */}
+          <div className="mb-6">
+            <div className="mb-2 flex items-center justify-between px-1">
+              <div className="h-3 w-16 rounded bg-slate-300 dark:bg-slate-600" />
+              <div className="h-5 w-8 rounded bg-slate-300 dark:bg-slate-600" />
+            </div>
+            <div className="h-2 rounded-full bg-slate-300 dark:bg-slate-600" />
+          </div>
+
+          {/* Button skeleton */}
+          <div className="flex justify-center">
+            <div className="h-12 w-40 rounded-2xl bg-slate-300 dark:bg-slate-600" />
+          </div>
+        </div>
+
+        {/* Data Display skeletons */}
+        <div className="flex flex-col gap-4">
+          {/* Growth skeleton */}
+          <div className="rounded-3xl border-2 border-white/50 dark:border-gray-600/50 bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-gray-800/80 dark:via-gray-700/60 dark:to-gray-900/40 p-6 text-center shadow-xl backdrop-blur-md">
+            <div className="mb-4 flex items-center justify-center gap-3">
+              <div className="h-6 w-6 rounded bg-slate-300 dark:bg-slate-600" />
+              <div className="h-4 w-12 rounded bg-slate-300 dark:bg-slate-600" />
+            </div>
+            <div className="mb-2 mx-auto h-7 w-24 rounded bg-slate-300 dark:bg-slate-600" />
+            <div className="h-px flex-shrink-0 bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-500 to-transparent" />
+          </div>
+
+          {/* Price skeleton */}
+          <div className="rounded-3xl border-2 border-white/50 dark:border-gray-600/50 bg-gradient-to-br from-white/80 via-white/60 to-white/40 dark:from-gray-800/80 dark:via-gray-700/60 dark:to-gray-900/40 p-6 text-center shadow-xl backdrop-blur-md">
+            <div className="mb-4 flex items-center justify-center gap-3">
+              <div className="h-6 w-6 rounded bg-slate-300 dark:bg-slate-600" />
+              <div className="h-4 w-12 rounded bg-slate-300 dark:bg-slate-600" />
+            </div>
+            <div className="mb-2 mx-auto h-7 w-28 rounded bg-slate-300 dark:bg-slate-600" />
+            <div className="h-px flex-shrink-0 bg-gradient-to-r from-transparent via-slate-300 dark:via-slate-500 to-transparent" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+StockDataCardSkeleton.displayName = 'StockDataCardSkeleton';
+
+// ============================================================================
 // MAIN STOCK DATA CARD COMPONENT
 // ============================================================================
 
@@ -324,3 +398,4 @@ export const StockDataCard = ({
 StockDataCard.displayName = 'StockDataCard';
 
 export default StockDataCard;
+

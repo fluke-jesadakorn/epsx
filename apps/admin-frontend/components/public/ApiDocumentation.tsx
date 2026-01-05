@@ -1,16 +1,16 @@
 'use client';
 
 import {
-    AlertTriangle,
-    BookOpen,
-    ChevronDown,
-    ChevronRight,
-    Code,
-    Copy,
-    ExternalLink,
-    Globe,
-    Key,
-    Shield
+  AlertTriangle,
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
+  Code,
+  Copy,
+  ExternalLink,
+  Globe,
+  Key,
+  Shield
 } from 'lucide-react';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
@@ -304,10 +304,10 @@ export const ApiDocumentation: React.FC = () => {
   };
 
   const getAccessLevelColor = (level: string) => {
-    if (level.includes('Bronze')) {return 'text-amber-600';}
-    if (level.includes('Silver')) {return 'text-gray-500';}
-    if (level.includes('Gold')) {return 'text-yellow-500';}
-    if (level.includes('Platinum')) {return 'text-purple-600';}
+    if (level.includes('Bronze')) { return 'text-amber-600'; }
+    if (level.includes('Silver')) { return 'text-gray-500'; }
+    if (level.includes('Gold')) { return 'text-yellow-500'; }
+    if (level.includes('Platinum')) { return 'text-purple-600'; }
     return 'text-blue-600';
   };
 
@@ -320,10 +320,10 @@ export const ApiDocumentation: React.FC = () => {
           <h1 className="text-3xl font-bold text-gray-900">API Documentation</h1>
         </div>
         <p className="text-lg text-gray-600 mb-6">
-          Complete guide to integrating with the EPSX module-based API platform. 
+          Complete guide to integrating with the EPSX module-based API platform.
           Access financial data, analytics, and trading tools programmatically.
         </p>
-        
+
         {/* Quick Start Banner */}
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-6">
           <div className="flex items-start">
@@ -348,18 +348,18 @@ export const ApiDocumentation: React.FC = () => {
           <Shield className="w-6 h-6 text-blue-600 mr-2" />
           Authentication
         </h2>
-        
+
         <div className="bg-white border rounded-lg p-6">
           <p className="text-gray-600 mb-4">
             All API requests require authentication using an API key in the Authorization header:
           </p>
-          
+
           <div className="bg-gray-900 rounded-lg p-4 mb-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-gray-400 text-sm">cURL Example</span>
               <button
                 onClick={() => copyToClipboard(
-                  'curl -H "Authorization: Bearer YOUR_API_KEY" https://api.epsx.com/v1/stock-ranking/rankings',
+                  'curl -H "Authorization: Bearer YOUR_API_KEY" https://api.epsx.com/stock-ranking/rankings',
                   'cURL example'
                 )}
                 className="text-gray-400 hover:text-white"
@@ -369,10 +369,10 @@ export const ApiDocumentation: React.FC = () => {
             </div>
             <code className="text-green-400 text-sm font-mono">
               curl -H &quot;Authorization: Bearer YOUR_API_KEY&quot; \
-              <br />     https://api.epsx.com/v1/stock-ranking/rankings
+              <br />     https://api.epsx.com/stock-ranking/rankings
             </code>
           </div>
-          
+
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div className="flex items-start">
               <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 mr-2" />
@@ -396,14 +396,14 @@ export const ApiDocumentation: React.FC = () => {
           <Globe className="w-6 h-6 text-blue-600 mr-2" />
           Base URL
         </h2>
-        
+
         <div className="bg-white border rounded-lg p-6">
           <div className="flex items-center justify-between">
             <code className="text-lg font-mono text-gray-900 bg-gray-100 px-3 py-2 rounded">
-              https://api.epsx.com/v1/
+              https://api.epsx.com
             </code>
             <button
-              onClick={() => copyToClipboard('https://api.epsx.com/v1/', 'Base URL')}
+              onClick={() => copyToClipboard('https://api.epsx.com', 'Base URL')}
               className="text-gray-400 hover:text-gray-600"
             >
               <Copy className="w-5 h-5" />
@@ -418,7 +418,7 @@ export const ApiDocumentation: React.FC = () => {
       {/* Rate Limits Section */}
       <section className="mb-8">
         <h2 className="text-2xl font-bold text-gray-900 mb-4">Rate Limits</h2>
-        
+
         <div className="bg-white border rounded-lg p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[
@@ -437,7 +437,7 @@ export const ApiDocumentation: React.FC = () => {
               </div>
             ))}
           </div>
-          
+
           <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
             <h4 className="font-medium text-blue-900 mb-2">Rate Limit Headers</h4>
             <div className="space-y-1 text-sm text-blue-800 font-mono">
@@ -455,7 +455,7 @@ export const ApiDocumentation: React.FC = () => {
           <Code className="w-6 h-6 text-blue-600 mr-2" />
           API Modules
         </h2>
-        
+
         <div className="space-y-4">
           {moduleDocumentation.map((module) => (
             <div key={module.name} className="bg-white border rounded-lg overflow-hidden">
@@ -479,14 +479,14 @@ export const ApiDocumentation: React.FC = () => {
                   )}
                 </div>
               </button>
-              
+
               {expandedModule === module.name && (
                 <div className="border-t bg-gray-50">
                   <div className="p-6 space-y-4">
                     {module.endpoints.map((endpoint, index) => {
                       const endpointKey = `${module.name}-${index}`;
                       const isExpanded = expandedEndpoint === endpointKey;
-                      
+
                       return (
                         <div key={index} className="bg-white border rounded-lg overflow-hidden">
                           <button
@@ -511,7 +511,7 @@ export const ApiDocumentation: React.FC = () => {
                             </div>
                             <p className="text-sm text-gray-600 mt-2">{endpoint.description}</p>
                           </button>
-                          
+
                           {isExpanded && (
                             <div className="border-t bg-gray-50 p-4">
                               <div className="space-y-4">
@@ -535,11 +535,10 @@ export const ApiDocumentation: React.FC = () => {
                                               <td className="p-2 font-mono text-blue-600">{param.name}</td>
                                               <td className="p-2 text-gray-600">{param.type}</td>
                                               <td className="p-2">
-                                                <span className={`px-2 py-1 rounded text-xs ${
-                                                  param.required 
-                                                    ? 'bg-red-100 text-red-800' 
-                                                    : 'bg-gray-100 text-gray-600'
-                                                }`}>
+                                                <span className={`px-2 py-1 rounded text-xs ${param.required
+                                                  ? 'bg-red-100 text-red-800'
+                                                  : 'bg-gray-100 text-gray-600'
+                                                  }`}>
                                                   {param.required ? 'Required' : 'Optional'}
                                                 </span>
                                               </td>
@@ -551,7 +550,7 @@ export const ApiDocumentation: React.FC = () => {
                                     </div>
                                   </div>
                                 )}
-                                
+
                                 {/* Example Response */}
                                 <div>
                                   <div className="flex items-center justify-between mb-2">
@@ -569,7 +568,7 @@ export const ApiDocumentation: React.FC = () => {
                                     </pre>
                                   </div>
                                 </div>
-                                
+
                                 {/* cURL Example */}
                                 <div>
                                   <div className="flex items-center justify-between mb-2">
@@ -613,7 +612,7 @@ export const ApiDocumentation: React.FC = () => {
       {/* Error Codes Section */}
       <section className="mb-8">
         <h2 className="text-2xl font-bold text-gray-900 mb-4">Error Codes</h2>
-        
+
         <div className="bg-white border rounded-lg p-6">
           <div className="space-y-4">
             {[
@@ -626,12 +625,11 @@ export const ApiDocumentation: React.FC = () => {
               { code: 500, status: 'Internal Server Error', description: 'Server error - contact support' }
             ].map((error) => (
               <div key={error.code} className="flex items-center space-x-4 p-3 border rounded">
-                <code className={`px-2 py-1 rounded text-sm font-mono ${
-                  error.code < 300 ? 'bg-green-100 text-green-800' :
+                <code className={`px-2 py-1 rounded text-sm font-mono ${error.code < 300 ? 'bg-green-100 text-green-800' :
                   error.code < 400 ? 'bg-blue-100 text-blue-800' :
-                  error.code < 500 ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-red-100 text-red-800'
-                }`}>
+                    error.code < 500 ? 'bg-yellow-100 text-yellow-800' :
+                      'bg-red-100 text-red-800'
+                  }`}>
                   {error.code}
                 </code>
                 <div>
@@ -647,7 +645,7 @@ export const ApiDocumentation: React.FC = () => {
       {/* Support Section */}
       <section>
         <h2 className="text-2xl font-bold text-gray-900 mb-4">Support</h2>
-        
+
         <div className="bg-white border rounded-lg p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -661,7 +659,7 @@ export const ApiDocumentation: React.FC = () => {
                 <div>📚 Knowledge Base: docs.epsx.com</div>
               </div>
             </div>
-            
+
             <div>
               <h3 className="font-semibold text-gray-900 mb-2">Status & Updates</h3>
               <p className="text-gray-600 mb-4">

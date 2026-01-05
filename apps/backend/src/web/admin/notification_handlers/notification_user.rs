@@ -65,7 +65,7 @@ async fn authenticate_from_headers(
 /// Get user notifications (authenticated user only)
 #[utoipa::path(
     get,
-    path = "/api/v1/auth/notifications",
+    path = "/api/auth/notifications",
     tag = "notifications",
     params(
         ("page" = Option<u32>, Query, description = "Page number"),
@@ -156,7 +156,7 @@ pub async fn get_user_notifications_handler(
 /// Mark notification as read
 #[utoipa::path(
     put,
-    path = "/api/v1/auth/notifications/{id}/read",
+    path = "/api/auth/notifications/{id}/read",
     tag = "notifications",
     params(
         ("id" = String, Path, description = "Notification ID")
@@ -217,7 +217,7 @@ pub async fn mark_notification_read_handler(
 /// Delete user notification (soft delete)
 #[utoipa::path(
     delete,
-    path = "/api/v1/auth/notifications/{id}",
+    path = "/api/auth/notifications/{id}",
     tag = "notifications",
     params(
         ("id" = String, Path, description = "Notification ID")
@@ -275,7 +275,7 @@ pub async fn delete_notification_handler(
 /// Get unread notification count
 #[utoipa::path(
     get,
-    path = "/api/v1/auth/notifications/unread-count",
+    path = "/api/auth/notifications/unread-count",
     tag = "notifications",
     responses(
         (status = 200, description = "Unread count retrieved successfully"),

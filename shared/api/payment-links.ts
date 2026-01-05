@@ -18,8 +18,8 @@ const getAdminApiBase = () => {
         return '/api/admin';
     }
     return process.env.NEXT_PUBLIC_BACKEND_URL
-        ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/admin`
-        : 'http://localhost:8080/api/v1/admin';
+        ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/admin`
+        : 'http://localhost:8080/api/admin';
 };
 
 // Public API base path
@@ -28,8 +28,8 @@ const getPublicApiBase = () => {
         return '/api/public';
     }
     return process.env.NEXT_PUBLIC_BACKEND_URL
-        ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/public`
-        : 'http://localhost:8080/api/v1/public';
+        ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/public`
+        : 'http://localhost:8080/api/public';
 };
 
 /**

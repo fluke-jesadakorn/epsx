@@ -7,10 +7,10 @@ use serde_json::{json, Value};
 use crate::web::auth::AppState;
 
 /// Get public pricing plans (no authentication required)
-/// GET /api/v1/public/plans
+/// GET /api/public/plans
 #[utoipa::path(
     get,
-    path = "/api/v1/public/plans",
+    path = "/api/public/plans",
     tag = "public",
     responses(
         (status = 200, description = "Successfully retrieved subscription plans"),
@@ -113,10 +113,10 @@ pub async fn get_public_plans(State(app_state): State<AppState>) -> Result<Json<
 }
 
 /// Get a single public plan by ID (no authentication required)
-/// GET /api/v1/public/plans/:id
+/// GET /api/public/plans/:id
 #[utoipa::path(
     get,
-    path = "/api/v1/public/plans/{id}",
+    path = "/api/public/plans/{id}",
     tag = "public",
     params(
         ("id" = String, Path, description = "Plan UUID")

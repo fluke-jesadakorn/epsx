@@ -86,9 +86,9 @@ export function UserManagementDropdown({ className = '', compact = false }: User
             },
             {
               icon: Settings,
-              label: 'Settings',
-              href: '/settings',
-              description: 'App preferences and configuration'
+              label: 'Account',
+              href: '/account',
+              description: 'Manage your account settings'
             },
             {
               icon: BarChart3,

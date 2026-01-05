@@ -1,6 +1,6 @@
 import { sleep } from "bun";
 
-const API_URL = "http://localhost:8080/api/v1/developer-portal/stats";
+const API_URL = "http://localhost:8080/api/developer-portal/stats";
 // Using an endpoint that hits the middleware stack
 
 const TOTAL_REQUESTS = 70;

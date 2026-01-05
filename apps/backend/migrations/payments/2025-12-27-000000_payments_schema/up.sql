@@ -20,7 +20,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
 -- PAYMENTS TABLE
 -- ============================================================================
 
-CREATE TABLE payments (
+CREATE TABLE IF NOT EXISTS payments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
     -- Payment identification
@@ -67,18 +67,18 @@ CREATE TABLE payments (
 );
 
 -- Indexes
-CREATE INDEX idx_payments_wallet ON payments(wallet_address);
-CREATE INDEX idx_payments_status ON payments(status);
-CREATE INDEX idx_payments_plan ON payments(plan_id);
-CREATE INDEX idx_payments_tx_hash ON payments(transaction_hash);
-CREATE INDEX idx_payments_created ON payments(created_at DESC);
-CREATE INDEX idx_payments_expires ON payments(expires_at) WHERE expires_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_payments_wallet ON payments(wallet_address);
+CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status);
+CREATE INDEX IF NOT EXISTS idx_payments_plan ON payments(plan_id);
+CREATE INDEX IF NOT EXISTS idx_payments_tx_hash ON payments(transaction_hash);
+CREATE INDEX IF NOT EXISTS idx_payments_created ON payments(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_payments_expires ON payments(expires_at) WHERE expires_at IS NOT NULL;
 
 -- ============================================================================
 -- SUBSCRIPTIONS TABLE
 -- ============================================================================
 
-CREATE TABLE subscriptions (
+CREATE TABLE IF NOT EXISTS subscriptions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 
     -- Subscription identification
@@ -114,18 +114,18 @@ CREATE TABLE subscriptions (
 );
 
 -- Indexes
-CREATE INDEX idx_subs_wallet ON subscriptions(wallet_address);
-CREATE INDEX idx_subs_plan ON subscriptions(plan_id);
-CREATE INDEX idx_subs_status ON subscriptions(status);
-CREATE INDEX idx_subs_payment ON subscriptions(payment_id);
-CREATE INDEX idx_subs_expires ON subscriptions(expires_at);
-CREATE INDEX idx_subs_active ON subscriptions(wallet_address, plan_id) WHERE status = 'active';
+CREATE INDEX IF NOT EXISTS idx_subs_wallet ON subscriptions(wallet_address);
+CREATE INDEX IF NOT EXISTS idx_subs_plan ON subscriptions(plan_id);
+CREATE INDEX IF NOT EXISTS idx_subs_status ON subscriptions(status);
+CREATE INDEX IF NOT EXISTS idx_subs_payment ON subscriptions(payment_id);
+CREATE INDEX IF NOT EXISTS idx_subs_expires ON subscriptions(expires_at);
+CREATE INDEX IF NOT EXISTS idx_subs_active ON subscriptions(wallet_address, plan_id) WHERE status = 'active';
 
 -- ============================================================================
 -- STOCK RANKING ASSIGNMENTS TABLE
 -- ============================================================================
 
-CREATE TABLE stock_ranking_assignments (
+CREATE TABLE IF NOT EXISTS stock_ranking_assignments (
     assignment_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     wallet_address VARCHAR(42) NOT NULL,
     package_id VARCHAR(255) NOT NULL,
@@ -142,9 +142,9 @@ CREATE TABLE stock_ranking_assignments (
 );
 
 -- Indexes
-CREATE INDEX idx_stock_wallet ON stock_ranking_assignments(wallet_address);
-CREATE INDEX idx_stock_package ON stock_ranking_assignments(package_id);
-CREATE INDEX idx_stock_active ON stock_ranking_assignments(is_active, expires_at);
+CREATE INDEX IF NOT EXISTS idx_stock_wallet ON stock_ranking_assignments(wallet_address);
+CREATE INDEX IF NOT EXISTS idx_stock_package ON stock_ranking_assignments(package_id);
+CREATE INDEX IF NOT EXISTS idx_stock_active ON stock_ranking_assignments(is_active, expires_at);
 
 -- ============================================================================
 -- TRIGGER FOR updated_at
@@ -158,10 +158,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER payment_updated_at
-    BEFORE UPDATE ON payments
-    FOR EACH ROW
-    EXECUTE FUNCTION update_payment_updated_at();
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'payment_updated_at') THEN
+        CREATE TRIGGER payment_updated_at
+            BEFORE UPDATE ON payments
+            FOR EACH ROW
+            EXECUTE FUNCTION update_payment_updated_at();
+    END IF;
+END $$;
 
 -- ============================================================================
 -- COMMENTS

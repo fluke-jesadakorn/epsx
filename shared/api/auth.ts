@@ -148,7 +148,7 @@ export class AuthAPIClient {
 
   /**
    * Request authentication challenge for wallet
-   * Route: POST /api/v1/auth/web3/challenge
+   * Route: POST /api/auth/web3/challenge
    */
   async getWeb3Challenge(request: Web3ChallengeRequest): Promise<Web3Challenge> {
     const response = await this.client.post<Web3ChallengeResponse>(
@@ -175,7 +175,7 @@ export class AuthAPIClient {
 
   /**
    * Verify signed challenge and authenticate
-   * Route: POST /api/v1/auth/web3/verify
+   * Route: POST /api/auth/web3/verify
    */
   async verifyWeb3Signature(request: Web3VerifyRequest): Promise<Web3VerifyResponse> {
     const response = await this.client.post<Web3VerifyResponse>(
@@ -246,7 +246,7 @@ export class AuthAPIClient {
 
   /**
    * Validate current session
-   * Route: GET /api/v1/auth/web3/session
+   * Route: GET /api/auth/web3/session
    */
   async validateSession(request?: SessionValidationRequest): Promise<SessionValidationResponse> {
     const response = await this.client.get<SessionValidationResponse>(
@@ -269,7 +269,7 @@ export class AuthAPIClient {
 
   /**
    * Verify session with detailed information
-   * Route: POST /api/v1/auth/session/verify
+   * Route: POST /api/auth/session/verify
    */
   async verifySession(token?: string): Promise<SessionValidationResponse> {
     const response = await this.client.post<SessionValidationResponse>(
@@ -292,7 +292,7 @@ export class AuthAPIClient {
 
   /**
    * Refresh authentication token
-   * Route: POST /api/v1/auth/session/refresh
+   * Route: POST /api/auth/session/refresh
    */
   async refreshToken(refreshToken: string): Promise<TokenRefreshResponse> {
     const response = await this.client.post<TokenRefreshResponse>(
@@ -376,7 +376,7 @@ export class AuthAPIClient {
 
   /**
    * Logout and invalidate session
-   * Route: DELETE /api/v1/auth/web3/logout
+   * Route: DELETE /api/auth/web3/logout
    */
   async logout(): Promise<LogoutResponse> {
     const response = await this.client.delete<LogoutResponse>(
@@ -411,7 +411,7 @@ export class AuthAPIClient {
 
   /**
    * Get current user profile
-   * Route: GET /api/v1/auth/users/profile
+   * Route: GET /api/auth/users/profile
    */
   async getUserProfile(): Promise<UserProfile> {
     const response = await this.client.get<UserProfileResponse>(
@@ -434,7 +434,7 @@ export class AuthAPIClient {
 
   /**
    * Update user profile
-   * Route: PUT /api/v1/auth/users/profile
+   * Route: PUT /api/auth/users/profile
    */
   async updateUserProfile(updates: Partial<UserProfile>): Promise<{ success: boolean; message: string }> {
     const response = await this.client.put(
@@ -457,7 +457,7 @@ export class AuthAPIClient {
 
   /**
    * Get current user permissions
-   * Route: GET /api/v1/auth/users/permissions
+   * Route: GET /api/auth/users/permissions
    */
   async getUserPermissions(): Promise<{
     permissions: string[];

@@ -81,12 +81,12 @@ CREATE INDEX idx_api_key_usage_key_time ON api_key_usage_logs(api_key_id, reques
 
 -- Seed default modules
 INSERT INTO api_modules (name, display_name, description, category, base_path, default_rate_limit, access_levels, endpoints) VALUES
-('stock-ranking', 'Stock Ranking', 'Access stock ranking and performance data', 'analytics', '/api/v1/modules/stock-ranking', 60, 
+('stock-ranking', 'Stock Ranking', 'Access stock ranking and performance data', 'analytics', '/api/modules/stock-ranking', 60, 
  '{"bronze": {"requests_per_minute": 10, "requests_per_day": 100}, "silver": {"requests_per_minute": 30, "requests_per_day": 500}, "gold": {"requests_per_minute": 100, "requests_per_day": 5000}, "platinum": {"requests_per_minute": 500, "requests_per_day": 50000}, "enterprise": {"requests_per_minute": -1, "requests_per_day": -1}}',
  '[{"path": "/rankings", "method": "GET", "description": "Get stock rankings", "access_level_required": "bronze"}, {"path": "/rankings/:id", "method": "GET", "description": "Get single stock details", "access_level_required": "bronze"}]'),
-('market-data', 'Market Data', 'Real-time and historical market data', 'data', '/api/v1/modules/market-data', 30,
+('market-data', 'Market Data', 'Real-time and historical market data', 'data', '/api/modules/market-data', 30,
  '{"bronze": {"requests_per_minute": 5, "requests_per_day": 50}, "silver": {"requests_per_minute": 20, "requests_per_day": 300}, "gold": {"requests_per_minute": 60, "requests_per_day": 3000}, "platinum": {"requests_per_minute": 300, "requests_per_day": 30000}, "enterprise": {"requests_per_minute": -1, "requests_per_day": -1}}',
  '[{"path": "/overview", "method": "GET", "description": "Market overview", "access_level_required": "bronze"}, {"path": "/trends", "method": "GET", "description": "Market trends", "access_level_required": "silver"}]'),
-('analytics', 'Analytics API', 'Advanced analytics and insights', 'analytics', '/api/v1/modules/analytics', 60,
+('analytics', 'Analytics API', 'Advanced analytics and insights', 'analytics', '/api/modules/analytics', 60,
  '{"bronze": {"requests_per_minute": 10, "requests_per_day": 100}, "silver": {"requests_per_minute": 30, "requests_per_day": 500}, "gold": {"requests_per_minute": 100, "requests_per_day": 5000}, "platinum": {"requests_per_minute": 500, "requests_per_day": 50000}, "enterprise": {"requests_per_minute": -1, "requests_per_day": -1}}',
  '[{"path": "/performance", "method": "GET", "description": "Performance analytics", "access_level_required": "bronze"}, {"path": "/portfolio", "method": "GET", "description": "Portfolio analysis", "access_level_required": "gold"}]');

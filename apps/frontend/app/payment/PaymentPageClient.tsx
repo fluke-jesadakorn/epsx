@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 
 // Dynamically import payment components to avoid SSR issues with wallet
 const OneClickPayment = dynamic(
@@ -25,6 +25,11 @@ interface PaymentPageClientProps {
 }
 
 export function PaymentPageClient({ selectedPackageId, context }: PaymentPageClientProps) {
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   // Determine if this is a dynamic link payment
   const isDynamicPayment = !!(context?.planId || context?.groupId || context?.linkSlug);
 

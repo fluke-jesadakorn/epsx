@@ -16,7 +16,7 @@ use utoipa::{
     info(
         title = "EPSX Data Analytics Platform API",
         version = "1.0.0",
-        description = "EPSX is a comprehensive data analytics platform providing real-time market data, EPS rankings, and advanced financial analysis tools.\n\n## Authentication\n\nThis API uses Web3 authentication (Sign-In with Ethereum). Most endpoints require a Bearer token obtained through the Web3 authentication flow.\n\n### Authentication Flow:\n1. **Generate Challenge**: `POST /api/v1/auth/web3/challenge`\n2. **Sign Message**: Sign the SIWE message with your wallet\n3. **Verify Signature**: `POST /api/v1/auth/web3/verify` to receive Bearer token\n4. **Use Token**: Include `Authorization: Bearer <token>` in subsequent requests",
+        description = "EPSX is a comprehensive data analytics platform providing real-time market data, EPS rankings, and advanced financial analysis tools.\n\n## Authentication\n\nThis API uses Web3 authentication (Sign-In with Ethereum). Most endpoints require a Bearer token obtained through the Web3 authentication flow.\n\n### Authentication Flow:\n1. **Generate Challenge**: `POST /api/auth/web3/challenge`\n2. **Sign Message**: Sign the SIWE message with your wallet\n3. **Verify Signature**: `POST /api/auth/web3/verify` to receive Bearer token\n4. **Use Token**: Include `Authorization: Bearer <token>` in subsequent requests",
         contact(
             name = "EPSX Team",
             url = "https://epsx.io",

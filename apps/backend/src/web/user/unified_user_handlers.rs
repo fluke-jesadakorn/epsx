@@ -11,9 +11,10 @@
 //! - No permission logic in handlers - middleware handles auth
 
 use axum::{
-    extract::{Path, Query, Request, State},
+    extract::{Path, Query, Request, State, Extension},
     Json,
 };
+use crate::web::middleware::OpenIDUserContext;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
 use serde::{Deserialize, Serialize};
@@ -43,6 +44,28 @@ pub struct UserProfile {
 #[derive(Debug, Deserialize, ToSchema, utoipa::IntoParams)]
 pub struct UserPermissionsQuery {
     pub include_expired: Option<bool>,
+}
+
+/// Access Overview Data
+#[derive(Debug, Serialize, ToSchema)]
+pub struct AccessOverviewData {
+    pub current_tier: String,
+    pub groups: Vec<AccessGroupData>,
+    pub direct_permissions: Vec<DirectPermissionData>,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct AccessGroupData {
+    pub name: String,
+    pub expires_at: Option<String>,
+    pub permissions: Vec<String>,
+    pub source_type: String,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct DirectPermissionData {
+    pub permission: String,
+    pub expires_at: Option<String>,
 }
 
 /// Get current user profile
@@ -145,6 +168,147 @@ pub async fn get_current_user_profile(
         user_profile,
         meta,
     )))
+}
+
+/// Get user access overview
+/// Detailed breakdown of permissions by source (Plan/Group/Direct)
+#[utoipa::path(
+    get,
+    path = "/api/wallet/access-overview",
+    responses(
+        (status = 200, description = "Access overview retrieved", body = UnifiedApiResponse<AccessOverviewData>),
+        (status = 401, description = "Authentication required"),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "user",
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn get_user_access_overview(
+    State(_app_state): State<AppState>,
+    request: Request,
+) -> Result<Json<UnifiedApiResponse<AccessOverviewData>>, Json<UnifiedApiResponse<()>>> {
+    // Extract user context
+    let user_context = match require_user_context(&request) {
+        Ok(context) => context,
+        Err(_) => return Err(Json(UnifiedApiResponse::auth_error("Valid Bearer token required"))),
+    };
+
+    info!("Getting access overview for user: {}", user_context.wallet_address);
+
+    let mut conn = match _app_state.db_pool.get().await {
+        Ok(c) => c,
+        Err(e) => {
+            error!("Failed to get database connection: {}", e);
+            return Err(Json(UnifiedApiResponse::error(500, "Database error", "Failed to connect to database")));
+        }
+    };
+
+    // Define the row structure for the stored procedure
+    #[derive(QueryableByName)]
+    #[allow(dead_code)]
+    struct PermissionDetailRow {
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        pub permission_string: String,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        pub permission_id: Option<String>,
+        #[diesel(sql_type = diesel::sql_types::Text)]
+        pub source_type: String,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        pub source_id: Option<String>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+        pub source_name: Option<String>,
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+        pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
+        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+        pub granted_at: chrono::DateTime<chrono::Utc>,
+        #[diesel(sql_type = diesel::sql_types::Bool)]
+        pub is_permanent: bool,
+    }
+
+    // Call the stored procedure
+    let rows = diesel::sql_query(
+        r#"
+        SELECT
+            permission_string,
+            permission_id::text,
+            source_type,
+            source_id::text,
+            source_name,
+            expires_at,
+            granted_at,
+            is_permanent
+        FROM public.get_wallet_permissions_detailed_working($1)
+        "#
+    )
+    .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address.to_lowercase())
+    .load::<PermissionDetailRow>(&mut conn)
+    .await
+    .map_err(|e| {
+        error!("Database error fetching detailed permissions: {}", e);
+        Json(UnifiedApiResponse::error(500, "Database error", "Failed to fetch permissions"))
+    })?;
+
+    // Process results
+    use std::collections::HashMap;
+
+    // Group by source_id (or source_name if ID missing) for groups
+    let mut groups_map: HashMap<String, AccessGroupData> = HashMap::new();
+    let mut direct_permissions: Vec<DirectPermissionData> = Vec::new();
+
+    for row in rows {
+        if row.source_type == "group" {
+            let key = row.source_id.clone().unwrap_or_else(|| row.source_name.clone().unwrap_or("Unknown Group".to_string()));
+            
+            let entry = groups_map.entry(key).or_insert(AccessGroupData {
+                name: row.source_name.unwrap_or("Unknown Group".to_string()),
+                expires_at: row.expires_at.map(|d| d.to_rfc3339()),
+                permissions: Vec::new(),
+                source_type: "group".to_string(), // Default to group, could verify if it's a plan
+            });
+            
+            // Check if it looks like a plan (e.g., has price/billing data - need join for that, simplistic check here)
+            // Just assume group for now.
+            
+            // If row has expiry shorter than group expiry, update group expiry?
+            // Actually usually group membership has expiry.
+            // unique permission might override?
+            // Simplified: Use the expiry from the row (which likely comes from group membership)
+            // If multiple permissions have different expiries for same group, take the soonest?
+            // But usually get_wallet_permissions_detailed_working returns the effective expiry for that permission.
+            // Group membership expiry applies to all permissions in group.
+            
+            if !entry.permissions.contains(&row.permission_string) {
+                entry.permissions.push(row.permission_string);
+            }
+        } else {
+            direct_permissions.push(DirectPermissionData {
+                permission: row.permission_string,
+                expires_at: row.expires_at.map(|d| d.to_rfc3339()),
+            });
+        }
+    }
+
+    let groups: Vec<AccessGroupData> = groups_map.into_values().collect();
+
+    // Determine current tier
+    let current_tier = if groups.is_empty() {
+        "Free User".to_string()
+    } else {
+        // Simple logic: Use the name of the first group found
+        // Ideally should have a priority system
+        groups.get(0).map(|g| g.name.clone()).unwrap_or("Standard User".to_string())
+    };
+
+    let overview_data = AccessOverviewData {
+        current_tier,
+        groups,
+        direct_permissions,
+    };
+
+    // Success response
+    Ok(Json(UnifiedApiResponse::success(overview_data)))
 }
 
 /// Get user permissions
@@ -269,15 +433,9 @@ pub struct UpdateUserPreferencesRequest {
 )]
 pub async fn update_user_preferences(
     State(_app_state): State<AppState>,
-    request: Request,
+    Extension(user_context): Extension<OpenIDUserContext>,
     Json(update_request): Json<UpdateUserPreferencesRequest>,
 ) -> Result<Json<UnifiedApiResponse<Value>>, Json<UnifiedApiResponse<()>>> {
-    // Extract user context from validated Bearer token
-    let user_context = match require_user_context(&request) {
-        Ok(context) => context,
-        Err(_) => return Err(Json(UnifiedApiResponse::auth_error("Valid Bearer token required"))),
-    };
-
     info!(
         "Updating preferences for user: {}",
         user_context.wallet_address
@@ -485,4 +643,164 @@ pub async fn get_user_by_wallet_address(
         user_profile,
         meta,
     )))
+}
+/// Notification preferences structure
+#[derive(Debug, Serialize, Deserialize, ToSchema, Default, Clone)]
+pub struct NotificationPreferences {
+    pub trading: bool,
+    pub security: bool,
+    pub account: bool,
+    pub system: bool,
+    pub marketing: bool,
+}
+
+#[derive(Debug, Serialize, ToSchema)]
+pub struct NotificationPreferencesResponse {
+    pub preferences: NotificationPreferences,
+}
+
+/// Get user notification preferences
+#[utoipa::path(
+    get,
+    path = "/api/notifications/preferences",
+    responses(
+        (status = 200, description = "Preferences retrieved", body = UnifiedApiResponse<NotificationPreferencesResponse>),
+        (status = 401, description = "Authentication required"),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "user",
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn get_user_notification_preferences(
+    State(_app_state): State<AppState>,
+    Extension(user_context): Extension<OpenIDUserContext>,
+) -> Result<Json<UnifiedApiResponse<NotificationPreferencesResponse>>, Json<UnifiedApiResponse<()>>> {
+    // User context already validated by middleware
+
+    let mut conn = match _app_state.db_pool.get().await {
+        Ok(c) => c,
+        Err(e) => {
+            error!("Failed to get database connection: {}", e);
+            return Err(Json(UnifiedApiResponse::error(500, "Database error", "Failed to connect to database")));
+        }
+    };
+
+    #[derive(QueryableByName)]
+    struct MetadataRow {
+        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
+        wallet_metadata: Option<serde_json::Value>,
+    }
+
+    let result = diesel::sql_query(
+        "SELECT wallet_metadata FROM wallet_users WHERE wallet_address = $1"
+    )
+    .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
+    .get_result::<MetadataRow>(&mut conn)
+    .await
+    .optional();
+
+    let preferences = match result {
+        Ok(Some(row)) => {
+            if let Some(metadata) = row.wallet_metadata {
+                if let Some(prefs) = metadata.get("preferences").and_then(|p| p.get("notification_preferences")) {
+                    serde_json::from_value(prefs.clone()).unwrap_or_default()
+                } else {
+                    NotificationPreferences::default()
+                }
+            } else {
+                NotificationPreferences::default()
+            }
+        },
+        _ => NotificationPreferences::default(),
+    };
+
+    Ok(Json(UnifiedApiResponse::success(NotificationPreferencesResponse {
+        preferences,
+    })))
+}
+
+/// Update user notification preferences
+#[utoipa::path(
+    post,
+    path = "/api/notifications/preferences",
+    request_body = NotificationPreferences,
+    responses(
+        (status = 200, description = "Preferences updated", body = UnifiedApiResponse<NotificationPreferencesResponse>),
+        (status = 401, description = "Authentication required"),
+        (status = 500, description = "Internal server error")
+    ),
+    tag = "user",
+    security(
+        ("bearer_auth" = [])
+    )
+)]
+pub async fn update_user_notification_preferences(
+    State(_app_state): State<AppState>,
+    Extension(user_context): Extension<OpenIDUserContext>,
+    Json(preferences): Json<NotificationPreferences>,
+) -> Result<Json<UnifiedApiResponse<NotificationPreferencesResponse>>, Json<UnifiedApiResponse<()>>> {
+    // User context already validated by middleware
+
+    let mut conn = match _app_state.db_pool.get().await {
+        Ok(c) => c,
+        Err(e) => {
+            error!("Failed to get database connection: {}", e);
+            return Err(Json(UnifiedApiResponse::error(500, "Database error", "Failed to connect to database")));
+        }
+    };
+
+    // Construct the partial JSON update
+    // We want to update wallet_metadata.preferences.notification_preferences
+    // simpler to first get current metadata, merge, and update, BUT concurrency...
+    // Postgres jsonb_set is better.
+    // logical path: wallet_metadata['preferences']['notification_preferences'] = new_prefs
+
+    // We can do a deep merge or just ensure the path exists.
+    // For simplicity, let's use a specialized query to ensure structure.
+    
+    // First ensure 'preferences' object exists
+    let _ = diesel::sql_query(
+        r#"
+        UPDATE wallet_users 
+        SET wallet_metadata = jsonb_set(
+            COALESCE(wallet_metadata, '{}'::jsonb), 
+            '{preferences}', 
+            COALESCE(wallet_metadata->'preferences', '{}'::jsonb), 
+            true
+        )
+        WHERE wallet_address = $1
+        "#
+    )
+    .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
+    .execute(&mut conn)
+    .await;
+
+    // Then update notification_preferences
+    let update_result = diesel::sql_query(
+        r#"
+        UPDATE wallet_users
+        SET wallet_metadata = jsonb_set(
+            wallet_metadata,
+            '{preferences,notification_preferences}',
+            $2::jsonb,
+            true
+        ),
+        updated_at = NOW()
+        WHERE wallet_address = $1
+        "#
+    )
+    .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
+    .bind::<diesel::sql_types::Jsonb, _>(serde_json::to_value(&preferences).unwrap())
+    .execute(&mut conn)
+    .await;
+
+    if update_result.is_err() {
+        return Err(Json(UnifiedApiResponse::error(500, "Database error", "Failed to update preferences")));
+    }
+
+    Ok(Json(UnifiedApiResponse::success(NotificationPreferencesResponse {
+        preferences,
+    })))
 }

@@ -750,7 +750,7 @@ export const DeveloperPortal: React.FC = () => {
                   <code className="block bg-gray-900 text-green-400 p-3 rounded text-sm font-mono">
                     curl -H &quot;Authorization: Bearer YOUR_API_KEY&quot; \
                     <br />{' '}
-                    https://api.epsx.com/v1/modules/stock-ranking/rankings
+                    https://api.epsx.com/modules/stock-ranking/rankings
                   </code>
                 </div>
               </div>
@@ -763,7 +763,7 @@ export const DeveloperPortal: React.FC = () => {
                 </h3>
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
                   <code className="text-sm font-mono text-gray-900 dark:text-gray-100">
-                    https://api.epsx.com/v1/
+                    https://api.epsx.com
                   </code>
                 </div>
               </div>

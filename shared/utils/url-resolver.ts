@@ -11,7 +11,7 @@
  * - Type-safe URL construction
  */
 
-import { serverEnv, clientEnv, isDev, isProd, isStaging } from '../env/schema';
+import { clientEnv, isDev, isProd, isStaging, serverEnv } from '../env/schema';
 
 // ============================================================================
 // Modern Enum System for Type-Safe URL Resolution
@@ -63,17 +63,17 @@ export enum APIPath {
   AUTH_SESSION = 'api/auth/session',
   AUTH_LOGOUT = 'api/auth/logout',
   AUTH_CALLBACK = 'api/auth/callback/epsx-backend',
-  
+
   // API paths
   HEALTH = 'health',
-  USERS = 'api/v1/users',
-  NOTIFICATIONS = 'api/v1/notifications',
-  ANALYTICS = 'api/v1/analytics',
-  
+  USERS = 'api/users',
+  NOTIFICATIONS = 'api/notifications',
+  ANALYTICS = 'api/analytics',
+
   // Admin paths
-  ADMIN = 'api/v1/admin',
-  ADMIN_USERS = 'api/v1/admin/users',
-  ADMIN_PERMISSIONS = 'api/v1/admin/permissions'
+  ADMIN = 'api/admin',
+  ADMIN_USERS = 'api/admin/users',
+  ADMIN_PERMISSIONS = 'api/admin/permissions'
 }
 
 // Legacy type for backward compatibility - will be deprecated
@@ -91,7 +91,7 @@ export type URLContextLegacy = 'server' | 'client';
  */
 export function getBackendUrl(context: URLContext | URLContextLegacy = URLContext.SERVER): string {
   const resolvedContext = typeof context === 'string' ? context : context;
-  
+
   if (resolvedContext === 'server') {
     // Server-side: Use server-only environment variables
     return serverEnv.BACKEND_URL || getDefaultBackendUrl();
@@ -108,7 +108,7 @@ export function getBackendUrl(context: URLContext | URLContextLegacy = URLContex
  */
 export function getFrontendUrl(context: URLContext | URLContextLegacy = URLContext.SERVER): string {
   const resolvedContext = typeof context === 'string' ? context : context;
-  
+
   if (resolvedContext === 'server') {
     // Server-side: Use server-only environment variables
     return serverEnv.FRONTEND_URL || getDefaultFrontendUrl();
@@ -125,7 +125,7 @@ export function getFrontendUrl(context: URLContext | URLContextLegacy = URLConte
  */
 export function getAdminUrl(context: URLContext | URLContextLegacy = URLContext.SERVER): string {
   const resolvedContext = typeof context === 'string' ? context : context;
-  
+
   if (resolvedContext === 'server') {
     // Server-side: Use server-only environment variables
     return serverEnv.ADMIN_FRONTEND_URL || getDefaultAdminUrl();
@@ -280,28 +280,28 @@ export const oidcUrls = {
    * Get the OAuth authorization endpoint
    * @param context - URL context (supports enum or string)
    */
-  authorize: (context: URLContext | URLContextLegacy = URLContext.SERVER) => 
+  authorize: (context: URLContext | URLContextLegacy = URLContext.SERVER) =>
     `${getBackendUrl(context)}/oauth/authorize`,
-    
+
   /**
    * Get the OAuth token endpoint
    * @param context - URL context (supports enum or string)
    */
-  token: (context: URLContext | URLContextLegacy = URLContext.SERVER) => 
+  token: (context: URLContext | URLContextLegacy = URLContext.SERVER) =>
     `${getBackendUrl(context)}/oauth/token`,
-    
+
   /**
    * Get the OAuth userinfo endpoint
    * @param context - URL context (supports enum or string)
    */
-  userinfo: (context: URLContext | URLContextLegacy = URLContext.SERVER) => 
+  userinfo: (context: URLContext | URLContextLegacy = URLContext.SERVER) =>
     `${getBackendUrl(context)}/oauth/userinfo`,
-    
+
   /**
    * Get the JWKS endpoint
    * @param context - URL context (supports enum or string)
    */
-  jwks: (context: URLContext | URLContextLegacy = URLContext.SERVER) => 
+  jwks: (context: URLContext | URLContextLegacy = URLContext.SERVER) =>
     `${getBackendUrl(context)}/oauth/jwks`,
 };
 
@@ -313,14 +313,14 @@ export const callbackUrls = {
    * Get the frontend OAuth callback URL
    * @param context - URL context (supports enum or string)
    */
-  frontend: (context: URLContext | URLContextLegacy = URLContext.SERVER) => 
+  frontend: (context: URLContext | URLContextLegacy = URLContext.SERVER) =>
     `${getFrontendUrl(context)}/api/auth/callback/epsx-backend`,
-    
+
   /**
    * Get the admin OAuth callback URL
    * @param context - URL context (supports enum or string)
    */
-  admin: (context: URLContext | URLContextLegacy = URLContext.SERVER) => 
+  admin: (context: URLContext | URLContextLegacy = URLContext.SERVER) =>
     `${getAdminUrl(context)}/api/auth/callback/epsx-backend`,
 };
 
@@ -334,16 +334,10 @@ export const apiUrls = {
    * @param context - URL context (supports enum or string)
    */
   backend: (path: string, context: URLContext | URLContextLegacy = URLContext.SERVER) => {
-    let cleanPath = path.startsWith('/') ? path.slice(1) : path;
-
-    // Auto-add /api/v1 prefix if it starts with /api but not /api/v1
-    if (cleanPath.startsWith('api/') && !cleanPath.startsWith('api/v1/')) {
-      cleanPath = cleanPath.replace(/^api\//, 'api/v1/');
-    }
-
+    const cleanPath = path.startsWith('/') ? path.slice(1) : path;
     return `${getBackendUrl(context)}/${cleanPath}`;
   },
-  
+
   /**
    * Build frontend API endpoint URL
    * @param path - API path (without leading slash)
@@ -353,7 +347,7 @@ export const apiUrls = {
     const cleanPath = path.startsWith('/') ? path.slice(1) : path;
     return `${getFrontendUrl(context)}/${cleanPath}`;
   },
-  
+
   /**
    * Build admin API endpoint URL
    * @param path - API path (without leading slash)
@@ -404,7 +398,7 @@ export function getEnvironmentInfo() {
  */
 export function debugUrls(context: URLContext | URLContextLegacy = URLContext.SERVER) {
   if (!isDev) return {};
-  
+
   return {
     context,
     backend: getBackendUrl(context),

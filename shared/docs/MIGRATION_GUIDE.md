@@ -54,7 +54,7 @@ const lookupWallet = useCallback(async () => {
   try {
     // Manual fetch with no error handling
     const permissionsResponse = await fetch(
-      `/api/v1/auth/web3/permissions?wallet_address=${walletAddress}`
+      `/api/auth/web3/permissions?wallet_address=${walletAddress}`
     );
 
     if (!permissionsResponse.ok) {

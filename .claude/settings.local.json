@@ -31,7 +31,7 @@
       "Bash(rg:*)",
       "Bash(cargo tree:*)",
       "Bash(npx next:*)",
-      "Bash(timeout 10 curl -s https://backend-307278481624.us-central1.run.app/api/v1/public/plans)",
+      "Bash(timeout 10 curl -s https://backend-307278481624.us-central1.run.app/api/public/plans)",
       "Bash(psql:*)",
       "Bash(cargo build:*)",
       "Bash(sqlx migrate:*)",

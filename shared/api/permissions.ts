@@ -130,18 +130,18 @@ export class PermissionsApi {
 
   /**
    * Get permissions for specific wallet (Admin only)
-   * GET /api/v1/auth/web3/permissions?wallet_address={address}
+   * GET /api/auth/web3/permissions?wallet_address={address}
    */
   async getWalletPermissions(wallet_address: string): Promise<ApiResponse<UserPermissionsResponse>> {
-    return this.client.get<UserPermissionsResponse>('/api/v1/auth/web3/permissions', { wallet_address });
+    return this.client.get<UserPermissionsResponse>('/api/auth/web3/permissions', { wallet_address });
   }
 
   /**
    * List all permissions with filters (Admin only)
-   * GET /api/v1/admin/permissions
+   * GET /api/admin/permissions
    */
   async listPermissions(filters?: PermissionFilters): Promise<ApiResponse<PaginatedResponse<PermissionEntry>>> {
-    return this.client.get<PaginatedResponse<PermissionEntry>>('/api/v1/admin/permissions', filters);
+    return this.client.get<PaginatedResponse<PermissionEntry>>('/api/admin/permissions', filters);
   }
 
   // ============================================================================
@@ -150,18 +150,18 @@ export class PermissionsApi {
 
   /**
    * Grant permission to wallet
-   * POST /api/v1/admin/permissions/grant
+   * POST /api/admin/permissions/grant
    */
   async grantPermission(data: GrantPermissionRequest): Promise<ApiResponse<{ granted: boolean; permission: Permission }>> {
-    return this.client.post<{ granted: boolean; permission: Permission }>('/api/v1/admin/permissions/grant', data);
+    return this.client.post<{ granted: boolean; permission: Permission }>('/api/admin/permissions/grant', data);
   }
 
   /**
    * Revoke permission from wallet
-   * POST /api/v1/admin/permissions/revoke
+   * POST /api/admin/permissions/revoke
    */
   async revokePermission(data: RevokePermissionRequest): Promise<ApiResponse<{ revoked: boolean }>> {
-    return this.client.post<{ revoked: boolean }>('/api/v1/admin/permissions/revoke', data);
+    return this.client.post<{ revoked: boolean }>('/api/admin/permissions/revoke', data);
   }
 
   /**
@@ -182,10 +182,10 @@ export class PermissionsApi {
 
   /**
    * Update permission expiry
-   * PUT /api/v1/admin/permissions/expiry
+   * PUT /api/admin/permissions/expiry
    */
   async updateExpiry(wallet_address: string, permission: string, expires_at?: number): Promise<ApiResponse<{ updated: boolean }>> {
-    return this.client.put<{ updated: boolean }>('/api/v1/admin/permissions/expiry', {
+    return this.client.put<{ updated: boolean }>('/api/admin/permissions/expiry', {
       wallet_address,
       permission,
       expires_at
@@ -226,10 +226,10 @@ export class PermissionsApi {
 
   /**
    * Check if wallet has permission
-   * POST /api/v1/permissions/check
+   * POST /api/permissions/check
    */
   async checkPermission(wallet_address: string, permission: string): Promise<ApiResponse<{ has_permission: boolean; reason?: string }>> {
-    return this.client.post<{ has_permission: boolean; reason?: string }>('/api/v1/permissions/check', {
+    return this.client.post<{ has_permission: boolean; reason?: string }>('/api/permissions/check', {
       wallet_address,
       permission
     });
@@ -237,26 +237,26 @@ export class PermissionsApi {
 
   /**
    * Get expiring permissions (Admin)
-   * GET /api/v1/admin/permissions/expiring
+   * GET /api/admin/permissions/expiring
    */
   async getExpiringPermissions(days: number = 7): Promise<ApiResponse<PermissionEntry[]>> {
-    return this.client.get<PermissionEntry[]>('/api/v1/admin/permissions/expiring', { days });
+    return this.client.get<PermissionEntry[]>('/api/admin/permissions/expiring', { days });
   }
 
   /**
    * Get expired permissions (Admin)
-   * GET /api/v1/admin/permissions/expired
+   * GET /api/admin/permissions/expired
    */
   async getExpiredPermissions(): Promise<ApiResponse<PermissionEntry[]>> {
-    return this.client.get<PermissionEntry[]>('/api/v1/admin/permissions/expired');
+    return this.client.get<PermissionEntry[]>('/api/admin/permissions/expired');
   }
 
   /**
    * Get permission statistics (Admin)
-   * GET /api/v1/admin/permissions/stats
+   * GET /api/admin/permissions/stats
    */
   async getStats(): Promise<ApiResponse<PermissionStats>> {
-    return this.client.get<PermissionStats>('/api/v1/admin/permissions/stats');
+    return this.client.get<PermissionStats>('/api/admin/permissions/stats');
   }
 
   // ============================================================================
@@ -265,18 +265,18 @@ export class PermissionsApi {
 
   /**
    * Get permission grant history (Admin)
-   * GET /api/v1/admin/permissions/history/grants
+   * GET /api/admin/permissions/history/grants
    */
   async getGrantHistory(filters?: { wallet_address?: string; limit?: number }): Promise<ApiResponse<PermissionEntry[]>> {
-    return this.client.get<PermissionEntry[]>('/api/v1/admin/permissions/history/grants', filters);
+    return this.client.get<PermissionEntry[]>('/api/admin/permissions/history/grants', filters);
   }
 
   /**
    * Get permission revocation history (Admin)
-   * GET /api/v1/admin/permissions/history/revocations
+   * GET /api/admin/permissions/history/revocations
    */
   async getRevocationHistory(filters?: { wallet_address?: string; limit?: number }): Promise<ApiResponse<PermissionEntry[]>> {
-    return this.client.get<PermissionEntry[]>('/api/v1/admin/permissions/history/revocations', filters);
+    return this.client.get<PermissionEntry[]>('/api/admin/permissions/history/revocations', filters);
   }
 }
 

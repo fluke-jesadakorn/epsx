@@ -12,7 +12,7 @@
  * - Subscription management
  */
 
-import { UnifiedApiClient, ApiResponse } from '../utils/api-client';
+import { ApiResponse, UnifiedApiClient } from '../utils/api-client';
 
 // ============================================================================
 // TYPES
@@ -117,18 +117,25 @@ export class UsersApi {
 
   /**
    * Get current user profile
-   * GET /api/v1/auth/me
+   * GET /api/users/profile
    */
   async getProfile(): Promise<ApiResponse<UserProfile>> {
-    return this.client.get<UserProfile>('/api/v1/auth/me');
+    const response = await this.client.get<{ success: boolean, data: UserProfile }>('/api/users/profile');
+    if (response.success && response.data?.success && response.data.data) {
+      return {
+        ...response,
+        data: response.data.data
+      };
+    }
+    return response as any;
   }
 
   /**
    * Update user profile
-   * PUT /api/v1/user/profile
+   * PUT /api/user/profile
    */
   async updateProfile(data: UpdateProfileRequest): Promise<ApiResponse<UserProfile>> {
-    return this.client.put<UserProfile>('/api/v1/user/profile', data);
+    return this.client.put<UserProfile>('/api/user/profile', data);
   }
 
   // ============================================================================
@@ -137,34 +144,34 @@ export class UsersApi {
 
   /**
    * Get user settings
-   * GET /api/v1/user/settings
+   * GET /api/user/settings
    */
   async getSettings(): Promise<ApiResponse<UserSettings>> {
-    return this.client.get<UserSettings>('/api/v1/user/settings');
+    return this.client.get<UserSettings>('/api/user/settings');
   }
 
   /**
    * Update user settings
-   * PUT /api/v1/user/settings
+   * PUT /api/user/settings
    */
   async updateSettings(data: UpdateSettingsRequest): Promise<ApiResponse<UserSettings>> {
-    return this.client.put<UserSettings>('/api/v1/user/settings', data);
+    return this.client.put<UserSettings>('/api/user/settings', data);
   }
 
   /**
    * Get notification preferences
-   * GET /api/v1/notifications/preferences
+   * GET /api/notifications/preferences
    */
   async getNotificationPreferences(): Promise<ApiResponse<UserSettings>> {
-    return this.client.get<UserSettings>('/api/v1/notifications/preferences');
+    return this.client.get<UserSettings>('/api/notifications/preferences');
   }
 
   /**
    * Update notification preferences
-   * PUT /api/v1/notifications/preferences
+   * PUT /api/notifications/preferences
    */
   async updateNotificationPreferences(data: Partial<UserSettings>): Promise<ApiResponse<UserSettings>> {
-    return this.client.put<UserSettings>('/api/v1/notifications/preferences', data);
+    return this.client.put<UserSettings>('/api/notifications/preferences', data);
   }
 
   // ============================================================================
@@ -217,26 +224,26 @@ export class UsersApi {
 
   /**
    * Get user subscriptions
-   * GET /api/v1/user/subscriptions
+   * GET /api/user/subscriptions
    */
   async getSubscriptions(): Promise<ApiResponse<SubscriptionInfo[]>> {
-    return this.client.get<SubscriptionInfo[]>('/api/v1/user/subscriptions');
+    return this.client.get<SubscriptionInfo[]>('/api/user/subscriptions');
   }
 
   /**
    * Subscribe to plan
-   * POST /api/v1/user/subscribe
+   * POST /api/user/subscribe
    */
   async subscribeToPlan(plan_id: string): Promise<ApiResponse<SubscriptionInfo>> {
-    return this.client.post<SubscriptionInfo>('/api/v1/user/subscribe', { plan_id });
+    return this.client.post<SubscriptionInfo>('/api/user/subscribe', { plan_id });
   }
 
   /**
    * Cancel subscription
-   * POST /api/v1/user/subscriptions/{subscription_id}/cancel
+   * POST /api/user/subscriptions/{subscription_id}/cancel
    */
   async cancelSubscription(subscription_id: string): Promise<ApiResponse<{ cancelled: boolean }>> {
-    return this.client.post<{ cancelled: boolean }>(`/api/v1/user/subscriptions/${subscription_id}/cancel`);
+    return this.client.post<{ cancelled: boolean }>(`/api/user/subscriptions/${subscription_id}/cancel`);
   }
 
   // ============================================================================
@@ -253,10 +260,10 @@ export class UsersApi {
 
   /**
    * Create API key
-   * POST /api/v1/user/api-keys
+   * POST /api/user/api-keys
    */
   async createApiKey(name: string, scopes?: string[]): Promise<ApiResponse<UserApiKey>> {
-    return this.client.post<UserApiKey>('/api/v1/user/api-keys', { name, scopes });
+    return this.client.post<UserApiKey>('/api/user/api-keys', { name, scopes });
   }
 
   /**
@@ -293,18 +300,18 @@ export class UsersApi {
 
   /**
    * Get user permissions
-   * GET /api/v1/user/permissions
+   * GET /api/user/permissions
    */
   async getPermissions(): Promise<ApiResponse<{ permissions: string[]; tier: string }>> {
-    return this.client.get<{ permissions: string[]; tier: string }>('/api/v1/user/permissions');
+    return this.client.get<{ permissions: string[]; tier: string }>('/api/user/permissions');
   }
 
   /**
    * Check feature access
-   * POST /api/v1/user/features/check
+   * POST /api/user/features/check
    */
   async checkFeatureAccess(feature: string): Promise<ApiResponse<{ has_access: boolean; reason?: string }>> {
-    return this.client.post<{ has_access: boolean; reason?: string }>('/api/v1/user/features/check', { feature });
+    return this.client.post<{ has_access: boolean; reason?: string }>('/api/user/features/check', { feature });
   }
 }
 

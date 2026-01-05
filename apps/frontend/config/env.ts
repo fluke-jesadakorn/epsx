@@ -74,7 +74,7 @@ export const enterpriseUrls = {
   // Enterprise API endpoints (when backend supports them)
   marketplace: `${env.BACKEND_URL}/api/enterprise/marketplace`,
   billing: `${env.BACKEND_URL}/api/enterprise/billing`,
-  analytics: `${env.BACKEND_URL}/api/v1/analytics`,
+  analytics: `${env.BACKEND_URL}/api/analytics`,
 
   // Health and status
   health: `${env.BACKEND_URL}/health`,

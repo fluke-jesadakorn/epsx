@@ -206,12 +206,12 @@ mod permission_api_endpoint_tests {
         }
         
         Router::new()
-            .route("/api/v1/admin/users/{user_id}/embedded-permissions", post(mock_grant_permission))
-            .route("/api/v1/admin/users/{user_id}/embedded-permissions/revoke", post(mock_revoke_permission))
-            .route("/api/v1/admin/users/{user_id}/embedded-permissions/validate", post(mock_validate_permissions))
-            .route("/api/v1/admin/users/{user_id}/embedded-permissions/extend", post(mock_extend_permission))
-            .route("/api/v1/admin/users/bulk/embedded-permissions", post(mock_bulk_grant))
-            .route("/api/v1/admin/embedded-permissions/cleanup-expired", post(mock_cleanup_expired))
+            .route("/api/admin/users/{user_id}/embedded-permissions", post(mock_grant_permission))
+            .route("/api/admin/users/{user_id}/embedded-permissions/revoke", post(mock_revoke_permission))
+            .route("/api/admin/users/{user_id}/embedded-permissions/validate", post(mock_validate_permissions))
+            .route("/api/admin/users/{user_id}/embedded-permissions/extend", post(mock_extend_permission))
+            .route("/api/admin/users/bulk/embedded-permissions", post(mock_bulk_grant))
+            .route("/api/admin/embedded-permissions/cleanup-expired", post(mock_cleanup_expired))
     }
     
     #[tokio::test]
@@ -232,7 +232,7 @@ mod permission_api_endpoint_tests {
         
         let request = Request::builder()
             .method("POST")
-            .uri("/api/v1/admin/users/test-user/embedded-permissions")
+            .uri("/api/admin/users/test-user/embedded-permissions")
             .header("content-type", "application/json")
             .header("authorization", "Bearer test-token")
             .body(Body::from(serde_json::to_string(&request_body).unwrap()))
@@ -260,7 +260,7 @@ mod permission_api_endpoint_tests {
         
         let request = Request::builder()
             .method("POST")
-            .uri("/api/v1/admin/users/invalid-user/embedded-permissions")
+            .uri("/api/admin/users/invalid-user/embedded-permissions")
             .header("content-type", "application/json")
             .body(Body::from(serde_json::to_string(&request_body).unwrap()))
             .unwrap();
@@ -277,7 +277,7 @@ mod permission_api_endpoint_tests {
         
         let request = Request::builder()
             .method("POST")
-            .uri("/api/v1/admin/users/test-user/embedded-permissions")
+            .uri("/api/admin/users/test-user/embedded-permissions")
             .header("content-type", "application/json")
             .body(Body::from(serde_json::to_string(&invalid_request_body).unwrap()))
             .unwrap();
@@ -304,7 +304,7 @@ mod permission_api_endpoint_tests {
         
         let request = Request::builder()
             .method("POST")
-            .uri("/api/v1/admin/users/test-user/embedded-permissions/validate")
+            .uri("/api/admin/users/test-user/embedded-permissions/validate")
             .header("content-type", "application/json")
             .body(Body::from(serde_json::to_string(&request_body).unwrap()))
             .unwrap();
@@ -353,7 +353,7 @@ mod permission_api_endpoint_tests {
         
         let request = Request::builder()
             .method("POST")
-            .uri("/api/v1/admin/users/test-user/embedded-permissions/extend")
+            .uri("/api/admin/users/test-user/embedded-permissions/extend")
             .header("content-type", "application/json")
             .body(Body::from(serde_json::to_string(&request_body).unwrap()))
             .unwrap();
@@ -380,7 +380,7 @@ mod permission_api_endpoint_tests {
         
         let request = Request::builder()
             .method("POST")
-            .uri("/api/v1/admin/users/test-user/embedded-permissions/revoke")
+            .uri("/api/admin/users/test-user/embedded-permissions/revoke")
             .header("content-type", "application/json")
             .body(Body::from(serde_json::to_string(&request_body).unwrap()))
             .unwrap();
@@ -422,7 +422,7 @@ mod permission_api_endpoint_tests {
         
         let request = Request::builder()
             .method("POST")
-            .uri("/api/v1/admin/users/bulk/embedded-permissions")
+            .uri("/api/admin/users/bulk/embedded-permissions")
             .header("content-type", "application/json")
             .body(Body::from(serde_json::to_string(&request_body).unwrap()))
             .unwrap();
@@ -472,7 +472,7 @@ mod permission_api_endpoint_tests {
         
         let request = Request::builder()
             .method("POST")
-            .uri("/api/v1/admin/embedded-permissions/cleanup-expired")
+            .uri("/api/admin/embedded-permissions/cleanup-expired")
             .header("content-type", "application/json")
             .body(Body::from(serde_json::to_string(&dry_run_request).unwrap()))
             .unwrap();
@@ -495,7 +495,7 @@ mod permission_api_endpoint_tests {
         
         let request = Request::builder()
             .method("POST")
-            .uri("/api/v1/admin/embedded-permissions/cleanup-expired")
+            .uri("/api/admin/embedded-permissions/cleanup-expired")
             .header("content-type", "application/json")
             .body(Body::from(serde_json::to_string(&cleanup_request).unwrap()))
             .unwrap();
@@ -527,7 +527,7 @@ mod permission_api_endpoint_tests {
         // Test malformed JSON
         let request = Request::builder()
             .method("POST")
-            .uri("/api/v1/admin/users/test-user/embedded-permissions")
+            .uri("/api/admin/users/test-user/embedded-permissions")
             .header("content-type", "application/json")
             .body(Body::from("invalid json"))
             .unwrap();
@@ -543,7 +543,7 @@ mod permission_api_endpoint_tests {
         
         let request = Request::builder()
             .method("POST")
-            .uri("/api/v1/admin/users/test-user/embedded-permissions")
+            .uri("/api/admin/users/test-user/embedded-permissions")
             .header("content-type", "application/json")
             .body(Body::from(serde_json::to_string(&incomplete_request).unwrap()))
             .unwrap();
@@ -554,7 +554,7 @@ mod permission_api_endpoint_tests {
         // Test invalid content type
         let request = Request::builder()
             .method("POST")
-            .uri("/api/v1/admin/users/test-user/embedded-permissions")
+            .uri("/api/admin/users/test-user/embedded-permissions")
             .header("content-type", "text/plain")
             .body(Body::from("not json"))
             .unwrap();
@@ -575,7 +575,7 @@ mod permission_api_endpoint_tests {
         
         let request = Request::builder()
             .method("POST")
-            .uri("/api/v1/admin/users/test-user/embedded-permissions")
+            .uri("/api/admin/users/test-user/embedded-permissions")
             .header("content-type", "application/json")
             .body(Body::from(serde_json::to_string(&request_body).unwrap()))
             .unwrap();
@@ -587,7 +587,7 @@ mod permission_api_endpoint_tests {
         // Test with invalid token format
         let request = Request::builder()
             .method("POST")
-            .uri("/api/v1/admin/users/test-user/embedded-permissions")
+            .uri("/api/admin/users/test-user/embedded-permissions")
             .header("content-type", "application/json")
             .header("authorization", "Invalid token-format")
             .body(Body::from(serde_json::to_string(&request_body).unwrap()))
@@ -610,7 +610,7 @@ mod permission_api_endpoint_tests {
         
         let request = Request::builder()
             .method("POST")
-            .uri("/api/v1/admin/users/test-user/embedded-permissions")
+            .uri("/api/admin/users/test-user/embedded-permissions")
             .header("content-type", "application/json")
             .body(Body::from(serde_json::to_string(&request_body).unwrap()))
             .unwrap();
@@ -627,7 +627,7 @@ mod permission_api_endpoint_tests {
         
         let request = Request::builder()
             .method("POST")
-            .uri("/api/v1/admin/users/test-user/embedded-permissions")
+            .uri("/api/admin/users/test-user/embedded-permissions")
             .header("content-type", "application/json")
             .body(Body::from(serde_json::to_string(&request_body).unwrap()))
             .unwrap();
@@ -644,7 +644,7 @@ mod permission_api_endpoint_tests {
         
         let request = Request::builder()
             .method("POST")
-            .uri("/api/v1/admin/users/test-user/embedded-permissions")
+            .uri("/api/admin/users/test-user/embedded-permissions")
             .header("content-type", "application/json")
             .body(Body::from(serde_json::to_string(&request_body).unwrap()))
             .unwrap();
@@ -660,7 +660,7 @@ mod permission_api_endpoint_tests {
         
         let request = Request::builder()
             .method("POST")
-            .uri("/api/v1/admin/users/bulk/embedded-permissions")
+            .uri("/api/admin/users/bulk/embedded-permissions")
             .header("content-type", "application/json")
             .body(Body::from(serde_json::to_string(&empty_bulk_request).unwrap()))
             .unwrap();

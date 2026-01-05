@@ -29,7 +29,7 @@ export const IAM_CONFIG = {
       '/',
       '/login',
       '/register',
-      '/api/v1/auth',
+      '/api/auth',
       '/api/public',
       '/_next',
       '/favicon.ico',
@@ -62,10 +62,10 @@ export const IAM_CONFIG = {
       '/admin/security': ['admin:security:manage'],
 
       // API routes with permissions (user context)
-      '/api/v1/analytics/export': ['epsx:analytics:export'],
-      '/api/v1/analytics/advanced': ['epsx:analytics:advanced'],
-      '/api/v1/payment/create': ['epsx:payment:create'],
-      '/api/v1/profile': ['epsx:profile:manage'],
+      '/api/analytics/export': ['epsx:analytics:export'],
+      '/api/analytics/advanced': ['epsx:analytics:advanced'],
+      '/api/payment/create': ['epsx:payment:create'],
+      '/api/profile': ['epsx:profile:manage'],
 
       // API routes with permissions (admin context)
       '/api/admin/users': ['admin:users:manage'],
@@ -85,10 +85,10 @@ export const IAM_CONFIG = {
     client: {
       baseUrl: '/api',
       endpoints: {
-        auth: '/api/v1/auth',
-        permissions: '/api/v1/iam/permissions',
-        users: '/api/v1/users',
-        analytics: '/api/v1/analytics',
+        auth: '/api/auth',
+        permissions: '/api/iam/permissions',
+        users: '/api/users',
+        analytics: '/api/analytics',
         admin: '/api/admin',
       },
     },

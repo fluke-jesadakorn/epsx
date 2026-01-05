@@ -130,26 +130,26 @@ export class GroupsApi {
 
   /**
    * List all groups
-   * GET /api/v1/admin/groups
+   * GET /api/admin/groups
    */
   async listGroups(filters?: GroupFilters): Promise<ApiResponse<PaginatedResponse<Group>>> {
-    return this.client.get<PaginatedResponse<Group>>('/api/v1/admin/groups', filters);
+    return this.client.get<PaginatedResponse<Group>>('/api/admin/groups', filters);
   }
 
   /**
    * Get group by ID
-   * GET /api/v1/admin/groups/{group_id}
+   * GET /api/admin/groups/{group_id}
    */
   async getGroup(group_id: string): Promise<ApiResponse<Group>> {
-    return this.client.get<Group>(`/api/v1/admin/groups/${group_id}`);
+    return this.client.get<Group>(`/api/admin/groups/${group_id}`);
   }
 
   /**
    * Get group members
-   * GET /api/v1/admin/groups/{group_id}/members
+   * GET /api/admin/groups/{group_id}/members
    */
   async getGroupMembers(group_id: string, filters?: { limit?: number; offset?: number }): Promise<ApiResponse<PaginatedResponse<GroupMembership>>> {
-    return this.client.get<PaginatedResponse<GroupMembership>>(`/api/v1/admin/groups/${group_id}/members`, filters);
+    return this.client.get<PaginatedResponse<GroupMembership>>(`/api/admin/groups/${group_id}/members`, filters);
   }
 
   // ============================================================================
@@ -158,26 +158,26 @@ export class GroupsApi {
 
   /**
    * Create new group
-   * POST /api/v1/admin/groups
+   * POST /api/admin/groups
    */
   async createGroup(data: CreateGroupRequest): Promise<ApiResponse<Group>> {
-    return this.client.post<Group>('/api/v1/admin/groups', data);
+    return this.client.post<Group>('/api/admin/groups', data);
   }
 
   /**
    * Update group
-   * PUT /api/v1/admin/groups/{group_id}
+   * PUT /api/admin/groups/{group_id}
    */
   async updateGroup(group_id: string, data: UpdateGroupRequest): Promise<ApiResponse<Group>> {
-    return this.client.put<Group>(`/api/v1/admin/groups/${group_id}`, data);
+    return this.client.put<Group>(`/api/admin/groups/${group_id}`, data);
   }
 
   /**
    * Delete group
-   * DELETE /api/v1/admin/groups/{group_id}
+   * DELETE /api/admin/groups/{group_id}
    */
   async deleteGroup(group_id: string): Promise<ApiResponse<{ deleted: boolean }>> {
-    return this.client.delete<{ deleted: boolean }>(`/api/v1/admin/groups/${group_id}`);
+    return this.client.delete<{ deleted: boolean }>(`/api/admin/groups/${group_id}`);
   }
 
   // ============================================================================
@@ -186,34 +186,34 @@ export class GroupsApi {
 
   /**
    * Assign wallet to group
-   * POST /api/v1/admin/groups/assign
+   * POST /api/admin/groups/assign
    */
   async assignToGroup(data: AssignGroupRequest): Promise<ApiResponse<{ assigned: boolean; membership: GroupMembership }>> {
-    return this.client.post<{ assigned: boolean; membership: GroupMembership }>('/api/v1/admin/groups/assign', data);
+    return this.client.post<{ assigned: boolean; membership: GroupMembership }>('/api/admin/groups/assign', data);
   }
 
   /**
    * Remove wallet from group
-   * POST /api/v1/admin/groups/remove
+   * POST /api/admin/groups/remove
    */
   async removeFromGroup(data: RemoveGroupRequest): Promise<ApiResponse<{ removed: boolean }>> {
-    return this.client.post<{ removed: boolean }>('/api/v1/admin/groups/remove', data);
+    return this.client.post<{ removed: boolean }>('/api/admin/groups/remove', data);
   }
 
   /**
    * Assign wallets to groups in bulk
-   * POST /api/v1/admin/groups/bulk/assign
+   * POST /api/admin/groups/bulk/assign
    */
   async bulkAssignToGroups(data: BulkAssignRequest): Promise<ApiResponse<{ assigned_count: number; failed: string[] }>> {
-    return this.client.post<{ assigned_count: number; failed: string[] }>('/api/v1/admin/groups/bulk/assign', data);
+    return this.client.post<{ assigned_count: number; failed: string[] }>('/api/admin/groups/bulk/assign', data);
   }
 
   /**
    * Remove wallets from groups in bulk
-   * POST /api/v1/admin/groups/bulk/remove
+   * POST /api/admin/groups/bulk/remove
    */
   async bulkRemoveFromGroups(data: BulkRemoveRequest): Promise<ApiResponse<{ removed_count: number; failed: string[] }>> {
-    return this.client.post<{ removed_count: number; failed: string[] }>('/api/v1/admin/groups/bulk/remove', data);
+    return this.client.post<{ removed_count: number; failed: string[] }>('/api/admin/groups/bulk/remove', data);
   }
 
   // ============================================================================
@@ -222,26 +222,26 @@ export class GroupsApi {
 
   /**
    * Get wallet's group memberships
-   * GET /api/v1/admin/memberships?wallet_address={address}
+   * GET /api/admin/memberships?wallet_address={address}
    */
   async getWalletMemberships(wallet_address: string): Promise<ApiResponse<GroupMembership[]>> {
-    return this.client.get<GroupMembership[]>('/api/v1/admin/memberships', { wallet_address });
+    return this.client.get<GroupMembership[]>('/api/admin/memberships', { wallet_address });
   }
 
   /**
    * List all memberships with filters
-   * GET /api/v1/admin/memberships
+   * GET /api/admin/memberships
    */
   async listMemberships(filters?: MembershipFilters): Promise<ApiResponse<PaginatedResponse<GroupMembership>>> {
-    return this.client.get<PaginatedResponse<GroupMembership>>('/api/v1/admin/memberships', filters);
+    return this.client.get<PaginatedResponse<GroupMembership>>('/api/admin/memberships', filters);
   }
 
   /**
    * Check if wallet is in group
-   * POST /api/v1/groups/check-membership
+   * POST /api/groups/check-membership
    */
   async checkMembership(wallet_address: string, group_id: string): Promise<ApiResponse<{ is_member: boolean; membership?: GroupMembership }>> {
-    return this.client.post<{ is_member: boolean; membership?: GroupMembership }>('/api/v1/groups/check-membership', {
+    return this.client.post<{ is_member: boolean; membership?: GroupMembership }>('/api/groups/check-membership', {
       wallet_address,
       group_id
     });
@@ -253,15 +253,15 @@ export class GroupsApi {
 
   /**
    * Get group statistics
-   * GET /api/v1/admin/groups/stats
+   * GET /api/admin/groups/stats
    */
   async getStats(): Promise<ApiResponse<GroupStats>> {
-    return this.client.get<GroupStats>('/api/v1/admin/groups/stats');
+    return this.client.get<GroupStats>('/api/admin/groups/stats');
   }
 
   /**
    * Get group activity history
-   * GET /api/v1/admin/groups/{group_id}/history
+   * GET /api/admin/groups/{group_id}/history
    */
   async getGroupHistory(group_id: string, filters?: { limit?: number }): Promise<ApiResponse<Array<{
     action: 'assigned' | 'removed';
@@ -269,7 +269,7 @@ export class GroupsApi {
     timestamp: string;
     performed_by?: string;
   }>>> {
-    return this.client.get(`/api/v1/admin/groups/${group_id}/history`, filters);
+    return this.client.get(`/api/admin/groups/${group_id}/history`, filters);
   }
 }
 

@@ -48,7 +48,7 @@ export interface Web3ChallengeResponse {
   wallet_address: string;
 }
 
-// User Info Response (from /api/v1/auth/userinfo)
+// User Info Response (from /api/auth/userinfo)
 export interface UserInfoResponse {
   sub: string; // Wallet address
   wallet_address: string; // Web3 wallet address
@@ -235,7 +235,7 @@ export class SharedWeb3AuthClient {
       return cached.promise;
     }
 
-    const challengeUrl = `${this.backendUrl}/api/v1/auth/web3/challenge`;
+    const challengeUrl = `${this.backendUrl}/api/auth/web3/challenge`;
 
     console.log('🔑 Requesting Web3 challenge', {
       url: challengeUrl,
@@ -404,7 +404,7 @@ export class SharedWeb3AuthClient {
 
     try {
       // Call backend verify endpoint directly
-      const response = await fetch(`${this.backendUrl}/api/v1/auth/web3/verify`, {
+      const response = await fetch(`${this.backendUrl}/api/auth/web3/verify`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -522,7 +522,7 @@ export class SharedWeb3AuthClient {
   private async getWeb3Tokens(
     request: Web3AuthRequest
   ): Promise<Web3TokenResponse> {
-    const response = await fetch(`${this.backendUrl}/api/v1/auth/web3/verify`, {
+    const response = await fetch(`${this.backendUrl}/api/auth/web3/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -558,7 +558,7 @@ export class SharedWeb3AuthClient {
     }
 
     try {
-      const response = await fetch(`${this.backendUrl}/api/v1/auth/session/refresh`, {
+      const response = await fetch(`${this.backendUrl}/api/auth/session/refresh`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -714,7 +714,7 @@ export class SharedWeb3AuthClient {
       permissions: string[];
       is_admin: boolean;
       expires: string;
-    }>('/api/v1/auth/web3/session', {
+    }>('/api/auth/web3/session', {
       method: 'POST',
       body: JSON.stringify({ admin_context: false }),
     });

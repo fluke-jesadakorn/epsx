@@ -216,7 +216,7 @@ export function createAuthStore<T extends AuthState>(
           if (!user) return
 
           try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/v1/users/profile`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/users/profile`, {
               credentials: 'include'
             })
 

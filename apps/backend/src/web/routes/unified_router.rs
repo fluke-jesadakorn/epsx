@@ -69,7 +69,7 @@ impl UnifiedRouteBuilder {
         let docs_routes = crate::web::docs::create_docs_routes();
         let permission_authority_routes = self.create_permission_authority_routes();
 
-        // Combine all routes - MIXED /api/ and /api/v1/ STRUCTURE
+        // Combine all routes - MIXED /api/ and /api/ STRUCTURE
         let router = Router::new()
             // Core health endpoints (public, no auth)
             .merge(health_routes)
@@ -77,12 +77,11 @@ impl UnifiedRouteBuilder {
             // API documentation (public, no auth)
             .merge(docs_routes)
 
-            // Authentication routes (Web3-first auth) - support both /api/auth and /api/v1/auth
-            .nest("/api/auth", auth_routes.clone())
-            .nest("/api/v1/auth", auth_routes)
+            // Authentication routes (Web3-first auth)
+            .nest("/api/auth", auth_routes)
 
-            // All routes under standardized /api/v1/ prefix
-            .nest("/api/v1", Router::new()
+            // All routes under standardized /api/ prefix
+            .nest("/api", Router::new()
                 // Permission Authority (centralized permission validation - ALL apps use this)
                 .nest("/permissions", permission_authority_routes)
 
@@ -310,34 +309,19 @@ impl UnifiedRouteBuilder {
             // User profile and settings - using available handlers
             .route("/profile", get(crate::web::user::unified_user_handlers::get_current_user_profile))
             .route("/permissions", get(crate::web::user::unified_user_handlers::get_user_permissions))
+            .route("/access-overview", get(crate::web::user::unified_user_handlers::get_user_access_overview))
 
-            // TODO: Fix handler signature for update_user_preferences
-            // .route("/profile", put(crate::web::user::unified_user_handlers::update_user_preferences))
+            // User preferences update (POST with JSON body)
+            .route("/preferences", post(crate::web::user::unified_user_handlers::update_user_preferences))
 
-            // TODO: Implement missing handler modules
-            // Watchlist management (watchlist_handlers not implemented yet)
-            // .route("/watchlist", get(crate::web::user::watchlist_handlers::get_watchlist))
-            // .route("/watchlist", post(crate::web::user::watchlist_handlers::add_to_watchlist))
-            // .route("/watchlist/{symbol}", delete(crate::web::user::watchlist_handlers::remove_from_watchlist))
+            // NOTE: The following modules are deferred for future implementation:
+            // - Watchlist management (/watchlist)
+            // - Alert management (/alerts)
+            // - Push subscription (/push-subscription)
+            // - Additional wallet management (/wallet/connect, /wallet/disconnect)
+            // - Settings management (/settings)
+            // These require additional database tables and business logic.
 
-            // Alert management (alert_handlers not implemented yet)
-            // .route("/alerts", get(crate::web::user::alert_handlers::get_alerts))
-            // .route("/alerts", post(crate::web::user::alert_handlers::create_alert))
-            // .route("/alerts/{id}", delete(crate::web::user::alert_handlers::delete_alert))
-
-            // Push subscription management (push_handlers not implemented yet)
-            // .route("/push-subscription", post(crate::web::user::push_handlers::register_push_subscription))
-            // .route("/push-subscription", delete(crate::web::user::push_handlers::unregister_push_subscription))
-
-            // Wallet management (wallet_handlers not implemented yet)
-            // .route("/wallet/connect", post(crate::web::user::wallet_handlers::connect_wallet))
-            // .route("/wallet/disconnect", delete(crate::web::user::wallet_handlers::disconnect_wallet))
-
-            // TODO: Fix notification handler signature issue
-            // .route("/notifications", get(crate::web::admin::notification_handlers::get_user_notifications_handler))
-
-            // Settings management (settings_handlers not implemented yet)
-            // .route("/settings", get(crate::web::user::settings_handlers::get_user_settings))
             .with_state(app_state.clone())
             .layer(axum_middleware::from_fn_with_state(
                 app_state,
@@ -352,19 +336,20 @@ impl UnifiedRouteBuilder {
     fn create_plan_routes(&self) -> Router {
         let app_state = self.create_app_state();
 
+        // NOTE: Plan management routes are deferred for future implementation.
+        // These routes would include:
+        // - /subscription (GET/POST) - subscription status and creation
+        // - /subscription/status, /subscription/history
+        // - /usage - API usage tracking
+        // - /billing, /invoices - billing information
+        //
+        // Currently, plan/subscription management is handled via:
+        // - /api/payments/plans - get user's subscription plans
+        // - /api/payments/plans/expiry - check plan expiry status
+        // - /api/payments/plans/cancel/{id} - cancel subscription
+        // - /api/public/plans - public plan listing
+
         Router::new()
-            // TODO: Implement plans module handlers
-            // Subscription management (plans module not implemented yet)
-            // .route("/subscription", get(crate::web::plans::subscription_handlers::get_subscription))
-            // .route("/subscription", post(crate::web::plans::subscription_handlers::create_subscription))
-            // .route("/subscription/status", get(crate::web::plans::subscription_handlers::get_subscription_status))
-            // .route("/subscription/history", get(crate::web::plans::subscription_handlers::get_subscription_history))
-
-            // Usage and billing (plans module not implemented yet)
-            // .route("/usage", get(crate::web::plans::usage_handlers::get_usage))
-            // .route("/billing", get(crate::web::plans::billing_handlers::get_billing_info))
-            // .route("/invoices", get(crate::web::plans::billing_handlers::get_invoices))
-
             .with_state(app_state)
     }
 
@@ -457,13 +442,19 @@ impl UnifiedRouteBuilder {
         // Combine all notification routes
         let notification_routes = Router::new()
             .route("/", get(get_user_notifications_handler))
+            .route("/preferences", get(crate::web::user::unified_user_handlers::get_user_notification_preferences))
+            .route("/preferences", post(crate::web::user::unified_user_handlers::update_user_notification_preferences))
             .route("/unread-count", get(get_unread_count_handler))
             .route("/mark-all-read", put(mark_all_notifications_read_handler))
             .route("/clear-all", delete(clear_all_notifications_handler))
             .route("/{id}/read", put(mark_notification_read_handler))
             .route("/{id}/acknowledge", put(acknowledge_notification_handler))
             .route("/{id}", delete(delete_notification_handler))
-            .with_state(app_state);
+            .with_state(app_state.clone())
+            .layer(axum_middleware::from_fn_with_state(
+                app_state,
+                crate::web::middleware::bearer_middleware
+            ));
 
         // Merge SSE and notification routes
         sse_route.merge(notification_routes)
@@ -502,12 +493,14 @@ impl UnifiedRouteBuilder {
             validate_payment_handler,
             activate_subscription_handler,
             get_payment_details_handler,
-            get_user_subscriptions_handler,
-            get_subscription_details_handler,
-            cancel_subscription_handler,
-            renew_subscription_handler,
-            check_subscription_status_handler,
+
+            get_user_plans_handler,
+            get_plan_expiry_status_handler,
+            cancel_plan_handler,
             get_upgrade_preview_handler,
+            get_user_payment_history,
+            submit_transaction_handler,
+            get_transaction_status_handler,
             // Admin payment handlers
             admin_list_payments_handler,
             admin_get_payment_details_handler,
@@ -523,18 +516,30 @@ impl UnifiedRouteBuilder {
         let core_routes = Router::new()
             .route("/validate", post(validate_payment_handler))
             .route("/activate", post(activate_subscription_handler))
+
+            .route("/submit", post(submit_transaction_handler))  // NEW: Submit tx for backend monitoring
+            .route("/status/{tx_hash}", get(get_transaction_status_handler))  // NEW: Poll tx status
             .route("/details", get(get_payment_details_handler))
-            .with_state(app_state.clone());
+            .route("/history", get(get_user_payment_history))
+            .with_state(app_state.clone())
+            .layer(axum_middleware::from_fn_with_state(
+                app_state.clone(),
+                crate::web::middleware::bearer_middleware
+            ));
 
         // Subscription management routes (authenticated users)
         let subscription_routes = Router::new()
-            .route("/subscriptions", get(get_user_subscriptions_handler))
-            .route("/subscriptions/{id}", get(get_subscription_details_handler))
-            .route("/subscriptions/{id}/cancel", post(cancel_subscription_handler))
-            .route("/subscriptions/{id}/renew", post(renew_subscription_handler))
-            .route("/subscriptions/check/{plan_id}", get(check_subscription_status_handler))
-            .route("/subscriptions/upgrade-preview", get(get_upgrade_preview_handler))
-            .with_state(app_state.clone());
+            .route("/plans", get(get_user_plans_handler)) // Changed from /subscriptions
+            .route("/plans/expiry", get(get_plan_expiry_status_handler)) // Changed from /subscriptions/{id}
+            .route("/plans/cancel/{id}", post(cancel_plan_handler)) // Changed from /subscriptions/{id}/cancel
+            // .route("/subscriptions/{id}/renew", post(renew_subscription_handler)) // Disabled
+            // .route("/subscriptions/check/{plan_id}", get(check_subscription_status_handler)) // Disabled
+            .route("/plans/upgrade_preview", get(get_upgrade_preview_handler)) // Changed from /subscriptions/upgrade-preview
+            .with_state(app_state.clone())
+            .layer(axum_middleware::from_fn_with_state(
+                app_state.clone(),
+                crate::web::middleware::bearer_middleware
+            ));
 
         // Admin payment management routes (admin permissions required)
         let admin_routes = Router::new()
@@ -544,7 +549,15 @@ impl UnifiedRouteBuilder {
             .route("/admin/{id}/refund", post(admin_process_refund_handler))
             .route("/admin/subscriptions", get(admin_list_subscriptions_handler))
             .route("/admin/analytics", get(admin_get_payment_analytics_handler))
-            .with_state(app_state.clone());
+            .with_state(app_state.clone())
+            .layer(axum_middleware::from_fn_with_state(
+                app_state.clone(),
+                crate::web::middleware::web3_auth_middleware
+            ))
+            .layer(axum_middleware::from_fn_with_state(
+                app_state.clone(),
+                crate::web::middleware::permission_validation_middleware
+            ));
 
         // Combine all payment routes
         core_routes

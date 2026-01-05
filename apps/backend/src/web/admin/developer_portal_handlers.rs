@@ -117,7 +117,7 @@ pub struct ExpiringKeysResponse {
 // API Key Handlers
 // ============================================================================
 
-/// GET /api/v1/admin/developer-portal/api-keys
+/// GET /api/admin/developer-portal/api-keys
 /// Supports ?wallet=0x... to filter by wallet address
 pub async fn list_api_keys_handler(
     State(state): State<AppState>,
@@ -144,7 +144,7 @@ pub async fn list_api_keys_handler(
     }
 }
 
-/// POST /api/v1/admin/developer-portal/api-keys
+/// POST /api/admin/developer-portal/api-keys
 pub async fn create_api_key_handler(
     State(state): State<AppState>,
     Json(body): Json<CreateApiKeyBody>,
@@ -197,7 +197,7 @@ pub async fn create_api_key_handler(
     }
 }
 
-/// GET /api/v1/admin/developer-portal/api-keys/:id
+/// GET /api/admin/developer-portal/api-keys/:id
 pub async fn get_api_key_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -220,7 +220,7 @@ pub async fn get_api_key_handler(
     }
 }
 
-/// POST /api/v1/admin/developer-portal/api-keys/:id/revoke
+/// POST /api/admin/developer-portal/api-keys/:id/revoke
 pub async fn revoke_api_key_handler(
     State(state): State<AppState>,
     Extension(admin_wallet): Extension<String>,
@@ -252,7 +252,7 @@ pub async fn revoke_api_key_handler(
     }
 }
 
-/// PATCH /api/v1/admin/developer-portal/api-keys/:id/expiration
+/// PATCH /api/admin/developer-portal/api-keys/:id/expiration
 /// Update the expiration date of an API key
 pub async fn update_expiration_handler(
     State(state): State<AppState>,
@@ -290,7 +290,7 @@ pub async fn update_expiration_handler(
     }
 }
 
-/// GET /api/v1/admin/developer-portal/api-keys/expiring
+/// GET /api/admin/developer-portal/api-keys/expiring
 /// List API keys expiring within the specified number of days
 pub async fn list_expiring_keys_handler(
     State(state): State<AppState>,
@@ -320,7 +320,7 @@ pub async fn list_expiring_keys_handler(
 // Module Handlers
 // ============================================================================
 
-/// GET /api/v1/admin/developer-portal/modules
+/// GET /api/admin/developer-portal/modules
 pub async fn list_modules_handler(
     State(state): State<AppState>,
     Query(query): Query<ListModulesQuery>,
@@ -337,7 +337,7 @@ pub async fn list_modules_handler(
     }
 }
 
-/// GET /api/v1/admin/developer-portal/modules/:id
+/// GET /api/admin/developer-portal/modules/:id
 pub async fn get_module_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -360,7 +360,7 @@ pub async fn get_module_handler(
     }
 }
 
-/// POST /api/v1/admin/developer-portal/modules
+/// POST /api/admin/developer-portal/modules
 pub async fn create_module_handler(
     State(state): State<AppState>,
     Json(body): Json<CreateModuleBody>,
@@ -391,7 +391,7 @@ pub async fn create_module_handler(
     }
 }
 
-/// PUT /api/v1/admin/developer-portal/modules/:id
+/// PUT /api/admin/developer-portal/modules/:id
 pub async fn update_module_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
@@ -430,7 +430,7 @@ pub async fn update_module_handler(
 // Stats Handler
 // ============================================================================
 
-/// GET /api/v1/admin/developer-portal/stats
+/// GET /api/admin/developer-portal/stats
 pub async fn get_stats_handler(
     State(state): State<AppState>,
 ) -> impl IntoResponse {

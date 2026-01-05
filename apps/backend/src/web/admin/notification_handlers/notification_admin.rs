@@ -24,7 +24,7 @@ use super::super::wallet_notification_repository::WalletNotificationRepository;
 /// Send notification to specific user, group, or broadcast
 #[utoipa::path(
     post,
-    path = "/api/v1/admin/notifications/send",
+    path = "/api/admin/notifications/send",
     tag = "admin-notifications",
     request_body = SendNotificationRequest,
     responses(
@@ -237,7 +237,7 @@ pub async fn send_notification_handler(
 /// Get all notifications (admin view with filters)
 #[utoipa::path(
     get,
-    path = "/api/v1/admin/notifications",
+    path = "/api/admin/notifications",
     tag = "admin-notifications",
     params(
         ("page" = Option<u32>, Query, description = "Page number"),
@@ -328,7 +328,7 @@ pub async fn get_all_notifications_handler(
 /// Get notification statistics
 #[utoipa::path(
     get,
-    path = "/api/v1/admin/notifications/stats",
+    path = "/api/admin/notifications/stats",
     tag = "admin-notifications",
     responses(
         (status = 200, description = "Statistics retrieved successfully"),
@@ -519,7 +519,7 @@ pub async fn get_notification_stats_handler(
 /// Delete notification (admin only - hard delete)
 #[utoipa::path(
     delete,
-    path = "/api/v1/admin/notifications/{id}",
+    path = "/api/admin/notifications/{id}",
     tag = "admin-notifications",
     params(
         ("id" = String, Path, description = "Notification ID")

@@ -27,7 +27,7 @@ echo -e "${GREEN}📝 Default Test Accounts:${NC}"
 echo "   Account #0: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
 echo "   Account #1: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
 echo ""
-echo -e "${BLUE}💡 Run 'bun anvil:setup' in another terminal to deploy tokens${NC}"
+echo -e "${BLUE}💡 Run 'bun run setup:local' in another terminal to deploy contracts & tokens${NC}"
 echo ""
 
 # Start Anvil with deterministic addresses

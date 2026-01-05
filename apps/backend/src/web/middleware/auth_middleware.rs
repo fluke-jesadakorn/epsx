@@ -340,7 +340,7 @@ async fn validate_siwe_signature(headers: &HeaderMap, app_state: &AppState) -> R
     };
 
     // Note: Bearer token is NOT generated here - SIWE header auth is a legacy flow
-    // The proper flow goes through /api/v1/auth/web3/verify which returns JWT tokens
+    // The proper flow goes through /api/auth/web3/verify which returns JWT tokens
     let auth_context = Web3AuthContext {
         wallet_address: wallet_header.to_lowercase(),
         permissions,
@@ -544,10 +544,10 @@ fn is_public_route_for_auth(path: &str) -> bool {
         "/health",
         "/readiness",
         "/liveness",
-        "/api/v1/public/",
+        "/api/public/",
         "/api/auth/web3/challenge",
-        "/api/v1/auth/web3/challenge",
-        "/api/v1/auth/web3/verify",
+        "/api/auth/web3/challenge",
+        "/api/auth/web3/verify",
         "/api/permissions/health",
         "/docs",
         "/api-docs/",

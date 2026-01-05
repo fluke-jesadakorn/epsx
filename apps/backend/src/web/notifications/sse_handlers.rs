@@ -79,7 +79,7 @@ pub struct ScalarListQuery {
 /// Supports wallet-specific notifications + broadcast notifications
 #[utoipa::path(
     get,
-    path = "/api/v1/notifications/stream",
+    path = "/api/notifications/stream",
     tag = "notifications",
     responses(
         (status = 200, description = "Successfully established SSE connection"),
@@ -148,12 +148,21 @@ pub async fn sse_notifications_handler(
         query.types
     );
 
-    // Fetch queued (offline) notifications first
+    // Fetch queued (offline) notifications first from NOTIFICATIONS database
+    use crate::infrastructure::database::get_notifications_pool;
     let queued_notifications = if wallet_address != "all" {
-        crate::web::notifications::fetch_queued_notifications(
-            &app_state.db_pool,
-            &wallet_address
-        ).await.unwrap_or_default()
+        match get_notifications_pool().await {
+            Ok(notifications_pool) => {
+                crate::web::notifications::fetch_queued_notifications(
+                    notifications_pool,
+                    &wallet_address
+                ).await.unwrap_or_default()
+            }
+            Err(e) => {
+                tracing::error!("Failed to get notifications database pool: {}", e);
+                vec![]
+            }
+        }
     } else {
         vec![]
     };
@@ -179,8 +188,7 @@ pub async fn sse_notifications_handler(
     // Parse notification type filters
     let allowed_types = parse_notification_types(query.types);
 
-    // Clone for async stream
-    let db_pool = app_state.db_pool.clone();
+    // Clone for async stream - need to get notifications pool inside stream
     let wallet_for_stream = wallet_address.clone();
 
     // Create stream from Redis pub/sub messages
@@ -197,22 +205,28 @@ pub async fn sse_notifications_handler(
                                 .data(data)
                         );
 
-                        // Mark as delivered in background with error logging
-                        let db = db_pool.clone();
+                        // Mark as delivered in background with notifications pool
                         let notif_id = notification.id.clone();
                         let notif_title = notification.title.clone();
                         tokio::spawn(async move {
-                            match crate::web::notifications::mark_as_delivered(&db, &notif_id).await {
-                                Ok(_) => {
-                                    tracing::debug!("✅ Background task: Marked notification as delivered: id={}", notif_id);
+                            match crate::infrastructure::database::get_notifications_pool().await {
+                                Ok(pool) => {
+                                    match crate::web::notifications::mark_as_delivered(pool, &notif_id).await {
+                                        Ok(_) => {
+                                            tracing::debug!("✅ Background task: Marked notification as delivered: id={}", notif_id);
+                                        }
+                                        Err(e) => {
+                                            tracing::error!(
+                                                "❌ Background task failed: Could not mark notification as delivered: id={}, title='{}', error={}",
+                                                notif_id,
+                                                notif_title,
+                                                e
+                                            );
+                                        }
+                                    }
                                 }
                                 Err(e) => {
-                                    tracing::error!(
-                                        "❌ Background task failed: Could not mark notification as delivered: id={}, title='{}', error={}",
-                                        notif_id,
-                                        notif_title,
-                                        e
-                                    );
+                                    tracing::error!("Failed to get notifications pool in background task: {}", e);
                                 }
                             }
                         });
@@ -306,10 +320,13 @@ pub async fn sse_health_handler(
         false
     };
 
-    // Get notification stats
-    let stats = crate::web::notifications::get_notification_stats(&app_state.db_pool)
-        .await
-        .ok();
+    // Get notification stats from NOTIFICATIONS database
+    let stats = match crate::infrastructure::database::get_notifications_pool().await {
+        Ok(pool) => crate::web::notifications::get_notification_stats(pool)
+            .await
+            .ok(),
+        Err(_) => None,
+    };
 
     Ok(axum::response::Json(serde_json::json!({
         "status": if redis_healthy { "healthy" } else { "degraded" },
@@ -414,7 +431,17 @@ fn extract_wallet_from_token(token: Option<&str>) -> Option<String> {
             }
         }
         Err(e) => {
-            tracing::warn!("❌ Failed to decode token as JWT: {:?}", e);
+            // Only log unexpected errors - ExpiredSignature and InvalidAlgorithm are expected 
+            // when primary token validation already failed
+            match e.kind() {
+                jsonwebtoken::errors::ErrorKind::ExpiredSignature |
+                jsonwebtoken::errors::ErrorKind::InvalidAlgorithm => {
+                    tracing::debug!("Legacy token decode skipped (expected): {:?}", e.kind());
+                }
+                _ => {
+                    tracing::warn!("❌ Failed to decode token as JWT: {:?}", e);
+                }
+            }
             None
         }
     }

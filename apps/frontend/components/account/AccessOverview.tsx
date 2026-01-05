@@ -1,0 +1,273 @@
+'use client';
+
+import { Badge } from '@/components/ui';
+import { useApiClient } from '@/shared/hooks/useApiClient';
+import { differenceInDays, format } from 'date-fns';
+import {
+    AlertTriangle,
+    Check,
+    ShieldCheck,
+    Sparkles,
+    X
+} from 'lucide-react';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
+
+interface AccessGroup {
+    name: string;
+    expires_at?: string;
+    permissions: string[];
+    source_type: 'plan' | 'group' | 'manual';
+    description?: string;
+}
+
+interface DirectPermission {
+    permission: string;
+    expires_at?: string;
+}
+
+interface AccessOverviewData {
+    current_tier: string;
+    groups: AccessGroup[];
+    direct_permissions: DirectPermission[];
+}
+
+interface AccessOverviewBody {
+    success: boolean;
+    data: AccessOverviewData;
+}
+
+export function AccessOverview() {
+    const { base } = useApiClient({ platform: 'frontend' });
+    const [data, setData] = useState<AccessOverviewData | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                setLoading(true);
+                const response = await base.get<AccessOverviewBody>('/api/users/access-overview');
+
+                if (response && response.success && response.data?.success && response.data.data) {
+                    setData(response.data.data);
+                } else {
+                    // Show empty state instead of mock data - users should see their real access level
+                    setData({
+                        current_tier: "Free User",
+                        groups: [],
+                        direct_permissions: []
+                    });
+                }
+            } catch (err) {
+                console.error('Error fetching access overview:', err);
+                setError('Unable to load access details.');
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchData();
+    }, [base]);
+
+    const getExpiryStatus = (dateStr?: string) => {
+        if (!dateStr) return { label: 'Permanent', color: 'text-green-600 bg-green-50/50 dark:bg-green-900/20 dark:text-green-400 border-green-200 dark:border-green-800' };
+
+        const days = differenceInDays(new Date(dateStr), new Date());
+
+        if (days < 0) return { label: 'Expired', color: 'text-red-600 bg-red-50/50 dark:bg-red-900/20 dark:text-red-400 border-red-200 dark:border-red-800' };
+        if (days <= 7) return { label: `Expires in ${days} days`, color: 'text-orange-600 bg-orange-50/50 dark:bg-orange-900/20 dark:text-orange-400 border-orange-200 dark:border-orange-800' };
+        return { label: `Expires ${format(new Date(dateStr), 'MMM d, yyyy')}`, color: 'text-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/20 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800' };
+    };
+
+    const FeatureRow = ({ label, included }: { label: string; included: boolean }) => (
+        <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-800 last:border-0 group">
+            <span className={`text-sm font-medium transition-colors ${included ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
+                {label}
+            </span>
+            {included ? (
+                <div className="bg-green-100 dark:bg-green-900/30 p-1 rounded-full">
+                    <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
+                </div>
+            ) : (
+                <div className="bg-gray-100 dark:bg-gray-800 p-1 rounded-full">
+                    <X className="w-4 h-4 text-gray-300 dark:text-gray-600" />
+                </div>
+            )}
+        </div>
+    );
+
+    if (loading) {
+        return (
+            <div className="animate-pulse space-y-6">
+                <div className="h-40 bg-gray-200/50 dark:bg-gray-800/50 rounded-3xl"></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="h-64 bg-gray-200/50 dark:bg-gray-800/50 rounded-3xl"></div>
+                    <div className="h-64 bg-gray-200/50 dark:bg-gray-800/50 rounded-3xl"></div>
+                </div>
+            </div>
+        );
+    }
+
+    if (error || !data) {
+        return (
+            <div className="rounded-2xl border-2 border-red-200 bg-red-50/50 p-6 dark:border-red-900/50 dark:bg-red-900/20">
+                <div className="flex items-center gap-3">
+                    <AlertTriangle className="h-6 w-6 text-red-500" />
+                    <p className="text-sm font-semibold text-red-700 dark:text-red-300">{error || 'No data available'}</p>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="space-y-8">
+            {/* Current Tier Header */}
+            <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-r from-yellow-500 via-orange-500 to-pink-500 p-8 text-white shadow-2xl group">
+                <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                    <div>
+                        <div className="flex items-center gap-2 text-white/80 mb-2 font-bold uppercase tracking-wider text-xs">
+                            <ShieldCheck className="w-4 h-4" />
+                            Current Access Level
+                        </div>
+                        <h2 className="text-4xl md:text-5xl font-black tracking-tight">{data.current_tier}</h2>
+                    </div>
+                    <Link href="/plans" className="px-8 py-4 bg-white text-orange-600 rounded-2xl font-black text-sm hover:scale-105 transition-all shadow-xl hover:shadow-orange-500/25 flex items-center gap-2">
+                        <Sparkles className="w-4 h-4" /> UPGRADE ACCESS
+                    </Link>
+                </div>
+                {/* Decorative circles */}
+                <div className="absolute top-0 right-0 -mr-16 -mt-16 h-64 w-64 rounded-full bg-white/20 blur-3xl group-hover:bg-white/30 transition-colors"></div>
+                <div className="absolute bottom-0 left-0 -ml-16 -mb-16 h-48 w-48 rounded-full bg-black/10 blur-3xl"></div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                {/* Left Col: Permission Sources */}
+                <div className="lg:col-span-8 space-y-6">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-sm font-bold shadow-sm">A</span>
+                            Active Permissions
+                        </h3>
+                        <Badge variant="outline" className="bg-indigo-50/50 dark:bg-indigo-900/20 text-indigo-600 border-indigo-200">
+                            {data.groups.length} Active Groups
+                        </Badge>
+                    </div>
+
+                    <div className="grid sm:grid-cols-2 gap-6">
+                        {data.groups.length > 0 ? data.groups.map((group, idx) => {
+                            const status = getExpiryStatus(group.expires_at);
+                            const isPlan = group.source_type === 'plan';
+
+                            return (
+                                <div key={idx} className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 transition-all duration-300 hover:shadow-2xl flex flex-col ${isPlan ? 'border-blue-300/50 dark:border-blue-700/50' : 'border-purple-300/50 dark:border-purple-700/50'}`}>
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="text-3xl">{isPlan ? '💎' : '👥'}</div>
+                                        <Badge variant="outline" className={`text-[10px] font-bold uppercase tracking-wider ${status.color}`}>
+                                            {status.label}
+                                        </Badge>
+                                    </div>
+
+                                    <div className="mb-4">
+                                        <h4 className="text-xl font-bold text-gray-900 dark:text-white mb-1">{group.name}</h4>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">
+                                            {group.description || `Includes ${group.permissions.length} specialized permissions`}
+                                        </p>
+                                    </div>
+
+                                    <div className="mt-auto space-y-2">
+                                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Permissions</div>
+                                        {group.permissions.slice(0, 3).map((perm) => (
+                                            <div key={perm} className="flex items-center text-[11px] text-gray-600 dark:text-gray-300 font-mono bg-gray-50/50 dark:bg-gray-900/50 px-3 py-1.5 rounded-lg border border-gray-100 dark:border-gray-800 truncate">
+                                                <div className="h-1 w-1 rounded-full bg-indigo-500 mr-2 flex-shrink-0"></div>
+                                                {perm}
+                                            </div>
+                                        ))}
+                                        {group.permissions.length > 3 && (
+                                            <div className="text-[10px] text-indigo-500 font-bold ml-1">
+                                                + {group.permissions.length - 3} more permissions
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        }) : (
+                            <div className="col-span-full py-16 bg-gradient-to-br from-indigo-50/50 via-purple-50/30 to-pink-50/50 dark:from-gray-800/50 dark:via-purple-900/20 dark:to-gray-800/50 rounded-3xl border-2 border-dashed border-indigo-200/50 dark:border-indigo-700/30 text-center">
+                                <div className="flex justify-center mb-4">
+                                    <div className="p-4 bg-white/80 dark:bg-gray-800 rounded-2xl shadow-lg">
+                                        <Sparkles className="w-8 h-8 text-indigo-500" />
+                                    </div>
+                                </div>
+                                <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-2">No Active Plans</h4>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-sm mx-auto">
+                                    Unlock premium features, advanced analytics, and more by upgrading your access level.
+                                </p>
+                                <a href="/plans" className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-xl font-bold text-sm hover:from-indigo-600 hover:to-purple-600 transition-all shadow-lg hover:shadow-indigo-500/25">
+                                    <Sparkles className="w-4 h-4" />
+                                    Explore Plans
+                                </a>
+                            </div>
+                        )}
+                    </div>
+
+                    {data.direct_permissions.length > 0 && (
+                        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl border-2 border-indigo-100 dark:border-indigo-900/50 p-6">
+                            <h4 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                                <span className="text-xl">✨</span> External / Direct Access
+                            </h4>
+                            <div className="grid sm:grid-cols-2 gap-3">
+                                {data.direct_permissions.map((perm, idx) => {
+                                    const status = getExpiryStatus(perm.expires_at);
+                                    return (
+                                        <div key={idx} className="flex items-center justify-between text-[11px] p-3 rounded-xl bg-gray-50/50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 group hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors">
+                                            <div className="flex items-center font-mono text-gray-700 dark:text-gray-300 truncate mr-2">
+                                                <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 mr-2.5 flex-shrink-0"></div>
+                                                {perm.permission}
+                                            </div>
+                                            <Badge className="text-[9px] font-bold px-1.5 py-0 whitespace-nowrap" variant="outline">
+                                                {status.label}
+                                            </Badge>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+
+                {/* Right Col: Feature Checklist */}
+                <div className="lg:col-span-4 space-y-6">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-3">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 text-sm font-bold shadow-sm">F</span>
+                        Feature Access
+                    </h3>
+                    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl border-2 border-gray-100 dark:border-gray-800 p-6 shadow-xl relative overflow-hidden group">
+                        <div className="relative z-10 space-y-1">
+                            <FeatureRow label="Market Rankings" included={data.groups.some(g => g.permissions.some(p => p.includes('rankings:view')))} />
+                            <FeatureRow label="Advanced Analytics" included={data.groups.some(g => g.permissions.some(p => p.includes('analytics:advanced')))} />
+                            <FeatureRow label="Direct API Access" included={data.groups.some(g => g.permissions.some(p => p.includes('api:access')))} />
+                            <FeatureRow label="CSV Data Export" included={data.groups.some(g => g.permissions.some(p => p.includes('export')))} />
+                            <FeatureRow label="Custom Notifications" included={true} />
+                            <FeatureRow label="Beta Lab Access" included={data.groups.some(g => g.permissions.some(p => p.includes('beta')))} />
+                        </div>
+                        <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-800 relative z-10">
+                            <div className="text-[10px] text-center text-gray-400 font-bold uppercase tracking-widest leading-relaxed">
+                                Managed by protocol permissions
+                            </div>
+                        </div>
+
+                        {/* Subtle background decoration */}
+                        <div className="absolute -bottom-8 -right-8 h-24 w-24 bg-green-500/5 rounded-full blur-2xl group-hover:bg-green-500/10 transition-colors"></div>
+                    </div>
+
+                    <div className="p-6 rounded-3xl bg-indigo-50 dark:bg-indigo-900/20 border-2 border-indigo-100 dark:border-indigo-900/50">
+                        <h5 className="font-bold text-indigo-900 dark:text-indigo-100 text-xs mb-2 uppercase tracking-wider">Pro Tip</h5>
+                        <p className="text-[11px] text-indigo-700/80 dark:text-indigo-300/80 leading-relaxed">
+                            Upgrade to a higher tier to unlock advanced trading signals and historical data exports.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}

@@ -206,13 +206,13 @@ export const createPureWeb3AuthStore = (config: PureWeb3StoreConfig) => {
 
                     try {
                         // Sign request for permissions endpoint
-                        const endpoint = API_ROUTES.AUTH.PERMISSIONS; // '/api/v1/auth/users/permissions'
+                        const endpoint = API_ROUTES.AUTH.PERMISSIONS; // '/api/auth/users/permissions'
                         // Or '/api/users/permissions' as seen in original file?
-                        // "Naming Convention: RESTful /api/v1/{resource}/{action}"
+                        // "Naming Convention: RESTful /api/{resource}/{action}"
                         // Original: '/api/users/permissions' (Frontend), '/user/permissions' (Admin)
-                        // route-constants: PERMISSIONS: '/api/v1/auth/users/permissions'
+                        // route-constants: PERMISSIONS: '/api/auth/users/permissions'
                         // This suggests I should use the constant but might need to verify URL.
-                        // Using `API_ROUTES.AUTH.PERMISSIONS` which is '/api/v1/auth/users/permissions'.
+                        // Using `API_ROUTES.AUTH.PERMISSIONS` which is '/api/auth/users/permissions'.
 
                         const signedHeaders = await get().signRequest(endpoint, 'GET');
 

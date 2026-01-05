@@ -9,7 +9,7 @@ const publicRoutes = [
   '/login',
   '/auth',
   '/api/auth',
-  '/api/v1', // Allow API routes to handle auth themselves
+  '/api', // Allow API routes to handle auth themselves
   '/api/proxy', // Allow proxy routes to handle auth themselves
   '/unauthorized',
   '/access-denied',

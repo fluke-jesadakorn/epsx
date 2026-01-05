@@ -13,11 +13,9 @@ export const dynamic = 'force-dynamic';
  * - /payment?plan=uuid       → Plan payment (subscription)
  * - /payment?group=uuid      → Group payment (permission access)
  * - /payment?link=slug       → Dynamic payment link
- * - /payment?package=id      → Legacy package selection
  */
 interface PaymentPageProps {
   searchParams: Promise<{
-    package?: string;
     plan?: string;
     group?: string;
     link?: string;
@@ -30,7 +28,7 @@ export default async function PaymentPage({ searchParams }: PaymentPageProps) {
 
   // Extract payment context from search params
   const resolvedSearchParams = await searchParams;
-  const selectedPackageId = resolvedSearchParams.package || resolvedSearchParams.plan || '';
+  const selectedPackageId = resolvedSearchParams.plan || '';
 
   // V2 Dynamic Payment Context
   const paymentContext = {

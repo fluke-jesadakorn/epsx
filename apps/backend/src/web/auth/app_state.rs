@@ -8,6 +8,7 @@ use crate::infrastructure::cache::Cache;
 use crate::infrastructure::container::DomainContainer;
 use crate::infrastructure::redis::RedisPool;
 use crate::web::notifications::RedisNotificationBroadcaster;
+use crate::domain::payment::repository_ports::{TransactionHistoryProvider};
 use crate::infrastructure::adapters::repositories::group_repository_adapter::PermissionGroupRepositoryAdapter;
 // use crate::infrastructure::adapters::repositories::payment_repository_adapter::PaymentRepositoryAdapter; // Temporarily disabled
 
@@ -21,6 +22,7 @@ pub struct AppState {
     pub redis_pool: Option<Arc<RedisPool>>,
     pub redis_broadcaster: Option<Arc<RedisNotificationBroadcaster>>,
     pub group_repo: Arc<PermissionGroupRepositoryAdapter>,
+    pub transaction_history_provider: Option<Arc<dyn TransactionHistoryProvider>>,
     // pub payment_repository: Arc<PaymentRepositoryAdapter>, // Temporarily disabled
     // Stub for backwards compatibility with admin handlers
     pub user_repo: Option<String>,
@@ -44,6 +46,8 @@ impl AppState {
 
         // let _payment_repository = domain_container.payment_repository.clone(); // Temporarily disabled - field removed
 
+        let transaction_history_provider = domain_container.transaction_history_provider.clone();
+
         Self {
             db_pool,
             cache,
@@ -51,6 +55,7 @@ impl AppState {
             redis_pool,
             redis_broadcaster,
             group_repo,
+            transaction_history_provider,
             // payment_repository, // Temporarily disabled
             user_repo: None, // Placeholder for backwards compatibility
         }

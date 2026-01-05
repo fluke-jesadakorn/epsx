@@ -333,8 +333,13 @@ pub async fn list_plans_handler(
         }
     };
 
-    // Get subscriber counts for all plans
-    let mut conn = match (*app_state.db_pool).get().await {
+    // Get subscriber counts for all plans - subscriptions table is in PAYMENTS database
+    use crate::infrastructure::database::get_payments_pool;
+    let payments_pool = get_payments_pool().await.map_err(|err| {
+        tracing::error!(error = %err, "Failed to get payments database pool for subscriber count");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    let mut conn = match payments_pool.get().await {
         Ok(c) => c,
         Err(err) => {
             tracing::error!(error = %err, "Failed to get database connection for subscriber count");
@@ -741,17 +746,17 @@ pub async fn create_subscription_handler(
 
     let subscription_id = Uuid::new_v4();
     
-    // Get DB connection for plan lookup
-    let mut conn = (*state.db_pool).get().await.map_err(|e| {
-        tracing::error!("Failed to get database connection: {}", e);
+    // Get PRIMARY DB connection for plan lookup (groups table is in primary DB)
+    let mut primary_conn = (*state.db_pool).get().await.map_err(|e| {
+        tracing::error!("Failed to get primary database connection: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
     
-    // Find plan UUID from permission_group_name
+    // Find plan UUID from permission_group_name (groups table in PRIMARY DB)
     let plan_uuid: Uuid = groups::table
         .filter(groups::name.eq(&request.permission_group_name))
         .select(groups::id)
-        .first::<Uuid>(&mut conn)
+        .first::<Uuid>(&mut primary_conn)
         .await
         .unwrap_or_else(|_| {
             tracing::warn!("Could not find plan by name '{}', using placeholder UUID", request.permission_group_name);
@@ -792,10 +797,20 @@ pub async fn create_subscription_handler(
         })),
     };
     
-    // Insert into database (reusing connection from plan lookup)
+    // Insert into PAYMENTS database (subscriptions table is in payments DB)
+    use crate::infrastructure::database::get_payments_pool;
+    let payments_pool = get_payments_pool().await.map_err(|e| {
+        tracing::error!("Failed to get payments database pool: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    let mut payments_conn = payments_pool.get().await.map_err(|e| {
+        tracing::error!("Failed to get payments database connection: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    
     diesel::insert_into(subscriptions::table)
         .values(&new_subscription)
-        .execute(&mut conn)
+        .execute(&mut payments_conn)
         .await
         .map_err(|e| {
             tracing::error!("Failed to insert subscription: {}", e);
@@ -879,6 +894,7 @@ pub async fn admin_list_user_access_handler(
     
     // Query wallet_group_assignments with plan info from groups table
     #[derive(diesel::QueryableByName)]
+    #[allow(dead_code)]
     struct UserRow {
         #[diesel(sql_type = diesel::sql_types::Text)]
         wallet_address: String,

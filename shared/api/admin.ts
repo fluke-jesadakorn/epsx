@@ -259,11 +259,11 @@ export class AdminAPIClient {
 
   /**
    * Get all users with filtering and pagination
-   * Route: GET /api/v1/admin/users
+   * Route: GET /api/admin/users
    */
   async getUsers(filters: AdminUserFilters = {}): Promise<AdminUsersResponse> {
     const response = await this.client.get<AdminUsersResponse>(
-      '/api/v1/admin/users',
+      '/api/admin/users',
       filters,
       {
         headers: {
@@ -283,13 +283,13 @@ export class AdminAPIClient {
 
   /**
    * Search users by various criteria
-   * Route: GET /api/v1/admin/users/search
+   * Route: GET /api/admin/users/search
    */
   async searchUsers(query: string, filters: Omit<AdminUserFilters, 'search'> = {}): Promise<AdminUsersResponse> {
     const searchFilters = { ...filters, search: query };
     
     const response = await this.client.get<AdminUsersResponse>(
-      '/api/v1/admin/users/search',
+      '/api/admin/users/search',
       searchFilters,
       {
         headers: {
@@ -309,7 +309,7 @@ export class AdminAPIClient {
 
   /**
    * Get user statistics
-   * Route: GET /api/v1/admin/users/stats
+   * Route: GET /api/admin/users/stats
    */
   async getUserStats(): Promise<{
     total_users: number;
@@ -318,7 +318,7 @@ export class AdminAPIClient {
     users_by_tier: Record<string, number>;
   }> {
     const response = await this.client.get(
-      '/api/v1/admin/users/stats',
+      '/api/admin/users/stats',
       undefined,
       {
         headers: {
@@ -342,11 +342,11 @@ export class AdminAPIClient {
 
   /**
    * Search wallets with advanced filtering
-   * Route: GET /api/v1/admin/wallets/search
+   * Route: GET /api/admin/wallets/search
    */
   async searchWallets(filters: WalletSearchFilters = {}): Promise<WalletSearchResponse> {
     const response = await this.client.get<WalletSearchResponse>(
-      '/api/v1/admin/wallets/search',
+      '/api/admin/wallets/search',
       filters,
       {
         headers: {
@@ -366,7 +366,7 @@ export class AdminAPIClient {
 
   /**
    * Get recent wallets activity
-   * Route: GET /api/v1/admin/web3/recent-wallets
+   * Route: GET /api/admin/web3/recent-wallets
    */
   async getRecentWallets(limit: number = 10): Promise<{
     recent_wallets: Array<{
@@ -377,7 +377,7 @@ export class AdminAPIClient {
     }>;
   }> {
     const response = await this.client.get(
-      '/api/v1/admin/web3/recent-wallets',
+      '/api/admin/web3/recent-wallets',
       { limit },
       {
         headers: {
@@ -401,11 +401,11 @@ export class AdminAPIClient {
 
   /**
    * Get permissions with filtering
-   * Route: GET /api/v1/auth/web3/permissions
+   * Route: GET /api/auth/web3/permissions
    */
   async getPermissions(filters: PermissionFilters = {}): Promise<PermissionsResponse> {
     const response = await this.client.get<PermissionsResponse>(
-      '/api/v1/auth/web3/permissions',
+      '/api/auth/web3/permissions',
       filters,
       {
         headers: {
@@ -425,11 +425,11 @@ export class AdminAPIClient {
 
   /**
    * Grant permission to wallet
-   * Route: POST /api/v1/auth/web3/permissions/grant
+   * Route: POST /api/auth/web3/permissions/grant
    */
   async grantPermission(request: PermissionGrantRequest): Promise<PermissionOperationResponse> {
     const response = await this.client.post<PermissionOperationResponse>(
-      '/api/v1/auth/web3/permissions/grant',
+      '/api/auth/web3/permissions/grant',
       request,
       {
         headers: {
@@ -449,11 +449,11 @@ export class AdminAPIClient {
 
   /**
    * Revoke permission from wallet
-   * Route: DELETE /api/v1/auth/web3/permissions/revoke
+   * Route: DELETE /api/auth/web3/permissions/revoke
    */
   async revokePermission(request: PermissionRevokeRequest): Promise<PermissionOperationResponse> {
     const response = await this.client.delete<PermissionOperationResponse>(
-      '/api/v1/auth/web3/permissions/revoke',
+      '/api/auth/web3/permissions/revoke',
       {
         headers: {
           'X-API-Version': 'v1',
@@ -477,11 +477,11 @@ export class AdminAPIClient {
 
   /**
    * Assign user to group
-   * Route: POST /api/v1/admin/groups/assign
+   * Route: POST /api/admin/groups/assign
    */
   async assignToGroup(request: GroupAssignRequest): Promise<GroupAssignResponse> {
     const response = await this.client.post<GroupAssignResponse>(
-      '/api/v1/admin/groups/assign',
+      '/api/admin/groups/assign',
       request,
       {
         headers: {
@@ -501,7 +501,7 @@ export class AdminAPIClient {
 
   /**
    * Bulk assign modules/permissions to users
-   * Route: POST /api/v1/admin/users/bulk/assign-modules
+   * Route: POST /api/admin/users/bulk/assign-modules
    */
   async bulkAssignModules(request: {
     wallet_addresses: string[];
@@ -516,7 +516,7 @@ export class AdminAPIClient {
     }>;
   }> {
     const response = await this.client.post(
-      '/api/v1/admin/users/bulk/assign-modules',
+      '/api/admin/users/bulk/assign-modules',
       request,
       {
         headers: {
@@ -540,11 +540,11 @@ export class AdminAPIClient {
 
   /**
    * Get admin dashboard analytics
-   * Route: GET /api/v1/admin/analytics/dashboard
+   * Route: GET /api/admin/analytics/dashboard
    */
   async getDashboardAnalytics(): Promise<AdminAnalyticsResponse> {
     const response = await this.client.get<AdminAnalyticsResponse>(
-      '/api/v1/admin/analytics/dashboard',
+      '/api/admin/analytics/dashboard',
       undefined,
       {
         headers: {
@@ -564,11 +564,11 @@ export class AdminAPIClient {
 
   /**
    * Get performance metrics
-   * Route: GET /api/v1/admin/analytics/performance
+   * Route: GET /api/admin/analytics/performance
    */
   async getPerformanceMetrics(): Promise<PerformanceMetricsResponse> {
     const response = await this.client.get<PerformanceMetricsResponse>(
-      '/api/v1/admin/analytics/performance',
+      '/api/admin/analytics/performance',
       undefined,
       {
         headers: {
@@ -588,7 +588,7 @@ export class AdminAPIClient {
 
   /**
    * Get permissions analytics
-   * Route: GET /api/v1/admin/analytics/permissions
+   * Route: GET /api/admin/analytics/permissions
    */
   async getPermissionAnalytics(): Promise<{
     permission_distribution: Record<string, number>;
@@ -601,7 +601,7 @@ export class AdminAPIClient {
     }>;
   }> {
     const response = await this.client.get(
-      '/api/v1/admin/analytics/permissions',
+      '/api/admin/analytics/permissions',
       undefined,
       {
         headers: {
@@ -621,7 +621,7 @@ export class AdminAPIClient {
 
   /**
    * Get cache statistics
-   * Route: GET /api/v1/admin/cache/stats
+   * Route: GET /api/admin/cache/stats
    */
   async getCacheStats(): Promise<{
     cache_hit_rate: number;
@@ -631,7 +631,7 @@ export class AdminAPIClient {
     performance_impact: number;
   }> {
     const response = await this.client.get(
-      '/api/v1/admin/cache/stats',
+      '/api/admin/cache/stats',
       undefined,
       {
         headers: {
@@ -655,7 +655,7 @@ export class AdminAPIClient {
 
   /**
    * Get NFT gates configuration
-   * Route: GET /api/v1/admin/web3/nft-gates
+   * Route: GET /api/admin/web3/nft-gates
    */
   async getNFTGates(): Promise<{
     nft_gates: Array<{
@@ -668,7 +668,7 @@ export class AdminAPIClient {
     }>;
   }> {
     const response = await this.client.get(
-      '/api/v1/admin/web3/nft-gates',
+      '/api/admin/web3/nft-gates',
       undefined,
       {
         headers: {
@@ -688,7 +688,7 @@ export class AdminAPIClient {
 
   /**
    * Get token gates configuration
-   * Route: GET /api/v1/admin/web3/token-gates
+   * Route: GET /api/admin/web3/token-gates
    */
   async getTokenGates(): Promise<{
     token_gates: Array<{
@@ -701,7 +701,7 @@ export class AdminAPIClient {
     }>;
   }> {
     const response = await this.client.get(
-      '/api/v1/admin/web3/token-gates',
+      '/api/admin/web3/token-gates',
       undefined,
       {
         headers: {
@@ -721,7 +721,7 @@ export class AdminAPIClient {
 
   /**
    * Get DAO proposals
-   * Route: GET /api/v1/admin/web3/dao-proposals
+   * Route: GET /api/admin/web3/dao-proposals
    */
   async getDAOProposals(): Promise<{
     proposals: Array<{
@@ -735,7 +735,7 @@ export class AdminAPIClient {
     }>;
   }> {
     const response = await this.client.get(
-      '/api/v1/admin/web3/dao-proposals',
+      '/api/admin/web3/dao-proposals',
       undefined,
       {
         headers: {

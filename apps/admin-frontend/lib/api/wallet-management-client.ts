@@ -242,7 +242,7 @@ export const walletMgmt = {
         //   params.platform = filters.platform;
         // }
 
-        const res = await adminApiClient.get<WalletListResponse>('/api/v1/admin/wallets', params);
+        const res = await adminApiClient.get<WalletListResponse>('/api/admin/wallets', params);
 
         // Handle AdminApiResponse wrapper: { success, data: { wallets, pagination }, message }
         const responseData = res.data?.data || res.data;
@@ -267,7 +267,7 @@ export const walletMgmt = {
      */
     async fetchWalletStats(): Promise<WalletStats> {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const res = await adminApiClient.get<any>('/api/v1/admin/wallets/stats');
+        const res = await adminApiClient.get<any>('/api/admin/wallets/stats');
         // Backend returns { success, data: { stats }, message, metadata }
         const responseData = res.data?.data || res.data;
         const stats = responseData?.stats || responseData || {
@@ -286,7 +286,7 @@ export const walletMgmt = {
      */
     async fetchWalletDetail(walletAddress: string): Promise<WalletData> {
         const res = await adminApiClient.get<{ data: WalletSummaryDto }>(
-            `/api/v1/admin/wallets/${walletAddress}`
+            `/api/admin/wallets/${walletAddress}`
         );
 
         if (!res.data?.data) {
@@ -305,7 +305,7 @@ export const walletMgmt = {
         expiresAt?: string;
         reason?: string;
     }): Promise<void> {
-        await adminApiClient.post('/api/v1/admin/permissions/bulk/grant', {
+        await adminApiClient.post('/api/admin/permissions/bulk/grant', {
             wallet_addresses: [data.walletAddress],
             permission_strings: data.permissions,
             expires_at: data.expiresAt,
@@ -320,7 +320,7 @@ export const walletMgmt = {
         walletAddress: string;
         permissions: string[];
     }): Promise<void> {
-        await adminApiClient.post('/api/v1/admin/permissions/bulk/revoke', {
+        await adminApiClient.post('/api/admin/permissions/bulk/revoke', {
             wallet_addresses: [data.walletAddress],
             permission_strings: data.permissions,
         });
@@ -330,14 +330,14 @@ export const walletMgmt = {
      * Temporarily disable a wallet
      */
     async disableWallet(walletAddress: string, data: DisableWalletRequest): Promise<void> {
-        await adminApiClient.post(`/api/v1/admin/wallets/${walletAddress}/disable`, data);
+        await adminApiClient.post(`/api/admin/wallets/${walletAddress}/disable`, data);
     },
 
     /**
      * Re-enable a disabled wallet
      */
     async enableWallet(walletAddress: string, data: EnableWalletRequest): Promise<void> {
-        await adminApiClient.post(`/api/v1/admin/wallets/${walletAddress}/enable`, data);
+        await adminApiClient.post(`/api/admin/wallets/${walletAddress}/enable`, data);
     },
 
     /**
@@ -345,7 +345,7 @@ export const walletMgmt = {
      */
     async fetchActivityHistory(walletAddress: string, limit = 20): Promise<WalletActivityEvent[]> {
         const res = await adminApiClient.get<{ events: WalletActivityEvent[] }>(
-            `/api/v1/admin/wallets/${walletAddress}/activity`,
+            `/api/admin/wallets/${walletAddress}/activity`,
             { limit: limit.toString() }
         );
 
@@ -356,14 +356,14 @@ export const walletMgmt = {
      * Bulk operations on multiple wallets
      */
     async bulkGrantPermissions(data: AssignPermissionRequest): Promise<void> {
-        await adminApiClient.post('/api/v1/admin/permissions/bulk/grant', data);
+        await adminApiClient.post('/api/admin/permissions/bulk/grant', data);
     },
 
     async bulkRevokePermissions(data: {
         wallet_addresses: string[];
         permission_strings: string[];
     }): Promise<void> {
-        await adminApiClient.post('/api/v1/admin/permissions/bulk/revoke', data);
+        await adminApiClient.post('/api/admin/permissions/bulk/revoke', data);
     },
 
     async bulkDisable(walletAddresses: string[], reason: string): Promise<void> {

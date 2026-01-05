@@ -4,17 +4,63 @@ import { useCallback } from 'react';
 import useSWR from 'swr';
 
 import { adminApiClient } from '@/lib/api-client';
-import {
-  type AnalyticsDashboardData,
-  type PermissionAnalytics,
-  type SystemMetrics,
-  type UserStats,
-  combineErrorStates,
-  combineLoadingStates,
-  DEFAULT_ANALYTICS_CONFIG,
-  REALTIME_ANALYTICS_CONFIG,
-  SLOW_ANALYTICS_CONFIG
-} from '@/shared/hooks';
+
+// ============================================================================
+// TYPES & CONFIG (Restored locally after shared cleanup)
+// ============================================================================
+
+export interface UserStats {
+  total?: number;
+  active?: number;
+  today_connections?: number;
+  total_users?: number;
+  active_users?: number;
+  inactive_users?: number;
+  new_users_30_days?: number;
+  growth_rate?: number;
+}
+
+export interface PermissionAnalytics {
+  total?: number;
+  pending_notifications?: number;
+  total_groups?: number;
+  active_permissions?: number;
+}
+
+export interface SystemMetrics {
+  health_percentage?: number;
+  uptime?: string;
+  avg_response_time?: string;
+  api_response_time?: number;
+  memory_usage?: number;
+  active_users?: number;
+  peak_users_today?: number;
+  database_query_time?: number;
+}
+
+export interface AnalyticsDashboardData {
+  summary: any;
+  trends: any[];
+}
+
+export const DEFAULT_ANALYTICS_CONFIG = {
+  refreshInterval: 60000,
+  revalidateOnFocus: false,
+};
+
+export const REALTIME_ANALYTICS_CONFIG = {
+  refreshInterval: 10000,
+  revalidateOnFocus: true,
+};
+
+export const SLOW_ANALYTICS_CONFIG = {
+  refreshInterval: 300000,
+  revalidateOnFocus: false,
+};
+
+// Simple utilities for combining states
+export const combineLoadingStates = (...states: boolean[]) => states.some(Boolean);
+export const combineErrorStates = (...errors: any[]) => errors.some(Boolean);
 
 // ============================================================================
 // API KEYS TYPE (Admin-specific)
@@ -51,7 +97,7 @@ const fetcher = async <T>(url: string): Promise<T> => {
 
 export function useUserStats() {
   const { data, error, isLoading, mutate } = useSWR<UserStats>(
-    '/api/admin/users/stats',
+    '/api/admin/wallets/stats',
     fetcher,
     {
       refreshInterval: 30000, // Refresh every 30 seconds

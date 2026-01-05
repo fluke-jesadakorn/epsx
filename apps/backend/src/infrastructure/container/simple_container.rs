@@ -21,7 +21,7 @@ use crate::domain::wallet_management::{
     WalletUserRepositoryPort,
     WalletUserAnalyticsPort,
 };
-use crate::domain::payment::repository_ports::PaymentRepositoryPort;
+use crate::domain::payment::repository_ports::{PaymentRepositoryPort, TransactionHistoryProvider};
 use crate::auth::auth_service::UnifiedWeb3AuthService;
 use crate::auth::token_service::OpenIDTokenService;
 use crate::auth::key_manager::KeyManager;
@@ -58,7 +58,7 @@ pub struct SimpleContainer {
     pub transactional_outbox: Option<Arc<TransactionalOutbox>>,
     pub event_dispatcher: Option<Arc<crate::infrastructure::EventDispatcher>>,
     pub projection_manager: Option<Arc<crate::infrastructure::ProjectionManager>>,
-
+    pub transaction_history_provider: Option<Arc<dyn TransactionHistoryProvider>>,
 }
 
 impl SimpleContainer {
@@ -87,6 +87,7 @@ impl SimpleContainer {
             transactional_outbox: None,
             event_dispatcher: None,
             projection_manager: None,
+            transaction_history_provider: None,
         }
     }
 
@@ -261,6 +262,30 @@ impl SimpleContainer {
             *db_pool,
         ));
 
+        // Create TransactionHistoryProvider based on environment
+        let transaction_history_provider: Option<Arc<dyn TransactionHistoryProvider>> = {
+            let config = crate::config::env::init_config(); // Use config for environment checks
+            let contract_address = std::env::var("PAYMENT_ESCROW_ADDRESS")
+                .unwrap_or_else(|_| "0x1234567890123456789012345678901234567890".to_string());
+
+            if config.is_production() {
+                let api_key = std::env::var("BSCSCAN_API_KEY").unwrap_or_default();
+                Some(Arc::new(crate::infrastructure::blockchain::ScannerTransactionHistoryProvider::new(
+                    api_key,
+                    contract_address,
+                )))
+            } else {
+                let rpc_url = config.bsc_rpc_url.clone();
+                match crate::infrastructure::blockchain::RpcTransactionHistoryProvider::new(rpc_url, contract_address) {
+                    Ok(provider) => Some(Arc::new(provider)),
+                    Err(e) => {
+                        tracing::error!("Failed to initialize RpcTransactionHistoryProvider: {}", e);
+                        None
+                    }
+                }
+            }
+        };
+
         Self {
             db_pool,
             cache,
@@ -285,6 +310,7 @@ impl SimpleContainer {
             transactional_outbox: Some(transactional_outbox),
             event_dispatcher,
             projection_manager,
+            transaction_history_provider,
         }
     }
 
@@ -313,6 +339,7 @@ impl SimpleContainer {
             transactional_outbox: None,
             event_dispatcher: None,
             projection_manager: None,
+            transaction_history_provider: None,
         }
     }
 
@@ -388,6 +415,10 @@ impl SimpleContainer {
         self.redis_broadcaster.as_ref().map(Arc::clone)
     }
 
+    pub fn get_transaction_history_provider(&self) -> Option<Arc<dyn TransactionHistoryProvider>> {
+        self.transaction_history_provider.as_ref().map(Arc::clone)
+    }
+
     // Enhanced app state creation with Web3 services
     pub fn create_app_state(&self) -> Web3AppState {
         Web3AppState {
@@ -399,6 +430,7 @@ impl SimpleContainer {
             auth_service: self.get_auth_service(),
             db_pool: Arc::clone(&self.db_pool),
             cache: self.cache.as_ref().map(Arc::clone),
+            transaction_history_provider: self.get_transaction_history_provider(),
         }
     }
     
@@ -486,6 +518,7 @@ pub struct Web3AppState {
     pub auth_service: Option<Arc<UnifiedWeb3AuthService>>,
     pub db_pool: Arc<&'static Pool<AsyncPgConnection>>,
     pub cache: Option<Arc<dyn Cache>>,
+    pub transaction_history_provider: Option<Arc<dyn TransactionHistoryProvider>>,
 }
 
 impl Web3AppState {

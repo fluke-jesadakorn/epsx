@@ -93,11 +93,11 @@ export function getFrontendOIDCConfig(): OIDCConfig {
       authorize: urls.oauth.authorize,
       token: urls.oauth.token,
       userinfo: urls.oauth.userinfo,
-      logout: `${env.BACKEND_URL}/api/v1/auth/logout`,
-      challenge: `${env.BACKEND_URL}/api/v1/auth/web3/challenge`,
-      verify: `${env.BACKEND_URL}/api/v1/auth/web3/verify`,
-      refresh: `${env.BACKEND_URL}/api/v1/auth/refresh`,
-      permissions: `${env.BACKEND_URL}/api/v1/auth/permissions`,
+      logout: `${env.BACKEND_URL}/api/auth/logout`,
+      challenge: `${env.BACKEND_URL}/api/auth/web3/challenge`,
+      verify: `${env.BACKEND_URL}/api/auth/web3/verify`,
+      refresh: `${env.BACKEND_URL}/api/auth/refresh`,
+      permissions: `${env.BACKEND_URL}/api/auth/permissions`,
     },
   };
 }
@@ -120,11 +120,11 @@ export function getAdminOIDCConfig(): OIDCConfig {
       authorize: urls.oauth.authorize,
       token: urls.oauth.token,
       userinfo: urls.oauth.userinfo,
-      logout: `${env.BACKEND_URL}/api/v1/auth/logout`,
-      challenge: `${env.BACKEND_URL}/api/v1/auth/web3/challenge`,
-      verify: `${env.BACKEND_URL}/api/v1/auth/web3/verify`,
-      refresh: `${env.BACKEND_URL}/api/v1/auth/refresh`,
-      permissions: `${env.BACKEND_URL}/api/v1/auth/permissions`,
+      logout: `${env.BACKEND_URL}/api/auth/logout`,
+      challenge: `${env.BACKEND_URL}/api/auth/web3/challenge`,
+      verify: `${env.BACKEND_URL}/api/auth/web3/verify`,
+      refresh: `${env.BACKEND_URL}/api/auth/refresh`,
+      permissions: `${env.BACKEND_URL}/api/auth/permissions`,
     },
   };
 }
@@ -429,7 +429,7 @@ export function getRequiredAuthLevel(
   const sensitiveRoutes = [
     '/payment',
     '/billing',
-    '/api/v1/payment',
+    '/api/payment',
     '/settings/security',
     '/profile/edit',
   ];

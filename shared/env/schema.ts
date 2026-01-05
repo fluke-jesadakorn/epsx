@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 // Environment context detection
 export const isServer = typeof window === 'undefined';
-export const isDev = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') || false;
+export const isDev = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') || (typeof window !== 'undefined' && window.location.hostname === 'localhost') || false;
 export const isProd = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production') || false;
 export const isStaging = (typeof process !== 'undefined' && process.env?.NODE_ENV === 'production' && process.env?.DEPLOYMENT_ENV === 'staging') || false;
 export const isBuild = (typeof process !== 'undefined' && (process.env?.NEXT_PHASE === 'phase-production-build' || process.env?.CI === 'true')) || false;
@@ -389,26 +389,26 @@ export const web3Urls = {
   // Web3 authentication endpoints
   auth: {
     get challenge() {
-      return `${env.BACKEND_URL}/api/v1/auth/web3/challenge`;
+      return `${env.BACKEND_URL}/api/auth/web3/challenge`;
     },
     get verify() {
-      return `${env.BACKEND_URL}/api/v1/auth/web3/verify`;
+      return `${env.BACKEND_URL}/api/auth/web3/verify`;
     },
     get permissions() {
-      return `${env.BACKEND_URL}/api/v1/auth/web3/permissions`;
+      return `${env.BACKEND_URL}/api/auth/web3/permissions`;
     },
     get logout() {
-      return `${env.BACKEND_URL}/api/v1/auth/web3/logout`;
+      return `${env.BACKEND_URL}/api/auth/web3/logout`;
     }
   },
 
   // Wallet authentication callbacks
   callbacks: {
     get frontend() {
-      return `${env.APP_URL}/api/v1/auth/web3/verify`;
+      return `${env.APP_URL}/api/auth/web3/verify`;
     },
     get admin() {
-      return `${env.ADMIN_URL}/api/v1/auth/web3/verify`;
+      return `${env.ADMIN_URL}/api/auth/web3/verify`;
     }
   }
 };

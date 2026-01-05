@@ -142,7 +142,7 @@ export async function sendNotification(
 
 export async function cleanupExpiredPermissionsAction(): Promise<ActionResult> {
   try {
-    const response = await makeAdminApiRequest('/api/v1/admin/permissions/cleanup', {
+    const response = await makeAdminApiRequest('/api/admin/permissions/cleanup', {
       method: 'POST',
     });
 

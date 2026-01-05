@@ -66,7 +66,7 @@ export function RecentWalletsPanel() {
 
     try {
       // Try to get 30 days of data to show more meaningful results
-      const response = await fetchSimple('/api/v1/admin/web3/recent-wallets?limit=10&days=30');
+      const response = await fetchSimple('/api/admin/web3/recent-wallets?limit=10&days=30');
       const result = await response.json();
       setData(result);
     } catch (err) {

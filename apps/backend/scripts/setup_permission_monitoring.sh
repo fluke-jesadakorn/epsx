@@ -797,7 +797,7 @@ health_checks:
 
 # Permission System Specific Health Metrics
 permission_health:
-  validation_endpoint: "/api/v1/permissions/validate"
+  validation_endpoint: "/api/permissions/validate"
   test_cases:
     - wallet: "0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6"
       permission: "admin:users:manage"
@@ -1010,7 +1010,7 @@ curl -f -s "$ADMIN_URL" > /dev/null || exit 1
 
 # Permission validation test
 echo "🔐 Testing permission validation..."
-curl -X POST "$BACKEND_URL/api/v1/permissions/validate" \
+curl -X POST "$BACKEND_URL/api/permissions/validate" \
   -H "Content-Type: application/json" \
   -d '{"wallet_address":"0x742d35Cc6634C0532925a3b8D4C9db96C4b4d8b6","permission":"admin:users:manage"}' \
   -f -s | jq '.has_permission' || exit 1

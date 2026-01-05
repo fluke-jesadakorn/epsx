@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState, useEffect, useMemo } from 'react';
 import { useAppState } from '@/context/app-state';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type SelectorFunction<T, R> = (state: T) => R;
 type EqualityFunction<R> = (prev: R, next: R) => boolean;
@@ -13,18 +13,18 @@ const shallowEqual: EqualityFunction<any> = (prev, next) => {
   if (prev === next) return true;
   if (typeof prev !== 'object' || typeof next !== 'object') return false;
   if (prev === null || next === null) return false;
-  
+
   const keysA = Object.keys(prev);
   const keysB = Object.keys(next);
-  
+
   if (keysA.length !== keysB.length) return false;
-  
+
   for (const key of keysA) {
     if (!keysB.includes(key) || prev[key] !== next[key]) {
       return false;
     }
   }
-  
+
   return true;
 };
 
@@ -38,20 +38,21 @@ export function useStateSelector<R>(
 ): R {
   const { state } = useAppState();
   const { equalityFn = shallowEqual, debugName } = options;
-  
+
   const selectorRef = useRef(selector);
   const equalityRef = useRef(equalityFn);
   const [selectedState, setSelectedState] = useState(() => selector(state));
-  
+
   // Update refs
   selectorRef.current = selector;
   equalityRef.current = equalityFn;
-  
+
   useEffect(() => {
     const newSelectedState = selectorRef.current(state);
-    
+
     if (!equalityRef.current(selectedState, newSelectedState)) {
       if (debugName && process.env.NODE_ENV === 'development') {
+        console.log(`[Selector ${debugName}] State changed`, {
           prev: selectedState,
           next: newSelectedState
         });
@@ -59,7 +60,7 @@ export function useStateSelector<R>(
       setSelectedState(newSelectedState);
     }
   }, [state, selectedState, debugName]);
-  
+
   return selectedState;
 }
 
@@ -89,7 +90,7 @@ export function useMultiSelector<T extends Record<string, any>>(
     }
     return result;
   }, [selectors]);
-  
+
   return useStateSelector(combinedSelector, options);
 }
 
@@ -214,17 +215,17 @@ export function useRankingsSelector() {
 export function useSelectorPerformance(name: string) {
   const renderCount = useRef(0);
   const lastRender = useRef(Date.now());
-  
+
   useEffect(() => {
     renderCount.current++;
     const now = Date.now();
     const timeSinceLastRender = now - lastRender.current;
     lastRender.current = now;
-    
+
     if (process.env.NODE_ENV === 'development') {
     }
   });
-  
+
   return {
     renderCount: renderCount.current,
     lastRenderTime: lastRender.current
@@ -244,19 +245,19 @@ export function useBatchedSelectors<T extends Record<string, any>>(
   selectors: { [K in keyof T]: () => T[K] }
 ): T {
   const results = {} as T;
-  
+
   for (const [key, selector] of Object.entries(selectors)) {
     // eslint-disable-next-line react-hooks/rules-of-hooks
     results[key as keyof T] = selector();
   }
-  
+
   return results;
 }
 
 // Responsive breakpoint hook
 export function useResponsive() {
   const [breakpoint, setBreakpoint] = useState('lg');
-  
+
   useEffect(() => {
     const updateBreakpoint = () => {
       const width = window.innerWidth;
@@ -266,13 +267,13 @@ export function useResponsive() {
       else if (width < 1280) setBreakpoint('xl');
       else setBreakpoint('2xl');
     };
-    
+
     updateBreakpoint();
     window.addEventListener('resize', updateBreakpoint);
-    
+
     return () => window.removeEventListener('resize', updateBreakpoint);
   }, []);
-  
+
   return {
     isMobile: breakpoint === 'sm',
     isTablet: breakpoint === 'md',

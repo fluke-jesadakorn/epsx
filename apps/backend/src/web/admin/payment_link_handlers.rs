@@ -202,10 +202,15 @@ fn db_to_response(db: PaymentContextDb) -> PaymentLinkResponse {
     }
 }
 
-/// Get repository from app state
-fn get_repository(app_state: &AppState) -> PaymentContextRepositoryAdapter {
-    // Get the db pool from app state and dereference the Arc
-    PaymentContextRepositoryAdapter::new(*app_state.db_pool)
+/// Get repository from payments database pool
+/// NOTE: payment_contexts table is in PAYMENTS database, not primary
+async fn get_repository() -> Result<PaymentContextRepositoryAdapter, StatusCode> {
+    use crate::infrastructure::database::get_payments_pool;
+    let payments_pool = get_payments_pool().await.map_err(|e| {
+        error!("Failed to get payments database pool: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+    Ok(PaymentContextRepositoryAdapter::new(payments_pool))
 }
 
 // ============================================================================
@@ -215,7 +220,7 @@ fn get_repository(app_state: &AppState) -> PaymentContextRepositoryAdapter {
 /// Create a new payment link
 #[utoipa::path(
     post,
-    path = "/api/v1/admin/payment-links",
+    path = "/api/admin/payment-links",
     request_body = CreatePaymentLinkRequest,
     responses(
         (status = 201, description = "Payment link created", body = PaymentLinkResponse),
@@ -225,10 +230,10 @@ fn get_repository(app_state: &AppState) -> PaymentContextRepositoryAdapter {
     tag = "Admin Payment Links"
 )]
 pub async fn create_payment_link_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     Json(request): Json<CreatePaymentLinkRequest>,
 ) -> Result<(StatusCode, JsonResponse<PaymentLinkResponse>), StatusCode> {
-    let repo = get_repository(&app_state);
+    let repo = get_repository().await?;
 
     // Generate slug if not provided
     let slug = request
@@ -281,7 +286,7 @@ pub async fn create_payment_link_handler(
 /// List payment links with filtering and pagination
 #[utoipa::path(
     get,
-    path = "/api/v1/admin/payment-links",
+    path = "/api/admin/payment-links",
     params(
         ("context_type" = Option<String>, Query, description = "Filter by context type"),
         ("is_active" = Option<bool>, Query, description = "Filter by active status"),
@@ -295,10 +300,10 @@ pub async fn create_payment_link_handler(
     tag = "Admin Payment Links"
 )]
 pub async fn list_payment_links_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     Query(query): Query<ListPaymentLinksQuery>,
 ) -> Result<JsonResponse<PaymentLinksListResponse>, StatusCode> {
-    let repo = get_repository(&app_state);
+    let repo = get_repository().await?;
 
     let limit = query.limit.unwrap_or(20);
     let offset = query.offset.unwrap_or(0);
@@ -339,7 +344,7 @@ pub async fn list_payment_links_handler(
 /// Get a payment link by ID
 #[utoipa::path(
     get,
-    path = "/api/v1/admin/payment-links/{id}",
+    path = "/api/admin/payment-links/{id}",
     params(
         ("id" = Uuid, Path, description = "Payment link ID")
     ),
@@ -351,10 +356,10 @@ pub async fn list_payment_links_handler(
     tag = "Admin Payment Links"
 )]
 pub async fn get_payment_link_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<JsonResponse<PaymentLinkResponse>, StatusCode> {
-    let repo = get_repository(&app_state);
+    let repo = get_repository().await?;
 
     match repo.find_by_id(id).await {
         Ok(Some(context)) => Ok(JsonResponse(db_to_response(context))),
@@ -369,7 +374,7 @@ pub async fn get_payment_link_handler(
 /// Get a payment link by slug (public endpoint for payment page)
 #[utoipa::path(
     get,
-    path = "/api/v1/public/payment-links/{slug}",
+    path = "/api/public/payment-links/{slug}",
     params(
         ("slug" = String, Path, description = "Payment link slug")
     ),
@@ -382,10 +387,10 @@ pub async fn get_payment_link_handler(
     tag = "Public Payment Links"
 )]
 pub async fn get_payment_link_by_slug_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     Path(slug): Path<String>,
 ) -> Result<JsonResponse<PaymentLinkResponse>, StatusCode> {
-    let repo = get_repository(&app_state);
+    let repo = get_repository().await?;
 
     match repo.find_by_slug(&slug).await {
         Ok(Some(context)) => {
@@ -406,7 +411,7 @@ pub async fn get_payment_link_by_slug_handler(
 /// Update a payment link
 #[utoipa::path(
     put,
-    path = "/api/v1/admin/payment-links/{id}",
+    path = "/api/admin/payment-links/{id}",
     params(
         ("id" = Uuid, Path, description = "Payment link ID")
     ),
@@ -419,11 +424,11 @@ pub async fn get_payment_link_by_slug_handler(
     tag = "Admin Payment Links"
 )]
 pub async fn update_payment_link_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     Path(id): Path<Uuid>,
     Json(request): Json<UpdatePaymentLinkRequest>,
 ) -> Result<JsonResponse<PaymentLinkResponse>, StatusCode> {
-    let repo = get_repository(&app_state);
+    let repo = get_repository().await?;
 
     // First check if it exists
     match repo.find_by_id(id).await {
@@ -471,7 +476,7 @@ pub async fn update_payment_link_handler(
 /// Delete (deactivate) a payment link
 #[utoipa::path(
     delete,
-    path = "/api/v1/admin/payment-links/{id}",
+    path = "/api/admin/payment-links/{id}",
     params(
         ("id" = Uuid, Path, description = "Payment link ID")
     ),
@@ -483,10 +488,10 @@ pub async fn update_payment_link_handler(
     tag = "Admin Payment Links"
 )]
 pub async fn delete_payment_link_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<StatusCode, StatusCode> {
-    let repo = get_repository(&app_state);
+    let repo = get_repository().await?;
 
     // First check if it exists
     match repo.find_by_id(id).await {
@@ -513,7 +518,7 @@ pub async fn delete_payment_link_handler(
 /// Record a payment usage (called after successful blockchain payment)
 #[utoipa::path(
     post,
-    path = "/api/v1/admin/payment-links/{id}/record-usage",
+    path = "/api/admin/payment-links/{id}/record-usage",
     params(
         ("id" = Uuid, Path, description = "Payment link ID")
     ),
@@ -526,10 +531,10 @@ pub async fn delete_payment_link_handler(
     tag = "Admin Payment Links"
 )]
 pub async fn record_payment_usage_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> Result<JsonResponse<PaymentLinkResponse>, StatusCode> {
-    let repo = get_repository(&app_state);
+    let repo = get_repository().await?;
 
     // First check if it exists and is usable
     match repo.find_by_id(id).await {

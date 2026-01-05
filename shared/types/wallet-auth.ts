@@ -203,7 +203,7 @@ export interface WalletAuthResponse {
 }
 
 /**
- * Wallet session data (from backend /api/v1/auth/web3/session)
+ * Wallet session data (from backend /api/auth/web3/session)
  */
 export interface WalletSessionData {
   wallet_address: string;
@@ -216,7 +216,7 @@ export interface WalletSessionData {
 }
 
 /**
- * Wallet permissions response (from backend /api/v1/auth/web3/permissions)
+ * Wallet permissions response (from backend /api/auth/web3/permissions)
  */
 export interface WalletPermissionsResponse {
   permissions: WalletPermissionEntry[];

@@ -130,7 +130,7 @@ fn get_required_permission(method: &str, path: &str) -> Option<String> {
         ("DELETE", p) if p.starts_with("/admin/permissions") => Some("admin:permissions:manage".to_string()),
 
         // Analytics routes
-        ("GET", p) if p.starts_with("/api/v1/auth/analytics") => Some("epsx:analytics:read".to_string()),
+        ("GET", p) if p.starts_with("/api/auth/analytics") => Some("epsx:analytics:read".to_string()),
         ("GET", p) if p.starts_with("/api/analytics") => Some("epsx:analytics:read".to_string()),
 
         // Export routes
@@ -148,10 +148,10 @@ fn is_public_endpoint(path: &str) -> bool {
         "/health",
         "/readiness",
         "/liveness",
-        "/api/v1/public/",
+        "/api/public/",
         "/api/auth/web3/challenge",
-        "/api/v1/auth/web3/challenge",
-        "/api/v1/auth/web3/verify",
+        "/api/auth/web3/challenge",
+        "/api/auth/web3/verify",
         "/api/permissions/health",
         "/docs",
         "/api-docs/",
@@ -268,10 +268,10 @@ mod tests {
     #[test]
     fn test_is_public_endpoint() {
         assert!(is_public_endpoint("/health"));
-        assert!(is_public_endpoint("/api/v1/public/analytics"));
+        assert!(is_public_endpoint("/api/public/analytics"));
         assert!(is_public_endpoint("/api/auth/web3/challenge"));
         assert!(!is_public_endpoint("/admin/wallets"));
-        assert!(!is_public_endpoint("/api/v1/auth/analytics"));
+        assert!(!is_public_endpoint("/api/auth/analytics"));
     }
 
     #[test]
@@ -285,7 +285,7 @@ mod tests {
             Some("admin:users:create".to_string())
         );
         assert_eq!(
-            get_required_permission("GET", "/api/v1/auth/analytics"),
+            get_required_permission("GET", "/api/auth/analytics"),
             Some("epsx:analytics:read".to_string())
         );
         assert_eq!(

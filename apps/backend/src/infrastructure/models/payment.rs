@@ -9,7 +9,7 @@ use bigdecimal::BigDecimal;
 use serde::{Deserialize, Serialize};
 
 /// Diesel Queryable model for payments table
-#[derive(Debug, Clone, Queryable)]
+#[derive(Debug, Clone, Queryable, Selectable)]
 #[diesel(table_name = crate::schemas::payments::payments)]
 pub struct PaymentDb {
     pub id: Uuid,
@@ -29,7 +29,11 @@ pub struct PaymentDb {
     pub updated_at: Option<DateTime<Utc>>,
     pub expires_at: Option<DateTime<Utc>>,
     pub completed_at: Option<DateTime<Utc>>,
-    pub metadata: serde_json::Value,
+    pub metadata: Option<serde_json::Value>,
+    // New monitoring columns
+    pub last_checked_at: Option<DateTime<Utc>>,
+    pub error_message: Option<String>,
+    pub network: Option<String>,
 }
 
 /// Diesel Insertable model for creating new payments

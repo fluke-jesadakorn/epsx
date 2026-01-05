@@ -103,7 +103,7 @@ pub async fn rate_limit_middleware(
                 requests_per_day: Some(2000),
             }
         },
-        path if path.starts_with("/api/v1/") => {
+        path if path.starts_with("/api/") => {
             RateLimitConfig {
                 requests_per_minute: Some(100), // API endpoints
                 requests_per_hour: Some(1000),

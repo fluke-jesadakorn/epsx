@@ -198,7 +198,7 @@ export const groupMgmt = {
   },
 
   async deletePermissionGroup(groupId: string): Promise<void> {
-    await adminApiClient.delete(`/api/v1/permissions/groups/${groupId}`);
+    await adminApiClient.delete(`/api/permissions/groups/${groupId}`);
   },
 
   async getUserGroups(userId: string): Promise<UserGroupMembership[]> {
@@ -348,7 +348,7 @@ export const groupMgmt = {
 
   /**
    * Used for autocomplete functionality
-   * Uses the same /api/v1/admin/wallets/search endpoint as Wallet Management page
+   * Uses the same /api/admin/wallets/search endpoint as Wallet Management page
    */
   async searchUsers(query: string, limit = 10, excludeGroupId?: string): Promise<Array<{
     wallet_address: string;
@@ -370,7 +370,7 @@ export const groupMgmt = {
         params.append('exclude_group_id', excludeGroupId);
       }
 
-      const apiUrl = `/api/v1/admin/wallets/search?${params.toString()}`;
+      const apiUrl = `/api/admin/wallets/search?${params.toString()}`;
 
       const res = await adminApiClient.get<any>(apiUrl);
 
@@ -472,7 +472,7 @@ export const groupMgmt = {
 
   async getExpiringMemberships(days = 7): Promise<UserGroupMembership[]> {
     const res = await adminApiClient.get<any>(
-      '/api/v1/permissions/assignments/expiring',
+      '/api/permissions/assignments/expiring',
       { days }
     );
     // Handle response format: { assignments: [...], count: N }
@@ -501,7 +501,7 @@ export const groupMgmt = {
    * Get all permission definitions with metadata
    */
   async getPermissionDefinitions(): Promise<PermissionDefinitionDto[]> {
-    const res = await adminApiClient.get<PermissionDefinitionDto[]>('/api/v1/permissions/definitions');
+    const res = await adminApiClient.get<PermissionDefinitionDto[]>('/api/permissions/definitions');
     const data = res.data;
     // Handle nested response format
     if (Array.isArray(data)) return data;
@@ -513,7 +513,7 @@ export const groupMgmt = {
    * Create a new permission definition
    */
   async createPermissionDefinition(req: CreatePermissionDefinitionRequest): Promise<PermissionDefinitionDto> {
-    const res = await adminApiClient.post<PermissionDefinitionDto>('/api/v1/permissions/definitions', req);
+    const res = await adminApiClient.post<PermissionDefinitionDto>('/api/permissions/definitions', req);
     const data = res.data;
     // Handle nested response format
     if ((data as any)?.data) return (data as any).data;
@@ -524,7 +524,7 @@ export const groupMgmt = {
    * Delete a permission definition by ID
    */
   async deletePermissionDefinition(id: string): Promise<void> {
-    await adminApiClient.delete(`/api/v1/permissions/definitions/${id}`);
+    await adminApiClient.delete(`/api/permissions/definitions/${id}`);
   },
 
   /**
@@ -532,7 +532,7 @@ export const groupMgmt = {
    */
   async deletePermissionByName(permission: string): Promise<void> {
     const encoded = encodeURIComponent(permission);
-    await adminApiClient.delete(`/api/v1/permissions/definitions/by-name/${encoded}`);
+    await adminApiClient.delete(`/api/permissions/definitions/by-name/${encoded}`);
   },
 
   // ============================================================================

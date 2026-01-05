@@ -78,7 +78,7 @@ test_permission_validation() {
     for ((i=1; i<=iterations; i++)); do
         local start_time=$(date +%s%N)
 
-        local response=$(curl -s -w "%{http_code}" -X POST "$BACKEND_URL/api/v1/permissions/validate" \
+        local response=$(curl -s -w "%{http_code}" -X POST "$BACKEND_URL/api/permissions/validate" \
             -H "Content-Type: application/json" \
             -d "{\"wallet_address\":\"$TEST_WALLET\",\"permission\":\"$permission\"}" 2>/dev/null)
 
@@ -130,7 +130,7 @@ test_cache_performance() {
 
     # First request (cache miss)
     local start_time=$(date +%s%N)
-    curl -s -X POST "$BACKEND_URL/api/v1/permissions/validate" \
+    curl -s -X POST "$BACKEND_URL/api/permissions/validate" \
         -H "Content-Type: application/json" \
         -d "{\"wallet_address\":\"$TEST_WALLET\",\"permission\":\"${TEST_PERMISSIONS[0]}\"}" > /dev/null
     local first_request_time=$(( ( $(date +%s%N) - start_time) / 1000000 ))
@@ -141,7 +141,7 @@ test_cache_performance() {
 
     for ((i=1; i<=cache_tests; i++)); do
         start_time=$(date +%s%N)
-        curl -s -X POST "$BACKEND_URL/api/v1/permissions/validate" \
+        curl -s -X POST "$BACKEND_URL/api/permissions/validate" \
             -H "Content-Type: application/json" \
             -d "{\"wallet_address\":\"$TEST_WALLET\",\"permission\":\"${TEST_PERMISSIONS[0]}\"}" > /dev/null
         total_cache_time=$((total_cache_time + ( ( $(date +%s%N) - start_time) / 1000000 )))
@@ -175,7 +175,7 @@ test_throughput() {
 
     while (( $(date +%s) < end_timestamp )); do
         for permission in "${TEST_PERMISSIONS[@]}"; do
-            curl -s -X POST "$BACKEND_URL/api/v1/permissions/validate" \
+            curl -s -X POST "$BACKEND_URL/api/permissions/validate" \
                 -H "Content-Type: application/json" \
                 -d "{\"wallet_address\":\"$TEST_WALLET\",\"permission\":\"$permission\"}" > /dev/null &
             ((total_requests++))

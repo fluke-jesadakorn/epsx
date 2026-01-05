@@ -30,14 +30,14 @@ const queryClient = new QueryClient({
     },
 });
 
-// Define Anvil Localhost chain for development
+// Define Anvil Localhost chain for development (configured as BSC-like)
 const anvilLocalhost = {
     id: 31337,
-    name: 'Anvil Local',
+    name: 'Anvil Local (BSC)',
     nativeCurrency: {
         decimals: 18,
-        name: 'Ether',
-        symbol: 'ETH',
+        name: 'BNB',
+        symbol: 'BNB',
     },
     rpcUrls: {
         default: { http: ['http://127.0.0.1:8545'] },
@@ -115,6 +115,7 @@ export function UnifiedWeb3Provider({
             if (error instanceof TypeError) {
                 const msg = error.message;
                 // These specific errors are from wallet library and database cleanup and are harmless
+                // Also includes localStorage SSR errors from @walletconnect/keyvaluestorage
                 if (
                     msg.includes("Cannot set properties of null") ||
                     msg.includes("Cannot read properties of null") ||
@@ -122,7 +123,9 @@ export function UnifiedWeb3Provider({
                     msg.includes("IndexedDB") ||
                     msg.includes("WebSocket") ||
                     msg.includes("transaction") ||
-                    msg.includes("onclose")
+                    msg.includes("onclose") ||
+                    msg.includes("localStorage") ||
+                    msg.includes("is not a function")
                 ) {
                     event.preventDefault(); // Prevent console spam
                     return;

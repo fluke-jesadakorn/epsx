@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use chrono::{DateTime, Utc};
 use tracing::{info, debug, error};
+use diesel::sql_types::Text;
+use diesel::QueryableByName;
 
 use crate::{
     prelude::*,
@@ -20,6 +22,13 @@ use crate::{
         middleware::{OpenIDUserContext, UnifiedErrorResponse, ErrorDetails},
     },
 };
+
+/// Helper struct for deduplication query
+#[derive(Debug, QueryableByName)]
+pub struct PaymentExistsRow {
+    #[diesel(sql_type = Text)]
+    pub payment_reference: String,
+}
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES
@@ -255,6 +264,12 @@ pub async fn get_payment_details_handler(
     Extension(user_context): Extension<OpenIDUserContext>,
     Query(params): Query<PaymentLookupParams>,
 ) -> Result<Json<PaymentDetailsResponse>, Json<UnifiedErrorResponse>> {
+    use diesel::prelude::*;
+    use diesel_async::RunQueryDsl;
+    use crate::infrastructure::database::get_payments_pool;
+    use crate::schemas::payments::payments;
+    use crate::infrastructure::models::payment::PaymentDb;
+
     debug!(
         "Getting payment details for user {} with params: {:?}",
         user_context.wallet_address,
@@ -279,13 +294,116 @@ pub async fn get_payment_details_handler(
         }
     }
 
-    // TODO: Implement database lookup for payment details
-    // Query processed_blockchain_events table for payment history
+    // Get PAYMENTS database connection
+    let payments_pool = get_payments_pool().await.map_err(|e| {
+        error!("Failed to get payments database pool: {}", e);
+        Json(UnifiedErrorResponse {
+            success: false,
+            error: ErrorDetails {
+                code: 500,
+                message: "Database connection failed".to_string(),
+                reason: "Failed to get payments database pool".to_string(),
+            },
+        })
+    })?;
+    let mut payments_conn = payments_pool.get().await.map_err(|e| {
+        error!("Failed to get payments database connection: {}", e);
+        Json(UnifiedErrorResponse {
+            success: false,
+            error: ErrorDetails {
+                code: 500,
+                message: "Database connection failed".to_string(),
+                reason: "Failed to establish payments database connection".to_string(),
+            },
+        })
+    })?;
+
+    // Build query based on provided parameters
+    let mut query = payments::table.into_boxed();
+
+    // Always filter by authenticated user's wallet
+    query = query.filter(payments::wallet_address.ilike(format!("%{}%", user_context.wallet_address)));
+
+    // Apply transaction_hash filter if provided
+    if let Some(ref tx_hash) = params.transaction_hash {
+        query = query.filter(payments::transaction_hash.eq(tx_hash));
+    }
+
+    // Apply payment_reference filter if provided
+    if let Some(ref reference) = params.payment_reference {
+        query = query.filter(payments::payment_reference.eq(reference));
+    }
+
+    // Execute query
+    let payment_result = query
+        .order(payments::created_at.desc().nulls_last())
+        .first::<PaymentDb>(&mut payments_conn)
+        .await;
+
+    let payment = match payment_result {
+        Ok(pay_db) => {
+            // Get plan name (would need primary DB connection for proper lookup)
+            let plan_name = format!("Plan-{}", &pay_db.plan_id.to_string()[..8]);
+
+            Some(PaymentDetails {
+                id: pay_db.id,
+                payment_reference: pay_db.payment_reference,
+                wallet_address: pay_db.wallet_address,
+                amount: pay_db.amount.to_string().parse::<f64>().unwrap_or(0.0),
+                currency: pay_db.currency,
+                status: pay_db.status,
+                plan_id: pay_db.plan_id,
+                plan_name,
+                transaction_hash: pay_db.transaction_hash,
+                created_at: pay_db.created_at.unwrap_or_else(Utc::now),
+                completed_at: pay_db.completed_at,
+                metadata: pay_db.metadata.unwrap_or(serde_json::json!({})),
+            })
+        }
+        Err(diesel::NotFound) => None,
+        Err(e) => {
+            error!("Failed to query payment: {}", e);
+            return Err(Json(UnifiedErrorResponse {
+                success: false,
+                error: ErrorDetails {
+                    code: 500,
+                    message: "Query failed".to_string(),
+                    reason: format!("Failed to load payment: {}", e),
+                },
+            }));
+        }
+    };
+
     Ok(Json(PaymentDetailsResponse {
         success: true,
-        payment: None, // No payment found matching criteria
+        payment,
     }))
 }
+
+
+// NOTE: Legacy confirm_payment_handler has been removed.
+// Payment confirmation is now handled by:
+// - submit_tx_handler.rs: POST /api/payments/submit (accepts tx_hash)
+// - tx_monitor_service.rs: Background service that monitors and confirms transactions
+// - get_tx_status_handler.rs: GET /api/payments/status/:tx_hash (frontend polls this)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // ============================================================================
 // HELPER FUNCTIONS

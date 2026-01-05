@@ -175,7 +175,7 @@ pub fn create_admin_routes() -> Router<AppState> {
     
     // ============================================================================
     // ADMIN-SPECIFIC PERMISSION OPERATIONS
-    // Core permission operations moved to /api/v1/permissions/* (accessible by all apps)
+    // Core permission operations moved to /api/permissions/* (accessible by all apps)
     // ============================================================================
 
     // Admin-only permission system operations
@@ -303,31 +303,31 @@ pub fn create_permission_authority_routes() -> Router<AppState> {
   Router::new()
     // ⚡ CRITICAL: Real-time permission validation - THE AUTHORITY
     // This endpoint is called by frontend/admin for ALL permission checks
-    // Route: /api/v1/permissions/validate
+    // Route: /api/permissions/validate
     .route("/validate", post(validate_permission))
 
     // ⚡ CRITICAL: Bulk permission validation for performance
     // Used by frontend/admin for batch permission checking
-    // Route: /api/v1/permissions/validate-bulk
+    // Route: /api/permissions/validate-bulk
     .route("/validate-bulk", post(validate_bulk_permissions))
 
     // List all available unique permission strings
-    // Route: /api/v1/permissions/available
+    // Route: /api/permissions/available
     .route("/available", get(super::permissions::list_available_permissions))
 
     // Permission Definitions Management (CRUD for custom permissions)
-    // Route: /api/v1/permissions/definitions
+    // Route: /api/permissions/definitions
     .route("/definitions", get(super::permissions::list_permission_definitions).post(super::permissions::create_permission_definition))
     .route("/definitions/{id}", delete(super::permissions::delete_permission_definition))
     .route("/definitions/by-name/{permission}", delete(super::permissions::delete_permission_by_name))
 
     // ⚡ CRITICAL: Wallet's effective permissions - what they can actually do
     // Used by frontend/admin to understand wallet capabilities
-    // Route: /api/v1/permissions/wallet/{wallet_address}
+    // Route: /api/permissions/wallet/{wallet_address}
     .route("/wallet/{wallet_address}", get(get_wallet_permissions))
 
     // Permission Group Management (accessible by all apps)
-    // Route: /api/v1/permissions/groups
+    // Route: /api/permissions/groups
     .route("/groups", get(list_groups).post(create_group))
     .route("/groups/{group_id}", get(get_group).put(update_group).delete(delete_group))
     .route("/groups/{group_id}/members", get(get_group_members))
@@ -335,7 +335,7 @@ pub fn create_permission_authority_routes() -> Router<AppState> {
   // .route("/groups/{group_id}/permissions", get(crate::web::admin::permissions::get_group_permissions))
 
     // Assignment Management (accessible by all apps)
-    // Route: /api/v1/permissions/assignments
+    // Route: /api/permissions/assignments
     .route("/assignments", get(list_assignments).post(create_assignment))
     .route("/assignments/{assignment_id}", delete(remove_assignment))
     .route("/assignments/expiring", get(get_expiring_assignments))

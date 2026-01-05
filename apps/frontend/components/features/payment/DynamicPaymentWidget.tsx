@@ -167,7 +167,7 @@ export function DynamicPaymentWidget({
 
             if (context.linkSlug) {
                 // Fetch by dynamic link slug
-                const response = await fetch(`${backendUrl}/api/v1/public/payment-links/${context.linkSlug}`);
+                const response = await fetch(`${backendUrl}/api/public/payment-links/${context.linkSlug}`);
                 if (!response.ok) {
                     if (response.status === 404) {
                         throw new Error('Payment link not found');
@@ -179,8 +179,8 @@ export function DynamicPaymentWidget({
                 }
                 data = await response.json();
             } else if (context.planId) {
-                // Fetch plan details - use backend URL with /api/v1 prefix
-                const response = await fetch(`${backendUrl}/api/v1/public/plans/${context.planId}`);
+                // Fetch plan details - use backend URL with /api prefix
+                const response = await fetch(`${backendUrl}/api/public/plans/${context.planId}`);
                 if (!response.ok) {
                     throw new Error('Plan not found');
                 }
@@ -201,7 +201,7 @@ export function DynamicPaymentWidget({
                 };
             } else if (context.groupId) {
                 // Fetch group details - use backend URL
-                const response = await fetch(`${backendUrl}/api/v1/permissions/groups/${context.groupId}`);
+                const response = await fetch(`${backendUrl}/api/permissions/groups/${context.groupId}`);
                 if (!response.ok) {
                     throw new Error('Group not found');
                 }
