@@ -577,6 +577,7 @@ pub async fn admin_get_payment_details_handler(
 /// Update payment status
 pub async fn admin_update_payment_status_handler(
     State(_app_state): State<crate::web::auth::AppState>,
+    axum::Extension(admin_context): axum::Extension<crate::web::middleware::OpenIDUserContext>,
     Path(payment_id): Path<Uuid>,
     Json(request): Json<UpdatePaymentStatusRequest>,
 ) -> Result<Json<UpdatePaymentStatusResponse>, Json<UnifiedErrorResponse>> {
@@ -585,8 +586,10 @@ pub async fn admin_update_payment_status_handler(
     use crate::infrastructure::database::get_payments_pool;
     use crate::schemas::payments::{payments, payment_audit_log};
 
+    let admin_wallet = &admin_context.wallet_address;
     info!(
-        "Admin updating payment {} status to {}",
+        "Admin {} updating payment {} status to {}",
+        admin_wallet,
         payment_id,
         request.status
     );
@@ -618,8 +621,8 @@ pub async fn admin_update_payment_status_handler(
             if matches!(e, diesel::NotFound) {
                 Json(create_error_response(404, "Payment not found", &format!("No payment found with ID: {}", payment_id)))
             } else {
-                error!("Failed to query payment: {}", e);
-                Json(create_error_response(500, "Query failed", &format!("Failed to load payment: {}", e)))
+                error!("Failed to get payment status: {}", e);
+                Json(create_error_response(500, "Query failed", "Failed to get current payment status"))
             }
         })?;
 
@@ -644,7 +647,7 @@ pub async fn admin_update_payment_status_handler(
             Json(create_error_response(500, "Update failed", &format!("Failed to update payment: {}", e)))
         })?;
 
-    // Create audit log entry
+    // Create audit log entry with actual admin wallet
     diesel::insert_into(payment_audit_log::table)
         .values((
             payment_audit_log::id.eq(Uuid::new_v4()),
@@ -653,7 +656,7 @@ pub async fn admin_update_payment_status_handler(
             payment_audit_log::old_status.eq(&old_status),
             payment_audit_log::new_status.eq(&request.status),
             payment_audit_log::reason.eq(&request.reason),
-            payment_audit_log::performed_by.eq("admin"), // TODO: Get from auth context when available
+            payment_audit_log::performed_by.eq(admin_wallet.as_str()),
             payment_audit_log::performed_at.eq(updated_at),
             payment_audit_log::metadata.eq(request.metadata.unwrap_or(serde_json::json!({}))),
         ))
@@ -665,7 +668,7 @@ pub async fn admin_update_payment_status_handler(
         })
         .ok();
 
-    info!("Payment {} status updated from {} to {}", payment_id, old_status, request.status);
+    info!("Admin {} updated payment {} status from {} to {}", admin_wallet, payment_id, old_status, request.status);
 
     Ok(Json(UpdatePaymentStatusResponse {
         success: true,
