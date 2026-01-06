@@ -161,13 +161,12 @@ BEGIN
             reason,
             performed_by,
             metadata
-        ) VALUES (
             NEW.id,
             'status_change',
             OLD.status,
             NEW.status,
             'Automatic status change',
-            'system',
+            NULL,
             jsonb_build_object(
                 'old_record', to_jsonb(OLD),
                 'new_record', to_jsonb(NEW)

@@ -58,8 +58,7 @@ export function validateRuntimeEnvironment(isDevelopment = false): ValidationRes
   const requiredVars: (keyof RequiredEnvVars)[] = [
     'NEXT_PUBLIC_BACKEND_URL',
     'NEXT_PUBLIC_APP_URL',
-    'NEXT_PUBLIC_ADMIN_URL',
-    'NEXT_PUBLIC_OAUTH_CLIENT_ID'
+    'NEXT_PUBLIC_ADMIN_URL'
   ];
 
   // Check required variables
@@ -87,6 +86,12 @@ export function validateRuntimeEnvironment(isDevelopment = false): ValidationRes
         errors.push(`${varName} must use HTTPS in production (current: ${value})`);
       }
     }
+  }
+
+  // Special handling for NEXT_PUBLIC_OAUTH_CLIENT_ID
+  // We silence the warning in development because we have a safe code-level default
+  if (!process.env['NEXT_PUBLIC_OAUTH_CLIENT_ID'] && !skipStrictValidation) {
+    errors.push('NEXT_PUBLIC_OAUTH_CLIENT_ID is required in production environment');
   }
 
   // Optional Web3 variables - validate blockchain network

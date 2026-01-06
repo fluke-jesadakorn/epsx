@@ -1,6 +1,8 @@
 'use client';
 
 import { Badge, Button } from '@/components/ui';
+import { env } from '@/config/env';
+import { getExplorerTxUrl } from '@/lib/contracts/addresses';
 import { useApiClient } from '@/shared/hooks/useApiClient';
 import { format } from 'date-fns';
 import {
@@ -141,15 +143,22 @@ export function PaymentHistoryTab() {
     };
 
     const formatCurrency = (amount: number, currency: string) => {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: currency,
-        }).format(amount);
+        try {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: currency,
+            }).format(amount);
+        } catch (e) {
+            // Fallback for non-standard currencies (e.g. USDT)
+            return `${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 6 })} ${currency}`;
+        }
     };
 
     const getExplorerLink = (txHash?: string) => {
         if (!txHash) return null;
-        return `https://bscscan.com/tx/${txHash}`;
+        // Use the configured chain ID from environment to generate the correct explorer URL
+        // identifying if we are on local/testnet/mainnet
+        return getExplorerTxUrl(Number(env.CHAIN_ID), txHash);
     };
 
     return (

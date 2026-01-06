@@ -350,6 +350,43 @@ impl TransactionMonitorService {
         .await
         .ok(); // Non-critical if this fails
 
+        // 2.5 Verify group/plan exists before assignment
+        #[derive(diesel::QueryableByName)]
+        #[allow(dead_code)]
+        struct GroupCheck {
+            #[diesel(sql_type = diesel::sql_types::Uuid)]
+            id: Uuid,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            name: String,
+        }
+
+        let group_check: Option<GroupCheck> = diesel::sql_query(
+            "SELECT id, name FROM groups WHERE id = $1 AND is_active = true",
+        )
+        .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
+        .get_result(&mut primary_conn)
+        .await
+        .ok();
+
+        let group_name = match group_check {
+            Some(g) => g.name,
+            None => {
+                error!(
+                    "❌ Group/Plan {} not found or inactive for wallet {}",
+                    plan_uuid, wallet_address
+                );
+                return Err(format!(
+                    "Plan group {} not found or inactive",
+                    plan_uuid
+                ));
+            }
+        };
+
+        info!(
+            "📦 Assigning group '{}' ({}) to wallet {}",
+            group_name, plan_uuid, wallet_address
+        );
+
         // 3. Assign wallet to plan's permission group
         let payment_reference = format!("PAY-{}", Uuid::new_v4());
         diesel::sql_query(
@@ -371,7 +408,18 @@ impl TransactionMonitorService {
         .bind::<diesel::sql_types::Text, _>(&payment_reference)
         .execute(&mut primary_conn)
         .await
-        .map_err(|e| format!("Failed to assign group: {}", e))?;
+        .map_err(|e| {
+            error!(
+                "❌ Failed to assign group {} to wallet {}: {}",
+                plan_uuid, wallet_address, e
+            );
+            format!("Failed to assign group: {}", e)
+        })?;
+
+        info!(
+            "✅ Group assignment successful: wallet={}, group={}",
+            wallet_address, plan_uuid
+        );
 
         // 4. Update wallet tier
         diesel::sql_query(
@@ -387,8 +435,8 @@ impl TransactionMonitorService {
         .ok(); // Non-critical
 
         info!(
-            "✅ Payment finalized & Plan Assigned: wallet={}, plan={}, expires={}. Blockchain subscription status: ACTIVE",
-            wallet_address, plan_uuid, expires_at
+            "✅ Payment finalized: wallet={}, plan='{}' ({}), expires={}, ref={}",
+            wallet_address, group_name, plan_uuid, expires_at, payment_reference
         );
 
         Ok(())

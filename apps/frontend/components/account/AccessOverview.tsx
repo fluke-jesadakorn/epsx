@@ -15,15 +15,35 @@ import { useEffect, useState } from 'react';
 
 interface AccessGroup {
     name: string;
+    description?: string;
     expires_at?: string;
     permissions: string[];
     source_type: 'plan' | 'group' | 'manual';
-    description?: string;
+    /** When this group was assigned */
+    assigned_at?: string;
+    /** Who assigned this group */
+    assigned_by?: string;
+    /** Days remaining until expiration */
+    days_remaining?: number;
+    /** Whether renewal is available for this plan */
+    can_renew?: boolean;
+    /** Price for renewal (e.g., "29.99 USDT") */
+    renewal_price?: string;
+    /** Billing cycle (e.g., "monthly", "yearly") */
+    billing_cycle?: string;
 }
 
 interface DirectPermission {
     permission: string;
     expires_at?: string;
+    /** Days remaining until expiration */
+    days_remaining?: number;
+    /** When this permission was granted */
+    granted_at?: string;
+    /** Who granted this permission */
+    granted_by?: string;
+    /** Source: 'manual' | 'system' */
+    source?: string;
 }
 
 interface AccessOverviewData {
@@ -158,13 +178,24 @@ export function AccessOverview() {
                         {data.groups.length > 0 ? data.groups.map((group, idx) => {
                             const status = getExpiryStatus(group.expires_at);
                             const isPlan = group.source_type === 'plan';
+                            // Use backend-provided days_remaining if available, otherwise calculate
+                            const daysRemaining = group.days_remaining ?? (group.expires_at ? differenceInDays(new Date(group.expires_at), new Date()) : null);
+                            const isExpiringSoon = daysRemaining !== null && daysRemaining >= 0 && daysRemaining <= 7;
+                            const canRenew = group.can_renew ?? (isPlan && daysRemaining !== null && daysRemaining <= 30);
 
                             return (
                                 <div key={idx} className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-6 shadow-xl border-2 transition-all duration-300 hover:shadow-2xl flex flex-col ${isPlan ? 'border-blue-300/50 dark:border-blue-700/50' : 'border-purple-300/50 dark:border-purple-700/50'}`}>
                                     <div className="flex items-center justify-between mb-4">
-                                        <div className="text-3xl">{isPlan ? '💎' : '👥'}</div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="text-3xl">{isPlan ? '💎' : '👥'}</div>
+                                            {/* Source type badge */}
+                                            <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-wider bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+                                                {group.source_type === 'plan' ? '💳 Paid' :
+                                                    group.source_type === 'manual' ? '🔧 Manual' : '👑 Admin'}
+                                            </Badge>
+                                        </div>
                                         <Badge variant="outline" className={`text-[10px] font-bold uppercase tracking-wider ${status.color}`}>
-                                            {status.label}
+                                            {daysRemaining !== null && daysRemaining >= 0 ? `${daysRemaining}d left` : status.label}
                                         </Badge>
                                     </div>
 
@@ -173,7 +204,40 @@ export function AccessOverview() {
                                         <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 leading-relaxed">
                                             {group.description || `Includes ${group.permissions.length} specialized permissions`}
                                         </p>
+                                        {/* Show assigned date if available */}
+                                        {group.assigned_at && (
+                                            <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1">
+                                                📅 Since {format(new Date(group.assigned_at), 'MMM d, yyyy')}
+                                            </p>
+                                        )}
                                     </div>
+
+                                    {/* Countdown timer for expiring plans with renewal info */}
+                                    {isExpiringSoon && (
+                                        <div className="mb-4 flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                                            <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                                            <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                                                {daysRemaining === 0 ? 'Expires today!' :
+                                                    daysRemaining === 1 ? 'Expires tomorrow!' :
+                                                        `Only ${daysRemaining} days left`}
+                                            </span>
+                                            <Link href="/plans" className="ml-auto text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:underline">
+                                                Renew {group.renewal_price ? `$${group.renewal_price}` : ''} →
+                                            </Link>
+                                        </div>
+                                    )}
+
+                                    {/* Renewal CTA for plans that can be renewed */}
+                                    {canRenew && !isExpiringSoon && group.renewal_price && (
+                                        <div className="mb-4 flex items-center justify-between px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                                            <span className="text-xs text-blue-700 dark:text-blue-300">
+                                                💳 Renewal: ${group.renewal_price}{group.billing_cycle ? `/${group.billing_cycle}` : ''}
+                                            </span>
+                                            <Link href="/plans" className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline">
+                                                Renew Now →
+                                            </Link>
+                                        </div>
+                                    )}
 
                                     <div className="mt-auto space-y-2">
                                         <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Permissions</div>
@@ -218,14 +282,22 @@ export function AccessOverview() {
                             <div className="grid sm:grid-cols-2 gap-3">
                                 {data.direct_permissions.map((perm, idx) => {
                                     const status = getExpiryStatus(perm.expires_at);
+                                    const daysLabel = perm.days_remaining !== undefined && perm.days_remaining !== null && perm.days_remaining >= 0
+                                        ? `${perm.days_remaining}d left`
+                                        : status.label;
                                     return (
                                         <div key={idx} className="flex items-center justify-between text-[11px] p-3 rounded-xl bg-gray-50/50 dark:bg-gray-900/40 border border-gray-100 dark:border-gray-800 group hover:border-indigo-200 dark:hover:border-indigo-800 transition-colors">
                                             <div className="flex items-center font-mono text-gray-700 dark:text-gray-300 truncate mr-2">
                                                 <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 mr-2.5 flex-shrink-0"></div>
                                                 {perm.permission}
+                                                {perm.source && (
+                                                    <span className={`ml-2 text-[8px] px-1 py-0.5 rounded ${perm.source === 'system' ? 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400' : 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400'}`}>
+                                                        {perm.source === 'system' ? '⚙️' : '🔧'}
+                                                    </span>
+                                                )}
                                             </div>
                                             <Badge className="text-[9px] font-bold px-1.5 py-0 whitespace-nowrap" variant="outline">
-                                                {status.label}
+                                                {daysLabel}
                                             </Badge>
                                         </div>
                                     );

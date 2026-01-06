@@ -94,6 +94,69 @@ pub enum RiskLevel {
     Critical,
 }
 
+/// Usage period types for rate limiting
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum UsagePeriod {
+    Hourly,
+    #[default]
+    Daily,
+    Monthly,
+}
+
+impl UsagePeriod {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            UsagePeriod::Hourly => "hourly",
+            UsagePeriod::Daily => "daily",
+            UsagePeriod::Monthly => "monthly",
+        }
+    }
+}
+
+/// User context for enriched permission error responses
+/// This allows handlers to pass actual user information for better error messages
+#[derive(Debug, Clone, Default)]
+pub struct PermissionErrorContext {
+    /// The user's wallet address
+    pub wallet_address: Option<String>,
+    /// The user's current permission group (e.g., "free", "starter", "professional")
+    pub current_group: Option<String>,
+    /// The resource path being accessed
+    pub resource_path: Option<String>,
+    /// The HTTP method being used
+    pub http_method: Option<String>,
+    /// The usage period for rate limiting context
+    pub usage_period: Option<UsagePeriod>,
+}
+
+impl PermissionErrorContext {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_wallet(mut self, wallet: impl Into<String>) -> Self {
+        self.wallet_address = Some(wallet.into());
+        self
+    }
+
+    pub fn with_group(mut self, group: impl Into<String>) -> Self {
+        self.current_group = Some(group.into());
+        self
+    }
+
+    pub fn with_resource(mut self, path: impl Into<String>, method: impl Into<String>) -> Self {
+        self.resource_path = Some(path.into());
+        self.http_method = Some(method.into());
+        self
+    }
+
+    pub fn with_period(mut self, period: UsagePeriod) -> Self {
+        self.usage_period = Some(period);
+        self
+    }
+}
+
 /// Standardized permission error response structure
 /// This is THE FORMAT that frontend/admin applications expect
 #[derive(Debug, Serialize, Deserialize)]
@@ -505,6 +568,46 @@ impl PermissionError {
             }
         }
     }
+
+    /// Convert permission error to response with enriched user context
+    /// This method uses actual user information instead of hardcoded defaults
+    pub fn to_error_response_with_context(&self, ctx: &PermissionErrorContext) -> PermissionErrorResponse {
+        let mut response = self.to_error_response();
+        
+        // Enrich with wallet address
+        if let Some(wallet) = &ctx.wallet_address {
+            response.details.wallet_address = Some(wallet.clone());
+        }
+        
+        // Enrich with current group (replacing hardcoded "basic")
+        if let Some(group) = &ctx.current_group {
+            response.details.current_group = Some(group.clone());
+            
+            // Also update upgrade_info if present
+            if let Some(ref mut upgrade_info) = response.details.upgrade_info {
+                upgrade_info.current_group = group.clone();
+            }
+        }
+        
+        // Enrich with resource path
+        if let Some(path) = &ctx.resource_path {
+            response.details.resource_path = Some(path.clone());
+        }
+        
+        // Enrich with HTTP method
+        if let Some(method) = &ctx.http_method {
+            response.details.http_method = Some(method.clone());
+        }
+        
+        // Update usage period if specified
+        if let Some(period) = &ctx.usage_period {
+            if let Some(ref mut usage_info) = response.details.usage_info {
+                usage_info.period = period.as_str().to_string();
+            }
+        }
+        
+        response
+    }
 }
 
 /// Axum IntoResponse implementation for permission errors
@@ -619,5 +722,39 @@ mod tests {
         assert_eq!(response.status_code, 403);
         assert!(response.details.security_info.is_some());
         assert!(response.details.security_info.as_ref().unwrap().manual_review_required);
+    }
+
+    #[test]
+    fn test_error_response_with_context() {
+        let error = PermissionError::permission_denied_with_upgrade(
+            "epsx:analytics:read",
+            "Upgrade required for this feature",
+            "professional"
+        );
+        
+        let ctx = PermissionErrorContext::new()
+            .with_wallet("0x1234567890abcdef1234567890abcdef12345678")
+            .with_group("starter")
+            .with_resource("/api/analytics/rankings", "GET");
+        
+        let response = error.to_error_response_with_context(&ctx);
+        
+        assert_eq!(response.error_type, "permission_denied");
+        assert_eq!(response.details.wallet_address, Some("0x1234567890abcdef1234567890abcdef12345678".to_string()));
+        assert_eq!(response.details.current_group, Some("starter".to_string()));
+        assert_eq!(response.details.resource_path, Some("/api/analytics/rankings".to_string()));
+        assert_eq!(response.details.http_method, Some("GET".to_string()));
+        
+        // The upgrade_info should also be updated with the actual group
+        if let Some(upgrade_info) = &response.details.upgrade_info {
+            assert_eq!(upgrade_info.current_group, "starter");
+        }
+    }
+
+    #[test]
+    fn test_usage_period_enum() {
+        assert_eq!(UsagePeriod::Hourly.as_str(), "hourly");
+        assert_eq!(UsagePeriod::Daily.as_str(), "daily");
+        assert_eq!(UsagePeriod::Monthly.as_str(), "monthly");
     }
 }

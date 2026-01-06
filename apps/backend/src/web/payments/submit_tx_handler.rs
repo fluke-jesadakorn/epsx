@@ -79,6 +79,9 @@ pub async fn submit_transaction_handler(
 ) -> Result<Json<SubmitTransactionResponse>, Json<UnifiedErrorResponse>> {
     let wallet_address = user_context.wallet_address.to_lowercase();
     
+    // Explicit debug print (bypasses tracing filters)
+    println!("DEBUG: api/payments/submit HIT by wallet: {}", wallet_address);
+
     info!(
         "📥 Submitting transaction for monitoring: wallet={}, tx_hash={}, plan_id={}",
         wallet_address, payload.transaction_hash, payload.plan_id

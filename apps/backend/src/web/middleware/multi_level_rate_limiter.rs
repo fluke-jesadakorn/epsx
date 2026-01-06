@@ -8,7 +8,7 @@
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
-use tracing::{debug, warn, info};
+use tracing::{debug, warn};
 
 use crate::infrastructure::cache::Cache;
 use crate::config::Config;
@@ -445,12 +445,7 @@ impl MultiLevelRateLimiter {
     pub fn new(cache: Arc<dyn Cache>, _config: Arc<Config>) -> Self {
         let global_config = GlobalRateLimitConfig::from_env();
         
-        info!(
-            "Initialized multi-level rate limiter: global={}/{} per sec/min, enabled={}",
-            global_config.requests_per_second,
-            global_config.requests_per_minute,
-            global_config.enabled
-        );
+
 
         Self {
             global: GlobalRateLimiter::new(cache.clone(), global_config),

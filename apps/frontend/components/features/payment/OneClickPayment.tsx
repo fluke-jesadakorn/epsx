@@ -1050,7 +1050,7 @@ export default function OneClickPayment({
                   </div>
 
                   <Button
-                    disabled={isProcessing}
+                    disabled={isProcessing || selectedPaymentMethod === 'metamask'}
                     className="w-full"
                     size="lg"
                     onClick={handlePayment}
@@ -1059,6 +1059,11 @@ export default function OneClickPayment({
                       <>
                         <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                         Processing...
+                      </>
+                    ) : selectedPaymentMethod === 'metamask' ? (
+                      <>
+                        <Wallet className="mr-2 h-4 w-4" />
+                        Use MetaMask Button Below
                       </>
                     ) : (
                       <>

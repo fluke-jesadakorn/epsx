@@ -254,7 +254,7 @@ pub async fn cancel_plan_handler(
 }
 
 // ============================================================================
-// UPGRADE PREVIEW (Simplified - no complex credit calculation)
+// UPGRADE PREVIEW (With Credit Calculation)
 // ============================================================================
 
 /// Upgrade preview response
@@ -270,9 +270,11 @@ pub struct UpgradePreviewResponse {
 pub struct UpgradePreviewData {
     pub current_plan: Option<CurrentPlanInfo>,
     pub new_plan: NewPlanInfo,
-    pub payment_required: String,
+    pub credit_from_current_plan: String,  // Pro-rata credit from remaining time
+    pub amount_to_pay: String,             // new_price - credit (what user pays)
     pub new_duration_days: i64,
     pub new_expiry_date: DateTime<Utc>,
+    pub is_upgrade_allowed: bool,          // false if attempting downgrade
 }
 
 /// Current plan info
@@ -280,7 +282,9 @@ pub struct UpgradePreviewData {
 pub struct CurrentPlanInfo {
     pub id: Option<i32>,
     pub name: String,
+    pub price: String,                     // Original price paid
     pub expires_at: Option<DateTime<Utc>>,
+    pub started_at: Option<DateTime<Utc>>, // When plan was activated
     pub days_remaining: i64,
 }
 
@@ -363,77 +367,107 @@ pub async fn get_upgrade_preview_handler(
         .and_then(|bd| rust_decimal::Decimal::from_str(&bd.to_string()).ok())
         .unwrap_or(rust_decimal::Decimal::ZERO);
 
-    // Get current user plan info
+    let now = Utc::now();
+    let standard_duration_days: i64 = 30;
+
+    // Get current plan info with assignment details
     #[derive(diesel::QueryableByName)]
-    struct UserRow {
+    #[allow(dead_code)]
+    struct AssignmentRow {
+        #[diesel(sql_type = diesel::sql_types::Uuid)]
+        group_id: uuid::Uuid,
+        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+        assigned_at: DateTime<Utc>,
         #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
-        plan_expires_at: Option<DateTime<Utc>>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Integer>)]
-        current_plan_id: Option<i32>,
+        expires_at: Option<DateTime<Utc>>,
     }
 
-    let user: Option<UserRow> = diesel::sql_query(
-        "SELECT plan_expires_at, current_plan_id FROM wallet_users WHERE LOWER(wallet_address) = LOWER($1)"
+    // Get active group assignment for this wallet
+    let assignment: Option<AssignmentRow> = diesel::sql_query(
+        r#"
+        SELECT group_id, assigned_at, expires_at
+        FROM wallet_group_assignments
+        WHERE LOWER(wallet_address) = LOWER($1)
+          AND is_active = true
+          AND (expires_at IS NULL OR expires_at > NOW())
+        ORDER BY assigned_at DESC
+        LIMIT 1
+        "#
     )
     .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
     .get_result(&mut conn)
     .await
     .optional()
-    .map_err(|e| Json(UnifiedErrorResponse {
-        success: false,
-        error: ErrorDetails {
-            code: 500,
-            message: "Failed to fetch user".to_string(),
-            reason: e.to_string(),
-        },
-    }))?;
+    .ok()
+    .flatten();
 
-    let now = Utc::now();
-    let standard_duration_days: i64 = 30;
+    // Get current plan details if user has an assignment
+    let (current_plan_info, current_plan_price) = if let Some(ref a) = assignment {
+        #[derive(diesel::QueryableByName)]
+        #[allow(dead_code)]
+        struct GroupRow {
+            #[diesel(sql_type = diesel::sql_types::Uuid)]
+            id: uuid::Uuid,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            name: String,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Numeric>)]
+            price: Option<bigdecimal::BigDecimal>,
+        }
 
-    let current_plan_info = if let Some(ref u) = user {
-        if let Some(plan_id) = u.current_plan_id {
-            let current_plan: Option<PlanRow> = diesel::sql_query(
-                "SELECT id, name, price FROM pricing_plans WHERE id = $1"
-            )
-            .bind::<diesel::sql_types::Integer, _>(plan_id)
-            .get_result(&mut conn)
-            .await
-            .optional()
-            .ok()
-            .flatten();
+        let group: Option<GroupRow> = diesel::sql_query(
+            "SELECT id, name, price FROM groups WHERE id = $1"
+        )
+        .bind::<diesel::sql_types::Uuid, _>(a.group_id)
+        .get_result(&mut conn)
+        .await
+        .optional()
+        .ok()
+        .flatten();
 
-            let days_remaining = u.plan_expires_at
+        if let Some(g) = group {
+            let price: rust_decimal::Decimal = g.price.as_ref()
+                .and_then(|bd| rust_decimal::Decimal::from_str(&bd.to_string()).ok())
+                .unwrap_or(rust_decimal::Decimal::ZERO);
+
+            let days_remaining = a.expires_at
                 .map(|exp| if exp > now { (exp - now).num_days() } else { 0 })
                 .unwrap_or(0);
 
-            current_plan.map(|p| CurrentPlanInfo {
-                id: Some(p.id),
-                name: p.name,
-                expires_at: u.plan_expires_at,
+            (Some(CurrentPlanInfo {
+                id: None, // Groups use UUID, not i32
+                name: g.name,
+                price: price.to_string(),
+                expires_at: a.expires_at,
+                started_at: Some(a.assigned_at),
                 days_remaining,
-            })
+            }), price)
         } else {
-            None
+            (None, rust_decimal::Decimal::ZERO)
         }
     } else {
-        None
+        (None, rust_decimal::Decimal::ZERO)
     };
 
-    // Simple calculation: new expiry = now + 30 days (or extend from current if same plan)
-    let new_expiry = if let Some(ref u) = user {
-        if u.current_plan_id == Some(query.new_plan_id) {
-            // Same plan - extend from current expiry
-            let base = u.plan_expires_at.filter(|&exp| exp > now).unwrap_or(now);
-            base + chrono::Duration::days(standard_duration_days)
+    // Calculate credit using upgrade_service
+    use super::upgrade_service::{calculate_upgrade_credit, is_upgrade_allowed, calculate_amount_to_pay};
+
+    let credit = if let Some(ref a) = assignment {
+        if let Some(expires_at) = a.expires_at {
+            calculate_upgrade_credit(current_plan_price, a.assigned_at, expires_at)
         } else {
-            // Different plan - start fresh
-            now + chrono::Duration::days(standard_duration_days)
+            rust_decimal::Decimal::ZERO
         }
     } else {
-        now + chrono::Duration::days(standard_duration_days)
+        rust_decimal::Decimal::ZERO
     };
 
+    let is_upgrade = current_plan_info.is_none() || is_upgrade_allowed(current_plan_price, new_plan_price);
+    let amount_to_pay = calculate_amount_to_pay(new_plan_price, credit);
+
+    // Calculate new expiry
+    let new_expiry = now + chrono::Duration::days(standard_duration_days);
+
+    // Build response
     let response_data = UpgradePreviewData {
         current_plan: current_plan_info,
         new_plan: NewPlanInfo {
@@ -441,21 +475,23 @@ pub async fn get_upgrade_preview_handler(
             name: new_plan.name,
             price: new_plan_price.to_string(),
         },
-        payment_required: new_plan_price.to_string(),
+        credit_from_current_plan: credit.to_string(),
+        amount_to_pay: amount_to_pay.to_string(),
         new_duration_days: standard_duration_days,
         new_expiry_date: new_expiry,
+        is_upgrade_allowed: is_upgrade,
     };
 
-    let message = if user.as_ref().and_then(|u| u.current_plan_id) == Some(query.new_plan_id) {
-        format!("Extending your current plan by {} days", standard_duration_days)
-    } else if user.as_ref().and_then(|u| u.current_plan_id).is_some() {
-        format!("Switching to new plan - {} days access", standard_duration_days)
+    let message = if !is_upgrade {
+        "Downgrades are not allowed. Please wait for your current plan to expire or contact support.".to_string()
+    } else if credit > rust_decimal::Decimal::ZERO {
+        format!("Upgrade with ${} credit from your current plan. Amount to pay: ${}", credit, amount_to_pay)
     } else {
         format!("New subscription - {} days access", standard_duration_days)
     };
 
     Ok(Json(UpgradePreviewResponse {
-        success: true,
+        success: is_upgrade,
         message,
         data: Some(response_data),
     }))

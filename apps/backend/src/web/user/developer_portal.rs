@@ -593,7 +593,7 @@ pub async fn get_usage_stats_handler(
     Extension(wallet_address): Extension<String>,
 ) -> impl IntoResponse {
     let pool = *state.db_pool;
-    let service = UsageService::new(pool);
+    let service = UsageService::new_core_only(pool);
 
     match service.get_wallet_stats(&wallet_address).await {
         Ok(stats) => UnifiedApiResponse::success(stats),
@@ -612,7 +612,7 @@ pub async fn get_usage_history_handler(
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> impl IntoResponse {
     let pool = *state.db_pool;
-    let service = UsageService::new(pool);
+    let service = UsageService::new_core_only(pool);
 
     let days = params.get("days")
         .and_then(|d| d.parse::<i32>().ok())
@@ -635,7 +635,7 @@ pub async fn get_top_endpoints_handler(
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> impl IntoResponse {
     let pool = *state.db_pool;
-    let service = UsageService::new(pool);
+    let service = UsageService::new_core_only(pool);
 
     let days = params.get("days")
         .and_then(|d| d.parse::<i32>().ok())

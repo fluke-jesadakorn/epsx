@@ -90,14 +90,19 @@ function SourceBadge({ source, planName }: { source: PermissionSource; planName?
 function ExpiryBadge({ expiresAt }: { expiresAt?: string }) {
     if (!expiresAt) {
         return (
-            <span className="text-xs text-gray-500 dark:text-gray-400">
-                Never expires
+            <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                ∞ Permanent
             </span>
         );
     }
 
     const expired = isExpired(expiresAt);
     const expiringSoon = isExpiringSoon(expiresAt);
+
+    // Calculate days remaining
+    const now = new Date();
+    const expDate = new Date(expiresAt);
+    const daysRemaining = Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
     return (
         <span className={cn(
@@ -107,11 +112,19 @@ function ExpiryBadge({ expiresAt }: { expiresAt?: string }) {
             !expired && !expiringSoon && 'text-gray-600 dark:text-gray-400'
         )}>
             <Clock className="h-3 w-3" />
-            {expired ? 'Expired' : formatDate(expiresAt)}
-            {expiringSoon && !expired && (
-                <Badge className="ml-1 text-[10px] px-1.5 py-0 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-                    Soon
+            {expired ? (
+                <Badge className="text-[10px] px-1.5 py-0 bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400">
+                    Expired
                 </Badge>
+            ) : expiringSoon ? (
+                <>
+                    <span className="font-medium">{daysRemaining}d left</span>
+                    <Badge className="text-[10px] px-1.5 py-0 bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                        ⚠️ Soon
+                    </Badge>
+                </>
+            ) : (
+                <span>{daysRemaining}d ({formatDate(expiresAt)})</span>
             )}
         </span>
     );

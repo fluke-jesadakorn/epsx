@@ -475,7 +475,8 @@ pub async fn admin_get_payment_details_handler(
     use diesel_async::RunQueryDsl;
     use crate::infrastructure::models::payment::PaymentDb;
     use crate::infrastructure::database::get_payments_pool;
-    use crate::schemas::payments::{payments, payment_audit_log};
+    use crate::schemas::payments::payments;
+    use crate::schemas::analytics::payment_audit_log;
     use crate::schemas::primary::groups;
 
     info!("Admin getting payment details for {}", payment_id);
@@ -584,7 +585,8 @@ pub async fn admin_update_payment_status_handler(
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
     use crate::infrastructure::database::get_payments_pool;
-    use crate::schemas::payments::{payments, payment_audit_log};
+    use crate::schemas::payments::payments;
+    use crate::schemas::analytics::payment_audit_log;
 
     let admin_wallet = &admin_context.wallet_address;
     info!(
@@ -688,7 +690,8 @@ pub async fn admin_process_refund_handler(
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
     use crate::infrastructure::database::get_payments_pool;
-    use crate::schemas::payments::{payments, payment_audit_log, subscriptions};
+    use crate::schemas::payments::{payments, subscriptions};
+    use crate::schemas::analytics::payment_audit_log;
 
     info!(
         "Admin processing refund for payment {}, reason: {}",

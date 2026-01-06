@@ -77,14 +77,15 @@ export function usePaymentTransaction({
      */
     const submitToBackend = useCallback(async (txHash: string) => {
         if (hasSubmittedRef.current) {
-            console.log('⚠️ Already submitted, skipping:', txHash)
+            console.log('⚠️ [Debug] Already submitted, skipping:', txHash)
             return
         }
 
-        console.log('🚀 submitToBackend called with:', txHash)
+        console.log('🚀 [Debug] submitToBackend called with:', txHash)
 
         try {
-            console.log('📤 Submitting transaction to backend for monitoring...', { txHash, planId, amount, currency })
+            const submitUrl = `${env.BACKEND_URL}/api/payments/submit`;
+            console.log('📤 [Debug] Submitting to:', submitUrl, { txHash, planId, amount, currency })
             devLog('📤 Submitting transaction to backend for monitoring...', { txHash })
             hasSubmittedRef.current = true
 
@@ -94,9 +95,9 @@ export function usePaymentTransaction({
                 expected_amount: amount,
                 currency: currency,
             }
-            console.log('📦 Request body:', requestBody)
+            console.log('📦 [Debug] Request body:', JSON.stringify(requestBody))
 
-            const response = await fetch(`${env.BACKEND_URL}/api/payments/submit`, {
+            const response = await fetch(submitUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -105,23 +106,23 @@ export function usePaymentTransaction({
                 body: JSON.stringify(requestBody),
             })
 
-            console.log('📥 Response status:', response.status)
+            console.log('📥 [Debug] Response status:', response.status)
             const result = await response.json()
-            console.log('📥 Response body:', result)
+            console.log('📥 [Debug] Response body:', result)
 
             if (result.success) {
-                console.log('✅ Transaction submitted to backend', result.data)
+                console.log('✅ [Debug] Transaction submitted to backend', result.data)
                 devLog('✅ Transaction submitted to backend', result.data)
                 setStep('submitted')
                 // Start polling for status
                 startPolling(txHash)
             } else {
-                console.error('❌ Failed to submit to backend:', result.message || result.error)
+                console.error('❌ [Debug] Failed to submit to backend:', result.message || result.error)
                 // Continue anyway - the old confirm flow will handle it
                 onError?.(`Failed to submit transaction: ${result.message || JSON.stringify(result.error)}`)
             }
         } catch (error) {
-            console.error('❌ Error submitting to backend:', error)
+            console.error('❌ [Debug] Error submitting to backend:', error)
             // Don't fail the payment - it was successful on-chain
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -137,19 +138,23 @@ export function usePaymentTransaction({
 
         const pollStatus = async () => {
             try {
-                const response = await fetch(`${env.BACKEND_URL}/api/payments/status/${txHash}`, {
+                const statusUrl = `${env.BACKEND_URL}/api/payments/status/${txHash}`;
+                console.log('🔍 [Debug] Polling status from:', statusUrl);
+
+                const response = await fetch(statusUrl, {
                     credentials: 'include',
                 })
 
                 if (!response.ok) {
                     if (response.status === 404) {
-                        devLog('⏳ Transaction not yet processed by backend')
+                        devLog('⏳ [Debug] Transaction not yet processed by backend (404)')
                         return
                     }
                     throw new Error(`Status check failed: ${response.status}`)
                 }
 
                 const result = await response.json()
+                // console.log('📊 [Debug] Poll result:', result)
 
                 if (result.success) {
                     const status = result.data as TransactionStatusData
@@ -159,6 +164,7 @@ export function usePaymentTransaction({
 
                     if (status.status === 'confirmed') {
                         devLog('✅ Payment confirmed by backend!')
+                        console.log('✅ [Debug] Payment confirmed! calling onSuccess')
                         setStep('complete')
                         stopPolling()
                         onSuccess?.(txHash)

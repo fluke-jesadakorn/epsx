@@ -6,9 +6,13 @@
  */
 
 use chrono::Utc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 use tokio::time::interval;
 use serde::{Serialize, Deserialize};
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
+use crate::infrastructure::adapter_repositories::DbPool;
 
 /// Token cleanup service configuration
 #[derive(Debug, Clone)]
@@ -187,13 +191,25 @@ impl TokenCleanupService {
                 message: e.to_string() 
             })?;
 
+        // Note: For Web3 nonce cleanup, use cleanup_expired_web3_nonces() with a DbPool
+        // This manual cleanup focuses on legacy token types
+
         let end_time = Utc::now();
         let duration = end_time - start_time;
+
+        // Increment the global cleanup counter
+        increment_cleanup_runs();
+        
+        // Update local stats
+        self.stats.total_cleanup_runs += 1;
+        self.stats.total_refresh_tokens_cleaned += refresh_cleaned as u64;
+        self.stats.total_revoked_tokens_cleaned += revoked_cleaned as u64;
+        self.stats.last_cleanup = Some(end_time);
 
         let result = CleanupResult {
             refresh_tokens_cleaned: refresh_cleaned,
             revoked_tokens_cleaned: revoked_cleaned,
-            session_tokens_cleaned: 0, // TODO: Add session cleanup
+            session_tokens_cleaned: 0, // Web3 nonce cleanup tracked separately
             duration_ms: duration.num_milliseconds() as u64,
             completed_at: end_time,
         };
@@ -201,6 +217,7 @@ impl TokenCleanupService {
         tracing::info!(
             refresh_cleaned = %refresh_cleaned,
             revoked_cleaned = %revoked_cleaned,
+            total_runs = %self.stats.total_cleanup_runs,
             duration_ms = %result.duration_ms,
             "Manual token cleanup completed"
         );
@@ -223,6 +240,32 @@ async fn cleanup_expired_revoked_tokens() -> Result<u32, Box<dyn std::error::Err
     Ok(cleaned_count)
 }
 
+/// Clean up expired Web3 auth nonces (SIWE challenges)
+/// This cleans up nonces that were generated but never used (user abandoned sign-in)
+pub async fn cleanup_expired_web3_nonces(pool: &DbPool) -> Result<u32, Box<dyn std::error::Error + Send + Sync>> {
+    use crate::schemas::primary::web3_auth_nonces;
+    
+    let now = chrono::Utc::now();
+    
+    let mut conn = pool.get().await
+        .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+    
+    let deleted_count = diesel::delete(web3_auth_nonces::table)
+        .filter(web3_auth_nonces::expires_at.lt(&now))
+        .execute(&mut conn)
+        .await
+        .map_err(|e| Box::new(e) as Box<dyn std::error::Error + Send + Sync>)?;
+    
+    if deleted_count > 0 {
+        tracing::info!(
+            deleted_count = %deleted_count,
+            "Cleaned up expired Web3 auth nonces"
+        );
+    }
+    
+    Ok(deleted_count as u32)
+}
+
 /// Collect metrics about token cleanup
 async fn collect_cleanup_metrics() -> Result<CleanupMetrics, Box<dyn std::error::Error>> {
     // Token services removed for Web3-first authentication
@@ -237,7 +280,7 @@ async fn collect_cleanup_metrics() -> Result<CleanupMetrics, Box<dyn std::error:
         expired_refresh_tokens: refresh_stats.0,
         active_revocations: revocation_stats.1,
         expired_revocations: revocation_stats.0,
-        total_cleanup_runs: 0, // TODO: Track cleanup run count
+        total_cleanup_runs: get_cleanup_run_count(),
         last_cleanup: Utc::now(),
     })
 }
@@ -246,6 +289,19 @@ async fn collect_cleanup_metrics() -> Result<CleanupMetrics, Box<dyn std::error:
 lazy_static::lazy_static! {
     pub static ref CLEANUP_SERVICE: tokio::sync::Mutex<TokenCleanupService> = 
         tokio::sync::Mutex::new(TokenCleanupService::new(CleanupConfig::default()));
+}
+
+/// Global cleanup run counter - atomic for safe concurrent access
+static CLEANUP_RUN_COUNT: AtomicU64 = AtomicU64::new(0);
+
+/// Get the total number of cleanup runs
+pub fn get_cleanup_run_count() -> u64 {
+    AtomicU64::load(&CLEANUP_RUN_COUNT, Ordering::Relaxed)
+}
+
+/// Increment the cleanup run counter
+fn increment_cleanup_runs() {
+    AtomicU64::fetch_add(&CLEANUP_RUN_COUNT, 1, Ordering::Relaxed);
 }
 
 /// Cleanup statistics

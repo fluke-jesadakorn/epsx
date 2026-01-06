@@ -483,34 +483,7 @@ impl SessionRepositoryPort for SessionRepositoryAdapter {
                 .with_component("session_repository")
                 .with_operation("find_by_criteria"))?;
 
-        // Build dynamic query using Diesel boxed query for type safety
-        let mut query = sessions::table
-            .into_boxed();
 
-        // Apply wallet filter
-        if let Some(ref wallet) = criteria.wallet_address {
-            query = query.filter(sessions::wallet_address.eq(wallet.to_string()));
-        }
-
-        // Apply active filter
-        if let Some(active) = criteria.is_active {
-            if active {
-                query = query.filter(sessions::is_revoked.eq(false))
-                    .filter(sessions::expires_at.gt(diesel::dsl::now));
-            } else {
-                query = query.filter(sessions::is_revoked.eq(true));
-            }
-        }
-
-        // Apply created_after filter
-        if let Some(ref created_after_time) = criteria.created_after {
-            query = query.filter(sessions::created_at.gt(created_after_time));
-        }
-
-        // Apply created_before filter
-        if let Some(ref created_before_time) = criteria.created_before {
-            query = query.filter(sessions::created_at.lt(created_before_time));
-        }
 
         // Get total count first (using separate query to avoid borrow issues)
         let total_count = self.count_by_criteria(criteria).await?;

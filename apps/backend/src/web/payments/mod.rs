@@ -9,6 +9,7 @@ pub mod admin_handlers;
 pub mod user_payment_handlers;
 pub mod submit_tx_handler;
 pub mod get_tx_status_handler;
+pub mod upgrade_service;
 
 // Re-export handler functions for router integration
 pub use validation_handlers::{

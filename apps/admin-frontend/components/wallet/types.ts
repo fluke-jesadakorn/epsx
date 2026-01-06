@@ -38,6 +38,16 @@ export interface WalletSubscription {
     expiresAt?: string;
     /** Permissions auto-granted by this subscription */
     grantedPermissions: string[];
+    /** Who assigned this subscription */
+    assignedBy?: string;
+    /** Billing cycle (e.g., "monthly", "yearly") */
+    billingCycle?: string;
+    /** Days remaining until expiration */
+    daysRemaining?: number;
+    /** Whether manual renewal is available */
+    canRenew?: boolean;
+    /** Price for renewal */
+    renewalPrice?: string;
 }
 
 /** Activity event for wallet timeline */

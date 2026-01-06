@@ -45,12 +45,49 @@ echo ""
 # Step 1: Deploy PaymentEscrow
 # -----------------------------------------------------------------------------
 echo -e "${YELLOW}📦 Step 1: Deploying PaymentEscrow...${NC}"
+# Capture output to file to extract address
+OUTPUT_FILE=$(mktemp)
 forge script script/Deploy.s.sol \
     --rpc-url $RPC_URL \
     --broadcast \
     --private-key $PRIVATE_KEY \
-    2>&1 | grep -E "(PaymentEscrow|deployed|enabled)" || true
-echo -e "${GREEN}✅ PaymentEscrow deployed${NC}"
+    2>&1 | tee $OUTPUT_FILE | grep -E "(PaymentEscrow|deployed|enabled)" || true
+
+# Extract address (looking for "PaymentEscrow: 0x...")
+# The script output usually has "PaymentEscrow: 0x..." or "deployed to: 0x..."
+# Based on logs: "PaymentEscrow deployed to: 0x..."
+CONTRACT_ADDR=$(grep "PaymentEscrow deployed to:" $OUTPUT_FILE | awk '{print $NF}')
+
+if [ ! -z "$CONTRACT_ADDR" ]; then
+    echo -e "${GREEN}✅ PaymentEscrow deployed to $CONTRACT_ADDR${NC}"
+    
+    # Update root .env if it exists
+    ENV_FILE="../../.env"
+    if [ -f "$ENV_FILE" ]; then
+        # Replace existing or append
+        if grep -q "PAYMENT_ESCROW_ADDRESS=" "$ENV_FILE"; then
+            # Use perl for cross-platform in-place editing (sed -i differences on mac/linux)
+            sed -i.bak "s/^PAYMENT_ESCROW_ADDRESS=.*/PAYMENT_ESCROW_ADDRESS=$CONTRACT_ADDR/" "$ENV_FILE" && rm "$ENV_FILE.bak"
+            echo -e "${GREEN}🔄 Updated PAYMENT_ESCROW_ADDRESS in .env${NC}"
+        else
+            echo "PAYMENT_ESCROW_ADDRESS=$CONTRACT_ADDR" >> "$ENV_FILE"
+            echo -e "${GREEN}➕ Added PAYMENT_ESCROW_ADDRESS to .env${NC}"
+        fi
+        
+        # Also update NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL for frontend
+        if grep -q "NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL=" "$ENV_FILE"; then
+            sed -i.bak "s/^NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL=.*/NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL=$CONTRACT_ADDR/" "$ENV_FILE" && rm "$ENV_FILE.bak"
+            echo -e "${GREEN}🔄 Updated NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL in .env${NC}"
+        else
+            echo "NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL=$CONTRACT_ADDR" >> "$ENV_FILE"
+            echo -e "${GREEN}➕ Added NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL to .env${NC}"
+        fi
+    fi
+else
+    echo -e "${YELLOW}⚠️ Could not extract contract address. Check output above.${NC}"
+fi
+
+rm $OUTPUT_FILE
 echo ""
 
 # -----------------------------------------------------------------------------

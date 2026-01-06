@@ -247,12 +247,112 @@ export function DynamicPaymentWidget({
         }
     }, [context, fetchPaymentData]);
 
-    // Handle payment success
+    // ============ Backend Submission Logic ============
+    // State for backend submission
+    const [submissionStep, setSubmissionStep] = useState<'idle' | 'submitting' | 'submitted' | 'confirmed'>('idle');
+    const hasSubmittedRef = useState(false); // Using ref-like state or ref to prevent duplicate submissions
+    // actually, let's use a real ref for submission tracking to avoid re-renders triggering it
+    const submittedRef = useMemo(() => ({ current: false }), []);
+
+    // Poll backend for transaction status
+    const pollBackendStatus = useCallback((hash: string) => {
+        const intervalId = setInterval(async () => {
+            try {
+                const statusUrl = `${backendUrl}/api/payments/status/${hash}`;
+                // console.log('🔍 [Debug] Polling status from:', statusUrl);
+
+                const response = await fetch(statusUrl, {
+                    credentials: 'include',
+                });
+
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        devLog('⏳ [Debug] Transaction not yet processed by backend (404)');
+                        return;
+                    }
+                    return; // Ignore other errors
+                }
+
+                const result = await response.json();
+                if (result.success && result.data.status === 'confirmed') {
+                    clearInterval(intervalId);
+                    setSubmissionStep('confirmed');
+                    devLog('✅ Payment confirmed by backend!');
+                    onPaymentSuccess?.(hash);
+                } else if (result.success && result.data.status === 'failed') {
+                    clearInterval(intervalId);
+                    setError(result.data.error_message || 'Payment failed verification');
+                }
+            } catch (e) {
+                console.error('Polling error:', e);
+            }
+        }, 3000);
+
+        return () => clearInterval(intervalId);
+    }, [backendUrl, onPaymentSuccess]);
+
+    // Submit to backend when payment is confirmed on-chain
     useEffect(() => {
-        if (isPaymentConfirmed && txHash) {
-            onPaymentSuccess?.(txHash);
+        if (isPaymentConfirmed && txHash && !submittedRef.current) {
+            const submitTransaction = async () => {
+                submittedRef.current = true;
+                setSubmissionStep('submitting');
+
+                try {
+                    console.log('🚀 [Debug] Submitting payment to backend:', txHash);
+
+                    const submitUrl = `${backendUrl}/api/payments/submit`;
+                    const requestBody = {
+                        transaction_hash: txHash,
+                        plan_id: paymentData?.context_type === 'plan' ? paymentData.context_id : undefined, // Assuming context_id is UUID for plan
+                        // For other types, backend might need to handle differently or we map appropriately.
+                        // The current backend handler expects 'plan_id'. 
+                        // If this is a 'group' payment, we might need to adjust backend or pass group_id as plan_id if they overlap?
+                        // Checking backend: submit_tx_handler expects plan_id.
+                        // If context_type is 'group', we might need to pass the plan_id that corresponds to that group? 
+                        // Or maybe context_id IS the plan_id?
+                        // Let's assume context_id is the correct ID to pass for now.
+                        plan_id: paymentData?.context_id,
+                        expected_amount: paymentData?.amount,
+                        currency: paymentData?.currency,
+                        network: supportedChains.find(c => c.id === chainId)?.name || 'unknown'
+                    };
+
+                    console.log('📦 [Debug] Request body:', JSON.stringify(requestBody));
+
+                    const response = await fetch(submitUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
+                        body: JSON.stringify(requestBody),
+                    });
+
+                    console.log('📥 [Debug] Submit response:', response.status);
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.success) {
+                            setSubmissionStep('submitted');
+                            // Start polling
+                            pollBackendStatus(txHash);
+                        } else {
+                            console.error('❌ Failed to submit:', result);
+                            setError(result.message || 'Failed to submit payment to backend');
+                        }
+                    } else {
+                        const text = await response.text();
+                        console.error('❌ HTTP Error:', text);
+                        setError(`Backend submission failed: ${response.status}`);
+                    }
+                } catch (err) {
+                    console.error('❌ Submission error:', err);
+                    setError('Failed to connect to backend');
+                }
+            };
+
+            submitTransaction();
         }
-    }, [isPaymentConfirmed, txHash, onPaymentSuccess]);
+    }, [isPaymentConfirmed, txHash, backendUrl, chainId, paymentData, pollBackendStatus, submittedRef]);
 
 
     // ============ Add Token to Wallet Hook ============
@@ -305,13 +405,13 @@ export function DynamicPaymentWidget({
 
     // Determine current step for UI
     const currentStep = useMemo(() => {
-        if (isPaymentConfirmed) return 'complete';
-        if (isTransferring || isPaymentConfirming) return 'paying';
+        if (submissionStep === 'confirmed') return 'complete'; // Only complete when backend confirms
+        if (isTransferring || isPaymentConfirming || submissionStep === 'submitting' || submissionStep === 'submitted') return 'paying';
         if (isAddingToken) return 'adding-token';
         return 'idle';
-    }, [isTransferring, isPaymentConfirming, isPaymentConfirmed, isAddingToken]);
+    }, [isTransferring, isPaymentConfirming, isPaymentConfirmed, isAddingToken, submissionStep]);
 
-    const isBusy = isAddingToken || isTransferring || isPaymentConfirming;
+    const isBusy = isAddingToken || isTransferring || isPaymentConfirming || submissionStep === 'submitting' || submissionStep === 'submitted';
 
     // Loading state
     if (loading) {
@@ -453,7 +553,7 @@ export function DynamicPaymentWidget({
                     </p>
                     {/* Wallet connect button will be provided by parent component */}
                 </div>
-            ) : isPaymentConfirmed ? (
+            ) : submissionStep === 'confirmed' ? (
                 <button
                     disabled
                     className="w-full py-4 rounded-xl font-bold text-lg bg-green-500 text-white flex items-center justify-center gap-2"
@@ -476,7 +576,8 @@ export function DynamicPaymentWidget({
                         <span className="flex items-center justify-center gap-2">
                             <Loader2 className="w-5 h-5 animate-spin" />
                             {currentStep === 'adding-token' ? 'Adding Token to Wallet...' :
-                                isPaymentConfirming ? 'Confirming...' : 'Processing...'}
+                                isPaymentConfirming ? 'Confirming...' :
+                                    submissionStep === 'submitting' || submissionStep === 'submitted' ? 'Verifying...' : 'Processing...'}
                         </span>
                     ) : (
                         `Pay ${paymentData.amount} ${selectedToken?.symbol || paymentData.currency}`
@@ -485,7 +586,7 @@ export function DynamicPaymentWidget({
             )}
 
             {/* Transaction Success */}
-            {isPaymentConfirmed && txHash && (
+            {submissionStep === 'confirmed' && txHash && (
                 <div className="mt-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
                     <div className="flex items-center">
                         <CheckCircle className="w-6 h-6 text-green-500 mr-3" />

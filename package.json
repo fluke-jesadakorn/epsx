@@ -14,7 +14,7 @@
     "prepare": "echo 'Standalone mode - no package build required'",
     "postinstall": "echo 'Standalone mode - ready for development'",
     "dev": "bun env:validate && turbo run dev --filter='epsx-frontend' --filter='epsx-admin-frontend' --filter='@epsx/backend' --parallel",
-    "dev:anvil": "cd apps/contracts && ./start-anvil-local.sh",
+    "dev:anvil": "bun scripts/anvil-proxy.ts",
     "setup:local": "chmod +x apps/contracts/scripts/setup-local.sh && ./apps/contracts/scripts/setup-local.sh",
     "fund:tokens": "chmod +x apps/contracts/scripts/fund-tokens.sh && ./apps/contracts/scripts/fund-tokens.sh",
     "dev:up": "docker compose -f infrastructure/docker/docker-compose.yml up --build",

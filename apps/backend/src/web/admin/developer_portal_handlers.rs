@@ -14,9 +14,10 @@ use uuid::Uuid;
 use crate::domain::developer_portal::{
     CreateApiKeyRequest, RevokeApiKeyRequest,
     CreateModuleRequest, UpdateModuleRequest, ModuleAccessRequest,
-    DeveloperPortalStats,
+    DeveloperPortalStats, UsageService,
 };
 use crate::infrastructure::adapters::repositories::developer_portal::{ApiKeyRepository, ModuleRepository};
+use crate::infrastructure::database::get_analytics_pool;
 use crate::web::auth::AppState;
 use crate::web::responses::UnifiedApiResponse;
 
@@ -440,9 +441,9 @@ pub async fn update_module_handler(
 pub async fn get_stats_handler(
     State(state): State<AppState>,
 ) -> impl IntoResponse {
-    let pool = *state.db_pool;
-    let api_key_repo = ApiKeyRepository::new(pool);
-    let module_repo = ModuleRepository::new(pool);
+    let core_pool = *state.db_pool;
+    let api_key_repo = ApiKeyRepository::new(core_pool);
+    let module_repo = ModuleRepository::new(core_pool);
 
     // Get API key counts
     let (all_keys, total_keys) = match api_key_repo.list_all(Some(1000), None, None).await {
@@ -462,6 +463,33 @@ pub async fn get_stats_handler(
     
     let active_modules = modules.modules.iter().filter(|m| m.status == crate::domain::developer_portal::ModuleStatus::Active).count() as i64;
 
+    // Get usage statistics from analytics database
+    let (total_requests_today, total_requests_this_month, top_modules_by_usage) = 
+        match get_analytics_pool().await {
+            Ok(analytics_pool) => {
+                let usage_service = UsageService::new(core_pool, analytics_pool);
+                
+                let today = usage_service.get_requests_today().await.unwrap_or(0);
+                let month = usage_service.get_requests_this_month().await.unwrap_or(0);
+                let top_modules = usage_service.get_top_modules_by_usage(5).await
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|m| crate::domain::developer_portal::ModuleUsageStats {
+                        module_id: m.module_id,
+                        module_name: m.module_name,
+                        request_count: m.request_count,
+                        unique_api_keys: 0, // Would require additional query to calculate
+                    })
+                    .collect();
+                    
+                (today, month, top_modules)
+            }
+            Err(e) => {
+                error!("Failed to get analytics pool: {}", e);
+                (0, 0, vec![])
+            }
+        };
+
     let stats = DeveloperPortalStats {
         total_api_keys: total_keys,
         active_api_keys: active_count,
@@ -469,9 +497,9 @@ pub async fn get_stats_handler(
         expired_api_keys: expired_count,
         total_modules: modules.total,
         active_modules,
-        total_requests_today: 0, // TODO: Implement from usage logs
-        total_requests_this_month: 0, // TODO: Implement from usage logs
-        top_modules_by_usage: vec![], // TODO: Implement from usage logs
+        total_requests_today,
+        total_requests_this_month,
+        top_modules_by_usage,
     };
 
     UnifiedApiResponse::success(stats)

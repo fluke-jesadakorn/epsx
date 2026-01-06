@@ -78,6 +78,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     ).await);
     info!("✅ Domain container initialized with Web3 services and Redis notifications");
 
+    // Start Transaction Monitor Service (Background task for verifying payments)
+    epsx::infrastructure::blockchain::spawn_transaction_monitor();
+    info!("✅ Transaction Monitor background service started");
+
     // Start EventDispatcher (background worker for publishing events to Redis)
     if let Some(dispatcher) = &container.event_dispatcher {
         match dispatcher.clone().start().await {

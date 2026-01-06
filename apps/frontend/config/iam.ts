@@ -5,28 +5,23 @@
  */
 
 import {
-  // Core IAM utilities
-  IAM_CONFIG as SHARED_IAM_CONFIG,
-  PERMISSIONS,
-  PERMISSION_SETS,
-  PLATFORMS,
-  CACHE_CONFIG,
-  // Utility functions
-  getRoutePermissions as sharedGetRoutePermissions,
-  isPublicRoute as sharedIsPublicRoute,
-  isAuthenticatedRoute as sharedIsAuthenticatedRoute,
-  isValidPermission as sharedIsValidPermission,
-  parsePermission as sharedParsePermission,
-  buildPermission as sharedBuildPermission,
-  hasPermission,
-  hasAnyPermission,
-  hasAllPermissions,
   getPlatformPermissions,
+  getUserEffectivePermissions,
+  hasAllPermissions,
+  hasAnyPermission,
+  hasPermission,
   isAdmin,
   isSuperAdmin,
-  getUserEffectivePermissions,
-  // Error messages
-  IAM_ERROR_MESSAGES
+  PLATFORMS,
+  // Core IAM utilities
+  IAM_CONFIG as SHARED_IAM_CONFIG,
+  buildPermission as sharedBuildPermission,
+  // Utility functions
+  getRoutePermissions as sharedGetRoutePermissions,
+  isAuthenticatedRoute as sharedIsAuthenticatedRoute,
+  isPublicRoute as sharedIsPublicRoute,
+  isValidPermission as sharedIsValidPermission,
+  parsePermission as sharedParsePermission
 } from '../../../shared/config/iam';
 
 /**
@@ -35,32 +30,31 @@ import {
  */
 export const IAM_CONFIG = {
   ...SHARED_IAM_CONFIG,
-  
+
   // Frontend-specific route permissions (extends shared config)
   routes: {
     ...SHARED_IAM_CONFIG.routes,
-    
+
     // Additional frontend-specific routes
     protected: {
       ...SHARED_IAM_CONFIG.routes.protected,
-      
+
       // Frontend-specific routes
       '/portfolio': ['epsx:analytics:view'],
-      '/payment/enterprise': ['epsx:payment:create'],
       '/permissions': ['epsx:profile:manage'],
-      
+
       // Frontend API routes
       '/api/auth/web3/permissions': ['epsx:profile:view'],
       '/api/auth/session': ['epsx:profile:view'],
     },
   },
-  
+
   // Frontend-specific session configuration
   session: {
     cookieName: 'user_session',
     maxAge: 60 * 60 * 24 * 7, // 7 days for user sessions
   },
-  
+
   // Frontend-specific API configuration
   api: {
     ...SHARED_IAM_CONFIG.api,
@@ -83,10 +77,9 @@ export { PERMISSIONS } from '../../../shared/config/iam';
 
 // Re-export shared permission sets and add frontend-specific sets
 export {
-  PERMISSION_SETS,
-  PLATFORMS,
   CACHE_CONFIG,
-  IAM_ERROR_MESSAGES
+  IAM_ERROR_MESSAGES, PERMISSION_SETS,
+  PLATFORMS
 } from '../../../shared/config/iam';
 
 /**
@@ -100,14 +93,14 @@ export const FRONTEND_PERMISSION_SETS = {
     'epsx:profile:view',
     'epsx:notifications:receive'
   ],
-  
+
   TRIAL_USER: [
     'epsx:analytics:view',
     'epsx:analytics:export',
     'epsx:profile:manage',
     'epsx:notifications:receive'
   ],
-  
+
   // Web3-specific permission sets
   WEB3_USER: [
     'epsx:analytics:view',
@@ -115,7 +108,7 @@ export const FRONTEND_PERMISSION_SETS = {
     'epsx:notifications:receive',
     'epsx:web3:connect'
   ],
-  
+
   WEB3_PREMIUM: [
     'epsx:analytics:view',
     'epsx:analytics:export',
@@ -149,18 +142,18 @@ export function canAccessUserRoute(route: string, userPermissions: string[]): bo
   if (isPublicRoute(route)) {
     return true;
   }
-  
+
   // Check if route requires authentication only
   if (isAuthenticatedRoute(route)) {
     return userPermissions.length > 0;
   }
-  
+
   // Check specific route permissions
   const requiredPermissions = getRoutePermissions(route);
   if (requiredPermissions && requiredPermissions.length > 0) {
     return hasAnyPermission(userPermissions, requiredPermissions);
   }
-  
+
   // Default to requiring authentication
   return userPermissions.length > 0;
 }
@@ -170,9 +163,9 @@ export function canAccessUserRoute(route: string, userPermissions: string[]): bo
  */
 export function getUserEffectivePermissionsFiltered(userPermissions: string[]): string[] {
   const effectivePermissions = getUserEffectivePermissions(userPermissions);
-  
+
   // Filter out admin permissions for user context
-  return effectivePermissions.filter(permission => 
+  return effectivePermissions.filter(permission =>
     !permission.startsWith('admin:')
   );
 }
@@ -190,7 +183,7 @@ export function validateUserPermission(permission: string): {
       error: 'Invalid permission format. Must be platform:resource:action'
     };
   }
-  
+
   const parsed = sharedParsePermission(permission);
   if (!parsed) {
     return {
@@ -198,7 +191,7 @@ export function validateUserPermission(permission: string): {
       error: 'Failed to parse permission structure'
     };
   }
-  
+
   // User context - should not be admin platform
   if (parsed.platform === PLATFORMS.ADMIN) {
     return {
@@ -206,7 +199,7 @@ export function validateUserPermission(permission: string): {
       error: 'Admin permissions not allowed in user context'
     };
   }
-  
+
   return { valid: true };
 }
 
@@ -217,38 +210,38 @@ export function getUserPermissionTier(userPermissions: string[]): 'free' | 'tria
   if (!userPermissions || userPermissions.length === 0) {
     return 'free';
   }
-  
+
   // Check for enterprise permissions
   if (hasPermission(userPermissions, 'epsx:*:*')) {
     return 'enterprise';
   }
-  
+
   // Check for premium permissions
   const premiumPermissions = [
     'epsx:analytics:advanced',
     'epsx:realtime:access',
     'epsx:analytics:export'
   ];
-  
+
   if (premiumPermissions.some(permission => hasPermission(userPermissions, permission))) {
     return 'premium';
   }
-  
+
   // Check for basic permissions
   const basicPermissions = [
     'epsx:analytics:view',
     'epsx:profile:manage'
   ];
-  
+
   if (basicPermissions.some(permission => hasPermission(userPermissions, permission))) {
     // Check if it's trial (has export but not advanced)
-    if (hasPermission(userPermissions, 'epsx:analytics:export') && 
-        !hasPermission(userPermissions, 'epsx:analytics:advanced')) {
+    if (hasPermission(userPermissions, 'epsx:analytics:export') &&
+      !hasPermission(userPermissions, 'epsx:analytics:advanced')) {
       return 'trial';
     }
     return 'basic';
   }
-  
+
   return 'free';
 }
 
@@ -268,13 +261,8 @@ export function getPermissionPlatform(permission: string): string | null {
 
 // Re-export all shared IAM utilities for frontend use
 export {
-  hasPermission,
-  hasAnyPermission,
-  hasAllPermissions,
-  getPlatformPermissions,
-  isAdmin,
-  isSuperAdmin,
-  getUserEffectivePermissions,
+  getPlatformPermissions, getUserEffectivePermissions, hasAllPermissions, hasAnyPermission, hasPermission, isAdmin,
+  isSuperAdmin
 };
 
 // Legacy compatibility - export frontend IAM config as default

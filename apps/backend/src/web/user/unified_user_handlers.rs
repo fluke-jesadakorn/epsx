@@ -57,15 +57,36 @@ pub struct AccessOverviewData {
 #[derive(Debug, Serialize, ToSchema)]
 pub struct AccessGroupData {
     pub name: String,
+    pub description: Option<String>,
     pub expires_at: Option<String>,
     pub permissions: Vec<String>,
     pub source_type: String,
+    /// When this group was assigned to the user
+    pub assigned_at: Option<String>,
+    /// Who assigned this group (admin wallet address or "system")
+    pub assigned_by: Option<String>,
+    /// Days remaining until expiration (None if permanent)
+    pub days_remaining: Option<i32>,
+    /// Whether renewal is available for this plan
+    pub can_renew: bool,
+    /// Price for renewal (formatted string, e.g., "29.99 USDT")
+    pub renewal_price: Option<String>,
+    /// Billing cycle (e.g., "monthly", "yearly")
+    pub billing_cycle: Option<String>,
 }
 
 #[derive(Debug, Serialize, ToSchema)]
 pub struct DirectPermissionData {
     pub permission: String,
     pub expires_at: Option<String>,
+    /// Days remaining until expiration (None if permanent)
+    pub days_remaining: Option<i32>,
+    /// When this permission was granted
+    pub granted_at: Option<String>,
+    /// Who granted this permission
+    pub granted_by: Option<String>,
+    /// Source of the permission: 'manual' | 'system'
+    pub source: String,
 }
 
 /// Get current user profile
@@ -253,6 +274,15 @@ pub async fn get_user_access_overview(
     // Process results
     use std::collections::HashMap;
 
+    // Helper function to calculate days remaining
+    fn calculate_days_remaining(expires_at: Option<chrono::DateTime<chrono::Utc>>) -> Option<i32> {
+        expires_at.map(|exp| {
+            let now = chrono::Utc::now();
+            let duration = exp.signed_duration_since(now);
+            duration.num_days() as i32
+        })
+    }
+
     // Group by source_id (or source_name if ID missing) for groups
     let mut groups_map: HashMap<String, AccessGroupData> = HashMap::new();
     let mut direct_permissions: Vec<DirectPermissionData> = Vec::new();
@@ -260,32 +290,39 @@ pub async fn get_user_access_overview(
     for row in rows {
         if row.source_type == "group" {
             let key = row.source_id.clone().unwrap_or_else(|| row.source_name.clone().unwrap_or("Unknown Group".to_string()));
+            let days_remaining = calculate_days_remaining(row.expires_at);
+            let is_plan = row.source_name.as_ref().map(|n| 
+                n.contains("Plan") || n.contains("Starter") || n.contains("Pro") || n.contains("Enterprise")
+            ).unwrap_or(false);
             
             let entry = groups_map.entry(key).or_insert(AccessGroupData {
-                name: row.source_name.unwrap_or("Unknown Group".to_string()),
+                name: row.source_name.clone().unwrap_or("Unknown Group".to_string()),
+                description: None, // Will be fetched from groups table if available
                 expires_at: row.expires_at.map(|d| d.to_rfc3339()),
                 permissions: Vec::new(),
-                source_type: "group".to_string(), // Default to group, could verify if it's a plan
+                source_type: if is_plan { "plan".to_string() } else { "group".to_string() },
+                assigned_at: Some(row.granted_at.to_rfc3339()),
+                assigned_by: None, // Would require additional query to get assigned_by from wallet_group_assignments
+                days_remaining,
+                can_renew: is_plan && days_remaining.map(|d| d <= 30).unwrap_or(false),
+                renewal_price: None, // Will be set if we can get plan price
+                billing_cycle: None, // Will be set from plan data
             });
             
-            // Check if it looks like a plan (e.g., has price/billing data - need join for that, simplistic check here)
-            // Just assume group for now.
-            
-            // If row has expiry shorter than group expiry, update group expiry?
-            // Actually usually group membership has expiry.
-            // unique permission might override?
-            // Simplified: Use the expiry from the row (which likely comes from group membership)
-            // If multiple permissions have different expiries for same group, take the soonest?
-            // But usually get_wallet_permissions_detailed_working returns the effective expiry for that permission.
-            // Group membership expiry applies to all permissions in group.
-            
+            // Don't duplicate permissions
             if !entry.permissions.contains(&row.permission_string) {
                 entry.permissions.push(row.permission_string);
             }
         } else {
+            // Direct permission
+            let days_remaining = calculate_days_remaining(row.expires_at);
             direct_permissions.push(DirectPermissionData {
                 permission: row.permission_string,
                 expires_at: row.expires_at.map(|d| d.to_rfc3339()),
+                days_remaining,
+                granted_at: Some(row.granted_at.to_rfc3339()),
+                granted_by: None, // Would require additional query
+                source: if row.is_permanent { "system".to_string() } else { "manual".to_string() },
             });
         }
     }
